@@ -24,6 +24,14 @@ class ValidationResult:
     def add_warning(self, field, message):
         self.warnings.append({"field": field, "message": message})
 
+    def merge(self, other):
+        """Merge another validation result without losing field context."""
+        if other is None:
+            return self
+        self.errors.extend(other.errors)
+        self.warnings.extend(other.warnings)
+        return self
+
     def summary(self):
         lines = []
         for e in self.errors:
@@ -39,8 +47,9 @@ class WellValidator:
         r = ValidationResult()
         if not data.get("name", "").strip():
             r.add_error("name", "Well name is required")
-        if not data.get("code", "").strip():
-            r.add_error("code", "Well code is required")
+        # Code is optional in both the ORM and the import format.
+        if data.get("code") is not None and not isinstance(data.get("code"), str):
+            r.add_error("code", "Must be text")
         if not data.get("well_type"):
             r.add_error("well_type", "Well type is required")
 
@@ -116,9 +125,13 @@ class MudValidator:
                 except (ValueError, TypeError):
                     r.add_error(field, "Must be a number")
 
-        s = float(data.get("solid_percent") or 0)
-        o = float(data.get("oil_percent") or 0)
-        w = float(data.get("water_percent") or 0)
+        try:
+            s = float(data.get("solid_percent") or 0)
+            o = float(data.get("oil_percent") or 0)
+            w = float(data.get("water_percent") or 0)
+        except (ValueError, TypeError):
+            r.add_error("composition", "Solid, oil and water percentages must be numbers")
+            return r
         total = s + o + w
         if total > 0 and abs(total - 100) > 5:
             r.add_warning("solids", f"Solids+Oil+Water = {total:.1f}% (expected ~100%)")
@@ -133,8 +146,8 @@ class DrillingParamsValidator:
         do = data.get("depth_out")
         if di is not None and do is not None:
             try:
-                if float(do) <= float(di):
-                    r.add_error("depth", "Depth Out must be > Depth In")
+                if float(do) < float(di):
+                    r.add_error("depth", "Depth Out must be >= Depth In")
             except (ValueError, TypeError):
                 r.add_error("depth", "Depth values must be numbers")
 
@@ -151,6 +164,39 @@ class DrillingParamsValidator:
                 except (ValueError, TypeError):
                     pass
         return r
+
+
+class ImportValidator:
+    """Validate tabular import rows before they reach the database."""
+    @staticmethod
+    def validate_rows(rows, required_fields=()):
+        result = ValidationResult()
+        for index, row in enumerate(rows or [], start=2):
+            if not isinstance(row, dict):
+                result.add_error(str(index), "Row must be an object")
+                continue
+            for field in required_fields:
+                if row.get(field) in (None, ""):
+                    result.add_error(f"row {index}.{field}", "Required value is missing")
+        return result
+
+
+def cross_validate(data):
+    """Cross-field checks shared by dialogs and importers."""
+    result = ValidationResult()
+    spud = data.get("spud_date")
+    report = data.get("report_date")
+    if spud and report:
+        try:
+            if isinstance(spud, str):
+                spud = date.fromisoformat(spud)
+            if isinstance(report, str):
+                report = date.fromisoformat(report)
+            if report < spud:
+                result.add_error("report_date", "Report date must be on or after spud date")
+        except (TypeError, ValueError):
+            result.add_error("date", "Dates must use YYYY-MM-DD format")
+    return result
 
 
 class TimeLogValidator:

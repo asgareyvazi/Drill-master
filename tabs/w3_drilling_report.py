@@ -703,8 +703,8 @@ class DrillingParametersTab(QWidget):
         try:
             pump_pressure = (self.pump_pressure_min.value() + self.pump_pressure_max.value()) / 2
             flow_rate = (self.pump_output_min.value() + self.pump_output_max.value()) / 2
-            tfa = self.tfa_value.value()
-            hsi_val = DrillingManager.calculate_hsi(pump_pressure, flow_rate, tfa)
+            bit_size = self.bit_size.value()
+            hsi_val = DrillingManager.calculate_hsi(pump_pressure, flow_rate, bit_size)
             self.hsi.setValue(hsi_val)
         except Exception as e:
             logger.error(f"Error calculating HSI: {e}")

@@ -13,6 +13,7 @@ Usage:
 
 from PySide6.QtCore import QObject, Signal
 import logging
+from threading import Lock
 
 logger = logging.getLogger(__name__)
 
@@ -34,14 +35,19 @@ class SelectionManager(QObject):
     selection_cleared = Signal()
 
     _instance = None
+    _instance_lock = Lock()
 
     def __new__(cls, *args, **kwargs):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
+        # QObject singletons must only be constructed once.  In particular,
+        # calling SelectionManager(parent) a second time must not attempt to
+        # re-parent an already constructed QObject.
+        with cls._instance_lock:
+            if cls._instance is None:
+                cls._instance = super().__new__(cls)
         return cls._instance
 
     def __init__(self, parent=None):
-        if hasattr(self, '_initialized'):
+        if getattr(self, '_initialized', False):
             return
         super().__init__(parent)
         self._well_id = None
@@ -91,11 +97,17 @@ class SelectionManager(QObject):
             well_data: Well data dict (optional)
             force: Force emit even if same ID
         """
-        changed = (well_id != self._well_id)
+        changed = well_id != self._well_id
+        data_changed = well_data is not None and well_data != self._well_data
         self._well_id = well_id
-        self._well_data = well_data or self._well_data or {}
+        if well_data is not None:
+            self._well_data = well_data
+        elif self._well_data is None:
+            self._well_data = {}
 
-        if changed or force:
+        # A refresh with the same id is still a meaningful update (notably
+        # after Excel import), and an explicit None must not suppress it.
+        if changed or data_changed or force:
             # Well changed -> clear section and report
             if changed:
                 self._section_id = None
@@ -117,11 +129,15 @@ class SelectionManager(QObject):
             section_data: Section data dict (optional)
             force: Force emit even if same ID
         """
-        changed = (section_id != self._section_id)
+        changed = section_id != self._section_id
+        data_changed = section_data is not None and section_data != self._section_data
         self._section_id = section_id
-        self._section_data = section_data or self._section_data or {}
+        if section_data is not None:
+            self._section_data = section_data
+        elif self._section_data is None:
+            self._section_data = {}
 
-        if changed or force:
+        if changed or data_changed or force:
             # Section changed -> clear report
             if changed:
                 self._report_id = None
@@ -141,11 +157,15 @@ class SelectionManager(QObject):
             report_data: Report data dict (optional)
             force: Force emit even if same ID
         """
-        changed = (report_id != self._report_id)
+        changed = report_id != self._report_id
+        data_changed = report_data is not None and report_data != self._report_data
         self._report_id = report_id
-        self._report_data = report_data or self._report_data or {}
+        if report_data is not None:
+            self._report_data = report_data
+        elif self._report_data is None:
+            self._report_data = {}
 
-        if changed or force:
+        if changed or data_changed or force:
             self.report_changed.emit(report_id, self._report_data)
             logger.debug(f"Selection: report → {report_id}")
 

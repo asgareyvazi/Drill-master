@@ -197,6 +197,15 @@ class DrillTabBase(QWidget):
         """Process pending updates when tab becomes visible."""
         super().showEvent(event)
 
+        # A tab can be created after the selection was made.  In that case
+        # there is no queued signal, so bootstrap it from the manager state.
+        if self._pending_well is None and self.current_well_id is not None and self._loaded_well_id != self.current_well_id:
+            self._pending_well = (self.current_well_id, self.current_well_data)
+        if self._pending_section is None and self.current_section_id is not None and self._loaded_section_id != self.current_section_id:
+            self._pending_section = (self.current_section_id, self.current_section_data)
+        if self._pending_report is None and self.current_report_id is not None and self._loaded_report_id != self.current_report_id:
+            self._pending_report = (self.current_report_id, self.current_report_data)
+
         # Process in order: well -> section -> report
         if self._pending_well is not None:
             well_id, well_data = self._pending_well
@@ -262,6 +271,20 @@ class DrillTabBase(QWidget):
     def refresh(self):
         """Refresh current view. Default: reload data."""
         self.load_data()
+
+    def force_refresh(self):
+        """Reload the current context and notify this tab immediately."""
+        if self.current_well_id is not None:
+            self._loaded_well_id = None
+            self._on_well_changed_internal(self.current_well_id, self.current_well_data)
+        if self.current_section_id is not None:
+            self._loaded_section_id = None
+            self._on_section_changed_internal(self.current_section_id, self.current_section_data)
+        if self.current_report_id is not None:
+            self._loaded_report_id = None
+            self._on_report_changed_internal(self.current_report_id, self.current_report_data)
+        if self.current_well_id is None:
+            self.load_data()
 
     def cleanup(self):
         """Cleanup on close. Override in subclass."""

@@ -1794,7 +1794,7 @@ class DailyReportWidget(DrillTabBase):
         return None
 
     def validate_tab_ownership(self):
-       """اعتبارسنجی مالکیت تب‌ها با دیلی ریپورت جاری."""
+        """اعتبارسنجی مالکیت تب‌ها با دیلی ریپورت جاری."""
         if self.current_report and self.current_well:
             rep_well_id = self.current_report.get('well_id')
             curr_well_id = self.current_well.get('id') if isinstance(self.current_well, dict) else getattr(self.current_well, 'id', None)

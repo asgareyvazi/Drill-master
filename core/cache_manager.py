@@ -194,6 +194,9 @@ class AppCache:
                 entry.hit_count += 1
                 self._hit_count += 1
                 return entry.value
+            if entry is not None and entry.is_expired:
+                del self._cache[key]
+            self._miss_count += 1
 
         # ✅ Compute outside lock to avoid deadlock
         try:

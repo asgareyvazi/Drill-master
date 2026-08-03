@@ -5,7 +5,7 @@ Section Data Tab‌
 
 import logging
 import json
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
@@ -1263,7 +1263,7 @@ class FailureReportTab(QWidget):
             reports_json = json.dumps(self.reports_list, default=str)
             if existing:
                 existing.notes = reports_json
-                existing.updated_at = datetime.utcnow()
+                existing.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
             else:
                 new = EquipmentLog(
                     well_id=self.current_well,

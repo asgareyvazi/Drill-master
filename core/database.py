@@ -45,91 +45,6 @@ except ImportError:
         "Install with: pip install bcrypt"
     )
 
-    def _hash_password(self, password: str) -> str:
-        """Hash password - bcrypt اگر موجود باشد، وگرنه SHA-256"""
-        if _BCRYPT_AVAILABLE:
-            # ✅ bcrypt با per-password salt
-            salt = bcrypt.gensalt(rounds=12)
-            return bcrypt.hashpw(
-                password.encode('utf-8'), salt
-            ).decode('utf-8')
-        else:
-            # ✅ SHA-256 با per-password random salt (بهتر از static salt)
-            salt = secrets.token_hex(32)
-            hashed = hashlib.sha256(
-                f"{salt}{password}".encode('utf-8')
-            ).hexdigest()
-            return f"sha256:{salt}:{hashed}"
-
-    def _verify_password(self, password: str, stored_hash: str) -> bool:
-        """تأیید password - سازگار با هر دو فرمت"""
-        if _BCRYPT_AVAILABLE and not stored_hash.startswith("sha256:"):
-            try:
-                return bcrypt.checkpw(
-                    password.encode('utf-8'),
-                    stored_hash.encode('utf-8')
-                )
-            except Exception:
-                pass
-
-        # fallback برای SHA-256
-        if stored_hash.startswith("sha256:"):
-            parts = stored_hash.split(":", 2)
-            if len(parts) == 3:
-                _, salt, expected = parts
-                actual = hashlib.sha256(
-                    f"{salt}{password}".encode('utf-8')
-                ).hexdigest()
-                return secrets.compare_digest(actual, expected)
-
-        # سازگاری با hash قدیمی (static salt)
-        old_salt = "DrillMaster_2024_Salt"
-        old_hash = hashlib.sha256(
-            f"{old_salt}{password}".encode('utf-8')
-        ).hexdigest()
-        return secrets.compare_digest(old_hash, stored_hash)
-
-    def authenticate_user(self, username: str, password: str):
-        session = self.create_session()
-        try:
-            user = (
-                session.query(User)
-                .filter(
-                    User.username == username,
-                    User.is_active == True,
-                )
-                .first()
-            )
-
-            if user and self._verify_password(
-                password, user.password_hash
-            ):
-                user_data = {
-                    "id": user.id,
-                    "username": user.username,
-                    "full_name": getattr(user, 'full_name', user.username),
-                    "role": getattr(user, 'role', 'user'),
-                    "email": getattr(
-                        user, 'email',
-                        f'{user.username}@drillmaster.com'
-                    ),
-                    "permissions": user.permissions or {},
-                }
-                try:
-                    user.last_login = datetime.now(
-                        __import__('datetime').timezone.utc
-                    ).replace(tzinfo=None)
-                    session.commit()
-                except Exception:
-                    session.rollback()
-                return type("UserObject", (), user_data)()
-            return None
-        except Exception as e:
-            logger.error(f"Authentication error: {str(e)}")
-            return None
-        finally:
-            session.close()
-            
 from contextlib import contextmanager
 logger = logging.getLogger(__name__)
 
@@ -168,7 +83,7 @@ class AuditLog(Base):
     entity_name = Column(String(200))
     details = Column(Text)
     ip_address = Column(String(50))
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(DateTime, default=_now_utc)
 
     user = relationship("User", backref="audit_logs")
 
@@ -1375,8 +1290,8 @@ class TimeDepthData(Base):
     torque = Column(Float)
     cumulative_time = Column(Float)
     daily_progress = Column(Float)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=_now_utc)
+    updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc)
     created_by = Column(Integer, ForeignKey("users.id"))
 
     well = relationship(
@@ -1411,8 +1326,8 @@ class ROPAnalysis(Base):
     depth_chart_data = Column(JSON)
     recommendations = Column(Text)
     efficiency_score = Column(Integer)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=_now_utc)
+    updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc)
     created_by = Column(Integer, ForeignKey("users.id"))
 
     well = relationship(
@@ -1649,7 +1564,7 @@ class PJSMRecord(Base):
     procedure_id = Column(Integer, ForeignKey("operational_procedures.id", ondelete="CASCADE"),
                          nullable=False)
     
-    meeting_date = Column(DateTime, default=datetime.utcnow)
+    meeting_date = Column(DateTime, default=_now_utc)
     meeting_location = Column(String(200))
     conducted_by = Column(String(100))
     
@@ -2016,6 +1931,40 @@ class DatabaseManager:
         finally:
             session.close()
             
+    def generic_save(self, model, data: dict):
+        """Persist a mapped model using only columns declared by its table."""
+        valid = {column.name for column in model.__table__.columns}
+        values = {k: v for k, v in (data or {}).items() if k in valid and k != "id"}
+        with self.session_scope() as session:
+            obj = session.get(model, data.get("id")) if data and data.get("id") else None
+            if obj is None:
+                obj = model(**values)
+                session.add(obj)
+                session.flush()
+            else:
+                for key, value in values.items():
+                    setattr(obj, key, value)
+                session.flush()
+            return obj.id
+
+    def generic_get_list(self, model, filters=None, limit=None):
+        with self.session_scope() as session:
+            query = session.query(model)
+            for key, value in (filters or {}).items():
+                if hasattr(model, key):
+                    query = query.filter(getattr(model, key) == value)
+            if limit:
+                query = query.limit(int(limit))
+            return [{column.name: getattr(row, column.name) for column in model.__table__.columns} for row in query.all()]
+
+    def generic_delete(self, model, object_id):
+        with self.session_scope() as session:
+            obj = session.get(model, object_id)
+            if obj is None:
+                return False
+            session.delete(obj)
+            return True
+
     def get_hierarchy(self):
         """دریافت hierarchy - با session_scope"""
         try:
@@ -2184,9 +2133,10 @@ class DatabaseManager:
                     for key, value in section_data.items():
                         if key != "id" and hasattr(section, key):
                             setattr(section, key, value)
-                    section.updated_at = datetime.utcnow()
+                    section.updated_at = _now_utc()
             else:
-                section = Section(**section_data)
+                valid_keys = {column.name for column in Section.__table__.columns}
+                section = Section(**{k: v for k, v in section_data.items() if k in valid_keys and k != "id"})
                 session.add(section)
                 session.flush()
             session.commit()
@@ -2266,7 +2216,7 @@ class DatabaseManager:
                 for key, value in filtered_data.items():
                     if key != "id" and hasattr(well, key):
                         setattr(well, key, value)
-                well.updated_at = datetime.utcnow()
+                well.updated_at = _now_utc()
             else:
                 well = Well(**filtered_data)
                 session.add(well)
@@ -2358,7 +2308,7 @@ class DatabaseManager:
                 for k, v in data.items():
                     if k != 'id' and k in valid_keys and hasattr(report, k):
                         setattr(report, k, v)
-                report.updated_at = datetime.utcnow()
+                report.updated_at = _now_utc()
             else:
                 valid_keys = {c.name for c in DailyReport.__table__.columns}
                 filtered_data = {
@@ -2936,7 +2886,7 @@ class DatabaseManager:
                     report_date=report_data.get('report_date', date.today()),
                     report_name=report_data.get('report_name', f"Bit_Report_{datetime.now().strftime('%Y%m%d_%H%M%S')}"),
                     bit_records_json=bit_records_json,
-                    created_at=datetime.utcnow()
+                    created_at=_now_utc()
                 )
                 session.add(new_report)
                 session.flush()
@@ -2978,7 +2928,7 @@ class DatabaseManager:
                     report_id=bha_data.get('report_id'),
                     bha_name=bha_data.get('bha_name', 'Unnamed BHA'),
                     bha_data_json=bha_data.get('bha_data', {}),
-                    created_at=datetime.utcnow()
+                    created_at=_now_utc()
                 )
                 session.add(report)
                 session.flush()
@@ -3042,7 +2992,7 @@ class DatabaseManager:
                     well_id=well_id,
                     report_id=equipment_data.get('report_id'),
                     equipment_data_json=equipment_data.get('equipment_data_json', {}),
-                    created_at=datetime.utcnow()
+                    created_at=_now_utc()
                 )
                 session.add(equip)
                 session.flush()
@@ -3113,7 +3063,7 @@ class DatabaseManager:
                     report_id=formation_data.get('report_id'),
                     report_name=formation_data.get('report_name', f"Formation_Report_{datetime.now().strftime('%Y%m%d_%H%M%S')}"),
                     formations_json=formation_data.get('formations', []),
-                    created_at=datetime.utcnow()
+                    created_at=_now_utc()
                 )
                 session.add(report)
                 session.flush()
@@ -3291,7 +3241,7 @@ class DatabaseManager:
                         dls=get_val('dls', 0),
                         tool=get_val('tool', 'MWD'),
                         remarks=get_val('remarks', ''),
-                        measured_at=get_val('measured_at', datetime.utcnow()),
+                        measured_at=get_val('measured_at', _now_utc()),
                         created_by=get_val('created_by')
                     )
                     session.add(new_point)
@@ -3531,7 +3481,7 @@ class DatabaseManager:
                     for key, value in personnel_data.items():
                         if hasattr(personnel, key) and key != 'id':
                             setattr(personnel, key, value)
-                    personnel.updated_at = datetime.utcnow()
+                    personnel.updated_at = _now_utc()
                     record_id = personnel.id
                 else:
                     return None
@@ -3624,7 +3574,7 @@ class DatabaseManager:
                     for key, value in pob_data.items():
                         if hasattr(pob, key) and key != 'id':
                             setattr(pob, key, value)
-                    pob.updated_at = datetime.utcnow()
+                    pob.updated_at = _now_utc()
                     record_id = pob.id
                 else:
                     return None
@@ -3960,7 +3910,7 @@ class DatabaseManager:
                     for key, value in log_data.items():
                         if hasattr(log, key) and key != 'id':
                             setattr(log, key, value)
-                    log.updated_at = datetime.utcnow()
+                    log.updated_at = _now_utc()
                     record_id = log.id
                 else:
                     return None
@@ -4049,7 +3999,7 @@ class DatabaseManager:
                     for key, value in note_data.items():
                         if hasattr(note, key) and key != 'id':
                             setattr(note, key, value)
-                    note.updated_at = datetime.utcnow()
+                    note.updated_at = _now_utc()
                     record_id = note.id
                 else:
                     return None
@@ -4214,7 +4164,7 @@ class DatabaseManager:
                     for key, value in component_data.items():
                         if hasattr(comp, key) and key != 'id':
                             setattr(comp, key, value)
-                    comp.updated_at = datetime.utcnow()
+                    comp.updated_at = _now_utc()
                     record_id = comp.id
                 else:
                     return None
@@ -4398,7 +4348,7 @@ class DatabaseManager:
                     for key, value in company_data.items():
                         if hasattr(company, key) and key != 'id':
                             setattr(company, key, value)
-                    company.updated_at = datetime.utcnow()
+                    company.updated_at = _now_utc()
                     record_id = company.id
                 else:
                     return None
@@ -4499,7 +4449,7 @@ class DatabaseManager:
                     for key, value in note_data.items():
                         if hasattr(note, key) and key != 'id':
                             setattr(note, key, value)
-                    note.updated_at = datetime.utcnow()
+                    note.updated_at = _now_utc()
                     record_id = note.id
                 else:
                     return None
@@ -4588,7 +4538,7 @@ class DatabaseManager:
                     for key, value in request_data.items():
                         if hasattr(request, key) and key != 'id':
                             setattr(request, key, value)
-                    request.updated_at = datetime.utcnow()
+                    request.updated_at = _now_utc()
                     record_id = request.id
                 else:
                     return None
@@ -4727,7 +4677,7 @@ class DatabaseManager:
                     for key, value in log_data.items():
                         if hasattr(log, key) and key != 'id':
                             setattr(log, key, value)
-                    log.updated_at = datetime.utcnow()
+                    log.updated_at = _now_utc()
                     record_id = log.id
                 else:
                     return None
@@ -4927,7 +4877,7 @@ class DatabaseManager:
                         plan.actual_start = actual_start
                     if actual_end is not None:
                         plan.actual_end = actual_end
-                    plan.updated_at = datetime.utcnow()
+                    plan.updated_at = _now_utc()
                     session.commit()
                     return record_id
                 else:
@@ -4955,8 +4905,8 @@ class DatabaseManager:
                 actual_start=actual_start,
                 actual_end=actual_end,
                 created_by=lookahead_data.get("created_by"),
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow()
+                created_at=_now_utc(),
+                updated_at=_now_utc()
             )
             session.add(new_plan)
             session.commit()
@@ -5019,7 +4969,7 @@ class DatabaseManager:
                     for key, value in npt_data.items():
                         if hasattr(report, key) and key != 'id':
                             setattr(report, key, value)
-                    report.updated_at = datetime.utcnow()
+                    report.updated_at = _now_utc()
                     record_id = report.id
                 else:
                     return None
@@ -5219,7 +5169,7 @@ class DatabaseManager:
                     code.usage_count += usage.get("count", 0)
                     code.total_hours += usage.get("hours", 0.0)
                     code.last_used = datetime.now().date()
-                    code.updated_at = datetime.utcnow()
+                    code.updated_at = _now_utc()
             session.commit()
             return True
         except Exception as e:
@@ -5509,7 +5459,7 @@ class DatabaseManager:
                     for key, value in template_data.items():
                         if hasattr(template, key) and key != 'id':
                             setattr(template, key, value)
-                    template.updated_at = datetime.utcnow()
+                    template.updated_at = _now_utc()
                     record_id = template.id
                 else:
                     return None
@@ -5624,7 +5574,7 @@ class DatabaseManager:
             template = session.query(ExportTemplate).filter(ExportTemplate.id == template_id).first()
             if template:
                 template.is_default = True
-                template.updated_at = datetime.utcnow()
+                template.updated_at = _now_utc()
                 session.commit()
                 return True
             return False
@@ -5671,7 +5621,7 @@ class DatabaseManager:
                     for key, value in data.items():
                         if key != 'id' and hasattr(proc, key):
                             setattr(proc, key, value)
-                    proc.updated_at = datetime.utcnow()
+                    proc.updated_at = _now_utc()
             else:
                 proc = OperationalProcedure(**{
                     k: v for k, v in data.items() 
@@ -5834,7 +5784,7 @@ class DatabaseManager:
             if step:
                 step.is_completed = is_completed
                 step.completed_by = completed_by
-                step.completed_at = datetime.utcnow() if is_completed else None
+                step.completed_at = _now_utc() if is_completed else None
                 session.commit()
                 return True
             return False
@@ -5910,7 +5860,7 @@ class DatabaseManager:
             if item:
                 item.verified = verified
                 item.verified_by = verified_by
-                item.verified_at = datetime.utcnow() if verified else None
+                item.verified_at = _now_utc() if verified else None
                 item.remarks = remarks
                 session.commit()
                 return True
@@ -5972,7 +5922,7 @@ class DatabaseManager:
         try:
             pjsm = PJSMRecord(
                 procedure_id=data['procedure_id'],
-                meeting_date=data.get('meeting_date', datetime.utcnow()),
+                meeting_date=data.get('meeting_date', _now_utc()),
                 meeting_location=data.get('meeting_location', ''),
                 conducted_by=data.get('conducted_by', ''),
                 attendees_json=data.get('attendees', []),
@@ -6262,7 +6212,7 @@ class DatabaseManager:
                     for k, v in data.items():
                         if k != "id" and hasattr(record, k):
                             setattr(record, k, v)
-                    record.updated_at = datetime.utcnow()
+                    record.updated_at = _now_utc()
                     record_id = record.id
                 else:
                     return None
@@ -6333,7 +6283,7 @@ class DatabaseManager:
                 entity_id=entity_id,
                 entity_name=entity_name,
                 details=details[:500] if details else "",
-                timestamp=datetime.utcnow()
+                timestamp=_now_utc()
             )
             session.add(log)
             session.commit()

@@ -4,7 +4,7 @@ Planning Widget - Comprehensive planning module for drilling operations (باز�
 
 import sys
 import os
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 import random
 import json
 import logging
@@ -2368,7 +2368,7 @@ class MaterialInventoryTab(QWidget):
                 existing.used = used
                 existing.current_stock = current
                 existing.unit = unit
-                existing.updated_at = datetime.utcnow()
+                existing.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
             else:
                 new_material = BulkMaterials(
                     well_id=self.current_well_id,

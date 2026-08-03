@@ -81,9 +81,17 @@ class StatusBarManager(QObject):
         self.show_message_signal.emit(widget_name, f"❌ {message}", 5000)
 
     def register_widget(self, widget_name: str, widget: QWidget):
-        if widget_name not in self._widgets:
-            self._widgets[widget_name] = widget
-            logger.debug(f"📝 Registered widget: {widget_name}")
+        self._widgets[widget_name] = widget
+        # QObject.destroyed is the reliable lifecycle hook; it also prevents
+        # stale widgets from being retained by the process-wide manager.
+        try:
+            widget.destroyed.connect(lambda *_: self.unregister_widget(widget_name))
+        except (AttributeError, RuntimeError):
+            pass
+        logger.debug(f"📝 Registered widget: {widget_name}")
+
+    def unregister_widget(self, widget_name: str):
+        self._widgets.pop(widget_name, None)
 
     def register_main_window(self, main_window: QMainWindow):
         self.register_widget("MainWindow", main_window)
@@ -709,15 +717,13 @@ class DrillingManager:
         return round(bit_drilled / hours_on_bottom, 2)
     
     @staticmethod
-    def calculate_hsi(pump_pressure: float, flow_rate: float, tfa: float) -> float:
-        if tfa <= 0:
+    def calculate_hsi(pump_pressure: float, flow_rate: float, bit_size: float) -> float:
+        """Hydraulic horsepower per square inch of bit area."""
+        if bit_size <= 0 or pump_pressure < 0 or flow_rate < 0:
             return 0.0
-        # HSI = (Q × ΔP) / (1714 × bit_area)
-        # اینجا ساده‌شده: HSI = HHP / bit_area
-        hhp = pump_pressure * flow_rate / 1714
-        # تقریب: bit_area ≈ TFA × 20 (factor)
-        hsi = hhp / (tfa * 1714) if tfa > 0 else 0
-        return round(hsi, 2)
+        hhp = pump_pressure * flow_rate / 1714.0
+        bit_area = 3.141592653589793 * (bit_size ** 2) / 4.0
+        return round(hhp / bit_area, 2)
 
     @staticmethod
     def calculate_annular_velocity(

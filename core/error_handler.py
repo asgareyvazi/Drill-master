@@ -6,6 +6,8 @@ Error Handler - مدیریت متمرکز خطاها
 import logging
 import traceback
 from functools import wraps
+from pathlib import Path
+from datetime import datetime, timezone
 from typing import Callable, Optional, Any
 
 from PySide6.QtWidgets import QMessageBox, QApplication
@@ -49,6 +51,8 @@ def safe_call(
     Decorator برای فراخوانی امن توابع.
     """
     def decorator(f):
+        if not callable(f):
+            raise TypeError("safe_call expects a callable")
         @wraps(f)
         def wrapper(*args, **kwargs):
             try:
@@ -84,12 +88,14 @@ def handle_db_error(func):
             return func(*args, **kwargs)
         except Exception as e:
             logger.error(f"DB error in {func.__name__}: {e}")
-            for arg in args:
-                if hasattr(arg, 'rollback'):
+            candidates = list(args) + list(kwargs.values())
+            for arg in candidates:
+                session = getattr(arg, "session", arg)
+                if hasattr(session, 'rollback'):
                     try:
-                        arg.rollback()
+                        session.rollback()
                     except Exception:
-                        pass
+                        logger.debug("Unable to rollback DB session", exc_info=True)
             raise DatabaseError(
                 f"Database operation failed: {str(e)}",
                 details=traceback.format_exc()
@@ -116,6 +122,13 @@ class GlobalErrorHandler:
 
             error_msg = str(exc_value)
             detail = "".join(traceback.format_tb(exc_traceback))
+            try:
+                report_dir = Path.home() / ".drillmaster" / "crash_reports"
+                report_dir.mkdir(parents=True, exist_ok=True)
+                report = report_dir / f"crash_{datetime.now(timezone.utc):%Y%m%d_%H%M%S}.log"
+                report.write_text(f"{error_msg}\n\n{detail}", encoding="utf-8")
+            except Exception:
+                logger.debug("Could not persist crash report", exc_info=True)
 
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Critical)

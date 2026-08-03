@@ -125,7 +125,9 @@ class TimeLineEdit(QLineEdit):
         self.setText("")
     
     def calculate_duration_to(self, other) -> float:
-        """محاسبه دیرکرد تا زمان دیگر (به ساعت)"""
+        """محاسبه اختلاف تا زمان دیگر (به ساعت)."""
+        if not isinstance(other, TimeLineEdit):
+            raise TypeError("other must be a TimeLineEdit")
         if self._is_2400:
             self_seconds = 24 * 3600
         else:
@@ -171,10 +173,16 @@ class TimeValidator(QValidator):
             if len(input_str) <= 4:
                 return QValidator.Intermediate, input_str, pos
         
-        # در حال تایپ
-        if len(input_str) <= 5:
+        # Only plausible prefixes are intermediate. Arbitrary text such as
+        # ``abc`` must be invalid rather than silently accepted.
+        if input_str.isdigit() and len(input_str) <= 4:
             return QValidator.Intermediate, input_str, pos
-        
+        if input_str.isdigit() and len(input_str) == 1:
+            return QValidator.Intermediate, input_str, pos
+        if len(input_str) <= 5 and input_str.count(":") == 1:
+            hour, minute = input_str.split(":", 1)
+            if hour.isdigit() and len(hour) <= 2 and (not minute or minute.isdigit() and len(minute) <= 2):
+                return QValidator.Intermediate, input_str, pos
         return QValidator.Invalid, input_str, pos
     
     def fixup(self, input_str):
@@ -204,9 +212,33 @@ class DrillTime:
     def to_python_time(self):
         return time(self.hour if self.hour < 24 else 0, self.minute)
     
+    @classmethod
+    def from_string(cls, value):
+        if isinstance(value, cls):
+            return value
+        text = str(value).strip()
+        if text in {"24", "2400", "24:00"}:
+            return cls(24, 0)
+        parts = text.split(":")
+        if len(parts) != 2:
+            raise ValueError(f"Invalid time: {value!r}")
+        hour, minute = int(parts[0]), int(parts[1])
+        if not (0 <= hour <= 23 and 0 <= minute <= 59):
+            raise ValueError(f"Invalid time: {value!r}")
+        return cls(hour, minute)
+
+    @classmethod
+    def from_python_time(cls, value):
+        if not isinstance(value, time):
+            raise TypeError("value must be datetime.time")
+        return cls(value.hour, value.minute)
+
     def __sub__(self, other):
-        self_seconds = (self.hour if self.hour < 24 else 24) * 3600 + self.minute * 60
-        other_seconds = (other.hour if other.hour < 24 else 24) * 3600 + other.minute * 60
+        """Return the forward elapsed duration from ``other`` to ``self``."""
+        if not isinstance(other, DrillTime):
+            raise TypeError("other must be DrillTime")
+        self_seconds = (24 if self.hour == 24 else self.hour) * 3600 + self.minute * 60
+        other_seconds = (24 if other.hour == 24 else other.hour) * 3600 + other.minute * 60
         diff = self_seconds - other_seconds
         if diff < 0:
             diff += 24 * 3600
