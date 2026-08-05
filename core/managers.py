@@ -623,21 +623,45 @@ class ExportManager:
             return None
 
     def _export_to_pdf(self, table_widget, filename=None):
+        """Export the complete table, not just a title.
+
+        QTextDocument is part of Qt and therefore avoids an optional
+        reportlab dependency.  Long tables naturally paginate when printed.
+        """
         try:
-            from reportlab.lib.pagesizes import A4
-            from reportlab.pdfgen import canvas as pdf_canvas
+            from html import escape
+            from PySide6.QtGui import QTextDocument
+            from PySide6.QtPrintSupport import QPrinter
             if not filename:
                 filename = f"export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-            c = pdf_canvas.Canvas(filename, pagesize=A4)
-            c.setFont("Helvetica-Bold", 16)
-            c.drawString(50, A4[1] - 50, "Table Export")
-            c.save()
+            headers = []
+            for col in range(table_widget.columnCount()):
+                item = table_widget.horizontalHeaderItem(col)
+                headers.append(escape(item.text() if item else f"Column {col + 1}"))
+            rows = []
+            for row in range(table_widget.rowCount()):
+                cells = []
+                for col in range(table_widget.columnCount()):
+                    item = table_widget.item(row, col)
+                    cells.append(escape(item.text() if item else ""))
+                rows.append("<tr>" + "".join(f"<td>{cell}</td>" for cell in cells) + "</tr>")
+            html = """<!doctype html><html><head><meta charset='utf-8'>
+            <style>@page{margin:12mm}body{font-family:Arial;font-size:8pt}
+            h1{font-size:14pt;color:#2c3e50}table{width:100%;border-collapse:collapse}
+            th,td{border:1px solid #bfc5ca;padding:4px;word-wrap:break-word}
+            th{background:#2c3e50;color:white}tr:nth-child(even){background:#f4f6f7}
+            </style></head><body><h1>Table Export</h1><table><thead><tr>"""
+            html += "".join(f"<th>{header}</th>" for header in headers)
+            html += "</tr></thead><tbody>" + "".join(rows) + "</tbody></table></body></html>"
+            printer = QPrinter(QPrinter.HighResolution)
+            printer.setOutputFormat(QPrinter.PdfFormat)
+            printer.setOutputFileName(filename)
+            doc = QTextDocument()
+            doc.setHtml(html)
+            doc.print_(printer)
             return filename
-        except ImportError:
-            logger.error("PDF export requires 'reportlab' package")
-            return None
         except Exception as e:
-            logger.error(f"PDF export failed: {e}")
+            logger.error(f"PDF export failed: {e}", exc_info=True)
             return None
 
     def _export_to_excel(self, table_widget, filename=None):
@@ -665,6 +689,51 @@ class ExportManager:
         except Exception as e:
             logger.error(f"Excel export failed: {e}")
             return None
+
+    def export_rows(self, rows, headers, filename, format="csv", title="Export"):
+        """Export database/query rows consistently across all tabs.
+
+        ``rows`` may contain dictionaries or sequences.  This is the common
+        path for report, analysis and import-preview exports, so tabs no
+        longer need slightly different CSV implementations.
+        """
+        if not filename or not headers:
+            return None
+        try:
+            normalized = []
+            for row in rows or []:
+                if isinstance(row, dict):
+                    normalized.append([row.get(header, "") for header in headers])
+                else:
+                    normalized.append(list(row))
+            if format.lower() == "csv":
+                with open(filename, "w", newline="", encoding="utf-8-sig") as stream:
+                    writer = csv.writer(stream)
+                    writer.writerow(headers)
+                    writer.writerows(normalized)
+                return filename
+            if format.lower() == "excel":
+                from openpyxl import Workbook
+                wb = Workbook()
+                ws = wb.active
+                ws.title = title[:31] or "Export"
+                ws.append(list(headers))
+                for row in normalized:
+                    ws.append(row)
+                ws.freeze_panes = "A2"
+                ws.auto_filter.ref = ws.dimensions
+                wb.save(filename)
+                return filename
+            if format.lower() == "html":
+                from html import escape
+                head = "".join(f"<th>{escape(str(h))}</th>" for h in headers)
+                body = "".join("<tr>" + "".join(f"<td>{escape(str(v or ''))}</td>" for v in row) + "</tr>" for row in normalized)
+                with open(filename, "w", encoding="utf-8") as stream:
+                    stream.write(f"<html><head><meta charset='utf-8'><title>{escape(title)}</title></head><body><h1>{escape(title)}</h1><table border='1'><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table></body></html>")
+                return filename
+        except Exception as e:
+            logger.error("Row export failed: %s", e, exc_info=True)
+        return None
 
     def export_image(self, pixmap_or_widget, filename=None):
         if not filename:

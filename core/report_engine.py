@@ -670,17 +670,17 @@ class EOWRReportEngine:
                 )
                 return False
 
-            html = self._build_html(data)
+            html = self._build_html(data, selected_sections=None)
 
             if format == "pdf":
                 return self._save_pdf(html, output_path)
             elif format == "html":
                 return self._save_html(html, output_path)
             elif format == "excel":
-                return self._save_excel(data, output_path)
+                return self._save_excel(data, output_path, selected_sections=None)
             return False
         except Exception as e:
-            logger.error(f"Plan report error: {e}")
+            logger.error(f"EOWR report error: {e}", exc_info=True)
             return False
 
     def _collect_data(self, well_id: int) -> dict:
@@ -832,7 +832,7 @@ class EOWRReportEngine:
             logger.error(f"EOWR collect data error: {e}")
             return {}
 
-    def _build_html(self, data: dict, selected_sections: list) -> str:
+    def _build_html(self, data: dict, selected_sections=None) -> str:
         """ساخت HTML حرفه‌ای EOWR"""
         w = data.get("well", {})
         s = data.get("summary", {})
@@ -1211,7 +1211,7 @@ East: {last.east:.2f} m | HD: {last.hd:.2f} m | DLS: {last.dls:.2f}
             return False
 
     def _save_excel(self, data: dict, output_path: str,
-                    selected_sections: list) -> bool:
+                    selected_sections=None) -> bool:
         try:
             from openpyxl import Workbook
             from openpyxl.styles import Font, PatternFill

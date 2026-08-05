@@ -83,9 +83,12 @@ class ExportWidget(DrillTabBase):
             for c in h:
                 for p in c.get("projects", []):
                     for w in p.get("wells", []):
-                        combo.addItem(
-                            f"{w['name']} ({p['name']})", w["id"]
-                        )
+                        combo.addItem(f"{w['name']} ({p['name']})", w["id"])
+            current_id = self.sel_manager.current_well_id
+            if current_id is not None:
+                index = combo.findData(current_id)
+                if index >= 0:
+                    combo.setCurrentIndex(index)
 
     def _format_selector(self):
         """ساخت انتخابگر فرمت"""
@@ -627,6 +630,16 @@ class ExportWidget(DrillTabBase):
             combo.blockSignals(False)
         # Load DDR reports
         self._load_ddr_reports()
+
+    def on_report_changed(self, report_id, report_data):
+        """Keep export center aligned with the globally selected report."""
+        for i in range(self.ddr_report_combo.count()):
+            if self.ddr_report_combo.itemData(i) == report_id:
+                self.ddr_report_combo.blockSignals(True)
+                self.ddr_report_combo.setCurrentIndex(i)
+                self.ddr_report_combo.blockSignals(False)
+                self._preview_ddr()
+                break
 
     def set_current_well(self, well_id, well_data=None):
         """Sync همه combo ها و load reports"""
