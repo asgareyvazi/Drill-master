@@ -1999,6 +1999,57 @@ class DailyReportWidget(DrillTabBase):
             return False
         return self.save_report()
 
+    def submit_report(self):
+        if not self.current_report_id:
+            self.show_warning("Select a report first")
+            return False
+        try:
+            ok = self.db_manager.set_report_status(self.current_report_id, "Submitted")
+            if ok:
+                self.db_manager.create_report_revision(self.current_report_id, "Submitted")
+                self.load_report_by_id(self.current_report_id)
+                self.show_success("Report submitted for review")
+            return bool(ok)
+        except Exception as exc:
+            logger.error("Submit report failed: %s", exc, exc_info=True)
+            self.show_error(str(exc))
+            return False
+
+    def approve_report(self, comment=""):
+        if not self.current_report_id:
+            self.show_warning("Select a report first")
+            return False
+        try:
+            ok = self.db_manager.set_report_status(self.current_report_id, "Approved", comment=comment)
+            if ok:
+                self.db_manager.create_report_revision(self.current_report_id, "Approved", comment)
+                self.load_report_by_id(self.current_report_id)
+                self.show_success("Report approved")
+            return bool(ok)
+        except Exception as exc:
+            logger.error("Approve report failed: %s", exc, exc_info=True)
+            self.show_error(str(exc))
+            return False
+
+    def reject_report(self, comment=""):
+        if not self.current_report_id:
+            self.show_warning("Select a report first")
+            return False
+        if not comment.strip():
+            self.show_warning("A rejection comment is required")
+            return False
+        try:
+            ok = self.db_manager.set_report_status(self.current_report_id, "Rejected", comment=comment)
+            if ok:
+                self.db_manager.create_report_revision(self.current_report_id, "Rejected", comment)
+                self.load_report_by_id(self.current_report_id)
+                self.show_warning("Report rejected")
+            return bool(ok)
+        except Exception as exc:
+            logger.error("Reject report failed: %s", exc, exc_info=True)
+            self.show_error(str(exc))
+            return False
+
     def refresh(self):
         if self.current_report_id:
             self.load_report_by_id(self.current_report_id)

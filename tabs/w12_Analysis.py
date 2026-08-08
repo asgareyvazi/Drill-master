@@ -81,6 +81,7 @@ from core.database import (
 )
 from core.base_tab import DrillTabBase
 from core.selection_manager import SelectionManager
+from core.data_quality import DataQualityService
 
 logger = logging.getLogger(__name__)
 
@@ -93,6 +94,11 @@ class AnalysisWidget(DrillTabBase):
         self.db = db_manager
         self.current_well_id = None
         self.current_well_name = None
+        self.current_report_id = None
+        self.quality_service = DataQualityService(self.db)
+        self.quality_label = QLabel("Data Quality: —")
+        self.quality_label.setToolTip("Completeness and time-log coverage for the selected report")
+        self.quality_label.setStyleSheet("font-weight: bold; padding: 5px; color: #7f8c8d;")
 
         # Data caches
         self.data_cache = {}
@@ -164,6 +170,7 @@ class AnalysisWidget(DrillTabBase):
                 "color: #e74c3c; font-size: 14px; padding: 30px;"
             )
             layout.addWidget(notice)
+            layout.addWidget(self.quality_label)
             return
 
         # ---- HEADER SECTION ----
@@ -189,6 +196,7 @@ class AnalysisWidget(DrillTabBase):
             }
         """)
         header_layout.addWidget(self.status_label, 0, 0, 1, 2)
+        header_layout.addWidget(self.quality_label, 1, 0, 1, 2)
 
         self.well_label = QLabel("🌍 Well: Not Selected")
         self.well_label.setStyleSheet("font-size: 14px; color: #bdc3c7;")
@@ -2095,6 +2103,26 @@ class AnalysisWidget(DrillTabBase):
     def on_well_changed(self, well_id, well_data):
         self.set_current_well(well_id, well_data.get('name', str(well_id)))
 
+    def on_report_changed(self, report_id, report_data):
+        self.current_report_id = report_id
+        self.update_data_quality()
+        self.update_all_data()
+
+    def update_data_quality(self):
+        if not self.current_report_id:
+            self.quality_label.setText("Data Quality: —")
+            self.quality_label.setStyleSheet("font-weight: bold; padding: 5px; color: #7f8c8d;")
+            return
+        try:
+            summary = self.quality_service.summary(self.current_report_id)
+            color = {"good": "#27ae60", "warning": "#f39c12", "critical": "#e74c3c"}.get(summary["status"], "#7f8c8d")
+            self.quality_label.setText(f"Data Quality: {summary['score']:.1f}% ({summary['status']})")
+            self.quality_label.setStyleSheet(f"font-weight: bold; padding: 5px; color: {color};")
+            self.quality_label.setToolTip("\\n".join(f"{m['name']}: {m['value']}% — {m['detail']}" for m in summary["metrics"]))
+        except Exception as exc:
+            logger.error("Data quality update failed: %s", exc, exc_info=True)
+            self.quality_label.setText("Data Quality: unavailable")
+
     def set_current_well(self, well_id, well_name):
         self.current_well_id = well_id
         self.current_well_name = well_name
@@ -2105,6 +2133,7 @@ class AnalysisWidget(DrillTabBase):
         self.analysis_tabs.setVisible(True)
         self.bottom_widget.setVisible(True)
         self.auto_update_check.setChecked(True)
+        self.update_data_quality()
         self.update_all_data()
 
     def update_all_data(self):

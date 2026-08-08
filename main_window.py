@@ -1945,6 +1945,7 @@ class MainWindow(QMainWindow):
             )
 
         message = f"Import done! ✅ {total} imported, ❌ {failed} failed"
+        self._show_import_summary(results)
         if failed:
             self.status_manager.show_warning("MainWindow", message)
         else:
@@ -1967,6 +1968,34 @@ class MainWindow(QMainWindow):
         self._invalidate_hierarchy_cache()
         self.populate_hierarchy()
 
+
+    def _show_import_summary(self, results):
+        """Show an actionable import report instead of a misleading toast."""
+        lines = []
+        for result in results or []:
+            report = result.get("import_report") or {}
+            if report:
+                lines.append(
+                    f"Rows: {report.get('total', 0)} | "
+                    f"Errors: {report.get('errors', 0)} | "
+                    f"Warnings: {report.get('warnings', 0)}"
+                )
+                for issue in report.get("issues", [])[:20]:
+                    lines.append(
+                        f"[{issue.get('level', 'error').upper()}] "
+                        f"{issue.get('sheet', '')} row {issue.get('row', '')}: "
+                        f"{issue.get('message', '')}"
+                    )
+            lines.extend(result.get("details", [])[-10:])
+        if not lines:
+            return
+        box = QMessageBox(self)
+        box.setWindowTitle("Import Quality Report")
+        box.setIcon(QMessageBox.Warning if any("ERROR" in line or "FAILED" in line.upper() for line in lines) else QMessageBox.Information)
+        box.setText("Import completed with a detailed quality report.")
+        box.setDetailedText("\\n".join(lines))
+        box.setStandardButtons(QMessageBox.Ok)
+        box.exec()
 
     def _targeted_refresh(
         self, well_id: int, section_id: int, report_id: int
