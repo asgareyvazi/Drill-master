@@ -850,15 +850,13 @@ class DailyReportWidget(DrillTabBase):
         is_npt = False
         if log_data and hasattr(log_data, 'is_npt'):
             is_npt = log_data.is_npt
+        stored_main_code = ""
         if log_data and hasattr(log_data, 'main_code'):
-            if is_npt:
-                idx = npt_code_combo.findText(log_data.main_code)
-                if idx >= 0:
-                    npt_code_combo.setCurrentIndex(idx)
-            else:
-                idx = normal_code_combo.findText(log_data.main_code)
-                if idx >= 0:
-                    normal_code_combo.setCurrentIndex(idx)
+            stored_main_code = str(log_data.main_code or "")
+            target_combo = npt_code_combo if is_npt else normal_code_combo
+            idx = self._find_code_index(target_combo, stored_main_code)
+            if idx >= 0:
+                target_combo.setCurrentIndex(idx)
 
         stacked.addWidget(normal_code_combo)
         stacked.addWidget(npt_code_combo)
@@ -871,6 +869,8 @@ class DailyReportWidget(DrillTabBase):
             self._update_sub_codes_for_npt(sub_code_combo, npt_code_combo.currentText())
         else:
             self._update_sub_codes_normal(sub_code_combo, normal_code_combo.currentText())
+        if log_data and hasattr(log_data, 'sub_code'):
+            self._select_code_value(sub_code_combo, str(log_data.sub_code or ""))
         table.setCellWidget(row, 5, sub_code_combo)
 
         # اتصالات
@@ -1004,6 +1004,33 @@ class DailyReportWidget(DrillTabBase):
             combo.addItem(text)
             self.status_manager.show_message("DailyReport", f"New contractor '{text}' added", 2000)
             
+    @staticmethod
+    def _code_variants(value):
+        text = str(value or "").strip()
+        # Stored imports may be "2 - Drilling" while UI uses "Drilling".
+        variants = [text]
+        if " - " in text:
+            variants.append(text.split(" - ", 1)[1].strip())
+        return [v.lower().strip() for v in variants if v]
+
+    def _find_code_index(self, combo, stored_value):
+        wanted = self._code_variants(stored_value)
+        for index in range(combo.count()):
+            candidate = self._code_variants(combo.itemText(index))
+            if any(a == b or a in b or b in a for a in wanted for b in candidate):
+                return index
+        return -1
+
+    def _select_code_value(self, combo, stored_value):
+        index = self._find_code_index(combo, stored_value)
+        if index >= 0:
+            combo.setCurrentIndex(index)
+        elif stored_value:
+            # Preserve an imported code not present in the local catalogue;
+            # silently replacing it with the first item is data corruption.
+            combo.setEditable(True)
+            combo.setCurrentText(str(stored_value))
+
     def _update_sub_codes_normal(self, sub_combo, main_code):
         """به‌روزرسانی زیرکدها برای فعالیت عادی"""
         sub_combo.clear()
