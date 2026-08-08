@@ -28,9 +28,19 @@ class PermissionManager:
     @property
     def user(self): return self._user
 
-    def _get(self, name, default=None):
-        if self._user is None: return default
-        return self._user.get(name, default) if isinstance(self._user, dict) else getattr(self._user, name, default)
+    def _get(self, name=None, default=None):
+        """Read user data safely from either a dict or a User object.
+
+        ``name`` is optional for compatibility with older callers that used
+        ``_get()`` as a request for the complete current user.
+        """
+        if name is None:
+            return self._user if self._user is not None else default
+        if self._user is None:
+            return default
+        if isinstance(self._user, dict):
+            return self._user.get(name, default)
+        return getattr(self._user, name, default)
 
     @property
     def role(self): return str(self._get("role", "viewer")).lower()
