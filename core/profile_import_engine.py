@@ -476,13 +476,24 @@ class ProfileImportEngine:
             npt_val = str(cache[r].get(c_npt, "")).strip()
             is_npt = bool(npt_val and npt_val not in ("-", "---", "None"))
             
+            raw_main = cache[r].get(c_code)
+            raw_sub = cache[r].get(c_sub)
+            try:
+                # Keep one canonical resolver for Smart and profile imports.
+                from dialogs.smart_template_dialog import CodeResolver
+                normalized_main = CodeResolver.resolve_main_code(raw_main)
+                normalized_sub = CodeResolver.resolve_sub_code(raw_sub, raw_main)
+            except Exception:
+                normalized_main = str(raw_main or "").strip()
+                normalized_sub = str(raw_sub or "").strip()
+
             logs.append({
                 "time_from": tf,
                 "time_to": tt,
                 "duration": hrs,
                 "main_phase": str(cache[r].get(c_phase, "")),
-                "main_code": str(cache[r].get(c_code, "")),
-                "sub_code": str(cache[r].get(c_sub, "")),
+                "main_code": normalized_main,
+                "sub_code": normalized_sub,
                 "status": str(cache[r].get(c_status, "PLN")),
                 "is_npt": is_npt,
                 "npt_category": npt_val if is_npt else "",

@@ -1472,11 +1472,36 @@ class CodeResolver:
     """Resolve main codes and sub codes to full names"""
 
     @staticmethod
+    def _clean_code(value):
+        """Normalize Excel numeric/text codes without losing decimals."""
+        if value is None:
+            return ""
+        text = str(value).strip().replace("–", "-").replace("—", "-")
+        # Excel commonly turns integer codes into 2.0; only remove a
+        # trailing numeric .0, never a meaningful composite such as 2.1.
+        text = re.sub(r"(?<=\d)\.0+(?=\s*$)", "", text)
+        return text
+
+    @staticmethod
+    def _main_number(value):
+        text = CodeResolver._clean_code(value)
+        # Accept 2.1, 2-Drilling, 2 / Drilling and "2 - Drilling".
+        match = re.search(r"^\s*(\d+)", text)
+        return match.group(1) if match else ""
+
+    @staticmethod
+    def _composite_number(value):
+        text = CodeResolver._clean_code(value)
+        match = re.search(r"^\s*(\d+)\s*[./-]\s*(\d+)", text)
+        return f"{match.group(1)}.{match.group(2)}" if match else ""
+
+    @staticmethod
     def resolve_main_code(raw_code) -> str:
         if raw_code is None:
             return ""
-        code_str = str(raw_code).strip()
-        clean = code_str.replace(".0", "").strip()
+        code_str = CodeResolver._clean_code(raw_code)
+        composite = CodeResolver._composite_number(code_str)
+        clean = CodeResolver._main_number(composite or code_str)
 
         # already has name
         if " - " in code_str and len(code_str) > 5:
@@ -1514,10 +1539,17 @@ class CodeResolver:
 
     @staticmethod
     def resolve_sub_code(raw_sub, raw_main="") -> str:
-        if raw_sub is None:
+        # A surprising number of DDR sheets put the composite code (2.3) in
+        # either the main or sub column. Prefer the explicit composite.
+        composite_from_sub = CodeResolver._composite_number(raw_sub)
+        composite_from_main = CodeResolver._composite_number(raw_main)
+        composite = composite_from_sub or composite_from_main
+        if composite and composite in SUB_CODE_MAP:
+            return f"{composite} - {SUB_CODE_MAP[composite]}"
+        if raw_sub is None or str(raw_sub).strip() == "":
             return ""
-        sub_str = str(raw_sub).strip()
-        clean_sub = sub_str.replace(".0", "").strip()
+        sub_str = CodeResolver._clean_code(raw_sub)
+        clean_sub = sub_str
 
         # already has name
         if len(sub_str) > 8 and any(
@@ -2510,9 +2542,16 @@ class SmartTemplateDialog(QDialog):
                 w in txt2 for w in ["main phase", "phase"]
             ):
                 col_map["phase"] = c2
-            elif txt2 == "code" or "main code" in txt2:
+            elif (
+                txt2 in ("code", "main code", "activity code", "phase code")
+                or "main code" in txt2
+                or "activity code" in txt2
+            ):
                 col_map["code"] = c2
-            elif "sub" in txt2 and "code" in txt2:
+            elif (
+                ("sub" in txt2 or "secondary" in txt2)
+                and "code" in txt2
+            ):
                 col_map["sub_code"] = c2
             elif txt2 == "status":
                 col_map["status"] = c2
