@@ -16,6 +16,9 @@ import logging
 from threading import Lock
 
 logger = logging.getLogger(__name__)
+# Module-level lock avoids fragile class-attribute edits and protects the
+# singleton during concurrent widget construction.
+_SELECTION_INSTANCE_LOCK = Lock()
 
 
 class SelectionManager(QObject):
@@ -41,8 +44,8 @@ class SelectionManager(QObject):
         # QObject singletons must only be constructed once.  In particular,
         # calling SelectionManager(parent) a second time must not attempt to
         # re-parent an already constructed QObject.
-        with cls._instance_lock:
-            if cls._instance is None:
+        with _SELECTION_INSTANCE_LOCK:
+            if getattr(cls, "_instance", None) is None:
                 cls._instance = super().__new__(cls)
         return cls._instance
 
