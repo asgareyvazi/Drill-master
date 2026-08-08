@@ -279,6 +279,31 @@ class DailyReport(Base):
         "TimeLogMorning", back_populates="report", cascade="all, delete-orphan"
     )
 
+class ReportRevision(Base):
+    """Immutable snapshot of a daily report for audit/version history."""
+    __tablename__ = "report_revisions"
+    id = Column(Integer, primary_key=True)
+    report_id = Column(Integer, ForeignKey("daily_reports.id", ondelete="CASCADE"), nullable=False)
+    revision_no = Column(Integer, nullable=False)
+    status = Column(String(30), default="Draft", nullable=False)
+    snapshot = Column(JSON, nullable=False)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=_now_utc, nullable=False)
+    comment = Column(Text)
+
+
+class ApprovalAction(Base):
+    """Approval/rejection history; never overwrite actions."""
+    __tablename__ = "approval_actions"
+    id = Column(Integer, primary_key=True)
+    report_id = Column(Integer, ForeignKey("daily_reports.id", ondelete="CASCADE"), nullable=False)
+    action = Column(String(20), nullable=False)  # submit, approve, reject
+    status = Column(String(30), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    comment = Column(Text)
+    created_at = Column(DateTime, default=_now_utc, nullable=False)
+
+
 class TimeLog24H(Base):
     __tablename__ = "time_logs_24h"
 
@@ -2366,13 +2391,62 @@ class DatabaseManager:
             session.close()
  
 
+    def create_report_revision(self, report_id: int, status="Draft", comment=""):
+        """Store an immutable report snapshot and return its revision id."""
+        with self.session_scope() as session:
+            report = session.get(DailyReport, report_id)
+            if report is None:
+                return None
+            columns = {column.name for column in DailyReport.__table__.columns}
+            snapshot = {}
+            for name in columns:
+                value = getattr(report, name)
+                snapshot[name] = value.isoformat() if isinstance(value, (date, datetime, time)) else value
+            latest = session.query(ReportRevision).filter_by(report_id=report_id).order_by(ReportRevision.revision_no.desc()).first()
+            revision = ReportRevision(report_id=report_id, revision_no=(latest.revision_no + 1 if latest else 1), status=status, snapshot=snapshot, comment=comment)
+            session.add(revision)
+            session.flush()
+            return revision.id
+
+    def set_report_status(self, report_id: int, status: str, user_id=None, comment=""):
+        """Change workflow state and persist an approval action."""
+        allowed = {"Draft", "Submitted", "Under Review", "Rejected", "Approved", "Final"}
+        if status not in allowed:
+            raise ValueError(f"Unsupported report status: {status}")
+        with self.session_scope() as session:
+            report = session.get(DailyReport, report_id)
+            if report is None:
+                return False
+            if report.status == "Final" and status != "Final":
+                raise ValueError("Final reports cannot be downgraded")
+            report.status = status
+            action = "submit" if status == "Submitted" else "approve" if status in {"Approved", "Final"} else "reject" if status == "Rejected" else "update"
+            session.add(ApprovalAction(report_id=report_id, action=action, status=status, user_id=user_id, comment=comment))
+            return True
+
+    def get_report_revisions(self, report_id: int):
+        with self.session_scope() as session:
+            rows = session.query(ReportRevision).filter_by(report_id=report_id).order_by(ReportRevision.revision_no.desc()).all()
+            return [{"id": r.id, "revision_no": r.revision_no, "status": r.status, "snapshot": r.snapshot, "created_at": r.created_at, "comment": r.comment} for r in rows]
+
+    def get_approval_history(self, report_id: int):
+        with self.session_scope() as session:
+            rows = session.query(ApprovalAction).filter_by(report_id=report_id).order_by(ApprovalAction.created_at.desc()).all()
+            return [{"id": a.id, "action": a.action, "status": a.status, "user_id": a.user_id, "comment": a.comment, "created_at": a.created_at} for a in rows]
+
     def save_imported_multi_tab_data(self, well_id: int, report_id: int, extracted: dict) -> dict:
         """
         ذخیره‌سازی یکپارچه داده‌های واردشده از اکسل برای تمامی تب‌های برنامه
         (Surveys, POB, Casing, Cement, Bit, BHA, Bulk, Fuel/Water, Safety, BOP, Cost, Services)
         """
-        results = {}
+        results = {"failed": 0}
         try:
+            def count_result(key, value):
+                if value:
+                    results[key] = results.get(key, 0) + 1
+                else:
+                    results["failed"] += 1
+
             # 1. Trajectory / Surveys -> SurveyPoint
             surveys = extracted.get("surveys", [])
             if surveys:
@@ -2380,18 +2454,22 @@ class DatabaseManager:
                     if isinstance(s, dict):
                         s["well_id"] = well_id
                         s["report_id"] = report_id
-                self.save_survey_points(surveys)
-                results["surveys"] = len(surveys)
+                if self.save_survey_points(surveys):
+                    results["surveys"] = len(surveys)
+                else:
+                    results["failed"] += len(surveys)
 
             # 2. Logistics / POB -> ServiceCompanyPOB
             pobs = extracted.get("pob_records", [])
             if pobs:
+                saved_pobs = 0
                 for p in pobs:
                     if isinstance(p, dict):
                         p["well_id"] = well_id
                         p["report_id"] = report_id
-                        self.save_service_company_pob(p)
-                results["pob_records"] = len(pobs)
+                        saved_pobs += bool(self.save_service_company_pob(p))
+                results["pob_records"] = saved_pobs
+                results["failed"] += len(pobs) - saved_pobs
 
             # 2b. Services -> ServiceCompany
             service_companies = extracted.get("service_companies", [])

@@ -1944,10 +1944,19 @@ class MainWindow(QMainWindow):
                 else self.current_well.id
             )
 
-        self.status_manager.show_success(
-            "MainWindow",
-            f"Import done! ✅ {total} imported, ❌ {failed} failed",
-        )
+        message = f"Import done! ✅ {total} imported, ❌ {failed} failed"
+        if failed:
+            self.status_manager.show_warning("MainWindow", message)
+        else:
+            self.status_manager.show_success("MainWindow", message)
+        try:
+            self.db_manager.log_audit(
+                action="import", entity_type="excel", entity_name="multi-tab import",
+                details=message, user_id=(self.user or {}).get("id"),
+                username=(self.user or {}).get("username", ""),
+            )
+        except Exception:
+            logger.debug("Import audit log failed", exc_info=True)
 
         # Targeted refresh if we have IDs
         if report_id and section_id and well_id:

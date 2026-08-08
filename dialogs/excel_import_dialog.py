@@ -26,6 +26,7 @@ from PySide6.QtCore import Signal, Qt, QTimer
 from PySide6.QtGui import QColor
 
 from core.text_utils import wrap_text
+from core.import_quality import ImportValidator, find_duplicates
 from dialogs.smart_template_dialog import (
     SmartTemplateDialog, ValueNormalizer, FIELD_LABELS,
 )
@@ -528,11 +529,39 @@ class ExcelImportDialog(QDialog):
             "details": [],
             "report_id": None,
             "section_id": None,
+            "import_report": None,
         }
         session = None
 
         try:
             from core.database import Section, DailyReport
+
+            # Validate before touching the database.  A bad optional row is
+            # reported and skipped; a bad base report stops this import.
+            report_data = extracted.get("daily_report", {})
+            quality = ImportValidator.validate_rows(
+                [report_data], "daily_report", "Daily Report"
+            )
+            time_logs = extracted.get("time_logs_24h", []) or []
+            log_quality = ImportValidator.validate_rows(
+                time_logs, "time_log", "Time Logs 24H"
+            )
+            duplicate_indexes = set(find_duplicates(time_logs, "time_log"))
+            for index in sorted(duplicate_indexes, reverse=True):
+                del time_logs[index]
+                log_quality.skipped += 1
+            quality.total += log_quality.total
+            quality.failed += log_quality.failed
+            quality.issues.extend(log_quality.issues)
+            results["import_report"] = quality.as_dict()
+            if quality.errors and not report_data.get("report_date"):
+                results["failed"] += 1
+                results["details"].append("❌ Import stopped: invalid Daily Report")
+                return results
+            if duplicate_indexes:
+                results["details"].append(
+                    f"⚠️ Skipped {len(duplicate_indexes)} duplicate time-log rows"
+                )
 
             # ===== 1. Well Info =====
             wi = extracted.get("well_info", {})
@@ -693,7 +722,9 @@ class ExcelImportDialog(QDialog):
                     self.well_id, report_id, extracted
                 )
                 for k, count in multi_res.items():
-                    if count > 0:
+                    if k == "failed":
+                        results["failed"] += int(count or 0)
+                    elif count > 0:
                         results["details"].append(f"✅ {k}: {count} records imported")
                         
             return results
