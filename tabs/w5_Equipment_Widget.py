@@ -866,6 +866,11 @@ class EquipmentWidget(DrillTabBase):
             return
 
         try:
+            # Always clear before loading; otherwise changing to a well with
+            # no records leaves the previous well's rows on screen.
+            for child in (self.rig_tab, self.inventory_tab, self.pipe_tab, self.solid_tab):
+                if hasattr(child, "table"):
+                    child.table.setRowCount(0)
             # ===== Rig Equipment =====
             rig_logs = self.db.get_equipment_logs(
                 well_id=self.current_well,

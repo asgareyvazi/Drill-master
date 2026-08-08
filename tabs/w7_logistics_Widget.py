@@ -1607,6 +1607,11 @@ class LogisticsWidget(DrillTabBase):
         self.well_label.setStyleSheet("font-weight: bold; color: #27ae60;")
         self.update_tabs_well()
 
+    def on_section_changed(self, section_id, section_data):
+        """Keep every logistics child scoped to the selected section."""
+        self.current_section_id = section_id
+        self.update_tabs_well()
+
     def on_report_changed(self, report_id, report_info):
         """Override DrillTabBase"""
         self.current_report_id = report_id

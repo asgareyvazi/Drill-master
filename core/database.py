@@ -2474,7 +2474,21 @@ class DatabaseManager:
                         self.save_cost_record(c)
                 results["cost_records"] = len(costs)
 
-            # 11. Downhole Equipment -> DownholeEquipment
+            # 11. Equipment module records -> EquipmentLog
+            equipment_logs = extracted.get("equipment_logs", [])
+            if equipment_logs:
+                saved_equipment = 0
+                for log_data in equipment_logs:
+                    if not isinstance(log_data, dict):
+                        continue
+                    item = dict(log_data)
+                    item["well_id"] = well_id
+                    item["report_id"] = report_id
+                    if self.save_equipment_log(item):
+                        saved_equipment += 1
+                results["equipment_logs"] = saved_equipment
+
+            # 12. Downhole Equipment -> DownholeEquipment
             downhole = extracted.get("downhole_equipment")
             if downhole and isinstance(downhole, dict):
                 self.save_downhole_equipment(well_id, downhole)

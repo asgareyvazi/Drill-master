@@ -200,7 +200,8 @@ class ProfileImportEngine:
             "safety_report": {},
             "bop_components": [],
             "waste_records": [],
-            "cost_records": []
+            "cost_records": [],
+            "equipment_logs": []
         }
         for name in sheet_names:
             lower_name = name.lower()
@@ -270,7 +271,28 @@ class ProfileImportEngine:
                             "current_stock": stock + (self._to_float(cache[r].get(5)) or 0.0) - (self._to_float(cache[r].get(6)) or 0.0)
                         })
 
-            # F. Safety / BOP
+            # F. Equipment and solid-control logs
+            elif any(k in lower_name for k in ["equipment", "drill pipe", "solid control", "solids"]):
+                for r in range(2, 200):
+                    if r not in cache:
+                        continue
+                    row = cache[r]
+                    equipment_name = row.get(1) or row.get(2)
+                    if not equipment_name:
+                        continue
+                    equipment_type = "Solid Control" if any(k in lower_name for k in ["solid", "solids"]) else ("Drill Pipe" if "pipe" in lower_name else "Rig Equipment")
+                    res["equipment_logs"].append({
+                        "equipment_type": equipment_type,
+                        "equipment_name": str(equipment_name),
+                        "equipment_id": str(row.get(2) or ""),
+                        "manufacturer": str(row.get(3) or ""),
+                        "serial_number": str(row.get(4) or ""),
+                        "status": str(row.get(5) or "Operational"),
+                        "notes": str(row.get(6) or ""),
+                        "hours_worked": self._to_float(row.get(7)) or 0.0,
+                    })
+
+            # G. Safety / BOP
             elif any(k in lower_name for k in ["safety", "bop", "hse", "waste"]):
                 res["safety_report"] = {
                     "days_without_lti": int(self._to_float(cache.get(2, {}).get(2, 0)) or 0),
