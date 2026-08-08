@@ -339,8 +339,11 @@ class ProfileImportEngine:
     # ------------------- توابع کمکی جادویی -------------------
 
     def _get_real_sheet_name(self, actual_names, partial_name):
+        """Resolve a profile sheet name without leaving legacy code paths."""
         wanted = re.sub(r"[^a-z0-9]", "", str(partial_name).lower())
-        for name in actual_names:
+        if not wanted:
+            return None
+        for name in actual_names or []:
             candidate = re.sub(r"[^a-z0-9]", "", str(name).lower())
             if wanted in candidate or candidate in wanted:
                 return name
