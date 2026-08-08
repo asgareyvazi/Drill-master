@@ -26,13 +26,15 @@ class PermissionManager:
         self._user = user_data
 
     @property
-    def user(self): return self._user
+    def user(self):
+        return self._user
 
-    def _get(self, name=None, default=None):
-        """Read user data safely from either a dict or a User object.
+    def _read_user_value(self, name=None, default=None):
+        """Read a value from dict- or object-based user data.
 
-        ``name`` is optional for compatibility with older callers that used
-        ``_get()`` as a request for the complete current user.
+        Deliberately not called ``_get``: older application versions used
+        ``_get`` as a data attribute, which could shadow the method and cause
+        ``'dict' object is not callable`` during startup.
         """
         if name is None:
             return self._user if self._user is not None else default
@@ -43,18 +45,25 @@ class PermissionManager:
         return getattr(self._user, name, default)
 
     @property
-    def role(self): return str(self._get("role", "viewer")).lower()
+    def role(self):
+        return str(self._read_user_value("role", "viewer")).lower()
+
     @property
-    def username(self): return self._get("username", "unknown")
+    def username(self):
+        return self._read_user_value("username", "unknown")
+
     @property
-    def user_id(self): return self._get("id")
+    def user_id(self):
+        return self._read_user_value("id")
 
     def has_permission(self, permission):
-        if self._user is None: return False
-        explicit = self._get("permissions", {})
+        if self._user is None:
+            return False
+        explicit = self._read_user_value("permissions", {})
         if isinstance(explicit, dict) and permission in explicit:
             return bool(explicit[permission])
-        return permission in ROLE_PERMISSIONS.get(self.role, set()) or "*" in ROLE_PERMISSIONS.get(self.role, set())
+        role_permissions = ROLE_PERMISSIONS.get(self.role, set())
+        return permission in role_permissions or "*" in role_permissions
 
     def can_create_well(self): return self.has_permission("can_create_well")
     def can_delete_well(self): return self.has_permission("can_delete_well")
