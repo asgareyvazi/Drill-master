@@ -85,6 +85,11 @@ class ExcelImportDialog(QDialog):
         )
         smart_btn.clicked.connect(self._smart_import)
         sl.addWidget(smart_btn)
+
+        profile_btn = QPushButton("🏢 OEOC Profile Import (fast)")
+        profile_btn.setToolTip("Use the strict DDR Remark / DDR Data profile, then run the same validation and save pipeline")
+        profile_btn.clicked.connect(self._profile_import)
+        sl.addWidget(profile_btn)
         layout.addWidget(smart_group)
 
         # ===== Batch Import =====
@@ -212,6 +217,30 @@ class ExcelImportDialog(QDialog):
         results = self._do_import(extracted, refresh_ui=False)
         self.import_completed.emit([results])
         self.accept()
+
+    def _profile_import(self):
+        """Run the strict profile engine through the common import pipeline.
+
+        Previously ProfileImportEngine was dead code: the UI only opened
+        SmartTemplateDialog. Keeping its extraction but sharing _do_import
+        guarantees identical validation, duplicate handling and refresh.
+        """
+        filepath, _ = QFileDialog.getOpenFileName(
+            self, "Select OEOC DDR Excel", "", "Excel Files (*.xlsx *.xls)"
+        )
+        if not filepath:
+            return
+        try:
+            from core.profile_import_engine import ProfileImportEngine
+            extracted = ProfileImportEngine(self.db).analyze_and_extract(filepath)
+            results = self._do_import(extracted, refresh_ui=False)
+            self.import_completed.emit([results])
+            self.accept()
+        except ImportError as exc:
+            QMessageBox.warning(self, "Missing Excel dependency", f"Install openpyxl first:\n{exc}")
+        except Exception as exc:
+            logger.error("Profile import failed: %s", exc, exc_info=True)
+            QMessageBox.critical(self, "Profile Import Failed", str(exc))
 
     # ================================================================
     # Template Import
