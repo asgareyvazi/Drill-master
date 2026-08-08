@@ -2620,18 +2620,27 @@ class SmartTemplateDialog(QDialog):
 
             hrs = ValueNormalizer.to_float(hrs_raw) or 0.0
 
-            # Main code - full resolution
+            # Main/sub code.  Some DDR exports leave the dedicated code
+            # cells empty and put 2.3 in the phase or description column.
             raw_code = row_cells.get(col_map.get("code", 0))
-            main_code = CodeResolver.resolve_main_code(raw_code)
-
-            # Sub code - full resolution
             raw_sub = row_cells.get(col_map.get("sub_code", 0))
-            sub_code = CodeResolver.resolve_sub_code(
-                raw_sub, raw_code
-            )
-
-            # Phase
             raw_phase = row_cells.get(col_map.get("phase", 0))
+            raw_desc_for_code = row_cells.get(col_map.get("desc", 0))
+            code_source = " ".join(str(v or "") for v in (raw_code, raw_sub, raw_phase, raw_desc_for_code))
+            composite_match = re.search(r"(?<!\d)(\d{1,2})\s*[./-]\s*(\d{1,2})(?!\d)", code_source)
+            if composite_match:
+                composite = f"{composite_match.group(1)}.{composite_match.group(2)}"
+                if not raw_code or not str(raw_code).strip():
+                    raw_code = composite
+                if not raw_sub or not str(raw_sub).strip():
+                    raw_sub = composite
+
+            if not raw_code or not str(raw_code).strip():
+                # Phase names such as "DRL - Drilling" are a valid main-code
+                # fallback when the workbook has no Main Code column.
+                raw_code = raw_phase
+            main_code = CodeResolver.resolve_main_code(raw_code)
+            sub_code = CodeResolver.resolve_sub_code(raw_sub, raw_code)
             main_phase = str(raw_phase).strip() if raw_phase else ""
 
             # NPT

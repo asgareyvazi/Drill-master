@@ -498,6 +498,18 @@ class ProfileImportEngine:
             
             raw_main = cache[r].get(c_code)
             raw_sub = cache[r].get(c_sub)
+            # Fallback for exports that place the composite code in phase or
+            # activity text instead of a dedicated code column.
+            raw_phase = cache[r].get(c_phase)
+            raw_activity = cache[r].get(c_act)
+            source = " ".join(str(v or "") for v in (raw_main, raw_sub, raw_phase, raw_activity))
+            composite_match = re.search(r"(?<!\d)(\d{1,2})\s*[./-]\s*(\d{1,2})(?!\d)", source)
+            if composite_match:
+                composite = f"{composite_match.group(1)}.{composite_match.group(2)}"
+                raw_main = raw_main or composite
+                raw_sub = raw_sub or composite
+            if not raw_main or not str(raw_main).strip():
+                raw_main = raw_phase
             try:
                 # Keep one canonical resolver for Smart and profile imports.
                 from dialogs.smart_template_dialog import CodeResolver
