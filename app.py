@@ -506,7 +506,7 @@ class DrillMasterApp(QApplication):
                 self.main_window.apply_viewer_mode()
                 
         except Exception as e:
-            logger.error(f"Error creating main window: {e}")
+            logger.error(f"Error creating main window: {e}", exc_info=True)
             QMessageBox.critical(
                 None, "Error",
                 f"Failed to create main window:\n{str(e)}"
