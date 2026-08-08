@@ -238,6 +238,11 @@ class ExcelImportDialog(QDialog):
             self.accept()
         except ImportError as exc:
             QMessageBox.warning(self, "Missing Excel dependency", f"Install openpyxl first:\n{exc}")
+        except ValueError as exc:
+            # A custom workbook is not a profile failure; guide the user to
+            # Smart Import instead of emitting an alarming traceback.
+            logger.info("Profile not applicable: %s", exc)
+            QMessageBox.information(self, "Use Smart Import", str(exc))
         except Exception as exc:
             logger.error("Profile import failed: %s", exc, exc_info=True)
             QMessageBox.critical(self, "Profile Import Failed", str(exc))

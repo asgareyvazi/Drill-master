@@ -100,18 +100,27 @@ class ProfileImportEngine:
         wb = load_workbook(filepath, data_only=True)
         sheet_names = [s.title for s in wb.worksheets]
         
-        # 1. پیدا کردن پروفایل
+        # 1. پیدا کردن پروفایل.  Real-world workbooks often rename sheets
+        # (for example DDR_Remark, DDR-Data, or add a company prefix), so an
+        # exact two-sheet match was too strict and made this engine appear
+        # unusable.
         matched_profile = None
+        best_score = 0
         for profile in self.profiles:
-            match_count = sum(1 for identifier in profile["sheet_identifiers"] if any(identifier.lower() in s.lower() for s in sheet_names))
-            if match_count == len(profile["sheet_identifiers"]):
-                matched_profile = profile
-                break
-                
-        if not matched_profile:
-            raise Exception("No matching profile found for this Excel format. (Only OEOC is supported currently)")
-            
-        logger.info(f"Matched Profile: {matched_profile['name']}")
+            score = sum(
+                1 for identifier in profile["sheet_identifiers"]
+                if any(identifier.lower().replace(" ", "") in s.lower().replace(" ", "") for s in sheet_names)
+            )
+            if score > best_score:
+                best_score, matched_profile = score, profile
+
+        if not matched_profile or best_score == 0:
+            raise ValueError(
+                "No supported DDR profile detected. Expected a sheet containing "
+                "DDR Remark/DDR Data, or use Smart Import for a custom workbook."
+            )
+
+        logger.info(f"Matched Profile: {matched_profile['name']} (score {best_score}/{len(matched_profile['sheet_identifiers'])})")
         
         SKIP_SHEETS = [
             "setting", "config", "template", "pivot",
@@ -169,16 +178,22 @@ class ProfileImportEngine:
                 extracted_data[section][key] = val
 
         # 5. استخراج متن‌های طولانی (Summary)
+        remark_sheet = self._get_real_sheet_name(sheet_names, "DDR Remark")
+        data_sheet = self._get_real_sheet_name(sheet_names, "DDR Data")
+        if not remark_sheet:
+            # Some vendors put the time table in a renamed operations sheet.
+            remark_sheet = next((s for s in sheet_names if "remark" in s.lower() or "operation" in s.lower()), None)
         extracted_data["daily_report"]["summary"] = self._extract_text_block(
-            "DDR Remark", "Summary of Activities in Last 24", "Operation Forecast"
-        )
+            remark_sheet, "Summary of Activities in Last 24", "Operation Forecast"
+        ) if remark_sheet else ""
         extracted_data["daily_report"]["forecast"] = self._extract_text_block(
-            "DDR Remark", "Operation Forecast for next", "From"
-        )
+            remark_sheet, "Operation Forecast for next", "From"
+        ) if remark_sheet else ""
 
         # 6. استخراج جداول (Time Log و Service Company)
-        extracted_data["time_logs_24h"] = self._extract_time_logs("DDR Remark")
-        extracted_data["service_companies"] = self._extract_service_companies("Service Company")
+        extracted_data["time_logs_24h"] = self._extract_time_logs(remark_sheet) if remark_sheet else []
+        service_sheet = self._get_real_sheet_name(sheet_names, "Service Company")
+        extracted_data["service_companies"] = self._extract_service_companies(service_sheet) if service_sheet else []
 
         # 7. استخراج خودکار داده‌ها برای سایر تب‌ها (Trajectory, Logistics POB/Bulk, Casing/Cement, Bit/BHA, HSE, Cost)
         multi_data = self._extract_multi_tab_sheets(sheet_names)
@@ -324,8 +339,10 @@ class ProfileImportEngine:
     # ------------------- توابع کمکی جادویی -------------------
 
     def _get_real_sheet_name(self, actual_names, partial_name):
+        wanted = re.sub(r"[^a-z0-9]", "", str(partial_name).lower())
         for name in actual_names:
-            if partial_name.lower() in name.lower():
+            candidate = re.sub(r"[^a-z0-9]", "", str(name).lower())
+            if wanted in candidate or candidate in wanted:
                 return name
         return None
 
@@ -444,8 +461,8 @@ class ProfileImportEngine:
             elif v_lower == "to": c_to = c
             elif "hrs" in v_lower: c_hrs = c
             elif "main phase" in v_lower: c_phase = c
-            elif v_lower == "code": c_code = c
-            elif "sub code" in v_lower: c_sub = c
+            elif v_lower in ("code", "main code", "activity code", "phase code") or "main code" in v_lower or "activity code" in v_lower: c_code = c
+            elif ("sub" in v_lower or "secondary" in v_lower) and "code" in v_lower: c_sub = c
             elif v_lower == "status": c_status = c
             elif "npt" in v_lower: c_npt = c
             elif "rig activity" in v_lower: c_act = c
