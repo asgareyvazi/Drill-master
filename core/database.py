@@ -2393,6 +2393,20 @@ class DatabaseManager:
                         self.save_service_company_pob(p)
                 results["pob_records"] = len(pobs)
 
+            # 2b. Services -> ServiceCompany
+            service_companies = extracted.get("service_companies", [])
+            if service_companies:
+                saved_services = 0
+                for company_data in service_companies:
+                    if not isinstance(company_data, dict):
+                        continue
+                    item = dict(company_data)
+                    item["well_id"] = well_id
+                    item["report_id"] = report_id
+                    if self.save_service_company(item):
+                        saved_services += 1
+                results["service_companies"] = saved_services
+
             # 3. Casing Report -> CasingReport
             casing = extracted.get("casing_report")
             if casing and isinstance(casing, dict):
