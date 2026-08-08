@@ -1882,6 +1882,10 @@ class SmartTemplateDialog(QDialog):
         )
         self.summary_label.setFixedHeight(22)
         left_layout.addWidget(self.summary_label)
+        self.code_detection_label = QLabel("🏷️ Activity codes: not scanned")
+        self.code_detection_label.setStyleSheet("font-size: 10px; color: #666; padding: 3px;")
+        self.code_detection_label.setWordWrap(True)
+        left_layout.addWidget(self.code_detection_label)
 
         fl = QHBoxLayout()
         fl.addWidget(QLabel("Filter:"))
@@ -2481,8 +2485,8 @@ class SmartTemplateDialog(QDialog):
         ):
             if r in checked_rows:
                 continue
-            txt = str(val).lower().strip()
-            if txt not in ("from", "from:"):
+            txt = re.sub(r"[^a-z0-9]", "", str(val).lower())
+            if txt not in ("from", "timefrom", "starttime", "timein"):
                 continue
 
             row_texts = {}
@@ -2490,12 +2494,11 @@ class SmartTemplateDialog(QDialog):
                 if r2 == r:
                     row_texts[c2] = str(v2).lower().strip()
 
-            has_to = any(
-                t in ("to", "to:") for t in row_texts.values()
-            )
+            normalized_headers = [re.sub(r"[^a-z0-9]", "", t) for t in row_texts.values()]
+            has_to = any(t in ("to", "timeto", "endtime", "timeout") for t in normalized_headers)
             has_hrs = any(
-                any(w in t for w in ["hrs", "duration", "hour"])
-                for t in row_texts.values()
+                any(w in t for w in ["hrs", "hour", "duration"])
+                for t in normalized_headers
             )
 
             if has_to and has_hrs:
@@ -2530,12 +2533,13 @@ class SmartTemplateDialog(QDialog):
     ) -> Dict[str, int]:
         col_map = {}
         for c2, txt2 in sorted(row_texts.items()):
-            if txt2 in ("from", "from:"):
+            normalized = re.sub(r"[^a-z0-9]", "", txt2)
+            if normalized in ("from", "timefrom", "starttime", "timein"):
                 col_map["from"] = c2
-            elif txt2 in ("to", "to:"):
+            elif normalized in ("to", "timeto", "endtime", "timeout"):
                 col_map["to"] = c2
             elif any(
-                w in txt2 for w in ["hrs", "duration", "hour"]
+                w in normalized for w in ["hrs", "duration", "hour"]
             ):
                 col_map["hrs"] = c2
             elif any(
@@ -2543,9 +2547,9 @@ class SmartTemplateDialog(QDialog):
             ):
                 col_map["phase"] = c2
             elif (
-                txt2 in ("code", "main code", "activity code", "phase code")
-                or "main code" in txt2
-                or "activity code" in txt2
+                normalized in ("code", "maincode", "activitycode", "phasecode", "mainactivitycode", "mainactivity")
+                or "maincode" in normalized
+                or "activitycode" in normalized
             ):
                 col_map["code"] = c2
             elif (
@@ -2788,6 +2792,20 @@ class SmartTemplateDialog(QDialog):
             f"🟢 {high} high | "
             f"🔴 {missing} missing | "
             f"📋 Logs: {tl_24}+{tl_m}"
+        )
+        logs = self.base_extracted.get("time_logs_24h", []) + self.base_extracted.get("time_logs_morning", [])
+        with_main = sum(bool(log.get("main_code")) for log in logs)
+        with_sub = sum(bool(log.get("sub_code")) for log in logs)
+        examples = []
+        for log in logs:
+            if log.get("main_code") or log.get("sub_code"):
+                examples.append(f"{log.get('main_code', '')} / {log.get('sub_code', '')}")
+            if len(examples) == 3:
+                break
+        detail = "; ".join(examples)
+        self.code_detection_label.setText(
+            f"🏷️ Activity codes: Main {with_main}/{len(logs)}, "
+            f"Sub {with_sub}/{len(logs)}" + (f" — {detail}" if detail else " — no code columns detected")
         )
         self.import_btn.setEnabled(detected > 0)
 
