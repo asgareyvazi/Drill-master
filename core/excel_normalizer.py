@@ -8,7 +8,7 @@ class ExcelNormalizationError(Exception):
     pass
 
 
-def normalize_xlsx(source, destination=None, *, unhide=True, remove_empty=True):
+def normalize_xlsx(source, destination=None, *, unhide=True, remove_empty=True, fill_merged=False):
     source = Path(source)
     destination = Path(destination or source.with_name(source.stem + "_clean.xlsx"))
     try:
@@ -25,7 +25,10 @@ def normalize_xlsx(source, destination=None, *, unhide=True, remove_empty=True):
                 sheet.unmerge_cells(str(cell_range))
                 for row in sheet.iter_rows(min_row=min_row, max_row=max_row, min_col=min_col, max_col=max_col):
                     for cell in row:
-                        if cell.value != value:
+                        # A merged label is one logical value. Replicating it
+                        # into every cell creates duplicate headers and breaks
+                        # semantic detection. Keep only the master by default.
+                        if fill_merged and cell.value != value:
                             cell.value = value
                             report["filled_cells"] += 1
                         if style:

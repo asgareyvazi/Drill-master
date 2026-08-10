@@ -86,15 +86,6 @@ class ExcelImportDialog(QDialog):
         smart_btn.clicked.connect(self._smart_import)
         sl.addWidget(smart_btn)
 
-        profile_btn = QPushButton("🏢 OEOC Profile Import (fast)")
-        profile_btn.setToolTip("Use the strict DDR Remark / DDR Data profile, then run the same validation and save pipeline")
-        profile_btn.clicked.connect(self._profile_import)
-        sl.addWidget(profile_btn)
-
-        normalize_btn = QPushButton("🧹 Normalize Excel & Import")
-        normalize_btn.setToolTip("Expand merged cells, unhide rows/columns and send a clean XLSX to Smart Import")
-        normalize_btn.clicked.connect(self._normalize_import)
-        sl.addWidget(normalize_btn)
         layout.addWidget(smart_group)
 
         # ===== Batch Import =====
@@ -608,6 +599,14 @@ class ExcelImportDialog(QDialog):
             log_quality = ImportValidator.validate_rows(
                 time_logs, "time_log", "Time Logs 24H"
             )
+            # Rows without a time range are separators/continuation rows, not
+            # real activities. Report them, but never send them to the DB.
+            valid_time_logs = [
+                row for row in time_logs
+                if isinstance(row, dict) and row.get("time_from") not in (None, "") and row.get("time_to") not in (None, "")
+            ]
+            invalid_time_rows = len(time_logs) - len(valid_time_logs)
+            extracted["time_logs_24h"] = valid_time_logs
             duplicate_indexes = set(find_duplicates(time_logs, "time_log"))
             for index in sorted(duplicate_indexes, reverse=True):
                 del time_logs[index]

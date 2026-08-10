@@ -2271,6 +2271,11 @@ class SmartTemplateDialog(QDialog):
             # Phase 3: Time logs
             self._detect_time_logs()
 
+            # Phase 4: optional strict profile fallback. This is internal;
+            # users only see one Auto-Detect button. Profile values fill only
+            # gaps and never overwrite a high-confidence smart detection.
+            self._merge_profile_fallback()
+
             # Build final data
             self.final_data = self._build_final_data_from_assignments()
             self._reset_review_table()
@@ -2287,6 +2292,31 @@ class SmartTemplateDialog(QDialog):
                 f"Smart detect error: {e}", exc_info=True
             )
             self.detect_status.setText("❌ Detection failed")
+
+    def _merge_profile_fallback(self):
+        """Use a matching company profile as a silent fallback for Auto-Detect."""
+        if not self.filepath:
+            return
+        try:
+            from core.profile_import_engine import ProfileImportEngine
+            extracted = ProfileImportEngine(self.db).analyze_and_extract(self.filepath)
+        except Exception as exc:
+            logger.debug("Profile fallback not applicable: %s", exc)
+            return
+        for section in ("well_info", "daily_report", "mud_report", "drilling_params"):
+            for key, value in (extracted.get(section) or {}).items():
+                if value in (None, "", []):
+                    continue
+                field_path = f"{section}.{key}"
+                current = self.base_extracted.get(section, {}).get(key)
+                if current not in (None, "", []):
+                    continue
+                self.base_extracted.setdefault(section, {})[key] = value
+                self.assignments[field_path] = {"sheet": "Profile fallback", "row": 0, "col": 0, "value": str(value)[:100], "confidence": 0.92, "auto": True}
+        if not self.base_extracted.get("time_logs_24h") and extracted.get("time_logs_24h"):
+            self.base_extracted["time_logs_24h"] = extracted["time_logs_24h"]
+        if not self.base_extracted.get("time_logs_morning") and extracted.get("time_logs_morning"):
+            self.base_extracted["time_logs_morning"] = extracted["time_logs_morning"]
 
     def _register_detection(
         self,
@@ -3063,6 +3093,9 @@ class SmartTemplateDialog(QDialog):
                 self.base_extracted.get("metadata", {})
             ),
         }
+
+        if not result["daily_report"].get("report_date") and result["well_info"].get("report_date"):
+            result["daily_report"]["report_date"] = result["well_info"]["report_date"]
 
         for fp, assign in self.assignments.items():
             if "." not in fp:

@@ -26,6 +26,7 @@ class ImportReport:
     skipped: int = 0
     failed: int = 0
     issues: list[ImportIssue] = field(default_factory=list)
+    _failed_rows: set = field(default_factory=set, repr=False)
 
     @property
     def errors(self):
@@ -41,7 +42,10 @@ class ImportReport:
 
     def error(self, sheet, row, message, field="", value=None):
         self.issues.append(ImportIssue(sheet, row, "error", message, field, value))
-        self.failed += 1
+        key = (sheet, row)
+        if key not in self._failed_rows:
+            self._failed_rows.add(key)
+            self.failed += 1
 
     def warning(self, sheet, row, message, field="", value=None):
         self.issues.append(ImportIssue(sheet, row, "warning", message, field, value))
