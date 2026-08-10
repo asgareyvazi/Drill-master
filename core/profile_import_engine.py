@@ -519,6 +519,13 @@ class ProfileImportEngine:
                 normalized_main = str(raw_main or "").strip()
                 normalized_sub = str(raw_sub or "").strip()
 
+            contractor = ""
+            if is_npt:
+                try:
+                    contractor = CodeResolver.guess_contractor(npt_val or str(raw_main or ""))
+                except Exception:
+                    contractor = ""
+
             logs.append({
                 "time_from": tf,
                 "time_to": tt,
@@ -530,7 +537,7 @@ class ProfileImportEngine:
                 "is_npt": is_npt,
                 "npt_category": npt_val if is_npt else "",
                 "activity_description": str(cache[r].get(c_act, "")),
-                "contractor": ""
+                "contractor": contractor
             })
             
         return logs

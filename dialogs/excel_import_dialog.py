@@ -90,6 +90,11 @@ class ExcelImportDialog(QDialog):
         profile_btn.setToolTip("Use the strict DDR Remark / DDR Data profile, then run the same validation and save pipeline")
         profile_btn.clicked.connect(self._profile_import)
         sl.addWidget(profile_btn)
+
+        normalize_btn = QPushButton("🧹 Normalize Excel & Import")
+        normalize_btn.setToolTip("Expand merged cells, unhide rows/columns and send a clean XLSX to Smart Import")
+        normalize_btn.clicked.connect(self._normalize_import)
+        sl.addWidget(normalize_btn)
         layout.addWidget(smart_group)
 
         # ===== Batch Import =====
@@ -246,6 +251,29 @@ class ExcelImportDialog(QDialog):
         except Exception as exc:
             logger.error("Profile import failed: %s", exc, exc_info=True)
             QMessageBox.critical(self, "Profile Import Failed", str(exc))
+
+    def _normalize_import(self):
+        """Normalize workbook structure before opening the normal Smart review."""
+        filepath, _ = QFileDialog.getOpenFileName(
+            self, "Select Excel to Normalize", "", "Excel Files (*.xlsx *.xlsm)"
+        )
+        if not filepath:
+            return
+        try:
+            from pathlib import Path
+            from core.excel_normalizer import normalize_xlsx
+            source = Path(filepath)
+            clean_path = source.with_name(source.stem + "_clean.xlsx")
+            report = normalize_xlsx(source, clean_path)
+            dialog = SmartTemplateDialog(self.db, self.well_id, self, preload_file=str(clean_path))
+            dialog.import_completed.connect(self._on_smart_completed)
+            self.status_message = f"Normalized {report['merged_ranges']} merged ranges and filled {report['filled_cells']} cells"
+            dialog.exec()
+        except ImportError as exc:
+            QMessageBox.warning(self, "Missing Excel dependency", f"Install openpyxl first:\n{exc}")
+        except Exception as exc:
+            logger.error("Excel normalization failed: %s", exc, exc_info=True)
+            QMessageBox.critical(self, "Normalize Excel Failed", str(exc))
 
     # ================================================================
     # Template Import

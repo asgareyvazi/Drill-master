@@ -3795,12 +3795,23 @@ class DatabaseManager:
             else:
                 existing = None
 
-            fuel_consumed = inventory_data.get("fuel_consumed", 0.0)
-            fuel_stock = inventory_data.get("fuel_stock", 0.0)
-            water_consumed = inventory_data.get("water_consumed", 0.0)
-            water_stock = inventory_data.get("water_stock", 0.0)
-            fuel_remaining = fuel_stock - fuel_consumed
-            water_remaining = water_stock - water_consumed
+            fuel_consumed = float(inventory_data.get("fuel_consumed", 0.0) or 0.0)
+            fuel_stock = float(inventory_data.get("fuel_stock", 0.0) or 0.0)
+            water_consumed = float(inventory_data.get("water_consumed", 0.0) or 0.0)
+            water_stock = float(inventory_data.get("water_stock", 0.0) or 0.0)
+            # Carry the previous day's closing balance forward. A new day
+            # with no movement must not reset stock to zero.
+            if not existing and inventory_data.get("carry_forward", True) and inventory_data.get("well_id") and inventory_data.get("report_date"):
+                previous = session.query(FuelWaterInventory).filter(
+                    FuelWaterInventory.well_id == inventory_data["well_id"],
+                    FuelWaterInventory.report_date < inventory_data["report_date"],
+                ).order_by(FuelWaterInventory.report_date.desc()).first()
+                if previous:
+                    fuel_stock = previous.fuel_remaining
+                    water_stock = previous.water_remaining
+            fuel_remaining = fuel_stock + float(inventory_data.get("fuel_received", 0.0) or 0.0) - fuel_consumed
+            water_remaining = water_stock + float(inventory_data.get("water_received", 0.0) or 0.0) - water_consumed
+
             days_remaining_fuel = fuel_remaining / fuel_consumed if fuel_consumed > 0 else 0
             days_remaining_water = water_remaining / water_consumed if water_consumed > 0 else 0
 
@@ -3857,6 +3868,28 @@ class DatabaseManager:
                 if report_date:
                     query = query.filter(FuelWaterInventory.report_date == report_date)
             inventories = query.order_by(FuelWaterInventory.report_date.desc()).all()
+            if not inventories and report_id and well_id and report_date:
+                inventories = session.query(FuelWaterInventory).filter(
+                    FuelWaterInventory.well_id == well_id,
+                    FuelWaterInventory.report_date < report_date,
+                ).order_by(FuelWaterInventory.report_date.desc()).all()[:1]
+                # Mark the previous record as a carried-forward preview.
+                carry = []
+                for previous in inventories:
+                    carry.append({
+                        "id": None, "well_id": well_id, "section_id": previous.section_id,
+                        "report_id": report_id, "report_date": report_date,
+                        "fuel_type": previous.fuel_type, "fuel_consumed": 0.0,
+                        "fuel_stock": previous.fuel_remaining, "fuel_received": 0.0,
+                        "fuel_remaining": previous.fuel_remaining, "water_consumed": 0.0,
+                        "water_stock": previous.water_remaining, "water_received": 0.0,
+                        "water_remaining": previous.water_remaining,
+                        "days_remaining_fuel": previous.days_remaining_fuel,
+                        "days_remaining_water": previous.days_remaining_water,
+                        "created_at": None, "updated_at": None,
+                    })
+                if carry:
+                    return carry
             return [
                 {
                     "id": i.id,
@@ -3912,9 +3945,17 @@ class DatabaseManager:
                 existing.updated_at = _now_utc()
                 record_id = existing.id
             else:
-                initial_stock = material_data.get("initial_stock", 0.0)
-                received = material_data.get("received", 0.0)
-                used = material_data.get("used", 0.0)
+                initial_stock = float(material_data.get("initial_stock", 0.0) or 0.0)
+                received = float(material_data.get("received", 0.0) or 0.0)
+                used = float(material_data.get("used", 0.0) or 0.0)
+                if material_data.get("carry_forward", True) and material_data.get("well_id") and material_data.get("report_date"):
+                    previous = session.query(BulkMaterials).filter(
+                        BulkMaterials.well_id == material_data["well_id"],
+                        BulkMaterials.material_name == material_data["material_name"],
+                        BulkMaterials.report_date < material_data["report_date"],
+                    ).order_by(BulkMaterials.report_date.desc()).first()
+                    if previous:
+                        initial_stock = previous.current_stock
                 current_stock = initial_stock + received - used
                 material = BulkMaterials(
                     well_id=material_data["well_id"],
@@ -3952,6 +3993,20 @@ class DatabaseManager:
                 if report_date:
                     query = query.filter(BulkMaterials.report_date == report_date)
             materials = query.order_by(BulkMaterials.material_name).all()
+            if not materials and report_id and well_id and report_date:
+                materials = session.query(BulkMaterials).filter(
+                    BulkMaterials.well_id == well_id,
+                    BulkMaterials.report_date < report_date,
+                ).order_by(BulkMaterials.report_date.desc()).all()
+                if materials:
+                    return [{
+                        "id": None, "well_id": well_id, "section_id": m.section_id,
+                        "report_id": report_id, "report_date": report_date,
+                        "material_name": m.material_name, "unit": m.unit,
+                        "initial_stock": m.current_stock, "received": 0.0,
+                        "used": 0.0, "current_stock": m.current_stock,
+                        "created_at": None, "updated_at": None,
+                    } for m in materials]
             return [
                 {
                     "id": m.id,
