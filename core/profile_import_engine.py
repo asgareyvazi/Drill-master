@@ -7,11 +7,15 @@ Profile-Based Excel Import Engine
 import re
 import json
 import logging
+import tempfile
+from pathlib import Path
 from datetime import datetime, date, time
 from typing import Dict, List, Any, Optional
 from openpyxl import load_workbook
 
 logger = logging.getLogger(__name__)
+MAX_PROFILE_ROWS = 10000
+MAX_PROFILE_COLS = 200
 
 # =====================================================================
 # 1. پروفایل اختصاصی شرکت OEOC (قابل توسعه برای شرکت‌های دیگر)
@@ -97,7 +101,15 @@ class ProfileImportEngine:
         
     def analyze_and_extract(self, filepath: str) -> Dict[str, Any]:
         """فایل را می‌گیرد، پروفایل مناسب را پیدا می‌کند و داده‌ها را با دقت ۱۰۰٪ استخراج می‌کند."""
-        wb = load_workbook(filepath, data_only=True)
+        load_path = filepath
+        try:
+            from core.excel_normalizer import normalize_xlsx
+            clean_path = Path(tempfile.gettempdir()) / (Path(filepath).stem + "_profile_clean.xlsx")
+            normalize_xlsx(filepath, clean_path)
+            load_path = str(clean_path)
+        except Exception as exc:
+            logger.warning("Profile normalization skipped: %s", exc)
+        wb = load_workbook(load_path, data_only=True)
         sheet_names = [s.title for s in wb.worksheets]
         
         # 1. پیدا کردن پروفایل.  Real-world workbooks often rename sheets

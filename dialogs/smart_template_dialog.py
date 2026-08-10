@@ -17,6 +17,8 @@ import re
 import json
 import math
 import logging
+import tempfile
+from pathlib import Path
 from datetime import datetime, date as dt_date, time as dt_time
 from typing import Dict, List, Any, Optional, Tuple, Set
 from difflib import SequenceMatcher
@@ -2047,7 +2049,19 @@ class SmartTemplateDialog(QDialog):
 
     def _load_workbook(self, filepath: str):
         try:
-            self.wb = load_workbook(filepath, data_only=True)
+            # Normalize automatically for every Smart Import. If the file is
+            # read-only, malformed, or normalization dependencies are absent,
+            # safely fall back to the original workbook.
+            load_path = filepath
+            if not str(filepath).lower().endswith("_clean.xlsx"):
+                try:
+                    from core.excel_normalizer import normalize_xlsx
+                    clean_path = Path(tempfile.gettempdir()) / (Path(filepath).stem + "_clean.xlsx")
+                    normalize_xlsx(filepath, clean_path)
+                    load_path = str(clean_path)
+                except Exception as normalize_error:
+                    logger.warning("Excel normalization skipped: %s", normalize_error)
+            self.wb = load_workbook(load_path, data_only=True)
             self.cell_cache.clear()
             self.assignments.clear()
             self.confidence_scores.clear()

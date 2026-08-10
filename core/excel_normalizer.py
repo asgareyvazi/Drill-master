@@ -1,5 +1,4 @@
-"""Lossless-ish XLSX normalizer for import: expand merged cells and remove
-presentation-only Excel state while preserving sheet names and values."""
+"""Normalize XLSX presentation quirks before semantic import."""
 from pathlib import Path
 from copy import copy
 from openpyxl import load_workbook
@@ -11,9 +10,7 @@ class ExcelNormalizationError(Exception):
 
 def normalize_xlsx(source, destination=None, *, unhide=True, remove_empty=True):
     source = Path(source)
-    if destination is None:
-        destination = source.with_name(source.stem + "_clean.xlsx")
-    destination = Path(destination)
+    destination = Path(destination or source.with_name(source.stem + "_clean.xlsx"))
     try:
         workbook = load_workbook(source, data_only=True)
         report = {"source": str(source), "destination": str(destination), "sheets": [], "merged_ranges": 0, "filled_cells": 0}
@@ -23,6 +20,9 @@ def normalize_xlsx(source, destination=None, *, unhide=True, remove_empty=True):
                 min_col, min_row, max_col, max_row = cell_range.bounds
                 master = sheet.cell(min_row, min_col)
                 value, style = master.value, copy(master._style)
+                # MergedCell proxies are read-only. Unmerge first, then write
+                # into ordinary Cell objects.
+                sheet.unmerge_cells(str(cell_range))
                 for row in sheet.iter_rows(min_row=min_row, max_row=max_row, min_col=min_col, max_col=max_col):
                     for cell in row:
                         if cell.value != value:
@@ -30,7 +30,6 @@ def normalize_xlsx(source, destination=None, *, unhide=True, remove_empty=True):
                             report["filled_cells"] += 1
                         if style:
                             cell._style = copy(style)
-                sheet.unmerge_cells(str(cell_range))
                 report["merged_ranges"] += 1
             if unhide:
                 for dim in sheet.row_dimensions.values():
@@ -38,8 +37,6 @@ def normalize_xlsx(source, destination=None, *, unhide=True, remove_empty=True):
                 for dim in sheet.column_dimensions.values():
                     dim.hidden = False
             if remove_empty:
-                # Do not delete arbitrary rows: only trim completely empty
-                # trailing rows/columns, preserving row numbers used by profiles.
                 while sheet.max_row and all(sheet.cell(sheet.max_row, c).value is None for c in range(1, sheet.max_column + 1)):
                     sheet.delete_rows(sheet.max_row, 1)
                 while sheet.max_column and all(sheet.cell(r, sheet.max_column).value is None for r in range(1, sheet.max_row + 1)):

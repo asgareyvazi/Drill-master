@@ -2375,6 +2375,23 @@ class DatabaseManager:
         finally:
             session.close()
             
+    def delete_daily_report(self, report_id: int) -> bool:
+        """Delete a report and every report-scoped child atomically."""
+        with self.session_scope() as session:
+            report = session.get(DailyReport, report_id)
+            if report is None:
+                return False
+            # Do not rely solely on SQLite FK pragma: several legacy tables
+            # predate cascade definitions. Delete all mapped report children.
+            for mapper in list(Base.registry.mappers):
+                model = mapper.class_
+                if model is DailyReport or not hasattr(model, "report_id"):
+                    continue
+                column = getattr(model, "report_id")
+                session.query(model).filter(column == report_id).delete(synchronize_session=False)
+            session.delete(report)
+            return True
+
     def get_daily_report_by_id(self, report_id: int):
         session = self.create_session()
         try:

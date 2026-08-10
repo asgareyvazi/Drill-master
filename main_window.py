@@ -1858,18 +1858,11 @@ class MainWindow(QMainWindow):
         )
         if reply == QMessageBox.Yes:
             try:
-                session = self.db_manager.create_session()
-                report = session.query(DailyReport).filter(
-                    DailyReport.id == report_id
-                ).first()
-                if report:
-                    session.delete(report)
-                    session.commit()
-                    self.status_manager.show_success(
-                        "MainWindow", "Report deleted"
-                    )
+                if self.db_manager.delete_daily_report(report_id):
+                    self.status_manager.show_success("MainWindow", "Report and related data deleted")
+                    if getattr(self.sel_manager, "current_report_id", None) == report_id:
+                        self.sel_manager.clear()
                     self.populate_hierarchy()
-                session.close()
             except Exception as e:
                 logger.error(f"Delete report error: {e}")
                 self.status_manager.show_error("MainWindow", str(e))
