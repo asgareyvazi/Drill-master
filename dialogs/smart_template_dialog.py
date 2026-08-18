@@ -33,6 +33,19 @@ from core.import_quality import decision_for_confidence
 
 logger = logging.getLogger(__name__)
 
+
+def pattern_unit(field_path):
+    """Canonical display unit for import provenance."""
+    if field_path.endswith("depth") or "depth_" in field_path or field_path.endswith("md"):
+        return "m"
+    if field_path.endswith("mw"):
+        return "ppg"
+    if "pressure" in field_path:
+        return "psi"
+    if "temperature" in field_path:
+        return "C"
+    return ""
+
 MAX_PREVIEW_ROWS = 200
 MAX_PREVIEW_COLS = 80
 MAX_SCAN_ROWS = 500
@@ -2336,6 +2349,10 @@ class SmartTemplateDialog(QDialog):
             "row": v_row,
             "col": v_col,
             "value": str(value)[:100] if value is not None else "",
+            "original_value": value,
+            "normalized_value": value,
+            "canonical_field": field_path,
+            "unit": pattern_unit(field_path),
             "confidence": conf,
             "decision": decision_for_confidence(conf, field_path in {"daily_report.report_date", "well_info.name"}),
             "auto": True,
