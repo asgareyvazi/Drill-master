@@ -2392,6 +2392,29 @@ class DatabaseManager:
             session.delete(report)
             return True
 
+    def get_actual_vs_plan(self, well_id: int):
+        """Return plan-vs-actual metrics for monitoring dashboards."""
+        session = self.create_session()
+        try:
+            plan = session.query(WellPlan).filter(WellPlan.well_id == well_id).order_by(WellPlan.created_at.desc()).first()
+            activities = []
+            if plan:
+                activities = session.query(PlannedActivity).filter(PlannedActivity.plan_id == plan.id).all()
+            reports = session.query(DailyReport).filter(DailyReport.well_id == well_id).order_by(DailyReport.report_date).all()
+            planned_hours = sum(float(a.planned_duration_hours or 0) for a in activities)
+            planned_depth = max((float(a.planned_depth_to or 0) for a in activities), default=0.0)
+            actual_depth = max((float(r.depth_2400 or 0) for r in reports), default=0.0)
+            actual_hours = len(reports) * 24.0
+            def variance(planned, actual):
+                return {"planned": planned, "actual": actual, "delta": actual - planned, "pct": ((actual - planned) / planned * 100) if planned else 0.0}
+            return {"depth": variance(planned_depth, actual_depth), "hours": variance(planned_hours, actual_hours), "plan_id": plan.id if plan else None, "reports": len(reports)}
+        except Exception as exc:
+            logger.error("Actual vs plan failed: %s", exc, exc_info=True)
+            empty = {"planned": 0.0, "actual": 0.0, "delta": 0.0, "pct": 0.0}
+            return {"depth": empty.copy(), "hours": empty.copy(), "plan_id": None, "reports": 0}
+        finally:
+            session.close()
+
     def get_daily_report_by_id(self, report_id: int):
         session = self.create_session()
         try:

@@ -97,6 +97,8 @@ class AnalysisWidget(DrillTabBase):
         self.current_report_id = None
         self.quality_service = DataQualityService(self.db)
         self.quality_label = QLabel("Data Quality: —")
+        self.plan_variance_label = QLabel("Plan vs Actual: —")
+        self.plan_variance_label.setStyleSheet("font-weight: bold; padding: 5px; color: #7f8c8d;")
         self.quality_label.setToolTip("Completeness and time-log coverage for the selected report")
         self.quality_label.setStyleSheet("font-weight: bold; padding: 5px; color: #7f8c8d;")
 
@@ -171,6 +173,7 @@ class AnalysisWidget(DrillTabBase):
             )
             layout.addWidget(notice)
             layout.addWidget(self.quality_label)
+            layout.addWidget(self.plan_variance_label)
             return
 
         # ---- HEADER SECTION ----
@@ -197,6 +200,7 @@ class AnalysisWidget(DrillTabBase):
         """)
         header_layout.addWidget(self.status_label, 0, 0, 1, 2)
         header_layout.addWidget(self.quality_label, 1, 0, 1, 2)
+        header_layout.addWidget(self.plan_variance_label, 2, 0, 1, 2)
 
         self.well_label = QLabel("🌍 Well: Not Selected")
         self.well_label.setStyleSheet("font-size: 14px; color: #bdc3c7;")
@@ -2106,7 +2110,27 @@ class AnalysisWidget(DrillTabBase):
     def on_report_changed(self, report_id, report_data):
         self.current_report_id = report_id
         self.update_data_quality()
+        self.update_plan_variance()
         self.update_all_data()
+
+    def update_plan_variance(self):
+        if not self.current_well_id:
+            self.plan_variance_label.setText("Plan vs Actual: —")
+            return
+        try:
+            metrics = self.db.get_actual_vs_plan(self.current_well_id)
+            depth = metrics["depth"]
+            hours = metrics["hours"]
+            self.plan_variance_label.setText(
+                f"Plan vs Actual | Depth {depth['actual']:.1f}/{depth['planned']:.1f} m "
+                f"({depth['pct']:+.1f}%) | Hours {hours['actual']:.1f}/{hours['planned']:.1f} "
+                f"({hours['pct']:+.1f}%)"
+            )
+            color = "#27ae60" if abs(depth["pct"]) <= 10 and abs(hours["pct"]) <= 10 else "#f39c12"
+            self.plan_variance_label.setStyleSheet(f"font-weight: bold; padding: 5px; color: {color};")
+        except Exception as exc:
+            logger.error("Plan variance update failed: %s", exc, exc_info=True)
+            self.plan_variance_label.setText("Plan vs Actual: unavailable")
 
     def update_data_quality(self):
         if not self.current_report_id:
@@ -2134,6 +2158,7 @@ class AnalysisWidget(DrillTabBase):
         self.bottom_widget.setVisible(True)
         self.auto_update_check.setChecked(True)
         self.update_data_quality()
+        self.update_plan_variance()
         self.update_all_data()
 
     def update_all_data(self):
