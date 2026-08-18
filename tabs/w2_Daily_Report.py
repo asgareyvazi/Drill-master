@@ -483,12 +483,22 @@ class DailyReportWidget(DrillTabBase):
             "border-radius: 3px; border: none; font-weight: bold;"
         )
         export_pdf_btn.clicked.connect(self._export_ddr_pdf)
+
+        self.submit_btn = QPushButton("📤 Submit")
+        self.submit_btn.clicked.connect(self.submit_report)
+        self.approve_btn = QPushButton("✅ Approve")
+        self.approve_btn.clicked.connect(self.approve_report)
+        self.reject_btn = QPushButton("⛔ Reject")
+        self.reject_btn.clicked.connect(self._reject_with_comment)
         
         button_layout.addWidget(self.save_btn)
         button_layout.addWidget(self.load_btn)
         button_layout.addWidget(self.new_btn)
         button_layout.addWidget(self.print_btn)
         button_layout.addWidget(export_pdf_btn)
+        button_layout.addWidget(self.submit_btn)
+        button_layout.addWidget(self.approve_btn)
+        button_layout.addWidget(self.reject_btn)
         button_layout.addStretch()
         
 
@@ -2041,6 +2051,11 @@ class DailyReportWidget(DrillTabBase):
             logger.error("Submit report failed: %s", exc, exc_info=True)
             self.show_error(str(exc))
             return False
+
+    def _reject_with_comment(self):
+        comment, ok = QInputDialog.getMultiLineText(self, "Reject Report", "Reason:")
+        if ok:
+            self.reject_report(comment)
 
     def approve_report(self, comment=""):
         if not self.current_report_id:
