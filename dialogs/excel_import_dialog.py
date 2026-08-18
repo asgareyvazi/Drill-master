@@ -650,30 +650,25 @@ class ExcelImportDialog(QDialog):
                 if existing:
                     section_id = existing.id
                 else:
-                    any_section = session.query(Section).filter(
-                        Section.well_id == self.well_id,
-                    ).first()
-
-                    if any_section:
-                        section_id = any_section.id
-                    else:
-                        dr_data = extracted.get("daily_report", {})
-                        new_section = Section(
-                            well_id=self.well_id,
-                            name=section_name,
-                            depth_from=ValueNormalizer.to_float(
-                                dr_data.get("depth_0000")
-                            ) or 0.0,
-                            depth_to=ValueNormalizer.to_float(
-                                dr_data.get("depth_2400")
-                            ) or 0.0,
-                        )
-                        session.add(new_section)
-                        session.flush()
-                        section_id = new_section.id
-                        results["details"].append(
-                            f"✅ Section '{section_name}' created"
-                        )
+                    # Never attach an import to an arbitrary first section.
+                    # If identity cannot be established, create a clearly
+                    # named section and report it for review.
+                    dr_data = extracted.get("daily_report", {})
+                    depth_from = ValueNormalizer.to_float(dr_data.get("depth_0000"))
+                    depth_to = ValueNormalizer.to_float(dr_data.get("depth_2400"))
+                    new_section = Section(
+                        well_id=self.well_id,
+                        name=section_name,
+                        code=self._safe_text(wi.get("section_code"), ""),
+                        depth_from=depth_from if depth_from is not None else 0.0,
+                        depth_to=depth_to if depth_to is not None else 0.0,
+                    )
+                    session.add(new_section)
+                    session.flush()
+                    section_id = new_section.id
+                    results["details"].append(
+                        f"✅ Section '{section_name}' created (not matched to an existing section)"
+                    )
 
                 session.commit()
             finally:
@@ -691,16 +686,19 @@ class ExcelImportDialog(QDialog):
             dr = dict(extracted.get("daily_report", {}))
             dr["well_id"] = self.well_id
             dr["section_id"] = section_id
-            dr["report_date"] = self._normalize_date(
-                dr.get("report_date")
-            )
+            raw_report_date = dr.get("report_date") or wi.get("report_date")
+            if raw_report_date in (None, ""):
+                results["failed"] += 1
+                results["details"].append("❌ Import stopped: report date is missing")
+                return results
+            dr["report_date"] = self._normalize_date(raw_report_date)
             dr.setdefault("status", "Draft")
 
             # report_number
-            report_num = self._ensure_report_number(
-                dr, section_id
-            )
+            supplied_report_number = ValueNormalizer.to_int(dr.get("report_number"))
+            report_num = self._ensure_report_number(dr, section_id)
             dr["report_number"] = report_num
+            dr["report_number_source"] = "imported" if supplied_report_number else "generated"
 
             # rig_day
             if not dr.get("rig_day"):
@@ -715,10 +713,10 @@ class ExcelImportDialog(QDialog):
             for depth_field in [
                 "depth_0000", "depth_0600", "depth_2400"
             ]:
-                dr[depth_field] = (
-                    ValueNormalizer.to_float(dr.get(depth_field))
-                    or 0.0
-                )
+                parsed_depth = ValueNormalizer.to_float(dr.get(depth_field))
+                # Missing depth is unknown, not zero. Preserve NULL so
+                # monitoring and reports do not show a fabricated depth.
+                dr[depth_field] = parsed_depth
 
             saved = self.db.save_daily_report(dr)
             report_id = None
