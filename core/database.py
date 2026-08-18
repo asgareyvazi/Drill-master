@@ -2481,6 +2481,9 @@ class DatabaseManager:
         """
         results = {"failed": 0}
         try:
+            report_record = self.get_daily_report_by_id(report_id) or {}
+            imported_report_date = report_record.get("report_date")
+
             def count_result(key, value):
                 if value:
                     results[key] = results.get(key, 0) + 1
@@ -2562,6 +2565,7 @@ class DatabaseManager:
                     if isinstance(b, dict):
                         b["well_id"] = well_id
                         b["report_id"] = report_id
+                        b.setdefault("report_date", imported_report_date)
                         saved_bulks += bool(self.save_bulk_material(b))
                 results["bulk_materials"] = saved_bulks
                 results["failed"] += len(bulks) - saved_bulks
@@ -2571,6 +2575,7 @@ class DatabaseManager:
             if fw and isinstance(fw, dict):
                 fw["well_id"] = well_id
                 fw["report_id"] = report_id
+                fw.setdefault("report_date", imported_report_date)
                 save_single("fuel_water", lambda: self.save_fuel_water_inventory(fw))
 
             # 9. Safety Report & BOP -> SafetyReport, BOPComponent, WasteRecord

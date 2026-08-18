@@ -341,7 +341,77 @@ class ProfileImportEngine:
                             "daily_cost": daily_cost,
                             "cum_cost": self._to_float(cache[r].get(4)) or daily_cost
                         })
+
+        # Many vendor DDRs embed all modules inside one large "DDR Data"
+        # sheet. Do not require a dedicated sheet name for surveys, bulk,
+        # POB, safety or solid-control data.
+        self._extract_embedded_ddr_data(res)
         return res
+
+    def _extract_embedded_ddr_data(self, result):
+        for cells in self.cell_cache.values():
+            def row_text(row):
+                return " ".join(str(v).lower() for (r, _), v in cells.items() if r == row)
+            def find_row(token):
+                token = token.lower()
+                for row in range(1, MAX_PROFILE_ROWS):
+                    if token in row_text(row):
+                        return row
+                return None
+
+            survey_row = find_row("m.d (m)")
+            if survey_row:
+                header = {c: str(cells.get((survey_row, c), "")).lower() for c in range(1, MAX_PROFILE_COLS)}
+                columns = {}
+                for c, text in header.items():
+                    if "m.d" in text or text.strip() == "md": columns["md"] = c
+                    elif "incl" in text: columns["inc"] = c
+                    elif "azimuth" in text: columns["azi"] = c
+                    elif "tvd" in text: columns["tvd"] = c
+                    elif "north" in text: columns["north"] = c
+                    elif "east" in text: columns["east"] = c
+                    elif "dls" in text: columns["dls"] = c
+                for row in range(survey_row + 1, min(survey_row + 500, MAX_PROFILE_ROWS)):
+                    md = self._to_float(cells.get((row, columns.get("md", 0))))
+                    if md is None: continue
+                    result["surveys"].append({"md": md, "inc": self._to_float(cells.get((row, columns.get("inc", 0)))) or 0.0, "azi": self._to_float(cells.get((row, columns.get("azi", 0)))) or 0.0, "tvd": self._to_float(cells.get((row, columns.get("tvd", 0)))) or 0.0, "north": self._to_float(cells.get((row, columns.get("north", 0)))) or 0.0, "east": self._to_float(cells.get((row, columns.get("east", 0)))) or 0.0, "dls": self._to_float(cells.get((row, columns.get("dls", 0)))) or 0.0})
+
+            bulk_row = find_row("bulk data")
+            if bulk_row:
+                # Find the first row containing material type/unit headers.
+                header_row = next((r for r in range(bulk_row, bulk_row + 5) if "mat. type" in row_text(r) or "unit" in row_text(r)), None)
+                if header_row:
+                    name_columns = [(c, cells.get((header_row, c))) for c in range(1, MAX_PROFILE_COLS) if cells.get((header_row, c)) not in (None, "", "Mat. Type", "Unit")]
+                    row_by_label = {}
+                    for r in range(header_row + 1, header_row + 8):
+                        text = row_text(r)
+                        if "on hand" in text: row_by_label["initial"] = r
+                        elif text.strip().startswith("used"): row_by_label["used"] = r
+                        elif "received" in text: row_by_label["received"] = r
+                    for c, name in name_columns:
+                        if not name or str(name).lower() in {"bulk data", "unit"}: continue
+                        initial = self._to_float(cells.get((row_by_label.get("initial", 0), c)))
+                        used = self._to_float(cells.get((row_by_label.get("used", 0), c))) or 0.0
+                        received = self._to_float(cells.get((row_by_label.get("received", 0), c))) or 0.0
+                        if initial is not None or used or received:
+                            result["bulk_materials"].append({"material_name": str(name).strip(), "unit": "", "initial_stock": initial or 0.0, "received": received, "used": used, "current_stock": (initial or 0.0) + received - used})
+
+            pob_row = find_row("personnel on board")
+            if pob_row:
+                for r in range(pob_row + 1, pob_row + 12):
+                    values = [cells.get((r, c)) for c in range(1, MAX_PROFILE_COLS)]
+                    text = " ".join(str(v or "") for v in values)
+                    if not text.strip() or "total" in text.lower(): continue
+                    count = next((self._to_float(v) for v in values if self._to_float(v) is not None), None)
+                    company = next((str(v).strip() for v in values if isinstance(v, str) and v.strip() and not v.replace(" ", "").isdigit()), None)
+                    if company and count is not None and count > 0:
+                        result["pob_records"].append({"company_name": company, "pob_day": int(count), "pob_night": 0, "pob_total": int(count)})
+
+            lta_row = find_row("days without lta")
+            if lta_row:
+                value = next((self._to_float(cells.get((lta_row, c))) for c in range(1, MAX_PROFILE_COLS) if self._to_float(cells.get((lta_row, c))) is not None), None)
+                if value is not None:
+                    result["safety_report"]["days_without_lti"] = int(value)
 
     def _to_float(self, val) -> Optional[float]:
         try:
