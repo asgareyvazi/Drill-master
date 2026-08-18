@@ -1068,7 +1068,7 @@ class ExcelImportDialog(QDialog):
     def _normalize_date(self, value) -> dt_date:
         """Convert value to Python date"""
         result = ValueNormalizer.to_date(value)
-        return result if result else dt_date.today()
+        return result
 
     def _safe_text(self, value, default="") -> str:
         result = ValueNormalizer.to_str(value)

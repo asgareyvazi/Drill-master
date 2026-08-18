@@ -29,6 +29,7 @@ from PySide6.QtCore import *
 from PySide6.QtGui import *
 from openpyxl import load_workbook
 from openpyxl.utils import get_column_letter
+from core.import_quality import decision_for_confidence
 
 logger = logging.getLogger(__name__)
 
@@ -2312,7 +2313,7 @@ class SmartTemplateDialog(QDialog):
                 if current not in (None, "", []):
                     continue
                 self.base_extracted.setdefault(section, {})[key] = value
-                self.assignments[field_path] = {"sheet": "Profile fallback", "row": 0, "col": 0, "value": str(value)[:100], "confidence": 0.92, "auto": True}
+                self.assignments[field_path] = {"sheet": "Profile fallback", "row": 0, "col": 0, "value": str(value)[:100], "confidence": 0.92, "decision": "REVIEW", "auto": True}
         if not self.base_extracted.get("time_logs_24h") and extracted.get("time_logs_24h"):
             self.base_extracted["time_logs_24h"] = extracted["time_logs_24h"]
         if not self.base_extracted.get("time_logs_morning") and extracted.get("time_logs_morning"):
@@ -2336,6 +2337,7 @@ class SmartTemplateDialog(QDialog):
             "col": v_col,
             "value": str(value)[:100] if value is not None else "",
             "confidence": conf,
+            "decision": decision_for_confidence(conf, field_path in {"daily_report.report_date", "well_info.name"}),
             "auto": True,
         }
         self.confidence_scores[field_path] = conf

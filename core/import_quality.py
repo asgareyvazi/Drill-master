@@ -1,10 +1,9 @@
-"""Import quality, row-level validation and duplicate detection.
+"""Import quality, review decisions and duplicate detection.
 
-This module is intentionally UI/database agnostic so the same rules can be
-used by Excel preview, batch import and automated tests.
+This module is UI/database agnostic so Smart Import, Profile Import and batch
+imports use exactly the same acceptance rules.
 """
 from dataclasses import dataclass, field
-from datetime import date, datetime, time
 from typing import Any, Iterable
 
 
@@ -12,10 +11,37 @@ from typing import Any, Iterable
 class ImportIssue:
     sheet: str
     row: int
-    level: str  # error / warning
+    level: str
     message: str
     field: str = ""
     value: Any = None
+
+
+@dataclass
+class ReviewItem:
+    sheet: str = ""
+    row: int = 0
+    column: str = ""
+    source_value: Any = None
+    normalized_value: Any = None
+    unit: str = ""
+    canonical_field: str = ""
+    confidence: float = 0.0
+    decision: str = "REVIEW"
+    transform: str = ""
+
+
+class ImportReviewMatrix:
+    def __init__(self):
+        self.items: list[ReviewItem] = []
+
+    def add(self, **kwargs):
+        item = ReviewItem(**kwargs)
+        self.items.append(item)
+        return item
+
+    def as_rows(self):
+        return [item.__dict__.copy() for item in self.items]
 
 
 @dataclass
@@ -26,19 +52,15 @@ class ImportReport:
     skipped: int = 0
     failed: int = 0
     issues: list[ImportIssue] = field(default_factory=list)
+    review: ImportReviewMatrix = field(default_factory=ImportReviewMatrix)
     _failed_rows: set = field(default_factory=set, repr=False)
 
     @property
-    def errors(self):
-        return [i for i in self.issues if i.level == "error"]
-
+    def errors(self): return [i for i in self.issues if i.level == "error"]
     @property
-    def warnings(self):
-        return [i for i in self.issues if i.level == "warning"]
-
+    def warnings(self): return [i for i in self.issues if i.level == "warning"]
     @property
-    def success(self):
-        return self.failed == 0 and not self.errors
+    def success(self): return self.failed == 0 and not self.errors
 
     def error(self, sheet, row, message, field="", value=None):
         self.issues.append(ImportIssue(sheet, row, "error", message, field, value))
@@ -50,6 +72,9 @@ class ImportReport:
     def warning(self, sheet, row, message, field="", value=None):
         self.issues.append(ImportIssue(sheet, row, "warning", message, field, value))
 
+    def add_review(self, **kwargs):
+        return self.review.add(**kwargs)
+
     def as_dict(self):
         return {
             "total": self.total, "imported": self.imported,
@@ -57,6 +82,7 @@ class ImportReport:
             "failed": self.failed, "errors": len(self.errors),
             "warnings": len(self.warnings),
             "issues": [i.__dict__ for i in self.issues],
+            "review": self.review.as_rows(),
         }
 
     def summary(self):
@@ -66,7 +92,6 @@ class ImportReport:
 
 
 class ImportValidator:
-    """Conservative validation for normalized import rows."""
     NUMERIC_FIELDS = {
         "depth_0000", "depth_0600", "depth_2400", "depth_in", "depth_out",
         "md", "inc", "azi", "tvd", "mw", "pv", "yp", "ph",
@@ -95,8 +120,7 @@ class ImportValidator:
                 value = row.get(field)
                 if value in (None, ""):
                     continue
-                try:
-                    float(value)
+                try: float(value)
                 except (TypeError, ValueError):
                     report.error(sheet, row_number, "Must be numeric", field, value)
             if "depth_in" in row and "depth_out" in row:
@@ -109,7 +133,6 @@ class ImportValidator:
 
 
 def row_key(record_type: str, row: dict):
-    """Stable natural key used to make repeated imports idempotent."""
     keys = {
         "survey": ("well_id", "report_id", "md"),
         "time_log": ("report_id", "time_from", "time_to"),
@@ -122,12 +145,17 @@ def row_key(record_type: str, row: dict):
 
 
 def find_duplicates(rows: Iterable[dict], record_type: str):
-    """Return duplicate row indexes (zero-based) within an import batch."""
     seen, duplicates = set(), []
     for index, row in enumerate(rows or ()):
         key = row_key(record_type, row)
-        if key is not None and key in seen:
-            duplicates.append(index)
-        elif key is not None:
-            seen.add(key)
+        if key is not None and key in seen: duplicates.append(index)
+        elif key is not None: seen.add(key)
     return duplicates
+
+
+def decision_for_confidence(confidence, critical=False):
+    """Conservative decision policy for automatic import."""
+    confidence = float(confidence or 0)
+    if critical:
+        return "ACCEPT" if confidence >= 0.99 else "REVIEW" if confidence >= 0.85 else "REJECT"
+    return "ACCEPT" if confidence >= 0.95 else "REVIEW" if confidence >= 0.70 else "REJECT"
