@@ -1982,13 +1982,38 @@ class MainWindow(QMainWindow):
             lines.extend(result.get("details", [])[-10:])
         if not lines:
             return
-        box = QMessageBox(self)
-        box.setWindowTitle("Import Quality Report")
-        box.setIcon(QMessageBox.Warning if any("ERROR" in line or "FAILED" in line.upper() for line in lines) else QMessageBox.Information)
-        box.setText("Import completed with a detailed quality report.")
-        box.setDetailedText("\\n".join(lines))
-        box.setStandardButtons(QMessageBox.Ok)
-        box.exec()
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Import Quality & Review Matrix")
+        dialog.resize(1050, 520)
+        layout = QVBoxLayout(dialog)
+        table = QTableWidget(0, 8)
+        table.setHorizontalHeaderLabels(["Source", "Row", "Column", "Original", "Normalized", "Target", "Confidence", "Decision"])
+        table.setAlternatingRowColors(True)
+        table.setSortingEnabled(True)
+        for result in results or []:
+            report = result.get("import_report") or {}
+            for item in report.get("review", []):
+                row = table.rowCount()
+                table.insertRow(row)
+                values = [item.get("sheet", ""), item.get("row", ""), item.get("column", ""), item.get("source_value", ""), item.get("normalized_value", ""), item.get("canonical_field", ""), f"{float(item.get('confidence', 0)):.0%}", item.get("decision", "REVIEW")]
+                for col, value in enumerate(values):
+                    table.setItem(row, col, QTableWidgetItem(str(value)))
+            for issue in report.get("issues", []):
+                row = table.rowCount()
+                table.insertRow(row)
+                values = [issue.get("sheet", ""), issue.get("row", ""), "", issue.get("value", ""), "", issue.get("field", ""), "", issue.get("level", "ERROR").upper()]
+                for col, value in enumerate(values):
+                    table.setItem(row, col, QTableWidgetItem(str(value)))
+        table.resizeColumnsToContents()
+        table.horizontalHeader().setStretchLastSection(True)
+        layout.addWidget(table)
+        summary = QLabel("\\n".join(lines[-12:]))
+        summary.setWordWrap(True)
+        layout.addWidget(summary)
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(dialog.accept)
+        layout.addWidget(close_btn)
+        dialog.exec()
 
     def _targeted_refresh(
         self, well_id: int, section_id: int, report_id: int
