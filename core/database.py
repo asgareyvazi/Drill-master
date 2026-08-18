@@ -2464,6 +2464,11 @@ class DatabaseManager:
                 else:
                     results["failed"] += 1
 
+            def save_single(key, value):
+                result = value()
+                count_result(key, result)
+                return result
+
             # 1. Trajectory / Surveys -> SurveyPoint
             surveys = extracted.get("surveys", [])
             if surveys:
@@ -2507,72 +2512,72 @@ class DatabaseManager:
             if casing and isinstance(casing, dict):
                 casing["well_id"] = well_id
                 casing["report_id"] = report_id
-                self.save_casing_report(casing)
-                results["casing_report"] = 1
+                save_single("casing_report", lambda: self.save_casing_report(casing))
 
             # 4. Cement Report -> CementReport
             cement = extracted.get("cement_report")
             if cement and isinstance(cement, dict):
                 cement["well_id"] = well_id
                 cement["report_id"] = report_id
-                self.save_cement_report(cement)
-                results["cement_report"] = 1
+                save_single("cement_report", lambda: self.save_cement_report(cement))
 
             # 5. Bit Report -> BitReport
             bit = extracted.get("bit_report")
             if bit and isinstance(bit, dict):
-                self.save_bit_report(well_id, bit)
-                results["bit_report"] = 1
+                save_single("bit_report", lambda: self.save_bit_report(well_id, bit))
 
             # 6. BHA Report -> BHAReport
             bha = extracted.get("bha_report")
             if bha and isinstance(bha, dict):
-                self.save_bha_report(well_id, bha)
-                results["bha_report"] = 1
+                save_single("bha_report", lambda: self.save_bha_report(well_id, bha))
 
             # 7. Logistics Bulk Materials -> BulkMaterials
             bulks = extracted.get("bulk_materials", [])
             if bulks:
+                saved_bulks = 0
                 for b in bulks:
                     if isinstance(b, dict):
                         b["well_id"] = well_id
                         b["report_id"] = report_id
-                        self.save_bulk_material(b)
-                results["bulk_materials"] = len(bulks)
+                        saved_bulks += bool(self.save_bulk_material(b))
+                results["bulk_materials"] = saved_bulks
+                results["failed"] += len(bulks) - saved_bulks
 
             # 8. Fuel & Water Inventory -> FuelWaterInventory
             fw = extracted.get("fuel_water")
             if fw and isinstance(fw, dict):
                 fw["well_id"] = well_id
                 fw["report_id"] = report_id
-                self.save_fuel_water_inventory(fw)
-                results["fuel_water"] = 1
+                save_single("fuel_water", lambda: self.save_fuel_water_inventory(fw))
 
             # 9. Safety Report & BOP -> SafetyReport, BOPComponent, WasteRecord
             safety = extracted.get("safety_report")
             if safety and isinstance(safety, dict):
                 safety["well_id"] = well_id
                 safety["report_id"] = report_id
-                self.save_safety_report(safety)
-                results["safety_report"] = 1
+                save_single("safety_report", lambda: self.save_safety_report(safety))
 
             bops = extracted.get("bop_components", [])
             if bops:
+                saved_bops = 0
                 for bp in bops:
                     if isinstance(bp, dict):
                         bp["well_id"] = well_id
                         bp["report_id"] = report_id
-                        self.save_bop_component(bp)
-                results["bop_components"] = len(bops)
+                        saved_bops += bool(self.save_bop_component(bp))
+                results["bop_components"] = saved_bops
+                results["failed"] += len(bops) - saved_bops
 
             wastes = extracted.get("waste_records", [])
             if wastes:
+                saved_waste = 0
                 for w in wastes:
                     if isinstance(w, dict):
                         w["well_id"] = well_id
                         w["report_id"] = report_id
-                        self.save_waste_record(w)
-                results["waste_records"] = len(wastes)
+                        saved_waste += bool(self.save_waste_record(w))
+                results["waste_records"] = saved_waste
+                results["failed"] += len(wastes) - saved_waste
 
             # 10. Cost Records -> CostRecord
             costs = extracted.get("cost_records", [])
@@ -2600,8 +2605,7 @@ class DatabaseManager:
             # 12. Downhole Equipment -> DownholeEquipment
             downhole = extracted.get("downhole_equipment")
             if downhole and isinstance(downhole, dict):
-                self.save_downhole_equipment(well_id, downhole)
-                results["downhole_equipment"] = 1
+                save_single("downhole_equipment", lambda: self.save_downhole_equipment(well_id, downhole))
 
         except Exception as e:
             logger.error(f"Error saving imported multi-tab data: {e}")

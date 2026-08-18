@@ -585,6 +585,8 @@ class ExcelImportDialog(QDialog):
             "import_report": None,
         }
         session = None
+        report_id = None
+        created_new_report = False
 
         try:
             from core.database import Section, DailyReport
@@ -718,6 +720,10 @@ class ExcelImportDialog(QDialog):
                 # monitoring and reports do not show a fabricated depth.
                 dr[depth_field] = parsed_depth
 
+            # Track whether this import owns the report. If a newly-created
+            # report later fails in a child table, the import can be rolled
+            # back without touching an existing user's report.
+            created_new_report = not bool(dr.get("id"))
             saved = self.db.save_daily_report(dr)
             report_id = None
 
@@ -785,7 +791,14 @@ class ExcelImportDialog(QDialog):
                         results["failed"] += int(count or 0)
                     elif count > 0:
                         results["details"].append(f"✅ {k}: {count} records imported")
-                        
+
+            if results["failed"] and created_new_report and report_id:
+                self.db.delete_daily_report(report_id)
+                results["details"].append(
+                    "↩️ Import rolled back: no partial report was kept"
+                )
+                results["imported"] = 0
+                return results
             return results
 
         except Exception as e:
@@ -797,6 +810,14 @@ class ExcelImportDialog(QDialog):
                     session.rollback()
                 except Exception:
                     pass
+            if created_new_report and report_id:
+                try:
+                    self.db.delete_daily_report(report_id)
+                    results["details"].append(
+                        "↩️ Import rolled back after failure"
+                    )
+                except Exception:
+                    logger.error("Import rollback cleanup failed", exc_info=True)
             return results
         finally:
             if session:
