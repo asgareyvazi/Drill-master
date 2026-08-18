@@ -151,7 +151,9 @@ class ProfileImportEngine:
                 continue
 
             self.cell_cache[sheet_name] = self._build_unmerged_cache(ws)
-            
+
+        self._configure_workbook_code_catalog()
+
         # 3. ساختار خروجی
         extracted_data = {
             "well_info": {},
@@ -349,6 +351,26 @@ class ProfileImportEngine:
             return None
             
     # ------------------- توابع کمکی جادویی -------------------
+
+    def _configure_workbook_code_catalog(self):
+        try:
+            from dialogs.smart_template_dialog import CodeResolver
+            main_map, sub_map = {}, {}
+            for sheet_name, cells in self.cell_cache.items():
+                if not any(token in sheet_name.lower() for token in ("activity", "code", "iadc")):
+                    continue
+                for row in range(1, MAX_PROFILE_ROWS):
+                    main, sub, name = cells.get((row, 1)), cells.get((row, 2)), cells.get((row, 3))
+                    if sub and name:
+                        match = re.match(r"^(\d+)[./-](\d+)", str(sub).strip())
+                        if match:
+                            sub_map[f"{match.group(1)}.{match.group(2)}"] = str(name).strip()
+                    if main and name and re.match(r"^\s*\d+(?:\.0)?\s*$", str(main)):
+                        main_map[str(main).split(".", 1)[0].strip()] = str(name).strip()
+            if main_map or sub_map:
+                CodeResolver.configure_catalog(main_map, sub_map)
+        except Exception as exc:
+            logger.debug("Workbook code catalog unavailable: %s", exc)
 
     def _get_real_sheet_name(self, actual_names, partial_name):
         """Resolve a profile sheet name without leaving legacy code paths."""

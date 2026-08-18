@@ -232,6 +232,8 @@ SUB_CODE_MAP = {
 # Reverse map: name -> code for lookup
 MAIN_CODE_REVERSE = {v.lower(): k for k, v in MAIN_CODE_MAP.items()}
 SUB_CODE_REVERSE = {v.lower(): k for k, v in SUB_CODE_MAP.items()}
+_DEFAULT_MAIN_CODE_MAP = dict(MAIN_CODE_MAP)
+_DEFAULT_SUB_CODE_MAP = dict(SUB_CODE_MAP)
 
 # NPT contractor mapping
 NPT_CONTRACTOR_MAP = {
@@ -1485,7 +1487,22 @@ class FieldDetector:
 # Code Resolver - full name resolution
 # =====================================================
 class CodeResolver:
-    """Resolve main codes and sub codes to full names"""
+    """Resolve codes using the current workbook catalog, with safe defaults."""
+
+    @classmethod
+    def configure_catalog(cls, main_map, sub_map):
+        MAIN_CODE_MAP.clear()
+        MAIN_CODE_MAP.update(_DEFAULT_MAIN_CODE_MAP)
+        SUB_CODE_MAP.clear()
+        SUB_CODE_MAP.update(_DEFAULT_SUB_CODE_MAP)
+        if main_map:
+            MAIN_CODE_MAP.update(main_map)
+        if sub_map:
+            SUB_CODE_MAP.update(sub_map)
+        MAIN_CODE_REVERSE.clear()
+        MAIN_CODE_REVERSE.update({v.lower(): k for k, v in MAIN_CODE_MAP.items()})
+        SUB_CODE_REVERSE.clear()
+        SUB_CODE_REVERSE.update({v.lower(): k for k, v in SUB_CODE_MAP.items()})
 
     @staticmethod
     def _clean_code(value):
@@ -2051,6 +2068,35 @@ class SmartTemplateDialog(QDialog):
     # ================================================================
     # File & Cache
     # ================================================================
+    def _load_activity_code_catalog(self):
+        """Load a workbook-specific code taxonomy without hard-coding a company."""
+        rows = []
+        for sheet_name, cells in self.cell_cache.items():
+            name = sheet_name.lower()
+            if not any(token in name for token in ("activity", "code", "iadc")):
+                continue
+            for row in range(1, MAX_SCAN_ROWS):
+                values = [cells.get((row, col)) for col in range(1, 5)]
+                if not any(v not in (None, "") for v in values):
+                    continue
+                rows.append(values)
+        if not rows:
+            return
+        main_map, sub_map = {}, {}
+        for values in rows:
+            raw_main, raw_code, raw_name = values[0], values[1], values[2]
+            if raw_code not in (None, ""):
+                text = str(raw_code).strip().replace("-", ".").replace("/", ".")
+                match = re.match(r"^(\d+)\.(\d+)", text)
+                if match and raw_name not in (None, ""):
+                    sub_map[f"{match.group(1)}.{match.group(2)}"] = str(raw_name).strip()
+            if raw_main not in (None, "") and raw_name not in (None, ""):
+                match = re.match(r"^\s*(\d+)(?:\.0)?\s*$", str(raw_main))
+                if match:
+                    main_map[match.group(1)] = str(raw_name).strip()
+        if main_map or sub_map:
+            CodeResolver.configure_catalog(main_map, sub_map)
+
     def _browse_file(self):
         filepath, _ = QFileDialog.getOpenFileName(
             self, "Open Excel File", "",
@@ -2083,6 +2129,11 @@ class SmartTemplateDialog(QDialog):
 
             for ws in self.wb.worksheets:
                 self.cell_cache[ws.title] = self._unmerge(ws)
+
+            # Prefer the workbook's own Activity Codes catalog when present.
+            # This prevents applying OEOC/default numbering to another
+            # company's taxonomy (e.g. 23-1 can mean a different activity).
+            self._load_activity_code_catalog()
 
             self.sheet_combo.blockSignals(True)
             self.sheet_combo.clear()
