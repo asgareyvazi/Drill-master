@@ -2382,6 +2382,17 @@ class SmartTemplateDialog(QDialog):
             self.base_extracted["time_logs_24h"] = extracted["time_logs_24h"]
         if not self.base_extracted.get("time_logs_morning") and extracted.get("time_logs_morning"):
             self.base_extracted["time_logs_morning"] = extracted["time_logs_morning"]
+        # Carry all profile-specific multi-tab payloads into the same generic
+        # save pipeline (services, POB, casing, safety, cost, etc.).
+        for key in (
+            "service_companies", "surveys", "pob_records", "casing_report",
+            "cement_report", "bit_report", "bha_report", "bulk_materials",
+            "fuel_water", "safety_report", "bop_components", "waste_records",
+            "cost_records", "equipment_logs", "downhole_equipment",
+        ):
+            value = extracted.get(key)
+            if value and not self.base_extracted.get(key):
+                self.base_extracted[key] = value
 
     def _register_detection(
         self,
@@ -3163,6 +3174,15 @@ class SmartTemplateDialog(QDialog):
                 self.base_extracted.get("metadata", {})
             ),
         }
+
+        for payload_key in (
+            "service_companies", "surveys", "pob_records", "casing_report",
+            "cement_report", "bit_report", "bha_report", "bulk_materials",
+            "fuel_water", "safety_report", "bop_components", "waste_records",
+            "cost_records", "equipment_logs", "downhole_equipment",
+        ):
+            if self.base_extracted.get(payload_key):
+                result[payload_key] = self.base_extracted[payload_key]
 
         if not result["daily_report"].get("report_date") and result["well_info"].get("report_date"):
             result["daily_report"]["report_date"] = result["well_info"]["report_date"]
