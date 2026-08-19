@@ -1783,6 +1783,8 @@ class SmartTemplateDialog(QDialog):
         self.cell_cache = {}
         self.assignments = {}
         self.confidence_scores = {}
+        self.ai_proposals = []
+        self.ai_status = "disabled"
         self.sheet_routing = {}
         self.sheet_checkboxes = {}
         self._pending_cell = None
@@ -2351,7 +2353,8 @@ class SmartTemplateDialog(QDialog):
             detected = len(self.assignments)
             self.detect_status.setText(
                 f"✅ Detected {detected} fields "
-                f"(sheets: {len(self.sheet_routing)})"
+                f"(sheets: {len(self.sheet_routing)}) | "
+                f"AI: {self.ai_status} ({len(self.ai_proposals)} proposals)"
             )
 
         except Exception as e:
@@ -2363,7 +2366,12 @@ class SmartTemplateDialog(QDialog):
     def _merge_ai_fallback(self):
         """Ask an optional local model only about unresolved scalar fields."""
         mapper = AIImportMapper()
-        if not mapper.enabled or not mapper.available():
+        self.ai_status = "disabled"
+        self.ai_proposals = []
+        if not mapper.enabled:
+            return
+        if not mapper.available():
+            self.ai_status = mapper.last_status
             return
         missing = [
             field for field in FIELD_PATTERNS
@@ -2376,11 +2384,14 @@ class SmartTemplateDialog(QDialog):
             for (row, col), value in list(cells.items())[:1500]:
                 if value not in (None, ""):
                     context.append({"sheet": sheet, "row": row, "column": col, "value": str(value)[:160]})
-                if len(context) >= 3000:
+                if len(context) >= 800:
                     break
-            if len(context) >= 3000:
+            if len(context) >= 800:
                 break
-        for proposal in mapper.map_context(context, missing):
+        proposals = mapper.map_context(context, missing)
+        self.ai_status = mapper.last_status
+        self.ai_proposals = proposals
+        for proposal in proposals:
             field = proposal["field"]
             if "." not in field:
                 continue
@@ -2983,6 +2994,7 @@ class SmartTemplateDialog(QDialog):
                 break
         detail = "; ".join(examples)
         self.code_detection_label.setText(
+            f"🤖 AI: {getattr(self, 'ai_status', 'disabled')} ({len(getattr(self, 'ai_proposals', []))}) | "
             f"🏷️ Activity codes: Main {with_main}/{len(logs)}, "
             f"Sub {with_sub}/{len(logs)}" + (f" — {detail}" if detail else " — no code columns detected")
         )
