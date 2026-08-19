@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
     QTabWidget, QWidget, QSplitter, QProgressBar, QApplication,
     QInputDialog, QRadioButton, QDialogButtonBox,
 )
-from PySide6.QtCore import Signal, Qt, QTimer
+from PySide6.QtCore import Signal, Qt, QTimer, QDir
 from PySide6.QtGui import QColor
 
 from core.text_utils import wrap_text
@@ -71,12 +71,13 @@ class ExcelImportDialog(QDialog):
         )
         layout.addWidget(header)
 
-        # ===== Smart Import =====
-        smart_group = QGroupBox("🚀 Smart Import & Builder")
-        sl = QVBoxLayout(smart_group)
-        sl.addWidget(QLabel(
-            "Open Excel, normalize, detect tables, use the workbook catalog and "
-            "ask the optional local AI only for ambiguous fields."
+        # ===== Unified Import =====
+        import_group = QGroupBox("🚀 Universal Import")
+        il = QVBoxLayout(import_group)
+        il.addWidget(QLabel(
+            "Select one or more Excel/PDF reports. The importer normalizes the file, "
+            "detects tables, uses the workbook catalog and asks the selected local AI "
+            "only for ambiguous mappings."
         ))
         ai_row = QHBoxLayout()
         ai_row.addWidget(QLabel("AI model:"))
@@ -87,69 +88,22 @@ class ExcelImportDialog(QDialog):
             mark = "✓" if model in installed else "—"
             self.ai_model_combo.addItem(f"{mark} {entry.get('label', model)}", model)
         selected = os.getenv("DRILLMASTER_AI_MODEL", "")
-        index = self.ai_model_combo.findData(selected)
-        if index >= 0:
-            self.ai_model_combo.setCurrentIndex(index)
+        selected_index = self.ai_model_combo.findData(selected)
+        if selected_index >= 0:
+            self.ai_model_combo.setCurrentIndex(selected_index)
         self.ai_model_combo.currentIndexChanged.connect(self._select_ai_model)
         ai_row.addWidget(self.ai_model_combo, 1)
-        sl.addLayout(ai_row)
-
-        smart_btn = QPushButton("📂 Open Excel & Auto-Detect")
-        smart_btn.setStyleSheet(
-            "background: #27ae60; color: white; padding: 12px; "
-            "font-weight: bold; border-radius: 5px; font-size: 13px;"
+        il.addLayout(ai_row)
+        import_btn = QPushButton("📥 Import Report(s)")
+        import_btn.setStyleSheet(
+            "background: #27ae60; color: white; padding: 14px; "
+            "font-weight: bold; border-radius: 5px; font-size: 14px;"
         )
-        smart_btn.clicked.connect(self._smart_import)
-        sl.addWidget(smart_btn)
-
-        layout.addWidget(smart_group)
-
-        # ===== Batch Import =====
-        batch_group = QGroupBox("📦 Batch Import (Multiple Files)")
-        bl = QVBoxLayout(batch_group)
-        bl.addWidget(QLabel(
-            "Process multiple Excel files at once using "
-            "Smart Detection or a saved Template."
-        ))
-
-        batch_btn = QPushButton("📦 Batch Import")
-        batch_btn.setStyleSheet(
-            "background: #e67e22; color: white; padding: 10px; "
-            "font-weight: bold; border-radius: 5px; font-size: 12px;"
-        )
-        batch_btn.clicked.connect(self._batch_import)
-        bl.addWidget(batch_btn)
-        layout.addWidget(batch_group)
-
-        # ===== Template Import =====
-        tmpl_group = QGroupBox("📥 Quick Import with Saved Template")
-        tl = QVBoxLayout(tmpl_group)
-
-        th = QHBoxLayout()
-        th.addWidget(QLabel("Template:"))
-        self.template_combo = QComboBox()
-        self._load_templates()
-        th.addWidget(self.template_combo, 1)
-        tl.addLayout(th)
-
-        file_layout = QHBoxLayout()
-        self.file_input = QLineEdit()
-        self.file_input.setPlaceholderText("Select Excel file...")
-        browse_btn = QPushButton("📂")
-        browse_btn.setFixedWidth(40)
-        browse_btn.clicked.connect(self._browse_file)
-        file_layout.addWidget(self.file_input, 1)
-        file_layout.addWidget(browse_btn)
-        tl.addLayout(file_layout)
-
-        tmpl_btn = QPushButton("⚡ Quick Import with Template")
-        tmpl_btn.setStyleSheet(
-            "background: #9b59b6; color: white; padding: 10px; "
-            "font-weight: bold; border-radius: 5px; font-size: 12px;"
-        )
-        tmpl_btn.clicked.connect(self._import_with_template)
-        tl.addWidget(tmpl_btn)
-        layout.addWidget(tmpl_group)
+        import_btn.clicked.connect(self._unified_import)
+        il.addWidget(import_btn)
+        self.import_status = QLabel("No file selected")
+        il.addWidget(self.import_status)
+        layout.addWidget(import_group)
 
         # Cancel
         cancel_btn = QPushButton("Cancel")
@@ -211,6 +165,40 @@ class ExcelImportDialog(QDialog):
         model = self.ai_model_combo.itemData(index) if hasattr(self, "ai_model_combo") else None
         if model:
             os.environ["DRILLMASTER_AI_MODEL"] = model
+            os.environ["DRILLMASTER_AI_IMPORT"] = "1"
+
+    def _unified_import(self):
+        """The only import entry point: single file or batch, Excel or PDF."""
+        files, _ = QFileDialog.getOpenFileNames(
+            self, "Import Report(s)", "", "Reports (*.xlsx *.xlsm *.pdf)"
+        )
+        if not files:
+            return
+        results = []
+        for number, source in enumerate(files, 1):
+            self.import_status.setText(f"Processing {number}/{len(files)}: {os.path.basename(source)}")
+            QApplication.processEvents()
+            try:
+                path = source
+                if source.lower().endswith(".pdf"):
+                    from pathlib import Path
+                    from core.document_import import pdf_to_xlsx
+                    clean = Path(os.path.join(QDir.tempPath(), Path(source).stem + "_pdf_import.xlsx"))
+                    pdf_to_xlsx(source, clean)
+                    path = str(clean)
+                dialog = SmartTemplateDialog(self.db, self.well_id, None, preload_file=path)
+                QApplication.processEvents()
+                dialog._smart_auto_detect()
+                extracted = dialog._build_final_data_from_assignments()
+                if not any(extracted.get(key) for key in ("well_info", "daily_report", "mud_report", "drilling_params", "time_logs_24h")):
+                    raise ValueError("No report data was detected")
+                results.append(self._do_import(extracted, refresh_ui=False))
+                dialog.deleteLater()
+            except Exception as exc:
+                logger.error("Universal import failed for %s: %s", source, exc, exc_info=True)
+                results.append({"failed": 1, "imported": 0, "details": [f"❌ {os.path.basename(source)}: {exc}"]})
+        self.import_completed.emit(results)
+        self.accept()
 
     def _browse_file(self):
         fp, _ = QFileDialog.getOpenFileName(
