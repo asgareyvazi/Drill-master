@@ -30,7 +30,7 @@ from PySide6.QtGui import *
 from openpyxl import load_workbook
 from openpyxl.utils import get_column_letter
 from core.import_quality import decision_for_confidence
-from core.ai_import_mapper import AIImportMapper
+from core.ai_import_mapper import AIImportMapper, model_catalog
 
 logger = logging.getLogger(__name__)
 
@@ -1891,6 +1891,20 @@ class SmartTemplateDialog(QDialog):
             "color: #666; font-size: 10px;"
         )
         auto_layout.addWidget(self.detect_status)
+        auto_layout.addWidget(QLabel("AI Model:"))
+        self.ai_model_combo = QComboBox()
+        installed = set(AIImportMapper().installed_models())
+        for entry in model_catalog():
+            model_name = entry.get("model", entry.get("name", ""))
+            label = entry.get("label", model_name)
+            state = "✓" if model_name in installed else "—"
+            self.ai_model_combo.addItem(f"{state} {label}", model_name)
+        selected_model = os.getenv("DRILLMASTER_AI_MODEL", "")
+        selected_index = self.ai_model_combo.findData(selected_model)
+        if selected_index >= 0:
+            self.ai_model_combo.setCurrentIndex(selected_index)
+        self.ai_model_combo.currentIndexChanged.connect(self._select_ai_model)
+        auto_layout.addWidget(self.ai_model_combo)
         auto_layout.addStretch()
 
         self.load_tmpl_btn = QPushButton("📂 Load Template")
@@ -2099,6 +2113,12 @@ class SmartTemplateDialog(QDialog):
                     main_map[match.group(1)] = str(raw_name).strip()
         if main_map or sub_map:
             CodeResolver.configure_catalog(main_map, sub_map)
+
+    def _select_ai_model(self, index):
+        model = self.ai_model_combo.itemData(index) if hasattr(self, "ai_model_combo") else None
+        if model:
+            os.environ["DRILLMASTER_AI_MODEL"] = model
+            self.detect_status.setText(f"AI model selected: {model}")
 
     def _browse_file(self):
         filepath, _ = QFileDialog.getOpenFileName(

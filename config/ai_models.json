@@ -1,0 +1,40 @@
+{
+  "default_enabled": true,
+  "models": [
+    {
+      "name": "qwen2.5-local",
+      "label": "Qwen 2.5 Local",
+      "provider": "ollama",
+      "model": "qwen2.5-local",
+      "description": "Recommended for Excel and drilling report mapping"
+    },
+    {
+      "name": "qwen2.5:3b",
+      "label": "Qwen 2.5 3B",
+      "provider": "ollama",
+      "model": "qwen2.5:3b",
+      "description": "Small local model"
+    },
+    {
+      "name": "qwen2.5:7b-instruct",
+      "label": "Qwen 2.5 7B Instruct",
+      "provider": "ollama",
+      "model": "qwen2.5:7b-instruct",
+      "description": "Higher quality local model"
+    },
+    {
+      "name": "minimax-m2.7:cloud",
+      "label": "MiniMax Cloud",
+      "provider": "ollama",
+      "model": "minimax-m2.7:cloud",
+      "description": "Requires Ollama Cloud access"
+    },
+    {
+      "name": "kimi-k2.6:cloud",
+      "label": "Kimi Cloud",
+      "provider": "ollama",
+      "model": "kimi-k2.6:cloud",
+      "description": "Requires Ollama Cloud access"
+    }
+  ]
+}
