@@ -2538,6 +2538,7 @@ class DatabaseManager:
             if casing and isinstance(casing, dict):
                 casing["well_id"] = well_id
                 casing["report_id"] = report_id
+                casing.setdefault("report_date", imported_report_date)
                 save_single("casing_report", lambda: self.save_casing_report(casing))
 
             # 4. Cement Report -> CementReport
@@ -2545,6 +2546,7 @@ class DatabaseManager:
             if cement and isinstance(cement, dict):
                 cement["well_id"] = well_id
                 cement["report_id"] = report_id
+                cement.setdefault("report_date", imported_report_date)
                 save_single("cement_report", lambda: self.save_cement_report(cement))
 
             # 5. Bit Report -> BitReport
@@ -2583,6 +2585,7 @@ class DatabaseManager:
             if safety and isinstance(safety, dict):
                 safety["well_id"] = well_id
                 safety["report_id"] = report_id
+                safety.setdefault("report_date", imported_report_date)
                 save_single("safety_report", lambda: self.save_safety_report(safety))
 
             bops = extracted.get("bop_components", [])
@@ -2592,6 +2595,7 @@ class DatabaseManager:
                     if isinstance(bp, dict):
                         bp["well_id"] = well_id
                         bp["report_id"] = report_id
+                        bp.setdefault("last_test_date", imported_report_date)
                         saved_bops += bool(self.save_bop_component(bp))
                 results["bop_components"] = saved_bops
                 results["failed"] += len(bops) - saved_bops
@@ -2603,6 +2607,7 @@ class DatabaseManager:
                     if isinstance(w, dict):
                         w["well_id"] = well_id
                         w["report_id"] = report_id
+                        w.setdefault("record_date", imported_report_date)
                         saved_waste += bool(self.save_waste_record(w))
                 results["waste_records"] = saved_waste
                 results["failed"] += len(wastes) - saved_waste

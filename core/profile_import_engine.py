@@ -407,6 +407,50 @@ class ProfileImportEngine:
                     if company and count is not None and count > 0:
                         result["pob_records"].append({"company_name": company, "pob_day": int(count), "pob_night": 0, "pob_total": int(count)})
 
+            # BOP / wellhead table embedded in DDR Data.
+            bop_row = find_row("bop stack and well head")
+            if bop_row:
+                for r in range(bop_row + 2, min(bop_row + 30, MAX_PROFILE_ROWS)):
+                    name, kind = cells.get((r, 2)), cells.get((r, 3))
+                    pressure, size = self._to_float(cells.get((r, 5))), cells.get((r, 6))
+                    if name and (pressure is not None or size):
+                        result["bop_components"].append({"component_name": str(name), "component_type": str(kind or "BOP"), "working_pressure": pressure or 0.0, "size": str(size or ""), "status": "Operational"})
+
+            # Previous casing table embedded in the main report sheet.
+            casing_row = find_row("previous casing information")
+            if casing_row:
+                header_row = next((r for r in range(casing_row, casing_row + 5) if "size" in row_text(r) and "from" in row_text(r)), None)
+                entries = []
+                if header_row:
+                    for r in range(header_row + 1, min(header_row + 40, MAX_PROFILE_ROWS)):
+                        size = cells.get((r, 39)) or cells.get((r, 13))
+                        if size:
+                            entries.append({"size": str(size), "from": cells.get((r, 40)) or cells.get((r, 14)), "to": cells.get((r, 42)) or cells.get((r, 16)), "grade": cells.get((r, 43)) or cells.get((r, 17)), "weight": cells.get((r, 44)) or cells.get((r, 18)), "thread": cells.get((r, 47)) or cells.get((r, 21))})
+                if entries:
+                    result["casing_report"] = {"casing_json": json.dumps(entries, ensure_ascii=False), "report_name": "Imported casing information"}
+
+            # Cement additives are also an embedded material table.
+            cement_row = find_row("cement and cement additives")
+            if cement_row:
+                materials = []
+                for r in range(cement_row + 2, min(cement_row + 80, MAX_PROFILE_ROWS)):
+                    name = cells.get((r, 14))
+                    if name and str(name).strip().lower() not in {"material type", "unit"}:
+                        materials.append({"material": str(name).strip(), "used": self._to_float(cells.get((r, 16))) or 0.0, "received": self._to_float(cells.get((r, 17))) or 0.0, "on_hand": self._to_float(cells.get((r, 18))) or 0.0, "unit": str(cells.get((r, 19)) or "")})
+                if materials:
+                    result["cement_report"] = {"materials_json": json.dumps(materials, ensure_ascii=False), "report_name": "Imported cement additives"}
+
+            # Downhole equipment table embedded in DDR Data.
+            downhole_row = find_row("down hole equipment")
+            if downhole_row:
+                equipment = []
+                for r in range(downhole_row + 1, min(downhole_row + 50, MAX_PROFILE_ROWS)):
+                    name = cells.get((r, 10))
+                    if name and str(name).strip().lower() not in {"equipment", "down hole equipment"}:
+                        equipment.append({"equipment_name": str(name), "od": cells.get((r, 12)), "serial_number": cells.get((r, 14)), "rotating_hours": cells.get((r, 16)), "cumulative_hours": cells.get((r, 18))})
+                if equipment:
+                    result["downhole_equipment"] = {"equipment_data_json": json.dumps(equipment, ensure_ascii=False)}
+
             lta_row = find_row("days without lta")
             if lta_row:
                 value = next((self._to_float(cells.get((lta_row, c))) for c in range(1, MAX_PROFILE_COLS) if self._to_float(cells.get((lta_row, c))) is not None), None)
