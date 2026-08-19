@@ -30,6 +30,7 @@ from PySide6.QtGui import *
 from openpyxl import load_workbook
 from openpyxl.utils import get_column_letter
 from core.import_quality import decision_for_confidence
+from core.ai_import_mapper import AIImportMapper
 
 logger = logging.getLogger(__name__)
 
@@ -2340,6 +2341,7 @@ class SmartTemplateDialog(QDialog):
             # users only see one Auto-Detect button. Profile values fill only
             # gaps and never overwrite a high-confidence smart detection.
             self._merge_profile_fallback()
+            self._merge_ai_fallback()
 
             # Build final data
             self.final_data = self._build_final_data_from_assignments()
@@ -2357,6 +2359,49 @@ class SmartTemplateDialog(QDialog):
                 f"Smart detect error: {e}", exc_info=True
             )
             self.detect_status.setText("❌ Detection failed")
+
+    def _merge_ai_fallback(self):
+        """Ask an optional local model only about unresolved scalar fields."""
+        mapper = AIImportMapper()
+        if not mapper.enabled or not mapper.available():
+            return
+        missing = [
+            field for field in FIELD_PATTERNS
+            if not self.base_extracted.get(field.split(".", 1)[0], {}).get(field.split(".", 1)[1])
+        ]
+        # Keep the prompt small and auditable: labels plus nearby non-empty
+        # cells, never the complete workbook or binary file.
+        context = []
+        for sheet, cells in self.cell_cache.items():
+            for (row, col), value in list(cells.items())[:1500]:
+                if value not in (None, ""):
+                    context.append({"sheet": sheet, "row": row, "column": col, "value": str(value)[:160]})
+                if len(context) >= 3000:
+                    break
+            if len(context) >= 3000:
+                break
+        for proposal in mapper.map_context(context, missing):
+            field = proposal["field"]
+            if "." not in field:
+                continue
+            section, key = field.split(".", 1)
+            if self.base_extracted.setdefault(section, {}).get(key) not in (None, ""):
+                continue
+            value = proposal["value"]
+            self.base_extracted[section][key] = value
+            self.assignments[field] = {
+                "sheet": proposal.get("source_sheet", "AI"),
+                "row": proposal.get("source_row", 0),
+                "col": proposal.get("source_column", 0),
+                "value": str(value)[:100],
+                "original_value": value,
+                "normalized_value": value,
+                "canonical_field": field,
+                "confidence": float(proposal.get("confidence", 0)),
+                "decision": "REVIEW",
+                "transform": "local-ai-proposal",
+                "auto": False,
+            }
 
     def _merge_profile_fallback(self):
         """Use a matching company profile as a silent fallback for Auto-Detect."""
