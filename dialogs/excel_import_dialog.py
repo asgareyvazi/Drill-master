@@ -90,10 +90,12 @@ class ExcelImportDialog(QDialog):
             model = entry.get("model", entry.get("name", ""))
             mark = "✓" if model in installed else "—"
             self.ai_model_combo.addItem(f"{mark} {entry.get('label', model)}", model)
-        selected = os.getenv("DRILLMASTER_AI_MODEL", "") or get_selected_model()
+        selected = os.getenv("DRILLMASTER_AI_MODEL", "") or get_selected_model() or (sorted(installed)[0] if installed else "")
         selected_index = self.ai_model_combo.findData(selected)
         if selected_index >= 0:
             self.ai_model_combo.setCurrentIndex(selected_index)
+            set_selected_model(selected)
+            os.environ["DRILLMASTER_AI_MODEL"] = selected
         self.ai_model_combo.currentIndexChanged.connect(self._select_ai_model)
         ai_row.addWidget(self.ai_model_combo, 1)
         il.addLayout(ai_row)

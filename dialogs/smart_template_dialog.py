@@ -1902,10 +1902,12 @@ class SmartTemplateDialog(QDialog):
             label = entry.get("label", model_name)
             state = "✓" if model_name in installed else "—"
             self.ai_model_combo.addItem(f"{state} {label}", model_name)
-        selected_model = os.getenv("DRILLMASTER_AI_MODEL", "") or get_selected_model()
+        selected_model = os.getenv("DRILLMASTER_AI_MODEL", "") or get_selected_model() or (sorted(installed)[0] if installed else "")
         selected_index = self.ai_model_combo.findData(selected_model)
         if selected_index >= 0:
             self.ai_model_combo.setCurrentIndex(selected_index)
+            set_selected_model(selected_model)
+            os.environ["DRILLMASTER_AI_MODEL"] = selected_model
         self.ai_model_combo.currentIndexChanged.connect(self._select_ai_model)
         auto_layout.addWidget(self.ai_model_combo)
         auto_layout.addStretch()
