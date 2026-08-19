@@ -1,8 +1,13 @@
-"""Optional local AI assistant for ambiguous workbook mappings."""
+"""Optional local AI assistant and persistent model catalog."""
 import json, logging, os, urllib.request, urllib.error
 from pathlib import Path
 logger = logging.getLogger(__name__)
 ALLOWED_FIELDS = {"well_info.name","well_info.field_name","well_info.well_type","well_info.rig_name","well_info.drilling_contractor","well_info.report_date","daily_report.report_date","daily_report.report_number","daily_report.depth_0000","daily_report.depth_0600","daily_report.depth_2400","daily_report.summary","mud_report.mud_type","mud_report.mw","mud_report.pv","mud_report.yp","mud_report.ph","mud_report.temperature","mud_report.solid_percent","drilling_params.bit_no","drilling_params.bit_size","drilling_params.bit_type","drilling_params.depth_in","drilling_params.depth_out","drilling_params.avg_rop","time_log.main_code","time_log.sub_code","time_log.contractor","survey.md","survey.inc","survey.azi","survey.tvd","bulk_material.material_name","bulk_material.received","bulk_material.used"}
+
+
+def _config_path():
+    return Path(__file__).resolve().parent.parent / "config" / "ai_settings.json"
+
 
 def model_catalog():
     try:
@@ -10,10 +15,24 @@ def model_catalog():
         return data.get("models",[])
     except (OSError,ValueError): return []
 
+
+def get_selected_model():
+    try:
+        return json.loads(_config_path().read_text(encoding="utf-8")).get("model", "")
+    except (OSError, ValueError): return ""
+
+
+def set_selected_model(model):
+    if not model: return
+    path = _config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"model": model}, indent=2), encoding="utf-8")
+
+
 class AIImportMapper:
     def __init__(self, endpoint=None, model=None, timeout=20):
         self.endpoint=(endpoint or os.getenv("DRILLMASTER_OLLAMA_URL","http://127.0.0.1:11434")).rstrip("/")
-        configured=model or os.getenv("DRILLMASTER_AI_MODEL","")
+        configured=model or os.getenv("DRILLMASTER_AI_MODEL","") or get_selected_model()
         self.model=configured or (model_catalog()[0].get("model","") if model_catalog() else "qwen2.5-local")
         self.timeout=int(os.getenv("DRILLMASTER_AI_TIMEOUT",str(max(timeout,120))))
         self.last_status="disabled"

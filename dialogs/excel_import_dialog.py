@@ -27,7 +27,7 @@ from PySide6.QtGui import QColor
 
 from core.text_utils import wrap_text
 from core.import_quality import ImportValidator, find_duplicates
-from core.ai_import_mapper import AIImportMapper, model_catalog
+from core.ai_import_mapper import AIImportMapper, model_catalog, get_selected_model, set_selected_model
 from dialogs.smart_template_dialog import (
     SmartTemplateDialog, ValueNormalizer, FIELD_LABELS,
 )
@@ -83,11 +83,14 @@ class ExcelImportDialog(QDialog):
         ai_row.addWidget(QLabel("AI model:"))
         self.ai_model_combo = QComboBox()
         installed = set(AIImportMapper().installed_models())
-        for entry in model_catalog():
+        entries = list(model_catalog())
+        known = {entry.get("model", entry.get("name", "")) for entry in entries}
+        entries.extend({"model": model, "label": model, "description": "Installed Ollama model"} for model in installed if model not in known)
+        for entry in entries:
             model = entry.get("model", entry.get("name", ""))
             mark = "✓" if model in installed else "—"
             self.ai_model_combo.addItem(f"{mark} {entry.get('label', model)}", model)
-        selected = os.getenv("DRILLMASTER_AI_MODEL", "")
+        selected = os.getenv("DRILLMASTER_AI_MODEL", "") or get_selected_model()
         selected_index = self.ai_model_combo.findData(selected)
         if selected_index >= 0:
             self.ai_model_combo.setCurrentIndex(selected_index)
@@ -166,6 +169,7 @@ class ExcelImportDialog(QDialog):
         if model:
             os.environ["DRILLMASTER_AI_MODEL"] = model
             os.environ["DRILLMASTER_AI_IMPORT"] = "1"
+            set_selected_model(model)
 
     def _unified_import(self):
         """The only import entry point: single file or batch, Excel or PDF."""

@@ -30,7 +30,7 @@ from PySide6.QtGui import *
 from openpyxl import load_workbook
 from openpyxl.utils import get_column_letter
 from core.import_quality import decision_for_confidence
-from core.ai_import_mapper import AIImportMapper, model_catalog
+from core.ai_import_mapper import AIImportMapper, model_catalog, get_selected_model, set_selected_model
 
 logger = logging.getLogger(__name__)
 
@@ -1894,12 +1894,15 @@ class SmartTemplateDialog(QDialog):
         auto_layout.addWidget(QLabel("AI Model:"))
         self.ai_model_combo = QComboBox()
         installed = set(AIImportMapper().installed_models())
-        for entry in model_catalog():
+        entries = list(model_catalog())
+        known = {entry.get("model", entry.get("name", "")) for entry in entries}
+        entries.extend({"model": model, "label": model} for model in installed if model not in known)
+        for entry in entries:
             model_name = entry.get("model", entry.get("name", ""))
             label = entry.get("label", model_name)
             state = "✓" if model_name in installed else "—"
             self.ai_model_combo.addItem(f"{state} {label}", model_name)
-        selected_model = os.getenv("DRILLMASTER_AI_MODEL", "")
+        selected_model = os.getenv("DRILLMASTER_AI_MODEL", "") or get_selected_model()
         selected_index = self.ai_model_combo.findData(selected_model)
         if selected_index >= 0:
             self.ai_model_combo.setCurrentIndex(selected_index)
@@ -2118,6 +2121,8 @@ class SmartTemplateDialog(QDialog):
         model = self.ai_model_combo.itemData(index) if hasattr(self, "ai_model_combo") else None
         if model:
             os.environ["DRILLMASTER_AI_MODEL"] = model
+            os.environ["DRILLMASTER_AI_IMPORT"] = "1"
+            set_selected_model(model)
             self.detect_status.setText(f"AI model selected: {model}")
 
     def _browse_file(self):
