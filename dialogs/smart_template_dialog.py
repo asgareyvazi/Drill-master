@@ -3287,6 +3287,37 @@ class SmartTemplateDialog(QDialog):
             if clean_value is not None:
                 result[section][key] = clean_value
 
+        # Include row-oriented records in the same review matrix. Previously
+        # only scalar field assignments were visible, hiding most imported
+        # time logs, surveys and inventory rows.
+        record_fields = {
+            "time_logs_24h": ("time_log", ("time_from", "time_to", "main_code", "sub_code", "contractor")),
+            "time_logs_morning": ("morning_log", ("time_from", "time_to", "main_code", "sub_code")),
+            "surveys": ("survey", ("md", "inc", "azi", "tvd")),
+            "bulk_materials": ("bulk_material", ("material_name", "initial_stock", "received", "used", "current_stock")),
+            "equipment_logs": ("equipment", ("equipment_name", "equipment_type", "equipment_id")),
+            "pob_records": ("pob", ("company_name", "pob_total")),
+            "service_companies": ("service", ("company_name", "service_type")),
+        }
+        matrix = result.setdefault("metadata", {}).setdefault("review_matrix", [])
+        for payload_key, (record_type, fields) in record_fields.items():
+            for row_index, record in enumerate(result.get(payload_key, []) or [], start=1):
+                if not isinstance(record, dict):
+                    continue
+                for field in fields:
+                    if record.get(field) in (None, ""):
+                        continue
+                    matrix.append({
+                        "sheet": record.get("source_sheet", ""),
+                        "row": record.get("source_row", row_index),
+                        "column": record.get("source_column", ""),
+                        "source_value": record.get(field),
+                        "normalized_value": record.get(field),
+                        "canonical_field": f"{record_type}.{field}",
+                        "confidence": record.get("confidence", 0.95),
+                        "decision": record.get("decision", "ACCEPT"),
+                        "transform": record.get("transform", "table-mapping"),
+                    })
         return result
 
     def _clean_value_for_field(self, field_path: str, value):
