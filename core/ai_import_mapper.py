@@ -1,29 +1,34 @@
-"""Optional local AI assistant for ambiguous workbook mappings.
-The model proposes mappings only; validation and review remain authoritative.
-"""
+"""Optional local AI assistant for ambiguous workbook mappings."""
 import json, logging, os, urllib.request, urllib.error
+from pathlib import Path
 logger = logging.getLogger(__name__)
 ALLOWED_FIELDS = {"well_info.name","well_info.field_name","well_info.well_type","well_info.rig_name","well_info.drilling_contractor","well_info.report_date","daily_report.report_date","daily_report.report_number","daily_report.depth_0000","daily_report.depth_0600","daily_report.depth_2400","daily_report.summary","mud_report.mud_type","mud_report.mw","mud_report.pv","mud_report.yp","mud_report.ph","mud_report.temperature","mud_report.solid_percent","drilling_params.bit_no","drilling_params.bit_size","drilling_params.bit_type","drilling_params.depth_in","drilling_params.depth_out","drilling_params.avg_rop","time_log.main_code","time_log.sub_code","time_log.contractor","survey.md","survey.inc","survey.azi","survey.tvd","bulk_material.material_name","bulk_material.received","bulk_material.used"}
+
+def model_catalog():
+    try:
+        data=json.loads((Path(__file__).resolve().parent.parent/"config"/"ai_models.json").read_text(encoding="utf-8"))
+        return data.get("models",[])
+    except (OSError,ValueError): return []
+
 class AIImportMapper:
     def __init__(self, endpoint=None, model=None, timeout=20):
         self.endpoint=(endpoint or os.getenv("DRILLMASTER_OLLAMA_URL","http://127.0.0.1:11434")).rstrip("/")
-        self.model=model or os.getenv("DRILLMASTER_AI_MODEL","qwen2.5:7b-instruct")
+        configured=model or os.getenv("DRILLMASTER_AI_MODEL","")
+        self.model=configured or (model_catalog()[0].get("model","") if model_catalog() else "qwen2.5-local")
         self.timeout=int(os.getenv("DRILLMASTER_AI_TIMEOUT",str(max(timeout,120))))
         self.last_status="disabled"
     @property
-    def enabled(self): return os.getenv("DRILLMASTER_AI_IMPORT","0").lower() in {"1","true","yes","on"}
-    def available(self):
-        if not self.enabled: self.last_status="disabled"; return False
+    def enabled(self): return os.getenv("DRILLMASTER_AI_IMPORT","1").lower() in {"1","true","yes","on"}
+    def installed_models(self):
         try:
             req=urllib.request.Request(f"{self.endpoint}/api/tags",method="GET")
             with urllib.request.urlopen(req,timeout=2) as response:
-                data=json.loads(response.read().decode("utf-8"))
-                names={m.get("name") for m in data.get("models",[])}
-                if self.model not in names:
-                    self.last_status="model-not-installed"; return False
-                self.last_status="available"; return response.status==200
-        except (OSError,urllib.error.URLError): self.last_status="unreachable"; return False
-        except Exception: self.last_status="unavailable"; return False
+                return [m.get("name") for m in json.loads(response.read().decode("utf-8")).get("models",[])]
+        except (OSError,urllib.error.URLError,ValueError): return []
+    def available(self):
+        if not self.enabled: self.last_status="disabled"; return False
+        if self.model not in set(self.installed_models()): self.last_status="model-not-installed"; return False
+        self.last_status="available"; return True
     def map_context(self, context, allowed_fields=None):
         if not self.available(): return []
         fields=sorted(set(allowed_fields or ALLOWED_FIELDS)&ALLOWED_FIELDS)
