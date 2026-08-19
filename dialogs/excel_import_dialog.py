@@ -617,6 +617,7 @@ class ExcelImportDialog(QDialog):
             quality.failed += log_quality.failed
             quality.issues.extend(log_quality.issues)
             results["import_report"] = quality.as_dict()
+            results["import_report"]["review"].extend((extracted.get("metadata") or {}).get("review_matrix", []))
             if quality.errors and not report_data.get("report_date"):
                 results["failed"] += 1
                 results["details"].append("❌ Import stopped: invalid Daily Report")

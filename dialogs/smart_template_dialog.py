@@ -3231,6 +3231,10 @@ class SmartTemplateDialog(QDialog):
                 self.base_extracted.get("metadata", {})
             ),
         }
+        result["metadata"]["review_matrix"] = [
+            {"sheet": a.get("sheet", ""), "row": a.get("row", 0), "column": a.get("col", ""), "source_value": a.get("original_value", a.get("value", "")), "normalized_value": a.get("normalized_value", a.get("value", "")), "canonical_field": a.get("canonical_field", fp), "confidence": a.get("confidence", 0), "decision": a.get("decision", "REVIEW"), "transform": a.get("transform", "")}
+            for fp, a in self.assignments.items()
+        ]
 
         for payload_key in (
             "service_companies", "surveys", "pob_records", "casing_report",
