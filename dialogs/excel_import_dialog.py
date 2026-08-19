@@ -27,6 +27,7 @@ from PySide6.QtGui import QColor
 
 from core.text_utils import wrap_text
 from core.import_quality import ImportValidator, find_duplicates
+from core.ai_import_mapper import AIImportMapper, model_catalog
 from dialogs.smart_template_dialog import (
     SmartTemplateDialog, ValueNormalizer, FIELD_LABELS,
 )
@@ -74,9 +75,24 @@ class ExcelImportDialog(QDialog):
         smart_group = QGroupBox("🚀 Smart Import & Builder")
         sl = QVBoxLayout(smart_group)
         sl.addWidget(QLabel(
-            "Open Excel, auto-detect fields with AI engine, "
-            "review and fix in builder."
+            "Open Excel, normalize, detect tables, use the workbook catalog and "
+            "ask the optional local AI only for ambiguous fields."
         ))
+        ai_row = QHBoxLayout()
+        ai_row.addWidget(QLabel("AI model:"))
+        self.ai_model_combo = QComboBox()
+        installed = set(AIImportMapper().installed_models())
+        for entry in model_catalog():
+            model = entry.get("model", entry.get("name", ""))
+            mark = "✓" if model in installed else "—"
+            self.ai_model_combo.addItem(f"{mark} {entry.get('label', model)}", model)
+        selected = os.getenv("DRILLMASTER_AI_MODEL", "")
+        index = self.ai_model_combo.findData(selected)
+        if index >= 0:
+            self.ai_model_combo.setCurrentIndex(index)
+        self.ai_model_combo.currentIndexChanged.connect(self._select_ai_model)
+        ai_row.addWidget(self.ai_model_combo, 1)
+        sl.addLayout(ai_row)
 
         smart_btn = QPushButton("📂 Open Excel & Auto-Detect")
         smart_btn.setStyleSheet(
@@ -190,6 +206,11 @@ class ExcelImportDialog(QDialog):
             self.template_combo.addItem(
                 "No templates yet — create one first"
             )
+
+    def _select_ai_model(self, index):
+        model = self.ai_model_combo.itemData(index) if hasattr(self, "ai_model_combo") else None
+        if model:
+            os.environ["DRILLMASTER_AI_MODEL"] = model
 
     def _browse_file(self):
         fp, _ = QFileDialog.getOpenFileName(
