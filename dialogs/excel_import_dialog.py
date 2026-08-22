@@ -176,7 +176,7 @@ class ExcelImportDialog(QDialog):
     def _unified_import(self):
         """The only import entry point: single file or batch, Excel or PDF."""
         files, _ = QFileDialog.getOpenFileNames(
-            self, "Import Report(s)", "", "Reports (*.xlsx *.xlsm *.pdf)"
+            self, "Import Report(s)", "", "Reports (*.xlsx *.xls *.xlsm *.csv *.pdf)"
         )
         if not files:
             return
@@ -192,6 +192,14 @@ class ExcelImportDialog(QDialog):
                     clean = Path(os.path.join(QDir.tempPath(), Path(source).stem + "_pdf_import.xlsx"))
                     pdf_to_xlsx(source, clean)
                     path = str(clean)
+                elif source.lower().endswith(".csv"):
+                    from pathlib import Path
+                    from core.document_import import csv_to_xlsx
+                    clean = Path(os.path.join(QDir.tempPath(), Path(source).stem + "_csv_import.xlsx"))
+                    csv_to_xlsx(source, clean)
+                    path = str(clean)
+                elif source.lower().endswith(".xls"):
+                    raise ValueError("Legacy .xls requires conversion to .xlsx before import")
                 dialog = SmartTemplateDialog(self.db, self.well_id, None, preload_file=path)
                 QApplication.processEvents()
                 dialog._smart_auto_detect()
