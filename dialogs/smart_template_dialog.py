@@ -1202,6 +1202,24 @@ class FieldDetector:
         best = None
         best_conf = 0.0
 
+        # Reuse a previously confirmed mapping only when the header matches
+        # exactly after normalization; never guess from a stale template.
+        saved = getattr(self, "saved_mappings", {})
+        for source_header, mapping in saved.items():
+            if not isinstance(mapping, dict) or mapping.get("field") != field_path:
+                continue
+            wanted = re.sub(r"[^a-z0-9]", "", str(source_header).lower())
+            for sheet_name in sheets_to_search:
+                cells = self.cell_cache.get(sheet_name, {})
+                for (row, col), cell_value in cells.items():
+                    current = re.sub(r"[^a-z0-9]", "", str(cell_value).lower())
+                    if current != wanted:
+                        continue
+                    value_info = self._extract_value_radius(sheet_name, row, col, data_type, valid_range)
+                    if value_info:
+                        value, v_row, v_col = value_info
+                        return value, 0.99, sheet_name, v_row, v_col
+
         for sheet_name in sheets_to_search:
             cells = self.cell_cache.get(sheet_name, {})
             if not cells:
@@ -2346,6 +2364,7 @@ class SmartTemplateDialog(QDialog):
 
             # Create detector
             self.detector = FieldDetector(self.cell_cache)
+            self.saved_mappings = (self.mapping_store.get(self.mapping_fingerprint) or {}).get("fields", {})
 
             # Sort fields by priority (high priority first)
             sorted_fields = sorted(
@@ -2513,6 +2532,14 @@ class SmartTemplateDialog(QDialog):
             if value and not self.base_extracted.get(key):
                 self.base_extracted[key] = value
 
+    def _source_header(self, sheet, row, col):
+        cells = self.cell_cache.get(sheet, {})
+        for distance in range(1, 16):
+            value = cells.get((row, col - distance))
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        return ""
+
     def _register_detection(
         self,
         field_path: str,
@@ -2531,6 +2558,7 @@ class SmartTemplateDialog(QDialog):
             "col": v_col,
             "value": str(value)[:100] if value is not None else "",
             "original_value": value,
+            "source_header": self._source_header(sheet, v_row, v_col),
             "normalized_value": value,
             "canonical_field": field_path,
             "unit": pattern_unit(field_path),
