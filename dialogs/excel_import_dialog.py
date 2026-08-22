@@ -155,6 +155,7 @@ class ExcelImportDialog(QDialog):
                 dialog = SmartTemplateDialog(self.db, self.well_id, None, preload_file=path)
                 QApplication.processEvents()
                 dialog._smart_auto_detect()
+                dialog._remember_mappings()
                 extracted = dialog._build_final_data_from_assignments()
                 if not any(extracted.get(key) for key in ("well_info", "daily_report", "mud_report", "drilling_params", "time_logs_24h")):
                     raise ValueError("No report data was detected")

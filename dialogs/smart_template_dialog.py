@@ -32,6 +32,7 @@ from openpyxl.utils import get_column_letter
 from core.import_quality import decision_for_confidence
 from core.ai_import_mapper import AIImportMapper, model_catalog, get_selected_model, set_selected_model
 from core.universal_import import WorkbookScanner
+from core.mapping_store import MappingStore
 
 logger = logging.getLogger(__name__)
 
@@ -2184,6 +2185,8 @@ class SmartTemplateDialog(QDialog):
                     logger.warning("Excel normalization skipped: %s", normalize_error)
             self.wb = load_workbook(load_path, data_only=True)
             self.workbook_snapshot = WorkbookScanner().scan(self.wb)
+            self.mapping_store = MappingStore()
+            self.mapping_fingerprint = self.mapping_store.fingerprint(self.workbook_snapshot)
             self._populate_structure_table()
             self.cell_cache.clear()
             self.assignments.clear()
@@ -3649,10 +3652,24 @@ class SmartTemplateDialog(QDialog):
     # ================================================================
     # Import
     # ================================================================
+    def _remember_mappings(self):
+        store = getattr(self, "mapping_store", None)
+        fingerprint = getattr(self, "mapping_fingerprint", "")
+        if not store or not fingerprint:
+            return
+        confirmed = {}
+        for field, assignment in self.assignments.items():
+            if assignment.get("decision", "ACCEPT") in {"ACCEPT", "CONFIRMED"} and assignment.get("value") not in (None, ""):
+                confirmed[str(assignment.get("source_header", assignment.get("value", "")))] = {
+                    "field": field, "confidence": assignment.get("confidence", 0),
+                }
+        store.remember(fingerprint, confirmed)
+
     def _do_import(self):
         if not self.assignments:
             return
         self.final_data = self._build_final_data_from_assignments()
+        self._remember_mappings()
         self.import_completed.emit(self.final_data)
         self.accept()
 
