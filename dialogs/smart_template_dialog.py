@@ -32,6 +32,7 @@ from openpyxl.utils import get_column_letter
 from core.import_quality import decision_for_confidence
 from core.ai_import_mapper import AIImportMapper, model_catalog, get_selected_model, set_selected_model
 from core.universal_import import WorkbookScanner
+from core.table_record_mapper import extract_records
 from core.mapping_store import MappingStore
 
 logger = logging.getLogger(__name__)
@@ -2425,6 +2426,7 @@ class SmartTemplateDialog(QDialog):
             # users only see one Auto-Detect button. Profile values fill only
             # gaps and never overwrite a high-confidence smart detection.
             self._merge_profile_fallback()
+            self._merge_table_records()
             self._merge_ai_fallback()
 
             # Build final data
@@ -2444,6 +2446,15 @@ class SmartTemplateDialog(QDialog):
                 f"Smart detect error: {e}", exc_info=True
             )
             self.detect_status.setText("❌ Detection failed")
+
+    def _merge_table_records(self):
+        """Map every detected table row before invoking AI."""
+        records = extract_records(self.cell_cache, getattr(self, "workbook_snapshot", {}))
+        for key, values in records.items():
+            if values and not self.base_extracted.get(key):
+                self.base_extracted[key] = values
+            elif values:
+                self.base_extracted.setdefault(key, []).extend(values)
 
     def _merge_ai_fallback(self):
         """Ask an optional local model only about unresolved scalar fields."""
