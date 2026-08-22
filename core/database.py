@@ -2527,6 +2527,11 @@ class DatabaseManager:
                     if not isinstance(company_data, dict):
                         continue
                     item = dict(company_data)
+                    # A generic table can contain a "service" label without
+                    # being a service-company record (e.g. Well Shape). Never
+                    # send rows without the NOT NULL company identity.
+                    if not str(item.get("company_name", "")).strip():
+                        continue
                     item["well_id"] = well_id
                     item["report_id"] = report_id
                     if self.save_service_company(item):
