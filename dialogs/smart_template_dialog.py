@@ -31,6 +31,7 @@ from openpyxl import load_workbook
 from openpyxl.utils import get_column_letter
 from core.import_quality import decision_for_confidence
 from core.ai_import_mapper import AIImportMapper, model_catalog, get_selected_model, set_selected_model
+from core.universal_import import WorkbookScanner
 
 logger = logging.getLogger(__name__)
 
@@ -2152,6 +2153,7 @@ class SmartTemplateDialog(QDialog):
                 except Exception as normalize_error:
                     logger.warning("Excel normalization skipped: %s", normalize_error)
             self.wb = load_workbook(load_path, data_only=True)
+            self.workbook_snapshot = WorkbookScanner().scan(self.wb)
             self.cell_cache.clear()
             self.assignments.clear()
             self.confidence_scores.clear()
@@ -2406,7 +2408,7 @@ class SmartTemplateDialog(QDialog):
         ]
         # Keep the prompt small and auditable: labels plus nearby non-empty
         # cells, never the complete workbook or binary file.
-        context = []
+        context = [{"type": "workbook_structure", "value": WorkbookScanner.compact_context(getattr(self, "workbook_snapshot", {}))}]
         for sheet, cells in self.cell_cache.items():
             for (row, col), value in list(cells.items())[:1500]:
                 if value not in (None, ""):
