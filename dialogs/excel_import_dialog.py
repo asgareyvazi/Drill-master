@@ -167,6 +167,39 @@ class ExcelImportDialog(QDialog):
         self.import_completed.emit(results)
         self.accept()
 
+    def _resolve_import_well(self, well_info):
+        """Resolve the workbook well instead of forcing every file into the selected well."""
+        from core.database import Well, Project
+        name = self._safe_text((well_info or {}).get("name"), "")
+        code = self._safe_text((well_info or {}).get("code"), "")
+        if not name and not code:
+            return self.well_id
+        session = self.db.create_session()
+        try:
+            query = session.query(Well)
+            existing = query.filter(Well.code == code).first() if code else None
+            if not existing:
+                existing = query.filter(Well.name == name).first() if name else None
+            if existing:
+                self.well_id = existing.id
+                return existing.id
+            fallback = session.get(Well, self.well_id) if self.well_id else None
+            project_id = fallback.project_id if fallback else session.query(Project.id).order_by(Project.id).first()
+            project_id = project_id[0] if isinstance(project_id, tuple) else project_id
+            if not project_id:
+                raise ValueError("Cannot create imported well: no project exists")
+            values = {k: v for k, v in (well_info or {}).items() if hasattr(Well, k) and k != "id"}
+            values.update({"project_id": project_id, "name": name or code})
+            if code:
+                values["code"] = code
+            well = Well(**values)
+            session.add(well)
+            session.commit()
+            self.well_id = well.id
+            return well.id
+        finally:
+            session.close()
+
     def _do_import(
         self, extracted: dict, refresh_ui: bool = True
     ) -> dict:
@@ -175,6 +208,7 @@ class ExcelImportDialog(QDialog):
             "imported": 0,
             "failed": 0,
             "details": [],
+            "well_id": self.well_id,
             "report_id": None,
             "section_id": None,
             "import_report": None,
@@ -224,6 +258,9 @@ class ExcelImportDialog(QDialog):
 
             # ===== 1. Well Info =====
             wi = extracted.get("well_info", {})
+            if not self.well_id or wi.get("name") or wi.get("code"):
+                self._resolve_import_well(wi)
+                results["well_id"] = self.well_id
             if wi:
                 wi_save = dict(wi)
                 wi_save["id"] = self.well_id

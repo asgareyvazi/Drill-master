@@ -1885,17 +1885,15 @@ class MainWindow(QMainWindow):
         self.status_manager.show_error("MainWindow", "Export tab not found")
 
     def open_excel_import(self):
-        if not self.current_well:
-            QMessageBox.warning(
-                self, "No Well", "Please select a well first."
+        # Universal import can discover/create the workbook well. A selected
+        # well is only a fallback for files that omit well identity.
+        well_id = None
+        if self.current_well:
+            well_id = (
+                self.current_well['id']
+                if isinstance(self.current_well, dict)
+                else self.current_well.id
             )
-            return
-
-        well_id = (
-            self.current_well['id']
-            if isinstance(self.current_well, dict)
-            else self.current_well.id
-        )
 
         try:
             dialog = ExcelImportDialog(self.db_manager, well_id, self)
@@ -1929,13 +1927,9 @@ class MainWindow(QMainWindow):
             if r.get('section_id'):
                 section_id = r['section_id']
 
-        well_id = None
-        if self.current_well:
-            well_id = (
-                self.current_well['id']
-                if isinstance(self.current_well, dict)
-                else self.current_well.id
-            )
+        well_id = next((r.get("well_id") for r in reversed(results) if r.get("well_id")), None)
+        if well_id is None and self.current_well:
+            well_id = self.current_well['id'] if isinstance(self.current_well, dict) else self.current_well.id
 
         message = f"Import done! ✅ {total} imported, ❌ {failed} failed"
         self._show_import_summary(results)
