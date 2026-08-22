@@ -1958,6 +1958,15 @@ class SmartTemplateDialog(QDialog):
         fl.addStretch()
         left_layout.addLayout(fl)
 
+        self.structure_table = QTableWidget(0, 6)
+        self.structure_table.setHorizontalHeaderLabels(["Sheet", "Region", "Title", "Columns", "Type", "Range"])
+        self.structure_table.setMaximumHeight(150)
+        self.structure_table.setAlternatingRowColors(True)
+        self.structure_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.structure_table.horizontalHeader().setStretchLastSection(True)
+        left_layout.addWidget(QLabel("Detected tables and column profiles:"))
+        left_layout.addWidget(self.structure_table)
+
         self.review_table = QTableWidget(0, 4)
         self.review_table.setHorizontalHeaderLabels([
             "", "Field", "Value", "Conf",
@@ -2128,6 +2137,27 @@ class SmartTemplateDialog(QDialog):
             set_selected_model(model)
             self.detect_status.setText(f"AI model selected: {model}")
 
+    def _populate_structure_table(self):
+        table = getattr(self, "structure_table", None)
+        if table is None:
+            return
+        table.setRowCount(0)
+        for region in getattr(self, "workbook_snapshot", {}).get("tables", []):
+            row = table.rowCount()
+            table.insertRow(row)
+            columns = region.get("columns", [])
+            types = ", ".join(sorted({str(c.get("data_type", "")) for c in columns if c.get("data_type")}))
+            headers = ", ".join(str(c.get("header", "")) for c in columns[:4])
+            values = [
+                region.get("sheet", ""),
+                f"{region.get('min_row', 0)}:{region.get('max_row', 0)} x {region.get('min_col', 0)}:{region.get('max_col', 0)}",
+                region.get("title", ""), headers, types,
+                f"{len(columns)} columns",
+            ]
+            for col, value in enumerate(values):
+                table.setItem(row, col, QTableWidgetItem(str(value)))
+        table.resizeColumnsToContents()
+
     def _browse_file(self):
         filepath, _ = QFileDialog.getOpenFileName(
             self, "Open Excel File", "",
@@ -2154,6 +2184,7 @@ class SmartTemplateDialog(QDialog):
                     logger.warning("Excel normalization skipped: %s", normalize_error)
             self.wb = load_workbook(load_path, data_only=True)
             self.workbook_snapshot = WorkbookScanner().scan(self.wb)
+            self._populate_structure_table()
             self.cell_cache.clear()
             self.assignments.clear()
             self.confidence_scores.clear()
