@@ -1904,7 +1904,7 @@ class SmartTemplateDialog(QDialog):
             "border-radius: 4px; font-weight: bold; border: none;"
         )
         self.smart_btn.setEnabled(False)
-        self.smart_btn.clicked.connect(self._smart_auto_detect)
+        self.smart_btn.clicked.connect(self._manual_smart_detect)
         auto_layout.addWidget(self.smart_btn)
 
         self.detect_status = QLabel("")
@@ -2341,7 +2341,13 @@ class SmartTemplateDialog(QDialog):
     # ================================================================
     # Smart Auto-Detect v2
     # ================================================================
+    def _manual_smart_detect(self):
+        self._auto_detect_done = False
+        self._smart_auto_detect()
+
     def _smart_auto_detect(self):
+        if getattr(self, "_auto_detect_done", False):
+            return
         if not self.cell_cache:
             return
 
@@ -2435,6 +2441,7 @@ class SmartTemplateDialog(QDialog):
             self._display_sheet(self.current_sheet)
 
             detected = len(self.assignments)
+            self._auto_detect_done = True
             self.detect_status.setText(
                 f"✅ Detected {detected} fields "
                 f"(sheets: {len(self.sheet_routing)}) | "
@@ -2477,9 +2484,9 @@ class SmartTemplateDialog(QDialog):
             for (row, col), value in list(cells.items())[:1500]:
                 if value not in (None, ""):
                     context.append({"sheet": sheet, "row": row, "column": col, "value": str(value)[:160]})
-                if len(context) >= 800:
+                if len(context) >= 160:
                     break
-            if len(context) >= 800:
+            if len(context) >= 160:
                 break
         proposals = mapper.map_context(context, missing)
         self.ai_status = mapper.last_status

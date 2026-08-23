@@ -4560,6 +4560,11 @@ class DatabaseManager:
 
     # ========== Service Company ==========
     def save_service_company(self, company_data: dict):
+        # company_name is NOT NULL; reject generic table false-positives before
+        # opening a transaction and avoid noisy IntegrityError traces.
+        if not str((company_data or {}).get("company_name", "")).strip():
+            logger.warning("Skipping service row without company_name")
+            return None
         session = self.create_session()
         try:
             if company_data.get("id"):
