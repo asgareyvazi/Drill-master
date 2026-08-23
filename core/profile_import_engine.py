@@ -441,6 +441,19 @@ class ProfileImportEngine:
                 if materials:
                     result["cement_report"] = {"materials_json": json.dumps(materials, ensure_ascii=False), "report_name": "Imported cement additives"}
 
+            # BHA table embedded in DDR Data (two side-by-side lists).
+            bha_row = find_row("bha")
+            if bha_row:
+                header_row = bha_row + 1
+                components = []
+                for row in range(header_row + 1, min(header_row + 40, MAX_PROFILE_ROWS)):
+                    for base in (2, 6):
+                        name = cells.get((row, base))
+                        if name and str(name).strip().lower() not in {"item", "bha"}:
+                            components.append({"component_name": str(name), "od": cells.get((row, base + 1)), "length": cells.get((row, base + 2)), "cumulative_length": cells.get((row, base + 3))})
+                if components:
+                    result["bha_report"] = {"bha_name": "Imported BHA", "bha_data": components}
+
             # Downhole equipment table embedded in DDR Data.
             downhole_row = find_row("down hole equipment")
             if downhole_row:
@@ -451,6 +464,42 @@ class ProfileImportEngine:
                         equipment.append({"equipment_name": str(name), "od": cells.get((r, 12)), "serial_number": cells.get((r, 14)), "rotating_hours": cells.get((r, 16)), "cumulative_hours": cells.get((r, 18))})
                 if equipment:
                     result["downhole_equipment"] = {"equipment_data_json": json.dumps(equipment, ensure_ascii=False)}
+
+            # Drilling parameters in vendor DDRs are commonly a label in
+            # column B followed by min/max values in E/F and G/I.
+            drilling_row = find_row("drilling parameter")
+            if drilling_row:
+                aliases = {
+                    "wob": ("w.o.b", "wob", "weight on bit", "wt. on bit"),
+                    "rpm": ("motor rpm", "surface rpm", "rpm", "rotary"),
+                    "torque": ("torque",),
+                    "pump_pressure": ("pump pressure", "spp", "standpipe pressure"),
+                    "pump_output": ("pump output", "flow rate", "flow"),
+                }
+                for row in range(drilling_row + 1, min(drilling_row + 15, MAX_PROFILE_ROWS)):
+                    label = str(cells.get((row, 2), "")).lower()
+                    for field, names in aliases.items():
+                        if not any(name in label for name in names):
+                            continue
+                        numbers = [self._to_float(cells.get((row, col))) for col in (5, 6, 7, 9)]
+                        numbers = [value for value in numbers if value is not None]
+                        if numbers:
+                            result["drilling_params"][field + "_min"] = min(numbers)
+                            result["drilling_params"][field + "_max"] = max(numbers)
+
+            # Bit header/value blocks are often key-value rows, not tables.
+            bit_aliases = {
+                "bit_no": ("bit no", "bit number"), "bit_size": ("bit size",),
+                "bit_type": ("bit type",), "manufacturer": ("bit manufacture", "manufacturer"),
+                "serial_number": ("bit serial",), "iadc_code": ("iadc",),
+            }
+            for row in range(1, MAX_PROFILE_ROWS):
+                label = str(cells.get((row, 2), "")).lower()
+                for field, names in bit_aliases.items():
+                    if any(name in label for name in names):
+                        value = next((cells.get((row, col)) for col in range(3, 12) if cells.get((row, col)) not in (None, "")), None)
+                        if value not in (None, ""):
+                            result["bit_report"][field] = self._to_float(value) if field == "bit_size" else str(value).strip()
 
             lta_row = find_row("days without lta")
             if lta_row:

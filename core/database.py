@@ -2558,6 +2558,8 @@ class DatabaseManager:
             bit = extracted.get("bit_report")
             if bit and isinstance(bit, dict):
                 bit["report_id"] = report_id
+                if "bit_records_json" not in bit:
+                    bit["bit_records_json"] = [dict(bit)]
                 save_single("bit_report", lambda: self.save_bit_report(well_id, bit))
 
             # 6. BHA Report -> BHAReport
