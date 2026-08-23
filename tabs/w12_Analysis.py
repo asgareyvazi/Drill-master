@@ -82,6 +82,7 @@ from core.database import (
 from core.base_tab import DrillTabBase
 from core.selection_manager import SelectionManager
 from core.data_quality import DataQualityService
+from core.operations_intelligence import OperationsIntelligenceService
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +97,10 @@ class AnalysisWidget(DrillTabBase):
         self.current_well_name = None
         self.current_report_id = None
         self.quality_service = DataQualityService(self.db)
+        self.intelligence_service = OperationsIntelligenceService(self.db)
+        self.intelligence_label = QLabel("Operations Intelligence: —")
+        self.intelligence_label.setWordWrap(True)
+        self.intelligence_label.setStyleSheet("font-weight: bold; padding: 5px; color: #7f8c8d;")
         self.quality_label = QLabel("Data Quality: —")
         self.plan_variance_label = QLabel("Plan vs Actual: —")
         self.plan_variance_label.setStyleSheet("font-weight: bold; padding: 5px; color: #7f8c8d;")
@@ -201,6 +206,7 @@ class AnalysisWidget(DrillTabBase):
         header_layout.addWidget(self.status_label, 0, 0, 1, 2)
         header_layout.addWidget(self.quality_label, 1, 0, 1, 2)
         header_layout.addWidget(self.plan_variance_label, 2, 0, 1, 2)
+        header_layout.addWidget(self.intelligence_label, 3, 0, 1, 2)
 
         self.well_label = QLabel("🌍 Well: Not Selected")
         self.well_label.setStyleSheet("font-size: 14px; color: #bdc3c7;")
@@ -2111,6 +2117,7 @@ class AnalysisWidget(DrillTabBase):
         self.current_report_id = report_id
         self.update_data_quality()
         self.update_plan_variance()
+        self.update_intelligence()
         self.update_all_data()
 
     def update_plan_variance(self):
@@ -2131,6 +2138,24 @@ class AnalysisWidget(DrillTabBase):
         except Exception as exc:
             logger.error("Plan variance update failed: %s", exc, exc_info=True)
             self.plan_variance_label.setText("Plan vs Actual: unavailable")
+
+    def update_intelligence(self):
+        if not self.current_well_id:
+            self.intelligence_label.setText("Operations Intelligence: —")
+            return
+        try:
+            result = self.intelligence_service.analyze_well(self.current_well_id)
+            insights = result.get("insights", [])
+            if insights:
+                text = " | ".join(f"{item['severity'].upper()}: {item['message']}" for item in insights[:2])
+                self.intelligence_label.setText("Operations Intelligence: " + text)
+                self.intelligence_label.setStyleSheet("font-weight: bold; padding: 5px; color: #e67e22;")
+            else:
+                self.intelligence_label.setText("Operations Intelligence: No critical pattern detected")
+                self.intelligence_label.setStyleSheet("font-weight: bold; padding: 5px; color: #27ae60;")
+        except Exception as exc:
+            logger.error("Operations intelligence failed: %s", exc, exc_info=True)
+            self.intelligence_label.setText("Operations Intelligence: unavailable")
 
     def update_data_quality(self):
         if not self.current_report_id:
@@ -2159,6 +2184,7 @@ class AnalysisWidget(DrillTabBase):
         self.auto_update_check.setChecked(True)
         self.update_data_quality()
         self.update_plan_variance()
+        self.update_intelligence()
         self.update_all_data()
 
     def update_all_data(self):
