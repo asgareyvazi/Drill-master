@@ -13,6 +13,7 @@ from PySide6.QtPrintSupport import QPrinter, QPrintDialog
 from PySide6.QtGui import QTextOption
 
 from core.base_tab import DrillTabBase
+from core.permissions import require_permission
 from dialogs.hierarchy_dialogs import NewDailyReportDialog
 
 import textwrap
@@ -2021,6 +2022,7 @@ class DailyReportWidget(DrillTabBase):
             return False
         return self.save_report()
 
+    @require_permission("can_edit_reports")
     def submit_report(self):
         if not self.current_report_id:
             self.show_warning("Select a report first")
@@ -2042,6 +2044,7 @@ class DailyReportWidget(DrillTabBase):
         if ok:
             self.reject_report(comment)
 
+    @require_permission("can_approve_reports")
     def approve_report(self, comment=""):
         if not self.current_report_id:
             self.show_warning("Select a report first")
@@ -2058,6 +2061,7 @@ class DailyReportWidget(DrillTabBase):
             self.show_error(str(exc))
             return False
 
+    @require_permission("can_approve_reports")
     def reject_report(self, comment=""):
         if not self.current_report_id:
             self.show_warning("Select a report first")

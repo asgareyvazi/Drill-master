@@ -23,6 +23,7 @@ from core.database import (
     DailyReport, Section
 )
 from core.managers import StatusBarManager, AutoSaveManager, ShortcutManager
+from core.permissions import require_permission
 from core.selection_manager import SelectionManager
 from core.functions import CentralFunctions
 
@@ -1850,6 +1851,7 @@ class MainWindow(QMainWindow):
         except Exception as e:
             logger.error(f"New daily report error: {e}")
 
+    @require_permission("can_delete_well")
     def delete_daily_report(self, report_id: int):
         reply = QMessageBox.question(
             self, "Confirm Delete",
@@ -1873,6 +1875,7 @@ class MainWindow(QMainWindow):
 
     # ==================== ✅ ALL MISSING METHODS ====================
 
+    @require_permission("can_export")
     def open_export(self):
         """سوئیچ به تب Export."""
         for i in range(self.tab_widget.count()):
@@ -1884,6 +1887,7 @@ class MainWindow(QMainWindow):
                 return
         self.status_manager.show_error("MainWindow", "Export tab not found")
 
+    @require_permission("can_import")
     def open_excel_import(self):
         # Universal import can discover/create the workbook well. A selected
         # well is only a fallback for files that omit well identity.
