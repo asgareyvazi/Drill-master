@@ -910,33 +910,20 @@ class DailyReportWidget(DrillTabBase):
         contractor_layout = QHBoxLayout(contractor_widget)
         contractor_layout.setContentsMargins(0, 0, 0, 0)
 
-        contractor_combo = QComboBox()
-        contractor_combo.setEditable(True)
-        contractor_combo.addItems([
-            "", "TDDC", "PDF Co.", "MSD Co.", "Vira Co.",
-            "Mehran", "mapsa co.", "OEOC", "NIDC", "Other"
-        ])
+        contractor_edit = QLineEdit()
+        contractor_edit.setPlaceholderText("NPT contractor / company")
+        contractor_edit.setClearButtonEnabled(True)
 
         # ✅ اگر از import آمده و contractor دارد
         if log_data and hasattr(log_data, 'contractor') and log_data.contractor:
             contractor_text = str(log_data.contractor).strip()
             if contractor_text:
-                # اگر در لیست نیست اضافه کن
-                idx = contractor_combo.findText(contractor_text)
-                if idx >= 0:
-                    contractor_combo.setCurrentIndex(idx)
-                else:
-                    contractor_combo.addItem(contractor_text)
-                    contractor_combo.setCurrentText(contractor_text)
-            else:
-                contractor_combo.setCurrentIndex(0)  # خالی
-        else:
-            contractor_combo.setCurrentIndex(0)  # خالی
+                contractor_edit.setText(contractor_text)
 
-        contractor_combo.setEnabled(is_npt)
-        contractor_combo.setVisible(is_npt)
+        contractor_edit.setEnabled(is_npt)
+        contractor_edit.setVisible(is_npt)
 
-        contractor_layout.addWidget(contractor_combo)
+        contractor_layout.addWidget(contractor_edit)
         table.setCellWidget(row, 8, contractor_widget)
 
         # ستون 9: توضیحات (با Wrap)
@@ -1066,10 +1053,10 @@ class DailyReportWidget(DrillTabBase):
         # نمایش/مخفی کردن کامبوی Contractor
         contractor_widget = table.cellWidget(row, 8)
         if contractor_widget:
-            contractor_combo = contractor_widget.findChild(QComboBox)
-            if contractor_combo:
-                contractor_combo.setEnabled(is_npt)
-                contractor_combo.setVisible(is_npt)
+            contractor_edit = contractor_widget.findChild(QLineEdit)
+            if contractor_edit:
+                contractor_edit.setEnabled(is_npt)
+                contractor_edit.setVisible(is_npt)
 
         self.highlight_npt_row(table, row, 2 if is_npt else 0)
         self.update_statistics()
@@ -1444,11 +1431,9 @@ class DailyReportWidget(DrillTabBase):
             contractor = ""
             contractor_widget = table.cellWidget(row, 8)
             if contractor_widget:
-                contractor_combo = contractor_widget.findChild(
-                    QComboBox
-                )
-                if contractor_combo:
-                    contractor = contractor_combo.currentText()
+                contractor_edit = contractor_widget.findChild(QLineEdit)
+                if contractor_edit:
+                    contractor = contractor_edit.text().strip()
 
             # ✅ Description
             desc_edit = table.cellWidget(row, 9)

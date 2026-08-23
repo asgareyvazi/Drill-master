@@ -382,8 +382,17 @@ class ExcelImportDialog(QDialog):
             results["report_id"] = report_id
 
             # ===== 4. Mud Report =====
+            mud_data = extracted.get("mud_report", {}) or {}
+            # Embedded DDRs often store chemical inventory in the same Mud
+            # sheet. Feed it to MudReportTab as chemicals, not only Bulk.
+            if not mud_data.get("chemicals_json") and extracted.get("bulk_materials"):
+                import json
+                mud_data["chemicals_json"] = json.dumps([
+                    {"product": item.get("material_name", ""), "product_type": "", "received": item.get("received", 0), "used": item.get("used", 0), "stock": item.get("current_stock", item.get("initial_stock", 0)), "unit": item.get("unit", "")}
+                    for item in extracted.get("bulk_materials", []) if item.get("material_name")
+                ], ensure_ascii=False)
             self._save_mud_report(
-                extracted.get("mud_report", {}),
+                mud_data, 
                 report_id, dr["report_date"],
             )
 
