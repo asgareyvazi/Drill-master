@@ -33,6 +33,7 @@ from core.import_quality import decision_for_confidence
 from core.ai_import_mapper import AIImportMapper, model_catalog, get_selected_model, set_selected_model
 from core.universal_import import WorkbookScanner
 from core.table_record_mapper import extract_records
+from core.import_profiler import ImportProfiler
 from core.mapping_store import MappingStore
 
 logger = logging.getLogger(__name__)
@@ -2202,8 +2203,11 @@ class SmartTemplateDialog(QDialog):
                     load_path = str(clean_path)
                 except Exception as normalize_error:
                     logger.warning("Excel normalization skipped: %s", normalize_error)
-            self.wb = load_workbook(load_path, data_only=True)
-            self.workbook_snapshot = WorkbookScanner().scan(self.wb)
+            self.import_profiler = ImportProfiler()
+            with self.import_profiler.measure("workbook_load"):
+                self.wb = load_workbook(load_path, data_only=True)
+            with self.import_profiler.measure("structure_scan"):
+                self.workbook_snapshot = WorkbookScanner().scan(self.wb)
             self.mapping_store = MappingStore()
             self.mapping_fingerprint = self.mapping_store.fingerprint(self.workbook_snapshot)
             self._populate_structure_table()
@@ -2437,6 +2441,8 @@ class SmartTemplateDialog(QDialog):
 
             # Build final data
             self.final_data = self._build_final_data_from_assignments()
+            self.final_data.setdefault("metadata", {})["import_timings"] = getattr(self, "import_profiler", ImportProfiler()).as_dict()
+            logger.info("Import timings: %s", self.final_data["metadata"]["import_timings"])
             self._reset_review_table()
             self._display_sheet(self.current_sheet)
 
@@ -2496,7 +2502,9 @@ class SmartTemplateDialog(QDialog):
                     break
             if len(context) >= 80:
                 break
-        proposals = mapper.map_context(context, missing)
+        profiler = getattr(self, "import_profiler", ImportProfiler())
+        with profiler.measure("ai_request"):
+            proposals = mapper.map_context(context, missing)
         self.ai_status = mapper.last_status
         self.ai_proposals = proposals
         for proposal in proposals:
