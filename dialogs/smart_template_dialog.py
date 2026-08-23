@@ -2824,7 +2824,7 @@ class SmartTemplateDialog(QDialog):
             max_row = (
                 header_rows[idx + 1][0] - 1
                 if idx + 1 < len(header_rows)
-                else header_row + 80
+                else max((coord[0] for coord in cells), default=header_row)
             )
             logs = self._parse_time_table(
                 cells, header_row, max_row, col_map

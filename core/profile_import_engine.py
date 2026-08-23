@@ -240,7 +240,7 @@ class ProfileImportEngine:
 
             # A. Trajectory / Surveys (md, inc, azi, tvd)
             if any(k in lower_name for k in ["survey", "traject", "directional", "deviation"]):
-                for r in range(2, 200):
+                for r in range(2, min(max(cache, default=1) + 1, MAX_PROFILE_ROWS)):
                     if r not in cache: continue
                     md = self._to_float(cache[r].get(1)) or self._to_float(cache[r].get(2))
                     inc = self._to_float(cache[r].get(3))
@@ -255,7 +255,7 @@ class ProfileImportEngine:
 
             # B. POB / Personnel On Board
             elif any(k in lower_name for k in ["pob", "personnel", "crew", "manpower"]):
-                for r in range(2, 100):
+                for r in range(2, min(max(cache, default=1) + 1, MAX_PROFILE_ROWS)):
                     if r not in cache: continue
                     company = cache[r].get(1) or cache[r].get(2)
                     count = self._to_float(cache[r].get(3)) or self._to_float(cache[r].get(4))
@@ -270,23 +270,23 @@ class ProfileImportEngine:
             # C. Bit / BHA
             elif any(k in lower_name for k in ["bit", "bha"]):
                 res["bit_report"] = {
-                    "bit_no": str(cache.get(2, {}).get(2, "1")),
-                    "bit_size": self._to_float(cache.get(2, {}).get(3, 8.5)) or 8.5,
-                    "bit_type": str(cache.get(3, {}).get(2, "PDC")),
-                    "iadc_code": str(cache.get(3, {}).get(3, "M333"))
+                    "bit_no": str(cache.get(2, {}).get(2, "")),
+                    "bit_size": self._to_float(cache.get(2, {}).get(3)),
+                    "bit_type": str(cache.get(3, {}).get(2, "")),
+                    "iadc_code": str(cache.get(3, {}).get(3, ""))
                 }
 
             # D. Casing & Cement
             elif any(k in lower_name for k in ["casing", "cement", "csg"]):
                 res["casing_report"] = {
-                    "casing_size": self._to_float(cache.get(2, {}).get(2, 9.625)) or 9.625,
-                    "casing_weight": self._to_float(cache.get(2, {}).get(3, 47.0)) or 47.0,
-                    "setting_depth": self._to_float(cache.get(3, {}).get(2, 1500.0)) or 1500.0
+                    "casing_size": self._to_float(cache.get(2, {}).get(2)),
+                    "casing_weight": self._to_float(cache.get(2, {}).get(3)),
+                    "setting_depth": self._to_float(cache.get(3, {}).get(2))
                 }
 
             # E. Logistics Bulk & Fuel/Water
             elif any(k in lower_name for k in ["bulk", "fuel", "water", "inventory"]):
-                for r in range(2, 100):
+                for r in range(2, min(max(cache, default=1) + 1, MAX_PROFILE_ROWS)):
                     if r not in cache: continue
                     mat = cache[r].get(1) or cache[r].get(2)
                     stock = self._to_float(cache[r].get(3))
@@ -302,7 +302,7 @@ class ProfileImportEngine:
 
             # F. Equipment and solid-control logs
             elif any(k in lower_name for k in ["equipment", "drill pipe", "solid control", "solids"]):
-                for r in range(2, 200):
+                for r in range(2, min(max(cache, default=1) + 1, MAX_PROFILE_ROWS)):
                     if r not in cache:
                         continue
                     row = cache[r]
@@ -330,7 +330,7 @@ class ProfileImportEngine:
 
             # G. Cost / AFE
             elif any(k in lower_name for k in ["cost", "afe", "expense"]):
-                for r in range(2, 100):
+                for r in range(2, min(max(cache, default=1) + 1, MAX_PROFILE_ROWS)):
                     if r not in cache: continue
                     item_name = cache[r].get(1) or cache[r].get(2)
                     daily_cost = self._to_float(cache[r].get(3))
@@ -699,7 +699,9 @@ class ProfileImportEngine:
             elif "rig activity" in v_lower: c_act = c
             
         # خواندن دیتا
-        for r in range(header_row + 1, header_row + 50):
+        # Read until the real table boundary; the old +50 limit truncated
+        # long 24-hour logs.
+        for r in range(header_row + 1, min(max(self.cell_cache.get(sheet_name, {}), default=(header_row, 0))[0] + 1, MAX_PROFILE_ROWS)):
             if r not in cache: continue
             
             c1_val = str(cache[r].get(1, "")).lower()
