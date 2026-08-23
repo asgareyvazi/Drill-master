@@ -392,7 +392,7 @@ class ExcelImportDialog(QDialog):
                     for item in extracted.get("bulk_materials", []) if item.get("material_name")
                 ], ensure_ascii=False)
             self._save_mud_report(
-                mud_data, 
+                mud_data,
                 report_id, dr["report_date"],
             )
 
