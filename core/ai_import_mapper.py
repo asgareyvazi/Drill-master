@@ -1,7 +1,8 @@
 """Optional local AI assistant for ambiguous workbook mappings."""
-import json, logging, os, urllib.request, urllib.error
+import json, logging, os, urllib.request, urllib.error, hashlib
 from pathlib import Path
 logger = logging.getLogger(__name__)
+_MAPPING_CACHE = {}
 ALLOWED_FIELDS = {"well_info.name","well_info.field_name","well_info.well_type","well_info.rig_name","well_info.drilling_contractor","well_info.report_date","daily_report.report_date","daily_report.report_number","daily_report.depth_0000","daily_report.depth_0600","daily_report.depth_2400","daily_report.summary","mud_report.mud_type","mud_report.mw","mud_report.pv","mud_report.yp","mud_report.ph","mud_report.temperature","mud_report.solid_percent","drilling_params.bit_no","drilling_params.bit_size","drilling_params.bit_type","drilling_params.depth_in","drilling_params.depth_out","drilling_params.avg_rop","time_log.main_code","time_log.sub_code","time_log.contractor","survey.md","survey.inc","survey.azi","survey.tvd","bulk_material.material_name","bulk_material.received","bulk_material.used","bulk_material.current_stock","bha.tool_type","bha.od","bha.length","bha.component_name","downhole.equipment_name","downhole.serial_number","downhole.rotating_hours","formation.name","formation.md_top","formation.tvd_top","casing.size","casing.depth_from","casing.depth_to","casing.grade","casing.weight","cement.material","cement.used","cement.received","cement.on_hand","bop.component_name","bop.working_pressure","bop.size","safety.days_without_lti","equipment.equipment_name","equipment.equipment_id","equipment.hours_worked","logistics.company_name","logistics.personnel_count","service.company_name","service.service_type","cost.description","cost.amount"}
 def model_catalog():
     try: return json.loads((Path(__file__).resolve().parent.parent/"config"/"ai_models.json").read_text(encoding="utf-8")).get("models",[])
@@ -40,11 +41,16 @@ class AIImportMapper:
         self.last_status="available"; return True
     def map_context(self, context, allowed_fields=None):
         if not self.available(): return []
-        fields=sorted(set(allowed_fields or ALLOWED_FIELDS)&ALLOWED_FIELDS); prompt={"task":"Map workbook cells to canonical drilling fields.","rules":["Return JSON only: {proposals: []}.","Never invent values.","Keep source_sheet, source_row and source_column.","Return confidence between 0 and 1.","Use null when ambiguous."],"allowed_fields":fields,"context":context}; body=json.dumps({"model":self.model,"stream":False,"format":"json","prompt":json.dumps(prompt,ensure_ascii=False)}).encode()
+        fields=sorted(set(allowed_fields or ALLOWED_FIELDS)&ALLOWED_FIELDS)
+        cache_key = hashlib.sha256(json.dumps([self.model, fields, context], ensure_ascii=False, default=str, sort_keys=True).encode()).hexdigest()
+        if cache_key in _MAPPING_CACHE:
+            self.last_status = f"cached:{len(_MAPPING_CACHE[cache_key])}"
+            return list(_MAPPING_CACHE[cache_key])
+        prompt={"task":"Map workbook cells to canonical drilling fields.","rules":["Return JSON only: {proposals: []}.","Never invent values.","Keep source_sheet, source_row and source_column.","Return confidence between 0 and 1.","Use null when ambiguous."],"allowed_fields":fields,"context":context}; body=json.dumps({"model":self.model,"stream":False,"format":"json","prompt":json.dumps(prompt,ensure_ascii=False)}).encode()
         try:
             req=urllib.request.Request(f"{self.endpoint}/api/generate",data=body,headers={"Content-Type":"application/json"},method="POST")
             with urllib.request.urlopen(req,timeout=self.timeout) as response: payload=json.loads(response.read().decode())
-            raw=payload.get("response","{}"); result=json.loads(raw) if isinstance(raw,str) else raw; proposals=result.get("proposals",[]) if isinstance(result,dict) else []; valid=[p for p in proposals if self._valid_proposal(p,fields)]; self.last_status=f"ok:{len(valid)}"; return valid
+            raw=payload.get("response","{}"); result=json.loads(raw) if isinstance(raw,str) else raw; proposals=result.get("proposals",[]) if isinstance(result,dict) else []; valid=[p for p in proposals if self._valid_proposal(p,fields)]; _MAPPING_CACHE[cache_key] = list(valid); self.last_status=f"ok:{len(valid)}"; return valid
         except Exception as exc: self.last_status=f"error:{type(exc).__name__}"; logger.warning("Local AI import mapping unavailable: %s",exc); return []
     @staticmethod
     def _valid_proposal(p,allowed):
