@@ -2557,11 +2557,13 @@ class DatabaseManager:
             # 5. Bit Report -> BitReport
             bit = extracted.get("bit_report")
             if bit and isinstance(bit, dict):
+                bit["report_id"] = report_id
                 save_single("bit_report", lambda: self.save_bit_report(well_id, bit))
 
             # 6. BHA Report -> BHAReport
             bha = extracted.get("bha_report")
             if bha and isinstance(bha, dict):
+                bha["report_id"] = report_id
                 save_single("bha_report", lambda: self.save_bha_report(well_id, bha))
 
             # 7. Logistics Bulk Materials -> BulkMaterials

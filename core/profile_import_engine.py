@@ -346,6 +346,7 @@ class ProfileImportEngine:
         # sheet. Do not require a dedicated sheet name for surveys, bulk,
         # POB, safety or solid-control data.
         self._extract_embedded_ddr_data(res)
+        self._extract_embedded_mud_chemicals(res)
         return res
 
     def _extract_embedded_ddr_data(self, result):
@@ -465,6 +466,36 @@ class ProfileImportEngine:
             return None
             
     # ------------------- توابع کمکی جادویی -------------------
+
+    def _extract_embedded_mud_chemicals(self, result):
+        """Extract vendor mud-chemical tables embedded in DDR Data."""
+        for sheet, cells in self.cell_cache.items():
+            for row in range(1, MAX_PROFILE_ROWS):
+                text = " ".join(str(cells.get((row, col), "")).lower() for col in range(1, MAX_PROFILE_COLS))
+                if "mud chemical" not in text:
+                    continue
+                header_row = row + 1
+                headers = {col: str(cells.get((header_row, col), "")).lower() for col in range(1, MAX_PROFILE_COLS)}
+                columns = {}
+                for col, header in headers.items():
+                    compact = re.sub(r"[^a-z0-9]", "", header)
+                    if "product" in compact or "material" in compact: columns["name"] = col
+                    elif "used" in compact: columns["used"] = col
+                    elif "received" in compact: columns["received"] = col
+                    elif "hand" in compact or "stock" in compact: columns["stock"] = col
+                    elif compact == "unit": columns["unit"] = col
+                if "name" not in columns:
+                    continue
+                for data_row in range(header_row + 1, min(header_row + 100, MAX_PROFILE_ROWS)):
+                    name = cells.get((data_row, columns["name"]))
+                    if not name or str(name).strip().lower() in {"material", "product type"}:
+                        continue
+                    used = self._to_float(cells.get((data_row, columns.get("used", 0)))) or 0.0
+                    received = self._to_float(cells.get((data_row, columns.get("received", 0)))) or 0.0
+                    stock = self._to_float(cells.get((data_row, columns.get("stock", 0))))
+                    if stock is not None or used or received:
+                        result["bulk_materials"].append({"material_name": str(name).strip(), "unit": str(cells.get((data_row, columns.get("unit", 0))) or ""), "initial_stock": stock or 0.0, "received": received, "used": used, "current_stock": (stock or 0.0) + received - used, "source_sheet": sheet, "source_row": data_row})
+                return
 
     def _configure_workbook_code_catalog(self):
         try:
