@@ -2473,10 +2473,18 @@ class SmartTemplateDialog(QDialog):
         if not mapper.available():
             self.ai_status = mapper.last_status
             return
+        critical_fields = {
+            "well_info.name", "well_info.report_date", "daily_report.report_date",
+            "daily_report.report_number", "daily_report.depth_2400",
+            "mud_report.mw", "drilling_params.bit_size", "drilling_params.avg_rop",
+        }
         missing = [
-            field for field in FIELD_PATTERNS
+            field for field in critical_fields
             if not self.base_extracted.get(field.split(".", 1)[0], {}).get(field.split(".", 1)[1])
         ]
+        if not missing:
+            self.ai_status = "not-needed"
+            return
         # Keep the prompt small and auditable: labels plus nearby non-empty
         # cells, never the complete workbook or binary file.
         context = [{"type": "workbook_structure", "value": WorkbookScanner.compact_context(getattr(self, "workbook_snapshot", {}))}]
@@ -2484,9 +2492,9 @@ class SmartTemplateDialog(QDialog):
             for (row, col), value in list(cells.items())[:1500]:
                 if value not in (None, ""):
                     context.append({"sheet": sheet, "row": row, "column": col, "value": str(value)[:160]})
-                if len(context) >= 160:
+                if len(context) >= 80:
                     break
-            if len(context) >= 160:
+            if len(context) >= 80:
                 break
         proposals = mapper.map_context(context, missing)
         self.ai_status = mapper.last_status
