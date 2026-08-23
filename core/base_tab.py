@@ -407,25 +407,3 @@ class DrillTabBase(QWidget):
             "section_data": self.current_section_data,
             "report_data": self.current_report_data,
         }
-
-    def force_refresh(self):
-        """
-        Force reload regardless of visible state.
-        Useful after import.
-        """
-        ctx = self.sel_manager.get_full_context()
-        wid = ctx.get("well_id")
-        sid = ctx.get("section_id")
-        rid = ctx.get("report_id")
-
-        if wid and wid != self._loaded_well_id:
-            self.on_well_changed(wid, ctx.get("well_data") or {})
-            self._loaded_well_id = wid
-
-        if sid and sid != self._loaded_section_id:
-            self.on_section_changed(sid, ctx.get("section_data") or {})
-            self._loaded_section_id = sid
-
-        if rid and rid != self._loaded_report_id:
-            self.on_report_changed(rid, ctx.get("report_data") or {})
-            self._loaded_report_id = rid

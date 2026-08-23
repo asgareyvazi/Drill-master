@@ -132,11 +132,10 @@ class LoginDialog(QDialog):
 
         if remembered:
             saved_user = settings.value("login/username", "")
-            saved_pass = settings.value("login/password", "")
             if saved_user:
                 self.username_edit.setText(saved_user)
-            if saved_pass:
-                self.password_edit.setText(saved_pass)
+            # Passwords are never stored in QSettings. The user must enter it
+            # again; the database hash remains the only password verifier.
             self.remember_checkbox.setChecked(True)
         else:
             self.username_edit.setFocus()
@@ -148,7 +147,7 @@ class LoginDialog(QDialog):
         if self.remember_checkbox.isChecked():
             settings.setValue("login/remember", True)
             settings.setValue("login/username", self.username_edit.text())
-            settings.setValue("login/password", self.password_edit.text())
+            settings.remove("login/password")
         else:
             settings.setValue("login/remember", False)
             settings.remove("login/username")
