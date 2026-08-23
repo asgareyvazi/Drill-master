@@ -2577,10 +2577,27 @@ class PlanningWidget(DrillTabBase):
         self.well_combo.addItem("-- Select Well --", None)
         if self.db:
             hierarchy = self.db.get_hierarchy()
+            seen = set()
             for company in hierarchy:
                 for project in company.get('projects', []):
                     for well in project.get('wells', []):
-                        self.well_combo.addItem(f"{well['name']} ({well['code']})", well['id'])
+                        if well['id'] not in seen:
+                            self.well_combo.addItem(f"{well['name']} ({well.get('code') or '—'})", well['id'])
+                            seen.add(well['id'])
+            # Defensive fallback for legacy/orphaned hierarchy rows.
+            if not seen:
+                from core.database import Well
+                session = self.db.create_session()
+                try:
+                    for well in session.query(Well).order_by(Well.name).all():
+                        self.well_combo.addItem(f"{well.name} ({well.code or '—'})", well.id)
+                finally:
+                    session.close()
+        current = self.sel_manager.current_well_id
+        if current is not None:
+            index = self.well_combo.findData(current)
+            if index >= 0:
+                self.well_combo.setCurrentIndex(index)
         self.well_combo.blockSignals(False)
     
     def load_sections(self, well_id):

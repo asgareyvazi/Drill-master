@@ -1199,9 +1199,8 @@ class MudReportTab(QWidget):
         scroll_area.setWidget(scroll_content)
         layout.addWidget(scroll_area)
 
-        self.add_chemical_row("Bentonite", "Viscosifier", 100, 50, 50, "kg")
-        self.add_chemical_row("Barite", "Weight Material", 200, 100, 100, "kg")
-        self.add_chemical_row("Caustic Soda", "Alkalinity", 50, 20, 30, "kg")
+        # Do not seed operational forms with demo chemicals. They must be
+        # loaded from the selected report or entered by the user.
 
     def setup_connections(self):
         self.mud_type.currentTextChanged.connect(self.update_mud_formulation)

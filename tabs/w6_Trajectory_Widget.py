@@ -89,7 +89,7 @@ class TripSheetTab(QWidget):
         button_layout.addStretch()
         layout.addLayout(button_layout)
         
-        self.add_sample_data()
+        # Operational tables start empty; data comes from the selected report.
     
     def set_current_well(self, well_id: int, section_id: int = None):
         self.current_well_id = well_id
@@ -99,16 +99,6 @@ class TripSheetTab(QWidget):
     def load_for_report(self, report_id: int):
         self.current_report_id = report_id
         self.load_data()
-    
-    def add_sample_data(self):
-        sample_data = [
-            ["08:00", "Start trip out", "1500", "0", "1.0", "Begin POOH", "John Doe", True],
-            ["09:00", "POOH", "1400", "100", "2.0", "Tripping out 5 stands", "John Doe", True],
-            ["11:00", "Break connection", "1350", "150", "0.5", "Connection break", "John Doe", True],
-            ["11:30", "Continue POOH", "1300", "200", "1.5", "Continue tripping", "John Doe", False]
-        ]
-        for data in sample_data:
-            self.add_row(data)
     
     def add_row(self, data=None):
         if isinstance(data, bool):
@@ -338,7 +328,7 @@ class SurveyDataTab(QWidget):
         button_layout.addStretch()
         layout.addLayout(button_layout)
         
-        self.add_sample_data()
+        # Operational tables start empty; data comes from the selected report.
     
     def set_current_well(self, well_id: int, section_id: int = None):
         self.current_well_id = well_id
@@ -348,15 +338,6 @@ class SurveyDataTab(QWidget):
     def load_for_report(self, report_id: int):
         self.current_report_id = report_id
         self.load_data()
-    
-    def add_sample_data(self):
-        sample_data = [
-            ["1000", "5.2", "45.3", "999.8", "50.2", "30.5", "100.0", "100.0", "1.5", "MWD", "Survey point"],
-            ["1100", "6.5", "48.2", "1099.5", "65.8", "45.2", "120.5", "120.0", "2.1", "MWD", "Survey point"],
-            ["1200", "8.1", "52.4", "1198.9", "85.3", "62.7", "145.2", "145.0", "2.8", "MWD", "Survey point"]
-        ]
-        for data in sample_data:
-            self.add_row(data)
     
     def add_row(self, data=None):
         if data is None:
