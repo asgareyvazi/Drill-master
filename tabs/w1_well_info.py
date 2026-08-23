@@ -717,10 +717,14 @@ class WellInfoTab(DrillTabBase):
     def save_data(self, show_popup=False):
         try:
             well_data = self.get_form_data()
-            if not well_data['name']:
+            from core.validators import WellValidator
+            validation = WellValidator.validate(well_data)
+            if not validation.is_valid:
                 if show_popup:
-                    show_error_message(self, "Well name is required!")
+                    show_error_message(self, validation.summary())
                 return False
+            if validation.warnings and show_popup:
+                show_warning_message(self, validation.summary())
 
             if self.spud_date.date() > self.start_hole_date.date():
                 if show_popup:

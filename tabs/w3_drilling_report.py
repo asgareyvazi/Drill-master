@@ -1383,6 +1383,13 @@ class MudReportTab(QWidget):
             "summary": self.mud_summary.toPlainText(),
             "chemicals_json": json.dumps(chemicals),
         }
+        from core.validators import MudValidator
+        validation = MudValidator.validate(mud_data)
+        if not validation.is_valid:
+            self.show_error(validation.summary())
+            return False
+        if validation.warnings:
+            self.show_warning(validation.summary())
         result = self.db_manager.save_mud_report(mud_data)
         return result is not None
 
