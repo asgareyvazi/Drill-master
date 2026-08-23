@@ -6,9 +6,25 @@ ALLOWED_FIELDS = {"well_info.name","well_info.field_name","well_info.well_type",
 def model_catalog():
     try: return json.loads((Path(__file__).resolve().parent.parent/"config"/"ai_models.json").read_text(encoding="utf-8")).get("models",[])
     except (OSError,ValueError): return []
+def get_selected_model():
+    try:
+        return json.loads((Path(__file__).resolve().parent.parent / "config" / "ai_settings.json").read_text(encoding="utf-8")).get("model", "")
+    except (OSError, ValueError):
+        return ""
+
+
+def set_selected_model(model):
+    if not model:
+        return
+    path = Path(__file__).resolve().parent.parent / "config" / "ai_settings.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"model": model}, indent=2), encoding="utf-8")
+
+
 def _selected():
-    try: return json.loads((Path(__file__).resolve().parent.parent/"config"/"ai_settings.json").read_text()).get("model", "")
-    except (OSError,ValueError): return ""
+    return get_selected_model()
+
+
 class AIImportMapper:
     def __init__(self, endpoint=None, model=None, timeout=20):
         self.endpoint=(endpoint or os.getenv("DRILLMASTER_OLLAMA_URL","http://127.0.0.1:11434")).rstrip("/"); self.model=model or os.getenv("DRILLMASTER_AI_MODEL","") or _selected() or "qwen2.5-local"; self.timeout=min(max(int(os.getenv("DRILLMASTER_AI_TIMEOUT",str(max(timeout,45)))),10),90); self.last_status="disabled"
