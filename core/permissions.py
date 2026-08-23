@@ -6,7 +6,7 @@ logger = logging.getLogger(__name__)
 
 ROLE_PERMISSIONS = {
     "admin": {"*"},
-    "supervisor": {"can_create_well", "can_edit_reports", "can_approve_reports", "can_export", "can_import"},
+    "supervisor": {"can_create_well", "can_edit_reports", "can_delete_reports", "can_approve_reports", "can_export", "can_import"},
     "engineer": {"can_create_well", "can_edit_reports", "can_export", "can_import"},
     "manager": {"can_create_well", "can_approve_reports", "can_export", "can_import"},
     "viewer": {"can_export"},
@@ -67,6 +67,7 @@ class PermissionManager:
 
     def can_create_well(self): return self.has_permission("can_create_well")
     def can_delete_well(self): return self.has_permission("can_delete_well")
+    def can_delete_reports(self): return self.has_permission("can_delete_reports")
     def can_edit_reports(self): return self.has_permission("can_edit_reports")
     def can_approve_reports(self): return self.has_permission("can_approve_reports")
     def can_manage_users(self): return self.has_permission("can_manage_users")

@@ -1851,7 +1851,7 @@ class MainWindow(QMainWindow):
         except Exception as e:
             logger.error(f"New daily report error: {e}")
 
-    @require_permission("can_delete_well")
+    @require_permission("can_delete_reports")
     def delete_daily_report(self, report_id: int):
         reply = QMessageBox.question(
             self, "Confirm Delete",
