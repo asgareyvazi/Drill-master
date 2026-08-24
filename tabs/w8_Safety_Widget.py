@@ -18,6 +18,7 @@ from core.managers import (
 )
 from core.database import DatabaseManager, WasteRecord, BOPComponent, SafetyIncident, SafetyReport
 from core.base_tab import DrillTabBase
+from core.standards import bop_test_interval_days
 
 logger = logging.getLogger(__name__)
 
@@ -203,7 +204,7 @@ class SafetyBOPTab(QWidget):
         defaults = [
             "New Component", "Type", "5000", "13-5/8", "N/A",
             today.toString("yyyy-MM-dd"),
-            today.addDays(30).toString("yyyy-MM-dd"),
+            today.addDays(bop_test_interval_days()).toString("yyyy-MM-dd"),
             "In Service"
         ]
         for col, value in enumerate(defaults):
@@ -230,7 +231,7 @@ class SafetyBOPTab(QWidget):
                 try:
                     last_test_date = QDate.fromString(last_test_item.text(), "yyyy-MM-dd")
                     if last_test_date.isValid():
-                        next_due = last_test_date.addDays(30)
+                        next_due = last_test_date.addDays(bop_test_interval_days())
                         if next_due < today:
                             next_due = today.addDays(7)
                             overdue_count += 1
@@ -282,7 +283,7 @@ class SafetyBOPTab(QWidget):
             f"⏰ Days since last Rams test: {days_since_rams}\n"
             f"⏰ Days since last Koomey test: {days_since_koomey}\n"
             f"📈 Maximum days: {max(days_since_rams, days_since_koomey)}\n\n"
-            f"⚠️ {'TEST OVERDUE!' if max(days_since_rams, days_since_koomey) > 30 else 'Test within schedule'}"
+            f"⚠️ {'TEST OVERDUE!' if max(days_since_rams, days_since_koomey) > bop_test_interval_days() else 'Test within schedule'}"
         )
 
     def update_lti_days(self):
