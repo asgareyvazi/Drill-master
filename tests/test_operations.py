@@ -4,7 +4,7 @@ from core.import_profiler import ImportProfiler
 
 class OperationsTests(unittest.TestCase):
     def test_plan_variance(self):
-        result = compare("Depth", 1000, 900)
+        result = compare("Depth", 1000, 800)
         self.assertEqual(result.status, "behind")
         self.assertAlmostEqual(result.variance_pct, -10.0)
 
