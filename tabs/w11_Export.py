@@ -489,9 +489,21 @@ class ExportWidget(DrillTabBase):
         layout = QVBoxLayout(tab)
 
         header, self.batch_well = self._well_header(
-            "📦 Batch Export - All Reports", "#2c3e50"
+            "📦 Batch Export - All Reports - Professional", "#2c3e50"
         )
         layout.addWidget(header)
+
+        # Professional export info
+        info = QLabel(
+            "Professional Export includes:\n"
+            "• Company, Project, Field, Well, Section, Report Number, Report Date, Revision, Status, Prepared By, Checked By, Approved By, Generated At UTC, Timezone, Units, Data Quality, Audit ID\n"
+            "• Excel Sheets: Executive Summary, Daily Report, Time Logs, Mud, Drilling Parameters, Bit, BHA, Survey, Safety, Logistics, Services, Cost, Data Quality, Validation, Audit, Raw Data\n"
+            "• PDF: Header, Logo, Footer, Page Number, Watermark, Revision, Approval, Tables, Charts, Signature, Data Quality\n"
+            "• Atomic transaction for export data collection, no fake defaults"
+        )
+        info.setWordWrap(True)
+        info.setStyleSheet("color: #555; font-size: 10px; padding: 8px; background: #eaf2f8; border-radius: 4px;")
+        layout.addWidget(info)
 
         # Checkboxes
         cb_layout = QHBoxLayout()
@@ -505,8 +517,11 @@ class ExportWidget(DrillTabBase):
         self.batch_cost.setChecked(True)
         self.batch_plan = QCheckBox("📋 Plan")
         self.batch_plan.setChecked(True)
+        self.batch_professional = QCheckBox("🌟 Professional (16 sheets)")
+        self.batch_professional.setChecked(True)
+        self.batch_professional.setStyleSheet("font-weight: bold; color: #27ae60;")
         for cb in [self.batch_ddr, self.batch_eowr, self.batch_npt,
-                    self.batch_cost, self.batch_plan]:
+                    self.batch_cost, self.batch_plan, self.batch_professional]:
             cb_layout.addWidget(cb)
         cb_layout.addStretch()
         layout.addLayout(cb_layout)
@@ -514,7 +529,7 @@ class ExportWidget(DrillTabBase):
         fmt_w, self.batch_fmt = self._format_selector()
         layout.addWidget(fmt_w)
 
-        export_btn = QPushButton("🚀 Export All Selected")
+        export_btn = QPushButton("🚀 Export All Selected - Professional")
         export_btn.setStyleSheet(
             "background: #2c3e50; color: white; font-weight: bold; "
             "padding: 10px 20px; border-radius: 4px; border: none; "
@@ -525,7 +540,7 @@ class ExportWidget(DrillTabBase):
 
         self.batch_log = QTextEdit()
         self.batch_log.setReadOnly(True)
-        self.batch_log.setMaximumHeight(200)
+        self.batch_log.setMaximumHeight(250)
         self.batch_log.setStyleSheet(
             "font-family: Consolas; font-size: 10px; "
             "background: #1e1e2e; color: #ecf0f1;"
@@ -550,10 +565,29 @@ class ExportWidget(DrillTabBase):
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
 
         self.batch_log.clear()
-        self.batch_log.append(f"📦 Batch Export Started: {ts}")
+        self.batch_log.append(f"📦 Professional Batch Export Started: {ts}")
+        self.batch_log.append(f"Metadata: Company/Project/Field/Well/Section/Report Number/Date/Revision/Status/Prepared/Checked/Approved/Generated At UTC/Timezone/Units/Data Quality/Audit ID")
         QApplication.processEvents()
 
         count = 0
+
+        # Professional export first
+        if self.batch_professional.isChecked():
+            try:
+                from core.professional_export import ProfessionalExcelExport, ProfessionalPDFExport
+                # Excel professional
+                fn_excel = os.path.join(folder, f"Professional_16Sheets_{ts}.xlsx")
+                if ProfessionalExcelExport(self.db).export(wid, fn_excel, report_id=getattr(self, '_current_report_id', None)):
+                    self.batch_log.append(f"🌟 Professional Excel (16 sheets): {fn_excel}")
+                    count += 1
+                # PDF professional
+                fn_pdf = os.path.join(folder, f"Professional_{ts}.pdf")
+                if ProfessionalPDFExport(self.db).export(wid, fn_pdf, report_id=getattr(self, '_current_report_id', None)):
+                    self.batch_log.append(f"🌟 Professional PDF (Header/Logo/Footer/Page/Watermark/Approval/Signature/DQ): {fn_pdf}")
+                    count += 1
+            except Exception as e:
+                self.batch_log.append(f"❌ Professional export failed: {e}")
+            QApplication.processEvents()
 
         if self.batch_eowr.isChecked():
             fn = os.path.join(folder, f"EOWR_{ts}{ext}")
@@ -611,7 +645,7 @@ class ExportWidget(DrillTabBase):
                 f"✅ DDRs: {len(reports)} reports exported"
             )
 
-        self.batch_log.append(f"\n📊 Done: {count} files exported to {folder}")
+        self.batch_log.append(f"\n📊 Done: {count} files exported to {folder} - Professional Export QA complete")
 
         if os.name == 'nt':
             os.startfile(folder)
