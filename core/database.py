@@ -4951,6 +4951,18 @@ class DatabaseManager:
 
     # ========== Equipment Log ==========
     def save_equipment_log(self, log_data: dict):
+        # Generic table detection can produce false positives. Enforce the
+        # model contract before SQLAlchemy gets a chance to emit noisy errors.
+        if not str((log_data or {}).get("equipment_name", "")).strip():
+            logger.warning("Skipping equipment row without equipment_name")
+            return None
+        try:
+            hours = float((log_data or {}).get("hours_worked", 0) or 0)
+        except (TypeError, ValueError):
+            logger.warning("Skipping equipment row with non-numeric hours_worked: %r", log_data.get("hours_worked"))
+            return None
+        log_data = dict(log_data)
+        log_data["hours_worked"] = hours
         session = self.create_session()
         try:
             if log_data.get("id"):
