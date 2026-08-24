@@ -34,6 +34,7 @@ from core.ai_import_mapper import AIImportMapper, model_catalog, get_selected_mo
 from core.universal_import import WorkbookScanner
 from core.table_record_mapper import extract_records
 from core.import_profiler import ImportProfiler
+from core.async_workers import FunctionWorker
 from core.mapping_store import MappingStore
 
 logger = logging.getLogger(__name__)
@@ -2504,8 +2505,25 @@ class SmartTemplateDialog(QDialog):
                 break
         profiler = getattr(self, "import_profiler", ImportProfiler())
         with profiler.measure("ai_request"):
-            proposals = mapper.map_context(context, missing)
-        self.ai_status = mapper.last_status
+            # Run Ollama outside the GUI thread while keeping the Qt event
+            # loop alive so the dialog remains repaintable/responsive.
+            worker = FunctionWorker(mapper.map_context, context, missing, parent=self)
+            ai_result = []
+            ai_error = []
+            loop = QEventLoop()
+            worker.result_ready.connect(lambda value: ai_result.extend(value or []))
+            worker.failed.connect(lambda error: ai_error.append(error))
+            worker.finished_ok.connect(loop.quit)
+            worker.failed.connect(lambda _error: loop.quit())
+            worker.start()
+            QTimer.singleShot(min(mapper.timeout + 5, 50) * 1000, loop.quit)
+            loop.exec()
+            if worker.isRunning():
+                worker.requestInterruption()
+                worker.wait(1000)
+            worker.deleteLater()
+            proposals = ai_result
+        self.ai_status = mapper.last_status if not ai_error else "worker-error"
         self.ai_proposals = proposals
         for proposal in proposals:
             field = proposal["field"]
