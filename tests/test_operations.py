@@ -6,7 +6,7 @@ class OperationsTests(unittest.TestCase):
     def test_plan_variance(self):
         result = compare("Depth", 1000, 800)
         self.assertEqual(result.status, "behind")
-        self.assertAlmostEqual(result.variance_pct, -10.0)
+        self.assertAlmostEqual(result.variance_pct, -20.0)
 
     def test_zero_plan_is_safe(self):
         result = compare("Hours", 0, 0)
