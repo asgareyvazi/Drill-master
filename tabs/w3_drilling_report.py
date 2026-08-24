@@ -340,7 +340,7 @@ class DrillingParametersTab(QWidget):
         self.bit_size = QDoubleSpinBox()
         self.bit_size.setRange(0, 30)
         self.bit_size.setDecimals(3)
-        self.bit_size.setValue(8.5)
+        self.bit_size.setValue(0)
         bit_layout.addWidget(self.bit_size, 1, 1)
 
         bit_layout.addWidget(QLabel("Bit Type:"), 1, 2)
@@ -607,10 +607,7 @@ class DrillingParametersTab(QWidget):
         scroll_area.setWidget(scroll_content)
         layout.addWidget(scroll_area)
 
-        # اضافه کردن ردیف‌های پیش‌فرض به جدول نازل‌ها
-        self.add_nozzle_row(16, 1)
-        self.add_nozzle_row(16, 1)
-        self.add_nozzle_row(14, 1)
+        # Operational form starts empty; no engineering defaults are persisted.
 
     def setup_connections(self):
         self.depth_in.valueChanged.connect(self.calculate_bit_drilled)
@@ -931,14 +928,11 @@ class DrillingParametersTab(QWidget):
     def clear_form(self):
         self.bit_no.clear()
         self.bit_rerun.setValue(1)
-        self.bit_size.setValue(8.5)
-        self.bit_type.setCurrentIndex(0)
+        self.bit_size.setValue(0)
+        self.bit_type.setCurrentIndex(-1)
         self.bit_manufacturer.clear()
         self.iadc_code.clear()
         self.nozzle_table.setRowCount(0)
-        self.add_nozzle_row(16, 1)
-        self.add_nozzle_row(16, 1)
-        self.add_nozzle_row(14, 1)
         self.tfa_value.setValue(0)
         self.depth_in.setValue(0)
         self.depth_out.setValue(0)
