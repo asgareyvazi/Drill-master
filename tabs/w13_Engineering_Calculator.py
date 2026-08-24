@@ -4646,6 +4646,13 @@ class EngineeringCalculatorTab(DrillTabBase):
                 f"DLS   = {result['dls_deg_30m']:.3f} °/30m\n"
                 f"RF    = {result['ratio_factor']:.6f}"
             )
+            dls = self.engine.calc_dls(
+                self.dd_inc1.value(), self.dd_azi1.value(),
+                self.dd_inc2.value(), self.dd_azi2.value(),
+                self.dd_md2.value() - self.dd_md1.value(),
+            )
+            if dls.get("warning"):
+                self.dd_result.append(f"\n{dls['warning']}")
 
     def _calc_build_rate(self):
         br = self.engine.calc_build_rate(
