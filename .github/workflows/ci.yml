@@ -1,0 +1,31 @@
+name: DrillMaster CI
+
+on:
+  push:
+    branches: ["main", "arena/**"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  core-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install test dependencies
+        run: python -m pip install --upgrade pip pytest ruff
+      - name: Compile Python sources
+        run: python -m compileall -q .
+      - name: Static audit report
+        run: python tools/static_audit.py
+      - name: Run regression tests
+        run: python -m pytest
+      - name: Lint maintained core services and tests
+        run: >-
+          python -m ruff check
+          core/actual_vs_plan.py core/import_quality.py core/unit_manager.py
+          core/standards.py core/operations_intelligence.py core/import_profiler.py
+          tests verify_release.py
