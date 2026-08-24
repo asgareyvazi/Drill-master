@@ -216,6 +216,7 @@ class ExcelImportDialog(QDialog):
         session = None
         report_id = None
         created_new_report = False
+        import_snapshot = None
 
         try:
             from core.database import Section, DailyReport
@@ -357,6 +358,8 @@ class ExcelImportDialog(QDialog):
             # report later fails in a child table, the import can be rolled
             # back without touching an existing user's report.
             created_new_report = not bool(dr.get("id"))
+            if not created_new_report or hasattr(self.db, "snapshot_import_target"):
+                import_snapshot = self.db.snapshot_import_target(self.well_id, section_id, dr["report_date"])
             saved = self.db.save_daily_report(dr)
             report_id = None
 
@@ -434,11 +437,12 @@ class ExcelImportDialog(QDialog):
                     elif count > 0:
                         results["details"].append(f"✅ {k}: {count} records imported")
 
-            if results["failed"] and created_new_report and report_id:
-                self.db.delete_daily_report(report_id)
-                results["details"].append(
-                    "↩️ Import rolled back: no partial report was kept"
-                )
+            if results["failed"] and report_id:
+                if import_snapshot:
+                    self.db.restore_import_snapshot(import_snapshot)
+                elif created_new_report:
+                    self.db.delete_daily_report(report_id)
+                results["details"].append("↩️ Import rolled back: no partial report was kept")
                 results["imported"] = 0
                 return results
             return results
@@ -452,12 +456,13 @@ class ExcelImportDialog(QDialog):
                     session.rollback()
                 except Exception:
                     pass
-            if created_new_report and report_id:
+            if report_id:
                 try:
-                    self.db.delete_daily_report(report_id)
-                    results["details"].append(
-                        "↩️ Import rolled back after failure"
-                    )
+                    if import_snapshot:
+                        self.db.restore_import_snapshot(import_snapshot)
+                    elif created_new_report:
+                        self.db.delete_daily_report(report_id)
+                    results["details"].append("↩️ Import rolled back after failure")
                 except Exception:
                     logger.error("Import rollback cleanup failed", exc_info=True)
             return results

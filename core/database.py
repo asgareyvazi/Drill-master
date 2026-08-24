@@ -2375,6 +2375,59 @@ class DatabaseManager:
         finally:
             session.close()
             
+    def snapshot_import_target(self, well_id, section_id, report_date):
+        session = self.create_session()
+        try:
+            report = session.query(DailyReport).filter_by(well_id=well_id, section_id=section_id, report_date=report_date).first()
+            return self.create_import_snapshot(report.id) if report else None
+        finally:
+            session.close()
+
+    def create_import_snapshot(self, report_id: int):
+        """Capture report and report-scoped children for compensating rollback."""
+        session = self.create_session()
+        try:
+            snapshot = {"report": None, "children": []}
+            report = session.get(DailyReport, report_id)
+            if report is None:
+                return snapshot
+            snapshot["report"] = {column.name: getattr(report, column.name) for column in DailyReport.__table__.columns}
+            for mapper in list(Base.registry.mappers):
+                model = mapper.class_
+                if model is DailyReport or not hasattr(model, "report_id"):
+                    continue
+                for row in session.query(model).filter(getattr(model, "report_id") == report_id).all():
+                    snapshot["children"].append((model, {column.name: getattr(row, column.name) for column in model.__table__.columns}))
+            return snapshot
+        finally:
+            session.close()
+
+    def restore_import_snapshot(self, snapshot):
+        """Restore a previously captured report snapshot after failed import."""
+        if not snapshot or not snapshot.get("report"):
+            return False
+        session = self.create_session()
+        try:
+            report_id = snapshot["report"]["id"]
+            for mapper in list(Base.registry.mappers):
+                model = mapper.class_
+                if model is not DailyReport and hasattr(model, "report_id"):
+                    session.query(model).filter(getattr(model, "report_id") == report_id).delete(synchronize_session=False)
+            report = session.get(DailyReport, report_id)
+            if report:
+                for key, value in snapshot["report"].items():
+                    if key != "id": setattr(report, key, value)
+            for model, values in snapshot.get("children", []):
+                session.add(model(**values))
+            session.commit()
+            return True
+        except Exception:
+            session.rollback()
+            logger.error("Import snapshot restore failed", exc_info=True)
+            return False
+        finally:
+            session.close()
+
     def delete_daily_report(self, report_id: int) -> bool:
         """Delete a report and every report-scoped child atomically."""
         with self.session_scope() as session:
