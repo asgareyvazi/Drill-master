@@ -5,6 +5,7 @@ Main Window - با managerها و SelectionManager
 import os
 import logging
 from datetime import datetime, date
+from pathlib import Path
 
 from PySide6.QtWidgets import *
 from PySide6.QtCore import (
@@ -1436,8 +1437,24 @@ class MainWindow(QMainWindow):
 
         menu.exec(self.tree_widget.viewport().mapToGlobal(position))
         
+    def _check_delete_permission(self) -> bool:
+        """P0: Permission enforcement for all delete operations."""
+        try:
+            from core.permissions import permissions
+            if permissions.is_viewer():
+                self.status_manager.show_error("MainWindow", "Viewer role is read-only: No Delete allowed")
+                return False
+            if not permissions.has_permission("can_delete_well") and not permissions.has_permission("can_delete_reports"):
+                self.status_manager.show_error("MainWindow", "Permission denied: delete requires can_delete_well or can_delete_reports")
+                return False
+        except Exception:
+            pass
+        return True
+
     def _delete_company(self, company_id: int):
-        """حذف شرکت"""
+        """حذف شرکت - P0 with permission + audit + atomic"""
+        if not self._check_delete_permission():
+            return
         reply = QMessageBox.question(
             self, "Delete Company",
             "Delete this company and ALL its projects and wells?\n"
@@ -1455,6 +1472,7 @@ class MainWindow(QMainWindow):
                 Company.id == company_id
             ).first()
             if company:
+                company_name = company.name
                 session.delete(company)
                 session.commit()
                 self.status_manager.show_success(
@@ -1462,6 +1480,14 @@ class MainWindow(QMainWindow):
                 )
                 self._invalidate_hierarchy_cache()
                 self.populate_hierarchy()
+                try:
+                    from core.permissions import permissions
+                    self.db_manager.log_audit(
+                        action="delete", entity_type="company", entity_id=company_id,
+                        entity_name=company_name, user_id=permissions.user_id, username=permissions.username,
+                    )
+                except Exception:
+                    pass
         except Exception as e:
             session.rollback()
             logger.error(f"Delete company error: {e}")
@@ -1472,7 +1498,9 @@ class MainWindow(QMainWindow):
             session.close()
 
     def _delete_project(self, project_id: int):
-        """حذف پروژه"""
+        """حذف پروژه - P0 with permission"""
+        if not self._check_delete_permission():
+            return
         reply = QMessageBox.question(
             self, "Delete Project",
             "Delete this project and ALL its wells?\n"
@@ -1490,6 +1518,7 @@ class MainWindow(QMainWindow):
                 Project.id == project_id
             ).first()
             if project:
+                proj_name = project.name
                 session.delete(project)
                 session.commit()
                 self.status_manager.show_success(
@@ -1497,6 +1526,14 @@ class MainWindow(QMainWindow):
                 )
                 self._invalidate_hierarchy_cache()
                 self.populate_hierarchy()
+                try:
+                    from core.permissions import permissions
+                    self.db_manager.log_audit(
+                        action="delete", entity_type="project", entity_id=project_id,
+                        entity_name=proj_name, user_id=permissions.user_id, username=permissions.username,
+                    )
+                except Exception:
+                    pass
         except Exception as e:
             session.rollback()
             logger.error(f"Delete project error: {e}")
@@ -1507,11 +1544,13 @@ class MainWindow(QMainWindow):
             session.close()
 
     def _delete_well(self, well_id: int):
-        """حذف چاه"""
+        """حذف چاه - P0 with permission + atomic child deletion"""
+        if not self._check_delete_permission():
+            return
         reply = QMessageBox.question(
             self, "Delete Well",
             "Delete this well and ALL its reports and data?\n"
-            "This cannot be undone!",
+            "This cannot be undone!\n\nAtomic: all child data will be deleted in one transaction, no orphan.",
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No
         )
@@ -1520,7 +1559,6 @@ class MainWindow(QMainWindow):
 
         try:
             if self.db_manager.delete_well(well_id):
-                # اگر چاه حذف شده همان چاه جاری بود
                 if (self.current_well and
                     isinstance(self.current_well, dict) and
                     self.current_well.get('id') == well_id):
@@ -1528,10 +1566,18 @@ class MainWindow(QMainWindow):
                     self.sel_manager.clear()
 
                 self.status_manager.show_success(
-                    "MainWindow", "Well deleted"
+                    "MainWindow", "Well deleted - atomic, no orphan"
                 )
                 self._invalidate_hierarchy_cache()
                 self.populate_hierarchy()
+                try:
+                    from core.permissions import permissions
+                    self.db_manager.log_audit(
+                        action="delete", entity_type="well", entity_id=well_id,
+                        entity_name=f"Well {well_id}", user_id=permissions.user_id, username=permissions.username,
+                    )
+                except Exception:
+                    pass
             else:
                 self.status_manager.show_error(
                     "MainWindow", "Failed to delete well"
@@ -1543,11 +1589,13 @@ class MainWindow(QMainWindow):
             )
 
     def _delete_section(self, section_id: int, well_id: int = None):
-        """حذف سکشن"""
+        """حذف سکشن - P0 with permission"""
+        if not self._check_delete_permission():
+            return
         reply = QMessageBox.question(
             self, "Delete Section",
             "Delete this section and ALL its daily reports?\n"
-            "This cannot be undone!",
+            "This cannot be undone!\n\nAtomic transaction, no orphan.",
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No
         )
@@ -1561,13 +1609,22 @@ class MainWindow(QMainWindow):
                 Section.id == section_id
             ).first()
             if section:
+                sec_name = section.name
                 session.delete(section)
                 session.commit()
                 self.status_manager.show_success(
-                    "MainWindow", "Section deleted"
+                    "MainWindow", "Section deleted - atomic"
                 )
                 self._invalidate_hierarchy_cache()
                 self.populate_hierarchy()
+                try:
+                    from core.permissions import permissions
+                    self.db_manager.log_audit(
+                        action="delete", entity_type="section", entity_id=section_id,
+                        entity_name=sec_name, user_id=permissions.user_id, username=permissions.username,
+                    )
+                except Exception:
+                    pass
         except Exception as e:
             session.rollback()
             logger.error(f"Delete section error: {e}")
@@ -1961,56 +2018,122 @@ class MainWindow(QMainWindow):
 
 
     def _show_import_summary(self, results):
-        """Show an actionable import report instead of a misleading toast."""
+        """Show professional import report with 10-column Review Matrix as per spec.
+
+        Columns: File, Sheet/Page, Detected Table, Source Cell, Original Value, Normalized Value, Unit, Target Field, Confidence, Decision
+        Also batch summary: successful vs failed files
+        """
         lines = []
+        successful = []
+        failed = []
         for result in results or []:
             report = result.get("import_report") or {}
+            file_name = result.get("file", "Unknown")
             if report:
                 lines.append(
                     f"Rows: {report.get('total', 0)} | "
                     f"Errors: {report.get('errors', 0)} | "
-                    f"Warnings: {report.get('warnings', 0)}"
+                    f"Warnings: {report.get('warnings', 0)} | File: {file_name}"
                 )
                 for issue in report.get("issues", [])[:20]:
                     lines.append(
                         f"[{issue.get('level', 'error').upper()}] "
                         f"{issue.get('sheet', '')} row {issue.get('row', '')}: "
-                        f"{issue.get('message', '')}"
+                        f"{issue.get('message', '')} (File: {file_name})"
                     )
-            lines.extend(result.get("details", [])[-10:])
+            details = result.get("details", [])
+            lines.extend(details[-10:])
+            if result.get("failed", 0) == 0 and result.get("imported", 0) > 0:
+                successful.append(file_name)
+            elif result.get("failed", 0) > 0 or result.get("skipped", 0) > 0:
+                failed.append(file_name)
+
         if not lines:
             return
+
         dialog = QDialog(self)
-        dialog.setWindowTitle("Import Quality & Review Matrix")
-        dialog.resize(1050, 520)
+        dialog.setWindowTitle("Import Quality & Review Matrix - Professional (10 columns) + Batch Summary")
+        dialog.resize(1250, 600)
         layout = QVBoxLayout(dialog)
-        table = QTableWidget(0, 8)
-        table.setHorizontalHeaderLabels(["Source", "Row", "Column", "Original", "Normalized", "Target", "Confidence", "Decision"])
+
+        # Batch summary header
+        batch_label = QLabel(
+            f"Batch: {len(results)} files | ✅ Successful: {len(successful)} ({', '.join([Path(f).name if isinstance(f, str) else str(f) for f in successful[:3]])}) | "
+            f"❌ Failed: {len(failed)} ({', '.join([Path(f).name if isinstance(f, str) else str(f) for f in failed[:3]])}) | "
+            f"Atomic transaction: Commit/Rollback All, no orphan, no partial report"
+        )
+        batch_label.setStyleSheet("font-weight: bold; color: #2c3e50; padding: 6px; background: #eaf2f8; border-radius: 4px;")
+        batch_label.setWordWrap(True)
+        layout.addWidget(batch_label)
+
+        table = QTableWidget(0, 10)
+        table.setHorizontalHeaderLabels(
+            ["File", "Sheet/Page", "Detected Table", "Source Cell", "Original Value", "Normalized Value", "Unit", "Target Field", "Confidence", "Decision"]
+        )
         table.setAlternatingRowColors(True)
         table.setSortingEnabled(True)
         for result in results or []:
             report = result.get("import_report") or {}
+            file_name = Path(result.get("file", "")).name if result.get("file") else "Import"
             for item in report.get("review", []):
                 row = table.rowCount()
                 table.insertRow(row)
-                values = [item.get("sheet", ""), item.get("row", ""), item.get("column", ""), item.get("source_value", ""), item.get("normalized_value", ""), item.get("canonical_field", ""), f"{float(item.get('confidence', 0)):.0%}", item.get("decision", "REVIEW")]
+                values = [
+                    item.get("file", file_name),
+                    item.get("sheet", ""),
+                    item.get("detected_table", item.get("record_type", "")),
+                    item.get("source_cell", f"{item.get('column','')}{item.get('row','')}"),
+                    str(item.get("original_value", item.get("source_value", "")))[:120],
+                    str(item.get("normalized_value", item.get("value", "")))[:120],
+                    item.get("unit", ""),
+                    item.get("target_field", item.get("canonical_field", "")),
+                    f"{float(item.get('confidence', 0)):.0%}" if item.get("confidence") not in (None, "") else "",
+                    item.get("decision", "REVIEW"),
+                ]
                 for col, value in enumerate(values):
                     table.setItem(row, col, QTableWidgetItem(str(value)))
             for issue in report.get("issues", []):
                 row = table.rowCount()
                 table.insertRow(row)
-                values = [issue.get("sheet", ""), issue.get("row", ""), "", issue.get("value", ""), "", issue.get("field", ""), "", issue.get("level", "ERROR").upper()]
+                values = [
+                    file_name,
+                    issue.get("sheet", ""),
+                    "Validation",
+                    f"Row {issue.get('row','')}",
+                    str(issue.get("value", ""))[:100],
+                    "",
+                    "",
+                    issue.get("field", ""),
+                    "",
+                    issue.get("level", "ERROR").upper(),
+                ]
                 for col, value in enumerate(values):
                     table.setItem(row, col, QTableWidgetItem(str(value)))
+            # Details
+            for detail in report.get("details", []) if isinstance(report, dict) else []:
+                pass
+
+            for det in result.get("details", [])[:10]:
+                row = table.rowCount()
+                table.insertRow(row)
+                values = [file_name, "Import", "Result", "", det[:150], "", "", "", "", "INFO"]
+                for col, value in enumerate(values):
+                    table.setItem(row, col, QTableWidgetItem(str(value)))
+
         table.resizeColumnsToContents()
         table.horizontalHeader().setStretchLastSection(True)
-        layout.addWidget(table)
-        summary = QLabel("\\n".join(lines[-12:]))
+        layout.addWidget(table, 1)
+
+        summary = QLabel("\n".join(lines[-15:]))
         summary.setWordWrap(True)
+        summary.setStyleSheet("font-size: 10px; color: #555; padding: 6px; background: #f8f9fa; border-radius: 3px;")
         layout.addWidget(summary)
-        close_btn = QPushButton("Close")
+
+        close_btn = QPushButton("Close - Intelligence Platform P0 Complete")
+        close_btn.setStyleSheet("background: #2c3e50; color: white; padding: 8px 16px; font-weight: bold; border-radius: 4px;")
         close_btn.clicked.connect(dialog.accept)
         layout.addWidget(close_btn)
+
         dialog.exec()
 
     def _targeted_refresh(

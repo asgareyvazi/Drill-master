@@ -261,7 +261,40 @@ class DrillTabBase(QWidget):
         pass
 
     def save_data(self) -> bool:
-        """Save current tab data. Override in subclass."""
+        """Save current tab data. Override in subclass.
+
+        P0: Permission enforcement - Viewer must be read-only.
+        """
+        try:
+            from core.permissions import permissions
+            if permissions.is_viewer():
+                self.show_warning("Viewer role is read-only: No Save allowed")
+                return False
+            if not permissions.has_permission("can_edit_reports"):
+                self.show_warning("You do not have permission to edit reports")
+                return False
+        except Exception:
+            pass
+        return True
+
+    def check_permission(self, permission: str) -> bool:
+        """Check permission for sensitive operations.
+
+        Protected operations: Create, Edit, Save, Delete, Import, Export, Approve, Reject, Finalize
+        Roles: Viewer, Engineer, Supervisor, Manager, Admin
+        Viewer is truly read-only: No Save, No Delete, No Import, No Approve, No Edit
+        """
+        try:
+            from core.permissions import permissions
+            if permission in ("can_edit_reports", "can_create_well", "can_delete_reports", "can_delete_well", "can_import", "can_approve_reports"):
+                if permissions.is_viewer():
+                    self.show_warning(f"Viewer role cannot perform {permission}")
+                    return False
+            if not permissions.has_permission(permission):
+                self.show_warning(f"Permission denied: {permission}")
+                return False
+        except Exception:
+            pass
         return True
 
     def load_data(self):

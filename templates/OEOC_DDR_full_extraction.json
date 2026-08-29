@@ -1,0 +1,8652 @@
+{
+  "DDR Remark": {
+    "A1": {
+      "value": ":",
+      "row": 1,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "H1": {
+      "value": "Daily Drilling Report",
+      "row": 1,
+      "col": 8,
+      "col_letter": "H"
+    },
+    "H3": {
+      "value": " Field:",
+      "row": 3,
+      "col": 8,
+      "col_letter": "H"
+    },
+    "M3": {
+      "value": "AZNS",
+      "row": 3,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "R3": {
+      "value": "Well Name:",
+      "row": 3,
+      "col": 18,
+      "col_letter": "R"
+    },
+    "W3": {
+      "value": "AZNS-207",
+      "row": 3,
+      "col": 23,
+      "col_letter": "W"
+    },
+    "AB3": {
+      "value": "Project:",
+      "row": 3,
+      "col": 28,
+      "col_letter": "AB"
+    },
+    "AG3": {
+      "value": "AZNS",
+      "row": 3,
+      "col": 33,
+      "col_letter": "AG"
+    },
+    "AL3": {
+      "value": "LTA (Day)",
+      "row": 3,
+      "col": 38,
+      "col_letter": "AL"
+    },
+    "AQ3": {
+      "value": 468,
+      "row": 3,
+      "col": 43,
+      "col_letter": "AQ"
+    },
+    "H4": {
+      "value": "Well Type:",
+      "row": 4,
+      "col": 8,
+      "col_letter": "H"
+    },
+    "M4": {
+      "value": "Development",
+      "row": 4,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "R4": {
+      "value": "Well Shape:",
+      "row": 4,
+      "col": 18,
+      "col_letter": "R"
+    },
+    "W4": {
+      "value": "Vertical",
+      "row": 4,
+      "col": 23,
+      "col_letter": "W"
+    },
+    "AB4": {
+      "value": "Rig Name:",
+      "row": 4,
+      "col": 28,
+      "col_letter": "AB"
+    },
+    "AG4": {
+      "value": "OEOC 208",
+      "row": 4,
+      "col": 33,
+      "col_letter": "AG"
+    },
+    "AL4": {
+      "value": " Actual Rig Days:",
+      "row": 4,
+      "col": 38,
+      "col_letter": "AL"
+    },
+    "AQ4": {
+      "value": 7.25,
+      "row": 4,
+      "col": 43,
+      "col_letter": "AQ"
+    },
+    "H5": {
+      "value": "Client:",
+      "row": 5,
+      "col": 8,
+      "col_letter": "H"
+    },
+    "M5": {
+      "value": "PPL",
+      "row": 5,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "R5": {
+      "value": "Operator: ",
+      "row": 5,
+      "col": 18,
+      "col_letter": "R"
+    },
+    "W5": {
+      "value": "MSA",
+      "row": 5,
+      "col": 23,
+      "col_letter": "W"
+    },
+    "AB5": {
+      "value": "Drilling Contractor:",
+      "row": 5,
+      "col": 28,
+      "col_letter": "AB"
+    },
+    "AG5": {
+      "value": "OEOC",
+      "row": 5,
+      "col": 33,
+      "col_letter": "AG"
+    },
+    "AL5": {
+      "value": "Report No.:",
+      "row": 5,
+      "col": 38,
+      "col_letter": "AL"
+    },
+    "AQ5": {
+      "value": 8,
+      "row": 5,
+      "col": 43,
+      "col_letter": "AQ"
+    },
+    "H6": {
+      "value": "Client Rep:",
+      "row": 6,
+      "col": 8,
+      "col_letter": "H"
+    },
+    "M6": {
+      "value": "S.Shahvali",
+      "row": 6,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "R6": {
+      "value": "Hole Section (inch):",
+      "row": 6,
+      "col": 18,
+      "col_letter": "R"
+    },
+    "W6": {
+      "value": "17-1/2\"",
+      "row": 6,
+      "col": 23,
+      "col_letter": "W"
+    },
+    "AB6": {
+      "value": "Estimated Final Depth MD (m):",
+      "row": 6,
+      "col": 28,
+      "col_letter": "AB"
+    },
+    "AG6": {
+      "value": 4180,
+      "row": 6,
+      "col": 33,
+      "col_letter": "AG"
+    },
+    "AL6": {
+      "value": "Offshore Water Depth (m)",
+      "row": 6,
+      "col": 38,
+      "col_letter": "AL"
+    },
+    "AQ6": {
+      "value": "-",
+      "row": 6,
+      "col": 43,
+      "col_letter": "AQ"
+    },
+    "H7": {
+      "value": "GLE-MSL (m):",
+      "row": 7,
+      "col": 8,
+      "col_letter": "H"
+    },
+    "M7": {
+      "value": 3.95,
+      "row": 7,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "R7": {
+      "value": "RTE-MSL (m):",
+      "row": 7,
+      "col": 18,
+      "col_letter": "R"
+    },
+    "W7": {
+      "value": 14.45,
+      "row": 7,
+      "col": 23,
+      "col_letter": "W"
+    },
+    "AB7": {
+      "value": "GLE-RTE (m):",
+      "row": 7,
+      "col": 28,
+      "col_letter": "AB"
+    },
+    "AG7": {
+      "value": 10.5,
+      "row": 7,
+      "col": 33,
+      "col_letter": "AG"
+    },
+    "AL7": {
+      "value": "Rig Heading (°)",
+      "row": 7,
+      "col": 38,
+      "col_letter": "AL"
+    },
+    "AQ7": {
+      "value": "-",
+      "row": 7,
+      "col": 43,
+      "col_letter": "AQ"
+    },
+    "A9": {
+      "value": "DATE",
+      "row": 9,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "F9": {
+      "value": "Year",
+      "row": 9,
+      "col": 6,
+      "col_letter": "F"
+    },
+    "H9": {
+      "value": "Month",
+      "row": 9,
+      "col": 8,
+      "col_letter": "H"
+    },
+    "J9": {
+      "value": "Day",
+      "row": 9,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L9": {
+      "value": "MD (m)@ 0:00:",
+      "row": 9,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "R9": {
+      "value": 155,
+      "row": 9,
+      "col": 18,
+      "col_letter": "R"
+    },
+    "W9": {
+      "value": "Drilling Operation manager:",
+      "row": 9,
+      "col": 23,
+      "col_letter": "W"
+    },
+    "AB9": {
+      "value": "P.Farzaneh ",
+      "row": 9,
+      "col": 28,
+      "col_letter": "AB"
+    },
+    "AF9": {
+      "value": "Latitude:",
+      "row": 9,
+      "col": 32,
+      "col_letter": "AF"
+    },
+    "AI9": {
+      "value": "3,441,012 N",
+      "row": 9,
+      "col": 35,
+      "col_letter": "AI"
+    },
+    "AM9": {
+      "value": "Previous Casing Information",
+      "row": 9,
+      "col": 39,
+      "col_letter": "AM"
+    },
+    "A10": {
+      "value": "Spud :",
+      "row": 10,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "F10": {
+      "value": 2024,
+      "row": 10,
+      "col": 6,
+      "col_letter": "F"
+    },
+    "H10": {
+      "value": "Oct",
+      "row": 10,
+      "col": 8,
+      "col_letter": "H"
+    },
+    "J10": {
+      "value": 15,
+      "row": 10,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L10": {
+      "value": "MD (m)@ 24:00:",
+      "row": 10,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "R10": {
+      "value": 225,
+      "row": 10,
+      "col": 18,
+      "col_letter": "R"
+    },
+    "W10": {
+      "value": "Drilling Superintendent:",
+      "row": 10,
+      "col": 23,
+      "col_letter": "W"
+    },
+    "AB10": {
+      "value": "A.R.Rezaei",
+      "row": 10,
+      "col": 28,
+      "col_letter": "AB"
+    },
+    "AF10": {
+      "value": "Longitude:",
+      "row": 10,
+      "col": 32,
+      "col_letter": "AF"
+    },
+    "AI10": {
+      "value": "192,581 E",
+      "row": 10,
+      "col": 35,
+      "col_letter": "AI"
+    },
+    "AM10": {
+      "value": "Size (in)",
+      "row": 10,
+      "col": 39,
+      "col_letter": "AM"
+    },
+    "AN10": {
+      "value": "From (m)",
+      "row": 10,
+      "col": 40,
+      "col_letter": "AN"
+    },
+    "AP10": {
+      "value": "To (m)",
+      "row": 10,
+      "col": 42,
+      "col_letter": "AP"
+    },
+    "AQ10": {
+      "value": "Grade",
+      "row": 10,
+      "col": 43,
+      "col_letter": "AQ"
+    },
+    "AR10": {
+      "value": "Weight (#)",
+      "row": 10,
+      "col": 44,
+      "col_letter": "AR"
+    },
+    "AU10": {
+      "value": "Thread",
+      "row": 10,
+      "col": 47,
+      "col_letter": "AU"
+    },
+    "AV10": {
+      "value": "Shoe (TVD)m",
+      "row": 10,
+      "col": 48,
+      "col_letter": "AV"
+    },
+    "AX10": {
+      "value": "Burst\n(psi)",
+      "row": 10,
+      "col": 50,
+      "col_letter": "AX"
+    },
+    "AZ10": {
+      "value": "Collapse\n(psi)",
+      "row": 10,
+      "col": 52,
+      "col_letter": "AZ"
+    },
+    "A11": {
+      "value": "Report:",
+      "row": 11,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "F11": {
+      "value": 2024,
+      "row": 11,
+      "col": 6,
+      "col_letter": "F"
+    },
+    "H11": {
+      "value": "Oct",
+      "row": 11,
+      "col": 8,
+      "col_letter": "H"
+    },
+    "J11": {
+      "value": 22,
+      "row": 11,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L11": {
+      "value": "MD (m)@ 6:00 AM:",
+      "row": 11,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "R11": {
+      "value": 310,
+      "row": 11,
+      "col": 18,
+      "col_letter": "R"
+    },
+    "W11": {
+      "value": "Drilling Supervisor (Day):",
+      "row": 11,
+      "col": 23,
+      "col_letter": "W"
+    },
+    "AB11": {
+      "value": "A.Seifi",
+      "row": 11,
+      "col": 28,
+      "col_letter": "AB"
+    },
+    "AF11": {
+      "value": "Northing (m):",
+      "row": 11,
+      "col": 32,
+      "col_letter": "AF"
+    },
+    "AI11": {
+      "value": 3472595,
+      "row": 11,
+      "col": 35,
+      "col_letter": "AI"
+    },
+    "AM11": {
+      "value": "20\"",
+      "row": 11,
+      "col": 39,
+      "col_letter": "AM"
+    },
+    "AN11": {
+      "value": "Surface",
+      "row": 11,
+      "col": 40,
+      "col_letter": "AN"
+    },
+    "AP11": {
+      "value": 149,
+      "row": 11,
+      "col": 42,
+      "col_letter": "AP"
+    },
+    "AQ11": {
+      "value": "K-55",
+      "row": 11,
+      "col": 43,
+      "col_letter": "AQ"
+    },
+    "AR11": {
+      "value": 94,
+      "row": 11,
+      "col": 44,
+      "col_letter": "AR"
+    },
+    "AU11": {
+      "value": "BTC",
+      "row": 11,
+      "col": 47,
+      "col_letter": "AU"
+    },
+    "AV11": {
+      "value": 149,
+      "row": 11,
+      "col": 48,
+      "col_letter": "AV"
+    },
+    "AX11": {
+      "value": 2110,
+      "row": 11,
+      "col": 50,
+      "col_letter": "AX"
+    },
+    "AZ11": {
+      "value": 520,
+      "row": 11,
+      "col": 52,
+      "col_letter": "AZ"
+    },
+    "A12": {
+      "value": "Hole Section Strat:",
+      "row": 12,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "F12": {
+      "value": 2024,
+      "row": 12,
+      "col": 6,
+      "col_letter": "F"
+    },
+    "H12": {
+      "value": "Oct",
+      "row": 12,
+      "col": 8,
+      "col_letter": "H"
+    },
+    "J12": {
+      "value": 22,
+      "row": 12,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L12": {
+      "value": " 24 hrs Drilled (m):",
+      "row": 12,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "R12": {
+      "value": 70,
+      "row": 12,
+      "col": 18,
+      "col_letter": "R"
+    },
+    "W12": {
+      "value": "Drilling Supervisor (Night):",
+      "row": 12,
+      "col": 23,
+      "col_letter": "W"
+    },
+    "AB12": {
+      "value": "A.Eyvazi",
+      "row": 12,
+      "col": 28,
+      "col_letter": "AB"
+    },
+    "AF12": {
+      "value": "Easting(m):",
+      "row": 12,
+      "col": 32,
+      "col_letter": "AF"
+    },
+    "AI12": {
+      "value": 196977,
+      "row": 12,
+      "col": 35,
+      "col_letter": "AI"
+    },
+    "A13": {
+      "value": "Moving Start Date:",
+      "row": 13,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "F13": {
+      "value": 2024,
+      "row": 13,
+      "col": 6,
+      "col_letter": "F"
+    },
+    "H13": {
+      "value": "Sep",
+      "row": 13,
+      "col": 8,
+      "col_letter": "H"
+    },
+    "J13": {
+      "value": 30,
+      "row": 13,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L13": {
+      "value": "AVG. ROP (m/hrs.)",
+      "row": 13,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "R13": {
+      "value": 4.666666666666667,
+      "row": 13,
+      "col": 18,
+      "col_letter": "R"
+    },
+    "W13": {
+      "value": "Well Site Drilling Engineering:",
+      "row": 13,
+      "col": 23,
+      "col_letter": "W"
+    },
+    "AB13": {
+      "value": "-",
+      "row": 13,
+      "col": 28,
+      "col_letter": "AB"
+    },
+    "AF13": {
+      "value": "KOP #1:",
+      "row": 13,
+      "col": 32,
+      "col_letter": "AF"
+    },
+    "AI13": {
+      "value": "-",
+      "row": 13,
+      "col": 35,
+      "col_letter": "AI"
+    },
+    "A14": {
+      "value": "MW (PCF): ",
+      "row": 14,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "J14": {
+      "value": 70,
+      "row": 14,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L14": {
+      "value": " RT - WH (m):",
+      "row": 14,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "R14": {
+      "value": 12,
+      "row": 14,
+      "col": 18,
+      "col_letter": "R"
+    },
+    "W14": {
+      "value": "Well Site Geologist:",
+      "row": 14,
+      "col": 23,
+      "col_letter": "W"
+    },
+    "AB14": {
+      "value": "Esmaeili/Gholipur",
+      "row": 14,
+      "col": 28,
+      "col_letter": "AB"
+    },
+    "AF14": {
+      "value": "KOP #2:",
+      "row": 14,
+      "col": 32,
+      "col_letter": "AF"
+    },
+    "AI14": {
+      "value": "-",
+      "row": 14,
+      "col": 35,
+      "col_letter": "AI"
+    },
+    "A15": {
+      "value": "FIT Depth (MD/TVD) /EMW (PCF):",
+      "row": 15,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "M15": {
+      "value": "Section Start Depth MD(m):",
+      "row": 15,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "R15": {
+      "value": 151,
+      "row": 15,
+      "col": 18,
+      "col_letter": "R"
+    },
+    "W15": {
+      "value": "Tool Pusher Day / Night :",
+      "row": 15,
+      "col": 23,
+      "col_letter": "W"
+    },
+    "AB15": {
+      "value": "R.Harati/R.Hezarian",
+      "row": 15,
+      "col": 28,
+      "col_letter": "AB"
+    },
+    "AF15": {
+      "value": "Formation:",
+      "row": 15,
+      "col": 32,
+      "col_letter": "AF"
+    },
+    "AI15": {
+      "value": "Aghajari",
+      "row": 15,
+      "col": 35,
+      "col_letter": "AI"
+    },
+    "A16": {
+      "value": " Summary of Activities in Last 24:00 hours:",
+      "row": 16,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "A17": {
+      "value": "Cont. Drlg 17-1/2\" HS to 165m, POOH to surface, Obs. 2 No. of NZL Seat area washed out, RIH w/ 17-1/2\" Drlg BHA to BTM, Commence Drlg 17-1/2\" HS to 225m.",
+      "row": 17,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "A19": {
+      "value": " Operation Forecast for next 24 hours:",
+      "row": 19,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "A20": {
+      "value": "Cont. Drlg 17-1/2\" HS.",
+      "row": 20,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "A22": {
+      "value": "From",
+      "row": 22,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "C22": {
+      "value": "To",
+      "row": 22,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "E22": {
+      "value": "hrs",
+      "row": 22,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "G22": {
+      "value": "Main Phase",
+      "row": 22,
+      "col": 7,
+      "col_letter": "G"
+    },
+    "I22": {
+      "value": "Code",
+      "row": 22,
+      "col": 9,
+      "col_letter": "I"
+    },
+    "K22": {
+      "value": "Sub Code",
+      "row": 22,
+      "col": 11,
+      "col_letter": "K"
+    },
+    "M22": {
+      "value": "Status",
+      "row": 22,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "P22": {
+      "value": "NPT/ Unplan Attributed",
+      "row": 22,
+      "col": 16,
+      "col_letter": "P"
+    },
+    "S22": {
+      "value": "Rig Activity",
+      "row": 22,
+      "col": 19,
+      "col_letter": "S"
+    },
+    "AN22": {
+      "value": "Gain/Loss BPH",
+      "row": 22,
+      "col": 40,
+      "col_letter": "AN"
+    },
+    "AR22": {
+      "value": "Measure Depth (m)  ",
+      "row": 22,
+      "col": 44,
+      "col_letter": "AR"
+    },
+    "AU22": {
+      "value": "Time Break Down",
+      "row": 22,
+      "col": 47,
+      "col_letter": "AU"
+    },
+    "AN23": {
+      "value": "Type",
+      "row": 23,
+      "col": 40,
+      "col_letter": "AN"
+    },
+    "AP23": {
+      "value": "MIN",
+      "row": 23,
+      "col": 42,
+      "col_letter": "AP"
+    },
+    "AQ23": {
+      "value": "MAX",
+      "row": 23,
+      "col": 43,
+      "col_letter": "AQ"
+    },
+    "AU23": {
+      "value": "no",
+      "row": 23,
+      "col": 47,
+      "col_letter": "AU"
+    },
+    "BA23": {
+      "value": "hrs",
+      "row": 23,
+      "col": 53,
+      "col_letter": "BA"
+    },
+    "A24": {
+      "value": "00:00:00",
+      "row": 24,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "C24": {
+      "value": "06:00:00",
+      "row": 24,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "E24": {
+      "value": 6,
+      "row": 24,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "G24": {
+      "value": "DRL",
+      "row": 24,
+      "col": 7,
+      "col_letter": "G"
+    },
+    "I24": {
+      "value": 2,
+      "row": 24,
+      "col": 9,
+      "col_letter": "I"
+    },
+    "K24": {
+      "value": 1,
+      "row": 24,
+      "col": 11,
+      "col_letter": "K"
+    },
+    "M24": {
+      "value": "PLN",
+      "row": 24,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "S24": {
+      "value": "Cont. Drlg 17-1/2\" HS f/ 155 to 165m; NL. Due to Obs. SPP Drop gradually 100 psi. Check surface line & MPs; Ok. Decided to POOH to surface.",
+      "row": 24,
+      "col": 19,
+      "col_letter": "S"
+    },
+    "AU24": {
+      "value": 1,
+      "row": 24,
+      "col": 47,
+      "col_letter": "AU"
+    },
+    "AV24": {
+      "value": "Rig Up/ Tear Down / Move",
+      "row": 24,
+      "col": 48,
+      "col_letter": "AV"
+    },
+    "S25": {
+      "value": "Drlg Parameters: WOB: 5-10 klbs, Rot: 70-80 RPM, TQ: 1-1.5 klb.ft, F.R: 550-600GPM, SPP: 500-600psi, On BTM ROP: 2-4 MPH.",
+      "row": 25,
+      "col": 19,
+      "col_letter": "S"
+    },
+    "AU25": {
+      "value": 2,
+      "row": 25,
+      "col": 47,
+      "col_letter": "AU"
+    },
+    "AV25": {
+      "value": "Drilling",
+      "row": 25,
+      "col": 48,
+      "col_letter": "AV"
+    },
+    "BA25": {
+      "value": 15,
+      "row": 25,
+      "col": 53,
+      "col_letter": "BA"
+    },
+    "A26": {
+      "value": "06:00:00",
+      "row": 26,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "C26": {
+      "value": "08:00:00",
+      "row": 26,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "E26": {
+      "value": 1.9999999999999996,
+      "row": 26,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "G26": {
+      "value": "DRL",
+      "row": 26,
+      "col": 7,
+      "col_letter": "G"
+    },
+    "I26": {
+      "value": 6,
+      "row": 26,
+      "col": 9,
+      "col_letter": "I"
+    },
+    "K26": {
+      "value": 6,
+      "row": 26,
+      "col": 11,
+      "col_letter": "K"
+    },
+    "M26": {
+      "value": "PLN",
+      "row": 26,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "S26": {
+      "value": "POOH w/ 17-1/2\" MT Bit to surface. Obs. 2 No. of NZL Seat area washed out. Check another NZL; OK. (Bit Dull Grading: 1-1-WT-A-E-I-WO-BHA)",
+      "row": 26,
+      "col": 19,
+      "col_letter": "S"
+    },
+    "AU26": {
+      "value": 3,
+      "row": 26,
+      "col": 47,
+      "col_letter": "AU"
+    },
+    "AV26": {
+      "value": "Reaming",
+      "row": 26,
+      "col": 48,
+      "col_letter": "AV"
+    },
+    "BA26": {
+      "value": 0.9999999999999982,
+      "row": 26,
+      "col": 53,
+      "col_letter": "BA"
+    },
+    "A27": {
+      "value": "08:00:00",
+      "row": 27,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "C27": {
+      "value": "14:00:00",
+      "row": 27,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "E27": {
+      "value": 6.000000000000001,
+      "row": 27,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "G27": {
+      "value": "DRL",
+      "row": 27,
+      "col": 7,
+      "col_letter": "G"
+    },
+    "I27": {
+      "value": 6,
+      "row": 27,
+      "col": 9,
+      "col_letter": "I"
+    },
+    "K27": {
+      "value": 2,
+      "row": 27,
+      "col": 11,
+      "col_letter": "K"
+    },
+    "M27": {
+      "value": "PLN",
+      "row": 27,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "S27": {
+      "value": "P/U & M/U 17-1/2\" Bit (King dream, Used, 1X18/32\" + 2 X Open NZL), 2 Jts 9-1/2\" DC + 17-1/2\" S.Stab (1/8\" U.G) + 4 Jt 9-1/2\" DC + X.O.S + ",
+      "row": 27,
+      "col": 19,
+      "col_letter": "S"
+    },
+    "AU27": {
+      "value": 4,
+      "row": 27,
+      "col": 47,
+      "col_letter": "AU"
+    },
+    "AV27": {
+      "value": "Coring",
+      "row": 27,
+      "col": 48,
+      "col_letter": "AV"
+    },
+    "S28": {
+      "value": "6 Jt 8-1/2\" DC + 3 Jt 5\" HWDP (Jt by Jt) & Followed By 5\" DP to 165m.",
+      "row": 28,
+      "col": 19,
+      "col_letter": "S"
+    },
+    "AU28": {
+      "value": 5,
+      "row": 28,
+      "col": 47,
+      "col_letter": "AU"
+    },
+    "AV28": {
+      "value": "Circulate & Condition",
+      "row": 28,
+      "col": 48,
+      "col_letter": "AV"
+    },
+    "A29": {
+      "value": "14:00:00",
+      "row": 29,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "C29": {
+      "value": "21:30:00",
+      "row": 29,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "E29": {
+      "value": 7.5,
+      "row": 29,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "G29": {
+      "value": "DRL",
+      "row": 29,
+      "col": 7,
+      "col_letter": "G"
+    },
+    "I29": {
+      "value": 2,
+      "row": 29,
+      "col": 9,
+      "col_letter": "I"
+    },
+    "K29": {
+      "value": 1,
+      "row": 29,
+      "col": 11,
+      "col_letter": "K"
+    },
+    "M29": {
+      "value": "PLN",
+      "row": 29,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "S29": {
+      "value": "Commence Drlg 17-1/2\" H.S f/ 165 to 192m, meanwhile apply limited parameters until S.Stab pass 20\" Shoe; NL.",
+      "row": 29,
+      "col": 19,
+      "col_letter": "S"
+    },
+    "AU29": {
+      "value": 6,
+      "row": 29,
+      "col": 47,
+      "col_letter": "AU"
+    },
+    "AV29": {
+      "value": "Trips",
+      "row": 29,
+      "col": 48,
+      "col_letter": "AV"
+    },
+    "BA29": {
+      "value": 8,
+      "row": 29,
+      "col": 53,
+      "col_letter": "BA"
+    },
+    "A30": {
+      "value": "21:30:00",
+      "row": 30,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "C30": {
+      "value": "22:00:00",
+      "row": 30,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "E30": {
+      "value": 0.4999999999999982,
+      "row": 30,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "G30": {
+      "value": "DRL",
+      "row": 30,
+      "col": 7,
+      "col_letter": "G"
+    },
+    "I30": {
+      "value": 3,
+      "row": 30,
+      "col": 9,
+      "col_letter": "I"
+    },
+    "K30": {
+      "value": 1,
+      "row": 30,
+      "col": 11,
+      "col_letter": "K"
+    },
+    "M30": {
+      "value": "PLN",
+      "row": 30,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "S30": {
+      "value": "B/R & R/D last drilled Std.",
+      "row": 30,
+      "col": 19,
+      "col_letter": "S"
+    },
+    "AU30": {
+      "value": 7,
+      "row": 30,
+      "col": 47,
+      "col_letter": "AU"
+    },
+    "AV30": {
+      "value": "Service/ Maintain Rig",
+      "row": 30,
+      "col": 48,
+      "col_letter": "AV"
+    },
+    "A31": {
+      "value": "22:00:00",
+      "row": 31,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "C31": {
+      "value": "23:30:00",
+      "row": 31,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "E31": {
+      "value": 1.5,
+      "row": 31,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "G31": {
+      "value": "DRL",
+      "row": 31,
+      "col": 7,
+      "col_letter": "G"
+    },
+    "I31": {
+      "value": 2,
+      "row": 31,
+      "col": 9,
+      "col_letter": "I"
+    },
+    "K31": {
+      "value": 1,
+      "row": 31,
+      "col": 11,
+      "col_letter": "K"
+    },
+    "M31": {
+      "value": "PLN",
+      "row": 31,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "S31": {
+      "value": "Cont. Drlg 17-1/2\" HS to 225m; NL. Pump Bentonite Hi-Vis Pill to sweep hole periodically.",
+      "row": 31,
+      "col": 19,
+      "col_letter": "S"
+    },
+    "AU31": {
+      "value": 8,
+      "row": 31,
+      "col": 47,
+      "col_letter": "AU"
+    },
+    "AV31": {
+      "value": "Repair Rig",
+      "row": 31,
+      "col": 48,
+      "col_letter": "AV"
+    },
+    "A32": {
+      "value": "23:30:00",
+      "row": 32,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "C32": {
+      "value": "1 day, 0:00:00",
+      "row": 32,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "E32": {
+      "value": 0.5,
+      "row": 32,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "G32": {
+      "value": "DRL",
+      "row": 32,
+      "col": 7,
+      "col_letter": "G"
+    },
+    "I32": {
+      "value": 3,
+      "row": 32,
+      "col": 9,
+      "col_letter": "I"
+    },
+    "K32": {
+      "value": 1,
+      "row": 32,
+      "col": 11,
+      "col_letter": "K"
+    },
+    "M32": {
+      "value": "PLN",
+      "row": 32,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "S32": {
+      "value": "B/R & R/D last drilled Std.",
+      "row": 32,
+      "col": 19,
+      "col_letter": "S"
+    },
+    "AU32": {
+      "value": 9,
+      "row": 32,
+      "col": 47,
+      "col_letter": "AU"
+    },
+    "AV32": {
+      "value": "Replacing Drill Line",
+      "row": 32,
+      "col": 48,
+      "col_letter": "AV"
+    },
+    "S33": {
+      "value": "Drlg. Parameters: WOB: 10-25klb, Rot:80-120 RPM, TQ: 2-4 Klb.ft, F.R:700-900 GPM, SPP: 350-600psi, ROP: 2-20 MPH",
+      "row": 33,
+      "col": 19,
+      "col_letter": "S"
+    },
+    "AU33": {
+      "value": 10,
+      "row": 33,
+      "col": 47,
+      "col_letter": "AU"
+    },
+    "AV33": {
+      "value": "Deviation Survey",
+      "row": 33,
+      "col": 48,
+      "col_letter": "AV"
+    },
+    "AU34": {
+      "value": 11,
+      "row": 34,
+      "col": 47,
+      "col_letter": "AU"
+    },
+    "AV34": {
+      "value": " Logging",
+      "row": 34,
+      "col": 48,
+      "col_letter": "AV"
+    },
+    "AU35": {
+      "value": 12,
+      "row": 35,
+      "col": 47,
+      "col_letter": "AU"
+    },
+    "AV35": {
+      "value": "Run Casing/ Liner",
+      "row": 35,
+      "col": 48,
+      "col_letter": "AV"
+    },
+    "AU36": {
+      "value": 13,
+      "row": 36,
+      "col": 47,
+      "col_letter": "AU"
+    },
+    "AV36": {
+      "value": "Cementing",
+      "row": 36,
+      "col": 48,
+      "col_letter": "AV"
+    },
+    "AU37": {
+      "value": 14,
+      "row": 37,
+      "col": 47,
+      "col_letter": "AU"
+    },
+    "AV37": {
+      "value": "Wait on Cement",
+      "row": 37,
+      "col": 48,
+      "col_letter": "AV"
+    },
+    "AU38": {
+      "value": 15,
+      "row": 38,
+      "col": 47,
+      "col_letter": "AU"
+    },
+    "AV38": {
+      "value": "Rig Up/Down BOP",
+      "row": 38,
+      "col": 48,
+      "col_letter": "AV"
+    },
+    "AU39": {
+      "value": 16,
+      "row": 39,
+      "col": 47,
+      "col_letter": "AU"
+    },
+    "AV39": {
+      "value": "Test BOP",
+      "row": 39,
+      "col": 48,
+      "col_letter": "AV"
+    },
+    "AU40": {
+      "value": 17,
+      "row": 40,
+      "col": 47,
+      "col_letter": "AU"
+    },
+    "AV40": {
+      "value": "Drill Stem Test",
+      "row": 40,
+      "col": 48,
+      "col_letter": "AV"
+    },
+    "AU41": {
+      "value": 18,
+      "row": 41,
+      "col": 47,
+      "col_letter": "AU"
+    },
+    "AV41": {
+      "value": "Fishing",
+      "row": 41,
+      "col": 48,
+      "col_letter": "AV"
+    },
+    "AU42": {
+      "value": 19,
+      "row": 42,
+      "col": 47,
+      "col_letter": "AU"
+    },
+    "AV42": {
+      "value": "Specialized Directional Work",
+      "row": 42,
+      "col": 48,
+      "col_letter": "AV"
+    },
+    "AU43": {
+      "value": 20,
+      "row": 43,
+      "col": 47,
+      "col_letter": "AU"
+    },
+    "AV43": {
+      "value": "Operation Status (Waiting)",
+      "row": 43,
+      "col": 48,
+      "col_letter": "AV"
+    },
+    "AU44": {
+      "value": 21,
+      "row": 44,
+      "col": 47,
+      "col_letter": "AU"
+    },
+    "AV44": {
+      "value": "Safety",
+      "row": 44,
+      "col": 48,
+      "col_letter": "AV"
+    },
+    "AU45": {
+      "value": 22,
+      "row": 45,
+      "col": 47,
+      "col_letter": "AU"
+    },
+    "AV45": {
+      "value": "Perforating",
+      "row": 45,
+      "col": 48,
+      "col_letter": "AV"
+    },
+    "AU46": {
+      "value": 23,
+      "row": 46,
+      "col": 47,
+      "col_letter": "AU"
+    },
+    "AV46": {
+      "value": "Completion\\ XMT",
+      "row": 46,
+      "col": 48,
+      "col_letter": "AV"
+    },
+    "AU47": {
+      "value": 24,
+      "row": 47,
+      "col": 47,
+      "col_letter": "AU"
+    },
+    "AV47": {
+      "value": "Treating",
+      "row": 47,
+      "col": 48,
+      "col_letter": "AV"
+    },
+    "AU48": {
+      "value": 25,
+      "row": 48,
+      "col": 47,
+      "col_letter": "AU"
+    },
+    "AV48": {
+      "value": "Swabbing",
+      "row": 48,
+      "col": 48,
+      "col_letter": "AV"
+    },
+    "AU49": {
+      "value": 26,
+      "row": 49,
+      "col": 47,
+      "col_letter": "AU"
+    },
+    "AV49": {
+      "value": "Surface Testing",
+      "row": 49,
+      "col": 48,
+      "col_letter": "AV"
+    },
+    "AU50": {
+      "value": 27,
+      "row": 50,
+      "col": 47,
+      "col_letter": "AU"
+    },
+    "AV50": {
+      "value": "Well Control",
+      "row": 50,
+      "col": 48,
+      "col_letter": "AV"
+    },
+    "AU51": {
+      "value": 28,
+      "row": 51,
+      "col": 47,
+      "col_letter": "AU"
+    },
+    "AV51": {
+      "value": "Other",
+      "row": 51,
+      "col": 48,
+      "col_letter": "AV"
+    },
+    "AU52": {
+      "value": 29,
+      "row": 52,
+      "col": 47,
+      "col_letter": "AU"
+    },
+    "AV52": {
+      "value": "Subsea Operation",
+      "row": 52,
+      "col": 48,
+      "col_letter": "AV"
+    },
+    "A62": {
+      "value": "Total",
+      "row": 62,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "E62": {
+      "value": 24,
+      "row": 62,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "AV62": {
+      "value": "Total",
+      "row": 62,
+      "col": 48,
+      "col_letter": "AV"
+    },
+    "BA62": {
+      "value": 24,
+      "row": 62,
+      "col": 53,
+      "col_letter": "BA"
+    },
+    "A63": {
+      "value": "From",
+      "row": 63,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "C63": {
+      "value": "To",
+      "row": 63,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "E63": {
+      "value": "hrs",
+      "row": 63,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "G63": {
+      "value": "Main Phase",
+      "row": 63,
+      "col": 7,
+      "col_letter": "G"
+    },
+    "I63": {
+      "value": "Code",
+      "row": 63,
+      "col": 9,
+      "col_letter": "I"
+    },
+    "K63": {
+      "value": "Sub Code",
+      "row": 63,
+      "col": 11,
+      "col_letter": "K"
+    },
+    "M63": {
+      "value": "Status",
+      "row": 63,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "P63": {
+      "value": "NPT/ Unplan Attributed",
+      "row": 63,
+      "col": 16,
+      "col_letter": "P"
+    },
+    "S63": {
+      "value": "Rig Activity",
+      "row": 63,
+      "col": 19,
+      "col_letter": "S"
+    },
+    "AN63": {
+      "value": "Gain/Loss BPH",
+      "row": 63,
+      "col": 40,
+      "col_letter": "AN"
+    },
+    "AR63": {
+      "value": "Measure Depth (m)  ",
+      "row": 63,
+      "col": 44,
+      "col_letter": "AR"
+    },
+    "AN64": {
+      "value": "Type",
+      "row": 64,
+      "col": 40,
+      "col_letter": "AN"
+    },
+    "AP64": {
+      "value": "MIN",
+      "row": 64,
+      "col": 42,
+      "col_letter": "AP"
+    },
+    "AQ64": {
+      "value": "MAX",
+      "row": 64,
+      "col": 43,
+      "col_letter": "AQ"
+    },
+    "A65": {
+      "value": "00:00:00",
+      "row": 65,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "C65": {
+      "value": "01:30:00",
+      "row": 65,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "E65": {
+      "value": 1.5,
+      "row": 65,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "G65": {
+      "value": "DRL",
+      "row": 65,
+      "col": 7,
+      "col_letter": "G"
+    },
+    "I65": {
+      "value": 2,
+      "row": 65,
+      "col": 9,
+      "col_letter": "I"
+    },
+    "K65": {
+      "value": 1,
+      "row": 65,
+      "col": 11,
+      "col_letter": "K"
+    },
+    "M65": {
+      "value": "PLN",
+      "row": 65,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "S65": {
+      "value": "Cont. Drlg 17-1/2\" HS f/ 225 to 250m; NL. Meanwhile pump Bentonite Hi-Vis Pill to sweep hole.",
+      "row": 65,
+      "col": 19,
+      "col_letter": "S"
+    },
+    "A66": {
+      "value": "01:30:00",
+      "row": 66,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "C66": {
+      "value": "02:00:00",
+      "row": 66,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "E66": {
+      "value": 0.4999999999999999,
+      "row": 66,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "G66": {
+      "value": "DRL",
+      "row": 66,
+      "col": 7,
+      "col_letter": "G"
+    },
+    "I66": {
+      "value": 3,
+      "row": 66,
+      "col": 9,
+      "col_letter": "I"
+    },
+    "K66": {
+      "value": 1,
+      "row": 66,
+      "col": 11,
+      "col_letter": "K"
+    },
+    "M66": {
+      "value": "PLN",
+      "row": 66,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "S66": {
+      "value": "B/R & R/D last drilled Std.",
+      "row": 66,
+      "col": 19,
+      "col_letter": "S"
+    },
+    "A67": {
+      "value": "02:00:00",
+      "row": 67,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "C67": {
+      "value": "03:30:00",
+      "row": 67,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "E67": {
+      "value": 1.5000000000000002,
+      "row": 67,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "G67": {
+      "value": "DRL",
+      "row": 67,
+      "col": 7,
+      "col_letter": "G"
+    },
+    "I67": {
+      "value": 2,
+      "row": 67,
+      "col": 9,
+      "col_letter": "I"
+    },
+    "K67": {
+      "value": 1,
+      "row": 67,
+      "col": 11,
+      "col_letter": "K"
+    },
+    "M67": {
+      "value": "PLN",
+      "row": 67,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "S67": {
+      "value": "Cont. Drlg 17-1/2\" HS to 280 m; NL. Meanwhile pump Bentonite Hi-Vis Pill to sweep hole.",
+      "row": 67,
+      "col": 19,
+      "col_letter": "S"
+    },
+    "A68": {
+      "value": "03:00:00",
+      "row": 68,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "C68": {
+      "value": "04:00:00",
+      "row": 68,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "E68": {
+      "value": 0.9999999999999998,
+      "row": 68,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "G68": {
+      "value": "DRL",
+      "row": 68,
+      "col": 7,
+      "col_letter": "G"
+    },
+    "I68": {
+      "value": 3,
+      "row": 68,
+      "col": 9,
+      "col_letter": "I"
+    },
+    "K68": {
+      "value": 1,
+      "row": 68,
+      "col": 11,
+      "col_letter": "K"
+    },
+    "M68": {
+      "value": "PLN",
+      "row": 68,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "S68": {
+      "value": "B/R & R/D last drilled Std.",
+      "row": 68,
+      "col": 19,
+      "col_letter": "S"
+    },
+    "A69": {
+      "value": "04:00:00",
+      "row": 69,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "C69": {
+      "value": "05:30:00",
+      "row": 69,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "E69": {
+      "value": 1.5,
+      "row": 69,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "G69": {
+      "value": "DRL",
+      "row": 69,
+      "col": 7,
+      "col_letter": "G"
+    },
+    "I69": {
+      "value": 2,
+      "row": 69,
+      "col": 9,
+      "col_letter": "I"
+    },
+    "K69": {
+      "value": 1,
+      "row": 69,
+      "col": 11,
+      "col_letter": "K"
+    },
+    "M69": {
+      "value": "PLN",
+      "row": 69,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "S69": {
+      "value": "Cont. Drlg 17-1/2\" HS to 310 m; NL. Meanwhile pump Bentonite Hi-Vis Pill to sweep hole.",
+      "row": 69,
+      "col": 19,
+      "col_letter": "S"
+    },
+    "A70": {
+      "value": "05:30:00",
+      "row": 70,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "C70": {
+      "value": "06:00:00",
+      "row": 70,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "E70": {
+      "value": 0.5000000000000002,
+      "row": 70,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "G70": {
+      "value": "DRL",
+      "row": 70,
+      "col": 7,
+      "col_letter": "G"
+    },
+    "I70": {
+      "value": 3,
+      "row": 70,
+      "col": 9,
+      "col_letter": "I"
+    },
+    "K70": {
+      "value": 1,
+      "row": 70,
+      "col": 11,
+      "col_letter": "K"
+    },
+    "M70": {
+      "value": "PLN",
+      "row": 70,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "S70": {
+      "value": "B/R & R/D last drilled Std.",
+      "row": 70,
+      "col": 19,
+      "col_letter": "S"
+    },
+    "S71": {
+      "value": "Drlg. Parameters: WOB: 20-30klb, Rot:100 RPM, TQ: 2-4 Klb.ft, F.R: 900 GPM, SPP: 600psi, ROP: 15-20 MPH",
+      "row": 71,
+      "col": 19,
+      "col_letter": "S"
+    },
+    "A77": {
+      "value": "Total",
+      "row": 77,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "E77": {
+      "value": 6.5,
+      "row": 77,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "AV77": {
+      "value": "Total",
+      "row": 77,
+      "col": 48,
+      "col_letter": "AV"
+    },
+    "BA77": {
+      "value": 6.5,
+      "row": 77,
+      "col": 53,
+      "col_letter": "BA"
+    },
+    "A78": {
+      "value": "Input Tight Hole Points  or Intervals  Depth (m):",
+      "row": 78,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "A80": {
+      "value": "Note:",
+      "row": 80,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "A81": {
+      "value": "Note#01 : Geo Data Mud logging EX monitor for driller not acceptable",
+      "row": 81,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "A82": {
+      "value": "Note#02 : Due to sever power surges  on 16-Oct-2024, some electrical appliances of mudlogging service got damaged (1No. 21\" monitor, 2No. Case power, 1No. Motherboard, 1No. POE access point).",
+      "row": 82,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "A83": {
+      "value": "Note#03 : ",
+      "row": 83,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "A84": {
+      "value": "Note#04 : ",
+      "row": 84,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "A85": {
+      "value": "Note#05 : ",
+      "row": 85,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "A86": {
+      "value": "Note#06 : ",
+      "row": 86,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "A87": {
+      "value": "Note#07 : ",
+      "row": 87,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "A88": {
+      "value": "Material Request",
+      "row": 88,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "D88": {
+      "value": "Needle valve and Press. gauge for Section \"A\" & \"B\"",
+      "row": 88,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "AE88": {
+      "value": "Out Standing",
+      "row": 88,
+      "col": 31,
+      "col_letter": "AE"
+    },
+    "A95": {
+      "value": "Received",
+      "row": 95,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "AE95": {
+      "value": "Back Load \nor \nSent",
+      "row": 95,
+      "col": 31,
+      "col_letter": "AE"
+    },
+    "AF95": {
+      "value": "2No. Oring for plug tester & W.Bushing 11\"\n1 No. BX 155\n1 No. BX 152\n1 No. Press. Gauge 10k\n1 No. Niddle Valve 10k to rig 201.",
+      "row": 95,
+      "col": 32,
+      "col_letter": "AF"
+    }
+  },
+  "DDR Data": {
+    "C3": {
+      "value": "Daily Drilling Report",
+      "row": 3,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "AQ3": {
+      "value": 467,
+      "row": 3,
+      "col": 43,
+      "col_letter": "AQ"
+    },
+    "C4": {
+      "value": "OEOC 208",
+      "row": 4,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "AQ4": {
+      "value": 6.25,
+      "row": 4,
+      "col": 43,
+      "col_letter": "AQ"
+    },
+    "AQ5": {
+      "value": 7,
+      "row": 5,
+      "col": 43,
+      "col_letter": "AQ"
+    },
+    "B6": {
+      "value": " Well Name",
+      "row": 6,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "E6": {
+      "value": "AZNS-207",
+      "row": 6,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "F6": {
+      "value": "Report Date",
+      "row": 6,
+      "col": 6,
+      "col_letter": "F"
+    },
+    "G6": {
+      "value": "year",
+      "row": 6,
+      "col": 7,
+      "col_letter": "G"
+    },
+    "H6": {
+      "value": "month",
+      "row": 6,
+      "col": 8,
+      "col_letter": "H"
+    },
+    "I6": {
+      "value": "day",
+      "row": 6,
+      "col": 9,
+      "col_letter": "I"
+    },
+    "J6": {
+      "value": "MUD Data",
+      "row": 6,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "N6": {
+      "value": "Mud Chemical",
+      "row": 6,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "B7": {
+      "value": " Report No",
+      "row": 7,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "E7": {
+      "value": 8,
+      "row": 7,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "G7": {
+      "value": 2024,
+      "row": 7,
+      "col": 7,
+      "col_letter": "G"
+    },
+    "H7": {
+      "value": "Oct",
+      "row": 7,
+      "col": 8,
+      "col_letter": "H"
+    },
+    "I7": {
+      "value": 22,
+      "row": 7,
+      "col": 9,
+      "col_letter": "I"
+    },
+    "J7": {
+      "value": " Report Time",
+      "row": 7,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L7": {
+      "value": "00:00:00",
+      "row": 7,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "N7": {
+      "value": " Product Type",
+      "row": 7,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "P7": {
+      "value": "Used",
+      "row": 7,
+      "col": 16,
+      "col_letter": "P"
+    },
+    "Q7": {
+      "value": "Received",
+      "row": 7,
+      "col": 17,
+      "col_letter": "Q"
+    },
+    "S7": {
+      "value": "On Hand",
+      "row": 7,
+      "col": 19,
+      "col_letter": "S"
+    },
+    "T7": {
+      "value": "Unit",
+      "row": 7,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "B8": {
+      "value": "Drilling Data",
+      "row": 8,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "J8": {
+      "value": " Mud Type",
+      "row": 8,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L8": {
+      "value": "Ben. Mud",
+      "row": 8,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "N8": {
+      "value": "Bentonite",
+      "row": 8,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "S8": {
+      "value": 13,
+      "row": 8,
+      "col": 19,
+      "col_letter": "S"
+    },
+    "T8": {
+      "value": "1 MT/BB",
+      "row": 8,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "B9": {
+      "value": "Bit No.",
+      "row": 9,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "E9": {
+      "value": 2,
+      "row": 9,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "J9": {
+      "value": " Mud Weight",
+      "row": 9,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "K9": {
+      "value": "Unit",
+      "row": 9,
+      "col": 11,
+      "col_letter": "K"
+    },
+    "L9": {
+      "value": 71,
+      "row": 9,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "N9": {
+      "value": "Barite",
+      "row": 9,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "Q9": {
+      "value": 24,
+      "row": 9,
+      "col": 17,
+      "col_letter": "Q"
+    },
+    "S9": {
+      "value": 45,
+      "row": 9,
+      "col": 19,
+      "col_letter": "S"
+    },
+    "T9": {
+      "value": "1.5 MT/BB",
+      "row": 9,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "B10": {
+      "value": "Bit Rerun  NO (First Run=0)",
+      "row": 10,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "E10": {
+      "value": 1,
+      "row": 10,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "K10": {
+      "value": "PCF",
+      "row": 10,
+      "col": 11,
+      "col_letter": "K"
+    },
+    "N10": {
+      "value": "Limestone",
+      "row": 10,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "T10": {
+      "value": "1MT/BB",
+      "row": 10,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "B11": {
+      "value": "Bit Size (inch)",
+      "row": 11,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "E11": {
+      "value": "17-1/2\"",
+      "row": 11,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "J11": {
+      "value": "Funnel Vis (Sec/QT)",
+      "row": 11,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L11": {
+      "value": 33,
+      "row": 11,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "N11": {
+      "value": "Salt ",
+      "row": 11,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "P11": {
+      "value": 20,
+      "row": 11,
+      "col": 16,
+      "col_letter": "P"
+    },
+    "S11": {
+      "value": 81,
+      "row": 11,
+      "col": 19,
+      "col_letter": "S"
+    },
+    "T11": {
+      "value": "1 MT/BB",
+      "row": 11,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "B12": {
+      "value": "Bit Type",
+      "row": 12,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "E12": {
+      "value": "MT Bit (GAT135G)",
+      "row": 12,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "J12": {
+      "value": "PV (CP)",
+      "row": 12,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L12": {
+      "value": 7,
+      "row": 12,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "N12": {
+      "value": "Lime",
+      "row": 12,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "P12": {
+      "value": 17,
+      "row": 12,
+      "col": 16,
+      "col_letter": "P"
+    },
+    "R12": {
+      "value": 0,
+      "row": 12,
+      "col": 18,
+      "col_letter": "R"
+    },
+    "S12": {
+      "value": 163,
+      "row": 12,
+      "col": 19,
+      "col_letter": "S"
+    },
+    "T12": {
+      "value": "25 KG/SX",
+      "row": 12,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "B13": {
+      "value": "Bit Manufacture",
+      "row": 13,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "E13": {
+      "value": "KingDream",
+      "row": 13,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "J13": {
+      "value": "YP (lb/100ft2)",
+      "row": 13,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L13": {
+      "value": 15,
+      "row": 13,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "N13": {
+      "value": "API Starch",
+      "row": 13,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "Q13": {
+      "value": 40,
+      "row": 13,
+      "col": 17,
+      "col_letter": "Q"
+    },
+    "S13": {
+      "value": 160,
+      "row": 13,
+      "col": 19,
+      "col_letter": "S"
+    },
+    "T13": {
+      "value": "25 KG/SX",
+      "row": 13,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "B14": {
+      "value": "Bit Serial No.",
+      "row": 14,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "J14": {
+      "value": "Gel 10 s (lb/100ft2)",
+      "row": 14,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L14": {
+      "value": "4",
+      "row": 14,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "N14": {
+      "value": "Caustic Soda",
+      "row": 14,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "P14": {
+      "value": 3,
+      "row": 14,
+      "col": 16,
+      "col_letter": "P"
+    },
+    "Q14": {
+      "value": 40,
+      "row": 14,
+      "col": 17,
+      "col_letter": "Q"
+    },
+    "S14": {
+      "value": 54,
+      "row": 14,
+      "col": 19,
+      "col_letter": "S"
+    },
+    "T14": {
+      "value": "25 KG/SX",
+      "row": 14,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "B15": {
+      "value": "IADC Code",
+      "row": 15,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "E15": {
+      "value": "135",
+      "row": 15,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "J15": {
+      "value": "Gel 10 min (lb/100ft2)",
+      "row": 15,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L15": {
+      "value": 6,
+      "row": 15,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "N15": {
+      "value": "Soda Ash",
+      "row": 15,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "Q15": {
+      "value": 40,
+      "row": 15,
+      "col": 17,
+      "col_letter": "Q"
+    },
+    "S15": {
+      "value": 58,
+      "row": 15,
+      "col": 19,
+      "col_letter": "S"
+    },
+    "T15": {
+      "value": "25 KG/SX",
+      "row": 15,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "B16": {
+      "value": "Bit Nozzle",
+      "row": 16,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "E16": {
+      "value": "Nozzle No",
+      "row": 16,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "F16": {
+      "value": "Nozzle size (1/32 inch)",
+      "row": 16,
+      "col": 6,
+      "col_letter": "F"
+    },
+    "G16": {
+      "value": "Nozzle No",
+      "row": 16,
+      "col": 7,
+      "col_letter": "G"
+    },
+    "I16": {
+      "value": "Nozzle size (1/32 inch)",
+      "row": 16,
+      "col": 9,
+      "col_letter": "I"
+    },
+    "J16": {
+      "value": "API Fluid Loss (cc/30 min)",
+      "row": 16,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L16": {
+      "value": "N.C",
+      "row": 16,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "N16": {
+      "value": "Xanthan Gum",
+      "row": 16,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "S16": {
+      "value": 25,
+      "row": 16,
+      "col": 19,
+      "col_letter": "S"
+    },
+    "T16": {
+      "value": "25 KG/SX",
+      "row": 16,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "E17": {
+      "value": 1,
+      "row": 17,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "F17": {
+      "value": "18/32\"",
+      "row": 17,
+      "col": 6,
+      "col_letter": "F"
+    },
+    "J17": {
+      "value": "Total Hardness  (mg/lit)",
+      "row": 17,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L17": {
+      "value": 400,
+      "row": 17,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "N17": {
+      "value": "Nut Plug (C)",
+      "row": 17,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "S17": {
+      "value": 40,
+      "row": 17,
+      "col": 19,
+      "col_letter": "S"
+    },
+    "T17": {
+      "value": "25 KG/SX",
+      "row": 17,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "J18": {
+      "value": "Filter Cake (1/32\")",
+      "row": 18,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "N18": {
+      "value": "Nut Plug (M)",
+      "row": 18,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "T18": {
+      "value": "25 KG/SX",
+      "row": 18,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "E19": {
+      "value": 2,
+      "row": 19,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "F19": {
+      "value": "Open",
+      "row": 19,
+      "col": 6,
+      "col_letter": "F"
+    },
+    "J19": {
+      "value": "Solid (% Vol)",
+      "row": 19,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L19": {
+      "value": 7,
+      "row": 19,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "N19": {
+      "value": "Nut Plug (F)",
+      "row": 19,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "T19": {
+      "value": "25 KG/SX",
+      "row": 19,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "J20": {
+      "value": "Chloride  (mg/lit)",
+      "row": 20,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L20": {
+      "value": 7400,
+      "row": 20,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "N20": {
+      "value": "Oyster Shell (C)",
+      "row": 20,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "T20": {
+      "value": "25 KG/SX",
+      "row": 20,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "J21": {
+      "value": "Oil / Water (% Vol)",
+      "row": 21,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L21": {
+      "value": "5",
+      "row": 21,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "N21": {
+      "value": "Oyster Shell (M)",
+      "row": 21,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "T21": {
+      "value": "25 KG/SX",
+      "row": 21,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "J22": {
+      "value": "KCL (% wt)",
+      "row": 22,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "N22": {
+      "value": "Oyster Shell (F)",
+      "row": 22,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "T22": {
+      "value": "25 KG/SX",
+      "row": 22,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "J23": {
+      "value": "PH",
+      "row": 23,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L23": {
+      "value": 10.5,
+      "row": 23,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "N23": {
+      "value": "Limestone chips(M)",
+      "row": 23,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "T23": {
+      "value": "25 KG/SX",
+      "row": 23,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "J24": {
+      "value": "Flowline Temp (°F)",
+      "row": 24,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "N24": {
+      "value": "Limestone chips(C)",
+      "row": 24,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "T24": {
+      "value": "25 KG/SX",
+      "row": 24,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "B25": {
+      "value": " TFA ( in^2)",
+      "row": 25,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "E25": {
+      "value": 4.32,
+      "row": 25,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "J25": {
+      "value": "Pf / Mf",
+      "row": 25,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "N25": {
+      "value": "Limestone chips(F)",
+      "row": 25,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "T25": {
+      "value": "25 KG/SX",
+      "row": 25,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "J26": {
+      "value": "Ca++ (mg/lit)",
+      "row": 26,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L26": {
+      "value": 320,
+      "row": 26,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "N26": {
+      "value": "Mica (F)",
+      "row": 26,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "T26": {
+      "value": "25 KG/SX",
+      "row": 26,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "B27": {
+      "value": "Bit Drilled (m)",
+      "row": 27,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "E27": {
+      "value": 70,
+      "row": 27,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "J27": {
+      "value": "MBT (lb/bbl)",
+      "row": 27,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "N27": {
+      "value": "Mica (M)",
+      "row": 27,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "T27": {
+      "value": "25 KG/SX",
+      "row": 27,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "B28": {
+      "value": "Bit Cum. Drilled (m)",
+      "row": 28,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "E28": {
+      "value": 76,
+      "row": 28,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "N28": {
+      "value": "Mica (C)",
+      "row": 28,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "S28": {
+      "value": 80,
+      "row": 28,
+      "col": 19,
+      "col_letter": "S"
+    },
+    "T28": {
+      "value": "25 KG/SX",
+      "row": 28,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "B29": {
+      "value": "Bit Hours on Bottom",
+      "row": 29,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "E29": {
+      "value": 8.5,
+      "row": 29,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "N29": {
+      "value": "Sodium Bicarbonate",
+      "row": 29,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "T29": {
+      "value": "50 KG/SX",
+      "row": 29,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "B30": {
+      "value": "Bit Cum. Hrs on Bottom",
+      "row": 30,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "E30": {
+      "value": 14,
+      "row": 30,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "N30": {
+      "value": "Anti-Foam",
+      "row": 30,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "T30": {
+      "value": "55 GAL/DM",
+      "row": 30,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "B31": {
+      "value": "Cum.Bit Ave ROP (m/hr)",
+      "row": 31,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "E31": {
+      "value": 5.428571428571429,
+      "row": 31,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "N31": {
+      "value": "H2S Scavenger ",
+      "row": 31,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "T31": {
+      "value": "55 GAL/DM",
+      "row": 31,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "B32": {
+      "value": "Bit Dull Condition",
+      "row": 32,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "N32": {
+      "value": "Citric Acid",
+      "row": 32,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "T32": {
+      "value": "25 KG/SX",
+      "row": 32,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "B33": {
+      "value": "Bit revolution (k.rev)",
+      "row": 33,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "E33": {
+      "value": "60",
+      "row": 33,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "J33": {
+      "value": "Vol. Info",
+      "row": 33,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "N33": {
+      "value": "Biocide",
+      "row": 33,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "T33": {
+      "value": "55 GAL/DM",
+      "row": 33,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "B34": {
+      "value": "Pump Liner Size (inch)",
+      "row": 34,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "E34": {
+      "value": "P#1 : (180mm x 12\")  +  P#2 : (180mm x 12\")  + P#3 : (180mm x 12\")",
+      "row": 34,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "J34": {
+      "value": "Vol. in Hole (bbls)",
+      "row": 34,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L34": {
+      "value": 218,
+      "row": 34,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "N34": {
+      "value": "KCl",
+      "row": 34,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "S34": {
+      "value": 12,
+      "row": 34,
+      "col": 19,
+      "col_letter": "S"
+    },
+    "T34": {
+      "value": "1MT/BB",
+      "row": 34,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "B35": {
+      "value": "Pump Output (gpm)",
+      "row": 35,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "E35": {
+      "value": "min",
+      "row": 35,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "F35": {
+      "value": "max",
+      "row": 35,
+      "col": 6,
+      "col_letter": "F"
+    },
+    "G35": {
+      "value": "min",
+      "row": 35,
+      "col": 7,
+      "col_letter": "G"
+    },
+    "I35": {
+      "value": "max",
+      "row": 35,
+      "col": 9,
+      "col_letter": "I"
+    },
+    "J35": {
+      "value": "Total Cir. Volume (bbls)",
+      "row": 35,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L35": {
+      "value": 758,
+      "row": 35,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "N35": {
+      "value": "Corrosion Inhibitor",
+      "row": 35,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "T35": {
+      "value": "55 GAL/DM",
+      "row": 35,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "E36": {
+      "value": "700",
+      "row": 36,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "F36": {
+      "value": "900",
+      "row": 36,
+      "col": 6,
+      "col_letter": "F"
+    },
+    "J36": {
+      "value": "Mud Lost Down Hole (bbls)",
+      "row": 36,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "N36": {
+      "value": "Oxygen Scavenger",
+      "row": 36,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "T36": {
+      "value": "55 GAL/DM",
+      "row": 36,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "B37": {
+      "value": "Drilling Parameter",
+      "row": 37,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "E37": {
+      "value": "min",
+      "row": 37,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "F37": {
+      "value": "max",
+      "row": 37,
+      "col": 6,
+      "col_letter": "F"
+    },
+    "G37": {
+      "value": "min",
+      "row": 37,
+      "col": 7,
+      "col_letter": "G"
+    },
+    "I37": {
+      "value": "max",
+      "row": 37,
+      "col": 9,
+      "col_letter": "I"
+    },
+    "J37": {
+      "value": "Mud Lost at Surface (bbls)",
+      "row": 37,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L37": {
+      "value": 158,
+      "row": 37,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "N37": {
+      "value": "Pipe Lax",
+      "row": 37,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "T37": {
+      "value": "55 GAL/DM",
+      "row": 37,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "B38": {
+      "value": "W.O.B (klb)",
+      "row": 38,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "E38": {
+      "value": "10",
+      "row": 38,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "F38": {
+      "value": "30",
+      "row": 38,
+      "col": 6,
+      "col_letter": "F"
+    },
+    "J38": {
+      "value": "Suction 1 Vol.(bbls)/MW (PCF)",
+      "row": 38,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L38": {
+      "value": 270,
+      "row": 38,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "M38": {
+      "value": 71,
+      "row": 38,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "N38": {
+      "value": "Bit Lube",
+      "row": 38,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "T38": {
+      "value": "55 GAL/DM",
+      "row": 38,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "B39": {
+      "value": "Motor RPM ( rev/gal)",
+      "row": 39,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "J39": {
+      "value": "Suction 2 Vol.(bbls)/MW (PCF)",
+      "row": 39,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L39": {
+      "value": 330,
+      "row": 39,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "M39": {
+      "value": 72,
+      "row": 39,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "N39": {
+      "value": "Drilling Detergent",
+      "row": 39,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "T39": {
+      "value": "55 GAL/DM",
+      "row": 39,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "B40": {
+      "value": "Surf. RPM ( rev/gal)",
+      "row": 40,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "E40": {
+      "value": "80",
+      "row": 40,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "F40": {
+      "value": "120",
+      "row": 40,
+      "col": 6,
+      "col_letter": "F"
+    },
+    "J40": {
+      "value": "Reserve 1 Vol.(bbls)/MW (PCF)",
+      "row": 40,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L40": {
+      "value": 190,
+      "row": 40,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "M40": {
+      "value": 70,
+      "row": 40,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "N40": {
+      "value": "Glass Bead (M)",
+      "row": 40,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "T40": {
+      "value": "25 KG/SX",
+      "row": 40,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "B41": {
+      "value": "Torque (kft-lbs)",
+      "row": 41,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "E41": {
+      "value": "2",
+      "row": 41,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "F41": {
+      "value": "4",
+      "row": 41,
+      "col": 6,
+      "col_letter": "F"
+    },
+    "J41": {
+      "value": "Reserve 2 Vol.(bbls)/MW (PCF)",
+      "row": 41,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L41": {
+      "value": 45,
+      "row": 41,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "M41": {
+      "value": 70,
+      "row": 41,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "N41": {
+      "value": "Kwick Seal (M)",
+      "row": 41,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "S41": {
+      "value": 80,
+      "row": 41,
+      "col": 19,
+      "col_letter": "S"
+    },
+    "T41": {
+      "value": "25 KG/SX",
+      "row": 41,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "B42": {
+      "value": "Pump Pressure (psi)",
+      "row": 42,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "E42": {
+      "value": "350",
+      "row": 42,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "F42": {
+      "value": "600",
+      "row": 42,
+      "col": 6,
+      "col_letter": "F"
+    },
+    "J42": {
+      "value": "Reserve 3 Vol.(bbls)/MW (PCF)",
+      "row": 42,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L42": {
+      "value": 90,
+      "row": 42,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "M42": {
+      "value": 62,
+      "row": 42,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "B43": {
+      "value": "SCR Data:",
+      "row": 43,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C43": {
+      "value": "SPM",
+      "row": 43,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D43": {
+      "value": "FR (GPM)",
+      "row": 43,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "E43": {
+      "value": "SPP",
+      "row": 43,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "G43": {
+      "value": "SPM",
+      "row": 43,
+      "col": 7,
+      "col_letter": "G"
+    },
+    "H43": {
+      "value": "FR (GPM)",
+      "row": 43,
+      "col": 8,
+      "col_letter": "H"
+    },
+    "I43": {
+      "value": "SPP",
+      "row": 43,
+      "col": 9,
+      "col_letter": "I"
+    },
+    "J43": {
+      "value": "Reserve 4 Vol.(bbls)/MW (PCF)",
+      "row": 43,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "B44": {
+      "value": " Pump No. #1",
+      "row": 44,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "F44": {
+      "value": " Pump No. #3",
+      "row": 44,
+      "col": 6,
+      "col_letter": "F"
+    },
+    "J44": {
+      "value": "Middle (bbls)/PCF",
+      "row": 44,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L44": {
+      "value": "240",
+      "row": 44,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "M44": {
+      "value": 72,
+      "row": 44,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "B45": {
+      "value": " Pump No. #2",
+      "row": 45,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "J45": {
+      "value": "Desilter   (bbls)/PCF",
+      "row": 45,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "B46": {
+      "value": "BHA No. #3",
+      "row": 46,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "F46": {
+      "value": "BHA No. ",
+      "row": 46,
+      "col": 6,
+      "col_letter": "F"
+    },
+    "J46": {
+      "value": "Desander  (bbls)/PCF",
+      "row": 46,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L46": {
+      "value": 95,
+      "row": 46,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "M46": {
+      "value": 71,
+      "row": 46,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "B47": {
+      "value": "Item",
+      "row": 47,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C47": {
+      "value": "OD (in)",
+      "row": 47,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D47": {
+      "value": "Length (m)",
+      "row": 47,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "E47": {
+      "value": "Cum. Len",
+      "row": 47,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "F47": {
+      "value": "Item",
+      "row": 47,
+      "col": 6,
+      "col_letter": "F"
+    },
+    "G47": {
+      "value": "OD (in)",
+      "row": 47,
+      "col": 7,
+      "col_letter": "G"
+    },
+    "H47": {
+      "value": "Length (m)",
+      "row": 47,
+      "col": 8,
+      "col_letter": "H"
+    },
+    "I47": {
+      "value": "Cum. Len",
+      "row": 47,
+      "col": 9,
+      "col_letter": "I"
+    },
+    "J47": {
+      "value": "Degasser  (bbls)/PCF",
+      "row": 47,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L47": {
+      "value": 95,
+      "row": 47,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "M47": {
+      "value": 71,
+      "row": 47,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "B48": {
+      "value": "17-1/2\" MT Bit",
+      "row": 48,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C48": {
+      "value": 17.5,
+      "row": 48,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D48": {
+      "value": 0.41,
+      "row": 48,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "E48": {
+      "value": 0.41,
+      "row": 48,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "J48": {
+      "value": "Sand Trap (bbls)/PCF",
+      "row": 48,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L48": {
+      "value": 80,
+      "row": 48,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "M48": {
+      "value": 71,
+      "row": 48,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "B49": {
+      "value": "9-1/2\" Bit Sub",
+      "row": 49,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C49": {
+      "value": 9.5,
+      "row": 49,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D49": {
+      "value": 1.23,
+      "row": 49,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "E49": {
+      "value": 1.64,
+      "row": 49,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "B50": {
+      "value": "9-1/2\" DC",
+      "row": 50,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C50": {
+      "value": 9.5,
+      "row": 50,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D50": {
+      "value": 18.04,
+      "row": 50,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "E50": {
+      "value": 19.68,
+      "row": 50,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "J50": {
+      "value": "Down Hole Equipment",
+      "row": 50,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "B51": {
+      "value": "S.Stab",
+      "row": 51,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C51": {
+      "value": 17.5,
+      "row": 51,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D51": {
+      "value": 2.55,
+      "row": 51,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "E51": {
+      "value": 22.23,
+      "row": 51,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "J51": {
+      "value": "Equipment",
+      "row": 51,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L51": {
+      "value": "OD (inch)",
+      "row": 51,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "N51": {
+      "value": "Serial Number",
+      "row": 51,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "P51": {
+      "value": "Rot. Hrs",
+      "row": 51,
+      "col": 16,
+      "col_letter": "P"
+    },
+    "S51": {
+      "value": "Cum. Hrs",
+      "row": 51,
+      "col": 19,
+      "col_letter": "S"
+    },
+    "B52": {
+      "value": "9-1/2\" DC",
+      "row": 52,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C52": {
+      "value": 9.5,
+      "row": 52,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D52": {
+      "value": 34.44,
+      "row": 52,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "E52": {
+      "value": 56.67,
+      "row": 52,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "J52": {
+      "value": "9-1/2\" Bit Sub",
+      "row": 52,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L52": {
+      "value": "9.5\"",
+      "row": 52,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "N52": {
+      "value": 1515041004,
+      "row": 52,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "P52": {
+      "value": 8.5,
+      "row": 52,
+      "col": 16,
+      "col_letter": "P"
+    },
+    "R52": {
+      "value": 14,
+      "row": 52,
+      "col": 18,
+      "col_letter": "R"
+    },
+    "B53": {
+      "value": "XOS",
+      "row": 53,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C53": {
+      "value": 9.5,
+      "row": 53,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D53": {
+      "value": 0.78,
+      "row": 53,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "E53": {
+      "value": 57.45,
+      "row": 53,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "J53": {
+      "value": "17-1/2\" S.Stab",
+      "row": 53,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L53": {
+      "value": "17.5\"",
+      "row": 53,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "N53": {
+      "value": 15013006,
+      "row": 53,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "P53": {
+      "value": 8.5,
+      "row": 53,
+      "col": 16,
+      "col_letter": "P"
+    },
+    "R53": {
+      "value": 8.5,
+      "row": 53,
+      "col": 18,
+      "col_letter": "R"
+    },
+    "B54": {
+      "value": "8-1/2\" DC",
+      "row": 54,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C54": {
+      "value": 8.5,
+      "row": 54,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D54": {
+      "value": 49.595,
+      "row": 54,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "E54": {
+      "value": 107.045,
+      "row": 54,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "J54": {
+      "value": "XOS #1 / XOS #2",
+      "row": 54,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L54": {
+      "value": "9 1/2\" | 6 5/8\"",
+      "row": 54,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "N54": {
+      "value": "1015004250 | 1015042069",
+      "row": 54,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "P54": {
+      "value": 8.5,
+      "row": 54,
+      "col": 16,
+      "col_letter": "P"
+    },
+    "R54": {
+      "value": 14,
+      "row": 54,
+      "col": 18,
+      "col_letter": "R"
+    },
+    "B55": {
+      "value": "XOS",
+      "row": 55,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C55": {
+      "value": 6.625,
+      "row": 55,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D55": {
+      "value": 0.95,
+      "row": 55,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "E55": {
+      "value": 107.995,
+      "row": 55,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "B56": {
+      "value": "5\" HWDP",
+      "row": 56,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C56": {
+      "value": 5,
+      "row": 56,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D56": {
+      "value": 27.83,
+      "row": 56,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "E56": {
+      "value": 135.825,
+      "row": 56,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "J56": {
+      "value": "Survey Data",
+      "row": 56,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "J57": {
+      "value": "M.D (m)",
+      "row": 57,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "K57": {
+      "value": "Incl.",
+      "row": 57,
+      "col": 11,
+      "col_letter": "K"
+    },
+    "L57": {
+      "value": "Azimuth",
+      "row": 57,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "M57": {
+      "value": "TVD (m)",
+      "row": 57,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "N57": {
+      "value": "North (m)",
+      "row": 57,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "O57": {
+      "value": "East (m)",
+      "row": 57,
+      "col": 15,
+      "col_letter": "O"
+    },
+    "Q57": {
+      "value": "VS / HD",
+      "row": 57,
+      "col": 17,
+      "col_letter": "Q"
+    },
+    "S57": {
+      "value": "DLS",
+      "row": 57,
+      "col": 19,
+      "col_letter": "S"
+    },
+    "T57": {
+      "value": "Tool",
+      "row": 57,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "J58": {
+      "value": 50,
+      "row": 58,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "K58": {
+      "value": 0,
+      "row": 58,
+      "col": 11,
+      "col_letter": "K"
+    },
+    "J59": {
+      "value": 108,
+      "row": 59,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "K59": {
+      "value": 0.25,
+      "row": 59,
+      "col": 11,
+      "col_letter": "K"
+    },
+    "J60": {
+      "value": 146,
+      "row": 60,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "K60": {
+      "value": 0.25,
+      "row": 60,
+      "col": 11,
+      "col_letter": "K"
+    },
+    "B68": {
+      "value": "TOTAL(m)",
+      "row": 68,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "E68": {
+      "value": 135.825,
+      "row": 68,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "F68": {
+      "value": "TOTAL(m)",
+      "row": 68,
+      "col": 6,
+      "col_letter": "F"
+    },
+    "I68": {
+      "value": 0,
+      "row": 68,
+      "col": 9,
+      "col_letter": "I"
+    },
+    "B69": {
+      "value": "Bulk Data",
+      "row": 69,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "K69": {
+      "value": "Weather Data",
+      "row": 69,
+      "col": 11,
+      "col_letter": "K"
+    },
+    "N69": {
+      "value": "Cement and Cement Additives",
+      "row": 69,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "B70": {
+      "value": " Mat. Type",
+      "row": 70,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "D70": {
+      "value": "F.W",
+      "row": 70,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "E70": {
+      "value": "D.W",
+      "row": 70,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "F70": {
+      "value": "Fuel Rig",
+      "row": 70,
+      "col": 6,
+      "col_letter": "F"
+    },
+    "G70": {
+      "value": "Fuel Camp",
+      "row": 70,
+      "col": 7,
+      "col_letter": "G"
+    },
+    "I70": {
+      "value": "Blend CMT",
+      "row": 70,
+      "col": 9,
+      "col_letter": "I"
+    },
+    "J70": {
+      "value": "CMT \"G\" Delijan",
+      "row": 70,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "K70": {
+      "value": " Wind Speed (Km/h)",
+      "row": 70,
+      "col": 11,
+      "col_letter": "K"
+    },
+    "N70": {
+      "value": " Material Type",
+      "row": 70,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "P70": {
+      "value": "Used",
+      "row": 70,
+      "col": 16,
+      "col_letter": "P"
+    },
+    "Q70": {
+      "value": "Received",
+      "row": 70,
+      "col": 17,
+      "col_letter": "Q"
+    },
+    "S70": {
+      "value": "On Hand",
+      "row": 70,
+      "col": 19,
+      "col_letter": "S"
+    },
+    "T70": {
+      "value": "Unit",
+      "row": 70,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "B71": {
+      "value": " Unit",
+      "row": 71,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "D71": {
+      "value": "Lit",
+      "row": 71,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "E71": {
+      "value": "BBL",
+      "row": 71,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "F71": {
+      "value": "Lit",
+      "row": 71,
+      "col": 6,
+      "col_letter": "F"
+    },
+    "G71": {
+      "value": "Lit",
+      "row": 71,
+      "col": 7,
+      "col_letter": "G"
+    },
+    "I71": {
+      "value": "MT",
+      "row": 71,
+      "col": 9,
+      "col_letter": "I"
+    },
+    "J71": {
+      "value": "MT",
+      "row": 71,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "K71": {
+      "value": " Wind Direction",
+      "row": 71,
+      "col": 11,
+      "col_letter": "K"
+    },
+    "N71": {
+      "value": "FLC-DA9 / FLC-DA413",
+      "row": 71,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "T71": {
+      "value": "50 lb / Sxs",
+      "row": 71,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "B72": {
+      "value": " On Hand",
+      "row": 72,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "D72": {
+      "value": 28000,
+      "row": 72,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "E72": {
+      "value": 1100,
+      "row": 72,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "F72": {
+      "value": 80000,
+      "row": 72,
+      "col": 6,
+      "col_letter": "F"
+    },
+    "G72": {
+      "value": 6100,
+      "row": 72,
+      "col": 7,
+      "col_letter": "G"
+    },
+    "J72": {
+      "value": 7,
+      "row": 72,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "K72": {
+      "value": " TEMP(°C)",
+      "row": 72,
+      "col": 11,
+      "col_letter": "K"
+    },
+    "N72": {
+      "value": "CR-DA12",
+      "row": 72,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "T72": {
+      "value": "50 lb / Sxs",
+      "row": 72,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "B73": {
+      "value": "Used",
+      "row": 73,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "D73": {
+      "value": 12000,
+      "row": 73,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "E73": {
+      "value": 660,
+      "row": 73,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "F73": {
+      "value": 3000,
+      "row": 73,
+      "col": 6,
+      "col_letter": "F"
+    },
+    "G73": {
+      "value": 700,
+      "row": 73,
+      "col": 7,
+      "col_letter": "G"
+    },
+    "K73": {
+      "value": " Visibility (km)",
+      "row": 73,
+      "col": 11,
+      "col_letter": "K"
+    },
+    "N73": {
+      "value": "CFR-DA3",
+      "row": 73,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "T73": {
+      "value": "50 lb / Sxs",
+      "row": 73,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "B74": {
+      "value": " Received",
+      "row": 74,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "D74": {
+      "value": 15000,
+      "row": 74,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "E74": {
+      "value": 360,
+      "row": 74,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "K74": {
+      "value": "Safety & Drills",
+      "row": 74,
+      "col": 11,
+      "col_letter": "K"
+    },
+    "N74": {
+      "value": "CR-DA4",
+      "row": 74,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "T74": {
+      "value": "55 lb / Sxs",
+      "row": 74,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "B75": {
+      "value": "BOP Stack and Well Head",
+      "row": 75,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "K75": {
+      "value": " Last BOP Test",
+      "row": 75,
+      "col": 11,
+      "col_letter": "K"
+    },
+    "M75": {
+      "value": "1403-07-30",
+      "row": 75,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "N75": {
+      "value": "Microblock / Surfactant (PA-DA5)",
+      "row": 75,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "T75": {
+      "value": "55 Gal / DR",
+      "row": 75,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "B76": {
+      "value": " Name",
+      "row": 76,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C76": {
+      "value": "TYPE",
+      "row": 76,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "E76": {
+      "value": "W.P (psi)",
+      "row": 76,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "F76": {
+      "value": "SIZE",
+      "row": 76,
+      "col": 6,
+      "col_letter": "F"
+    },
+    "G76": {
+      "value": "RAMS",
+      "row": 76,
+      "col": 7,
+      "col_letter": "G"
+    },
+    "J76": {
+      "value": "Last Test",
+      "row": 76,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "K76": {
+      "value": " Last Fire Drill",
+      "row": 76,
+      "col": 11,
+      "col_letter": "K"
+    },
+    "N76": {
+      "value": "spacer",
+      "row": 76,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "T76": {
+      "value": "55 lb / Sxs",
+      "row": 76,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "K77": {
+      "value": " Last H2S Drill",
+      "row": 77,
+      "col": 11,
+      "col_letter": "K"
+    },
+    "N77": {
+      "value": "Calcium chloride ",
+      "row": 77,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "T77": {
+      "value": "55 lb/ sxs",
+      "row": 77,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "B78": {
+      "value": "Annular",
+      "row": 78,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C78": {
+      "value": "RS",
+      "row": 78,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "E78": {
+      "value": "3K",
+      "row": 78,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "F78": {
+      "value": "20-3/4\"",
+      "row": 78,
+      "col": 6,
+      "col_letter": "F"
+    },
+    "G78": {
+      "value": "-",
+      "row": 78,
+      "col": 7,
+      "col_letter": "G"
+    },
+    "J78": {
+      "value": "1403-07-30",
+      "row": 78,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "K78": {
+      "value": " Last BOP Drill",
+      "row": 78,
+      "col": 11,
+      "col_letter": "K"
+    },
+    "N78": {
+      "value": "Musol Solvent / Paragas",
+      "row": 78,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "T78": {
+      "value": "55 Gal / DR",
+      "row": 78,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "B79": {
+      "value": "Double rams",
+      "row": 79,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C79": {
+      "value": "U-Type",
+      "row": 79,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "E79": {
+      "value": "3K",
+      "row": 79,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "F79": {
+      "value": "20-3/4\"",
+      "row": 79,
+      "col": 6,
+      "col_letter": "F"
+    },
+    "G79": {
+      "value": "Blind & 5\" Fix Ram",
+      "row": 79,
+      "col": 7,
+      "col_letter": "G"
+    },
+    "J79": {
+      "value": "1403-07-30",
+      "row": 79,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "K79": {
+      "value": " Days Without LTA",
+      "row": 79,
+      "col": 11,
+      "col_letter": "K"
+    },
+    "M79": {
+      "value": 468,
+      "row": 79,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "N79": {
+      "value": "Defoamer (DF-DA3)",
+      "row": 79,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "T79": {
+      "value": "5 Gal / Can",
+      "row": 79,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "B80": {
+      "value": "Drlg Spool ",
+      "row": 80,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "E80": {
+      "value": "3K",
+      "row": 80,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "F80": {
+      "value": "20-3/4\"",
+      "row": 80,
+      "col": 6,
+      "col_letter": "F"
+    },
+    "G80": {
+      "value": "-",
+      "row": 80,
+      "col": 7,
+      "col_letter": "G"
+    },
+    "J80": {
+      "value": "1403-07-30",
+      "row": 80,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "K80": {
+      "value": "Personnel on Board",
+      "row": 80,
+      "col": 11,
+      "col_letter": "K"
+    },
+    "N80": {
+      "value": "Formation Top Data",
+      "row": 80,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "B81": {
+      "value": "Single rams",
+      "row": 81,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C81": {
+      "value": "-",
+      "row": 81,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "E81": {
+      "value": "-",
+      "row": 81,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "F81": {
+      "value": "-",
+      "row": 81,
+      "col": 6,
+      "col_letter": "F"
+    },
+    "G81": {
+      "value": "-",
+      "row": 81,
+      "col": 7,
+      "col_letter": "G"
+    },
+    "J81": {
+      "value": "-",
+      "row": 81,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "K81": {
+      "value": "OEOC Rig",
+      "row": 81,
+      "col": 11,
+      "col_letter": "K"
+    },
+    "M81": {
+      "value": 76,
+      "row": 81,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "N81": {
+      "value": " Name",
+      "row": 81,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "P81": {
+      "value": "m MD",
+      "row": 81,
+      "col": 16,
+      "col_letter": "P"
+    },
+    "Q81": {
+      "value": "m TVD",
+      "row": 81,
+      "col": 17,
+      "col_letter": "Q"
+    },
+    "S81": {
+      "value": "Lithology",
+      "row": 81,
+      "col": 19,
+      "col_letter": "S"
+    },
+    "A82": {
+      "value": "Note#02 : Due to sever power surges  on 16-Oct-2024, some electrical appliances of mudlogging service got damaged (1No. 21\" monitor, 2No. Case power, 1No. Motherboard, 1No. POE access point).",
+      "row": 82,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "B82": {
+      "value": "Spacer Spool ",
+      "row": 82,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C82": {
+      "value": "-",
+      "row": 82,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "E82": {
+      "value": "3K",
+      "row": 82,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "F82": {
+      "value": "20-3/4\"",
+      "row": 82,
+      "col": 6,
+      "col_letter": "F"
+    },
+    "G82": {
+      "value": "-",
+      "row": 82,
+      "col": 7,
+      "col_letter": "G"
+    },
+    "J82": {
+      "value": "1403-07-30",
+      "row": 82,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "K82": {
+      "value": "Client (KPE)",
+      "row": 82,
+      "col": 11,
+      "col_letter": "K"
+    },
+    "M82": {
+      "value": 3,
+      "row": 82,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "N82": {
+      "value": "Aghajari",
+      "row": 82,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "S82": {
+      "value": "Gy Mrl, Rd Mrl, SST",
+      "row": 82,
+      "col": 19,
+      "col_letter": "S"
+    },
+    "B83": {
+      "value": "DSA Pack Off",
+      "row": 83,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C83": {
+      "value": "-",
+      "row": 83,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "E83": {
+      "value": "3K",
+      "row": 83,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "F83": {
+      "value": "20-3/4\"",
+      "row": 83,
+      "col": 6,
+      "col_letter": "F"
+    },
+    "G83": {
+      "value": "-",
+      "row": 83,
+      "col": 7,
+      "col_letter": "G"
+    },
+    "J83": {
+      "value": "1403-07-30",
+      "row": 83,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "K83": {
+      "value": "MSA",
+      "row": 83,
+      "col": 11,
+      "col_letter": "K"
+    },
+    "M83": {
+      "value": 7,
+      "row": 83,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "B84": {
+      "value": "T.H.S",
+      "row": 84,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C84": {
+      "value": "-",
+      "row": 84,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "E84": {
+      "value": "-",
+      "row": 84,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "F84": {
+      "value": "-",
+      "row": 84,
+      "col": 6,
+      "col_letter": "F"
+    },
+    "G84": {
+      "value": "-",
+      "row": 84,
+      "col": 7,
+      "col_letter": "G"
+    },
+    "J84": {
+      "value": "-",
+      "row": 84,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "K84": {
+      "value": "Service company",
+      "row": 84,
+      "col": 11,
+      "col_letter": "K"
+    },
+    "M84": {
+      "value": 14,
+      "row": 84,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "B85": {
+      "value": "C.H.S",
+      "row": 85,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C85": {
+      "value": "-",
+      "row": 85,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "E85": {
+      "value": "-",
+      "row": 85,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "F85": {
+      "value": "-",
+      "row": 85,
+      "col": 6,
+      "col_letter": "F"
+    },
+    "G85": {
+      "value": "-",
+      "row": 85,
+      "col": 7,
+      "col_letter": "G"
+    },
+    "J85": {
+      "value": "-",
+      "row": 85,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "K85": {
+      "value": "Catering + Guard",
+      "row": 85,
+      "col": 11,
+      "col_letter": "K"
+    },
+    "M85": {
+      "value": 22,
+      "row": 85,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "B86": {
+      "value": "C.H.H",
+      "row": 86,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C86": {
+      "value": "MSP/DRILEX",
+      "row": 86,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "E86": {
+      "value": "3K",
+      "row": 86,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "F86": {
+      "value": "20-3/4\"",
+      "row": 86,
+      "col": 6,
+      "col_letter": "F"
+    },
+    "G86": {
+      "value": "-",
+      "row": 86,
+      "col": 7,
+      "col_letter": "G"
+    },
+    "J86": {
+      "value": "1403-07-29",
+      "row": 86,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "K86": {
+      "value": "Labour",
+      "row": 86,
+      "col": 11,
+      "col_letter": "K"
+    },
+    "M86": {
+      "value": 8,
+      "row": 86,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "K87": {
+      "value": "Other",
+      "row": 87,
+      "col": 11,
+      "col_letter": "K"
+    },
+    "M87": {
+      "value": 0,
+      "row": 87,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "K88": {
+      "value": "Total POB",
+      "row": 88,
+      "col": 11,
+      "col_letter": "K"
+    },
+    "M88": {
+      "value": 130,
+      "row": 88,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "B89": {
+      "value": "Solid Control",
+      "row": 89,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "J89": {
+      "value": "Boats",
+      "row": 89,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "B90": {
+      "value": "Equipment",
+      "row": 90,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C90": {
+      "value": "Size/# Cones",
+      "row": 90,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "E90": {
+      "value": "U.F",
+      "row": 90,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "F90": {
+      "value": "O.F",
+      "row": 90,
+      "col": 6,
+      "col_letter": "F"
+    },
+    "G90": {
+      "value": "Daily Hrs/ Cum hrs",
+      "row": 90,
+      "col": 7,
+      "col_letter": "G"
+    },
+    "J90": {
+      "value": "Name",
+      "row": 90,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "K90": {
+      "value": "Arrival Rig",
+      "row": 90,
+      "col": 11,
+      "col_letter": "K"
+    },
+    "O90": {
+      "value": "Departure",
+      "row": 90,
+      "col": 15,
+      "col_letter": "O"
+    },
+    "T90": {
+      "value": "Status",
+      "row": 90,
+      "col": 20,
+      "col_letter": "T"
+    },
+    "B91": {
+      "value": "Shaker #1",
+      "row": 91,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C91": {
+      "value": "2 x 100 + 2 x 80 API",
+      "row": 91,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "G91": {
+      "value": 24,
+      "row": 91,
+      "col": 7,
+      "col_letter": "G"
+    },
+    "I91": {
+      "value": "68",
+      "row": 91,
+      "col": 9,
+      "col_letter": "I"
+    },
+    "K91": {
+      "value": "Time",
+      "row": 91,
+      "col": 11,
+      "col_letter": "K"
+    },
+    "M91": {
+      "value": "Date",
+      "row": 91,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "O91": {
+      "value": "Time",
+      "row": 91,
+      "col": 15,
+      "col_letter": "O"
+    },
+    "Q91": {
+      "value": "Date",
+      "row": 91,
+      "col": 17,
+      "col_letter": "Q"
+    },
+    "B92": {
+      "value": "Shaker #2",
+      "row": 92,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C92": {
+      "value": "2 x 100 + 2 x 80 API",
+      "row": 92,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "G92": {
+      "value": 24,
+      "row": 92,
+      "col": 7,
+      "col_letter": "G"
+    },
+    "I92": {
+      "value": "102",
+      "row": 92,
+      "col": 9,
+      "col_letter": "I"
+    },
+    "B93": {
+      "value": "Shaker #3",
+      "row": 93,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C93": {
+      "value": "2 x 100 + 2 x 80 API",
+      "row": 93,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "G93": {
+      "value": 16,
+      "row": 93,
+      "col": 7,
+      "col_letter": "G"
+    },
+    "I93": {
+      "value": "80",
+      "row": 93,
+      "col": 9,
+      "col_letter": "I"
+    },
+    "B94": {
+      "value": "D-Sander",
+      "row": 94,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "B95": {
+      "value": "D-Silter",
+      "row": 95,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "B96": {
+      "value": "Centrifuge#1",
+      "row": 96,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "J96": {
+      "value": "Chopper",
+      "row": 96,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "B97": {
+      "value": "Centrifuge#2",
+      "row": 97,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "J97": {
+      "value": "Name",
+      "row": 97,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "K97": {
+      "value": "Arrival Rig",
+      "row": 97,
+      "col": 11,
+      "col_letter": "K"
+    },
+    "O97": {
+      "value": "Departure",
+      "row": 97,
+      "col": 15,
+      "col_letter": "O"
+    },
+    "B98": {
+      "value": "Mud cleaner",
+      "row": 98,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "K98": {
+      "value": "Time",
+      "row": 98,
+      "col": 11,
+      "col_letter": "K"
+    },
+    "L98": {
+      "value": "Date",
+      "row": 98,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "M98": {
+      "value": "No. of PAX IN",
+      "row": 98,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "O98": {
+      "value": "Time",
+      "row": 98,
+      "col": 15,
+      "col_letter": "O"
+    },
+    "P98": {
+      "value": "Date",
+      "row": 98,
+      "col": 16,
+      "col_letter": "P"
+    },
+    "S98": {
+      "value": "No. of PAX IN",
+      "row": 98,
+      "col": 19,
+      "col_letter": "S"
+    },
+    "B99": {
+      "value": "Vac. Degasser",
+      "row": 99,
+      "col": 2,
+      "col_letter": "B"
+    }
+  },
+  "Lookahead": {
+    "A1": {
+      "value": "Operations Lookahead - Rig Name OEOC 208\nWell Name AZNS 207, F-20",
+      "row": 1,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "A5": {
+      "value": "SPUD THE RIG @ 15-Oct-2024, 18:00",
+      "row": 5,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "S5": {
+      "value": "2024-10-22 00:00:00",
+      "row": 5,
+      "col": 19,
+      "col_letter": "S"
+    },
+    "A7": {
+      "value": "Days",
+      "row": 7,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "B7": {
+      "value": "Activity",
+      "row": 7,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "N7": {
+      "value": "Comments ",
+      "row": 7,
+      "col": 14,
+      "col_letter": "N"
+    },
+    "J9": {
+      "value": "HRs",
+      "row": 9,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L9": {
+      "value": "Date Start",
+      "row": 9,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "M9": {
+      "value": "Date End",
+      "row": 9,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "A10": {
+      "value": "2024-10-22 00:00:00",
+      "row": 10,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "B10": {
+      "value": "Drilling 17-1/2\" HS to 165m. CBU & POOH to surface.",
+      "row": 10,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "J10": {
+      "value": 14,
+      "row": 10,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L10": {
+      "value": "2024-10-22 00:00:00",
+      "row": 10,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "M10": {
+      "value": "2024-10-22 14:00:00",
+      "row": 10,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "A11": {
+      "value": "2024-10-22 14:00:00",
+      "row": 11,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "B11": {
+      "value": "RIH w/ same bit and S.Stab @ 20m to bottom & Resume Drlg 17-1/2'' HS to 220m. ",
+      "row": 11,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "J11": {
+      "value": 10,
+      "row": 11,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L11": {
+      "value": "2024-10-22 14:00:00",
+      "row": 11,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "M11": {
+      "value": "2024-10-23 00:00:00",
+      "row": 11,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "A12": {
+      "value": "2024-10-23 00:00:00",
+      "row": 12,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "B12": {
+      "value": "Cont. Drlg 17-1/2'' HS to 450m.",
+      "row": 12,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "J12": {
+      "value": 19,
+      "row": 12,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L12": {
+      "value": "2024-10-23 00:00:00",
+      "row": 12,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "M12": {
+      "value": "2024-10-23 19:00:00",
+      "row": 12,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "A13": {
+      "value": "2024-10-23 19:00:00",
+      "row": 13,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "B13": {
+      "value": "CBU, Take Survey.",
+      "row": 13,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "J13": {
+      "value": 3,
+      "row": 13,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L13": {
+      "value": "2024-10-23 19:00:00",
+      "row": 13,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "M13": {
+      "value": "2024-10-23 22:00:00",
+      "row": 13,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "A14": {
+      "value": "2024-10-23 22:00:00",
+      "row": 14,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "B14": {
+      "value": "Perform wiper trip.",
+      "row": 14,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "J14": {
+      "value": 2,
+      "row": 14,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L14": {
+      "value": "2024-10-23 22:00:00",
+      "row": 14,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "M14": {
+      "value": "2024-10-24 00:00:00",
+      "row": 14,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "A15": {
+      "value": "2024-10-24 00:00:00",
+      "row": 15,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "B15": {
+      "value": "Cont. Drlg 17-1/2'' HS to 600m.",
+      "row": 15,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "J15": {
+      "value": 24,
+      "row": 15,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L15": {
+      "value": "2024-10-24 00:00:00",
+      "row": 15,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "M15": {
+      "value": "2024-10-25 00:00:00",
+      "row": 15,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "A16": {
+      "value": "2024-10-25 00:00:00",
+      "row": 16,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "B16": {
+      "value": "Cont. Drlg 17-1/2'' HS to 750m.",
+      "row": 16,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "J16": {
+      "value": 8,
+      "row": 16,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L16": {
+      "value": "2024-10-25 00:00:00",
+      "row": 16,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "M16": {
+      "value": "2024-10-25 08:00:00",
+      "row": 16,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "A17": {
+      "value": "2024-10-25 08:00:00",
+      "row": 17,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "B17": {
+      "value": "CBU, Take Survey.",
+      "row": 17,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "J17": {
+      "value": 4,
+      "row": 17,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L17": {
+      "value": "2024-10-25 08:00:00",
+      "row": 17,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "M17": {
+      "value": "2024-10-25 12:00:00",
+      "row": 17,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "A18": {
+      "value": "2024-10-25 12:00:00",
+      "row": 18,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "B18": {
+      "value": "Perform wiper trip.",
+      "row": 18,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "J18": {
+      "value": 2,
+      "row": 18,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L18": {
+      "value": "2024-10-25 12:00:00",
+      "row": 18,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "M18": {
+      "value": "2024-10-25 14:00:00",
+      "row": 18,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "A19": {
+      "value": "2024-10-25 14:00:00",
+      "row": 19,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "B19": {
+      "value": "Displace mud in hole by 72pcf KCL/Polymer mud @ 750m",
+      "row": 19,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "J19": {
+      "value": 2,
+      "row": 19,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L19": {
+      "value": "2024-10-25 14:00:00",
+      "row": 19,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "M19": {
+      "value": "2024-10-25 16:00:00",
+      "row": 19,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "A20": {
+      "value": "2024-10-25 16:00:00",
+      "row": 20,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "B20": {
+      "value": "Cont. Drlg 17-1/2'' HS to 800m.",
+      "row": 20,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "J20": {
+      "value": 8,
+      "row": 20,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L20": {
+      "value": "2024-10-25 16:00:00",
+      "row": 20,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "M20": {
+      "value": "2024-10-26 00:00:00",
+      "row": 20,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "A21": {
+      "value": "2024-10-26 00:00:00",
+      "row": 21,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "J21": {
+      "value": 24,
+      "row": 21,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L21": {
+      "value": "2024-10-26 00:00:00",
+      "row": 21,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "M21": {
+      "value": "2024-10-27 00:00:00",
+      "row": 21,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "A22": {
+      "value": "2024-10-27 00:00:00",
+      "row": 22,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "J22": {
+      "value": 24,
+      "row": 22,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "L22": {
+      "value": "2024-10-27 00:00:00",
+      "row": 22,
+      "col": 12,
+      "col_letter": "L"
+    },
+    "M22": {
+      "value": "2024-10-28 00:00:00",
+      "row": 22,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "A24": {
+      "value": "Equipment To Be Sent Back:",
+      "row": 24,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "F24": {
+      "value": "6\" M.M J.Mill, 4-1/4\" Taper Tap, 8-3/8\" M.M.J.Mill, 8-1/2\" Bit, 6-1/8\" Bit, 5-7/8\" Bit, 4-1/2\" TP-G2 Pin X 4-1/2\" IF box, 7\" Circ. Swage, 7\" & 4-1/2\" Drift, 4-1/2\" X 6-1/8\" Spirolizer, 7\" X 8-1/2\" Spirolizer, 4 Jts 20\" CSG.",
+      "row": 24,
+      "col": 6,
+      "col_letter": "F"
+    },
+    "A25": {
+      "value": "Request:   ",
+      "row": 25,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "F25": {
+      "value": "Needle valve and Press. gauge for Section \"A\" & \"B\".",
+      "row": 25,
+      "col": 6,
+      "col_letter": "F"
+    },
+    "A26": {
+      "value": "Prepared By: ",
+      "row": 26,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "F26": {
+      "value": "A.Eyvazi",
+      "row": 26,
+      "col": 6,
+      "col_letter": "F"
+    },
+    "M26": {
+      "value": "Approved By:",
+      "row": 26,
+      "col": 13,
+      "col_letter": "M"
+    },
+    "P26": {
+      "value": "A.Seifi",
+      "row": 26,
+      "col": 16,
+      "col_letter": "P"
+    }
+  },
+  "Service Company": {
+    "A1": {
+      "value": "Hole Section",
+      "row": 1,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "B1": {
+      "value": "Company",
+      "row": 1,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C1": {
+      "value": "Service",
+      "row": 1,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D1": {
+      "value": "Date In",
+      "row": 1,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "E1": {
+      "value": "Date Out",
+      "row": 1,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "F1": {
+      "value": "Duration (Day)",
+      "row": 1,
+      "col": 6,
+      "col_letter": "F"
+    },
+    "G1": {
+      "value": "Job Description",
+      "row": 1,
+      "col": 7,
+      "col_letter": "G"
+    },
+    "H1": {
+      "value": "Condition",
+      "row": 1,
+      "col": 8,
+      "col_letter": "H"
+    },
+    "I1": {
+      "value": "Problem/Issue",
+      "row": 1,
+      "col": 9,
+      "col_letter": "I"
+    },
+    "J1": {
+      "value": "Total NPT (HRS)",
+      "row": 1,
+      "col": 10,
+      "col_letter": "J"
+    },
+    "A2": {
+      "value": "26\" HS",
+      "row": 2,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "B2": {
+      "value": "Vira",
+      "row": 2,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C2": {
+      "value": "Mud Service",
+      "row": 2,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D2": {
+      "value": "Spud 15-Oct-2024",
+      "row": 2,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "A3": {
+      "value": "26\" HS",
+      "row": 3,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "B3": {
+      "value": "APAD",
+      "row": 3,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C3": {
+      "value": "Waste Management Service",
+      "row": 3,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D3": {
+      "value": "Spud 15-Oct-2024",
+      "row": 3,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "AQ3": {
+      "value": 467,
+      "row": 3,
+      "col": 43,
+      "col_letter": "AQ"
+    },
+    "A4": {
+      "value": "26\"",
+      "row": 4,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "B4": {
+      "value": "GEO Data",
+      "row": 4,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C4": {
+      "value": "Mud Logging Service",
+      "row": 4,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D4": {
+      "value": "Spud 15-Oct-2024",
+      "row": 4,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "AQ4": {
+      "value": 6.25,
+      "row": 4,
+      "col": 43,
+      "col_letter": "AQ"
+    },
+    "A5": {
+      "value": "26\" HS",
+      "row": 5,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "B5": {
+      "value": "OEOC",
+      "row": 5,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C5": {
+      "value": "CSG Running Service",
+      "row": 5,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D5": {
+      "value": "18-Oct-2024, 18:00.",
+      "row": 5,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "E5": {
+      "value": "19-Oct-2024, 18:00",
+      "row": 5,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "F5": {
+      "value": 1,
+      "row": 5,
+      "col": 6,
+      "col_letter": "F"
+    },
+    "G5": {
+      "value": "Run 20\" CSG",
+      "row": 5,
+      "col": 7,
+      "col_letter": "G"
+    },
+    "AQ5": {
+      "value": 7,
+      "row": 5,
+      "col": 43,
+      "col_letter": "AQ"
+    },
+    "A6": {
+      "value": "26\" HS",
+      "row": 6,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "B6": {
+      "value": "SPAD Energy",
+      "row": 6,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C6": {
+      "value": "CMT Service",
+      "row": 6,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D6": {
+      "value": "19-Oct-2024, 08:00.",
+      "row": 6,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "E6": {
+      "value": "19-Oct-2024, 20:00",
+      "row": 6,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "F6": {
+      "value": 1,
+      "row": 6,
+      "col": 6,
+      "col_letter": "F"
+    },
+    "G6": {
+      "value": "CMT 20\" CSG",
+      "row": 6,
+      "col": 7,
+      "col_letter": "G"
+    },
+    "A7": {
+      "value": "26\" HS",
+      "row": 7,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "B7": {
+      "value": "OEOC",
+      "row": 7,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C7": {
+      "value": "Wellhead Crew",
+      "row": 7,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D7": {
+      "value": "19-Oct-2024, 11:00.",
+      "row": 7,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "E7": {
+      "value": "20-Oct-2024, 13:30",
+      "row": 7,
+      "col": 5,
+      "col_letter": "E"
+    },
+    "F7": {
+      "value": 3,
+      "row": 7,
+      "col": 6,
+      "col_letter": "F"
+    },
+    "G7": {
+      "value": "Install & P.T 20-3/4\" C.H.H",
+      "row": 7,
+      "col": 7,
+      "col_letter": "G"
+    },
+    "R12": {
+      "value": 0,
+      "row": 12,
+      "col": 18,
+      "col_letter": "R"
+    },
+    "S25": {
+      "value": "Landing Jt. L/D mouse hole. Cut & L/D 30\" conductor pipe. Install Base Plate & Welded same to 20\" CSG. Final Cut 20\" CSG, Dress & Bevel ",
+      "row": 25,
+      "col": 19,
+      "col_letter": "S"
+    },
+    "S27": {
+      "value": "N/U 20-3/4\" BOP Stack as: 20-3/4\" 3k X 3k DSA + Spacer Spool + Drlg spool + Double Rams (Blind Rams, 5\" Fix Rams) + Ann Preventer. ",
+      "row": 27,
+      "col": 19,
+      "col_letter": "S"
+    },
+    "A82": {
+      "value": "Note#02 : Due to sever power surges  on 16-Oct-2024, some electrical appliances of mudlogging service got damaged (1No. 21\" monitor, 2No. Case power, 1No. Motherboard, 1No. POE access point).",
+      "row": 82,
+      "col": 1,
+      "col_letter": "A"
+    }
+  },
+  "Activity Codes": {
+    "B2": {
+      "value": "Main Phase",
+      "row": 2,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "D2": {
+      "value": "Description ",
+      "row": 2,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B3": {
+      "value": "MOV",
+      "row": 3,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C3": {
+      "value": "Moving",
+      "row": 3,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D3": {
+      "value": "All of operation from Tear out, Rig down, …, Transportation to Rig up & Spud.",
+      "row": 3,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "AO3": {
+      "value": 467,
+      "row": 3,
+      "col": 41,
+      "col_letter": "AO"
+    },
+    "B4": {
+      "value": "DRL",
+      "row": 4,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C4": {
+      "value": "Drilling",
+      "row": 4,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D4": {
+      "value": "All of operation during making a hole from surface to the target including Trips, Circulation, Drilling, Reaming, etc.",
+      "row": 4,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "AO4": {
+      "value": 6.25,
+      "row": 4,
+      "col": 41,
+      "col_letter": "AO"
+    },
+    "B5": {
+      "value": "LOG",
+      "row": 5,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C5": {
+      "value": "Logging",
+      "row": 5,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D5": {
+      "value": "All of operation during taking a log from R/U logging Equip. to R/D including all of related activities same as Logging, Condition trip, Fishing, etc.",
+      "row": 5,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "S5": {
+      "value": "NI-015",
+      "row": 5,
+      "col": 19,
+      "col_letter": "S"
+    },
+    "AO5": {
+      "value": 7,
+      "row": 5,
+      "col": 41,
+      "col_letter": "AO"
+    },
+    "B6": {
+      "value": "CSG",
+      "row": 6,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C6": {
+      "value": "Casing/ Liner",
+      "row": 6,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D6": {
+      "value": "Includes all procedures from Rig up Running Equipment, Casing/ Liner Running, Perform CMT job and R/D same.",
+      "row": 6,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "S6": {
+      "value": "2021-03-29 00:00:00",
+      "row": 6,
+      "col": 19,
+      "col_letter": "S"
+    },
+    "X6": {
+      "value": "M1",
+      "row": 6,
+      "col": 24,
+      "col_letter": "X"
+    },
+    "B7": {
+      "value": "COM",
+      "row": 7,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C7": {
+      "value": "Completion",
+      "row": 7,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D7": {
+      "value": "Includes all procedures from Rig up Running Equipment, Running Completion String, Pressure Tests, Instaling XMT and Perforation Job.",
+      "row": 7,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B8": {
+      "value": "FTS",
+      "row": 8,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C8": {
+      "value": "Formation Testing & Stimulation",
+      "row": 8,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D8": {
+      "value": "All of operation related to Acidizing, Testing, Lifting, Well Flowing, etc.",
+      "row": 8,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B9": {
+      "value": "PIH",
+      "row": 9,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C9": {
+      "value": "Pilot Hole",
+      "row": 9,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D9": {
+      "value": "Drilling a small hole diameter into the formation including all related operation same as Time drilling, Logging, Coring, Plug back, etc.",
+      "row": 9,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B10": {
+      "value": "COR",
+      "row": 10,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C10": {
+      "value": "Coring",
+      "row": 10,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D10": {
+      "value": "The extraction from the wellbore of a cylindrical sample for geological analysis.",
+      "row": 10,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B11": {
+      "value": "REE",
+      "row": 11,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C11": {
+      "value": "Re-Entry",
+      "row": 11,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D11": {
+      "value": "The act of entering a plugged well for the purpose of utilizing said well for the production of oil or gas, for the disposal of fluids therein, for a service well, or for the salvaging of tubing or casing therefrom.",
+      "row": 11,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B12": {
+      "value": "ABD",
+      "row": 12,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C12": {
+      "value": "Abandonment/Suspension",
+      "row": 12,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D12": {
+      "value": "Including all operation to permanent or temporarily subsurface isolation to prevent any undesired communication between any distinct zones and fluid movement out of a well using validated well barriers.",
+      "row": 12,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "P12": {
+      "value": 0,
+      "row": 12,
+      "col": 16,
+      "col_letter": "P"
+    },
+    "A14": {
+      "value": "Code",
+      "row": 14,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "B14": {
+      "value": "Sub code",
+      "row": 14,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C14": {
+      "value": "Code Name ",
+      "row": 14,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D14": {
+      "value": "Description ",
+      "row": 14,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "A15": {
+      "value": 1,
+      "row": 15,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "C15": {
+      "value": "Rig Up/ Tear Down / Move ",
+      "row": 15,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "B16": {
+      "value": "1-1",
+      "row": 16,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C16": {
+      "value": "Rig Moving/ Positioning",
+      "row": 16,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D16": {
+      "value": "Rig Moving, Spot, Positioning and verify the location.",
+      "row": 16,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B17": {
+      "value": "1-2",
+      "row": 17,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C17": {
+      "value": "Rig Up",
+      "row": 17,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D17": {
+      "value": "The on-site connection of rig components in preparation for drilling or well servicing operations. Rig up begins when the first rig components have arrived at the wellsite, and ends when the rig is ready to spud the well.",
+      "row": 17,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B18": {
+      "value": "1-3",
+      "row": 18,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C18": {
+      "value": "Rig Down",
+      "row": 18,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D18": {
+      "value": "To take apart equipment for storage and portability.",
+      "row": 18,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B19": {
+      "value": "1-4",
+      "row": 19,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C19": {
+      "value": "Tear Out ",
+      "row": 19,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D19": {
+      "value": "The act of dismantling a rig at the end of a well and preparing it for moving to the next location. ",
+      "row": 19,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B20": {
+      "value": "1-5",
+      "row": 20,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C20": {
+      "value": "Rig Skid  ",
+      "row": 20,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D20": {
+      "value": "Skid in /out Activities.",
+      "row": 20,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "A21": {
+      "value": 2,
+      "row": 21,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "C21": {
+      "value": "Drilling ",
+      "row": 21,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "B22": {
+      "value": "2-1",
+      "row": 22,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C22": {
+      "value": "Vertical Drilling",
+      "row": 22,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D22": {
+      "value": "Vertical Drilling, with all type of BHA with or without DHM (Performane Drilling ) ",
+      "row": 22,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B23": {
+      "value": "2-2",
+      "row": 23,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C23": {
+      "value": "Directional & Horizontal Drlg. (Rotating mode)",
+      "row": 23,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D23": {
+      "value": "Any Directional Drilling at Rotating Mode with Directional BHA",
+      "row": 23,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B24": {
+      "value": "2-3",
+      "row": 24,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C24": {
+      "value": "Directional & Horizontal Drlg. (Sliding mode)",
+      "row": 24,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D24": {
+      "value": "Any Directional Drilling at Sliding Mode",
+      "row": 24,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B25": {
+      "value": "2-4",
+      "row": 25,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C25": {
+      "value": "Coiled Tubing Drilling",
+      "row": 25,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D25": {
+      "value": "Drilling Formation with CT. ",
+      "row": 25,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "Q25": {
+      "value": "Landing Jt. L/D mouse hole. Cut & L/D 30\" conductor pipe. Install Base Plate & Welded same to 20\" CSG. Final Cut 20\" CSG, Dress & Bevel ",
+      "row": 25,
+      "col": 17,
+      "col_letter": "Q"
+    },
+    "A26": {
+      "value": 3,
+      "row": 26,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "C26": {
+      "value": "Reaming",
+      "row": 26,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "B27": {
+      "value": "3-1",
+      "row": 27,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C27": {
+      "value": "Reaming / Back Reaming ",
+      "row": 27,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D27": {
+      "value": "Any Rotating of Bit Without Making Hole.",
+      "row": 27,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "Q27": {
+      "value": "N/U 20-3/4\" BOP Stack as: 20-3/4\" 3k X 3k DSA + Spacer Spool + Drlg spool + Double Rams (Blind Rams, 5\" Fix Rams) + Ann Preventer. ",
+      "row": 27,
+      "col": 17,
+      "col_letter": "Q"
+    },
+    "B28": {
+      "value": "3-2",
+      "row": 28,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C28": {
+      "value": "Wash Down",
+      "row": 28,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D28": {
+      "value": "Run in Hole With Pumping ",
+      "row": 28,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B29": {
+      "value": "3-3",
+      "row": 29,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C29": {
+      "value": "Under reaming/ Hole Opening/ Hole Enlargement",
+      "row": 29,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D29": {
+      "value": "Planned Opening Hole/Underreaming/ Hole Enlargment",
+      "row": 29,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B30": {
+      "value": "3-4",
+      "row": 30,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C30": {
+      "value": "Drill Out Cement/ Shoe track ",
+      "row": 30,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D30": {
+      "value": "Any Vertical or Directional Drilling of Cement, Float and shoe",
+      "row": 30,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "A31": {
+      "value": 4,
+      "row": 31,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "C31": {
+      "value": "Coring",
+      "row": 31,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "B32": {
+      "value": "4-1",
+      "row": 32,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C32": {
+      "value": "Trip in for Coring",
+      "row": 32,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D32": {
+      "value": "P/U & M/U Equip. RIH for Coring Operation",
+      "row": 32,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B33": {
+      "value": "4-2",
+      "row": 33,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C33": {
+      "value": "Trip out for Coring",
+      "row": 33,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D33": {
+      "value": "POOH for Coring Operation, B/O & L/D Equip. ",
+      "row": 33,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B34": {
+      "value": "4-3",
+      "row": 34,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C34": {
+      "value": "Coring Operation",
+      "row": 34,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D34": {
+      "value": "Coring operation and any circulating.",
+      "row": 34,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B35": {
+      "value": "4-4",
+      "row": 35,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C35": {
+      "value": "Core Recovery",
+      "row": 35,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D35": {
+      "value": "Core Recovery Period time",
+      "row": 35,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "A36": {
+      "value": 5,
+      "row": 36,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "C36": {
+      "value": "Circulate & Condition",
+      "row": 36,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "B37": {
+      "value": "5-1",
+      "row": 37,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C37": {
+      "value": "Hole displacement",
+      "row": 37,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D37": {
+      "value": "Mud Preparation, Displacing the hole with mud or any fluid",
+      "row": 37,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B38": {
+      "value": "5-2",
+      "row": 38,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C38": {
+      "value": "Circulate/ Condition Mud",
+      "row": 38,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D38": {
+      "value": "Sweep the well, Circulation of hole to clean hole, treat the mud condition.",
+      "row": 38,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B39": {
+      "value": "5-3",
+      "row": 39,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C39": {
+      "value": "Coiled Tubing Ops.",
+      "row": 39,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D39": {
+      "value": "Circulation of hole with CT",
+      "row": 39,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B40": {
+      "value": "5-4",
+      "row": 40,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C40": {
+      "value": "Loss control",
+      "row": 40,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D40": {
+      "value": "All Activities Associated with Circulate and Condition due to lost circulation or putting LCM plugs & CMT plug.",
+      "row": 40,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "A41": {
+      "value": 6,
+      "row": 41,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "C41": {
+      "value": "Trips",
+      "row": 41,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "B42": {
+      "value": "6-1",
+      "row": 42,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C42": {
+      "value": "R/U & R/D Pipe Handling Equip.",
+      "row": 42,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D42": {
+      "value": "Rig up and Rig down Pipe/BHA Handling Equipment",
+      "row": 42,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B43": {
+      "value": "6-2",
+      "row": 43,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C43": {
+      "value": "PU/LD BHA",
+      "row": 43,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D43": {
+      "value": "Preparing, Picking Up and Making Up The BHA. Break out and Laying Down BHA ",
+      "row": 43,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B44": {
+      "value": "6-3",
+      "row": 44,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C44": {
+      "value": "Pick up Drill Pipe",
+      "row": 44,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D44": {
+      "value": "Picking Up The Drill Pipe, making stand and rack back same.",
+      "row": 44,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B45": {
+      "value": "6-4",
+      "row": 45,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C45": {
+      "value": "Lay Down Drill Pipe ",
+      "row": 45,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D45": {
+      "value": "Disconnect and Laying Down Drill Pipe ",
+      "row": 45,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B46": {
+      "value": "6-5",
+      "row": 46,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C46": {
+      "value": "Run in Hole",
+      "row": 46,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D46": {
+      "value": "Trip in hole with string or any tubular, BHA.",
+      "row": 46,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B47": {
+      "value": "6-6",
+      "row": 47,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C47": {
+      "value": "Pull Out Of Hole",
+      "row": 47,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D47": {
+      "value": "Trip out of hole with string or any tubular, BHA.",
+      "row": 47,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B48": {
+      "value": "6-7",
+      "row": 48,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C48": {
+      "value": "POOH with Pumping",
+      "row": 48,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D48": {
+      "value": "Trip Out of Hole With Pumping",
+      "row": 48,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B49": {
+      "value": "6-8",
+      "row": 49,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C49": {
+      "value": "Wiper/ Condition Trip",
+      "row": 49,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D49": {
+      "value": "The process by which the drill bit is pulled back inside the previous casing shoe and then run back to bottom. ",
+      "row": 49,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B50": {
+      "value": "6-9",
+      "row": 50,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C50": {
+      "value": "Wear Bushing",
+      "row": 50,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D50": {
+      "value": "Installation or Retrieving of Wear Bushing ",
+      "row": 50,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "A51": {
+      "value": 7,
+      "row": 51,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "C51": {
+      "value": "Service/ Maintain Rig",
+      "row": 51,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "B52": {
+      "value": "7-1",
+      "row": 52,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C52": {
+      "value": "Rig Lubricate",
+      "row": 52,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D52": {
+      "value": "Normal Lubrication and Scheduled Planned Maintenance - that shuts operations down WITHOUT contractual down time",
+      "row": 52,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "A53": {
+      "value": 8,
+      "row": 53,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "C53": {
+      "value": "Repair Rig ",
+      "row": 53,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "B54": {
+      "value": "8-1",
+      "row": 54,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C54": {
+      "value": "Circulating System",
+      "row": 54,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D54": {
+      "value": "All repairs of rig equipment according to Circulating System",
+      "row": 54,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B55": {
+      "value": "8-2",
+      "row": 55,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C55": {
+      "value": "Power System",
+      "row": 55,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D55": {
+      "value": "All repairs of rig equipment according to Power System",
+      "row": 55,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B56": {
+      "value": "8-3",
+      "row": 56,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C56": {
+      "value": "Hoisting System",
+      "row": 56,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D56": {
+      "value": "All repairs of rig equipment according to Hoisting System",
+      "row": 56,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B57": {
+      "value": "8-4",
+      "row": 57,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C57": {
+      "value": "Rotating System",
+      "row": 57,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D57": {
+      "value": "All repairs of rig equipment according to Rotating System",
+      "row": 57,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B58": {
+      "value": "8-5",
+      "row": 58,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C58": {
+      "value": "Well Control System",
+      "row": 58,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D58": {
+      "value": "All repairs of rig equipment according to Well Control System",
+      "row": 58,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B59": {
+      "value": "8-6",
+      "row": 59,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C59": {
+      "value": "Other",
+      "row": 59,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D59": {
+      "value": "All repairs of rig equipment according to other parts.",
+      "row": 59,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "A60": {
+      "value": 9,
+      "row": 60,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "C60": {
+      "value": "Replacing Drill Line ",
+      "row": 60,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "B61": {
+      "value": "9-1",
+      "row": 61,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C61": {
+      "value": "Slip & Cut of Drill Line ",
+      "row": 61,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D61": {
+      "value": "Cut and slipping drill line with the operators consent",
+      "row": 61,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "A62": {
+      "value": 10,
+      "row": 62,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "C62": {
+      "value": "Deviation Survey",
+      "row": 62,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "B63": {
+      "value": "10-1",
+      "row": 63,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C63": {
+      "value": "Performing Survey Operation",
+      "row": 63,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D63": {
+      "value": "All Activities Associated With MWD, Gyro (Single shot/Multi shot), Tatco, etc.",
+      "row": 63,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "A64": {
+      "value": 11,
+      "row": 64,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "C64": {
+      "value": "Logging",
+      "row": 64,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "B65": {
+      "value": "11-1",
+      "row": 65,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C65": {
+      "value": "R/U & R/D Logging Equip.",
+      "row": 65,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D65": {
+      "value": "Rig up and Rig down Logging Equipment",
+      "row": 65,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B66": {
+      "value": "11-2",
+      "row": 66,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C66": {
+      "value": "Wire line logging ",
+      "row": 66,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D66": {
+      "value": "All Activities Associated with Wireline Logging",
+      "row": 66,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B67": {
+      "value": "11-3",
+      "row": 67,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C67": {
+      "value": "TLC Logging ",
+      "row": 67,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D67": {
+      "value": "All Activities Associated with TLC Logging",
+      "row": 67,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B68": {
+      "value": "11-4",
+      "row": 68,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C68": {
+      "value": "CT Logging",
+      "row": 68,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D68": {
+      "value": "All Activities Associated with CT Logging",
+      "row": 68,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "A69": {
+      "value": 12,
+      "row": 69,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "C69": {
+      "value": "Run Casing/ Liner",
+      "row": 69,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "B70": {
+      "value": "12-1",
+      "row": 70,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C70": {
+      "value": "R/U & R/D Handling Equip.",
+      "row": 70,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D70": {
+      "value": "Rig up and Rig down Casing Running Handling Equipment",
+      "row": 70,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B71": {
+      "value": "12-2",
+      "row": 71,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C71": {
+      "value": "CSG Running",
+      "row": 71,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D71": {
+      "value": "Running of Casing to shoe depth.",
+      "row": 71,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B72": {
+      "value": "12-3",
+      "row": 72,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C72": {
+      "value": "Pulling Casing",
+      "row": 72,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D72": {
+      "value": "All Activities Associated With Pulling Casing ",
+      "row": 72,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B73": {
+      "value": "12-4",
+      "row": 73,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C73": {
+      "value": "CSG/Liner Integrity Test ",
+      "row": 73,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D73": {
+      "value": "All Activities Associated With CIT (CSG/Liner Integrity Test )",
+      "row": 73,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B74": {
+      "value": "12-5",
+      "row": 74,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C74": {
+      "value": "Liner Running",
+      "row": 74,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D74": {
+      "value": "Liner Running and set hanger ",
+      "row": 74,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B75": {
+      "value": "12-6",
+      "row": 75,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C75": {
+      "value": "Liner Tie back Operation",
+      "row": 75,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D75": {
+      "value": "Included runing Liner joints, and pulling setting tools ",
+      "row": 75,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B76": {
+      "value": "12-7",
+      "row": 76,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C76": {
+      "value": "Pull out Liner hanger setting tools and L/D",
+      "row": 76,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D76": {
+      "value": "POOH T/Surf. And L/D Setting tool",
+      "row": 76,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B77": {
+      "value": "12-8",
+      "row": 77,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C77": {
+      "value": "Other Related Casing/Liner Activities",
+      "row": 77,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D77": {
+      "value": "Including inflow test, etc.",
+      "row": 77,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B78": {
+      "value": "12-9",
+      "row": 78,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C78": {
+      "value": "Nipple up/down Wellhead",
+      "row": 78,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D78": {
+      "value": "All activities related to Installing and Removing of the Wellhead.",
+      "row": 78,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "A79": {
+      "value": 13,
+      "row": 79,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "C79": {
+      "value": "Cementing",
+      "row": 79,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "B80": {
+      "value": "13-1",
+      "row": 80,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C80": {
+      "value": "Casing/ Liner Cementing",
+      "row": 80,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D80": {
+      "value": "Making cement solution, Mix and pump of cement slurry to the wellbore for casing/ Liner/ Tie back operation.",
+      "row": 80,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B81": {
+      "value": "13-2",
+      "row": 81,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C81": {
+      "value": "Plug Back",
+      "row": 81,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D81": {
+      "value": "Includes section/ well abandonment plugs or side track plugs.",
+      "row": 81,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B82": {
+      "value": "13-3",
+      "row": 82,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C82": {
+      "value": "Squeeze CMT",
+      "row": 82,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D82": {
+      "value": "The Process by which cement slurry is squeezed into place in order to carry out remedial work (e.g. shut off water producing zone, repair casing leaks , etc. )",
+      "row": 82,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B83": {
+      "value": "13-4",
+      "row": 83,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C83": {
+      "value": "Balance Plug",
+      "row": 83,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D83": {
+      "value": "A plug of Cement placed as a slurry in a specific location until the level of cement outside is equal to that inside the drill pipe/ workstring/ tubing.",
+      "row": 83,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B84": {
+      "value": "13-5",
+      "row": 84,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C84": {
+      "value": "Other",
+      "row": 84,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "A85": {
+      "value": "14",
+      "row": 85,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "C85": {
+      "value": "Wait on Cement",
+      "row": 85,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "B86": {
+      "value": "14-1",
+      "row": 86,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C86": {
+      "value": "for Casing/ Liner Cementing",
+      "row": 86,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D86": {
+      "value": "WOC due to Casing/ Liner Cementing.",
+      "row": 86,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B87": {
+      "value": "14-2",
+      "row": 87,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C87": {
+      "value": "for Cement plug",
+      "row": 87,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D87": {
+      "value": "WOC due to Plug back/ Balance Plug/ Well Suspension/ Abandonment plugs.",
+      "row": 87,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B88": {
+      "value": "14-4",
+      "row": 88,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C88": {
+      "value": "Other",
+      "row": 88,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "A89": {
+      "value": "15",
+      "row": 89,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "C89": {
+      "value": "Rig Up/Down BOP",
+      "row": 89,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "B90": {
+      "value": "15-1",
+      "row": 90,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C90": {
+      "value": "Nipple up/down BOP",
+      "row": 90,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D90": {
+      "value": "All activities related to Nippling up or nippling down the BOP and Divertors",
+      "row": 90,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "A91": {
+      "value": "16",
+      "row": 91,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "C91": {
+      "value": "Test BOP",
+      "row": 91,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "B92": {
+      "value": "16-1",
+      "row": 92,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C92": {
+      "value": "Pressure Test BOPs",
+      "row": 92,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D92": {
+      "value": "All activities associated with Pressure Test BOPs, Choke Manifold and Surface Equipment",
+      "row": 92,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "A93": {
+      "value": "17",
+      "row": 93,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "C93": {
+      "value": "Drill Stem Test",
+      "row": 93,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "B94": {
+      "value": "17-1",
+      "row": 94,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C94": {
+      "value": "Conventional DST",
+      "row": 94,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D94": {
+      "value": "All activities associated with a Conventional DST including R/U, R/D, RIH, …, POOH.",
+      "row": 94,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B95": {
+      "value": "17-2",
+      "row": 95,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C95": {
+      "value": "Full Bore DST",
+      "row": 95,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D95": {
+      "value": "All activities associated with a Full Bore DST including R/U, R/D, RIH, …, POOH.",
+      "row": 95,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B96": {
+      "value": "17-3",
+      "row": 96,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C96": {
+      "value": "Dry test ",
+      "row": 96,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D96": {
+      "value": "Included Scraper trip, Run test string, Perform job & POOH.",
+      "row": 96,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "A97": {
+      "value": "18",
+      "row": 97,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "C97": {
+      "value": "Fishing",
+      "row": 97,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "B98": {
+      "value": "18-1",
+      "row": 98,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C98": {
+      "value": "Fishing Job",
+      "row": 98,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D98": {
+      "value": "All preparing, assembling of fishing equipment to RIH w/fishing equipement, Work on Fish and Retrieve.",
+      "row": 98,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B99": {
+      "value": "18-2",
+      "row": 99,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C99": {
+      "value": "Milling",
+      "row": 99,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D99": {
+      "value": "All activities associated with Milling.",
+      "row": 99,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B100": {
+      "value": "18-3",
+      "row": 100,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C100": {
+      "value": "Coiled Tubing Ops.",
+      "row": 100,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D100": {
+      "value": "All activities associated with CT.",
+      "row": 100,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B101": {
+      "value": "18-4",
+      "row": 101,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C101": {
+      "value": "Work on Stuck",
+      "row": 101,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D101": {
+      "value": "Stuck pipe period time including all of related logs, Back off, etc.",
+      "row": 101,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "A102": {
+      "value": "19",
+      "row": 102,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "C102": {
+      "value": "Specialized Directional Work",
+      "row": 102,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "B103": {
+      "value": "19-1",
+      "row": 103,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C103": {
+      "value": "RIH/ POOH Side-Track equip.",
+      "row": 103,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D103": {
+      "value": "RIH to Set Packer/ WhipStock to start Side-Tracking.",
+      "row": 103,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B104": {
+      "value": "19-2",
+      "row": 104,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C104": {
+      "value": "Side-Tracking in Open Hole",
+      "row": 104,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D104": {
+      "value": "Side Tracking Original Hole For Any Reason on wellbore wall in open hole",
+      "row": 104,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B105": {
+      "value": "19-3",
+      "row": 105,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C105": {
+      "value": "Side-Tracking in Cased Hole",
+      "row": 105,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D105": {
+      "value": "Side Tracking Original Hole For Any Reason on wellbore wall in cased hole",
+      "row": 105,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B106": {
+      "value": "19-4",
+      "row": 106,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C106": {
+      "value": "Other",
+      "row": 106,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "A107": {
+      "value": "20",
+      "row": 107,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "C107": {
+      "value": "Operation Status (Waiting)",
+      "row": 107,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "B108": {
+      "value": "20-1",
+      "row": 108,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C108": {
+      "value": "Waiting on Client",
+      "row": 108,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D108": {
+      "value": "Any reason the rig prime activity is waiting due to Client",
+      "row": 108,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B109": {
+      "value": "20-2",
+      "row": 109,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C109": {
+      "value": "Waiting on Operator Company",
+      "row": 109,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D109": {
+      "value": "Any reason the rig prime activity is waiting due to Operator Company",
+      "row": 109,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B110": {
+      "value": "20-3",
+      "row": 110,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C110": {
+      "value": "Waiting on Rig Contractor",
+      "row": 110,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D110": {
+      "value": "Any reason the rig prime activity is waiting due to Rig Contractor",
+      "row": 110,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B111": {
+      "value": "20-4",
+      "row": 111,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C111": {
+      "value": "Waiting on Service companies",
+      "row": 111,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D111": {
+      "value": "Any reason the rig prime activity is waiting due to Sub Contractors",
+      "row": 111,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B112": {
+      "value": "20-5",
+      "row": 112,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C112": {
+      "value": "Waiting on Weather",
+      "row": 112,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D112": {
+      "value": "Any reason the rig prime activity is waiting due to Weather",
+      "row": 112,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B113": {
+      "value": "20-6",
+      "row": 113,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C113": {
+      "value": "Waiting on Logistics/ Fuel",
+      "row": 113,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D113": {
+      "value": "Any reason the rig prime activity is waiting due to Fuel",
+      "row": 113,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "A114": {
+      "value": "21",
+      "row": 114,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "C114": {
+      "value": "Safety",
+      "row": 114,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "B115": {
+      "value": "21-1",
+      "row": 115,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C115": {
+      "value": "Pre Job Safety Meeting (PJSM)",
+      "row": 115,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D115": {
+      "value": "Time period for Pre Job Safety Meeting.",
+      "row": 115,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B116": {
+      "value": "21-2",
+      "row": 116,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C116": {
+      "value": "Drills",
+      "row": 116,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D116": {
+      "value": "All activities associated with Safety Drills.",
+      "row": 116,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B117": {
+      "value": "21-3",
+      "row": 117,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C117": {
+      "value": "Other HSE Related activities",
+      "row": 117,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "A118": {
+      "value": "22",
+      "row": 118,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "C118": {
+      "value": "Perforating",
+      "row": 118,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "B119": {
+      "value": "22-1",
+      "row": 119,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C119": {
+      "value": "Wire line Perforation",
+      "row": 119,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D119": {
+      "value": "All activity associated with Perforation (Preparing, R/U wire line)",
+      "row": 119,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B120": {
+      "value": "22-2",
+      "row": 120,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C120": {
+      "value": "TCP Perforatin",
+      "row": 120,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D120": {
+      "value": "All activity associated with Perforation with tubing.",
+      "row": 120,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B121": {
+      "value": "22-3",
+      "row": 121,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C121": {
+      "value": "CT Perforatin",
+      "row": 121,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D121": {
+      "value": "All activity associated with Perforation (Preparing, R/U CT BOP, Injector, etc.)",
+      "row": 121,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "A122": {
+      "value": "23",
+      "row": 122,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "C122": {
+      "value": "Completion\\ XMT ",
+      "row": 122,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "B123": {
+      "value": "23-1",
+      "row": 123,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C123": {
+      "value": "Completion Trips ",
+      "row": 123,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D123": {
+      "value": "All activity associated with Completion Trips (R/U & R/D completion running tools, run/pull completion string etc.).",
+      "row": 123,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B124": {
+      "value": "23-2",
+      "row": 124,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C124": {
+      "value": "Completion Test",
+      "row": 124,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D124": {
+      "value": "All activity associated with Function test and pressure test during completion ops.",
+      "row": 124,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B125": {
+      "value": "23-3",
+      "row": 125,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C125": {
+      "value": "Fluid displacement",
+      "row": 125,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D125": {
+      "value": "Completion Fluid displacement",
+      "row": 125,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B126": {
+      "value": "23-4",
+      "row": 126,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C126": {
+      "value": "Slick line jobs ",
+      "row": 126,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D126": {
+      "value": "Included shifting tolls, plug and prong running tools, etc.",
+      "row": 126,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B127": {
+      "value": "23-5",
+      "row": 127,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C127": {
+      "value": "Coiled Tubing Ops.",
+      "row": 127,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D127": {
+      "value": "All activity associated with completion done by CTU.",
+      "row": 127,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B128": {
+      "value": "23-6",
+      "row": 128,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C128": {
+      "value": "Nipple up/down XMT",
+      "row": 128,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D128": {
+      "value": "All activities related to Installing and Removing of the XMT. ",
+      "row": 128,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B129": {
+      "value": "23-7",
+      "row": 129,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C129": {
+      "value": "XMT Test",
+      "row": 129,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D129": {
+      "value": "All activities associated with Pressure Test of XMT.",
+      "row": 129,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "A130": {
+      "value": "24",
+      "row": 130,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "C130": {
+      "value": "Treating",
+      "row": 130,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "B131": {
+      "value": "24-1",
+      "row": 131,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C131": {
+      "value": "Acidizing",
+      "row": 131,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D131": {
+      "value": "All activity associated with Acidi Job.",
+      "row": 131,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B132": {
+      "value": "24-2",
+      "row": 132,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C132": {
+      "value": "N2 Lifting",
+      "row": 132,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D132": {
+      "value": "All activity associated with N2 Lifting.",
+      "row": 132,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B133": {
+      "value": "24-3",
+      "row": 133,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C133": {
+      "value": "Coiled Tubing Ops.",
+      "row": 133,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D133": {
+      "value": "Preparing, R/U CT BOP, Injector Head, etc.",
+      "row": 133,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "A134": {
+      "value": "25",
+      "row": 134,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "C134": {
+      "value": "Swabbing",
+      "row": 134,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "B135": {
+      "value": "25-1",
+      "row": 135,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C135": {
+      "value": "Swabbing",
+      "row": 135,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "A136": {
+      "value": "26",
+      "row": 136,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "C136": {
+      "value": "Surface Testing",
+      "row": 136,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "B137": {
+      "value": "26-1",
+      "row": 137,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C137": {
+      "value": "Surface Testing",
+      "row": 137,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D137": {
+      "value": "All activity associated with Surface well testing when completion string is in hole.",
+      "row": 137,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B138": {
+      "value": "26-2",
+      "row": 138,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C138": {
+      "value": "Clean Up",
+      "row": 138,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D138": {
+      "value": "All activity associated with Clean up operation when completion string is in hole..",
+      "row": 138,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "A139": {
+      "value": "27",
+      "row": 139,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "C139": {
+      "value": "Well Control",
+      "row": 139,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "B140": {
+      "value": "27-1",
+      "row": 140,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C140": {
+      "value": "Kill the well",
+      "row": 140,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D140": {
+      "value": "Kill the well with different methods.",
+      "row": 140,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B141": {
+      "value": "27-2",
+      "row": 141,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C141": {
+      "value": "Take S.C.R",
+      "row": 141,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D141": {
+      "value": "Take Slow Pump Rates",
+      "row": 141,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B142": {
+      "value": "27-3",
+      "row": 142,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C142": {
+      "value": "FIT/ LOT",
+      "row": 142,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D142": {
+      "value": "All activity associated with an F.I.T/L.O.T.",
+      "row": 142,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B143": {
+      "value": "27-4",
+      "row": 143,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C143": {
+      "value": "Flow Check",
+      "row": 143,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D143": {
+      "value": "Flow Check/Monitor Well while tripping and drilling",
+      "row": 143,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B144": {
+      "value": "27-5",
+      "row": 144,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C144": {
+      "value": "Strip In / Out",
+      "row": 144,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D144": {
+      "value": "All activity associated with an Strip In / Out.",
+      "row": 144,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "B145": {
+      "value": "27-6",
+      "row": 145,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C145": {
+      "value": "Coiled Tubing Ops.",
+      "row": 145,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "D145": {
+      "value": "Preparing, R/U CT BOP, Injector Head, etc.",
+      "row": 145,
+      "col": 4,
+      "col_letter": "D"
+    },
+    "A146": {
+      "value": "28",
+      "row": 146,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "C146": {
+      "value": "Other",
+      "row": 146,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "B147": {
+      "value": "28-1",
+      "row": 147,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C147": {
+      "value": "Other",
+      "row": 147,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "A148": {
+      "value": "29",
+      "row": 148,
+      "col": 1,
+      "col_letter": "A"
+    },
+    "C148": {
+      "value": "Subsea Operation",
+      "row": 148,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "B149": {
+      "value": "29-1",
+      "row": 149,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C149": {
+      "value": "Run/ Retrieve Riser Equip.",
+      "row": 149,
+      "col": 3,
+      "col_letter": "C"
+    },
+    "B150": {
+      "value": "29-2",
+      "row": 150,
+      "col": 2,
+      "col_letter": "B"
+    },
+    "C150": {
+      "value": "Subsea Installation",
+      "row": 150,
+      "col": 3,
+      "col_letter": "C"
+    }
+  }
+}

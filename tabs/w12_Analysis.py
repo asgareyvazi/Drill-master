@@ -9,6 +9,7 @@ import pandas as pd
 from datetime import datetime, date, timedelta
 from sqlalchemy import func, desc
 import logging
+logger = logging.getLogger(__name__)
 import json
 import tempfile
 from pathlib import Path
@@ -83,8 +84,6 @@ from core.base_tab import DrillTabBase
 from core.selection_manager import SelectionManager
 from core.data_quality import DataQualityService
 from core.operations_intelligence import OperationsIntelligenceService
-
-logger = logging.getLogger(__name__)
 
 
 class AnalysisWidget(DrillTabBase):

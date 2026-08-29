@@ -906,14 +906,24 @@ class DailyReportWidget(DrillTabBase):
             lambda state, r=row: self._on_npt_checkbox_changed(table, r, state))
         table.setCellWidget(row, 7, npt_checkbox)
 
-        # ستون 8: Contractor
+        # ستون 8: Contractor - Professional with Autocomplete, Recent Contractors, Company Master Data, NPT Contractor Mapping
         contractor_widget = QWidget()
         contractor_layout = QHBoxLayout(contractor_widget)
         contractor_layout.setContentsMargins(0, 0, 0, 0)
 
         contractor_edit = QLineEdit()
-        contractor_edit.setPlaceholderText("NPT contractor / company")
+        contractor_edit.setPlaceholderText("NPT contractor / company - Autocomplete + Recent + Master Data")
         contractor_edit.setClearButtonEnabled(True)
+
+        # Autocomplete from recent contractors, company master data, and NPT mapping
+        try:
+            recent_contractors = self._get_recent_contractors()
+            completer = QCompleter(recent_contractors, contractor_edit)
+            completer.setCaseSensitivity(Qt.CaseInsensitive)
+            completer.setFilterMode(Qt.MatchContains)
+            contractor_edit.setCompleter(completer)
+        except Exception:
+            pass
 
         # ✅ اگر از import آمده و contractor دارد
         if log_data and hasattr(log_data, 'contractor') and log_data.contractor:
@@ -995,6 +1005,40 @@ class DailyReportWidget(DrillTabBase):
         except Exception:
             pass
                 
+    def _get_recent_contractors(self) -> list:
+        """Professional: Autocomplete + Recent Contractors + Company Master Data + NPT Contractor Mapping"""
+        contractors = set()
+        try:
+            from dialogs.smart_template_dialog import NPT_CONTRACTOR_MAP
+            contractors.update(NPT_CONTRACTOR_MAP.values())
+            contractors.update(["Rig Contractor", "Directional Company", "Mud Company", "Cementing Company", "Wireline Company", "Logging Company", "Casing Company", "Bit Supplier", "Completion Company"])
+        except Exception:
+            pass
+        try:
+            if self.db_manager:
+                session = self.db_manager.create_session()
+                try:
+                    from core.database import TimeLog24H
+                    recent = session.query(TimeLog24H.contractor).filter(TimeLog24H.contractor != None, TimeLog24H.contractor != "").distinct().limit(50).all()
+                    for r in recent:
+                        if r[0] and str(r[0]).strip():
+                            contractors.add(str(r[0]).strip())
+                finally:
+                    session.close()
+        except Exception:
+            pass
+        try:
+            if self.db_manager:
+                services = self.db_manager.get_service_companies(well_id=self.current_well_id) if self.current_well_id else []
+                for svc in services:
+                    name = svc.get("company_name")
+                    if name and str(name).strip():
+                        contractors.add(str(name).strip())
+        except Exception:
+            pass
+        contractors.update(["Weather", "Client", "Operations", "Logistics", "Service Company"])
+        return sorted(list(contractors))
+
     def _add_contractor_if_new(self, combo):
         """اگر کاربر نام شرکت جدیدی تایپ کرد، به لیست اضافه کن"""
         text = combo.currentText().strip()

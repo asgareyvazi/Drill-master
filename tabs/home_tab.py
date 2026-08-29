@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QFont, QColor, QPalette
 from PySide6.QtCore import Qt, QTimer, QDate
-from core.managers import StatusBarManager, TableManager, ExportManager
+from core.managers import StatusBarManager
 from core.database import DailyReport
 from core.base_tab import DrillTabBase
 
