@@ -380,9 +380,11 @@ class ExcelImportDialog(QDialog):
             "• Atomic transaction: Begin → Well/Project/Section/Report/Mud/Drilling/TimeLogs/Bit/BHA/Survey/Equipment/Logistics/Safety/Services/Cost → Commit/Rollback\n"
             "• No data saved before Confirm Import"
         ))
+        # AI model - disabled by default (deterministic first)
         ai_row = QHBoxLayout()
-        ai_row.addWidget(QLabel("AI model:"))
+        ai_row.addWidget(QLabel("AI model (optional):"))
         self.ai_model_combo = QComboBox()
+        self.ai_model_combo.addItem("Disabled (deterministic only)", "")
         installed = set(AIImportMapper().installed_models())
         entries = list(model_catalog())
         known = {entry.get("model", entry.get("name", "")) for entry in entries}
@@ -391,12 +393,7 @@ class ExcelImportDialog(QDialog):
             model = entry.get("model", entry.get("name", ""))
             mark = "✓" if model in installed else "—"
             self.ai_model_combo.addItem(f"{mark} {entry.get('label', model)}", model)
-        selected = os.getenv("DRILLMASTER_AI_MODEL", "") or get_selected_model() or (sorted(installed)[0] if installed else "")
-        selected_index = self.ai_model_combo.findData(selected)
-        if selected_index >= 0:
-            self.ai_model_combo.setCurrentIndex(selected_index)
-            set_selected_model(selected)
-            os.environ["DRILLMASTER_AI_MODEL"] = selected
+        self.ai_model_combo.setCurrentIndex(0)  # Default: disabled
         self.ai_model_combo.currentIndexChanged.connect(self._select_ai_model)
         ai_row.addWidget(self.ai_model_combo, 1)
         il.addLayout(ai_row)

@@ -3890,6 +3890,11 @@ class SmartTemplateDialog(QDialog):
             "cement_report", "bit_report", "bha_report", "bulk_materials",
             "fuel_water", "safety_report", "bop_components", "waste_records",
             "cost_records", "equipment_logs", "downhole_equipment",
+            # V3 template table keys
+            "bha_components", "scr_data", "cement_additives",
+            "fuel_water_data", "pob_data", "time_breakdown",
+            "formation_data", "solid_control", "boats",
+            "casing_data", "drilling_params_table", "lookahead",
         ):
             if self.base_extracted.get(payload_key):
                 result[payload_key] = self.base_extracted[payload_key]
@@ -3913,13 +3918,23 @@ class SmartTemplateDialog(QDialog):
         # only scalar field assignments were visible, hiding most imported
         # time logs, surveys and inventory rows.
         record_fields = {
-            "time_logs_24h": ("time_log", ("time_from", "time_to", "main_code", "sub_code", "contractor")),
-            "time_logs_morning": ("morning_log", ("time_from", "time_to", "main_code", "sub_code")),
-            "surveys": ("survey", ("md", "inc", "azi", "tvd")),
+            "time_logs_24h": ("time_log", ("time_from", "time_to", "main_code", "sub_code", "contractor", "duration", "activity_description")),
+            "time_logs_morning": ("morning_log", ("time_from", "time_to", "main_code", "sub_code", "duration", "activity_description")),
+            "surveys": ("survey", ("md", "inc", "azi", "tvd", "north", "east", "dls")),
             "bulk_materials": ("bulk_material", ("material_name", "initial_stock", "received", "used", "current_stock")),
             "equipment_logs": ("equipment", ("equipment_name", "equipment_type", "equipment_id")),
             "pob_records": ("pob", ("company_name", "pob_total")),
             "service_companies": ("service", ("company_name", "service_type")),
+            "bop_components": ("bop", ("component_name", "component_type", "working_pressure")),
+            "cement_additives": ("cement", ("material_type", "used", "received", "on_hand", "unit")),
+            "bha_components": ("bha", ("component_name", "od", "length")),
+            "downhole_equipment": ("downhole", ("equipment_name", "od", "serial_number", "rot_hrs", "cum_hrs")),
+            "surveys": ("survey", ("md", "inc", "azi", "tvd")),
+            "scr_data": ("scr", ("pump", "spm", "fr_gpm", "spp")),
+            "formation_data": ("formation", ("name", "md_top", "tvd", "lithology")),
+            "solid_control": ("solid_control", ("equipment", "size_cones", "daily_hrs")),
+            "boats": ("transport", ("name", "arrival_time", "pax_in")),
+            "lookahead": ("lookahead", ("day", "date", "activity", "responsible")),
         }
         matrix = result.setdefault("metadata", {}).setdefault("review_matrix", [])
         for payload_key, (record_type, fields) in record_fields.items():
@@ -4085,34 +4100,37 @@ class SmartTemplateDialog(QDialog):
 
     def _apply_template(self, tmpl: dict):
         """
-        Apply template - supports both v1 (coordinate) and v2 (anchor)
+        Apply template - supports v1 (coordinate), v2 (anchor), and v3 (sheet/section/grouped)
         """
-        assigns = tmpl.get("assignments", {})
-        if not assigns:
-            return
-
         version = tmpl.get("version", "1.0")
         self.assignments.clear()
         self.confidence_scores.clear()
+
+        # ===== V3 Format: organized by sheet_key → section → fields/tables =====
+        if any(k.startswith("sheet_") for k in tmpl.keys()):
+            self._apply_template_v3(tmpl)
+            return
+
+        # ===== V1/V2 Format: flat assignments dict =====
+        assigns = tmpl.get("assignments", {})
+        if not assigns:
+            return
 
         for fp, info in assigns.items():
             value = None
             conf = 0.0
 
             if version >= "2.0" and info.get("anchor_text"):
-                # Anchor-based: find anchor first
                 result = self._find_by_anchor(fp, info)
                 if result:
                     value, sheet, r, c = result
                     conf = 0.95
                 else:
-                    # fallback to coordinates
                     result = self._find_by_coordinates(fp, info)
                     if result:
                         value, sheet, r, c = result
                         conf = 0.70
             else:
-                # v1: coordinate-based
                 result = self._find_by_coordinates(fp, info)
                 if result:
                     value, sheet, r, c = result
@@ -4133,6 +4151,226 @@ class SmartTemplateDialog(QDialog):
         self._reset_review_table()
         if self.current_sheet:
             self._display_sheet(self.current_sheet)
+
+    def _apply_template_v3(self, tmpl: dict):
+        """Apply v3 template format: sheet_key → section → fields/tables with canonical mapping."""
+        if not self.cell_cache:
+            logger.warning("No cell cache available for v3 template")
+            return
+
+        # Map sheet_key to actual sheet name
+        sheet_map = {}
+        for key in tmpl.keys():
+            if not key.startswith("sheet_"):
+                continue
+            # sheet_1_DDR_Remark → find sheet containing "DDR Remark" or "Remark"
+            parts = key.split("_", 2)  # ['sheet', '1', 'DDR_Remark']
+            if len(parts) >= 3:
+                hint = parts[2].replace("_", " ").lower()
+                for actual_name in self.cell_cache.keys():
+                    if hint in actual_name.lower() or actual_name.lower() in hint:
+                        sheet_map[key] = actual_name
+                        break
+                if key not in sheet_map:
+                    # Fallback: use first sheet or largest
+                    if self.cell_cache:
+                        sheet_map[key] = list(self.cell_cache.keys())[0]
+
+        # Process each sheet
+        for sheet_key, sheet_data in tmpl.items():
+            if not sheet_key.startswith("sheet_"):
+                continue
+
+            actual_sheet = sheet_map.get(sheet_key, "")
+            if not actual_sheet or actual_sheet not in self.cell_cache:
+                continue
+
+            cells = self.cell_cache[actual_sheet]
+
+            for section_name, section_data in sheet_data.items():
+                if isinstance(section_data, list):
+                    # List of single fields
+                    for field_def in section_data:
+                        self._apply_v3_single_field(field_def, actual_sheet, cells)
+                elif isinstance(section_data, dict):
+                    if "columns" in section_data:
+                        # Table definition
+                        self._apply_v3_table(section_data, actual_sheet, cells)
+                    else:
+                        # Nested dict (like Previous Casing Info)
+                        for sub_key, sub_data in section_data.items():
+                            if isinstance(sub_data, list):
+                                for field_def in sub_data:
+                                    self._apply_v3_single_field(field_def, actual_sheet, cells)
+                            elif isinstance(sub_data, dict) and "columns" in sub_data:
+                                self._apply_v3_table(sub_data, actual_sheet, cells)
+
+        self.final_data = self._build_final_data_from_assignments()
+        self._reset_review_table()
+        if self.current_sheet:
+            self._display_sheet(self.current_sheet)
+
+    def _apply_v3_single_field(self, field_def: dict, sheet: str, cells: dict):
+        """Apply a single field from v3 template."""
+        canonical = field_def.get("canonical", "")
+        if not canonical or "." not in canonical:
+            return
+
+        row = field_def.get("row", 0)
+        col = field_def.get("col", 0)
+        field_name = field_def.get("field", "")
+
+        # Read value from cell cache
+        value = cells.get((row, col))
+        if value is None:
+            return
+
+        section, key = canonical.split(".", 1)
+
+        self.assignments[canonical] = {
+            "sheet": sheet,
+            "row": row,
+            "col": col,
+            "value": str(value)[:100],
+            "original_value": value,
+            "canonical_field": canonical,
+            "confidence": 0.95,
+            "decision": "ACCEPT",
+            "template": True,
+        }
+        self.confidence_scores[canonical] = 0.95
+
+        # Also put into base_extracted
+        if section not in self.base_extracted:
+            self.base_extracted[section] = {}
+        if isinstance(self.base_extracted[section], dict):
+            self.base_extracted[section][key] = value
+
+    def _apply_v3_table(self, table_def: dict, sheet: str, cells: dict):
+        """Apply a table from v3 template — reads rows and creates records."""
+        columns = table_def.get("columns", [])
+        start_row = table_def.get("start_row", 0)
+        end_row = table_def.get("end_row", 0)
+        end_marker = table_def.get("end_marker", "")
+
+        if not columns or not start_row:
+            return
+
+        # Determine canonical section from first column
+        first_canonical = columns[0].get("canonical", "")
+        if "." in first_canonical:
+            section = first_canonical.split(".")[0]
+        else:
+            section = first_canonical.split("_")[0] if "_" in first_canonical else "unknown"
+
+        # Find end row
+        if not end_row:
+            # Auto-detect: scan until empty row or end_marker
+            max_row = start_row
+            for r in range(start_row, start_row + 200):
+                # Check if row has any data
+                has_data = False
+                for col_def in columns:
+                    c = col_def.get("col", 0)
+                    if cells.get((r, c)) is not None:
+                        has_data = True
+                        break
+                if not has_data:
+                    break
+                # Check end marker
+                if end_marker:
+                    for c in range(1, 50):
+                        val = cells.get((r, c))
+                        if val and str(val).strip().lower() == end_marker.lower():
+                            break
+                    else:
+                        max_row = r
+                        continue
+                    break
+                max_row = r
+            end_row = max_row
+
+        # Read table rows
+        records = []
+        for r in range(start_row, end_row + 1):
+            record = {}
+            has_any_value = False
+            for col_def in columns:
+                c = col_def.get("col", 0)
+                canonical = col_def.get("canonical", "")
+                field_name = col_def.get("field", "")
+                value = cells.get((r, c))
+                if value is not None:
+                    has_any_value = True
+                    # Extract key from canonical
+                    if "." in canonical:
+                        key = canonical.split(".", 1)[1]
+                    else:
+                        key = canonical
+                    record[key] = value
+
+                    # Also register in assignments
+                    if canonical and "." in canonical:
+                        full_key = f"{canonical}[{r}]"
+                        self.assignments[full_key] = {
+                            "sheet": sheet,
+                            "row": r,
+                            "col": c,
+                            "value": str(value)[:100],
+                            "original_value": value,
+                            "canonical_field": canonical,
+                            "confidence": 0.95,
+                            "decision": "ACCEPT",
+                            "template": True,
+                        }
+
+            if has_any_value and record:
+                records.append(record)
+
+        # Store in base_extracted
+        if records:
+            # Determine the right key for storage
+            storage_key = section
+            # Map to known extraction keys
+            key_map = {
+                "time_log": "time_logs_24h",
+                "time_log_morning": "time_logs_morning",
+                "survey": "surveys",
+                "mud_chemical": "bulk_materials",
+                "bha": "bha_components",
+                "downhole": "downhole_equipment",
+                "drilling_param": "drilling_params_table",
+                "scr": "scr_data",
+                "bop": "bop_components",
+                "formation": "formation_data",
+                "solid_control": "solid_control",
+                "transport": "boats",
+                "lookahead": "lookahead",
+                "service": "service_companies",
+                "cement": "cement_additives",
+                "fuel_water": "fuel_water_data",
+                "casing": "casing_data",
+                "pob": "pob_data",
+                "time_breakdown": "time_breakdown",
+            }
+            storage_key = key_map.get(section, section)
+
+            if storage_key in ("time_logs_24h", "time_logs_morning", "surveys", "bulk_materials",
+                              "service_companies", "lookahead", "bop_components",
+                              "cement_additives", "fuel_water_data", "pob_data",
+                              "time_breakdown", "scr_data", "bha_components",
+                              "downhole_equipment", "formation_data", "solid_control",
+                              "boats", "casing_data", "drilling_params_table"):
+                if storage_key not in self.base_extracted:
+                    self.base_extracted[storage_key] = []
+                if isinstance(self.base_extracted[storage_key], list):
+                    self.base_extracted[storage_key].extend(records)
+            else:
+                # Single record → dict
+                if storage_key not in self.base_extracted:
+                    self.base_extracted[storage_key] = {}
+                if isinstance(self.base_extracted[storage_key], dict) and records:
+                    self.base_extracted[storage_key].update(records[0])
 
     def _find_by_anchor(
         self, field_path: str, info: dict
