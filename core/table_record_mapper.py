@@ -16,104 +16,43 @@ Universal alias handling: no dependency on fixed sheet names or cell positions.
 
 import re
 from typing import Dict, List, Any
+from core.canonical_schema import FIELD_SPECS, lookup_alias
 
-# Comprehensive aliases for all record types as per spec
-ALIASES = {
-    "time_log": {
-        "time_from": ("from", "time from", "start", "time start", "from time"),
-        "time_to": ("to", "time to", "end", "time end", "to time"),
-        "duration": ("hrs", "hours", "duration", "hr", "h"),
-        "main_phase": ("main phase", "phase", "main phase code", "operation phase"),
-        "main_code": ("main code", "code", "activity code", "main activity code", "phase code"),
-        "sub_code": ("sub code", "sub-code", "secondary code", "sub activity"),
-        "is_npt": ("npt", "non productive", "trouble", "npt flag"),
-        "npt_category": ("npt category", "npt code", "trouble code"),
-        "contractor": ("contractor", "company", "responsible", "attributed to"),
-        "activity_description": ("description", "activity", "rig activity", "operation", "remarks", "comment"),
-    },
-    "survey": {
-        "md": ("md", "m.d", "measured depth", "depth", "m.d. (m)"),
-        "inc": ("inc", "incl", "inclination", "inc (deg)", "inclination (deg)"),
-        "azi": ("azi", "azimuth", "azimuth (deg)", "azi (deg)", "direction"),
-        "tvd": ("tvd", "true vertical depth", "tvd (m)"),
-        "north": ("north", "northing", "n/s", "north (m)"),
-        "east": ("east", "easting", "e/w", "east (m)"),
-        "vs": ("vs", "vertical section", "vs (m)"),
-        "hd": ("hd", "horizontal displacement", "hd (m)", "departure"),
-        "dls": ("dls", "dogleg", "dog leg severity", "dls (deg/30m)", "build rate"),
-        "tool": ("tool", "survey tool", "tool type", "mwd", "gyro"),
-    },
-    "bha": {
-        "component_name": ("component", "item", "bha component", "tool", "description"),
-        "od": ("od", "o.d.", "outer diameter", "od (in)", "diameter"),
-        "id": ("id", "i.d.", "inner diameter", "id (in)"),
-        "length": ("length", "len", "length (m)", "length (ft)", "l"),
-        "weight": ("weight", "wt", "weight (kg)", "ppf", "weight per foot"),
-        "serial": ("serial", "serial number", "serial no", "s/n"),
-        "position": ("position", "pos", "no", "number"),
-        "cumulative_length": ("cumulative", "cum length", "total length", "cum"),
-    },
-    "bit": {
-        "bit_no": ("bit no", "bit number", "bit #", "bit no.", "bit num"),
-        "bit_size": ("bit size", "size", "diameter", "bit dia", "bit size (in)"),
-        "bit_type": ("bit type", "type", "bit model", "model"),
-        "iadc_code": ("iadc", "iadc code", "code"),
-        "manufacturer": ("manufacturer", "make", "brand", "mfg", "bit manufacture"),
-        "serial_number": ("serial", "serial number", "bit serial", "s/n"),
-        "nozzle": ("nozzle", "nozzles", "jet", "nozzle size"),
-        "tfa": ("tfa", "total flow area", "flow area"),
-    },
-    "bulk": {
-        "material_name": ("material", "mat. type", "material type", "product", "chemical", "product name"),
-        "material_type": ("type", "category", "product type"),
-        "received": ("received", "in", "received qty", "delivery"),
-        "used": ("used", "consumed", "consumption", "used qty"),
-        "current_stock": ("on hand", "stock", "remaining", "balance", "current", "closing"),
-        "initial_stock": ("opening", "initial", "on hand previous", "opening stock"),
-        "unit": ("unit", "uom", "unit of measure"),
-    },
-    "equipment": {
-        "equipment_name": ("equipment", "item", "component", "equipment name", "tool name"),
-        "equipment_type": ("category", "type", "equipment type", "group"),
-        "serial_number": ("serial", "serial number", "id", "s/n", "serial no"),
-        "manufacturer": ("manufacturer", "make", "brand", "mfg"),
-        "status": ("status", "condition", "state"),
-        "service_date": ("service date", "date", "last service", "service"),
-        "hours_worked": ("hours", "daily hrs", "rot. hrs", "running hours", "hours worked"),
-    },
-    "logistics": {
-        "company_name": ("company", "service company", "contractor", "vendor", "supplier"),
-        "service_type": ("service", "service type", "job", "service description"),
-        "personnel_count": ("personnel", "pob", "people", "headcount", "count"),
-        "date_in": ("date in", "arrival", "in date", "mobilization"),
-        "date_out": ("date out", "departure", "out date", "demobilization"),
-        "status": ("status", "state"),
-    },
-    "service": {
-        "company_name": ("company", "service company", "contractor", "vendor"),
-        "service_type": ("service", "service type", "job", "operation"),
-        "personnel_count": ("personnel", "pob", "count"),
-        "date_in": ("date in", "start", "in"),
-        "date_out": ("date out", "end", "out"),
-        "description": ("description", "remarks", "comment"),
-    },
-    "bop": {
-        "component_name": ("component", "bop component", "item", "name"),
-        "component_type": ("type", "bop type", "ram type", "category"),
-        "working_pressure": ("working pressure", "wp", "pressure", "w.p.", "rated"),
-        "size": ("size", "diameter", "bore"),
-        "last_test_date": ("last test", "test date", "last test date"),
-        "test_pressure": ("test pressure", "pressure tested"),
-        "status": ("status", "result", "condition"),
-    },
-    "cost": {
-        "category": ("category", "cost category", "type", "cost type"),
-        "description": ("description", "item", "cost item", "details"),
-        "planned_cost": ("planned", "budget", "planned cost", "afe"),
-        "actual_cost": ("actual", "actual cost", "spent", "cost"),
-        "vendor": ("vendor", "supplier", "company"),
-    },
-}
+# Build ALIASES from canonical_schema — Single Source of Truth
+# No independent alias dictionaries allowed
+def _build_aliases_from_canonical():
+    """Build table_record_mapper aliases from canonical schema."""
+    # Map canonical section prefixes to table_record_mapper record types
+    section_map = {
+        "time_log": "time_log",
+        "survey": "survey",
+        "bha": "bha",
+        "drilling_params": "bit",
+        "bulk_material": "bulk",
+        "equipment": "equipment",
+        "logistics": "logistics",
+        "safety": "safety",
+        "bop": "bop",
+        "cost": "cost",
+        "service": "service",
+        "formation": "formation",
+        "downhole": "downhole",
+        "mud_report": "mud",
+    }
+    
+    aliases = {}
+    for spec in FIELD_SPECS.values():
+        section = spec.path.split(".")[0]
+        key = spec.path.split(".", 1)[1] if "." in spec.path else spec.path
+        record_type = section_map.get(section)
+        if record_type and spec.aliases:
+            if record_type not in aliases:
+                aliases[record_type] = {}
+            aliases[record_type][key] = tuple(spec.aliases)
+    
+    return aliases
+
+ALIASES = _build_aliases_from_canonical()
 
 
 def _norm(value: str) -> str:
