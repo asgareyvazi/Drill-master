@@ -3906,8 +3906,17 @@ class SmartTemplateDialog(QDialog):
             if "." not in fp:
                 continue
             section, key = fp.split(".", 1)
+            # Skip if key contains [ (table row index like "survey.md[58]")
+            if "[" in key:
+                key = key.split("[")[0]
             if section not in result:
                 result[section] = {}
+            # Skip if section is a list (e.g. time_logs_24h, surveys)
+            if isinstance(result[section], list):
+                continue
+            # Skip if section is not a dict
+            if not isinstance(result[section], dict):
+                continue
 
             raw_value = assign.get("value", "")
             clean_value = self._clean_value_for_field(fp, raw_value)
