@@ -286,23 +286,32 @@ class LabelDetector:
         return candidates
 
     def _looks_like_label(self, text: str) -> bool:
+        """Detect if text is a LABEL (not a value).
+
+        Only classify as label with STRONG evidence:
+        - Ends with colon (:)
+        - Exact match with known header keyword
+        - Contains label-indicating patterns
+
+        CRITICAL: Do NOT reject short text, text without digits, or
+        company names. "PPL", "MSA", "OEOC", "71", "MT Bit" are all
+        valid VALUES, not labels.
+        """
         text = text.strip()
         if not text:
             return False
         if text.endswith(':'):
             return True
-        if len(text) < 3:
+        if ' : ' in text:
             return True
-        has_digits = any(c.isdigit() for c in text)
-        has_hyphen = '-' in text
-        if has_digits and has_hyphen:
-            return False
-        try:
-            float(text.replace(',', '').replace(' ', ''))
-            return False
-        except ValueError:
-            pass
-        if not has_digits and len(text) < 25:
+        _KNOWN_HEADERS = {
+            'from', 'to', 'hrs', 'duration', 'item', 'name', 'type',
+            'no', 'size', 'length', 'weight', 'unit', 'status',
+            'md', 'inc', 'azi', 'tvd', 'north', 'east', 'dls',
+            'equipment', 'company', 'service', 'category',
+            'product type', 'material type', 'mat. type',
+        }
+        if text.lower().strip() in _KNOWN_HEADERS:
             return True
         return False
 
@@ -331,17 +340,17 @@ class CandidateScorer:
         # 1. Semantic match quality (30%)
         semantic_score = 0.0
         if candidate.source == "preferred_cell":
-            semantic_score = 0.70  # Preferred is evidence, not truth
+            semantic_score = 0.85  # Preferred cell with valid value is strong evidence
         elif candidate.source == "merge_cell":
-            semantic_score = 0.65
-        elif candidate.source == "label_match":
             semantic_score = 0.80
+        elif candidate.source == "label_match":
+            semantic_score = 0.60  # Label match needs good spatial context
         elif candidate.source == "alias_match":
-            semantic_score = 0.75
+            semantic_score = 0.55
         elif candidate.source == "fuzzy_match":
-            semantic_score = 0.40
-        elif candidate.source == "spatial":
             semantic_score = 0.30
+        elif candidate.source == "spatial":
+            semantic_score = 0.25
         
         # Boost if label quality is high
         if candidate.raw_score > 0:
@@ -492,15 +501,17 @@ class FieldExtractor:
 
         candidates = []
 
-        # Strategy 1: Preferred cell (CANDIDATE, not truth)
+        # Strategy 1: Preferred cell — HIGH confidence when non-label value
         value = self.cells.get((row, col))
         if value is not None and str(value).strip():
             if not self.labels._looks_like_label(str(value)):
+                # Preferred cell has a real value — this is the STRONGEST signal.
+                # Template v3 positions were verified against the real Excel.
                 candidates.append(Candidate(
                     value=value, source="preferred_cell",
                     row=row, col=col, sheet=sheet,
-                    raw_score=0.70,
-                    reason=f"Preferred cell {self._col_letter(col)}{row}",
+                    raw_score=0.90,
+                    reason=f"Template preferred cell {self._col_letter(col)}{row}",
                 ))
             else:
                 # Preferred cell has a label — look for value to the right
@@ -511,7 +522,7 @@ class FieldExtractor:
                             candidates.append(Candidate(
                                 value=right_val, source="preferred_cell",
                                 row=row, col=col+dc, sheet=sheet,
-                                raw_score=0.68,
+                                raw_score=0.85,
                                 reason=f"Value right of label at {self._col_letter(col)}{row}",
                             ))
                             break
