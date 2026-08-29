@@ -778,6 +778,500 @@ FIELD_PATTERNS = {
         "valid_range": (0, 8000),
         "context_group": "drilling_params_block",
     },
+
+    # ===== Extended fields (Phase 2+) =====
+
+    # BHA extended
+    "bha.id": {
+        "keywords": ["bha id", "inner diameter", "id"],
+        "synonyms": ["bha_id", "inner dia"],
+        "type": "float",
+        "context_group": "bha",
+    },
+    "bha.weight": {
+        "keywords": ["weight", "bha weight", "unit weight"],
+        "synonyms": ["bha_weight", "ppf"],
+        "type": "float",
+        "context_group": "bha",
+    },
+
+    # BOP
+    "bop.component_name": {
+        "keywords": ["bop", "blow out preventer", "component"],
+        "synonyms": ["bop_component", "preventer"],
+        "type": "str",
+        "context_group": "safety",
+    },
+    "bop.component_type": {
+        "keywords": ["bop type", "ram type", "annular"],
+        "synonyms": ["bop_type"],
+        "type": "str",
+        "context_group": "safety",
+    },
+    "bop.size": {
+        "keywords": ["bop size", "bop diameter"],
+        "synonyms": ["bop_size"],
+        "type": "str",
+        "context_group": "safety",
+    },
+    "bop.test_pressure": {
+        "keywords": ["bop test", "test pressure", "pressure test"],
+        "synonyms": ["bop_test_pressure"],
+        "type": "float",
+        "context_group": "safety",
+    },
+    "bop.working_pressure": {
+        "keywords": ["working pressure", "rated pressure", "wp"],
+        "synonyms": ["bop_wp", "bop_working"],
+        "type": "float",
+        "context_group": "safety",
+        "priority": 8,
+    },
+
+    # Bulk Materials
+    "bulk_material.material_name": {
+        "keywords": ["material", "chemical", "product name"],
+        "synonyms": ["material_name", "chemical_name"],
+        "type": "str",
+        "context_group": "logistics",
+    },
+    "bulk_material.unit": {
+        "keywords": ["unit", "uom"],
+        "synonyms": ["material_unit"],
+        "type": "str",
+        "context_group": "logistics",
+    },
+    "bulk_material.initial_stock": {
+        "keywords": ["initial stock", "opening stock", "start stock"],
+        "synonyms": ["opening"],
+        "type": "float",
+        "context_group": "logistics",
+    },
+    "bulk_material.received": {
+        "keywords": ["received", "received qty"],
+        "synonyms": ["material_received"],
+        "type": "float",
+        "context_group": "logistics",
+    },
+    "bulk_material.used": {
+        "keywords": ["used", "consumed", "consumption"],
+        "synonyms": ["material_used"],
+        "type": "float",
+        "context_group": "logistics",
+    },
+    "bulk_material.current_stock": {
+        "keywords": ["current stock", "closing stock", "balance"],
+        "synonyms": ["stock_balance"],
+        "type": "float",
+        "context_group": "logistics",
+    },
+
+    # Casing extended
+    "casing.weight": {
+        "keywords": ["casing weight", "unit weight", "ppf"],
+        "synonyms": ["casing_ppf"],
+        "type": "float",
+        "context_group": "casing",
+    },
+
+    # Cement
+    "cement.material": {
+        "keywords": ["cement", "cement type", "slurry"],
+        "synonyms": ["cement_material"],
+        "type": "str",
+        "context_group": "cement",
+    },
+    "cement.used": {
+        "keywords": ["cement volume", "cement used"],
+        "synonyms": ["cement_vol"],
+        "type": "float",
+        "context_group": "cement",
+    },
+    "cement.slurry_density": {
+        "keywords": ["slurry density", "slurry weight"],
+        "synonyms": ["slurry_sg"],
+        "type": "float",
+        "context_group": "cement",
+    },
+
+    # Cost
+    "cost.description": {
+        "keywords": ["cost description", "expense", "item"],
+        "synonyms": ["cost_item"],
+        "type": "str",
+        "context_group": "cost",
+    },
+    "cost.amount": {
+        "keywords": ["amount", "cost", "total cost"],
+        "synonyms": ["cost_amount"],
+        "type": "float",
+        "context_group": "cost",
+    },
+    "cost.category": {
+        "keywords": ["category", "cost category"],
+        "synonyms": ["cost_type"],
+        "type": "str",
+        "context_group": "cost",
+    },
+    "cost.planned_cost": {
+        "keywords": ["planned cost", "budget", "afe"],
+        "synonyms": ["budget_cost"],
+        "type": "float",
+        "context_group": "cost",
+    },
+    "cost.actual_cost": {
+        "keywords": ["actual cost", "real cost"],
+        "synonyms": ["actual"],
+        "type": "float",
+        "context_group": "cost",
+    },
+
+    # Daily Report extra
+    "daily_report.status": {
+        "keywords": ["status", "report status"],
+        "synonyms": ["report_status"],
+        "type": "str",
+        "context_group": "report",
+    },
+
+    # Downhole
+    "downhole.equipment_name": {
+        "keywords": ["downhole", "mwd", "lwd", "nm"],
+        "synonyms": ["downhole_name"],
+        "type": "str",
+        "context_group": "downhole",
+    },
+    "downhole.serial_number": {
+        "keywords": ["serial", "serial number", "s/n"],
+        "synonyms": ["serial_no"],
+        "type": "str",
+        "context_group": "downhole",
+    },
+
+    # Drilling extra
+    "drilling_params.iadc_code": {
+        "keywords": ["iadc", "iadc code"],
+        "synonyms": ["iadc_type"],
+        "type": "str",
+        "context_group": "drilling",
+    },
+    "drilling_params.manufacturer": {
+        "keywords": ["manufacturer", "bit manufacturer"],
+        "synonyms": ["bit_maker"],
+        "type": "str",
+        "context_group": "drilling",
+    },
+    "drilling_params.wob_min": {
+        "keywords": ["wob min", "min wob"],
+        "synonyms": ["min_wob"],
+        "type": "float",
+        "context_group": "drilling",
+    },
+    "drilling_params.rpm_min": {
+        "keywords": ["rpm min", "min rpm"],
+        "synonyms": ["min_rpm"],
+        "type": "float",
+        "context_group": "drilling",
+    },
+    "drilling_params.torque_min": {
+        "keywords": ["torque min", "min torque"],
+        "synonyms": ["min_torque"],
+        "type": "float",
+        "context_group": "drilling",
+    },
+    "drilling_params.pump_pressure_min": {
+        "keywords": ["spp min", "min spp", "min pressure"],
+        "synonyms": ["min_spp"],
+        "type": "float",
+        "context_group": "drilling",
+    },
+    "drilling_params.pump_output_min": {
+        "keywords": ["spm min", "min spm"],
+        "synonyms": ["min_spm"],
+        "type": "float",
+        "context_group": "drilling",
+    },
+    "drilling_params.pump_output_max": {
+        "keywords": ["spm max", "max spm"],
+        "synonyms": ["max_spm"],
+        "type": "float",
+        "context_group": "drilling",
+    },
+    "drilling_params.hsi": {
+        "keywords": ["hsi", "hydraulic hp"],
+        "synonyms": ["hsi_value"],
+        "type": "float",
+        "context_group": "drilling",
+    },
+    "drilling_params.annular_velocity": {
+        "keywords": ["annular velocity", "av"],
+        "synonyms": ["av_value"],
+        "type": "float",
+        "context_group": "drilling",
+    },
+
+    # Equipment
+    "equipment.equipment_name": {
+        "keywords": ["equipment", "equipment name"],
+        "synonyms": ["equip_name"],
+        "type": "str",
+        "context_group": "equipment",
+    },
+    "equipment.equipment_type": {
+        "keywords": ["equipment type", "type"],
+        "synonyms": ["equip_type"],
+        "type": "str",
+        "context_group": "equipment",
+    },
+    "equipment.serial_number": {
+        "keywords": ["serial", "s/n"],
+        "synonyms": ["equip_serial"],
+        "type": "str",
+        "context_group": "equipment",
+    },
+    "equipment.hours_worked": {
+        "keywords": ["hours", "hours worked", "running hours"],
+        "synonyms": ["equip_hours"],
+        "type": "float",
+        "context_group": "equipment",
+    },
+    "equipment.status": {
+        "keywords": ["status", "condition"],
+        "synonyms": ["equip_status"],
+        "type": "str",
+        "context_group": "equipment",
+    },
+
+    # Formation
+    "formation.name": {
+        "keywords": ["formation", "formation name", "fm"],
+        "synonyms": ["fm_name"],
+        "type": "str",
+        "context_group": "geology",
+    },
+    "formation.md_top": {
+        "keywords": ["formation top", "fm top", "top depth"],
+        "synonyms": ["fm_top"],
+        "type": "float",
+        "context_group": "geology",
+    },
+    "formation.md_bottom": {
+        "keywords": ["formation bottom", "fm bottom"],
+        "synonyms": ["fm_bottom"],
+        "type": "float",
+        "context_group": "geology",
+    },
+
+    # Fuel/Water
+    "fuel_water.fuel_consumed": {
+        "keywords": ["fuel consumed", "diesel consumed", "fuel used"],
+        "synonyms": ["fuel_use"],
+        "type": "float",
+        "context_group": "logistics",
+    },
+    "fuel_water.fuel_stock": {
+        "keywords": ["fuel stock", "diesel stock", "fuel balance"],
+        "synonyms": ["fuel_balance"],
+        "type": "float",
+        "context_group": "logistics",
+    },
+    "fuel_water.water_consumed": {
+        "keywords": ["water consumed", "water used"],
+        "synonyms": ["water_use"],
+        "type": "float",
+        "context_group": "logistics",
+    },
+    "fuel_water.water_stock": {
+        "keywords": ["water stock", "water balance"],
+        "synonyms": ["water_balance"],
+        "type": "float",
+        "context_group": "logistics",
+    },
+
+    # Logistics
+    "logistics.company_name": {
+        "keywords": ["company", "service company"],
+        "synonyms": ["logistics_company"],
+        "type": "str",
+        "context_group": "logistics",
+    },
+    "logistics.position": {
+        "keywords": ["position", "job title"],
+        "synonyms": ["logistics_position"],
+        "type": "str",
+        "context_group": "logistics",
+    },
+    "logistics.personnel_count": {
+        "keywords": ["personnel", "headcount", "pob"],
+        "synonyms": ["pob_count"],
+        "type": "int",
+        "context_group": "logistics",
+    },
+
+    # Mud extra
+    "mud_report.mud_type": {
+        "keywords": ["mud type", "fluid type", "mud system"],
+        "synonyms": ["mud_system"],
+        "type": "str",
+        "context_group": "mud",
+    },
+
+    # NPT
+    "npt.npt_category": {
+        "keywords": ["npt category", "npt type"],
+        "synonyms": ["npt_cat"],
+        "type": "str",
+        "context_group": "npt",
+    },
+    "npt.npt_code": {
+        "keywords": ["npt code"],
+        "synonyms": ["npt_code"],
+        "type": "str",
+        "context_group": "npt",
+    },
+    "npt.duration_hours": {
+        "keywords": ["npt hours", "npt duration"],
+        "synonyms": ["npt_hrs"],
+        "type": "float",
+        "context_group": "npt",
+    },
+    "npt.responsible_party": {
+        "keywords": ["responsible", "npt responsible"],
+        "synonyms": ["npt_party"],
+        "type": "str",
+        "context_group": "npt",
+    },
+    "npt.cost_impact": {
+        "keywords": ["npt cost", "cost impact"],
+        "synonyms": ["npt_cost"],
+        "type": "float",
+        "context_group": "npt",
+    },
+
+    # Safety
+    "safety.days_without_lti": {
+        "keywords": ["lti free", "days without", "lti days"],
+        "synonyms": ["lti_free_days"],
+        "type": "int",
+        "context_group": "safety",
+    },
+    "safety.lti_count": {
+        "keywords": ["lti", "lost time"],
+        "synonyms": ["lti_number"],
+        "type": "int",
+        "context_group": "safety",
+    },
+    "safety.near_miss_count": {
+        "keywords": ["near miss", "near-miss"],
+        "synonyms": ["near_miss"],
+        "type": "int",
+        "context_group": "safety",
+    },
+    "safety.report_type": {
+        "keywords": ["safety type", "report type"],
+        "synonyms": ["safety_type"],
+        "type": "str",
+        "context_group": "safety",
+    },
+
+    # Service
+    "service.company_name": {
+        "keywords": ["service company", "contractor"],
+        "synonyms": ["service_co"],
+        "type": "str",
+        "context_group": "services",
+    },
+    "service.service_type": {
+        "keywords": ["service type", "service"],
+        "synonyms": ["service_kind"],
+        "type": "str",
+        "context_group": "services",
+    },
+    "service.personnel_count": {
+        "keywords": ["service personnel", "crew"],
+        "synonyms": ["service_pob"],
+        "type": "int",
+        "context_group": "services",
+    },
+
+    # Survey extra
+    "survey.north": {
+        "keywords": ["north", "northing", "n/s"],
+        "synonyms": ["survey_north"],
+        "type": "float",
+        "context_group": "survey",
+    },
+    "survey.east": {
+        "keywords": ["east", "easting", "e/w"],
+        "synonyms": ["survey_east"],
+        "type": "float",
+        "context_group": "survey",
+    },
+    "survey.dls": {
+        "keywords": ["dls", "dogleg", "dogleg severity"],
+        "synonyms": ["survey_dls"],
+        "type": "float",
+        "context_group": "survey",
+    },
+    "survey.tool": {
+        "keywords": ["survey tool", "mwd", "gyro"],
+        "synonyms": ["survey_tool"],
+        "type": "str",
+        "context_group": "survey",
+    },
+
+    # Time Log
+    "time_log.main_code": {
+        "keywords": ["main code", "phase code"],
+        "synonyms": ["main_phase"],
+        "type": "str",
+        "context_group": "timelog",
+    },
+    "time_log.sub_code": {
+        "keywords": ["sub code", "activity code"],
+        "synonyms": ["sub_phase"],
+        "type": "str",
+        "context_group": "timelog",
+    },
+    "time_log.activity_description": {
+        "keywords": ["description", "activity", "remark"],
+        "synonyms": ["activity_desc"],
+        "type": "str",
+        "context_group": "timelog",
+    },
+    "time_log.contractor": {
+        "keywords": ["contractor", "service provider"],
+        "synonyms": ["tl_contractor"],
+        "type": "str",
+        "context_group": "timelog",
+    },
+    "time_log.duration": {
+        "keywords": ["duration", "hours", "hrs"],
+        "synonyms": ["tl_duration"],
+        "type": "float",
+        "context_group": "timelog",
+    },
+
+    # Well Info extra
+    "well_info.location": {
+        "keywords": ["location", "well location"],
+        "synonyms": ["well_loc"],
+        "type": "str",
+        "context_group": "well_header",
+    },
+    "well_info.report_date": {
+        "keywords": ["report date", "date"],
+        "synonyms": ["rpt_date"],
+        "type": "date",
+        "context_group": "well_header",
+        "priority": 10,
+    },
+    "well_info.spud_date": {
+        "keywords": ["spud", "spud date"],
+        "synonyms": ["spud_dt"],
+        "type": "date",
+        "context_group": "well_header",
+    },
 }
 
 # Label indicators for rejecting false positives
@@ -2369,7 +2863,12 @@ class SmartTemplateDialog(QDialog):
                 "well_info": {}, "daily_report": {},
                 "mud_report": {}, "drilling_params": {},
                 "time_logs_24h": [], "time_logs_morning": [],
-                "metadata": {"sheet_routing": self.sheet_routing},
+                "survey": [], "bulk_materials": [],
+                "bha": {}, "downhole": {}, "formation": {},
+                "casing": {}, "cement": {}, "bop": {},
+                "safety": {}, "equipment": {}, "logistics": {},
+                "service": {}, "cost": {}, "npt": {},
+                "fuel_water": {}, "metadata": {"sheet_routing": self.sheet_routing},
             }
             self.assignments.clear()
             self.confidence_scores.clear()
@@ -2619,7 +3118,14 @@ class SmartTemplateDialog(QDialog):
             "auto": True,
         }
         self.confidence_scores[field_path] = conf
-        self.base_extracted[section][key] = value
+        # Ensure section exists in base_extracted
+        if section not in self.base_extracted:
+            if section in ("survey", "bulk_materials", "time_logs_24h", "time_logs_morning"):
+                self.base_extracted[section] = []
+            else:
+                self.base_extracted[section] = {}
+        if isinstance(self.base_extracted[section], dict):
+            self.base_extracted[section][key] = value
 
         if self.detector:
             self.detector.register_found(

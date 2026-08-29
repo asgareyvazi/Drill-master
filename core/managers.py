@@ -71,6 +71,50 @@ class AutoSaveManager:
                 timer.stop()
 
 
+class TableManager:
+    """Manages QTableWidget operations: add/delete rows, alternating colors, export."""
+
+    def __init__(self, table, parent=None):
+        self.table = table
+        self.parent = parent
+
+    def set_alternating_row_colors(self, enabled: bool):
+        self.table.setAlternatingRowColors(enabled)
+
+    def add_row(self, data=None):
+        row = self.table.rowCount()
+        self.table.insertRow(row)
+        if data:
+            for col, value in enumerate(data):
+                if col < self.table.columnCount():
+                    from PySide6.QtWidgets import QTableWidgetItem
+                    self.table.setItem(row, col, QTableWidgetItem(str(value) if value is not None else ""))
+        return row
+
+    def delete_row(self):
+        current = self.table.currentRow()
+        if current >= 0:
+            self.table.removeRow(current)
+            return True
+        return False
+
+    def clear(self):
+        self.table.setRowCount(0)
+
+    def get_row_data(self, row: int) -> list:
+        data = []
+        for col in range(self.table.columnCount()):
+            item = self.table.item(row, col)
+            data.append(item.text() if item else "")
+        return data
+
+    def set_row_data(self, row: int, data: list):
+        from PySide6.QtWidgets import QTableWidgetItem
+        for col, value in enumerate(data):
+            if col < self.table.columnCount():
+                self.table.setItem(row, col, QTableWidgetItem(str(value) if value is not None else ""))
+
+
 class TableButtonManager:
     def __init__(self, table):
         self.table = table
@@ -270,5 +314,92 @@ class WindowStateManager:
                 main_window.restoreGeometry(geom)
             if state:
                 main_window.restoreState(state)
+        except Exception:
+            pass
+
+
+class DrillingManager:
+    """Utility class for common drilling calculations used by UI tabs."""
+
+    @staticmethod
+    def calculate_tfa(nozzles: list) -> float:
+        """Calculate Total Flow Area from nozzle sizes (in 32nds of inch).
+
+        TFA = sum( pi/4 * (d/32)^2 ) for each nozzle
+        """
+        import math
+        tfa = 0.0
+        for n in (nozzles or []):
+            size = n.get("size") if isinstance(n, dict) else n
+            qty = n.get("quantity", 1) if isinstance(n, dict) else 1
+            try:
+                d = float(size) / 32.0
+                tfa += qty * math.pi / 4 * d * d
+            except (TypeError, ValueError):
+                continue
+        return round(tfa, 4)
+
+    @staticmethod
+    def calculate_rop(depth_in: float, depth_out: float, hours: float) -> float:
+        """Calculate Rate of Penetration: (depth_out - depth_in) / hours."""
+        if not hours or hours <= 0:
+            return 0.0
+        return round((depth_out - depth_in) / hours, 2)
+
+    @staticmethod
+    def calculate_hsi(pump_pressure: float, flow_rate: float, bit_size: float) -> float:
+        """Calculate Hydraulic Horsepower per Square Inch.
+
+        HHP = Q * dP / 1714
+        HSI = HHP / (pi/4 * D^2)
+        """
+        import math
+        if not bit_size or bit_size <= 0:
+            return 0.0
+        bit_area = math.pi / 4 * bit_size * bit_size
+        hhp = (flow_rate or 0) * (pump_pressure or 0) / 1714
+        return round(hhp / bit_area, 2) if bit_area > 0 else 0.0
+
+    @staticmethod
+    def calculate_annular_velocity(flow_rate: float, hole_size: float, pipe_od: float) -> dict:
+        """Calculate annular velocity.
+
+        AV = 24.51 * Q / (Dh^2 - Dp^2) in ft/min
+        Returns dict with ft_min key for compatibility.
+        """
+        denom = (hole_size or 0) ** 2 - (pipe_od or 0) ** 2
+        if denom <= 0:
+            return {"ft_min": 0.0}
+        av = 24.51 * (flow_rate or 0) / denom
+        return {"ft_min": round(av, 2)}
+
+    @staticmethod
+    def calculate_bit_revolution(rpm: float, hours: float) -> float:
+        """Calculate total bit revolutions: RPM * hours * 60."""
+        return round((rpm or 0) * (hours or 0) * 60, 0)
+
+
+def setup_widget_with_managers(widget, widget_name: str = "",
+                                enable_autosave: bool = False,
+                                autosave_interval: int = 5,
+                                setup_shortcuts: bool = False):
+    """Convenience function to wire up common managers for a tab widget.
+
+    Registers the widget with StatusBarManager and optionally enables auto-save.
+    """
+    try:
+        status_mgr = StatusBarManager()
+        status_mgr.register_widget(widget_name or widget.__class__.__name__, widget)
+    except Exception:
+        pass
+
+    if enable_autosave and hasattr(widget, 'save_data'):
+        try:
+            auto_mgr = AutoSaveManager()
+            auto_mgr.enable_for_widget(
+                widget_name or widget.__class__.__name__,
+                widget,
+                interval_minutes=autosave_interval
+            )
         except Exception:
             pass

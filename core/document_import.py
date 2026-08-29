@@ -32,23 +32,136 @@ def _write_rows(rows, output_path, sheet_name="Imported"):
 
 
 def csv_to_xlsx(csv_path, output_path):
-    """CSV to XLSX with Persian encoding support."""
+    """CSV to XLSX with intelligent multi-section detection.
+    
+    DDR CSV files typically have multiple sections separated by blank rows:
+    - Well Info header
+    - Time Log table
+    - Mud Properties table
+    - Drilling Parameters table
+    - Survey table
+    
+    This function detects section boundaries and creates separate sheets
+    when possible, or at minimum preserves the structure for the scanner.
+    """
     for encoding in ("utf-8-sig", "utf-8", "cp1256", "windows-1256", "iso-8859-6"):
         try:
             with open(csv_path, newline="", encoding=encoding) as stream:
                 reader = csv.reader(stream)
                 rows = list(reader)
-                if rows:
+                if not rows:
+                    continue
+                
+                # Detect section boundaries (blank rows or keyword rows)
+                sections = _detect_csv_sections(rows)
+                
+                if len(sections) > 1:
+                    # Multi-section CSV → multiple sheets
+                    result = _write_multi_sheet(rows, sections, output_path, Path(csv_path).stem)
+                else:
+                    # Single section → one sheet
                     result = _write_rows(rows, output_path, Path(csv_path).stem)
-                    result["encoding"] = encoding
-                    result["engine"] = "csv"
-                    return result
+                
+                result["encoding"] = encoding
+                result["engine"] = "csv"
+                result["sections_detected"] = len(sections)
+                return result
         except UnicodeDecodeError:
             continue
         except Exception as exc:
             logger.debug(f"CSV read with {encoding} failed: {exc}")
             continue
     raise ValueError("CSV encoding is not supported - tried utf-8-sig, utf-8, cp1256, windows-1256")
+
+
+# Section keywords for DDR detection
+_SECTION_KEYWORDS = {
+    "time_log": ["time log", "24h", "24 hour", "activity", "from", "to", "duration", "main code"],
+    "mud": ["mud", "weight", "pv", "yp", "gel", "funnel", "ph", "rheology", "density"],
+    "drilling": ["drilling", "bit", "wob", "rpm", "torque", "rop", "pump", "nozzle"],
+    "survey": ["survey", "md", "inc", "azi", "tvd", "inclination", "azimuth", "measured depth"],
+    "bha": ["bha", "bottom hole", "component", "stabilizer", "drill collar"],
+    "safety": ["safety", "hse", "lti", "incident", "bop", "drill"],
+    "logistics": ["pob", "personnel", "fuel", "water", "bulk", "transport"],
+    "casing": ["casing", "size", "weight", "grade", "depth"],
+    "cost": ["cost", "afe", "expense", "budget"],
+}
+
+
+def _detect_csv_sections(rows: list) -> list:
+    """Detect section boundaries in a flat CSV.
+    
+    Returns list of (start_row, end_row, section_name) tuples.
+    """
+    sections = []
+    current_start = 0
+    current_type = "header"
+    blank_count = 0
+    
+    for i, row in enumerate(rows):
+        # Check if row is blank
+        is_blank = all(cell.strip() == "" for cell in row if cell)
+        
+        if is_blank:
+            blank_count += 1
+            if blank_count >= 2 and current_start < i:
+                # End of section
+                sections.append((current_start, i, current_type))
+                current_start = i + 1
+                current_type = "unknown"
+                blank_count = 0
+        else:
+            blank_count = 0
+            # Try to detect section type from first non-blank row after boundary
+            if current_type == "unknown":
+                row_text = " ".join(cell.lower().strip() for cell in row if cell)
+                for section_type, keywords in _SECTION_KEYWORDS.items():
+                    if any(kw in row_text for kw in keywords):
+                        current_type = section_type
+                        break
+    
+    # Last section
+    if current_start < len(rows):
+        sections.append((current_start, len(rows), current_type))
+    
+    return sections
+
+
+def _write_multi_sheet(rows: list, sections: list, output_path: str, base_name: str) -> dict:
+    """Write multiple sections to separate sheets in an XLSX file."""
+    from openpyxl import Workbook
+    
+    workbook = Workbook()
+    # Remove default sheet
+    workbook.remove(workbook.active)
+    
+    total_rows = 0
+    for start, end, section_type in sections:
+        section_rows = rows[start:end]
+        # Filter out completely blank rows
+        section_rows = [r for r in section_rows if any(cell.strip() for cell in r if cell)]
+        
+        if not section_rows:
+            continue
+        
+        sheet_name = f"{section_type[:20]}_{start}" if section_type != "unknown" else f"Section_{start}"
+        sheet = workbook.create_sheet(title=sheet_name[:31])
+        
+        for row in section_rows:
+            sheet.append(list(row))
+        total_rows += len(section_rows)
+    
+    if not workbook.worksheets:
+        # Fallback: single sheet with all rows
+        sheet = workbook.create_sheet(title=base_name[:31] or "Imported")
+        for row in rows:
+            sheet.append(list(row))
+        total_rows = len(rows)
+    
+    workbook.save(output_path)
+    workbook.close()
+    
+    return {"rows": total_rows, "path": str(output_path), "sheets": len(workbook.worksheets)}
 
 
 def pdf_to_xlsx(pdf_path, output_path):

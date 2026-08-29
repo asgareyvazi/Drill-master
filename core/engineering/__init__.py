@@ -13,6 +13,15 @@ from .core import (
     MissingInputError,
     UnsupportedCalculationError,
 )
+from .extended import (
+    MudEngineering,
+    HydraulicsExtended,
+    WellControlExtended,
+    CasingDesign,
+    DirectionalExtended,
+    CementingEngine,
+    ROPModels,
+)
 
 __all__ = [
     "capability_registry",
@@ -26,4 +35,11 @@ __all__ = [
     "ChemicalLedgerEntry",
     "MissingInputError",
     "UnsupportedCalculationError",
+    "MudEngineering",
+    "HydraulicsExtended",
+    "WellControlExtended",
+    "CasingDesign",
+    "DirectionalExtended",
+    "CementingEngine",
+    "ROPModels",
 ]

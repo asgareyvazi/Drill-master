@@ -49,9 +49,9 @@ class OperationsIntelligenceService:
             npt_hours = sum(float(item.duration or 0) for item in logs if item.is_npt)
             depths = [float(item.depth_2400 or 0) for item in reports if item.depth_2400 is not None]
             rops = [float(item.avg_rop or 0) for item in params if item.avg_rop]
-            wobs = [float(item.wob_max or item.wob or 0) for item in params if (item.wob_max or item.wob)]
-            torques = [float(item.torque_max or item.torque or 0) for item in params if (item.torque_max or item.torque)]
-            rpms = [float(item.rpm_max or item.rpm or 0) for item in params if (item.rpm_max or item.rpm)]
+            wobs = [float(item.wob_max or item.wob_min or 0) for item in params if (item.wob_max or item.wob_min)]
+            torques = [float(item.torque_max or item.torque_min or 0) for item in params if (item.torque_max or item.torque_min)]
+            rpms = [float(item.rpm_max or item.rpm_min or 0) for item in params if (item.rpm_max or item.rpm_min)]
 
             # KPIs professional
             current_depth = max(depths, default=0.0)
