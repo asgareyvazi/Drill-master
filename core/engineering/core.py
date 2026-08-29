@@ -519,6 +519,67 @@ class WellControlEngine:
 
         return (max_allowable_mw_ppg - current_mw_ppg) * 0.052 * shoe_tvd_ft
 
+    @staticmethod
+    def calculate_kick_tolerance(frac_pressure_psi: float, current_mw_ppg: float,
+                                  tvd_ft: float, shoe_tvd_ft: float,
+                                  influx_gradient_ppg: float = 0.1) -> Dict:
+        """Kick tolerance calculation.
+        
+        Kick tolerance is the maximum kick size that can be safely circulated
+        out without fracturing the weakest formation (usually at the shoe).
+        
+        KT_ppg = (FPP / (0.052 × Shoe_TVD)) - Current_MW
+        KT_bbl = KT_ppg × 0.052 × TVD / (MW - influx_gradient)
+        
+        Source: IWCF Well Control Manual
+        
+        Returns:
+            Dict with kick_tolerance_ppg, kick_tolerance_bbl, max_influx_height_ft
+        """
+        if frac_pressure_psi is None or current_mw_ppg is None or tvd_ft is None or shoe_tvd_ft is None:
+            raise MissingInputError("frac_pressure, current_mw, tvd, shoe_tvd required")
+        if shoe_tvd_ft <= 0 or tvd_ft <= 0:
+            raise EngineeringError("Shoe TVD and TVD must be >0")
+        
+        frac_gradient_ppg = frac_pressure_psi / (0.052 * shoe_tvd_ft)
+        kt_ppg = frac_gradient_ppg - current_mw_ppg
+        
+        # Maximum kick height in feet
+        if (current_mw_ppg - influx_gradient_ppg) > 0:
+            max_influx_height = kt_ppg * tvd_ft / (current_mw_ppg - influx_gradient_ppg)
+        else:
+            max_influx_height = 0
+        
+        # Approximate kick volume in bbl (using annular capacity ≈ 0.05 bbl/ft for 12.25" hole)
+        kick_volume_bbl = max_influx_height * 0.05  # rough approximation
+        
+        return {
+            "kick_tolerance_ppg": round(kt_ppg, 2),
+            "frac_gradient_ppg": round(frac_gradient_ppg, 2),
+            "max_influx_height_ft": round(max_influx_height, 0),
+            "kick_volume_bbl": round(kick_volume_bbl, 1),
+            "formula": "KT = FPP/(0.052×Shoe_TVD) - MW",
+        }
+
+    @staticmethod
+    def calculate_trip_margin(yp_lbf100ft2: float, tvd_ft: float, mw_ppg: float) -> float:
+        """Trip margin (swab/surge pressure equivalent).
+        
+        TM_ppg = (0.5 × YP) / (0.052 × TVD / MW)
+        
+        Source: IWCF Well Control Manual
+        
+        This is the additional mud weight needed to compensate for
+        swabbing pressure during tripping operations.
+        """
+        if yp_lbf100ft2 is None or tvd_ft is None or mw_ppg is None:
+            raise MissingInputError("yp, tvd, mw required")
+        if tvd_ft <= 0 or mw_ppg <= 0:
+            raise EngineeringError("TVD and MW must be >0")
+        
+        trip_margin = (0.5 * yp_lbf100ft2) / (0.052 * tvd_ft / mw_ppg)
+        return round(trip_margin, 2)
+
 
 # ==================== Operations Intelligence ====================
 
