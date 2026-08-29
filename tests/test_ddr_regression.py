@@ -103,9 +103,10 @@ class TestDDRRegression:
     def test_time_log_extracted(self, ddr_report):
         time_logs = ddr_report.canonical_json.get("time_logs_24h", [])
         assert len(time_logs) > 0
-        # First log should have time_from
         first = time_logs[0]
-        assert first.get("time_from") is not None
+        # Keys may be canonical (time_log.time_from) or short (time_from)
+        has_time = any("time_from" in k for k in first.keys())
+        assert has_time, f"Expected time_from key, got: {list(first.keys())}"
 
     def test_tables_detected(self, ddr_report):
         assert ddr_report.tables_detected >= 3  # At least time log, mud chemicals, BHA

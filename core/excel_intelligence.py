@@ -315,59 +315,122 @@ class CandidateScorer:
     @staticmethod
     def score_candidate(candidate: Candidate, canonical_field: str,
                         assigned_cells: set = None) -> float:
-        """Score a candidate (0.0 to 1.0).
+        """Score a candidate using weighted multi-factor analysis (0.0 to 1.0).
         
-        Factors:
-        - Source type (preferred=0.6, merge=0.55, label=0.5, alias=0.45, fuzzy=0.3, spatial=0.35)
-        - Direction (right=+0.15, below=+0.05, diagonal=-0.05)
-        - Distance penalty (-0.03 per unit)
-        - Data type match (+0.1)
-        - Already assigned penalty (-0.3)
-        - Looks like label penalty (-0.4)
+        Weights:
+        - Semantic match quality: 30%
+        - Spatial relationship: 20%
+        - Data type compatibility: 15%
+        - Unit compatibility: 15%
+        - Table context: 10%
+        - Uniqueness: 5%
+        - Provenance/preference: 5%
         """
-        score = 0.0
-
-        # Base score by source type
-        source_scores = {
-            "preferred_cell": 0.70,
-            "merge_cell": 0.65,
-            "label_match": 0.60,
-            "alias_match": 0.55,
-            "fuzzy_match": 0.35,
-            "spatial": 0.40,
-        }
-        score = source_scores.get(candidate.source, 0.25)
-
-        # Direction bonus/penalty
-        if candidate.direction == "right":
-            score += 0.15  # Values to the right of label are most common
-        elif candidate.direction == "below":
-            score += 0.05
-        elif candidate.direction == "diagonal":
-            score -= 0.05
-
-        # Distance penalty
-        distance_penalty = candidate.distance * 0.03
-        score -= distance_penalty
-
-        # Data type match bonus
         spec = FIELD_SPECS.get(canonical_field)
+        
+        # 1. Semantic match quality (30%)
+        semantic_score = 0.0
+        if candidate.source == "preferred_cell":
+            semantic_score = 0.70  # Preferred is evidence, not truth
+        elif candidate.source == "merge_cell":
+            semantic_score = 0.65
+        elif candidate.source == "label_match":
+            semantic_score = 0.80
+        elif candidate.source == "alias_match":
+            semantic_score = 0.75
+        elif candidate.source == "fuzzy_match":
+            semantic_score = 0.40
+        elif candidate.source == "spatial":
+            semantic_score = 0.30
+        
+        # Boost if label quality is high
+        if candidate.raw_score > 0:
+            semantic_score = max(semantic_score, candidate.raw_score)
+        
+        # 2. Spatial relationship (20%)
+        spatial_score = 0.5  # default
+        if candidate.direction == "right":
+            spatial_score = 0.9  # Right of label is most common
+        elif candidate.direction == "below":
+            spatial_score = 0.6
+        elif candidate.direction == "diagonal":
+            spatial_score = 0.3
+        # Distance penalty within spatial
+        if candidate.distance > 0:
+            spatial_score *= max(0.2, 1.0 - candidate.distance * 0.1)
+        
+        # 3. Data type compatibility (15%)
+        type_score = 0.5  # default unknown
         if spec:
-            if spec.quantity in ("length", "density", "pressure", "number", "integer", "force", "rpm"):
+            if spec.quantity in ("length", "density", "pressure", "number", "integer",
+                                 "force", "rpm", "angle", "rate", "dls", "area",
+                                 "viscosity", "stress", "torque", "flow_rate", "volume",
+                                 "temperature", "currency"):
                 try:
                     float(str(candidate.value).replace(',', ''))
-                    score += 0.10
+                    type_score = 1.0
                 except (ValueError, TypeError):
-                    score -= 0.20  # Numeric expected but got text
-            elif spec.quantity == "text":
-                if isinstance(candidate.value, str) and not candidate.value.replace('.', '').replace('-', '').isdigit():
-                    score += 0.05
-
-        # Already assigned penalty
+                    type_score = 0.1  # Numeric expected but got text
+            elif spec.quantity in ("text", "code", "date", "time"):
+                if isinstance(candidate.value, str):
+                    type_score = 0.8
+                else:
+                    type_score = 0.5
+        
+        # 4. Unit compatibility (15%) - simplified: check if value has expected magnitude
+        unit_score = 0.5
+        if spec and spec.unit:
+            try:
+                val = float(str(candidate.value).replace(',', ''))
+                if spec.unit == "ppg" and 5 < val < 25:
+                    unit_score = 1.0
+                elif spec.unit == "m" and 0 < val < 10000:
+                    unit_score = 1.0
+                elif spec.unit == "in" and 0 < val < 50:
+                    unit_score = 1.0
+                elif spec.unit == "psi" and 0 < val < 20000:
+                    unit_score = 1.0
+                elif spec.unit == "deg" and 0 <= val <= 360:
+                    unit_score = 1.0
+                elif spec.unit == "klbf" and 0 < val < 100:
+                    unit_score = 1.0
+                elif spec.unit == "rpm" and 0 < val < 500:
+                    unit_score = 1.0
+                elif spec.unit == "m/hr" and 0 < val < 200:
+                    unit_score = 1.0
+                elif spec.unit == "hr" and 0 <= val <= 24:
+                    unit_score = 1.0
+                else:
+                    unit_score = 0.6
+            except (ValueError, TypeError):
+                unit_score = 0.3
+        
+        # 5. Table context (10%) - simplified
+        context_score = 0.5
+        
+        # 6. Uniqueness (5%) - penalize if already assigned
+        uniqueness_score = 1.0
         if assigned_cells and (candidate.row, candidate.col) in assigned_cells:
-            score -= 0.30
-
-        # Clamp to [0, 1]
+            uniqueness_score = 0.1
+        
+        # 7. Provenance/preference (5%)
+        provenance_score = 0.5
+        if candidate.source == "preferred_cell":
+            provenance_score = 0.8
+        elif candidate.source in ("label_match", "alias_match"):
+            provenance_score = 0.7
+        
+        # Weighted sum
+        score = (
+            semantic_score * 0.30 +
+            spatial_score * 0.20 +
+            type_score * 0.15 +
+            unit_score * 0.15 +
+            context_score * 0.10 +
+            uniqueness_score * 0.05 +
+            provenance_score * 0.05
+        )
+        
         return max(0.0, min(1.0, score))
 
     @staticmethod
@@ -761,9 +824,9 @@ class DynamicTableExtractor:
                 if val is not None:
                     has_value = True
                     canonical = col_def.get("canonical", "")
-                    # Use short key for downstream compatibility (database, UI)
-                    if canonical and "." in canonical:
-                        key = canonical.split(".", 1)[1]  # survey.md -> md
+                    # P0-4: Preserve canonical namespace
+                    if canonical:
+                        key = canonical  # Keep full path: survey.md, bha.od
                     else:
                         key = col_def.get("field", f"col_{c}")
                     record[key] = val

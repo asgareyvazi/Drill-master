@@ -2,426 +2,1586 @@
   "name": "OEOC DDR Template v3.0",
   "version": "3.0",
   "description": "General OEOC DDR template with canonical field mapping",
-  
   "sheet_1_DDR_Remark": {
     "Header Information": [
-      {"field": "Field", "row": 3, "col": 8, "canonical": "well_info.field_name"},
-      {"field": "Well Name", "row": 3, "col": 23, "canonical": "well_info.name"},
-      {"field": "Project", "row": 3, "col": 28, "canonical": "well_info.project_name"},
-      {"field": "LTA (Days)", "row": 3, "col": 39, "canonical": "daily_report.lta_day"},
-      {"field": "Well Type", "row": 4, "col": 8, "canonical": "well_info.well_type"},
-      {"field": "Well Shape", "row": 4, "col": 18, "canonical": "well_info.well_shape"},
-      {"field": "Rig Name", "row": 4, "col": 28, "canonical": "well_info.rig_name"},
-      {"field": "Actual Rig Days", "row": 4, "col": 39, "canonical": "daily_report.actual_rig_days"},
-      {"field": "Client", "row": 5, "col": 8, "canonical": "well_info.client"},
-      {"field": "Operator", "row": 5, "col": 18, "canonical": "well_info.operator"},
-      {"field": "Drilling Contractor", "row": 5, "col": 28, "canonical": "well_info.drilling_contractor"},
-      {"field": "Report No", "row": 5, "col": 39, "canonical": "well_info.report_no"},
-      {"field": "Client Rep", "row": 6, "col": 8, "canonical": "well_info.client_rep"},
-      {"field": "Hole Section (inch)", "row": 6, "col": 18, "canonical": "well_info.section_name"},
-      {"field": "Estimated Final Depth MD (m)", "row": 6, "col": 28, "canonical": "well_info.target_depth"},
-      {"field": "Offshore Water Depth (m)", "row": 6, "col": 39, "canonical": "well_info.water_depth"},
-      {"field": "GLE-MSL (m)", "row": 7, "col": 8, "canonical": "well_info.gle_msl"},
-      {"field": "RTE-MSL (m)", "row": 7, "col": 18, "canonical": "well_info.rte_msl"},
-      {"field": "GLE-RTE (m)", "row": 7, "col": 28, "canonical": "well_info.gle_rte"},
-      {"field": "Rig Heading", "row": 7, "col": 39, "canonical": "well_info.rig_heading"}
+      {
+        "field": "Field",
+        "row": 3,
+        "col": 13,
+        "canonical": "well_info.field_name"
+      },
+      {
+        "field": "Well Name",
+        "row": 3,
+        "col": 23,
+        "canonical": "well_info.name"
+      },
+      {
+        "field": "Project",
+        "row": 3,
+        "col": 28,
+        "canonical": "well_info.project_name"
+      },
+      {
+        "field": "LTA (Days)",
+        "row": 3,
+        "col": 39,
+        "canonical": "daily_report.lta_day"
+      },
+      {
+        "field": "Well Type",
+        "row": 4,
+        "col": 13,
+        "canonical": "well_info.well_type"
+      },
+      {
+        "field": "Well Shape",
+        "row": 4,
+        "col": 23,
+        "canonical": "well_info.well_shape"
+      },
+      {
+        "field": "Rig Name",
+        "row": 4,
+        "col": 28,
+        "canonical": "well_info.rig_name"
+      },
+      {
+        "field": "Actual Rig Days",
+        "row": 4,
+        "col": 39,
+        "canonical": "daily_report.actual_rig_days"
+      },
+      {
+        "field": "Client",
+        "row": 5,
+        "col": 13,
+        "canonical": "well_info.client"
+      },
+      {
+        "field": "Operator",
+        "row": 5,
+        "col": 23,
+        "canonical": "well_info.operator"
+      },
+      {
+        "field": "Drilling Contractor",
+        "row": 5,
+        "col": 33,
+        "canonical": "well_info.drilling_contractor"
+      },
+      {
+        "field": "Report No",
+        "row": 5,
+        "col": 43,
+        "canonical": "well_info.report_no"
+      },
+      {
+        "field": "Client Rep",
+        "row": 6,
+        "col": 13,
+        "canonical": "well_info.client_rep"
+      },
+      {
+        "field": "Hole Section (inch)",
+        "row": 6,
+        "col": 23,
+        "canonical": "well_info.section_name"
+      },
+      {
+        "field": "Estimated Final Depth MD (m)",
+        "row": 6,
+        "col": 33,
+        "canonical": "well_info.target_depth"
+      },
+      {
+        "field": "Offshore Water Depth (m)",
+        "row": 6,
+        "col": 43,
+        "canonical": "well_info.water_depth"
+      },
+      {
+        "field": "GLE-MSL (m)",
+        "row": 7,
+        "col": 13,
+        "canonical": "well_info.gle_msl"
+      },
+      {
+        "field": "RTE-MSL (m)",
+        "row": 7,
+        "col": 23,
+        "canonical": "well_info.rte_msl"
+      },
+      {
+        "field": "GLE-RTE (m)",
+        "row": 7,
+        "col": 33,
+        "canonical": "well_info.gle_rte"
+      },
+      {
+        "field": "Rig Heading",
+        "row": 7,
+        "col": 43,
+        "canonical": "well_info.rig_heading"
+      }
     ],
-
     "Daily Operations Status": [
-      {"field": "Year", "row": 10, "col": 6, "canonical": "daily_report.report_year"},
-      {"field": "Month", "row": 10, "col": 8, "canonical": "daily_report.report_month"},
-      {"field": "Day", "row": 10, "col": 10, "canonical": "daily_report.report_day"},
-      {"field": "MD (m) @ 0:00", "row": 9, "col": 12, "canonical": "daily_report.depth_0000"},
-      {"field": "MD (m) @ 24:00", "row": 10, "col": 12, "canonical": "daily_report.depth_2400"},
-      {"field": "MD (m) @ 6:00", "row": 11, "col": 12, "canonical": "daily_report.depth_0600"},
-      {"field": "24 hrs Drilled (m)", "row": 12, "col": 18, "canonical": "daily_report.drilled_24hrs"},
-      {"field": "AVG ROP (m/hrs)", "row": 13, "col": 18, "canonical": "daily_report.avg_rop_remark"},
-      {"field": "RT - WH (m)", "row": 14, "col": 18, "canonical": "daily_report.rt_wh"},
-      {"field": "MW (PCF)", "row": 14, "col": 1, "canonical": "daily_report.mw_pcf"},
-      {"field": "FIT Depth", "row": 15, "col": 1, "canonical": "daily_report.fit_depth"},
-      {"field": "Section Start Depth MD (m)", "row": 15, "col": 13, "canonical": "daily_report.section_start_depth"},
-      {"field": "Drilling Operation Manager", "row": 9, "col": 23, "canonical": "well_info.operation_manager"},
-      {"field": "Drilling Superintendent", "row": 10, "col": 23, "canonical": "well_info.superintendent"},
-      {"field": "Drilling Supervisor (Day)", "row": 11, "col": 23, "canonical": "well_info.supervisor_day"},
-      {"field": "Drilling Supervisor (Night)", "row": 12, "col": 23, "canonical": "well_info.supervisor_night"},
-      {"field": "Well Site Drilling Engineering", "row": 13, "col": 23, "canonical": "well_info.drilling_engineer"},
-      {"field": "Well Site Geologist", "row": 14, "col": 23, "canonical": "well_info.geologist1"},
-      {"field": "Tool Pusher Day/Night", "row": 15, "col": 23, "canonical": "well_info.tool_pusher_day"},
-      {"field": "Latitude", "row": 9, "col": 34, "canonical": "well_info.latitude"},
-      {"field": "Longitude", "row": 10, "col": 34, "canonical": "well_info.longitude"},
-      {"field": "Northing (m)", "row": 11, "col": 34, "canonical": "well_info.northing"},
-      {"field": "Easting (m)", "row": 12, "col": 34, "canonical": "well_info.easting"},
-      {"field": "KOP #1", "row": 13, "col": 34, "canonical": "well_info.kop1"},
-      {"field": "KOP #2", "row": 14, "col": 34, "canonical": "well_info.kop2"},
-      {"field": "Formation", "row": 15, "col": 34, "canonical": "well_info.formation"}
+      {
+        "field": "Year",
+        "row": 10,
+        "col": 6,
+        "canonical": "daily_report.report_year"
+      },
+      {
+        "field": "Month",
+        "row": 10,
+        "col": 8,
+        "canonical": "daily_report.report_month"
+      },
+      {
+        "field": "Day",
+        "row": 10,
+        "col": 10,
+        "canonical": "daily_report.report_day"
+      },
+      {
+        "field": "MD (m) @ 0:00",
+        "row": 9,
+        "col": 18,
+        "canonical": "daily_report.depth_0000"
+      },
+      {
+        "field": "MD (m) @ 24:00",
+        "row": 10,
+        "col": 18,
+        "canonical": "daily_report.depth_2400"
+      },
+      {
+        "field": "MD (m) @ 6:00",
+        "row": 11,
+        "col": 18,
+        "canonical": "daily_report.depth_0600"
+      },
+      {
+        "field": "24 hrs Drilled (m)",
+        "row": 12,
+        "col": 18,
+        "canonical": "daily_report.drilled_24hrs"
+      },
+      {
+        "field": "AVG ROP (m/hrs)",
+        "row": 13,
+        "col": 18,
+        "canonical": "daily_report.avg_rop_remark"
+      },
+      {
+        "field": "RT - WH (m)",
+        "row": 14,
+        "col": 18,
+        "canonical": "daily_report.rt_wh"
+      },
+      {
+        "field": "MW (PCF)",
+        "row": 14,
+        "col": 10,
+        "canonical": "daily_report.mw_pcf"
+      },
+      {
+        "field": "Section Start Depth MD (m)",
+        "row": 15,
+        "col": 18,
+        "canonical": "daily_report.section_start_depth"
+      },
+      {
+        "field": "Drilling Operation Manager",
+        "row": 9,
+        "col": 23,
+        "canonical": "well_info.operation_manager"
+      },
+      {
+        "field": "Drilling Superintendent",
+        "row": 10,
+        "col": 23,
+        "canonical": "well_info.superintendent"
+      },
+      {
+        "field": "Drilling Supervisor (Day)",
+        "row": 11,
+        "col": 23,
+        "canonical": "well_info.supervisor_day"
+      },
+      {
+        "field": "Drilling Supervisor (Night)",
+        "row": 12,
+        "col": 23,
+        "canonical": "well_info.supervisor_night"
+      },
+      {
+        "field": "Well Site Drilling Engineering",
+        "row": 13,
+        "col": 23,
+        "canonical": "well_info.drilling_engineer"
+      },
+      {
+        "field": "Well Site Geologist",
+        "row": 14,
+        "col": 23,
+        "canonical": "well_info.geologist1"
+      },
+      {
+        "field": "Tool Pusher Day/Night",
+        "row": 15,
+        "col": 23,
+        "canonical": "well_info.tool_pusher_day"
+      },
+      {
+        "field": "Latitude",
+        "row": 9,
+        "col": 35,
+        "canonical": "well_info.latitude"
+      },
+      {
+        "field": "Longitude",
+        "row": 10,
+        "col": 35,
+        "canonical": "well_info.longitude"
+      },
+      {
+        "field": "Northing (m)",
+        "row": 11,
+        "col": 35,
+        "canonical": "well_info.northing"
+      },
+      {
+        "field": "Easting (m)",
+        "row": 12,
+        "col": 35,
+        "canonical": "well_info.easting"
+      },
+      {
+        "field": "KOP #1",
+        "row": 13,
+        "col": 35,
+        "canonical": "well_info.kop1"
+      },
+      {
+        "field": "KOP #2",
+        "row": 14,
+        "col": 35,
+        "canonical": "well_info.kop2"
+      },
+      {
+        "field": "Formation",
+        "row": 15,
+        "col": 35,
+        "canonical": "well_info.formation"
+      }
     ],
-
     "Previous Casing Info": {
       "start_row": 11,
       "columns": [
-        {"field": "Size (in)", "col": 39, "canonical": "casing.size"},
-        {"field": "From (m)", "col": 40, "canonical": "casing.depth_from"},
-        {"field": "To (m)", "col": 42, "canonical": "casing.depth_to"},
-        {"field": "Grade", "col": 43, "canonical": "casing.grade"},
-        {"field": "Weight (#)", "col": 44, "canonical": "casing.weight"},
-        {"field": "Thread", "col": 47, "canonical": "casing.thread"},
-        {"field": "Shoe (TVD)m", "col": 48, "canonical": "casing.shoe_tvd"},
-        {"field": "Burst (psi)", "col": 50, "canonical": "casing.burst_pressure"},
-        {"field": "Collapse (psi)", "col": 52, "canonical": "casing.collapse_pressure"}
+        {
+          "field": "Size (in)",
+          "col": 39,
+          "canonical": "casing.size"
+        },
+        {
+          "field": "From (m)",
+          "col": 40,
+          "canonical": "casing.depth_from"
+        },
+        {
+          "field": "To (m)",
+          "col": 42,
+          "canonical": "casing.depth_to"
+        },
+        {
+          "field": "Grade",
+          "col": 43,
+          "canonical": "casing.grade"
+        },
+        {
+          "field": "Weight (#)",
+          "col": 44,
+          "canonical": "casing.weight"
+        },
+        {
+          "field": "Thread",
+          "col": 47,
+          "canonical": "casing.thread"
+        },
+        {
+          "field": "Shoe (TVD)m",
+          "col": 48,
+          "canonical": "casing.shoe_tvd"
+        },
+        {
+          "field": "Burst (psi)",
+          "col": 50,
+          "canonical": "casing.burst_pressure"
+        },
+        {
+          "field": "Collapse (psi)",
+          "col": 52,
+          "canonical": "casing.collapse_pressure"
+        }
       ]
     },
-
     "Summary Of Activities": [
-      {"field": "Summary Text Block", "row": 17, "col": 1, "canonical": "daily_report.summary", "type": "text_block"}
+      {
+        "field": "Summary Text Block",
+        "row": 17,
+        "col": 1,
+        "canonical": "daily_report.summary",
+        "type": "text_block"
+      }
     ],
-
     "Operation Forecast": [
-      {"field": "Forecast Text Block", "row": 20, "col": 1, "canonical": "daily_report.forecast", "type": "text_block"}
+      {
+        "field": "Forecast Text Block",
+        "row": 20,
+        "col": 1,
+        "canonical": "daily_report.forecast",
+        "type": "text_block"
+      }
     ],
-
     "Time Log 24H": {
       "start_row": 24,
       "columns": [
-        {"field": "From", "col": 1, "canonical": "time_log.time_from"},
-        {"field": "To", "col": 3, "canonical": "time_log.time_to"},
-        {"field": "hrs", "col": 5, "canonical": "time_log.duration"},
-        {"field": "Main Phase", "col": 7, "canonical": "time_log.main_phase"},
-        {"field": "Code", "col": 9, "canonical": "time_log.main_code"},
-        {"field": "Sub Code", "col": 11, "canonical": "time_log.sub_code"},
-        {"field": "Status", "col": 13, "canonical": "time_log.status"},
-        {"field": "NPT/Unplan Attributed", "col": 16, "canonical": "time_log.npt_category"},
-        {"field": "Rig Activity", "col": 19, "canonical": "time_log.activity_description"}
+        {
+          "field": "From",
+          "col": 1,
+          "canonical": "time_log.time_from"
+        },
+        {
+          "field": "To",
+          "col": 3,
+          "canonical": "time_log.time_to"
+        },
+        {
+          "field": "hrs",
+          "col": 5,
+          "canonical": "time_log.duration"
+        },
+        {
+          "field": "Main Phase",
+          "col": 7,
+          "canonical": "time_log.main_phase"
+        },
+        {
+          "field": "Code",
+          "col": 9,
+          "canonical": "time_log.main_code"
+        },
+        {
+          "field": "Sub Code",
+          "col": 11,
+          "canonical": "time_log.sub_code"
+        },
+        {
+          "field": "Status",
+          "col": 13,
+          "canonical": "time_log.status"
+        },
+        {
+          "field": "NPT/Unplan Attributed",
+          "col": 16,
+          "canonical": "time_log.npt_category"
+        },
+        {
+          "field": "Rig Activity",
+          "col": 19,
+          "canonical": "time_log.activity_description"
+        }
       ],
       "end_marker": "Total"
     },
-
     "Time Break Down": {
       "header_row": 23,
       "start_row": 24,
       "columns": [
-        {"field": "No", "col": 47, "canonical": "time_breakdown.code"},
-        {"field": "Activity", "col": 48, "canonical": "time_breakdown.activity"},
-        {"field": "hrs", "col": 53, "canonical": "time_breakdown.hours"}
+        {
+          "field": "No",
+          "col": 47,
+          "canonical": "time_breakdown.code"
+        },
+        {
+          "field": "Activity",
+          "col": 48,
+          "canonical": "time_breakdown.activity"
+        },
+        {
+          "field": "hrs",
+          "col": 53,
+          "canonical": "time_breakdown.hours"
+        }
       ]
     },
-
     "Time Log Morning": {
       "start_row": 65,
       "columns": [
-        {"field": "From", "col": 1, "canonical": "time_log_morning.time_from"},
-        {"field": "To", "col": 3, "canonical": "time_log_morning.time_to"},
-        {"field": "hrs", "col": 5, "canonical": "time_log_morning.duration"},
-        {"field": "Main Phase", "col": 7, "canonical": "time_log_morning.main_phase"},
-        {"field": "Code", "col": 9, "canonical": "time_log_morning.main_code"},
-        {"field": "Sub Code", "col": 11, "canonical": "time_log_morning.sub_code"},
-        {"field": "Status", "col": 13, "canonical": "time_log_morning.status"},
-        {"field": "Rig Activity", "col": 19, "canonical": "time_log_morning.activity_description"}
+        {
+          "field": "From",
+          "col": 1,
+          "canonical": "time_log_morning.time_from"
+        },
+        {
+          "field": "To",
+          "col": 3,
+          "canonical": "time_log_morning.time_to"
+        },
+        {
+          "field": "hrs",
+          "col": 5,
+          "canonical": "time_log_morning.duration"
+        },
+        {
+          "field": "Main Phase",
+          "col": 7,
+          "canonical": "time_log_morning.main_phase"
+        },
+        {
+          "field": "Code",
+          "col": 9,
+          "canonical": "time_log_morning.main_code"
+        },
+        {
+          "field": "Sub Code",
+          "col": 11,
+          "canonical": "time_log_morning.sub_code"
+        },
+        {
+          "field": "Status",
+          "col": 13,
+          "canonical": "time_log_morning.status"
+        },
+        {
+          "field": "Rig Activity",
+          "col": 19,
+          "canonical": "time_log_morning.activity_description"
+        }
       ],
       "end_marker": "Total"
     },
-
     "Notes": [
-      {"field": "Note#01", "row": 81, "col": 1, "canonical": "daily_report.note_01"},
-      {"field": "Note#02", "row": 82, "col": 1, "canonical": "daily_report.note_02"},
-      {"field": "Note#03", "row": 83, "col": 1, "canonical": "daily_report.note_03"},
-      {"field": "Note#04", "row": 84, "col": 1, "canonical": "daily_report.note_04"},
-      {"field": "Note#05", "row": 85, "col": 1, "canonical": "daily_report.note_05"},
-      {"field": "Note#06", "row": 86, "col": 1, "canonical": "daily_report.note_06"},
-      {"field": "Note#07", "row": 87, "col": 1, "canonical": "daily_report.note_07"}
+      {
+        "field": "Note#01",
+        "row": 81,
+        "col": 1,
+        "canonical": "daily_report.note_01"
+      },
+      {
+        "field": "Note#02",
+        "row": 82,
+        "col": 1,
+        "canonical": "daily_report.note_02"
+      },
+      {
+        "field": "Note#03",
+        "row": 83,
+        "col": 1,
+        "canonical": "daily_report.note_03"
+      },
+      {
+        "field": "Note#04",
+        "row": 84,
+        "col": 1,
+        "canonical": "daily_report.note_04"
+      },
+      {
+        "field": "Note#05",
+        "row": 85,
+        "col": 1,
+        "canonical": "daily_report.note_05"
+      },
+      {
+        "field": "Note#06",
+        "row": 86,
+        "col": 1,
+        "canonical": "daily_report.note_06"
+      },
+      {
+        "field": "Note#07",
+        "row": 87,
+        "col": 1,
+        "canonical": "daily_report.note_07"
+      }
     ],
-
     "Material Request": [
-      {"field": "Request", "row": 88, "col": 1, "canonical": "daily_report.material_request"},
-      {"field": "Detail", "row": 88, "col": 4, "canonical": "daily_report.material_request_detail"},
-      {"field": "Outstanding", "row": 88, "col": 31, "canonical": "daily_report.outstanding"}
+      {
+        "field": "Request",
+        "row": 88,
+        "col": 1,
+        "canonical": "daily_report.material_request"
+      },
+      {
+        "field": "Detail",
+        "row": 88,
+        "col": 4,
+        "canonical": "daily_report.material_request_detail"
+      },
+      {
+        "field": "Outstanding",
+        "row": 88,
+        "col": 31,
+        "canonical": "daily_report.outstanding"
+      }
     ],
-
     "Received/Backload": [
-      {"field": "Received", "row": 95, "col": 1, "canonical": "daily_report.received_items"},
-      {"field": "Back Load", "row": 95, "col": 31, "canonical": "daily_report.backload_items"}
+      {
+        "field": "Received",
+        "row": 95,
+        "col": 1,
+        "canonical": "daily_report.received_items"
+      },
+      {
+        "field": "Back Load",
+        "row": 95,
+        "col": 31,
+        "canonical": "daily_report.backload_items"
+      }
     ]
   },
-
   "sheet_2_DDR_Data": {
     "Report Info": [
-      {"field": "Well Name", "row": 6, "col": 5, "canonical": "well_info.name"},
-      {"field": "Report No", "row": 7, "col": 5, "canonical": "daily_report.report_number"},
-      {"field": "Report Year", "row": 7, "col": 7, "canonical": "daily_report.report_year"},
-      {"field": "Report Month", "row": 7, "col": 8, "canonical": "daily_report.report_month"},
-      {"field": "Report Day", "row": 7, "col": 9, "canonical": "daily_report.report_day"},
-      {"field": "Report Time", "row": 7, "col": 12, "canonical": "daily_report.report_time"}
+      {
+        "field": "Well Name",
+        "row": 6,
+        "col": 5,
+        "canonical": "well_info.name"
+      },
+      {
+        "field": "Report No",
+        "row": 7,
+        "col": 5,
+        "canonical": "daily_report.report_number"
+      },
+      {
+        "field": "Report Year",
+        "row": 7,
+        "col": 7,
+        "canonical": "daily_report.report_year"
+      },
+      {
+        "field": "Report Month",
+        "row": 7,
+        "col": 8,
+        "canonical": "daily_report.report_month"
+      },
+      {
+        "field": "Report Day",
+        "row": 7,
+        "col": 9,
+        "canonical": "daily_report.report_day"
+      },
+      {
+        "field": "Report Time",
+        "row": 7,
+        "col": 12,
+        "canonical": "daily_report.report_time"
+      }
     ],
-
     "Drilling & Bit Data": [
-      {"field": "Bit No.", "row": 9, "col": 5, "canonical": "drilling_params.bit_no"},
-      {"field": "Bit Rerun No", "row": 10, "col": 5, "canonical": "drilling_params.bit_rerun"},
-      {"field": "Bit Size (inch)", "row": 11, "col": 5, "canonical": "drilling_params.bit_size"},
-      {"field": "Bit Type", "row": 12, "col": 5, "canonical": "drilling_params.bit_type"},
-      {"field": "Bit Manufacture", "row": 13, "col": 5, "canonical": "drilling_params.manufacturer"},
-      {"field": "Bit Serial No", "row": 14, "col": 5, "canonical": "drilling_params.bit_serial"},
-      {"field": "IADC Code", "row": 15, "col": 5, "canonical": "drilling_params.iadc_code"},
-      {"field": "Nozzle 1 No", "row": 17, "col": 5, "canonical": "drilling_params.nozzle1_no"},
-      {"field": "Nozzle 1 Size", "row": 17, "col": 6, "canonical": "drilling_params.nozzle1_size"},
-      {"field": "Nozzle 2 No", "row": 19, "col": 5, "canonical": "drilling_params.nozzle2_no"},
-      {"field": "Nozzle 2 Size", "row": 19, "col": 6, "canonical": "drilling_params.nozzle2_size"},
-      {"field": "TFA (in²)", "row": 25, "col": 5, "canonical": "drilling_params.tfa"},
-      {"field": "Bit Drilled (m)", "row": 27, "col": 5, "canonical": "drilling_params.bit_drilled"},
-      {"field": "Bit Cum. Drilled (m)", "row": 28, "col": 5, "canonical": "drilling_params.bit_cum_drilled"},
-      {"field": "Bit Hours on Bottom", "row": 29, "col": 5, "canonical": "drilling_params.bit_hours_on_bottom"},
-      {"field": "Bit Cum. Hrs on Bottom", "row": 30, "col": 5, "canonical": "drilling_params.bit_cum_hrs_on_bottom"},
-      {"field": "Cum. Bit Ave ROP (m/hr)", "row": 31, "col": 5, "canonical": "drilling_params.cum_bit_avg_rop"},
-      {"field": "Bit Dull Condition", "row": 32, "col": 5, "canonical": "drilling_params.bit_dull_condition"},
-      {"field": "Bit Revolution (k.rev)", "row": 33, "col": 5, "canonical": "drilling_params.bit_revolution"}
+      {
+        "field": "Bit No.",
+        "row": 9,
+        "col": 5,
+        "canonical": "drilling_params.bit_no"
+      },
+      {
+        "field": "Bit Rerun No",
+        "row": 10,
+        "col": 5,
+        "canonical": "drilling_params.bit_rerun"
+      },
+      {
+        "field": "Bit Size (inch)",
+        "row": 11,
+        "col": 5,
+        "canonical": "drilling_params.bit_size"
+      },
+      {
+        "field": "Bit Type",
+        "row": 12,
+        "col": 5,
+        "canonical": "drilling_params.bit_type"
+      },
+      {
+        "field": "Bit Manufacture",
+        "row": 13,
+        "col": 5,
+        "canonical": "drilling_params.manufacturer"
+      },
+      {
+        "field": "Bit Serial No",
+        "row": 14,
+        "col": 5,
+        "canonical": "drilling_params.bit_serial"
+      },
+      {
+        "field": "IADC Code",
+        "row": 15,
+        "col": 5,
+        "canonical": "drilling_params.iadc_code"
+      },
+      {
+        "field": "Nozzle 1 No",
+        "row": 17,
+        "col": 5,
+        "canonical": "drilling_params.nozzle1_no"
+      },
+      {
+        "field": "Nozzle 1 Size",
+        "row": 17,
+        "col": 6,
+        "canonical": "drilling_params.nozzle1_size"
+      },
+      {
+        "field": "Nozzle 2 No",
+        "row": 19,
+        "col": 5,
+        "canonical": "drilling_params.nozzle2_no"
+      },
+      {
+        "field": "Nozzle 2 Size",
+        "row": 19,
+        "col": 6,
+        "canonical": "drilling_params.nozzle2_size"
+      },
+      {
+        "field": "TFA (in²)",
+        "row": 25,
+        "col": 5,
+        "canonical": "drilling_params.tfa"
+      },
+      {
+        "field": "Bit Drilled (m)",
+        "row": 27,
+        "col": 5,
+        "canonical": "drilling_params.bit_drilled"
+      },
+      {
+        "field": "Bit Cum. Drilled (m)",
+        "row": 28,
+        "col": 5,
+        "canonical": "drilling_params.bit_cum_drilled"
+      },
+      {
+        "field": "Bit Hours on Bottom",
+        "row": 29,
+        "col": 5,
+        "canonical": "drilling_params.bit_hours_on_bottom"
+      },
+      {
+        "field": "Bit Cum. Hrs on Bottom",
+        "row": 30,
+        "col": 5,
+        "canonical": "drilling_params.bit_cum_hrs_on_bottom"
+      },
+      {
+        "field": "Cum. Bit Ave ROP (m/hr)",
+        "row": 31,
+        "col": 5,
+        "canonical": "drilling_params.cum_bit_avg_rop"
+      },
+      {
+        "field": "Bit Dull Condition",
+        "row": 32,
+        "col": 5,
+        "canonical": "drilling_params.bit_dull_condition"
+      },
+      {
+        "field": "Bit Revolution (k.rev)",
+        "row": 33,
+        "col": 5,
+        "canonical": "drilling_params.bit_revolution"
+      }
     ],
-
     "Drilling Parameters": {
       "start_row": 38,
       "columns": [
-        {"field": "Parameter", "col": 2, "canonical": "drilling_param.name"},
-        {"field": "Min", "col": 5, "canonical": "drilling_param.min"},
-        {"field": "Max", "col": 6, "canonical": "drilling_param.max"}
+        {
+          "field": "Parameter",
+          "col": 2,
+          "canonical": "drilling_param.name"
+        },
+        {
+          "field": "Min",
+          "col": 5,
+          "canonical": "drilling_param.min"
+        },
+        {
+          "field": "Max",
+          "col": 6,
+          "canonical": "drilling_param.max"
+        }
       ]
     },
-
     "Pump Data": [
-      {"field": "Pump Liner Size", "row": 34, "col": 5, "canonical": "drilling_params.pump_liner_size"},
-      {"field": "Pump Output Min", "row": 36, "col": 5, "canonical": "drilling_params.pump_output_min"},
-      {"field": "Pump Output Max", "row": 36, "col": 6, "canonical": "drilling_params.pump_output_max"}
+      {
+        "field": "Pump Liner Size",
+        "row": 34,
+        "col": 5,
+        "canonical": "drilling_params.pump_liner_size"
+      },
+      {
+        "field": "Pump Output Min",
+        "row": 36,
+        "col": 5,
+        "canonical": "drilling_params.pump_output_min"
+      },
+      {
+        "field": "Pump Output Max",
+        "row": 36,
+        "col": 6,
+        "canonical": "drilling_params.pump_output_max"
+      }
     ],
-
     "SCR Data": {
       "start_row": 44,
       "columns": [
-        {"field": "Pump", "col": 2, "canonical": "scr.pump"},
-        {"field": "SPM", "col": 3, "canonical": "scr.spm"},
-        {"field": "FR (GPM)", "col": 4, "canonical": "scr.fr_gpm"},
-        {"field": "SPP", "col": 5, "canonical": "scr.spp"}
+        {
+          "field": "Pump",
+          "col": 2,
+          "canonical": "scr.pump"
+        },
+        {
+          "field": "SPM",
+          "col": 3,
+          "canonical": "scr.spm"
+        },
+        {
+          "field": "FR (GPM)",
+          "col": 4,
+          "canonical": "scr.fr_gpm"
+        },
+        {
+          "field": "SPP",
+          "col": 5,
+          "canonical": "scr.spp"
+        }
       ]
     },
-
     "MUD Data": [
-      {"field": "Mud Type", "row": 8, "col": 12, "canonical": "mud_report.mud_type"},
-      {"field": "Mud Weight", "row": 9, "col": 12, "canonical": "mud_report.mw"},
-      {"field": "MW Unit", "row": 9, "col": 11, "canonical": "mud_report.mw_unit"},
-      {"field": "Funnel Vis (Sec/QT)", "row": 11, "col": 12, "canonical": "mud_report.funnel_vis"},
-      {"field": "PV (CP)", "row": 12, "col": 12, "canonical": "mud_report.pv"},
-      {"field": "YP (lb/100ft2)", "row": 13, "col": 12, "canonical": "mud_report.yp"},
-      {"field": "Gel 10s (lb/100ft2)", "row": 14, "col": 12, "canonical": "mud_report.gel_10s"},
-      {"field": "Gel 10min (lb/100ft2)", "row": 15, "col": 12, "canonical": "mud_report.gel_10m"},
-      {"field": "API Fluid Loss (cc/30 min)", "row": 16, "col": 12, "canonical": "mud_report.fl"},
-      {"field": "Total Hardness (mg/lit)", "row": 17, "col": 12, "canonical": "mud_report.total_hardness"},
-      {"field": "Filter Cake (1/32\")", "row": 18, "col": 12, "canonical": "mud_report.cake_thickness"},
-      {"field": "Solid (% Vol)", "row": 19, "col": 12, "canonical": "mud_report.solid_percent"},
-      {"field": "Chloride (mg/lit)", "row": 20, "col": 12, "canonical": "mud_report.chloride"},
-      {"field": "Oil / Water (% Vol)", "row": 21, "col": 12, "canonical": "mud_report.oil_percent"},
-      {"field": "KCL (% wt)", "row": 22, "col": 12, "canonical": "mud_report.kcl"},
-      {"field": "PH", "row": 23, "col": 12, "canonical": "mud_report.ph"},
-      {"field": "Flowline Temp (°F)", "row": 24, "col": 12, "canonical": "mud_report.flowline_temp"},
-      {"field": "Pf / Mf", "row": 25, "col": 12, "canonical": "mud_report.pf_mf"},
-      {"field": "Ca++ (mg/lit)", "row": 26, "col": 12, "canonical": "mud_report.calcium"},
-      {"field": "MBT (lb/bbl)", "row": 27, "col": 12, "canonical": "mud_report.mbt"}
+      {
+        "field": "Mud Type",
+        "row": 8,
+        "col": 12,
+        "canonical": "mud_report.mud_type"
+      },
+      {
+        "field": "Mud Weight",
+        "row": 9,
+        "col": 12,
+        "canonical": "mud_report.mw"
+      },
+      {
+        "field": "MW Unit",
+        "row": 9,
+        "col": 12,
+        "canonical": "mud_report.mw_unit"
+      },
+      {
+        "field": "Funnel Vis (Sec/QT)",
+        "row": 11,
+        "col": 12,
+        "canonical": "mud_report.funnel_vis"
+      },
+      {
+        "field": "PV (CP)",
+        "row": 12,
+        "col": 12,
+        "canonical": "mud_report.pv"
+      },
+      {
+        "field": "YP (lb/100ft2)",
+        "row": 13,
+        "col": 12,
+        "canonical": "mud_report.yp"
+      },
+      {
+        "field": "Gel 10s (lb/100ft2)",
+        "row": 14,
+        "col": 12,
+        "canonical": "mud_report.gel_10s"
+      },
+      {
+        "field": "Gel 10min (lb/100ft2)",
+        "row": 15,
+        "col": 12,
+        "canonical": "mud_report.gel_10m"
+      },
+      {
+        "field": "API Fluid Loss (cc/30 min)",
+        "row": 16,
+        "col": 12,
+        "canonical": "mud_report.fl"
+      },
+      {
+        "field": "Total Hardness (mg/lit)",
+        "row": 17,
+        "col": 12,
+        "canonical": "mud_report.total_hardness"
+      },
+      {
+        "field": "Filter Cake (1/32\")",
+        "row": 18,
+        "col": 12,
+        "canonical": "mud_report.cake_thickness"
+      },
+      {
+        "field": "Solid (% Vol)",
+        "row": 19,
+        "col": 12,
+        "canonical": "mud_report.solid_percent"
+      },
+      {
+        "field": "Chloride (mg/lit)",
+        "row": 20,
+        "col": 12,
+        "canonical": "mud_report.chloride"
+      },
+      {
+        "field": "Oil / Water (% Vol)",
+        "row": 21,
+        "col": 12,
+        "canonical": "mud_report.oil_percent"
+      },
+      {
+        "field": "KCL (% wt)",
+        "row": 22,
+        "col": 12,
+        "canonical": "mud_report.kcl"
+      },
+      {
+        "field": "PH",
+        "row": 23,
+        "col": 12,
+        "canonical": "mud_report.ph"
+      },
+      {
+        "field": "Flowline Temp (°F)",
+        "row": 24,
+        "col": 12,
+        "canonical": "mud_report.flowline_temp"
+      },
+      {
+        "field": "Pf / Mf",
+        "row": 25,
+        "col": 12,
+        "canonical": "mud_report.pf_mf"
+      },
+      {
+        "field": "Ca++ (mg/lit)",
+        "row": 26,
+        "col": 12,
+        "canonical": "mud_report.calcium"
+      },
+      {
+        "field": "MBT (lb/bbl)",
+        "row": 27,
+        "col": 12,
+        "canonical": "mud_report.mbt"
+      }
     ],
-
     "Mud Chemical Table": {
       "start_row": 8,
       "columns": [
-        {"field": "Product Type", "col": 14, "canonical": "mud_chemical.product_type"},
-        {"field": "Used", "col": 16, "canonical": "mud_chemical.used"},
-        {"field": "Received", "col": 17, "canonical": "mud_chemical.received"},
-        {"field": "On Hand", "col": 19, "canonical": "mud_chemical.on_hand"},
-        {"field": "Unit", "col": 20, "canonical": "mud_chemical.unit"}
+        {
+          "field": "Product Type",
+          "col": 14,
+          "canonical": "mud_chemical.product_type"
+        },
+        {
+          "field": "Used",
+          "col": 16,
+          "canonical": "mud_chemical.used"
+        },
+        {
+          "field": "Received",
+          "col": 17,
+          "canonical": "mud_chemical.received"
+        },
+        {
+          "field": "On Hand",
+          "col": 19,
+          "canonical": "mud_chemical.on_hand"
+        },
+        {
+          "field": "Unit",
+          "col": 20,
+          "canonical": "mud_chemical.unit"
+        }
       ]
     },
-
     "Volume Info": [
-      {"field": "Vol. in Hole (bbls)", "row": 34, "col": 12, "canonical": "daily_report.vol_in_hole"},
-      {"field": "Total Cir. Volume (bbls)", "row": 35, "col": 12, "canonical": "daily_report.total_circ_vol"},
-      {"field": "Mud Lost Down Hole (bbls)", "row": 36, "col": 12, "canonical": "daily_report.mud_lost_downhole"},
-      {"field": "Mud Lost at Surface (bbls)", "row": 37, "col": 12, "canonical": "daily_report.mud_lost_surface"},
-      {"field": "Suction 1 Vol (bbls)", "row": 38, "col": 12, "canonical": "daily_report.suction1_vol"},
-      {"field": "Suction 1 MW (PCF)", "row": 38, "col": 13, "canonical": "daily_report.suction1_mw"},
-      {"field": "Suction 2 Vol (bbls)", "row": 39, "col": 12, "canonical": "daily_report.suction2_vol"},
-      {"field": "Suction 2 MW (PCF)", "row": 39, "col": 13, "canonical": "daily_report.suction2_mw"},
-      {"field": "Reserve 1 Vol (bbls)", "row": 40, "col": 12, "canonical": "daily_report.reserve1_vol"},
-      {"field": "Reserve 1 MW (PCF)", "row": 40, "col": 13, "canonical": "daily_report.reserve1_mw"},
-      {"field": "Reserve 2 Vol (bbls)", "row": 41, "col": 12, "canonical": "daily_report.reserve2_vol"},
-      {"field": "Reserve 2 MW (PCF)", "row": 41, "col": 13, "canonical": "daily_report.reserve2_mw"},
-      {"field": "Reserve 3 Vol (bbls)", "row": 42, "col": 12, "canonical": "daily_report.reserve3_vol"},
-      {"field": "Reserve 3 MW (PCF)", "row": 42, "col": 13, "canonical": "daily_report.reserve3_mw"},
-      {"field": "Reserve 4 Vol (bbls)", "row": 43, "col": 12, "canonical": "daily_report.reserve4_vol"},
-      {"field": "Middle (bbls)", "row": 44, "col": 12, "canonical": "daily_report.middle_vol"},
-      {"field": "Middle (PCF)", "row": 44, "col": 13, "canonical": "daily_report.middle_mw"},
-      {"field": "Desilter (bbls)", "row": 45, "col": 12, "canonical": "daily_report.desilter_vol"},
-      {"field": "Desander (bbls)", "row": 46, "col": 12, "canonical": "daily_report.desander_vol"},
-      {"field": "Desander (PCF)", "row": 46, "col": 13, "canonical": "daily_report.desander_mw"},
-      {"field": "Degasser (bbls)", "row": 47, "col": 12, "canonical": "daily_report.degasser_vol"},
-      {"field": "Degasser (PCF)", "row": 47, "col": 13, "canonical": "daily_report.degasser_mw"},
-      {"field": "Sand Trap (bbls)", "row": 48, "col": 12, "canonical": "daily_report.sand_trap_vol"},
-      {"field": "Sand Trap (PCF)", "row": 48, "col": 13, "canonical": "daily_report.sand_trap_mw"}
+      {
+        "field": "Vol. in Hole (bbls)",
+        "row": 34,
+        "col": 12,
+        "canonical": "daily_report.vol_in_hole"
+      },
+      {
+        "field": "Total Cir. Volume (bbls)",
+        "row": 35,
+        "col": 12,
+        "canonical": "daily_report.total_circ_vol"
+      },
+      {
+        "field": "Mud Lost Down Hole (bbls)",
+        "row": 36,
+        "col": 12,
+        "canonical": "daily_report.mud_lost_downhole"
+      },
+      {
+        "field": "Mud Lost at Surface (bbls)",
+        "row": 37,
+        "col": 12,
+        "canonical": "daily_report.mud_lost_surface"
+      },
+      {
+        "field": "Suction 1 Vol (bbls)",
+        "row": 38,
+        "col": 12,
+        "canonical": "daily_report.suction1_vol"
+      },
+      {
+        "field": "Suction 1 MW (PCF)",
+        "row": 38,
+        "col": 13,
+        "canonical": "daily_report.suction1_mw"
+      },
+      {
+        "field": "Suction 2 Vol (bbls)",
+        "row": 39,
+        "col": 12,
+        "canonical": "daily_report.suction2_vol"
+      },
+      {
+        "field": "Suction 2 MW (PCF)",
+        "row": 39,
+        "col": 13,
+        "canonical": "daily_report.suction2_mw"
+      },
+      {
+        "field": "Reserve 1 Vol (bbls)",
+        "row": 40,
+        "col": 12,
+        "canonical": "daily_report.reserve1_vol"
+      },
+      {
+        "field": "Reserve 1 MW (PCF)",
+        "row": 40,
+        "col": 13,
+        "canonical": "daily_report.reserve1_mw"
+      },
+      {
+        "field": "Reserve 2 Vol (bbls)",
+        "row": 41,
+        "col": 12,
+        "canonical": "daily_report.reserve2_vol"
+      },
+      {
+        "field": "Reserve 2 MW (PCF)",
+        "row": 41,
+        "col": 13,
+        "canonical": "daily_report.reserve2_mw"
+      },
+      {
+        "field": "Reserve 3 Vol (bbls)",
+        "row": 42,
+        "col": 12,
+        "canonical": "daily_report.reserve3_vol"
+      },
+      {
+        "field": "Reserve 3 MW (PCF)",
+        "row": 42,
+        "col": 13,
+        "canonical": "daily_report.reserve3_mw"
+      },
+      {
+        "field": "Reserve 4 Vol (bbls)",
+        "row": 43,
+        "col": 12,
+        "canonical": "daily_report.reserve4_vol"
+      },
+      {
+        "field": "Middle (bbls)",
+        "row": 44,
+        "col": 12,
+        "canonical": "daily_report.middle_vol"
+      },
+      {
+        "field": "Middle (PCF)",
+        "row": 44,
+        "col": 13,
+        "canonical": "daily_report.middle_mw"
+      },
+      {
+        "field": "Desilter (bbls)",
+        "row": 45,
+        "col": 12,
+        "canonical": "daily_report.desilter_vol"
+      },
+      {
+        "field": "Desander (bbls)",
+        "row": 46,
+        "col": 12,
+        "canonical": "daily_report.desander_vol"
+      },
+      {
+        "field": "Desander (PCF)",
+        "row": 46,
+        "col": 13,
+        "canonical": "daily_report.desander_mw"
+      },
+      {
+        "field": "Degasser (bbls)",
+        "row": 47,
+        "col": 12,
+        "canonical": "daily_report.degasser_vol"
+      },
+      {
+        "field": "Degasser (PCF)",
+        "row": 47,
+        "col": 13,
+        "canonical": "daily_report.degasser_mw"
+      },
+      {
+        "field": "Sand Trap (bbls)",
+        "row": 48,
+        "col": 12,
+        "canonical": "daily_report.sand_trap_vol"
+      },
+      {
+        "field": "Sand Trap (PCF)",
+        "row": 48,
+        "col": 13,
+        "canonical": "daily_report.sand_trap_mw"
+      }
     ],
-
     "BHA Data": {
       "start_row": 48,
       "columns": [
-        {"field": "Item", "col": 2, "canonical": "bha.component_name"},
-        {"field": "OD (in)", "col": 3, "canonical": "bha.od"},
-        {"field": "Length (m)", "col": 4, "canonical": "bha.length"},
-        {"field": "Cum. Len", "col": 5, "canonical": "bha.cum_length"}
+        {
+          "field": "Item",
+          "col": 2,
+          "canonical": "bha.component_name"
+        },
+        {
+          "field": "OD (in)",
+          "col": 3,
+          "canonical": "bha.od"
+        },
+        {
+          "field": "Length (m)",
+          "col": 4,
+          "canonical": "bha.length"
+        },
+        {
+          "field": "Cum. Len",
+          "col": 5,
+          "canonical": "bha.cum_length"
+        }
       ],
       "total_row": 68,
       "total_col": 5,
       "canonical_total": "bha.total_length"
     },
-
     "Down Hole Equipment": {
       "start_row": 52,
       "columns": [
-        {"field": "Equipment", "col": 10, "canonical": "downhole.equipment_name"},
-        {"field": "OD (inch)", "col": 12, "canonical": "downhole.od"},
-        {"field": "Serial Number", "col": 14, "canonical": "downhole.serial_number"},
-        {"field": "Rot. Hrs", "col": 16, "canonical": "downhole.rot_hrs"},
-        {"field": "Cum. Hrs", "col": 18, "canonical": "downhole.cum_hrs"}
+        {
+          "field": "Equipment",
+          "col": 10,
+          "canonical": "downhole.equipment_name"
+        },
+        {
+          "field": "OD (inch)",
+          "col": 12,
+          "canonical": "downhole.od"
+        },
+        {
+          "field": "Serial Number",
+          "col": 14,
+          "canonical": "downhole.serial_number"
+        },
+        {
+          "field": "Rot. Hrs",
+          "col": 16,
+          "canonical": "downhole.rot_hrs"
+        },
+        {
+          "field": "Cum. Hrs",
+          "col": 18,
+          "canonical": "downhole.cum_hrs"
+        }
       ]
     },
-
     "Survey Data": {
       "start_row": 58,
       "columns": [
-        {"field": "MD (m)", "col": 10, "canonical": "survey.md"},
-        {"field": "Incl.", "col": 11, "canonical": "survey.inc"},
-        {"field": "Azimuth", "col": 12, "canonical": "survey.azi"},
-        {"field": "TVD (m)", "col": 13, "canonical": "survey.tvd"},
-        {"field": "North (m)", "col": 14, "canonical": "survey.north"},
-        {"field": "East (m)", "col": 15, "canonical": "survey.east"},
-        {"field": "VS / HD", "col": 17, "canonical": "survey.vs_hd"},
-        {"field": "DLS", "col": 19, "canonical": "survey.dls"},
-        {"field": "Tool", "col": 20, "canonical": "survey.tool"}
+        {
+          "field": "MD (m)",
+          "col": 10,
+          "canonical": "survey.md"
+        },
+        {
+          "field": "Incl.",
+          "col": 11,
+          "canonical": "survey.inc"
+        },
+        {
+          "field": "Azimuth",
+          "col": 12,
+          "canonical": "survey.azi"
+        },
+        {
+          "field": "TVD (m)",
+          "col": 13,
+          "canonical": "survey.tvd"
+        },
+        {
+          "field": "North (m)",
+          "col": 14,
+          "canonical": "survey.north"
+        },
+        {
+          "field": "East (m)",
+          "col": 15,
+          "canonical": "survey.east"
+        },
+        {
+          "field": "VS / HD",
+          "col": 17,
+          "canonical": "survey.vs_hd"
+        },
+        {
+          "field": "DLS",
+          "col": 19,
+          "canonical": "survey.dls"
+        },
+        {
+          "field": "Tool",
+          "col": 20,
+          "canonical": "survey.tool"
+        }
       ]
     },
-
     "Bulk Data": [
-      {"field": "F.W On Hand", "row": 72, "col": 4, "canonical": "fuel_water.fw_on_hand"},
-      {"field": "D.W On Hand", "row": 72, "col": 5, "canonical": "fuel_water.dw_on_hand"},
-      {"field": "Fuel Rig On Hand", "row": 72, "col": 6, "canonical": "fuel_water.fuel_rig_on_hand"},
-      {"field": "Fuel Camp On Hand", "row": 72, "col": 7, "canonical": "fuel_water.fuel_camp_on_hand"},
-      {"field": "F.W Used", "row": 73, "col": 4, "canonical": "fuel_water.fw_used"},
-      {"field": "D.W Used", "row": 73, "col": 5, "canonical": "fuel_water.dw_used"},
-      {"field": "Fuel Rig Used", "row": 73, "col": 6, "canonical": "fuel_water.fuel_rig_used"},
-      {"field": "Fuel Camp Used", "row": 73, "col": 7, "canonical": "fuel_water.fuel_camp_used"},
-      {"field": "F.W Received", "row": 74, "col": 4, "canonical": "fuel_water.fw_received"},
-      {"field": "D.W Received", "row": 74, "col": 5, "canonical": "fuel_water.dw_received"},
-      {"field": "Blend CMT", "row": 72, "col": 9, "canonical": "bulk_material.blend_cmt"},
-      {"field": "CMT G Delijan", "row": 72, "col": 10, "canonical": "bulk_material.cmt_g"}
+      {
+        "field": "F.W On Hand",
+        "row": 72,
+        "col": 4,
+        "canonical": "fuel_water.fw_on_hand"
+      },
+      {
+        "field": "D.W On Hand",
+        "row": 72,
+        "col": 5,
+        "canonical": "fuel_water.dw_on_hand"
+      },
+      {
+        "field": "Fuel Rig On Hand",
+        "row": 72,
+        "col": 6,
+        "canonical": "fuel_water.fuel_rig_on_hand"
+      },
+      {
+        "field": "Fuel Camp On Hand",
+        "row": 72,
+        "col": 7,
+        "canonical": "fuel_water.fuel_camp_on_hand"
+      },
+      {
+        "field": "F.W Used",
+        "row": 73,
+        "col": 4,
+        "canonical": "fuel_water.fw_used"
+      },
+      {
+        "field": "D.W Used",
+        "row": 73,
+        "col": 5,
+        "canonical": "fuel_water.dw_used"
+      },
+      {
+        "field": "Fuel Rig Used",
+        "row": 73,
+        "col": 6,
+        "canonical": "fuel_water.fuel_rig_used"
+      },
+      {
+        "field": "Fuel Camp Used",
+        "row": 73,
+        "col": 7,
+        "canonical": "fuel_water.fuel_camp_used"
+      },
+      {
+        "field": "F.W Received",
+        "row": 74,
+        "col": 4,
+        "canonical": "fuel_water.fw_received"
+      },
+      {
+        "field": "D.W Received",
+        "row": 74,
+        "col": 5,
+        "canonical": "fuel_water.dw_received"
+      },
+      {
+        "field": "Blend CMT",
+        "row": 72,
+        "col": 9,
+        "canonical": "bulk_material.blend_cmt"
+      },
+      {
+        "field": "CMT G Delijan",
+        "row": 72,
+        "col": 10,
+        "canonical": "bulk_material.cmt_g"
+      }
     ],
-
     "Cement Additives": {
       "start_row": 71,
       "columns": [
-        {"field": "Material Type", "col": 14, "canonical": "cement.material_type"},
-        {"field": "Used", "col": 16, "canonical": "cement.used"},
-        {"field": "Received", "col": 17, "canonical": "cement.received"},
-        {"field": "On Hand", "col": 19, "canonical": "cement.on_hand"},
-        {"field": "Unit", "col": 20, "canonical": "cement.unit"}
+        {
+          "field": "Material Type",
+          "col": 14,
+          "canonical": "cement.material_type"
+        },
+        {
+          "field": "Used",
+          "col": 16,
+          "canonical": "cement.used"
+        },
+        {
+          "field": "Received",
+          "col": 17,
+          "canonical": "cement.received"
+        },
+        {
+          "field": "On Hand",
+          "col": 19,
+          "canonical": "cement.on_hand"
+        },
+        {
+          "field": "Unit",
+          "col": 20,
+          "canonical": "cement.unit"
+        }
       ]
     },
-
     "Weather Data": [
-      {"field": "Wind Speed (Km/h)", "row": 70, "col": 11, "canonical": "safety.wind_speed"},
-      {"field": "Wind Direction", "row": 71, "col": 11, "canonical": "safety.wind_direction"},
-      {"field": "TEMP (°C)", "row": 72, "col": 11, "canonical": "safety.temperature"},
-      {"field": "Visibility (Km)", "row": 73, "col": 11, "canonical": "safety.visibility"}
+      {
+        "field": "Wind Speed (Km/h)",
+        "row": 70,
+        "col": 11,
+        "canonical": "safety.wind_speed"
+      },
+      {
+        "field": "Wind Direction",
+        "row": 71,
+        "col": 11,
+        "canonical": "safety.wind_direction"
+      },
+      {
+        "field": "TEMP (°C)",
+        "row": 72,
+        "col": 11,
+        "canonical": "safety.temperature"
+      },
+      {
+        "field": "Visibility (Km)",
+        "row": 73,
+        "col": 11,
+        "canonical": "safety.visibility"
+      }
     ],
-
     "Safety & Drills": [
-      {"field": "Last BOP Test", "row": 75, "col": 13, "canonical": "safety.last_bop_test"},
-      {"field": "Last Fire Drill", "row": 76, "col": 14, "canonical": "safety.last_fire_drill"},
-      {"field": "Last H2S Drill", "row": 77, "col": 14, "canonical": "safety.last_h2s_drill"},
-      {"field": "Last BOP Drill", "row": 78, "col": 14, "canonical": "safety.last_bop_drill"},
-      {"field": "Days Without LTA", "row": 79, "col": 13, "canonical": "safety.days_without_lti"}
+      {
+        "field": "Last BOP Test",
+        "row": 75,
+        "col": 13,
+        "canonical": "safety.last_bop_test"
+      },
+      {
+        "field": "Last Fire Drill",
+        "row": 76,
+        "col": 14,
+        "canonical": "safety.last_fire_drill"
+      },
+      {
+        "field": "Last H2S Drill",
+        "row": 77,
+        "col": 14,
+        "canonical": "safety.last_h2s_drill"
+      },
+      {
+        "field": "Last BOP Drill",
+        "row": 78,
+        "col": 14,
+        "canonical": "safety.last_bop_drill"
+      },
+      {
+        "field": "Days Without LTA",
+        "row": 79,
+        "col": 13,
+        "canonical": "safety.days_without_lti"
+      }
     ],
-
     "BOP Stack": {
       "start_row": 78,
       "columns": [
-        {"field": "Name", "col": 2, "canonical": "bop.name"},
-        {"field": "TYPE", "col": 3, "canonical": "bop.type"},
-        {"field": "W.P (psi)", "col": 5, "canonical": "bop.working_pressure"},
-        {"field": "SIZE", "col": 6, "canonical": "bop.size"},
-        {"field": "RAMS", "col": 7, "canonical": "bop.rams"},
-        {"field": "Last Test", "col": 10, "canonical": "bop.last_test"}
+        {
+          "field": "Name",
+          "col": 2,
+          "canonical": "bop.name"
+        },
+        {
+          "field": "TYPE",
+          "col": 3,
+          "canonical": "bop.type"
+        },
+        {
+          "field": "W.P (psi)",
+          "col": 5,
+          "canonical": "bop.working_pressure"
+        },
+        {
+          "field": "SIZE",
+          "col": 6,
+          "canonical": "bop.size"
+        },
+        {
+          "field": "RAMS",
+          "col": 7,
+          "canonical": "bop.rams"
+        },
+        {
+          "field": "Last Test",
+          "col": 10,
+          "canonical": "bop.last_test"
+        }
       ]
     },
-
     "POB Data": [
-      {"field": "OEOC Rig", "row": 81, "col": 13, "canonical": "logistics.pob_rig"},
-      {"field": "Client (KPE)", "row": 82, "col": 13, "canonical": "logistics.pob_client"},
-      {"field": "MSA", "row": 83, "col": 13, "canonical": "logistics.pob_msa"},
-      {"field": "Service Company", "row": 84, "col": 13, "canonical": "logistics.pob_service"},
-      {"field": "Catering + Guard", "row": 85, "col": 13, "canonical": "logistics.pob_catering"},
-      {"field": "Labour", "row": 86, "col": 13, "canonical": "logistics.pob_labour"},
-      {"field": "Other", "row": 87, "col": 13, "canonical": "logistics.pob_other"},
-      {"field": "Total POB", "row": 88, "col": 13, "canonical": "logistics.pob_total"}
+      {
+        "field": "OEOC Rig",
+        "row": 81,
+        "col": 13,
+        "canonical": "logistics.pob_rig"
+      },
+      {
+        "field": "Client (KPE)",
+        "row": 82,
+        "col": 13,
+        "canonical": "logistics.pob_client"
+      },
+      {
+        "field": "MSA",
+        "row": 83,
+        "col": 13,
+        "canonical": "logistics.pob_msa"
+      },
+      {
+        "field": "Service Company",
+        "row": 84,
+        "col": 13,
+        "canonical": "logistics.pob_service"
+      },
+      {
+        "field": "Catering + Guard",
+        "row": 85,
+        "col": 13,
+        "canonical": "logistics.pob_catering"
+      },
+      {
+        "field": "Labour",
+        "row": 86,
+        "col": 13,
+        "canonical": "logistics.pob_labour"
+      },
+      {
+        "field": "Other",
+        "row": 87,
+        "col": 13,
+        "canonical": "logistics.pob_other"
+      },
+      {
+        "field": "Total POB",
+        "row": 88,
+        "col": 13,
+        "canonical": "logistics.pob_total"
+      }
     ],
-
     "Formation Top Data": {
       "start_row": 82,
       "columns": [
-        {"field": "Name", "col": 14, "canonical": "formation.name"},
-        {"field": "m MD", "col": 16, "canonical": "formation.md_top"},
-        {"field": "m TVD", "col": 17, "canonical": "formation.tvd"},
-        {"field": "Lithology", "col": 19, "canonical": "formation.lithology"}
+        {
+          "field": "Name",
+          "col": 14,
+          "canonical": "formation.name"
+        },
+        {
+          "field": "m MD",
+          "col": 16,
+          "canonical": "formation.md_top"
+        },
+        {
+          "field": "m TVD",
+          "col": 17,
+          "canonical": "formation.tvd"
+        },
+        {
+          "field": "Lithology",
+          "col": 19,
+          "canonical": "formation.lithology"
+        }
       ]
     },
-
     "Solid Control": {
       "start_row": 91,
       "columns": [
-        {"field": "Equipment", "col": 2, "canonical": "solid_control.equipment"},
-        {"field": "Size/# Cones", "col": 3, "canonical": "solid_control.size_cones"},
-        {"field": "U.F", "col": 5, "canonical": "solid_control.uf"},
-        {"field": "O.F", "col": 6, "canonical": "solid_control.of"},
-        {"field": "Daily Hrs", "col": 7, "canonical": "solid_control.daily_hrs"},
-        {"field": "Cum hrs", "col": 9, "canonical": "solid_control.cum_hrs"}
+        {
+          "field": "Equipment",
+          "col": 2,
+          "canonical": "solid_control.equipment"
+        },
+        {
+          "field": "Size/# Cones",
+          "col": 3,
+          "canonical": "solid_control.size_cones"
+        },
+        {
+          "field": "U.F",
+          "col": 5,
+          "canonical": "solid_control.uf"
+        },
+        {
+          "field": "O.F",
+          "col": 6,
+          "canonical": "solid_control.of"
+        },
+        {
+          "field": "Daily Hrs",
+          "col": 7,
+          "canonical": "solid_control.daily_hrs"
+        },
+        {
+          "field": "Cum hrs",
+          "col": 9,
+          "canonical": "solid_control.cum_hrs"
+        }
       ]
     },
-
     "Boats": {
       "start_row": 91,
       "columns": [
-        {"field": "Name", "col": 10, "canonical": "transport.name"},
-        {"field": "Arrival Time", "col": 11, "canonical": "transport.arrival_time"},
-        {"field": "Arrival Date", "col": 13, "canonical": "transport.arrival_date"},
-        {"field": "PAX IN", "col": 14, "canonical": "transport.pax_in"},
-        {"field": "Departure Time", "col": 15, "canonical": "transport.departure_time"},
-        {"field": "Departure Date", "col": 17, "canonical": "transport.departure_date"},
-        {"field": "Status", "col": 20, "canonical": "transport.status"}
+        {
+          "field": "Name",
+          "col": 10,
+          "canonical": "transport.name"
+        },
+        {
+          "field": "Arrival Time",
+          "col": 11,
+          "canonical": "transport.arrival_time"
+        },
+        {
+          "field": "Arrival Date",
+          "col": 13,
+          "canonical": "transport.arrival_date"
+        },
+        {
+          "field": "PAX IN",
+          "col": 14,
+          "canonical": "transport.pax_in"
+        },
+        {
+          "field": "Departure Time",
+          "col": 15,
+          "canonical": "transport.departure_time"
+        },
+        {
+          "field": "Departure Date",
+          "col": 17,
+          "canonical": "transport.departure_date"
+        },
+        {
+          "field": "Status",
+          "col": 20,
+          "canonical": "transport.status"
+        }
       ]
     }
   },
-
   "sheet_3_Lookahead": {
     "7-Day Lookahead": {
       "start_row": 2,
       "columns": [
-        {"field": "Day", "col": 1, "canonical": "lookahead.day"},
-        {"field": "Date", "col": 2, "canonical": "lookahead.date"},
-        {"field": "Activity", "col": 3, "canonical": "lookahead.activity"},
-        {"field": "Tools", "col": 4, "canonical": "lookahead.tools"},
-        {"field": "Responsible", "col": 5, "canonical": "lookahead.responsible"},
-        {"field": "Remarks", "col": 6, "canonical": "lookahead.remarks"}
+        {
+          "field": "Day",
+          "col": 1,
+          "canonical": "lookahead.day"
+        },
+        {
+          "field": "Date",
+          "col": 2,
+          "canonical": "lookahead.date"
+        },
+        {
+          "field": "Activity",
+          "col": 3,
+          "canonical": "lookahead.activity"
+        },
+        {
+          "field": "Tools",
+          "col": 4,
+          "canonical": "lookahead.tools"
+        },
+        {
+          "field": "Responsible",
+          "col": 5,
+          "canonical": "lookahead.responsible"
+        },
+        {
+          "field": "Remarks",
+          "col": 6,
+          "canonical": "lookahead.remarks"
+        }
       ]
     }
   },
-
   "sheet_4_Service_Company": {
     "Service Companies": {
       "start_row": 2,
       "columns": [
-        {"field": "Company Name", "col": 1, "canonical": "service.company_name"},
-        {"field": "Service Type", "col": 2, "canonical": "service.service_type"},
-        {"field": "Personnel", "col": 3, "canonical": "service.personnel_count"},
-        {"field": "Contact", "col": 4, "canonical": "service.contact"},
-        {"field": "Phone", "col": 5, "canonical": "service.phone"}
+        {
+          "field": "Company Name",
+          "col": 1,
+          "canonical": "service.company_name"
+        },
+        {
+          "field": "Service Type",
+          "col": 2,
+          "canonical": "service.service_type"
+        },
+        {
+          "field": "Personnel",
+          "col": 3,
+          "canonical": "service.personnel_count"
+        },
+        {
+          "field": "Contact",
+          "col": 4,
+          "canonical": "service.contact"
+        },
+        {
+          "field": "Phone",
+          "col": 5,
+          "canonical": "service.phone"
+        }
       ]
     }
   }
