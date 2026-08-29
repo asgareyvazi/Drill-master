@@ -21,6 +21,11 @@ import re
 import logging
 import time
 
+from core.canonical_schema import (
+    FIELD_SPECS, lookup_alias, get_engineering_bounds,
+    get_quantity_unit,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -616,40 +621,32 @@ class FieldExtractor:
 
     @staticmethod
     def _guess_type(canonical: str) -> str:
+        """Get field type from canonical schema — THE authoritative source."""
+        spec = FIELD_SPECS.get(canonical)
+        if spec:
+            q = spec.quantity
+            if q in ("length", "density", "pressure", "flow_rate", "volume",
+                     "temperature", "torque", "force", "weight", "rop", "rate",
+                     "rpm", "viscosity", "stress", "ecd", "dls", "angle",
+                     "number", "integer", "area", "currency"):
+                return "numeric"
+            if q in ("date",):
+                return "date"
+            if q in ("time",):
+                return "time"
         c = canonical.lower()
-        if any(x in c for x in ["depth", "md", "tvd", "weight", "pressure", "rop", "rpm",
-                                  "torque", "wob", "pv", "yp", "ph", "temp", "length",
-                                  "od", "size", "hours", "vol", "amount", "count",
-                                  "latitude", "longitude", "northing", "easting",
-                                  "mw", "density", "funnel", "gel", "loss", "chloride",
-                                  "hardness", "cake", "solid", "water", "oil", "kcl",
-                                  "dls", "inc", "azi", "tfa", "hsi", "velocity",
-                                  "fuel", "duration", "days", "impact", "elevation",
-                                  "target", "heading", "rig_day", "lta"]):
-            return "numeric"
-        if any(x in c for x in ["date", "time"]):
+        if "date" in c:
             return "date"
         return "text"
 
     @staticmethod
     def _get_aliases(canonical: str) -> List[str]:
-        """Get label aliases for a canonical field."""
-        alias_map = {
-            "well_info.name": ["well name", "well", "well name:", "wellname", "well_name"],
-            "well_info.rig_name": ["rig name", "rig", "rig name:", "rigname"],
-            "well_info.client": ["client", "client:"],
-            "well_info.operator": ["operator", "operator:"],
-            "well_info.drilling_contractor": ["drilling contractor", "contractor"],
-            "well_info.field_name": ["field", "field:", "field name"],
-            "well_info.section_name": ["hole section", "section", "hole section (inch)"],
-            "well_info.target_depth": ["estimated final depth", "target depth", "efd"],
-            "mud_report.mw": ["mud weight", "mw", "mud wt", "density"],
-            "drilling_params.bit_size": ["bit size", "bit size (inch)"],
-            "daily_report.depth_2400": ["md (m)@ 24:00", "md @ 24:00", "depth 24:00"],
-            "daily_report.depth_0000": ["md (m)@ 0:00", "md @ 0:00", "depth 0:00"],
-            "daily_report.depth_0600": ["md (m)@ 6:00 am", "md @ 6:00", "depth 6:00"],
-        }
-        return alias_map.get(canonical, [canonical.split(".")[-1].replace("_", " ")])
+        """Get label aliases from canonical schema — THE centralized registry."""
+        spec = FIELD_SPECS.get(canonical)
+        if spec and spec.aliases:
+            return list(spec.aliases)
+        key = canonical.split(".")[-1].replace("_", " ")
+        return [key]
 
     @staticmethod
     def _col_letter(col: int) -> str:
