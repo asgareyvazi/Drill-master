@@ -605,18 +605,22 @@ class ROPModels:
         ROP = K × (WOB/D)^a × RPM^b × e^(-c×D)
         where K = formation drillability, a,b,c = exponents
         
-        This is a simplified version for field estimation.
+        NOTE: This is a simplified model for relative comparison.
+        Actual ROP prediction requires calibrated constants from offset wells.
+        K is calibrated here to produce realistic field-order results
+        (typically 5-50 m/hr for conventional drilling).
         """
         if depth_ft <= 0 or wob_klbf <= 0 or rpm <= 0:
             raise ExtendedEngineeringError("Depth, WOB, and RPM must be > 0")
         
-        # Typical exponents (can be calibrated)
+        # Typical exponents from Bourgoyne & Young (1974)
         a = 1.0  # WOB exponent
         b = 0.6  # RPM exponent
-        c = 0.000005  # depth exponent
+        c = 0.00005  # depth exponent (calibrated for realistic output)
         
-        # Formation drillability (simplified)
-        k = 200 * strength_factor * (1 + porosity_pct / 100)
+        # Formation drillability (calibrated for realistic output)
+        # K ≈ 0.5-2.0 for soft-moderate formations
+        k = 0.5 * strength_factor * (1 + porosity_pct / 100)
         
         rop = k * (wob_klbf) ** a * rpm ** b * math.exp(-c * depth_ft)
         
