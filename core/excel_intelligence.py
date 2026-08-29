@@ -432,7 +432,6 @@ class FieldExtractor:
         # Strategy 1: Preferred cell (CANDIDATE, not truth)
         value = self.cells.get((row, col))
         if value is not None and str(value).strip():
-            # Validate: reject if preferred cell contains a label, not a value
             if not self.labels._looks_like_label(str(value)):
                 candidates.append(Candidate(
                     value=value, source="preferred_cell",
@@ -440,16 +439,42 @@ class FieldExtractor:
                     raw_score=0.70,
                     reason=f"Preferred cell {self._col_letter(col)}{row}",
                 ))
+            else:
+                # Preferred cell has a label — look for value to the right
+                for dc in range(1, 8):
+                    right_val = self.cells.get((row, col + dc))
+                    if right_val is not None and str(right_val).strip():
+                        if not self.labels._looks_like_label(str(right_val)):
+                            candidates.append(Candidate(
+                                value=right_val, source="preferred_cell",
+                                row=row, col=col+dc, sheet=sheet,
+                                raw_score=0.68,
+                                reason=f"Value right of label at {self._col_letter(col)}{row}",
+                            ))
+                            break
 
-        # Strategy 2: Merge cell
+        # Strategy 2: Merge cell — reject labels, look right
         merge_val, is_merged = self.merge.get_value(row, col)
         if merge_val is not None and str(merge_val).strip():
-            candidates.append(Candidate(
-                value=merge_val, source="merge_cell",
-                row=row, col=col, sheet=sheet,
-                raw_score=0.55,
-                reason=f"Merged cell at {self._col_letter(col)}{row}",
-            ))
+            if not self.labels._looks_like_label(str(merge_val)):
+                candidates.append(Candidate(
+                    value=merge_val, source="merge_cell",
+                    row=row, col=col, sheet=sheet,
+                    raw_score=0.65,
+                    reason=f"Merged cell at {self._col_letter(col)}{row}",
+                ))
+            else:
+                for dc in range(1, 8):
+                    right_val = self.cells.get((row, col + dc))
+                    if right_val is not None and str(right_val).strip():
+                        if not self.labels._looks_like_label(str(right_val)):
+                            candidates.append(Candidate(
+                                value=right_val, source="merge_cell",
+                                row=row, col=col+dc, sheet=sheet,
+                                raw_score=0.63,
+                                reason=f"Value right of merge-label at {self._col_letter(col)}{row}",
+                            ))
+                            break
 
         # Strategy 3: Exact label match
         label_matches = self.labels.find_exact(field_name)
