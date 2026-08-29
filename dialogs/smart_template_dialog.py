@@ -36,6 +36,7 @@ from core.table_record_mapper import extract_records
 from core.import_profiler import ImportProfiler
 from core.async_workers import FunctionWorker
 from core.mapping_store import MappingStore
+from core.activity_mapper import ActivityMapper, CANONICAL_ACTIVITIES
 
 logger = logging.getLogger(__name__)
 
@@ -2158,6 +2159,21 @@ class CodeResolver:
             return f"{best_match} - {SUB_CODE_MAP[best_match]}"
 
         return sub_str
+
+    @staticmethod
+    def resolve_canonical(raw_code, description="", company="", template=""):
+        """Resolve code to canonical activity using ActivityMapper.
+        
+        Returns dict with:
+        - source_code, source_description (preserved)
+        - canonical_id, canonical_name
+        - category, is_npt, npt_category
+        - confidence, method, reason
+        """
+        mapper = ActivityMapper()
+        code_str = CodeResolver._clean_code(raw_code)
+        result = mapper.map_activity(code_str, description, company, template)
+        return result.to_dict()
 
     @staticmethod
     def guess_contractor(npt_code: str) -> str:

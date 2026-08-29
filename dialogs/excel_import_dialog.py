@@ -1077,30 +1077,54 @@ class ExcelImportDialog(QDialog):
         session = self.db.create_session()
         try:
             from core.database import TimeLog24H
+            from core.activity_mapper import ActivityMapper
             session.query(TimeLog24H).filter(TimeLog24H.report_id == report_id).delete()
+            
+            mapper = ActivityMapper()
             saved = 0
             for log in logs:
                 time_from = ValueNormalizer.to_time(log.get("time_from"))
                 if time_from is None:
                     continue
+                
+                # Resolve canonical activity from company code + description
+                raw_code = str(log.get("main_code", ""))
+                raw_desc = str(log.get("activity_description", ""))
+                activity_result = mapper.map_activity(raw_code, raw_desc)
+                
                 tlog = TimeLog24H(
                     report_id=report_id,
                     time_from=time_from,
                     time_to=ValueNormalizer.to_time(log.get("time_to")) or dt_time(0, 0),
                     duration=float(log.get("duration", 0) or 0),
                     main_phase=str(log.get("main_phase", ""))[:100],
+                    # Preserve original company code
                     main_code=str(log.get("main_code", ""))[:100],
                     sub_code=str(log.get("sub_code", ""))[:100],
                     status=str(log.get("status", ""))[:50],
-                    is_npt=bool(log.get("is_npt", False)),
-                    npt_category=str(log.get("npt_category", ""))[:100],
+                    is_npt=activity_result.is_npt if activity_result.method != "unresolved" else bool(log.get("is_npt", False)),
+                    npt_category=activity_result.npt_category or str(log.get("npt_category", ""))[:100],
                     activity_description=wrap_text(str(log.get("activity_description", ""))),
                     contractor=str(log.get("contractor", ""))[:100],
                 )
                 session.add(tlog)
                 saved += 1
+                
+                # Track lineage with canonical activity
+                if activity_result.method != "unresolved":
+                    lineage = get_import_lineage()
+                    lineage.track_value(
+                        canonical_field=f"time_log.canonical_activity",
+                        value=activity_result.canonical_id,
+                        source_file="",
+                        original_value=raw_code,
+                        mapping_method=activity_result.method,
+                        confidence=activity_result.confidence,
+                        validation_status="valid" if activity_result.confidence >= 0.7 else "review",
+                    )
+            
             session.commit()
-            logger.info(f"Saved {saved} time logs (no fake defaults, duration validated)")
+            logger.info(f"Saved {saved} time logs with canonical activity mapping")
         except Exception as e:
             session.rollback()
             logger.error(f"Time log save error: {e}")
