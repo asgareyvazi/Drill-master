@@ -111,10 +111,47 @@ class AIToolRegistry:
                 "note": "Full ISCWSA requires welleng package after benchmark",
             },
             "calculate_torque_drag": {
-                "description": "Calculate torque and drag: hookload, tension, torque profiles",
-                "required_inputs": ["survey", "bha", "mud_density", "friction_factor"],
+                "description": "Johancsik soft-string SCREENING torque and drag",
+                "required_inputs": ["survey", "bha", "mud_density_ppg", "friction_factor"],
                 "engine": "TorqueDragEngine",
-                "note": "Simplified soft-string now, welleng after benchmark",
+                "note": "PARTIAL / SCREENING MODEL — not production-certified. welleng is benchmark-only.",
+            },
+            "calculate_kick_tolerance": {
+                "description": "IWCF kick tolerance (volume). Influx gradient is required — no silent default.",
+                "required_inputs": ["mw_ppg", "shoe_tvd_ft", "current_tvd_ft", "frac_mw_ppg or lot_pressure_psi", "influx_gradient_psi_ft or influx_emw_ppg"],
+                "optional_inputs": ["annular_capacity_bbl_ft", "bha_annular_capacity_bbl_ft", "bha_length_ft", "formation_emw_ppg"],
+                "engine": "WellControlEngine",
+            },
+            "calculate_trip_margin": {
+                "description": "Trip margin = MW − pore EMW (ppg and psi)",
+                "required_inputs": ["mw_ppg", "formation_emw_ppg or (formation_pressure_psi and tvd_ft)"],
+                "engine": "WellControlEngine",
+            },
+            "calculate_mse": {
+                "description": "Teale Mechanical Specific Energy (120π oilfield units)",
+                "required_inputs": ["wob_lbf", "rpm", "torque_ft_lbf", "rop_ft_hr", "bit_diameter_in"],
+                "engine": "MSEEngine",
+            },
+            "calculate_casing_strength": {
+                "description": "PARTIAL API 5C3 subset: Barlow burst 0.875, four-regime collapse, pipe-body tensile",
+                "required_inputs": ["od_in", "yield_psi", "wall_in or id_in"],
+                "engine": "CasingEngine",
+                "note": "Not full API TR 5C3 (no triaxial, connections, temperature).",
+            },
+            "calculate_cement_volumes": {
+                "description": "PARTIAL cement job-volume calculator (not a cement design engine)",
+                "required_inputs": ["hole_size_in", "casing_od_in", "open_hole_length_ft", "excess_pct"],
+                "engine": "CementEngine",
+            },
+            "calculate_mud_balance": {
+                "description": "Mud volume balance",
+                "required_inputs": ["active_volume_bbl"],
+                "engine": "MudVolumeEngine",
+            },
+            "calculate_kick_volume": {
+                "description": "Kick height/volume from pit gain and annular capacity",
+                "required_inputs": ["pit_gain_bbl", "annular_capacity_bbl_ft"],
+                "engine": "WellControlEngine",
             },
         }
 
@@ -288,15 +325,66 @@ class AIToolRegistry:
                 return {"success": True, **result, "engine": "AntiCollisionEngine"}
 
             elif name == "calculate_torque_drag":
-                from core.engineering.engines.torque_drag import TorqueDragEngine
+                from core.engineering.bridge import CalculatorBridge
                 survey = kwargs.get("survey")
                 bha = kwargs.get("bha")
-                mud = kwargs.get("mud_density", 12.0)
-                ff = kwargs.get("friction_factor", 0.25)
+                mud = kwargs.get("mud_density_ppg", kwargs.get("mud_density"))
+                ff = kwargs.get("friction_factor")
                 if not survey or not bha:
                     return {"success": False, "error": "MISSING_INPUT: survey and bha required"}
-                result = TorqueDragEngine.calculate_soft_string(survey, bha, mud, ff)
-                return {"success": True, **result, "engine": "TorqueDragEngine"}
+                result = CalculatorBridge.torque_drag.calculate(survey, bha, mud, ff)
+                out = result.as_dict()
+                out["engine"] = "TorqueDragEngine"
+                return out
+
+            elif name == "calculate_kick_tolerance":
+                from core.engineering.bridge import CalculatorBridge
+                out = CalculatorBridge.kick_tolerance(**kwargs)
+                d = out.as_dict()
+                d["engine"] = "WellControlEngine"
+                return d
+
+            elif name == "calculate_trip_margin":
+                from core.engineering.bridge import CalculatorBridge
+                out = CalculatorBridge.trip_margin(**kwargs)
+                d = out.as_dict()
+                d["engine"] = "WellControlEngine"
+                return d
+
+            elif name == "calculate_mse":
+                from core.engineering.bridge import CalculatorBridge
+                out = CalculatorBridge.mse(**kwargs)
+                d = out.as_dict()
+                d["engine"] = "MSEEngine"
+                return d
+
+            elif name == "calculate_casing_strength":
+                from core.engineering.bridge import CalculatorBridge
+                out = CalculatorBridge.casing_strength(**kwargs)
+                d = out.as_dict()
+                d["engine"] = "CasingEngine"
+                return d
+
+            elif name == "calculate_cement_volumes":
+                from core.engineering.bridge import CalculatorBridge
+                out = CalculatorBridge.cement_volumes(**kwargs)
+                d = out.as_dict()
+                d["engine"] = "CementEngine"
+                return d
+
+            elif name == "calculate_mud_balance":
+                from core.engineering.bridge import CalculatorBridge
+                out = CalculatorBridge.mud_balance(**kwargs)
+                d = out.as_dict()
+                d["engine"] = "MudVolumeEngine"
+                return d
+
+            elif name == "calculate_kick_volume":
+                from core.engineering.bridge import CalculatorBridge
+                out = CalculatorBridge.kick_volume(**kwargs)
+                d = out.as_dict()
+                d["engine"] = "WellControlEngine"
+                return d
 
             else:
                 return {"success": False, "error": f"UNSUPPORTED_CALCULATION: {name} not implemented yet"}

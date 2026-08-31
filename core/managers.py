@@ -249,6 +249,70 @@ class ImportCoordinator:
         return {"status": "coordinated in dialog"}
 
 
+class DrillingManager:
+    """Thin façade so existing tabs call the canonical engineering engines.
+
+    Do not put formulas here. Delegates to core.engineering.
+    """
+
+    @staticmethod
+    def calculate_tfa(nozzles_data):
+        from core.engineering.core import BitEngine
+        sizes = []
+        if not nozzles_data:
+            return 0.0
+        for n in nozzles_data:
+            if isinstance(n, dict):
+                size = n.get("size_32nd", n.get("size", 0))
+                qty = int(n.get("quantity", n.get("qty", 1)) or 1)
+                sizes.extend([size] * qty)
+            else:
+                sizes.append(n)
+        try:
+            return BitEngine.calculate_tfa(sizes)
+        except Exception:
+            return 0.0
+
+    @staticmethod
+    def calculate_rop(depth_in, depth_out, hours):
+        from core.engineering.engines.bit_performance import BitPerformanceEngine
+        r = BitPerformanceEngine.from_run(
+            depth_in=depth_in, depth_out=depth_out, hours_on_bottom=hours, bit_size_in=1
+        )
+        if not r.success:
+            return 0.0
+        return r.values.get("rop") or 0.0
+
+    @staticmethod
+    def calculate_hsi(pump_pressure, flow_rate, bit_size):
+        """HSI requires bit pressure drop, not standpipe pressure.
+
+        Existing drilling-report UI passes SPP as a screening proxy; the
+        engine still uses the Teale/API HSI formula HHP/Ab with whatever
+        ΔP is supplied. Treat the result as screening if ΔP is SPP.
+        """
+        from core.engineering.core import BitEngine
+        try:
+            return BitEngine.calculate_hsi(flow_rate, pump_pressure, bit_size)
+        except Exception:
+            return 0.0
+
+    @staticmethod
+    def calculate_annular_velocity(flow_rate, hole_id, pipe_od):
+        from core.engineering.core import HydraulicsEngine
+        try:
+            av = HydraulicsEngine.calculate_annular_velocity(flow_rate, hole_id, pipe_od)
+            return {"ft_min": av, "m_min": av * 0.3048, "status": "OK"}
+        except Exception as exc:
+            return {"ft_min": 0, "m_min": 0, "status": str(exc)}
+
+    @staticmethod
+    def calculate_bit_revolution(rpm_avg, hours):
+        if rpm_avg is None or hours is None:
+            return 0.0
+        return rpm_avg * hours * 60.0 / 1000.0  # k.rev
+
+
 class WindowStateManager:
     """Manages window state persistence."""
 

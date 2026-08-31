@@ -1,0 +1,44 @@
+{
+  "company": "OEOC",
+  "version": "1",
+  "sheet_map": {
+    "DDR Remark": "daily_report",
+    "DDR Data": "daily_report",
+    "Service Company": "services"
+  },
+  "field_map": {
+    "Well Name": "well_info.name",
+    "Field:": "well_info.field_name",
+    "Well Type:": "well_info.well_type",
+    "Client:": "well_info.client",
+    "Operator:": "well_info.operator",
+    "Report No": "daily_report.report_number",
+    "MD (m)@ 0:00": "daily_report.depth_0000",
+    "MD (m)@ 24:00": "daily_report.depth_2400",
+    "AVG. ROP": "daily_report.avg_rop",
+    "Mud Type": "mud_report.mud_type",
+    "Mud Weight": "mud_report.mw",
+    "Funnel Vis": "mud_report.funnel_vis",
+    "PV (CP)": "mud_report.pv",
+    "YP (lb/100ft2)": "mud_report.yp",
+    "Gel 10 s": "mud_report.gel_10s",
+    "Gel 10 min": "mud_report.gel_10m",
+    "Fluid Loss": "mud_report.fl",
+    "Vol. in Hole": "mud_report.volume_hole",
+    "Lost at Surface": "mud_report.loss_surface",
+    "Lost Down Hole": "mud_report.loss_downhole"
+  },
+  "activity_map": {
+    "1": {"canonical_code": "1", "canonical_description": "Drilling", "confidence": 1.0},
+    "2": {"canonical_code": "2", "canonical_description": "Reaming / Hole conditioning", "confidence": 1.0},
+    "3": {"canonical_code": "3", "canonical_description": "Coring", "confidence": 1.0},
+    "4": {"canonical_code": "4", "canonical_description": "Circulating", "confidence": 1.0},
+    "5": {"canonical_code": "5", "canonical_description": "Tripping", "confidence": 1.0},
+    "6": {"canonical_code": "6", "canonical_description": "Rig servicing / repair", "confidence": 1.0},
+    "8": {"canonical_code": "8", "canonical_description": "Casing / cementing", "confidence": 1.0},
+    "10": {"canonical_code": "10", "canonical_description": "NPT / waiting", "confidence": 1.0},
+    "1.1": {"canonical_code": "1.1", "canonical_description": "Rotary drilling", "confidence": 1.0},
+    "5.1": {"canonical_code": "5.1", "canonical_description": "Trip out", "confidence": 1.0},
+    "5.2": {"canonical_code": "5.2", "canonical_description": "Trip in", "confidence": 1.0}
+  }
+}

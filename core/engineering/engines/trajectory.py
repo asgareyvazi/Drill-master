@@ -50,8 +50,9 @@ class TrajectoryCalculator:
     ASSUMPTIONS = [
         "Minimum Curvature Method (MCM) is used - industry standard",
         "Earth is locally flat for North/East (no convergence)",
-        "First survey at origin (0,0,0) unless specified",
-        "VS azimuth default 0 (North)",
+        "First station: N=E=0 unless tie_on provided; TVD = MD×cos(inc) (constant-inc from surface). MD=0 → TVD=0",
+        "VS = N cos(vs_azi) + E sin(vs_azi); vs_azimuth default 0 (North)",
+        "project_ahead uses Minimum Curvature and recomputes VS",
     ]
 
     @classmethod

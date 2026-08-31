@@ -1289,16 +1289,20 @@ class MudReportTab(QWidget):
             logger.warning(f"Solids+Oil+Water = {total:.1f}%, expected 100%")
 
     def update_mud_volumes(self):
+        from core.engineering.engines.mud_volume import MudVolumeEngine
         volume_in_hole = self.volume_hole.value()
         total_circulated = self.total_circulated.value()
-        # محاسبه اختلاف حجم
-        difference = total_circulated - volume_in_hole
-        if difference > 0:
-            logger.debug(f"Mud volumes: Hole={volume_in_hole:.1f} bbl, Circulated={total_circulated:.1f} bbl, Gain={difference:.1f} bbl")
-        elif difference < 0:
-            logger.debug(f"Mud volumes: Hole={volume_in_hole:.1f} bbl, Circulated={total_circulated:.1f} bbl, Loss={-difference:.1f} bbl")
+        loss = self.loss_downhole.value() + self.loss_surface.value()
+        r = MudVolumeEngine.balance(
+            active_volume_bbl=volume_in_hole,
+            additions_bbl=max(0.0, total_circulated - volume_in_hole) if total_circulated > volume_in_hole else 0.0,
+            losses_bbl=loss,
+            returns_bbl=0.0,
+        )
+        if r.success:
+            logger.debug(f"Mud volume balance: {r.values}")
         else:
-            logger.debug(f"Mud volumes balanced: {volume_in_hole:.1f} bbl")
+            logger.debug(f"Mud volume balance: {r.error}")
 
     def update_mud_losses(self):
         downhole = self.loss_downhole.value()
