@@ -1,0 +1,14 @@
+{
+  "company": "ExampleCo",
+  "version": "1",
+  "sheet_map": {
+    "Daily": "daily_report"
+  },
+  "field_map": {
+    "Well": "well_info.name",
+    "MW": "mud_report.mw"
+  },
+  "activity_map": {
+    "DRL": {"canonical_code": "1", "canonical_description": "Drilling", "confidence": 1.0}
+  }
+}

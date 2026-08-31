@@ -17,42 +17,57 @@ Every calculation has contract:
 - Error conditions
 """
 
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from typing import List, Dict, Optional, Tuple, Any
 import math
 import logging
 
+from .result import (
+    EngineeringResult,
+    EngineeringError,
+    MissingInputError,
+    UnsupportedCalculationError,
+)
+
 logger = logging.getLogger(__name__)
-
-
-class EngineeringError(Exception):
-    pass
-
-
-class MissingInputError(EngineeringError):
-    def __init__(self, field: str):
-        super().__init__(f"MISSING_INPUT: {field}")
-        self.field = field
-
-
-class UnsupportedCalculationError(EngineeringError):
-    def __init__(self, reason: str):
-        super().__init__(f"UNSUPPORTED_CALCULATION: {reason}")
-        self.reason = reason
 
 
 @dataclass
 class CalculationResult:
+    """Backward-compatible alias of EngineeringResult."""
+
     success: bool
     value: Any = None
     values: Dict[str, Any] = None
     unit: str = ""
+    formula: str = ""
+    method: str = ""
     assumptions: List[str] = None
     warnings: List[str] = None
+    validation_status: str = "ok"
+    metadata: Dict[str, Any] = None
     error: str = ""
+    scope: str = "COMPLETE"
 
     def as_dict(self):
         return asdict(self)
+
+    @classmethod
+    def from_engineering(cls, r: EngineeringResult) -> "CalculationResult":
+        return cls(
+            success=r.success,
+            value=r.value,
+            values=r.values,
+            unit=r.unit,
+            formula=r.formula,
+            method=r.method,
+            assumptions=r.assumptions,
+            warnings=r.warnings,
+            validation_status=r.validation_status,
+            metadata=r.metadata,
+            error=r.error,
+            scope=r.scope,
+        )
 
 
 # ==================== Trajectory / Survey / Minimum Curvature ====================
@@ -153,56 +168,55 @@ class TrajectoryEngine:
         return cleaned
 
     @classmethod
-    def calculate(cls, surveys: List[Dict], vs_azimuth: float = 0.0, dls_unit: str = "deg/30m") -> List[TrajectoryPoint]:
+    def calculate(
+        cls,
+        surveys: List[Dict],
+        vs_azimuth: float = 0.0,
+        dls_unit: str = "deg/30m",
+        tie_on: Optional[Dict] = None,
+    ) -> List[TrajectoryPoint]:
         """
         Calculate full trajectory using Minimum Curvature.
 
         vs_azimuth: Vertical Section azimuth (deg) for VS calculation
         dls_unit: "deg/30m" or "deg/100ft" - determines DLS scaling
+        tie_on: optional {tvd, north, east} for the first station. If omitted:
+            north = 0, east = 0,
+            TVD = MD × cos(inc)  — well assumed drilled at constant inclination
+            from a surface origin. For MD = 0 this gives TVD = 0.
         """
         inputs = cls._validate_surveys(surveys)
-        if len(inputs) == 1:
-            # Single point: TVD = MD * cos(inc) approx? Actually if only one, assume at surface
-            first = inputs[0]
-            tvd = first.md * math.cos(math.radians(first.inc)) if first.md != 0 else 0
-            return [
-                TrajectoryPoint(
-                    md=first.md,
-                    inc=first.inc,
-                    azi=first.azi,
-                    tvd=tvd,
-                    north=0,
-                    east=0,
-                    vs=0,
-                    hd=0,
-                    dls=0,
-                    build_rate=0,
-                    turn_rate=0,
-                )
-            ]
+        vs_azi_rad = math.radians(vs_azimuth)
 
-        results: List[TrajectoryPoint] = []
-        # First point at origin
-        results.append(
-            TrajectoryPoint(
-                md=inputs[0].md,
-                inc=inputs[0].inc,
-                azi=inputs[0].azi,
-                tvd=inputs[0].md,  # assuming vertical at surface, or use 0
-                north=0,
-                east=0,
-                vs=0,
-                hd=0,
+        def _first_station(pt: SurveyPointInput) -> TrajectoryPoint:
+            if tie_on:
+                tvd0 = float(tie_on.get("tvd", pt.md * math.cos(math.radians(pt.inc))))
+                n0 = float(tie_on.get("north", 0) or 0)
+                e0 = float(tie_on.get("east", 0) or 0)
+            else:
+                tvd0 = pt.md * math.cos(math.radians(pt.inc))
+                n0 = 0.0
+                e0 = 0.0
+            hd0 = math.sqrt(n0**2 + e0**2)
+            vs0 = n0 * math.cos(vs_azi_rad) + e0 * math.sin(vs_azi_rad)
+            return TrajectoryPoint(
+                md=pt.md,
+                inc=pt.inc,
+                azi=pt.azi,
+                tvd=tvd0,
+                north=n0,
+                east=e0,
+                vs=vs0,
+                hd=hd0,
                 dls=0,
                 build_rate=0,
                 turn_rate=0,
             )
-        )
-        # Adjust first TVD if inc !=0
-        if inputs[0].inc != 0:
-            results[0].tvd = inputs[0].md * math.cos(math.radians(inputs[0].inc))
 
-        vs_azi_rad = math.radians(vs_azimuth)
+        if len(inputs) == 1:
+            return [_first_station(inputs[0])]
+
+        results: List[TrajectoryPoint] = [_first_station(inputs[0])]
 
         for i in range(1, len(inputs)):
             prev = inputs[i - 1]
@@ -283,30 +297,31 @@ class TrajectoryEngine:
 
         return results
 
-    @staticmethod
-    def project_ahead(last_point: TrajectoryPoint, md_target: float, inc: float, azi: float) -> TrajectoryPoint:
-        """Project ahead from last point to target MD with constant inc/azi."""
+    @classmethod
+    def project_ahead(
+        cls,
+        last_point: TrajectoryPoint,
+        md_target: float,
+        inc: float,
+        azi: float,
+        vs_azimuth: float = 0.0,
+    ) -> TrajectoryPoint:
+        """Project ahead using Minimum Curvature from the last station.
+
+        VS is recomputed from the projected North/East and vs_azimuth
+        (not copied from the last station).
+        """
         if md_target <= last_point.md:
             raise EngineeringError("Target MD must be > last MD for projection")
-        d_md = md_target - last_point.md
-        inc_rad = math.radians(inc)
-        azi_rad = math.radians(azi)
-        d_tvd = d_md * math.cos(inc_rad)
-        d_north = d_md * math.sin(inc_rad) * math.cos(azi_rad)
-        d_east = d_md * math.sin(inc_rad) * math.sin(azi_rad)
-        return TrajectoryPoint(
-            md=md_target,
-            inc=inc,
-            azi=azi,
-            tvd=last_point.tvd + d_tvd,
-            north=last_point.north + d_north,
-            east=last_point.east + d_east,
-            vs=last_point.vs,  # simplified
-            hd=math.sqrt((last_point.north + d_north) ** 2 + (last_point.east + d_east) ** 2),
-            dls=0,
-            build_rate=0,
-            turn_rate=0,
+        pts = cls.calculate(
+            [
+                {"md": last_point.md, "inc": last_point.inc, "azi": last_point.azi},
+                {"md": md_target, "inc": inc, "azi": azi},
+            ],
+            vs_azimuth=vs_azimuth,
+            tie_on={"tvd": last_point.tvd, "north": last_point.north, "east": last_point.east},
         )
+        return pts[-1]
 
 
 # ==================== Bit & BHA ====================
@@ -488,97 +503,17 @@ class HydraulicsEngine:
 # ==================== Well Control ====================
 
 class WellControlEngine:
-    """Well control calculations with explicit contracts."""
+    """Compatibility façade. Canonical formulas live in engines.well_control."""
 
     @staticmethod
     def calculate_kill_mw(original_mw_ppg: float, sidpp_psi: float, tvd_ft: float) -> float:
-        """Kill MW = Original MW + SIDPP / (0.052 * TVD)
-
-        Source: Well Control Manual
-        """
-        if original_mw_ppg is None or sidpp_psi is None or tvd_ft is None:
-            raise MissingInputError("original_mw, sidpp, tvd required")
-        if tvd_ft <= 0:
-            raise EngineeringError("TVD must be >0")
-        return original_mw_ppg + sidpp_psi / (0.052 * tvd_ft)
+        from .engines.well_control import WellControlEngine as _WC
+        return _WC.calculate_kill_mw(original_mw_ppg, sidpp_psi, tvd_ft)
 
     @staticmethod
     def calculate_maasp(max_allowable_mw_ppg: float, current_mw_ppg: float, shoe_tvd_ft: float, leak_off_psi: float = None) -> float:
-        """MAASP = (Frac MW - Current MW) * 0.052 * Shoe TVD
-
-        If leak_off provided, frac MW = leak_off / (0.052*TVD)
-        """
-        if current_mw_ppg is None or shoe_tvd_ft is None:
-            raise MissingInputError("current_mw, shoe_tvd required")
-        if max_allowable_mw_ppg is None and leak_off_psi is None:
-            raise MissingInputError("max_allowable_mw or leak_off required")
-
-        if max_allowable_mw_ppg is None:
-            # Calculate from leak-off
-            max_allowable_mw_ppg = leak_off_psi / (0.052 * shoe_tvd_ft)
-
-        return (max_allowable_mw_ppg - current_mw_ppg) * 0.052 * shoe_tvd_ft
-
-    @staticmethod
-    def calculate_kick_tolerance(frac_pressure_psi: float, current_mw_ppg: float,
-                                  tvd_ft: float, shoe_tvd_ft: float,
-                                  influx_gradient_ppg: float = 0.1) -> Dict:
-        """Kick tolerance calculation.
-        
-        Kick tolerance is the maximum kick size that can be safely circulated
-        out without fracturing the weakest formation (usually at the shoe).
-        
-        KT_ppg = (FPP / (0.052 × Shoe_TVD)) - Current_MW
-        KT_bbl = KT_ppg × 0.052 × TVD / (MW - influx_gradient)
-        
-        Source: IWCF Well Control Manual
-        
-        Returns:
-            Dict with kick_tolerance_ppg, kick_tolerance_bbl, max_influx_height_ft
-        """
-        if frac_pressure_psi is None or current_mw_ppg is None or tvd_ft is None or shoe_tvd_ft is None:
-            raise MissingInputError("frac_pressure, current_mw, tvd, shoe_tvd required")
-        if shoe_tvd_ft <= 0 or tvd_ft <= 0:
-            raise EngineeringError("Shoe TVD and TVD must be >0")
-        
-        frac_gradient_ppg = frac_pressure_psi / (0.052 * shoe_tvd_ft)
-        kt_ppg = frac_gradient_ppg - current_mw_ppg
-        
-        # Maximum kick height in feet
-        if (current_mw_ppg - influx_gradient_ppg) > 0:
-            max_influx_height = kt_ppg * tvd_ft / (current_mw_ppg - influx_gradient_ppg)
-        else:
-            max_influx_height = 0
-        
-        # Approximate kick volume in bbl (using annular capacity ≈ 0.05 bbl/ft for 12.25" hole)
-        kick_volume_bbl = max_influx_height * 0.05  # rough approximation
-        
-        return {
-            "kick_tolerance_ppg": round(kt_ppg, 2),
-            "frac_gradient_ppg": round(frac_gradient_ppg, 2),
-            "max_influx_height_ft": round(max_influx_height, 0),
-            "kick_volume_bbl": round(kick_volume_bbl, 1),
-            "formula": "KT = FPP/(0.052×Shoe_TVD) - MW",
-        }
-
-    @staticmethod
-    def calculate_trip_margin(yp_lbf100ft2: float, tvd_ft: float, mw_ppg: float) -> float:
-        """Trip margin (swab/surge pressure equivalent).
-        
-        TM_ppg = (0.5 × YP) / (0.052 × TVD / MW)
-        
-        Source: IWCF Well Control Manual
-        
-        This is the additional mud weight needed to compensate for
-        swabbing pressure during tripping operations.
-        """
-        if yp_lbf100ft2 is None or tvd_ft is None or mw_ppg is None:
-            raise MissingInputError("yp, tvd, mw required")
-        if tvd_ft <= 0 or mw_ppg <= 0:
-            raise EngineeringError("TVD and MW must be >0")
-        
-        trip_margin = (0.5 * yp_lbf100ft2) / (0.052 * tvd_ft / mw_ppg)
-        return round(trip_margin, 2)
+        from .engines.well_control import WellControlEngine as _WC
+        return _WC.calculate_maasp(max_allowable_mw_ppg, current_mw_ppg, shoe_tvd_ft, leak_off_psi)
 
 
 # ==================== Operations Intelligence ====================

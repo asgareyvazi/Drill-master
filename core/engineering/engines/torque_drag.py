@@ -1,194 +1,439 @@
+"""Torque & Drag — Johancsik soft-string SCREENING model.
+
+Scope: PARTIAL / SCREENING MODEL
+  Not production-certified. No bending stiffness, no contact-stiffness,
+  no dynamics, no wellbore tortuosity reconstruction beyond survey stations.
+
+Governing equations (Johancsik et al., SPE 11380):
+  For an element of length ΔL, inclination I, azimuth change Δφ, build ΔI
+  (angles in radians):
+
+    Fn = [ (F Δφ sin I)² + (F ΔI + w_b ΔL sin I)² ]^0.5
+
+    Pickup:   F_top = F_bottom + w_b ΔL cos I + μ Fn
+    Slackoff: F_top = F_bottom + w_b ΔL cos I − μ Fn
+    Rotating: F_top = F_bottom + w_b ΔL cos I          (axial friction ~ 0)
+              ΔTorque = μ Fn r
+    Sliding:  same axial as pickup/slackoff, torque ~ 0
+
+Buoyancy (simple): BF = 1 − MW_ppg / 65.5   (steel ~ 65.5 ppg)
+  Closed-end / pressure-area buoyancy is NOT included.
+
+welleng / torque_drag packages, when installed, are used only as an optional
+benchmark — never as a silent calculation backend.
 """
-Torque & Drag Engine - Hookload, Tension, Torque profiles
+from __future__ import annotations
 
-Based on soft-string model knowledge from welleng and drilling engineering repos
-
-Governing Equations (Soft-string, Johancsik et al.):
-- Tension: dT = w * cos(inc) ± mu * w * sin(inc) ??? Actually simplified
-- Torque: dTorque = mu * r * N where N is normal force
-- Buckling: critical loads
-
-For now, explicit contract with MISSING_INPUT if required data missing, and fallback to adapter
-
-Future: full implementation after welleng benchmark
-"""
-
-from typing import List, Dict, Optional
 import math
-from ..core import MissingInputError, UnsupportedCalculationError
+from typing import Dict, List, Optional
+
+from ..result import (
+    EngineeringResult,
+    MissingInputError,
+    EngineeringError,
+    ok,
+    missing,
+    failed,
+    require_number,
+    optional_number,
+)
+
+STEEL_PPG = 65.5
+E_STEEL_PSI = 30.0e6
+
+
+def _shortest_rad(a_deg: float, b_deg: float) -> float:
+    d = (b_deg - a_deg + 540.0) % 360.0 - 180.0
+    return math.radians(d)
 
 
 class TorqueDragEngine:
-    """
-    Torque & Drag calculations.
-
-    Required inputs:
-    - Survey: list of {md, inc, azi, tvd, north, east}
-    - BHA / Drillstring: list of {od, id, length, weight}
-    - Wellbore geometry: hole size per section
-    - Mud density: ppg
-    - Friction factor: dimensionless (e.g. 0.25)
-
-    Outputs:
-    - Hookload
-    - Tension profile
-    - Torque profile
-    - Buckling check
-
-    Units:
-    - Length: m, Diameter: inch, Pressure: psi, Density: ppg, Force: klbf, Torque: ft_lbf
-
-    Assumptions:
-    - Soft-string model (no bending stiffness) unless welleng used
-    - Constant friction factor per section unless specified
-    - Static, no dynamics
-
-    Validation:
-    - Survey required, monotonic MD
-    - BHA required
-    - Friction factor in [0,1]
-    """
-
+    METHOD = "Johancsik soft-string (SPE 11380) — SCREENING"
+    SCOPE = "PARTIAL"
     REQUIRED_INPUTS = {
-        "survey": "List of trajectory points {md, inc, azi, tvd}",
-        "bha": "List of BHA components {od, id, length, weight}",
-        "hole_size": "Hole diameter, inch (or per section)",
-        "mud_density": "Mud weight, ppg",
-        "friction_factor": "Friction factor, dimensionless 0-1 (default 0.25)",
+        "survey": "List of {md, inc, azi} — md in m, angles in deg",
+        "bha": "List of {length_m, weight_ppf, od_in} from bit to surface",
+        "mud_density_ppg": "Mud weight, ppg",
+        "friction_factor": "Dimensionless, 0–1, no default",
     }
-
     OUTPUTS = {
-        "hookload_pickup": "Hookload while picking up, klbf",
-        "hookload_slackoff": "Hookload while slacking off, klbf",
-        "hookload_rotating": "Hookload while rotating, klbf",
-        "tension_profile": "Tension vs MD, list of {md, tension}",
-        "torque_profile": "Torque vs MD, list of {md, torque}",
-        "buckling": "Buckling check per section",
+        "hookload_pickup_klbf": "klbf",
+        "hookload_slackoff_klbf": "klbf",
+        "hookload_rotating_klbf": "klbf",
+        "surface_torque_rotating_ft_lbf": "ft·lbf",
+        "tension_profile": "list {md_m, pickup, slackoff, rotating} klbf",
+        "torque_profile": "list {md_m, rotating_ft_lbf}",
     }
 
     @staticmethod
-    def _validate_inputs(survey, bha, friction_factor):
+    def _validate(survey, bha, mud_density_ppg, friction_factor):
         if not survey:
             raise MissingInputError("survey")
         if not bha:
-            raise MissingInputError("bha / drillstring")
-        if friction_factor is None:
-            friction_factor = 0.25
-        try:
-            ff = float(friction_factor)
-            if not (0 <= ff <= 1):
-                raise ValueError("Friction factor must be in [0,1]")
-        except (TypeError, ValueError) as exc:
-            raise ValueError(f"Invalid friction_factor: {exc}") from exc
-        return ff
+            raise MissingInputError("bha")
+        ff = require_number(friction_factor, "friction_factor")
+        if not (0.0 <= ff <= 1.0):
+            raise EngineeringError("friction_factor must be in [0, 1]")
+        mud = require_number(mud_density_ppg, "mud_density_ppg")
+        if mud <= 0:
+            raise EngineeringError("mud_density_ppg must be > 0")
+        if len(survey) < 2:
+            raise MissingInputError("survey (at least 2 stations)")
+        return ff, mud
 
     @classmethod
-    def calculate_soft_string(cls, survey: List[Dict], bha: List[Dict], mud_density_ppg: float = 12.0, friction_factor: float = 0.25) -> Dict:
-        """Simplified soft-string model for demonstration - not production certified.
+    def calculate_soft_string(
+        cls,
+        survey: List[Dict],
+        bha: List[Dict],
+        mud_density_ppg,
+        friction_factor,
+        wob_klbf: float = 0.0,
+        wellbore_id_in=None,
+    ) -> Dict:
+        """Return a dict for backward compatibility, wrapping the result values.
 
-        Real implementation should use welleng or validated torque_drag package after benchmark.
-
-        For now, returns UNSUPPORTED if full profile requested without welleng, with clear message.
+        Prefer calculate() which returns EngineeringResult.
         """
-        ff = cls._validate_inputs(survey, bha, friction_factor)
+        result = cls.calculate(
+            survey, bha, mud_density_ppg, friction_factor, wob_klbf, wellbore_id_in
+        )
+        if not result.success:
+            raise EngineeringError(result.error)
+        return result.values
 
-        if not survey or len(survey) < 2:
-            raise MissingInputError("At least 2 survey points required for T&D")
+    @classmethod
+    def calculate(
+        cls,
+        survey: List[Dict],
+        bha: List[Dict],
+        mud_density_ppg,
+        friction_factor,
+        wob_klbf: float = 0.0,
+        wellbore_id_in=None,
+    ) -> EngineeringResult:
+        try:
+            ff, mud = cls._validate(survey, bha, mud_density_ppg, friction_factor)
+            from ..core import TrajectoryEngine
 
-        # Simplified: calculate buoyed weight and approximate drag
-        # Buoyed weight factor = 1 - (mud_density / steel_density), steel ~65.5 ppg (approx 7.85 SG *8.345)
-        steel_density_ppg = 65.5
-        buoy_factor = 1 - (mud_density_ppg / steel_density_ppg) if mud_density_ppg else 1.0
+            traj = TrajectoryEngine.calculate(survey)
+            bf = 1.0 - mud / STEEL_PPG
+            if bf <= 0:
+                raise EngineeringError("Mud density ≥ steel density — buoyancy factor ≤ 0")
 
-        total_length = sum(float(comp.get("length", 0) or 0) for comp in bha)
-        # Assume average weight 19.5 ppf if not provided
-        total_weight_klbf = 0
-        for comp in bha:
-            length_ft = float(comp.get("length", 0) or 0) * 3.28084
-            weight_ppf = float(comp.get("weight", 19.5) or 19.5)
-            # If weight is in kg/m, approximate? Keep as ppf for now
-            total_weight_klbf += (weight_ppf * length_ft / 1000) * buoy_factor
+            string = cls._expand_string(bha, traj)
+            hole_id = optional_number(wellbore_id_in, "wellbore_id_in")
+            wob = (optional_number(wob_klbf, "wob_klbf") or 0.0) * 1000.0  # lbf
 
-        # Simplified hookload estimates
-        # Pickup = buoyed weight + drag, Slackoff = buoyed weight - drag
-        # Drag approx = ff * normal force, normal ~ weight * sin(inc_avg)
-        avg_inc = sum(float(p.get("inc", 0) or 0) for p in survey) / len(survey)
-        avg_inc_rad = math.radians(avg_inc)
-        normal_factor = math.sin(avg_inc_rad)
-        drag = ff * total_weight_klbf * normal_factor
+            pickup = cls._integrate(string, traj, ff, bf, mode="pickup", wob_lbf=wob)
+            slack = cls._integrate(string, traj, ff, bf, mode="slackoff", wob_lbf=wob)
+            rot = cls._integrate(string, traj, ff, bf, mode="rotating", wob_lbf=wob)
+            slide = cls._integrate(string, traj, ff, bf, mode="sliding", wob_lbf=wob)
 
-        hookload_pickup = total_weight_klbf + drag
-        hookload_slackoff = total_weight_klbf - drag
-        hookload_rotating = total_weight_klbf  # no axial drag when rotating
+            buckling = cls._buckling_flags(string, slack["elements"], hole_id, bf, traj)
+            stretch = cls._axial_stretch(rot["elements"])
+            twist = cls._twist(rot["elements"])
+            np_md = cls._neutral_point_md(slack["elements"])
 
-        # Tension profile: linear approx from bit to surface
-        tension_profile = []
-        current_tension = 0
-        # Bottom-up
-        for i, comp in enumerate(reversed(bha)):
-            length = float(comp.get("length", 0) or 0)
-            weight_ppf = float(comp.get("weight", 19.5) or 19.5)
-            length_ft = length * 3.28084
-            comp_weight = (weight_ppf * length_ft / 1000) * buoy_factor
-            current_tension += comp_weight
-            # Find MD for this component
-            md = total_length - sum(float(c.get("length", 0) or 0) for c in list(reversed(bha))[:i])
-            tension_profile.append({"md": round(md, 2), "tension": round(current_tension, 2), "component": comp.get("component_name", comp.get("component", ""))})
+            warnings = [
+                "PARTIAL / SCREENING MODEL — not production-certified",
+                "Soft-string (no bending stiffness, no tool-joint effects)",
+                "Simple buoyancy BF = 1 − MW/65.5 (no pressure-area term)",
+                "Constant friction factor along the well",
+                "Static analysis only — not stiff-string, contact, or dynamics",
+            ]
+            if buckling["any"]:
+                warnings.append("Dawson-Paslay screening: compression exceeds sinusoidal buckling load in one or more elements")
 
-        tension_profile = list(reversed(tension_profile))
+            values = {
+                "hookload_pickup": round(pickup["surface_klbf"], 2),
+                "hookload_slackoff": round(slack["surface_klbf"], 2),
+                "hookload_rotating": round(rot["surface_klbf"], 2),
+                "hookload_sliding": round(slide["surface_klbf"], 2),
+                "surface_torque_rotating_ft_lbf": round(rot["surface_torque_ft_lbf"], 1),
+                "tension_profile": pickup["profile_force"],
+                "torque_profile": rot["profile_torque"],
+                "side_force_profile": rot["profile_sideforce"],
+                "profiles": {
+                    "pickup": pickup["profile_force"],
+                    "slackoff": slack["profile_force"],
+                    "rotating": rot["profile_force"],
+                    "sliding": slide["profile_force"],
+                },
+                "total_buoyed_weight": round(pickup["buoyed_weight_klbf"], 2),
+                "stretch_rotating_in": stretch,
+                "twist_rotating_deg": twist,
+                "neutral_point_md_m": np_md,
+                "friction_factor": ff,
+                "mud_density": mud,
+                "buoyancy_factor": round(bf, 4),
+                "buckling": buckling,
+                "method": cls.METHOD,
+                "scope": cls.SCOPE,
+                "warnings": warnings,
+                "assumptions": [
+                    "Johancsik soft-string",
+                    f"Steel density {STEEL_PPG} ppg, E={E_STEEL_PSI:.0f} psi, G=12e6 psi",
+                    "Weight of each component is required (ppf) — not defaulted",
+                    "Survey computed with Minimum Curvature",
+                    "Dawson-Paslay / Chen helical are screening flags only",
+                ],
+            }
+            return ok(
+                values["hookload_pickup"],
+                values=values,
+                unit="klbf",
+                formula="Fn=[(F Δφ sin I)²+(F ΔI + wb ΔL sin I)²]^0.5; F_top=F_bot+wb ΔL cos I ± μ Fn",
+                method=cls.METHOD,
+                assumptions=values["assumptions"],
+                warnings=warnings,
+                scope=cls.SCOPE,
+                metadata={"model": "soft-string-screening", "production_ready": False},
+            )
+        except MissingInputError as exc:
+            return missing(exc.field)
+        except EngineeringError as exc:
+            return failed(str(exc))
 
-        # Torque profile: torque = mu * r * normal
-        torque_profile = []
-        for pt in survey:
-            inc = float(pt.get("inc", 0) or 0)
-            inc_rad = math.radians(inc)
-            # Normal force approx proportional to tension * sin(inc) per unit length
-            # Simplified
-            torque = ff * 0.5 * (float(pt.get("md", 0) or 0) / total_length if total_length else 0) * total_weight_klbf * 1000 * math.sin(inc_rad)  # ft_lbf approx
-            torque_profile.append({"md": pt.get("md"), "torque": round(torque, 2)})
+    @classmethod
+    def _expand_string(cls, bha: List[Dict], traj) -> List[Dict]:
+        """Place BHA components from the bit (max MD) toward surface."""
+        bit_md = traj[-1].md
+        cursor = bit_md
+        elements = []
+        for i, comp in enumerate(bha):
+            length = require_number(comp.get("length", comp.get("length_m")), f"bha[{i}].length")
+            if length <= 0:
+                raise EngineeringError(f"bha[{i}].length must be > 0")
+            wt = optional_number(comp.get("weight", comp.get("weight_ppf")), f"bha[{i}].weight")
+            if wt is None:
+                raise MissingInputError(f"bha[{i}].weight (ppf)")
+            od = optional_number(comp.get("od", comp.get("od_in")), f"bha[{i}].od")
+            if od is None:
+                raise MissingInputError(f"bha[{i}].od")
+            id_ = optional_number(comp.get("id", comp.get("id_in")), f"bha[{i}].id") or 0.0
+            md_bottom = cursor
+            md_top = cursor - length
+            elements.append(
+                {
+                    "name": comp.get("component_name") or comp.get("component") or f"comp[{i}]",
+                    "md_bottom": md_bottom,
+                    "md_top": md_top,
+                    "length_m": length,
+                    "weight_ppf": wt,
+                    "od_in": od,
+                    "id_in": id_,
+                }
+            )
+            cursor = md_top
+        return elements
+
+    @classmethod
+    def _inc_azi_at(cls, traj, md: float):
+        if md <= traj[0].md:
+            return traj[0].inc, traj[0].azi
+        if md >= traj[-1].md:
+            return traj[-1].inc, traj[-1].azi
+        for i in range(1, len(traj)):
+            if traj[i].md >= md:
+                a, b = traj[i - 1], traj[i]
+                if b.md == a.md:
+                    return b.inc, b.azi
+                f = (md - a.md) / (b.md - a.md)
+                return a.inc + f * (b.inc - a.inc), a.azi + f * ((b.azi - a.azi + 540) % 360 - 180)
+        return traj[-1].inc, traj[-1].azi
+
+    @classmethod
+    def _integrate(cls, string, traj, ff, bf, mode: str, wob_lbf: float):
+        """Integrate from bit to surface. Force > 0 is tension."""
+        force = -wob_lbf  # compression at bit when WOB applied
+        torque = 0.0
+        buoyed = 0.0
+        profile_force = []
+        profile_torque = []
+        profile_sideforce = []
+        elements = []
+
+        for el in string:
+            inc1, azi1 = cls._inc_azi_at(traj, el["md_bottom"])
+            inc2, azi2 = cls._inc_azi_at(traj, el["md_top"])
+            d_l_ft = el["length_m"] * 3.28084
+            w_air = el["weight_ppf"] * d_l_ft  # lbf
+            w_b = w_air * bf
+            buoyed += w_b
+            i_avg = math.radians((inc1 + inc2) / 2.0)
+            d_inc = math.radians(inc2 - inc1)
+            d_azi = _shortest_rad(azi1, azi2)
+            fn = math.sqrt((force * math.sin(i_avg) * d_azi) ** 2 + (force * d_inc + w_b * math.sin(i_avg)) ** 2)
+            axial_w = w_b * math.cos(i_avg)
+            f_bot = force
+            t_bot = torque
+            if mode == "pickup":
+                force = force + axial_w + ff * fn
+            elif mode == "slackoff":
+                force = force + axial_w - ff * fn
+            elif mode == "rotating":
+                force = force + axial_w
+                r_ft = (el["od_in"] / 2.0) / 12.0
+                torque = torque + ff * fn * r_ft
+            elif mode == "sliding":
+                force = force + axial_w + ff * fn  # sliding in, treat as pickup-like drag
+            else:
+                raise EngineeringError(f"Unknown T&D mode {mode}")
+
+            rec = {
+                **el,
+                "inc_avg_deg": (inc1 + inc2) / 2.0,
+                "force_bottom_lbf": f_bot,
+                "force_top_lbf": force,
+                "fn_lbf": fn,
+                "torque_bottom_ft_lbf": t_bot,
+                "torque_top_ft_lbf": torque,
+            }
+            elements.append(rec)
+            profile_force.append(
+                {
+                    "md": round(el["md_top"], 2),
+                    "tension_klbf": round(force / 1000.0, 3),
+                    "component": el["name"],
+                }
+            )
+            profile_torque.append(
+                {
+                    "md": round(el["md_top"], 2),
+                    "torque": round(torque, 2),
+                    "component": el["name"],
+                }
+            )
+            profile_sideforce.append(
+                {
+                    "md": round(el["md_top"], 2),
+                    "side_force_lbf": round(fn, 1),
+                    "component": el["name"],
+                }
+            )
 
         return {
-            "hookload_pickup": round(hookload_pickup, 2),
-            "hookload_slackoff": round(hookload_slackoff, 2),
-            "hookload_rotating": round(hookload_rotating, 2),
-            "tension_profile": tension_profile,
-            "torque_profile": torque_profile,
-            "total_buoyed_weight": round(total_weight_klbf, 2),
-            "friction_factor": ff,
-            "mud_density": mud_density_ppg,
-            "buoyancy_factor": round(buoy_factor, 4),
-            "method": "Soft-string simplified - requires welleng benchmark for production",
-            "warnings": [
-                "This is a simplified soft-string model, not certified for critical operations",
-                "Full T&D with bending stiffness, buckling, and welleng validation required for production",
-                "Use welleng adapter after benchmark",
-            ],
-            "assumptions": [
-                "Soft-string (no bending stiffness)",
-                "Constant friction factor",
-                "Steel density 65.5 ppg",
-                "Weight assumed ppf if not specified",
-            ],
+            "surface_klbf": force / 1000.0,
+            "surface_torque_ft_lbf": torque,
+            "buoyed_weight_klbf": buoyed / 1000.0,
+            "profile_force": list(reversed(profile_force)),
+            "profile_torque": list(reversed(profile_torque)),
+            "profile_sideforce": list(reversed(profile_sideforce)),
+            "force_lbf": force,
+            "elements": elements,
         }
 
     @classmethod
-    def calculate_with_welleng(cls, survey: List[Dict], bha: List[Dict], mud_density_ppg: float = 12.0, friction_factor: float = 0.25) -> Optional[Dict]:
-        """Try welleng/torque_drag if available, fallback to soft-string."""
+    def _buckling_flags(cls, string, slack_elements, hole_id, bf, traj) -> Dict:
+        """Dawson-Paslay sinusoidal + Chen helical screening (does not change hookload).
+
+        F_sin = 2 √(EI w sinI / rc)
+        F_hel = 2√2 √(EI w sinI / rc)
+        """
+        details = []
+        any_flag = False
+        if hole_id is None:
+            return {"any": False, "details": [], "note": "wellbore_id_in not provided — buckling not checked"}
+        for el in slack_elements:
+            od = el["od_in"]
+            id_ = el["id_in"]
+            rc = (hole_id - od) / 2.0
+            inc = math.radians(el.get("inc_avg_deg") or 0.0)
+            f_comp = -min(el["force_bottom_lbf"], el["force_top_lbf"])  # compression > 0
+            if rc <= 0:
+                details.append({"component": el["name"], "flag": "no_clearance"})
+                any_flag = True
+                continue
+            ixx = math.pi / 64.0 * (od**4 - id_**4)
+            w_per_in = el["weight_ppf"] / 12.0 * bf
+            sin_i = max(math.sin(inc), 1e-6)
+            root = math.sqrt(E_STEEL_PSI * ixx * max(w_per_in, 1e-12) * sin_i / rc)
+            f_sin = 2.0 * root
+            f_hel = 2.0 * math.sqrt(2.0) * root
+            flag = "ok"
+            if f_comp > f_hel:
+                flag = "helical"
+                any_flag = True
+            elif f_comp > f_sin:
+                flag = "sinusoidal"
+                any_flag = True
+            details.append(
+                {
+                    "component": el["name"],
+                    "md_top_m": round(el["md_top"], 2),
+                    "compression_lbf": round(max(f_comp, 0.0), 0),
+                    "f_sin_lbf": round(f_sin, 0),
+                    "f_hel_lbf": round(f_hel, 0),
+                    "flag": flag,
+                }
+            )
+        return {"any": any_flag, "details": details}
+
+    @classmethod
+    def _axial_stretch(cls, elements) -> float:
+        """Σ F_avg L / (A E), inches. Tension positive (elongation)."""
+        total = 0.0
+        for el in elements:
+            od, id_ = el["od_in"], el["id_in"]
+            area = math.pi / 4.0 * (od**2 - (id_ or 0.0) ** 2)
+            if area <= 0:
+                continue
+            f_avg = 0.5 * (el["force_bottom_lbf"] + el["force_top_lbf"])
+            length_in = el["length_m"] * 3.28084 * 12.0
+            total += f_avg * length_in / (area * E_STEEL_PSI)
+        return round(total, 3)
+
+    @classmethod
+    def _twist(cls, elements) -> float:
+        """Σ T L / (J G) in degrees. G = 12e6 psi."""
+        g_psi = 12.0e6
+        total_rad = 0.0
+        for el in elements:
+            od, id_ = el["od_in"], el["id_in"] or 0.0
+            j = math.pi / 32.0 * (od**4 - id_**4)
+            if j <= 0:
+                continue
+            t_avg = 0.5 * (el["torque_bottom_ft_lbf"] + el["torque_top_ft_lbf"])
+            length_in = el["length_m"] * 3.28084 * 12.0
+            total_rad += (t_avg * 12.0) * length_in / (j * g_psi)
+        return round(math.degrees(total_rad), 3)
+
+    @classmethod
+    def _neutral_point_md(cls, elements) -> Optional[float]:
+        """MD (m) where slackoff tension crosses zero, measured from bit toward surface."""
+        prev_md, prev_f = None, None
+        for el in elements:
+            for md, f in (
+                (el["md_bottom"], el["force_bottom_lbf"]),
+                (el["md_top"], el["force_top_lbf"]),
+            ):
+                if prev_f is not None and prev_f < 0 <= f:
+                    if f == prev_f:
+                        return round(md, 2)
+                    frac = (0.0 - prev_f) / (f - prev_f)
+                    return round(prev_md + frac * (md - prev_md), 2)
+                prev_md, prev_f = md, f
+        return None
+
+    @classmethod
+    def calculate_with_welleng(cls, survey, bha, mud_density_ppg, friction_factor) -> Optional[Dict]:
+        """Optional benchmark only. Internal screening result is always the value."""
+        internal = cls.calculate(survey, bha, mud_density_ppg, friction_factor)
+        payload = internal.as_dict()
         try:
             from ..adapters.welleng_adapter import WellengAdapter
             from ..adapters.torque_drag_adapter import TorqueDragAdapter
 
-            if WellengAdapter.available() or TorqueDragAdapter.available():
-                basic = cls.calculate_soft_string(survey, bha, mud_density_ppg, friction_factor)
-                basic["welleng_available"] = WellengAdapter.available()
-                basic["torque_drag_available"] = TorqueDragAdapter.available()
-                basic["method"] = "Adapter available but using internal simplified until benchmark"
-                return basic
-            else:
-                return cls.calculate_soft_string(survey, bha, mud_density_ppg, friction_factor)
-
+            payload["values"]["welleng_available"] = WellengAdapter.available()
+            payload["values"]["torque_drag_package_available"] = TorqueDragAdapter.available()
+            payload["values"]["benchmark"] = (
+                "External packages are not used as the calculation backend. "
+                "Compare independently if installed."
+            )
         except Exception as exc:
-            return {"error": str(exc), "method": "failed, fallback to simplified", **cls.calculate_soft_string(survey, bha, mud_density_ppg, friction_factor)}
+            payload["values"]["adapter_error"] = str(exc)
+        return payload
 
     @classmethod
     def get_contract(cls) -> Dict:
@@ -203,10 +448,10 @@ class TorqueDragEngine:
                 "friction_factor": "dimensionless",
             },
             "assumptions": [
-                "Soft-string model (no bending stiffness)",
+                "Soft-string screening model",
                 "Constant friction factor",
-                "Static analysis",
+                "Simple buoyancy",
             ],
-            "validation": ["Survey non-empty and monotonic", "BHA non-empty", "Friction factor [0,1]"],
-            "error_conditions": ["MISSING_INPUT if survey/bha missing", "Invalid friction factor"],
+            "scope": cls.SCOPE,
+            "error_conditions": ["MISSING_INPUT if survey/bha/weight/od/friction/mud missing"],
         }

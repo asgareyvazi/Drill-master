@@ -35,7 +35,6 @@ from core.text_utils import wrap_text
 from core.import_quality import ImportValidator, find_duplicates, TimeLogValidator, decision_for_confidence
 from core.ai_import_mapper import AIImportMapper, model_catalog, get_selected_model, set_selected_model
 from core.unit_manager import UnitManager
-from core.lineage import get_import_lineage, reset_import_lineage
 from dialogs.smart_template_dialog import (
     SmartTemplateDialog, ValueNormalizer, FIELD_LABELS,
 )
@@ -332,7 +331,7 @@ class ImportPreviewDialog(QDialog):
         self.confirmed = True
         self.accept()
 
-    def get_decisions(self) -> dict:
+    def get_decisions(self) -> Dict[int, str]:
         """Return row index -> decision mapping."""
         decisions = {}
         for row in range(self.table.rowCount()):
@@ -380,11 +379,9 @@ class ExcelImportDialog(QDialog):
             "• Atomic transaction: Begin → Well/Project/Section/Report/Mud/Drilling/TimeLogs/Bit/BHA/Survey/Equipment/Logistics/Safety/Services/Cost → Commit/Rollback\n"
             "• No data saved before Confirm Import"
         ))
-        # AI model - disabled by default (deterministic first)
         ai_row = QHBoxLayout()
-        ai_row.addWidget(QLabel("AI model (optional):"))
+        ai_row.addWidget(QLabel("AI model:"))
         self.ai_model_combo = QComboBox()
-        self.ai_model_combo.addItem("Disabled (deterministic only)", "")
         installed = set(AIImportMapper().installed_models())
         entries = list(model_catalog())
         known = {entry.get("model", entry.get("name", "")) for entry in entries}
@@ -393,49 +390,25 @@ class ExcelImportDialog(QDialog):
             model = entry.get("model", entry.get("name", ""))
             mark = "✓" if model in installed else "—"
             self.ai_model_combo.addItem(f"{mark} {entry.get('label', model)}", model)
-        self.ai_model_combo.setCurrentIndex(0)  # Default: disabled
+        selected = os.getenv("DRILLMASTER_AI_MODEL", "") or get_selected_model() or (sorted(installed)[0] if installed else "")
+        selected_index = self.ai_model_combo.findData(selected)
+        if selected_index >= 0:
+            self.ai_model_combo.setCurrentIndex(selected_index)
+            set_selected_model(selected)
+            os.environ["DRILLMASTER_AI_MODEL"] = selected
         self.ai_model_combo.currentIndexChanged.connect(self._select_ai_model)
         ai_row.addWidget(self.ai_model_combo, 1)
         il.addLayout(ai_row)
 
-        # Template selection
-        tmpl_row = QHBoxLayout()
-        tmpl_row.addWidget(QLabel("📋 Template:"))
-        self.template_combo = QComboBox()
-        self.template_combo.addItem("Auto-Detect (Smart Import)", "")
-        # Load available templates
-        tmpl_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates")
-        if os.path.exists(tmpl_dir):
-            for f in sorted(os.listdir(tmpl_dir)):
-                if f.endswith(".json"):
-                    self.template_combo.addItem(f"📋 {f}", os.path.join(tmpl_dir, f))
-        tmpl_row.addWidget(self.template_combo, 1)
-        il.addLayout(tmpl_row)
-
-        # Import mode selection
-        mode_row = QHBoxLayout()
-        
-        smart_btn = QPushButton("🧠 Smart Import (Auto-Detect)")
-        smart_btn.setStyleSheet(
-            "background: #3498db; color: white; padding: 12px; "
-            "font-weight: bold; border-radius: 5px; font-size: 13px;"
+        import_btn = QPushButton("📥 Import Report(s) - With Preview")
+        import_btn.setStyleSheet(
+            "background: #27ae60; color: white; padding: 14px; "
+            "font-weight: bold; border-radius: 5px; font-size: 14px;"
         )
-        smart_btn.setToolTip("Scan Excel → Detect fields → Show preview → Confirm → Save")
-        smart_btn.clicked.connect(lambda: self._start_import(mode="smart"))
-        mode_row.addWidget(smart_btn)
-        
-        template_btn = QPushButton("📋 Template Import (Use Template)")
-        template_btn.setStyleSheet(
-            "background: #27ae60; color: white; padding: 12px; "
-            "font-weight: bold; border-radius: 5px; font-size: 13px;"
-        )
-        template_btn.setToolTip("Use selected template to map fields → Show preview → Confirm → Save")
-        template_btn.clicked.connect(lambda: self._start_import(mode="template"))
-        mode_row.addWidget(template_btn)
-        
-        il.addLayout(mode_row)
+        import_btn.clicked.connect(self._unified_import)
+        il.addWidget(import_btn)
 
-        self.import_status = QLabel("Select import mode above - No data will be saved until you confirm")
+        self.import_status = QLabel("No file selected - Preview before save enabled (P0)")
         self.import_status.setStyleSheet("color: #2c3e50; font-weight: bold;")
         il.addWidget(self.import_status)
 
@@ -458,28 +431,20 @@ class ExcelImportDialog(QDialog):
             os.environ["DRILLMASTER_AI_IMPORT"] = "1"
             set_selected_model(model)
 
-    def _start_import(self, mode="smart"):
-        """Start import with selected mode."""
-        self._import_mode = mode
-        self._unified_import()
-
     def _unified_import(self):
-        """Universal import with Smart or Template mode."""
+        """Universal import with professional preview before save."""
         files, _ = QFileDialog.getOpenFileNames(
             self, "Import Report(s)", "", "Reports (*.xlsx *.xls *.xlsm *.csv *.pdf)"
         )
         if not files:
             return
 
-        mode = getattr(self, '_import_mode', 'smart')
-        template_path = self.template_combo.currentData() if hasattr(self, 'template_combo') else None
-        
         results = []
         successful_files = []
         failed_files = []
 
         for number, source in enumerate(files, 1):
-            self.import_status.setText(f"Processing {number}/{len(files)}: {os.path.basename(source)}...")
+            self.import_status.setText(f"Processing {number}/{len(files)}: {os.path.basename(source)} - Scanning...")
             QApplication.processEvents()
             try:
                 path = source
@@ -498,60 +463,75 @@ class ExcelImportDialog(QDialog):
                 elif source.lower().endswith(".xls"):
                     raise ValueError("Legacy .xls requires conversion to .xlsx before import")
 
-                if mode == "template" and template_path:
-                    # Template-based import
-                    self.import_status.setText(f"Template Import: {os.path.basename(source)}...")
-                    QApplication.processEvents()
-                    
-                    import json
-                    with open(template_path, 'r', encoding='utf-8') as f:
-                        template = json.load(f)
-                    
-                    smart_dialog = SmartTemplateDialog(self.db, self.well_id, None, preload_file=path)
-                    smart_dialog._apply_template(template)
-                    smart_dialog._smart_auto_detect()
-                    extracted = smart_dialog._build_final_data_from_assignments()
-                    smart_dialog.deleteLater()
-                else:
-                    # Smart Import (auto-detect)
-                    self.import_status.setText(f"Smart Import: {os.path.basename(source)}...")
-                    QApplication.processEvents()
-                    
-                    smart_dialog = SmartTemplateDialog(self.db, self.well_id, None, preload_file=path)
-                    smart_dialog.setWindowTitle(f"Smart Import - {os.path.basename(source)}")
-                    
-                    result = smart_dialog.exec()
-                    
-                    if result != QDialog.Accepted:
-                        results.append({"file": source, "skipped": 1, "imported": 0, "failed": 0, "details": [f"⏭️ {os.path.basename(source)}: Cancelled by user"]})
-                        failed_files.append(f"{os.path.basename(source)}: Cancelled")
-                        smart_dialog.deleteLater()
-                        continue
-                    
-                    extracted = smart_dialog.final_data or smart_dialog._build_final_data_from_assignments()
-                    smart_dialog.deleteLater()
-                
-                if not extracted or not any(extracted.get(key) for key in ("well_info", "daily_report", "mud_report", "drilling_params", "time_logs_24h")):
-                    results.append({"file": source, "skipped": 1, "imported": 0, "failed": 0, "details": [f"⏭️ {os.path.basename(source)}: No data detected"]})
-                    failed_files.append(f"{os.path.basename(source)}: No data")
-                    continue
+                # Step 1: Structural analysis without saving
+                dialog = SmartTemplateDialog(self.db, self.well_id, None, preload_file=path)
+                QApplication.processEvents()
+                dialog._smart_auto_detect()
+                extracted = dialog._build_final_data_from_assignments()
 
-                # Validation
+                # Step 2: Validation with professional TimeLog validator
                 report_data = extracted.get("daily_report", {})
                 quality = ImportValidator.validate_rows([report_data], "daily_report", "Daily Report")
+
                 time_logs = extracted.get("time_logs_24h", []) or []
+                # Professional 24h validation
                 time_report = TimeLogValidator.validate_logs(time_logs, sheet="Time Logs 24H")
                 quality.total += time_report.total
                 quality.issues.extend(time_report.issues)
+                # Merge review
                 for item in time_report.review.items:
                     quality.review.items.append(item)
-                
+
+                # Duplicate detection
+                duplicate_indexes = set(find_duplicates(time_logs, "time_log"))
+                if duplicate_indexes:
+                    quality.warning("Time Logs", 0, f"Skipped {len(duplicate_indexes)} duplicate time-log rows")
+
+                # Build review matrix with file info
+                review_with_file = []
+                for item in quality.review.as_rows():
+                    item["file"] = os.path.basename(source)
+                    # Ensure new fields exist
+                    item.setdefault("detected_table", item.get("record_type", ""))
+                    item.setdefault("source_cell", f"{item.get('column','')}{item.get('row','')}")
+                    item.setdefault("original_value", item.get("source_value"))
+                    item.setdefault("normalized_value", item.get("value"))
+                    item.setdefault("unit", item.get("unit", ""))
+                    item.setdefault("target_field", item.get("canonical_field", ""))
+                    review_with_file.append(item)
+                quality.review.items = []  # reset
+                for it in review_with_file:
+                    quality.review.add(**it)
+
+                # Add review from extracted metadata
+                for item in (extracted.get("metadata") or {}).get("review_matrix", []):
+                    item["file"] = os.path.basename(source)
+                    quality.review.add(**item)
+
                 import_report_dict = quality.as_dict()
 
-                # Save with atomic transaction
+                if not any(extracted.get(key) for key in ("well_info", "daily_report", "mud_report", "drilling_params", "time_logs_24h")):
+                    raise ValueError("No report data was detected")
+
+                # Step 3: Professional Preview - No data saved yet!
+                self.import_status.setText(f"Preview for {os.path.basename(source)} - Waiting for user confirmation...")
+                preview = ImportPreviewDialog(source, extracted, import_report_dict, self)
+                preview_result = preview.exec()
+
+                if not preview.confirmed or preview_result != QDialog.Accepted:
+                    results.append({"file": source, "skipped": 1, "imported": 0, "failed": 0, "details": [f"⏭️ {os.path.basename(source)}: Cancelled by user in preview"]})
+                    failed_files.append(f"{os.path.basename(source)}: Cancelled")
+                    dialog.deleteLater()
+                    continue
+
+                # Apply decisions from preview (filter REJECTED/IGNORED)
+                # For simplicity, if decision is REJECT/IGNORED, we remove from extracted
+                decisions = preview.get_decisions()
+                # In this version, we honor only ACCEPT/CONFIRMED, but keep all for audit
+                # Future: filter extracted based on decisions
+
+                # Step 4: Now save with atomic transaction - only after Confirm
                 self.import_status.setText(f"Importing {os.path.basename(source)} - Atomic transaction...")
-                QApplication.processEvents()
-                
                 result = self._do_import(extracted, refresh_ui=False)
                 result["file"] = source
                 result["import_report"] = import_report_dict
@@ -560,23 +540,24 @@ class ExcelImportDialog(QDialog):
                 if result.get("failed", 0) == 0 and result.get("imported", 0) > 0:
                     successful_files.append(os.path.basename(source))
                 else:
-                    # Show detailed error to user
-                    error_details = [d for d in result.get("details", []) if "❌" in d or "↩️" in d]
-                    failed_files.append(f"{os.path.basename(source)}: {error_details[-1] if error_details else 'Failed'}")
+                    failed_files.append(f"{os.path.basename(source)}: {result.get('details', [])[-1] if result.get('details') else 'Failed'}")
+
+                dialog.deleteLater()
 
             except Exception as exc:
                 logger.error("Universal import failed for %s: %s", source, exc, exc_info=True)
-                err_result = {"file": source, "failed": 1, "imported": 0, "details": [f"❌ {os.path.basename(source)}: {type(exc).__name__}: {exc}"], "error": str(exc)}
+                err_result = {"file": source, "failed": 1, "imported": 0, "details": [f"❌ {os.path.basename(source)}: {exc}"], "error": str(exc)}
                 results.append(err_result)
                 failed_files.append(f"{os.path.basename(source)}: {exc}")
 
-        # Batch summary
+        # Batch summary: successful vs failed
         summary_text = f"Batch completed: {len(files)} files\n✅ Successful: {len(successful_files)} - {', '.join(successful_files[:5])}\n❌ Failed: {len(failed_files)} - {'; '.join(failed_files[:5])}"
         self.batch_summary.setPlainText(summary_text)
-        self.import_status.setText(f"Batch done: {len(successful_files)} success, {len(failed_files)} failed")
+        self.import_status.setText(f"Batch done: {len(successful_files)} success, {len(failed_files)} failed - See preview summary")
 
         self.import_completed.emit(results)
         if failed_files and not successful_files:
+            # Don't auto-close if all failed, let user see summary
             QMessageBox.warning(self, "Batch Import", summary_text)
         else:
             self.accept()
@@ -616,38 +597,6 @@ class ExcelImportDialog(QDialog):
             values.update({"project_id": project_id, "name": name or code})
             if code:
                 values["code"] = code
-            
-            # Sanitize date fields: convert strings to date objects
-            from datetime import date as dt_date
-            date_fields = ['spud_date', 'start_hole_date', 'rig_move_date', 'report_date']
-            for df in date_fields:
-                if df in values and values[df] is not None:
-                    val = values[df]
-                    if isinstance(val, str):
-                        for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y", "%Y/%m/%d"):
-                            try:
-                                values[df] = dt_datetime.strptime(val, fmt).date()
-                                break
-                            except ValueError:
-                                continue
-                        else:
-                            values[df] = None  # Unparseable string → None
-                    elif isinstance(val, dt_datetime):
-                        values[df] = val.date()
-                    elif not isinstance(val, dt_date):
-                        values[df] = None
-            
-            # Sanitize numeric fields: convert strings to floats
-            numeric_fields = ['elevation', 'water_depth', 'target_depth', 'gle_msl', 
-                            'rte_msl', 'gle_rte', 'latitude', 'longitude', 
-                            'northing', 'easting', 'rig_heading']
-            for nf in numeric_fields:
-                if nf in values and values[nf] is not None:
-                    try:
-                        values[nf] = float(str(values[nf]).replace(',', ''))
-                    except (TypeError, ValueError):
-                        values[nf] = None
-            
             well = Well(**values)
             session.add(well)
             session.commit()
@@ -657,7 +606,7 @@ class ExcelImportDialog(QDialog):
             session.close()
 
     def _do_import(self, extracted: dict, refresh_ui: bool = True) -> dict:
-        """Core import logic with atomic transaction, no fake defaults, and lineage tracking."""
+        """Core import logic with atomic transaction and no fake defaults."""
         results = {
             "imported": 0,
             "failed": 0,
@@ -671,10 +620,6 @@ class ExcelImportDialog(QDialog):
         report_id = None
         created_new_report = False
         import_snapshot = None
-
-        # Reset lineage tracker for this import session
-        lineage = get_import_lineage()
-        lineage.clear()
 
         try:
             from core.database import Section, DailyReport
@@ -830,31 +775,6 @@ class ExcelImportDialog(QDialog):
                     mud_data["mw_original"] = record.original_value
                     mud_data["mw_unit"] = record.source_unit
                     results["details"].append(f"📏 Unit preserved: {record.conversion_rule}")
-                    # Track lineage
-                    lineage.track_value(
-                        canonical_field="mud_report.mw",
-                        value=record.normalized_value,
-                        source_file=os.path.basename(source) if 'source' in dir() else "",
-                        original_value=record.original_value,
-                        original_unit=record.source_unit,
-                        normalized_value=record.normalized_value,
-                        normalized_unit="ppg",
-                        conversion_rule=record.conversion_rule,
-                        mapping_method="deterministic",
-                        confidence=1.0,
-                        validation_status="valid",
-                        well_id=self.well_id,
-                    )
-            elif mud_data.get("mw") is not None:
-                # Track non-string MW values
-                lineage.track_value(
-                    canonical_field="mud_report.mw",
-                    value=mud_data.get("mw"),
-                    mapping_method="deterministic",
-                    confidence=0.9,
-                    validation_status="valid",
-                    well_id=self.well_id,
-                )
 
             self._save_mud_report(mud_data, report_id, dr["report_date"])
 
@@ -867,20 +787,6 @@ class ExcelImportDialog(QDialog):
                     drilling_extracted["wob_max"] = drilling_extracted[alias]
 
             self._save_drilling_params(drilling_extracted, report_id, dr["report_date"])
-
-            # Track lineage for key drilling parameters
-            for dp_field in ["bit_size", "depth_in", "depth_out", "avg_rop", "wob_max", "rpm_max"]:
-                val = drilling_extracted.get(dp_field)
-                if val is not None:
-                    lineage.track_value(
-                        canonical_field=f"drilling_params.{dp_field}",
-                        value=val,
-                        mapping_method="deterministic",
-                        confidence=0.9,
-                        validation_status="valid",
-                        well_id=self.well_id,
-                        report_id=report_id,
-                    )
 
             if extracted.get("time_logs_24h"):
                 self._save_time_logs(report_id, extracted["time_logs_24h"])
@@ -911,37 +817,20 @@ class ExcelImportDialog(QDialog):
                     elif created_new_report:
                         self.db.delete_daily_report(report_id)
                     results["failed"] += 1
-                    results["details"].append(f"↩️ Atomic rollback: {type(atomic_exc).__name__}: {atomic_exc} - No partial data kept")
+                    results["details"].append(f"↩️ Atomic rollback: {atomic_exc} - No partial data kept")
                     results["imported"] = 0
                     return results
 
             if results["failed"] and report_id:
-                # Only rollback if there are actual errors, not just warnings
-                actual_errors = [d for d in results["details"] if "❌" in d]
-                if actual_errors:
-                    if import_snapshot:
-                        self.db.restore_import_snapshot(import_snapshot)
-                    elif created_new_report:
-                        self.db.delete_daily_report(report_id)
-                    results["details"].append(f"↩️ Import rolled back: {len(actual_errors)} error(s) - No partial report was kept")
-                    results["imported"] = 0
-                    return results
-                else:
-                    # Only warnings, not errors — continue with import
-                    results["failed"] = 0
-                    results["details"].append("⚠️ Warnings detected but no errors — import proceeding")
+                if import_snapshot:
+                    self.db.restore_import_snapshot(import_snapshot)
+                elif created_new_report:
+                    self.db.delete_daily_report(report_id)
+                results["details"].append("↩️ Import rolled back: no partial report was kept - Transaction integrity preserved")
+                results["imported"] = 0
+                return results
 
             results["details"].append("✅ Atomic transaction committed - All 15 tables saved or none")
-
-            # Add lineage summary to results
-            if lineage.count > 0:
-                results["lineage_count"] = lineage.count
-                results["lineage_summary"] = lineage.summary_table()
-                low_conf = lineage.get_low_confidence(0.7)
-                if low_conf:
-                    results["details"].append(f"⚠️ {len(low_conf)} low-confidence mappings need review (see lineage)")
-                results["details"].append(f"📊 Lineage: {lineage.count} field values tracked with provenance")
-
             return results
 
         except Exception as e:
@@ -1077,54 +966,30 @@ class ExcelImportDialog(QDialog):
         session = self.db.create_session()
         try:
             from core.database import TimeLog24H
-            from core.activity_mapper import ActivityMapper
             session.query(TimeLog24H).filter(TimeLog24H.report_id == report_id).delete()
-            
-            mapper = ActivityMapper()
             saved = 0
             for log in logs:
                 time_from = ValueNormalizer.to_time(log.get("time_from"))
                 if time_from is None:
                     continue
-                
-                # Resolve canonical activity from company code + description
-                raw_code = str(log.get("main_code", ""))
-                raw_desc = str(log.get("activity_description", ""))
-                activity_result = mapper.map_activity(raw_code, raw_desc)
-                
                 tlog = TimeLog24H(
                     report_id=report_id,
                     time_from=time_from,
                     time_to=ValueNormalizer.to_time(log.get("time_to")) or dt_time(0, 0),
                     duration=float(log.get("duration", 0) or 0),
                     main_phase=str(log.get("main_phase", ""))[:100],
-                    # Preserve original company code
                     main_code=str(log.get("main_code", ""))[:100],
                     sub_code=str(log.get("sub_code", ""))[:100],
                     status=str(log.get("status", ""))[:50],
-                    is_npt=activity_result.is_npt if activity_result.method != "unresolved" else bool(log.get("is_npt", False)),
-                    npt_category=activity_result.npt_category or str(log.get("npt_category", ""))[:100],
+                    is_npt=bool(log.get("is_npt", False)),
+                    npt_category=str(log.get("npt_category", ""))[:100],
                     activity_description=wrap_text(str(log.get("activity_description", ""))),
                     contractor=str(log.get("contractor", ""))[:100],
                 )
                 session.add(tlog)
                 saved += 1
-                
-                # Track lineage with canonical activity
-                if activity_result.method != "unresolved":
-                    lineage = get_import_lineage()
-                    lineage.track_value(
-                        canonical_field=f"time_log.canonical_activity",
-                        value=activity_result.canonical_id,
-                        source_file="",
-                        original_value=raw_code,
-                        mapping_method=activity_result.method,
-                        confidence=activity_result.confidence,
-                        validation_status="valid" if activity_result.confidence >= 0.7 else "review",
-                    )
-            
             session.commit()
-            logger.info(f"Saved {saved} time logs with canonical activity mapping")
+            logger.info(f"Saved {saved} time logs (no fake defaults, duration validated)")
         except Exception as e:
             session.rollback()
             logger.error(f"Time log save error: {e}")

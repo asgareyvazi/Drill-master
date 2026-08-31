@@ -354,75 +354,52 @@ class SurveyDataTab(QWidget):
             self.table_manager.import_from_csv(filename)
     
     def calculate_trajectory(self):
-        if self.survey_table.rowCount() < 2:
-            QMessageBox.warning(self, "Error", "At least 2 survey points are required")
+        if self.survey_table.rowCount() < 1:
+            QMessageBox.warning(self, "Error", "At least 1 survey point is required")
             return
-        survey_points = []
+        from core.engineering.core import TrajectoryEngine
+        surveys = []
+        rows = []
         for row in range(self.survey_table.rowCount()):
             md_item = self.survey_table.item(row, 1)
             inc_item = self.survey_table.item(row, 2)
             azi_item = self.survey_table.item(row, 3)
             if md_item and inc_item and azi_item:
                 try:
-                    md = float(md_item.text())
-                    inc = float(inc_item.text())
-                    azi = float(azi_item.text())
-                    survey_points.append({'row': row, 'md': md, 'inc': inc, 'azi': azi})
+                    surveys.append({
+                        "md": float(md_item.text()),
+                        "inc": float(inc_item.text()),
+                        "azi": float(azi_item.text()),
+                    })
+                    rows.append(row)
                 except ValueError:
                     QMessageBox.warning(self, "Error", f"Invalid data in row {row+1}")
                     return
-        survey_points.sort(key=lambda x: x['md'])
-        
-        tvd = north = east = vs = hd = dls = 0.0
-        if survey_points and survey_points[0]['row'] == 0:
-            self.update_row_calculations(0, tvd, north, east, vs, hd, dls)
-        
-        for i in range(1, len(survey_points)):
-            prev = survey_points[i-1]
-            curr = survey_points[i]
-            md1, inc1, azi1 = prev['md'], prev['inc'], prev['azi']
-            md2, inc2, azi2 = curr['md'], curr['inc'], curr['azi']
-            inc1_rad = math.radians(inc1)
-            inc2_rad = math.radians(inc2)
-            azi1_rad = math.radians(azi1)
-            azi2_rad = math.radians(azi2)
-            delta_md = md2 - md1
-            if delta_md <= 0:
-                QMessageBox.warning(self, "Error", f"MD must increase (row {curr['row']+1})")
-                return
-            cos_beta = (math.sin(inc1_rad) * math.sin(inc2_rad) * math.cos(azi2_rad - azi1_rad) + 
-                        math.cos(inc1_rad) * math.cos(inc2_rad))
-            cos_beta = max(-1.0, min(1.0, cos_beta))
-            beta = math.acos(cos_beta)
-            rf = 1.0 if abs(beta) < 1e-10 else 2.0 / beta * math.tan(beta / 2.0)
-            delta_tvd = 0.5 * delta_md * (math.cos(inc1_rad) + math.cos(inc2_rad)) * rf
-            delta_north = 0.5 * delta_md * (math.sin(inc1_rad) * math.cos(azi1_rad) + math.sin(inc2_rad) * math.cos(azi2_rad)) * rf
-            delta_east = 0.5 * delta_md * (math.sin(inc1_rad) * math.sin(azi1_rad) + math.sin(inc2_rad) * math.sin(azi2_rad)) * rf
-            tvd += delta_tvd
-            north += delta_north
-            east += delta_east
-            hd = math.sqrt(north**2 + east**2)
-            vs_ref_rad = 0.0
-            vs = north * math.cos(vs_ref_rad) + east * math.sin(vs_ref_rad)
-            dls_result = _calc_dls(beta, delta_md)
-            dls = dls_result["deg_per_30m"]
-            self.update_row_calculations(curr['row'], tvd, north, east, vs, hd, dls)
-        
-            if dls_result["warning"]:
-                item = self.survey_table.item(curr['row'], 9)
+        if not surveys:
+            QMessageBox.warning(self, "Error", "No valid survey points")
+            return
+        try:
+            pts = TrajectoryEngine.calculate(surveys)
+        except Exception as exc:
+            QMessageBox.warning(self, "Error", str(exc))
+            return
+        last = pts[-1]
+        for row, pt in zip(rows, pts):
+            self.update_row_calculations(row, pt.tvd, pt.north, pt.east, pt.vs, pt.hd, pt.dls)
+            if pt.dls > 8:
+                item = self.survey_table.item(row, 9)
                 if item:
                     item.setBackground(QColor(255, 200, 200))
-                    item.setToolTip(dls_result["warning"])
-        
+                    item.setToolTip(f"High DLS {pt.dls:.2f}°/30m")
         self.highlight_calculated_cells()
         QMessageBox.information(self, "Success",
-            f"Trajectory calculation completed\n\n"
+            f"Trajectory calculation completed (Minimum Curvature)\n\n"
             f"Final Results:\n"
-            f"• TVD: {tvd:.2f} m\n"
-            f"• North: {north:.2f} m\n"
-            f"• East: {east:.2f} m\n"
-            f"• HD: {hd:.2f} m")
-    
+            f"• TVD: {last.tvd:.2f} m\n"
+            f"• North: {last.north:.2f} m\n"
+            f"• East: {last.east:.2f} m\n"
+            f"• HD: {last.hd:.2f} m")
+
     def update_row_calculations(self, row, tvd, north, east, vs, hd, dls):
         self.survey_table.setItem(row, 4, QTableWidgetItem(f"{tvd:.2f}"))
         self.survey_table.setItem(row, 5, QTableWidgetItem(f"{north:.2f}"))

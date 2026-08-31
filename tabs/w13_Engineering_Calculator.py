@@ -17,7 +17,7 @@ from PySide6.QtCore import *
 from PySide6.QtGui import *
 
 from core.base_tab import DrillTabBase
-from core.managers import StatusBarManager
+from core.managers import StatusBarManager, DrillingManager
 from core.common_widgets import safe_replace_chart
 
 logger = logging.getLogger(__name__)
@@ -137,11 +137,12 @@ class DrillingCalculationEngine:
     # -------- Hydraulics --------
     @staticmethod
     def calc_annular_velocity(gpm: float, od_oh: float, od_dp: float) -> float:
-        """محاسبه سرعت آنولوس"""
-        area = od_oh**2 - od_dp**2
-        if area <= 0:
+        """Canonical HydraulicsEngine annular velocity (ft/min)."""
+        from core.engineering.core import HydraulicsEngine
+        try:
+            return round(HydraulicsEngine.calculate_annular_velocity(gpm, od_oh, od_dp), 1)
+        except Exception:
             return 0
-        return round((gpm * 24.51) / area, 1)
     
     @staticmethod
     def calc_ecd(
@@ -167,11 +168,14 @@ class DrillingCalculationEngine:
             mw=12 ppg, APL=200 psi, TVD=10000 ft
             ECD = 12 + 200/(0.052×10000) = 12 + 0.385 = 12.385 ppg
         """
-        if tvd_ft <= 0:
+        from core.engineering.core import HydraulicsEngine
+        try:
+            return round(
+                HydraulicsEngine.calculate_ecd(mw_ppg, annular_pressure_loss_psi, tvd_ft),
+                3,
+            )
+        except Exception:
             return mw_ppg
-
-        ecd = mw_ppg + annular_pressure_loss_psi / (0.052 * tvd_ft)
-        return round(ecd, 3)
 
     # همچنین این تابع جدید را اضافه کن:
     @staticmethod
@@ -302,9 +306,11 @@ class DrillingCalculationEngine:
     
     @staticmethod
     def calc_bit_hsi(gpm: float, delta_p: float, bit_od: float) -> float:
-        if bit_od <= 0:
+        from core.engineering.core import BitEngine
+        try:
+            return round(BitEngine.calculate_hsi(gpm, delta_p, bit_od), 2)
+        except Exception:
             return 0
-        return round(gpm * delta_p / (1346 * bit_od), 2)
     
     @staticmethod
     def calc_jet_velocity(gpm: float, nozzle_sizes: list) -> float:
@@ -448,50 +454,41 @@ class DrillingCalculationEngine:
     
     @staticmethod
     def calc_mud_weight_increase(current_mw, target_mw, system_vol, 
-                                 additive_density=1470) -> dict:
-        """محاسبه مقدار افزودنی برای افزایش وزن گل
-        additive_density: چگالی باریت = 1470 pcf
-        """
-        if additive_density <= target_mw or target_mw <= current_mw:
-            return {"error": "Invalid inputs"}
-        
-        sacks = system_vol * 42 * (target_mw - current_mw) / (additive_density - target_mw) / 100
-        volume_increase = sacks * 100 / additive_density * 7.48 / 42  # bbl
-        final_volume = system_vol + volume_increase
-        
+                                 additive_density=None) -> dict:
+        """Canonical MudVolumeEngine.weight_up. additive_density is required."""
+        from core.engineering.engines.mud_volume import MudVolumeEngine
+        r = MudVolumeEngine.weight_up(current_mw, target_mw, system_vol, additive_density)
+        if not r.success:
+            return {"error": r.error}
         return {
-            "sacks_barite": round(sacks, 1),
-            "volume_increase_bbl": round(volume_increase, 2),
-            "final_volume_bbl": round(final_volume, 2),
+            "sacks_barite": r.values["sacks"],
+            "volume_increase_bbl": r.values["volume_increase_bbl"],
+            "final_volume_bbl": r.values["final_volume_bbl"],
         }
     
     @staticmethod
     def calc_mud_dilution(current_mw, target_mw, system_vol, 
-                          dilutant_mw=62.4) -> dict:
-        """محاسبه رقیق‌سازی گل (Water dilution)"""
-        if target_mw >= current_mw or target_mw <= dilutant_mw:
-            return {"error": "Target MW must be < Current MW and > Water MW"}
-        
-        water_vol = system_vol * (current_mw - target_mw) / (target_mw - dilutant_mw)
-        final_volume = system_vol + water_vol
-        
+                          dilutant_mw=None) -> dict:
+        """Canonical MudVolumeEngine.dilution. dilutant_mw is required."""
+        from core.engineering.engines.mud_volume import MudVolumeEngine
+        r = MudVolumeEngine.dilution(current_mw, target_mw, system_vol, dilutant_mw)
+        if not r.success:
+            return {"error": r.error}
         return {
-            "water_required_bbl": round(water_vol, 2),
-            "final_volume_bbl": round(final_volume, 2),
+            "water_required_bbl": r.values["water_required_bbl"],
+            "final_volume_bbl": r.values["final_volume_bbl"],
         }
     
     @staticmethod
     def calc_mud_mixing(mw1, vol1, mw2, vol2) -> dict:
-        """محاسبه اختلاط دو گل"""
-        total_vol = vol1 + vol2
-        if total_vol == 0:
-            return {"error": "Total volume is zero"}
-        
-        final_mw = (mw1 * vol1 + mw2 * vol2) / total_vol
-        
+        """Canonical MudVolumeEngine.mix."""
+        from core.engineering.engines.mud_volume import MudVolumeEngine
+        r = MudVolumeEngine.mix(mw1, vol1, mw2, vol2)
+        if not r.success:
+            return {"error": r.error}
         return {
-            "final_mw_pcf": round(final_mw, 2),
-            "total_volume_bbl": round(total_vol, 2),
+            "final_mw_pcf": r.values["final_mw"],
+            "total_volume_bbl": r.values["total_volume"],
         }
     
     @staticmethod
@@ -531,66 +528,58 @@ class DrillingCalculationEngine:
     
     @staticmethod
     def calc_casing_burst(yield_strength, wall_thickness, od) -> float:
-        """محاسبه فشار ترکیدگی کیسینگ (Barlow)"""
-        if od <= 0:
-            return 0
-        return round(0.875 * 2 * yield_strength * wall_thickness / od, 0)
-    
+        """Canonical CasingEngine Barlow burst (API 0.875)."""
+        from core.engineering.engines.casing import CasingEngine
+        r = CasingEngine.burst(od, wall_thickness, yield_strength)
+        return 0 if not r.success else round(r.value, 0)
+
     @staticmethod
     def calc_casing_collapse(od, wall_thickness, yield_strength) -> float:
-        """محاسبه فشار چسبندگی کیسینگ (simplified API)"""
-        if wall_thickness <= 0:
-            return 0
-        d_t_ratio = od / wall_thickness
-        if d_t_ratio <= 0:
-            return 0
-        # Simplified yield strength collapse
-        collapse = 2 * yield_strength * ((d_t_ratio - 1) / (d_t_ratio ** 2))
-        return round(collapse, 0)
-    
+        """Canonical CasingEngine API 5C3 four-regime collapse."""
+        from core.engineering.engines.casing import CasingEngine
+        r = CasingEngine.collapse(od, wall_thickness, yield_strength)
+        return 0 if not r.success else round(r.value, 0)
+
     @staticmethod
     def calc_casing_tensile(od, id_, yield_strength) -> float:
-        """محاسبه مقاومت کششی کیسینگ"""
-        import math
-        area = math.pi / 4 * (od**2 - id_**2)
-        return round(area * yield_strength, 0)
-    
+        """Canonical CasingEngine pipe-body yield."""
+        from core.engineering.engines.casing import CasingEngine
+        r = CasingEngine.tensile(od, id_, yield_strength)
+        return 0 if not r.success else round(r.value, 0)
+
     @staticmethod
-    def calc_cement_volume(hole_size, casing_od, length_ft, 
+    def calc_cement_volume(hole_size, casing_od, length_ft,
                             excess_pct=50) -> dict:
-        """محاسبه حجم سیمان"""
-        import math
-        annular_vol_cuft = math.pi / 4 * ((hole_size/12)**2 - (casing_od/12)**2) * length_ft
-        annular_vol_bbl = annular_vol_cuft / 5.615
-        
-        with_excess = annular_vol_bbl * (1 + excess_pct / 100)
-        
-        # Sacks (assuming Class G: 1 sack = 0.38 cu ft slurry at 15.8 ppg)
-        sacks = with_excess * 5.615 / 1.18  # approximate
-        
+        """Canonical CementEngine volume calculator (no invented Class G yield)."""
+        from core.engineering.engines.cement import CementEngine
+        r = CementEngine.job_volumes(
+            hole_size_in=hole_size,
+            casing_od_in=casing_od,
+            open_hole_length_ft=length_ft,
+            excess_pct=excess_pct,
+        )
+        if not r.success:
+            return {"error": r.error}
+        v = r.values
         return {
-            "annular_volume_cuft": round(annular_vol_cuft, 2),
-            "annular_volume_bbl": round(annular_vol_bbl, 2),
-            "with_excess_bbl": round(with_excess, 2),
-            "sacks_estimated": round(sacks, 0),
+            "annular_volume_cuft": v["annular_volume_cuft"],
+            "annular_volume_bbl": v["annular_volume_bbl"],
+            "with_excess_bbl": v["annular_with_excess_bbl"],
+            "sacks_estimated": v["sacks"],
             "excess_pct": excess_pct,
+            "slurry_volume_bbl": v["slurry_volume_bbl"],
+            "warnings": r.warnings,
         }
-    
+
     @staticmethod
-    def calc_cement_displacement(casing_id, casing_length_ft, 
+    def calc_cement_displacement(casing_id, casing_length_ft,
                                   shoe_track_length_ft=60) -> dict:
-        """محاسبه جابجایی سیمان"""
-        import math
-        casing_cap_cuft = math.pi / 4 * (casing_id / 12)**2 * (casing_length_ft - shoe_track_length_ft)
-        displacement_bbl = casing_cap_cuft / 5.615
-        
-        shoe_track_vol = math.pi / 4 * (casing_id / 12)**2 * shoe_track_length_ft / 5.615
-        
-        return {
-            "displacement_volume_bbl": round(displacement_bbl, 2),
-            "shoe_track_volume_bbl": round(shoe_track_vol, 2),
-            "total_pump_bbl": round(displacement_bbl + shoe_track_vol, 2),
-        }
+        """Canonical CementEngine displacement."""
+        from core.engineering.engines.cement import CementEngine
+        r = CementEngine.displacement(casing_id, casing_length_ft, shoe_track_length_ft)
+        if not r.success:
+            return {"error": r.error}
+        return r.values
     
     @staticmethod
     def calc_buoyancy_factor(mud_weight_pcf, steel_density=490) -> float:
@@ -617,11 +606,13 @@ class DrillingCalculationEngine:
     
     @staticmethod
     def calc_kill_mud_weight(current_mw_pcf, sidpp, tvd_ft) -> float:
-        """محاسبه وزن گل کشتار"""
-        if tvd_ft <= 0:
+        """Canonical kill MW; input/output in pcf for this UI control."""
+        from core.engineering.core import WellControlEngine
+        try:
+            kmw_ppg = WellControlEngine.calculate_kill_mw(current_mw_pcf / 7.48, sidpp, tvd_ft)
+            return round(kmw_ppg * 7.48, 2)
+        except Exception:
             return 0
-        kmw_ppg = (current_mw_pcf / 7.48) + sidpp / (0.052 * tvd_ft)
-        return round(kmw_ppg * 7.48, 2)  # return in pcf
     
     @staticmethod
     def calc_icp(scr_pressure, sidpp) -> float:
@@ -648,22 +639,44 @@ class DrillingCalculationEngine:
     
     @staticmethod
     def calc_maasp(frac_gradient_psi_ft, mw_ppg, shoe_tvd_ft) -> float:
-        """Maximum Allowable Annular Surface Pressure"""
-        return round((frac_gradient_psi_ft - mw_ppg * 0.052) * shoe_tvd_ft, 0)
-    
+        """Canonical MAASP."""
+        from core.engineering.core import WellControlEngine
+        try:
+            return round(
+                WellControlEngine.calculate_maasp(
+                    max_allowable_mw_ppg=frac_gradient_psi_ft / 0.052,
+                    current_mw_ppg=mw_ppg,
+                    shoe_tvd_ft=shoe_tvd_ft,
+                ),
+                0,
+            )
+        except Exception:
+            return 0
+
     @staticmethod
-    def calc_kick_tolerance(frac_mw_ppg, current_mw_ppg, tvd_ft, 
-                             shoe_tvd_ft, annular_vol_bbl) -> dict:
-        """محاسبه تحمل کیک"""
-        max_kick_intensity = frac_mw_ppg - current_mw_ppg  # ppg
-        max_sidpp = max_kick_intensity * 0.052 * tvd_ft
-        max_kick_height_ft = (frac_mw_ppg - current_mw_ppg) * shoe_tvd_ft / (frac_mw_ppg - 1.0)
-        
-        return {
-            "max_kick_intensity_ppg": round(max_kick_intensity, 2),
-            "max_sidpp_psi": round(max_sidpp, 0),
-            "max_kick_height_ft": round(max_kick_height_ft, 1),
-        }
+    def calc_kick_tolerance(frac_mw_ppg, current_mw_ppg, tvd_ft,
+                             shoe_tvd_ft, annular_vol_bbl,
+                             influx_gradient_psi_ft=None,
+                             annular_capacity_bbl_ft=None,
+                             formation_emw_ppg=None) -> dict:
+        """Canonical IWCF kick tolerance. No invented influx gradient."""
+        from core.engineering.engines.well_control import WellControlEngine
+        cap = annular_capacity_bbl_ft
+        if cap is None and annular_vol_bbl not in (None, "", 0) and tvd_ft:
+            # Do not invent capacity from a dummy volume.
+            cap = None
+        r = WellControlEngine.kick_tolerance(
+            mw_ppg=current_mw_ppg,
+            shoe_tvd_ft=shoe_tvd_ft,
+            current_tvd_ft=tvd_ft,
+            frac_mw_ppg=frac_mw_ppg,
+            influx_gradient_psi_ft=influx_gradient_psi_ft,
+            annular_capacity_bbl_ft=cap,
+            formation_emw_ppg=formation_emw_ppg,
+        )
+        if not r.success:
+            return {"error": r.error}
+        return r.values
     
     @staticmethod
     def calc_kill_parameters(
@@ -699,17 +712,24 @@ class DrillingCalculationEngine:
         if tvd_ft <= 0 or current_mw_ppg <= 0:
             return {}
 
-        # ===== Kill Mud Weight =====
-        kmw_ppg = current_mw_ppg + sidpp_psi / (0.052 * tvd_ft)
+        from core.engineering.engines.well_control import WellControlEngine as WC
+        kmw = WC.kill_mw(current_mw_ppg, sidpp_psi, tvd_ft)
+        if not kmw.success:
+            return {"error": kmw.error}
+        kmw_ppg = kmw.value
 
         # ===== ICP و FCP =====
         icp_psi = scr_psi + sidpp_psi
         fcp_psi = scr_psi * (kmw_ppg / current_mw_ppg)
 
-        # ===== MAASP =====
-        maasp_psi = (
-            frac_gradient_psi_ft - current_mw_ppg * 0.052
-        ) * shoe_tvd_ft
+        maasp_r = WC.maasp(
+            max_allowable_mw_ppg=frac_gradient_psi_ft / 0.052 if frac_gradient_psi_ft else None,
+            current_mw_ppg=current_mw_ppg,
+            shoe_tvd_ft=shoe_tvd_ft,
+        )
+        if not maasp_r.success:
+            return {"error": maasp_r.error}
+        maasp_psi = maasp_r.value
 
         # ===== Strokes =====
         stk_to_bit = (
@@ -810,42 +830,12 @@ class DrillingCalculationEngine:
     
     @staticmethod
     def calc_min_curvature(md1, inc1, azi1, md2, inc2, azi2) -> dict:
-        """محاسبه Minimum Curvature"""
-        import math
-        
-        inc1_rad = math.radians(inc1)
-        inc2_rad = math.radians(inc2)
-        azi1_rad = math.radians(azi1)
-        azi2_rad = math.radians(azi2)
-        
-        delta_md = md2 - md1
-        if delta_md <= 0:
-            return {"error": "MD2 must be > MD1"}
-        
-        cos_beta = (math.sin(inc1_rad) * math.sin(inc2_rad) * 
-                    math.cos(azi2_rad - azi1_rad) +
-                    math.cos(inc1_rad) * math.cos(inc2_rad))
-        cos_beta = max(-1.0, min(1.0, cos_beta))
-        beta = math.acos(cos_beta)
-        
-        rf = 1.0 if abs(beta) < 1e-10 else 2.0 / beta * math.tan(beta / 2.0)
-        
-        delta_tvd = 0.5 * delta_md * (math.cos(inc1_rad) + math.cos(inc2_rad)) * rf
-        delta_north = 0.5 * delta_md * (math.sin(inc1_rad) * math.cos(azi1_rad) + 
-                                         math.sin(inc2_rad) * math.cos(azi2_rad)) * rf
-        delta_east = 0.5 * delta_md * (math.sin(inc1_rad) * math.sin(azi1_rad) + 
-                                        math.sin(inc2_rad) * math.sin(azi2_rad)) * rf
-        
-        dls = (beta * 180.0 / math.pi) / delta_md * 30.0 if delta_md > 0 else 0
-        
-        return {
-            "delta_tvd": round(delta_tvd, 3),
-            "delta_north": round(delta_north, 3),
-            "delta_east": round(delta_east, 3),
-            "dls_deg_30m": round(dls, 3),
-            "ratio_factor": round(rf, 6),
-            "dogleg_rad": round(beta, 6),
-        }
+        """Canonical TrajectoryEngine Minimum Curvature (two-station)."""
+        from core.engineering.bridge import CalculatorBridge
+        r = CalculatorBridge.min_curvature_pair(md1, inc1, azi1, md2, inc2, azi2)
+        if not r.success:
+            return {"error": r.error}
+        return r.values
  
     def _calc_dls(
         beta_rad: float,
@@ -911,25 +901,8 @@ class DrillingCalculationEngine:
         azi2_deg: float,
         delta_md_m: float,
     ) -> dict:
-        """
-        محاسبه Dogleg Severity - روش دقیق
-        
-        مرجع: API Bulletin D20 - Directional Drilling Survey
-        
-        Args:
-            inc1_deg: inclination نقطه اول (°)
-            azi1_deg: azimuth نقطه اول (°)
-            inc2_deg: inclination نقطه دوم (°)
-            azi2_deg: azimuth نقطه دوم (°)
-            delta_md_m: فاصله MD بین دو نقطه (m)
-        
-        Returns:
-            dict با واحدهای مختلف و warning
-        
-        Example:
-            inc1=0, azi1=0, inc2=3, azi2=0, delta_md=30m
-            DLS = 3°/30m
-        """
+        """Canonical Minimum Curvature DLS (deg/30m and deg/100ft)."""
+        from core.engineering.bridge import CalculatorBridge
         if delta_md_m <= 0:
             return {
                 "deg_per_30m": 0.0,
@@ -937,49 +910,23 @@ class DrillingCalculationEngine:
                 "dogleg_deg": 0.0,
                 "warning": "",
             }
-
-        import math
-
-        inc1 = math.radians(inc1_deg)
-        inc2 = math.radians(inc2_deg)
-        azi1 = math.radians(azi1_deg)
-        azi2 = math.radians(azi2_deg)
-
-        # فرمول دقیق dogleg
-        cos_beta = (
-            math.sin(inc1) * math.sin(inc2) * math.cos(azi2 - azi1)
-            + math.cos(inc1) * math.cos(inc2)
-        )
-        cos_beta = max(-1.0, min(1.0, cos_beta))
-        beta_rad = math.acos(cos_beta)
-        beta_deg = math.degrees(beta_rad)
-
-        # DLS در واحدهای مختلف
-        dls_30m = beta_deg / delta_md_m * 30.0
-        dls_100ft = beta_deg / (delta_md_m * 3.28084) * 100.0
-
-        # Warning بر اساس استاندارد IADC
+        r = CalculatorBridge.min_curvature_pair(0, inc1_deg, azi1_deg, delta_md_m, inc2_deg, azi2_deg)
+        if not r.success:
+            return {"deg_per_30m": 0.0, "deg_per_100ft": 0.0, "dogleg_deg": 0.0, "warning": r.error}
+        dls_30m = r.values["dls_deg_30m"]
+        dls_100ft = dls_30m * 30.48 / 30.0
+        dogleg = dls_30m / 30.0 * delta_md_m
         warning = ""
         if dls_30m > 8.0:
-            warning = (
-                f"🔴 CRITICAL DLS: {dls_30m:.2f}°/30m "
-                f"- Risk of fatigue failure!"
-            )
+            warning = f"🔴 CRITICAL DLS: {dls_30m:.2f}°/30m - Risk of fatigue failure!"
         elif dls_30m > 5.0:
-            warning = (
-                f"🟡 HIGH DLS: {dls_30m:.2f}°/30m "
-                f"- Monitor drill string fatigue"
-            )
+            warning = f"🟡 HIGH DLS: {dls_30m:.2f}°/30m - Monitor drill string fatigue"
         elif dls_30m > 3.0:
-            warning = (
-                f"🟠 Elevated DLS: {dls_30m:.2f}°/30m "
-                f"- Check BHA design"
-            )
-
+            warning = f"🟠 Elevated DLS: {dls_30m:.2f}°/30m - Check BHA design"
         return {
             "deg_per_30m": round(dls_30m, 3),
             "deg_per_100ft": round(dls_100ft, 3),
-            "dogleg_deg": round(beta_deg, 4),
+            "dogleg_deg": round(dogleg, 4),
             "warning": warning,
         }
         
@@ -2529,10 +2476,18 @@ class EngineeringCalculatorTab(DrillTabBase):
         self.bit_gpm = self._make_dspin(250, 0, 5000, 0, " gpm")
         self.bit_mw = self._make_dspin(90, 0, 200, 1, " pcf")
         self.bit_od = self._make_dspin(8.5, 0, 50, 3, " in")
+        self.bit_wob = self._make_dspin(25, 0, 200, 1, " klbf")
+        self.bit_rpm = self._make_dspin(120, 0, 400, 0, " rpm")
+        self.bit_tq = self._make_dspin(8000, 0, 80000, 0, " ft-lbf")
+        self.bit_rop = self._make_dspin(30, 0, 500, 1, " ft/hr")
 
         input_form.addRow("Flow Rate:", self.bit_gpm)
         input_form.addRow("Mud Weight:", self.bit_mw)
         input_form.addRow("Bit Size:", self.bit_od)
+        input_form.addRow("WOB:", self.bit_wob)
+        input_form.addRow("RPM:", self.bit_rpm)
+        input_form.addRow("Torque:", self.bit_tq)
+        input_form.addRow("ROP:", self.bit_rop)
 
         calc_btn = QPushButton("🔄 Calculate Bit Hydraulics")
         calc_btn.setStyleSheet("background: #e74c3c; color: white; font-weight: bold; padding: 8px; border-radius: 4px; border: none;")
@@ -2551,6 +2506,7 @@ class EngineeringCalculatorTab(DrillTabBase):
         self.bit_res_jv = self._result_label("#9b59b6")
         self.bit_res_if = self._result_label("#e67e22")
         self.bit_res_pct = self._result_label("#1abc9c")
+        self.bit_res_mse = self._result_label("#8e44ad")
 
         res_layout.addWidget(QLabel("Bit ΔP:"), 0, 0)
         res_layout.addWidget(self.bit_res_dp, 0, 1)
@@ -2564,6 +2520,8 @@ class EngineeringCalculatorTab(DrillTabBase):
         res_layout.addWidget(self.bit_res_if, 2, 1)
         res_layout.addWidget(QLabel("Nozzle Vel:"), 2, 2)
         res_layout.addWidget(self.bit_res_pct, 2, 3)
+        res_layout.addWidget(QLabel("MSE (Teale):"), 3, 0)
+        res_layout.addWidget(self.bit_res_mse, 3, 1)
 
         bh_layout.addWidget(g_results)
         bh_layout.addStretch()
@@ -2723,9 +2681,11 @@ class EngineeringCalculatorTab(DrillTabBase):
         hhp = gpm * dp_bit / 1714
         self.bit_res_hhp.setText(f"{hhp:.1f} HP")
 
-        # HSI
-        bit_area = math.pi / 4 * bit_od**2
-        hsi = hhp / bit_area if bit_area > 0 else 0
+        from core.engineering.core import BitEngine
+        try:
+            hsi = BitEngine.calculate_hsi(gpm, dp_bit, bit_od)
+        except Exception:
+            hsi = 0
         self.bit_res_hsi.setText(f"{hsi:.2f} hp/in²")
 
         # Jet Velocity
@@ -2740,6 +2700,19 @@ class EngineeringCalculatorTab(DrillTabBase):
         total_nzl_count = sum(n.get('qty', 1) for n in self.bit_nozzles)
         nzl_vel = jv  # same as jet velocity
         self.bit_res_pct.setText(f"{nzl_vel:.0f} ft/s ({total_nzl_count} nozzles)")
+
+        from core.engineering.engines.mse import MSEEngine
+        mse = MSEEngine.calculate(
+            wob_lbf=self.bit_wob.value() * 1000.0,
+            rpm=self.bit_rpm.value(),
+            torque_ft_lbf=self.bit_tq.value(),
+            rop_ft_hr=self.bit_rop.value(),
+            bit_diameter_in=bit_od,
+        )
+        if mse.success:
+            self.bit_res_mse.setText(f"{mse.value:,.0f} psi")
+        else:
+            self.bit_res_mse.setText(f"❌ {mse.error}")
 
     # ========== Bit - Nozzle Optimization ==========
 
@@ -2884,6 +2857,10 @@ class EngineeringCalculatorTab(DrillTabBase):
         pf.addRow("Mud Weight:", self.wt_mw)
         pf.addRow("Inclination:", self.wt_inc)
         pf.addRow("Friction Factor:", self.wt_friction)
+        self.wt_hole = self._make_dspin(8.5, 0, 30, 3, " in")
+        self.wt_wob = self._make_dspin(0, 0, 200, 1, " klbf")
+        pf.addRow("Hole ID (T&D buckling):", self.wt_hole)
+        pf.addRow("WOB (T&D):", self.wt_wob)
 
         calc_btn = QPushButton("🔄 Calculate Hook Load")
         calc_btn.setStyleSheet("background: #3498db; color: white; font-weight: bold; padding: 8px; border-radius: 4px; border: none;")
@@ -2914,6 +2891,9 @@ class EngineeringCalculatorTab(DrillTabBase):
         res_grid.addWidget(self.wt_pickup, 2, 1)
         res_grid.addWidget(QLabel("Slack-Off Wt:"), 2, 2)
         res_grid.addWidget(self.wt_slackoff, 2, 3)
+        self.wt_td = self._result_label("#8e44ad")
+        res_grid.addWidget(QLabel("T&D screening:"), 3, 0)
+        res_grid.addWidget(self.wt_td, 3, 1, 1, 3)
 
         layout.addWidget(g_res)
         layout.addStretch()
@@ -3000,6 +2980,59 @@ class EngineeringCalculatorTab(DrillTabBase):
         self.wt_buoy.setText(f"{bf:.4f}")
         self.wt_pickup.setText(f"{pickup:.1f} Klbs (w/ friction)")
         self.wt_slackoff.setText(f"{slackoff:.1f} Klbs (w/ friction)")
+
+        # Canonical T&D screening (Johancsik). Vertical if no surveys.
+        self._wt_run_td()
+
+    def _wt_run_td(self):
+        from core.engineering.engines.torque_drag import TorqueDragEngine
+        if not self.wt_pipes:
+            self.wt_td.setText("--")
+            return
+        string = []
+        for p in self.wt_pipes:
+            string.append({
+                "name": p.get("type") or "pipe",
+                "od": p.get("od"),
+                "id": p.get("id"),
+                "length": p.get("length"),
+                "weight": p.get("weight"),
+            })
+        surveys = []
+        if getattr(self, "dd_surveys", None):
+            surveys = [
+                {"md": s.get("md", 0), "inc": s.get("inc", 0), "azi": s.get("azi", 0)}
+                for s in self.dd_surveys
+            ]
+        else:
+            total_m = sum(p.get("length", 0) or 0 for p in self.wt_pipes)
+            inc = self.wt_inc.value()
+            surveys = [
+                {"md": 0.0, "inc": inc, "azi": 0.0},
+                {"md": max(total_m, 1.0), "inc": inc, "azi": 0.0},
+            ]
+        r = TorqueDragEngine.calculate(
+            surveys,
+            string,
+            mud_density_ppg=self.wt_mw.value() / 7.48,
+            friction_factor=self.wt_friction.value(),
+            wob_klbf=self.wt_wob.value(),
+            wellbore_id_in=self.wt_hole.value() or None,
+        )
+        if not r.success:
+            self.wt_td.setText(f"❌ {r.error}")
+            return
+        v = r.values
+        buck = "buckling" if v.get("buckling", {}).get("any") else "no buckling flag"
+        np = v.get("neutral_point_md_m")
+        np_s = f"{np:.0f} m" if np is not None else "n/a"
+        self.wt_td.setText(
+            f"PU {v['hookload_pickup']:.1f} / SO {v['hookload_slackoff']:.1f} / "
+            f"ROT {v['hookload_rotating']:.1f} klbf | "
+            f"TQ {v['surface_torque_rotating_ft_lbf']:.0f} ft-lbf | "
+            f"stretch {v.get('stretch_rotating_in')} in | "
+            f"twist {v.get('twist_rotating_deg')}° | NP {np_s} | {buck}  [SCREENING]"
+        )
         
     def _create_stuck_tab(self) -> QWidget:
         tab, container, layout = self._make_scroll_tab()
@@ -3249,7 +3282,8 @@ class EngineeringCalculatorTab(DrillTabBase):
 
     def _mud_dil(self):
         r = self.engine.calc_mud_dilution(
-            self.mud_dil_cur.value(), self.mud_dil_tar.value(), self.mud_dil_vol.value()
+            self.mud_dil_cur.value(), self.mud_dil_tar.value(), self.mud_dil_vol.value(),
+            62.4,
         )
         if "error" in r:
             self.mud_dil_res.setText(f"❌ {r['error']}")
@@ -3371,6 +3405,18 @@ class EngineeringCalculatorTab(DrillTabBase):
         csg_form.addRow("ID:", self.csg_id_calc)
         csg_form.addRow("Yield Strength:", self.csg_yield)
         csg_form.addRow("Wall Thickness:", self.csg_wall)
+        self.csg_axial = self._make_dspin(0, -2e6, 2e6, 0, " lbf")
+        self.csg_pi = self._make_dspin(0, 0, 20000, 0, " psi")
+        self.csg_pe = self._make_dspin(0, 0, 20000, 0, " psi")
+        self.csg_conn_burst = self._make_dspin(0, 0, 20000, 0, " psi")
+        self.csg_conn_coll = self._make_dspin(0, 0, 20000, 0, " psi")
+        self.csg_conn_tens = self._make_dspin(0, 0, 2e6, 0, " lbf")
+        csg_form.addRow("Axial tension (opt):", self.csg_axial)
+        csg_form.addRow("Internal P (opt):", self.csg_pi)
+        csg_form.addRow("External P (opt):", self.csg_pe)
+        csg_form.addRow("Connection burst (0=omit):", self.csg_conn_burst)
+        csg_form.addRow("Connection collapse (0=omit):", self.csg_conn_coll)
+        csg_form.addRow("Connection tension (0=omit):", self.csg_conn_tens)
 
         calc_csg = QPushButton("🔄 Calculate Casing Strength")
         calc_csg.setStyleSheet("background: #e74c3c; color: white; font-weight: bold; padding: 8px; border-radius: 4px; border: none;")
@@ -3382,12 +3428,18 @@ class EngineeringCalculatorTab(DrillTabBase):
         self.csg_burst_res = self._result_label("#e74c3c")
         self.csg_collapse_res = self._result_label("#f39c12")
         self.csg_tensile_res = self._result_label("#3498db")
+        self.csg_combined_res = self._result_label("#8e44ad")
+        self.csg_vme_res = self._result_label("#16a085")
         g1_lay.addWidget(QLabel("Burst Pressure:"))
         g1_lay.addWidget(self.csg_burst_res)
         g1_lay.addWidget(QLabel("Collapse Pressure:"))
         g1_lay.addWidget(self.csg_collapse_res)
         g1_lay.addWidget(QLabel("Tensile Strength:"))
         g1_lay.addWidget(self.csg_tensile_res)
+        g1_lay.addWidget(QLabel("Combined collapse (fyax + Pi):"))
+        g1_lay.addWidget(self.csg_combined_res)
+        g1_lay.addWidget(QLabel("VME / SF:"))
+        g1_lay.addWidget(self.csg_vme_res)
 
         cs_layout.addWidget(g1)
         cs_layout.addStretch()
@@ -3412,6 +3464,28 @@ class EngineeringCalculatorTab(DrillTabBase):
         f2.addRow("Excess %:", self.cmt_excess)
         f2.addRow("Casing ID:", self.cmt_csg_id)
         f2.addRow("Shoe Track:", self.cmt_shoe_track)
+        self.cmt_yield = self._make_dspin(0, 0, 5, 3, " ft³/sk")
+        self.cmt_dens = self._make_dspin(0, 0, 25, 2, " ppg")
+        self.cmt_spacer_len = self._make_dspin(0, 0, 5000, 0, " ft")
+        self.cmt_spacer_mw = self._make_dspin(0, 0, 25, 2, " ppg")
+        self.cmt_lead_len = self._make_dspin(0, 0, 20000, 0, " ft")
+        self.cmt_lead_mw = self._make_dspin(0, 0, 25, 2, " ppg")
+        self.cmt_tail_len = self._make_dspin(0, 0, 20000, 0, " ft")
+        self.cmt_tail_mw = self._make_dspin(0, 0, 25, 2, " ppg")
+        self.cmt_shoe_tvd = self._make_dspin(0, 0, 60000, 0, " ft")
+        self.cmt_pump = self._make_dspin(0, 0, 50, 2, " bbl/min")
+        self.cmt_pore = self._make_dspin(0, 0, 25, 2, " ppg")
+        f2.addRow("Slurry yield (0=omit sacks):", self.cmt_yield)
+        f2.addRow("Slurry density:", self.cmt_dens)
+        f2.addRow("Spacer length:", self.cmt_spacer_len)
+        f2.addRow("Spacer MW:", self.cmt_spacer_mw)
+        f2.addRow("Lead length:", self.cmt_lead_len)
+        f2.addRow("Lead MW:", self.cmt_lead_mw)
+        f2.addRow("Tail length:", self.cmt_tail_len)
+        f2.addRow("Tail MW:", self.cmt_tail_mw)
+        f2.addRow("Shoe TVD (hydrostatic):", self.cmt_shoe_tvd)
+        f2.addRow("Pump rate:", self.cmt_pump)
+        f2.addRow("Pore EMW:", self.cmt_pore)
 
         cmt_calc = QPushButton("🔄 Calculate Cement Volumes")
         cmt_calc.setStyleSheet("background: #e67e22; color: white; font-weight: bold; padding: 8px; border-radius: 4px; border: none;")
@@ -3477,46 +3551,115 @@ class EngineeringCalculatorTab(DrillTabBase):
                     self.csg_collapse_res.setText(f"{data['collapse']:.0f} psi (from API)")
 
     def _csg_calc_strength(self):
-        burst = self.engine.calc_casing_burst(
-            self.csg_yield.value(), self.csg_wall.value(), self.csg_od.value()
+        from core.engineering.engines.casing import CasingEngine
+        axial = self.csg_axial.value() or None
+        pi = self.csg_pi.value() or None
+        pe = self.csg_pe.value() or None
+        r = CasingEngine.evaluate(
+            od_in=self.csg_od.value(),
+            id_in=self.csg_id_calc.value(),
+            wall_in=self.csg_wall.value(),
+            yield_psi=self.csg_yield.value(),
+            internal_pressure_psi=pi,
+            external_pressure_psi=pe,
+            axial_tension_lbf=axial,
+            connection_burst_psi=self.csg_conn_burst.value() or None,
+            connection_collapse_psi=self.csg_conn_coll.value() or None,
+            connection_tension_lbf=self.csg_conn_tens.value() or None,
         )
-        collapse = self.engine.calc_casing_collapse(
-            self.csg_od.value(), self.csg_wall.value(), self.csg_yield.value()
+        if not r.success:
+            self.csg_burst_res.setText(f"❌ {r.error}")
+            self.csg_collapse_res.setText("")
+            self.csg_tensile_res.setText("")
+            self.csg_combined_res.setText("")
+            self.csg_vme_res.setText("")
+            return
+        v = r.values
+        self.csg_burst_res.setText(
+            f"{v['burst_rating_psi']:,.0f} psi  (govern {v['governing_burst_psi']:,.0f})"
         )
-        tensile = self.engine.calc_casing_tensile(
-            self.csg_od.value(), self.csg_id_calc.value(), self.csg_yield.value()
+        self.csg_collapse_res.setText(
+            f"{v['collapse_rating_psi']:,.0f} psi  [{v.get('regime','')}]"
         )
-        self.csg_burst_res.setText(f"{burst:,.0f} psi")
-        self.csg_collapse_res.setText(f"{collapse:,.0f} psi")
-        self.csg_tensile_res.setText(f"{tensile:,.0f} lbs ({tensile/1000:,.0f} Klbs)")
+        self.csg_tensile_res.setText(
+            f"{v['pipe_body_yield_lbf']:,.0f} lbs ({v['pipe_body_yield_klbf']:,.0f} Klbs)"
+        )
+        fy = v.get("fyax_psi")
+        comb = v.get("collapse_combined_psi")
+        self.csg_combined_res.setText(
+            f"{comb:,.0f} psi  fyax={fy:,.0f} psi" if comb is not None else "--"
+        )
+        bits = []
+        if v.get("vme_psi") is not None:
+            bits.append(f"VME {v['vme_psi']:,.0f} psi (u={v.get('vme_utilization', 0):.3f})")
+        if v.get("burst_sf") is not None:
+            bits.append(f"burst SF {v['burst_sf']}")
+        if v.get("collapse_sf") is not None:
+            bits.append(f"collapse SF {v['collapse_sf']}")
+        if v.get("tension_sf") is not None:
+            bits.append(f"tension SF {v['tension_sf']}")
+        warn = "; ".join(r.warnings[:2]) if r.warnings else "PARTIAL pipe-body"
+        self.csg_vme_res.setText((" | ".join(bits) + "\n" + warn) if bits else warn)
 
     def _csg_calc_cement(self):
-        r = self.engine.calc_cement_volume(
-            self.cmt_hole.value(), self.cmt_csg.value(),
-            self.cmt_len.value(), self.cmt_excess.value()
+        from core.engineering.engines.cement import CementEngine
+        dens = self.cmt_dens.value() or None
+        yield_v = self.cmt_yield.value() or None
+        spacer_len = self.cmt_spacer_len.value() or None
+        spacer_mw = self.cmt_spacer_mw.value() or None
+        lead_len = self.cmt_lead_len.value() or None
+        lead_mw = self.cmt_lead_mw.value() or None
+        tail_len = self.cmt_tail_len.value() or None
+        tail_mw = self.cmt_tail_mw.value() or None
+        shoe_tvd = self.cmt_shoe_tvd.value() or None
+        pump = self.cmt_pump.value() or None
+        pore = self.cmt_pore.value() or None
+        r = CementEngine.job_volumes(
+            hole_size_in=self.cmt_hole.value(),
+            casing_od_in=self.cmt_csg.value(),
+            open_hole_length_ft=self.cmt_len.value(),
+            excess_pct=self.cmt_excess.value(),
+            casing_id_in=self.cmt_csg_id.value() or None,
+            shoe_track_ft=self.cmt_shoe_track.value(),
+            slurry_density_ppg=dens,
+            yield_ft3_sk=yield_v,
+            spacer_length_ft=spacer_len,
+            spacer_density_ppg=spacer_mw,
+            lead_length_ft=lead_len,
+            lead_density_ppg=lead_mw,
+            tail_length_ft=tail_len,
+            tail_density_ppg=tail_mw,
+            tvd_column_ft=shoe_tvd,
+            shoe_tvd_ft=shoe_tvd,
+            tail_tvd_ft=shoe_tvd if tail_mw else None,
+            pump_rate_bbl_min=pump,
+            pore_emw_ppg=pore,
         )
-        disp = self.engine.calc_cement_displacement(
-            self.cmt_csg_id.value(), self.cmt_len.value(),
-            self.cmt_shoe_track.value()
+        if not r.success:
+            self.cmt_result.setText(f"❌ {r.error}")
+            return
+        v = r.values
+        sacks = v.get("sacks")
+        sacks_s = f"{sacks:.0f}" if sacks is not None else "n/a (need yield)"
+        hpsi = v.get("hydrostatic_psi")
+        h_s = f"{hpsi:.0f} psi" if hpsi is not None else "n/a"
+        pt = v.get("pump_time_min")
+        pt_s = f"{pt:.1f} min" if pt is not None else "n/a"
+        lead = v.get("lead") or {}
+        tail = v.get("tail") or {}
+        text = (
+            "CEMENT JOB VOLUME / HYDROSTATIC WORKSHEET\n"
+            f"Annulus: {v['annular_volume_bbl']:.2f} bbl ({v['annular_volume_cuft']:.1f} cuft)\n"
+            f"With {v['excess_pct']}% excess: {v['annular_with_excess_bbl']:.2f} bbl\n"
+            f"Shoe track: {v['shoe_track_volume_bbl']:.2f} bbl\n"
+            f"Spacer: {v['spacer_volume_bbl']:.2f} bbl\n"
+            f"Slurry: {v['slurry_volume_bbl']:.2f} bbl  sacks: {sacks_s}\n"
+            f"Displacement: {v.get('displacement_volume_bbl') or 0:.2f} bbl\n"
+            f"Total pump: {v['total_pump_bbl']:.2f} bbl  time: {pt_s}\n"
+            f"Hydrostatic: {h_s}\n"
+            f"Lead: {lead.get('slurry_bbl', '--')} bbl  Tail: {tail.get('slurry_bbl', '--')} bbl\n"
+            "NOT laboratory cement design (no UCA / thickening time / gas migration)."
         )
-
-        text = f"""╔═══════════════════════════════════════════╗
-    ║        CEMENT VOLUME CALCULATIONS         ║
-    ╠═══════════════════════════════════════════╣
-    ║ ANNULAR VOLUME:
-    ║   Net Volume:     {r['annular_volume_bbl']:.2f} bbl ({r['annular_volume_cuft']:.1f} cuft)
-    ║   With {r['excess_pct']}% Excess: {r['with_excess_bbl']:.2f} bbl
-    ║   Est. Sacks:     {r['sacks_estimated']:.0f} sacks
-    ╠═══════════════════════════════════════════╣
-    ║ DISPLACEMENT:
-    ║   Casing Volume:  {disp['displacement_volume_bbl']:.2f} bbl
-    ║   Shoe Track:     {disp['shoe_track_volume_bbl']:.2f} bbl
-    ║   Total Pump:     {disp['total_pump_bbl']:.2f} bbl
-    ╠═══════════════════════════════════════════╣
-    ║ TOTAL CEMENT + DISPLACEMENT:
-    ║   {r['with_excess_bbl'] + disp['total_pump_bbl']:.2f} bbl
-    ╚═══════════════════════════════════════════╝"""
-
         self.cmt_result.setText(text)
 
     def _csg_calc_landing(self):
@@ -3730,10 +3873,16 @@ class EngineeringCalculatorTab(DrillTabBase):
         self.kt_mw = self._make_dspin(10.0, 0, 25, 2, " ppg")
         self.kt_tvd = self._make_dspin(10000, 0, 60000, 0, " ft")
         self.kt_shoe = self._make_dspin(8000, 0, 60000, 0, " ft")
+        self.kt_influx_g = self._make_dspin(0.1, 0, 1, 3, " psi/ft")
+        self.kt_ann_cap = self._make_dspin(0.0459, 0, 5, 4, " bbl/ft")
+        self.kt_form_emw = self._make_dspin(0, 0, 25, 2, " ppg")
         kt_form.addRow("Frac MW:", self.kt_frac)
         kt_form.addRow("Current MW:", self.kt_mw)
         kt_form.addRow("TVD:", self.kt_tvd)
         kt_form.addRow("Shoe TVD:", self.kt_shoe)
+        kt_form.addRow("Influx gradient:", self.kt_influx_g)
+        kt_form.addRow("Ann. cap DP/OH:", self.kt_ann_cap)
+        kt_form.addRow("Formation EMW (0=omit):", self.kt_form_emw)
 
         kt_calc = QPushButton("🔄 Calculate")
         kt_calc.clicked.connect(self._wc_calc_kt)
@@ -3742,7 +3891,24 @@ class EngineeringCalculatorTab(DrillTabBase):
         self.kt_result = self._result_label("#9b59b6")
         kt_form.addRow("Result:", self.kt_result)
 
+        g_tm = QGroupBox("Trip Margin")
+        tm_form = QFormLayout(g_tm)
+        self.tm_mw = self._make_dspin(12.0, 0, 25, 2, " ppg")
+        self.tm_form = self._make_dspin(11.5, 0, 25, 2, " ppg")
+        self.tm_tvd = self._make_dspin(10000, 0, 60000, 0, " ft")
+        self.tm_swab = self._make_dspin(0, 0, 5000, 0, " psi")
+        tm_form.addRow("Current MW:", self.tm_mw)
+        tm_form.addRow("Pore EMW:", self.tm_form)
+        tm_form.addRow("TVD:", self.tm_tvd)
+        tm_form.addRow("Swab pressure (opt):", self.tm_swab)
+        tm_calc = QPushButton("🔄 Calculate Trip Margin")
+        tm_calc.clicked.connect(self._wc_calc_trip_margin)
+        tm_form.addRow(tm_calc)
+        self.tm_result = self._result_label("#16a085")
+        tm_form.addRow("Result:", self.tm_result)
+
         kt_layout.addWidget(g_kt)
+        kt_layout.addWidget(g_tm)
         kt_layout.addStretch()
         inner_tabs.addTab(kt_tab, "🔄 Kick Tolerance")
 
@@ -3860,12 +4026,19 @@ class EngineeringCalculatorTab(DrillTabBase):
                     total_ann_vol += ann
                     ann_detail.append((f"{ptype} in CSG", L, ann))
 
-        # Kill calculations
-        kmw_ppg = mw_ppg + sidpp / (0.052 * tvd_ft) if tvd_ft > 0 else mw_ppg
+        # Kill calculations — canonical WellControlEngine
+        from core.engineering.engines.well_control import WellControlEngine as WC
+        kmw_r = WC.kill_mw(mw_ppg, sidpp, tvd_ft)
+        kmw_ppg = kmw_r.value if kmw_r.success else mw_ppg
         kmw_pcf = kmw_ppg * 7.48
         icp = scr1 + sidpp
         fcp = scr1 * (kmw_ppg / mw_ppg) if mw_ppg > 0 else scr1
-        maasp = (frac_grad - mw_ppg * 0.052) * shoe_tvd_ft
+        maasp_r = WC.maasp(
+            max_allowable_mw_ppg=frac_grad / 0.052 if frac_grad else None,
+            current_mw_ppg=mw_ppg,
+            shoe_tvd_ft=shoe_tvd_ft,
+        )
+        maasp = maasp_r.value if maasp_r.success else 0
 
         # Strokes
         stk_to_bit = total_string_vol / pump_output if pump_output > 0 else 0
@@ -4067,14 +4240,44 @@ class EngineeringCalculatorTab(DrillTabBase):
         self.hp_result.setText(text)
 
     def _wc_calc_kt(self):
+        form = self.kt_form_emw.value() or None
         r = self.engine.calc_kick_tolerance(
             self.kt_frac.value(), self.kt_mw.value(),
-            self.kt_tvd.value(), self.kt_shoe.value(), 100
+            self.kt_tvd.value(), self.kt_shoe.value(), None,
+            influx_gradient_psi_ft=self.kt_influx_g.value(),
+            annular_capacity_bbl_ft=self.kt_ann_cap.value() or None,
+            formation_emw_ppg=form,
         )
+        if "error" in r:
+            self.kt_result.setText(f"❌ {r['error']}")
+            return
+        kt = r.get("kick_tolerance_bbl")
         self.kt_result.setText(
-            f"Max Kick Intensity: {r['max_kick_intensity_ppg']:.2f} ppg\n"
-            f"Max SIDPP: {r['max_sidpp_psi']:.0f} psi\n"
-            f"Max Kick Height: {r['max_kick_height_ft']:.0f} ft"
+            f"MAASP: {r.get('maasp_psi', 0):.0f} psi\n"
+            f"Kick intensity: {r.get('kick_intensity_ppg')}\n"
+            f"Max height: {r.get('max_kick_height_ft', 0):.1f} ft\n"
+            f"Kick tolerance: {kt if kt is not None else 'n/a (need capacity)'} bbl"
+        )
+
+    def _wc_calc_trip_margin(self):
+        from core.engineering.engines.well_control import WellControlEngine
+        swab = self.tm_swab.value() or None
+        r = WellControlEngine.trip_margin(
+            mw_ppg=self.tm_mw.value(),
+            formation_emw_ppg=self.tm_form.value(),
+            tvd_ft=self.tm_tvd.value(),
+            swab_pressure_psi=swab,
+        )
+        if not r.success:
+            self.tm_result.setText(f"❌ {r.error}")
+            return
+        v = r.values
+        extra = ""
+        if v.get("adequate") is False:
+            extra = "\n⚠️ below required"
+        self.tm_result.setText(
+            f"Trip margin: {v['trip_margin_ppg']:.3f} ppg\n"
+            f"({v.get('trip_margin_psi') or 0:.0f} psi){extra}"
         )
         
    # ==================== Directional Tab ====================
@@ -4209,26 +4412,24 @@ class EngineeringCalculatorTab(DrillTabBase):
         self._dd_refresh_table()
 
     def _dd_recalculate_from(self, start_row):
-        """بازمحاسبه از یک ردیف خاص"""
-        for i in range(start_row, len(self.dd_surveys)):
-            if i == 0:
-                self.dd_surveys[i]['tvd'] = self.dd_surveys[i].get('md', 0)
-                self.dd_surveys[i]['north'] = 0
-                self.dd_surveys[i]['east'] = 0
-                self.dd_surveys[i]['dls'] = 0
-                continue
-
-            prev = self.dd_surveys[i - 1]
-            curr = self.dd_surveys[i]
-            r = self.engine.calc_min_curvature(
-                prev['md'], prev.get('inc', 0), prev.get('azi', 0),
-                curr['md'], curr.get('inc', 0), curr.get('azi', 0)
-            )
-            if 'error' not in r:
-                curr['tvd'] = prev.get('tvd', 0) + r['delta_tvd']
-                curr['north'] = prev.get('north', 0) + r['delta_north']
-                curr['east'] = prev.get('east', 0) + r['delta_east']
-                curr['dls'] = r['dls_deg_30m']
+        """Recompute the whole survey with canonical Minimum Curvature."""
+        from core.engineering.core import TrajectoryEngine
+        surveys = [
+            {"md": s.get("md", 0), "inc": s.get("inc", 0), "azi": s.get("azi", 0)}
+            for s in self.dd_surveys
+        ]
+        if not surveys:
+            return
+        try:
+            pts = TrajectoryEngine.calculate(surveys)
+        except Exception:
+            return
+        for i, p in enumerate(pts):
+            if i < len(self.dd_surveys):
+                self.dd_surveys[i]["tvd"] = p.tvd
+                self.dd_surveys[i]["north"] = p.north
+                self.dd_surveys[i]["east"] = p.east
+                self.dd_surveys[i]["dls"] = p.dls
 
     def _dd_refresh_table(self):
         self.dd_table.setRowCount(0)
@@ -4760,7 +4961,7 @@ class EngineeringCalculatorTab(DrillTabBase):
 # ==================== Pandas Table Model ====================
 class PandasTableModel(QAbstractTableModel):
     """مدل جدول برای نمایش DataFrame"""
-    
+
     def __init__(self, data: pd.DataFrame):
         super().__init__()
         self._data = data

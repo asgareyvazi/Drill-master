@@ -36,7 +36,6 @@ from core.table_record_mapper import extract_records
 from core.import_profiler import ImportProfiler
 from core.async_workers import FunctionWorker
 from core.mapping_store import MappingStore
-from core.activity_mapper import ActivityMapper, CANONICAL_ACTIVITIES
 
 logger = logging.getLogger(__name__)
 
@@ -778,500 +777,6 @@ FIELD_PATTERNS = {
         "type": "float",
         "valid_range": (0, 8000),
         "context_group": "drilling_params_block",
-    },
-
-    # ===== Extended fields (Phase 2+) =====
-
-    # BHA extended
-    "bha.id": {
-        "keywords": ["bha id", "inner diameter", "id"],
-        "synonyms": ["bha_id", "inner dia"],
-        "type": "float",
-        "context_group": "bha",
-    },
-    "bha.weight": {
-        "keywords": ["weight", "bha weight", "unit weight"],
-        "synonyms": ["bha_weight", "ppf"],
-        "type": "float",
-        "context_group": "bha",
-    },
-
-    # BOP
-    "bop.component_name": {
-        "keywords": ["bop", "blow out preventer", "component"],
-        "synonyms": ["bop_component", "preventer"],
-        "type": "str",
-        "context_group": "safety",
-    },
-    "bop.component_type": {
-        "keywords": ["bop type", "ram type", "annular"],
-        "synonyms": ["bop_type"],
-        "type": "str",
-        "context_group": "safety",
-    },
-    "bop.size": {
-        "keywords": ["bop size", "bop diameter"],
-        "synonyms": ["bop_size"],
-        "type": "str",
-        "context_group": "safety",
-    },
-    "bop.test_pressure": {
-        "keywords": ["bop test", "test pressure", "pressure test"],
-        "synonyms": ["bop_test_pressure"],
-        "type": "float",
-        "context_group": "safety",
-    },
-    "bop.working_pressure": {
-        "keywords": ["working pressure", "rated pressure", "wp"],
-        "synonyms": ["bop_wp", "bop_working"],
-        "type": "float",
-        "context_group": "safety",
-        "priority": 8,
-    },
-
-    # Bulk Materials
-    "bulk_material.material_name": {
-        "keywords": ["material", "chemical", "product name"],
-        "synonyms": ["material_name", "chemical_name"],
-        "type": "str",
-        "context_group": "logistics",
-    },
-    "bulk_material.unit": {
-        "keywords": ["unit", "uom"],
-        "synonyms": ["material_unit"],
-        "type": "str",
-        "context_group": "logistics",
-    },
-    "bulk_material.initial_stock": {
-        "keywords": ["initial stock", "opening stock", "start stock"],
-        "synonyms": ["opening"],
-        "type": "float",
-        "context_group": "logistics",
-    },
-    "bulk_material.received": {
-        "keywords": ["received", "received qty"],
-        "synonyms": ["material_received"],
-        "type": "float",
-        "context_group": "logistics",
-    },
-    "bulk_material.used": {
-        "keywords": ["used", "consumed", "consumption"],
-        "synonyms": ["material_used"],
-        "type": "float",
-        "context_group": "logistics",
-    },
-    "bulk_material.current_stock": {
-        "keywords": ["current stock", "closing stock", "balance"],
-        "synonyms": ["stock_balance"],
-        "type": "float",
-        "context_group": "logistics",
-    },
-
-    # Casing extended
-    "casing.weight": {
-        "keywords": ["casing weight", "unit weight", "ppf"],
-        "synonyms": ["casing_ppf"],
-        "type": "float",
-        "context_group": "casing",
-    },
-
-    # Cement
-    "cement.material": {
-        "keywords": ["cement", "cement type", "slurry"],
-        "synonyms": ["cement_material"],
-        "type": "str",
-        "context_group": "cement",
-    },
-    "cement.used": {
-        "keywords": ["cement volume", "cement used"],
-        "synonyms": ["cement_vol"],
-        "type": "float",
-        "context_group": "cement",
-    },
-    "cement.slurry_density": {
-        "keywords": ["slurry density", "slurry weight"],
-        "synonyms": ["slurry_sg"],
-        "type": "float",
-        "context_group": "cement",
-    },
-
-    # Cost
-    "cost.description": {
-        "keywords": ["cost description", "expense", "item"],
-        "synonyms": ["cost_item"],
-        "type": "str",
-        "context_group": "cost",
-    },
-    "cost.amount": {
-        "keywords": ["amount", "cost", "total cost"],
-        "synonyms": ["cost_amount"],
-        "type": "float",
-        "context_group": "cost",
-    },
-    "cost.category": {
-        "keywords": ["category", "cost category"],
-        "synonyms": ["cost_type"],
-        "type": "str",
-        "context_group": "cost",
-    },
-    "cost.planned_cost": {
-        "keywords": ["planned cost", "budget", "afe"],
-        "synonyms": ["budget_cost"],
-        "type": "float",
-        "context_group": "cost",
-    },
-    "cost.actual_cost": {
-        "keywords": ["actual cost", "real cost"],
-        "synonyms": ["actual"],
-        "type": "float",
-        "context_group": "cost",
-    },
-
-    # Daily Report extra
-    "daily_report.status": {
-        "keywords": ["status", "report status"],
-        "synonyms": ["report_status"],
-        "type": "str",
-        "context_group": "report",
-    },
-
-    # Downhole
-    "downhole.equipment_name": {
-        "keywords": ["downhole", "mwd", "lwd", "nm"],
-        "synonyms": ["downhole_name"],
-        "type": "str",
-        "context_group": "downhole",
-    },
-    "downhole.serial_number": {
-        "keywords": ["serial", "serial number", "s/n"],
-        "synonyms": ["serial_no"],
-        "type": "str",
-        "context_group": "downhole",
-    },
-
-    # Drilling extra
-    "drilling_params.iadc_code": {
-        "keywords": ["iadc", "iadc code"],
-        "synonyms": ["iadc_type"],
-        "type": "str",
-        "context_group": "drilling",
-    },
-    "drilling_params.manufacturer": {
-        "keywords": ["manufacturer", "bit manufacturer"],
-        "synonyms": ["bit_maker"],
-        "type": "str",
-        "context_group": "drilling",
-    },
-    "drilling_params.wob_min": {
-        "keywords": ["wob min", "min wob"],
-        "synonyms": ["min_wob"],
-        "type": "float",
-        "context_group": "drilling",
-    },
-    "drilling_params.rpm_min": {
-        "keywords": ["rpm min", "min rpm"],
-        "synonyms": ["min_rpm"],
-        "type": "float",
-        "context_group": "drilling",
-    },
-    "drilling_params.torque_min": {
-        "keywords": ["torque min", "min torque"],
-        "synonyms": ["min_torque"],
-        "type": "float",
-        "context_group": "drilling",
-    },
-    "drilling_params.pump_pressure_min": {
-        "keywords": ["spp min", "min spp", "min pressure"],
-        "synonyms": ["min_spp"],
-        "type": "float",
-        "context_group": "drilling",
-    },
-    "drilling_params.pump_output_min": {
-        "keywords": ["spm min", "min spm"],
-        "synonyms": ["min_spm"],
-        "type": "float",
-        "context_group": "drilling",
-    },
-    "drilling_params.pump_output_max": {
-        "keywords": ["spm max", "max spm"],
-        "synonyms": ["max_spm"],
-        "type": "float",
-        "context_group": "drilling",
-    },
-    "drilling_params.hsi": {
-        "keywords": ["hsi", "hydraulic hp"],
-        "synonyms": ["hsi_value"],
-        "type": "float",
-        "context_group": "drilling",
-    },
-    "drilling_params.annular_velocity": {
-        "keywords": ["annular velocity", "av"],
-        "synonyms": ["av_value"],
-        "type": "float",
-        "context_group": "drilling",
-    },
-
-    # Equipment
-    "equipment.equipment_name": {
-        "keywords": ["equipment", "equipment name"],
-        "synonyms": ["equip_name"],
-        "type": "str",
-        "context_group": "equipment",
-    },
-    "equipment.equipment_type": {
-        "keywords": ["equipment type", "type"],
-        "synonyms": ["equip_type"],
-        "type": "str",
-        "context_group": "equipment",
-    },
-    "equipment.serial_number": {
-        "keywords": ["serial", "s/n"],
-        "synonyms": ["equip_serial"],
-        "type": "str",
-        "context_group": "equipment",
-    },
-    "equipment.hours_worked": {
-        "keywords": ["hours", "hours worked", "running hours"],
-        "synonyms": ["equip_hours"],
-        "type": "float",
-        "context_group": "equipment",
-    },
-    "equipment.status": {
-        "keywords": ["status", "condition"],
-        "synonyms": ["equip_status"],
-        "type": "str",
-        "context_group": "equipment",
-    },
-
-    # Formation
-    "formation.name": {
-        "keywords": ["formation", "formation name", "fm"],
-        "synonyms": ["fm_name"],
-        "type": "str",
-        "context_group": "geology",
-    },
-    "formation.md_top": {
-        "keywords": ["formation top", "fm top", "top depth"],
-        "synonyms": ["fm_top"],
-        "type": "float",
-        "context_group": "geology",
-    },
-    "formation.md_bottom": {
-        "keywords": ["formation bottom", "fm bottom"],
-        "synonyms": ["fm_bottom"],
-        "type": "float",
-        "context_group": "geology",
-    },
-
-    # Fuel/Water
-    "fuel_water.fuel_consumed": {
-        "keywords": ["fuel consumed", "diesel consumed", "fuel used"],
-        "synonyms": ["fuel_use"],
-        "type": "float",
-        "context_group": "logistics",
-    },
-    "fuel_water.fuel_stock": {
-        "keywords": ["fuel stock", "diesel stock", "fuel balance"],
-        "synonyms": ["fuel_balance"],
-        "type": "float",
-        "context_group": "logistics",
-    },
-    "fuel_water.water_consumed": {
-        "keywords": ["water consumed", "water used"],
-        "synonyms": ["water_use"],
-        "type": "float",
-        "context_group": "logistics",
-    },
-    "fuel_water.water_stock": {
-        "keywords": ["water stock", "water balance"],
-        "synonyms": ["water_balance"],
-        "type": "float",
-        "context_group": "logistics",
-    },
-
-    # Logistics
-    "logistics.company_name": {
-        "keywords": ["company", "service company"],
-        "synonyms": ["logistics_company"],
-        "type": "str",
-        "context_group": "logistics",
-    },
-    "logistics.position": {
-        "keywords": ["position", "job title"],
-        "synonyms": ["logistics_position"],
-        "type": "str",
-        "context_group": "logistics",
-    },
-    "logistics.personnel_count": {
-        "keywords": ["personnel", "headcount", "pob"],
-        "synonyms": ["pob_count"],
-        "type": "int",
-        "context_group": "logistics",
-    },
-
-    # Mud extra
-    "mud_report.mud_type": {
-        "keywords": ["mud type", "fluid type", "mud system"],
-        "synonyms": ["mud_system"],
-        "type": "str",
-        "context_group": "mud",
-    },
-
-    # NPT
-    "npt.npt_category": {
-        "keywords": ["npt category", "npt type"],
-        "synonyms": ["npt_cat"],
-        "type": "str",
-        "context_group": "npt",
-    },
-    "npt.npt_code": {
-        "keywords": ["npt code"],
-        "synonyms": ["npt_code"],
-        "type": "str",
-        "context_group": "npt",
-    },
-    "npt.duration_hours": {
-        "keywords": ["npt hours", "npt duration"],
-        "synonyms": ["npt_hrs"],
-        "type": "float",
-        "context_group": "npt",
-    },
-    "npt.responsible_party": {
-        "keywords": ["responsible", "npt responsible"],
-        "synonyms": ["npt_party"],
-        "type": "str",
-        "context_group": "npt",
-    },
-    "npt.cost_impact": {
-        "keywords": ["npt cost", "cost impact"],
-        "synonyms": ["npt_cost"],
-        "type": "float",
-        "context_group": "npt",
-    },
-
-    # Safety
-    "safety.days_without_lti": {
-        "keywords": ["lti free", "days without", "lti days"],
-        "synonyms": ["lti_free_days"],
-        "type": "int",
-        "context_group": "safety",
-    },
-    "safety.lti_count": {
-        "keywords": ["lti", "lost time"],
-        "synonyms": ["lti_number"],
-        "type": "int",
-        "context_group": "safety",
-    },
-    "safety.near_miss_count": {
-        "keywords": ["near miss", "near-miss"],
-        "synonyms": ["near_miss"],
-        "type": "int",
-        "context_group": "safety",
-    },
-    "safety.report_type": {
-        "keywords": ["safety type", "report type"],
-        "synonyms": ["safety_type"],
-        "type": "str",
-        "context_group": "safety",
-    },
-
-    # Service
-    "service.company_name": {
-        "keywords": ["service company", "contractor"],
-        "synonyms": ["service_co"],
-        "type": "str",
-        "context_group": "services",
-    },
-    "service.service_type": {
-        "keywords": ["service type", "service"],
-        "synonyms": ["service_kind"],
-        "type": "str",
-        "context_group": "services",
-    },
-    "service.personnel_count": {
-        "keywords": ["service personnel", "crew"],
-        "synonyms": ["service_pob"],
-        "type": "int",
-        "context_group": "services",
-    },
-
-    # Survey extra
-    "survey.north": {
-        "keywords": ["north", "northing", "n/s"],
-        "synonyms": ["survey_north"],
-        "type": "float",
-        "context_group": "survey",
-    },
-    "survey.east": {
-        "keywords": ["east", "easting", "e/w"],
-        "synonyms": ["survey_east"],
-        "type": "float",
-        "context_group": "survey",
-    },
-    "survey.dls": {
-        "keywords": ["dls", "dogleg", "dogleg severity"],
-        "synonyms": ["survey_dls"],
-        "type": "float",
-        "context_group": "survey",
-    },
-    "survey.tool": {
-        "keywords": ["survey tool", "mwd", "gyro"],
-        "synonyms": ["survey_tool"],
-        "type": "str",
-        "context_group": "survey",
-    },
-
-    # Time Log
-    "time_log.main_code": {
-        "keywords": ["main code", "phase code"],
-        "synonyms": ["main_phase"],
-        "type": "str",
-        "context_group": "timelog",
-    },
-    "time_log.sub_code": {
-        "keywords": ["sub code", "activity code"],
-        "synonyms": ["sub_phase"],
-        "type": "str",
-        "context_group": "timelog",
-    },
-    "time_log.activity_description": {
-        "keywords": ["description", "activity", "remark"],
-        "synonyms": ["activity_desc"],
-        "type": "str",
-        "context_group": "timelog",
-    },
-    "time_log.contractor": {
-        "keywords": ["contractor", "service provider"],
-        "synonyms": ["tl_contractor"],
-        "type": "str",
-        "context_group": "timelog",
-    },
-    "time_log.duration": {
-        "keywords": ["duration", "hours", "hrs"],
-        "synonyms": ["tl_duration"],
-        "type": "float",
-        "context_group": "timelog",
-    },
-
-    # Well Info extra
-    "well_info.location": {
-        "keywords": ["location", "well location"],
-        "synonyms": ["well_loc"],
-        "type": "str",
-        "context_group": "well_header",
-    },
-    "well_info.report_date": {
-        "keywords": ["report date", "date"],
-        "synonyms": ["rpt_date"],
-        "type": "date",
-        "context_group": "well_header",
-        "priority": 10,
-    },
-    "well_info.spud_date": {
-        "keywords": ["spud", "spud date"],
-        "synonyms": ["spud_dt"],
-        "type": "date",
-        "context_group": "well_header",
     },
 }
 
@@ -2161,21 +1666,6 @@ class CodeResolver:
         return sub_str
 
     @staticmethod
-    def resolve_canonical(raw_code, description="", company="", template=""):
-        """Resolve code to canonical activity using ActivityMapper.
-        
-        Returns dict with:
-        - source_code, source_description (preserved)
-        - canonical_id, canonical_name
-        - category, is_npt, npt_category
-        - confidence, method, reason
-        """
-        mapper = ActivityMapper()
-        code_str = CodeResolver._clean_code(raw_code)
-        result = mapper.map_activity(code_str, description, company, template)
-        return result.to_dict()
-
-    @staticmethod
     def guess_contractor(npt_code: str) -> str:
         if not npt_code:
             return ""
@@ -2879,12 +2369,7 @@ class SmartTemplateDialog(QDialog):
                 "well_info": {}, "daily_report": {},
                 "mud_report": {}, "drilling_params": {},
                 "time_logs_24h": [], "time_logs_morning": [],
-                "survey": [], "bulk_materials": [],
-                "bha": {}, "downhole": {}, "formation": {},
-                "casing": {}, "cement": {}, "bop": {},
-                "safety": {}, "equipment": {}, "logistics": {},
-                "service": {}, "cost": {}, "npt": {},
-                "fuel_water": {}, "metadata": {"sheet_routing": self.sheet_routing},
+                "metadata": {"sheet_routing": self.sheet_routing},
             }
             self.assignments.clear()
             self.confidence_scores.clear()
@@ -3134,14 +2619,7 @@ class SmartTemplateDialog(QDialog):
             "auto": True,
         }
         self.confidence_scores[field_path] = conf
-        # Ensure section exists in base_extracted
-        if section not in self.base_extracted:
-            if section in ("survey", "bulk_materials", "time_logs_24h", "time_logs_morning"):
-                self.base_extracted[section] = []
-            else:
-                self.base_extracted[section] = {}
-        if isinstance(self.base_extracted[section], dict):
-            self.base_extracted[section][key] = value
+        self.base_extracted[section][key] = value
 
         if self.detector:
             self.detector.register_found(
@@ -3906,11 +3384,6 @@ class SmartTemplateDialog(QDialog):
             "cement_report", "bit_report", "bha_report", "bulk_materials",
             "fuel_water", "safety_report", "bop_components", "waste_records",
             "cost_records", "equipment_logs", "downhole_equipment",
-            # V3 template table keys
-            "bha_components", "scr_data", "cement_additives",
-            "fuel_water_data", "pob_data", "time_breakdown",
-            "formation_data", "solid_control", "boats",
-            "casing_data", "drilling_params_table", "lookahead",
         ):
             if self.base_extracted.get(payload_key):
                 result[payload_key] = self.base_extracted[payload_key]
@@ -3922,17 +3395,8 @@ class SmartTemplateDialog(QDialog):
             if "." not in fp:
                 continue
             section, key = fp.split(".", 1)
-            # Skip if key contains [ (table row index like "survey.md[58]")
-            if "[" in key:
-                key = key.split("[")[0]
             if section not in result:
                 result[section] = {}
-            # Skip if section is a list (e.g. time_logs_24h, surveys)
-            if isinstance(result[section], list):
-                continue
-            # Skip if section is not a dict
-            if not isinstance(result[section], dict):
-                continue
 
             raw_value = assign.get("value", "")
             clean_value = self._clean_value_for_field(fp, raw_value)
@@ -3943,23 +3407,13 @@ class SmartTemplateDialog(QDialog):
         # only scalar field assignments were visible, hiding most imported
         # time logs, surveys and inventory rows.
         record_fields = {
-            "time_logs_24h": ("time_log", ("time_from", "time_to", "main_code", "sub_code", "contractor", "duration", "activity_description")),
-            "time_logs_morning": ("morning_log", ("time_from", "time_to", "main_code", "sub_code", "duration", "activity_description")),
-            "surveys": ("survey", ("md", "inc", "azi", "tvd", "north", "east", "dls")),
+            "time_logs_24h": ("time_log", ("time_from", "time_to", "main_code", "sub_code", "contractor")),
+            "time_logs_morning": ("morning_log", ("time_from", "time_to", "main_code", "sub_code")),
+            "surveys": ("survey", ("md", "inc", "azi", "tvd")),
             "bulk_materials": ("bulk_material", ("material_name", "initial_stock", "received", "used", "current_stock")),
             "equipment_logs": ("equipment", ("equipment_name", "equipment_type", "equipment_id")),
             "pob_records": ("pob", ("company_name", "pob_total")),
             "service_companies": ("service", ("company_name", "service_type")),
-            "bop_components": ("bop", ("component_name", "component_type", "working_pressure")),
-            "cement_additives": ("cement", ("material_type", "used", "received", "on_hand", "unit")),
-            "bha_components": ("bha", ("component_name", "od", "length")),
-            "downhole_equipment": ("downhole", ("equipment_name", "od", "serial_number", "rot_hrs", "cum_hrs")),
-            "surveys": ("survey", ("md", "inc", "azi", "tvd")),
-            "scr_data": ("scr", ("pump", "spm", "fr_gpm", "spp")),
-            "formation_data": ("formation", ("name", "md_top", "tvd", "lithology")),
-            "solid_control": ("solid_control", ("equipment", "size_cones", "daily_hrs")),
-            "boats": ("transport", ("name", "arrival_time", "pax_in")),
-            "lookahead": ("lookahead", ("day", "date", "activity", "responsible")),
         }
         matrix = result.setdefault("metadata", {}).setdefault("review_matrix", [])
         for payload_key, (record_type, fields) in record_fields.items():
@@ -4125,37 +3579,34 @@ class SmartTemplateDialog(QDialog):
 
     def _apply_template(self, tmpl: dict):
         """
-        Apply template - supports v1 (coordinate), v2 (anchor), and v3 (sheet/section/grouped)
+        Apply template - supports both v1 (coordinate) and v2 (anchor)
         """
-        version = tmpl.get("version", "1.0")
-        self.assignments.clear()
-        self.confidence_scores.clear()
-
-        # ===== V3 Format: organized by sheet_key → section → fields/tables =====
-        if any(k.startswith("sheet_") for k in tmpl.keys()):
-            self._apply_template_v3(tmpl)
-            return
-
-        # ===== V1/V2 Format: flat assignments dict =====
         assigns = tmpl.get("assignments", {})
         if not assigns:
             return
+
+        version = tmpl.get("version", "1.0")
+        self.assignments.clear()
+        self.confidence_scores.clear()
 
         for fp, info in assigns.items():
             value = None
             conf = 0.0
 
             if version >= "2.0" and info.get("anchor_text"):
+                # Anchor-based: find anchor first
                 result = self._find_by_anchor(fp, info)
                 if result:
                     value, sheet, r, c = result
                     conf = 0.95
                 else:
+                    # fallback to coordinates
                     result = self._find_by_coordinates(fp, info)
                     if result:
                         value, sheet, r, c = result
                         conf = 0.70
             else:
+                # v1: coordinate-based
                 result = self._find_by_coordinates(fp, info)
                 if result:
                     value, sheet, r, c = result
@@ -4176,226 +3627,6 @@ class SmartTemplateDialog(QDialog):
         self._reset_review_table()
         if self.current_sheet:
             self._display_sheet(self.current_sheet)
-
-    def _apply_template_v3(self, tmpl: dict):
-        """Apply v3 template format: sheet_key → section → fields/tables with canonical mapping."""
-        if not self.cell_cache:
-            logger.warning("No cell cache available for v3 template")
-            return
-
-        # Map sheet_key to actual sheet name
-        sheet_map = {}
-        for key in tmpl.keys():
-            if not key.startswith("sheet_"):
-                continue
-            # sheet_1_DDR_Remark → find sheet containing "DDR Remark" or "Remark"
-            parts = key.split("_", 2)  # ['sheet', '1', 'DDR_Remark']
-            if len(parts) >= 3:
-                hint = parts[2].replace("_", " ").lower()
-                for actual_name in self.cell_cache.keys():
-                    if hint in actual_name.lower() or actual_name.lower() in hint:
-                        sheet_map[key] = actual_name
-                        break
-                if key not in sheet_map:
-                    # Fallback: use first sheet or largest
-                    if self.cell_cache:
-                        sheet_map[key] = list(self.cell_cache.keys())[0]
-
-        # Process each sheet
-        for sheet_key, sheet_data in tmpl.items():
-            if not sheet_key.startswith("sheet_"):
-                continue
-
-            actual_sheet = sheet_map.get(sheet_key, "")
-            if not actual_sheet or actual_sheet not in self.cell_cache:
-                continue
-
-            cells = self.cell_cache[actual_sheet]
-
-            for section_name, section_data in sheet_data.items():
-                if isinstance(section_data, list):
-                    # List of single fields
-                    for field_def in section_data:
-                        self._apply_v3_single_field(field_def, actual_sheet, cells)
-                elif isinstance(section_data, dict):
-                    if "columns" in section_data:
-                        # Table definition
-                        self._apply_v3_table(section_data, actual_sheet, cells)
-                    else:
-                        # Nested dict (like Previous Casing Info)
-                        for sub_key, sub_data in section_data.items():
-                            if isinstance(sub_data, list):
-                                for field_def in sub_data:
-                                    self._apply_v3_single_field(field_def, actual_sheet, cells)
-                            elif isinstance(sub_data, dict) and "columns" in sub_data:
-                                self._apply_v3_table(sub_data, actual_sheet, cells)
-
-        self.final_data = self._build_final_data_from_assignments()
-        self._reset_review_table()
-        if self.current_sheet:
-            self._display_sheet(self.current_sheet)
-
-    def _apply_v3_single_field(self, field_def: dict, sheet: str, cells: dict):
-        """Apply a single field from v3 template."""
-        canonical = field_def.get("canonical", "")
-        if not canonical or "." not in canonical:
-            return
-
-        row = field_def.get("row", 0)
-        col = field_def.get("col", 0)
-        field_name = field_def.get("field", "")
-
-        # Read value from cell cache
-        value = cells.get((row, col))
-        if value is None:
-            return
-
-        section, key = canonical.split(".", 1)
-
-        self.assignments[canonical] = {
-            "sheet": sheet,
-            "row": row,
-            "col": col,
-            "value": str(value)[:100],
-            "original_value": value,
-            "canonical_field": canonical,
-            "confidence": 0.95,
-            "decision": "ACCEPT",
-            "template": True,
-        }
-        self.confidence_scores[canonical] = 0.95
-
-        # Also put into base_extracted
-        if section not in self.base_extracted:
-            self.base_extracted[section] = {}
-        if isinstance(self.base_extracted[section], dict):
-            self.base_extracted[section][key] = value
-
-    def _apply_v3_table(self, table_def: dict, sheet: str, cells: dict):
-        """Apply a table from v3 template — reads rows and creates records."""
-        columns = table_def.get("columns", [])
-        start_row = table_def.get("start_row", 0)
-        end_row = table_def.get("end_row", 0)
-        end_marker = table_def.get("end_marker", "")
-
-        if not columns or not start_row:
-            return
-
-        # Determine canonical section from first column
-        first_canonical = columns[0].get("canonical", "")
-        if "." in first_canonical:
-            section = first_canonical.split(".")[0]
-        else:
-            section = first_canonical.split("_")[0] if "_" in first_canonical else "unknown"
-
-        # Find end row
-        if not end_row:
-            # Auto-detect: scan until empty row or end_marker
-            max_row = start_row
-            for r in range(start_row, start_row + 200):
-                # Check if row has any data
-                has_data = False
-                for col_def in columns:
-                    c = col_def.get("col", 0)
-                    if cells.get((r, c)) is not None:
-                        has_data = True
-                        break
-                if not has_data:
-                    break
-                # Check end marker
-                if end_marker:
-                    for c in range(1, 50):
-                        val = cells.get((r, c))
-                        if val and str(val).strip().lower() == end_marker.lower():
-                            break
-                    else:
-                        max_row = r
-                        continue
-                    break
-                max_row = r
-            end_row = max_row
-
-        # Read table rows
-        records = []
-        for r in range(start_row, end_row + 1):
-            record = {}
-            has_any_value = False
-            for col_def in columns:
-                c = col_def.get("col", 0)
-                canonical = col_def.get("canonical", "")
-                field_name = col_def.get("field", "")
-                value = cells.get((r, c))
-                if value is not None:
-                    has_any_value = True
-                    # Extract key from canonical
-                    if "." in canonical:
-                        key = canonical.split(".", 1)[1]
-                    else:
-                        key = canonical
-                    record[key] = value
-
-                    # Also register in assignments
-                    if canonical and "." in canonical:
-                        full_key = f"{canonical}[{r}]"
-                        self.assignments[full_key] = {
-                            "sheet": sheet,
-                            "row": r,
-                            "col": c,
-                            "value": str(value)[:100],
-                            "original_value": value,
-                            "canonical_field": canonical,
-                            "confidence": 0.95,
-                            "decision": "ACCEPT",
-                            "template": True,
-                        }
-
-            if has_any_value and record:
-                records.append(record)
-
-        # Store in base_extracted
-        if records:
-            # Determine the right key for storage
-            storage_key = section
-            # Map to known extraction keys
-            key_map = {
-                "time_log": "time_logs_24h",
-                "time_log_morning": "time_logs_morning",
-                "survey": "surveys",
-                "mud_chemical": "bulk_materials",
-                "bha": "bha_components",
-                "downhole": "downhole_equipment",
-                "drilling_param": "drilling_params_table",
-                "scr": "scr_data",
-                "bop": "bop_components",
-                "formation": "formation_data",
-                "solid_control": "solid_control",
-                "transport": "boats",
-                "lookahead": "lookahead",
-                "service": "service_companies",
-                "cement": "cement_additives",
-                "fuel_water": "fuel_water_data",
-                "casing": "casing_data",
-                "pob": "pob_data",
-                "time_breakdown": "time_breakdown",
-            }
-            storage_key = key_map.get(section, section)
-
-            if storage_key in ("time_logs_24h", "time_logs_morning", "surveys", "bulk_materials",
-                              "service_companies", "lookahead", "bop_components",
-                              "cement_additives", "fuel_water_data", "pob_data",
-                              "time_breakdown", "scr_data", "bha_components",
-                              "downhole_equipment", "formation_data", "solid_control",
-                              "boats", "casing_data", "drilling_params_table"):
-                if storage_key not in self.base_extracted:
-                    self.base_extracted[storage_key] = []
-                if isinstance(self.base_extracted[storage_key], list):
-                    self.base_extracted[storage_key].extend(records)
-            else:
-                # Single record → dict
-                if storage_key not in self.base_extracted:
-                    self.base_extracted[storage_key] = {}
-                if isinstance(self.base_extracted[storage_key], dict) and records:
-                    self.base_extracted[storage_key].update(records[0])
 
     def _find_by_anchor(
         self, field_path: str, info: dict

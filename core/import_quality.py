@@ -21,16 +21,6 @@ from datetime import time, datetime, date
 import re
 
 
-def _safe_float(value) -> Optional[float]:
-    """Convert value to float safely. Returns None for non-numeric strings like 'hrs', 'month'."""
-    if value is None or value == "":
-        return None
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return None
-
-
 @dataclass
 class ImportIssue:
     sheet: str
@@ -307,7 +297,7 @@ class TimeLogValidator:
                     "index": idx,
                     "from_m": from_m,
                     "to_m": to_m,
-                    "duration": _safe_float(dur) if dur not in (None, "") else computed_dur,
+                    "duration": float(dur) if dur not in (None, "") else computed_dur,
                     "computed_duration": computed_dur,
                     "log": log,
                 }
