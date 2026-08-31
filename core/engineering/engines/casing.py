@@ -1,20 +1,18 @@
-"""Canonical casing strength — API TR 5C3 *subset*.
+"""Canonical casing strength — API TR 5C3 *pipe-body* subset.
 
-Supported scope (PARTIAL):
-  - Internal yield (burst): Barlow with 0.875 wall tolerance  [API 5C3 / 5CT]
+Implemented:
+  - Internal yield (burst): Barlow with 0.875 wall tolerance
   - Collapse: four API 5C3 regimes (yield / plastic / transition / elastic)
-    with published A,B,C,F,G coefficients from specified minimum yield
-  - Pipe-body yield tension: Yp × cross-section area
+  - Pipe-body yield tension: Yp × area
+  - Combined-load collapse (fyax biaxial reduction, API 5C3)
+  - Internal-pressure collapse adjustment  Pc' = Pc + Pi (1 − 2 t/D)
+  - Von Mises equivalent (Lamé inner-wall + axial), utilization vs Yp
+  - Optional user-supplied connection ratings (never invented)
 
-NOT implemented (do not claim complete API TR 5C3):
-  - Connection ratings (BTC, premium)
-  - Axial-stress / combined-load equivalent yield (fyax) collapse derating
-  - Internal-pressure collapse adjustment (Addendum)
-  - Temperature derating, wear, bending, triaxial von Mises design
-  - Load-case envelopes (burst/collapse/tension/compression with design factors
-    applied as a full well-design workflow)
-
-Design factors, if supplied, are applied as simple SF = rating / load.
+NOT implemented (do not claim full API TR 5C3):
+  - Published connection tables (BTC / premium)
+  - Temperature-yield tables (pass yield_at_temp_psi if already derated)
+  - Wear, bending moment, triaxial *design envelope* software
 """
 from __future__ import annotations
 
@@ -34,7 +32,7 @@ from ..result import (
 
 
 class CasingEngine:
-    METHOD = "API TR 5C3 (historical four-regime collapse) + Barlow internal yield"
+    METHOD = "API TR 5C3 pipe-body subset (Barlow + four-regime + fyax + VME)"
     SCOPE = "PARTIAL"
 
     @staticmethod
@@ -61,6 +59,39 @@ class CasingEngine:
         dt_pt = yp * (a - f) / (c + yp * (b - g))
         dt_te = (2.0 + b / a) / (3.0 * b / a)
         return dt_yp, dt_pt, dt_te, a, b, c, f, g
+
+    @classmethod
+    def _collapse_uncorrected(cls, od: float, t: float, yp: float):
+        dt = od / t
+        dt_yp, dt_pt, dt_te, a, b, c, f, g = cls._dt_limits(yp)
+        if dt <= dt_yp:
+            regime = "yield"
+            rating = 2.0 * yp * ((dt - 1.0) / dt**2)
+        elif dt <= dt_pt:
+            regime = "plastic"
+            rating = yp * (a / dt - b) - c
+        elif dt <= dt_te:
+            regime = "transition"
+            rating = yp * (f / dt - g)
+        else:
+            regime = "elastic"
+            rating = 46.95e6 / (dt * (dt - 1.0) ** 2)
+        return max(0.0, rating), regime, dt, dt_yp, dt_pt, dt_te
+
+    @staticmethod
+    def fyax(yield_psi: float, axial_stress_psi: float) -> float:
+        """API 5C3 reduced yield for collapse under axial stress.
+
+        Tension (sa > 0):  fyax = [√(1 − 0.75 z²) − 0.5 z] Yp
+        Compression (sa < 0): sign of the 0.5 z term flips.
+        """
+        if yield_psi <= 0:
+            return 0.0
+        z = axial_stress_psi / yield_psi
+        if abs(z) >= 1.0:
+            return 0.0
+        root = math.sqrt(max(0.0, 1.0 - 0.75 * z * z))
+        return max(0.0, (root - 0.5 * z) * yield_psi)
 
     @classmethod
     def burst(cls, od_in, wall_in, yield_psi, design_factor=None) -> EngineeringResult:
@@ -92,9 +123,9 @@ class CasingEngine:
                 assumptions=[
                     "Thin-wall Barlow internal yield",
                     "API 5CT −12.5% wall tolerance (0.875 factor)",
-                    "No temperature derating, no biaxial reduction",
+                    "No temperature derating unless yield_psi is already derated",
                 ],
-                warnings=["PARTIAL: Barlow internal yield only — not a full API TR 5C3 burst design"],
+                warnings=["Pipe-body Barlow only — connection burst is not looked up"],
                 scope=cls.SCOPE,
             )
         except MissingInputError as exc:
@@ -110,21 +141,7 @@ class CasingEngine:
             yp = require_number(yield_psi, "yield_psi")
             if od <= 0 or t <= 0 or yp <= 0:
                 raise EngineeringError("OD, wall and yield must be > 0")
-            dt = od / t
-            dt_yp, dt_pt, dt_te, a, b, c, f, g = cls._dt_limits(yp)
-            if dt <= dt_yp:
-                regime = "yield"
-                rating = 2.0 * yp * ((dt - 1.0) / dt**2)
-            elif dt <= dt_pt:
-                regime = "plastic"
-                rating = yp * (a / dt - b) - c
-            elif dt <= dt_te:
-                regime = "transition"
-                rating = yp * (f / dt - g)
-            else:
-                regime = "elastic"
-                rating = 46.95e6 / (dt * (dt - 1.0) ** 2)
-            rating = max(0.0, rating)
+            rating, regime, dt, dt_yp, dt_pt, dt_te = cls._collapse_uncorrected(od, t, yp)
             df = optional_number(design_factor, "design_factor")
             working = rating / df if df and df > 0 else None
             values = {
@@ -151,11 +168,136 @@ class CasingEngine:
                 assumptions=[
                     "Zero axial load, zero internal pressure (uncorrected Pc)",
                     "Coefficients A,B,C,F,G from specified minimum yield (psi)",
-                    "No combined-load fyax derating",
                 ],
-                warnings=[
-                    "PARTIAL: API 5C3 four-regime collapse only — no axial/internal-pressure correction"
+                warnings=[],
+                scope=cls.SCOPE,
+            )
+        except MissingInputError as exc:
+            return missing(exc.field)
+        except EngineeringError as exc:
+            return failed(str(exc))
+
+    @classmethod
+    def collapse_combined(
+        cls,
+        od_in,
+        wall_in,
+        yield_psi,
+        axial_tension_lbf=None,
+        id_in=None,
+        internal_pressure_psi=None,
+        design_factor=None,
+    ) -> EngineeringResult:
+        """Four-regime collapse with fyax and internal-pressure correction."""
+        try:
+            od = require_number(od_in, "od_in")
+            t = require_number(wall_in, "wall_in")
+            yp = require_number(yield_psi, "yield_psi")
+            if od <= 0 or t <= 0 or yp <= 0:
+                raise EngineeringError("OD, wall and yield must be > 0")
+            id_ = optional_number(id_in, "id_in")
+            if id_ is None:
+                id_ = od - 2.0 * t
+            fax = optional_number(axial_tension_lbf, "axial_tension_lbf") or 0.0
+            pi = optional_number(internal_pressure_psi, "internal_pressure_psi") or 0.0
+            area = math.pi / 4.0 * (od**2 - id_**2)
+            if area <= 0:
+                raise EngineeringError("Cross-section area must be > 0")
+            sa = fax / area
+            yp_ax = cls.fyax(yp, sa)
+            pc0, regime0, dt, *_ = cls._collapse_uncorrected(od, t, yp)
+            pc_ax, regime, *_rest = cls._collapse_uncorrected(od, t, yp_ax if yp_ax > 0 else yp)
+            if yp_ax <= 0:
+                pc_ax, regime = 0.0, "yield_exhausted"
+            pc_corr = pc_ax + pi * (1.0 - 2.0 * t / od)
+            pc_corr = max(0.0, pc_corr)
+            df = optional_number(design_factor, "design_factor")
+            working = pc_corr / df if df and df > 0 else None
+            values = {
+                "collapse_uncorrected_psi": round(pc0, 1),
+                "fyax_psi": round(yp_ax, 1),
+                "axial_stress_psi": round(sa, 1),
+                "collapse_fyax_psi": round(pc_ax, 1),
+                "collapse_combined_psi": round(pc_corr, 1),
+                "internal_pressure_psi": pi,
+                "regime": regime,
+                "d_over_t": round(dt, 4),
+                "working_pressure_psi": None if working is None else round(working, 1),
+            }
+            return ok(
+                round(pc_corr, 1),
+                values=values,
+                unit="psi",
+                formula="fyax=[√(1−0.75z²)−0.5z]Yp; Pc'=Pc(fyax)+Pi(1−2t/D)",
+                method=cls.METHOD,
+                assumptions=[
+                    "API 5C3 biaxial fyax (tension positive)",
+                    "Internal-pressure addendum Pc' = Pc + Pi (1 − 2t/D)",
                 ],
+                scope=cls.SCOPE,
+            )
+        except MissingInputError as exc:
+            return missing(exc.field)
+        except EngineeringError as exc:
+            return failed(str(exc))
+
+    @classmethod
+    def triaxial_vme(
+        cls,
+        od_in,
+        id_in,
+        yield_psi,
+        internal_pressure_psi,
+        external_pressure_psi,
+        axial_tension_lbf,
+        include_capped_end=True,
+    ) -> EngineeringResult:
+        """Inner-wall von Mises equivalent (Lamé) vs specified minimum yield."""
+        try:
+            od = require_number(od_in, "od_in")
+            id_ = require_number(id_in, "id_in")
+            yp = require_number(yield_psi, "yield_psi")
+            pi = require_number(internal_pressure_psi, "internal_pressure_psi")
+            pe = require_number(external_pressure_psi, "external_pressure_psi")
+            fax = require_number(axial_tension_lbf, "axial_tension_lbf")
+            if od <= id_ or id_ <= 0 or yp <= 0:
+                raise EngineeringError("Need OD > ID > 0 and yield > 0")
+            ro, ri = od / 2.0, id_ / 2.0
+            area = math.pi * (ro**2 - ri**2)
+            # Lamé at inner wall
+            denom = ro**2 - ri**2
+            sigma_r = -pi
+            sigma_h = (pi * (ri**2 + ro**2) - 2.0 * pe * ro**2) / denom
+            capped = 0.0
+            if include_capped_end:
+                capped = (pi * ri**2 - pe * ro**2) / area
+            sigma_a = fax / area + capped
+            vme = math.sqrt(0.5 * ((sigma_h - sigma_a) ** 2 + (sigma_a - sigma_r) ** 2 + (sigma_r - sigma_h) ** 2))
+            util = vme / yp
+            values = {
+                "sigma_hoop_psi": round(sigma_h, 1),
+                "sigma_radial_psi": round(sigma_r, 1),
+                "sigma_axial_psi": round(sigma_a, 1),
+                "capped_end_psi": round(capped, 1),
+                "vme_psi": round(vme, 1),
+                "utilization": round(util, 4),
+                "yield_psi": yp,
+            }
+            warnings = []
+            if util > 1.0:
+                warnings.append(f"VME utilization {util:.3f} > 1.0 (exceeds specified minimum yield)")
+            return ok(
+                round(vme, 1),
+                values=values,
+                unit="psi",
+                formula="VME=√½[(σh−σa)²+(σa−σr)²+(σr−σh)²]; Lamé inner wall",
+                method=cls.METHOD,
+                assumptions=[
+                    "Elastic Lamé thick-wall at inner surface",
+                    "Capped-end axial from Pi, Pe included when include_capped_end=True",
+                    "Not a full ISO 10400 design envelope (no temperature, wear, or connection VME)",
+                ],
+                warnings=warnings,
                 scope=cls.SCOPE,
             )
         except MissingInputError as exc:
@@ -195,10 +337,10 @@ class CasingEngine:
                 formula="T_body = Yp × π/4 × (OD² − ID²)",
                 method=cls.METHOD,
                 assumptions=[
-                    "Pipe-body yield only — connections often govern and are NOT rated here",
-                    "No joint strength, no temperature derating",
+                    "Pipe-body yield only — connections often govern",
+                    "No joint strength unless connection_tension_lbf is supplied",
                 ],
-                warnings=["PARTIAL: pipe-body yield only — API connection ratings not implemented"],
+                warnings=["Pipe-body yield only — API connection ratings are not tabulated here"],
                 scope=cls.SCOPE,
             )
         except MissingInputError as exc:
@@ -221,11 +363,17 @@ class CasingEngine:
         tension_design_factor=None,
         grade: str = "",
         weight_ppf=None,
+        yield_at_temp_psi=None,
+        connection_burst_psi=None,
+        connection_collapse_psi=None,
+        connection_tension_lbf=None,
     ) -> EngineeringResult:
-        """Compute burst, collapse and tension ratings and optional load checks."""
+        """Pipe-body ratings, combined collapse, optional VME and connection mins."""
         try:
             od = require_number(od_in, "od_in")
-            yp = require_number(yield_psi, "yield_psi")
+            yp_nom = require_number(yield_psi, "yield_psi")
+            yp_t = optional_number(yield_at_temp_psi, "yield_at_temp_psi")
+            yp = yp_t if yp_t is not None else yp_nom
             wall = optional_number(wall_in, "wall_in")
             id_ = optional_number(id_in, "id_in")
             if wall is None and id_ is not None:
@@ -245,38 +393,74 @@ class CasingEngine:
         c = cls.collapse(od, wall, yp, collapse_design_factor)
         t = cls.tensile(od, id_, yp, tension_design_factor)
         if not (b.success and c.success and t.success):
-            err = b.error or c.error or t.error
-            return failed(err)
+            return failed(b.error or c.error or t.error)
+
+        comb = cls.collapse_combined(
+            od, wall, yp,
+            axial_tension_lbf=axial_tension_lbf,
+            id_in=id_,
+            internal_pressure_psi=internal_pressure_psi,
+            design_factor=collapse_design_factor,
+        )
 
         warnings: List[str] = list(b.warnings) + list(c.warnings) + list(t.warnings)
+        if yp_t is None:
+            warnings.append("Temperature derating not applied — pass yield_at_temp_psi if Yp is reduced")
+        else:
+            warnings.append(f"Using yield_at_temp_psi={yp_t:g} (not a built-in temperature table)")
+
+        conn_b = optional_number(connection_burst_psi, "connection_burst_psi")
+        conn_c = optional_number(connection_collapse_psi, "connection_collapse_psi")
+        conn_t = optional_number(connection_tension_lbf, "connection_tension_lbf")
+        burst_gov = b.value if conn_b is None else min(b.value, conn_b)
+        coll_gov = (comb.value if comb.success else c.value)
+        if conn_c is not None:
+            coll_gov = min(coll_gov, conn_c)
+        tens_gov = t.value if conn_t is None else min(t.value, conn_t)
+        if conn_b is None and conn_c is None and conn_t is None:
+            warnings.append("Connection ratings not supplied — pipe body governs (PARTIAL)")
+
         loads: Dict[str, Optional[float]] = {}
         pi = optional_number(internal_pressure_psi, "internal_pressure_psi")
         pe = optional_number(external_pressure_psi, "external_pressure_psi")
         fax = optional_number(axial_tension_lbf, "axial_tension_lbf")
-        if pi is not None:
-            sf_b = b.value / pi if pi > 0 else None
-            loads["burst_sf"] = None if sf_b is None else round(sf_b, 3)
+        if pi is not None and pi > 0:
+            loads["burst_sf"] = round(burst_gov / pi, 3)
             dfb = optional_number(burst_design_factor, "burst_design_factor")
-            if dfb and sf_b is not None and sf_b < dfb:
-                warnings.append(f"Burst SF {sf_b:.2f} < design factor {dfb}")
-        if pe is not None:
-            sf_c = c.value / pe if pe > 0 else None
-            loads["collapse_sf"] = None if sf_c is None else round(sf_c, 3)
+            if dfb and loads["burst_sf"] < dfb:
+                warnings.append(f"Burst SF {loads['burst_sf']:.2f} < design factor {dfb}")
+        if pe is not None and pe > 0:
+            loads["collapse_sf"] = round(coll_gov / pe, 3)
             dfc = optional_number(collapse_design_factor, "collapse_design_factor")
-            if dfc and sf_c is not None and sf_c < dfc:
-                warnings.append(f"Collapse SF {sf_c:.2f} < design factor {dfc}")
-        if fax is not None:
-            sf_t = t.value / fax if fax > 0 else None
-            loads["tension_sf"] = None if sf_t is None else round(sf_t, 3)
+            if dfc and loads["collapse_sf"] < dfc:
+                warnings.append(f"Collapse SF {loads['collapse_sf']:.2f} < design factor {dfc}")
+        if fax is not None and fax > 0:
+            loads["tension_sf"] = round(tens_gov / fax, 3)
             dft = optional_number(tension_design_factor, "tension_design_factor")
-            if dft and sf_t is not None and sf_t < dft:
-                warnings.append(f"Tension SF {sf_t:.2f} < design factor {dft}")
+            if dft and loads["tension_sf"] < dft:
+                warnings.append(f"Tension SF {loads['tension_sf']:.2f} < design factor {dft}")
+
+        vme_vals = {}
+        if pi is not None and pe is not None and fax is not None:
+            vm = cls.triaxial_vme(od, id_, yp, pi, pe, fax)
+            if vm.success:
+                vme_vals = {f"vme_{k}": v for k, v in vm.values.items()}
+                vme_vals["vme_psi"] = vm.value
+                warnings.extend(vm.warnings)
 
         values = {
             **b.values,
             **c.values,
             **t.values,
+            **(comb.values if comb.success else {}),
             **loads,
+            **vme_vals,
+            "governing_burst_psi": round(burst_gov, 1),
+            "governing_collapse_psi": round(coll_gov, 1),
+            "governing_tension_lbf": round(tens_gov, 0),
+            "connection_burst_psi": conn_b,
+            "connection_collapse_psi": conn_c,
+            "connection_tension_lbf": conn_t,
             "grade": grade,
             "weight_ppf": optional_number(weight_ppf, "weight_ppf"),
             "scope": cls.SCOPE,
@@ -285,14 +469,18 @@ class CasingEngine:
             {
                 "burst_psi": b.value,
                 "collapse_psi": c.value,
+                "collapse_combined_psi": comb.value if comb.success else c.value,
                 "tensile_lbf": t.value,
+                "governing_burst_psi": burst_gov,
+                "governing_collapse_psi": coll_gov,
+                "governing_tension_lbf": tens_gov,
             },
             values=values,
             unit="psi / lbf",
-            formula="Barlow burst + API 5C3 collapse + pipe-body yield",
+            formula="Barlow + API 5C3 four-regime + fyax + Pi correction + inner-wall VME",
             method=cls.METHOD,
             assumptions=b.assumptions + c.assumptions + t.assumptions,
             warnings=warnings,
             scope=cls.SCOPE,
-            metadata={"api_tr_5c3_complete": False},
+            metadata={"api_tr_5c3_complete": False, "pipe_body_combined_loads": True},
         )

@@ -2857,6 +2857,10 @@ class EngineeringCalculatorTab(DrillTabBase):
         pf.addRow("Mud Weight:", self.wt_mw)
         pf.addRow("Inclination:", self.wt_inc)
         pf.addRow("Friction Factor:", self.wt_friction)
+        self.wt_hole = self._make_dspin(8.5, 0, 30, 3, " in")
+        self.wt_wob = self._make_dspin(0, 0, 200, 1, " klbf")
+        pf.addRow("Hole ID (T&D buckling):", self.wt_hole)
+        pf.addRow("WOB (T&D):", self.wt_wob)
 
         calc_btn = QPushButton("🔄 Calculate Hook Load")
         calc_btn.setStyleSheet("background: #3498db; color: white; font-weight: bold; padding: 8px; border-radius: 4px; border: none;")
@@ -2887,6 +2891,9 @@ class EngineeringCalculatorTab(DrillTabBase):
         res_grid.addWidget(self.wt_pickup, 2, 1)
         res_grid.addWidget(QLabel("Slack-Off Wt:"), 2, 2)
         res_grid.addWidget(self.wt_slackoff, 2, 3)
+        self.wt_td = self._result_label("#8e44ad")
+        res_grid.addWidget(QLabel("T&D screening:"), 3, 0)
+        res_grid.addWidget(self.wt_td, 3, 1, 1, 3)
 
         layout.addWidget(g_res)
         layout.addStretch()
@@ -2973,6 +2980,59 @@ class EngineeringCalculatorTab(DrillTabBase):
         self.wt_buoy.setText(f"{bf:.4f}")
         self.wt_pickup.setText(f"{pickup:.1f} Klbs (w/ friction)")
         self.wt_slackoff.setText(f"{slackoff:.1f} Klbs (w/ friction)")
+
+        # Canonical T&D screening (Johancsik). Vertical if no surveys.
+        self._wt_run_td()
+
+    def _wt_run_td(self):
+        from core.engineering.engines.torque_drag import TorqueDragEngine
+        if not self.wt_pipes:
+            self.wt_td.setText("--")
+            return
+        string = []
+        for p in self.wt_pipes:
+            string.append({
+                "name": p.get("type") or "pipe",
+                "od": p.get("od"),
+                "id": p.get("id"),
+                "length": p.get("length"),
+                "weight": p.get("weight"),
+            })
+        surveys = []
+        if getattr(self, "dd_surveys", None):
+            surveys = [
+                {"md": s.get("md", 0), "inc": s.get("inc", 0), "azi": s.get("azi", 0)}
+                for s in self.dd_surveys
+            ]
+        else:
+            total_m = sum(p.get("length", 0) or 0 for p in self.wt_pipes)
+            inc = self.wt_inc.value()
+            surveys = [
+                {"md": 0.0, "inc": inc, "azi": 0.0},
+                {"md": max(total_m, 1.0), "inc": inc, "azi": 0.0},
+            ]
+        r = TorqueDragEngine.calculate(
+            surveys,
+            string,
+            mud_density_ppg=self.wt_mw.value() / 7.48,
+            friction_factor=self.wt_friction.value(),
+            wob_klbf=self.wt_wob.value(),
+            wellbore_id_in=self.wt_hole.value() or None,
+        )
+        if not r.success:
+            self.wt_td.setText(f"❌ {r.error}")
+            return
+        v = r.values
+        buck = "buckling" if v.get("buckling", {}).get("any") else "no buckling flag"
+        np = v.get("neutral_point_md_m")
+        np_s = f"{np:.0f} m" if np is not None else "n/a"
+        self.wt_td.setText(
+            f"PU {v['hookload_pickup']:.1f} / SO {v['hookload_slackoff']:.1f} / "
+            f"ROT {v['hookload_rotating']:.1f} klbf | "
+            f"TQ {v['surface_torque_rotating_ft_lbf']:.0f} ft-lbf | "
+            f"stretch {v.get('stretch_rotating_in')} in | "
+            f"twist {v.get('twist_rotating_deg')}° | NP {np_s} | {buck}  [SCREENING]"
+        )
         
     def _create_stuck_tab(self) -> QWidget:
         tab, container, layout = self._make_scroll_tab()
@@ -3345,6 +3405,18 @@ class EngineeringCalculatorTab(DrillTabBase):
         csg_form.addRow("ID:", self.csg_id_calc)
         csg_form.addRow("Yield Strength:", self.csg_yield)
         csg_form.addRow("Wall Thickness:", self.csg_wall)
+        self.csg_axial = self._make_dspin(0, -2e6, 2e6, 0, " lbf")
+        self.csg_pi = self._make_dspin(0, 0, 20000, 0, " psi")
+        self.csg_pe = self._make_dspin(0, 0, 20000, 0, " psi")
+        self.csg_conn_burst = self._make_dspin(0, 0, 20000, 0, " psi")
+        self.csg_conn_coll = self._make_dspin(0, 0, 20000, 0, " psi")
+        self.csg_conn_tens = self._make_dspin(0, 0, 2e6, 0, " lbf")
+        csg_form.addRow("Axial tension (opt):", self.csg_axial)
+        csg_form.addRow("Internal P (opt):", self.csg_pi)
+        csg_form.addRow("External P (opt):", self.csg_pe)
+        csg_form.addRow("Connection burst (0=omit):", self.csg_conn_burst)
+        csg_form.addRow("Connection collapse (0=omit):", self.csg_conn_coll)
+        csg_form.addRow("Connection tension (0=omit):", self.csg_conn_tens)
 
         calc_csg = QPushButton("🔄 Calculate Casing Strength")
         calc_csg.setStyleSheet("background: #e74c3c; color: white; font-weight: bold; padding: 8px; border-radius: 4px; border: none;")
@@ -3356,12 +3428,18 @@ class EngineeringCalculatorTab(DrillTabBase):
         self.csg_burst_res = self._result_label("#e74c3c")
         self.csg_collapse_res = self._result_label("#f39c12")
         self.csg_tensile_res = self._result_label("#3498db")
+        self.csg_combined_res = self._result_label("#8e44ad")
+        self.csg_vme_res = self._result_label("#16a085")
         g1_lay.addWidget(QLabel("Burst Pressure:"))
         g1_lay.addWidget(self.csg_burst_res)
         g1_lay.addWidget(QLabel("Collapse Pressure:"))
         g1_lay.addWidget(self.csg_collapse_res)
         g1_lay.addWidget(QLabel("Tensile Strength:"))
         g1_lay.addWidget(self.csg_tensile_res)
+        g1_lay.addWidget(QLabel("Combined collapse (fyax + Pi):"))
+        g1_lay.addWidget(self.csg_combined_res)
+        g1_lay.addWidget(QLabel("VME / SF:"))
+        g1_lay.addWidget(self.csg_vme_res)
 
         cs_layout.addWidget(g1)
         cs_layout.addStretch()
@@ -3386,6 +3464,28 @@ class EngineeringCalculatorTab(DrillTabBase):
         f2.addRow("Excess %:", self.cmt_excess)
         f2.addRow("Casing ID:", self.cmt_csg_id)
         f2.addRow("Shoe Track:", self.cmt_shoe_track)
+        self.cmt_yield = self._make_dspin(0, 0, 5, 3, " ft³/sk")
+        self.cmt_dens = self._make_dspin(0, 0, 25, 2, " ppg")
+        self.cmt_spacer_len = self._make_dspin(0, 0, 5000, 0, " ft")
+        self.cmt_spacer_mw = self._make_dspin(0, 0, 25, 2, " ppg")
+        self.cmt_lead_len = self._make_dspin(0, 0, 20000, 0, " ft")
+        self.cmt_lead_mw = self._make_dspin(0, 0, 25, 2, " ppg")
+        self.cmt_tail_len = self._make_dspin(0, 0, 20000, 0, " ft")
+        self.cmt_tail_mw = self._make_dspin(0, 0, 25, 2, " ppg")
+        self.cmt_shoe_tvd = self._make_dspin(0, 0, 60000, 0, " ft")
+        self.cmt_pump = self._make_dspin(0, 0, 50, 2, " bbl/min")
+        self.cmt_pore = self._make_dspin(0, 0, 25, 2, " ppg")
+        f2.addRow("Slurry yield (0=omit sacks):", self.cmt_yield)
+        f2.addRow("Slurry density:", self.cmt_dens)
+        f2.addRow("Spacer length:", self.cmt_spacer_len)
+        f2.addRow("Spacer MW:", self.cmt_spacer_mw)
+        f2.addRow("Lead length:", self.cmt_lead_len)
+        f2.addRow("Lead MW:", self.cmt_lead_mw)
+        f2.addRow("Tail length:", self.cmt_tail_len)
+        f2.addRow("Tail MW:", self.cmt_tail_mw)
+        f2.addRow("Shoe TVD (hydrostatic):", self.cmt_shoe_tvd)
+        f2.addRow("Pump rate:", self.cmt_pump)
+        f2.addRow("Pore EMW:", self.cmt_pore)
 
         cmt_calc = QPushButton("🔄 Calculate Cement Volumes")
         cmt_calc.setStyleSheet("background: #e67e22; color: white; font-weight: bold; padding: 8px; border-radius: 4px; border: none;")
@@ -3451,46 +3551,115 @@ class EngineeringCalculatorTab(DrillTabBase):
                     self.csg_collapse_res.setText(f"{data['collapse']:.0f} psi (from API)")
 
     def _csg_calc_strength(self):
-        burst = self.engine.calc_casing_burst(
-            self.csg_yield.value(), self.csg_wall.value(), self.csg_od.value()
+        from core.engineering.engines.casing import CasingEngine
+        axial = self.csg_axial.value() or None
+        pi = self.csg_pi.value() or None
+        pe = self.csg_pe.value() or None
+        r = CasingEngine.evaluate(
+            od_in=self.csg_od.value(),
+            id_in=self.csg_id_calc.value(),
+            wall_in=self.csg_wall.value(),
+            yield_psi=self.csg_yield.value(),
+            internal_pressure_psi=pi,
+            external_pressure_psi=pe,
+            axial_tension_lbf=axial,
+            connection_burst_psi=self.csg_conn_burst.value() or None,
+            connection_collapse_psi=self.csg_conn_coll.value() or None,
+            connection_tension_lbf=self.csg_conn_tens.value() or None,
         )
-        collapse = self.engine.calc_casing_collapse(
-            self.csg_od.value(), self.csg_wall.value(), self.csg_yield.value()
+        if not r.success:
+            self.csg_burst_res.setText(f"❌ {r.error}")
+            self.csg_collapse_res.setText("")
+            self.csg_tensile_res.setText("")
+            self.csg_combined_res.setText("")
+            self.csg_vme_res.setText("")
+            return
+        v = r.values
+        self.csg_burst_res.setText(
+            f"{v['burst_rating_psi']:,.0f} psi  (govern {v['governing_burst_psi']:,.0f})"
         )
-        tensile = self.engine.calc_casing_tensile(
-            self.csg_od.value(), self.csg_id_calc.value(), self.csg_yield.value()
+        self.csg_collapse_res.setText(
+            f"{v['collapse_rating_psi']:,.0f} psi  [{v.get('regime','')}]"
         )
-        self.csg_burst_res.setText(f"{burst:,.0f} psi")
-        self.csg_collapse_res.setText(f"{collapse:,.0f} psi")
-        self.csg_tensile_res.setText(f"{tensile:,.0f} lbs ({tensile/1000:,.0f} Klbs)")
+        self.csg_tensile_res.setText(
+            f"{v['pipe_body_yield_lbf']:,.0f} lbs ({v['pipe_body_yield_klbf']:,.0f} Klbs)"
+        )
+        fy = v.get("fyax_psi")
+        comb = v.get("collapse_combined_psi")
+        self.csg_combined_res.setText(
+            f"{comb:,.0f} psi  fyax={fy:,.0f} psi" if comb is not None else "--"
+        )
+        bits = []
+        if v.get("vme_psi") is not None:
+            bits.append(f"VME {v['vme_psi']:,.0f} psi (u={v.get('vme_utilization', 0):.3f})")
+        if v.get("burst_sf") is not None:
+            bits.append(f"burst SF {v['burst_sf']}")
+        if v.get("collapse_sf") is not None:
+            bits.append(f"collapse SF {v['collapse_sf']}")
+        if v.get("tension_sf") is not None:
+            bits.append(f"tension SF {v['tension_sf']}")
+        warn = "; ".join(r.warnings[:2]) if r.warnings else "PARTIAL pipe-body"
+        self.csg_vme_res.setText((" | ".join(bits) + "\n" + warn) if bits else warn)
 
     def _csg_calc_cement(self):
-        r = self.engine.calc_cement_volume(
-            self.cmt_hole.value(), self.cmt_csg.value(),
-            self.cmt_len.value(), self.cmt_excess.value()
+        from core.engineering.engines.cement import CementEngine
+        dens = self.cmt_dens.value() or None
+        yield_v = self.cmt_yield.value() or None
+        spacer_len = self.cmt_spacer_len.value() or None
+        spacer_mw = self.cmt_spacer_mw.value() or None
+        lead_len = self.cmt_lead_len.value() or None
+        lead_mw = self.cmt_lead_mw.value() or None
+        tail_len = self.cmt_tail_len.value() or None
+        tail_mw = self.cmt_tail_mw.value() or None
+        shoe_tvd = self.cmt_shoe_tvd.value() or None
+        pump = self.cmt_pump.value() or None
+        pore = self.cmt_pore.value() or None
+        r = CementEngine.job_volumes(
+            hole_size_in=self.cmt_hole.value(),
+            casing_od_in=self.cmt_csg.value(),
+            open_hole_length_ft=self.cmt_len.value(),
+            excess_pct=self.cmt_excess.value(),
+            casing_id_in=self.cmt_csg_id.value() or None,
+            shoe_track_ft=self.cmt_shoe_track.value(),
+            slurry_density_ppg=dens,
+            yield_ft3_sk=yield_v,
+            spacer_length_ft=spacer_len,
+            spacer_density_ppg=spacer_mw,
+            lead_length_ft=lead_len,
+            lead_density_ppg=lead_mw,
+            tail_length_ft=tail_len,
+            tail_density_ppg=tail_mw,
+            tvd_column_ft=shoe_tvd,
+            shoe_tvd_ft=shoe_tvd,
+            tail_tvd_ft=shoe_tvd if tail_mw else None,
+            pump_rate_bbl_min=pump,
+            pore_emw_ppg=pore,
         )
-        disp = self.engine.calc_cement_displacement(
-            self.cmt_csg_id.value(), self.cmt_len.value(),
-            self.cmt_shoe_track.value()
+        if not r.success:
+            self.cmt_result.setText(f"❌ {r.error}")
+            return
+        v = r.values
+        sacks = v.get("sacks")
+        sacks_s = f"{sacks:.0f}" if sacks is not None else "n/a (need yield)"
+        hpsi = v.get("hydrostatic_psi")
+        h_s = f"{hpsi:.0f} psi" if hpsi is not None else "n/a"
+        pt = v.get("pump_time_min")
+        pt_s = f"{pt:.1f} min" if pt is not None else "n/a"
+        lead = v.get("lead") or {}
+        tail = v.get("tail") or {}
+        text = (
+            "CEMENT JOB VOLUME / HYDROSTATIC WORKSHEET\n"
+            f"Annulus: {v['annular_volume_bbl']:.2f} bbl ({v['annular_volume_cuft']:.1f} cuft)\n"
+            f"With {v['excess_pct']}% excess: {v['annular_with_excess_bbl']:.2f} bbl\n"
+            f"Shoe track: {v['shoe_track_volume_bbl']:.2f} bbl\n"
+            f"Spacer: {v['spacer_volume_bbl']:.2f} bbl\n"
+            f"Slurry: {v['slurry_volume_bbl']:.2f} bbl  sacks: {sacks_s}\n"
+            f"Displacement: {v.get('displacement_volume_bbl') or 0:.2f} bbl\n"
+            f"Total pump: {v['total_pump_bbl']:.2f} bbl  time: {pt_s}\n"
+            f"Hydrostatic: {h_s}\n"
+            f"Lead: {lead.get('slurry_bbl', '--')} bbl  Tail: {tail.get('slurry_bbl', '--')} bbl\n"
+            "NOT laboratory cement design (no UCA / thickening time / gas migration)."
         )
-
-        text = f"""╔═══════════════════════════════════════════╗
-    ║        CEMENT VOLUME CALCULATIONS         ║
-    ╠═══════════════════════════════════════════╣
-    ║ ANNULAR VOLUME:
-    ║   Net Volume:     {r['annular_volume_bbl']:.2f} bbl ({r['annular_volume_cuft']:.1f} cuft)
-    ║   With {r['excess_pct']}% Excess: {r['with_excess_bbl']:.2f} bbl
-    ║   Est. Sacks:     {r['sacks_estimated']:.0f} sacks
-    ╠═══════════════════════════════════════════╣
-    ║ DISPLACEMENT:
-    ║   Casing Volume:  {disp['displacement_volume_bbl']:.2f} bbl
-    ║   Shoe Track:     {disp['shoe_track_volume_bbl']:.2f} bbl
-    ║   Total Pump:     {disp['total_pump_bbl']:.2f} bbl
-    ╠═══════════════════════════════════════════╣
-    ║ TOTAL CEMENT + DISPLACEMENT:
-    ║   {r['with_excess_bbl'] + disp['total_pump_bbl']:.2f} bbl
-    ╚═══════════════════════════════════════════╝"""
-
         self.cmt_result.setText(text)
 
     def _csg_calc_landing(self):

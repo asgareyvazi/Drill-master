@@ -124,6 +124,41 @@ class CasingGroundTruth(unittest.TestCase):
         self.assertGreater(r.value, 2000)
         self.assertLess(r.value, 15000)
 
+    def test_fyax_tension_z_half(self):
+        yp, z = 80000.0, 0.5
+        expected = (math.sqrt(1.0 - 0.75 * z * z) - 0.5 * z) * yp
+        self.assertAlmostEqual(CasingEngine.fyax(yp, z * yp), expected, places=1)
+        self.assertAlmostEqual(expected / yp, 0.6513878, places=5)
+
+    def test_collapse_combined_pi_correction(self):
+        pc = CasingEngine.collapse(9.625, 0.472, 80000)
+        self.assertTrue(pc.success, pc.error)
+        pi = 1000.0
+        r = CasingEngine.collapse_combined(9.625, 0.472, 80000, axial_tension_lbf=0, internal_pressure_psi=pi)
+        self.assertTrue(r.success, r.error)
+        expected = pc.value + pi * (1.0 - 2.0 * 0.472 / 9.625)
+        self.assertAlmostEqual(r.value, expected, places=0)
+
+    def test_vme_inner_wall_internal_only(self):
+        od, id_, yp, pi = 9.625, 8.681, 80000.0, 3000.0
+        r = CasingEngine.triaxial_vme(od, id_, yp, pi, 0.0, 0.0, include_capped_end=True)
+        self.assertTrue(r.success, r.error)
+        ro, ri = od / 2.0, id_ / 2.0
+        denom = ro**2 - ri**2
+        sigma_r = -pi
+        sigma_h = (pi * (ri**2 + ro**2)) / denom
+        area = math.pi * denom
+        capped = (pi * ri**2) / area
+        vme = math.sqrt(0.5 * ((sigma_h - capped) ** 2 + (capped - sigma_r) ** 2 + (sigma_r - sigma_h) ** 2))
+        self.assertAlmostEqual(r.value, vme, places=0)
+
+    def test_connection_governs_when_supplied(self):
+        r = CasingEngine.evaluate(
+            od_in=9.625, wall_in=0.472, id_in=8.681, yield_psi=80000, connection_burst_psi=5000
+        )
+        self.assertTrue(r.success, r.error)
+        self.assertAlmostEqual(r.values["governing_burst_psi"], 5000, places=0)
+
 
 class MSEGroundTruth(unittest.TestCase):
     def test_teale_120pi(self):
@@ -166,6 +201,32 @@ class TorqueDragGroundTruth(unittest.TestCase):
         self.assertAlmostEqual(r.values["total_buoyed_weight"], expected, places=1)
         self.assertAlmostEqual(expected, 165.23, places=2)
         self.assertAlmostEqual(r.values["hookload_rotating"], expected, places=1)
+        self.assertIn("stretch_rotating_in", r.values)
+        self.assertIn("side_force_profile", r.values)
+
+    def test_neutral_point_with_wob(self):
+        survey = [{"md": 0, "inc": 0, "azi": 0}, {"md": 3048.0, "inc": 0, "azi": 0}]
+        bha = [{"length": 3048.0, "weight": 19.5, "od": 5.0, "id": 4.276}]
+        r = TorqueDragEngine.calculate(
+            survey, bha, mud_density_ppg=10.0, friction_factor=0.2, wob_klbf=20.0
+        )
+        self.assertTrue(r.success, r.error)
+        self.assertIsNotNone(r.values["neutral_point_md_m"])
+        self.assertGreater(r.values["neutral_point_md_m"], 0)
+        self.assertLess(r.values["neutral_point_md_m"], 3048.0)
+        self.assertGreater(r.values["stretch_rotating_in"], 0)
+
+    def test_buckling_uses_local_compression(self):
+        survey = [{"md": 0, "inc": 90, "azi": 0}, {"md": 300, "inc": 90, "azi": 0}]
+        bha = [{"length": 300, "weight": 19.5, "od": 5.0, "id": 4.276}]
+        r = TorqueDragEngine.calculate(
+            survey, bha, 10.0, 0.25, wob_klbf=40.0, wellbore_id_in=8.5
+        )
+        self.assertTrue(r.success, r.error)
+        det = r.values["buckling"]["details"]
+        self.assertTrue(det)
+        self.assertIn("f_sin_lbf", det[0])
+        self.assertIn("compression_lbf", det[0])
 
     def test_friction_not_defaulted(self):
         survey = [{"md": 0, "inc": 0, "azi": 0}, {"md": 100, "inc": 0, "azi": 0}]
@@ -176,12 +237,35 @@ class TorqueDragGroundTruth(unittest.TestCase):
 
 
 class CementHonesty(unittest.TestCase):
-    def test_volume_scope_partial(self):
+    def test_volume_scope_complete_worksheet(self):
         r = CementEngine.job_volumes(12.25, 9.625, 1000, 0)
         self.assertTrue(r.success, r.error)
-        self.assertEqual(r.scope, "PARTIAL")
+        self.assertEqual(r.scope, "COMPLETE")
         expected_ann = (12.25**2 - 9.625**2) / 1029.4 * 1000
         self.assertAlmostEqual(r.values["annular_volume_bbl"], expected_ann, places=2)
+        self.assertTrue(any("laboratory" in w.lower() or "UCA" in w for w in r.warnings))
+
+    def test_hydrostatic_stack(self):
+        r = CementEngine.hydrostatic_column(
+            [
+                {"name": "mud", "tvd_ft": 2000, "density_ppg": 10.0},
+                {"name": "tail", "tvd_ft": 1000, "density_ppg": 16.0},
+            ],
+            pore_emw_ppg=9.0,
+            shoe_tvd_ft=3000,
+        )
+        self.assertTrue(r.success, r.error)
+        expected = 0.052 * 10 * 2000 + 0.052 * 16 * 1000
+        self.assertAlmostEqual(r.value, expected, places=1)
+        self.assertAlmostEqual(r.values["overbalance_psi"], expected - 0.052 * 9 * 3000, places=1)
+
+    def test_sacks_from_yield_not_invented(self):
+        r = CementEngine.job_volumes(12.25, 9.625, 1000, 0)
+        self.assertIsNone(r.values["sacks"])
+        r2 = CementEngine.job_volumes(12.25, 9.625, 1000, 0, yield_ft3_sk=1.18)
+        self.assertTrue(r2.success, r2.error)
+        slurry_cuft = r2.values["slurry_volume_cuft"]
+        self.assertAlmostEqual(r2.values["sacks"], slurry_cuft / 1.18, places=1)
 
 
 class HydraulicsGroundTruth(unittest.TestCase):

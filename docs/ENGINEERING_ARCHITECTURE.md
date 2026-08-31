@@ -37,9 +37,9 @@ Tab / AI tool
 | MSE | `MSEEngine` | Teale: WOB/Ab + (120π·RPM·T)/(Ab·ROP) | COMPLETE | ✅ |
 | Mud volume | `MudVolumeEngine` | mass/volume balance, weight-up, dilution, mix | COMPLETE | ✅ |
 | Bit / section from DDR | `BitPerformanceEngine` | footage, ROP, optional Teale MSE | COMPLETE | ✅ |
-| Casing burst/collapse/tension | `CasingEngine` | Barlow 0.875 + API 5C3 four-regime collapse + pipe-body yield | PARTIAL | 🟠 |
-| Cement volumes | `CementEngine` | D²/1029.4 volumes, excess, displacement | PARTIAL volume calculator | 🟠 |
-| Torque & drag | `TorqueDragEngine` | Johancsik soft-string | PARTIAL / SCREENING | 🟠 |
+| Casing burst/collapse/tension | `CasingEngine` | Barlow 0.875 + four-regime + fyax + Pi correction + inner-wall VME; optional user connection ratings | PARTIAL (pipe-body; not full TR 5C3) | 🟠 |
+| Cement volumes / hydrostatic | `CementEngine` | D²/1029.4 volumes, spacer/lead/tail, stacked 0.052 MW TVD, pump time | COMPLETE as worksheet; not lab design | ✅ worksheet / 🔴 lab |
+| Torque & drag | `TorqueDragEngine` | Johancsik + Dawson-Paslay/Chen flags + stretch/twist/NP/side force | PARTIAL / SCREENING | 🟠 |
 | welleng | adapters | **Benchmark only** — not the production backend | SCREENING | 🟠 |
 | Full API TR 5C3 (triaxial, connections, temp) | — | not implemented | NOT_IMPLEMENTED | 🔴 |
 | Cement job design (lab, UCA, gas migration) | — | not implemented | NOT_IMPLEMENTED | 🔴 |
@@ -61,19 +61,19 @@ Ground truth (tests): LOT/frac 16 ppg, MW 14.5, shoe 6000 ft, TD 10000 ft, forma
 - DLS default unit: deg/30m.
 - `tabs/w6_Trajectory_Widget.py` and calculator directional tab call `TrajectoryEngine`.
 
-## Casing (PARTIAL)
+## Casing (PARTIAL — pipe-body combined loads)
 
-Do **not** claim full API TR 5C3. Implemented: Barlow internal yield with 0.875 wall, four-regime collapse (A,B,C,F,G vs Yp and D/t), pipe-body tensile. Not implemented: connections, fyax, temperature, triaxial envelopes.
+Do **not** claim full API TR 5C3. Implemented: Barlow 0.875, four-regime collapse, pipe-body tensile, fyax biaxial reduction, Pc′ = Pc + Pi(1−2t/D), inner-wall Lamé VME. Connection ratings are used only if the user supplies them (never invented). Not implemented: published connection tables, temperature-yield tables, wear, full ISO 10400 envelopes.
 
-9-5/8 in, t = 0.472 in, N80: burst ≈ 6866 psi (Barlow 0.875).
+9-5/8 in, t = 0.472 in, N80: burst ≈ 6866 psi (Barlow 0.875). fyax at z=0.5 → 0.6514 Yp.
 
-## Cement (PARTIAL)
+## Cement (COMPLETE worksheet, not lab design)
 
-Volume / displacement calculator only. Not a cement job design engine.
+Job-volume / stacked-hydrostatic worksheet: annulus + excess + shoe track + spacer, optional lead/tail sacks from **user yield**, H = Σ 0.052 MW TVD (layer TVD required). Not UCA, thickening time, centralization FEM, or gas-migration design.
 
 ## Torque & drag (SCREENING)
 
-Johancsik soft-string. Label: **PARTIAL / SCREENING MODEL**. Not production-ready. Simple buoyancy BF = 1 − MW/65.5. welleng / torque_drag packages are optional benchmarks, never a silent backend.
+Johancsik soft-string. Label: **PARTIAL / SCREENING MODEL**. Not production-ready. Simple buoyancy BF = 1 − MW/65.5. Dawson-Paslay sinusoidal and Chen helical flags use **local** slackoff compression and inclination; they do not change hookload. Stretch Σ F L / AE, twist Σ T L / JG, side-force profile, slackoff neutral point. welleng / torque_drag packages are optional benchmarks, never a silent backend.
 
 Vertical GT: 10 000 ft × 19.5 ppf, MW 10 ppg → BF ≈ 0.8473, buoyed ≈ 165.23 klbf.
 

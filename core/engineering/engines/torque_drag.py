@@ -130,14 +130,17 @@ class TorqueDragEngine:
             rot = cls._integrate(string, traj, ff, bf, mode="rotating", wob_lbf=wob)
             slide = cls._integrate(string, traj, ff, bf, mode="sliding", wob_lbf=wob)
 
-            buckling = cls._buckling_flags(string, slack["force_lbf"], hole_id, bf)
+            buckling = cls._buckling_flags(string, slack["elements"], hole_id, bf, traj)
+            stretch = cls._axial_stretch(rot["elements"])
+            twist = cls._twist(rot["elements"])
+            np_md = cls._neutral_point_md(slack["elements"])
 
             warnings = [
                 "PARTIAL / SCREENING MODEL — not production-certified",
                 "Soft-string (no bending stiffness, no tool-joint effects)",
                 "Simple buoyancy BF = 1 − MW/65.5 (no pressure-area term)",
                 "Constant friction factor along the well",
-                "Static analysis only",
+                "Static analysis only — not stiff-string, contact, or dynamics",
             ]
             if buckling["any"]:
                 warnings.append("Dawson-Paslay screening: compression exceeds sinusoidal buckling load in one or more elements")
@@ -150,6 +153,7 @@ class TorqueDragEngine:
                 "surface_torque_rotating_ft_lbf": round(rot["surface_torque_ft_lbf"], 1),
                 "tension_profile": pickup["profile_force"],
                 "torque_profile": rot["profile_torque"],
+                "side_force_profile": rot["profile_sideforce"],
                 "profiles": {
                     "pickup": pickup["profile_force"],
                     "slackoff": slack["profile_force"],
@@ -157,6 +161,9 @@ class TorqueDragEngine:
                     "sliding": slide["profile_force"],
                 },
                 "total_buoyed_weight": round(pickup["buoyed_weight_klbf"], 2),
+                "stretch_rotating_in": stretch,
+                "twist_rotating_deg": twist,
+                "neutral_point_md_m": np_md,
                 "friction_factor": ff,
                 "mud_density": mud,
                 "buoyancy_factor": round(bf, 4),
@@ -166,9 +173,10 @@ class TorqueDragEngine:
                 "warnings": warnings,
                 "assumptions": [
                     "Johancsik soft-string",
-                    f"Steel density {STEEL_PPG} ppg",
+                    f"Steel density {STEEL_PPG} ppg, E={E_STEEL_PSI:.0f} psi, G=12e6 psi",
                     "Weight of each component is required (ppf) — not defaulted",
                     "Survey computed with Minimum Curvature",
+                    "Dawson-Paslay / Chen helical are screening flags only",
                 ],
             }
             return ok(
@@ -243,6 +251,8 @@ class TorqueDragEngine:
         buoyed = 0.0
         profile_force = []
         profile_torque = []
+        profile_sideforce = []
+        elements = []
 
         for el in string:
             inc1, azi1 = cls._inc_azi_at(traj, el["md_bottom"])
@@ -256,6 +266,8 @@ class TorqueDragEngine:
             d_azi = _shortest_rad(azi1, azi2)
             fn = math.sqrt((force * math.sin(i_avg) * d_azi) ** 2 + (force * d_inc + w_b * math.sin(i_avg)) ** 2)
             axial_w = w_b * math.cos(i_avg)
+            f_bot = force
+            t_bot = torque
             if mode == "pickup":
                 force = force + axial_w + ff * fn
             elif mode == "slackoff":
@@ -269,6 +281,16 @@ class TorqueDragEngine:
             else:
                 raise EngineeringError(f"Unknown T&D mode {mode}")
 
+            rec = {
+                **el,
+                "inc_avg_deg": (inc1 + inc2) / 2.0,
+                "force_bottom_lbf": f_bot,
+                "force_top_lbf": force,
+                "fn_lbf": fn,
+                "torque_bottom_ft_lbf": t_bot,
+                "torque_top_ft_lbf": torque,
+            }
+            elements.append(rec)
             profile_force.append(
                 {
                     "md": round(el["md_top"], 2),
@@ -283,6 +305,13 @@ class TorqueDragEngine:
                     "component": el["name"],
                 }
             )
+            profile_sideforce.append(
+                {
+                    "md": round(el["md_top"], 2),
+                    "side_force_lbf": round(fn, 1),
+                    "component": el["name"],
+                }
+            )
 
         return {
             "surface_klbf": force / 1000.0,
@@ -290,40 +319,102 @@ class TorqueDragEngine:
             "buoyed_weight_klbf": buoyed / 1000.0,
             "profile_force": list(reversed(profile_force)),
             "profile_torque": list(reversed(profile_torque)),
+            "profile_sideforce": list(reversed(profile_sideforce)),
             "force_lbf": force,
+            "elements": elements,
         }
 
     @classmethod
-    def _buckling_flags(cls, string, surface_force_lbf, hole_id, bf) -> Dict:
-        """Dawson-Paslay sinusoidal screening on the slackoff/compression side.
+    def _buckling_flags(cls, string, slack_elements, hole_id, bf, traj) -> Dict:
+        """Dawson-Paslay sinusoidal + Chen helical screening (does not change hookload).
 
-        Fcrit = 2 √(EI w sinI / rc)   (horizontal form generalized with sin I)
-        Only flagged; not used to alter hookload.
+        F_sin = 2 √(EI w sinI / rc)
+        F_hel = 2√2 √(EI w sinI / rc)
         """
-        any_flag = False
         details = []
+        any_flag = False
         if hole_id is None:
             return {"any": False, "details": [], "note": "wellbore_id_in not provided — buckling not checked"}
-        for el in string:
+        for el in slack_elements:
             od = el["od_in"]
             id_ = el["id_in"]
             rc = (hole_id - od) / 2.0
+            inc = math.radians(el.get("inc_avg_deg") or 0.0)
+            f_comp = -min(el["force_bottom_lbf"], el["force_top_lbf"])  # compression > 0
             if rc <= 0:
                 details.append({"component": el["name"], "flag": "no_clearance"})
                 any_flag = True
                 continue
-            i = math.pi / 64.0 * (od**4 - id_**4)  # in^4
-            w_per_in = el["weight_ppf"] / 12.0 * bf  # lbf/in
-            # without local inclination we use a conservative sinI=1 bound in the note
-            fcrit = 2.0 * math.sqrt(E_STEEL_PSI * i * max(w_per_in, 1e-9) / rc)
+            ixx = math.pi / 64.0 * (od**4 - id_**4)
+            w_per_in = el["weight_ppf"] / 12.0 * bf
+            sin_i = max(math.sin(inc), 1e-6)
+            root = math.sqrt(E_STEEL_PSI * ixx * max(w_per_in, 1e-12) * sin_i / rc)
+            f_sin = 2.0 * root
+            f_hel = 2.0 * math.sqrt(2.0) * root
+            flag = "ok"
+            if f_comp > f_hel:
+                flag = "helical"
+                any_flag = True
+            elif f_comp > f_sin:
+                flag = "sinusoidal"
+                any_flag = True
             details.append(
                 {
                     "component": el["name"],
-                    "fcrit_sin_horizontal_lbf": round(fcrit, 0),
-                    "note": "Horizontal Dawson-Paslay magnitude (screening)",
+                    "md_top_m": round(el["md_top"], 2),
+                    "compression_lbf": round(max(f_comp, 0.0), 0),
+                    "f_sin_lbf": round(f_sin, 0),
+                    "f_hel_lbf": round(f_hel, 0),
+                    "flag": flag,
                 }
             )
         return {"any": any_flag, "details": details}
+
+    @classmethod
+    def _axial_stretch(cls, elements) -> float:
+        """Σ F_avg L / (A E), inches. Tension positive (elongation)."""
+        total = 0.0
+        for el in elements:
+            od, id_ = el["od_in"], el["id_in"]
+            area = math.pi / 4.0 * (od**2 - (id_ or 0.0) ** 2)
+            if area <= 0:
+                continue
+            f_avg = 0.5 * (el["force_bottom_lbf"] + el["force_top_lbf"])
+            length_in = el["length_m"] * 3.28084 * 12.0
+            total += f_avg * length_in / (area * E_STEEL_PSI)
+        return round(total, 3)
+
+    @classmethod
+    def _twist(cls, elements) -> float:
+        """Σ T L / (J G) in degrees. G = 12e6 psi."""
+        g_psi = 12.0e6
+        total_rad = 0.0
+        for el in elements:
+            od, id_ = el["od_in"], el["id_in"] or 0.0
+            j = math.pi / 32.0 * (od**4 - id_**4)
+            if j <= 0:
+                continue
+            t_avg = 0.5 * (el["torque_bottom_ft_lbf"] + el["torque_top_ft_lbf"])
+            length_in = el["length_m"] * 3.28084 * 12.0
+            total_rad += (t_avg * 12.0) * length_in / (j * g_psi)
+        return round(math.degrees(total_rad), 3)
+
+    @classmethod
+    def _neutral_point_md(cls, elements) -> Optional[float]:
+        """MD (m) where slackoff tension crosses zero, measured from bit toward surface."""
+        prev_md, prev_f = None, None
+        for el in elements:
+            for md, f in (
+                (el["md_bottom"], el["force_bottom_lbf"]),
+                (el["md_top"], el["force_top_lbf"]),
+            ):
+                if prev_f is not None and prev_f < 0 <= f:
+                    if f == prev_f:
+                        return round(md, 2)
+                    frac = (0.0 - prev_f) / (f - prev_f)
+                    return round(prev_md + frac * (md - prev_md), 2)
+                prev_md, prev_f = md, f
+        return None
 
     @classmethod
     def calculate_with_welleng(cls, survey, bha, mud_density_ppg, friction_factor) -> Optional[Dict]:
