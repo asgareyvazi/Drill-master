@@ -1,0 +1,2067 @@
+{
+  "name": "OEOC DDR Template - General",
+  "version": "2.0",
+  "description": "General template for OEOC Daily Drilling Reports. Works for all OEOC rigs and wells.",
+  "created": "2026-08-29",
+  "sheets": {
+    "DDR Remark": "well_info + daily_report + time_logs + summary",
+    "DDR Data": "drilling_params + mud_report + bulk_materials + survey + casing + bha + safety + equipment + services + fuel_water"
+  },
+  "assignments": {
+    "well_info.name": {
+      "sheet": "DDR Remark",
+      "anchor_text": "Well Name",
+      "row": 3,
+      "col": 23,
+      "type": "single",
+      "context_group": "well_header"
+    },
+    "well_info.field_name": {
+      "sheet": "DDR Remark",
+      "anchor_text": "Field",
+      "row": 3,
+      "col": 8,
+      "type": "single",
+      "context_group": "well_header"
+    },
+    "well_info.well_type": {
+      "sheet": "DDR Remark",
+      "anchor_text": "Well Type",
+      "row": 4,
+      "col": 8,
+      "type": "single",
+      "context_group": "well_header"
+    },
+    "well_info.well_shape": {
+      "sheet": "DDR Remark",
+      "anchor_text": "Well Shape",
+      "row": 4,
+      "col": 18,
+      "type": "single",
+      "context_group": "well_header"
+    },
+    "well_info.client": {
+      "sheet": "DDR Remark",
+      "anchor_text": "Client",
+      "row": 5,
+      "col": 8,
+      "type": "single",
+      "context_group": "personnel"
+    },
+    "well_info.client_rep": {
+      "sheet": "DDR Remark",
+      "anchor_text": "Client Rep",
+      "row": 6,
+      "col": 8,
+      "type": "single",
+      "context_group": "personnel"
+    },
+    "well_info.operator": {
+      "sheet": "DDR Remark",
+      "anchor_text": "Operator",
+      "row": 5,
+      "col": 18,
+      "type": "single",
+      "context_group": "personnel"
+    },
+    "well_info.rig_name": {
+      "sheet": "DDR Remark",
+      "anchor_text": "Rig Name",
+      "row": 4,
+      "col": 28,
+      "type": "single",
+      "context_group": "well_header"
+    },
+    "well_info.drilling_contractor": {
+      "sheet": "DDR Remark",
+      "anchor_text": "Drilling Contractor",
+      "row": 5,
+      "col": 28,
+      "type": "single",
+      "context_group": "personnel"
+    },
+    "well_info.section_name": {
+      "sheet": "DDR Remark",
+      "anchor_text": "Hole Section",
+      "row": 6,
+      "col": 18,
+      "type": "single",
+      "context_group": "well_header"
+    },
+    "well_info.target_depth": {
+      "sheet": "DDR Remark",
+      "anchor_text": "Estimated Final Depth",
+      "row": 6,
+      "col": 28,
+      "type": "single",
+      "context_group": "depths"
+    },
+    "well_info.gle_msl": {
+      "sheet": "DDR Remark",
+      "anchor_text": "GLE-MSL",
+      "row": 7,
+      "col": 8,
+      "type": "single",
+      "context_group": "elevations"
+    },
+    "well_info.rte_msl": {
+      "sheet": "DDR Remark",
+      "anchor_text": "RTE-MSL",
+      "row": 7,
+      "col": 18,
+      "type": "single",
+      "context_group": "elevations"
+    },
+    "well_info.gle_rte": {
+      "sheet": "DDR Remark",
+      "anchor_text": "GLE-RTE",
+      "row": 7,
+      "col": 28,
+      "type": "single",
+      "context_group": "elevations"
+    },
+    "well_info.operation_manager": {
+      "sheet": "DDR Remark",
+      "anchor_text": "Drilling Operation manager",
+      "row": 9,
+      "col": 23,
+      "type": "single",
+      "context_group": "personnel"
+    },
+    "well_info.superintendent": {
+      "sheet": "DDR Remark",
+      "anchor_text": "Drilling Superintendent",
+      "row": 10,
+      "col": 23,
+      "type": "single",
+      "context_group": "personnel"
+    },
+    "well_info.supervisor_day": {
+      "sheet": "DDR Remark",
+      "anchor_text": "Drilling Supervisor (Day)",
+      "row": 11,
+      "col": 23,
+      "type": "single",
+      "context_group": "personnel"
+    },
+    "well_info.supervisor_night": {
+      "sheet": "DDR Remark",
+      "anchor_text": "Drilling Supervisor (Night)",
+      "row": 12,
+      "col": 23,
+      "type": "single",
+      "context_group": "personnel"
+    },
+    "well_info.geologist1": {
+      "sheet": "DDR Remark",
+      "anchor_text": "Well Site Geologist",
+      "row": 14,
+      "col": 23,
+      "type": "single",
+      "context_group": "personnel"
+    },
+    "well_info.latitude": {
+      "sheet": "DDR Remark",
+      "anchor_text": "Latitude",
+      "row": 9,
+      "col": 34,
+      "type": "single",
+      "context_group": "coordinates"
+    },
+    "well_info.longitude": {
+      "sheet": "DDR Remark",
+      "anchor_text": "Longitude",
+      "row": 10,
+      "col": 34,
+      "type": "single",
+      "context_group": "coordinates"
+    },
+    "well_info.northing": {
+      "sheet": "DDR Remark",
+      "anchor_text": "Northing",
+      "row": 11,
+      "col": 34,
+      "type": "single",
+      "context_group": "coordinates"
+    },
+    "well_info.easting": {
+      "sheet": "DDR Remark",
+      "anchor_text": "Easting",
+      "row": 12,
+      "col": 34,
+      "type": "single",
+      "context_group": "coordinates"
+    },
+    "well_info.formation": {
+      "sheet": "DDR Remark",
+      "anchor_text": "Formation",
+      "row": 15,
+      "col": 34,
+      "type": "single",
+      "context_group": "geology"
+    },
+    "daily_report.depth_0000": {
+      "sheet": "DDR Remark",
+      "anchor_text": "MD (m)@ 0:00",
+      "row": 9,
+      "col": 12,
+      "type": "single",
+      "context_group": "depths"
+    },
+    "daily_report.depth_0600": {
+      "sheet": "DDR Remark",
+      "anchor_text": "MD (m)@ 6:00 AM",
+      "row": 11,
+      "col": 12,
+      "type": "single",
+      "context_group": "depths"
+    },
+    "daily_report.depth_2400": {
+      "sheet": "DDR Remark",
+      "anchor_text": "MD (m)@ 24:00",
+      "row": 10,
+      "col": 12,
+      "type": "single",
+      "context_group": "depths"
+    },
+    "daily_report.summary": {
+      "sheet": "DDR Remark",
+      "anchor_text": "Summary of Activities",
+      "row": 17,
+      "col": 1,
+      "type": "text_block",
+      "context_group": "report"
+    },
+    "daily_report.forecast": {
+      "sheet": "DDR Remark",
+      "anchor_text": "Operation Forecast",
+      "row": 20,
+      "col": 1,
+      "type": "text_block",
+      "context_group": "report"
+    },
+    "time_log": {
+      "sheet": "DDR Remark",
+      "anchor_text": "From",
+      "type": "table",
+      "header_row": 22,
+      "data_start_row": 24,
+      "columns": {
+        "time_from": {
+          "col": 1,
+          "header": "From"
+        },
+        "time_to": {
+          "col": 3,
+          "header": "To"
+        },
+        "duration": {
+          "col": 5,
+          "header": "hrs"
+        },
+        "main_phase": {
+          "col": 7,
+          "header": "Main Phase"
+        },
+        "main_code": {
+          "col": 9,
+          "header": "Code"
+        },
+        "sub_code": {
+          "col": 11,
+          "header": "Sub Code"
+        },
+        "status": {
+          "col": 13,
+          "header": "Status"
+        },
+        "activity_description": {
+          "col": 19,
+          "header": "Rig Activity"
+        }
+      },
+      "end_marker": "Total",
+      "context_group": "timelog"
+    },
+    "drilling_params.bit_no": {
+      "sheet": "DDR Data",
+      "anchor_text": "Bit No.",
+      "row": 9,
+      "col": 5,
+      "type": "single",
+      "context_group": "drilling"
+    },
+    "drilling_params.bit_size": {
+      "sheet": "DDR Data",
+      "anchor_text": "Bit Size (inch)",
+      "row": 11,
+      "col": 5,
+      "type": "single",
+      "context_group": "drilling"
+    },
+    "drilling_params.bit_type": {
+      "sheet": "DDR Data",
+      "anchor_text": "Bit Type",
+      "row": 12,
+      "col": 5,
+      "type": "single",
+      "context_group": "drilling"
+    },
+    "drilling_params.manufacturer": {
+      "sheet": "DDR Data",
+      "anchor_text": "Bit Manufacture",
+      "row": 13,
+      "col": 5,
+      "type": "single",
+      "context_group": "drilling"
+    },
+    "drilling_params.iadc_code": {
+      "sheet": "DDR Data",
+      "anchor_text": "IADC Code",
+      "row": 15,
+      "col": 5,
+      "type": "single",
+      "context_group": "drilling"
+    },
+    "drilling_params.depth_in": {
+      "sheet": "DDR Data",
+      "anchor_text": "Depth In (m)",
+      "row": 18,
+      "col": 5,
+      "type": "single",
+      "context_group": "drilling"
+    },
+    "drilling_params.depth_out": {
+      "sheet": "DDR Data",
+      "anchor_text": "Depth Out (m)",
+      "row": 19,
+      "col": 5,
+      "type": "single",
+      "context_group": "drilling"
+    },
+    "drilling_params.hours_on_bottom": {
+      "sheet": "DDR Data",
+      "anchor_text": "Hours on Bottom",
+      "row": 21,
+      "col": 5,
+      "type": "single",
+      "context_group": "drilling"
+    },
+    "drilling_params.avg_rop": {
+      "sheet": "DDR Data",
+      "anchor_text": "Average ROP (m/hr)",
+      "row": 22,
+      "col": 5,
+      "type": "single",
+      "context_group": "drilling"
+    },
+    "drilling_params.wob_min": {
+      "sheet": "DDR Data",
+      "anchor_text": "WOB Min",
+      "row": 9,
+      "col": 13,
+      "type": "single",
+      "context_group": "drilling"
+    },
+    "drilling_params.wob_max": {
+      "sheet": "DDR Data",
+      "anchor_text": "WOB Max",
+      "row": 9,
+      "col": 17,
+      "type": "single",
+      "context_group": "drilling"
+    },
+    "drilling_params.rpm_min": {
+      "sheet": "DDR Data",
+      "anchor_text": "RPM Min",
+      "row": 10,
+      "col": 13,
+      "type": "single",
+      "context_group": "drilling"
+    },
+    "drilling_params.rpm_max": {
+      "sheet": "DDR Data",
+      "anchor_text": "RPM Max",
+      "row": 10,
+      "col": 17,
+      "type": "single",
+      "context_group": "drilling"
+    },
+    "drilling_params.torque_min": {
+      "sheet": "DDR Data",
+      "anchor_text": "Torque Min",
+      "row": 11,
+      "col": 13,
+      "type": "single",
+      "context_group": "drilling"
+    },
+    "drilling_params.torque_max": {
+      "sheet": "DDR Data",
+      "anchor_text": "Torque Max",
+      "row": 11,
+      "col": 17,
+      "type": "single",
+      "context_group": "drilling"
+    },
+    "drilling_params.pump_pressure_min": {
+      "sheet": "DDR Data",
+      "anchor_text": "SPP Min",
+      "row": 13,
+      "col": 13,
+      "type": "single",
+      "context_group": "drilling"
+    },
+    "drilling_params.pump_pressure_max": {
+      "sheet": "DDR Data",
+      "anchor_text": "SPP Max",
+      "row": 13,
+      "col": 17,
+      "type": "single",
+      "context_group": "drilling"
+    },
+    "mud_report.mw": {
+      "sheet": "DDR Data",
+      "anchor_text": "Mud Weight",
+      "row": 9,
+      "col": 12,
+      "type": "single",
+      "context_group": "mud"
+    },
+    "mud_report.funnel_vis": {
+      "sheet": "DDR Data",
+      "anchor_text": "Funnel Vis",
+      "row": 11,
+      "col": 12,
+      "type": "single",
+      "context_group": "mud"
+    },
+    "mud_report.pv": {
+      "sheet": "DDR Data",
+      "anchor_text": "PV (CP)",
+      "row": 12,
+      "col": 12,
+      "type": "single",
+      "context_group": "mud"
+    },
+    "mud_report.yp": {
+      "sheet": "DDR Data",
+      "anchor_text": "YP (lb/100ft2)",
+      "row": 13,
+      "col": 12,
+      "type": "single",
+      "context_group": "mud"
+    },
+    "mud_report.gel_10s": {
+      "sheet": "DDR Data",
+      "anchor_text": "Gel 10 s",
+      "row": 14,
+      "col": 12,
+      "type": "single",
+      "context_group": "mud"
+    },
+    "mud_report.gel_10m": {
+      "sheet": "DDR Data",
+      "anchor_text": "Gel 10 min",
+      "row": 15,
+      "col": 12,
+      "type": "single",
+      "context_group": "mud"
+    },
+    "mud_report.ph": {
+      "sheet": "DDR Data",
+      "anchor_text": "PH",
+      "row": 19,
+      "col": 12,
+      "type": "single",
+      "context_group": "mud"
+    },
+    "mud_report.temperature": {
+      "sheet": "DDR Data",
+      "anchor_text": "Mud Temp",
+      "row": 20,
+      "col": 12,
+      "type": "single",
+      "context_group": "mud"
+    },
+    "mud_report.solid_percent": {
+      "sheet": "DDR Data",
+      "anchor_text": "Solid %",
+      "row": 17,
+      "col": 12,
+      "type": "single",
+      "context_group": "mud"
+    },
+    "mud_report.water_percent": {
+      "sheet": "DDR Data",
+      "anchor_text": "Water %",
+      "row": 18,
+      "col": 12,
+      "type": "single",
+      "context_group": "mud"
+    },
+    "bulk_materials": {
+      "sheet": "DDR Data",
+      "anchor_text": "Product Type",
+      "type": "table",
+      "header_row": 7,
+      "data_start_row": 8,
+      "columns": {
+        "material_name": {
+          "col": 14,
+          "header": "Product Type"
+        },
+        "used": {
+          "col": 16,
+          "header": "Used"
+        },
+        "received": {
+          "col": 17,
+          "header": "Received"
+        },
+        "current_stock": {
+          "col": 19,
+          "header": "On Hand"
+        },
+        "unit": {
+          "col": 20,
+          "header": "Unit"
+        }
+      },
+      "end_marker": "",
+      "context_group": "logistics"
+    },
+    "survey": {
+      "sheet": "DDR Data",
+      "anchor_text": "Measured Depth",
+      "type": "table",
+      "header_row": 38,
+      "data_start_row": 39,
+      "columns": {
+        "md": {
+          "col": 11,
+          "header": "Measured Depth"
+        },
+        "inc": {
+          "col": 13,
+          "header": "Inc"
+        },
+        "azi": {
+          "col": 14,
+          "header": "Azi"
+        },
+        "tvd": {
+          "col": 15,
+          "header": "TVD"
+        },
+        "north": {
+          "col": 16,
+          "header": "North"
+        },
+        "east": {
+          "col": 17,
+          "header": "East"
+        },
+        "dls": {
+          "col": 18,
+          "header": "DLS"
+        }
+      },
+      "end_marker": "",
+      "context_group": "survey"
+    },
+    "casing": {
+      "sheet": "DDR Data",
+      "anchor_text": "Casing/Liner Size",
+      "type": "table",
+      "header_row": 27,
+      "data_start_row": 28,
+      "columns": {
+        "size": {
+          "col": 11,
+          "header": "Size"
+        },
+        "depth_from": {
+          "col": 12,
+          "header": "From"
+        },
+        "depth_to": {
+          "col": 14,
+          "header": "To"
+        },
+        "grade": {
+          "col": 15,
+          "header": "Grade"
+        },
+        "weight": {
+          "col": 17,
+          "header": "Weight"
+        }
+      },
+      "end_marker": "",
+      "context_group": "casing"
+    },
+    "bha": {
+      "sheet": "DDR Data",
+      "anchor_text": "BHA",
+      "type": "table",
+      "header_row": 47,
+      "data_start_row": 48,
+      "columns": {
+        "component_name": {
+          "col": 11,
+          "header": "Component"
+        },
+        "od": {
+          "col": 14,
+          "header": "OD"
+        },
+        "length": {
+          "col": 17,
+          "header": "Length"
+        }
+      },
+      "end_marker": "",
+      "context_group": "bha"
+    },
+    "fuel_water": {
+      "sheet": "DDR Data",
+      "anchor_text": "Fuel",
+      "type": "table",
+      "header_row": 54,
+      "data_start_row": 55,
+      "columns": {
+        "fuel_consumed": {
+          "col": 5,
+          "header": "Fuel Consumed"
+        },
+        "fuel_stock": {
+          "col": 7,
+          "header": "Fuel Stock"
+        },
+        "water_consumed": {
+          "col": 9,
+          "header": "Water Consumed"
+        },
+        "water_stock": {
+          "col": 11,
+          "header": "Water Stock"
+        }
+      },
+      "end_marker": "",
+      "context_group": "logistics"
+    },
+    "drilling_params.tfa": {
+      "sheet": "DDR Data",
+      "anchor_text": "TFA",
+      "row": 25,
+      "col": 5,
+      "type": "single",
+      "context_group": "drilling"
+    },
+    "drilling_params.bit_drilled": {
+      "sheet": "DDR Data",
+      "anchor_text": "Bit Drilled",
+      "row": 27,
+      "col": 5,
+      "type": "single",
+      "context_group": "drilling"
+    },
+    "drilling_params.bit_cum_drilled": {
+      "sheet": "DDR Data",
+      "anchor_text": "Bit Cum. Drilled",
+      "row": 28,
+      "col": 5,
+      "type": "single",
+      "context_group": "drilling"
+    },
+    "drilling_params.bit_cum_hours": {
+      "sheet": "DDR Data",
+      "anchor_text": "Bit Cum. Hrs",
+      "row": 30,
+      "col": 5,
+      "type": "single",
+      "context_group": "drilling"
+    },
+    "drilling_params.bit_revolution": {
+      "sheet": "DDR Data",
+      "anchor_text": "Bit revolution",
+      "row": 33,
+      "col": 5,
+      "type": "single",
+      "context_group": "drilling"
+    },
+    "drilling_params.pump_liner_size": {
+      "sheet": "DDR Data",
+      "anchor_text": "Pump Liner Size",
+      "row": 34,
+      "col": 5,
+      "type": "single",
+      "context_group": "drilling"
+    },
+    "drilling_params.pump_output_min": {
+      "sheet": "DDR Data",
+      "anchor_text": "Pump Output",
+      "row": 36,
+      "col": 5,
+      "type": "single",
+      "context_group": "drilling"
+    },
+    "drilling_params.pump_output_max": {
+      "sheet": "DDR Data",
+      "anchor_text": "Pump Output",
+      "row": 36,
+      "col": 6,
+      "type": "single",
+      "context_group": "drilling"
+    },
+    "mud_report.mud_type": {
+      "sheet": "DDR Data",
+      "anchor_text": "Mud Type",
+      "row": 8,
+      "col": 12,
+      "type": "single",
+      "context_group": "mud"
+    },
+    "mud_report.fl": {
+      "sheet": "DDR Data",
+      "anchor_text": "API Fluid Loss",
+      "row": 16,
+      "col": 12,
+      "type": "single",
+      "context_group": "mud"
+    },
+    "mud_report.cake_thickness": {
+      "sheet": "DDR Data",
+      "anchor_text": "Filter Cake",
+      "row": 18,
+      "col": 12,
+      "type": "single",
+      "context_group": "mud"
+    },
+    "mud_report.chloride": {
+      "sheet": "DDR Data",
+      "anchor_text": "Chloride",
+      "row": 20,
+      "col": 12,
+      "type": "single",
+      "context_group": "mud"
+    },
+    "mud_report.oil_percent": {
+      "sheet": "DDR Data",
+      "anchor_text": "Oil / Water",
+      "row": 21,
+      "col": 12,
+      "type": "single",
+      "context_group": "mud"
+    },
+    "mud_report.total_hardness": {
+      "sheet": "DDR Data",
+      "anchor_text": "Total Hardness",
+      "row": 17,
+      "col": 12,
+      "type": "single",
+      "context_group": "mud"
+    },
+    "mud_report.pf_mf": {
+      "sheet": "DDR Data",
+      "anchor_text": "Pf / Mf",
+      "row": 25,
+      "col": 12,
+      "type": "single",
+      "context_group": "mud"
+    },
+    "mud_report.calcium": {
+      "sheet": "DDR Data",
+      "anchor_text": "Ca++",
+      "row": 26,
+      "col": 12,
+      "type": "single",
+      "context_group": "mud"
+    },
+    "mud_report.mbt": {
+      "sheet": "DDR Data",
+      "anchor_text": "MBT",
+      "row": 27,
+      "col": 12,
+      "type": "single",
+      "context_group": "mud"
+    },
+    "mud_report.kcl": {
+      "sheet": "DDR Data",
+      "anchor_text": "KCL",
+      "row": 22,
+      "col": 12,
+      "type": "single",
+      "context_group": "mud"
+    },
+    "daily_report.vol_in_hole": {
+      "sheet": "DDR Data",
+      "anchor_text": "Vol. in Hole",
+      "row": 34,
+      "col": 12,
+      "type": "single",
+      "context_group": "report"
+    },
+    "daily_report.total_circ_vol": {
+      "sheet": "DDR Data",
+      "anchor_text": "Total Cir. Volume",
+      "row": 35,
+      "col": 12,
+      "type": "single",
+      "context_group": "report"
+    },
+    "daily_report.mud_lost_downhole": {
+      "sheet": "DDR Data",
+      "anchor_text": "Mud Lost Down Hole",
+      "row": 36,
+      "col": 12,
+      "type": "single",
+      "context_group": "report"
+    },
+    "daily_report.mud_lost_surface": {
+      "sheet": "DDR Data",
+      "anchor_text": "Mud Lost at Surface",
+      "row": 37,
+      "col": 12,
+      "type": "single",
+      "context_group": "report"
+    },
+    "daily_report.suction1_vol": {
+      "sheet": "DDR Data",
+      "anchor_text": "Suction 1 Vol",
+      "row": 38,
+      "col": 12,
+      "type": "single",
+      "context_group": "report"
+    },
+    "daily_report.suction1_mw": {
+      "sheet": "DDR Data",
+      "anchor_text": "Suction 1",
+      "row": 38,
+      "col": 13,
+      "type": "single",
+      "context_group": "report"
+    },
+    "daily_report.suction2_vol": {
+      "sheet": "DDR Data",
+      "anchor_text": "Suction 2 Vol",
+      "row": 39,
+      "col": 12,
+      "type": "single",
+      "context_group": "report"
+    },
+    "daily_report.suction2_mw": {
+      "sheet": "DDR Data",
+      "anchor_text": "Suction 2",
+      "row": 39,
+      "col": 13,
+      "type": "single",
+      "context_group": "report"
+    },
+    "safety.wind_speed": {
+      "sheet": "DDR Data",
+      "anchor_text": "Wind Speed",
+      "row": 70,
+      "col": 11,
+      "type": "single",
+      "context_group": "safety"
+    },
+    "safety.wind_direction": {
+      "sheet": "DDR Data",
+      "anchor_text": "Wind Direction",
+      "row": 71,
+      "col": 11,
+      "type": "single",
+      "context_group": "safety"
+    },
+    "safety.temperature": {
+      "sheet": "DDR Data",
+      "anchor_text": "TEMP",
+      "row": 72,
+      "col": 11,
+      "type": "single",
+      "context_group": "safety"
+    },
+    "safety.visibility": {
+      "sheet": "DDR Data",
+      "anchor_text": "Visibility",
+      "row": 73,
+      "col": 11,
+      "type": "single",
+      "context_group": "safety"
+    },
+    "safety.last_bop_test": {
+      "sheet": "DDR Data",
+      "anchor_text": "Last BOP Test",
+      "row": 75,
+      "col": 13,
+      "type": "single",
+      "context_group": "safety"
+    },
+    "safety.last_fire_drill": {
+      "sheet": "DDR Data",
+      "anchor_text": "Last Fire Drill",
+      "row": 76,
+      "col": 14,
+      "type": "single",
+      "context_group": "safety"
+    },
+    "safety.last_h2s_drill": {
+      "sheet": "DDR Data",
+      "anchor_text": "Last H2S Drill",
+      "row": 77,
+      "col": 14,
+      "type": "single",
+      "context_group": "safety"
+    },
+    "safety.last_bop_drill": {
+      "sheet": "DDR Data",
+      "anchor_text": "Last BOP Drill",
+      "row": 78,
+      "col": 14,
+      "type": "single",
+      "context_group": "safety"
+    },
+    "safety.days_without_lti": {
+      "sheet": "DDR Data",
+      "anchor_text": "Days Without LTA",
+      "row": 79,
+      "col": 13,
+      "type": "single",
+      "context_group": "safety"
+    },
+    "logistics.pob_rig": {
+      "sheet": "DDR Data",
+      "anchor_text": "OEOC Rig",
+      "row": 81,
+      "col": 13,
+      "type": "single",
+      "context_group": "logistics"
+    },
+    "logistics.pob_client": {
+      "sheet": "DDR Data",
+      "anchor_text": "Client",
+      "row": 82,
+      "col": 13,
+      "type": "single",
+      "context_group": "logistics"
+    },
+    "logistics.pob_msa": {
+      "sheet": "DDR Data",
+      "anchor_text": "MSA",
+      "row": 83,
+      "col": 13,
+      "type": "single",
+      "context_group": "logistics"
+    },
+    "logistics.pob_service": {
+      "sheet": "DDR Data",
+      "anchor_text": "Service company",
+      "row": 84,
+      "col": 13,
+      "type": "single",
+      "context_group": "logistics"
+    },
+    "logistics.pob_catering": {
+      "sheet": "DDR Data",
+      "anchor_text": "Catering + Guard",
+      "row": 85,
+      "col": 13,
+      "type": "single",
+      "context_group": "logistics"
+    },
+    "logistics.pob_labour": {
+      "sheet": "DDR Data",
+      "anchor_text": "Labour",
+      "row": 86,
+      "col": 13,
+      "type": "single",
+      "context_group": "logistics"
+    },
+    "logistics.pob_total": {
+      "sheet": "DDR Data",
+      "anchor_text": "Total POB",
+      "row": 88,
+      "col": 13,
+      "type": "single",
+      "context_group": "logistics"
+    },
+    "bop.annular_type": {
+      "sheet": "DDR Data",
+      "anchor_text": "Annular",
+      "row": 78,
+      "col": 3,
+      "type": "single",
+      "context_group": "safety"
+    },
+    "bop.annular_wp": {
+      "sheet": "DDR Data",
+      "anchor_text": "Annular",
+      "row": 78,
+      "col": 5,
+      "type": "single",
+      "context_group": "safety"
+    },
+    "bop.annular_size": {
+      "sheet": "DDR Data",
+      "anchor_text": "Annular",
+      "row": 78,
+      "col": 6,
+      "type": "single",
+      "context_group": "safety"
+    },
+    "bop.double_rams_type": {
+      "sheet": "DDR Data",
+      "anchor_text": "Double rams",
+      "row": 79,
+      "col": 3,
+      "type": "single",
+      "context_group": "safety"
+    },
+    "bop.double_rams_wp": {
+      "sheet": "DDR Data",
+      "anchor_text": "Double rams",
+      "row": 79,
+      "col": 5,
+      "type": "single",
+      "context_group": "safety"
+    },
+    "bop.double_rams_rams": {
+      "sheet": "DDR Data",
+      "anchor_text": "Double rams",
+      "row": 79,
+      "col": 7,
+      "type": "single",
+      "context_group": "safety"
+    },
+    "formation.name": {
+      "sheet": "DDR Data",
+      "anchor_text": "Aghajari",
+      "row": 82,
+      "col": 14,
+      "type": "single",
+      "context_group": "geology"
+    },
+    "formation.md_top": {
+      "sheet": "DDR Data",
+      "anchor_text": "m MD",
+      "row": 82,
+      "col": 16,
+      "type": "single",
+      "context_group": "geology"
+    },
+    "formation.lithology": {
+      "sheet": "DDR Data",
+      "anchor_text": "Lithology",
+      "row": 82,
+      "col": 19,
+      "type": "single",
+      "context_group": "geology"
+    },
+    "equipment.shaker1": {
+      "sheet": "DDR Data",
+      "anchor_text": "Shaker #1",
+      "row": 91,
+      "col": 3,
+      "type": "single",
+      "context_group": "equipment"
+    },
+    "equipment.shaker2": {
+      "sheet": "DDR Data",
+      "anchor_text": "Shaker #2",
+      "row": 92,
+      "col": 3,
+      "type": "single",
+      "context_group": "equipment"
+    },
+    "equipment.shaker3": {
+      "sheet": "DDR Data",
+      "anchor_text": "Shaker #3",
+      "row": 93,
+      "col": 3,
+      "type": "single",
+      "context_group": "equipment"
+    },
+    "well_info.report_no": {
+      "sheet": "DDR Remark",
+      "anchor_text": "Report No.",
+      "row": 5,
+      "col": 39,
+      "type": "single",
+      "context_group": "well_header"
+    },
+    "daily_report.lta_day": {
+      "sheet": "DDR Remark",
+      "anchor_text": "LTA",
+      "row": 3,
+      "col": 39,
+      "type": "single",
+      "context_group": "report"
+    },
+    "daily_report.actual_rig_days": {
+      "sheet": "DDR Remark",
+      "anchor_text": "Actual Rig Days",
+      "row": 4,
+      "col": 39,
+      "type": "single",
+      "context_group": "report"
+    },
+    "well_info.water_depth": {
+      "sheet": "DDR Remark",
+      "anchor_text": "Water Depth",
+      "row": 6,
+      "col": 39,
+      "type": "single",
+      "context_group": "well_header"
+    },
+    "well_info.rig_heading": {
+      "sheet": "DDR Remark",
+      "anchor_text": "Rig Heading",
+      "row": 7,
+      "col": 39,
+      "type": "single",
+      "context_group": "well_header"
+    },
+    "well_info.start_hole_date": {
+      "sheet": "DDR Remark",
+      "anchor_text": "Hole Section Start",
+      "row": 12,
+      "col": 8,
+      "type": "single",
+      "context_group": "well_header"
+    },
+    "well_info.rig_move_date": {
+      "sheet": "DDR Remark",
+      "anchor_text": "Moving Start Date",
+      "row": 13,
+      "col": 8,
+      "type": "single",
+      "context_group": "well_header"
+    },
+    "daily_report.mw_pcf": {
+      "sheet": "DDR Remark",
+      "anchor_text": "MW (PCF)",
+      "row": 14,
+      "col": 1,
+      "type": "single",
+      "context_group": "report"
+    },
+    "daily_report.fit_depth": {
+      "sheet": "DDR Remark",
+      "anchor_text": "FIT Depth",
+      "row": 15,
+      "col": 1,
+      "type": "single",
+      "context_group": "report"
+    },
+    "daily_report.section_start_depth": {
+      "sheet": "DDR Remark",
+      "anchor_text": "Section Start Depth",
+      "row": 15,
+      "col": 13,
+      "type": "single",
+      "context_group": "report"
+    },
+    "well_info.tool_pusher_day": {
+      "sheet": "DDR Remark",
+      "anchor_text": "Tool Pusher Day",
+      "row": 15,
+      "col": 23,
+      "type": "single",
+      "context_group": "personnel"
+    },
+    "well_info.tool_pusher_night": {
+      "sheet": "DDR Remark",
+      "anchor_text": "Tool Pusher Night",
+      "row": 15,
+      "col": 23,
+      "type": "single",
+      "context_group": "personnel"
+    },
+    "mud_chemicals": {
+      "sheet": "DDR Data",
+      "anchor_text": "Product Type",
+      "type": "table",
+      "header_row": 7,
+      "data_start_row": 8,
+      "columns": {
+        "product_type": {
+          "col": 14,
+          "header": "Product Type"
+        },
+        "used": {
+          "col": 16,
+          "header": "Used"
+        },
+        "received": {
+          "col": 17,
+          "header": "Received"
+        },
+        "on_hand": {
+          "col": 19,
+          "header": "On Hand"
+        },
+        "unit": {
+          "col": 20,
+          "header": "Unit"
+        }
+      },
+      "end_marker": "",
+      "context_group": "mud_chemicals"
+    },
+    "drilling_params_block": {
+      "sheet": "DDR Data",
+      "anchor_text": "Drilling Parameter",
+      "type": "table",
+      "header_row": 37,
+      "data_start_row": 38,
+      "columns": {
+        "parameter": {
+          "col": 2,
+          "header": "Parameter"
+        },
+        "min": {
+          "col": 5,
+          "header": "min"
+        },
+        "max": {
+          "col": 6,
+          "header": "max"
+        }
+      },
+      "end_marker": "",
+      "context_group": "drilling"
+    },
+    "scr_data": {
+      "sheet": "DDR Data",
+      "anchor_text": "SCR Data",
+      "type": "table",
+      "header_row": 43,
+      "data_start_row": 44,
+      "columns": {
+        "pump": {
+          "col": 2,
+          "header": "Pump"
+        },
+        "spm": {
+          "col": 3,
+          "header": "SPM"
+        },
+        "fr_gpm": {
+          "col": 4,
+          "header": "FR (GPM)"
+        },
+        "spp": {
+          "col": 5,
+          "header": "SPP"
+        }
+      },
+      "end_marker": "",
+      "context_group": "drilling"
+    },
+    "daily_report.vol_info": {
+      "sheet": "DDR Data",
+      "anchor_text": "Vol. Info",
+      "row": 33,
+      "col": 10,
+      "type": "single",
+      "context_group": "report"
+    },
+    "daily_report.vol_in_hole_bbls": {
+      "sheet": "DDR Data",
+      "anchor_text": "Vol. in Hole (bbls)",
+      "row": 34,
+      "col": 12,
+      "type": "single",
+      "context_group": "report"
+    },
+    "daily_report.total_circ_vol_bbls": {
+      "sheet": "DDR Data",
+      "anchor_text": "Total Cir. Volume (bbls)",
+      "row": 35,
+      "col": 12,
+      "type": "single",
+      "context_group": "report"
+    },
+    "daily_report.mud_lost_downhole_bbls": {
+      "sheet": "DDR Data",
+      "anchor_text": "Mud Lost Down Hole (bbls)",
+      "row": 36,
+      "col": 12,
+      "type": "single",
+      "context_group": "report"
+    },
+    "daily_report.mud_lost_surface_bbls": {
+      "sheet": "DDR Data",
+      "anchor_text": "Mud Lost at Surface (bbls)",
+      "row": 37,
+      "col": 12,
+      "type": "single",
+      "context_group": "report"
+    },
+    "daily_report.suction1_vol_bbls": {
+      "sheet": "DDR Data",
+      "anchor_text": "Suction 1 Vol.(bbls)",
+      "row": 38,
+      "col": 12,
+      "type": "single",
+      "context_group": "report"
+    },
+    "daily_report.suction1_mw_pcf": {
+      "sheet": "DDR Data",
+      "anchor_text": "Suction 1 MW (PCF)",
+      "row": 38,
+      "col": 13,
+      "type": "single",
+      "context_group": "report"
+    },
+    "daily_report.suction2_vol_bbls": {
+      "sheet": "DDR Data",
+      "anchor_text": "Suction 2 Vol.(bbls)",
+      "row": 39,
+      "col": 12,
+      "type": "single",
+      "context_group": "report"
+    },
+    "daily_report.suction2_mw_pcf": {
+      "sheet": "DDR Data",
+      "anchor_text": "Suction 2 MW (PCF)",
+      "row": 39,
+      "col": 13,
+      "type": "single",
+      "context_group": "report"
+    },
+    "daily_report.reserve1_vol_bbls": {
+      "sheet": "DDR Data",
+      "anchor_text": "Reserve 1 Vol.(bbls)",
+      "row": 40,
+      "col": 12,
+      "type": "single",
+      "context_group": "report"
+    },
+    "daily_report.reserve1_mw_pcf": {
+      "sheet": "DDR Data",
+      "anchor_text": "Reserve 1 MW (PCF)",
+      "row": 40,
+      "col": 13,
+      "type": "single",
+      "context_group": "report"
+    },
+    "daily_report.reserve2_vol_bbls": {
+      "sheet": "DDR Data",
+      "anchor_text": "Reserve 2 Vol.(bbls)",
+      "row": 41,
+      "col": 12,
+      "type": "single",
+      "context_group": "report"
+    },
+    "daily_report.reserve2_mw_pcf": {
+      "sheet": "DDR Data",
+      "anchor_text": "Reserve 2 MW (PCF)",
+      "row": 41,
+      "col": 13,
+      "type": "single",
+      "context_group": "report"
+    },
+    "daily_report.reserve3_vol_bbls": {
+      "sheet": "DDR Data",
+      "anchor_text": "Reserve 3 Vol.(bbls)",
+      "row": 42,
+      "col": 12,
+      "type": "single",
+      "context_group": "report"
+    },
+    "daily_report.reserve3_mw_pcf": {
+      "sheet": "DDR Data",
+      "anchor_text": "Reserve 3 MW (PCF)",
+      "row": 42,
+      "col": 13,
+      "type": "single",
+      "context_group": "report"
+    },
+    "daily_report.reserve4_vol_bbls": {
+      "sheet": "DDR Data",
+      "anchor_text": "Reserve 4 Vol.(bbls)",
+      "row": 43,
+      "col": 12,
+      "type": "single",
+      "context_group": "report"
+    },
+    "daily_report.middle_vol_bbls": {
+      "sheet": "DDR Data",
+      "anchor_text": "Middle (bbls)",
+      "row": 44,
+      "col": 12,
+      "type": "single",
+      "context_group": "report"
+    },
+    "daily_report.middle_mw_pcf": {
+      "sheet": "DDR Data",
+      "anchor_text": "Middle (PCF)",
+      "row": 44,
+      "col": 13,
+      "type": "single",
+      "context_group": "report"
+    },
+    "daily_report.desilter_vol_bbls": {
+      "sheet": "DDR Data",
+      "anchor_text": "Desilter (bbls)",
+      "row": 45,
+      "col": 12,
+      "type": "single",
+      "context_group": "report"
+    },
+    "daily_report.desander_vol_bbls": {
+      "sheet": "DDR Data",
+      "anchor_text": "Desander (bbls)",
+      "row": 46,
+      "col": 12,
+      "type": "single",
+      "context_group": "report"
+    },
+    "daily_report.desander_mw_pcf": {
+      "sheet": "DDR Data",
+      "anchor_text": "Desander (PCF)",
+      "row": 46,
+      "col": 13,
+      "type": "single",
+      "context_group": "report"
+    },
+    "daily_report.degasser_vol_bbls": {
+      "sheet": "DDR Data",
+      "anchor_text": "Degasser (bbls)",
+      "row": 47,
+      "col": 12,
+      "type": "single",
+      "context_group": "report"
+    },
+    "daily_report.degasser_mw_pcf": {
+      "sheet": "DDR Data",
+      "anchor_text": "Degasser (PCF)",
+      "row": 47,
+      "col": 13,
+      "type": "single",
+      "context_group": "report"
+    },
+    "daily_report.sand_trap_vol_bbls": {
+      "sheet": "DDR Data",
+      "anchor_text": "Sand Trap (bbls)",
+      "row": 48,
+      "col": 12,
+      "type": "single",
+      "context_group": "report"
+    },
+    "daily_report.sand_trap_mw_pcf": {
+      "sheet": "DDR Data",
+      "anchor_text": "Sand Trap (PCF)",
+      "row": 48,
+      "col": 13,
+      "type": "single",
+      "context_group": "report"
+    },
+    "downhole_equipment": {
+      "sheet": "DDR Data",
+      "anchor_text": "Equipment",
+      "type": "table",
+      "header_row": 51,
+      "data_start_row": 52,
+      "columns": {
+        "equipment_name": {
+          "col": 10,
+          "header": "Equipment"
+        },
+        "od": {
+          "col": 12,
+          "header": "OD (inch)"
+        },
+        "serial_number": {
+          "col": 14,
+          "header": "Serial Number"
+        },
+        "rot_hrs": {
+          "col": 16,
+          "header": "Rot. Hrs"
+        },
+        "cum_hrs": {
+          "col": 18,
+          "header": "Cum. Hrs"
+        }
+      },
+      "end_marker": "",
+      "context_group": "downhole"
+    },
+    "bulk_inventory": {
+      "sheet": "DDR Data",
+      "anchor_text": "Mat. Type",
+      "type": "table",
+      "header_row": 70,
+      "data_start_row": 72,
+      "columns": {
+        "material": {
+          "col": 2,
+          "header": "Mat. Type"
+        },
+        "on_hand": {
+          "col": 2,
+          "header": "On Hand"
+        },
+        "used": {
+          "col": 2,
+          "header": "Used"
+        },
+        "received": {
+          "col": 2,
+          "header": "Received"
+        }
+      },
+      "sub_tables": {
+        "fresh_water": {
+          "col": 4,
+          "header": "F.W",
+          "unit": "Lit"
+        },
+        "drill_water": {
+          "col": 5,
+          "header": "D.W",
+          "unit": "BBL"
+        },
+        "fuel_rig": {
+          "col": 6,
+          "header": "Fuel Rig",
+          "unit": "Lit"
+        },
+        "fuel_camp": {
+          "col": 7,
+          "header": "Fuel Camp",
+          "unit": "Lit"
+        },
+        "blend_cmt": {
+          "col": 9,
+          "header": "Blend CMT",
+          "unit": "MT"
+        },
+        "cmt_g": {
+          "col": 10,
+          "header": "CMT G Delijan",
+          "unit": "MT"
+        }
+      },
+      "context_group": "logistics"
+    },
+    "cement_additives": {
+      "sheet": "DDR Data",
+      "anchor_text": "Material Type",
+      "type": "table",
+      "header_row": 70,
+      "data_start_row": 71,
+      "columns": {
+        "material_type": {
+          "col": 14,
+          "header": "Material Type"
+        },
+        "used": {
+          "col": 16,
+          "header": "Used"
+        },
+        "received": {
+          "col": 17,
+          "header": "Received"
+        },
+        "on_hand": {
+          "col": 19,
+          "header": "On Hand"
+        },
+        "unit": {
+          "col": 20,
+          "header": "Unit"
+        }
+      },
+      "end_marker": "",
+      "context_group": "cement"
+    },
+    "bop_stack": {
+      "sheet": "DDR Data",
+      "anchor_text": "Name",
+      "type": "table",
+      "header_row": 76,
+      "data_start_row": 78,
+      "columns": {
+        "name": {
+          "col": 2,
+          "header": "Name"
+        },
+        "type": {
+          "col": 3,
+          "header": "TYPE"
+        },
+        "wp_psi": {
+          "col": 5,
+          "header": "W.P (psi)"
+        },
+        "size": {
+          "col": 6,
+          "header": "SIZE"
+        },
+        "rams": {
+          "col": 7,
+          "header": "RAMS"
+        },
+        "last_test": {
+          "col": 10,
+          "header": "Last Test"
+        }
+      },
+      "end_marker": "",
+      "context_group": "safety"
+    },
+    "pob_breakdown": {
+      "sheet": "DDR Data",
+      "anchor_text": "Personnel on Board",
+      "type": "table",
+      "header_row": 80,
+      "data_start_row": 81,
+      "columns": {
+        "category": {
+          "col": 11,
+          "header": "Category"
+        },
+        "count": {
+          "col": 13,
+          "header": "Count"
+        }
+      },
+      "end_marker": "Total POB",
+      "context_group": "logistics"
+    },
+    "solid_control": {
+      "sheet": "DDR Data",
+      "anchor_text": "Equipment",
+      "type": "table",
+      "header_row": 90,
+      "data_start_row": 91,
+      "columns": {
+        "equipment": {
+          "col": 2,
+          "header": "Equipment"
+        },
+        "size_cones": {
+          "col": 3,
+          "header": "Size/# Cones"
+        },
+        "uf": {
+          "col": 5,
+          "header": "U.F"
+        },
+        "of": {
+          "col": 6,
+          "header": "O.F"
+        },
+        "daily_hrs": {
+          "col": 7,
+          "header": "Daily Hrs"
+        },
+        "cum_hrs": {
+          "col": 9,
+          "header": "Cum hrs"
+        }
+      },
+      "end_marker": "",
+      "context_group": "equipment"
+    },
+    "boats": {
+      "sheet": "DDR Data",
+      "anchor_text": "Boats",
+      "type": "table",
+      "header_row": 90,
+      "data_start_row": 91,
+      "columns": {
+        "name": {
+          "col": 10,
+          "header": "Name"
+        },
+        "arrival_time": {
+          "col": 11,
+          "header": "Arrival Time"
+        },
+        "arrival_date": {
+          "col": 13,
+          "header": "Arrival Date"
+        },
+        "pax_in": {
+          "col": 14,
+          "header": "No. of PAX IN"
+        },
+        "departure_time": {
+          "col": 15,
+          "header": "Departure Time"
+        },
+        "departure_date": {
+          "col": 17,
+          "header": "Departure Date"
+        },
+        "status": {
+          "col": 20,
+          "header": "Status"
+        }
+      },
+      "end_marker": "",
+      "context_group": "logistics"
+    },
+    "daily_report.notes": {
+      "sheet": "DDR Remark",
+      "anchor_text": "Note",
+      "type": "text_block",
+      "row": 80,
+      "col": 1,
+      "context_group": "report"
+    },
+    "daily_report.material_request": {
+      "sheet": "DDR Remark",
+      "anchor_text": "Material Request",
+      "row": 88,
+      "col": 1,
+      "type": "single",
+      "context_group": "logistics"
+    },
+    "daily_report.material_request_detail": {
+      "sheet": "DDR Remark",
+      "anchor_text": "Material Request",
+      "row": 88,
+      "col": 4,
+      "type": "single",
+      "context_group": "logistics"
+    },
+    "daily_report.outstanding": {
+      "sheet": "DDR Remark",
+      "anchor_text": "Out Standing",
+      "row": 88,
+      "col": 31,
+      "type": "single",
+      "context_group": "logistics"
+    },
+    "daily_report.received_items": {
+      "sheet": "DDR Remark",
+      "anchor_text": "Received",
+      "row": 95,
+      "col": 1,
+      "type": "single",
+      "context_group": "logistics"
+    },
+    "daily_report.backload_items": {
+      "sheet": "DDR Remark",
+      "anchor_text": "Back Load",
+      "row": 95,
+      "col": 31,
+      "type": "single",
+      "context_group": "logistics"
+    },
+    "drilling_params.bit_rerun": {
+      "sheet": "DDR Data",
+      "anchor_text": "Bit Rerun",
+      "row": 10,
+      "col": 5,
+      "type": "single",
+      "context_group": "drilling"
+    },
+    "drilling_params.bit_dull_condition": {
+      "sheet": "DDR Data",
+      "anchor_text": "Bit Dull Condition",
+      "row": 32,
+      "col": 5,
+      "type": "single",
+      "context_group": "drilling"
+    },
+    "drilling_params.cum_bit_avg_rop": {
+      "sheet": "DDR Data",
+      "anchor_text": "Cum.Bit Ave ROP",
+      "row": 31,
+      "col": 5,
+      "type": "single",
+      "context_group": "drilling"
+    },
+    "drilling_params.bit_hours_on_bottom": {
+      "sheet": "DDR Data",
+      "anchor_text": "Bit Hours on Bottom",
+      "row": 29,
+      "col": 5,
+      "type": "single",
+      "context_group": "drilling"
+    },
+    "drilling_params.bit_cum_hrs_on_bottom": {
+      "sheet": "DDR Data",
+      "anchor_text": "Bit Cum. Hrs on Bottom",
+      "row": 30,
+      "col": 5,
+      "type": "single",
+      "context_group": "drilling"
+    },
+    "mud_report.flowline_temp": {
+      "sheet": "DDR Data",
+      "anchor_text": "Flowline Temp",
+      "row": 24,
+      "col": 12,
+      "type": "single",
+      "context_group": "mud"
+    },
+    "mud_report.mw_unit": {
+      "sheet": "DDR Data",
+      "anchor_text": "Unit",
+      "row": 9,
+      "col": 11,
+      "type": "single",
+      "context_group": "mud"
+    },
+    "daily_report.report_time": {
+      "sheet": "DDR Data",
+      "anchor_text": "Report Time",
+      "row": 7,
+      "col": 12,
+      "type": "single",
+      "context_group": "report"
+    },
+    "daily_report.report_year": {
+      "sheet": "DDR Data",
+      "anchor_text": "year",
+      "row": 7,
+      "col": 7,
+      "type": "single",
+      "context_group": "report"
+    },
+    "daily_report.report_month": {
+      "sheet": "DDR Data",
+      "anchor_text": "month",
+      "row": 7,
+      "col": 8,
+      "type": "single",
+      "context_group": "report"
+    },
+    "daily_report.report_day": {
+      "sheet": "DDR Data",
+      "anchor_text": "day",
+      "row": 7,
+      "col": 9,
+      "type": "single",
+      "context_group": "report"
+    },
+    "safety.lta_days": {
+      "sheet": "DDR Data",
+      "anchor_text": "Days Without LTA",
+      "row": 79,
+      "col": 13,
+      "type": "single",
+      "context_group": "safety"
+    },
+    "formation_top_data": {
+      "sheet": "DDR Data",
+      "anchor_text": "Name",
+      "type": "table",
+      "header_row": 81,
+      "data_start_row": 82,
+      "columns": {
+        "name": {
+          "col": 14,
+          "header": "Name"
+        },
+        "md_top": {
+          "col": 16,
+          "header": "m MD"
+        },
+        "tvd": {
+          "col": 17,
+          "header": "m TVD"
+        },
+        "lithology": {
+          "col": 19,
+          "header": "Lithology"
+        }
+      },
+      "end_marker": "",
+      "context_group": "geology"
+    },
+    "lookahead": {
+      "sheet": "Lookahead",
+      "anchor_text": "Day",
+      "type": "table",
+      "header_row": 1,
+      "data_start_row": 2,
+      "columns": {
+        "day": {
+          "col": 1,
+          "header": "Day"
+        },
+        "date": {
+          "col": 2,
+          "header": "Date"
+        },
+        "activity": {
+          "col": 3,
+          "header": "Activity"
+        },
+        "tools": {
+          "col": 4,
+          "header": "Tools"
+        },
+        "responsible": {
+          "col": 5,
+          "header": "Responsible"
+        },
+        "remarks": {
+          "col": 6,
+          "header": "Remarks"
+        }
+      },
+      "end_marker": "",
+      "context_group": "planning"
+    },
+    "service_companies": {
+      "sheet": "Service Company",
+      "anchor_text": "Company",
+      "type": "table",
+      "header_row": 1,
+      "data_start_row": 2,
+      "columns": {
+        "company_name": {
+          "col": 1,
+          "header": "Company Name"
+        },
+        "service_type": {
+          "col": 2,
+          "header": "Service Type"
+        },
+        "personnel": {
+          "col": 3,
+          "header": "Personnel"
+        },
+        "contact": {
+          "col": 4,
+          "header": "Contact"
+        },
+        "phone": {
+          "col": 5,
+          "header": "Phone"
+        }
+      },
+      "end_marker": "",
+      "context_group": "services"
+    },
+    "daily_report.drilled_24hrs": {
+      "sheet": "DDR Remark",
+      "anchor_text": "24 hrs Drilled",
+      "row": 12,
+      "col": 18,
+      "type": "single",
+      "context_group": "report"
+    },
+    "daily_report.avg_rop_remark": {
+      "sheet": "DDR Remark",
+      "anchor_text": "AVG. ROP",
+      "row": 13,
+      "col": 18,
+      "type": "single",
+      "context_group": "report"
+    },
+    "daily_report.rt_wh": {
+      "sheet": "DDR Remark",
+      "anchor_text": "RT - WH",
+      "row": 14,
+      "col": 18,
+      "type": "single",
+      "context_group": "report"
+    },
+    "drilling_params.motor_rpm": {
+      "sheet": "DDR Data",
+      "anchor_text": "Motor RPM",
+      "row": 39,
+      "col": 2,
+      "type": "single",
+      "context_group": "drilling"
+    },
+    "drilling_params.nozzle1_no": {
+      "sheet": "DDR Data",
+      "anchor_text": "Nozzle No",
+      "row": 17,
+      "col": 5,
+      "type": "single",
+      "context_group": "drilling"
+    },
+    "drilling_params.nozzle1_size": {
+      "sheet": "DDR Data",
+      "anchor_text": "Nozzle size",
+      "row": 17,
+      "col": 6,
+      "type": "single",
+      "context_group": "drilling"
+    },
+    "drilling_params.nozzle2_no": {
+      "sheet": "DDR Data",
+      "anchor_text": "Nozzle No",
+      "row": 19,
+      "col": 5,
+      "type": "single",
+      "context_group": "drilling"
+    },
+    "drilling_params.nozzle2_size": {
+      "sheet": "DDR Data",
+      "anchor_text": "Nozzle size",
+      "row": 19,
+      "col": 6,
+      "type": "single",
+      "context_group": "drilling"
+    },
+    "casing_previous": {
+      "sheet": "DDR Remark",
+      "anchor_text": "Previous Casing Information",
+      "type": "table",
+      "header_row": 10,
+      "data_start_row": 11,
+      "columns": {
+        "size": {
+          "col": 39,
+          "header": "Size (in)"
+        },
+        "from": {
+          "col": 40,
+          "header": "From (m)"
+        },
+        "to": {
+          "col": 42,
+          "header": "To (m)"
+        },
+        "grade": {
+          "col": 43,
+          "header": "Grade"
+        },
+        "weight": {
+          "col": 44,
+          "header": "Weight (#)"
+        },
+        "thread": {
+          "col": 47,
+          "header": "Thread"
+        },
+        "shoe_tvd": {
+          "col": 48,
+          "header": "Shoe (TVD)m"
+        },
+        "burst": {
+          "col": 50,
+          "header": "Burst (psi)"
+        },
+        "collapse": {
+          "col": 52,
+          "header": "Collapse (psi)"
+        }
+      },
+      "end_marker": "",
+      "context_group": "casing"
+    },
+    "bha.total_length": {
+      "sheet": "DDR Data",
+      "anchor_text": "TOTAL(m)",
+      "row": 68,
+      "col": 5,
+      "type": "single",
+      "context_group": "bha"
+    }
+  }
+}

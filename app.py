@@ -441,6 +441,16 @@ class DrillMasterApp(QApplication):
     def show_login(self) -> bool:
         """نمایش دیالوگ Login."""
         try:
+            # Auto-login for testing (set DRILLMASTER_AUTO_LOGIN=1)
+            import os
+            if os.getenv("DRILLMASTER_AUTO_LOGIN", "").lower() in ("1", "true", "yes"):
+                self.user = self.db_manager.authenticate_user("admin", "admin123")
+                if self.user:
+                    from core.permissions import permissions
+                    permissions.set_user(self.user)
+                    logger.info("Auto-login as admin (DRILLMASTER_AUTO_LOGIN)")
+                    return True
+
             login_dialog = LoginDialog(self.db_manager)
             if login_dialog.exec() == QDialog.Accepted:
                 self.user = login_dialog.get_user()
