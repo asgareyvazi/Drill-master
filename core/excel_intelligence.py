@@ -22,10 +22,12 @@ from difflib import SequenceMatcher
 import re
 import logging
 import time
+from datetime import date
 
 from core.canonical_schema import (
     FIELD_SPECS, lookup_alias, get_engineering_bounds,
     get_quantity_unit, get_field_spec, CANONICAL_FIELDS,
+    mapping_certainty,
 )
 
 logger = logging.getLogger(__name__)
@@ -58,6 +60,7 @@ class ExtractionResult:
     value: Any = None
     status: str = "OK"  # OK, UNRESOLVED, CONFLICT, REVIEW_REQUIRED, INVALID
     confidence: float = 0.0
+    certainty: str = ""  # HIGH / MEDIUM / LOW — mapping_certainty policy
     source: str = ""
     cell: str = ""
     row: int = 0
@@ -77,6 +80,7 @@ class ExtractionResult:
             "value": self.value,
             "status": self.status,
             "confidence": round(self.confidence, 2),
+            "certainty": self.certainty,
             "source": self.source,
             "cell": self.cell,
             "row": self.row,
@@ -130,6 +134,9 @@ class ImportReport:
     field_results: List[ExtractionResult] = field(default_factory=list)
     table_results: List[TableExtraction] = field(default_factory=list)
     canonical_json: Dict = field(default_factory=dict)
+    # Provenance for values that could not be stored as-is (e.g. "N.C").
+    # {canonical_path: {"original_value": ..., "cell": ..., "sheet": ..., "status": "NON_NUMERIC"}}
+    source_tokens: Dict[str, Dict] = field(default_factory=dict)
 
     def summary(self) -> str:
         return (
@@ -302,7 +309,9 @@ class LabelDetector:
             return False
         if text.endswith(':'):
             return True
-        if ' : ' in text:
+        # "Label : value" style cells are labels only when the cell is short;
+        # long cells like 'P#1 : (180mm x 12") + P#2 : ...' are VALUES.
+        if ' : ' in text and len(text) < 40:
             return True
         _KNOWN_HEADERS = {
             'from', 'to', 'hrs', 'duration', 'item', 'name', 'type',
@@ -340,7 +349,12 @@ class CandidateScorer:
         # 1. Semantic match quality (30%)
         semantic_score = 0.0
         if candidate.source == "preferred_cell":
-            semantic_score = 0.85  # Preferred cell with valid value is strong evidence
+            # Preferred cell is the template's EXPLICIT coordinate for this
+            # field — the strongest evidence available. It must beat
+            # cross-row numeric guesses (e.g. a template cell holding "N.C"
+            # must not lose to another field's value picked diagonally).
+            # Near-ties still surface as CONFLICT for human review.
+            semantic_score = 1.0
         elif candidate.source == "merge_cell":
             semantic_score = 0.80
         elif candidate.source == "label_match":
@@ -551,10 +565,23 @@ class FieldExtractor:
                             break
 
         # Strategy 3: Exact label match
+        # The template's preferred column is the authoritative value column
+        # (anchors verified against the real workbook). When the preferred
+        # cell is empty, label fallback must not wander into neighbouring
+        # tables (e.g. picking a cement-additive name as a drill date) —
+        # values are only accepted in the preferred column.
         label_matches = self.labels.find_exact(field_name)
+        # When the template anchor sits near the found label, the anchor is
+        # authoritative: the value must be exactly at the anchored cell
+        # (empty -> the value is genuinely missing; neighbouring rows/cols
+        # belong to other fields/tables). When the anchor is far away, fall
+        # back to a general scan around the label.
         for lr, lc, lv in label_matches:
+            anchor_near_label = abs(row - lr) <= 3 and abs(col - lc) <= 3
             nearby = self.labels.find_near_label(lr, lc)
             for nr, nc, nv, direction, distance in nearby:
+                if anchor_near_label and (nr != row or nc != col):
+                    continue
                 label_quality = CandidateScorer.score_label_match_quality(str(lv), canonical)
                 candidates.append(Candidate(
                     value=nv, source="label_match",
@@ -569,8 +596,11 @@ class FieldExtractor:
         aliases = self._get_aliases(canonical)
         alias_matches = self.labels.find_aliases(aliases)
         for lr, lc, lv, matched_alias in alias_matches:
+            anchor_near_label = abs(row - lr) <= 3 and abs(col - lc) <= 3
             nearby = self.labels.find_near_label(lr, lc)
             for nr, nc, nv, direction, distance in nearby:
+                if anchor_near_label and (nr != row or nc != col):
+                    continue
                 label_quality = CandidateScorer.score_label_match_quality(str(lv), canonical)
                 candidates.append(Candidate(
                     value=nv, source="alias_match",
@@ -584,8 +614,11 @@ class FieldExtractor:
         # Strategy 5: Fuzzy match
         fuzzy_matches = self.labels.find_fuzzy(field_name, threshold=0.65)
         for lr, lc, lv, ratio in fuzzy_matches[:3]:
+            anchor_near_label = abs(row - lr) <= 3 and abs(col - lc) <= 3
             nearby = self.labels.find_near_label(lr, lc)
             for nr, nc, nv, direction, distance in nearby[:2]:
+                if anchor_near_label and (nr != row or nc != col):
+                    continue
                 candidates.append(Candidate(
                     value=nv, source="fuzzy_match",
                     row=nr, col=nc, sheet=sheet,
@@ -594,6 +627,12 @@ class FieldExtractor:
                     raw_score=0.30 * ratio,
                     reason=f"Fuzzy ({ratio:.0%}) '{lv}' at {self._col_letter(lc)}{lr}",
                 ))
+
+        # Normalize textual numeric formats BEFORE scoring so that
+        # '17-1/2"' -> 17.5 and '3K' -> 3000 are scored as the numbers they are.
+        if spec and spec.quantity in self.NUMERIC_QUANTITIES:
+            for c in candidates:
+                c.value = self._normalize_numeric_value(c.value)
 
         # Score all candidates
         for c in candidates:
@@ -606,7 +645,7 @@ class FieldExtractor:
         if not candidates:
             return ExtractionResult(
                 canonical_field=canonical, value=None, status="UNRESOLVED",
-                confidence=0.0, source="not_found",
+                confidence=0.0, certainty="LOW", source="not_found",
                 reason=f"Field '{field_name}' not found by any strategy",
                 data_type=spec.quantity if spec else "text",
                 canonical_unit=spec.unit if spec else "",
@@ -614,6 +653,11 @@ class FieldExtractor:
 
         best = candidates[0]
         self._assigned_cells.add((best.row, best.col))
+
+        # Normalize textual numeric formats for numeric fields:
+        # '17-1/2"' -> 17.5, '3K' -> 3000, '18/32"' -> 0.5625
+        if spec and spec.quantity in self.NUMERIC_QUANTITIES:
+            best.value = self._normalize_numeric_value(best.value)
 
         # Conflict detection: check if second-best is very close
         status = "OK"
@@ -636,6 +680,7 @@ class FieldExtractor:
             value=best.value,
             status=status,
             confidence=best.final_score,
+            certainty=mapping_certainty(best.final_score, method=best.source),
             source=best.source,
             cell=f"{self._col_letter(best.col)}{best.row}",
             row=best.row, col=best.col, sheet=sheet,
@@ -685,6 +730,65 @@ class FieldExtractor:
                 return "engineering_violation(mw<=0)"
 
         return "valid"
+
+    NUMERIC_QUANTITIES = frozenset({
+        "length", "density", "pressure", "number", "integer", "force", "rpm",
+        "angle", "rate", "dls", "area", "viscosity", "stress", "torque",
+        "flow_rate", "volume", "temperature", "currency",
+    })
+
+    # Unit tokens commonly embedded in DDR cell text after a number,
+    # e.g. "72 pcf", "1234 m", "3 gpm". Matched ONLY as a trailing suffix,
+    # so time-like strings ("24:00"), tokens ("N.C") and unit-only cells
+    # ("m", "hr") are left untouched.
+    _EMBEDDED_UNIT_RE = re.compile(
+        r"^(-?\d+(?:[.,]\d+)?)\s*("
+        r"pcf|ppg|sg|g/cc|g/cm3|kg/m3|kg/m\u00b3|lb/ft3|"
+        r"m|ft|in|mm|cm|km|'|\u2032|"  # length
+        r"psi|bar|kpa|mpa|kpsi|kg/cm2|"
+        r"klbf|lbf|ton|mt|kg|lb|"
+        r"rpm|gpm|lpm|l/min|m3/hr|m3/h|m/hr|m/h|ft/hr|ft/h|bbl/hr|bbl/min|spm|"
+        r"bbl|m3|l|gal|cc|"
+        r"cp|sec|s|"
+        r"c|f|\u00b0c|\u00b0f|"
+        r"hr|hrs|h|min|day|days|"
+        r"deg|\u00b0|rad|"
+        r"sqm|m2|m\u00b2|in2|in\u00b2|"
+        r"ftlb|ft-lb|n-m|nm|kn-m|klbf-ft"
+        r")$",
+        re.IGNORECASE,
+    )
+
+    @staticmethod
+    def _normalize_numeric_value(value: Any) -> Any:
+        """Convert textual numeric formats used in real DDRs to numbers.
+
+        Supported formats (for numeric quantities only):
+            '17-1/2"'   -> 17.5     (mixed fraction)
+            '18/32"'    -> 0.5625   (pure fraction)
+            '3K'        -> 3000     (K shorthand, e.g. BOP working pressure)
+            '72 pcf'    -> 72.0     (embedded unit suffix, e.g. '1234 m')
+        Unparseable text is returned unchanged (validation/N.C policy applies).
+        """
+        if value is None or isinstance(value, (int, float)) or not isinstance(value, str):
+            return value
+        s = value.strip().replace('"', '').replace('\u201d', '').replace('\u201c', '')
+        m = re.match(r"^(\d+)\s*-\s*(\d+)\s*/\s*(\d+)$", s)
+        if m:
+            return int(m.group(1)) + int(m.group(2)) / int(m.group(3))
+        m = re.match(r"^(\d+)\s*/\s*(\d+)$", s)
+        if m:
+            return int(m.group(1)) / int(m.group(2))
+        m = re.match(r"^(\d+(?:\.\d+)?)\s*[kK]$", s)
+        if m:
+            return float(m.group(1)) * 1000.0
+        m = FieldExtractor._EMBEDDED_UNIT_RE.match(s)
+        if m:
+            return float(m.group(1).replace(",", ""))
+        try:
+            return float(s.replace(",", ""))
+        except (ValueError, TypeError):
+            return value
 
     @staticmethod
     def _get_aliases(canonical: str) -> List[str]:
@@ -786,6 +890,8 @@ class DynamicTableExtractor:
         for col_def in columns:
             c = col_def.get("col", 0)
             val = self.cells.get((row, c))
+            if val is None:
+                val, _ = self.merge.get_value(row, c)
             if val is not None:
                 values.append(str(val).strip().lower())
 
@@ -797,16 +903,40 @@ class DynamicTableExtractor:
         # Check for repeated header
         header_keywords = [col_def.get("field", "").lower() for col_def in columns]
         header_match = sum(1 for v in values if any(kw in v for kw in header_keywords if kw))
-        if header_match >= len(columns) * 0.5:
+        # Exact header-cell match (e.g. a "Name" cell inside a Boats table) is
+        # always a repeated header, even when only one column matched.
+        exact_header = any(
+            any(str(v).strip() == kw for kw in header_keywords if kw)
+            for v in values
+        )
+        if header_match >= len(columns) * 0.5 or exact_header:
             return "header_repeat"
 
-        # Check for subtotal/footer
-        if any(kw in all_text for kw in ["total", "subtotal", "sum", "average", "avg"]):
+        # Check for subtotal/footer — word-boundary match only, so
+        # ordinary text containing the letters of a keyword ("Resume" has
+        # 'sum' inside it) is never mistaken for a subtotal row.
+        if re.search(r"\b(?:total|subtotal|sum|average|avg)\b", all_text, re.IGNORECASE):
             return "subtotal"
 
-        # Check for notes
-        if any(kw in all_text for kw in ["note:", "notes:", "remark", "n/a", "-"]):
-            # But only if most cells are text
+        # Footer / free-text blocks that must not leak into table records
+        footer_markers = [
+            "equipment to be sent back", "request:", "prepared by", "approved by",
+            "note#", "note:", "notes:", "remark", "material request", "comment",
+        ]
+        if any(kw in all_text for kw in footer_markers):
+            numeric_count = sum(1 for v in values if self._is_numeric(v))
+            if numeric_count < len(values) * 0.3:
+                return "note"
+
+        # Check for notes — only STANDALONE placeholder tokens, never "-"
+        # inside dates ('15-Oct-2024') or size strings ('17-1/2"'). A row
+        # is a note only when PLACEHOLDER-DOMINATED (>= half its cells are
+        # placeholder tokens): real BOP/equipment rows legitimately carry
+        # "-" in one or two cells (e.g. rams="-" for an annular) and must
+        # not be discarded.
+        placeholder_tokens = ("-", "--", "n/a", "na", "not available", "n.c")
+        placeholder_count = sum(1 for v in values if v in placeholder_tokens)
+        if placeholder_count and placeholder_count >= len(values) * 0.5:
             numeric_count = sum(1 for v in values if self._is_numeric(v))
             if numeric_count < len(values) * 0.3:
                 return "note"
@@ -825,6 +955,16 @@ class DynamicTableExtractor:
                        columns, rejected_count, rejection_reasons):
         records = []
         for r in range(start_row, end_row + 1):
+            # The start row is a template anchor and can itself be a
+            # repeated header / unit row (e.g. Boats tables whose only
+            # populated row is the header). Every row inside the range is
+            # classified so header/subtotal/footer/note rows never leak
+            # into records as phantom data.
+            row_class = self._classify_row(r, columns)
+            if row_class != "data":
+                rejected_count += 1
+                rejection_reasons.append(f"R{r}: {row_class}")
+                continue
             record = {}
             has_value = False
             for col_def in columns:
@@ -838,6 +978,11 @@ class DynamicTableExtractor:
                     # P0-4: Preserve canonical namespace
                     if canonical:
                         key = canonical  # Keep full path: survey.md, bha.od
+                        # Normalize textual numerics for numeric quantities
+                        # (e.g. BOP working pressure '3K' -> 3000 psi).
+                        spec = FIELD_SPECS.get(canonical)
+                        if spec and spec.quantity in FieldExtractor.NUMERIC_QUANTITIES:
+                            val = FieldExtractor._normalize_numeric_value(val)
                     else:
                         key = col_def.get("field", f"col_{c}")
                     record[key] = val
@@ -883,6 +1028,14 @@ class ExcelIntelligence:
             self.cell_cache[ws.title] = cells
             self.merge_analyzers[ws.title] = MergeCellAnalyzer(ws)
             self.label_detectors[ws.title] = LabelDetector(cells)
+
+    # Quantities that must hold numeric values. Non-numeric source tokens
+    # (e.g. "N.C") are converted to NULL and preserved as provenance.
+    NUMERIC_QUANTITIES = frozenset({
+        "length", "density", "pressure", "number", "integer", "force", "rpm",
+        "angle", "rate", "dls", "area", "viscosity", "stress", "torque",
+        "flow_rate", "volume", "temperature", "currency",
+    })
 
     def extract(self) -> ImportReport:
         """Run full extraction pipeline."""
@@ -931,16 +1084,13 @@ class ExcelIntelligence:
                                 report.fields_review += 1
                             else:
                                 report.fields_rejected += 1
-                            section, key = canonical_path.split(".", 1)
-                            canonical.setdefault(section, {})[key] = result.value
+                            self._store_scalar(report, canonical, canonical_path, result, actual_sheet)
                         elif result.status == "REVIEW_REQUIRED":
                             report.fields_review += 1
-                            section, key = canonical_path.split(".", 1)
-                            canonical.setdefault(section, {})[key] = result.value
+                            self._store_scalar(report, canonical, canonical_path, result, actual_sheet)
                         elif result.status == "CONFLICT":
                             report.fields_conflict += 1
-                            section, key = canonical_path.split(".", 1)
-                            canonical.setdefault(section, {})[key] = result.value
+                            self._store_scalar(report, canonical, canonical_path, result, actual_sheet)
                         elif result.status == "UNRESOLVED":
                             report.fields_unresolved += 1
 
@@ -994,7 +1144,10 @@ class ExcelIntelligence:
                                 "time_breakdown": "time_breakdown",
                             }
                             storage_key = key_map.get(section, section)
-                            canonical.setdefault(storage_key, []).extend(table_result.records)
+                            normalized = self._normalize_table_records(
+                                table_result.records, storage_key
+                            )
+                            canonical.setdefault(storage_key, []).extend(normalized)
                     else:
                         for sub_key, sub_data in section_data.items():
                             if isinstance(sub_data, list):
@@ -1005,17 +1158,158 @@ class ExcelIntelligence:
                                         report.field_results.append(result)
                                         if result.status == "OK" and result.confidence >= 0.70:
                                             report.fields_detected += 1
-                                            s, k = canon.split(".", 1)
-                                            canonical.setdefault(s, {})[k] = result.value
+                                            self._store_scalar(report, canonical, canon, result, actual_sheet)
                             elif isinstance(sub_data, dict) and "columns" in sub_data:
                                 table_result = table_extractor.find_table_by_template(sub_data, actual_sheet)
                                 report.table_results.append(table_result)
                                 report.tables_detected += 1
                                 report.total_rows_extracted += table_result.row_count
+                                if table_result.records:
+                                    first_canon = sub_data["columns"][0].get("canonical", "")
+                                    section = first_canon.split(".")[0] if "." in first_canon else sub_key
+                                    key_map = {
+                                        "time_log": "time_logs_24h",
+                                        "time_log_morning": "time_logs_morning",
+                                        "survey": "surveys",
+                                        "mud_chemical": "bulk_materials",
+                                        "bha": "bha_components",
+                                        "downhole": "downhole_equipment",
+                                        "drilling_param": "drilling_params_table",
+                                        "scr": "scr_data",
+                                        "bop": "bop_components",
+                                        "formation": "formation_data",
+                                        "solid_control": "solid_control",
+                                        "transport": "boats",
+                                        "lookahead": "lookahead",
+                                        "service": "service_companies",
+                                        "cement": "cement_additives",
+                                        "fuel_water": "fuel_water_data",
+                                        "casing": "casing_data",
+                                        "pob": "pob_data",
+                                        "time_breakdown": "time_breakdown",
+                                    }
+                                    storage_key = key_map.get(section, section)
+                                    normalized = self._normalize_table_records(
+                                        table_result.records, storage_key
+                                    )
+                                    canonical.setdefault(storage_key, []).extend(normalized)
+
+        # Assemble report_date from report_year/report_month/report_day when
+        # the template provides the parts but the workbook has no single
+        # date cell (OEOC DDR Remark: 2024 / Oct / 22).
+        daily = canonical.get("daily_report")
+        if isinstance(daily, dict) and not daily.get("report_date"):
+            assembled = self._assemble_date(
+                daily.get("report_year"), daily.get("report_month"),
+                daily.get("report_day"),
+            )
+            if assembled is not None:
+                daily["report_date"] = assembled.isoformat()
+                daily["report_date_source"] = "assembled(year/month/day)"
 
         report.canonical_json = canonical
         report.extraction_time_ms = (time.time() - start_time) * 1000
         return report
+
+    @staticmethod
+    def _assemble_date(year, month, day):
+        """Assemble a date from Y/M/D parts; supports numeric months and
+        English month names ('Oct', 'October'). Returns date or None."""
+        import calendar
+        try:
+            year_i = int(str(year).strip())
+            day_i = int(str(day).strip())
+        except (ValueError, TypeError):
+            return None
+        if month is None:
+            return None
+        month_s = str(month).strip()
+        month_i = None
+        if month_s.isdigit():
+            month_i = int(month_s)
+        else:
+            lowered = month_s.lower()
+            for idx, abbr in enumerate(calendar.month_abbr):
+                if abbr and abbr.lower() == lowered[:3]:
+                    month_i = idx
+                    break
+            if month_i is None:
+                for idx, full in enumerate(calendar.month_name):
+                    if full and full.lower() == lowered:
+                        month_i = idx
+                        break
+        if month_i is None or not 1 <= month_i <= 12:
+            return None
+        try:
+            return date(year_i, month_i, day_i)
+        except ValueError:
+            return None
+
+    def _store_scalar(self, report: ImportReport, canonical: Dict,
+                      canonical_path: str, result: ExtractionResult,
+                      actual_sheet: str) -> None:
+        """Store one scalar extraction result into the canonical dict.
+
+        Non-numeric tokens on numeric fields (e.g. "N.C") are stored as NULL
+        with their original token preserved in provenance, so the three states
+        stay distinguishable:
+            missing  -> key absent
+            N.C      -> key = None + key_source = "N.C"
+            zero     -> key = 0
+        """
+        section, key = canonical_path.split(".", 1)
+        spec = FIELD_SPECS.get(canonical_path)
+        value = result.value
+        if (
+            value is not None
+            and spec is not None
+            and spec.quantity in self.NUMERIC_QUANTITIES
+            and isinstance(value, str)
+        ):
+            try:
+                float(value.replace(",", "").strip())
+            except (ValueError, TypeError):
+                token = value.strip()
+                report.source_tokens[canonical_path] = {
+                    "original_value": token,
+                    "cell": result.cell,
+                    "sheet": actual_sheet or result.sheet,
+                    "status": "NON_NUMERIC",
+                }
+                value = None
+                canonical.setdefault(section, {})[key + "_source"] = token
+        canonical.setdefault(section, {})[key] = value
+
+    @staticmethod
+    def _normalize_table_records(records: List[Dict], storage_key: str) -> List[Dict]:
+        """Normalize raw table records into canonical short-key records.
+
+        * Full canonical paths ("time_log.time_from") become short keys
+          ("time_from") — the section is already expressed by the storage key.
+        * Floating-point durations are rounded to 2 decimals so 24h totals
+          validate without float noise.
+        * Mud chemical rows are also exposed as bulk materials
+          (product_type -> material_name) for the DB layer.
+        """
+        out = []
+        for rec in records:
+            if not isinstance(rec, dict):
+                continue
+            short = {}
+            for k, v in rec.items():
+                if k is None:
+                    continue
+                key = str(k).split(".")[-1]
+                if key == "duration" and isinstance(v, (int, float)) and not isinstance(v, bool):
+                    v = round(float(v), 2)
+                short[key] = v
+            if not any(v is not None and str(v).strip() != "" for v in short.values()):
+                continue
+            if storage_key == "bulk_materials":
+                if short.get("product_type") and not short.get("material_name"):
+                    short["material_name"] = short["product_type"]
+            out.append(short)
+        return out
 
     def _resolve_sheet(self, sheet_key: str) -> Optional[str]:
         parts = sheet_key.split("_", 2)

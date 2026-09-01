@@ -618,6 +618,40 @@ class FuelWaterTab(QWidget):
         self.water_received.setValue(0)
         consumption_layout.addRow("Today's Received:", self.water_received)
         
+        consumption_layout.addRow(QLabel("<b>Drinking Water (Liters)</b>"))
+        self.dw_consumed = QDoubleSpinBox()
+        self.dw_consumed.setRange(0, 1000000)
+        self.dw_consumed.setSuffix(" L")
+        self.dw_consumed.setValue(0)
+        consumption_layout.addRow("Daily Consumption:", self.dw_consumed)
+        self.dw_stock = QDoubleSpinBox()
+        self.dw_stock.setRange(0, 1000000)
+        self.dw_stock.setSuffix(" L")
+        self.dw_stock.setValue(0)
+        consumption_layout.addRow("Current Stock:", self.dw_stock)
+        self.dw_received = QDoubleSpinBox()
+        self.dw_received.setRange(0, 1000000)
+        self.dw_received.setSuffix(" L")
+        self.dw_received.setValue(0)
+        consumption_layout.addRow("Today's Received:", self.dw_received)
+        
+        consumption_layout.addRow(QLabel("<b>Camp Fuel (Liters)</b>"))
+        self.fuel_camp_consumed = QDoubleSpinBox()
+        self.fuel_camp_consumed.setRange(0, 1000000)
+        self.fuel_camp_consumed.setSuffix(" L")
+        self.fuel_camp_consumed.setValue(0)
+        consumption_layout.addRow("Daily Consumption:", self.fuel_camp_consumed)
+        self.fuel_camp_stock = QDoubleSpinBox()
+        self.fuel_camp_stock.setRange(0, 1000000)
+        self.fuel_camp_stock.setSuffix(" L")
+        self.fuel_camp_stock.setValue(0)
+        consumption_layout.addRow("Current Stock:", self.fuel_camp_stock)
+        self.fuel_camp_received = QDoubleSpinBox()
+        self.fuel_camp_received.setRange(0, 1000000)
+        self.fuel_camp_received.setSuffix(" L")
+        self.fuel_camp_received.setValue(0)
+        consumption_layout.addRow("Today's Received:", self.fuel_camp_received)
+        
         self.results_label = QLabel("")
         self.results_label.setStyleSheet("color: #0066cc; font-weight: bold; padding: 10px; border: 1px solid #ccc; border-radius: 5px;")
         consumption_layout.addRow("Results:", self.results_label)
@@ -797,6 +831,12 @@ class FuelWaterTab(QWidget):
                 "water_stock": water_stock,
                 "water_received": self.water_received.value(),
                 "water_remaining": water_remaining,
+                "dw_consumed": self.dw_consumed.value(),
+                "dw_stock": self.dw_stock.value(),
+                "dw_received": self.dw_received.value(),
+                "fuel_camp_consumed": self.fuel_camp_consumed.value(),
+                "fuel_camp_stock": self.fuel_camp_stock.value(),
+                "fuel_camp_received": self.fuel_camp_received.value(),
             }
 
             if fuel_consumed > 0:
@@ -836,13 +876,29 @@ class FuelWaterTab(QWidget):
             
             if inventory_data and len(inventory_data) > 0:
                 data = inventory_data[0]
+
+                def _val(key, default=0.0):
+                    v = data.get(key)
+                    if v in (None, ""):
+                        return default
+                    try:
+                        return float(v)
+                    except (TypeError, ValueError):
+                        return default
+
                 self.fuel_type.setCurrentText(data.get("fuel_type", "Diesel"))
-                self.fuel_consumed.setValue(data.get("fuel_consumed", 0))
-                self.fuel_stock.setValue(data.get("fuel_stock", 0))
-                self.fuel_received.setValue(data.get("fuel_received", 0))
-                self.water_consumed.setValue(data.get("water_consumed", 0))
-                self.water_stock.setValue(data.get("water_stock", 0))
-                self.water_received.setValue(data.get("water_received", 0))
+                self.fuel_consumed.setValue(_val("fuel_consumed"))
+                self.fuel_stock.setValue(_val("fuel_stock"))
+                self.fuel_received.setValue(_val("fuel_received"))
+                self.water_consumed.setValue(_val("water_consumed"))
+                self.water_stock.setValue(_val("water_stock"))
+                self.water_received.setValue(_val("water_received"))
+                self.dw_consumed.setValue(_val("dw_consumed"))
+                self.dw_stock.setValue(_val("dw_stock"))
+                self.dw_received.setValue(_val("dw_received"))
+                self.fuel_camp_consumed.setValue(_val("fuel_camp_consumed"))
+                self.fuel_camp_stock.setValue(_val("fuel_camp_stock"))
+                self.fuel_camp_received.setValue(_val("fuel_camp_received"))
                 self.update_fuel_remaining()
                 self.update_water_remaining()
                 self.status_manager.show_success("FuelWaterTab", "Fuel/water data loaded")
@@ -859,6 +915,12 @@ class FuelWaterTab(QWidget):
         self.water_consumed.setValue(0)
         self.water_stock.setValue(0)
         self.water_received.setValue(0)
+        self.dw_consumed.setValue(0)
+        self.dw_stock.setValue(0)
+        self.dw_received.setValue(0)
+        self.fuel_camp_consumed.setValue(0)
+        self.fuel_camp_stock.setValue(0)
+        self.fuel_camp_received.setValue(0)
         self.results_label.clear()
         self.status_manager.show_success("FuelWaterTab", "Fields cleared")
         

@@ -3,7 +3,7 @@ Database - SQLAlchemy ORM setup and DatabaseManager class
 """
 import random
 import logging
-from datetime import datetime, date, timedelta, timezone
+from datetime import datetime, date, timedelta, timezone, time as datetime_time
 from typing import Optional, Dict, Any, List, Tuple
 from datetime import date as DateType
 
@@ -26,6 +26,7 @@ from sqlalchemy import (
     JSON,
     Text,
     Time,
+    Numeric,
 )
 from sqlalchemy.orm import sessionmaker, relationship, Session, declarative_base, backref
 from sqlalchemy.pool import StaticPool
@@ -198,6 +199,7 @@ class Well(Base):
     supervisor_night = Column(String(100))
     geologist1 = Column(String(100))
     geologist2 = Column(String(100))
+    drilling_engineer = Column(String(100))
     tool_pusher_day = Column(String(100))
     tool_pusher_night = Column(String(100))
     objectives = Column(Text)
@@ -253,6 +255,7 @@ class DailyReport(Base):
     depth_0600 = Column(Float, default=0.0)
     depth_2400 = Column(Float, default=0.0)
     summary = Column(Text)
+    forecast = Column(Text)
     status = Column(String(50), default="Draft")
     rop_meter = Column(Float, default=0.0)
     wob = Column(Float, default=0.0)
@@ -384,6 +387,7 @@ class DrillingParameters(Base):
     pump2_spp = Column(Float)
     pump3_spm = Column(Float)
     pump3_spp = Column(Float)
+    pump_liner_size = Column(String(200))
     avg_rop = Column(Float)
     hsi = Column(Float)
     annular_velocity = Column(Float)
@@ -426,6 +430,13 @@ class MudReport(Base):
     oil_percent = Column(Float)
     water_percent = Column(Float)
     chloride = Column(Float)
+    calcium = Column(Float)
+    kcl = Column(Float)
+    mbt = Column(Float)
+    pf_mf = Column(Float)
+    total_hardness = Column(Float)
+    flowline_temp = Column(Float)
+    pit_volumes_json = Column(Text)
     volume_hole = Column(Float)
     total_circulated = Column(Float)
     loss_downhole = Column(Float)
@@ -593,12 +604,12 @@ class SurveyPoint(Base):
     md = Column(Float, nullable=False)
     inc = Column(Float, nullable=False)
     azi = Column(Float, nullable=False)
-    tvd = Column(Float, default=0.0)
-    north = Column(Float, default=0.0)
-    east = Column(Float, default=0.0)
-    vs = Column(Float, default=0.0)
-    hd = Column(Float, default=0.0)
-    dls = Column(Float, default=0.0)
+    tvd = Column(Float)
+    north = Column(Float)
+    east = Column(Float)
+    vs = Column(Float)
+    hd = Column(Float)
+    dls = Column(Float)
     tool = Column(String(50), default="MWD")
     remarks = Column(Text)
     measured_at = Column(DateTime)
@@ -810,13 +821,19 @@ class FuelWaterInventory(Base):
     fuel_consumed = Column(Float, default=0.0)
     fuel_stock = Column(Float, default=0.0)
     fuel_received = Column(Float, default=0.0)
+    fuel_camp_consumed = Column(Float)
+    fuel_camp_stock = Column(Float)
+    fuel_camp_received = Column(Float)
+    dw_consumed = Column(Float)
+    dw_stock = Column(Float)
+    dw_received = Column(Float)
     water_consumed = Column(Float, default=0.0)
     water_stock = Column(Float, default=0.0)
     water_received = Column(Float, default=0.0)
-    fuel_remaining = Column(Float, default=0.0)
-    water_remaining = Column(Float, default=0.0)
-    days_remaining_fuel = Column(Float, default=0.0)
-    days_remaining_water = Column(Float, default=0.0)
+    fuel_remaining = Column(Float)
+    water_remaining = Column(Float)
+    days_remaining_fuel = Column(Float)
+    days_remaining_water = Column(Float)
     created_at = Column(DateTime, default=_now_utc)
     updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc)
     created_by = Column(Integer, ForeignKey("users.id"))
@@ -1089,6 +1106,11 @@ class ServiceCompany(Base):
     personnel_count = Column(Integer, default=1)
     status = Column(String(50), default="Active")
     description = Column(Text)
+    npt_hours = Column(Float, nullable=True)
+    hole_section = Column(String(100))
+    duration_day = Column(Float)
+    condition = Column(String(50))
+    issue = Column(Text)
     created_at = Column(DateTime, default=_now_utc)
     updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc)
     created_by = Column(Integer, ForeignKey("users.id"))
@@ -1712,13 +1734,66 @@ class DatabaseManager:
                 autocommit=False,
             )
             Base.metadata.create_all(self.engine)
+            self._apply_safe_schema_upgrades()
             self.create_default_data()
             return True
 
         except Exception as e:
             logger.error(f"Database initialization failed: {str(e)}")
             return False
-    
+
+    def _apply_safe_schema_upgrades(self):
+        """Additive, non-destructive schema migrations for existing databases.
+
+        Only ADDs new nullable columns/tables via SQLite's ALTER TABLE;
+        never drops or recreates anything. Idempotent: checks the live
+        PRAGMA table_info before each ALTER.
+        """
+        try:
+            from sqlalchemy import inspect, text
+
+            inspector = inspect(self.engine)
+            upgrades = [
+                ("drilling_parameters", "pump_liner_size", "VARCHAR(200)"),
+                ("service_companies", "npt_hours", "FLOAT"),
+                ("service_companies", "hole_section", "VARCHAR(100)"),
+                ("service_companies", "duration_day", "FLOAT"),
+                ("service_companies", "condition", "VARCHAR(50)"),
+                ("service_companies", "issue", "TEXT"),
+                ("mud_reports", "calcium", "FLOAT"),
+                ("mud_reports", "kcl", "FLOAT"),
+                ("mud_reports", "mbt", "FLOAT"),
+                ("mud_reports", "pf_mf", "FLOAT"),
+                ("mud_reports", "total_hardness", "FLOAT"),
+                ("mud_reports", "flowline_temp", "FLOAT"),
+                ("mud_reports", "pit_volumes_json", "TEXT"),
+                ("fuel_water_inventory", "fuel_camp_consumed", "FLOAT"),
+                ("fuel_water_inventory", "fuel_camp_stock", "FLOAT"),
+                ("fuel_water_inventory", "fuel_camp_received", "FLOAT"),
+                ("fuel_water_inventory", "dw_consumed", "FLOAT"),
+                ("fuel_water_inventory", "dw_stock", "FLOAT"),
+                ("fuel_water_inventory", "dw_received", "FLOAT"),
+                ("daily_reports", "forecast", "TEXT"),
+                ("wells", "drilling_engineer", "VARCHAR(100)"),
+            ]
+            for table, column, ddl_type in upgrades:
+                if table not in inspector.get_table_names():
+                    continue
+                existing = {col["name"] for col in inspector.get_columns(table)}
+                if column in existing:
+                    continue
+                with self.engine.begin() as conn:
+                    conn.execute(
+                        text(
+                            f"ALTER TABLE {table} ADD COLUMN {column} {ddl_type}"
+                        )
+                    )
+        except Exception as e:
+            logger.error(
+                f"Safe schema upgrade step failed "
+                f"(non-fatal, retried next start): {str(e)}"
+            )
+
     def create_default_data(self):
         session = self.create_session()
         try:
@@ -2204,6 +2279,40 @@ class DatabaseManager:
             session.close()
             
 
+    @staticmethod
+    def coerce_model_values(model, data: dict) -> dict:
+        """Placeholder-safe coercion for model dicts.
+
+        Workbook placeholders ('-', '--', 'N.C', 'n/a', ...) must never
+        crash numeric columns — they become NULL, never 0. Non-numeric
+        strings on numeric columns are dropped to NULL as well.
+        """
+        _PLACEHOLDERS = {"-", "--", "n/a", "na", "n.c", "not available", "none", ""}
+        numeric_types = (Integer, Float, Numeric)
+        out = {}
+        for k, v in data.items():
+            if v is None or k == "id":
+                out[k] = v
+                continue
+            col = model.__table__.columns.get(k)
+            if col is not None and isinstance(col.type, numeric_types):
+                if isinstance(v, str):
+                    stripped = v.strip().lower()
+                    if stripped in _PLACEHOLDERS:
+                        out[k] = None
+                        continue
+                    try:
+                        out[k] = float(v.replace(",", "").strip())
+                    except (ValueError, TypeError):
+                        out[k] = None
+                elif isinstance(v, bool):
+                    out[k] = int(v)
+                else:
+                    out[k] = v
+            else:
+                out[k] = v
+        return out
+
     def save_well(self, well_data: dict) -> bool:
         date_fields = ['spud_date', 'start_hole_date', 'rig_move_date', 'report_date']
         for field in date_fields:
@@ -2230,6 +2339,8 @@ class DatabaseManager:
         # فیلتر فیلدهای نامعتبر
         valid_keys = {c.name for c in Well.__table__.columns}
         filtered_data = {k: v for k, v in well_data.items() if k in valid_keys}
+
+        filtered_data = self.coerce_model_values(Well, filtered_data)
 
         session = self.create_session()
         try:
@@ -2494,7 +2605,7 @@ class DatabaseManager:
             snapshot = {}
             for name in columns:
                 value = getattr(report, name)
-                snapshot[name] = value.isoformat() if isinstance(value, (date, datetime, time)) else value
+                snapshot[name] = value.isoformat() if isinstance(value, (date, datetime, datetime_time)) else value
             latest = session.query(ReportRevision).filter_by(report_id=report_id).order_by(ReportRevision.revision_no.desc()).first()
             revision = ReportRevision(report_id=report_id, revision_no=(latest.revision_no + 1 if latest else 1), status=status, snapshot=snapshot, comment=comment)
             session.add(revision)
@@ -2602,26 +2713,72 @@ class DatabaseManager:
                             continue
                         valid.append(s)
                     # Bulk delete previous survey points for this report? Keep existing, add new
+                    def _sfloat(val):
+                        # Missing/blank source values stay NULL — never
+                        # invent 0 for azi/tvd/north/east/vs/hd/dls.
+                        if val in (None, ""):
+                            return None
+                        try:
+                            return float(val)
+                        except (TypeError, ValueError):
+                            return None
                     for s in valid:
-                        # Use generic atomic save via session
+                        # inc/azi are NOT NULL in the model (engineering
+                        # consumers assume floats) -> keep the 0 fallback
+                        # there; all other derived columns stay NULL when
+                        # the source omits them (no invented values).
                         sp = SurveyPoint(
                             well_id=s.get("well_id"),
                             report_id=s.get("report_id"),
                             md=float(s.get("md", 0)),
-                            inc=float(s.get("inc", 0) or 0),
-                            azi=float(s.get("azi", 0) or 0),
-                            tvd=float(s.get("tvd", 0) or 0),
-                            north=float(s.get("north", 0) or 0),
-                            east=float(s.get("east", 0) or 0),
-                            dls=float(s.get("dls", 0) or 0),
+                            inc=_sfloat(s.get("inc")) or 0.0,
+                            azi=_sfloat(s.get("azi")) or 0.0,
+                            tvd=_sfloat(s.get("tvd")),
+                            north=_sfloat(s.get("north")),
+                            east=_sfloat(s.get("east")),
+                            vs=_sfloat(s.get("vs")),
+                            hd=_sfloat(s.get("hd")),
+                            dls=_sfloat(s.get("dls")),
                             tool=str(s.get("tool", "MWD")),
+                            remarks=s.get("remarks"),
+                            measured_at=s.get("measured_at"),
                         )
                         session.add(sp)
                     count("surveys", len(valid))
                     session.flush()
 
                 # 2. POB
-                pobs = extracted.get("pob_records", [])
+                pobs = extracted.get("pob_records") or []
+                if not pobs and isinstance(extracted.get("logistics"), dict):
+                    # Canonical logistics breakdown (pob_rig/pob_client/...)
+                    # -> one ServiceCompanyPOB row per category. The total
+                    # row is intentionally NOT stored (the UI sums the
+                    # breakdown; storing it would double-count).
+                    logistics = extracted["logistics"]
+                    pob_categories = [
+                        ("pob_rig", "Rig Crew"),
+                        ("pob_client", "Client"),
+                        ("pob_msa", "MSA"),
+                        ("pob_service", "Service Company"),
+                        ("pob_catering", "Catering + Guard"),
+                        ("pob_labour", "Labour"),
+                        ("pob_other", "Other"),
+                    ]
+                    for key, label in pob_categories:
+                        val = logistics.get(key)
+                        if val in (None, ""):
+                            continue
+                        try:
+                            count_v = int(float(str(val).replace(",", "")))
+                        except (ValueError, TypeError):
+                            continue
+                        if count_v == 0:
+                            continue
+                        pobs.append({
+                            "company_name": label,
+                            "service_type": "POB",
+                            "personnel_count": count_v,
+                        })
                 if pobs:
                     saved = 0
                     for p in pobs:
@@ -2656,8 +2813,60 @@ class DatabaseManager:
                         saved += 1
                     count("service_companies", saved)
 
+                # 2c. Seven Days Lookahead
+                lookahead = extracted.get("lookahead", [])
+                if lookahead:
+                    saved = 0
+                    for idx, la in enumerate(lookahead):
+                        if not isinstance(la, dict):
+                            continue
+                        if not str(la.get("activity", "")).strip():
+                            continue
+                        remarks = str(la.get("comments", "") or "")
+                        hours = la.get("hours")
+                        if hours not in (None, ""):
+                            try:
+                                hours = float(hours)
+                                hrs = f"[HRs: {hours:.0f}] " if hours == int(hours) else f"[HRs: {hours}] "
+                                remarks = hrs + remarks if remarks else hrs.strip()
+                            except (TypeError, ValueError):
+                                pass
+
+                        def _to_dt(val):
+                            if isinstance(val, datetime):
+                                return val
+                            if isinstance(val, str):
+                                for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
+                                    try:
+                                        return datetime.strptime(val, fmt)
+                                    except ValueError:
+                                        continue
+                            return None
+
+                        day_val = la.get("day") or la.get("date_start")
+                        plan_date = day_val.date() if isinstance(day_val, datetime) else imported_report_date
+                        session.add(SevenDaysLookahead(
+                            well_id=well_id,
+                            section_id=report_obj.section_id,
+                            report_id=report_id,
+                            plan_date=plan_date,
+                            day_number=int(la.get("day_number") or (idx + 1)),
+                            activity=str(la.get("activity", ""))[:500],
+                            tools=str(la.get("tools", "") or "")[:200],
+                            responsible=str(la.get("responsible", "") or "")[:200],
+                            remarks=remarks,
+                            status="Planned",
+                            priority="Normal",
+                            progress_percentage=0,
+                            actual_start=_to_dt(la.get("date_start")),
+                            actual_end=_to_dt(la.get("date_end")),
+                        ))
+                        saved += 1
+                    count("lookahead", saved)
+
                 # 3. Casing
                 casing = extracted.get("casing_report")
+                casing_rows = extracted.get("casing_data") or []
                 if casing and isinstance(casing, dict):
                     casing = dict(casing)
                     casing["well_id"] = well_id
@@ -2675,9 +2884,29 @@ class DatabaseManager:
                     else:
                         session.add(CasingReport(**filtered))
                     count("casing_report", 1)
+                elif isinstance(casing_rows, list) and casing_rows:
+                    # Row-oriented casing string table (size/weight/grade/
+                    # thread/depth...) -> CasingReport.casing_json.
+                    rows = [dict(r) for r in casing_rows if isinstance(r, dict) and str(r.get("size", "")).strip()]
+                    if rows:
+                        existing = session.query(CasingReport).filter(CasingReport.report_id == report_id).first()
+                        casing_json = json.dumps(rows, ensure_ascii=False)
+                        if existing:
+                            if not existing.casing_json:
+                                existing.casing_json = casing_json
+                            existing.updated_at = _now_utc()
+                        else:
+                            session.add(CasingReport(
+                                well_id=well_id, report_id=report_id,
+                                report_date=imported_report_date,
+                                casing_type=str(rows[0].get("grade", ""))[:50],
+                                casing_json=casing_json,
+                            ))
+                        count("casing_data", len(rows))
 
                 # 4. Cement
                 cement = extracted.get("cement_report")
+                cement_additives = extracted.get("cement_additives") or []
                 if cement and isinstance(cement, dict):
                     cement = dict(cement)
                     cement["well_id"] = well_id
@@ -2693,6 +2922,41 @@ class DatabaseManager:
                     else:
                         session.add(CementReport(**filtered))
                     count("cement_report", 1)
+                elif isinstance(cement_additives, list) and cement_additives:
+                    # Cement additive inventory rows (material_type/used/
+                    # received/on_hand/unit) -> CementReport.materials_json,
+                    # rendered by the Cement tab materials table.
+                    materials = []
+                    for r in cement_additives:
+                        if not isinstance(r, dict):
+                            continue
+                        mat = str(r.get("material_type", "")).strip()
+                        if not mat:
+                            continue
+                        materials.append({
+                            "material": mat,
+                            "type": "Cement Additive",
+                            "received": r.get("received"),
+                            "consumed": r.get("used"),
+                            "backload": None,
+                            "inventory": r.get("on_hand"),
+                            "unit": r.get("unit", "kg"),
+                        })
+                    if materials:
+                        existing = session.query(CementReport).filter(CementReport.report_id == report_id).first()
+                        materials_json = json.dumps(materials, ensure_ascii=False)
+                        if existing:
+                            if not existing.materials_json:
+                                existing.materials_json = materials_json
+                            existing.updated_at = _now_utc()
+                        else:
+                            session.add(CementReport(
+                                well_id=well_id, report_id=report_id,
+                                report_date=imported_report_date,
+                                report_name="Imported Cement Additives",
+                                materials_json=materials_json,
+                            ))
+                        count("cement_additives", len(materials))
 
                 # 5. Bit
                 bit = extracted.get("bit_report")
@@ -2717,6 +2981,7 @@ class DatabaseManager:
 
                 # 6. BHA
                 bha = extracted.get("bha_report")
+                bha_components = extracted.get("bha_components") or []
                 if bha and isinstance(bha, dict):
                     bha = dict(bha)
                     bha["report_id"] = report_id
@@ -2728,6 +2993,46 @@ class DatabaseManager:
                     else:
                         session.add(BHAReport(well_id=well_id, report_id=report_id, bha_name=bha.get("bha_name", "Imported BHA"), bha_data_json=bha.get("bha_data", {})))
                     count("bha_report", 1)
+                elif bha_components:
+                    # Row-oriented BHA table (component_name/od/length/...)
+                    # -> BHAReport.bha_data_json, consumed by the BHA tab.
+                    existing = session.query(BHAReport).filter(BHAReport.report_id == report_id).first()
+                    rows = [dict(r) for r in bha_components if isinstance(r, dict) and str(r.get("component_name", "")).strip()]
+                    if existing:
+                        existing.bha_name = existing.bha_name or "Imported BHA"
+                        existing.bha_data_json = rows or existing.bha_data_json
+                        existing.updated_at = _now_utc()
+                    elif rows:
+                        session.add(BHAReport(well_id=well_id, report_id=report_id,
+                                              bha_name="Imported BHA", bha_data_json=rows))
+                    count("bha_report", len(rows))
+
+                # 6b. Downhole equipment (row-oriented table)
+                downhole_rows = extracted.get("downhole_equipment") or []
+                if isinstance(downhole_rows, list) and downhole_rows:
+                    rows = [dict(r) for r in downhole_rows if isinstance(r, dict) and str(r.get("equipment_name", "")).strip()]
+                    if rows:
+                        existing = session.query(DownholeEquipment).filter(DownholeEquipment.report_id == report_id).first()
+                        if existing:
+                            existing.equipment_data_json = rows
+                            existing.updated_at = _now_utc()
+                        else:
+                            session.add(DownholeEquipment(well_id=well_id, report_id=report_id, equipment_data_json=rows))
+                        count("downhole_equipment", len(rows))
+
+                # 6c. Formation tops (row-oriented table)
+                formation_rows = extracted.get("formation_data") or []
+                if isinstance(formation_rows, list) and formation_rows:
+                    rows = [dict(r) for r in formation_rows if isinstance(r, dict) and str(r.get("name", "")).strip()]
+                    if rows:
+                        existing = session.query(FormationReport).filter(FormationReport.report_id == report_id).first()
+                        if existing:
+                            existing.formations_json = rows
+                            existing.updated_at = _now_utc()
+                        else:
+                            session.add(FormationReport(well_id=well_id, report_id=report_id,
+                                                        report_name="Imported Formations", formations_json=rows))
+                        count("formation_data", len(rows))
 
                 # 7. Bulk Materials - Ledger aware
                 bulks = extracted.get("bulk_materials", [])
@@ -2764,16 +3069,49 @@ class DatabaseManager:
                     fw["well_id"] = well_id
                     fw["report_id"] = report_id
                     fw.setdefault("report_date", imported_report_date)
-                    fuel_stock = float(fw.get("fuel_stock", 0) or 0)
-                    fuel_recv = float(fw.get("fuel_received", 0) or 0)
-                    fuel_cons = float(fw.get("fuel_consumed", 0) or 0)
-                    water_stock = float(fw.get("water_stock", 0) or 0)
-                    water_recv = float(fw.get("water_received", 0) or 0)
-                    water_cons = float(fw.get("water_consumed", 0) or 0)
-                    fw["fuel_remaining"] = fuel_stock + fuel_recv - fuel_cons
-                    fw["water_remaining"] = water_stock + water_recv - water_cons
-                    fw["days_remaining_fuel"] = fw["fuel_remaining"] / fuel_cons if fuel_cons > 0 else 0
-                    fw["days_remaining_water"] = fw["water_remaining"] / water_cons if water_cons > 0 else 0
+                    # Canonical keys (fw_*, dw_*, fuel_rig_*, fuel_camp_*)
+                    # map onto the FuelWaterInventory columns; missing
+                    # source values stay NULL — never invent 0.
+                    canonical_map = {
+                        "fw_on_hand": "water_stock", "fw_received": "water_received",
+                        "fw_used": "water_consumed",
+                        "dw_on_hand": "dw_stock", "dw_received": "dw_received",
+                        "dw_used": "dw_consumed",
+                        "fuel_rig_on_hand": "fuel_stock",
+                        "fuel_rig_received": "fuel_received",
+                        "fuel_rig_used": "fuel_consumed",
+                        "fuel_camp_on_hand": "fuel_camp_stock",
+                        "fuel_camp_received": "fuel_camp_received",
+                        "fuel_camp_used": "fuel_camp_consumed",
+                    }
+                    for src_key, dst_key in canonical_map.items():
+                        if src_key in fw and dst_key not in fw:
+                            fw[dst_key] = fw[src_key]
+
+                    def _fwf(key):
+                        val = fw.get(key)
+                        if val in (None, ""):
+                            return None
+                        try:
+                            return float(val)
+                        except (TypeError, ValueError):
+                            return None
+                    fuel_stock = _fwf("fuel_stock")
+                    fuel_recv = _fwf("fuel_received")
+                    fuel_cons = _fwf("fuel_consumed")
+                    water_stock = _fwf("water_stock")
+                    water_recv = _fwf("water_received")
+                    water_cons = _fwf("water_consumed")
+                    if None not in (fuel_stock, fuel_recv, fuel_cons):
+                        fw["fuel_remaining"] = fuel_stock + fuel_recv - fuel_cons
+                        fw["days_remaining_fuel"] = (
+                            fw["fuel_remaining"] / fuel_cons if fuel_cons > 0 else None
+                        )
+                    if None not in (water_stock, water_recv, water_cons):
+                        fw["water_remaining"] = water_stock + water_recv - water_cons
+                        fw["days_remaining_water"] = (
+                            fw["water_remaining"] / water_cons if water_cons > 0 else None
+                        )
                     valid_keys = {c.name for c in FuelWaterInventory.__table__.columns}
                     filtered = {k: v for k, v in fw.items() if k in valid_keys and k != "id"}
                     existing = session.query(FuelWaterInventory).filter(FuelWaterInventory.report_id == report_id).first()
@@ -2786,14 +3124,52 @@ class DatabaseManager:
                     count("fuel_water", 1)
 
                 # 9. Safety & BOP
-                safety = extracted.get("safety_report")
+                safety = extracted.get("safety") or extracted.get("safety_report")
                 if safety and isinstance(safety, dict):
                     safety = dict(safety)
                     safety["well_id"] = well_id
                     safety["report_id"] = report_id
                     safety.setdefault("report_date", imported_report_date)
+                    safety.setdefault("report_type", "Daily")
+                    # Drill-test dates: keep Gregorian dates only; other
+                    # tokens (e.g. Jalali '1403-07-30') are preserved as
+                    # provenance text — never stored as a wrong-calendar
+                    # date, never converted to 0.
+                    provenance = []
+                    for fld in ("last_fire_drill", "last_bop_drill",
+                                "last_h2s_drill", "last_bop_test"):
+                        raw = safety.get(fld)
+                        if raw in (None, ""):
+                            continue
+                        parsed = None
+                        if isinstance(raw, datetime):
+                            parsed = raw.date()
+                        elif isinstance(raw, date):
+                            parsed = raw
+                        elif isinstance(raw, str):
+                            try:
+                                d = datetime.strptime(raw.strip(), "%Y-%m-%d").date()
+                                if 1990 <= d.year <= 2100:
+                                    parsed = d
+                            except ValueError:
+                                parsed = None
+                        if fld == "last_bop_test":
+                            safety.pop("last_bop_test", None)
+                            provenance.append(
+                                f"Last BOP Test (original): {raw}"
+                            )
+                            continue
+                        safety[fld] = parsed
+                        if parsed is None:
+                            provenance.append(f"{fld} (original): {raw}")
+                    if provenance:
+                        obs = str(safety.get("safety_observations") or "").strip()
+                        safety["safety_observations"] = (
+                            (obs + "\n" if obs else "") + "\n".join(provenance)
+                        )
                     valid_keys = {c.name for c in SafetyReport.__table__.columns}
                     filtered = {k: v for k, v in safety.items() if k in valid_keys and k != "id"}
+                    filtered = self.coerce_model_values(SafetyReport, filtered)
                     existing = session.query(SafetyReport).filter(SafetyReport.report_id == report_id).first()
                     if existing:
                         for k, v in filtered.items():
@@ -2810,13 +3186,71 @@ class DatabaseManager:
                         if not isinstance(bp, dict):
                             continue
                         bp = dict(bp)
-                        if not str(bp.get("component_name", "")).strip():
+                        # Canonical records use short keys: name (not
+                        # component_name), last_test (not last_test_date).
+                        if not str(bp.get("component_name") or bp.get("name", "")).strip():
                             continue
+                        if bp.get("name") and not bp.get("component_name"):
+                            bp["component_name"] = bp["name"]
+                        # Canonical 'type' -> model component_type
+                        if bp.get("type") and not bp.get("component_type"):
+                            bp["component_type"] = bp["type"]
+                        # component_type is NOT NULL: infer a generic type
+                        # from the component name when the workbook omits it
+                        # (name-based classification, not company-specific).
+                        if not str(bp.get("component_type") or "").strip():
+                            comp_name = str(bp.get("component_name") or "").lower()
+                            if "annular" in comp_name:
+                                bp["component_type"] = "Annular"
+                            elif "ram" in comp_name or "blind" in comp_name or "shear" in comp_name:
+                                bp["component_type"] = "Ram"
+                            elif "spool" in comp_name:
+                                bp["component_type"] = "Spool"
+                            elif "choke" in comp_name or "kill" in comp_name:
+                                bp["component_type"] = "Choke/Kill"
+                            elif "hanger" in comp_name:
+                                bp["component_type"] = "Hanger"
+                            else:
+                                bp["component_type"] = "Other"
+                        # 'rams' placeholder -> None (no invented values)
+                        if str(bp.get("rams", "")).strip() in ("-", "--", "n/a"):
+                            bp["rams"] = None
+                        # last_test: keep Gregorian dates (year 1990-2100);
+                        # Jalali dates (e.g. 1403-07-30) and other tokens
+                        # are preserved in remarks for provenance instead
+                        # of being silently stored as a wrong calendar year.
+                        lt = bp.get("last_test")
+                        if lt not in (None, ""):
+                            lt_s = str(lt).strip()
+                            parsed_date = None
+                            try:
+                                parsed_date = datetime.strptime(
+                                    lt_s, "%Y-%m-%d"
+                                ).date()
+                                if not (1990 <= parsed_date.year <= 2100):
+                                    parsed_date = None
+                            except (ValueError, TypeError):
+                                parsed_date = None
+                            bp["last_test_date"] = parsed_date
+                            if parsed_date is None:
+                                bp["remarks"] = (
+                                    f"{bp.get('remarks') or ''} "
+                                    f"last_test original: {lt}"
+                                ).strip()
                         bp["well_id"] = well_id
                         bp["report_id"] = report_id
                         bp.setdefault("last_test_date", imported_report_date)
                         valid_keys = {c.name for c in BOPComponent.__table__.columns}
                         filtered = {k: v for k, v in bp.items() if k in valid_keys and k != "id"}
+                        filtered = self.coerce_model_values(BOPComponent, filtered)
+                        # working_pressure is NOT NULL: skip rows where the
+                        # workbook had no numeric pressure (never invent 0).
+                        try:
+                            if filtered.get("working_pressure") is None:
+                                continue
+                            float(filtered["working_pressure"])
+                        except (ValueError, TypeError):
+                            continue
                         session.add(BOPComponent(**filtered))
                         saved += 1
                     count("bop_components", saved)
@@ -2877,6 +3311,51 @@ class DatabaseManager:
                         session.add(EquipmentLog(**filtered))
                         saved += 1
                     count("equipment_logs", saved)
+
+                # 11b. Solid control equipment rows -> EquipmentLog
+                solid_control = extracted.get("solid_control") or []
+                if isinstance(solid_control, list) and solid_control:
+                    saved = 0
+                    for sc in solid_control:
+                        if not isinstance(sc, dict):
+                            continue
+                        name = str(sc.get("equipment", "")).strip()
+                        if not name or name.lower() in ("equipment", "name"):
+                            continue
+                        notes_parts = []
+                        if str(sc.get("size_cones", "")).strip():
+                            notes_parts.append(f"cones: {sc['size_cones']}")
+                        if sc.get("cum_hrs") not in (None, ""):
+                            notes_parts.append(f"cum hrs: {sc['cum_hrs']}")
+                        try:
+                            hours = float(sc.get("daily_hrs", 0) or 0)
+                        except (TypeError, ValueError):
+                            hours = 0
+                        session.add(EquipmentLog(
+                            well_id=well_id, report_id=report_id,
+                            equipment_name=name,
+                            equipment_type="Solid Control",
+                            hours_worked=hours,
+                            notes="; ".join(notes_parts) if notes_parts else None,
+                        ))
+                        saved += 1
+                    count("solid_control", saved)
+
+                # 11c. Material request from the report header block
+                dr_mr = (extracted.get("daily_report") or {}).get("material_request_detail")
+                if dr_mr and str(dr_mr).strip():
+                    detail = str(dr_mr).strip()
+                    # Skip pure section-header labels (e.g. 'Material
+                    # Request') — keep only genuine requested items.
+                    if detail.lower() != "material request":
+                        session.add(MaterialRequest(
+                            well_id=well_id,
+                            section_id=report_obj.section_id,
+                            report_id=report_id,
+                            request_date=imported_report_date,
+                            requested_items=detail,
+                        ))
+                        count("material_requests", 1)
 
                 # 12. Downhole
                 downhole = extracted.get("downhole_equipment")
@@ -3107,7 +3586,11 @@ class DatabaseManager:
                 existing.updated_at = _now_utc()
                 record_id = existing.id
             else:
-                new_record = DrillingParameters(**data)
+                # Keep only columns the model knows (provenance-only keys
+                # like mw_unit/mw_original are ignored for storage).
+                columns = set(DrillingParameters.__table__.columns.keys())
+                clean = {k: v for k, v in data.items() if k in columns}
+                new_record = DrillingParameters(**clean)
                 session.add(new_record)
                 session.flush()
                 record_id = new_record.id
@@ -3181,7 +3664,11 @@ class DatabaseManager:
                 existing.updated_at = _now_utc()
                 record_id = existing.id
             else:
-                new_record = MudReport(**data)
+                # Keep only columns the model knows (provenance-only keys
+                # like mw_unit/mw_original are ignored for storage).
+                columns = set(MudReport.__table__.columns.keys())
+                clean = {k: v for k, v in data.items() if k in columns}
+                new_record = MudReport(**clean)
                 session.add(new_record)
                 session.flush()
                 record_id = new_record.id
@@ -3228,6 +3715,13 @@ class DatabaseManager:
                     "oil_percent": report.oil_percent,
                     "water_percent": report.water_percent,
                     "chloride": report.chloride,
+                    "calcium": report.calcium,
+                    "kcl": report.kcl,
+                    "mbt": report.mbt,
+                    "pf_mf": report.pf_mf,
+                    "total_hardness": report.total_hardness,
+                    "flowline_temp": report.flowline_temp,
+                    "pit_volumes_json": report.pit_volumes_json,
                     "volume_hole": report.volume_hole,
                     "total_circulated": report.total_circulated,
                     "loss_downhole": report.loss_downhole,
@@ -3812,15 +4306,25 @@ class DatabaseManager:
                         SurveyPoint.md == md
                     ).first()
 
+                # inc/azi are NOT NULL columns -> 0 fallback; all other
+                # derived columns stay NULL when the source omits them.
+                def _f(key, default=None):
+                    val = get_val(key)
+                    if val in (None, ""):
+                        return default
+                    try:
+                        return float(val)
+                    except (TypeError, ValueError):
+                        return default
+
                 if existing:
-                    existing.inc = get_val('inc', 0)
-                    existing.azi = get_val('azi', 0)
-                    existing.tvd = get_val('tvd', 0)
-                    existing.north = get_val('north', 0)
-                    existing.east = get_val('east', 0)
-                    existing.vs = get_val('vs', 0)
-                    existing.hd = get_val('hd', 0)
-                    existing.dls = get_val('dls', 0)
+                    existing.azi = _f('azi', 0)
+                    existing.tvd = _f('tvd')
+                    existing.north = _f('north')
+                    existing.east = _f('east')
+                    existing.vs = _f('vs')
+                    existing.hd = _f('hd')
+                    existing.dls = _f('dls')
                     existing.tool = get_val('tool', 'MWD')
                     existing.remarks = get_val('remarks', '')
                     existing.updated_at = _now_utc()
@@ -3831,14 +4335,14 @@ class DatabaseManager:
                         calculation_id=get_val('calculation_id'),
                         report_id=report_id,
                         md=md,
-                        inc=get_val('inc', 0),
-                        azi=get_val('azi', 0),
-                        tvd=get_val('tvd', 0),
-                        north=get_val('north', 0),
-                        east=get_val('east', 0),
-                        vs=get_val('vs', 0),
-                        hd=get_val('hd', 0),
-                        dls=get_val('dls', 0),
+                        inc=_f('inc', 0),
+                        azi=_f('azi', 0),
+                        tvd=_f('tvd'),
+                        north=_f('north'),
+                        east=_f('east'),
+                        vs=_f('vs'),
+                        hd=_f('hd'),
+                        dls=_f('dls'),
                         tool=get_val('tool', 'MWD'),
                         remarks=get_val('remarks', ''),
                         measured_at=get_val('measured_at', _now_utc()),
@@ -4301,8 +4805,16 @@ class DatabaseManager:
                     FuelWaterInventory.report_date < inventory_data["report_date"],
                 ).order_by(FuelWaterInventory.report_date.desc()).first()
                 if previous:
-                    fuel_stock = previous.fuel_remaining
-                    water_stock = previous.water_remaining
+                    fuel_stock = (
+                        previous.fuel_remaining
+                        if previous.fuel_remaining is not None
+                        else (previous.fuel_stock or 0.0)
+                    )
+                    water_stock = (
+                        previous.water_remaining
+                        if previous.water_remaining is not None
+                        else (previous.water_stock or 0.0)
+                    )
             fuel_remaining = fuel_stock + float(inventory_data.get("fuel_received", 0.0) or 0.0) - fuel_consumed
             water_remaining = water_stock + float(inventory_data.get("water_received", 0.0) or 0.0) - water_consumed
 
@@ -4329,6 +4841,12 @@ class DatabaseManager:
                     fuel_consumed=fuel_consumed,
                     fuel_stock=fuel_stock,
                     fuel_received=inventory_data.get("fuel_received", 0.0),
+                    fuel_camp_consumed=inventory_data.get("fuel_camp_consumed"),
+                    fuel_camp_stock=inventory_data.get("fuel_camp_stock"),
+                    fuel_camp_received=inventory_data.get("fuel_camp_received"),
+                    dw_consumed=inventory_data.get("dw_consumed"),
+                    dw_stock=inventory_data.get("dw_stock"),
+                    dw_received=inventory_data.get("dw_received"),
                     water_consumed=water_consumed,
                     water_stock=water_stock,
                     water_received=inventory_data.get("water_received", 0.0),
@@ -4396,6 +4914,12 @@ class DatabaseManager:
                     "fuel_stock": i.fuel_stock,
                     "fuel_received": i.fuel_received,
                     "fuel_remaining": i.fuel_remaining,
+                    "fuel_camp_consumed": i.fuel_camp_consumed,
+                    "fuel_camp_stock": i.fuel_camp_stock,
+                    "fuel_camp_received": i.fuel_camp_received,
+                    "dw_consumed": i.dw_consumed,
+                    "dw_stock": i.dw_stock,
+                    "dw_received": i.dw_received,
                     "water_consumed": i.water_consumed,
                     "water_stock": i.water_stock,
                     "water_received": i.water_received,
@@ -5028,6 +5552,11 @@ class DatabaseManager:
                     personnel_count=company_data.get("personnel_count", 1),
                     status=company_data.get("status", "Active"),
                     description=company_data.get("description", ""),
+                    npt_hours=company_data.get("npt_hours"),
+                    hole_section=company_data.get("hole_section", ""),
+                    duration_day=company_data.get("duration_day"),
+                    condition=company_data.get("condition", ""),
+                    issue=company_data.get("issue", ""),
                     created_by=company_data.get("created_by")
                 )
                 session.add(company)
@@ -5072,6 +5601,11 @@ class DatabaseManager:
                     "personnel_count": c.personnel_count,
                     "status": c.status,
                     "description": c.description,
+                    "npt_hours": c.npt_hours,
+                    "hole_section": c.hole_section,
+                    "duration_day": c.duration_day,
+                    "condition": c.condition,
+                    "issue": c.issue,
                     "created_at": c.created_at,
                     "updated_at": c.updated_at
                 }
@@ -6074,6 +6608,10 @@ class DatabaseManager:
                 TimeLog24H.is_npt == True
             ).all()
             for log in npt_logs:
+                # Preserve the source attribution: when the NPT row names a
+                # company (contractor column), keep it as responsible party
+                # instead of a generic placeholder.
+                responsible = (log.contractor or "").strip() or "System"
                 npt_data = {
                     "well_id": report.well_id,
                     "section_id": report.section_id,
@@ -6085,7 +6623,7 @@ class DatabaseManager:
                     "npt_category": "Daily Report",
                     "npt_code": log.main_code or "NPT",
                     "npt_description": log.activity_description or "NPT from daily report",
-                    "responsible_party": "System",
+                    "responsible_party": responsible,
                     "status": "Active"
                 }
                 self.save_npt_report(npt_data)

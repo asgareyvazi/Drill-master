@@ -17,7 +17,7 @@ P0 Requirements Implemented:
 
 from dataclasses import dataclass, field
 from typing import Any, Iterable, List, Dict, Tuple, Optional
-from datetime import time, datetime, date
+from datetime import time, datetime, date, timedelta
 import re
 
 
@@ -206,6 +206,10 @@ class TimeLogValidator:
         if isinstance(t, time):
             # Python time cannot be 24:00, treat 00:00 as potential 24:00 if needed via flag
             return t.hour * 60 + t.minute
+        if isinstance(t, timedelta):
+            # Excel wall-clock times arrive as timedelta; 24:00 is
+            # timedelta(days=1) -> 1440 minutes.
+            return t.days * 1440 + t.seconds // 60
         if hasattr(t, "hour") and hasattr(t, "minute"):
             # DrillTime or similar
             h = getattr(t, "hour", 0)

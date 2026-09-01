@@ -690,8 +690,8 @@ class ServiceCompanyTab(QWidget):
         fl.addWidget(self.search_input); fl.addWidget(self.status_filter); fl.addStretch()
         layout.addLayout(fl)
 
-        self.table = QTableWidget(0, 10)
-        self.table.setHorizontalHeaderLabels(["ID","Company","Service Type","Start","End","Contact","Phone","Email","Personnel","Status"])
+        self.table = QTableWidget(0, 15)
+        self.table.setHorizontalHeaderLabels(["ID","Company","Service Type","Hole Section","Duration (Day)","Condition","Start","End","Contact","Phone","Email","Personnel","NPT HRS","Issue","Status"])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
@@ -725,13 +725,20 @@ class ServiceCompanyTab(QWidget):
                 self.table.setItem(row, 0, QTableWidgetItem(str(c.get("id",""))))
                 self.table.setItem(row, 1, QTableWidgetItem(c.get("company_name","")))
                 self.table.setItem(row, 2, QTableWidgetItem(c.get("service_type","")))
-                sd = c.get("start_datetime"); self.table.setItem(row, 3, QTableWidgetItem(str(sd) if sd else ""))
-                ed = c.get("end_datetime"); self.table.setItem(row, 4, QTableWidgetItem(str(ed) if ed else ""))
-                self.table.setItem(row, 5, QTableWidgetItem(c.get("contact_person","")))
-                self.table.setItem(row, 6, QTableWidgetItem(c.get("contact_phone","")))
-                self.table.setItem(row, 7, QTableWidgetItem(c.get("contact_email","")))
-                p = c.get("personnel_count", 0); self.table.setItem(row, 8, QTableWidgetItem(str(p))); tp += p
-                s = c.get("status",""); self.table.setItem(row, 9, QTableWidgetItem(s))
+                self.table.setItem(row, 3, QTableWidgetItem(c.get("hole_section","")))
+                dd = c.get("duration_day")
+                self.table.setItem(row, 4, QTableWidgetItem(f"{dd:g}" if dd not in (None, "") else ""))
+                self.table.setItem(row, 5, QTableWidgetItem(c.get("condition","")))
+                sd = c.get("start_datetime"); self.table.setItem(row, 6, QTableWidgetItem(str(sd) if sd else ""))
+                ed = c.get("end_datetime"); self.table.setItem(row, 7, QTableWidgetItem(str(ed) if ed else ""))
+                self.table.setItem(row, 8, QTableWidgetItem(c.get("contact_person","")))
+                self.table.setItem(row, 9, QTableWidgetItem(c.get("contact_phone","")))
+                self.table.setItem(row, 10, QTableWidgetItem(c.get("contact_email","")))
+                p = c.get("personnel_count", 0); self.table.setItem(row, 11, QTableWidgetItem(str(p))); tp += p
+                nh = c.get("npt_hours")
+                self.table.setItem(row, 12, QTableWidgetItem(f"{nh:g}" if nh not in (None, "") else ""))
+                self.table.setItem(row, 13, QTableWidgetItem(c.get("issue","")))
+                s = c.get("status",""); self.table.setItem(row, 14, QTableWidgetItem(s))
                 if s == "Active": ac += 1
                 cm = {"Active":"#d4edda","Completed":"#cce5ff","Cancelled":"#f8d7da"}.get(s)
                 if cm:
@@ -748,7 +755,7 @@ class ServiceCompanyTab(QWidget):
             if st:
                 show = any(self.table.item(row,c) and st in self.table.item(row,c).text().lower() for c in range(self.table.columnCount()))
             if sf != "All":
-                si = self.table.item(row, 9)
+                si = self.table.item(row, 14)
                 if not si or si.text() != sf: show = False
             self.table.setRowHidden(row, not show)
 
@@ -785,11 +792,16 @@ class _ServiceCompanyDialog(QDialog):
         layout=QVBoxLayout(self);fl=QFormLayout()
         self.name_input=QLineEdit();fl.addRow("Company:",self.name_input)
         self.service_type=QComboBox();self.service_type.addItems(["Mud Logging","Wireline","Directional","Cementing","Casing","Mud Engineering","Well Testing","Other"]);self.service_type.setEditable(True);fl.addRow("Service:",self.service_type)
+        self.hole_section=QLineEdit();fl.addRow("Hole Section:",self.hole_section)
+        self.duration_day=QDoubleSpinBox();self.duration_day.setRange(0,999);self.duration_day.setDecimals(1);fl.addRow("Duration (Day):",self.duration_day)
+        self.condition=QLineEdit();fl.addRow("Condition:",self.condition)
         self.contact=QLineEdit();fl.addRow("Contact:",self.contact)
         self.phone=QLineEdit();fl.addRow("Phone:",self.phone)
         self.email=QLineEdit();fl.addRow("Email:",self.email)
         self.personnel=QSpinBox();self.personnel.setRange(1,1000);fl.addRow("Personnel:",self.personnel)
+        self.npt_hours=QDoubleSpinBox();self.npt_hours.setRange(0,9999);self.npt_hours.setDecimals(2);fl.addRow("NPT HRS:",self.npt_hours)
         self.status=QComboBox();self.status.addItems(["Active","Completed","Cancelled"]);fl.addRow("Status:",self.status)
+        self.issue=QTextEdit();self.issue.setMaximumHeight(60);fl.addRow("Problem/Issue:",self.issue)
         self.description=QTextEdit();self.description.setMaximumHeight(80);fl.addRow("Description:",self.description)
         layout.addLayout(fl)
         bl=QHBoxLayout();sb=QPushButton("💾 Save");sb.clicked.connect(self._save);cb=QPushButton("Cancel");cb.clicked.connect(self.reject)
@@ -803,13 +815,22 @@ class _ServiceCompanyDialog(QDialog):
         self.name_input.setText(c.get("company_name",""));self.contact.setText(c.get("contact_person",""))
         self.phone.setText(c.get("contact_phone",""));self.email.setText(c.get("contact_email",""))
         self.personnel.setValue(c.get("personnel_count",1));self.description.setText(c.get("description",""))
+        self.hole_section.setText(c.get("hole_section",""))
+        dd = c.get("duration_day")
+        if dd not in (None, ""):
+            self.duration_day.setValue(float(dd))
+        self.condition.setText(c.get("condition",""))
+        self.issue.setPlainText(c.get("issue",""))
+        nh = c.get("npt_hours")
+        if nh not in (None, ""):
+            self.npt_hours.setValue(float(nh))
         for combo,key in [(self.service_type,"service_type"),(self.status,"status")]:
             idx=combo.findText(c.get(key,""));
             if idx>=0:combo.setCurrentIndex(idx)
 
     def _save(self):
         if not self.name_input.text().strip():QMessageBox.warning(self,"Error","Name required");return
-        d={"well_id":self.well_id,"report_id":self.report_id,"company_name":self.name_input.text().strip(),"service_type":self.service_type.currentText(),"contact_person":self.contact.text(),"contact_phone":self.phone.text(),"contact_email":self.email.text(),"personnel_count":self.personnel.value(),"status":self.status.currentText(),"description":self.description.toPlainText()}
+        d={"well_id":self.well_id,"report_id":self.report_id,"company_name":self.name_input.text().strip(),"service_type":self.service_type.currentText(),"hole_section":self.hole_section.text().strip(),"duration_day":self.duration_day.value() or None,"condition":self.condition.text().strip(),"contact_person":self.contact.text(),"contact_phone":self.phone.text(),"contact_email":self.email.text(),"personnel_count":self.personnel.value(),"npt_hours":self.npt_hours.value() or None,"status":self.status.currentText(),"issue":self.issue.toPlainText(),"description":self.description.toPlainText()}
         if self.company_id:d["id"]=self.company_id
         if self.db.save_service_company(d):self.accept()
 

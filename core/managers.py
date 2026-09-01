@@ -76,6 +76,98 @@ class TableButtonManager:
         self.table = table
 
 
+class TableManager:
+    """Thin, standard table-row manager used across the report tabs.
+
+    API (used by w4/w5/w6/w7/w8/w10/w12):
+        add_row(data=None)               -> inserts a row (QTableWidgetItem
+                                           for strings, cell widgets for
+                                           non-str values)
+        delete_row()                     -> removes the current row
+        set_alternating_row_colors(bool) -> forwards to the table
+        import_from_csv(filename)        -> loads rows from a CSV file
+        remove_row()                     -> alias of delete_row()
+    """
+
+    def __init__(self, table, parent=None):
+        self.table = table
+        self.parent = parent
+
+    def _widget_for(self, value):
+        try:
+            from PySide6.QtWidgets import QTableWidgetItem
+            from PySide6.QtCore import Qt
+        except Exception:
+            return None
+        item = QTableWidgetItem(str(value))
+        item.setFlags(
+            Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsEditable
+        )
+        return item
+
+    def add_row(self, data=None):
+        table = self.table
+        row = table.rowCount()
+        table.insertRow(row)
+        if data is None:
+            return row
+        for col, value in enumerate(data[: table.columnCount()]):
+            item = self._widget_for(value)
+            if item is not None:
+                table.setItem(row, col, item)
+        return row
+
+    def delete_row(self):
+        table = self.table
+        row = table.currentRow()
+        if row >= 0:
+            table.removeRow(row)
+
+    remove_row = delete_row
+
+    def set_alternating_row_colors(self, enabled):
+        try:
+            self.table.setAlternatingRowColors(bool(enabled))
+        except Exception as e:
+            logger.error(f"set_alternating_row_colors error: {e}")
+
+    def import_from_csv(self, filename):
+        import csv
+        try:
+            with open(filename, "r", encoding="utf-8", newline="") as fh:
+                rows = list(csv.reader(fh))
+            if not rows:
+                return
+            table = self.table
+            table.setRowCount(0)
+            # Skip header row when the table already has headers.
+            start = 1 if table.columnCount() > 0 else 0
+            for values in rows[start:]:
+                self.add_row(values)
+        except Exception as e:
+            logger.error(f"import_from_csv error: {e}")
+
+
+def setup_widget_with_managers(
+    widget,
+    widget_name,
+    enable_autosave=False,
+    autosave_interval=60,
+    setup_shortcuts=True,
+):
+    """Attach the standard managers to a widget (idempotent)."""
+    if getattr(widget, "_managers_ready", False):
+        return
+    widget.widget_name = widget_name
+    if enable_autosave:
+        widget.autosave_timer = AutoSaveManager(
+            interval_seconds=autosave_interval
+        )
+    if setup_shortcuts:
+        widget.shortcut_manager = ShortcutManager(widget)
+    widget._managers_ready = True
+
+
 class ExportManager:
     def __init__(self, parent=None):
         self.parent = parent

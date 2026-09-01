@@ -338,7 +338,7 @@ class DrillingParametersTab(QWidget):
 
         bit_layout.addWidget(QLabel("Bit Size (in):"), 1, 0)
         self.bit_size = QDoubleSpinBox()
-        self.bit_size.setRange(0, 30)
+        self.bit_size.setRange(0, 50)
         self.bit_size.setDecimals(3)
         self.bit_size.setValue(0)
         bit_layout.addWidget(self.bit_size, 1, 1)
@@ -556,6 +556,13 @@ class DrillingParametersTab(QWidget):
         self.pump3_spp.setDecimals(0)
         pump_layout.addWidget(self.pump3_spp, 3, 3)
 
+        # Pump liner size: free text, preserves the original workbook
+        # wording (e.g. 'P#1 : (180mm x 12") + P#2 : (180mm x 12")').
+        pump_layout.addWidget(QLabel("Pump Liner Size:"), 4, 0)
+        self.pump_liner_size = QLineEdit()
+        self.pump_liner_size.setPlaceholderText("e.g. P#1 : (180mm x 12\") + P#2 : (180mm x 12\")")
+        pump_layout.addWidget(self.pump_liner_size, 4, 1, 1, 3)
+
         pump_group.setLayout(pump_layout)
         content_layout.addWidget(pump_group)
 
@@ -629,22 +636,29 @@ class DrillingParametersTab(QWidget):
         self.iadc_code.textChanged.connect(self.on_iadc_code_changed)
 
     # ============ Nozzle Methods ============
-    def add_nozzle_row(self, size=16, quantity=1):
+    def add_nozzle_row(self, size=16, quantity=1, text=None):
         row = self.nozzle_table.rowCount()
         self.nozzle_table.insertRow(row)
         no_item = QTableWidgetItem(str(row + 1))
         no_item.setTextAlignment(Qt.AlignCenter)
         no_item.setFlags(Qt.ItemIsEnabled)
         self.nozzle_table.setItem(row, 0, no_item)
-        size_spin = QSpinBox()
-        size_spin.setRange(1, 100)
-        size_spin.setValue(size)
-        size_spin.setSuffix("/32")
-        size_spin.valueChanged.connect(self.calculate_tfa)
-        self.nozzle_table.setCellWidget(row, 1, size_spin)
+        if size is None:
+            # Non-numeric nozzle token (e.g. 'Open'): show the original
+            # workbook text instead of inventing a size.
+            size_label = QLabel(str(text or "Open"))
+            size_label.setAlignment(Qt.AlignCenter)
+            self.nozzle_table.setCellWidget(row, 1, size_label)
+        else:
+            size_spin = QSpinBox()
+            size_spin.setRange(1, 100)
+            size_spin.setValue(int(size))
+            size_spin.setSuffix("/32")
+            size_spin.valueChanged.connect(self.calculate_tfa)
+            self.nozzle_table.setCellWidget(row, 1, size_spin)
         qty_spin = QSpinBox()
         qty_spin.setRange(1, 10)
-        qty_spin.setValue(quantity)
+        qty_spin.setValue(int(quantity))
         qty_spin.valueChanged.connect(self.calculate_tfa)
         self.nozzle_table.setCellWidget(row, 2, qty_spin)
 
@@ -803,11 +817,18 @@ class DrillingParametersTab(QWidget):
             size_widget = self.nozzle_table.cellWidget(row, 1)
             qty_widget = self.nozzle_table.cellWidget(row, 2)
             if size_widget and qty_widget:
+                if hasattr(size_widget, "value"):
+                    size_32 = size_widget.value()
+                    text = ""
+                else:
+                    size_32 = None
+                    text = size_widget.text() if hasattr(size_widget, "text") else "Open"
                 nozzles_data.append({
                     "row": row + 1,
-                    "size_32nd": size_widget.value(),
+                    "size_32nd": size_32,
                     "quantity": qty_widget.value(),
-                    "diameter_inch": size_widget.value() / 32.0,
+                    "diameter_inch": size_32 / 32.0 if size_32 is not None else None,
+                    "text": text,
                 })
         return {
             "bit_no": self.bit_no.text(),
@@ -838,6 +859,7 @@ class DrillingParametersTab(QWidget):
             "pump1_spp": self.pump1_spp.value(),
             "pump2_spm": self.pump2_spm.value(),
             "pump2_spp": self.pump2_spp.value(),
+            "pump_liner_size": self.pump_liner_size.text().strip() or None,
             "avg_rop": self.avg_rop.value(),
             "hsi": self.hsi.value(),
             "annular_velocity": self.annular_velocity.value(),
@@ -893,8 +915,9 @@ class DrillingParametersTab(QWidget):
                 nozzles_data = json.loads(nozzles_json) if isinstance(nozzles_json, str) else nozzles_json
                 for nozzle in nozzles_data:
                     self.add_nozzle_row(
-                        nozzle.get("size_32nd", 16),
-                        nozzle.get("quantity", 1)
+                        nozzle.get("size_32nd"),
+                        nozzle.get("quantity", 1),
+                        text=nozzle.get("text"),
                     )
             except (json.JSONDecodeError, TypeError):
                 pass
@@ -920,6 +943,7 @@ class DrillingParametersTab(QWidget):
         self.pump1_spp.setValue(safe_val("pump1_spp"))
         self.pump2_spm.setValue(safe_val("pump2_spm"))
         self.pump2_spp.setValue(safe_val("pump2_spp"))
+        self.pump_liner_size.setText(safe_str("pump_liner_size"))
         self.avg_rop.setValue(safe_val("avg_rop"))
         self.hsi.setValue(safe_val("hsi"))
         self.annular_velocity.setValue(safe_val("annular_velocity"))
@@ -954,6 +978,7 @@ class DrillingParametersTab(QWidget):
         self.pump1_spp.setValue(0)
         self.pump2_spm.setValue(0)
         self.pump2_spp.setValue(0)
+        self.pump_liner_size.clear()
         self.avg_rop.setValue(0)
         self.hsi.setValue(0)
         self.annular_velocity.setValue(0)
@@ -1045,10 +1070,17 @@ class MudReportTab(QWidget):
         properties_layout.addWidget(self.gel_10m, 3, 3)
 
         properties_layout.addWidget(QLabel("FL (cc/30min):"), 4, 0)
+        fl_widget = QWidget()
+        fl_layout = QHBoxLayout(fl_widget)
+        fl_layout.setContentsMargins(0, 0, 0, 0)
         self.fl = QDoubleSpinBox()
         self.fl.setRange(0, 50)
         self.fl.setDecimals(1)
-        properties_layout.addWidget(self.fl, 4, 1)
+        self.fl_nc = QCheckBox("N.C")
+        self.fl_nc.toggled.connect(lambda checked: self.fl.setEnabled(not checked))
+        fl_layout.addWidget(self.fl)
+        fl_layout.addWidget(self.fl_nc)
+        properties_layout.addWidget(fl_widget, 4, 1)
 
         properties_layout.addWidget(QLabel("Cake Thickness (mm):"), 4, 2)
         self.cake_thickness = QDoubleSpinBox()
@@ -1103,6 +1135,59 @@ class MudReportTab(QWidget):
 
         solids_group.setLayout(solids_layout)
         content_layout.addWidget(solids_group)
+
+        # ============ Additional Properties ============
+        extra_group = QGroupBox("🧪 Additional Properties")
+        extra_layout = QGridLayout()
+
+        extra_layout.addWidget(QLabel("Calcium (ppm):"), 0, 0)
+        self.calcium = QDoubleSpinBox()
+        self.calcium.setRange(0, 100000)
+        self.calcium.setDecimals(0)
+        extra_layout.addWidget(self.calcium, 0, 1)
+
+        extra_layout.addWidget(QLabel("KCl (ppb):"), 0, 2)
+        self.kcl = QDoubleSpinBox()
+        self.kcl.setRange(0, 100000)
+        self.kcl.setDecimals(1)
+        extra_layout.addWidget(self.kcl, 0, 3)
+
+        extra_layout.addWidget(QLabel("MBT (lb/bbl):"), 1, 0)
+        self.mbt = QDoubleSpinBox()
+        self.mbt.setRange(0, 1000)
+        self.mbt.setDecimals(1)
+        extra_layout.addWidget(self.mbt, 1, 1)
+
+        extra_layout.addWidget(QLabel("P_F/M_F (ml):"), 1, 2)
+        self.pf_mf = QDoubleSpinBox()
+        self.pf_mf.setRange(0, 1000)
+        self.pf_mf.setDecimals(1)
+        extra_layout.addWidget(self.pf_mf, 1, 3)
+
+        extra_layout.addWidget(QLabel("Total Hardness (ppm):"), 2, 0)
+        self.total_hardness = QDoubleSpinBox()
+        self.total_hardness.setRange(0, 100000)
+        self.total_hardness.setDecimals(0)
+        extra_layout.addWidget(self.total_hardness, 2, 1)
+
+        extra_layout.addWidget(QLabel("Flowline Temp (°C):"), 2, 2)
+        self.flowline_temp = QDoubleSpinBox()
+        self.flowline_temp.setRange(0, 200)
+        self.flowline_temp.setDecimals(1)
+        extra_layout.addWidget(self.flowline_temp, 2, 3)
+
+        extra_group.setLayout(extra_layout)
+        content_layout.addWidget(extra_group)
+
+        # ============ Pit Readings (imported header block) ============
+        pit_group = QGroupBox("🛢️ Pit Readings (imported)")
+        pit_layout = QVBoxLayout()
+        self.pit_readings = QTextEdit()
+        self.pit_readings.setReadOnly(True)
+        self.pit_readings.setMaximumHeight(90)
+        pit_layout.addWidget(self.pit_readings)
+        pit_group.setLayout(pit_layout)
+        content_layout.addWidget(pit_group)
 
         # ============ Volumes ============
         volumes_group = QGroupBox("📊 Volumes")
@@ -1365,7 +1450,9 @@ class MudReportTab(QWidget):
             "funnel_vis": self.funnel_vis.value(),
             "gel_10s": self.gel_10s.value(),
             "gel_10m": self.gel_10m.value(),
-            "fl": self.fl.value(),
+            # N.C is preserved as None (never coerced to 0); a real zero
+            # stays 0.0 — the two remain distinguishable.
+            "fl": None if self.fl_nc.isChecked() else self.fl.value(),
             "cake_thickness": self.cake_thickness.value(),
             "ph": self.ph.value(),
             "temperature": self.temperature.value(),
@@ -1373,6 +1460,12 @@ class MudReportTab(QWidget):
             "oil_percent": self.oil_percent.value(),
             "water_percent": self.water_percent.value(),
             "chloride": self.chloride.value(),
+            "calcium": self.calcium.value(),
+            "kcl": self.kcl.value(),
+            "mbt": self.mbt.value(),
+            "pf_mf": self.pf_mf.value(),
+            "total_hardness": self.total_hardness.value(),
+            "flowline_temp": self.flowline_temp.value(),
             "volume_hole": self.volume_hole.value(),
             "total_circulated": self.total_circulated.value(),
             "loss_downhole": self.loss_downhole.value(),
@@ -1380,6 +1473,9 @@ class MudReportTab(QWidget):
             "summary": self.mud_summary.toPlainText(),
             "chemicals_json": json.dumps(chemicals),
         }
+        # Pit readings are import-only; preserve whatever was loaded.
+        if getattr(self, "_pit_volumes_json", None):
+            mud_data["pit_volumes_json"] = self._pit_volumes_json
         from core.validators import MudValidator
         validation = MudValidator.validate(mud_data)
         if not validation.is_valid:
@@ -1441,7 +1537,14 @@ class MudReportTab(QWidget):
         self.funnel_vis.setValue(safe_val("funnel_vis"))
         self.gel_10s.setValue(safe_val("gel_10s"))
         self.gel_10m.setValue(safe_val("gel_10m"))
-        self.fl.setValue(safe_val("fl"))
+        fl_val = data.get("fl")
+        if fl_val is None:
+            # Missing/N.C: show the N.C marker instead of pretending 0.
+            self.fl_nc.setChecked(True)
+            self.fl.setValue(0)
+        else:
+            self.fl_nc.setChecked(False)
+            self.fl.setValue(safe_val("fl"))
         self.cake_thickness.setValue(safe_val("cake_thickness"))
         self.ph.setValue(safe_val("ph", 9.5))
         self.temperature.setValue(safe_val("temperature", 25.0))
@@ -1449,11 +1552,29 @@ class MudReportTab(QWidget):
         self.oil_percent.setValue(safe_val("oil_percent"))
         self.water_percent.setValue(safe_val("water_percent"))
         self.chloride.setValue(safe_val("chloride"))
+        self.calcium.setValue(safe_val("calcium"))
+        self.kcl.setValue(safe_val("kcl"))
+        self.mbt.setValue(safe_val("mbt"))
+        self.pf_mf.setValue(safe_val("pf_mf"))
+        self.total_hardness.setValue(safe_val("total_hardness"))
+        self.flowline_temp.setValue(safe_val("flowline_temp"))
         self.volume_hole.setValue(safe_val("volume_hole"))
         self.total_circulated.setValue(safe_val("total_circulated"))
         self.loss_downhole.setValue(safe_val("loss_downhole"))
         self.loss_surface.setValue(safe_val("loss_surface"))
         self.mud_summary.setPlainText(str(data.get("summary", "") or ""))
+
+        pit_json = data.get("pit_volumes_json")
+        self._pit_volumes_json = pit_json
+        if pit_json:
+            try:
+                pit_data = json.loads(pit_json) if isinstance(pit_json, str) else pit_json
+                lines = [f"{k}: {v}" for k, v in sorted(pit_data.items())]
+                self.pit_readings.setPlainText("\n".join(lines))
+            except (json.JSONDecodeError, TypeError):
+                self.pit_readings.clear()
+        else:
+            self.pit_readings.clear()
 
         chemicals_json = data.get("chemicals_json")
         if chemicals_json:
@@ -1480,6 +1601,8 @@ class MudReportTab(QWidget):
         self.funnel_vis.setValue(0)
         self.gel_10s.setValue(0)
         self.gel_10m.setValue(0)
+        self.fl_nc.setChecked(False)
+        self.fl.setEnabled(True)
         self.fl.setValue(0)
         self.cake_thickness.setValue(0)
         self.ph.setValue(9.5)
@@ -1488,12 +1611,20 @@ class MudReportTab(QWidget):
         self.oil_percent.setValue(0)
         self.water_percent.setValue(0)
         self.chloride.setValue(0)
+        self.calcium.setValue(0)
+        self.kcl.setValue(0)
+        self.mbt.setValue(0)
+        self.pf_mf.setValue(0)
+        self.total_hardness.setValue(0)
+        self.flowline_temp.setValue(0)
         self.volume_hole.setValue(0)
         self.total_circulated.setValue(0)
         self.loss_downhole.setValue(0)
         self.loss_surface.setValue(0)
         self.chemicals_table.setRowCount(0)
         self.mud_summary.clear()
+        self._pit_volumes_json = None
+        self.pit_readings.clear()
 
     def refresh(self):
         self.load_data()

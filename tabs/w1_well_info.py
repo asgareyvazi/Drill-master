@@ -226,12 +226,12 @@ class WellInfoTab(DrillTabBase):
         # ردیف 3: LTA (Day) و Actual Rig Days
         depths_layout.addWidget(QLabel("LTA (Day):"), 3, 0)
         self.lta_day = QSpinBox()
-        self.lta_day.setRange(0, 365)
+        self.lta_day.setRange(0, 9999)
         depths_layout.addWidget(self.lta_day, 3, 1)
 
         depths_layout.addWidget(QLabel("Actual Rig Days:"), 3, 2)
         self.actual_rig_days = QSpinBox()
-        self.actual_rig_days.setRange(0, 365)
+        self.actual_rig_days.setRange(0, 9999)
         depths_layout.addWidget(self.actual_rig_days, 3, 3)
 
         # ردیف 4: Rig Heading و KOP #1
@@ -338,6 +338,9 @@ class WellInfoTab(DrillTabBase):
         personnel_layout.addWidget(QLabel("Tool Pusher (Night):"), 3, 2)
         self.tool_pusher_night = QLineEdit()
         personnel_layout.addWidget(self.tool_pusher_night, 3, 3)
+        personnel_layout.addWidget(QLabel("Drilling Engineer:"), 4, 0)
+        self.drilling_engineer = QLineEdit()
+        personnel_layout.addWidget(self.drilling_engineer, 4, 1)
         personnel_group.setLayout(personnel_layout)
         layout.addWidget(personnel_group)
 
@@ -562,6 +565,7 @@ class WellInfoTab(DrillTabBase):
                 'geologist2': self.geologist2,
                 'tool_pusher_day': self.tool_pusher_day,
                 'tool_pusher_night': self.tool_pusher_night,
+                'drilling_engineer': self.drilling_engineer,
             }
             for field_name, widget in field_map.items():
                 widget.setText(str(well_data.get(field_name, '') or ''))
@@ -711,6 +715,7 @@ class WellInfoTab(DrillTabBase):
             "geologist2": self.geologist2.text().strip(),
             "tool_pusher_day": self.tool_pusher_day.text().strip(),
             "tool_pusher_night": self.tool_pusher_night.text().strip(),
+            "drilling_engineer": self.drilling_engineer.text().strip(),
             "objectives": self.objectives.toPlainText().strip(),
         }
         
@@ -888,7 +893,8 @@ class WellInfoTab(DrillTabBase):
         self.report_date.setDate(now)
         for field in [self.operation_manager, self.superintendent, self.supervisor_day,
                       self.supervisor_night, self.geologist1, self.geologist2,
-                      self.tool_pusher_day, self.tool_pusher_night]:
+                      self.tool_pusher_day, self.tool_pusher_night,
+                      self.drilling_engineer]:
             field.clear()
         self.objectives.clear()
         self.is_loading = False

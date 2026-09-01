@@ -230,3 +230,61 @@ COMMIT (or ROLLBACK ALL)
 3. **Limited PDF support:** Only text-based PDFs (no OCR)
 4. **No LAS/WITSML import:** Placeholders exist but not implemented
 5. **AI mapping requires Ollama:** No fallback to cloud AI services
+
+
+---
+
+## 9. Company-Template Import Path (verified 2026-08-31)
+
+### Flow (the ONLY import path for company workbooks)
+```
+Workbook sheets -> _auto_match_template(sheet names)
+                 -> templates/OEOC_DDR_v3.json (anchored sections)
+                 -> ExcelIntelligence.extract()  -> canonical JSON
+                 -> ExcelImportDialog._do_import (atomic)
+                 -> SQLite (all-or-nothing)
+                 -> existing UI tabs via DB getters
+```
+- Template match is GENERIC (sheet-name based). No company-specific code
+  branches; company-specific layout lives in the JSON template.
+- `_unified_import` runs the template engine first and only falls back to
+  heuristic smart-detection when no template matches.
+
+### Canonical model
+- `core/canonical_schema.py` FIELD_SPECS: 325 fields (aliases, engineering
+  bounds, quantity + canonical unit, criticality).
+- Scalar extraction: preferred cell (template anchor) > merge > exact label
+  > alias > fuzzy. Label fallback is column/row-locked to the template anchor
+  when the anchor is near the label, so neighbouring tables (e.g. cement
+  additives vs. safety drills) never contaminate.
+- Numeric normalizers: '17-1/2"' -> 17.5, '18/32"' -> 0.5625, '3K' -> 3000.
+- Placeholders: "N.C" on numeric fields -> NULL + `fl_source` + metadata
+  source_tokens (missing/N.C/zero distinguishable). "-", "--", "n/a" on
+  numeric columns -> NULL (DB layer `coerce_model_values`).
+- Units: PCF kept native for the Mud UI; SG/ppg converted via UnitManager
+  with original value + unit preserved (mw_original/mw_unit).
+
+### Atomic persistence (core/database.py save_imported_multi_tab_data_atomic)
+Sections: surveys, POB breakdown (logistics -> ServiceCompanyPOB),
+service_companies, lookahead (seven_days_lookahead), casing, cement, bit,
+BHA, bulk materials, fuel/water, safety (safety_reports; drill dates
+Gregorian-only, Jalali preserved as observations text), BOP components
+(3K -> 3000 psi, component_type inferred from name, non-numeric rows
+skipped), waste, cost, equipment, downhole.
+Daily Report + Mud + Drilling Parameters + time logs are saved by the dialog
+inside the same atomic block; the saver filters to model columns.
+
+### Additive schema migration
+`DatabaseManager.initialize` -> `_apply_safe_schema_upgrades`: ALTER TABLE
+ADD COLUMN only (pump_liner_size), idempotent, never deletes/recreates.
+
+### Verified against the REAL workbook (2026-08-31)
+See ENGINEERING_AUDIT.md section H for the full value matrix. Import result:
+102 records, 0 failures; golden regression in `tests/test_real_oeoc_golden.py`
+(32 tests) and `tests/test_multi_company_template.py`.
+
+### Known limitations
+1. 24h time-log rows stored as `timedelta` are skipped (7/10 stored; morning 6/7)
+2. Lookahead rows without activity text skipped (11/13 stored)
+3. Service NPT not mirrored into npt_reports
+4. UI verification is headless (no libGL in CI sandbox)
