@@ -271,6 +271,11 @@ class HydraulicsResult:
     annular_velocities: list = field(default_factory=list)  # [(segment, av_fpm), ...]
     pipe_velocities: list = field(default_factory=list)
     
+    # Critical flow rate (annular, deepest section)
+    critical_flow_rate_gpm: float = 0.0
+    critical_velocity_ft_min: float = 0.0
+    critical_section: str = ""
+
     # سایر
     pump_output_bbl_stroke: float = 0.0
     flow_rate_gpm: float = 0.0
@@ -374,6 +379,21 @@ class AdvancedHydraulicsEngine:
                                 f"Low AV ({av_fpm:.0f} ft/min) in {seg.name} vs {csg.name}. "
                                 f"Min recommended: 100 ft/min"
                             )
+
+                        # Critical (laminar→turbulent) flow rate for this
+                        # annulus — same correlation as _determine_flow_regime.
+                        # Overwritten per section so the deepest one (at the
+                        # bit) is reported.
+                        try:
+                            qc = self.calc_critical_flow_rate(
+                                self.mud.mw_ppg, self.mud.pv, self.mud.yp,
+                                csg.id, seg.od
+                            )
+                            result.critical_flow_rate_gpm = qc["critical_flow_rate_gpm"]
+                            result.critical_velocity_ft_min = qc["critical_velocity_ft_min"]
+                            result.critical_section = f"{seg.name} vs {csg.name}"
+                        except ValueError:
+                            pass
             
             # 4. Bit pressure loss
             tfa = sum(n.total_area for n in self.nozzles)
@@ -845,8 +865,63 @@ class AdvancedHydraulicsEngine:
     @staticmethod
     def calc_pump_output(liner_size_inch: float, stroke_length_inch: float,
                           efficiency: float = 0.95) -> float:
-        """محاسبه خروجی پمپ (bbl/stroke)"""
+        """Triplex pump output (bbl/stroke).
+
+        Canonical triplex formula (single source of truth for the UI):
+            output = 0.000243 × liner² × stroke × efficiency
+        (0.000243 = π/4 ÷ 231 in³/gal ÷ 42 gal/bbl × 12³ in³/ft³.)
+        """
         return 0.000243 * liner_size_inch**2 * stroke_length_inch * efficiency
+
+    @staticmethod
+    def calc_pump_output_duplex(liner_size_inch: float, rod_size_inch: float,
+                                stroke_length_inch: float,
+                                efficiency: float = 0.95) -> float:
+        """Duplex (double-acting) pump output (bbl/stroke).
+
+        Canonical duplex formula (single source of truth for the UI):
+            output = 0.000162 × stroke × (2 × liner² − rod²) × efficiency
+
+        A duplex pump displaces on both strokes (hence ×2); the piston-rod
+        diameter reduces displacement on one side (hence − rod²).
+        0.000162 is the duplex geometry constant (bbl/stroke for inches).
+        """
+        return 0.000162 * stroke_length_inch * (
+            2.0 * liner_size_inch**2 - rod_size_inch**2
+        ) * efficiency
+
+    @staticmethod
+    def calc_critical_flow_rate(mw_ppg: float, pv_cp: float, yp_lbf100ft2: float,
+                                hole_size_in: float, pipe_od_in: float) -> dict:
+        """Annular critical (laminar→turbulent) velocity and flow rate.
+
+        Uses the SAME Bingham critical-velocity correlation as the engine's
+        flow-regime classification (_determine_flow_regime, annular branch):
+
+            Vc (ft/sec) = (1.08·PV + 1.08·√(PV² + 9.26·(Dh−Dp)²·YP·MW)) / (MW·(Dh−Dp))
+
+        Qc (gpm) = Vc × A_annulus(ft²) × 60 × 7.4805.
+
+        Below Qc the annulus is laminar (cuttings-bed risk); above Qc
+        turbulent (better hole cleaning, higher ECD).
+        """
+        gap = hole_size_in - pipe_od_in
+        if gap <= 0:
+            raise ValueError("Hole size must be > pipe OD")
+        if mw_ppg <= 0 or pv_cp <= 0:
+            raise ValueError("MW and PV must be > 0")
+        vc_fps = (1.08 * pv_cp + 1.08 * math.sqrt(
+            pv_cp**2 + 9.26 * gap**2 * yp_lbf100ft2 * mw_ppg
+        )) / (mw_ppg * gap)
+        area_ft2 = math.pi / 4.0 * (
+            (hole_size_in / 12.0) ** 2 - (pipe_od_in / 12.0) ** 2
+        )
+        qc_gpm = vc_fps * 60.0 * area_ft2 * 7.4805
+        return {
+            "critical_velocity_ft_min": round(vc_fps * 60.0, 1),
+            "critical_flow_rate_gpm": round(qc_gpm, 1),
+            "annular_gap_in": round(gap, 3),
+        }
 
     @staticmethod
     def calc_annular_volume(hole_id: float, pipe_od: float, length_ft: float) -> float:

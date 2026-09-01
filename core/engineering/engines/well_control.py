@@ -509,6 +509,130 @@ class WellControlEngine:
             return failed(str(exc))
 
 
+# ------------------------------------------------------------------
+    # Fracture gradient — Eaton (1969) correlation
+    # ------------------------------------------------------------------
+    @classmethod
+    def eaton_fracture_gradient(
+        cls,
+        overburden_gradient_psi_ft,
+        pore_pressure_gradient_psi_ft,
+        poisson_ratio=0.25,
+    ) -> EngineeringResult:
+        """Eaton (1969) fracture gradient correlation.
+
+            FG = (ν / (1 − ν)) × (OBG − PPG) + PPG
+
+        ν = Poisson's ratio of the formation (0.2–0.5, default 0.25).
+        All gradients in psi/ft. FG is the fracture gradient at the
+        depth where OBG/PPG apply; multiply by TVD to get fracture
+        pressure (see maasp/kick_tolerance for the pressure use).
+        """
+        try:
+            obg = require_number(overburden_gradient_psi_ft, "overburden_gradient_psi_ft")
+            ppg = require_number(pore_pressure_gradient_psi_ft, "pore_pressure_gradient_psi_ft")
+            nu = require_number(poisson_ratio, "poisson_ratio")
+            if not (0.0 < nu < 0.5):
+                raise EngineeringError("Poisson's ratio must be in (0, 0.5)")
+            if obg <= 0 or ppg <= 0:
+                raise EngineeringError("Gradients must be > 0")
+            if ppg > obg:
+                raise EngineeringError(
+                    "Pore pressure gradient cannot exceed overburden gradient"
+                )
+            ratio = nu / (1.0 - nu)
+            fg = ratio * (obg - ppg) + ppg
+            return ok(
+                round(fg, 5),
+                values={
+                    "fracture_gradient_psi_ft": round(fg, 5),
+                    "poisson_ratio": nu,
+                    "overburden_gradient_psi_ft": obg,
+                    "pore_pressure_gradient_psi_ft": ppg,
+                },
+                unit="psi/ft",
+                formula="FG = (ν/(1−ν)) × (OBG − PPG) + PPG",
+                method="Eaton (1969), JPT",
+                assumptions=[
+                    "Gradients in psi/ft at the depth of interest",
+                    "Poisson's ratio 0.25 unless provided (sandstone ≈ 0.25)",
+                    "Multiply FG × TVD(ft) for fracture pressure (psi)",
+                ],
+            )
+        except MissingInputError as exc:
+            return missing(exc.field)
+        except EngineeringError as exc:
+            return failed(str(exc))
+
+    # ------------------------------------------------------------------
+    # Kick fluid type from shut-in pressures and pit gain
+    # ------------------------------------------------------------------
+    @classmethod
+    def influx_type(
+        cls,
+        sicp_psi,
+        sidpp_psi,
+        annular_capacity_bbl_ft,
+        pit_gain_bbl,
+    ) -> EngineeringResult:
+        """Estimate influx fluid type (gas / oil / saltwater).
+
+        Influx height = pit gain / annular capacity
+        Influx gradient = (SICP − SIDPP) / height
+
+        Classification (common field cut-offs, psi/ft):
+            < 0.12  → gas
+            0.12–0.35 → oil
+            > 0.35  → saltwater
+
+        Gas is the worst case for kick tolerance (lowest gradient).
+        """
+        try:
+            sicp = require_number(sicp_psi, "sicp_psi")
+            sidpp = require_number(sidpp_psi, "sidpp_psi")
+            cap = require_number(annular_capacity_bbl_ft, "annular_capacity_bbl_ft")
+            gain = require_number(pit_gain_bbl, "pit_gain_bbl")
+            if cap <= 0:
+                raise EngineeringError("annular_capacity_bbl_ft must be > 0")
+            if gain <= 0:
+                raise EngineeringError("pit_gain_bbl must be > 0")
+            if sicp < sidpp:
+                raise EngineeringError(
+                    "SICP cannot be less than SIDPP (check shut-in pressures)"
+                )
+            height = gain / cap
+            gradient = (sicp - sidpp) / height
+            if gradient < 0.12:
+                kind = "gas"
+            elif gradient < 0.35:
+                kind = "oil"
+            else:
+                kind = "saltwater"
+            return ok(
+                kind,
+                values={
+                    "influx_type": kind,
+                    "influx_gradient_psi_ft": round(gradient, 4),
+                    "influx_height_ft": round(height, 2),
+                    "sicp_psi": sicp,
+                    "sidpp_psi": sidpp,
+                    "pit_gain_bbl": gain,
+                },
+                unit="category",
+                formula="∇influx = (SICP − SIDPP) / (pit gain / annular capacity)",
+                method="Field classification (gas < 0.12, oil < 0.35, else water)",
+                assumptions=[
+                    "Single influx, uniform annular capacity over the influx height",
+                    "Cut-offs in psi/ft: gas < 0.12, oil < 0.35, saltwater ≥ 0.35",
+                    "Gas is the worst case for kick tolerance calculations",
+                ],
+            )
+        except MissingInputError as exc:
+            return missing(exc.field)
+        except EngineeringError as exc:
+            return failed(str(exc))
+
+
 def _kt_assumptions() -> List[str]:
     return [
         "IWCF methodology: gas influx, weakest point at the casing shoe",

@@ -46,8 +46,10 @@ class DrillingCalculationEngine:
     
     @staticmethod
     def calc_pump_output(liner_size: float, stroke_len: float, efficiency: float) -> float:
-        """محاسبه خروجی پمپ"""
-        return 0.000243 * liner_size**2 * stroke_len * efficiency
+        """خروجی پمپ — delegates to canonical AdvancedHydraulicsEngine."""
+        from core.hydraulics_engine import AdvancedHydraulicsEngine
+        return AdvancedHydraulicsEngine.calc_pump_output(
+            liner_size, stroke_len, efficiency)
     
     @staticmethod
     def calc_well_volumes(
@@ -60,8 +62,11 @@ class DrillingCalculationEngine:
         """محاسبه حجم‌های چاه"""
         factor = 3.281 / 1029.4
         
-        p1_out = 0.000243 * p1_liner**2 * p1_stroke * p1_eff
-        p2_out = 0.000243 * p2_liner**2 * p2_stroke * p2_eff
+        from core.hydraulics_engine import AdvancedHydraulicsEngine
+        p1_out = AdvancedHydraulicsEngine.calc_pump_output(
+            p1_liner, p1_stroke, p1_eff)
+        p2_out = AdvancedHydraulicsEngine.calc_pump_output(
+            p2_liner, p2_stroke, p2_eff)
         flow_gpm = (p1_spm * p1_out * 42) + (p2_spm * p2_out * 42)
         
         vol_dp = id_dp**2 * factor * dp_len
@@ -1863,6 +1868,15 @@ class EngineeringCalculatorTab(DrillTabBase):
         avl.addWidget(self.hy_av_t)
         rl.addWidget(g_av)
 
+        # Critical Flow Rate (deepest annulus)
+        g_qc = QGroupBox("⚡ Critical Flow Rate (Annulus)")
+        qcl = QVBoxLayout(g_qc)
+        self.hy_qc_lbl = QLabel("Run Calculate to evaluate laminar→turbulent limit.")
+        self.hy_qc_lbl.setWordWrap(True)
+        self.hy_qc_lbl.setStyleSheet("font-size: 12px; padding: 8px; background: #f8f9fa; border-radius: 4px;")
+        qcl.addWidget(self.hy_qc_lbl)
+        rl.addWidget(g_qc)
+
         # ECD Chart
         g_ecd = QGroupBox("📈 ECD vs Depth")
         ecl = QVBoxLayout(g_ecd)
@@ -2231,6 +2245,20 @@ class EngineeringCalculatorTab(DrillTabBase):
             si.setForeground(QColor("#27ae60" if av >= 100 else "#e74c3c"))
             self.hy_av_t.setItem(row, 3, si)
 
+        # Critical flow rate
+        if getattr(r, "critical_flow_rate_gpm", 0) > 0:
+            q_running = r.flow_rate_gpm
+            status = ("🟢 Turbulent" if q_running >= r.critical_flow_rate_gpm
+                      else "🟡 Laminar")
+            self.hy_qc_lbl.setText(
+                f"<b>Section:</b> {r.critical_section}<br>"
+                f"<b>Vc:</b> {r.critical_velocity_ft_min:.0f} ft/min | "
+                f"<b>Qc:</b> {r.critical_flow_rate_gpm:.0f} gpm<br>"
+                f"<b>Current Q:</b> {q_running:.0f} gpm → {status}"
+            )
+        else:
+            self.hy_qc_lbl.setText("No annular section available for Qc.")
+
         # Bit
         self.hy_bit_lbl.setText(
             f"<b>TFA:</b> {r.tfa_in2:.4f} in² | "
@@ -2524,6 +2552,28 @@ class EngineeringCalculatorTab(DrillTabBase):
         res_layout.addWidget(self.bit_res_mse, 3, 1)
 
         bh_layout.addWidget(g_results)
+
+        # Bit Economics — Cost per Foot (Bourgoyne)
+        g_econ = QGroupBox("💰 Bit Economics — Cost per Foot")
+        econ_form = QFormLayout(g_econ)
+        self.bit_rig_day = self._make_dspin(40000, 0, 1000000, 0, " $/day")
+        self.bit_trip_h = self._make_dspin(6, 0, 100, 1, " hr")
+        self.bit_rot_h = self._make_dspin(20, 0, 500, 1, " hr")
+        self.bit_cost = self._make_dspin(2000, 0, 100000, 0, " $")
+        self.bit_footage = self._make_dspin(500, 1, 100000, 0, " ft")
+        econ_form.addRow("Rig cost:", self.bit_rig_day)
+        econ_form.addRow("Trip time:", self.bit_trip_h)
+        econ_form.addRow("Rotating time:", self.bit_rot_h)
+        econ_form.addRow("Bit cost:", self.bit_cost)
+        econ_form.addRow("Footage:", self.bit_footage)
+        econ_btn = QPushButton("🔄 C/ft = (C_rig×T_trip + C_bit) / footage")
+        econ_btn.setStyleSheet("background: #1abc9c; color: white; font-weight: bold; padding: 6px; border-radius: 4px; border: none;")
+        econ_btn.clicked.connect(self._bit_cost_per_foot)
+        econ_form.addRow(econ_btn)
+        self.bit_econ_res = self._result_label("#1abc9c")
+        econ_form.addRow("Cost per foot:", self.bit_econ_res)
+        bh_layout.addWidget(g_econ)
+
         bh_layout.addStretch()
         inner_tabs.addTab(bh_tab, "🔵 Bit Hydraulics")
 
@@ -2606,6 +2656,23 @@ class EngineeringCalculatorTab(DrillTabBase):
         return tab
   
     # ========== Bit - Nozzle Management ==========
+
+    def _bit_cost_per_foot(self):
+        from core.engineering.engines.bit_performance import BitPerformanceEngine
+        r = BitPerformanceEngine.cost_per_foot(
+            rig_cost_per_day=self.bit_rig_day.value(),
+            trip_hours=self.bit_trip_h.value(),
+            bit_cost=self.bit_cost.value(),
+            footage=self.bit_footage.value(),
+            rotating_hours=self.bit_rot_h.value(),
+        )
+        if r.success:
+            v = r.values
+            self.bit_econ_res.setText(
+                f"${v['cost_per_ft']:.2f}/ft  (total ${v['total_cost']:,.0f}, "
+                f"rig ${v['rig_cost_per_hr']:.0f}/hr)")
+        else:
+            self.bit_econ_res.setText(f"⚠️ {r.error}")
 
     def _bit_add_nozzle(self):
         from dialogs.engineering_dialogs import AddNozzleDialog
@@ -3254,6 +3321,84 @@ class EngineeringCalculatorTab(DrillTabBase):
         owr_layout.addStretch()
         inner_tabs.addTab(owr_tab, "🛢️ OWR")
 
+        # ===== Mud Lab (MBT / LSRYP / Excess Lime / Slug) =====
+        ml_tab = QWidget()
+        ml_layout = QVBoxLayout(ml_tab)
+
+        g6 = QGroupBox("🧪 MBT — Bentonite Equivalent (API RP 13B-1)")
+        f6 = QFormLayout(g6)
+        self.ml_mb_ml = self._make_dspin(5, 0, 50, 1, " mL")
+        self.ml_sample_ml = self._make_dspin(2, 0.5, 10, 1, " mL")
+        f6.addRow("Methylene blue used:", self.ml_mb_ml)
+        f6.addRow("Mud sample volume:", self.ml_sample_ml)
+        b6 = QPushButton("🔄 MBT = 5 × V_MB / V_sample")
+        b6.setStyleSheet("background: #16a085; color: white; font-weight: bold; padding: 6px; border-radius: 4px; border: none;")
+        b6.clicked.connect(self._mud_lab)
+        f6.addRow(b6)
+        self.ml_mbt_res = self._result_label("#16a085")
+        f6.addRow("Bentonite equiv:", self.ml_mbt_res)
+        ml_layout.addWidget(g6)
+
+        g7 = QGroupBox("📉 LSRYP (Low-Shear-Rate Yield Point)")
+        f7 = QFormLayout(g7)
+        self.ml_th3 = self._make_dspin(6, 0, 100, 1, "")
+        self.ml_th6 = self._make_dspin(4, 0, 100, 1, "")
+        f7.addRow("θ3 reading:", self.ml_th3)
+        f7.addRow("θ6 reading:", self.ml_th6)
+        self.ml_lsryp_res = self._result_label("#8e44ad")
+        f7.addRow("LSRYP = 2·θ3 − θ6:", self.ml_lsryp_res)
+        self.ml_th3.valueChanged.connect(self._mud_lab_lsryp)
+        self.ml_th6.valueChanged.connect(self._mud_lab_lsryp)
+        ml_layout.addWidget(g7)
+
+        g8 = QGroupBox("🕯️ Excess Lime (OBM/SBM, from POM)")
+        f8 = QFormLayout(g8)
+        self.ml_pom = self._make_dspin(2.5, 0, 20, 2, " mL")
+        f8.addRow("POM (mL 0.1N H₂SO₄):", self.ml_pom)
+        self.ml_lime_res = self._result_label("#d35400")
+        f8.addRow("Excess lime = 1.295·POM:", self.ml_lime_res)
+        self.ml_pom.valueChanged.connect(self._mud_lab_lime)
+        ml_layout.addWidget(g8)
+
+        g9 = QGroupBox("🧱 Weighted Slug — Dry Pipe Length")
+        f9 = QFormLayout(g9)
+        self.ml_slug_vol = self._make_dspin(20, 0, 200, 0, " bbl")
+        self.ml_slug_mw = self._make_dspin(12.5, 8, 25, 1, " ppg")
+        self.ml_mud_mw = self._make_dspin(10, 8, 25, 1, " ppg")
+        self.ml_pipe_cap = self._make_dspin(0.01776, 0.005, 0.1, 5, " bbl/ft")
+        f9.addRow("Slug volume:", self.ml_slug_vol)
+        f9.addRow("Slug MW:", self.ml_slug_mw)
+        f9.addRow("Mud MW:", self.ml_mud_mw)
+        f9.addRow("Pipe capacity:", self.ml_pipe_cap)
+        b9 = QPushButton("🔄 Slug Dry Length")
+        b9.setStyleSheet("background: #2980b9; color: white; font-weight: bold; padding: 6px; border-radius: 4px; border: none;")
+        b9.clicked.connect(self._mud_lab_slug)
+        f9.addRow(b9)
+        self.ml_slug_res = self._result_label("#2980b9")
+        f9.addRow("Dry pipe:", self.ml_slug_res)
+        ml_layout.addWidget(g9)
+
+        g10 = QGroupBox("🦠 Corrosion Rate (Weight-Loss Coupon, API RP 13B-1)")
+        f10 = QFormLayout(g10)
+        self.ml_cr_w = self._make_dspin(100, 0, 10000, 1, " mg")
+        self.ml_cr_a = self._make_dspin(3.0, 0.1, 100, 2, " in²")
+        self.ml_cr_t = self._make_dspin(168, 1, 10000, 0, " hr")
+        self.ml_cr_d = self._make_dspin(7.86, 2, 20, 2, " g/cm³")
+        f10.addRow("Coupon weight loss:", self.ml_cr_w)
+        f10.addRow("Coupon area:", self.ml_cr_a)
+        f10.addRow("Exposure time:", self.ml_cr_t)
+        f10.addRow("Coupon density:", self.ml_cr_d)
+        b10 = QPushButton("🔄 mpy = 534·W/(A·T·D)")
+        b10.setStyleSheet("background: #c0392b; color: white; font-weight: bold; padding: 6px; border-radius: 4px; border: none;")
+        b10.clicked.connect(self._mud_lab_corrosion)
+        f10.addRow(b10)
+        self.ml_cr_res = self._result_label("#c0392b")
+        f10.addRow("Corrosion rate:", self.ml_cr_res)
+        ml_layout.addWidget(g10)
+
+        ml_layout.addStretch()
+        inner_tabs.addTab(ml_tab, "🧪 Mud Lab")
+
         return tab
 
     # ========== Mud Methods ==========
@@ -3367,6 +3512,58 @@ class EngineeringCalculatorTab(DrillTabBase):
     ╚═══════════════════════════════════════════╝""" if yp > 0 else "⚠️ Invalid readings (YP must > 0)"
 
         self.rh_result.setText(text)
+
+    def _mud_lab(self):
+        """MBT bentonite equivalent — canonical MudEngineering.mbt_bentonite_equiv."""
+        from core.engineering.extended import MudEngineering
+        try:
+            res = MudEngineering.mbt_bentonite_equiv(
+                self.ml_mb_ml.value(), self.ml_sample_ml.value())
+            self.ml_mbt_res.setText(
+                f"{res['mbt_lb_per_bbl']:.1f} lb/bbl bentonite equiv")
+        except Exception as ex:
+            self.ml_mbt_res.setText(f"⚠️ {ex}")
+
+    def _mud_lab_lsryp(self):
+        from core.engineering.extended import MudEngineering
+        res = MudEngineering.lsryp(self.ml_th3.value(), self.ml_th6.value())
+        warn = f" — ⚠️ {res['warning']}" if res.get("warning") else ""
+        self.ml_lsryp_res.setText(
+            f"{res['lsryp_lb_per_100ft2']:.2f} lb/100ft²{warn}")
+
+    def _mud_lab_lime(self):
+        from core.engineering.extended import MudEngineering
+        try:
+            res = MudEngineering.excess_lime_obm(self.ml_pom.value())
+            self.ml_lime_res.setText(
+                f"{res['excess_lime_lb_per_bbl']:.2f} lb/bbl")
+        except Exception as ex:
+            self.ml_lime_res.setText(f"⚠️ {ex}")
+
+    def _mud_lab_corrosion(self):
+        from core.engineering.extended import MudEngineering
+        try:
+            res = MudEngineering.corrosion_rate(
+                self.ml_cr_w.value(), self.ml_cr_a.value(),
+                self.ml_cr_t.value(), self.ml_cr_d.value())
+            self.ml_cr_res.setText(
+                f"{res['corrosion_rate_mpy']:.2f} mpy  "
+                f"({res['corrosion_rate_lb_ft2_yr']:.4f} lb/ft²/yr) — "
+                f"{res['severity']}")
+        except Exception as ex:
+            self.ml_cr_res.setText(f"⚠️ {ex}")
+
+    def _mud_lab_slug(self):
+        from core.engineering.extended import MudEngineering
+        try:
+            res = MudEngineering.slug_dry_length(
+                self.ml_slug_vol.value(), self.ml_slug_mw.value(),
+                self.ml_mud_mw.value(), self.ml_pipe_cap.value())
+            self.ml_slug_res.setText(
+                f"{res['dry_pipe_length_ft']:.0f} ft dry pipe "
+                f"(ΔP gain {res['hydrostatic_gain_psi']:.0f} psi)")
+        except Exception as ex:
+            self.ml_slug_res.setText(f"⚠️ {ex}")
 
     def _mud_owr(self):
         r = self.engine.calc_oil_water_ratio(self.mud_oil.value(), self.mud_water.value())
@@ -3912,6 +4109,69 @@ class EngineeringCalculatorTab(DrillTabBase):
         kt_layout.addStretch()
         inner_tabs.addTab(kt_tab, "🔄 Kick Tolerance")
 
+        # ===== Pore Pressure & Fracture Gradient =====
+        pp_tab = QWidget()
+        pp_layout = QVBoxLayout(pp_tab)
+
+        g_ef = QGroupBox("⛰️ Eaton Fracture Gradient (1969)")
+        ef_form = QFormLayout(g_ef)
+        self.pp_obg = self._make_dspin(0.95, 0.5, 2.0, 3, " psi/ft")
+        self.pp_ppg_grad = self._make_dspin(0.52, 0.2, 1.5, 3, " psi/ft")
+        self.pp_nu = self._make_dspin(0.25, 0.1, 0.49, 2, "")
+        ef_form.addRow("Overburden gradient:", self.pp_obg)
+        ef_form.addRow("Pore pressure gradient:", self.pp_ppg_grad)
+        ef_form.addRow("Poisson's ratio:", self.pp_nu)
+        ef_calc = QPushButton("🔄 FG = (ν/(1−ν))·(OBG−PPG) + PPG")
+        ef_calc.setStyleSheet("background: #8e44ad; color: white; font-weight: bold; padding: 6px; border-radius: 4px; border: none;")
+        ef_calc.clicked.connect(self._wc_calc_eaton)
+        ef_form.addRow(ef_calc)
+        self.pp_eaton_res = self._result_label("#8e44ad")
+        ef_form.addRow("Fracture gradient:", self.pp_eaton_res)
+        pp_layout.addWidget(g_ef)
+
+        g_if = QGroupBox("💨 Influx Type (SICP / SIDPP / Pit Gain)")
+        if_form = QFormLayout(g_if)
+        self.pp_sicp = self._make_dspin(300, 0, 10000, 0, " psi")
+        self.pp_sidpp = self._make_dspin(200, 0, 10000, 0, " psi")
+        self.pp_ann_cap = self._make_dspin(0.0459, 0, 5, 4, " bbl/ft")
+        self.pp_gain = self._make_dspin(10, 0, 500, 0, " bbl")
+        if_form.addRow("SICP:", self.pp_sicp)
+        if_form.addRow("SIDPP:", self.pp_sidpp)
+        if_form.addRow("Annular capacity (open hole):", self.pp_ann_cap)
+        if_form.addRow("Pit gain:", self.pp_gain)
+        if_calc = QPushButton("🔄 Classify Influx")
+        if_calc.setStyleSheet("background: #c0392b; color: white; font-weight: bold; padding: 6px; border-radius: 4px; border: none;")
+        if_calc.clicked.connect(self._wc_calc_influx_type)
+        if_form.addRow(if_calc)
+        self.pp_influx_res = self._result_label("#c0392b")
+        if_form.addRow("Influx:", self.pp_influx_res)
+        pp_layout.addWidget(g_if)
+
+        g_de = QGroupBox("📈 d-Exponent & dc (Pore-Pressure Trend)")
+        de_form = QFormLayout(g_de)
+        self.pp_rop = self._make_dspin(30, 0, 500, 1, " ft/hr")
+        self.pp_rpm = self._make_dspin(80, 0, 300, 0, " rpm")
+        self.pp_wob = self._make_dspin(25000, 0, 150000, 0, " lbf")
+        self.pp_bit = self._make_dspin(8.5, 3, 26, 2, " in")
+        self.pp_mw = self._make_dspin(12.0, 0, 25, 2, " ppg")
+        self.pp_mw_n = self._make_dspin(8.6, 0, 25, 2, " ppg")
+        de_form.addRow("ROP:", self.pp_rop)
+        de_form.addRow("RPM:", self.pp_rpm)
+        de_form.addRow("WOB:", self.pp_wob)
+        de_form.addRow("Bit size:", self.pp_bit)
+        de_form.addRow("Actual MW:", self.pp_mw)
+        de_form.addRow("Normal MW:", self.pp_mw_n)
+        de_calc = QPushButton("🔄 d = log10(ROP/60·RPM) / log10(12·WOB/1000·D)")
+        de_calc.setStyleSheet("background: #2c3e50; color: white; font-weight: bold; padding: 6px; border-radius: 4px; border: none;")
+        de_calc.clicked.connect(self._wc_calc_d_exp)
+        de_form.addRow(de_calc)
+        self.pp_d_res = self._result_label("#2c3e50")
+        de_form.addRow("d / dc:", self.pp_d_res)
+        pp_layout.addWidget(g_de)
+
+        pp_layout.addStretch()
+        inner_tabs.addTab(pp_tab, "📈 Pore Press & FG")
+
         return tab
 
     def _wc_add_pipe(self):
@@ -4226,6 +4486,44 @@ class EngineeringCalculatorTab(DrillTabBase):
                     it = self.cs_table.item(row, c)
                     if it:
                         it.setBackground(QColor("#d5f5e3"))
+
+    def _wc_calc_eaton(self):
+        from core.engineering.engines.well_control import WellControlEngine
+        r = WellControlEngine.eaton_fracture_gradient(
+            self.pp_obg.value(), self.pp_ppg_grad.value(), self.pp_nu.value())
+        if r.success:
+            fg = r.values["fracture_gradient_psi_ft"]
+            self.pp_eaton_res.setText(
+                f"{fg:.4f} psi/ft  ≡  {fg / 0.052:.2f} ppg EMW")
+        else:
+            self.pp_eaton_res.setText(f"⚠️ {r.error}")
+
+    def _wc_calc_influx_type(self):
+        from core.engineering.engines.well_control import WellControlEngine
+        r = WellControlEngine.influx_type(
+            self.pp_sicp.value(), self.pp_sidpp.value(),
+            self.pp_ann_cap.value(), self.pp_gain.value())
+        if r.success:
+            v = r.values
+            self.pp_influx_res.setText(
+                f"{v['influx_type'].title()} — gradient {v['influx_gradient_psi_ft']:.3f} psi/ft, "
+                f"height {v['influx_height_ft']:.0f} ft")
+        else:
+            self.pp_influx_res.setText(f"⚠️ {r.error}")
+
+    def _wc_calc_d_exp(self):
+        from core.engineering.engines.bit_performance import BitPerformanceEngine
+        r = BitPerformanceEngine.d_exponent_corrected(
+            self.pp_rop.value(), self.pp_rpm.value(), self.pp_wob.value(),
+            self.pp_bit.value(), mw_ppg=self.pp_mw.value(),
+            normal_mw_ppg=self.pp_mw_n.value())
+        if r.success:
+            v = r.values
+            self.pp_d_res.setText(
+                f"d = {v['d_exponent']:.4f}   dc = {v['d_exponent_corrected']:.4f}"
+                + ("  ⚠️ decreasing trend → abnormal pressure" if v["d_exponent_corrected"] < 1.0 else ""))
+        else:
+            self.pp_d_res.setText(f"⚠️ {r.error}")
 
     def _wc_calc_hp(self):
         mw_pcf = self.hp_mw.value()

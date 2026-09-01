@@ -678,6 +678,7 @@ class AddPumpDialog(EngineeringBaseDialog):
 
         self.hp = self._dspin(1600, 0, 5000, 0, " HP")
         self.liner = self._dspin(7.0, 3, 15, 1, " in")
+        self.rod = self._dspin(3.0, 0, 10, 1, " in")  # duplex piston-rod
         self.stroke = self._dspin(12, 6, 20, 1, " in")
         self.eff = self._dspin(0.95, 0.5, 1.0, 3)
         self.spm = self._dspin(0, 0, 200, 0, " spm")
@@ -685,11 +686,17 @@ class AddPumpDialog(EngineeringBaseDialog):
 
         f2.addRow("Horsepower:", self.hp)
         f2.addRow("Liner Size:", self.liner)
+        f2.addRow("Rod Size (duplex):", self.rod)
         f2.addRow("Stroke Length:", self.stroke)
         f2.addRow("Efficiency:", self.eff)
         f2.addRow("Operating SPM:", self.spm)
         f2.addRow("Max Pressure:", self.max_press)
         layout.addWidget(g2)
+
+        def _toggle_rod(typ):
+            self.rod.setEnabled(typ == "Duplex")
+        self.pump_type.currentTextChanged.connect(_toggle_rod)
+        _toggle_rod(self.pump_type.currentText())
 
         g3 = QGroupBox("📊 Calculated Output")
         cl = QFormLayout(g3)
@@ -724,12 +731,21 @@ class AddPumpDialog(EngineeringBaseDialog):
             self.spm.setMaximum(d['max_spm'])
         self.pump_type.setCurrentText(d.get('type', 'Triplex'))
 
-    def _update_calc(self):
+    def _pump_output_bbl_stk(self):
+        """Canonical pump output — triplex or duplex (single formula source)."""
+        from core.hydraulics_engine import AdvancedHydraulicsEngine
         liner = self.liner.value()
         stroke = self.stroke.value()
         eff = self.eff.value()
+        if self.pump_type.currentText() == "Duplex":
+            return AdvancedHydraulicsEngine.calc_pump_output_duplex(
+                liner, self.rod.value(), stroke, eff
+            )
+        return AdvancedHydraulicsEngine.calc_pump_output(liner, stroke, eff)
+
+    def _update_calc(self):
         spm = self.spm.value()
-        output = 0.000243 * liner**2 * stroke * eff
+        output = self._pump_output_bbl_stk()
         self.calc_output.setText(f"{output:.5f} bbl/stk")
         if spm > 0:
             gpm = output * spm * 42
@@ -739,7 +755,9 @@ class AddPumpDialog(EngineeringBaseDialog):
 
     def _load_data(self, d):
         self.pump_name.setText(d.get('name', ''))
+        self.pump_type.setCurrentText(d.get('type', 'Triplex'))
         self.liner.setValue(d.get('liner', 7))
+        self.rod.setValue(d.get('rod', 3))
         self.stroke.setValue(d.get('stroke', 12))
         self.eff.setValue(d.get('efficiency', 0.95))
         self.spm.setValue(d.get('spm', 0))
@@ -748,13 +766,14 @@ class AddPumpDialog(EngineeringBaseDialog):
         if self.liner.value() <= 0:
             self.error.setText("⚠️ Liner size must > 0")
             return
-        output = 0.000243 * self.liner.value()**2 * self.stroke.value() * self.eff.value()
+        output = self._pump_output_bbl_stk()
         self.result = {
             "name": self.pump_name.text() or f"Pump {self.liner.value()}\"",
             "model": self.pump_select.currentText(),
             "type": self.pump_type.currentText(),
             "hp": self.hp.value(),
             "liner": self.liner.value(),
+            "rod": self.rod.value(),
             "stroke": self.stroke.value(),
             "efficiency": self.eff.value(),
             "spm": self.spm.value(),
