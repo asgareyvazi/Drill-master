@@ -703,7 +703,105 @@ class AnalysisWidget(DrillTabBase):
         """)
         table_layout.addWidget(self.performance_table)
         main_layout.addWidget(table_widget)
-        
+
+        # ===== d-Exponent Trend (pore-pressure detection from stored bit runs) =====
+        de_widget = QWidget()
+        de_widget.setStyleSheet("background: #1e1e1e; border-radius: 8px;")
+        de_layout = QVBoxLayout(de_widget)
+
+        de_header = QHBoxLayout()
+        de_header.addWidget(QLabel("📈 d-Exponent Trend (falling d with depth = abnormal pressure)"))
+        de_header.addStretch()
+        export_de_btn = QPushButton("📤 Export Chart")
+        export_de_btn.setStyleSheet("""
+            QPushButton {
+                background: #3498db;
+                color: white;
+                border: none;
+                padding: 6px 12px;
+                border-radius: 4px;
+                font-size: 11px;
+            }
+            QPushButton:hover { background: #2980b9; }
+        """)
+        export_de_btn.clicked.connect(lambda: self.export_chart_image("dexponent"))
+        de_header.addWidget(export_de_btn)
+        de_layout.addLayout(de_header)
+
+        self.dexponent_plot = pg.PlotWidget()
+        self.dexponent_plot.setBackground("#1e1e1e")
+        self.dexponent_plot.setLabel("left", "d-exponent (dimensionless)", color="#ffffff", size=14)
+        self.dexponent_plot.setLabel("bottom", "Depth (m)", color="#ffffff", size=14)
+        self.dexponent_plot.addLegend()
+        self.dexponent_plot.setMinimumHeight(260)
+        de_layout.addWidget(self.dexponent_plot)
+
+        self.dexponent_table = QTableWidget()
+        self.dexponent_table.setColumnCount(8)
+        self.dexponent_table.setHorizontalHeaderLabels(
+            ["Date", "Bit Run", "Depth Out (m)", "ROP (m/hr)",
+             "WOB (klb)", "RPM", "Bit (in)", "d-exponent"])
+        self.dexponent_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.dexponent_table.setMaximumHeight(180)
+        de_layout.addWidget(self.dexponent_table)
+        main_layout.addWidget(de_widget)
+
+        # ===== Bit Run Cost Comparison (cost/ft from stored runs) =====
+        cost_widget = QWidget()
+        cost_widget.setStyleSheet("background: #2c3e50; border-radius: 8px; padding: 8px;")
+        cost_layout = QVBoxLayout(cost_widget)
+
+        cost_header = QHBoxLayout()
+        cost_header.addWidget(QLabel("💰 Bit Run Cost Comparison (cost/ft)"))
+        cost_header.addStretch()
+        cost_layout.addLayout(cost_header)
+
+        cost_inputs = QHBoxLayout()
+        self.cost_rig_rate = QDoubleSpinBox()
+        self.cost_rig_rate.setRange(0, 1000000)
+        self.cost_rig_rate.setValue(40000)
+        self.cost_rig_rate.setSuffix(" $/day")
+        self.cost_trip_h = QDoubleSpinBox()
+        self.cost_trip_h.setRange(0, 100)
+        self.cost_trip_h.setValue(6)
+        self.cost_trip_h.setSuffix(" hr")
+        self.cost_bit_cost = QDoubleSpinBox()
+        self.cost_bit_cost.setRange(0, 100000)
+        self.cost_bit_cost.setValue(2000)
+        self.cost_bit_cost.setSuffix(" $")
+        cost_inputs.addWidget(QLabel("Rig rate:"))
+        cost_inputs.addWidget(self.cost_rig_rate)
+        cost_inputs.addWidget(QLabel("Trip:"))
+        cost_inputs.addWidget(self.cost_trip_h)
+        cost_inputs.addWidget(QLabel("Bit cost:"))
+        cost_inputs.addWidget(self.cost_bit_cost)
+        cost_inputs.addStretch()
+        cost_calc_btn = QPushButton("🔄 Compare Runs")
+        cost_calc_btn.setStyleSheet("""
+            QPushButton {
+                background: #27ae60;
+                color: white;
+                border: none;
+                padding: 6px 12px;
+                border-radius: 4px;
+                font-size: 11px;
+            }
+            QPushButton:hover { background: #229954; }
+        """)
+        cost_calc_btn.clicked.connect(self._update_cost_comparison)
+        cost_inputs.addWidget(cost_calc_btn)
+        cost_layout.addLayout(cost_inputs)
+
+        self.cost_table = QTableWidget()
+        self.cost_table.setColumnCount(6)
+        self.cost_table.setHorizontalHeaderLabels(
+            ["Bit Run", "Footage (m)", "Hours", "Rig+Bit Cost ($)",
+             "Cost/ft ($/ft)", "vs Best"])
+        self.cost_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.cost_table.setMaximumHeight(200)
+        cost_layout.addWidget(self.cost_table)
+        main_layout.addWidget(cost_widget)
+
         main_layout.addStretch()
         scroll.setWidget(content)
         return scroll
@@ -1617,6 +1715,108 @@ class AnalysisWidget(DrillTabBase):
         self.update_dexponent_data(data)
         self._update_cost_comparison()
         
+    def update_dexponent_data(self, data):
+        """d-exponent per bit run from stored DrillingParameters.
+
+        ROP stored in m/hr → ft/hr (×3.28084); WOB in klb → lbf (×1000).
+        Canonical formula: BitPerformanceEngine.d_exponent (Jorden & Shirley).
+        """
+        from core.engineering.engines.bit_performance import BitPerformanceEngine
+        self.dexponent_plot.clear()
+        rows = []
+        depths, dvals = [], []
+        for d in data:
+            rop_ft = d['rop'] * 3.28084
+            wob_lbf = d['wob'] * 1000.0
+            bit = d['bit_size']
+            if rop_ft > 0 and d['rpm'] > 0 and wob_lbf > 0 and bit > 0:
+                r = BitPerformanceEngine.d_exponent(rop_ft, d['rpm'], wob_lbf, bit)
+                dval = r.value if r.success else None
+            else:
+                dval = None
+            rows.append((d, dval))
+            if dval is not None:
+                depths.append(d['depth'])
+                dvals.append(dval)
+
+        self.dexponent_table.setRowCount(len(rows))
+        for i, (d, dval) in enumerate(rows):
+            self.dexponent_table.setItem(i, 0, QTableWidgetItem(str(d['date'])))
+            self.dexponent_table.setItem(i, 1, QTableWidgetItem(d['bit_run']))
+            self.dexponent_table.setItem(i, 2, QTableWidgetItem(f"{d['depth']:.0f}"))
+            self.dexponent_table.setItem(i, 3, QTableWidgetItem(f"{d['rop']:.1f}"))
+            self.dexponent_table.setItem(i, 4, QTableWidgetItem(f"{d['wob']:.1f}"))
+            self.dexponent_table.setItem(i, 5, QTableWidgetItem(f"{d['rpm']:.0f}"))
+            self.dexponent_table.setItem(i, 6, QTableWidgetItem(
+                f"{d['bit_size']:.2f}" if d['bit_size'] else "--"))
+            item = QTableWidgetItem("--" if dval is None else f"{dval:.3f}")
+            if dval is not None:
+                item.setForeground(QColor("#e74c3c" if dval < 1.0 else "#2ecc71"))
+            self.dexponent_table.setItem(i, 7, item)
+
+        if len(depths) >= 2:
+            self.dexponent_plot.plot(
+                depths, dvals, pen=pg.mkPen('#e74c3c', width=3),
+                symbol='o', symbolSize=8, symbolBrush='#e74c3c',
+                name="d-exponent")
+            self.dexponent_plot.setTitle(
+                "d-Exponent vs Depth (stored bit runs)", color="#ffffff", size="12pt")
+        else:
+            self.dexponent_plot.setTitle(
+                "Need ≥ 2 bit runs with ROP/WOB/RPM/bit-size to plot the trend",
+                color="#95a5a6")
+
+    def _update_cost_comparison(self):
+        """Cost/ft per stored bit run (Bourgoyne); single rig/trip/bit inputs.
+
+        Footage = depth_out − depth_in (m → ft); rotating time = hours_on_bottom.
+        """
+        from core.engineering.engines.bit_performance import BitPerformanceEngine
+        if not self.current_well_id:
+            return
+        def fetch():
+            session = self.db.create_session()
+            try:
+                return self.get_performance_data(session)
+            finally:
+                session.close()
+        data = self.get_cached_data(f'perf_{self.current_well_id}', fetch)
+        rig_rate = self.cost_rig_rate.value()
+        trip_h = self.cost_trip_h.value()
+        bit_cost = self.cost_bit_cost.value()
+
+        results = []
+        for d in data:
+            footage_ft = (d['depth'] - d['depth_in']) * 3.28084
+            if footage_ft <= 0:
+                continue
+            r = BitPerformanceEngine.cost_per_foot(
+                rig_cost_per_day=rig_rate,
+                trip_hours=trip_h,
+                bit_cost=bit_cost,
+                footage=footage_ft,
+                rotating_hours=d['hours_on_bottom'],
+            )
+            if r.success:
+                results.append((d['bit_run'], footage_ft, d['hours_on_bottom'],
+                                r.values['total_cost'], r.values['cost_per_ft']))
+
+        self.cost_table.setRowCount(len(results))
+        best = min((x[4] for x in results), default=None)
+        for i, (name, footage, hrs, total, cft) in enumerate(results):
+            self.cost_table.setItem(i, 0, QTableWidgetItem(name))
+            self.cost_table.setItem(i, 1, QTableWidgetItem(f"{footage / 3.28084:.0f}"))
+            self.cost_table.setItem(i, 2, QTableWidgetItem(f"{hrs:.1f}"))
+            self.cost_table.setItem(i, 3, QTableWidgetItem(f"${total:,.0f}"))
+            ci = QTableWidgetItem(f"${cft:.2f}")
+            ci.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            if best is not None and abs(cft - best) < 1e-9:
+                ci.setForeground(QColor("#2ecc71"))
+                ci.setToolTip("Cheapest run")
+            self.cost_table.setItem(i, 4, ci)
+            self.cost_table.setItem(i, 5, QTableWidgetItem(
+                "✅ best" if best is not None and abs(cft - best) < 1e-9 else ""))
+
     def update_daily_data(self):
         if not self.current_well_id: return
         def fetch():
