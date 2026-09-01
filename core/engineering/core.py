@@ -378,8 +378,9 @@ class BitEngine:
         """Hydraulic Horsepower per square inch."""
         if not flow_rate_gpm or not pressure_drop_psi or not bit_size_in:
             raise MissingInputError("flow_rate, pressure_drop, bit_size required for HSI")
+        from core.hydraulics_engine import AdvancedHydraulicsEngine
         bit_area = math.pi / 4 * bit_size_in * bit_size_in
-        hhp = flow_rate_gpm * pressure_drop_psi / 1714
+        hhp = AdvancedHydraulicsEngine.calc_bit_hhp(flow_rate_gpm, pressure_drop_psi)
         return hhp / bit_area if bit_area else 0
 
 

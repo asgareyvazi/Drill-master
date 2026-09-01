@@ -200,3 +200,44 @@ class TestMudLabAdditions:
     def test_corrosion_rate_invalid(self):
         with pytest.raises(Exception):
             MudEngineering.corrosion_rate(100.0, 0.0, 168.0)
+
+
+# ---------------------------------------------------------------------------
+# Canonical bit hydraulics (single source: AdvancedHydraulicsEngine)
+# ---------------------------------------------------------------------------
+class TestBitHydraulicsCanonical:
+    def test_bit_pressure_drop_known_value(self):
+        # ΔP = 400² × 12 / (10858 × 0.5²)
+        dp = AdvancedHydraulicsEngine.calc_bit_pressure_drop(400, 12, 0.5)
+        assert abs(dp - 400**2 * 12 / (10858 * 0.25)) < 1e-6
+        assert abs(dp - 707.3) < 0.5
+
+    def test_tfa_round_trip(self):
+        tfa = AdvancedHydraulicsEngine.calc_tfa_from_pressure_drop(400, 12, 707.3)
+        assert abs(tfa - 0.5) < 0.01
+        # regression: old UI constant (1086.31) returned 3.16× this value
+        assert tfa < 1.0
+
+    def test_bit_hydraulics_composite(self):
+        bh = AdvancedHydraulicsEngine.calc_bit_hydraulics(400, 12, 0.5, 8.5)
+        assert abs(bh["bit_pressure_drop_psi"] - 707.3) < 0.5
+        assert abs(bh["bit_hhp"] - 400 * 707.3 / 1714) < 0.5
+        bit_area = math.pi / 4 * 8.5**2
+        assert abs(bh["hsi"] - bh["bit_hhp"] / bit_area) < 0.01
+        assert abs(bh["jet_velocity_fps"] - 400 / (3.117 * 0.5)) < 0.1
+        assert abs(bh["impact_force_lbs"] - 12 * 400 * bh["jet_velocity_fps"] / 1930) < 0.5
+
+    def test_bit_engine_hsi_delegates(self):
+        from core.engineering.core import BitEngine
+        hsi = BitEngine.calculate_hsi(400, 707.3, 8.5)
+        bit_area = math.pi / 4 * 8.5**2
+        assert abs(hsi - (400 * 707.3 / 1714) / bit_area) < 1e-9
+
+    def test_d_exponent_from_stored_units(self):
+        # Stored data: ROP m/hr, WOB klb → convert like the Analysis tab
+        r = BitPerformanceEngine.d_exponent(
+            rop_ft_hr=9.14 * 3.28084, rpm=80.0,
+            wob_lbf=25.0 * 1000.0, bit_size_in=8.5)
+        assert r.success
+        ref = BitPerformanceEngine.d_exponent(30.0, 80.0, 25000.0, 8.5)
+        assert abs(r.values["d_exponent"] - ref.values["d_exponent"]) < 1e-3

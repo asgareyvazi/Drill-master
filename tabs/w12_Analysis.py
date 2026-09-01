@@ -1217,7 +1217,10 @@ class AnalysisWidget(DrillTabBase):
             'rpm': (p.rpm_min + p.rpm_max)/2 if p.rpm_min and p.rpm_max else 0,
             'torque': (p.torque_min + p.torque_max)/2 if p.torque_min and p.torque_max else 0,
             'pressure': (p.pump_pressure_min + p.pump_pressure_max)/2 if p.pump_pressure_min else 0,
-            'depth': p.depth_out or 0
+            'depth': p.depth_out or 0,
+            'depth_in': p.depth_in or 0,
+            'hours_on_bottom': p.hours_on_bottom or 0,
+            'bit_size': p.bit_size or 0,
         } for i, p in enumerate(params)]
 
     def get_time_depth_data(self, session):
@@ -1611,6 +1614,8 @@ class AnalysisWidget(DrillTabBase):
             )
 
         self.chart_data['performance'] = data
+        self.update_dexponent_data(data)
+        self._update_cost_comparison()
         
     def update_daily_data(self):
         if not self.current_well_id: return
@@ -2314,6 +2319,7 @@ class AnalysisWidget(DrillTabBase):
                 "time_depth": self.time_depth_plot,
                 "daily_gain": self.daily_gain_plot,
                 "performance": self.performance_plot,
+                "dexponent": self.dexponent_plot,
                 "npt": self.npt_pie_plot,
                 "analytics": self.analytics_plot,
             }

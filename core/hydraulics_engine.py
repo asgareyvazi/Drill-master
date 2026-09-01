@@ -400,25 +400,16 @@ class AdvancedHydraulicsEngine:
             result.tfa_in2 = round(tfa, 4)
             
             if tfa > 0:
-                result.bit_loss_psi = round(
-                    self.flow_rate_gpm**2 * self.mud.mw_ppg / (10858 * tfa**2), 1
+                bit_od = (max(seg.od for seg in self.pipe_segments)
+                          if self.pipe_segments else 8.5)
+                bh = self.calc_bit_hydraulics(
+                    self.flow_rate_gpm, self.mud.mw_ppg, tfa, bit_od
                 )
-                
-                # Bit hydraulics
-                result.bit_hhp = round(
-                    self.flow_rate_gpm * result.bit_loss_psi / 1714, 2
-                )
-                
-                bit_area = math.pi / 4 * (max(seg.od for seg in self.pipe_segments) if self.pipe_segments else 8.5)**2
-                result.hsi = round(result.bit_hhp / bit_area, 2) if bit_area > 0 else 0
-                
-                result.jet_velocity_fps = round(
-                    self.flow_rate_gpm / (3.117 * tfa), 1
-                )
-                
-                result.impact_force_lbs = round(
-                    self.mud.mw_ppg * self.flow_rate_gpm * result.jet_velocity_fps / 1930, 1
-                )
+                result.bit_loss_psi = bh["bit_pressure_drop_psi"]
+                result.bit_hhp = bh["bit_hhp"]
+                result.hsi = bh["hsi"]
+                result.jet_velocity_fps = bh["jet_velocity_fps"]
+                result.impact_force_lbs = bh["impact_force_lbs"]
             
             # 5. Total
             result.total_loss_psi = round(
@@ -862,6 +853,78 @@ class AdvancedHydraulicsEngine:
 
     # ==================== Static Utility Methods ====================
     
+    # ------------------------------------------------------------------
+    # Bit hydraulics — single canonical source for ΔP, HHP, HSI, jet
+    # velocity and impact force (used by calculate() and all UI tabs).
+    # Constants: 10858 (ΔP), 1714 (HHP), 3.117 (jet velocity), 1930 (IF).
+    # ------------------------------------------------------------------
+    @staticmethod
+    def calc_bit_pressure_drop(gpm: float, mw_ppg: float, tfa_in2: float) -> float:
+        """Bit nozzle pressure drop (psi).
+
+            ΔP = Q² × MW / (10858 × TFA²)      (Q in gpm, MW in ppg, TFA in in²)
+        """
+        if tfa_in2 <= 0:
+            raise ValueError("TFA must be > 0")
+        return gpm**2 * mw_ppg / (10858.0 * tfa_in2**2)
+
+    @staticmethod
+    def calc_tfa_from_pressure_drop(gpm: float, mw_ppg: float,
+                                    delta_p_psi: float) -> float:
+        """Required TFA (in²) to achieve a target bit pressure drop.
+
+            TFA = √(Q² × MW / (10858 × ΔP))
+        """
+        if delta_p_psi <= 0:
+            raise ValueError("delta_p_psi must be > 0")
+        return math.sqrt(gpm**2 * mw_ppg / (10858.0 * delta_p_psi))
+
+    @staticmethod
+    def calc_bit_hhp(gpm: float, pressure_drop_psi: float) -> float:
+        """Bit hydraulic horsepower.
+
+            HHP = Q × ΔP / 1714
+        """
+        return gpm * pressure_drop_psi / 1714.0
+
+    @staticmethod
+    def calc_hsi(bit_hhp: float, bit_od_in: float) -> float:
+        """Hydraulic horsepower per square inch of bit area."""
+        area = math.pi / 4.0 * bit_od_in**2
+        return bit_hhp / area if area > 0 else 0.0
+
+    @staticmethod
+    def calc_jet_velocity(gpm: float, tfa_in2: float) -> float:
+        """Nozzle jet velocity (ft/s)."""
+        if tfa_in2 <= 0:
+            raise ValueError("TFA must be > 0")
+        return gpm / (3.117 * tfa_in2)
+
+    @staticmethod
+    def calc_impact_force(mw_ppg: float, gpm: float,
+                          jet_velocity_fps: float) -> float:
+        """Hydraulic impact force (lbf).
+
+            F = MW × Q × v / 1930
+        """
+        return mw_ppg * gpm * jet_velocity_fps / 1930.0
+
+    @staticmethod
+    def calc_bit_hydraulics(gpm: float, mw_ppg: float, tfa_in2: float,
+                            bit_od_in: float) -> dict:
+        """Complete bit hydraulics set (ΔP, HHP, HSI, jet velocity, IF)."""
+        dp = AdvancedHydraulicsEngine.calc_bit_pressure_drop(gpm, mw_ppg, tfa_in2)
+        hhp = AdvancedHydraulicsEngine.calc_bit_hhp(gpm, dp)
+        jv = AdvancedHydraulicsEngine.calc_jet_velocity(gpm, tfa_in2)
+        return {
+            "bit_pressure_drop_psi": round(dp, 1),
+            "bit_hhp": round(hhp, 2),
+            "hsi": round(AdvancedHydraulicsEngine.calc_hsi(hhp, bit_od_in), 2),
+            "jet_velocity_fps": round(jv, 1),
+            "impact_force_lbs": round(
+                AdvancedHydraulicsEngine.calc_impact_force(mw_ppg, gpm, jv), 1),
+        }
+
     @staticmethod
     def calc_pump_output(liner_size_inch: float, stroke_length_inch: float,
                           efficiency: float = 0.95) -> float:
