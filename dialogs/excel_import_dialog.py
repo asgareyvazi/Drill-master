@@ -20,6 +20,7 @@ import json
 import logging
 from datetime import date as dt_date, time as dt_time, datetime as dt_datetime
 from pathlib import Path
+from typing import Dict, Optional
 
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel,
@@ -469,6 +470,66 @@ class ExcelImportDialog(QDialog):
                 dialog._smart_auto_detect()
                 extracted = dialog._build_final_data_from_assignments()
 
+                # Template-first: if a company template under templates/
+                # matches this workbook's sheet layout, run the canonical
+                # template engine (Company Source -> Template -> Canonical
+                # Model), which uses the anchored template contract instead
+                # of heuristic-only parsing. Generic sheet-name matching —
+                # no company-specific branching.
+                if dialog.wb is not None:
+                    template = self._auto_match_template(
+                        [ws.title for ws in dialog.wb.worksheets]
+                    )
+                    if template:
+                        try:
+                            from core.excel_intelligence import ExcelIntelligence
+                            rep = ExcelIntelligence(dialog.wb, template).extract()
+                            extracted = dict(rep.canonical_json)
+                            review_rows = [
+                                {
+                                    "sheet": r.sheet,
+                                    "row": r.row,
+                                    "column": r.col,
+                                    "detected_table": "scalar",
+                                    "source_cell": r.cell,
+                                    "original_value": r.value if r.status in (
+                                        "REVIEW_REQUIRED", "CONFLICT", "INVALID",
+                                    ) else r.original_label,
+                                    "normalized_value": r.value,
+                                    "value": r.value,
+                                    "unit": r.canonical_unit,
+                                    "target_field": r.canonical_field,
+                                    "canonical_field": r.canonical_field,
+                                    "confidence": r.confidence,
+                                    "certainty": r.certainty,
+                                    "status": r.status,
+                                    "decision": (
+                                        "REVIEW"
+                                        if r.status in (
+                                            "REVIEW_REQUIRED", "CONFLICT",
+                                        ) else "ACCEPT"
+                                    ),
+                                    "reason": r.reason,
+                                }
+                                for r in rep.field_results
+                                if r.status != "OK"
+                                or r.certainty == "LOW"
+                            ]
+                            extracted["metadata"] = {
+                                "template": template.get("name", ""),
+                                "template_version": rep.template_version,
+                                "review_matrix": review_rows,
+                                "source_tokens": rep.source_tokens,
+                            }
+                            dialog.deleteLater()
+                        except Exception as tmpl_exc:
+                            logger.error(
+                                f"Template engine failed for {os.path.basename(path)}: "
+                                f"{tmpl_exc}; falling back to smart detection",
+                                exc_info=True,
+                            )
+                            extracted = dialog._build_final_data_from_assignments()
+
                 # Step 2: Validation with professional TimeLog validator
                 report_data = extracted.get("daily_report", {})
                 quality = ImportValidator.validate_rows([report_data], "daily_report", "Daily Report")
@@ -588,8 +649,7 @@ class ExcelImportDialog(QDialog):
                 self.well_id = existing.id
                 return existing.id
             fallback = session.get(Well, self.well_id) if self.well_id else None
-            project_id = fallback.project_id if fallback else session.query(Project.id).order_by(Project.id).first()
-            project_id = project_id[0] if isinstance(project_id, tuple) else project_id
+            project_id = fallback.project_id if fallback else session.query(Project.id).order_by(Project.id).scalar()
             if not project_id:
                 raise ValueError("Cannot create imported well: no project exists")
             valid_keys = {c.name for c in Well.__table__.columns}
@@ -597,6 +657,7 @@ class ExcelImportDialog(QDialog):
             values.update({"project_id": project_id, "name": name or code})
             if code:
                 values["code"] = code
+            values = self.db.coerce_model_values(Well, values)
             well = Well(**values)
             session.add(well)
             session.commit()
@@ -604,6 +665,53 @@ class ExcelImportDialog(QDialog):
             return well.id
         finally:
             session.close()
+
+    @staticmethod
+    def _auto_match_template(sheet_names: list) -> dict:
+        """Find a company template whose sheet sections fit this workbook.
+
+        Generic rule: a template matches when every template sheet section
+        name (the part after 'sheet_<n>_') exists among the workbook's
+        sheet titles. Returns None when no template matches, so imports
+        fall back to heuristic detection.
+        """
+        templates_dir = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "templates",
+        )
+        if not os.path.isdir(templates_dir):
+            return None
+        available = set(sheet_names)
+        best = None
+        best_count = -1
+        for filename in sorted(os.listdir(templates_dir)):
+            if not filename.endswith(".json") or filename.startswith("_"):
+                continue
+            path = os.path.join(templates_dir, filename)
+            try:
+                with open(path, encoding="utf-8") as fh:
+                    tmpl = json.load(fh)
+            except (OSError, ValueError):
+                continue
+            if not isinstance(tmpl, dict):
+                continue
+            sheet_keys = [k for k in tmpl if k.startswith("sheet_")]
+            if not sheet_keys:
+                continue
+            ok = True
+            for key in sheet_keys:
+                parts = key.split("_", 2)
+                name = parts[2] if len(parts) > 2 else parts[1]
+                # Template keys use underscores where workbook sheets use
+                # spaces (e.g. sheet_2_DDR_Data <-> "DDR Data").
+                normalized = name.replace("_", " ").lower()
+                if normalized not in {s.lower() for s in available}:
+                    ok = False
+                    break
+            if ok and len(sheet_keys) > best_count:
+                best_count = len(sheet_keys)
+                best = tmpl
+        return best
 
     def _do_import(self, extracted: dict, refresh_ui: bool = True) -> dict:
         """Core import logic with atomic transaction and no fake defaults."""
@@ -659,6 +767,17 @@ class ExcelImportDialog(QDialog):
 
             # Well
             wi = extracted.get("well_info", {})
+            # Well-level header attributes that live in the report header
+            # (LTA days, actual rig days) belong on the Well record too —
+            # generic copy, not company-specific.
+            _dr_header = extracted.get("daily_report", {}) or {}
+            for _wkey in ("lta_day", "actual_rig_days"):
+                if (
+                    _wkey in _dr_header
+                    and _dr_header.get(_wkey) not in (None, "")
+                    and _wkey not in wi
+                ):
+                    wi[_wkey] = _dr_header[_wkey]
             if not self.well_id or wi.get("name") or wi.get("code"):
                 self._resolve_import_well(wi)
                 results["well_id"] = self.well_id
@@ -737,6 +856,29 @@ class ExcelImportDialog(QDialog):
                 parsed_depth = ValueNormalizer.to_float(dr.get(depth_field))
                 dr[depth_field] = parsed_depth  # None if missing, not 0
 
+            # Notes (Note#01/Note#02 ...) -> report summary, deduplicated
+            # and stripped of stray label cells; the note_* keys themselves
+            # are not DailyReport columns and are dropped by the saver.
+            note_values = []
+            for key in sorted(k for k in dr if k.startswith("note_")):
+                val = dr.get(key)
+                if isinstance(val, str) and val.strip() and val.strip().lower().startswith("note#"):
+                    if val not in note_values:
+                        note_values.append(val.strip())
+            if note_values:
+                existing_summary = (dr.get("summary") or "").strip()
+                if existing_summary:
+                    dr["summary"] = existing_summary + "\n\n" + "\n".join(note_values)
+                else:
+                    dr["summary"] = "\n".join(note_values)
+
+            # Operation forecast (next-day plan) from the report header
+            # -> DailyReport.forecast (nullable; absent stays absent).
+            if dr.get("forecast") in (None, ""):
+                forecast_val = extracted.get("daily_report", {}).get("forecast")
+                if isinstance(forecast_val, str) and forecast_val.strip():
+                    dr["forecast"] = forecast_val.strip()
+
             created_new_report = not bool(dr.get("id"))
             if not created_new_report or hasattr(self.db, "snapshot_import_target"):
                 import_snapshot = self.db.snapshot_import_target(self.well_id, section_id, dr["report_date"])
@@ -766,7 +908,7 @@ class ExcelImportDialog(QDialog):
                     for item in extracted.get("bulk_materials", []) if item.get("material_name")
                 ], ensure_ascii=False)
 
-            # Unit preservation for MW: detect SG vs ppg
+            # Unit preservation for MW: detect SG vs ppg / explicit PCF unit
             if mud_data.get("mw") and isinstance(mud_data.get("mw"), str):
                 val, unit = UnitManager.detect_unit(mud_data["mw"])
                 if val is not None and unit:
@@ -775,8 +917,33 @@ class ExcelImportDialog(QDialog):
                     mud_data["mw_original"] = record.original_value
                     mud_data["mw_unit"] = record.source_unit
                     results["details"].append(f"📏 Unit preserved: {record.conversion_rule}")
+            elif mud_data.get("mw") not in (None, "") and mud_data.get("mw_unit"):
+                # Numeric value with an explicit source unit anchor (PCF).
+                # The Mud UI is PCF-native ("MW (pcf)", range 0-200), so
+                # PCF is kept as-is; any other unit (SG, ppg, ...) is
+                # converted to canonical ppg with provenance preserved.
+                unit_norm = UnitManager.normalize(mud_data["mw_unit"])
+                if unit_norm == "pcf":
+                    mud_data["mw_original"] = mud_data["mw"]
+                    mud_data["mw_unit"] = "PCF"
+                    results["details"].append(
+                        "📏 Unit preserved: PCF (native UI unit)"
+                    )
+                else:
+                    record = UnitManager.create_record(
+                        "mud_report.mw", "density",
+                        mud_data["mw_unit"], mud_data["mw"], "ppg"
+                    )
+                    if record.normalized_value is not None:
+                        mud_data["mw"] = record.normalized_value
+                        mud_data["mw_original"] = record.original_value
+                        mud_data["mw_unit"] = record.source_unit
+                        results["details"].append(
+                            f"📏 Unit preserved: {record.conversion_rule}"
+                        )
 
-            self._save_mud_report(mud_data, report_id, dr["report_date"])
+            self._save_mud_report(mud_data, report_id, dr["report_date"],
+                                  daily_report=dr)
 
             # Drilling params with universal aliases
             drilling_extracted = extracted.get("drilling_params", {})
@@ -786,7 +953,11 @@ class ExcelImportDialog(QDialog):
                 if alias in drilling_extracted and "wob_max" not in drilling_extracted:
                     drilling_extracted["wob_max"] = drilling_extracted[alias]
 
-            self._save_drilling_params(drilling_extracted, report_id, dr["report_date"])
+            self._save_drilling_params(
+                drilling_extracted, report_id, dr["report_date"],
+                param_table=extracted.get("drilling_params_table") or [],
+                scr_data=extracted.get("scr_data") or [],
+            )
 
             if extracted.get("time_logs_24h"):
                 self._save_time_logs(report_id, extracted["time_logs_24h"])
@@ -912,7 +1083,7 @@ class ExcelImportDialog(QDialog):
         finally:
             session.close()
 
-    def _save_mud_report(self, mr: dict, report_id: int, report_date):
+    def _save_mud_report(self, mr: dict, report_id: int, report_date, daily_report=None):
         if not mr:
             return
         mr_save = dict(mr)
@@ -927,6 +1098,8 @@ class ExcelImportDialog(QDialog):
             'temperature', 'solid_percent', 'oil_percent',
             'water_percent', 'chloride', 'volume_hole',
             'loss_surface', 'loss_downhole',
+            'calcium', 'kcl', 'mbt', 'pf_mf',
+            'total_hardness', 'flowline_temp',
         ]
         for field in float_fields:
             if field in mr_save and mr_save[field] not in (None, ""):
@@ -934,12 +1107,76 @@ class ExcelImportDialog(QDialog):
                 converted = ValueNormalizer.to_float(mr_save[field])
                 mr_save[field] = converted  # None if missing
 
+        # Report-header mud volume block (pit readings) -> MudReport.
+        # Values only; header labels are never stored.
+        if daily_report:
+            pit_block = {}
+            pit_labels = {
+                "suction1_mw": "suction1_mw", "suction1_vol": "suction1_vol",
+                "suction2_mw": "suction2_mw", "suction2_vol": "suction2_vol",
+                "degasser_mw": "degasser_mw", "degasser_vol": "degasser_vol",
+                "desander_mw": "desander_mw", "desander_vol": "desander_vol",
+                "desilter_vol": "desilter_vol",
+                "middle_mw": "middle_mw", "middle_vol": "middle_vol",
+                "reserve1_mw": "reserve1_mw", "reserve1_vol": "reserve1_vol",
+                "reserve2_mw": "reserve2_mw", "reserve2_vol": "reserve2_vol",
+                "reserve3_mw": "reserve3_mw", "reserve3_vol": "reserve3_vol",
+                "sand_trap_mw": "sand_trap_mw", "sand_trap_vol": "sand_trap_vol",
+            }
+            for src_key, dst_key in pit_labels.items():
+                val = daily_report.get(src_key)
+                if val not in (None, ""):
+                    pit_block[dst_key] = val
+            if pit_block:
+                mr_save["pit_volumes_json"] = json.dumps(pit_block, ensure_ascii=False)
+            # Scalar mud-volume fields from the report header when the mud
+            # table itself did not supply them.
+            if mr_save.get("volume_hole") in (None, "") and daily_report.get("vol_in_hole") not in (None, ""):
+                mr_save["volume_hole"] = ValueNormalizer.to_float(daily_report["vol_in_hole"])
+            if mr_save.get("total_circulated") in (None, "") and daily_report.get("total_circ_vol") not in (None, ""):
+                mr_save["total_circulated"] = ValueNormalizer.to_float(daily_report["total_circ_vol"])
+            if mr_save.get("loss_downhole") in (None, "") and daily_report.get("mud_lost_downhole") not in (None, ""):
+                mr_save["loss_downhole"] = ValueNormalizer.to_float(daily_report["mud_lost_downhole"])
+            if mr_save.get("loss_surface") in (None, "") and daily_report.get("mud_lost_surface") not in (None, ""):
+                mr_save["loss_surface"] = ValueNormalizer.to_float(daily_report["mud_lost_surface"])
+
+        # Preserve original source tokens for non-numeric properties
+        # (e.g. 'N.C' -> NULL + provenance) instead of dropping them.
+        provenance = []
+        for key in list(mr_save.keys()):
+            if not key.endswith("_source"):
+                continue
+            field = key[:-len("_source")]
+            token = mr_save.pop(key)
+            if token in (None, ""):
+                continue
+            token_s = str(token).strip()
+            if token_s and mr_save.get(field) in (None, ""):
+                provenance.append(f"{field} (original): {token_s}")
+        if provenance:
+            summary = str(mr_save.get("summary") or "").strip()
+            mr_save["summary"] = (summary + "\n" if summary else "") + "\n".join(provenance)
+
         try:
             self.db.save_mud_report(mr_save)
         except Exception as e:
             logger.error(f"Mud report save error: {e}")
 
-    def _save_drilling_params(self, dp: dict, report_id: int, report_date):
+    @staticmethod
+    def _fraction_to_32nds(text) -> Optional[float]:
+        """'18/32"' -> 18; '3/4"' -> 24; None for Open/text values."""
+        if not text:
+            return None
+        s = str(text).strip().replace('"', '').replace('"', '')
+        parts = s.split("/")
+        try:
+            if len(parts) == 1:
+                return float(parts[0]) * 32.0
+            return float(parts[0]) / float(parts[1]) * 32.0
+        except (ValueError, ZeroDivisionError):
+            return None
+
+    def _save_drilling_params(self, dp: dict, report_id: int, report_date, param_table=None, scr_data=None):
         if not dp:
             return
         dp_save = dict(dp)
@@ -948,10 +1185,96 @@ class ExcelImportDialog(QDialog):
             "report_id": report_id,
             "report_date": report_date,
         })
+
+        # Pack nozzle anchors (nozzle1_no/1_size, nozzle2_no/2_size) into
+        # the nozzles_json column, preserving the original text tokens
+        # (e.g. '18/32"', 'Open') so no size is invented.
+        nozzles = []
+        for idx in (1, 2):
+            qty = ValueNormalizer.to_int(dp_save.get(f"nozzle{idx}_no"))
+            size_text = dp_save.get(f"nozzle{idx}_size")
+            if qty is None and not size_text:
+                continue
+            size_32 = self._fraction_to_32nds(size_text)
+            nozzles.append({
+                "row": idx,
+                "size_32nd": size_32,
+                "quantity": qty if qty is not None else 0,
+                "diameter_inch": round(size_32 / 32.0, 4) if size_32 is not None else None,
+                "text": str(size_text).strip() if size_text is not None else "",
+            })
+        if nozzles:
+            dp_save["nozzles_json"] = json.dumps(nozzles, ensure_ascii=False)
+
+        # Merge the Drilling Parameters table rows (W.O.B / RPM / Torque /
+        # Pump Pressure min-max) into the scalar record — generic keyword
+        # matching on the parameter name, not company-specific.
+        if param_table:
+            param_keywords = {
+                "w.o.b": "wob", "wt. on bit": "wob", "weight on bit": "wob",
+                "bit load": "wob", "wob": "wob",
+                "surf. rpm": "rpm", "rotary speed": "rpm", "rotary": "rpm",
+                "rpm": "rpm",
+                "torque": "torque",
+                "pump pressure": "pump_pressure",
+                "pump output": "pump_output",
+            }
+            for row in param_table:
+                if not isinstance(row, dict):
+                    continue
+                name = str(row.get("name", "")).lower().strip()
+                for keyword, field in param_keywords.items():
+                    if keyword in name:
+                        if row.get("min") not in (None, "") and f"{field}_min" not in dp_save:
+                            dp_save[f"{field}_min"] = ValueNormalizer.to_float(row["min"])
+                        if row.get("max") not in (None, "") and f"{field}_max" not in dp_save:
+                            dp_save[f"{field}_max"] = ValueNormalizer.to_float(row["max"])
+                        break
+
+        # Bit run summary keys map onto the DrillingParameters bit columns;
+        # canonical aliases (bit_cum_drilled, bit_hours_on_bottom, ...) are
+        # normalized here — never dropped.
+        bit_key_map = {
+            "bit_cum_drilled": "cum_drilled",
+            "bit_hours_on_bottom": "hours_on_bottom",
+            "bit_cum_hrs_on_bottom": "cum_hours",
+            "cum_bit_avg_rop": "avg_rop",
+        }
+        for src_key, dst_key in bit_key_map.items():
+            if src_key in dp_save and dp_save[src_key] not in (None, ""):
+                if dst_key not in dp_save or dp_save[dst_key] in (None, ""):
+                    dp_save[dst_key] = dp_save[src_key]
+            dp_save.pop(src_key, None)
+
+        # SCR table rows (pump/SPM/FR/SPP) -> pumpN_spm / pumpN_spp columns.
+        # Generic pump-number extraction from the pump name ('Pump No. #1').
+        scr_rows = scr_data or []
+        if isinstance(scr_rows, list):
+            for row in scr_rows:
+                if not isinstance(row, dict):
+                    continue
+                pump_name = str(row.get("pump", "")).strip()
+                if not pump_name:
+                    continue
+                digits = [ch for ch in pump_name if ch.isdigit()]
+                if not digits:
+                    continue
+                pump_no = int(digits[0])
+                if pump_no not in (1, 2, 3):
+                    continue
+                for key, col in (("spm", f"pump{pump_no}_spm"),
+                                 ("spp", f"pump{pump_no}_spp")):
+                    val = row.get(key)
+                    if val not in (None, "") and col not in dp_save:
+                        dp_save[col] = ValueNormalizer.to_float(val)
+
         float_fields = [
             'bit_size', 'depth_in', 'depth_out', 'avg_rop',
-            'wob_max', 'rpm_max', 'torque_max',
-            'pump_pressure_max', 'tfa', 'hours_on_bottom',
+            'wob_min', 'wob_max', 'rpm_min', 'rpm_max',
+            'torque_min', 'torque_max',
+            'pump_pressure_min', 'pump_pressure_max',
+            'pump_output_min', 'pump_output_max',
+            'tfa', 'hours_on_bottom',
         ]
         for field in float_fields:
             if field in dp_save and dp_save[field] not in (None, ""):

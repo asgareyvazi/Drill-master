@@ -19,7 +19,7 @@ import math
 import logging
 import tempfile
 from pathlib import Path
-from datetime import datetime, date as dt_date, time as dt_time
+from datetime import datetime, date as dt_date, time as dt_time, timedelta
 from typing import Dict, List, Any, Optional, Tuple, Set
 from difflib import SequenceMatcher
 from collections import defaultdict
@@ -975,6 +975,14 @@ class ValueNormalizer:
             return value
         if isinstance(value, datetime):
             return value.time()
+        if isinstance(value, timedelta):
+            # Excel stores wall-clock times as timedelta in openpyxl
+            # (e.g. 14:00 -> timedelta(seconds=50400), 24:00 ->
+            # timedelta(days=1)). Convert to hh:mm:ss with the 24:00 ->
+            # 00:00 convention used for '24:00' strings.
+            total = int(value.total_seconds())
+            total %= 86400
+            return dt_time(total // 3600, (total % 3600) // 60, total % 60)
         s = str(value).strip()
         m = re.match(r'^(\d{1,2}):(\d{2})(?::(\d{2}))?', s)
         if m:

@@ -81,6 +81,13 @@ class DrillingCalculatorDialog(QDialog):
         self.pump_pressure.setSuffix(" psi")
         self.pump_pressure.setValue(3000)
         layout.addRow("Pump Pressure:", self.pump_pressure)
+
+        self.mud_weight = QDoubleSpinBox()
+        self.mud_weight.setRange(0, 25)
+        self.mud_weight.setDecimals(2)
+        self.mud_weight.setSuffix(" ppg")
+        self.mud_weight.setValue(12.0)
+        layout.addRow("Mud Weight (MW):", self.mud_weight)
         
         self.tfa_input = QDoubleSpinBox()
         self.tfa_input.setRange(0, 5)
@@ -198,6 +205,19 @@ class DrillingCalculatorDialog(QDialog):
         self.slow_pump_rate.setSuffix(" psi")
         self.slow_pump_rate.setValue(800)
         layout.addRow("Slow Pump Rate Pressure:", self.slow_pump_rate)
+
+        self.shoe_tvd = QDoubleSpinBox()
+        self.shoe_tvd.setRange(0, 20000)
+        self.shoe_tvd.setSuffix(" m")
+        self.shoe_tvd.setValue(0)
+        layout.addRow("Shoe TVD (0 = skip MAASP):", self.shoe_tvd)
+
+        self.frac_grad = QDoubleSpinBox()
+        self.frac_grad.setRange(0, 2)
+        self.frac_grad.setDecimals(3)
+        self.frac_grad.setSuffix(" psi/ft")
+        self.frac_grad.setValue(0.8)
+        layout.addRow("Fracture Gradient:", self.frac_grad)
         
         calc_kill_btn = QPushButton("🔄 Calculate Kill Parameters")
         calc_kill_btn.setStyleSheet("background-color: #e74c3c; color: white; font-weight: bold; padding: 8px;")
@@ -296,31 +316,23 @@ class DrillingCalculatorDialog(QDialog):
         self.av_result.setText(f"AV = {av:.1f} ft/min  ({av * 0.3048:.1f} m/min)")
     
     def _calc_hsi(self):
+        from core.hydraulics_engine import AdvancedHydraulicsEngine
         Q = self.flow_rate.value()
-        P = self.pump_pressure.value()
+        mw = self.mud_weight.value()
         TFA = self.tfa_input.value()
-        
-        if TFA <= 0 or Q <= 0:
-            self.hsi_result.setText("❌ Invalid inputs")
-            return
-        
-        # Bit HHP = (P × Q) / 1714
-        bit_hhp = (P * Q) / 1714
-        
-        # HSI = HHP / bit area
         bit_size = self.hole_diameter.value()
-        bit_area = math.pi * (bit_size / 2)**2
-        hsi = bit_hhp / bit_area if bit_area > 0 else 0
-        
-        # Nozzle velocity = Q / (3.117 × TFA)
-        nozzle_vel = Q / (3.117 * TFA)
-        
-        # Impact Force = (MW × Q × Vn) / 1930
-        IF = (8.33 * Q * nozzle_vel) / 1930  # 8.33 ppg default MW
-        
+
+        if TFA <= 0 or Q <= 0 or mw <= 0:
+            self.hsi_result.setText("❌ Invalid inputs (need Q, MW, TFA > 0)")
+            return
+
+        # Canonical bit hydraulics (ΔP from TFA, then HHP/HSI/JV/IF)
+        bh = AdvancedHydraulicsEngine.calc_bit_hydraulics(Q, mw, TFA, bit_size)
         self.hsi_result.setText(
-            f"HHP = {bit_hhp:.1f} hp | HSI = {hsi:.2f} hp/in²\n"
-            f"Nozzle Vel = {nozzle_vel:.0f} ft/s | IF = {IF:.0f} lbs"
+            f"Bit ΔP = {bh['bit_pressure_drop_psi']:.0f} psi | "
+            f"HHP = {bh['bit_hhp']:.1f} hp | HSI = {bh['hsi']:.2f} hp/in²\n"
+            f"Nozzle Vel = {bh['jet_velocity_fps']:.0f} ft/s | "
+            f"IF = {bh['impact_force_lbs']:.0f} lbs"
         )
     
     def _calc_annular_volume(self):
@@ -364,6 +376,7 @@ class DrillingCalculatorDialog(QDialog):
         )
     
     def _calc_kill_sheet(self):
+        from core.engineering.engines.well_control import WellControlEngine
         tvd = self.tvd.value()
         mw = self.current_mw.value()
         sidpp = self.sidpp.value()
@@ -375,24 +388,28 @@ class DrillingCalculatorDialog(QDialog):
             return
         
         tvd_ft = tvd * 3.28084
-        
-        # Kill Mud Weight (ppg)
         mw_ppg = mw / 7.48  # pcf to ppg
-        kmw_ppg = mw_ppg + (sidpp / (0.052 * tvd_ft))
+
+        # Canonical kill MW, ICP, FCP (IWCF)
+        kmw_r = WellControlEngine.kill_mw(mw_ppg, sidpp, tvd_ft)
+        if not kmw_r.success:
+            self.kill_result.setText(f"❌ {kmw_r.error}")
+            return
+        kmw_ppg = kmw_r.value
         kmw_pcf = kmw_ppg * 7.48
-        
-        # ICP (Initial Circulating Pressure)
         icp = spr + sidpp
-        
-        # FCP (Final Circulating Pressure)
         fcp = spr * (kmw_ppg / mw_ppg)
-        
-        # MAASP
-        # Simplified: MAASP = (Frac Gradient - MW) × 0.052 × Shoe TVD
-        # Using estimated frac gradient = 0.8 psi/ft
-        shoe_tvd_ft = tvd_ft * 0.7  # estimate shoe at 70% depth
-        frac_grad = 0.8  # psi/ft estimate
-        maasp = (frac_grad - (mw_ppg * 0.052)) * shoe_tvd_ft
+
+        # MAASP only when the user provides a shoe TVD (no invented values)
+        maasp_text = "n/a (enter Shoe TVD)"
+        if self.shoe_tvd.value() > 0:
+            maasp_r = WellControlEngine.maasp(
+                max_allowable_mw_ppg=self.frac_grad.value() / 0.052,
+                current_mw_ppg=mw_ppg,
+                shoe_tvd_ft=self.shoe_tvd.value() * 3.28084,
+            )
+            if maasp_r.success:
+                maasp_text = f"{maasp_r.value:.0f} psi"
         
         result = f"""╔══════════════════════════════════════╗
 ║         KILL SHEET CALCULATIONS       ║
@@ -408,7 +425,7 @@ class DrillingCalculatorDialog(QDialog):
 ║ MW Increase:      {kmw_pcf - mw:.1f} pcf
 ║ ICP:              {icp:.0f} psi
 ║ FCP:              {fcp:.0f} psi
-║ MAASP:            {maasp:.0f} psi (estimated)
+║ MAASP:            {maasp_text}
 ╠══════════════════════════════════════╣
 ║ Method: Driller's Method
 ║ Step 1: Circulate with current MW

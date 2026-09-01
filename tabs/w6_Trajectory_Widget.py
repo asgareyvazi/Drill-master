@@ -412,9 +412,29 @@ class SurveyDataTab(QWidget):
         for row in range(self.survey_table.rowCount()):
             for col in range(4, 10):
                 item = self.survey_table.item(row, col)
-                if item and item.text() and float(item.text()) != 0.0:
-                    item.setBackground(QColor(220, 255, 220))
-                    item.setToolTip("Calculated using Minimum Curvature Method")
+                if item and item.text():
+                    val = self._optional_float(item.text())
+                    if val is not None and val != 0.0:
+                        item.setBackground(QColor(220, 255, 220))
+                        item.setToolTip("Calculated using Minimum Curvature Method")
+
+    @staticmethod
+    def _optional_float(text):
+        """Parse a table cell into float, or None for blank/'None'/garbage.
+
+        Survey derived columns (tvd/north/east/vs/hd/dls) are nullable and
+        must round-trip NULL from DB -> blank cell -> NULL, instead of the
+        literal string "None" crashing float() on save.
+        """
+        if text is None:
+            return None
+        s = str(text).strip()
+        if s == "" or s.lower() == "none":
+            return None
+        try:
+            return float(s)
+        except (TypeError, ValueError):
+            return None
     
     def save_data(self):
         if not self.current_well_id:
@@ -453,12 +473,15 @@ class SurveyDataTab(QWidget):
                 tool_item = self.survey_table.item(row, 10)
                 remarks_item = self.survey_table.item(row, 11)
                 
-                tvd = float(tvd_item.text() or 0) if tvd_item else 0.0
-                north = float(north_item.text() or 0) if north_item else 0.0
-                east = float(east_item.text() or 0) if east_item else 0.0
-                vs = float(vs_item.text() or 0) if vs_item else 0.0
-                hd = float(hd_item.text() or 0) if hd_item else 0.0
-                dls = float(dls_item.text() or 0) if dls_item else 0.0
+                # inc/azi are NOT NULL columns -> 0 fallback; all derived
+                # columns stay None when the cell is blank/"None" so NULLs
+                # round-trip instead of crashing on float("None").
+                tvd = self._optional_float(tvd_item.text()) if tvd_item else None
+                north = self._optional_float(north_item.text()) if north_item else None
+                east = self._optional_float(east_item.text()) if east_item else None
+                vs = self._optional_float(vs_item.text()) if vs_item else None
+                hd = self._optional_float(hd_item.text()) if hd_item else None
+                dls = self._optional_float(dls_item.text()) if dls_item else None
                 tool = tool_item.text().strip() if tool_item else "MWD"
                 remarks = remarks_item.text().strip() if remarks_item else ""
                 
@@ -497,16 +520,17 @@ class SurveyDataTab(QWidget):
             for point in points:
                 row = self.survey_table.rowCount()
                 self.survey_table.insertRow(row)
+                # NULL derived values display as blank, never as "None"
                 self.survey_table.setItem(row, 0, QTableWidgetItem(str(point['id'])))
                 self.survey_table.setItem(row, 1, QTableWidgetItem(str(point['md'])))
                 self.survey_table.setItem(row, 2, QTableWidgetItem(str(point['inc'])))
                 self.survey_table.setItem(row, 3, QTableWidgetItem(str(point['azi'])))
-                self.survey_table.setItem(row, 4, QTableWidgetItem(str(point['tvd'])))
-                self.survey_table.setItem(row, 5, QTableWidgetItem(str(point['north'])))
-                self.survey_table.setItem(row, 6, QTableWidgetItem(str(point['east'])))
-                self.survey_table.setItem(row, 7, QTableWidgetItem(str(point['vs'])))
-                self.survey_table.setItem(row, 8, QTableWidgetItem(str(point['hd'])))
-                self.survey_table.setItem(row, 9, QTableWidgetItem(str(point['dls'])))
+                self.survey_table.setItem(row, 4, QTableWidgetItem("" if point['tvd'] is None else str(point['tvd'])))
+                self.survey_table.setItem(row, 5, QTableWidgetItem("" if point['north'] is None else str(point['north'])))
+                self.survey_table.setItem(row, 6, QTableWidgetItem("" if point['east'] is None else str(point['east'])))
+                self.survey_table.setItem(row, 7, QTableWidgetItem("" if point['vs'] is None else str(point['vs'])))
+                self.survey_table.setItem(row, 8, QTableWidgetItem("" if point['hd'] is None else str(point['hd'])))
+                self.survey_table.setItem(row, 9, QTableWidgetItem("" if point['dls'] is None else str(point['dls'])))
                 self.survey_table.setItem(row, 10, QTableWidgetItem(point['tool']))
                 self.survey_table.setItem(row, 11, QTableWidgetItem(point['remarks']))
     

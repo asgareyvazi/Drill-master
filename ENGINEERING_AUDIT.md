@@ -180,3 +180,67 @@ Activity:        28 mapping tests
 2. Machine learning ROP prediction
 3. Automated NPT classification
 4. Digital twin integration
+
+
+---
+
+## H. OEOC Real-Import Audit Addendum (2026-08-31)
+
+### Verified end-to-end with the REAL workbook
+`08-DDR OEOC-208 AZNS-207 2024-Oct-22.xlsx` + `templates/OEOC_DDR_v3.json`
+(no fabricated fixtures), full path:
+`Excel workbook -> Template (anchored) -> Canonical JSON -> SQLite -> UI tabs`.
+
+### Pipeline facts (as implemented)
+- Canonical schema (`core/canonical_schema.py`) is the single registry
+  (FIELD_SPECS with aliases, engineering bounds, quantity/unit, criticality;
+  lookup_alias / get_engineering_bounds / get_quantity_unit / get_field_spec /
+  get_critical_fields / get_fields_by_quantity).
+- `core/excel_intelligence.py` extracts with multi-candidate scoring:
+  preferred cell > merge cell > exact label > alias > fuzzy. Certainty policy:
+  deterministic preferred/label mappings >= 0.70 -> HIGH, >= 0.50 -> MEDIUM,
+  fuzzy never HIGH (never inflated).
+- Placeholder policy: missing = key absent; "N.C" = key None + key_source +
+  source_tokens provenance; real zero = 0. Never invented numbers.
+- Import flow is generic: Company Source -> Template -> Canonical Model ->
+  Database. No `if company == "OEOC"` branching anywhere.
+- DB schema upgrades are additive-only (`_apply_safe_schema_upgrades`
+  ALTER TABLE ADD COLUMN, idempotent, data-preserving).
+
+### Real workbook verification results (this audit)
+- Report date 2024-10-22 (assembled from Year/Month/Day parts)
+- Bit 17.5 in, No. 2, rerun 1, KingDream, IADC 135, nozzles 1x18/32" + 2 Open,
+  TFA 4.32 — funnel/other sizes NOT picked
+- Mud: MW 71 PCF (native UI unit), PV 7, YP 15, funnel 33, gel 4/6, pH 10.5,
+  chlorides 7400, solids 7, hardness 400; 34 chemicals with used/received/
+  on-hand + units; Fluid Loss = N.C -> NULL (never 0, never invented)
+- Pumps: liner text preserved verbatim; SPM/SPP/flow min-max extracted
+- Drilling parameters: WOB 10-30 klb, RPM 80-120, torque 2-4, SPP 350-600
+- Time logs: 24h rows and morning rows kept separate (morning NOT duplicated)
+- Services: Vira, APAD, GEO Data, OEOC (CSG + Wellhead), SPAD Energy — all 6
+  preserved with hole section/dates/duration/description
+- Lookahead: 13 activities with hours -> 11 stored in seven_days_lookahead
+  (rows without activity text are skipped; hours prefixed into remarks)
+- BOP: Annular RS 3000 psi 20-3/4" + 5 more stack components (Jalali
+  last-test date preserved as provenance text, never stored as wrong date)
+- Notes: Note#01/Note#02 appended to the Daily Report summary
+- LTA (Day) 468 -> DailyReport + Well; Actual Rig Days 7.25
+- POB breakdown (rig 76, client 3, MSA 7, service 14, catering 22, labour 8,
+  total 130) -> ServiceCompanyPOB rows (total not stored -> no double count)
+- Safety: days_without_lti 468; missing drill dates stay NULL (no fake dates)
+
+### Test status (this audit)
+Full suite: 352 passed, 2 skipped (PySide6 display), 0 failed, 0 errors.
+Golden OEOC regression: 32 tests in `tests/test_real_oeoc_golden.py`
+(+ `tests/test_multi_company_template.py` for the generic template path).
+
+### Remaining genuine limitations
+- Time-log extraction: 7 of 10 canonical 24h rows and 6 of 7 morning rows
+  reach the DB — rows whose time cells arrive as `timedelta` (not `time`)
+  are skipped by the dialog's `to_time` filter.
+- 2 of 13 lookahead rows lack activity text in the workbook and are skipped
+  (stored: 11).
+- No NPT report is generated from service rows with negative durations;
+  service NPT is visible via service_companies, not npt_reports.
+- UI verification is code-path level (headless env: no libGL); tabs w1/w7/w8
+  load the imported values through their DB getters.

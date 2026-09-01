@@ -156,6 +156,126 @@ class MudEngineering:
         }
 
 
+    @staticmethod
+    def corrosion_rate(weight_loss_mg: float, area_in2: float,
+                       hours: float, density_g_cm3: float = 7.86) -> Dict:
+        """Uniform corrosion rate from a weight-loss coupon (API RP 13B-1).
+
+        Formula: rate (mpy) = 534 × W / (A × T × D)
+
+        W = coupon weight loss (mg), A = coupon area (in²),
+        T = exposure time (hours), D = coupon density (g/cm³, steel ≈ 7.86).
+        Also returns lb/ft²/yr (= mpy / 24.6) for mud-system comparisons.
+        """
+        if area_in2 <= 0:
+            raise ExtendedEngineeringError("Coupon area must be > 0")
+        if hours <= 0:
+            raise ExtendedEngineeringError("Exposure time must be > 0")
+        if density_g_cm3 <= 0:
+            raise ExtendedEngineeringError("Coupon density must be > 0")
+        if weight_loss_mg < 0:
+            raise ExtendedEngineeringError("Weight loss cannot be negative")
+        mpy = 534.0 * weight_loss_mg / (area_in2 * hours * density_g_cm3)
+        return {
+            "corrosion_rate_mpy": round(mpy, 3),
+            "corrosion_rate_lb_ft2_yr": round(mpy / 24.6, 4),
+            "severity": (
+                "low (< 5 mpy)" if mpy < 5 else
+                "moderate (5–10 mpy)" if mpy < 10 else
+                "high (> 10 mpy)"
+            ),
+            "formula": "mpy = 534 × W(mg) / (A(in²) × T(hr) × D(g/cm³))",
+        }
+
+    @staticmethod
+    def mbt_bentonite_equiv(ml_methylene_blue: float, sample_ml: float) -> Dict:
+        """Bentonite-equivalent from methylene-blue titration (API RP 13B-1).
+
+        Formula: lb/bbl bentonite equiv = 5 × V_MB / V_sample
+
+        Each mL of 0.01 N methylene blue titrated per mL of mud sample
+        corresponds to ≈ 5 lb/bbl of reactive (bentonite) clay.
+        """
+        if sample_ml <= 0:
+            raise ExtendedEngineeringError("Sample volume must be > 0")
+        if ml_methylene_blue < 0:
+            raise ExtendedEngineeringError("MBT volume cannot be negative")
+        mbt = 5.0 * ml_methylene_blue / sample_ml
+        return {
+            "mbt_lb_per_bbl": round(mbt, 1),
+            "formula": "MBT = 5 × V_MB / V_sample (lb/bbl bentonite equiv)",
+        }
+
+    @staticmethod
+    def lsryp(r3: float, r6: float) -> Dict:
+        """Low-Shear-Rate Yield Point (LSRYP) from 3/6 rpm dial readings.
+
+        Formula: LSRYP = 2 × θ3 − θ6  (lb/100 ft²)
+
+        LSRYP measures hole-cleaning / barite-sag tendency: values below
+        ~3 lb/100 ft² at low shear are a sag warning sign.
+        """
+        lsryp_val = 2.0 * r3 - r6
+        if lsryp_val < 3.0:
+            warning = "Barite sag risk (LSRYP < 3 lb/100ft²)"
+        elif lsryp_val < 7.0:
+            warning = "Low LSRYP — suspension concern (target 7–15 lb/100ft²)"
+        else:
+            warning = None
+        return {
+            "lsryp_lb_per_100ft2": round(lsryp_val, 2),
+            "warning": warning,
+            "formula": "LSRYP = 2 × θ3 − θ6",
+        }
+
+    @staticmethod
+    def excess_lime_obm(pom_ml: float) -> Dict:
+        """Excess lime in oil/synthetic muds from POM alkalinity.
+
+        Formula: Excess lime (lb/bbl) = 1.295 × POM (mL)
+
+        POM is the whole-mud phenolphthalein alkalinity (mL of 0.1 N
+        H₂SO₄ per mL of mud to pH 8.3, API RP 13B-2); 1.295 converts the
+        titration to lb/bbl Ca(OH)₂ equivalent.
+        """
+        if pom_ml < 0:
+            raise ExtendedEngineeringError("POM cannot be negative")
+        lime = 1.295 * pom_ml
+        return {
+            "excess_lime_lb_per_bbl": round(lime, 2),
+            "formula": "Excess lime = 1.295 × POM (lb/bbl)",
+        }
+
+    @staticmethod
+    def slug_dry_length(slug_vol_bbl: float, slug_mw_ppg: float,
+                        mud_mw_ppg: float, pipe_cap_bbl_ft: float) -> Dict:
+        """Dry pipe length from a weighted slug.
+
+        Formula: L_dry = V_slug × (ρ_slug − ρ_mud) / (pipe_cap × ρ_mud)
+
+        Returns the dry-pipe length in ft and the hydrostatic gain
+        (psi) of the slug over the same length:
+            ΔP = 0.052 × (ρ_slug − ρ_mud) × L_slug
+        """
+        if pipe_cap_bbl_ft <= 0:
+            raise ExtendedEngineeringError("Pipe capacity must be > 0")
+        if mud_mw_ppg <= 0:
+            raise ExtendedEngineeringError("Mud weight must be > 0")
+        if slug_mw_ppg <= mud_mw_ppg:
+            raise ExtendedEngineeringError("Slug MW must be > mud MW")
+        if slug_vol_bbl <= 0:
+            raise ExtendedEngineeringError("Slug volume must be > 0")
+        dry_len = slug_vol_bbl * (slug_mw_ppg - mud_mw_ppg) / (
+            pipe_cap_bbl_ft * mud_mw_ppg
+        )
+        hydro_gain = 0.052 * (slug_mw_ppg - mud_mw_ppg) * dry_len
+        return {
+            "dry_pipe_length_ft": round(dry_len, 1),
+            "hydrostatic_gain_psi": round(hydro_gain, 1),
+            "formula": "L_dry = V_slug × (ρ_slug − ρ_mud) / (cap × ρ_mud)",
+        }
+
+
 # ==================== Hydraulics Extended ====================
 
 class HydraulicsExtended:

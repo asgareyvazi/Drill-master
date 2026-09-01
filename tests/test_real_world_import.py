@@ -7,6 +7,7 @@ side-by-side tables, and different units.
 
 import pytest
 import os
+import tempfile
 from pathlib import Path
 from datetime import date
 
@@ -26,12 +27,17 @@ FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 @pytest.fixture(scope="module")
 def fixtures():
-    """Generate fixtures once for all tests in this module."""
+    """Generate fixtures once for all tests in this module.
+
+    Written to a temp directory so tracked fixture files are never
+    rewritten by a test run (openpyxl save would churn their embedded
+    timestamps)."""
     if not HAS_OPENPYXL:
         pytest.skip("openpyxl not installed")
-    
+
     from tests.create_fixtures import create_all_fixtures
-    return create_all_fixtures()
+    tmp = tempfile.mkdtemp(prefix="drillmaster_fixtures_")
+    return create_all_fixtures(target_dir=tmp)
 
 
 @pytest.fixture

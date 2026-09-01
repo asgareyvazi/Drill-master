@@ -361,14 +361,14 @@ class SafetyBOPTab(QWidget):
                         except:
                             widget.setDate(QDate.currentDate().addDays(-default_days_ago))
                             
-                self.last_fire_drill.setDate(report_data.get('last_fire_drill', QDate.currentDate().addDays(-7)))
-                self.last_bop_drill.setDate(report_data.get('last_bop_drill', QDate.currentDate().addDays(-14)))
-                self.last_h2s_drill.setDate(report_data.get('last_h2s_drill', QDate.currentDate().addDays(-21)))
-                self.days_no_lti.setValue(report_data.get('days_without_lti', 0))
-                self.last_rams_test.setDate(report_data.get('last_rams_test', QDate.currentDate().addDays(-10)))
-                self.test_pressure.setValue(report_data.get('test_pressure', 0))
-                self.last_koomey_test.setDate(report_data.get('last_koomey_test', QDate.currentDate().addDays(-5)))
-                self.days_since_last_test.setValue(report_data.get('days_since_last_test', 0))
+                safe_set_date(self.last_fire_drill, report_data.get('last_fire_drill'), 7)
+                safe_set_date(self.last_bop_drill, report_data.get('last_bop_drill'), 14)
+                safe_set_date(self.last_h2s_drill, report_data.get('last_h2s_drill'), 21)
+                self.days_no_lti.setValue(report_data.get('days_without_lti', 0) or 0)
+                safe_set_date(self.last_rams_test, report_data.get('last_rams_test'), 10)
+                self.test_pressure.setValue(report_data.get('test_pressure', 0) or 0)
+                safe_set_date(self.last_koomey_test, report_data.get('last_koomey_test'), 5)
+                self.days_since_last_test.setValue(report_data.get('days_since_last_test', 0) or 0)
                 if report_data.get('bop_test_report'):
                     idx = self.bop_test_report.findText(report_data['bop_test_report'])
                     if idx >= 0: self.bop_test_report.setCurrentIndex(idx)

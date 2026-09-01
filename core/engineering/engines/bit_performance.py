@@ -6,6 +6,7 @@ inputs exist) MSE, using the canonical engines.
 """
 from __future__ import annotations
 
+import math
 from typing import Any, Dict, List, Optional
 
 from ..result import (
@@ -168,3 +169,168 @@ class BitPerformanceEngine:
             formula="Σ footage / Σ hours",
             method=cls.METHOD,
         )
+
+    # ------------------------------------------------------------------
+    # d-exponent (pore-pressure detection) — Rehm & McClendon (1971)
+    # ------------------------------------------------------------------
+    @classmethod
+    def d_exponent(
+        cls,
+        rop_ft_hr,
+        rpm,
+        wob_lbf,
+        bit_size_in,
+    ) -> EngineeringResult:
+        """d-exponent (Rehm & McClendon, 1971; IADC).
+
+            d = log10( ROP / (60 × RPM) ) / log10( 12 × WOB / (1,000,000 × D) )
+
+        ROP in ft/hr, RPM in rev/min, WOB in lbf, bit size in inches
+        (Jorden & Shirley, 1966; equivalent form with WOB in klbf:
+        log10(12·WOB_klbf / (1000 × D))).
+        d rises with normal compaction; a decreasing d at constant depth
+        indicates overpressure (abnormal pore pressure).
+        """
+        try:
+            rop = require_number(rop_ft_hr, "rop_ft_hr")
+            r = require_number(rpm, "rpm")
+            wob = require_number(wob_lbf, "wob_lbf")
+            d = require_number(bit_size_in, "bit_size_in")
+            if rop <= 0 or r <= 0 or wob <= 0 or d <= 0:
+                raise EngineeringError(
+                    "ROP, RPM, WOB and bit size must all be > 0"
+                )
+            numerator = math.log10(rop / (60.0 * r))
+            denominator = math.log10((12.0 * wob) / (1000000.0 * d))
+            if abs(denominator) < 1e-9:
+                raise EngineeringError(
+                    "12×WOB/(10⁶×D) = 1 → log(1) = 0; d-exponent undefined"
+                )
+            d_exp = numerator / denominator
+            return ok(
+                round(d_exp, 4),
+                values={
+                    "d_exponent": round(d_exp, 4),
+                    "numerator_log10": round(numerator, 6),
+                    "denominator_log10": round(denominator, 6),
+                },
+                unit="dimensionless",
+                formula="d = log10(ROP/(60·RPM)) / log10(12·WOB/(10⁶·D))",
+                method="Rehm & McClendon (1971)",
+                assumptions=[
+                    "ROP in ft/hr, WOB in lbf, bit size in inches",
+                    "Jorden & Shirley (1966) form: denominator 12·WOB/(10⁶·D)",
+                    "Normal-compaction baseline: d increases with depth",
+                    "Decreasing d at constant depth → abnormal pressure",
+                ],
+            )
+        except MissingInputError as exc:
+            return missing(exc.field)
+        except EngineeringError as exc:
+            return failed(str(exc))
+
+    @classmethod
+    def d_exponent_corrected(
+        cls,
+        rop_ft_hr,
+        rpm,
+        wob_lbf,
+        bit_size_in,
+        mw_ppg,
+        normal_mw_ppg=8.6,
+    ) -> EngineeringResult:
+        """Mud-weight-corrected d-exponent (dc).
+
+            dc = d × (MW_normal / MW_actual)
+
+        The correction removes the drilling-fluid-density effect so pore
+        pressure trends can be read from dc directly.
+        """
+        try:
+            base = cls.d_exponent(rop_ft_hr, rpm, wob_lbf, bit_size_in)
+            if not base.success:
+                return base
+            mw = require_number(mw_ppg, "mw_ppg")
+            normal = require_number(normal_mw_ppg, "normal_mw_ppg")
+            if mw <= 0:
+                raise EngineeringError("mw_ppg must be > 0")
+            dc = base.values["d_exponent"] * (normal / mw)
+            return ok(
+                round(dc, 4),
+                values={
+                    "d_exponent_corrected": round(dc, 4),
+                    "d_exponent": base.values["d_exponent"],
+                    "mw_ppg": mw,
+                    "normal_mw_ppg": normal,
+                },
+                unit="dimensionless",
+                formula="dc = d × (MW_normal / MW_actual)",
+                method="Rehm & McClendon (1971), mud-weight corrected",
+                assumptions=[
+                    "Normal mud weight baseline 8.6 ppg unless provided",
+                    "Same units as d_exponent (ROP ft/hr, WOB lbf, D in)",
+                ],
+            )
+        except MissingInputError as exc:
+            return missing(exc.field)
+        except EngineeringError as exc:
+            return failed(str(exc))
+
+    @classmethod
+    def cost_per_foot(
+        cls,
+        rig_cost_per_day,
+        trip_hours,
+        bit_cost,
+        footage,
+        rotating_hours=None,
+    ) -> EngineeringResult:
+        """Drilling cost per foot (Bourgoyne, Applied Drilling Engineering).
+
+            C/ft = (C_rig × T_trip + C_bit) / footage
+
+        C_rig in $/day → $/hr via /24; T_trip in hours; C_bit in $;
+        footage in ft. If rotating_hours is given, rig cost uses the full
+        cycle: C_rig × (T_trip + T_rotating) + C_bit.
+        """
+        try:
+            rig_day = require_number(rig_cost_per_day, "rig_cost_per_day")
+            trip = require_number(trip_hours, "trip_hours")
+            bit = require_number(bit_cost, "bit_cost")
+            ft = require_number(footage, "footage")
+            if rig_day < 0 or trip < 0 or bit < 0:
+                raise EngineeringError("Costs and hours cannot be negative")
+            if ft <= 0:
+                raise EngineeringError("Footage must be > 0")
+            rig_hour = rig_day / 24.0
+            if rotating_hours is not None:
+                rot = require_number(rotating_hours, "rotating_hours")
+                if rot < 0:
+                    raise EngineeringError("rotating_hours cannot be negative")
+                total_cost = rig_hour * (trip + rot) + bit
+            else:
+                total_cost = rig_hour * trip + bit
+            cft = total_cost / ft
+            return ok(
+                round(cft, 2),
+                values={
+                    "cost_per_ft": round(cft, 2),
+                    "total_cost": round(total_cost, 2),
+                    "rig_cost_per_hr": round(rig_hour, 2),
+                    "trip_hours": trip,
+                    "rotating_hours": rotating_hours,
+                    "footage": ft,
+                },
+                unit="$/ft",
+                formula="C/ft = (C_rig×T_trip + C_bit) / footage",
+                method="Bourgoyne et al., Applied Drilling Engineering",
+                assumptions=[
+                    "Rig cost in $/day, trip time in hours, bit cost in $",
+                    "Bit cost includes dull-grading / handling if applicable",
+                    "Full-cycle variant adds rotating hours to trip hours",
+                ],
+            )
+        except MissingInputError as exc:
+            return missing(exc.field)
+        except EngineeringError as exc:
+            return failed(str(exc))

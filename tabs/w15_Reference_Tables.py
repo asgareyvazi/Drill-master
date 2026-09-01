@@ -483,7 +483,8 @@ class ReferenceTablesWidget(DrillTabBase):
                 ("Pipe Capacity (bbl/m)", "ID² × 3.281 / 1029.4"),
                 ("Annular Capacity (bbl/ft)", "(Dh² - Dp²) / 1029.4"),
                 ("Displacement (bbl/ft)", "(OD² - ID²) / 1029.4"),
-                ("Pump Output (bbl/stk)", "0.000243 × Liner² × Stroke × Eff"),
+                ("Pump Output — Triplex (bbl/stk)", "0.000243 × Liner² × Stroke × Eff"),
+                ("Pump Output — Duplex (bbl/stk)", "0.000162 × Stroke × (2×Liner² − Rod²) × Eff"),
                 ("Flow Rate (gpm)", "Pump Output × SPM × 42"),
             ]),
             ("💧 Hydraulics", [

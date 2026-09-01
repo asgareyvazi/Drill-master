@@ -311,13 +311,27 @@ def create_unit_variant_ddr(filepath: str = None) -> str:
     return filepath
 
 
-def create_all_fixtures():
-    """Generate all test fixtures."""
+def create_all_fixtures(target_dir: str = None):
+    """Generate all test fixtures.
+
+    Writes into FIXTURES_DIR when no target_dir is given (CLI use), or
+    into target_dir when provided — so test runs never rewrite the
+    tracked fixture files (openpyxl save would otherwise churn
+    docProps/core.xml timestamps on every run).
+    """
     fixtures = {}
-    fixtures["normal"] = create_normal_ddr()
-    fixtures["merged"] = create_merged_cell_ddr()
-    fixtures["multi_header"] = create_multi_header_ddr()
-    fixtures["unit_variant"] = create_unit_variant_ddr()
+    fixtures["normal"] = create_normal_ddr(
+        str(Path(target_dir) / "normal_ddr.xlsx") if target_dir else None
+    )
+    fixtures["merged"] = create_merged_cell_ddr(
+        str(Path(target_dir) / "merged_cell_ddr.xlsx") if target_dir else None
+    )
+    fixtures["multi_header"] = create_multi_header_ddr(
+        str(Path(target_dir) / "multi_header_ddr.xlsx") if target_dir else None
+    )
+    fixtures["unit_variant"] = create_unit_variant_ddr(
+        str(Path(target_dir) / "unit_variant_ddr.xlsx") if target_dir else None
+    )
     return fixtures
 
 
