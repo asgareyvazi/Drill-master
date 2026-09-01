@@ -216,12 +216,15 @@ class MudEngineering:
         ~3 lb/100 ft² at low shear are a sag warning sign.
         """
         lsryp_val = 2.0 * r3 - r6
+        if lsryp_val < 3.0:
+            warning = "Barite sag risk (LSRYP < 3 lb/100ft²)"
+        elif lsryp_val < 7.0:
+            warning = "Low LSRYP — suspension concern (target 7–15 lb/100ft²)"
+        else:
+            warning = None
         return {
             "lsryp_lb_per_100ft2": round(lsryp_val, 2),
-            "warning": (
-                "Low LSRYP (< 3 lb/100ft²) — barite sag risk"
-                if lsryp_val < 3.0 else None
-            ),
+            "warning": warning,
             "formula": "LSRYP = 2 × θ3 − θ6",
         }
 
