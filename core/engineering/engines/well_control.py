@@ -46,21 +46,34 @@ class WellControlEngine:
         frac_gradient_psi_ft=None,
     ) -> float:
         if frac_mw_ppg not in (None, ""):
-            return require_number(frac_mw_ppg, "frac_mw_ppg")
+            value = require_number(frac_mw_ppg, "frac_mw_ppg")
+            if value <= 0:
+                raise EngineeringError("frac_mw_ppg must be > 0")
+            return value
         if lot_pressure_psi not in (None, "") and shoe_tvd_ft > 0:
-            return require_number(lot_pressure_psi, "lot_pressure_psi") / (
-                PSI_PER_PPG_FT * shoe_tvd_ft
-            )
+            pressure = require_number(lot_pressure_psi, "lot_pressure_psi")
+            if pressure <= 0:
+                raise EngineeringError("lot_pressure_psi must be > 0")
+            return pressure / (PSI_PER_PPG_FT * shoe_tvd_ft)
         if frac_gradient_psi_ft not in (None, ""):
-            return require_number(frac_gradient_psi_ft, "frac_gradient_psi_ft") / PSI_PER_PPG_FT
+            gradient = require_number(frac_gradient_psi_ft, "frac_gradient_psi_ft")
+            if gradient <= 0:
+                raise EngineeringError("frac_gradient_psi_ft must be > 0")
+            return gradient / PSI_PER_PPG_FT
         raise MissingInputError("frac_mw_ppg or lot_pressure_psi or frac_gradient_psi_ft")
 
     @staticmethod
     def _influx_gradient_psi_ft(influx_gradient_psi_ft=None, influx_emw_ppg=None) -> float:
         if influx_gradient_psi_ft not in (None, ""):
-            return require_number(influx_gradient_psi_ft, "influx_gradient_psi_ft")
+            value = require_number(influx_gradient_psi_ft, "influx_gradient_psi_ft")
+            if value < 0:
+                raise EngineeringError("influx_gradient_psi_ft cannot be negative")
+            return value
         if influx_emw_ppg not in (None, ""):
-            return require_number(influx_emw_ppg, "influx_emw_ppg") * PSI_PER_PPG_FT
+            emw = require_number(influx_emw_ppg, "influx_emw_ppg")
+            if emw < 0:
+                raise EngineeringError("influx_emw_ppg cannot be negative")
+            return emw * PSI_PER_PPG_FT
         raise MissingInputError("influx_gradient_psi_ft or influx_emw_ppg")
 
     @staticmethod
@@ -68,6 +81,10 @@ class WellControlEngine:
         mw = require_number(original_mw_ppg, "original_mw_ppg")
         sidpp = require_number(sidpp_psi, "sidpp_psi")
         tvd = require_number(tvd_ft, "tvd_ft")
+        if mw <= 0:
+            raise EngineeringError("original_mw_ppg must be > 0")
+        if sidpp < 0:
+            raise EngineeringError("sidpp_psi cannot be negative")
         if tvd <= 0:
             raise EngineeringError("TVD must be > 0")
         return mw + sidpp / (PSI_PER_PPG_FT * tvd)
@@ -89,6 +106,10 @@ class WellControlEngine:
             frac = require_number(leak_off_psi, "leak_off_psi") / (PSI_PER_PPG_FT * shoe)
         else:
             raise MissingInputError("max_allowable_mw_ppg or leak_off_psi")
+        if mw <= 0 or frac <= 0:
+            raise EngineeringError("Mud and fracture equivalent weights must be > 0")
+        if frac < mw:
+            raise EngineeringError("Fracture MW must be ≥ current MW (MAASP would be negative)")
         return (frac - mw) * PSI_PER_PPG_FT * shoe
 
     @classmethod
@@ -185,6 +206,8 @@ class WellControlEngine:
             mw = require_number(mw_ppg, "mw_ppg")
             shoe = require_number(shoe_tvd_ft, "shoe_tvd_ft")
             tvd = require_number(current_tvd_ft, "current_tvd_ft")
+            if mw <= 0:
+                raise EngineeringError("mw_ppg must be > 0")
             if shoe <= 0:
                 raise EngineeringError("shoe_tvd_ft must be > 0")
             if tvd <= 0:
@@ -346,9 +369,15 @@ class WellControlEngine:
         """
         try:
             mw = require_number(mw_ppg, "mw_ppg")
+            if mw <= 0:
+                raise EngineeringError("mw_ppg must be > 0")
             tvd = optional_number(tvd_ft, "tvd_ft")
             form_emw = optional_number(formation_emw_ppg, "formation_emw_ppg")
             form_psi = optional_number(formation_pressure_psi, "formation_pressure_psi")
+            if form_emw is not None and form_emw < 0:
+                raise EngineeringError("formation_emw_ppg cannot be negative")
+            if form_psi is not None and form_psi < 0:
+                raise EngineeringError("formation_pressure_psi cannot be negative")
             if form_emw is None:
                 if form_psi is None or tvd is None:
                     raise MissingInputError("formation_emw_ppg or (formation_pressure_psi and tvd_ft)")

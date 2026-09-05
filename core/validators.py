@@ -257,8 +257,10 @@ class SurveyValidator:
                 r.add_error(f"survey[{idx}].md", f"Non-monotonic MD: {md_f} <= {prev_md}")
             prev_md = md_f
 
-            inc = p.get("inc", p.get("inclination", 0))
-            if inc not in (None, ""):
+            inc = p.get("inc", p.get("inclination"))
+            if inc in (None, ""):
+                r.add_error(f"survey[{idx}].inc", "Inclination is required - MISSING_INPUT")
+            else:
                 try:
                     inc_f = float(inc)
                     if not (0 <= inc_f <= 180):
@@ -266,8 +268,10 @@ class SurveyValidator:
                 except (TypeError, ValueError):
                     r.add_error(f"survey[{idx}].inc", "Inc must be numeric")
 
-            azi = p.get("azi", p.get("azimuth", 0))
-            if azi not in (None, ""):
+            azi = p.get("azi", p.get("azimuth"))
+            if azi in (None, ""):
+                r.add_error(f"survey[{idx}].azi", "Azimuth is required - MISSING_INPUT")
+            else:
                 try:
                     float(azi)
                 except (TypeError, ValueError):

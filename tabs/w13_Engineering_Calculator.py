@@ -191,7 +191,11 @@ class DrillingCalculationEngine:
         r = WellControlEngine.formation_pressure(
             mw_ppg=mw_ppg, tvd_ft=tvd_ft, sidpp_psi=sidpp)
         if not r.success:
+            # Keep legacy dictionary keys for callers, but mark the result as
+            # failed so zero placeholders can never be mistaken for a
+            # pressure calculation.
             return {
+                "error": r.error,
                 "hydrostatic_psi": 0.0,
                 "formation_pressure_psi": round(float(sidpp or 0), 0),
                 "pressure_gradient_psi_ft": 0.0,
@@ -2373,16 +2377,12 @@ class EngineeringCalculatorTab(DrillTabBase):
         surveys = []
         if getattr(self, "dd_surveys", None):
             surveys = [
-                {"md": s.get("md", 0), "inc": s.get("inc", 0), "azi": s.get("azi", 0)}
+                {"md": s.get("md"), "inc": s.get("inc"), "azi": s.get("azi")}
                 for s in self.dd_surveys
             ]
         else:
-            total_m = sum(p.get("length", 0) or 0 for p in self.wt_pipes)
-            inc = self.wt_inc.value()
-            surveys = [
-                {"md": 0.0, "inc": inc, "azi": 0.0},
-                {"md": max(total_m, 1.0), "inc": inc, "azi": 0.0},
-            ]
+            self.wt_td.setText("❌ MISSING_INPUT: directional survey required for torque/drag")
+            return
         r = TorqueDragEngine.calculate(
             surveys,
             string,
@@ -2491,9 +2491,13 @@ class EngineeringCalculatorTab(DrillTabBase):
         self.mud_dil_cur = self._make_dspin(90, 0, 200, 1, " pcf")
         self.mud_dil_tar = self._make_dspin(80, 0, 200, 1, " pcf")
         self.mud_dil_vol = self._make_dspin(500, 0, 10000, 0, " bbl")
+        # Dilutant density is an engineering input, not an implicit water
+        # constant. Zero is an intentional required-input state.
+        self.mud_dilant_mw = self._make_dspin(0, 0, 200, 1, " pcf")
         f2.addRow("Current MW:", self.mud_dil_cur)
         f2.addRow("Target MW:", self.mud_dil_tar)
         f2.addRow("System Volume:", self.mud_dil_vol)
+        f2.addRow("Dilutant MW (required):", self.mud_dilant_mw)
         b2 = QPushButton("🔄 Calculate")
         b2.setStyleSheet("background: #3498db; color: white; padding: 6px; border-radius: 3px; border: none;")
         b2.clicked.connect(self._mud_dil)
@@ -2688,9 +2692,10 @@ class EngineeringCalculatorTab(DrillTabBase):
             )
 
     def _mud_dil(self):
+        dilutant_mw = self.mud_dilant_mw.value()
         r = self.engine.calc_mud_dilution(
             self.mud_dil_cur.value(), self.mud_dil_tar.value(), self.mud_dil_vol.value(),
-            62.4,
+            dilutant_mw if dilutant_mw > 0 else None,
         )
         if "error" in r:
             self.mud_dil_res.setText(f"❌ {r['error']}")
@@ -3556,16 +3561,25 @@ class EngineeringCalculatorTab(DrillTabBase):
         # Kill calculations — canonical WellControlEngine
         from core.engineering.engines.well_control import WellControlEngine as WC
         kmw_r = WC.kill_mw(mw_ppg, sidpp, tvd_ft)
-        kmw_ppg = kmw_r.value if kmw_r.success else mw_ppg
+        if not kmw_r.success:
+            self.wc_result.setText(f"❌ {kmw_r.error}")
+            return
+        kmw_ppg = kmw_r.value
         kmw_pcf = kmw_ppg * 7.48
         icp = scr1 + sidpp
-        fcp = scr1 * (kmw_ppg / mw_ppg) if mw_ppg > 0 else scr1
+        if mw_ppg <= 0:
+            self.wc_result.setText("❌ MISSING_INPUT: positive mud weight")
+            return
+        fcp = scr1 * (kmw_ppg / mw_ppg)
         maasp_r = WC.maasp(
             max_allowable_mw_ppg=frac_grad / 0.052 if frac_grad else None,
             current_mw_ppg=mw_ppg,
             shoe_tvd_ft=shoe_tvd_ft,
         )
-        maasp = maasp_r.value if maasp_r.success else 0
+        if not maasp_r.success:
+            self.wc_result.setText(f"❌ {maasp_r.error}")
+            return
+        maasp = maasp_r.value
 
         # Strokes
         stk_to_bit = total_string_vol / pump_output if pump_output > 0 else 0
@@ -3809,6 +3823,9 @@ class EngineeringCalculatorTab(DrillTabBase):
         tvd_ft = self.hp_tvd.value() * 3.28084
         sidpp = self.hp_sidpp.value()
         r = self.engine.calc_formation_pressure(mw_pcf, tvd_ft, sidpp)
+        if "error" in r:
+            self.hp_result.setText(f"⚠️ {r['error']}")
+            return
 
         text = f"Hydrostatic Pressure: {r['hydrostatic_psi']:.0f} psi\n"
         text += f"Formation Pressure:   {r['formation_pressure_psi']:.0f} psi\n"
@@ -3992,7 +4009,7 @@ class EngineeringCalculatorTab(DrillTabBase):
         """Recompute the whole survey with canonical Minimum Curvature."""
         from core.engineering.core import TrajectoryEngine
         surveys = [
-            {"md": s.get("md", 0), "inc": s.get("inc", 0), "azi": s.get("azi", 0)}
+            {"md": s.get("md"), "inc": s.get("inc"), "azi": s.get("azi")}
             for s in self.dd_surveys
         ]
         if not surveys:

@@ -90,6 +90,10 @@ class CementEngine:
             vol = require_number(slurry_bbl, "slurry_bbl")
             excess = require_number(excess_pct, "excess_pct")
             shoe = require_number(shoe_md_ft, "shoe_md_ft")
+            if hole <= 0 or od <= 0 or hole <= od:
+                raise EngineeringError("Hole size must be > casing OD and both must be > 0")
+            if vol < 0 or excess < 0 or shoe < 0:
+                raise EngineeringError("Slurry volume, excess and shoe MD cannot be negative")
             cap = _ann_cap_bbl_ft(hole, od) * (1.0 + excess / 100.0)
             if cap <= 0:
                 raise EngineeringError("Annular capacity must be > 0")
@@ -147,9 +151,11 @@ class CementEngine:
             pore = optional_number(pore_emw_ppg, "pore_emw_ppg")
             shoe_tvd = optional_number(shoe_tvd_ft, "shoe_tvd_ft")
             warnings: List[str] = []
+            if pore is not None and pore <= 0:
+                raise EngineeringError("pore_emw_ppg must be > 0")
+            if shoe_tvd is not None and shoe_tvd <= 0:
+                raise EngineeringError("shoe_tvd_ft must be > 0")
             if pore is not None and shoe_tvd is not None:
-                if shoe_tvd <= 0:
-                    raise EngineeringError("shoe_tvd_ft must be > 0")
                 pp = PSI_PER_PPG_FT * pore * shoe_tvd
                 overbalance = total - pp
                 if overbalance < 0:

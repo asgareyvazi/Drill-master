@@ -18,6 +18,7 @@ P0 Requirements Implemented:
 from dataclasses import dataclass, field
 from typing import Any, Iterable, List, Dict, Tuple, Optional
 from datetime import time, datetime, date, timedelta
+import math
 import re
 
 
@@ -194,13 +195,16 @@ class TimeLogValidator:
             return None
         if isinstance(t, str):
             s = t.strip()
-            if s == "24:00":
+            # Excel/DDRs use 24:00 as the inclusive end of the reporting day.
+            # Require a complete, valid wall-clock token: accepting 24:01,
+            # 25:00, or a valid prefix would corrupt interval arithmetic.
+            m = re.fullmatch(r"(\d{1,2}):(\d{2})", s)
+            if not m:
+                return None
+            h, mi = int(m.group(1)), int(m.group(2))
+            if h == 24 and mi == 0:
                 return 24 * 60
-            m = re.match(r"^(\d{1,2}):(\d{2})", s)
-            if m:
-                h, mi = int(m.group(1)), int(m.group(2))
-                if h == 24:
-                    return 24 * 60
+            if 0 <= h < 24 and 0 <= mi < 60:
                 return h * 60 + mi
             return None
         if isinstance(t, time):
@@ -208,8 +212,15 @@ class TimeLogValidator:
             return t.hour * 60 + t.minute
         if isinstance(t, timedelta):
             # Excel wall-clock times arrive as timedelta; 24:00 is
-            # timedelta(days=1) -> 1440 minutes.
-            return t.days * 1440 + t.seconds // 60
+            # timedelta(days=1) -> 1440 minutes. Reject negative,
+            # fractional-minute, and >24-hour values rather than silently
+            # turning them into a different time.
+            if t.total_seconds() < 0 or t.total_seconds() > 24 * 3600:
+                return None
+            total_seconds = t.total_seconds()
+            if total_seconds % 60:
+                return None
+            return int(total_seconds // 60)
         if hasattr(t, "hour") and hasattr(t, "minute"):
             # DrillTime or similar
             h = getattr(t, "hour", 0)
@@ -268,10 +279,16 @@ class TimeLogValidator:
             if from_m is not None and to_m is not None:
                 computed_dur = cls._duration_from_times(from_m, to_m)
 
-            # Duration validation
-            if dur is not None:
+            # Duration validation. Keep the normalized value separate from
+            # the source token: an invalid duration must not be parsed again
+            # while building ``parsed`` below.
+            duration_value = computed_dur if dur in (None, "") else None
+            if dur is not None and dur != "":
                 try:
                     dur_f = float(dur)
+                    if not math.isfinite(dur_f):
+                        raise ValueError
+                    duration_value = dur_f
                     if dur_f < 0:
                         report.error(sheet, idx + 2, "Duration cannot be negative", "duration", dur)
                     if dur_f > 24:
@@ -285,8 +302,9 @@ class TimeLogValidator:
                             "duration",
                             dur,
                         )
-                except (TypeError, ValueError):
+                except (TypeError, ValueError, OverflowError):
                     report.error(sheet, idx + 2, "Duration must be numeric", "duration", dur)
+                    duration_value = None
 
             # Code validation
             if not log.get("main_code") and not log.get("activity_description"):
@@ -301,49 +319,71 @@ class TimeLogValidator:
                     "index": idx,
                     "from_m": from_m,
                     "to_m": to_m,
-                    "duration": float(dur) if dur not in (None, "") else computed_dur,
+                    "duration": duration_value,
                     "computed_duration": computed_dur,
                     "log": log,
                 }
             )
 
-        # Sort by from time for overlap/gap detection
+        # Sort by from time for deterministic diagnostics. Intervals are
+        # expanded on a 24-hour circle so a row such as 22:00–02:00 is
+        # checked against both the end and start of the reporting day.
         valid_parsed = [p for p in parsed if p["from_m"] is not None and p["to_m"] is not None]
         valid_parsed.sort(key=lambda x: x["from_m"])
+        day_minutes = 24 * 60
 
-        # Overlap detection
-        for i in range(1, len(valid_parsed)):
-            prev = valid_parsed[i - 1]
-            curr = valid_parsed[i]
-            # If prev ends after curr starts -> overlap
-            # Handle midnight crossing: if prev to_m < from_m, it crossed midnight
-            prev_to = prev["to_m"]
-            curr_from = curr["from_m"]
+        def _segments(item):
+            start_m, end_m = item["from_m"], item["to_m"]
+            if end_m < start_m:
+                return [(start_m, day_minutes), (0, end_m)]
+            return [(start_m, end_m)]
 
-            # Simple overlap check (without crossing)
-            if prev_to > curr_from and not (prev["from_m"] > prev["to_m"]):
-                report.error(
-                    sheet,
-                    curr["index"] + 2,
-                    f"Time overlap with previous: {prev['log'].get('time_from')}–{prev['log'].get('time_to')} overlaps {curr['log'].get('time_from')}–{curr['log'].get('time_to')}",
-                    "time_range",
+        # Pairwise overlap detection handles wrapping rows without relying on
+        # sort order. Report each pair once, including a wrap/non-wrap overlap.
+        for left_index, left in enumerate(valid_parsed):
+            for right in valid_parsed[left_index + 1:]:
+                overlap = any(
+                    min(left_end, right_end) - max(left_start, right_start) > 0
+                    for left_start, left_end in _segments(left)
+                    for right_start, right_end in _segments(right)
                 )
+                if overlap:
+                    report.error(
+                        sheet,
+                        right["index"] + 2,
+                        f"Time overlap with previous: {left['log'].get('time_from')}–{left['log'].get('time_to')} overlaps {right['log'].get('time_from')}–{right['log'].get('time_to')}",
+                        "time_range",
+                    )
 
-        # Gap detection
-        for i in range(1, len(valid_parsed)):
-            prev = valid_parsed[i - 1]
-            curr = valid_parsed[i]
-            gap_minutes = curr["from_m"] - prev["to_m"]
-            if gap_minutes > 5:  # more than 5 minutes gap
+        # Merge all occupied segments and report uncovered portions. This
+        # catches gaps immediately before/after a midnight-crossing row while
+        # retaining the existing five-minute tolerance.
+        segments = [segment for item in valid_parsed for segment in _segments(item)
+                    if segment[1] > segment[0]]
+        segments.sort()
+        merged = []
+        for start_m, end_m in segments:
+            if merged and start_m <= merged[-1][1]:
+                merged[-1] = (merged[-1][0], max(merged[-1][1], end_m))
+            else:
+                merged.append((start_m, end_m))
+        cursor = 0
+        for start_m, end_m in merged:
+            if start_m - cursor > 5:
                 report.warning(
                     sheet,
-                    curr["index"] + 2,
-                    f"Gap detected: {gap_minutes} minutes between {prev['log'].get('time_to')} and {curr['log'].get('time_from')}",
+                    0,
+                    f"Gap detected: {start_m - cursor} minutes in the 24-hour time log",
                     "time_range",
                 )
-            if gap_minutes < -5 and gap_minutes > -24 * 60 + 5:
-                # Negative gap already reported as overlap
-                pass
+            cursor = max(cursor, end_m)
+        if day_minutes - cursor > 5:
+            report.warning(
+                sheet,
+                0,
+                f"Gap detected: {day_minutes - cursor} minutes in the 24-hour time log",
+                "time_range",
+            )
 
         # Total must equal 24 hours
         total_hours = sum(p["duration"] or 0 for p in parsed if p["duration"] is not None)

@@ -1293,13 +1293,24 @@ class ExcelImportDialog(QDialog):
             saved = 0
             for log in logs:
                 time_from = ValueNormalizer.to_time(log.get("time_from"))
-                if time_from is None:
+                time_to = ValueNormalizer.to_time(log.get("time_to"))
+                if time_from is None or time_to is None:
+                    logger.warning("Skipping time log with missing/invalid time range")
+                    continue
+                raw_duration = log.get("duration")
+                try:
+                    duration = None if raw_duration in (None, "") else float(raw_duration)
+                except (TypeError, ValueError, OverflowError):
+                    logger.warning("Skipping time log with invalid duration: %r", raw_duration)
+                    continue
+                if duration is not None and (duration < 0 or duration > 24):
+                    logger.warning("Skipping time log with out-of-range duration: %r", raw_duration)
                     continue
                 tlog = TimeLog24H(
                     report_id=report_id,
                     time_from=time_from,
-                    time_to=ValueNormalizer.to_time(log.get("time_to")) or dt_time(0, 0),
-                    duration=float(log.get("duration", 0) or 0),
+                    time_to=time_to,
+                    duration=duration,
                     main_phase=str(log.get("main_phase", ""))[:100],
                     main_code=str(log.get("main_code", ""))[:100],
                     sub_code=str(log.get("sub_code", ""))[:100],
@@ -1327,13 +1338,24 @@ class ExcelImportDialog(QDialog):
             saved = 0
             for log in logs:
                 time_from = ValueNormalizer.to_time(log.get("time_from"))
-                if time_from is None:
+                time_to = ValueNormalizer.to_time(log.get("time_to"))
+                if time_from is None or time_to is None:
+                    logger.warning("Skipping morning log with missing/invalid time range")
+                    continue
+                raw_duration = log.get("duration")
+                try:
+                    duration = None if raw_duration in (None, "") else float(raw_duration)
+                except (TypeError, ValueError, OverflowError):
+                    logger.warning("Skipping morning log with invalid duration: %r", raw_duration)
+                    continue
+                if duration is not None and (duration < 0 or duration > 24):
+                    logger.warning("Skipping morning log with out-of-range duration: %r", raw_duration)
                     continue
                 tlog = TimeLogMorning(
                     report_id=report_id,
                     time_from=time_from,
-                    time_to=ValueNormalizer.to_time(log.get("time_to")) or dt_time(0, 0),
-                    duration=float(log.get("duration", 0) or 0),
+                    time_to=time_to,
+                    duration=duration,
                     main_phase=str(log.get("main_phase", ""))[:100],
                     main_code=str(log.get("main_code", ""))[:100],
                     sub_code=str(log.get("sub_code", ""))[:100],

@@ -2,6 +2,7 @@
 Database - SQLAlchemy ORM setup and DatabaseManager class
 """
 import random
+import math
 import logging
 from datetime import datetime, date, timedelta, timezone, time as datetime_time
 from typing import Optional, Dict, Any, List, Tuple
@@ -646,8 +647,11 @@ class SurveyPoint(Base):
         Integer, ForeignKey("daily_reports.id", ondelete="CASCADE"), nullable=True
     )
     md = Column(Float, nullable=False)
-    inc = Column(Float, nullable=False)
-    azi = Column(Float, nullable=False)
+    # Missing source angles remain NULL and are surfaced for review; the
+    # trajectory engine refuses incomplete stations. Older databases may
+    # still have NOT NULL columns and will reject such rows before execution.
+    inc = Column(Float, nullable=True)
+    azi = Column(Float, nullable=True)
     tvd = Column(Float)
     north = Column(Float)
     east = Column(Float)
@@ -2888,6 +2892,19 @@ class DatabaseManager:
                     results["failed"] += 1
                     raise ValueError(f"Report {report_id} not found for atomic import")
                 imported_report_date = report_obj.report_date
+                # Existing installations may still have the historical
+                # NOT NULL survey-angle columns. Do not attempt a destructive
+                # schema rewrite; reject incomplete rows there and preserve
+                # NULLs on newly created schemas.
+                from sqlalchemy import inspect
+                survey_columns = {
+                    column["name"]: column.get("nullable", True)
+                    for column in inspect(session.bind).get_columns("survey_points")
+                }
+                survey_angles_nullable = (
+                    survey_columns.get("inc", False)
+                    and survey_columns.get("azi", False)
+                )
 
                 # Helper to count
                 def count(key, ok):
@@ -2907,31 +2924,49 @@ class DatabaseManager:
                         s = dict(s)
                         s["well_id"] = well_id
                         s["report_id"] = report_id
-                        if s.get("md") in (None, ""):
+                        def _sfloat(val):
+                            # Missing/blank/non-finite source values stay
+                            # invalid; never turn them into engineering zeros.
+                            if val in (None, ""):
+                                return None
+                            try:
+                                number = float(val)
+                            except (TypeError, ValueError):
+                                return None
+                            return number if math.isfinite(number) else None
+
+                        md = _sfloat(s.get("md"))
+                        inc = _sfloat(s.get("inc"))
+                        azi = _sfloat(s.get("azi"))
+                        if md is None or md < 0:
+                            # MD is the row identity and cannot be omitted.
                             results["failed"] += 1
+                            results["survey_review"] = results.get("survey_review", 0) + 1
                             continue
+                        if inc is None or azi is None:
+                            # New schemas preserve NULL angles for review. Do
+                            # not replace them with a vertical/zero-azimuth
+                            # station. A legacy NOT NULL schema is detected
+                            # here and rejects the row before engine use.
+                            if not survey_angles_nullable:
+                                results["failed"] += 1
+                                results["survey_review"] = results.get("survey_review", 0) + 1
+                                continue
+                            results["survey_review"] = results.get("survey_review", 0) + 1
+                        elif not 0 <= inc <= 180:
+                            results["failed"] += 1
+                            results["survey_review"] = results.get("survey_review", 0) + 1
+                            continue
+                        s["md"], s["inc"], s["azi"] = md, inc, azi
                         valid.append(s)
-                    # Bulk delete previous survey points for this report? Keep existing, add new
-                    def _sfloat(val):
-                        # Missing/blank source values stay NULL — never
-                        # invent 0 for azi/tvd/north/east/vs/hd/dls.
-                        if val in (None, ""):
-                            return None
-                        try:
-                            return float(val)
-                        except (TypeError, ValueError):
-                            return None
+                    # Keep optional derived survey values NULL when omitted.
                     for s in valid:
-                        # inc/azi are NOT NULL in the model (engineering
-                        # consumers assume floats) -> keep the 0 fallback
-                        # there; all other derived columns stay NULL when
-                        # the source omits them (no invented values).
                         sp = SurveyPoint(
                             well_id=s.get("well_id"),
                             report_id=s.get("report_id"),
-                            md=float(s.get("md", 0)),
-                            inc=_sfloat(s.get("inc")) or 0.0,
-                            azi=_sfloat(s.get("azi")) or 0.0,
+                            md=s["md"],
+                            inc=s["inc"],
+                            azi=s["azi"],
                             tvd=_sfloat(s.get("tvd")),
                             north=_sfloat(s.get("north")),
                             east=_sfloat(s.get("east")),
@@ -4173,10 +4208,14 @@ class DatabaseManager:
                 existing.updated_at = _now_utc()
                 record_id = existing.id
             else:
+                report_date = report_data.get("report_date")
+                if report_date is None:
+                    logger.error("report_date is required for a new BitReport")
+                    return None
                 new_report = BitReport(
                     well_id=well_id,
                     report_id=report_data.get('report_id'),
-                    report_date=report_data.get('report_date', date.today()),
+                    report_date=report_date,
                     report_name=report_data.get('report_name', f"Bit_Report_{datetime.now().strftime('%Y%m%d_%H%M%S')}"),
                     bit_records_json=bit_records_json,
                     created_at=_now_utc()
@@ -4505,8 +4544,22 @@ class DatabaseManager:
                         SurveyPoint.md == md
                     ).first()
 
-                # inc/azi are NOT NULL columns -> 0 fallback; all other
-                # derived columns stay NULL when the source omits them.
+                # This legacy low-level API historically used 0 for the
+                # NOT NULL angle columns. Keep that public behavior, but mark
+                # incomplete source data explicitly; canonical import uses
+                # the nullable path above and never fabricates angles.
+                missing_angles = [
+                    key for key in ("inc", "azi") if get_val(key) in (None, "")
+                ]
+                review_note = (
+                    "MISSING_INPUT: " + ", ".join(missing_angles)
+                    if missing_angles else ""
+                )
+                source_remarks = str(get_val("remarks", "") or "").strip()
+                survey_remarks = " ".join(
+                    part for part in (source_remarks, review_note) if part
+                )
+
                 def _f(key, default=None):
                     val = get_val(key)
                     if val in (None, ""):
@@ -4525,7 +4578,7 @@ class DatabaseManager:
                     existing.hd = _f('hd')
                     existing.dls = _f('dls')
                     existing.tool = get_val('tool', 'MWD')
-                    existing.remarks = get_val('remarks', '')
+                    existing.remarks = survey_remarks
                     existing.updated_at = _now_utc()
                 else:
                     new_point = SurveyPoint(
@@ -4543,7 +4596,7 @@ class DatabaseManager:
                         hd=_f('hd'),
                         dls=_f('dls'),
                         tool=get_val('tool', 'MWD'),
-                        remarks=get_val('remarks', ''),
+                        remarks=survey_remarks,
                         measured_at=get_val('measured_at', _now_utc()),
                         created_by=get_val('created_by')
                     )
@@ -6229,7 +6282,7 @@ class DatabaseManager:
             def _to_python_date(val):
                 """تبدیل ایمن به Python date"""
                 if val is None:
-                    return date.today()
+                    return None
                 if isinstance(val, date):
                     return val
                 if isinstance(val, str):
@@ -6238,7 +6291,7 @@ class DatabaseManager:
                             return datetime.strptime(val, fmt).date()
                         except ValueError:
                             continue
-                return date.today()
+                return None
 
             def _to_python_datetime(val):
                 """تبدیل ایمن به Python datetime"""
@@ -6254,7 +6307,11 @@ class DatabaseManager:
                             continue
                 return None
 
-            plan_date = _to_python_date(lookahead_data.get("plan_date"))
+            raw_plan_date = lookahead_data.get("plan_date")
+            plan_date = _to_python_date(raw_plan_date)
+            if raw_plan_date not in (None, "") and plan_date is None:
+                logger.error("Invalid plan_date for SevenDaysLookahead")
+                return None
             actual_start = _to_python_datetime(lookahead_data.get("actual_start"))
             actual_end = _to_python_datetime(lookahead_data.get("actual_end"))
 
@@ -6267,7 +6324,8 @@ class DatabaseManager:
                     plan.well_id = lookahead_data.get("well_id", plan.well_id)
                     plan.section_id = lookahead_data.get("section_id", plan.section_id)
                     plan.report_id = lookahead_data.get("report_id", plan.report_id)
-                    plan.plan_date = plan_date
+                    if plan_date is not None:
+                        plan.plan_date = plan_date
                     plan.day_number = lookahead_data.get("day_number", plan.day_number)
                     plan.activity = lookahead_data.get("activity", plan.activity)
                     plan.tools = lookahead_data.get("tools", plan.tools)
@@ -6292,6 +6350,9 @@ class DatabaseManager:
             well_id = lookahead_data.get("well_id")
             if not well_id:
                 logger.error("well_id is required for SevenDaysLookahead")
+                return None
+            if plan_date is None:
+                logger.error("plan_date is required for a new SevenDaysLookahead")
                 return None
 
             new_plan = SevenDaysLookahead(

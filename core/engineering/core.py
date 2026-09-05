@@ -134,19 +134,29 @@ class TrajectoryEngine:
         prev_md = -1
         seen_md = set()
         for idx, p in enumerate(surveys):
+            if not isinstance(p, dict):
+                raise EngineeringError(f"Invalid survey record at index {idx}")
             md = p.get("md")
-            inc = p.get("inc", p.get("inclination", 0))
-            azi = p.get("azi", p.get("azimuth", 0))
+            inc = p.get("inc", p.get("inclination"))
+            azi = p.get("azi", p.get("azimuth"))
 
             if md in (None, ""):
                 raise MissingInputError(f"survey[{idx}].md")
+            if inc in (None, ""):
+                raise MissingInputError(f"survey[{idx}].inc")
+            if azi in (None, ""):
+                raise MissingInputError(f"survey[{idx}].azi")
 
             try:
                 md_f = float(md)
-                inc_f = float(inc) if inc not in (None, "") else 0.0
-                azi_f = float(azi) if azi not in (None, "") else 0.0
+                inc_f = float(inc)
+                azi_f = float(azi)
             except (TypeError, ValueError):
                 raise EngineeringError(f"Invalid numeric survey at index {idx}")
+            if not all(math.isfinite(value) for value in (md_f, inc_f, azi_f)):
+                raise EngineeringError(f"Invalid numeric survey at index {idx}")
+            if md_f < 0:
+                raise EngineeringError(f"Measured depth cannot be negative: {md_f}")
 
             if md_f in seen_md:
                 raise EngineeringError(f"Duplicate MD detected: {md_f} at index {idx}")

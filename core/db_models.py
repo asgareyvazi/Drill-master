@@ -552,8 +552,10 @@ class SurveyPoint(Base):
         Integer, ForeignKey("daily_reports.id", ondelete="CASCADE"), nullable=True
     )
     md = Column(Float, nullable=False)
-    inc = Column(Float, nullable=False)
-    azi = Column(Float, nullable=False)
+    # Preserve missing directional source values as NULL; the canonical
+    # trajectory engine rejects incomplete stations rather than assuming zero.
+    inc = Column(Float, nullable=True)
+    azi = Column(Float, nullable=True)
     tvd = Column(Float)
     north = Column(Float)
     east = Column(Float)

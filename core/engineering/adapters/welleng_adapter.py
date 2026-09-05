@@ -41,12 +41,26 @@ class WellengAdapter:
         try:
             import welleng as we
 
-            md = [float(p.get("md", 0)) for p in points if p.get("md") not in (None, "")]
-            inc = [float(p.get("inc", p.get("inclination", 0)) or 0) for p in points if p.get("md") not in (None, "")]
-            azi = [float(p.get("azi", p.get("azimuth", 0)) or 0) for p in points if p.get("md") not in (None, "")]
-
-            if not md:
+            if not isinstance(points, list) or not points:
                 return None
+            md, inc, azi = [], [], []
+            for index, point in enumerate(points):
+                if not isinstance(point, dict):
+                    raise ValueError(f"survey[{index}] must be a mapping")
+                if point.get("md") in (None, ""):
+                    raise ValueError(f"survey[{index}].md is required")
+                inclination = point.get("inc", point.get("inclination"))
+                azimuth = point.get("azi", point.get("azimuth"))
+                if inclination in (None, ""):
+                    raise ValueError(f"survey[{index}].inc is required")
+                if azimuth in (None, ""):
+                    raise ValueError(f"survey[{index}].azi is required")
+                md.append(float(point["md"]))
+                inc.append(float(inclination))
+                azi.append(float(azimuth))
+
+            if any(value < 0 for value in md):
+                raise ValueError("Measured depth cannot be negative")
 
             header = we.survey.SurveyHeader(name=name, azi_reference="grid")
             survey = we.survey.Survey(md=md, inc=inc, azi=azi, header=header)
@@ -111,7 +125,14 @@ class WellengAdapter:
                     for p in internal
                 ]
 
-            # If welleng provided positions
+            # If welleng provided positions, all stations must have all
+            # calculated coordinates. A short array is not a zero-valued
+            # coordinate; use the validated internal engine instead.
+            if any(len(values) < len(survey.md) for values in (tvd, north, east)):
+                from ..core import TrajectoryEngine
+                internal = TrajectoryEngine.calculate(points)
+                return [p.__dict__ for p in internal]
+
             result = []
             for i in range(len(survey.md)):
                 result.append(
@@ -119,9 +140,9 @@ class WellengAdapter:
                         "md": float(survey.md[i]),
                         "inc": float(survey.inc[i]),
                         "azi": float(survey.azi[i]),
-                        "tvd": float(tvd[i]) if tvd is not None and i < len(tvd) else 0,
-                        "north": float(north[i]) if north is not None and i < len(north) else 0,
-                        "east": float(east[i]) if east is not None and i < len(east) else 0,
+                        "tvd": float(tvd[i]),
+                        "north": float(north[i]),
+                        "east": float(east[i]),
                         "engine": "welleng",
                     }
                 )

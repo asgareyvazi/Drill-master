@@ -88,8 +88,13 @@ class TorqueDragEngine:
         EngineeringError when the mud density is not below the steel
         density (non-positive buoyancy).
         """
-        steel = steel_density_ppg if steel_density_ppg is not None else STEEL_PPG
+        steel = require_number(
+            steel_density_ppg if steel_density_ppg is not None else STEEL_PPG,
+            "steel_density_ppg",
+        )
         mud = require_number(mud_density_ppg, "mud_density_ppg")
+        if steel <= 0:
+            raise EngineeringError("steel_density_ppg must be > 0")
         if mud <= 0:
             raise EngineeringError("mud_density_ppg must be > 0")
         bf = 1.0 - mud / steel
@@ -360,7 +365,12 @@ class TorqueDragEngine:
 
             string = cls._expand_string(bha, traj)
             hole_id = optional_number(wellbore_id_in, "wellbore_id_in")
-            wob = (optional_number(wob_klbf, "wob_klbf") or 0.0) * 1000.0  # lbf
+            if hole_id is not None and hole_id <= 0:
+                raise EngineeringError("wellbore_id_in must be > 0 when supplied")
+            wob_klbf_value = optional_number(wob_klbf, "wob_klbf")
+            if wob_klbf_value is not None and wob_klbf_value < 0:
+                raise EngineeringError("wob_klbf cannot be negative")
+            wob = (wob_klbf_value or 0.0) * 1000.0  # lbf
 
             pickup = cls._integrate(string, traj, ff, bf, mode="pickup", wob_lbf=wob)
             slack = cls._integrate(string, traj, ff, bf, mode="slackoff", wob_lbf=wob)
@@ -445,10 +455,16 @@ class TorqueDragEngine:
             wt = optional_number(comp.get("weight", comp.get("weight_ppf")), f"bha[{i}].weight")
             if wt is None:
                 raise MissingInputError(f"bha[{i}].weight (ppf)")
+            if wt <= 0:
+                raise EngineeringError(f"bha[{i}].weight must be > 0")
             od = optional_number(comp.get("od", comp.get("od_in")), f"bha[{i}].od")
             if od is None:
                 raise MissingInputError(f"bha[{i}].od")
+            if od <= 0:
+                raise EngineeringError(f"bha[{i}].od must be > 0")
             id_ = optional_number(comp.get("id", comp.get("id_in")), f"bha[{i}].id") or 0.0
+            if id_ < 0 or id_ >= od:
+                raise EngineeringError(f"bha[{i}].id must be ≥ 0 and < od")
             md_bottom = cursor
             md_top = cursor - length
             elements.append(

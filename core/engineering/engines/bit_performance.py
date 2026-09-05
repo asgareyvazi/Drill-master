@@ -49,6 +49,10 @@ class BitPerformanceEngine:
             size = optional_number(bit_size_in, "bit_size_in")
             if d_in is None or d_out is None:
                 raise MissingInputError("depth_in and depth_out")
+            if d_in < 0 or d_out < 0:
+                raise EngineeringError("depth_in and depth_out cannot be negative")
+            if size is not None and size <= 0:
+                raise EngineeringError("bit_size_in must be > 0 when supplied")
             footage = d_out - d_in
             if footage < 0:
                 raise EngineeringError("depth_out must be ≥ depth_in")
@@ -65,6 +69,9 @@ class BitPerformanceEngine:
             wob = optional_number(wob_klbf, "wob_klbf")
             n = optional_number(rpm, "rpm")
             tq = optional_number(torque_ft_lbf, "torque_ft_lbf")
+            for name, value in (("wob_klbf", wob), ("rpm", n), ("torque_ft_lbf", tq)):
+                if value is not None and value < 0:
+                    raise EngineeringError(f"{name} cannot be negative")
             if (
                 wob is not None
                 and n is not None
@@ -123,11 +130,19 @@ class BitPerformanceEngine:
         """Map a drilling_params dict (DB / import) onto from_run."""
         if not params:
             return missing("drilling_params")
+        if not isinstance(params, dict):
+            return failed("drilling_params must be a mapping")
         wob = params.get("wob_max", params.get("wob"))
         rpm = params.get("rpm_max", params.get("rpm"))
         tq = params.get("torque_max", params.get("torque"))
-        # torque in DB is often klb.ft
-        tq_n = optional_number(tq, "torque")
+        # Torque in the database is commonly klb.ft; reject malformed source
+        # tokens here so the canonical result contract is never bypassed.
+        try:
+            tq_n = optional_number(tq, "torque")
+        except MissingInputError as exc:
+            return missing(exc.field)
+        except EngineeringError as exc:
+            return failed(str(exc))
         tq_ft_lbf = None if tq_n is None else tq_n * 1000.0
         return cls.from_run(
             bit_size_in=params.get("bit_size"),
@@ -252,8 +267,8 @@ class BitPerformanceEngine:
                 return base
             mw = require_number(mw_ppg, "mw_ppg")
             normal = require_number(normal_mw_ppg, "normal_mw_ppg")
-            if mw <= 0:
-                raise EngineeringError("mw_ppg must be > 0")
+            if mw <= 0 or normal <= 0:
+                raise EngineeringError("mw_ppg and normal_mw_ppg must be > 0")
             dc = base.values["d_exponent"] * (normal / mw)
             return ok(
                 round(dc, 4),
@@ -303,6 +318,7 @@ class BitPerformanceEngine:
             if ft <= 0:
                 raise EngineeringError("Footage must be > 0")
             rig_hour = rig_day / 24.0
+            rot = None
             if rotating_hours is not None:
                 rot = require_number(rotating_hours, "rotating_hours")
                 if rot < 0:
@@ -318,7 +334,7 @@ class BitPerformanceEngine:
                     "total_cost": round(total_cost, 2),
                     "rig_cost_per_hr": round(rig_hour, 2),
                     "trip_hours": trip,
-                    "rotating_hours": rotating_hours,
+                    "rotating_hours": rot,
                     "footage": ft,
                 },
                 unit="$/ft",

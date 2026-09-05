@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, asdict
 from typing import Any, Dict, List, Optional
+import math
 
 
 class EngineeringError(Exception):
@@ -104,16 +105,26 @@ def require_number(value: Any, field: str) -> float:
     """Reject None/blank. Never invent 0 for a missing engineering input."""
     if value is None or value == "":
         raise MissingInputError(field)
+    if isinstance(value, bool):
+        raise EngineeringError(f"Invalid numeric value for {field}: {value!r}")
     try:
-        return float(value)
+        number = float(value)
     except (TypeError, ValueError) as exc:
         raise EngineeringError(f"Invalid numeric value for {field}: {value!r}") from exc
+    if not math.isfinite(number):
+        raise EngineeringError(f"Invalid numeric value for {field}: {value!r}")
+    return number
 
 
 def optional_number(value: Any, field: str) -> Optional[float]:
     if value is None or value == "":
         return None
+    if isinstance(value, bool):
+        raise EngineeringError(f"Invalid numeric value for {field}: {value!r}")
     try:
-        return float(value)
+        number = float(value)
     except (TypeError, ValueError) as exc:
         raise EngineeringError(f"Invalid numeric value for {field}: {value!r}") from exc
+    if not math.isfinite(number):
+        raise EngineeringError(f"Invalid numeric value for {field}: {value!r}")
+    return number

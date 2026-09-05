@@ -170,6 +170,10 @@ class MudVolumeEngine:
             va = require_number(vol1, "vol1")
             b = require_number(mw2, "mw2")
             vb = require_number(vol2, "vol2")
+            if a <= 0 or b <= 0:
+                raise EngineeringError("Mud weights must be > 0")
+            if va < 0 or vb < 0:
+                raise EngineeringError("Mix volumes cannot be negative")
             tot = va + vb
             if tot <= 0:
                 raise EngineeringError("Total volume must be > 0")

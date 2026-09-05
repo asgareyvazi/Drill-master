@@ -443,6 +443,23 @@ class SurveyDataTab(QWidget):
         
         session = self.db_manager.create_session()
         try:
+            # Validate the whole edit before deleting the previous trajectory;
+            # an incomplete row must not turn a valid saved survey into a
+            # partial/empty one.
+            for row in range(self.survey_table.rowCount()):
+                items = [self.survey_table.item(row, col) for col in (1, 2, 3)]
+                if not all(items):
+                    QMessageBox.warning(self, "Incomplete survey", "MD, inclination, and azimuth are required; nothing was saved.")
+                    return False
+                values = [self._optional_float(item.text()) for item in items]
+                if any(value is None for value in values):
+                    QMessageBox.warning(self, "Incomplete survey", "MD, inclination, and azimuth must be numeric; nothing was saved.")
+                    return False
+                md_value, inc_value, _azi_value = values
+                if md_value < 0 or not 0 <= inc_value <= 180:
+                    QMessageBox.warning(self, "Invalid survey", "MD must be non-negative and inclination must be 0–180°; nothing was saved.")
+                    return False
+
             session.query(SurveyPoint).filter(
                 SurveyPoint.well_id == self.current_well_id,
                 SurveyPoint.report_id == self.current_report_id
@@ -458,10 +475,17 @@ class SurveyDataTab(QWidget):
                     continue
                 
                 try:
-                    md = float(md_item.text() or 0)
-                    inc = float(inc_item.text() or 0)
-                    azi = float(azi_item.text() or 0)
-                except ValueError:
+                    md = self._optional_float(md_item.text())
+                    inc = self._optional_float(inc_item.text())
+                    azi = self._optional_float(azi_item.text())
+                except (TypeError, ValueError):
+                    continue
+                if md is None or inc is None or azi is None:
+                    QMessageBox.warning(
+                        self,
+                        "Incomplete survey",
+                        "MD, inclination, and azimuth are required; row not saved.",
+                    )
                     continue
                 
                 tvd_item = self.survey_table.item(row, 4)
@@ -473,9 +497,9 @@ class SurveyDataTab(QWidget):
                 tool_item = self.survey_table.item(row, 10)
                 remarks_item = self.survey_table.item(row, 11)
                 
-                # inc/azi are NOT NULL columns -> 0 fallback; all derived
-                # columns stay None when the cell is blank/"None" so NULLs
-                # round-trip instead of crashing on float("None").
+                # Derived values remain NULL when the source cell is blank;
+                # directional inputs were required above and are never
+                # replaced with an invented zero.
                 tvd = self._optional_float(tvd_item.text()) if tvd_item else None
                 north = self._optional_float(north_item.text()) if north_item else None
                 east = self._optional_float(east_item.text()) if east_item else None

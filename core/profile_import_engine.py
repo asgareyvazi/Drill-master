@@ -219,6 +219,7 @@ class ProfileImportEngine:
         """استخراج هوشمند داده‌های سایر شیت‌های فایل اکسل برای تغذیه تب‌های ۱ تا ۱۶"""
         res = {
             "surveys": [],
+            "survey_review": [],
             "pob_records": [],
             "casing_report": {},
             "cement_report": {},
@@ -242,16 +243,29 @@ class ProfileImportEngine:
             if any(k in lower_name for k in ["survey", "traject", "directional", "deviation"]):
                 for r in range(2, min(max(cache, default=1) + 1, MAX_PROFILE_ROWS)):
                     if r not in cache: continue
-                    md = self._to_float(cache[r].get(1)) or self._to_float(cache[r].get(2))
+                    md_primary = self._to_float(cache[r].get(1))
+                    md = md_primary if md_primary is not None else self._to_float(cache[r].get(2))
                     inc = self._to_float(cache[r].get(3))
                     azi = self._to_float(cache[r].get(4))
-                    if md and md > 0:
-                        res["surveys"].append({
-                            "md": md,
-                            "inc": inc or 0.0,
-                            "azi": azi or 0.0,
-                            "tvd": self._to_float(cache[r].get(5)) or 0.0
-                        })
+                    # MD=0 is a valid tie-on station. Inclination and azimuth
+                    # are required engineering inputs; omit an incomplete row
+                    # and preserve a review record instead of inventing zeros.
+                    if md is not None and md >= 0:
+                        missing = [name for name, value in (("inc", inc), ("azi", azi))
+                                   if value is None]
+                        if missing:
+                            res["survey_review"].append({
+                                "row": r,
+                                "md": md,
+                                "missing": missing,
+                                "decision": "REVIEW",
+                            })
+                            continue
+                        row = {"md": md, "inc": inc, "azi": azi}
+                        tvd = self._to_float(cache[r].get(5))
+                        if tvd is not None:
+                            row["tvd"] = tvd
+                        res["surveys"].append(row)
 
             # B. POB / Personnel On Board
             elif any(k in lower_name for k in ["pob", "personnel", "crew", "manpower"]):
@@ -351,8 +365,21 @@ class ProfileImportEngine:
 
     def _extract_embedded_ddr_data(self, result):
         for cells in self.cell_cache.values():
+            def cell(row, col, default=None):
+                # Profile caches are row -> column -> value. Keep a small
+                # compatibility fallback for older flat caches.
+                row_values = cells.get(row)
+                if isinstance(row_values, dict):
+                    return row_values.get(col, default)
+                return cells.get((row, col), default)
+
             def row_text(row):
-                return " ".join(str(v).lower() for (r, _), v in cells.items() if r == row)
+                row_values = cells.get(row, {})
+                if isinstance(row_values, dict):
+                    return " ".join(str(v).lower() for v in row_values.values())
+                return " ".join(
+                    str(v).lower() for (r, _), v in cells.items() if r == row
+                )
             def find_row(token):
                 token = token.lower()
                 for row in range(1, MAX_PROFILE_ROWS):
@@ -362,7 +389,7 @@ class ProfileImportEngine:
 
             survey_row = find_row("m.d (m)")
             if survey_row:
-                header = {c: str(cells.get((survey_row, c), "")).lower() for c in range(1, MAX_PROFILE_COLS)}
+                header = {c: str(cell(survey_row, c, "")).lower() for c in range(1, MAX_PROFILE_COLS)}
                 columns = {}
                 for c, text in header.items():
                     if "m.d" in text or text.strip() == "md": columns["md"] = c
@@ -373,9 +400,25 @@ class ProfileImportEngine:
                     elif "east" in text: columns["east"] = c
                     elif "dls" in text: columns["dls"] = c
                 for row in range(survey_row + 1, min(survey_row + 500, MAX_PROFILE_ROWS)):
-                    md = self._to_float(cells.get((row, columns.get("md", 0))))
-                    if md is None: continue
-                    result["surveys"].append({"md": md, "inc": self._to_float(cells.get((row, columns.get("inc", 0)))) or 0.0, "azi": self._to_float(cells.get((row, columns.get("azi", 0)))) or 0.0, "tvd": self._to_float(cells.get((row, columns.get("tvd", 0)))) or 0.0, "north": self._to_float(cells.get((row, columns.get("north", 0)))) or 0.0, "east": self._to_float(cells.get((row, columns.get("east", 0)))) or 0.0, "dls": self._to_float(cells.get((row, columns.get("dls", 0)))) or 0.0})
+                    md = self._to_float(cell(row, columns.get("md", 0)))
+                    if md is None:
+                        continue
+                    inc = self._to_float(cell(row, columns.get("inc", 0)))
+                    azi = self._to_float(cell(row, columns.get("azi", 0)))
+                    if inc is None or azi is None:
+                        result["survey_review"].append({
+                            "row": row,
+                            "md": md,
+                            "missing": [name for name, value in (("inc", inc), ("azi", azi)) if value is None],
+                            "decision": "REVIEW",
+                        })
+                        continue
+                    survey = {"md": md, "inc": inc, "azi": azi}
+                    for field in ("tvd", "north", "east", "dls"):
+                        value = self._to_float(cell(row, columns.get(field, 0)))
+                        if value is not None:
+                            survey[field] = value
+                    result["surveys"].append(survey)
 
             bulk_row = find_row("bulk data")
             if bulk_row:

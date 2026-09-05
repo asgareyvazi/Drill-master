@@ -864,6 +864,10 @@ class AdvancedHydraulicsEngine:
 
             ΔP = Q² × MW / (10858 × TFA²)      (Q in gpm, MW in ppg, TFA in in²)
         """
+        if gpm < 0:
+            raise ValueError("gpm cannot be negative")
+        if mw_ppg <= 0:
+            raise ValueError("mw_ppg must be > 0")
         if tfa_in2 <= 0:
             raise ValueError("TFA must be > 0")
         return gpm**2 * mw_ppg / (10858.0 * tfa_in2**2)
@@ -875,6 +879,10 @@ class AdvancedHydraulicsEngine:
 
             TFA = √(Q² × MW / (10858 × ΔP))
         """
+        if gpm < 0:
+            raise ValueError("gpm cannot be negative")
+        if mw_ppg <= 0:
+            raise ValueError("mw_ppg must be > 0")
         if delta_p_psi <= 0:
             raise ValueError("delta_p_psi must be > 0")
         return math.sqrt(gpm**2 * mw_ppg / (10858.0 * delta_p_psi))
@@ -885,13 +893,19 @@ class AdvancedHydraulicsEngine:
 
             HHP = Q × ΔP / 1714
         """
+        if gpm < 0 or pressure_drop_psi < 0:
+            raise ValueError("Flow and pressure drop cannot be negative")
         return gpm * pressure_drop_psi / 1714.0
 
     @staticmethod
     def calc_hsi(bit_hhp: float, bit_od_in: float) -> float:
         """Hydraulic horsepower per square inch of bit area."""
+        if bit_hhp < 0:
+            raise ValueError("bit_hhp cannot be negative")
+        if bit_od_in <= 0:
+            raise ValueError("bit_od_in must be > 0")
         area = math.pi / 4.0 * bit_od_in**2
-        return bit_hhp / area if area > 0 else 0.0
+        return bit_hhp / area
 
     @staticmethod
     def calc_jet_velocity(gpm: float, tfa_in2: float) -> float:
@@ -907,6 +921,8 @@ class AdvancedHydraulicsEngine:
 
             F = MW × Q × v / 1930
         """
+        if mw_ppg <= 0 or gpm < 0 or jet_velocity_fps < 0:
+            raise ValueError("MW must be > 0; flow and jet velocity cannot be negative")
         return mw_ppg * gpm * jet_velocity_fps / 1930.0
 
     @staticmethod
@@ -1035,6 +1051,10 @@ class AdvancedHydraulicsEngine:
             output = 0.000243 × liner² × stroke × efficiency
         (0.000243 = π/4 ÷ 231 in³/gal ÷ 42 gal/bbl × 12³ in³/ft³.)
         """
+        if liner_size_inch <= 0 or stroke_length_inch <= 0:
+            raise ValueError("Liner size and stroke length must be > 0")
+        if not 0 < efficiency <= 1:
+            raise ValueError("Pump efficiency must be in (0, 1]")
         return 0.000243 * liner_size_inch**2 * stroke_length_inch * efficiency
 
     @staticmethod
@@ -1050,6 +1070,12 @@ class AdvancedHydraulicsEngine:
         diameter reduces displacement on one side (hence − rod²).
         0.000162 is the duplex geometry constant (bbl/stroke for inches).
         """
+        if liner_size_inch <= 0 or stroke_length_inch <= 0:
+            raise ValueError("Liner size and stroke length must be > 0")
+        if rod_size_inch < 0 or rod_size_inch >= liner_size_inch:
+            raise ValueError("Rod size must be ≥ 0 and smaller than liner size")
+        if not 0 < efficiency <= 1:
+            raise ValueError("Pump efficiency must be in (0, 1]")
         return 0.000162 * stroke_length_inch * (
             2.0 * liner_size_inch**2 - rod_size_inch**2
         ) * efficiency
@@ -1070,10 +1096,14 @@ class AdvancedHydraulicsEngine:
         turbulent (better hole cleaning, higher ECD).
         """
         gap = hole_size_in - pipe_od_in
+        if hole_size_in <= 0 or pipe_od_in <= 0:
+            raise ValueError("Hole size and pipe OD must be > 0")
         if gap <= 0:
             raise ValueError("Hole size must be > pipe OD")
         if mw_ppg <= 0 or pv_cp <= 0:
             raise ValueError("MW and PV must be > 0")
+        if yp_lbf100ft2 < 0:
+            raise ValueError("Yield point cannot be negative")
         vc_fps = (1.08 * pv_cp + 1.08 * math.sqrt(
             pv_cp**2 + 9.26 * gap**2 * yp_lbf100ft2 * mw_ppg
         )) / (mw_ppg * gap)

@@ -105,7 +105,9 @@ class CasingEngine:
                 raise EngineeringError("Wall thickness must be < OD/2")
             rating = 0.875 * 2.0 * yp * t / od
             df = optional_number(design_factor, "design_factor")
-            working = rating / df if df and df > 0 else None
+            if df is not None and df <= 0:
+                raise EngineeringError("design_factor must be > 0 when supplied")
+            working = rating / df if df is not None else None
             values = {
                 "burst_rating_psi": round(rating, 1),
                 "working_pressure_psi": None if working is None else round(working, 1),
@@ -141,9 +143,13 @@ class CasingEngine:
             yp = require_number(yield_psi, "yield_psi")
             if od <= 0 or t <= 0 or yp <= 0:
                 raise EngineeringError("OD, wall and yield must be > 0")
+            if t >= od / 2:
+                raise EngineeringError("Wall thickness must be < OD/2")
             rating, regime, dt, dt_yp, dt_pt, dt_te = cls._collapse_uncorrected(od, t, yp)
             df = optional_number(design_factor, "design_factor")
-            working = rating / df if df and df > 0 else None
+            if df is not None and df <= 0:
+                raise EngineeringError("design_factor must be > 0 when supplied")
+            working = rating / df if df is not None else None
             values = {
                 "collapse_rating_psi": round(rating, 1),
                 "working_pressure_psi": None if working is None else round(working, 1),
@@ -198,8 +204,12 @@ class CasingEngine:
             id_ = optional_number(id_in, "id_in")
             if id_ is None:
                 id_ = od - 2.0 * t
+            if id_ <= 0 or id_ >= od:
+                raise EngineeringError("ID must be > 0 and < OD")
             fax = optional_number(axial_tension_lbf, "axial_tension_lbf") or 0.0
             pi = optional_number(internal_pressure_psi, "internal_pressure_psi") or 0.0
+            if pi < 0:
+                raise EngineeringError("internal_pressure_psi cannot be negative")
             area = math.pi / 4.0 * (od**2 - id_**2)
             if area <= 0:
                 raise EngineeringError("Cross-section area must be > 0")
@@ -262,6 +272,8 @@ class CasingEngine:
             fax = require_number(axial_tension_lbf, "axial_tension_lbf")
             if od <= id_ or id_ <= 0 or yp <= 0:
                 raise EngineeringError("Need OD > ID > 0 and yield > 0")
+            if pi < 0 or pe < 0:
+                raise EngineeringError("Internal and external pressures cannot be negative")
             ro, ri = od / 2.0, id_ / 2.0
             area = math.pi * (ro**2 - ri**2)
             # Lamé at inner wall
@@ -412,6 +424,11 @@ class CasingEngine:
         conn_b = optional_number(connection_burst_psi, "connection_burst_psi")
         conn_c = optional_number(connection_collapse_psi, "connection_collapse_psi")
         conn_t = optional_number(connection_tension_lbf, "connection_tension_lbf")
+        for name, value in (("connection_burst_psi", conn_b),
+                            ("connection_collapse_psi", conn_c),
+                            ("connection_tension_lbf", conn_t)):
+            if value is not None and value < 0:
+                return failed(f"{name} cannot be negative")
         burst_gov = b.value if conn_b is None else min(b.value, conn_b)
         coll_gov = (comb.value if comb.success else c.value)
         if conn_c is not None:
@@ -424,6 +441,10 @@ class CasingEngine:
         pi = optional_number(internal_pressure_psi, "internal_pressure_psi")
         pe = optional_number(external_pressure_psi, "external_pressure_psi")
         fax = optional_number(axial_tension_lbf, "axial_tension_lbf")
+        if pi is not None and pi < 0:
+            return failed("internal_pressure_psi cannot be negative")
+        if pe is not None and pe < 0:
+            return failed("external_pressure_psi cannot be negative")
         if pi is not None and pi > 0:
             loads["burst_sf"] = round(burst_gov / pi, 3)
             dfb = optional_number(burst_design_factor, "burst_design_factor")
