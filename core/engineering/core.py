@@ -167,6 +167,30 @@ class TrajectoryEngine:
         cleaned.sort(key=lambda x: x.md)
         return cleaned
 
+    @staticmethod
+    def calculate_build_rate(inc_start_deg: float, inc_end_deg: float,
+                             course_length: float) -> float:
+        """Build rate (°/30 m) over one course length.
+
+        BR = (I₂ − I₁) × 30 / ΔMD — same definition used by calculate().
+        """
+        if course_length <= 0:
+            return 0.0
+        return (inc_end_deg - inc_start_deg) * (30.0 / course_length)
+
+    @staticmethod
+    def calculate_turn_rate(azi_start_deg: float, azi_end_deg: float,
+                            course_length: float) -> float:
+        """Turn rate (°/30 m) over one course length using the shortest
+        azimuth change (normalized to [-180, 180)).
+
+        Same definition used by calculate().
+        """
+        if course_length <= 0:
+            return 0.0
+        azi_diff = (azi_end_deg - azi_start_deg + 540) % 360 - 180
+        return azi_diff * (30.0 / course_length)
+
     @classmethod
     def calculate(
         cls,
@@ -273,11 +297,9 @@ class TrajectoryEngine:
             else:
                 dls = 0.0
 
-            # Build and Turn rates
-            build_rate = (curr.inc - prev.inc) * (30.0 / d_md) if d_md else 0
-            # Turn rate: shortest angle difference
-            azi_diff = (curr.azi - prev.azi + 540) % 360 - 180  # normalized to [-180,180)
-            turn_rate = azi_diff * (30.0 / d_md) if d_md else 0
+            # Build and Turn rates (canonical helpers, °/30 m)
+            build_rate = cls.calculate_build_rate(prev.inc, curr.inc, d_md)
+            turn_rate = cls.calculate_turn_rate(prev.azi, curr.azi, d_md)
 
             results.append(
                 TrajectoryPoint(

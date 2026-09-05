@@ -1,246 +1,174 @@
 # DRILLMASTER — FULL ENGINEERING AUDIT REPORT
 
-> **Date:** 2026-08-29
-> **Branch:** arena/01a032f0-drill-master
+> **Date:** 2026-09-05 (re-audit at HEAD `5f92841` of
+> `arena/01a05747-drill-master`)
+> **Tests:** full suite **421 passed, 2 skipped, 0 failed** (fresh run);
+> OEOC golden import regressions green (122 tests in the import batch).
 > **Auditor:** Multi-role (Drilling Engineer + Software Architect + QA)
-> **Tests:** 261 passed, 2 skipped, 0 failed
 
 ---
 
 ## A. Executive Summary
 
-DrillMaster is a **functional drilling operations management desktop application** with solid foundations in data import, engineering calculations, and database management. The application can successfully import real-world DDR files, store drilling data across 53 database models, and provide engineering calculations for trajectory, hydraulics, well control, and mud engineering.
+DrillMaster is a **production-oriented drilling operations management
+desktop application**: real Excel DDR import (OEOC golden regression),
+53+ ORM models, canonical single-source engineering engines, and a W13
+engineering calculator that now **delegates** every calculation to the
+canonical engines.
 
-**Strengths:**
-- Robust Excel import pipeline with merged-cell support, table detection, and activity code mapping
-- Deterministic engineering calculations based on published formulas (Bourgoyne, API, IWCF)
-- Comprehensive database schema covering all major drilling domains
-- Good test coverage (261 tests including integration and golden regression)
-- Canonical schema as Single Source of Truth for field mapping
+**Strengths (verified at this HEAD):**
+- Canonical schema as SSOT for field aliases / quantity / unit / criticality.
+- Deterministic engines (Bourgoyne, API RP, IWCF, Teale) with result
+  contracts and no invented defaults.
+- W13 `DrillingCalculationEngine` is a pure facade: 22 static delegates to
+  canonical engines; legacy `12031` nozzle constant and duplicated
+  `1029.4`-style capacity formulas removed from the tab and dialogs
+  (guard-tested by `tests/test_single_source_guard.py`).
+- Guard suite rejects stale constants and duplicated decorators in code.
+- Torque & Drag, Anti-Collision, Fishing honestly labelled
+  `PARTIAL / SCREENING` — nothing partial is claimed complete.
 
-**Key Gaps:**
-- Engineering calculator UI is self-contained (4,784 lines) — doesn't use core engines
-- No real torque & drag implementation
-- Casing design is placeholder only
-- Cementing calculations are basic
-- No kick tolerance calculation
-- MainWindow is monolithic (2,958 lines)
-
----
-
-## B. Engineering Score
-
-| Module | Score | Status |
-|--------|-------|--------|
-| **Daily Report** | 8/10 | ✅ Functional, good data model |
-| **Time Log** | 9/10 | ✅ Excellent validation (24h, overlap, gap, NPT) |
-| **BHA** | 5/10 | 🟡 Basic cumulative length/weight only |
-| **Drilling Parameters** | 7/10 | ✅ Good storage, basic analysis |
-| **Mud** | 7/10 | ✅ Properties stored, ledger works |
-| **Hydraulics** | 7/10 | ✅ Advanced engine exists (Bingham, Power-Law, H-B) |
-| **Survey/Trajectory** | 9/10 | ✅ MCM correct, validation comprehensive |
-| **Well Control** | 6/10 | 🟡 Kill MW and MAASP correct, missing kick tolerance |
-| **Casing** | 3/10 | 🔴 Storage only, no burst/collapse/tension design |
-| **Cementing** | 4/10 | 🟡 Basic volume calculation only |
-| **NPT** | 7/10 | ✅ Good data model, basic analysis |
-| **Services** | 6/10 | 🟡 Storage only, no performance analysis |
-| **Logistics** | 7/10 | ✅ Good tracking, carry-forward works |
-| **HSE/Safety** | 7/10 | ✅ Good incident tracking, BOP management |
-| **Planning** | 7/10 | ✅ 7-day lookahead, plan vs actual |
-| **Cost** | 5/10 | 🟡 Basic storage, no AFE/forecast |
-| **Analysis** | 6/10 | 🟡 KPI framework exists, limited depth |
-| **Import/Export** | 8/10 | ✅ Strong pipeline, good test coverage |
+**Resolved since the 2026-08-24 baseline:** W13/UI delegation (was P0-2),
+T&D soft-string engine, casing burst/collapse/combined/triaxial/tensile,
+kick tolerance + MAASP + kill MW + formation pressure + kick volume,
+cementing volumes/displacement, nozzle optimization canonical wiring (P0).
 
 ---
 
-## C. Critical Problems (P0/P1)
+## B. Engineering Score (2026-09-05)
 
-### P0-1: ROP Model Constants Unrealistic
-- **Problem:** Bourgoyne & Young ROP model returns 25,000+ m/hr
-- **Why:** Default K constant is too high for the simplified model
-- **Current:** `k = 200 * strength_factor * (1 + porosity_pct / 100)` → K = 240
-- **Fix:** Calibrate K to typical field values (K ≈ 1-5 for metric)
-- **File:** `core/engineering/extended.py`
-
-### P0-2: Engineering Calculator Doesn't Use Core Engines
-- **Problem:** `w13_Engineering_Calculator.py` (4,784 lines) has its own inline calculations
-- **Why:** Should delegate to `core/engineering/core.py` engines
-- **Impact:** Duplicated logic, inconsistent results
-- **File:** `tabs/w13_Engineering_Calculator.py`
-
-### P1-1: No Torque & Drag Implementation
-- **Problem:** `engines/torque_drag.py` is a stub
-- **Why:** T&D is critical for well planning and stuck pipe prevention
-- **Impact:** Cannot predict hookload, drag, or surface torque
-- **File:** `core/engineering/engines/torque_drag.py`
-
-### P1-2: Casing Design Not Implemented
-- **Problem:** Only storage, no burst/collapse/tension calculations
-- **Why:** Casing design is fundamental to well construction
-- **File:** `core/engineering/extended.py` (CasingDesign is minimal)
-
-### P1-3: No Kick Tolerance Calculation
-- **Problem:** WellControlEngine has kill MW and MAASP but no kick tolerance
-- **Why:** Kick tolerance is critical for safe drilling margin
-- **File:** `core/engineering/core.py`
-
-### P1-4: MainWindow Monolithic
-- **Problem:** 2,958 lines, 108 functions in one class
-- **Impact:** Hard to test, maintain, and extend
-- **File:** `main_window.py`
+| Module | Status | Evidence at HEAD |
+|--------|--------|------------------|
+| Daily Report | ✅ Functional | Import + DB + UI verified end-to-end (OEOC workbook) |
+| Time Log | ✅ Excellent validation | 24h/morning separation, NPT, dedup |
+| BHA | ✅ Cumulative length/weight | `BHAEngine` in `core/engineering/core.py` |
+| Drilling Parameters | ✅ Stored + analyzed | min/max WOB/RPM/torque/SPP/flow |
+| Mud | ✅ Properties + ledger + mud-lab kit | `MudLedgerEngine`, `MudEngineering` (MBT, LSRYP, excess lime, OWR, slug, corrosion) |
+| Hydraulics | ✅ Canonical engine | bit ΔP/TFA/HHP/HSI/jet velocity/impact, triplex/duplex pump output, AV, capacities, bottoms-up, lag, critical flow; capacities are SSOT (`D²/1029.4` lives once) |
+| Survey/Trajectory | ✅ MCM correct | randomized MCM parity vs independent implementation (`tests/test_trajectory_mcm_parity.py`, worst |Δ|=3e-14) |
+| Well Control | ✅ IWCF kit | kick tolerance, trip margin, MAASP, kill MW, kick volume, formation pressure, fracture gradient (incl. Eaton) |
+| Casing | ✅ Design engine | burst/collapse/combined/triaxial/tensile (`engines/casing.py`) |
+| Cementing | ✅ Volumes + displacement | `engines/cement.py`; capacity helpers delegate to `AdvancedHydraulicsEngine` |
+| Torque & Drag | 🟡 PARTIAL / SCREENING | soft-string axial/soft model + buoyancy; never claimed COMPLETE |
+| Anti-Collision | 🟡 PARTIAL / SCREENING | Euclidean clearance; ISCWSA error model explicitly unsupported without welleng |
+| Fishing/stuck-pipe | 🟡 PARTIAL / SCREENING | free point, stretch, adjusted weight, jar range, overshot fit, back-off |
+| NPT / Services / Logistics / HSE / Planning | ✅ Functional | models + analyses as implemented |
+| Cost | 🟡 Basic storage | AFE/forecast not implemented |
+| Bit performance (W12) | ✅ d-exp/dc/cost/ft/MSE | `engines/bit_performance.py`, `engines/mse.py`; DB-fed trends; torque klb.ft→ft·lbf at one boundary |
+| Import/Export | ✅ Strong pipeline | OEOC golden + multi-company templates, additive-only DB upgrades |
 
 ---
 
-## D. Changes Implemented (This Session)
+## C. Status of previously-reported critical problems
 
-### Files Changed
+| ID | Problem | Status (2026-09-05) |
+|----|---------|---------------------|
+| P0-1 | ROP model K constant unrealistic (was K=240) | **FIXED** — `core/engineering/extended.py` L743 now `k = 0.5 * strength_factor * (1 + porosity_pct/100)` (K≈0.5–1), calibrated range |
+| P0-2 | Engineering calculator self-contained (4,784 lines, inline calcs) | **FIXED** — `DrillingCalculationEngine` is a delegation facade over canonical engines; guard tests enforce no duplicated constants in tabs/dialogs |
+| P1-1 | No torque & drag implementation | **FIXED (partial)** — soft-string engine with explicit `PARTIAL / SCREENING` scope; optional welleng adapter never a silent backend |
+| P1-2 | Casing design not implemented | **FIXED** — burst/collapse/combined/triaxial/tensile with design factors |
+| P1-3 | No kick tolerance | **FIXED** — `kick_tolerance` with influx-gradient input (missing input → warning, no invented gradient) |
+| P1-4 | MainWindow monolithic (2,958 lines) | **REMAINING** — refactor deferred; not a correctness blocker |
+
+---
+
+## D. Engineering-refactor changes (this work session)
+
 | File | Change |
 |------|--------|
-| `core/activity_mapper.py` | NEW — 30 canonical activities, company-aware mapping |
-| `core/excel_intelligence.py` | Deep fix — candidate scoring, validation, label detection |
-| `core/canonical_schema.py` | Expanded to 150+ fields with aliases, bounds |
-| `core/table_record_mapper.py` | Now consumes canonical_schema (no independent ALIASES) |
-| `core/managers.py` | Added TableManager, DrillingManager, setup_widget_with_managers |
-| `core/db_models.py` | NEW — 53 ORM models extracted |
-| `core/db_services.py` | NEW — Domain service functions |
-| `core/lineage.py` | NEW — Data lineage tracking |
-| `core/hierarchy_operations.py` | NEW — Hierarchy delete/context menu |
-| `core/toolbar_manager.py` | NEW — Toolbar extraction |
-| `core/performance.py` | NEW — Chunked reading, progress tracking |
-| `core/health_check.py` | Enhanced health check |
-| `core/import_quality.py` | Fixed TimeLogValidator crash |
-| `core/operations_intelligence.py` | Fixed attribute errors |
-| `core/document_import.py` | Improved CSV import |
-| `dialogs/excel_import_dialog.py` | Template/Smart import, AI disabled, ActivityMapper integration |
-| `dialogs/smart_template_dialog.py` | v3 template support, resolve_canonical |
-| `templates/OEOC_DDR_v3.json` | Complete DDR template (259 fields) |
-| 7 documentation files | Architecture, import, DB, engineering, AI, testing |
-| 8 test files | 197 new tests |
+| `tabs/w13_Engineering_Calculator.py` | Facade rewrite: 22 direct static delegates (hydraulics/trajectory/well-control/T&D/fishing/mud); `setattr` mud-facade deleted; 7 inline `3.281/1029.4` capacity clusters rewired to canonical per-ft statics; kill sheet kick type/height via `WellControlEngine.kick_volume`; no legacy constants remain |
+| `core/hydraulics_engine.py` | `optimize_nozzles` uses canonical `calc_bit_pressure_drop`/`calc_tfa_from_pressure_drop` (10858 family); added canonical `calc_pipe_capacity_bbl_ft`, `calc_annular_capacity_bbl_ft`, `calc_pipe_displacement_bbl_ft` statics |
+| `core/engineering/core.py` | `TrajectoryEngine.calculate_build_rate/calculate_turn_rate` real class statics used by `calculate()`; `WellControlEngine` compat statics |
+| `core/engineering/engines/torque_drag.py` | buoyancy factor single-source; `calculate` delegates |
+| `core/engineering/engines/well_control.py` | canonical kit incl. `formation_pressure`, `kick_volume` |
+| `core/engineering/engines/cement.py` | capacity helpers + `job_volumes`/displacement delegate to `AdvancedHydraulicsEngine` |
+| `core/engineering/engines/fishing.py` | NEW canonical fishing/stuck-pipe screening module |
+| `core/engineering/engines/anti_collision.py` | honest `PARTIAL / SCREENING` `SCOPE`/`METHOD` metadata |
+| `dialogs/calculator_dialog.py`, `dialogs/engineering_dialogs.py` | inline AV/capacity/volume formulas replaced by canonical engine calls |
+| `ENGINEERING_REFERENCE_MATRIX.md` | NEW — 13-repository mapping table with evidence |
 
 ---
 
-## E. Tests
+## E. Tests (fresh run, 2026-09-05)
 
 ```
-Total tests:     261
-Passed:          261
-Failed:          0
-Skipped:         2 (headless sandbox — PySide6 requires display)
-New tests:       197
-Regression:      Real DDR golden test (14 tests)
-Integration:     9 end-to-end tests
-Release:         14 verification tests
-Engineering:     20 formula verification tests
-Activity:        28 mapping tests
+Total:      421 collected
+Passed:     421
+Skipped:    2   (headless sandbox — PySide6 display-only tests)
+Failed:     0
+Errors:     0
+New since last audit: +37 nozzle/guard/trajectory-parity + guard suite
+OEOC import batch:    122 passed (golden DDR, multi-company, atomic import)
 ```
+
+Guard coverage: stale constants (`12031`, `1086.31`, `10863.1`, `1932`)
+absent everywhere; canonical constants (`10858`, `1714`, `1930`, `3.117`,
+`1029.4`, …) present only in core engines / w15 reference tab / tests;
+no stacked `@staticmethod` decorators anywhere in code.
 
 ---
 
-## F. Engineering Limitations
+## F. Honest limitations (2026-09-05)
 
-**DrillMaster should NOT yet claim to support:**
-- Complete casing design (burst/collapse/tension triaxial)
-- Torque & drag prediction
-- Cement job design (slurry scheduling, thickening time)
-- Kick tolerance calculation
-- Real-time drilling optimization
-- Wellbore stability analysis
-- Fracture gradient prediction
-- Pore pressure prediction
-- Managed pressure drilling
-- Underbalanced drilling
+**DrillMaster does NOT claim:**
+- COMPLETE torque & drag — **PARTIAL / SCREENING soft-string only**
+- Full ISCWSA anti-collision — Euclidean screening only; error-model path
+  requires welleng and is explicitly optional
+- Slurry thickening-time/cement job design
+- Real-time drilling optimization, wellbore stability, pore pressure
+  prediction, MPD/UBD — out of scope
+- Casing wear / BHA vibration / shock modelling
+
+**Known remaining code gaps:** MainWindow monolithic; cost AFE/forecast;
+service performance analytics; NPT report synthesis from service rows;
+time-log rows arriving as `timedelta` skipped by UI filter (7/10 24h rows
+reach DB); 2 of 13 lookahead rows lack activity text (stored: 11).
 
 ---
 
 ## G. Remaining Roadmap
 
-### P1 (Next Phase)
-1. Implement torque & drag engine
-2. Implement kick tolerance
-3. Wire Engineering Calculator to core engines
-4. Implement casing burst/collapse design
-5. MainWindow refactor (extract managers)
+### P1
+1. MainWindow decomposition (extract managers already exist in `core/`)
+2. Wire T&D / anti-collision engines into a UI surface (engines ready,
+   screening-grade)
+3. Cost AFE/forecast from stored daily costs
 
 ### P2
-1. Cement job design (slurry, displacement, TOC)
-2. NPT Pareto/trend analysis
-3. Cost AFE/forecast
-4. Service performance analysis
-5. Real-time data integration
+1. Cement slurry design (thickening time, lead/tail)
+2. NPT Pareto + service-performance dashboards
+3. Real-time data integration (WITSML) — currently Excel-DDR based
 
-### P3
-1. Wellbore stability
-2. Fracture gradient
-3. Managed pressure drilling
-4. 3D trajectory visualization
-5. Anti-collision
-
-### Future
-1. Real-time drilling optimization
-2. Machine learning ROP prediction
-3. Automated NPT classification
-4. Digital twin integration
-
+### P3 (evaluation only — no commit yet)
+1. welleng adapter benchmarking for full ISCWSA anti-collision
+2. 3D trajectory visualization (architecture requires no new top-level tab)
 
 ---
 
-## H. OEOC Real-Import Audit Addendum (2026-08-31)
+## H. OEOC Real-Import Audit (preserved addendum, re-verified green)
 
-### Verified end-to-end with the REAL workbook
-`08-DDR OEOC-208 AZNS-207 2024-Oct-22.xlsx` + `templates/OEOC_DDR_v3.json`
-(no fabricated fixtures), full path:
-`Excel workbook -> Template (anchored) -> Canonical JSON -> SQLite -> UI tabs`.
+Path verified end-to-end with the REAL workbook
+`08-DDR OEOC-208 AZNS-207 2024-Oct-22.xlsx` +
+`templates/OEOC_DDR_v3.json` (no fabricated fixtures):
+`Excel workbook → Template (anchored) → Canonical JSON → SQLite → UI tabs`.
 
-### Pipeline facts (as implemented)
-- Canonical schema (`core/canonical_schema.py`) is the single registry
-  (FIELD_SPECS with aliases, engineering bounds, quantity/unit, criticality;
-  lookup_alias / get_engineering_bounds / get_quantity_unit / get_field_spec /
-  get_critical_fields / get_fields_by_quantity).
-- `core/excel_intelligence.py` extracts with multi-candidate scoring:
-  preferred cell > merge cell > exact label > alias > fuzzy. Certainty policy:
-  deterministic preferred/label mappings >= 0.70 -> HIGH, >= 0.50 -> MEDIUM,
-  fuzzy never HIGH (never inflated).
-- Placeholder policy: missing = key absent; "N.C" = key None + key_source +
-  source_tokens provenance; real zero = 0. Never invented numbers.
-- Import flow is generic: Company Source -> Template -> Canonical Model ->
-  Database. No `if company == "OEOC"` branching anywhere.
-- DB schema upgrades are additive-only (`_apply_safe_schema_upgrades`
-  ALTER TABLE ADD COLUMN, idempotent, data-preserving).
+Pipeline facts: canonical schema is the single registry; extraction scoring
+(preferred cell > merge > exact label > alias > fuzzy) with honest certainty;
+missing = key absent, "N.C" = None + provenance, never invented zeros;
+generic flow with no per-company branching; additive-only DB schema upgrades
+(`_apply_safe_schema_upgrades`, idempotent, data-preserving).
 
-### Real workbook verification results (this audit)
-- Report date 2024-10-22 (assembled from Year/Month/Day parts)
-- Bit 17.5 in, No. 2, rerun 1, KingDream, IADC 135, nozzles 1x18/32" + 2 Open,
-  TFA 4.32 — funnel/other sizes NOT picked
-- Mud: MW 71 PCF (native UI unit), PV 7, YP 15, funnel 33, gel 4/6, pH 10.5,
-  chlorides 7400, solids 7, hardness 400; 34 chemicals with used/received/
-  on-hand + units; Fluid Loss = N.C -> NULL (never 0, never invented)
-- Pumps: liner text preserved verbatim; SPM/SPP/flow min-max extracted
-- Drilling parameters: WOB 10-30 klb, RPM 80-120, torque 2-4, SPP 350-600
-- Time logs: 24h rows and morning rows kept separate (morning NOT duplicated)
-- Services: Vira, APAD, GEO Data, OEOC (CSG + Wellhead), SPAD Energy — all 6
-  preserved with hole section/dates/duration/description
-- Lookahead: 13 activities with hours -> 11 stored in seven_days_lookahead
-  (rows without activity text are skipped; hours prefixed into remarks)
-- BOP: Annular RS 3000 psi 20-3/4" + 5 more stack components (Jalali
-  last-test date preserved as provenance text, never stored as wrong date)
-- Notes: Note#01/Note#02 appended to the Daily Report summary
-- LTA (Day) 468 -> DailyReport + Well; Actual Rig Days 7.25
-- POB breakdown (rig 76, client 3, MSA 7, service 14, catering 22, labour 8,
-  total 130) -> ServiceCompanyPOB rows (total not stored -> no double count)
-- Safety: days_without_lti 468; missing drill dates stay NULL (no fake dates)
+Real-workbook verification results (unchanged, still green at this HEAD):
+report date 2024-10-22 assembled from parts; bit 17.5″ No. 2 rerun 1
+KingDream IADC 135, nozzles 1×18/32″ + 2 Open, TFA 4.32; mud MW 71 PCF,
+PV/YP/gel/pH/chlorides/solids/hardness/34 chemicals with units; fluid loss
+N.C → NULL; pump liner verbatim; WOB/RPM/torque/SPP min–max; 24h vs morning
+time-log separation; 6 service companies preserved; 13 lookahead activities
+(11 stored); BOP stack 6 components with last-test provenance; LTA 468;
+actual rig days 7.25; POB 130 breakdown; days_without_lti 468; missing drill
+dates stay NULL.
 
-### Test status (this audit)
-Full suite: 352 passed, 2 skipped (PySide6 display), 0 failed, 0 errors.
-Golden OEOC regression: 32 tests in `tests/test_real_oeoc_golden.py`
-(+ `tests/test_multi_company_template.py` for the generic template path).
-
-### Remaining genuine limitations
-- Time-log extraction: 7 of 10 canonical 24h rows and 6 of 7 morning rows
-  reach the DB — rows whose time cells arrive as `timedelta` (not `time`)
-  are skipped by the dialog's `to_time` filter.
-- 2 of 13 lookahead rows lack activity text in the workbook and are skipped
-  (stored: 11).
-- No NPT report is generated from service rows with negative durations;
-  service NPT is visible via service_companies, not npt_reports.
-- UI verification is code-path level (headless env: no libGL); tabs w1/w7/w8
-  load the imported values through their DB getters.
+**Remaining genuine import limitations (unchanged):** timedelta time cells
+skipped by UI filter; 2 lookahead rows without activity text; no NPT report
+synthesis from negative-duration service rows; UI verification is code-path
+level in the headless sandbox (no libGL).

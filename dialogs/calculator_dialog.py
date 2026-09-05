@@ -310,9 +310,10 @@ class DrillingCalculatorDialog(QDialog):
         if Dh <= Dp:
             self.av_result.setText("❌ Hole diameter must be > Pipe OD")
             return
-        
-        # AV = (24.5 × Q) / (Dh² - Dp²)
-        av = (24.5 * Q) / (Dh**2 - Dp**2)
+
+        # Canonical annular velocity (HydraulicsEngine.calculate_annular_velocity)
+        from core.engineering.core import HydraulicsEngine
+        av = HydraulicsEngine.calculate_annular_velocity(Q, Dh, Dp)
         self.av_result.setText(f"AV = {av:.1f} ft/min  ({av * 0.3048:.1f} m/min)")
     
     def _calc_hsi(self):
@@ -345,13 +346,14 @@ class DrillingCalculatorDialog(QDialog):
             return
         
         L_ft = L * 3.28084
-        # Annular volume (bbl) = (Dh² - Dp²) / 1029.4 × L(ft)
-        vol_bbl = ((Dh**2 - Dp**2) / 1029.4) * L_ft
+        # Canonical annular volume / capacity (AdvancedHydraulicsEngine)
+        from core.hydraulics_engine import AdvancedHydraulicsEngine
+        vol_bbl = AdvancedHydraulicsEngine.calc_annular_volume(Dh, Dp, L_ft)
         vol_m3 = vol_bbl * 0.158987
-        
-        # Annular capacity (bbl/ft)
-        cap_bbl_ft = (Dh**2 - Dp**2) / 1029.4
-        
+
+        # Annular capacity (bbl/ft) — canonical
+        cap_bbl_ft = AdvancedHydraulicsEngine.calc_annular_capacity_bbl_ft(Dh, Dp)
+
         self.vol_result.setText(
             f"Volume = {vol_bbl:.1f} bbl ({vol_m3:.2f} m³)\n"
             f"Capacity = {cap_bbl_ft:.4f} bbl/ft"
@@ -366,8 +368,9 @@ class DrillingCalculatorDialog(QDialog):
             return
         
         L_ft = L * 3.28084
-        # Pipe capacity (bbl) = ID² / 1029.4 × L(ft)
-        cap = (ID**2 / 1029.4) * L_ft
+        # Canonical pipe capacity (AdvancedHydraulicsEngine)
+        from core.hydraulics_engine import AdvancedHydraulicsEngine
+        cap = AdvancedHydraulicsEngine.calc_pipe_capacity_bbl(ID, L_ft)
         cap_per_m = cap / L if L > 0 else 0
         
         self.cap_result.setText(

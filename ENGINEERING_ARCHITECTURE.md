@@ -1,251 +1,147 @@
 # DrillMaster — Engineering Architecture Documentation
 
-> **Version:** 1.0 — Audit Baseline (2026-08-24)
+> **Version:** 2.0 — verified against branch `arena/01a05747-drill-master`
+> at HEAD `5f92841` (2026-09-05), full test suite `421 passed, 2 skipped`.
 
 ---
 
 ## 1. Design Principles
 
-1. **Deterministic:** All calculations use published formulas from industry references (Bourgoyne et al., SPE, Applied Drilling Engineering)
-2. **No LLM Guessing:** AI never modifies engineering data directly. AI can call engines and receive results.
-3. **Explicit Contracts:** Every calculation has documented required inputs, outputs, units, assumptions, and error conditions
-4. **Error Propagation:** Missing inputs raise `MissingInputError`, unsupported calculations raise `UnsupportedCalculationError`
-5. **Traceable:** Results include assumptions, warnings, and calculation method
-6. **Testable:** All engines have comprehensive unit tests
+1. **Single source of truth (SSOT):** one canonical engine per engineering
+   domain. UI tabs, dialogs, and local calculators never re-implement an
+   engineering formula — they delegate.
+2. **Deterministic:** published formulas from industry references (Bourgoyne
+   et al., API RP, IWCF, SPE).
+3. **Explicit contracts:** engines return `EngineeringResult`
+   (`value/unit/warnings/assumptions/errors/metadata`); inputs missing raise
+   `MissingInputError` instead of defaulting to invented values.
+4. **Traceable:** results carry method + assumptions.
+5. **Honest scope:** engines that are screening-grade declare
+   `SCOPE = "PARTIAL / SCREENING …"` (torque & drag, anti-collision, fishing);
+   nothing partial is labelled complete.
+6. **Optional externals only:** welleng/torque_drag adapters exist, are
+   runtime-detected by `registry.py`, and are never a silent backend.
 
 ---
 
-## 2. Architecture
+## 2. Integration Chain
 
 ```
-UI Tabs
-    │
+UI Tab / Dialog
+    │  (pure delegation statics — no formulas, no unit constants other
+    │   than m↔ft / pcf↔ppg conversions at the boundary)
     ▼
-Application Services (future)
-    │
+core/engineering/bridge.py            # service layer between UI and engines
     ▼
-Engineering Core (core/engineering/)
-    ├── core.py          # All engine implementations
-    ├── registry.py      # Capability detection
-    ├── engines/         # Specialized engines
-    └── adapters/        # External library adapters
-    │
+Canonical Engines
+    ├── core/hydraulics_engine.py     # AdvancedHydraulicsEngine (bit ΔP/TFA/
+    │                                 #   HHP/HSI/jet velocity/impact,
+    │                                 #   pump output, capacities, …)
+    ├── core/engineering/core.py      # TrajectoryEngine, BitEngine,
+    │                                 #   HydraulicsEngine, WellControlEngine
+    │                                 #   (compat), BHA/…, facade
+    ├── core/engineering/engines/     # specialized engines (see catalog)
+    └── core/engineering/extended.py  # MudEngineering (mud-lab kit)
     ▼
-Repositories (core/repositories/)
-    │
+EngineeringResult (value/unit/warnings/assumptions/errors/metadata)
     ▼
-Database (core/database.py)
+UI display · DB · export
 ```
+
+**Rule:** a formula constant (e.g. `10858`, `1029.4`, `1714`, `1930`,
+`3.117`) appears once — in a canonical engine. Tests in
+`tests/test_single_source_guard.py` enforce this and reject the legacy
+`12031`-family constants anywhere in code.
 
 ---
 
 ## 3. Engine Catalog
 
-### 3.1 TrajectoryEngine
+### Canonical engines (HEAD)
 
-**File:** `core/engineering/core.py`
-**Method:** Minimum Curvature Method (MCM)
-**Reference:** Bourgoyne et al., SPE
+| Engine | File | Scope / Status | Consumed by |
+|--------|------|----------------|-------------|
+| `TrajectoryEngine` (MCM, build/turn rate, project-ahead) | `core/engineering/core.py` + `engines/trajectory.py` | COMPLETE — MCM parity-tested vs independent textbook implementation (`tests/test_trajectory_mcm_parity.py`) | W13 facade, surveys |
+| `AdvancedHydraulicsEngine` | `core/hydraulics_engine.py` | COMPLETE | W13 facade, dialogs, W15 |
+| `WellControlEngine` | `core/engineering/core.py` + `engines/well_control.py` | COMPLETE (IWCF kit: kick tolerance, MAASP, kill MW, formation pressure, fracture gradient, kick volume) | W13 kill sheet, dialogs |
+| `MudVolumeEngine` / `MudEngineering` | `engines/mud_volume.py` + `core/engineering/extended.py` | COMPLETE (weight-up, dilution, mixing, OWR, MBT, LSRYP, …) | W13 Mud Lab + facade |
+| `CasingEngine` | `engines/casing.py` | COMPLETE (burst/collapse/VME/triaxial/tensile) | engineering dialogs |
+| `CementEngine` | `engines/cement.py` | COMPLETE (volumes, displacement — capacity helpers delegated to `AdvancedHydraulicsEngine`) | w13/cement UI paths |
+| `TorqueDragEngine` | `engines/torque_drag.py` | **PARTIAL / SCREENING** — soft-string; `calculate_with_welleng()` optional | W13 facade |
+| `AntiCollisionEngine` | `engines/anti_collision.py` | **PARTIAL / SCREENING** — Euclidean clearance; ISCWSA full error model explicitly unsupported without welleng | (not wired to a tab) |
+| `FishingEngine` | `engines/fishing.py` | **PARTIAL / SCREENING** — free point, stretch, jar range, overshot fit, back-off | W13 facade |
+| `MSEEngine` | `engines/mse.py` | COMPLETE (Teale) | analysis UI |
+| `BitPerformanceEngine` | `engines/bit_performance.py` | COMPLETE (d-exponent, dc, cost/ft, rollup, run analysis; torque klb.ft→ft·lbf at engine boundary) | W12 Analysis |
+| `OperationsIntelligenceEngine`, `MudLedgerEngine`, `BHAEngine` | `core/engineering/core.py` | COMPLETE | analysis tabs |
 
-#### Governing Equations
-```
-Dogleg = arccos[ cos(I1)·cos(I2) + sin(I1)·sin(I2)·cos(A2-A1) ]
-RF = (2/DL) · tan(DL/2)    if DL ≠ 0, else 1
-ΔTVD = 0.5 · ΔMD · (cos I1 + cos I2) · RF
-ΔNorth = 0.5 · ΔMD · (sin I1·cos A1 + sin I2·cos A2) · RF
-ΔEast = 0.5 · ΔMD · (sin I1·sin A1 + sin I2·sin A2) · RF
-```
+### W13 Engineering Calculator
 
-#### Inputs
-| Field | Type | Unit | Required | Validation |
-|-------|------|------|----------|------------|
-| md | float | m | Yes | Monotonic increasing, no duplicates |
-| inc | float | deg | Yes | Range [0, 180] |
-| azi | float | deg | Yes | Normalized to [0, 360) |
-
-#### Outputs
-| Field | Unit | Description |
-|-------|------|-------------|
-| tvd | m | True Vertical Depth |
-| north | m | Northing displacement |
-| east | m | Easting displacement |
-| vs | m | Vertical Section |
-| hd | m | Horizontal Displacement |
-| dls | deg/30m | Dogleg Severity |
-| build_rate | deg/30m | Build rate |
-| turn_rate | deg/30m | Turn rate |
-
-#### Additional Methods
-- `project_ahead()` — Project from last point to target MD with constant inc/azi
+`tabs/w13_Engineering_Calculator.py` `DrillingCalculationEngine` is a facade:
+22 static methods delegate 1:1 to the canonical engines above (pump output,
+TFA, bit HHP, jet velocity, impact force, nozzle optimization, free point,
+stretch, adjusted weight, buoyancy factor, casing landing load, kick
+tolerance, formation pressure, build/turn rate, overshot fit, jar range,
+back-off, mud weight-up/dilution/mix, OWR). No `12031` legacy constant, no
+`1029.4`/`10858` duplication remains in the tab (guard-tested).
 
 ---
 
-### 3.2 BitEngine
+## 4. Result Contract
 
-**File:** `core/engineering/core.py`
-
-#### Calculations
-
-**TFA (Total Flow Area):**
-```
-TFA = Σ (π/4 · (d/32)²)    where d = nozzle size in 32nds of inch
-```
-
-**HSI (Hydraulic Horsepower per Square Inch):**
-```
-HHP = Q · ΔP / 1714         where Q in gpm, ΔP in psi
-HSI = HHP / (π/4 · D²)     where D = bit size in inch
-```
-
----
-
-### 3.3 BHAEngine
-
-**File:** `core/engineering/core.py`
-
-#### Calculations
-- Cumulative length calculation (bottom-up)
-- Cumulative weight calculation
-- Component validation
-
----
-
-### 3.4 HydraulicsEngine
-
-**File:** `core/engineering/core.py`
-
-#### Annular Velocity
-```
-AV = 24.51 · Q / (Dh² - Dp²)    ft/min
-where Q in gpm, Dh = hole ID in inch, Dp = pipe OD in inch
-```
-
-#### ECD (Equivalent Circulating Density)
-```
-ECD = MW + APL / (0.052 · TVD)
-where MW in ppg, APL in psi, TVD in ft
-```
-
-#### PV/YP from Viscometer
-```
-PV = θ600 - θ300
-YP = θ300 - PV
-```
-
----
-
-### 3.5 WellControlEngine
-
-**File:** `core/engineering/core.py`
-
-#### Kill Mud Weight
-```
-Kill MW = Original MW + SIDPP / (0.052 · TVD)
-```
-
-#### MAASP (Maximum Allowable Annular Surface Pressure)
-```
-MAASP = (Frac MW - Current MW) · 0.052 · Shoe TVD
-where Frac MW = Leak-off / (0.052 · TVD) if leak-off provided
-```
-
----
-
-### 3.6 OperationsIntelligenceEngine
-
-**File:** `core/engineering/core.py`
-
-#### ROP Trend Analysis
-Detects ROP degradation over time. Returns insight with evidence if decline exceeds threshold (default 18%).
-
-#### NPT Trend Analysis
-Flags when NPT percentage exceeds threshold (default 20%).
-
----
-
-### 3.7 MudLedgerEngine
-
-**File:** `core/engineering/core.py`
-
-#### Chemical Ledger
-```
-Closing Stock = Opening + Received + Adjusted - Used - Returned
-Next Day Opening = Previous Closing
-```
-
-#### Alerts
-- Negative stock
-- Unusual consumption (>2x opening)
-- No movement (stock with no usage)
-
----
-
-## 4. Calculation Result Contract
-
-Every engine method returns a `CalculationResult`:
+`core/engineering/result.py`:
 
 ```python
 @dataclass
-class CalculationResult:
+class EngineeringResult:
     success: bool
-    value: Any = None
-    values: Dict[str, Any] = None
-    unit: str = ""
-    assumptions: List[str] = None
-    warnings: List[str] = None
-    error: str = ""
+    value: float | Dict | None
+    unit: str
+    values: Dict[str, Any]
+    method: str
+    assumptions: List[str]
+    warnings: List[str]
+    errors: List[str]       # legacy: error (str) alias
+    scope: str = ""         # "PARTIAL / SCREENING …" when not complete
+    metadata: Dict[str, Any]
 ```
+
+Engines keep legacy tuple/dict return compatibility only through documented
+wrapper methods whose bodies delegate — no mixed return types inside a single
+engine method.
 
 ---
 
-## 5. Error Hierarchy
+## 5. Unit & constant policy
 
-```
-EngineeringError (base)
-├── MissingInputError(field)     # Required input not provided
-└── UnsupportedCalculationError(reason)  # Calculation not implemented
-```
+- Canonical constants live in engines: `10858` (bit ΔP), `1714` (HHP),
+  `1930` (impact), `3.117` (jet velocity), `1029.4` (capacity), `0.052`
+  (pressure gradient), `7.48` (pcf↔ppg).
+- Unit conversions (m↔ft `3.28084`, pcf↔ppg `7.48`, klb.ft→ft·lbf `×1000`)
+  happen once at the UI/DB boundary — never inside formulas.
+- Torque is stored in DB in klb.ft and converted to ft·lbf once in
+  `BitPerformanceEngine.from_daily_params`.
 
 ---
 
-## 6. Capability Registry
+## 6. Error hierarchy & registry
 
-**File:** `core/engineering/registry.py`
+```
+EngineeringError
+├── MissingInputError(field)
+└── UnsupportedCalculationError(reason)
+```
 
-Detects optional external packages at runtime without blocking startup:
-
-| Capability | Package | Purpose |
-|------------|---------|---------|
-| Trajectory / anti-collision | welleng | Survey planning, error models, clearance |
-| Torque & drag | torque_drag | Axial load and torque along string |
-| Drilling optimization | gekko | ROP and scenario optimization |
-| PDF tables | camelot | Text PDF table extraction |
-| PDF OCR tables | pytesseract | Scanned PDF OCR fallback |
+`core/engineering/registry.py` detects optional packages (welleng,
+torque_drag, gekko, camelot, pytesseract) without blocking startup.
 
 ---
 
 ## 7. Testing
 
-All engines have comprehensive tests in `tests/test_p0_engineering_core.py` (20 tests):
-
-- Trajectory: single point, multi-point, validation, projection
-- Bit: TFA calculation, HSI calculation
-- BHA: cumulative length/weight
-- Hydraulics: annular velocity, ECD, PV/YP
-- Well Control: kill MW, MAASP
-- Operations: ROP trend, NPT trend
-- Mud Ledger: closing stock, alerts
-
----
-
-## 8. Future Engines
-
-| Engine | Priority | Status |
-|--------|----------|--------|
-| Torque & Drag | High | Stub exists |
-| Anti-Collision | High | Stub exists |
-| Casing Design | Medium | Not started |
-| Cementing | Medium | Not started |
-| Kick Tolerance | Medium | Not started |
-| Pressure Loss | Medium | Not started |
-| ROP Optimization | Low | Not started |
+Full suite at HEAD: **421 passed, 2 skipped** (2026-09-05 run). Engineering
+coverage includes `tests/test_p0_engineering_core.py`,
+`test_engineering_ground_truth.py`, `test_engineering_integrations.py`,
+`test_extended_engineering.py`, `test_nozzle_optimization.py`,
+`test_trajectory_mcm_parity.py`, `test_single_source_guard.py`, plus the
+OEOC golden-import regressions (`test_real_oeoc_golden.py` and friends,
+122 tests green).

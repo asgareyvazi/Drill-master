@@ -23,22 +23,23 @@ from core.common_widgets import safe_replace_chart
 logger = logging.getLogger(__name__)
 
 
-# ==================== ENGINE: محاسبات خالص (بدون UI) ====================
 class DrillingCalculationEngine:
     """
-    موتور محاسبات - مستقیماً از نرم‌افزار قبلی
-    هیچ وابستگی به UI ندارد
+    Legacy calculation facade for the Engineering Calculator tab (W13).
+
+    No engineering formula lives here any more: every method delegates to
+    the canonical engines under core/ (single source of truth) and only
+    converts units / maps result shapes. See ENGINEERING_ARCHITECTURE.md.
     """
-    
-    # -------- Volume & Capacity --------
+
+    # -------- Bit hydraulics (canonical: core/hydraulics_engine.py) --------
     @staticmethod
     def calc_pump_output(liner_size: float, stroke_len: float, efficiency: float) -> float:
-        """خروجی پمپ — delegates to canonical AdvancedHydraulicsEngine."""
+        """Pump output — delegates to canonical AdvancedHydraulicsEngine."""
         from core.hydraulics_engine import AdvancedHydraulicsEngine
         return AdvancedHydraulicsEngine.calc_pump_output(
             liner_size, stroke_len, efficiency)
-    
-    @staticmethod
+
     @staticmethod
     def calc_tfa_from_pressure(gpm: float, mw: float, delta_p: float) -> float:
         """TFA from ΔP — canonical AdvancedHydraulicsEngine.calc_tfa_from_pressure_drop."""
@@ -46,31 +47,35 @@ class DrillingCalculationEngine:
         if delta_p <= 0:
             return 0
         return round(AdvancedHydraulicsEngine.calc_tfa_from_pressure_drop(gpm, mw, delta_p), 4)
-    
+
     @staticmethod
     def calc_bit_hhp(gpm: float, delta_p: float) -> float:
+        """Bit HHP — canonical AdvancedHydraulicsEngine.calc_bit_hhp."""
         from core.hydraulics_engine import AdvancedHydraulicsEngine
         return round(AdvancedHydraulicsEngine.calc_bit_hhp(gpm, delta_p), 2)
-    
+
     @staticmethod
     def calc_jet_velocity(gpm: float, nozzle_sizes: list) -> float:
         """Jet velocity — canonical AdvancedHydraulicsEngine.calc_jet_velocity.
 
-        Nozzle sizes in 1/32 inch; TFA = Σ π/4·(s/32)².
+        TFA is computed by the canonical BitEngine.calculate_tfa
+        (Σ π/4·(size/32)²) — never re-implemented here.
         """
         from core.hydraulics_engine import AdvancedHydraulicsEngine
-        total_area = sum(
-            math.pi / 4 * (s / 32.0) ** 2 for s in nozzle_sizes if s > 0)
-        if total_area <= 0:
-            return 0
-        return round(AdvancedHydraulicsEngine.calc_jet_velocity(gpm, total_area), 2)
-    
+        from core.engineering.core import BitEngine
+        sizes = [s for s in nozzle_sizes if s > 0]
+        if not sizes or gpm <= 0:
+            return 0.0
+        tfa = BitEngine.calculate_tfa(sizes)
+        return round(AdvancedHydraulicsEngine.calc_jet_velocity(gpm, tfa), 2)
+
     @staticmethod
     def calc_impact_force(gpm: float, mw: float, jet_velocity: float) -> float:
+        """Impact force — canonical AdvancedHydraulicsEngine.calc_impact_force."""
         from core.hydraulics_engine import AdvancedHydraulicsEngine
         return round(AdvancedHydraulicsEngine.calc_impact_force(mw, gpm, jet_velocity), 2)
 
-    # -------- Nozzle Optimization --------
+    # -------- Nozzle Optimization (canonical: AdvancedHydraulicsEngine) --------
     @staticmethod
     def optimize_nozzles(
         hhp: float, max_press: float,
@@ -78,79 +83,184 @@ class DrillingCalculationEngine:
         prev_tfa: float, mw: float, n_nozzles: int,
         model: str = "HP"
     ) -> dict:
-        """بهینه‌سازی نازل‌ها"""
-        NZL_SIZES = [6,7,8,9,10,11,12,13,14,15,16,18,20,22,24,26,28,30]
-        
-        def nozzle_area(size32):
-            d = size32 / 32.0
-            return math.pi * (d / 2)**2
-        
-        Q_opt_max = hhp * 1714 / max_press if max_press > 0 else 0
-        
-        if fr2 > 0 and fr1/fr2 > 0:
-            n = math.log10(spp1 / spp2) / math.log10(fr1 / fr2)
-        else:
-            n = 1.0
-        
-        if model == "HP":
-            DPf_max = max_press / (n + 1)
-        else:
-            DPf_max = 2 * max_press / (n + 2)
-        
-        DPf_1 = spp1 - ((mw * fr1**2) / (12031 * 0.95**2 * prev_tfa**2)) if prev_tfa > 0 else 0
-        a = DPf_1 / (fr1**n) if fr1 > 0 else 0
-        
-        if a > 0:
-            Q_opt = (DPf_max / a) ** (1.0 / n) if n != 0 else 0
-        else:
-            Q_opt = Q_opt_max
-        
-        DP_bit = max_press - DPf_max
-        Opt_TFA = math.sqrt(mw * Q_opt**2 / (12031 * 0.95**2 * DP_bit)) if DP_bit > 0 else 0
-        
-        # بهترین ترکیب نازل
-        best_combo = None
-        best_error = 1e9
-        
-        for combo in itertools.combinations_with_replacement(NZL_SIZES, n_nozzles):
-            total_area = sum(nozzle_area(s) for s in combo)
-            error = abs(Opt_TFA - total_area)
-            if error < best_error:
-                best_error = error
-                best_combo = combo
-        
-        return {
-            "max_flow_rate_gpm": round(Q_opt_max, 1),
-            "optimal_flow_rate_gpm": round(Q_opt, 1),
-            "optimal_tfa_in2": round(Opt_TFA, 4),
-            "selected_nozzles": list(best_combo) if best_combo else [],
-            "actual_tfa_in2": round(sum(nozzle_area(s) for s in best_combo), 4) if best_combo else 0,
-            "tfa_error": round(best_error, 4),
-        }
+        """Legacy wrapper — delegates to canonical
+        AdvancedHydraulicsEngine.optimize_nozzles()."""
+        from core.hydraulics_engine import AdvancedHydraulicsEngine
+        return AdvancedHydraulicsEngine.optimize_nozzles(
+            hhp=hhp, max_press=max_press, fr1=fr1, spp1=spp1, fr2=fr2,
+            spp2=spp2, prev_tfa=prev_tfa, mw_ppg=mw, n_nozzles=n_nozzles,
+            model=model)
 
-    # -------- Slug --------
+    # -------- Fishing / Stuck-pipe (canonical: FishingEngine) --------
     @staticmethod
     def calc_free_point(diff_stretch: float, pipe_wt: float, pull_force: float) -> float:
-        if pull_force <= 0:
-            return 0
-        return round(735294 * diff_stretch * pipe_wt / pull_force, 1)
-    
+        """Free point (ft) — canonical FishingEngine.free_point."""
+        from core.engineering.engines.fishing import calculate_free_point
+        return calculate_free_point(diff_stretch, pipe_wt, pull_force)
+
     @staticmethod
     def calc_string_stretch(length: float, mw: float) -> float:
-        return round(length / 96250000 * (65.44 - (1.44 * mw)), 2)
+        """String stretch (in) — canonical FishingEngine.string_stretch."""
+        from core.engineering.engines.fishing import calculate_string_stretch
+        return calculate_string_stretch(length, mw)
 
-    # -------- Pressure Drop (Bingham) --------
-    @staticmethod
     @staticmethod
     def calc_adjusted_weight(od: float, id_: float) -> float:
-        return round(2.67 * (od**2 - id_**2), 2)
+        """Adjusted pipe weight (lb/ft) — canonical FishingEngine.adjusted_weight."""
+        from core.engineering.engines.fishing import FishingEngine
+        r = FishingEngine.adjusted_weight(od, id_)
+        return r.value if r.success else 0.0
 
-# ==================== MUD CALCULATIONS ====================
-    
     @staticmethod
-    def calc_mud_weight_increase(current_mw, target_mw, system_vol, 
+    def calc_buoyancy_factor(mud_weight_pcf, steel_density=490) -> float:
+        """Buoyancy factor — canonical TorqueDragEngine.buoyancy_factor.
+
+        Input is pcf; converted to ppg at this boundary (unit conversion
+        only — the formula lives in the engine).
+        """
+        from core.engineering.engines.torque_drag import TorqueDragEngine
+        if not mud_weight_pcf or mud_weight_pcf <= 0:
+            return 0.0
+        mw_ppg = mud_weight_pcf / 7.48
+        steel_ppg = steel_density / 7.48
+        try:
+            return round(TorqueDragEngine.buoyancy_factor(mw_ppg, steel_ppg), 4)
+        except Exception:
+            return 0.0
+
+    @staticmethod
+    def calc_casing_landing_load(casing_weight_ppf, length_ft,
+                                   buoyancy_factor, friction_factor=0) -> dict:
+        """Casing landing-load card — arithmetic on engine outputs
+        (canonical buoyancy factor is supplied by the caller); no
+        engineering constants live here."""
+        air_weight = casing_weight_ppf * length_ft
+        buoyant_weight = air_weight * buoyancy_factor
+        friction_load = buoyant_weight * friction_factor
+        hook_load = buoyant_weight - friction_load
+
+        return {
+            "air_weight_lbs": round(air_weight, 0),
+            "buoyant_weight_lbs": round(buoyant_weight, 0),
+            "friction_load_lbs": round(friction_load, 0),
+            "hook_load_lbs": round(hook_load, 0),
+        }
+
+    # -------- Well Control (canonical: WellControlEngine) --------
+    @staticmethod
+    def calc_kick_tolerance(frac_mw_ppg, current_mw_ppg, tvd_ft,
+                             shoe_tvd_ft, annular_vol_bbl,
+                             influx_gradient_psi_ft=None,
+                             annular_capacity_bbl_ft=None,
+                             formation_emw_ppg=None) -> dict:
+        """Kick tolerance — canonical WellControlEngine.kick_tolerance.
+
+        No invented influx gradient or annular capacity: missing inputs
+        produce an error dict instead of a guessed number.
+        """
+        from core.engineering.engines.well_control import WellControlEngine
+        r = WellControlEngine.kick_tolerance(
+            mw_ppg=current_mw_ppg,
+            shoe_tvd_ft=shoe_tvd_ft,
+            current_tvd_ft=tvd_ft,
+            frac_mw_ppg=frac_mw_ppg,
+            influx_gradient_psi_ft=influx_gradient_psi_ft,
+            annular_capacity_bbl_ft=annular_capacity_bbl_ft,
+            formation_emw_ppg=formation_emw_ppg,
+        )
+        if not r.success:
+            return {"error": r.error}
+        return r.values
+
+    @staticmethod
+    def calc_formation_pressure(mw_pcf, tvd_ft, sidpp) -> dict:
+        """Formation pressure card — canonical
+        WellControlEngine.formation_pressure (pcf → ppg conversion here).
+
+        Legacy output keys/shapes preserved. When TVD is missing the card
+        returns zeroed fields (legacy behaviour) instead of guessing.
+        """
+        from core.engineering.engines.well_control import WellControlEngine
+        mw_ppg = mw_pcf / 7.48
+        r = WellControlEngine.formation_pressure(
+            mw_ppg=mw_ppg, tvd_ft=tvd_ft, sidpp_psi=sidpp)
+        if not r.success:
+            return {
+                "hydrostatic_psi": 0.0,
+                "formation_pressure_psi": round(float(sidpp or 0), 0),
+                "pressure_gradient_psi_ft": 0.0,
+                "equivalent_mw_ppg": 0.0,
+                "equivalent_mw_pcf": 0.0,
+            }
+        v = r.values
+        return {
+            "hydrostatic_psi": round(v["hydrostatic_psi"], 0),
+            "formation_pressure_psi": round(v["formation_pressure_psi"], 0),
+            "pressure_gradient_psi_ft": round(v["pressure_gradient_psi_ft"], 4),
+            "equivalent_mw_ppg": round(v["equivalent_mw_ppg"], 2),
+            "equivalent_mw_pcf": round(v["equivalent_mw_ppg"] * 7.48, 2),
+        }
+
+    # -------- Directional (canonical: TrajectoryEngine) --------
+    @staticmethod
+    def calc_build_rate(initial_inc, final_inc, md_interval) -> float:
+        """Build rate (°/30 m) — canonical TrajectoryEngine.calculate_build_rate."""
+        from core.engineering.core import TrajectoryEngine
+        if md_interval <= 0:
+            return 0.0
+        return round(TrajectoryEngine.calculate_build_rate(
+            initial_inc, final_inc, md_interval), 2)
+
+    @staticmethod
+    def calc_turn_rate(initial_azi, final_azi, md_interval) -> float:
+        """Turn rate (°/30 m) — canonical TrajectoryEngine.calculate_turn_rate
+        (shortest azimuth change, same wrap as the survey engine)."""
+        from core.engineering.core import TrajectoryEngine
+        if md_interval <= 0:
+            return 0.0
+        return round(TrajectoryEngine.calculate_turn_rate(
+            initial_azi, final_azi, md_interval), 2)
+
+    # -------- Fishing sizing rules (canonical: FishingEngine) --------
+    @staticmethod
+    def calc_fish_neck_ot(fish_od, overshot_id) -> dict:
+        """Overshot sizing — canonical FishingEngine.overshot_fit."""
+        from core.engineering.engines.fishing import FishingEngine
+        r = FishingEngine.overshot_fit(fish_od, overshot_id)
+        if not r.success:
+            return {"clearance_in": 0.0, "compatible": False, "recommendation": "Check sizing"}
+        return {
+            "clearance_in": r.values["clearance_in"],
+            "compatible": r.values["compatible"],
+            "recommendation": r.values["recommendation"],
+        }
+
+    @staticmethod
+    def calc_jar_operating_range(string_weight_lbs, buoyancy_factor,
+                                  overpull_lbs) -> dict:
+        """Jar range — canonical FishingEngine.jar_operating_range."""
+        from core.engineering.engines.fishing import FishingEngine
+        r = FishingEngine.jar_operating_range(
+            string_weight_lbs, buoyancy_factor, overpull_lbs)
+        if not r.success:
+            return {"error": r.error}
+        return r.values
+
+    @staticmethod
+    def calc_backoff_depth(stretch_in, pipe_weight_ppf,
+                            modulus=30e6) -> float:
+        """Back-off free point (ft) — canonical FishingEngine.backoff_depth."""
+        from core.engineering.engines.fishing import calculate_backoff_depth
+        if pipe_weight_ppf <= 0:
+            return 0.0
+        r = calculate_backoff_depth(stretch_in, pipe_weight_ppf)
+        return round(r, 1)
+
+    # -------- Mud (canonical: MudVolumeEngine / MudEngineering) --------
+    @staticmethod
+    def calc_mud_weight_increase(current_mw, target_mw, system_vol,
                                  additive_density=None) -> dict:
-        """Canonical MudVolumeEngine.weight_up. additive_density is required."""
+        """Weight-up — canonical MudVolumeEngine.weight_up (additive required)."""
         from core.engineering.engines.mud_volume import MudVolumeEngine
         r = MudVolumeEngine.weight_up(current_mw, target_mw, system_vol, additive_density)
         if not r.success:
@@ -160,11 +270,11 @@ class DrillingCalculationEngine:
             "volume_increase_bbl": r.values["volume_increase_bbl"],
             "final_volume_bbl": r.values["final_volume_bbl"],
         }
-    
+
     @staticmethod
-    def calc_mud_dilution(current_mw, target_mw, system_vol, 
+    def calc_mud_dilution(current_mw, target_mw, system_vol,
                           dilutant_mw=None) -> dict:
-        """Canonical MudVolumeEngine.dilution. dilutant_mw is required."""
+        """Dilution — canonical MudVolumeEngine.dilution (dilutant required)."""
         from core.engineering.engines.mud_volume import MudVolumeEngine
         r = MudVolumeEngine.dilution(current_mw, target_mw, system_vol, dilutant_mw)
         if not r.success:
@@ -173,10 +283,10 @@ class DrillingCalculationEngine:
             "water_required_bbl": r.values["water_required_bbl"],
             "final_volume_bbl": r.values["final_volume_bbl"],
         }
-    
+
     @staticmethod
     def calc_mud_mixing(mw1, vol1, mw2, vol2) -> dict:
-        """Canonical MudVolumeEngine.mix."""
+        """Mixing — canonical MudVolumeEngine.mix."""
         from core.engineering.engines.mud_volume import MudVolumeEngine
         r = MudVolumeEngine.mix(mw1, vol1, mw2, vol2)
         if not r.success:
@@ -185,7 +295,7 @@ class DrillingCalculationEngine:
             "final_mw_pcf": r.values["final_mw"],
             "total_volume_bbl": r.values["total_volume"],
         }
-    
+
     @staticmethod
     def calc_oil_water_ratio(oil_percent, water_percent) -> dict:
         """OWR — canonical MudEngineering.oil_water_ratio."""
@@ -200,142 +310,6 @@ class DrillingCalculationEngine:
             "OWR": r["owr"].replace(":", "/"),
         }
 
-    @staticmethod
-    # ==================== CASING/CEMENT CALCULATIONS ====================
-    
-    @staticmethod
-    def calc_buoyancy_factor(mud_weight_pcf, steel_density=490) -> float:
-        """محاسبه ضریب شناوری"""
-        return round(1 - (mud_weight_pcf / steel_density), 4)
-    
-    @staticmethod
-    def calc_casing_landing_load(casing_weight_ppf, length_ft, 
-                                   buoyancy_factor, friction_factor=0) -> dict:
-        """محاسبه بار فرود کیسینگ"""
-        air_weight = casing_weight_ppf * length_ft
-        buoyant_weight = air_weight * buoyancy_factor
-        friction_load = buoyant_weight * friction_factor
-        hook_load = buoyant_weight - friction_load
-        
-        return {
-            "air_weight_lbs": round(air_weight, 0),
-            "buoyant_weight_lbs": round(buoyant_weight, 0),
-            "friction_load_lbs": round(friction_load, 0),
-            "hook_load_lbs": round(hook_load, 0),
-        }
-
-    # ==================== WELL CONTROL ====================
-    
-    @staticmethod
-    @staticmethod
-    @staticmethod
-    @staticmethod
-    @staticmethod
-    def calc_kick_tolerance(frac_mw_ppg, current_mw_ppg, tvd_ft,
-                             shoe_tvd_ft, annular_vol_bbl,
-                             influx_gradient_psi_ft=None,
-                             annular_capacity_bbl_ft=None,
-                             formation_emw_ppg=None) -> dict:
-        """Canonical IWCF kick tolerance. No invented influx gradient."""
-        from core.engineering.engines.well_control import WellControlEngine
-        cap = annular_capacity_bbl_ft
-        if cap is None and annular_vol_bbl not in (None, "", 0) and tvd_ft:
-            # Do not invent capacity from a dummy volume.
-            cap = None
-        r = WellControlEngine.kick_tolerance(
-            mw_ppg=current_mw_ppg,
-            shoe_tvd_ft=shoe_tvd_ft,
-            current_tvd_ft=tvd_ft,
-            frac_mw_ppg=frac_mw_ppg,
-            influx_gradient_psi_ft=influx_gradient_psi_ft,
-            annular_capacity_bbl_ft=cap,
-            formation_emw_ppg=formation_emw_ppg,
-        )
-        if not r.success:
-            return {"error": r.error}
-        return r.values
-    
-    @staticmethod
-    @staticmethod
-    @staticmethod
-    def calc_formation_pressure(mw_pcf, tvd_ft, sidpp) -> dict:
-        """محاسبه فشار سازند"""
-        hp = 0.052 * (mw_pcf / 7.48) * tvd_ft
-        fp = hp + sidpp
-        fp_gradient = fp / tvd_ft if tvd_ft > 0 else 0
-        emw = fp / (0.052 * tvd_ft) if tvd_ft > 0 else 0
-        
-        return {
-            "hydrostatic_psi": round(hp, 0),
-            "formation_pressure_psi": round(fp, 0),
-            "pressure_gradient_psi_ft": round(fp_gradient, 4),
-            "equivalent_mw_ppg": round(emw, 2),
-            "equivalent_mw_pcf": round(emw * 7.48, 2),
-        }
-    
-    @staticmethod
-    # ==================== DIRECTIONAL DRILLING ====================
-    
-    @staticmethod
-    @staticmethod
-    def calc_build_rate(initial_inc, final_inc, md_interval) -> float:
-        """محاسبه Build Rate"""
-        if md_interval <= 0:
-            return 0
-        return round((final_inc - initial_inc) / md_interval * 30, 2)
-    
-    @staticmethod
-    def calc_turn_rate(initial_azi, final_azi, md_interval) -> float:
-        """محاسبه Turn Rate"""
-        if md_interval <= 0:
-            return 0
-        delta_azi = final_azi - initial_azi
-        if delta_azi > 180:
-            delta_azi -= 360
-        elif delta_azi < -180:
-            delta_azi += 360
-        return round(delta_azi / md_interval * 30, 2)
-    
-    @staticmethod
-    # ==================== FISHING ====================
-    
-    @staticmethod
-    def calc_fish_neck_ot(fish_od, overshot_id) -> dict:
-        """محاسبه OT برای فیشینگ"""
-        clearance = overshot_id - fish_od
-        is_compatible = clearance > 0 and clearance < 0.5
-        
-        return {
-            "clearance_in": round(clearance, 3),
-            "compatible": is_compatible,
-            "recommendation": "OK" if is_compatible else "Check sizing",
-        }
-    
-    @staticmethod
-    def calc_jar_operating_range(string_weight_lbs, buoyancy_factor,
-                                  overpull_lbs) -> dict:
-        """محاسبه محدوده عملکرد جار"""
-        buoyant_weight = string_weight_lbs * buoyancy_factor
-        jar_force_up = buoyant_weight + overpull_lbs
-        jar_force_down = buoyant_weight
-        
-        return {
-            "buoyant_weight_lbs": round(buoyant_weight, 0),
-            "upward_force_lbs": round(jar_force_up, 0),
-            "downward_force_lbs": round(jar_force_down, 0),
-            "recommended_jar_setting_lbs": round(jar_force_up * 0.8, 0),
-        }
-    
-    @staticmethod
-    def calc_backoff_depth(stretch_in, pipe_weight_ppf, 
-                            modulus=30e6) -> float:
-        """محاسبه عمق باکاف"""
-        if pipe_weight_ppf <= 0:
-            return 0
-        import math
-        area = pipe_weight_ppf / 3.4  # approximate cross section
-        free_point = stretch_in * modulus * area / (pipe_weight_ppf * 12)
-        return round(free_point, 1)
 
 # ==================== UI TAB ====================
 class EngineeringCalculatorTab(DrillTabBase):
@@ -669,13 +643,15 @@ class EngineeringCalculatorTab(DrillTabBase):
         od = self.v_od.value()
         id_ = self.v_id.value()
         L = self.v_length.value()
-        f = 3.281 / 1029.4
+        from core.hydraulics_engine import AdvancedHydraulicsEngine as A
 
         if od > id_ > 0:
-            cap = id_**2 * f
-            dis = (od**2 - id_**2) * f
-            self.v_cap.setText(f"{cap:.5f} bbl/m  |  {cap/3.281*1029.4:.5f} bbl/ft")
-            self.v_dis.setText(f"{dis:.5f} bbl/m  |  {dis/3.281*1029.4:.5f} bbl/ft")
+            cap_ft = A.calc_pipe_capacity_bbl_ft(id_)
+            dis_ft = A.calc_pipe_displacement_bbl_ft(od, id_)
+            cap = cap_ft * 3.28084      # bbl/m  (unit conversion of canonical bbl/ft)
+            dis = dis_ft * 3.28084      # bbl/m
+            self.v_cap.setText(f"{cap:.5f} bbl/m  |  {cap_ft:.5f} bbl/ft")
+            self.v_dis.setText(f"{dis:.5f} bbl/m  |  {dis_ft:.5f} bbl/ft")
             if L > 0:
                 vol = cap * L
                 metal = dis * L
@@ -693,11 +669,12 @@ class EngineeringCalculatorTab(DrillTabBase):
         hole = self.v_hole.value()
         pipe = self.v_pipe_od.value()
         L = self.v_ann_len.value()
-        f = 3.281 / 1029.4
+        from core.hydraulics_engine import AdvancedHydraulicsEngine as A
 
         if hole > pipe > 0:
-            ann_cap = (hole**2 - pipe**2) * f
-            self.v_ann_cap.setText(f"{ann_cap:.5f} bbl/m  |  {ann_cap/3.281*1029.4:.5f} bbl/ft")
+            ann_cap_ft = A.calc_annular_capacity_bbl_ft(hole, pipe)
+            ann_cap = ann_cap_ft * 3.28084   # bbl/m
+            self.v_ann_cap.setText(f"{ann_cap:.5f} bbl/m  |  {ann_cap_ft:.5f} bbl/ft")
             if L > 0:
                 ann_vol = ann_cap * L
                 self.v_ann_vol.setText(f"{ann_vol:.2f} bbl  (for {L:.0f} m)")
@@ -785,13 +762,14 @@ class EngineeringCalculatorTab(DrillTabBase):
 
     def _vol_refresh_pipe_table(self):
         self.vol_pipe_table.setRowCount(0)
-        f = 3.281 / 1029.4
+        from core.hydraulics_engine import AdvancedHydraulicsEngine as A
         for p in self.vol_pipes:
             row = self.vol_pipe_table.rowCount()
             self.vol_pipe_table.insertRow(row)
             id_ = p.get('id', 0)
             L = p.get('length', 0)
-            cap_bbl = id_**2 * f * L if id_ > 0 and L > 0 else 0
+            cap_bbl = (A.calc_pipe_capacity_bbl_ft(id_) * (L * 3.28084)
+                       if id_ > 0 and L > 0 else 0)
 
             self.vol_pipe_table.setItem(row, 0, QTableWidgetItem(p.get('type', '')))
             self.vol_pipe_table.setItem(row, 1, QTableWidgetItem(f"{p.get('od', 0):.3f}\""))
@@ -844,7 +822,7 @@ class EngineeringCalculatorTab(DrillTabBase):
 
     def _vol_calculate(self):
         """محاسبه حجم‌های چاه"""
-        f = 3.281 / 1029.4
+        from core.hydraulics_engine import AdvancedHydraulicsEngine as A
         bit_depth = self.vol_depth.value()
         loss_rate = self.vol_loss.value()
 
@@ -860,7 +838,8 @@ class EngineeringCalculatorTab(DrillTabBase):
         for p in self.vol_pipes:
             id_ = p.get('id', 0)
             L = p.get('length', 0)
-            vol = id_**2 * f * L if id_ > 0 and L > 0 else 0
+            vol = (A.calc_pipe_capacity_bbl_ft(id_) * (L * 3.28084)
+                   if id_ > 0 and L > 0 else 0)
             total_string += vol
             string_details.append((p.get('type', ''), vol))
 
@@ -885,7 +864,8 @@ class EngineeringCalculatorTab(DrillTabBase):
                 if overlap_len <= 0:
                     continue
 
-                ann_vol = (csg_id**2 - pipe_od**2) * f * overlap_len
+                ann_vol = (A.calc_annular_capacity_bbl_ft(csg_id, pipe_od)
+                           * (overlap_len * 3.28084))
                 total_annular += ann_vol
                 annular_details.append((
                     f"{p.get('type', '')} in {c.get('type', '')}",
@@ -3468,7 +3448,7 @@ class EngineeringCalculatorTab(DrillTabBase):
             self._wc_refresh_pipe_table()
 
     def _wc_refresh_pipe_table(self):
-        f = 3.281 / 1029.4
+        from core.hydraulics_engine import AdvancedHydraulicsEngine as A
         self.wc_pipe_table.setRowCount(0)
         total_string = 0
         total_ann = 0
@@ -3481,7 +3461,7 @@ class EngineeringCalculatorTab(DrillTabBase):
             od = p.get('od', 0)
             id_ = p.get('id', 0)
             L = p.get('length', 0)
-            cap = id_**2 * f
+            cap = A.calc_pipe_capacity_bbl_ft(id_) * 3.28084   # bbl/m
             vol = cap * L
 
             total_string += vol
@@ -3498,7 +3478,8 @@ class EngineeringCalculatorTab(DrillTabBase):
             # Annular volume (simplified)
             ann_id = csg_id if L < self.wc_shoe_md.value() else hole
             if ann_id > od:
-                ann_vol = (ann_id**2 - od**2) * f * L
+                ann_vol = (A.calc_annular_capacity_bbl_ft(ann_id, od)
+                           * 3.28084 * L)
                 total_ann += ann_vol
 
         self.wc_string_summary.setText(
@@ -3509,7 +3490,7 @@ class EngineeringCalculatorTab(DrillTabBase):
     # ========== Well Control Methods ==========
 
     def _wc_calc_kill(self):
-        f = 3.281 / 1029.4
+        from core.hydraulics_engine import AdvancedHydraulicsEngine as A
         tvd_ft = self.wc_tvd.value() * 3.28084
         md_ft = self.wc_md.value() * 3.28084
         shoe_tvd_ft = self.wc_shoe_tvd.value() * 3.28084
@@ -3528,7 +3509,7 @@ class EngineeringCalculatorTab(DrillTabBase):
         csg_id = self.wc_last_csg_id.value()
         method = "Driller's" if self.wc_driller.isChecked() else "Wait & Weight"
 
-        # String volumes
+        # String volumes — canonical capacity (bbl/ft) × length in ft
         total_string_vol = 0
         total_ann_vol = 0
         string_detail = []
@@ -3540,7 +3521,7 @@ class EngineeringCalculatorTab(DrillTabBase):
             L = p.get('length', 0)
             ptype = p.get('type', '')
 
-            cap = id_**2 * f * L
+            cap = A.calc_pipe_capacity_bbl_ft(id_) * (L * 3.28084)
             total_string_vol += cap
             string_detail.append((ptype, L, cap))
 
@@ -3549,7 +3530,8 @@ class EngineeringCalculatorTab(DrillTabBase):
             if L > 0:
                 ann_id_val = csg_id  # simplified
                 if ann_id_val > od:
-                    ann = (ann_id_val**2 - od**2) * f * L
+                    ann = (A.calc_annular_capacity_bbl_ft(ann_id_val, od)
+                           * (L * 3.28084))
                     total_ann_vol += ann
                     ann_detail.append((f"{ptype} in CSG", L, ann))
 
@@ -3572,22 +3554,34 @@ class EngineeringCalculatorTab(DrillTabBase):
         stk_annular = total_ann_vol / pump_output if pump_output > 0 else 0
         stk_total = stk_to_bit + stk_annular
 
-        # Kick type
-        kick_grad = (sicp - sidpp) / tvd_ft if tvd_ft > 0 else 0
-        if kick_grad < 0.1:
-            kick_type = "Gas Kick"
-        elif kick_grad < 0.35:
-            kick_type = "Oil Kick"
-        else:
-            kick_type = "Salt Water Kick"
-
-        # Kick height
-        if total_ann_vol > 0:
-            last_pipe_od = self.wc_pipes[-1].get('od', 5) if self.wc_pipes else 5
-            ann_cap_ft = (hole**2 - last_pipe_od**2) / 1029.4
-            kick_height = pit_gain / ann_cap_ft if ann_cap_ft > 0 else 0
-        else:
-            kick_height = 0
+        # Kick height / type — canonical WellControlEngine.kick_volume
+        # (height = pit gain / annular capacity; influx gradient from
+        # SICP−SIDPP over the influx height; type by gradient cut-offs)
+        kick_type = "n/a (enter pit gain + drill string)"
+        kick_height = 0.0
+        kick_note = ""
+        last_pipe_od = self.wc_pipes[-1].get('od', 5) if self.wc_pipes else 5
+        ann_cap_ft = A.calc_annular_capacity_bbl_ft(hole, last_pipe_od)
+        if pit_gain > 0 and ann_cap_ft > 0:
+            kv = WC.kick_volume(
+                pit_gain_bbl=pit_gain,
+                annular_capacity_bbl_ft=ann_cap_ft,
+                mw_ppg=mw_ppg,
+                sidpp_psi=sidpp,
+                sicp_psi=sicp,
+            )
+            if kv.success:
+                kick_height = kv.values.get("kick_height_ft") or 0.0
+                kind = kv.values.get("kick_type")
+                kick_type = {
+                    "gas": "Gas Kick",
+                    "oil": "Oil Kick",
+                    "oil_or_condensate": "Oil Kick",
+                    "salt_water": "Salt Water Kick",
+                    "saltwater": "Salt Water Kick",
+                }.get(kind, "Unknown")
+                if kv.warnings:
+                    kick_note = " ⚠ " + "; ".join(kv.warnings)[:80]
 
         # Choke schedule
         schedule = []
@@ -3638,7 +3632,7 @@ class EngineeringCalculatorTab(DrillTabBase):
     ║   SICP:           {sicp:.0f} psi
     ║   Pit Gain:       {pit_gain:.0f} bbl
     ║   Kick Type:      {kick_type}
-    ║   Kick Height:    {kick_height:.0f} ft (estimated)
+    ║   Kick Height:    {kick_height:.0f} ft (estimated){kick_note}
     ║   Frac Gradient:  {frac_grad:.4f} psi/ft
     ╠═════════════════════════════════════════════════════════╣
     ║ PUMP DATA:

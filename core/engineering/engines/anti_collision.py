@@ -48,6 +48,11 @@ class AntiCollisionEngine:
         "error_model": "ISCWSA error model (optional, for full uncertainty)",
     }
 
+    METHOD = "Euclidean minimum-distance (ISCWSA error model NOT applied)"
+    SCOPE = ("PARTIAL / SCREENING — deterministic clearance only; full ISCWSA "
+             "separation factor requires error models; welleng adapter is "
+             "optional and never a silent backend)")
+
     OUTPUTS = {
         "distance": "3D distance between wells",
         "separation_factor": "SF = Distance / (sigma_ref + sigma_offset) - if sigma available",

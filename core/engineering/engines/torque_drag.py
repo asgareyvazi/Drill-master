@@ -80,6 +80,23 @@ class TorqueDragEngine:
         if len(survey) < 2:
             raise MissingInputError("survey (at least 2 stations)")
         return ff, mud
+    @classmethod
+    def buoyancy_factor(cls, mud_density_ppg, steel_density_ppg=None):
+        """Simple buoyancy factor BF = 1 − MW/65.5 (steel ≈ 65.5 ppg).
+
+        Closed-end / pressure-area buoyancy is NOT included. Raises
+        EngineeringError when the mud density is not below the steel
+        density (non-positive buoyancy).
+        """
+        steel = steel_density_ppg if steel_density_ppg is not None else STEEL_PPG
+        mud = require_number(mud_density_ppg, "mud_density_ppg")
+        if mud <= 0:
+            raise EngineeringError("mud_density_ppg must be > 0")
+        bf = 1.0 - mud / steel
+        if bf <= 0:
+            raise EngineeringError("Mud density ≥ steel density — buoyancy factor ≤ 0")
+        return bf
+
 
     @classmethod
     def calculate_soft_string(
@@ -117,9 +134,7 @@ class TorqueDragEngine:
             from ..core import TrajectoryEngine
 
             traj = TrajectoryEngine.calculate(survey)
-            bf = 1.0 - mud / STEEL_PPG
-            if bf <= 0:
-                raise EngineeringError("Mud density ≥ steel density — buoyancy factor ≤ 0")
+            bf = cls.buoyancy_factor(mud)
 
             string = cls._expand_string(bha, traj)
             hole_id = optional_number(wellbore_id_in, "wellbore_id_in")

@@ -392,6 +392,63 @@ class WellControlEngine:
             return failed(str(exc))
 
     @classmethod
+    def formation_pressure(
+        cls,
+        mw_ppg,
+        tvd_ft,
+        sidpp_psi=0.0,
+    ) -> EngineeringResult:
+        """Formation pressure from mud hydrostatics + shut-in drill-pipe pressure.
+
+            P_hyd = 0.052 × MW × TVD
+            P_form = P_hyd + SIDPP
+            gradient = P_form / TVD
+            EMW_form = P_form / (0.052 × TVD)
+
+        SIDPP = 0 (balanced well) is allowed; negative SIDPP is rejected.
+        TVD must be > 0 — no invented depth.
+        """
+        try:
+            mw = require_number(mw_ppg, "mw_ppg")
+            tvd = require_number(tvd_ft, "tvd_ft")
+            sidpp = require_number(sidpp_psi, "sidpp_psi")
+            if mw <= 0:
+                raise EngineeringError("mw_ppg must be > 0")
+            if tvd <= 0:
+                raise EngineeringError("tvd_ft must be > 0")
+            if sidpp < 0:
+                raise EngineeringError("sidpp_psi cannot be negative")
+            hyd = PSI_PER_PPG_FT * mw * tvd
+            fp = hyd + sidpp
+            gradient = fp / tvd
+            emw = fp / (PSI_PER_PPG_FT * tvd)
+            values = {
+                "hydrostatic_psi": round(hyd, 2),
+                "formation_pressure_psi": round(fp, 2),
+                "pressure_gradient_psi_ft": round(gradient, 4),
+                "equivalent_mw_ppg": round(emw, 4),
+                "mw_ppg": mw,
+                "tvd_ft": tvd,
+                "sidpp_psi": sidpp,
+            }
+            return ok(
+                round(fp, 2),
+                values=values,
+                unit="psi",
+                formula="P_form = 0.052×MW×TVD + SIDPP; EMW = P_form/(0.052×TVD)",
+                method=cls.METHOD,
+                assumptions=[
+                    "SIDPP is measured with the well shut in and the bit on bottom",
+                    "Gradient and EMW are averages over the full TVD",
+                ],
+                metadata={"units": {"pressure": "psi", "mw": "ppg", "tvd": "ft"}},
+            )
+        except MissingInputError as exc:
+            return missing(exc.field)
+        except EngineeringError as exc:
+            return failed(str(exc))
+
+    @classmethod
     def kick_volume(
         cls,
         pit_gain_bbl=None,

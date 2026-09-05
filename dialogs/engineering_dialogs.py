@@ -280,11 +280,13 @@ class AddPipeDialog(EngineeringBaseDialog):
         wt = self.weight.value()
         L = self.length.value()
         L_ft = L * 3.28084
-        f = 3.281 / 1029.4
+        from core.hydraulics_engine import AdvancedHydraulicsEngine as A
 
         if od > id_ > 0:
-            self.calc_cap.setText(f"{id_**2 * f:.5f} bbl/m")
-            self.calc_dis.setText(f"{(od**2 - id_**2) * f:.5f} bbl/m")
+            cap_m = A.calc_pipe_capacity_bbl_ft(id_) * 3.28084     # bbl/m
+            dis_m = A.calc_pipe_displacement_bbl_ft(od, id_) * 3.28084
+            self.calc_cap.setText(f"{cap_m:.5f} bbl/m")
+            self.calc_dis.setText(f"{dis_m:.5f} bbl/m")
             self.calc_area.setText(f"{math.pi/4*(od**2-id_**2):.3f} in²")
             if L > 0:
                 w = wt * L_ft
@@ -510,10 +512,11 @@ class AddCasingDialog(EngineeringBaseDialog):
 
     def _update_calc(self):
         id_ = self.id_.value()
-        f = 3.281 / 1029.4
         L = self.to_md.value() - self.from_md.value()
         if id_ > 0:
-            self.calc_cap.setText(f"{id_**2 * f:.5f} bbl/m")
+            from core.hydraulics_engine import AdvancedHydraulicsEngine as A
+            cap_m = A.calc_pipe_capacity_bbl_ft(id_) * 3.28084      # bbl/m
+            self.calc_cap.setText(f"{cap_m:.5f} bbl/m")
         if L > 0:
             self.calc_len.setText(f"{L:.1f} m ({L * 3.281:.0f} ft)")
         else:
