@@ -61,21 +61,20 @@ class OperationsIntelligenceService:
             productive_hours = round(total_hours - npt_hours, 2)
             rig_days = len(reports)
 
-            # Cost per meter
-            cost_per_meter = 0.0
+            # Cost per meter is reported only from stored cost records.
+            # No rig-rate estimate is fabricated when actual cost data is absent.
+            cost_per_meter = None
+            total_cost = None
             try:
                 from core.database import CostRecord
                 cost_records = session.query(CostRecord).filter(CostRecord.well_id == well_id).all()
-                total_cost = sum(float(c.actual_cost or 0) for c in cost_records)
-                if current_depth > 0 and total_cost > 0:
-                    cost_per_meter = total_cost / current_depth
-                else:
-                    # Fallback estimate: 60k per day
-                    total_cost = rig_days * 60000
-                    cost_per_meter = total_cost / current_depth if current_depth > 0 else 0
+                if cost_records:
+                    total_cost = sum(float(c.actual_cost or 0) for c in cost_records)
+                    if current_depth > 0:
+                        cost_per_meter = total_cost / current_depth
             except Exception:
-                total_cost = rig_days * 60000
-                cost_per_meter = total_cost / current_depth if current_depth > 0 else 0
+                total_cost = None
+                cost_per_meter = None
 
             # Plan variance
             plan_variance = self.db.get_actual_vs_plan(well_id)
@@ -109,8 +108,8 @@ class OperationsIntelligenceService:
                 "npt_percent": npt_percent,
                 "productive_hours": productive_hours,
                 "rig_days": rig_days,
-                "cost_per_meter": round(cost_per_meter, 2),
-                "total_cost": round(total_cost, 2),
+                "cost_per_meter": None if cost_per_meter is None else round(cost_per_meter, 2),
+                "total_cost": None if total_cost is None else round(total_cost, 2),
                 "plan_variance": plan_variance,
                 "mud_trend": {"mw": mw_trend[-5:], "pv": pv_trend[-5:]},
                 "torque_trend": torques[-5:],
@@ -220,7 +219,7 @@ class OperationsIntelligenceService:
 
             # Plan delay
             depth_var = plan_variance.get("depth", {})
-            if depth_var.get("delta", 0) < -100:  # 100m behind
+            if depth_var.get("delta") is not None and depth_var["delta"] < -100:  # 100m behind
                 insights.append(
                     Insight(
                         kind="plan_delay",
@@ -239,7 +238,7 @@ class OperationsIntelligenceService:
 
             # Cost overrun
             hours_var = plan_variance.get("hours", {})
-            if hours_var.get("delta", 0) > 24:  # 1 day over
+            if hours_var.get("delta") is not None and hours_var["delta"] > 24:  # 1 day over
                 insights.append(
                     Insight(
                         kind="cost_overrun",

@@ -2332,12 +2332,18 @@ class AnalysisWidget(DrillTabBase):
             metrics = self.db.get_actual_vs_plan(self.current_well_id)
             depth = metrics["depth"]
             hours = metrics["hours"]
+            def _metric_text(item, unit):
+                if item.get("pct") is None:
+                    return "n/a"
+                return f"{item['actual']:.1f}/{item['planned']:.1f} {unit} ({item['pct']:+.1f}%)"
+
             self.plan_variance_label.setText(
-                f"Plan vs Actual | Depth {depth['actual']:.1f}/{depth['planned']:.1f} m "
-                f"({depth['pct']:+.1f}%) | Hours {hours['actual']:.1f}/{hours['planned']:.1f} "
-                f"({hours['pct']:+.1f}%)"
+                "Plan vs Actual | Depth " + _metric_text(depth, "m") +
+                " | Hours " + _metric_text(hours, "h")
             )
-            color = "#27ae60" if abs(depth["pct"]) <= 10 and abs(hours["pct"]) <= 10 else "#f39c12"
+            comparable = depth.get("pct") is not None and hours.get("pct") is not None
+            color = ("#27ae60" if comparable and abs(depth["pct"]) <= 10 and abs(hours["pct"]) <= 10
+                     else "#f39c12" if comparable else "#7f8c8d")
             self.plan_variance_label.setStyleSheet(f"font-weight: bold; padding: 5px; color: {color};")
         except Exception as exc:
             logger.error("Plan variance update failed: %s", exc, exc_info=True)

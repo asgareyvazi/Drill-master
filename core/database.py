@@ -2645,25 +2645,136 @@ class DatabaseManager:
             return True
 
     def get_actual_vs_plan(self, well_id: int):
-        """Return plan-vs-actual metrics for monitoring dashboards."""
+        """Return data-backed plan-vs-actual metrics for monitoring dashboards.
+
+        Time, ROP and cost values are taken from persisted records only. In
+        particular, a report count is not treated as 24 hours and a rig-day
+        price is never invented here.
+        """
         session = self.create_session()
         try:
-            plan = session.query(WellPlan).filter(WellPlan.well_id == well_id).order_by(WellPlan.created_at.desc()).first()
+            from core.actual_vs_plan import ActualVsPlanEngine
+
+            plan = session.query(WellPlan).filter(
+                WellPlan.well_id == well_id
+            ).order_by(WellPlan.created_at.desc()).first()
             activities = []
             if plan:
-                activities = session.query(PlannedActivity).filter(PlannedActivity.plan_id == plan.id).all()
-            reports = session.query(DailyReport).filter(DailyReport.well_id == well_id).order_by(DailyReport.report_date).all()
-            planned_hours = sum(float(a.planned_duration_hours or 0) for a in activities)
-            planned_depth = max((float(a.planned_depth_to or 0) for a in activities), default=0.0)
-            actual_depth = max((float(r.depth_2400 or 0) for r in reports), default=0.0)
-            actual_hours = len(reports) * 24.0
-            def variance(planned, actual):
-                return {"planned": planned, "actual": actual, "delta": actual - planned, "pct": ((actual - planned) / planned * 100) if planned else 0.0}
-            return {"depth": variance(planned_depth, actual_depth), "hours": variance(planned_hours, actual_hours), "plan_id": plan.id if plan else None, "reports": len(reports)}
+                activities = session.query(PlannedActivity).filter(
+                    PlannedActivity.plan_id == plan.id
+                ).all()
+            reports = session.query(DailyReport).filter(
+                DailyReport.well_id == well_id
+            ).order_by(DailyReport.report_date).all()
+            time_logs = session.query(TimeLog24H).join(
+                DailyReport, TimeLog24H.report_id == DailyReport.id
+            ).filter(DailyReport.well_id == well_id).all()
+            drilling_params = session.query(DrillingParameters).filter(
+                DrillingParameters.well_id == well_id
+            ).all()
+            cost_records = session.query(CostRecord).filter(
+                CostRecord.well_id == well_id
+            ).all()
+
+            planned_hours = sum(
+                float(a.planned_duration_hours or 0) for a in activities
+            )
+            if not planned_hours and plan and plan.planned_total_days:
+                planned_hours = float(plan.planned_total_days) * 24.0
+            planned_depth = max(
+                (float(a.planned_depth_to or 0) for a in activities), default=0.0
+            )
+            if not planned_depth and plan and plan.planned_final_depth:
+                planned_depth = float(plan.planned_final_depth)
+
+            depths = [float(r.depth_2400) for r in reports if r.depth_2400 is not None]
+            actual_depth = max(depths) if depths else None
+            recorded_durations = [
+                float(log.duration) for log in time_logs if log.duration is not None
+            ]
+            actual_hours = sum(recorded_durations) if recorded_durations else None
+            actual_npt_hours = sum(
+                float(log.duration) for log in time_logs
+                if log.is_npt and log.duration is not None
+            ) if time_logs else None
+
+            actual_rops = [
+                float(r.rop_meter) for r in reports
+                if r.rop_meter is not None and float(r.rop_meter) > 0
+            ]
+            if not actual_rops:
+                actual_rops = [
+                    float(p.avg_rop) for p in drilling_params
+                    if p.avg_rop is not None and float(p.avg_rop) > 0
+                ]
+            planned_rop = (
+                planned_depth / planned_hours
+                if planned_depth and planned_hours else None
+            )
+            actual_rop = (
+                sum(actual_rops) / len(actual_rops) if actual_rops else None
+            )
+            planned_cost = (
+                sum(float(c.planned_cost or 0) for c in cost_records)
+                if cost_records else None
+            )
+            actual_cost = (
+                sum(float(c.actual_cost or 0) for c in cost_records)
+                if cost_records else None
+            )
+
+            comparison = ActualVsPlanEngine.compare_metrics(
+                {
+                    "depth_m": planned_depth or None,
+                    "hours": planned_hours or None,
+                    "rop_m_per_hr": planned_rop,
+                    "cost": planned_cost,
+                },
+                {
+                    "depth_m": actual_depth,
+                    "hours": actual_hours,
+                    "rop_m_per_hr": actual_rop,
+                    "cost": actual_cost,
+                },
+            )
+
+            def legacy_metric(key):
+                item = comparison.values.get(key)
+                if item:
+                    return {
+                        "planned": item["planned"],
+                        "actual": item["actual"],
+                        "delta": item["variance"],
+                        "pct": item["variance_pct"],
+                        "status": item["status"],
+                    }
+                return {
+                    "planned": None,
+                    "actual": None,
+                    "delta": None,
+                    "pct": None,
+                    "status": "unavailable",
+                }
+
+            return {
+                "depth": legacy_metric("depth_m"),
+                "hours": legacy_metric("hours"),
+                "rop": legacy_metric("rop_m_per_hr"),
+                "cost": legacy_metric("cost"),
+                "npt_hours": actual_npt_hours,
+                "plan_id": plan.id if plan else None,
+                "reports": len(reports),
+                "warnings": comparison.warnings,
+                "scope": comparison.scope,
+            }
         except Exception as exc:
             logger.error("Actual vs plan failed: %s", exc, exc_info=True)
-            empty = {"planned": 0.0, "actual": 0.0, "delta": 0.0, "pct": 0.0}
-            return {"depth": empty.copy(), "hours": empty.copy(), "plan_id": None, "reports": 0}
+            empty = {"planned": None, "actual": None, "delta": None, "pct": None, "status": "unavailable"}
+            return {
+                "depth": empty.copy(), "hours": empty.copy(), "rop": empty.copy(),
+                "cost": empty.copy(), "npt_hours": None, "plan_id": None,
+                "reports": 0, "warnings": [str(exc)], "scope": "PARTIAL / DATA-DEPENDENT",
+            }
         finally:
             session.close()
 

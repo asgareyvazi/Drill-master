@@ -1,7 +1,8 @@
 # DrillMaster — Engineering Architecture Documentation
 
-> **Version:** 2.0 — verified against branch `arena/01a05747-drill-master`
-> at HEAD `95fff1c` (2026-09-05), full test suite `424 passed, 2 skipped`.
+> **Version:** 2.1 — capability status verified against branch
+> `arena/01a07094-drill-master`. See `ENGINEERING_CAPABILITY_STATUS.md` for
+> the current domain-by-domain scope and limitations.
 
 ---
 
@@ -66,11 +67,11 @@ UI display · DB · export
 | `AdvancedHydraulicsEngine` | `core/hydraulics_engine.py` | COMPLETE | W13 facade, dialogs, W15 |
 | `WellControlEngine` | `core/engineering/core.py` + `engines/well_control.py` | COMPLETE (IWCF kit: kick tolerance, MAASP, kill MW, formation pressure, fracture gradient, kick volume) | W13 kill sheet, dialogs |
 | `MudVolumeEngine` / `MudEngineering` | `engines/mud_volume.py` + `core/engineering/extended.py` | COMPLETE (weight-up, dilution, mixing, OWR, MBT, LSRYP, …) | W13 Mud Lab + facade |
-| `CasingEngine` | `engines/casing.py` | COMPLETE (burst/collapse/VME/triaxial/tensile) | engineering dialogs |
-| `CementEngine` | `engines/cement.py` | COMPLETE (volumes, displacement — capacity helpers delegated to `AdvancedHydraulicsEngine`) | w13/cement UI paths |
+| `CasingEngine` | `engines/casing.py` | **PARTIAL** — pipe-body burst/collapse/VME/tensile plus supplied connection limits; not a full API TR 5C3 catalogue | engineering dialogs |
+| `CementEngine` | `engines/cement.py` | COMPLETE worksheet / PARTIAL design — volumes, displacement, TOC and hydrostatic; laboratory design unsupported | w13/cement UI paths |
 | `TorqueDragEngine` | `engines/torque_drag.py` | **PARTIAL / SCREENING** — soft-string; `calculate_with_welleng()` optional | W13 facade |
-| `AntiCollisionEngine` | `engines/anti_collision.py` | **PARTIAL / SCREENING** — Euclidean clearance; ISCWSA full error model explicitly unsupported without welleng | (not wired to a tab) |
-| `FishingEngine` | `engines/fishing.py` | **PARTIAL / SCREENING** — free point, stretch, jar range, overshot fit, back-off | W13 facade |
+| `AntiCollisionEngine` | `engines/anti_collision.py` | **PARTIAL / SCREENING** — interpolated separation, closest approach, clearance and optional supplied-axis RSS; ISCWSA unsupported | AI/bridge path; no GUI claim |
+| `FishingEngine` | `engines/fishing.py` | **PARTIAL / SCREENING** — free point, stretch, jar range, overshot fit, modulus-aware back-off | W13 facade |
 | `MSEEngine` | `engines/mse.py` | COMPLETE (Teale) | analysis UI |
 | `BitPerformanceEngine` | `engines/bit_performance.py` | COMPLETE (d-exponent, dc, cost/ft, rollup, run analysis; torque klb.ft→ft·lbf at engine boundary) | W12 Analysis |
 | `OperationsIntelligenceEngine`, `MudLedgerEngine`, `BHAEngine` | `core/engineering/core.py` | COMPLETE | analysis tabs |

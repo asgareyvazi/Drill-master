@@ -316,13 +316,33 @@ class AIToolRegistry:
                 return {"success": True, "insight": insight, "engine": "OperationsIntelligenceEngine"}
 
             elif name == "calculate_anti_collision":
-                from core.engineering.engines.anti_collision import AntiCollisionEngine
+                from core.engineering.bridge import CalculatorBridge
                 ref = kwargs.get("reference_trajectory")
                 off = kwargs.get("offset_trajectory")
                 if not ref or not off:
                     return {"success": False, "error": "MISSING_INPUT: reference_trajectory and offset_trajectory required"}
-                result = AntiCollisionEngine.calculate_clearance(ref, off)
-                return {"success": True, **result, "engine": "AntiCollisionEngine"}
+                result = CalculatorBridge.anti_collision(
+                    ref,
+                    off,
+                    collision_threshold=kwargs.get("collision_threshold"),
+                    coordinates_unit=kwargs.get("coordinates_unit", "input"),
+                )
+                if not result.success:
+                    return {"success": False, "error": result.error, "engine": "AntiCollisionEngine"}
+                return {
+                    "success": True,
+                    **result.values,
+                    "value": result.value,
+                    "values": result.values,
+                    "unit": result.unit,
+                    "formula": result.formula,
+                    "method": result.method,
+                    "warnings": result.warnings,
+                    "validation_status": result.validation_status,
+                    "scope": result.scope,
+                    "metadata": result.metadata,
+                    "engine": "AntiCollisionEngine",
+                }
 
             elif name == "calculate_torque_drag":
                 from core.engineering.bridge import CalculatorBridge

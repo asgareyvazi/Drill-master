@@ -782,20 +782,18 @@ class EOWRReportEngine:
                 )
                 total_hours = sum(
                     [(l.duration or 0) for l in time_logs_24h]
-                ) or 1
-                npt_pct = total_npt / total_hours * 100
+                )
+                npt_pct = total_npt / total_hours * 100 if total_hours > 0 else 0
 
                 avg_rop = 0
                 rops = [p.avg_rop for p in drilling_params if p.avg_rop]
                 if rops:
                     avg_rop = sum(rops) / len(rops)
 
-                total_cost = 0
-                if cost_records:
-                    total_cost = sum([(c.actual_cost or 0) for c in cost_records])
-                else:
-                    # fallback تخمینی
-                    total_cost = total_reports * 60000
+                total_cost = (
+                    sum(float(c.actual_cost or 0) for c in cost_records)
+                    if cost_records else None
+                )
 
                 return {
                     "well": well,
@@ -845,7 +843,12 @@ class EOWRReportEngine:
         s.setdefault("avg_rop", 0)
         s.setdefault("total_npt", 0)
         s.setdefault("npt_pct", 0)
-        s.setdefault("total_cost", 0)
+        s.setdefault("total_cost", None)
+        cost_value = s.get("total_cost")
+        cost_display = (
+            f"${cost_value:,.0f}" if cost_value is not None
+            else "N/A (no stored cost records)"
+        )
         
         well_name = w.get("name", "Unknown Well")
         rig_name = w.get("rig_name", "")
@@ -1013,7 +1016,7 @@ h3 {{
     </div>
 </div>
 <div class="note">
-<b>Total Estimated Cost:</b> ${s.get("total_cost", 0):,.0f}
+<b>Total Actual Cost:</b> {cost_display}
 </div>
 """
 
@@ -1174,7 +1177,7 @@ East: {last.east:.2f} m | HD: {last.hd:.2f} m | DLS: {last.dls:.2f}
 </tr>"""
             html += "</table>"
         else:
-            html += f"<p>Total Estimated Cost: ${s.get('total_cost', 0):,.0f}</p>"
+            html += f"<p>Total Actual Cost: {cost_display}</p>"
 
         # Footer
         html += f"""
@@ -1239,7 +1242,7 @@ East: {last.east:.2f} m | HD: {last.hd:.2f} m | DLS: {last.dls:.2f}
                 ("Average ROP", data["summary"].get("avg_rop", 0)),
                 ("Total NPT", data["summary"].get("total_npt", 0)),
                 ("NPT %", data["summary"].get("npt_pct", 0)),
-                ("Total Cost", data["summary"].get("total_cost", 0)),
+                ("Total Cost", data["summary"].get("total_cost")),
             ]
             for i, (k, v) in enumerate(metrics, 5):
                 ws.cell(row=i, column=1, value=k)
@@ -1316,7 +1319,7 @@ class NPTReportEngine:
             return False
 
     def _collect_data(self, well_id, from_date=None, to_date=None):
-        from core.database import TimeLog24H, DailyReport
+        from core.database import TimeLog24H, DailyReport, CostRecord
         session = self.db.create_session()
         try:
             well = self.db.get_well_by_id(well_id) or {}
@@ -1344,7 +1347,7 @@ class NPTReportEngine:
                 total_query = total_query.filter(DailyReport.report_date >= from_date)
             if to_date:
                 total_query = total_query.filter(DailyReport.report_date <= to_date)
-            total_hours = total_query.scalar() or 1
+            total_hours = total_query.scalar()
 
             # Aggregations
             by_main_code = {}
@@ -1388,12 +1391,18 @@ class NPTReportEngine:
                 DailyReport.well_id == well_id
             ).count()
 
-            npt_pct = (total_npt / total_hours * 100) if total_hours > 0 else 0
+            npt_pct = (total_npt / total_hours * 100) if total_hours and total_hours > 0 else 0
             daily_avg = total_npt / report_count if report_count > 0 else 0
 
-            # Cost estimate
-            daily_rate = 60000
-            npt_cost = (total_npt / 24) * daily_rate
+            # NPT cost is allocated only when both stored actual cost and
+            # recorded time exist; there is no implicit rig-day rate.
+            actual_cost = session.query(func.sum(CostRecord.actual_cost)).filter(
+                CostRecord.well_id == well_id
+            ).scalar()
+            npt_cost = (
+                total_npt / total_hours * float(actual_cost)
+                if actual_cost is not None and total_hours > 0 else None
+            )
 
             return {
                 "well": well,
@@ -1426,6 +1435,10 @@ class NPTReportEngine:
         npt_pct = data["npt_pct"]
         daily_avg = data["daily_avg"]
         npt_cost = data["npt_cost"]
+        npt_cost_display = (
+            f"${npt_cost:,.0f}" if npt_cost is not None
+            else "N/A (no stored cost records)"
+        )
 
         html = f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8">
@@ -1476,8 +1489,8 @@ h2 {{ color: #e74c3c; border-bottom: 1px solid #fadbd8; margin-top: 15px; font-s
         <div class="kpi-label">Daily Average (hrs/day)</div>
     </div>
     <div class="kpi-box kpi-green">
-        <div class="kpi-value">${npt_cost:,.0f}</div>
-        <div class="kpi-label">Estimated NPT Cost</div>
+        <div class="kpi-value">{npt_cost_display}</div>
+        <div class="kpi-label">Allocated NPT Cost</div>
     </div>
 </div>
 """
@@ -1680,8 +1693,8 @@ class CostReportEngine:
 
     def generate(self, well_id: int, output_path: str,
                  format: str = "pdf",
-                 daily_rate: float = 45000,
-                 spread_rate: float = 15000) -> bool:
+                 daily_rate: float = None,
+                 spread_rate: float = None) -> bool:
         try:
             data = self._collect_data(well_id, daily_rate, spread_rate)
             if not data:
@@ -1699,7 +1712,7 @@ class CostReportEngine:
             return False
 
     def _collect_data(self, well_id, daily_rate, spread_rate):
-        from core.database import DailyReport, TimeLog24H
+        from core.database import DailyReport, TimeLog24H, CostRecord
         session = self.db.create_session()
         try:
             well = self.db.get_well_by_id(well_id) or {}
@@ -1708,7 +1721,23 @@ class CostReportEngine:
             ).order_by(DailyReport.report_date).all()
 
             total_days = len(reports)
-            total_daily_cost = daily_rate + spread_rate
+            cost_records = session.query(CostRecord).filter(
+                CostRecord.well_id == well_id
+            ).order_by(CostRecord.category).all()
+            categories = {}
+            for cr in cost_records:
+                cat = cr.category or "Other"
+                if cat not in categories:
+                    categories[cat] = {"planned": 0, "actual": 0}
+                categories[cat]["planned"] += float(cr.planned_cost or 0)
+                categories[cat]["actual"] += float(cr.actual_cost or 0)
+
+            # A daily/spread rate is valid only when explicitly supplied by
+            # the caller. Otherwise report stored cost records, not an estimate.
+            rate_supplied = daily_rate is not None and spread_rate is not None
+            total_daily_cost = (
+                float(daily_rate) + float(spread_rate) if rate_supplied else None
+            )
 
             # NPT
             total_npt = session.query(func.sum(TimeLog24H.duration)).join(
@@ -1719,45 +1748,39 @@ class CostReportEngine:
             ).scalar() or 0
             npt_days = total_npt / 24
 
-            total_cost = total_days * total_daily_cost
-            npt_cost = npt_days * total_daily_cost
-            pt_cost = total_cost - npt_cost
+            stored_actual_cost = (
+                sum(float(c.actual_cost or 0) for c in cost_records)
+                if cost_records else None
+            )
+            if rate_supplied:
+                total_cost = total_days * total_daily_cost
+                npt_cost = npt_days * total_daily_cost
+                pt_cost = total_cost - npt_cost
+            else:
+                total_cost = stored_actual_cost
+                npt_cost = None
+                pt_cost = None
 
             max_depth = max(
                 [(r.depth_2400 or 0) for r in reports], default=0
             )
-            cost_per_meter = total_cost / max_depth if max_depth > 0 else 0
-            cost_per_foot = cost_per_meter / 3.28084 if max_depth > 0 else 0
+            cost_per_meter = total_cost / max_depth if total_cost is not None and max_depth > 0 else None
+            cost_per_foot = cost_per_meter / 3.28084 if cost_per_meter is not None else None
 
-            # Cumulative
+            # Cumulative daily allocation is available only for an explicit
+            # caller-supplied rate; stored cost records retain their categories.
             cum_data = []
-            cum_cost = 0
-            for r in reports:
-                cum_cost += total_daily_cost
-                cum_data.append({
-                    "date": str(r.report_date),
-                    "rig_day": r.rig_day or 0,
-                    "depth": r.depth_2400 or 0,
-                    "daily_cost": total_daily_cost,
-                    "cum_cost": cum_cost,
-                })
-
-            # Cost records from DB
-            try:
-                from core.database import CostRecord
-                cost_records = session.query(CostRecord).filter(
-                    CostRecord.well_id == well_id
-                ).order_by(CostRecord.category).all()
-                categories = {}
-                for cr in cost_records:
-                    cat = cr.category or "Other"
-                    if cat not in categories:
-                        categories[cat] = {"planned": 0, "actual": 0}
-                    categories[cat]["planned"] += cr.planned_cost or 0
-                    categories[cat]["actual"] += cr.actual_cost or 0
-            except Exception:
-                cost_records = []
-                categories = {}
+            if rate_supplied:
+                cum_cost = 0
+                for r in reports:
+                    cum_cost += total_daily_cost
+                    cum_data.append({
+                        "date": str(r.report_date),
+                        "rig_day": r.rig_day or 0,
+                        "depth": r.depth_2400 or 0,
+                        "daily_cost": total_daily_cost,
+                        "cum_cost": cum_cost,
+                    })
 
             return {
                 "well": well,
@@ -1786,6 +1809,9 @@ class CostReportEngine:
         bc = self.branding
         well_name = w.get("name", "Unknown")
 
+        def _money(value):
+            return f"${value:,.0f}" if value is not None else "N/A"
+
         html = f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8">
 <style>
@@ -1813,19 +1839,19 @@ h2 {{ color: #27ae60; border-bottom: 1px solid #d5f5e3; margin-top: 15px; font-s
 
 <div class="kpi-row">
     <div class="kpi-box" style="background:#eafaf1;border-left:4px solid #27ae60">
-        <div class="kpi-value" style="color:#27ae60">${data["total_cost"]:,.0f}</div>
+        <div class="kpi-value" style="color:#27ae60">{_money(data["total_cost"])}</div>
         <div class="kpi-label">Total Well Cost</div>
     </div>
     <div class="kpi-box" style="background:#fadbd8;border-left:4px solid #e74c3c">
-        <div class="kpi-value" style="color:#e74c3c">${data["npt_cost"]:,.0f}</div>
+        <div class="kpi-value" style="color:#e74c3c">{_money(data["npt_cost"])}</div>
         <div class="kpi-label">NPT Cost ({data["npt_days"]:.1f} days)</div>
     </div>
     <div class="kpi-box" style="background:#eaf2f8;border-left:4px solid #3498db">
-        <div class="kpi-value" style="color:#3498db">${data["cost_per_meter"]:,.0f}</div>
+        <div class="kpi-value" style="color:#3498db">{_money(data["cost_per_meter"])}</div>
         <div class="kpi-label">Cost per Meter</div>
     </div>
     <div class="kpi-box" style="background:#fef9e7;border-left:4px solid #f39c12">
-        <div class="kpi-value" style="color:#f39c12">${data["total_daily_cost"]:,.0f}</div>
+        <div class="kpi-value" style="color:#f39c12">{_money(data["total_daily_cost"])}</div>
         <div class="kpi-label">Daily Cost (Rig + Spread)</div>
     </div>
 </div>
@@ -1833,10 +1859,10 @@ h2 {{ color: #27ae60; border-bottom: 1px solid #d5f5e3; margin-top: 15px; font-s
 <h2>📊 Cost Parameters</h2>
 <table class="table">
 <tr><th>Parameter</th><th>Value</th><th>Parameter</th><th>Value</th></tr>
-<tr><td>Rig Day Rate</td><td>${data["daily_rate"]:,.0f}/day</td><td>Spread Cost</td><td>${data["spread_rate"]:,.0f}/day</td></tr>
+<tr><td>Rig Day Rate</td><td>{_money(data["daily_rate"])}/day</td><td>Spread Cost</td><td>{_money(data["spread_rate"])}/day</td></tr>
 <tr><td>Total Days</td><td>{data["total_days"]}</td><td>NPT Days</td><td>{data["npt_days"]:.1f}</td></tr>
-<tr><td>Productive Cost</td><td>${data["pt_cost"]:,.0f}</td><td>NPT Cost</td><td>${data["npt_cost"]:,.0f}</td></tr>
-<tr><td>Cost/Meter</td><td>${data["cost_per_meter"]:,.0f}</td><td>Cost/Foot</td><td>${data["cost_per_foot"]:,.0f}</td></tr>
+<tr><td>Productive Cost</td><td>{_money(data["pt_cost"])}</td><td>NPT Cost</td><td>{_money(data["npt_cost"])}</td></tr>
+<tr><td>Cost/Meter</td><td>{_money(data["cost_per_meter"])}</td><td>Cost/Foot</td><td>{_money(data["cost_per_foot"])}</td></tr>
 </table>
 """
 
@@ -1919,11 +1945,11 @@ h2 {{ color: #27ae60; border-bottom: 1px solid #d5f5e3; margin-top: 15px; font-s
             ws.title = "Cost Summary"
             rows = [
                 ("Metric", "Value"),
-                ("Total Cost", f"${data['total_cost']:,.0f}"),
-                ("NPT Cost", f"${data['npt_cost']:,.0f}"),
-                ("Productive Cost", f"${data['pt_cost']:,.0f}"),
-                ("Cost/Meter", f"${data['cost_per_meter']:,.0f}"),
-                ("Cost/Foot", f"${data['cost_per_foot']:,.0f}"),
+                ("Total Cost", f"${data['total_cost']:,.0f}" if data['total_cost'] is not None else "N/A"),
+                ("NPT Cost", f"${data['npt_cost']:,.0f}" if data['npt_cost'] is not None else "N/A"),
+                ("Productive Cost", f"${data['pt_cost']:,.0f}" if data['pt_cost'] is not None else "N/A"),
+                ("Cost/Meter", f"${data['cost_per_meter']:,.0f}" if data['cost_per_meter'] is not None else "N/A"),
+                ("Cost/Foot", f"${data['cost_per_foot']:,.0f}" if data['cost_per_foot'] is not None else "N/A"),
                 ("Total Days", str(data['total_days'])),
                 ("NPT Days", f"{data['npt_days']:.1f}"),
             ]
