@@ -72,6 +72,8 @@ def test_mineru_persisted_configuration_is_supported(monkeypatch, tmp_path):
             "backend": "pipeline",
             "method": "ocr",
             "timeout": 42,
+            "output_dir": str(tmp_path / "mineru-output"),
+            "keep_output": True,
         },
     )
     config = MinerUConfig.from_environment()
@@ -80,6 +82,8 @@ def test_mineru_persisted_configuration_is_supported(monkeypatch, tmp_path):
     assert config.backend == "pipeline"
     assert config.method == "ocr"
     assert config.timeout_seconds == 42
+    assert config.output_dir == (tmp_path / "mineru-output")
+    assert config.keep_output is True
 
 
 def test_mineru_invocation_uses_safe_cli_and_parses_markdown(tmp_path):

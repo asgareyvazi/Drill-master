@@ -207,6 +207,18 @@ class SettingsDialog(QDialog):
         self.mineru_timeout.setSuffix(" seconds")
         layout.addRow("Timeout:", self.mineru_timeout)
 
+        self.mineru_output_dir = QLineEdit()
+        self.mineru_output_dir.setPlaceholderText("Temporary isolated output by default")
+        output_browse = QPushButton("Browse...")
+        output_browse.clicked.connect(self._browse_mineru_output_dir)
+        output_layout = QHBoxLayout()
+        output_layout.addWidget(self.mineru_output_dir)
+        output_layout.addWidget(output_browse)
+        layout.addRow("Output Directory:", output_layout)
+
+        self.mineru_keep_output = QCheckBox("Keep generated MinerU output")
+        layout.addRow("Debug Output:", self.mineru_keep_output)
+
         note = QLabel(
             "MinerU remains an external installation. DrillMaster never copies "
             "or installs MinerU in its own environment."
@@ -235,6 +247,11 @@ class SettingsDialog(QDialog):
         )[0]
         if path:
             self.mineru_python.setText(path)
+
+    def _browse_mineru_output_dir(self):
+        path = QFileDialog.getExistingDirectory(self, "Select MinerU output directory")
+        if path:
+            self.mineru_output_dir.setText(path)
 
     def _create_units_tab(self):
         tab = QWidget()
@@ -365,6 +382,8 @@ class SettingsDialog(QDialog):
             "backend": self.mineru_backend.currentText(),
             "method": self.mineru_method.currentText(),
             "timeout": self.mineru_timeout.value(),
+            "output_dir": self.mineru_output_dir.text().strip(),
+            "keep_output": self.mineru_keep_output.isChecked(),
         }
         write_mineru_settings(mineru_settings)
 
@@ -430,6 +449,8 @@ class SettingsDialog(QDialog):
         self.mineru_backend.setCurrentText(mineru.backend)
         self.mineru_method.setCurrentText(mineru.method)
         self.mineru_timeout.setValue(mineru.timeout_seconds)
+        self.mineru_output_dir.setText(str(mineru.output_dir) if mineru.output_dir else "")
+        self.mineru_keep_output.setChecked(mineru.keep_output)
 
         self.depth_unit.setCurrentText(
             self.settings.value("units/depth", "meters (m)")
@@ -467,6 +488,8 @@ class SettingsDialog(QDialog):
             self.mineru_backend.setCurrentText("hybrid-engine")
             self.mineru_method.setCurrentText("auto")
             self.mineru_timeout.setValue(600)
+            self.mineru_output_dir.clear()
+            self.mineru_keep_output.setChecked(False)
             self.depth_unit.setCurrentText("meters (m)")
             self.weight_unit.setCurrentText("pcf")
             self.pressure_unit.setCurrentText("psi")

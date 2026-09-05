@@ -29,7 +29,7 @@ import time
 from typing import Any, Callable, Iterable, Mapping, Optional, Sequence
 
 from core.canonical_schema import FIELD_SPECS, lookup_alias
-from core.runtime_config import read_mineru_settings
+from core.runtime_config import data_dir, read_mineru_settings
 
 logger = logging.getLogger(__name__)
 
@@ -459,6 +459,8 @@ class MinerUAdapter:
         temporary: Optional[tempfile.TemporaryDirectory[str]] = None
         try:
             root = Path(output_dir).expanduser().resolve() if output_dir else self.config.output_dir
+            if root is None and self.config.keep_output:
+                root = data_dir() / "mineru-output"
             if root is None:
                 temporary = tempfile.TemporaryDirectory(prefix="drillmaster-mineru-")
                 root = Path(temporary.name)
