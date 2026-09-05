@@ -2,21 +2,16 @@
 
 from __future__ import annotations
 
-import importlib.util
-
 from core.ai_import_mapper import AIImportMapper
-
-
-def _module_installed(*names: str) -> bool:
-    return any(importlib.util.find_spec(name) is not None for name in names)
+from core.mineru_engine import MinerUAdapter
 
 
 def detect_optional_capabilities(*, probe_network: bool = False) -> dict[str, dict[str, object]]:
     """Return capability states without network access unless explicitly asked.
 
-    Ollama/Qwen detection uses the existing opt-in mapper. MinerU detection is
-    package-only and recognizes both common import names. No optional package
-    is imported merely to report its state.
+    Ollama/Qwen detection uses the existing opt-in mapper. MinerU detection
+    uses the external adapter and does not import or install the package into
+    DrillMaster's environment.
     """
     mapper = AIImportMapper()
     if not mapper.enabled:
@@ -36,7 +31,7 @@ def detect_optional_capabilities(*, probe_network: bool = False) -> dict[str, di
         ollama_status = "enabled-not-probed"
         qwen_status = "enabled-not-probed"
 
-    mineru_installed = _module_installed("mineru", "magic_pdf")
+    mineru_health = MinerUAdapter().health_check()
     return {
         "ollama": {
             "status": ollama_status,
@@ -48,8 +43,12 @@ def detect_optional_capabilities(*, probe_network: bool = False) -> dict[str, di
             "models": installed_models,
         },
         "mineru": {
-            "status": "installed" if mineru_installed else "not-installed",
-            "installed": mineru_installed,
+            "status": "available" if mineru_health.available else "not-installed",
+            "installed": mineru_health.available,
+            "enabled": mineru_health.enabled,
+            "executable": mineru_health.executable,
+            "version": mineru_health.version,
+            "error": mineru_health.error,
             "network_probed": False,
         },
     }

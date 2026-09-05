@@ -35,6 +35,15 @@ from PySide6.QtGui import QColor
 from core.text_utils import wrap_text
 from core.import_quality import ImportValidator, find_duplicates, TimeLogValidator, decision_for_confidence
 from core.ai_import_mapper import AIImportMapper, model_catalog, get_selected_model, set_selected_model
+from core.async_workers import FunctionWorker
+from core.import_router import route_file
+from core.mineru_engine import (
+    DocumentNormalizer,
+    MinerUAdapter,
+    MinerUError,
+    MinerUNormalizationError,
+    MinerUParseResult,
+)
 from core.unit_manager import UnitManager
 from dialogs.smart_template_dialog import (
     SmartTemplateDialog, ValueNormalizer, FIELD_LABELS,
@@ -82,10 +91,18 @@ class ImportPreviewDialog(QDialog):
 
         # Summary
         report = self.import_report or {}
+        source_summary = ""
+        if report.get("source_engine") == "MinerU":
+            source_summary = (
+                f" | Source: MinerU | Backend: {report.get('backend', '')}"
+                f" | Method: {report.get('method', '')} | Pages: {report.get('pages', 0)}"
+                f" | Tables: {report.get('tables', 0)} | Fields: {report.get('fields_extracted', 0)}"
+            )
         summary = QLabel(
             f"Total: {report.get('total',0)} | Errors: {report.get('errors',0)} | Warnings: {report.get('warnings',0)} | "
             f"Review items: {len(report.get('review',[]))} | "
             f"TimeLogs: {len(self.extracted.get('time_logs_24h',[]))} | Surveys: {len(self.extracted.get('surveys',[]))}"
+            f"{source_summary}"
         )
         summary.setStyleSheet("color: #555; padding: 4px;")
         layout.addWidget(summary)
@@ -352,7 +369,10 @@ class ExcelImportDialog(QDialog):
         super().__init__(parent)
         self.db = db_manager
         self.well_id = well_id
-        self.setWindowTitle("📊 Excel Import System v2.1 - Intelligence Platform")
+        self._mineru_worker = None
+        self._pending_import_files = []
+        self._mineru_results = {}
+        self.setWindowTitle("📊 Universal Import - Intelligence Platform")
         self.setMinimumSize(600, 500)
         self.setModal(True)
         self._init_ui()
@@ -361,7 +381,7 @@ class ExcelImportDialog(QDialog):
         layout = QVBoxLayout(self)
         layout.setSpacing(15)
 
-        header = QLabel("📊 Excel Import System v2.1 - Intelligence Platform")
+        header = QLabel("📊 Universal Import - Excel Intelligence + MinerU")
         header.setStyleSheet(
             "font-size: 16px; font-weight: bold; color: #2c3e50; "
             "padding: 10px; background: #ecf0f1; border-radius: 5px;"
@@ -433,126 +453,261 @@ class ExcelImportDialog(QDialog):
             set_selected_model(model)
 
     def _unified_import(self):
-        """Universal import with professional preview before save."""
+        """Route imports without running MinerU in the Qt UI thread."""
         files, _ = QFileDialog.getOpenFileNames(
-            self, "Import Report(s)", "", "Reports (*.xlsx *.xls *.xlsm *.csv *.pdf)"
+            self,
+            "Import Report(s)",
+            "",
+            "Reports (*.xlsx *.xls *.xlsm *.csv *.pdf *.docx *.pptx *.png *.jpg *.jpeg *.webp *.tif *.tiff)",
         )
         if not files:
             return
 
+        self._pending_import_files = list(files)
+        self._mineru_results = {}
+        mineru_sources = []
+        for source in files:
+            route = route_file(source, template_matcher=self._auto_match_template)
+            if route.engine == "mineru":
+                mineru_sources.append(source)
+
+        if mineru_sources:
+            self.import_status.setText(
+                f"Detecting document engine... Using MinerU for {len(mineru_sources)} file(s): "
+                "parsing layout, text, and tables..."
+            )
+            QApplication.processEvents()
+            self._mineru_worker = FunctionWorker(
+                self._parse_mineru_batch,
+                mineru_sources,
+                parent=self,
+            )
+            self._mineru_worker.result_ready.connect(self._on_mineru_batch_ready)
+            self._mineru_worker.failed.connect(self._on_mineru_batch_failed)
+            self._mineru_worker.start()
+            return
+
+        self._run_import_pipeline(files, {})
+
+    @staticmethod
+    def _parse_mineru_batch(sources):
+        """Worker entry point; no Qt or database objects are used here."""
+        return MinerUAdapter().parse_batch(sources)
+
+    @staticmethod
+    def _result_key(source):
+        try:
+            return str(Path(source).expanduser().resolve())
+        except OSError:
+            return str(source)
+
+    def _on_mineru_batch_ready(self, parse_results):
+        self._mineru_results = {
+            self._result_key(result.source_file): result
+            for result in parse_results
+            if isinstance(result, MinerUParseResult)
+        }
+        if self._mineru_worker is not None:
+            self._mineru_worker.deleteLater()
+            self._mineru_worker = None
+        self._run_import_pipeline(self._pending_import_files, self._mineru_results)
+
+    def _on_mineru_batch_failed(self, error):
+        logger.error("MinerU worker failed: %s", error)
+        if self._mineru_worker is not None:
+            self._mineru_worker.deleteLater()
+            self._mineru_worker = None
+        # PDF still has the existing explicit fallback. XLSX still has the
+        # existing smart/template path. Other MinerU-only formats receive an
+        # actionable per-file failure in _run_import_pipeline.
+        self._run_import_pipeline(self._pending_import_files, {})
+
+    def _mineru_extracted(self, source, parse_result):
+        """Return canonical data and review metadata for a successful parse."""
+        if not parse_result or not parse_result.success or parse_result.document is None:
+            raise MinerUError(parse_result.error if parse_result else "MinerU produced no result")
+        normalized = DocumentNormalizer().normalize(parse_result.document)
+        if not normalized.validation.valid:
+            raise MinerUNormalizationError(
+                "MinerU output failed canonical schema validation: "
+                + "; ".join(item.get("message", "invalid value") for item in normalized.validation.errors)
+            )
+        extracted = dict(normalized.canonical_data)
+        review_rows = []
+        for warning in normalized.warnings:
+            review_rows.append(
+                {
+                    "sheet": warning.get("source", {}).get("source_page", "") if isinstance(warning.get("source"), dict) else "",
+                    "detected_table": "MinerU document",
+                    "source_cell": "",
+                    "original_value": warning.get("value", ""),
+                    "normalized_value": warning.get("value", ""),
+                    "target_field": warning.get("field", ""),
+                    "canonical_field": warning.get("field", ""),
+                    "confidence": 0.0,
+                    "decision": "REVIEW",
+                    "reason": warning.get("message", "Review required"),
+                }
+            )
+        extracted["metadata"] = {
+            "source": "MinerU",
+            "backend": parse_result.document.backend,
+            "method": parse_result.document.method,
+            "pages": parse_result.document.page_count,
+            "tables": parse_result.document.table_count,
+            "fields_extracted": normalized.fields_extracted,
+            "warnings": normalized.warnings,
+            "review_matrix": review_rows,
+            "mineru_provenance": normalized.provenance,
+            "output_files": parse_result.document.raw_files,
+        }
+        logger.info(
+            "MinerU normalized: file=%s pages=%d tables=%d fields=%d warnings=%d",
+            Path(source).name,
+            parse_result.document.page_count,
+            parse_result.document.table_count,
+            normalized.fields_extracted,
+            len(normalized.warnings),
+        )
+        return extracted
+
+    def _run_import_pipeline(self, files, mineru_results):
+        """Run the existing preview/atomic DB path after optional MinerU work."""
         results = []
         successful_files = []
         failed_files = []
 
         for number, source in enumerate(files, 1):
-            self.import_status.setText(f"Processing {number}/{len(files)}: {os.path.basename(source)} - Scanning...")
+            self.import_status.setText(
+                f"Processing {number}/{len(files)}: {os.path.basename(source)} - Scanning..."
+            )
             QApplication.processEvents()
+            dialog = None
             try:
+                route = route_file(source, template_matcher=self._auto_match_template)
+                parse_result = mineru_results.get(self._result_key(source))
                 path = source
-                if source.lower().endswith(".pdf"):
-                    from pathlib import Path
+                extracted = None
+
+                if route.engine == "mineru" and parse_result and parse_result.success:
+                    self.import_status.setText(
+                        f"{os.path.basename(source)} - Normalizing MinerU document and validating schema..."
+                    )
+                    QApplication.processEvents()
+                    extracted = self._mineru_extracted(source, parse_result)
+                elif route.engine == "mineru" and route.fallback_engine == "pdf_fallback":
+                    # MinerU failure is explicit and traceable; retain the
+                    # established Camelot -> PyMuPDF -> Tesseract fallback.
+                    reason = parse_result.error if parse_result else "MinerU was unavailable"
+                    logger.warning("MinerU PDF fallback: file=%s reason=%s", Path(source).name, reason)
+                    self.import_status.setText(
+                        f"{os.path.basename(source)} - MinerU unavailable; using PDF fallback..."
+                    )
                     from core.document_import import pdf_to_xlsx
                     clean = Path(os.path.join(QDir.tempPath(), Path(source).stem + "_pdf_import.xlsx"))
                     pdf_to_xlsx(source, clean)
                     path = str(clean)
-                elif source.lower().endswith(".csv"):
-                    from pathlib import Path
-                    from core.document_import import csv_to_xlsx
-                    clean = Path(os.path.join(QDir.tempPath(), Path(source).stem + "_csv_import.xlsx"))
-                    csv_to_xlsx(source, clean)
-                    path = str(clean)
-                elif source.lower().endswith(".xls"):
-                    raise ValueError("Legacy .xls requires conversion to .xlsx before import")
-
-                # Step 1: Structural analysis without saving
-                dialog = SmartTemplateDialog(self.db, self.well_id, None, preload_file=path)
-                QApplication.processEvents()
-                dialog._smart_auto_detect()
-                extracted = dialog._build_final_data_from_assignments()
-
-                # Template-first: if a company template under templates/
-                # matches this workbook's sheet layout, run the canonical
-                # template engine (Company Source -> Template -> Canonical
-                # Model), which uses the anchored template contract instead
-                # of heuristic-only parsing. Generic sheet-name matching —
-                # no company-specific branching.
-                if dialog.wb is not None:
-                    template = self._auto_match_template(
-                        [ws.title for ws in dialog.wb.worksheets]
+                elif route.engine == "mineru" and route.fallback_engine == "excel_intelligence":
+                    # Unknown XLSX can still use the established smart importer
+                    # if MinerU is unavailable or fails.
+                    reason = parse_result.error if parse_result else "MinerU was unavailable"
+                    logger.warning("MinerU XLSX fallback to existing importer: file=%s reason=%s", Path(source).name, reason)
+                elif route.engine == "mineru":
+                    reason = parse_result.error if parse_result else "MinerU worker did not return a result"
+                    raise MinerUError(
+                        f"MinerU could not parse {Path(source).name}: {reason}. "
+                        "Configure MINERU_EXECUTABLE or MINERU_PYTHON in Settings/environment."
                     )
-                    if template:
-                        try:
-                            from core.excel_intelligence import ExcelIntelligence
-                            rep = ExcelIntelligence(dialog.wb, template).extract()
-                            extracted = dict(rep.canonical_json)
-                            review_rows = [
-                                {
-                                    "sheet": r.sheet,
-                                    "row": r.row,
-                                    "column": r.col,
-                                    "detected_table": "scalar",
-                                    "source_cell": r.cell,
-                                    "original_value": r.value if r.status in (
-                                        "REVIEW_REQUIRED", "CONFLICT", "INVALID",
-                                    ) else r.original_label,
-                                    "normalized_value": r.value,
-                                    "value": r.value,
-                                    "unit": r.canonical_unit,
-                                    "target_field": r.canonical_field,
-                                    "canonical_field": r.canonical_field,
-                                    "confidence": r.confidence,
-                                    "certainty": r.certainty,
-                                    "status": r.status,
-                                    "decision": (
-                                        "REVIEW"
-                                        if r.status in (
-                                            "REVIEW_REQUIRED", "CONFLICT",
-                                        ) else "ACCEPT"
-                                    ),
-                                    "reason": r.reason,
-                                }
-                                for r in rep.field_results
-                                if r.status != "OK"
-                                or r.certainty == "LOW"
-                            ]
-                            extracted["metadata"] = {
-                                "template": template.get("name", ""),
-                                "template_version": rep.template_version,
-                                "review_matrix": review_rows,
-                                "source_tokens": rep.source_tokens,
-                            }
-                            dialog.deleteLater()
-                        except Exception as tmpl_exc:
-                            logger.error(
-                                f"Template engine failed for {os.path.basename(path)}: "
-                                f"{tmpl_exc}; falling back to smart detection",
-                                exc_info=True,
-                            )
-                            extracted = dialog._build_final_data_from_assignments()
 
-                # Step 2: Validation with professional TimeLog validator
+                if extracted is None:
+                    if route.engine == "csv":
+                        from core.document_import import csv_to_xlsx
+                        clean = Path(os.path.join(QDir.tempPath(), Path(source).stem + "_csv_import.xlsx"))
+                        csv_to_xlsx(source, clean)
+                        path = str(clean)
+                    elif route.engine == "unsupported":
+                        raise ValueError(route.reason)
+                    elif path.lower().endswith(".xls"):
+                        raise ValueError("Legacy .xls requires conversion to .xlsx before import")
+
+                    # Existing Excel/smart-template path; known structured
+                    # workbooks remain on Excel Intelligence and never invoke
+                    # MinerU first.
+                    dialog = SmartTemplateDialog(self.db, self.well_id, None, preload_file=path)
+                    QApplication.processEvents()
+                    dialog._smart_auto_detect()
+                    extracted = dialog._build_final_data_from_assignments()
+
+                    if dialog.wb is not None:
+                        template = self._auto_match_template(
+                            [ws.title for ws in dialog.wb.worksheets]
+                        )
+                        if template:
+                            try:
+                                from core.excel_intelligence import ExcelIntelligence
+                                rep = ExcelIntelligence(dialog.wb, template).extract()
+                                extracted = dict(rep.canonical_json)
+                                review_rows = [
+                                    {
+                                        "sheet": r.sheet,
+                                        "row": r.row,
+                                        "column": r.col,
+                                        "detected_table": "scalar",
+                                        "source_cell": r.cell,
+                                        "original_value": r.value if r.status in (
+                                            "REVIEW_REQUIRED", "CONFLICT", "INVALID",
+                                        ) else r.original_label,
+                                        "normalized_value": r.value,
+                                        "value": r.value,
+                                        "unit": r.canonical_unit,
+                                        "target_field": r.canonical_field,
+                                        "canonical_field": r.canonical_field,
+                                        "confidence": r.confidence,
+                                        "certainty": r.certainty,
+                                        "status": r.status,
+                                        "decision": (
+                                            "REVIEW"
+                                            if r.status in (
+                                                "REVIEW_REQUIRED", "CONFLICT",
+                                            ) else "ACCEPT"
+                                        ),
+                                        "reason": r.reason,
+                                    }
+                                    for r in rep.field_results
+                                    if r.status != "OK" or r.certainty == "LOW"
+                                ]
+                                extracted["metadata"] = {
+                                    "template": template.get("name", ""),
+                                    "template_version": rep.template_version,
+                                    "review_matrix": review_rows,
+                                    "source_tokens": rep.source_tokens,
+                                }
+                            except Exception as tmpl_exc:
+                                logger.error(
+                                    f"Template engine failed for {os.path.basename(path)}: "
+                                    f"{tmpl_exc}; falling back to smart detection",
+                                    exc_info=True,
+                                )
+                                extracted = dialog._build_final_data_from_assignments()
+
+                # Existing quality and time-log validation remains the source
+                # of truth for the database import boundary.
                 report_data = extracted.get("daily_report", {})
                 quality = ImportValidator.validate_rows([report_data], "daily_report", "Daily Report")
-
                 time_logs = extracted.get("time_logs_24h", []) or []
-                # Professional 24h validation
                 time_report = TimeLogValidator.validate_logs(time_logs, sheet="Time Logs 24H")
                 quality.total += time_report.total
                 quality.issues.extend(time_report.issues)
-                # Merge review
                 for item in time_report.review.items:
                     quality.review.items.append(item)
 
-                # Duplicate detection
                 duplicate_indexes = set(find_duplicates(time_logs, "time_log"))
                 if duplicate_indexes:
                     quality.warning("Time Logs", 0, f"Skipped {len(duplicate_indexes)} duplicate time-log rows")
 
-                # Build review matrix with file info
                 review_with_file = []
                 for item in quality.review.as_rows():
                     item["file"] = os.path.basename(source)
-                    # Ensure new fields exist
                     item.setdefault("detected_table", item.get("record_type", ""))
                     item.setdefault("source_cell", f"{item.get('column','')}{item.get('row','')}")
                     item.setdefault("original_value", item.get("source_value"))
@@ -560,38 +715,57 @@ class ExcelImportDialog(QDialog):
                     item.setdefault("unit", item.get("unit", ""))
                     item.setdefault("target_field", item.get("canonical_field", ""))
                     review_with_file.append(item)
-                quality.review.items = []  # reset
-                for it in review_with_file:
-                    quality.review.add(**it)
+                quality.review.items = []
+                for item in review_with_file:
+                    quality.review.add(**item)
 
-                # Add review from extracted metadata
-                for item in (extracted.get("metadata") or {}).get("review_matrix", []):
+                metadata = extracted.get("metadata") or {}
+                for item in metadata.get("review_matrix", []):
                     item["file"] = os.path.basename(source)
                     quality.review.add(**item)
 
                 import_report_dict = quality.as_dict()
+                if metadata.get("source") == "MinerU":
+                    import_report_dict.update(
+                        {
+                            "source_engine": "MinerU",
+                            "backend": metadata.get("backend", ""),
+                            "method": metadata.get("method", ""),
+                            "pages": metadata.get("pages", 0),
+                            "tables": metadata.get("tables", 0),
+                            "fields_extracted": metadata.get("fields_extracted", 0),
+                            "warnings": len(metadata.get("warnings", [])),
+                        }
+                    )
 
-                if not any(extracted.get(key) for key in ("well_info", "daily_report", "mud_report", "drilling_params", "time_logs_24h")):
+                if not any(
+                    extracted.get(key)
+                    for key in ("well_info", "daily_report", "mud_report", "drilling_params", "time_logs_24h")
+                ):
                     raise ValueError("No report data was detected")
 
-                # Step 3: Professional Preview - No data saved yet!
-                self.import_status.setText(f"Preview for {os.path.basename(source)} - Waiting for user confirmation...")
+                self.import_status.setText(
+                    f"Preview for {os.path.basename(source)} - Waiting for user confirmation..."
+                )
                 preview = ImportPreviewDialog(source, extracted, import_report_dict, self)
                 preview_result = preview.exec()
 
                 if not preview.confirmed or preview_result != QDialog.Accepted:
-                    results.append({"file": source, "skipped": 1, "imported": 0, "failed": 0, "details": [f"⏭️ {os.path.basename(source)}: Cancelled by user in preview"]})
+                    results.append(
+                        {
+                            "file": source,
+                            "skipped": 1,
+                            "imported": 0,
+                            "failed": 0,
+                            "details": [f"⏭️ {os.path.basename(source)}: Cancelled by user in preview"],
+                        }
+                    )
                     failed_files.append(f"{os.path.basename(source)}: Cancelled")
-                    dialog.deleteLater()
+                    if dialog is not None:
+                        dialog.deleteLater()
                     continue
 
-                # Apply decisions from preview (filter REJECTED/IGNORED)
-                # For simplicity, if decision is REJECT/IGNORED, we remove from extracted
-                decisions = preview.get_decisions()
-                # In this version, we honor only ACCEPT/CONFIRMED, but keep all for audit
-                # Future: filter extracted based on decisions
-
-                # Step 4: Now save with atomic transaction - only after Confirm
+                preview.get_decisions()  # decisions remain in the audit report
                 self.import_status.setText(f"Importing {os.path.basename(source)} - Atomic transaction...")
                 result = self._do_import(extracted, refresh_ui=False)
                 result["file"] = source
@@ -601,24 +775,38 @@ class ExcelImportDialog(QDialog):
                 if result.get("failed", 0) == 0 and result.get("imported", 0) > 0:
                     successful_files.append(os.path.basename(source))
                 else:
-                    failed_files.append(f"{os.path.basename(source)}: {result.get('details', [])[-1] if result.get('details') else 'Failed'}")
-
-                dialog.deleteLater()
+                    failed_files.append(
+                        f"{os.path.basename(source)}: "
+                        f"{result.get('details', [])[-1] if result.get('details') else 'Failed'}"
+                    )
+                if dialog is not None:
+                    dialog.deleteLater()
 
             except Exception as exc:
                 logger.error("Universal import failed for %s: %s", source, exc, exc_info=True)
-                err_result = {"file": source, "failed": 1, "imported": 0, "details": [f"❌ {os.path.basename(source)}: {exc}"], "error": str(exc)}
+                err_result = {
+                    "file": source,
+                    "failed": 1,
+                    "imported": 0,
+                    "details": [f"❌ {os.path.basename(source)}: {exc}"],
+                    "error": str(exc),
+                }
                 results.append(err_result)
                 failed_files.append(f"{os.path.basename(source)}: {exc}")
+                if dialog is not None:
+                    dialog.deleteLater()
 
-        # Batch summary: successful vs failed
-        summary_text = f"Batch completed: {len(files)} files\n✅ Successful: {len(successful_files)} - {', '.join(successful_files[:5])}\n❌ Failed: {len(failed_files)} - {'; '.join(failed_files[:5])}"
+        summary_text = (
+            f"Batch completed: {len(files)} files\n"
+            f"✅ Successful: {len(successful_files)} - {', '.join(successful_files[:5])}\n"
+            f"❌ Failed: {len(failed_files)} - {'; '.join(failed_files[:5])}"
+        )
         self.batch_summary.setPlainText(summary_text)
-        self.import_status.setText(f"Batch done: {len(successful_files)} success, {len(failed_files)} failed - See preview summary")
-
+        self.import_status.setText(
+            f"Batch done: {len(successful_files)} success, {len(failed_files)} failed - See preview summary"
+        )
         self.import_completed.emit(results)
         if failed_files and not successful_files:
-            # Don't auto-close if all failed, let user see summary
             QMessageBox.warning(self, "Batch Import", summary_text)
         else:
             self.accept()

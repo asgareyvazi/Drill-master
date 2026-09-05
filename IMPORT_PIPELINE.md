@@ -288,3 +288,111 @@ See ENGINEERING_AUDIT.md section H for the full value matrix. Import result:
 2. Lookahead rows without activity text skipped (11/13 stored)
 3. Service NPT not mirrored into npt_reports
 4. UI verification is headless (no libGL in CI sandbox)
+
+---
+
+## 10. External MinerU Document Intelligence (Phase)
+
+MinerU is an optional external engine. DrillMaster never vendors the MinerU
+package, its Python environment, or its models. The adapter is
+`core/mineru_engine.py`; it is independent of PySide6 and SQLite.
+
+### 10.1 Detection and configuration
+
+Detection order is:
+
+1. `DRILLMASTER_MINERU_EXECUTABLE` / `MINERU_EXECUTABLE`
+2. `DRILLMASTER_MINERU_PYTHON` / `MINERU_PYTHON` (invoked as
+   `python -m mineru`)
+3. `mineru` or `mineru.exe` on `PATH`
+4. An existing user-home development virtual-environment convention
+
+The following settings are supported. The `MINERU_*` aliases are accepted for
+portable scripts:
+
+| Setting | Default |
+|---|---|
+| `DRILLMASTER_MINERU_ENABLED` | enabled when MinerU is detected |
+| `DRILLMASTER_MINERU_EXECUTABLE` | auto-discovery |
+| `DRILLMASTER_MINERU_PYTHON` | unset |
+| `DRILLMASTER_MINERU_BACKEND` | `hybrid-engine` |
+| `DRILLMASTER_MINERU_METHOD` | `auto` |
+| `DRILLMASTER_MINERU_OUTPUT_DIR` | isolated temporary directory |
+| `DRILLMASTER_MINERU_TIMEOUT` | `600` seconds |
+| `DRILLMASTER_MINERU_KEEP_OUTPUT` | `false` |
+
+The adapter provides `is_available()`, `get_version()`, `health_check()`,
+`parse_file()`, and `parse_batch()`.
+
+### 10.2 Invocation and process safety
+
+For MinerU 3.x CLI installations the adapter invokes the configured external
+launcher using an argument list equivalent to:
+
+```text
+mineru -p INPUT -o OUTPUT -b hybrid-engine -m auto
+```
+
+The actual executable is selected by configuration/discovery. `shell=False`,
+argument-list invocation, captured UTF-8 output, an explicit timeout, exit
+code checks, isolated output directories, and per-file batch results prevent
+shell injection and cross-file contamination.
+
+### 10.3 Routing
+
+```text
+Known structured XLSX template -> ExcelIntelligence -> canonical JSON
+Unknown/document-style XLSX     -> MinerU -> normalizer -> canonical schema
+PDF                              -> MinerU -> normalizer
+                                  -> Camelot -> PyMuPDF -> Tesseract fallback
+DOCX/PPTX/Image                 -> MinerU -> normalizer -> canonical schema
+CSV                              -> existing CSV -> XLSX -> existing importer
+```
+
+Known structured workbooks are matched before MinerU and do not pay a MinerU
+startup cost. A MinerU failure on unknown XLSX falls back to the existing
+smart/template importer. A MinerU failure on PDF is explicitly logged and
+falls back to the existing three-tier PDF path. DOCX/PPTX/Image parsing
+returns an actionable error when MinerU is unavailable because no equivalent
+existing DB importer exists.
+
+### 10.4 Intermediate representation
+
+MinerU output is not treated as canonical JSON. `MinerUDocument` contains:
+
+- pages and page text
+- headings
+- text blocks
+- tables and rows
+- extracted assets
+- backend/method metadata
+- raw output file names
+
+Each extracted item carries `Provenance`: source file, page/sheet when MinerU
+provides it, row/column when available, bounding box when available,
+extraction method, and confidence. Missing values remain `None`; the adapter
+does not invent coordinates, page numbers, units, dates, depths, pressures, or
+well values.
+
+`DocumentNormalizer` resolves only unambiguous labels through the existing
+`core/canonical_schema.py` registry. Numeric literals are converted only when
+the value is unambiguously numeric; units are never inferred or converted.
+Ambiguous/unknown values remain out of the canonical payload and become review
+warnings. Existing scalar report sections retain the dictionary shape expected
+by the database layer; true table collections remain lists.
+
+The existing `FieldSpec` bounds are applied to values that are safely numeric.
+Validation errors stop the MinerU route before database import. The normalized
+payload is passed to the existing preview and
+`DatabaseManager.save_imported_multi_tab_data_atomic()` boundary; MinerU has
+no database dependency and never writes SQLite directly.
+
+### 10.5 UI and AI boundaries
+
+The Import Dialog uses the existing `FunctionWorker` QThread architecture for
+MinerU batch execution. Status messages identify engine detection, MinerU
+parsing, normalization, validation, preview, and atomic import. The preview
+shows MinerU source/backend/method/page/table/field counts and warnings.
+
+`core/ai_import_mapper.py` remains optional and advisory. MinerU does not call
+Ollama, Qwen, or RAG. Retrieval and embeddings remain future phases.

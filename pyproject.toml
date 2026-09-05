@@ -40,6 +40,9 @@ config = ["*.json", "company_templates/*.json"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+markers = [
+    "integration: requires an externally installed integration engine or service",
+]
 
 [tool.ruff]
 line-length = 120
