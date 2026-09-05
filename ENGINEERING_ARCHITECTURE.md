@@ -1,7 +1,7 @@
 # DrillMaster — Engineering Architecture Documentation
 
 > **Version:** 2.0 — verified against branch `arena/01a05747-drill-master`
-> at HEAD `5f92841` (2026-09-05), full test suite `424 passed, 2 skipped`.
+> at HEAD `95fff1c` (2026-09-05), full test suite `424 passed, 2 skipped`.
 
 ---
 

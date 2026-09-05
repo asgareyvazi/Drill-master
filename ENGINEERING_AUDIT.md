@@ -1,6 +1,6 @@
 # DRILLMASTER — FULL ENGINEERING AUDIT REPORT
 
-> **Date:** 2026-09-05 (re-audit at HEAD `5f92841` of
+> **Date:** 2026-09-05 (re-audit at HEAD `95fff1c` of
 > `arena/01a05747-drill-master`)
 > **Tests:** full suite **424 passed, 2 skipped, 0 failed** (fresh run);
 > OEOC golden import regressions green (122 tests in the import batch).

@@ -1,7 +1,7 @@
 # Engineering Reference Repository Matrix
 
 > Updated: 2026-09-05 — verified against branch `arena/01a05747-drill-master`
-> at HEAD `5f92841` (engineering-refactor work in progress on top of it).
+> at HEAD `95fff1c` (engineering-refactor work in progress on top of it).
 > Status legend:
 > - **Integrated** — real code path in DrillMaster maps to a capability of the
 >   repository (formulas/tests traceable to a DrillMaster module).
