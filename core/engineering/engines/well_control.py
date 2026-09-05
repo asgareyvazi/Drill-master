@@ -149,8 +149,16 @@ class WellControlEngine:
         bha_length_ft=None,
         formation_emw_ppg=None,
         formation_pressure_psi=None,
+        annular_vol_bbl=None,
     ) -> EngineeringResult:
         """IWCF kick-tolerance (volume) with explicit inputs.
+
+        ``annular_vol_bbl`` is retained as a compatibility parameter only.
+        A total annular volume cannot be converted to the depth-dependent
+        capacity required by this calculation without an additional geometry
+        assumption, so supplying it is explicitly unsupported. Use
+        ``annular_capacity_bbl_ft`` (and the optional BHA capacity/length)
+        instead.
 
         Steps (IWCF / drillingformulas methodology):
         1. Kick intensity = formation EMW − current MW (if formation given)
@@ -168,6 +176,12 @@ class WellControlEngine:
         """
         warnings: List[str] = []
         try:
+            legacy_volume = optional_number(annular_vol_bbl, "annular_vol_bbl")
+            if legacy_volume is not None:
+                return unsupported(
+                    "annular_vol_bbl is deprecated; supply annular_capacity_bbl_ft "
+                    "because total volume cannot define a depth-dependent capacity"
+                )
             mw = require_number(mw_ppg, "mw_ppg")
             shoe = require_number(shoe_tvd_ft, "shoe_tvd_ft")
             tvd = require_number(current_tvd_ft, "current_tvd_ft")

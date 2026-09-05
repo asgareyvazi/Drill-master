@@ -309,9 +309,13 @@ def calculate_string_stretch(length_ft: float, mw_ppg: float) -> float:
     return r.value if r.success else 0.0
 
 
-def calculate_backoff_depth(stretch_in: float, pipe_weight_ppf: float) -> float:
+def calculate_backoff_depth(
+    stretch_in: float,
+    pipe_weight_ppf: float,
+    modulus_psi: float = 30.0e6,
+) -> float:
     """Plain-return back-off free point (ft), 0 on invalid input."""
     if pipe_weight_ppf <= 0:
         return 0.0
-    r = FishingEngine.backoff_depth(stretch_in, pipe_weight_ppf)
+    r = FishingEngine.backoff_depth(stretch_in, pipe_weight_ppf, modulus_psi=modulus_psi)
     return r.value if r.success else 0.0

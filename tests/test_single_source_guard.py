@@ -167,6 +167,83 @@ class TestW13DelegationParity:
         assert set(r) == {"air_weight_lbs", "buoyant_weight_lbs",
                           "friction_load_lbs", "hook_load_lbs"}
         assert r["air_weight_lbs"] == round(47.0 * 5000.0, 0)
+        buoyed = 47.0 * 5000.0 * 0.8163
+        assert r["friction_load_lbs"] == round(buoyed * 0.25, 0)
+        assert r["hook_load_lbs"] == round(buoyed * (1.0 - 0.25), 0)
+
+
+class TestEngineeringIntegrationClosure:
+    """Regression coverage for the Phase 1 W13-to-engine closure."""
+
+    @classmethod
+    def setup_class(cls):
+        cls.E = _load_w13_engine_class()
+
+    def test_weight_card_is_canonical_and_preserves_public_values(self):
+        result = TorqueDragEngine.calculate_weight_card(
+            components=[{"length": 1000.0, "weight": 19.5}],
+            mud_density_pcf=90.0,
+            inclination_deg=30.0,
+            top_drive_weight_klbf=10.0,
+            friction_factor=0.2,
+        )
+        assert result.success, result.error
+        assert result.unit == "klbf"
+        assert result.values["mud_density_ppg"] == pytest.approx(90.0 / 7.48)
+        assert result.values["total_air_weight_lbs"] == pytest.approx(19.5 * 1000.0 * 3.28084)
+        assert result.values["pickup_lbs"] > result.values["hook_load_lbs"]
+        assert result.values["slackoff_lbs"] < result.values["hook_load_lbs"]
+
+        source = open(
+            os.path.join(REPO, "tabs", "w13_Engineering_Calculator.py"),
+            encoding="utf-8",
+        ).read()
+        weight_section = source[source.index("    def _wt_calculate(self):"):source.index("    def _wt_run_td(", source.index("    def _wt_calculate(self):"))]
+        for inline_formula in ("489.5", "inc_rad", "hook_load =", "drag =", "pickup =", "slackoff ="):
+            assert inline_formula not in weight_section
+        assert "TorqueDragEngine.calculate_weight_card" in weight_section
+
+    def test_casing_landing_load_delegates_to_canonical_engine(self):
+        canonical = TorqueDragEngine.casing_landing_load(47.0, 5000.0, 0.8163, 0.25)
+        facade = self.E.calc_casing_landing_load(47.0, 5000.0, 0.8163, 0.25)
+        assert canonical.success, canonical.error
+        assert facade == {
+            "air_weight_lbs": round(canonical.values["total_air_weight_lbs"], 0),
+            "buoyant_weight_lbs": round(canonical.values["buoyed_weight_lbs"], 0),
+            "friction_load_lbs": round(canonical.values["friction_load_lbs"], 0),
+            "hook_load_lbs": round(canonical.values["hook_load_lbs"], 0),
+        }
+
+    def test_annular_volume_compatibility_path_is_explicit(self):
+        kwargs = {
+            "mw_ppg": 14.5,
+            "shoe_tvd_ft": 6000.0,
+            "current_tvd_ft": 10000.0,
+            "frac_mw_ppg": 16.0,
+            "influx_gradient_psi_ft": 0.1,
+            "annular_capacity_bbl_ft": 0.0459,
+            "formation_emw_ppg": 15.0,
+        }
+        canonical = WellControlEngine.kick_tolerance(
+            **kwargs, annular_vol_bbl=10.0
+        )
+        facade = self.E.calc_kick_tolerance(
+            16.0, 14.5, 10000.0, 6000.0, 10.0,
+            influx_gradient_psi_ft=0.1,
+            annular_capacity_bbl_ft=0.0459,
+            formation_emw_ppg=15.0,
+        )
+        assert not canonical.success
+        assert "annular_vol_bbl is deprecated" in canonical.error
+        assert facade["error"] == canonical.error
+        valid = WellControlEngine.kick_tolerance(**kwargs)
+        assert valid.success
+
+    def test_backoff_modulus_is_forwarded(self):
+        low_modulus = self.E.calc_backoff_depth(12.0, 19.5, modulus=30.0e6)
+        high_modulus = self.E.calc_backoff_depth(12.0, 19.5, modulus=60.0e6)
+        assert high_modulus == pytest.approx(low_modulus * 2.0, abs=0.1)
+        assert high_modulus > low_modulus
 
 
 class TestEngineContractParity:

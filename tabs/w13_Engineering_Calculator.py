@@ -131,19 +131,22 @@ class DrillingCalculationEngine:
     @staticmethod
     def calc_casing_landing_load(casing_weight_ppf, length_ft,
                                    buoyancy_factor, friction_factor=0) -> dict:
-        """Casing landing-load card — arithmetic on engine outputs
-        (canonical buoyancy factor is supplied by the caller); no
-        engineering constants live here."""
-        air_weight = casing_weight_ppf * length_ft
-        buoyant_weight = air_weight * buoyancy_factor
-        friction_load = buoyant_weight * friction_factor
-        hook_load = buoyant_weight - friction_load
-
+        """Casing landing-load card — canonical TorqueDragEngine delegate."""
+        from core.engineering.engines.torque_drag import TorqueDragEngine
+        result = TorqueDragEngine.casing_landing_load(
+            casing_weight_ppf,
+            length_ft,
+            buoyancy_factor,
+            friction_factor,
+        )
+        if not result.success:
+            return {"error": result.error}
+        values = result.values
         return {
-            "air_weight_lbs": round(air_weight, 0),
-            "buoyant_weight_lbs": round(buoyant_weight, 0),
-            "friction_load_lbs": round(friction_load, 0),
-            "hook_load_lbs": round(hook_load, 0),
+            "air_weight_lbs": round(values["total_air_weight_lbs"], 0),
+            "buoyant_weight_lbs": round(values["buoyed_weight_lbs"], 0),
+            "friction_load_lbs": round(values["friction_load_lbs"], 0),
+            "hook_load_lbs": round(values["hook_load_lbs"], 0),
         }
 
     # -------- Well Control (canonical: WellControlEngine) --------
@@ -155,8 +158,10 @@ class DrillingCalculationEngine:
                              formation_emw_ppg=None) -> dict:
         """Kick tolerance — canonical WellControlEngine.kick_tolerance.
 
-        No invented influx gradient or annular capacity: missing inputs
-        produce an error dict instead of a guessed number.
+        ``annular_vol_bbl`` is retained for compatibility but is explicitly
+        rejected when supplied: a total volume cannot define depth-dependent
+        capacity. Use ``annular_capacity_bbl_ft`` instead. No invented influx
+        gradient or annular capacity: missing inputs produce an error dict.
         """
         from core.engineering.engines.well_control import WellControlEngine
         r = WellControlEngine.kick_tolerance(
@@ -165,6 +170,7 @@ class DrillingCalculationEngine:
             current_tvd_ft=tvd_ft,
             frac_mw_ppg=frac_mw_ppg,
             influx_gradient_psi_ft=influx_gradient_psi_ft,
+            annular_vol_bbl=annular_vol_bbl,
             annular_capacity_bbl_ft=annular_capacity_bbl_ft,
             formation_emw_ppg=formation_emw_ppg,
         )
@@ -253,7 +259,7 @@ class DrillingCalculationEngine:
         from core.engineering.engines.fishing import calculate_backoff_depth
         if pipe_weight_ppf <= 0:
             return 0.0
-        r = calculate_backoff_depth(stretch_in, pipe_weight_ppf)
+        r = calculate_backoff_depth(stretch_in, pipe_weight_ppf, modulus_psi=modulus)
         return round(r, 1)
 
     # -------- Mud (canonical: MudVolumeEngine / MudEngineering) --------
@@ -2283,63 +2289,74 @@ class EngineeringCalculatorTab(DrillTabBase):
             self._wt_refresh_table()
 
     def _wt_refresh_table(self):
+        from core.engineering.engines.torque_drag import TorqueDragEngine
+
         self.wt_pipe_table.setRowCount(0)
         for p in self.wt_pipes:
             row = self.wt_pipe_table.rowCount()
             self.wt_pipe_table.insertRow(row)
             wt_ppf = p.get('weight', 0)
-            L_ft = p.get('length', 0) * 3.28084
-            total_lbs = wt_ppf * L_ft
+            weight_result = TorqueDragEngine.component_air_weight(
+                p.get('length'),
+                wt_ppf,
+            )
+            total_text = (
+                f"{weight_result.value:,.0f}"
+                if weight_result.success
+                else "--"
+            )
 
             self.wt_pipe_table.setItem(row, 0, QTableWidgetItem(p.get('type', '')))
             self.wt_pipe_table.setItem(row, 1, QTableWidgetItem(f"{p.get('od', 0):.3f}\""))
             self.wt_pipe_table.setItem(row, 2, QTableWidgetItem(f"{p.get('id', 0):.3f}\""))
             self.wt_pipe_table.setItem(row, 3, QTableWidgetItem(f"{p.get('length', 0):.1f}"))
             self.wt_pipe_table.setItem(row, 4, QTableWidgetItem(f"{wt_ppf:.1f}"))
-            ti = QTableWidgetItem(f"{total_lbs:,.0f}")
+            ti = QTableWidgetItem(total_text)
             ti.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
             self.wt_pipe_table.setItem(row, 5, ti)
 
     def _wt_calculate(self):
-        mw = self.wt_mw.value()
-        inc = self.wt_inc.value()
-        tds = self.wt_tds.value()
-        ff = self.wt_friction.value()
-        inc_rad = math.radians(inc)
+        from core.engineering.engines.torque_drag import TorqueDragEngine
 
-        # Total weight in air
-        total_lbs = 0
-        for p in self.wt_pipes:
-            wt = p.get('weight', 0)
-            L_ft = p.get('length', 0) * 3.28084
-            total_lbs += wt * L_ft
+        result = TorqueDragEngine.calculate_weight_card(
+            components=self.wt_pipes,
+            mud_density_pcf=self.wt_mw.value(),
+            inclination_deg=self.wt_inc.value(),
+            top_drive_weight_klbf=self.wt_tds.value(),
+            friction_factor=self.wt_friction.value(),
+        )
+        if not result.success:
+            message = f"❌ {result.error}"
+            for label in (
+                self.wt_air,
+                self.wt_mud,
+                self.wt_hl,
+                self.wt_buoy,
+                self.wt_pickup,
+                self.wt_slackoff,
+            ):
+                label.setText(message)
+            self.wt_td.setText(message)
+            return
 
-        # Buoyancy factor
-        bf = 1 - (mw / 489.5)
+        values = result.values
+        self.wt_air.setText(
+            f"{values['axial_air_weight_klbf']:.1f} Klbs "
+            f"({values['total_air_weight_lbs']:,.0f} lbs)"
+        )
+        self.wt_mud.setText(f"{values['buoyed_weight_klbf']:.1f} Klbs")
+        self.wt_hl.setText(f"{values['hook_load_lbs'] / 1000.0:.1f} Klbs")
+        self.wt_buoy.setText(f"{values['buoyancy_factor']:.4f}")
+        self.wt_pickup.setText(
+            f"{values['pickup_lbs'] / 1000.0:.1f} Klbs (w/ friction)"
+        )
+        self.wt_slackoff.setText(
+            f"{values['slackoff_lbs'] / 1000.0:.1f} Klbs (w/ friction)"
+        )
 
-        # String weight
-        wt_air_klbs = total_lbs * math.cos(inc_rad) / 1000
-        wt_mud_klbs = wt_air_klbs * bf
+        self._wt_run_td(values["mud_density_ppg"])
 
-        # Hook load
-        hook_load = wt_mud_klbs + tds
-
-        # Pick-up & Slack-off (with friction)
-        drag = wt_mud_klbs * ff * math.sin(inc_rad)
-        pickup = hook_load + drag
-        slackoff = hook_load - drag
-
-        self.wt_air.setText(f"{wt_air_klbs:.1f} Klbs ({total_lbs:,.0f} lbs)")
-        self.wt_mud.setText(f"{wt_mud_klbs:.1f} Klbs")
-        self.wt_hl.setText(f"{hook_load:.1f} Klbs")
-        self.wt_buoy.setText(f"{bf:.4f}")
-        self.wt_pickup.setText(f"{pickup:.1f} Klbs (w/ friction)")
-        self.wt_slackoff.setText(f"{slackoff:.1f} Klbs (w/ friction)")
-
-        # Canonical T&D screening (Johancsik). Vertical if no surveys.
-        self._wt_run_td()
-
-    def _wt_run_td(self):
+    def _wt_run_td(self, mud_density_ppg):
         from core.engineering.engines.torque_drag import TorqueDragEngine
         if not self.wt_pipes:
             self.wt_td.setText("--")
@@ -2369,7 +2386,7 @@ class EngineeringCalculatorTab(DrillTabBase):
         r = TorqueDragEngine.calculate(
             surveys,
             string,
-            mud_density_ppg=self.wt_mw.value() / 7.48,
+            mud_density_ppg=mud_density_ppg,
             friction_factor=self.wt_friction.value(),
             wob_klbf=self.wt_wob.value(),
             wellbore_id_in=self.wt_hole.value() or None,
@@ -3110,6 +3127,9 @@ class EngineeringCalculatorTab(DrillTabBase):
             self.bf_csg_wt.value(), self.bf_csg_len.value(),
             bf, self.bf_friction.value()
         )
+        if "error" in r:
+            self.bf_result.setText(f"❌ {r['error']}")
+            return
         self.bf_result.setText(
             f"Buoyancy Factor: {bf:.4f}\n"
             f"Air Weight: {r['air_weight_lbs']:,.0f} lbs\n"

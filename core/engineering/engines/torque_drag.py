@@ -99,6 +99,228 @@ class TorqueDragEngine:
 
 
     @classmethod
+    def _weight_card_from_air_weight(
+        cls,
+        air_weight_lbs,
+        buoyancy_factor,
+        inclination_deg,
+        top_drive_weight_lbs,
+        friction_factor,
+    ) -> EngineeringResult:
+        """Calculate the simple buoyed-weight card used by the W13 UI."""
+        try:
+            air = require_number(air_weight_lbs, "air_weight_lbs")
+            bf = require_number(buoyancy_factor, "buoyancy_factor")
+            inc = require_number(inclination_deg, "inclination_deg")
+            tds = require_number(top_drive_weight_lbs, "top_drive_weight_lbs")
+            ff = require_number(friction_factor, "friction_factor")
+            if air < 0:
+                raise EngineeringError("air_weight_lbs cannot be negative")
+            if not 0.0 <= bf <= 1.0:
+                raise EngineeringError("buoyancy_factor must be in [0, 1]")
+            if not 0.0 <= inc <= 90.0:
+                raise EngineeringError("inclination_deg must be in [0, 90]")
+            if tds < 0:
+                raise EngineeringError("top_drive_weight_lbs cannot be negative")
+            if not 0.0 <= ff <= 1.0:
+                raise EngineeringError("friction_factor must be in [0, 1]")
+
+            axial_air = air * math.cos(math.radians(inc))
+            buoyed = axial_air * bf
+            hook = buoyed + tds
+            drag = buoyed * ff * math.sin(math.radians(inc))
+            pickup = hook + drag
+            slackoff = hook - drag
+            values = {
+                "total_air_weight_lbs": round(air, 6),
+                "axial_air_weight_lbs": round(axial_air, 6),
+                "axial_air_weight_klbf": round(axial_air / 1000.0, 6),
+                "buoyed_weight_lbs": round(buoyed, 6),
+                "buoyed_weight_klbf": round(buoyed / 1000.0, 6),
+                "top_drive_weight_lbs": round(tds, 6),
+                "top_drive_weight_klbf": round(tds / 1000.0, 6),
+                "buoyancy_factor": round(bf, 6),
+                "drag_lbs": round(drag, 6),
+                "hook_load_lbs": round(hook, 6),
+                "pickup_lbs": round(pickup, 6),
+                "slackoff_lbs": round(slackoff, 6),
+                "inclination_deg": inc,
+                "friction_factor": ff,
+            }
+            return ok(
+                round(hook / 1000.0, 6),
+                values=values,
+                unit="klbf",
+                formula="W_axial=W_air cos(I); W_buoyed=W_axial BF; Drag=W_buoyed μ sin(I)",
+                method="Buoyed string-weight and inclination-drag card",
+                assumptions=[
+                    "Simple buoyancy factor supplied by the caller",
+                    "Top-drive/block weight is an additive surface load",
+                    "Inclination drag uses a constant friction factor",
+                ],
+                scope=cls.SCOPE,
+                metadata={"production_ready": False, "model": "simple-weight-drag-card"},
+            )
+        except MissingInputError as exc:
+            return missing(exc.field)
+        except EngineeringError as exc:
+            return failed(str(exc))
+
+    @classmethod
+    def component_air_weight(cls, length_m, weight_ppf) -> EngineeringResult:
+        """Return one component's air weight in pounds."""
+        try:
+            length = require_number(length_m, "length_m")
+            weight = require_number(weight_ppf, "weight_ppf")
+            if length < 0:
+                raise EngineeringError("length_m cannot be negative")
+            if weight < 0:
+                raise EngineeringError("weight_ppf cannot be negative")
+            air_weight = length * 3.28084 * weight
+            return ok(
+                round(air_weight, 6),
+                values={
+                    "length_m": length,
+                    "weight_ppf": weight,
+                    "air_weight_lbs": round(air_weight, 6),
+                },
+                unit="lb",
+                formula="W_air = length_m × 3.28084 × weight_ppf",
+                method="Drill-string component air weight",
+                assumptions=["Component length is supplied in metres and weight in lb/ft"],
+                scope=cls.SCOPE,
+            )
+        except MissingInputError as exc:
+            return missing(exc.field)
+        except EngineeringError as exc:
+            return failed(str(exc))
+
+    @classmethod
+    def calculate_weight_card(
+        cls,
+        components: List[Dict],
+        mud_density_pcf,
+        inclination_deg,
+        top_drive_weight_klbf,
+        friction_factor,
+    ) -> EngineeringResult:
+        """Calculate the W13 weight card through the canonical T&D engine."""
+        try:
+            mw_pcf = require_number(mud_density_pcf, "mud_density_pcf")
+            if mw_pcf <= 0:
+                raise EngineeringError("mud_density_pcf must be > 0")
+            tds_klbf = require_number(top_drive_weight_klbf, "top_drive_weight_klbf")
+            if tds_klbf < 0:
+                raise EngineeringError("top_drive_weight_klbf cannot be negative")
+
+            if components is None:
+                raise MissingInputError("components")
+            if not isinstance(components, list):
+                raise EngineeringError("components must be a list")
+
+            total_air = 0.0
+            for index, component in enumerate(components):
+                if not isinstance(component, dict):
+                    raise EngineeringError(f"components[{index}] must be a mapping")
+                result = cls.component_air_weight(component.get("length"), component.get("weight"))
+                if not result.success:
+                    return result
+                total_air += result.value
+
+            mw_ppg = mw_pcf / 7.48
+            bf = cls.buoyancy_factor(mw_ppg)
+            result = cls._weight_card_from_air_weight(
+                total_air,
+                bf,
+                inclination_deg,
+                tds_klbf * 1000.0,
+                friction_factor,
+            )
+            if result.success:
+                result.values["mud_density_pcf"] = mw_pcf
+                result.values["mud_density_ppg"] = mw_ppg
+            return result
+        except MissingInputError as exc:
+            return missing(exc.field)
+        except EngineeringError as exc:
+            return failed(str(exc))
+
+    @classmethod
+    def _landing_load_from_air_weight(
+        cls,
+        air_weight_lbs,
+        buoyancy_factor,
+        friction_factor,
+    ) -> EngineeringResult:
+        """Calculate the straight-hole casing landing-load card."""
+        try:
+            air = require_number(air_weight_lbs, "air_weight_lbs")
+            bf = require_number(buoyancy_factor, "buoyancy_factor")
+            ff = require_number(friction_factor, "friction_factor")
+            if air < 0:
+                raise EngineeringError("air_weight_lbs cannot be negative")
+            if not 0.0 <= bf <= 1.0:
+                raise EngineeringError("buoyancy_factor must be in [0, 1]")
+            if not 0.0 <= ff <= 1.0:
+                raise EngineeringError("friction_factor must be in [0, 1]")
+
+            buoyed = air * bf
+            friction = buoyed * ff
+            hook = buoyed - friction
+            values = {
+                "total_air_weight_lbs": round(air, 6),
+                "buoyed_weight_lbs": round(buoyed, 6),
+                "buoyed_weight_klbf": round(buoyed / 1000.0, 6),
+                "friction_load_lbs": round(friction, 6),
+                "hook_load_lbs": round(hook, 6),
+                "buoyancy_factor": round(bf, 6),
+                "friction_factor": ff,
+            }
+            return ok(
+                round(hook / 1000.0, 6),
+                values=values,
+                unit="klbf",
+                formula="W_buoyed=W_air BF; F_friction=W_buoyed μ; W_hook=W_buoyed−F_friction",
+                method="Casing landing-load screening card",
+                assumptions=[
+                    "Straight-hole landing-load screening",
+                    "Constant friction factor supplied by the caller",
+                ],
+                scope=cls.SCOPE,
+                metadata={"production_ready": False, "model": "casing-landing-load-card"},
+            )
+        except MissingInputError as exc:
+            return missing(exc.field)
+        except EngineeringError as exc:
+            return failed(str(exc))
+
+    @classmethod
+    def casing_landing_load(
+        cls,
+        casing_weight_ppf,
+        length_ft,
+        buoyancy_factor,
+        friction_factor=0,
+    ) -> EngineeringResult:
+        """Calculate casing landing load using the canonical weight card."""
+        try:
+            weight = require_number(casing_weight_ppf, "casing_weight_ppf")
+            length = require_number(length_ft, "length_ft")
+            if weight < 0:
+                raise EngineeringError("casing_weight_ppf cannot be negative")
+            if length < 0:
+                raise EngineeringError("length_ft cannot be negative")
+            return cls._landing_load_from_air_weight(
+                weight * length,
+                buoyancy_factor,
+                friction_factor,
+            )
+        except MissingInputError as exc:
+            return missing(exc.field)
+        except EngineeringError as exc:
+            return failed(str(exc))
+
+    @classmethod
     def calculate_soft_string(
         cls,
         survey: List[Dict],
