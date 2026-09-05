@@ -18,7 +18,11 @@ from PySide6.QtGui import (
 
 from PySide6.QtCore import Qt, QRect, QTimer, QEventLoop, QStandardPaths
 
-from core.database import DatabaseManager
+from core.database import (
+    DatabaseManager,
+    bootstrap_password_for_role,
+    is_production_environment,
+)
 from core.error_handler import GlobalErrorHandler
 from dialogs.login_dialog import LoginDialog
 from dialogs.startup_dialog import StartupDialog
@@ -441,14 +445,20 @@ class DrillMasterApp(QApplication):
     def show_login(self) -> bool:
         """نمایش دیالوگ Login."""
         try:
-            # Auto-login for testing (set DRILLMASTER_AUTO_LOGIN=1)
+            # Auto-login is a development/test convenience only.
             import os
-            if os.getenv("DRILLMASTER_AUTO_LOGIN", "").lower() in ("1", "true", "yes"):
-                self.user = self.db_manager.authenticate_user("admin", "admin123")
+            if (
+                not is_production_environment()
+                and os.getenv("DRILLMASTER_AUTO_LOGIN", "").lower()
+                in ("1", "true", "yes")
+            ):
+                auto_password = bootstrap_password_for_role("admin")
+                if auto_password:
+                    self.user = self.db_manager.authenticate_user("admin", auto_password)
                 if self.user:
                     from core.permissions import permissions
                     permissions.set_user(self.user)
-                    logger.info("Auto-login as admin (DRILLMASTER_AUTO_LOGIN)")
+                    logger.info("Auto-login as admin (development/test mode)")
                     return True
 
             login_dialog = LoginDialog(self.db_manager)

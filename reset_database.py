@@ -44,10 +44,10 @@ def reset_database():
             
             # ✅ نمایش اطلاعات کاربران پیش‌فرض
             print("\n📋 Default Users Created:")
-            print("  👤 admin / [DRILLMASTER_ADMIN_PASSWORD env var]")
-            print("  👤 engineer / [DRILLMASTER_USER_PASSWORD env var]")
-            print("  👤 viewer / viewer123")
-            print("\n⚠️  Change passwords in production!")
+            print("  👤 admin / DRILLMASTER_ADMIN_PASSWORD or development fixture")
+            print("  👤 engineer / DRILLMASTER_USER_PASSWORD or development fixture")
+            print("  👤 viewer / DRILLMASTER_VIEWER_PASSWORD or development fixture")
+            print("\n⚠️  Set DRILLMASTER_ENV=production and all three password variables before production use.")
             
             hierarchy = db_manager.get_hierarchy()
             print(f"\n📊 Hierarchy: {len(hierarchy)} companies")

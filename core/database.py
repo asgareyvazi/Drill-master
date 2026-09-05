@@ -49,6 +49,50 @@ except ImportError:
 from contextlib import contextmanager
 logger = logging.getLogger(__name__)
 
+# Development/test bootstrap fixtures are intentionally isolated from
+# production by DRILLMASTER_ENV. Production never falls back to these values.
+_DEVELOPMENT_FIXTURE_PASSWORDS = {
+    "admin": "admin123",
+    "engineer": "user123",
+    "viewer": "viewer123",
+}
+_BOOTSTRAP_PASSWORD_ENV = {
+    "admin": "DRILLMASTER_ADMIN_PASSWORD",
+    "engineer": "DRILLMASTER_USER_PASSWORD",
+    "viewer": "DRILLMASTER_VIEWER_PASSWORD",
+}
+_PRODUCTION_ENVIRONMENTS = frozenset({"production", "prod"})
+
+
+def runtime_environment() -> str:
+    """Return the normalized application environment."""
+    value = (
+        os.getenv("DRILLMASTER_ENV")
+        or os.getenv("DRILLMASTER_ENVIRONMENT")
+        or "development"
+    )
+    return value.strip().lower()
+
+
+def is_production_environment() -> bool:
+    """Whether bootstrap and test conveniences must be disabled."""
+    return runtime_environment() in _PRODUCTION_ENVIRONMENTS
+
+
+def bootstrap_password_for_role(role: str) -> Optional[str]:
+    """Return an explicitly configured or development-fixture password.
+
+    This helper is for the local auto-login path only. It deliberately returns
+    no fallback in production.
+    """
+    env_name = _BOOTSTRAP_PASSWORD_ENV.get(role)
+    configured = os.getenv(env_name) if env_name else None
+    if configured:
+        return configured
+    if is_production_environment():
+        return None
+    return _DEVELOPMENT_FIXTURE_PASSWORDS.get(role)
+
 Base = declarative_base()
 # ==================== Constants ====================
 class DBConstants:
@@ -1794,26 +1838,63 @@ class DatabaseManager:
                 f"(non-fatal, retried next start): {str(e)}"
             )
 
+    def _bootstrap_passwords(self) -> Dict[str, str]:
+        """Resolve bootstrap passwords without a production fallback."""
+        configured = {
+            role: os.getenv(env_name)
+            for role, env_name in _BOOTSTRAP_PASSWORD_ENV.items()
+        }
+        if is_production_environment():
+            missing = [
+                env_name
+                for role, env_name in _BOOTSTRAP_PASSWORD_ENV.items()
+                if not configured[role]
+            ]
+            unsafe = [
+                env_name
+                for role, env_name in _BOOTSTRAP_PASSWORD_ENV.items()
+                if configured[role] in _DEVELOPMENT_FIXTURE_PASSWORDS.values()
+            ]
+            if missing:
+                raise RuntimeError(
+                    "Production bootstrap requires explicit credentials for: "
+                    + ", ".join(missing)
+                )
+            if unsafe:
+                raise RuntimeError(
+                    "Production bootstrap credentials must not use development fixture values"
+                )
+            return {role: configured[role] for role in _BOOTSTRAP_PASSWORD_ENV}
+
+        return {
+            role: configured[role] or _DEVELOPMENT_FIXTURE_PASSWORDS[role]
+            for role in _BOOTSTRAP_PASSWORD_ENV
+        }
+
+    def _reject_unsafe_existing_credentials(self, session) -> None:
+        """Prevent legacy development fixture passwords in production."""
+        if not is_production_environment():
+            return
+        usernames = tuple(_DEVELOPMENT_FIXTURE_PASSWORDS)
+        users = session.query(User).filter(User.username.in_(usernames)).all()
+        for user in users:
+            if any(
+                self._verify_password(password, user.password_hash)
+                for password in _DEVELOPMENT_FIXTURE_PASSWORDS.values()
+            ):
+                raise RuntimeError(
+                    "Production database contains an unsafe development credential; "
+                    "reset that account before startup"
+                )
+
     def create_default_data(self):
         session = self.create_session()
         try:
             if session.query(User).count() == 0:
-                import os
-
-                admin_password = os.environ.get(
-                    "DRILLMASTER_ADMIN_PASSWORD",
-                    "admin123"
-                )
-                user_password = os.environ.get(
-                    "DRILLMASTER_USER_PASSWORD",
-                    "user123"
-                )
-
-                if admin_password == "admin123":
-                    logger.warning(
-                        "⚠️ Using default admin password. "
-                        "Set DRILLMASTER_ADMIN_PASSWORD env var for production."
-                    )
+                passwords = self._bootstrap_passwords()
+                admin_password = passwords["admin"]
+                user_password = passwords["engineer"]
+                viewer_password = passwords["viewer"]
 
                 users = [
                     User(
@@ -1852,7 +1933,7 @@ class DatabaseManager:
                     ),
                     User(
                         username="viewer",
-                        password_hash=self._hash_password("viewer123"),
+                        password_hash=self._hash_password(viewer_password),
                         full_name="Report Viewer",
                         email="viewer@drillmaster.com",
                         role="viewer",
@@ -1910,8 +1991,12 @@ class DatabaseManager:
                 )
                 session.add(well)
                 session.commit()
+            else:
+                self._reject_unsafe_existing_credentials(session)
         except Exception as e:
             session.rollback()
+            if is_production_environment():
+                raise
             logger.error(f"Error creating default data: {str(e)}")
         finally:
             session.close()
@@ -1991,6 +2076,9 @@ class DatabaseManager:
         return secrets.compare_digest(old_hash, stored_hash)
 
     def authenticate_user(self, username: str, password: str)-> Optional[Any]:
+        if is_production_environment() and password in _DEVELOPMENT_FIXTURE_PASSWORDS.values():
+            return None
+
         session = self.create_session()
         try:
             user = (

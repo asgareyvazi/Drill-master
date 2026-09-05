@@ -7,16 +7,31 @@
 ## 1. Test Suite Overview
 
 **Location:** `tests/`
-**Framework:** pytest
-**Total Tests:** 64 (all passing)
-**Run Time:** ~6 seconds
+**Framework:** pytest (including existing `unittest.TestCase` tests)
+**Test count:** discovered from `pyproject.toml`; the release gate reports
+collected, passed, skipped, failed, and error counts without a hard-coded total.
 
 ### Run Command
 ```bash
 cd /home/user/Drill-master
 source .venv/bin/activate
-python -m pytest tests/ -v
+python -m pytest -ra
 ```
+
+### Release Gate
+```bash
+python verify_release.py
+```
+The release gate compiles the repository, verifies that pytest collects tests,
+then runs the complete suite using the project configuration. Skips are
+reported separately and any pytest failure or collection error fails the gate.
+
+### Production Bootstrap Credentials
+Set `DRILLMASTER_ENV=production` and explicitly provide
+`DRILLMASTER_ADMIN_PASSWORD`, `DRILLMASTER_USER_PASSWORD`, and
+`DRILLMASTER_VIEWER_PASSWORD`. Development/test fixture credentials are
+available only outside production mode; they are never used as production
+fallbacks.
 
 ---
 
