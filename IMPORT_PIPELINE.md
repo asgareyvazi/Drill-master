@@ -307,8 +307,11 @@ Detection order is:
 3. `mineru` or `mineru.exe` on `PATH`
 4. An existing user-home development virtual-environment convention
 
-The following settings are supported. The `MINERU_*` aliases are accepted for
-portable scripts:
+The following settings are supported. They can be configured through the
+MinerU tab in Settings or through environment variables. The `MINERU_*`
+aliases are accepted for portable scripts. Persisted non-secret settings are
+stored in the user data directory (`config/mineru.json`), never in the
+repository:
 
 | Setting | Default |
 |---|---|

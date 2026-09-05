@@ -7,6 +7,9 @@ from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
 
+from core.mineru_engine import MinerUConfig, discover_mineru_executable
+from core.runtime_config import write_mineru_settings
+
 logger = logging.getLogger(__name__)
 
 
@@ -44,6 +47,8 @@ class SettingsDialog(QDialog):
         self.tabs.addTab(self._create_units_tab(), "📏 Units")
         # Database Tab
         self.tabs.addTab(self._create_database_tab(), "🗃️ Database")
+        # External document intelligence
+        self.tabs.addTab(self._create_mineru_tab(), "📄 MinerU")
 
         layout.addWidget(self.tabs)
 
@@ -156,6 +161,80 @@ class SettingsDialog(QDialog):
         layout.addRow("Backup Path:", backup_layout)
 
         return tab
+
+    def _create_mineru_tab(self):
+        tab = QWidget()
+        layout = QFormLayout(tab)
+        layout.setSpacing(10)
+
+        self.mineru_enabled = QCheckBox("Use MinerU when detected")
+        layout.addRow("Enabled:", self.mineru_enabled)
+
+        self.mineru_executable = QLineEdit()
+        self.mineru_executable.setPlaceholderText("Auto-discover mineru.exe or configure a path")
+        executable_browse = QPushButton("Browse...")
+        executable_browse.clicked.connect(self._browse_mineru_executable)
+        executable_layout = QHBoxLayout()
+        executable_layout.addWidget(self.mineru_executable)
+        executable_layout.addWidget(executable_browse)
+        layout.addRow("Executable:", executable_layout)
+
+        self.mineru_python = QLineEdit()
+        self.mineru_python.setPlaceholderText("Optional Python executable for python -m mineru")
+        python_browse = QPushButton("Browse...")
+        python_browse.clicked.connect(self._browse_mineru_python)
+        python_layout = QHBoxLayout()
+        python_layout.addWidget(self.mineru_python)
+        python_layout.addWidget(python_browse)
+        layout.addRow("Python:", python_layout)
+
+        self.mineru_backend = QComboBox()
+        self.mineru_backend.addItems([
+            "hybrid-engine",
+            "pipeline",
+            "vlm-engine",
+            "hybrid-http-client",
+            "vlm-http-client",
+        ])
+        layout.addRow("Backend:", self.mineru_backend)
+
+        self.mineru_method = QComboBox()
+        self.mineru_method.addItems(["auto", "txt", "ocr"])
+        layout.addRow("Method:", self.mineru_method)
+
+        self.mineru_timeout = QSpinBox()
+        self.mineru_timeout.setRange(1, 86400)
+        self.mineru_timeout.setSuffix(" seconds")
+        layout.addRow("Timeout:", self.mineru_timeout)
+
+        note = QLabel(
+            "MinerU remains an external installation. DrillMaster never copies "
+            "or installs MinerU in its own environment."
+        )
+        note.setWordWrap(True)
+        note.setStyleSheet("color: #7f8c8d; padding: 8px;")
+        layout.addRow("Note:", note)
+        return tab
+
+    def _browse_mineru_executable(self):
+        path = QFileDialog.getOpenFileName(
+            self,
+            "Select MinerU executable",
+            "",
+            "Executables (*.exe);;All files (*)",
+        )[0]
+        if path:
+            self.mineru_executable.setText(path)
+
+    def _browse_mineru_python(self):
+        path = QFileDialog.getOpenFileName(
+            self,
+            "Select MinerU Python executable",
+            "",
+            "Python executable (python*);;All files (*)",
+        )[0]
+        if path:
+            self.mineru_python.setText(path)
 
     def _create_units_tab(self):
         tab = QWidget()
@@ -279,6 +358,16 @@ class SettingsDialog(QDialog):
         self.settings.setValue("backup/enabled", self.backup_enabled.isChecked())
         self.settings.setValue("backup/path", self.backup_path.text())
 
+        mineru_settings = {
+            "enabled": self.mineru_enabled.isChecked(),
+            "executable": self.mineru_executable.text().strip(),
+            "python": self.mineru_python.text().strip(),
+            "backend": self.mineru_backend.currentText(),
+            "method": self.mineru_method.currentText(),
+            "timeout": self.mineru_timeout.value(),
+        }
+        write_mineru_settings(mineru_settings)
+
         self.settings.setValue("units/depth", self.depth_unit.currentText())
         self.settings.setValue("units/weight", self.weight_unit.currentText())
         self.settings.setValue("units/pressure", self.pressure_unit.currentText())
@@ -334,6 +423,14 @@ class SettingsDialog(QDialog):
             self.settings.value("backup/path", "")
         )
 
+        mineru = MinerUConfig.from_environment()
+        self.mineru_enabled.setChecked(mineru.enabled)
+        self.mineru_executable.setText(mineru.executable or discover_mineru_executable() or "")
+        self.mineru_python.setText(mineru.python_executable or "")
+        self.mineru_backend.setCurrentText(mineru.backend)
+        self.mineru_method.setCurrentText(mineru.method)
+        self.mineru_timeout.setValue(mineru.timeout_seconds)
+
         self.depth_unit.setCurrentText(
             self.settings.value("units/depth", "meters (m)")
         )
@@ -364,6 +461,12 @@ class SettingsDialog(QDialog):
             self.font_size.setValue(10)
             self.autosave_enabled.setChecked(True)
             self.autosave_interval.setValue(5)
+            self.mineru_enabled.setChecked(bool(discover_mineru_executable()))
+            self.mineru_executable.setText(discover_mineru_executable() or "")
+            self.mineru_python.clear()
+            self.mineru_backend.setCurrentText("hybrid-engine")
+            self.mineru_method.setCurrentText("auto")
+            self.mineru_timeout.setValue(600)
             self.depth_unit.setCurrentText("meters (m)")
             self.weight_unit.setCurrentText("pcf")
             self.pressure_unit.setCurrentText("psi")

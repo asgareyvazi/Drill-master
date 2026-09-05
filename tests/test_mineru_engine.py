@@ -61,6 +61,27 @@ def test_mineru_unavailable_is_graceful():
     assert "disabled" in (health.error or "")
 
 
+def test_mineru_persisted_configuration_is_supported(monkeypatch, tmp_path):
+    executable = tmp_path / "mineru.exe"
+    executable.write_text("external launcher", encoding="utf-8")
+    monkeypatch.setattr(
+        "core.mineru_engine.read_mineru_settings",
+        lambda: {
+            "enabled": True,
+            "executable": str(executable),
+            "backend": "pipeline",
+            "method": "ocr",
+            "timeout": 42,
+        },
+    )
+    config = MinerUConfig.from_environment()
+    assert config.enabled is True
+    assert config.executable == str(executable.resolve())
+    assert config.backend == "pipeline"
+    assert config.method == "ocr"
+    assert config.timeout_seconds == 42
+
+
 def test_mineru_invocation_uses_safe_cli_and_parses_markdown(tmp_path):
     source = tmp_path / "report.pdf"
     source.write_bytes(b"pdf fixture")

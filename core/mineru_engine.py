@@ -29,6 +29,7 @@ import time
 from typing import Any, Callable, Iterable, Mapping, Optional, Sequence
 
 from core.canonical_schema import FIELD_SPECS, lookup_alias
+from core.runtime_config import read_mineru_settings
 
 logger = logging.getLogger(__name__)
 
@@ -103,29 +104,44 @@ class MinerUConfig:
 
     @classmethod
     def from_environment(cls) -> "MinerUConfig":
-        executable_setting = _first_env("DRILLMASTER_MINERU_EXECUTABLE", "MINERU_EXECUTABLE")
-        python_setting = _first_env("DRILLMASTER_MINERU_PYTHON", "MINERU_PYTHON")
+        persisted = read_mineru_settings()
+        executable_setting = _configured_value(
+            persisted, "executable", "DRILLMASTER_MINERU_EXECUTABLE", "MINERU_EXECUTABLE"
+        )
+        python_setting = _configured_value(
+            persisted, "python", "DRILLMASTER_MINERU_PYTHON", "MINERU_PYTHON"
+        )
         executable = discover_mineru_executable(executable_setting)
         python_executable = _resolve_executable(python_setting) if python_setting else None
 
-        explicit_enabled = _first_env("DRILLMASTER_MINERU_ENABLED", "MINERU_ENABLED")
+        explicit_enabled = _configured_value(
+            persisted, "enabled", "DRILLMASTER_MINERU_ENABLED", "MINERU_ENABLED"
+        )
         if explicit_enabled is None:
             enabled = bool(executable or python_executable)
         else:
             enabled = _parse_bool(explicit_enabled, default=False)
 
-        output_value = _first_env("DRILLMASTER_MINERU_OUTPUT_DIR", "MINERU_OUTPUT_DIR")
+        output_value = _configured_value(
+            persisted, "output_dir", "DRILLMASTER_MINERU_OUTPUT_DIR", "MINERU_OUTPUT_DIR"
+        )
         output_dir = Path(output_value).expanduser() if output_value else None
-        timeout_value = _first_env("DRILLMASTER_MINERU_TIMEOUT", "MINERU_TIMEOUT")
+        timeout_value = _configured_value(
+            persisted, "timeout", "DRILLMASTER_MINERU_TIMEOUT", "MINERU_TIMEOUT"
+        )
         try:
             timeout_seconds = max(1, int(timeout_value)) if timeout_value else 600
-        except ValueError:
+        except (TypeError, ValueError):
             timeout_seconds = 600
 
-        backend = _first_env("DRILLMASTER_MINERU_BACKEND", "MINERU_BACKEND") or "hybrid-engine"
-        method = _first_env("DRILLMASTER_MINERU_METHOD", "MINERU_METHOD") or "auto"
+        backend = _configured_value(
+            persisted, "backend", "DRILLMASTER_MINERU_BACKEND", "MINERU_BACKEND"
+        ) or "hybrid-engine"
+        method = _configured_value(
+            persisted, "method", "DRILLMASTER_MINERU_METHOD", "MINERU_METHOD"
+        ) or "auto"
         keep_output = _parse_bool(
-            _first_env("DRILLMASTER_MINERU_KEEP_OUTPUT", "MINERU_KEEP_OUTPUT"),
+            _configured_value(persisted, "keep_output", "DRILLMASTER_MINERU_KEEP_OUTPUT", "MINERU_KEEP_OUTPUT"),
             default=False,
         )
         return cls(
@@ -148,10 +164,20 @@ def _first_env(*names: str) -> Optional[str]:
     return None
 
 
-def _parse_bool(value: Optional[str], *, default: bool) -> bool:
+def _configured_value(persisted: Mapping[str, Any], key: str, *env_names: str) -> Any:
+    env_value = _first_env(*env_names)
+    if env_value is not None:
+        return env_value
+    value = persisted.get(key)
+    return value if value not in (None, "") else None
+
+
+def _parse_bool(value: Any, *, default: bool) -> bool:
     if value is None:
         return default
-    return value.strip().lower() in {"1", "true", "yes", "on"}
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _resolve_executable(value: Optional[str]) -> Optional[str]:

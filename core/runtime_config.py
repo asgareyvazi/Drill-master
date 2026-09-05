@@ -8,6 +8,7 @@ backups, and optional local-AI settings.
 
 from __future__ import annotations
 
+import json
 import os
 import platform
 from pathlib import Path
@@ -86,6 +87,28 @@ def standards_path() -> Path:
     )
 
 
+def mineru_settings_path() -> Path:
+    return _configured_path(
+        "DRILLMASTER_MINERU_SETTINGS_PATH", data_dir() / "config" / "mineru.json"
+    )
+
+
+def read_mineru_settings() -> dict:
+    """Read optional external-engine settings without importing Qt or MinerU."""
+    try:
+        value = json.loads(mineru_settings_path().read_text(encoding="utf-8"))
+        return value if isinstance(value, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def write_mineru_settings(settings: dict) -> None:
+    """Persist non-secret MinerU settings in the user data directory."""
+    path = mineru_settings_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(settings, indent=2, sort_keys=True), encoding="utf-8")
+
+
 def ensure_writable_directories() -> None:
     """Create only mutable directories; read-only application assets stay put."""
     for path in (
@@ -95,6 +118,7 @@ def ensure_writable_directories() -> None:
         ai_settings_path().parent,
         mapping_memory_path().parent,
         standards_path().parent,
+        mineru_settings_path().parent,
     ):
         if str(path) != ".":
             path.mkdir(parents=True, exist_ok=True)
@@ -110,4 +134,5 @@ def describe_paths() -> dict[str, str]:
         "ai_settings": str(ai_settings_path()),
         "mapping_memory": str(mapping_memory_path()),
         "standards": str(standards_path()),
+        "mineru_settings": str(mineru_settings_path()),
     }
