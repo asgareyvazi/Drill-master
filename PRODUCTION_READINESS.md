@@ -25,11 +25,14 @@ Scope: startup through packaging and desktop deployment
 - Manual and automatic backup UI paths use the configured database rather than
   assuming `./drillmaster.db`; the home storage indicator follows the same
   path.
-- Packaging metadata, console entry point, package data, a dependency lock
-  baseline, optional dependency separation, and Windows runbook are present.
+- Packaging metadata, a canonical version source, dependency locks, a
+  PyInstaller one-folder spec, an Inno Setup installer definition, Windows
+  build script, package smoke test, and Windows runbook are present.
+- The desktop first-run flow collects production credentials in process memory
+  and initializes an empty production database without demo records.
 - A headless smoke suite covers runtime paths, production schema/auth/fixture
   isolation, engineering registry/export imports, W12/W13 source interfaces,
-  and optional AI detection.
+  optional AI detection, and packaging configuration.
 
 ## Acceptance matrix
 
@@ -44,9 +47,9 @@ Scope: startup through packaging and desktop deployment
 | Export/reporting imports | PASS | smoke test for DDR/professional exporters |
 | Logging and secret handling | PASS | rotating user-data log; no password logging; generic auth errors |
 | Backup/recovery behavior | PASS with operator drill required | SQLite backup API and documented restore drill |
-| Version and packaging | PASS | `core/version.py`, `pyproject.toml`, lock file, wheel build |
+| Version and packaging | PASS (automated) | `core/version.py`, PyInstaller spec, lock files, package smoke test |
 | Optional AI readiness | PASS | opt-in `AIImportMapper`; no bundled models/binaries |
-| Windows deployment | PASS | `DEPLOYMENT.md`, wheel console entry point |
+| Windows deployment | AUTOMATED PASS; manual Windows pending | PyInstaller/Inno definitions, build script, clean-machine checklist |
 
 ## Explicit remaining limitations
 
@@ -62,8 +65,12 @@ Scope: startup through packaging and desktop deployment
 - Optional third-party engineering/document packages are not guaranteed to be
   installed and must be licensed and validated independently.
 - The application does not provide automatic update delivery or a licensing
-  service. Wheel hash, commit SHA, and dependency lock must be recorded by the
-  release operator.
+  service. Installer hash, commit SHA, and dependency lock must be recorded by
+  the release operator.
+- This Linux environment cannot execute Windows PE files or Inno Setup. Manual
+  clean-machine installation, Windows Qt-plugin execution, installer upgrade,
+  and uninstall/data-preservation checks remain pending; they are not claimed
+  as passed.
 
 ## Required final gate record
 
@@ -75,21 +82,25 @@ python verify_release.py
 python -m compileall -q core dialogs tabs tests
 python -m py_compile app.py run.py main_window.py verify_release.py
 python -m pip wheel . --no-deps --wheel-dir dist
+python packaging/package_smoke.py --bundle-dir release/DrillMaster-1.0.0 --run
 git diff --check
 git status --short --branch
 ```
 
 Latest candidate validation (Python 3.11 virtual environment):
 
-- `python -m pytest -ra`: **471 passed, 3 skipped**, 0 failed/errors.
-- `python verify_release.py`: **collected=474, passed=471, skipped=3,
-  failed=0, errors=0**, plus compile check passed.
+- `python -m pytest -ra`: **474 passed, 4 skipped**, 0 failed/errors.
+- `python verify_release.py`: **collected=478, passed=474, skipped=4,
+  failed=0, errors=0**, plus source/package compile check passed.
 - `python -m compileall -q core dialogs tabs tests`: passed.
-- Targeted `py_compile` for startup, runner, release, reset, and touched
-  modules: passed.
+- Targeted `py_compile` for startup, runner, release, reset, packaging, and
+  touched modules: passed.
 - `git diff --check`: passed.
-- Wheel: `dist/drillmaster-1.0.0-py3-none-any.whl`, SHA-256
-  `bca93f2e580024fa471742a47f4315297cc276e9fb028d88f18ed1a8eadb06c2`.
+- Source wheel build: `dist/drillmaster-1.0.0-py3-none-any.whl`, 710,876 bytes,
+  SHA-256
+  `35e66b0a0eb91774852b1be1ccb01876e321ce2bfa52c41c73fa4f9fc7b4634c`.
+- Windows PE/installer build: **not executed here**; this Linux environment
+  has no Windows Python/Qt toolchain, Wine, or Inno Setup.
 
 A release is not declared until the exact commit is recorded, the final diff
 is reviewed, the branch is pushed, and the working tree is clean after

@@ -114,6 +114,7 @@ def main() -> int:
         "dialogs",
         "tabs",
         "tests",
+        "packaging",
         "app.py",
         "main_window.py",
         "run.py",

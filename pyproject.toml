@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "drillmaster"
-version = "1.0.0"
+dynamic = ["version"]
 description = "Desktop drilling operations management and engineering calculations"
 readme = "README.md"
 requires-python = ">=3.10,<3.14"
@@ -26,6 +26,9 @@ drillmaster = "app:main"
 [tool.setuptools]
 py-modules = ["app", "main_window", "run"]
 include-package-data = true
+
+[tool.setuptools.dynamic]
+version = {attr = "core.version.__version__"}
 
 [tool.setuptools.packages.find]
 where = ["."]

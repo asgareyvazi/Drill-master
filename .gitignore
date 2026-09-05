@@ -40,3 +40,7 @@ htmlcov/
 
 # Logs
 *.log
+
+# Windows packaging outputs
+release/
+.windows-build-venv/

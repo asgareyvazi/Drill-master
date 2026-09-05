@@ -2,9 +2,11 @@
 """
 DrillMaster - Main Application
 """
+import os
 import sys
 import logging
 import logging.handlers
+from pathlib import Path
 
 from PySide6.QtWidgets import (
     QApplication, QMessageBox, QDialog, QSplashScreen
@@ -22,8 +24,13 @@ from core.database import (
     is_production_environment,
 )
 from core.error_handler import GlobalErrorHandler
-from core.runtime_config import database_path, log_dir
+from core.runtime_config import (
+    database_path,
+    ensure_writable_directories,
+    log_dir,
+)
 from core.version import __version__
+from dialogs.bootstrap_dialog import BootstrapDialog
 from dialogs.login_dialog import LoginDialog
 from dialogs.startup_dialog import StartupDialog
 from main_window import MainWindow
@@ -177,7 +184,67 @@ class DrillMasterApp(QApplication):
         self.main_window = None
         self.startup_result = None
 
+        # The desktop application defaults to production behavior. Development
+        # fixtures remain available only when the operator explicitly selects
+        # DRILLMASTER_ENV=development or test.
+        if not os.getenv("DRILLMASTER_ENV") and not os.getenv("DRILLMASTER_ENVIRONMENT"):
+            os.environ["DRILLMASTER_ENV"] = "production"
+
         self.initialize()
+
+    @staticmethod
+    def _needs_first_run_bootstrap() -> bool:
+        """Return whether a new file-backed desktop database needs setup."""
+        import sqlite3
+
+        path = database_path()
+        if path == ":memory:":
+            return False
+        database = Path(path).expanduser()
+        if not database.exists():
+            return True
+        try:
+            with sqlite3.connect(str(database)) as connection:
+                table = connection.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type='table' AND name='users'"
+                ).fetchone()
+                if table is None:
+                    return True
+                return connection.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0
+        except (OSError, sqlite3.DatabaseError):
+            # A present but unreadable/corrupt database must go through the
+            # normal fatal initialization path, not be overwritten by setup.
+            return False
+
+    def _run_first_run_bootstrap(self) -> bool:
+        """Collect production credentials before the first schema bootstrap."""
+        explicit_environment = (
+            os.getenv("DRILLMASTER_ENV") or os.getenv("DRILLMASTER_ENVIRONMENT") or ""
+        ).strip().lower()
+        if explicit_environment in {"development", "dev", "test", "testing"}:
+            return True
+        if not self._needs_first_run_bootstrap():
+            return True
+        try:
+            ensure_writable_directories()
+            dialog = BootstrapDialog()
+            if dialog.exec() != QDialog.Accepted:
+                return False
+            passwords = dialog.passwords()
+            os.environ["DRILLMASTER_ADMIN_PASSWORD"] = passwords["admin"]
+            os.environ["DRILLMASTER_USER_PASSWORD"] = passwords["engineer"]
+            os.environ["DRILLMASTER_VIEWER_PASSWORD"] = passwords["viewer"]
+            logger.info("First-run production bootstrap credentials collected")
+            return True
+        except Exception:
+            logger.exception("First-run bootstrap failed")
+            QMessageBox.critical(
+                None,
+                "First-run setup failed",
+                "DrillMaster could not complete secure first-run setup. "
+                "No database was initialized.",
+            )
+            return False
 
     def initialize(self):
         """Initialize application."""
@@ -190,6 +257,12 @@ class DrillMasterApp(QApplication):
 
             splash.set_status("Applying styles...")
             self._apply_global_stylesheet()
+
+            splash.set_status("Checking first-run security setup...")
+            if not self._run_first_run_bootstrap():
+                splash.close()
+                self.quit()
+                return
 
             splash.set_status("Initializing database...")
             self.db_manager = DatabaseManager()
@@ -565,8 +638,64 @@ class DrillMasterApp(QApplication):
             logger.error(f"Cleanup error: {e}")
 
 
+def run_package_smoke() -> int:
+    """Run a non-GUI smoke check inside a frozen bundle."""
+    import importlib
+    import tempfile
+
+    from core.runtime_config import ensure_writable_directories
+
+    required_modules = (
+        "core.database",
+        "core.engineering",
+        "core.engineering.registry",
+        "core.ddr_pdf_export",
+        "core.professional_export",
+        "core.excel_intelligence",
+        "core.document_import",
+        "core.ai_import_mapper",
+        "core.optional_capabilities",
+        "dialogs.login_dialog",
+        "dialogs.startup_dialog",
+        "tabs.w11_Export",
+        "tabs.w12_Analysis",
+        "tabs.w13_Engineering_Calculator",
+    )
+    try:
+        with tempfile.TemporaryDirectory(prefix="drillmaster-package-smoke-") as directory:
+            os.environ["DRILLMASTER_ENV"] = "test"
+            os.environ["DRILLMASTER_DATA_DIR"] = directory
+            os.environ["DRILLMASTER_AI_IMPORT"] = "0"
+            ensure_writable_directories()
+            for module_name in required_modules:
+                importlib.import_module(module_name)
+            manager = DatabaseManager()
+            if not manager.initialize():
+                return 1
+            try:
+                session = manager.create_session()
+                try:
+                    from sqlalchemy import text
+
+                    schema_version = session.execute(
+                        text("SELECT MAX(version) FROM schema_version")
+                    ).scalar()
+                    if schema_version != 1:
+                        return 1
+                finally:
+                    session.close()
+            finally:
+                manager.close()
+        return 0
+    except Exception:
+        logger.exception("Frozen package smoke test failed")
+        return 1
+
+
 def main():
     """Main entry point."""
+    if "--package-smoke" in sys.argv:
+        return run_package_smoke()
     try:
         app = DrillMasterApp(sys.argv)
         return app.exec()

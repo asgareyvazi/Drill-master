@@ -51,6 +51,48 @@ def test_production_schema_auth_and_fixture_isolation(tmp_path, monkeypatch):
         manager.close()
 
 
+def test_reopen_upgrade_preserves_production_hierarchy(tmp_path, monkeypatch):
+    monkeypatch.setenv("DRILLMASTER_ENV", "production")
+    monkeypatch.setenv("DRILLMASTER_DB_PATH", str(tmp_path / "upgrade.sqlite"))
+    monkeypatch.setenv("DRILLMASTER_ADMIN_PASSWORD", "release-admin-password-9a")
+    monkeypatch.setenv("DRILLMASTER_USER_PASSWORD", "release-engineer-password-9b")
+    monkeypatch.setenv("DRILLMASTER_VIEWER_PASSWORD", "release-viewer-password-9c")
+
+    from core.database import Company, DatabaseManager, Project, Well
+
+    first = DatabaseManager()
+    assert first.initialize() is True
+    session = first.create_session()
+    try:
+        company = Company(name="Upgrade Company", code="UPG-C")
+        session.add(company)
+        session.flush()
+        project = Project(company_id=company.id, name="Upgrade Project", code="UPG-P")
+        session.add(project)
+        session.flush()
+        session.add(Well(project_id=project.id, name="Upgrade Well", code="UPG-W"))
+        session.commit()
+    finally:
+        session.close()
+        first.close()
+
+    second = DatabaseManager()
+    assert second.initialize() is True
+    try:
+        hierarchy = second.get_hierarchy()
+        assert any(company["name"] == "Upgrade Company" for company in hierarchy)
+        session = second.create_session()
+        try:
+            version = session.execute(
+                __import__("sqlalchemy").text("SELECT MAX(version) FROM schema_version")
+            ).scalar()
+            assert version == 1
+        finally:
+            session.close()
+    finally:
+        second.close()
+
+
 def test_engineering_registry_and_export_interfaces_are_importable():
     from core.engineering import CalculatorBridge, EngineeringResult, capability_registry
     from core.ddr_pdf_export import DDRPDFExporter

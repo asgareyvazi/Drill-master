@@ -1,0 +1,7 @@
+# Windows build toolchain. Install only on the build machine, never on users'
+# machines. PyInstaller bundles the runtime into the one-folder application.
+pyinstaller==6.11.1
+pywin32-ctypes==0.2.3
+altgraph==0.17.4
+pefile==2024.8.26
+pyinstaller-hooks-contrib==2025.1

@@ -1,82 +1,140 @@
-# DrillMaster deployment and release runbook
+# DrillMaster Windows deployment and release runbook
 
-This runbook covers the supported local Windows or desktop deployment. It
-assumes the operator owns the machine, SQLite file, backups, and any optional
-Ollama models. DrillMaster is not a server or a licensing service.
+This repository builds a Windows x64 one-folder application with PyInstaller
+and an Inno Setup installer. The end-user installation does not require
+Python, pip, Git, the repository, or developer tools.
 
-## Install a wheel
+## Build prerequisites
 
-From a clean checkout on the build machine:
+On a Windows build machine install:
 
-```powershell
-py -3.11 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip build wheel
-python -m pip install -r requirements-lock.txt
-python -m build --wheel
+- Python 3.11 x64
+- Inno Setup 6, with `ISCC.exe` on `PATH`
+- Access to the pinned wheels in `requirements-lock.txt`
+
+The build script creates an isolated `.windows-build-venv` and installs the
+pinned runtime plus the pinned PyInstaller toolchain from:
+
+```text
+requirements-lock.txt
+requirements-build.txt
 ```
 
-Copy the generated `dist\drillmaster-1.0.0-py3-none-any.whl` and
-`requirements-lock.txt` to the target machine, then install:
+Do not install optional AI/document packages for the core build.
+
+## Reproducible build
+
+From the repository root in PowerShell:
 
 ```powershell
-py -3.11 -m venv C:\DrillMaster\venv
-C:\DrillMaster\venv\Scripts\python.exe -m pip install -r requirements-lock.txt
-C:\DrillMaster\venv\Scripts\python.exe -m pip install .\drillmaster-1.0.0-py3-none-any.whl
-C:\DrillMaster\venv\Scripts\drillmaster.exe
+.\packaging\build_windows.ps1
 ```
 
-The wheel contains application code and JSON mapping/configuration templates.
-It does not contain SQLite data, logs, backups, Ollama, Qwen, MinerU, or other
-external binaries/models. Keep the virtual environment and the data directory
-out of source control. A shortcut may target
-`C:\DrillMaster\venv\Scripts\drillmaster.exe` with the operator's environment
-variables configured by the machine/service-account policy.
+The script:
 
-## Production bootstrap
+1. Reads the authoritative version from `core/version.py`.
+2. Creates the ignored Windows build virtual environment.
+3. Installs the runtime and build locks.
+4. Runs `packaging/DrillMaster.spec`.
+5. Produces a PyInstaller one-folder bundle.
+6. Executes `DrillMaster.exe --package-smoke` against a temporary data root.
+7. Runs Inno Setup using `packaging/DrillMaster.iss`.
+8. Writes SHA-256 hashes.
 
-Set the environment to production before the first launch. Configure all
-three bootstrap secrets using Windows environment policy, a wrapper script
-with restricted ACLs, or the organization's secret manager; do not put them
-in a committed `.env` file:
+Expected output:
+
+```text
+release\DrillMaster-1.0.0\DrillMaster.exe
+release\DrillMaster-1.0.0-Setup.exe
+release\SHA256SUMS.txt
+```
+
+For a portable bundle without Inno Setup:
 
 ```powershell
-$env:DRILLMASTER_ENV = "production"
-$env:DRILLMASTER_ADMIN_PASSWORD = "<unique secret>"
-$env:DRILLMASTER_USER_PASSWORD = "<unique secret>"
-$env:DRILLMASTER_VIEWER_PASSWORD = "<unique secret>"
-$env:DRILLMASTER_DATA_DIR = "C:\ProgramData\DrillMaster"
+.\packaging\build_windows.ps1 -PortableOnly
+python packaging\package_smoke.py --bundle-dir release\DrillMaster-1.0.0 --run
 ```
 
-The first production start creates the three hashed bootstrap accounts but no
-company, project, or well demo records. Change or retire bootstrap accounts
-according to the organization's access procedure. Auto-login and development
-fixture passwords are unavailable in production.
+`DrillMaster.spec` explicitly includes the application modules, Qt runtime,
+SQLAlchemy, bcrypt, numpy, pandas, openpyxl, matplotlib, pyqtgraph, PyMuPDF,
+engineering modules, import modules, export modules, dialogs, tabs, and JSON
+mapping templates. It excludes tests and optional Ollama/Qwen/MinerU/Camelot/
+OCR/welleng/torque-drag/gekko packages. Qt's Windows platform plugin is
+verified by `package_smoke.py`.
 
-For a portable or test installation, set `DRILLMASTER_DATA_DIR` to an
-explicit writable directory. `DRILLMASTER_DB_PATH`, `DRILLMASTER_LOG_DIR`, and
-`DRILLMASTER_BACKUP_DIR` may override individual locations; relative overrides
-are resolved below the data root. The application must have create/write
-permission for the database, log, backup, and AI-settings parent directories.
+There is no repository icon. The build deliberately does not create a fake
+icon. The executable still receives product name, file version, product
+version, and file description metadata. Add a legitimate `.ico` later by
+setting the `icon` field in the spec and the installer icon fields.
 
-## Operations
+## Install and first run
 
-- Logs: `<data>\logs\drillmaster.log`, rotating at 10 MiB with five retained
-  files. Logs contain diagnostics, not passwords; restrict access to operators.
-- Database: `<data>\drillmaster.db` unless overridden.
-- Automatic backups: `<data>\backups`, ten retained files. The UI also offers
-  a user-selected verified backup destination.
-- Recovery: stop DrillMaster, preserve the failed database, restore a verified
-  backup, and start with the same path configuration. Confirm the schema and
-  authenticate before resuming work. Perform a documented restore drill; the
-  application does not provide cloud replication or backup encryption.
-- Upgrade: take and verify a backup, install the new wheel, then start. Schema
-  upgrades are additive and versioned in `schema_version`; a failed migration
-  intentionally prevents normal startup.
+Run `DrillMaster-1.0.0-Setup.exe` as a normal Windows installation. The
+installer:
 
-## Optional AI and document processing
+- installs application files under `{autopf}\DrillMaster`;
+- creates a Start Menu shortcut and optional desktop shortcut;
+- upgrades application files in place;
+- does not place SQLite data under Program Files;
+- does not delete user data during uninstall.
 
-Local AI is opt-in only:
+On a clean machine the first launch creates required directories and opens the
+secure first-run bootstrap dialog. The operator creates unique passwords for
+Administrator, Engineer, and Viewer. The application holds plaintext values
+only during that process and stores salted bcrypt hashes in the database. It
+creates no demo company, project, well, or development account.
+
+If the first-run dialog is cancelled or database initialization fails, the
+application exits without silently proceeding. The protected rotating log can
+be used for diagnostics.
+
+Unattended enterprise bootstrap can supply the existing environment variables
+`DRILLMASTER_ENV=production`, `DRILLMASTER_ADMIN_PASSWORD`,
+`DRILLMASTER_USER_PASSWORD`, and `DRILLMASTER_VIEWER_PASSWORD` through a
+restricted secret mechanism. Do not put them in the installer, executable,
+source tree, or a committed `.env` file.
+
+## Application data
+
+The existing single runtime path mechanism is `core/runtime_config.py`:
+
+| Data | Default Windows location |
+| --- | --- |
+| SQLite database | `%LOCALAPPDATA%\DrillMaster\drillmaster.db` |
+| Logs | `%LOCALAPPDATA%\DrillMaster\logs\drillmaster.log` |
+| Automatic backups | `%LOCALAPPDATA%\DrillMaster\backups` |
+| AI settings | `%LOCALAPPDATA%\DrillMaster\config\ai_settings.json` |
+| Mapping memory | `%LOCALAPPDATA%\DrillMaster\config\mapping_memory.json` |
+| Standards overrides | `%LOCALAPPDATA%\DrillMaster\config\operational_standards.json` |
+
+`DRILLMASTER_DATA_DIR` can redirect all mutable state. The individual
+`DRILLMASTER_DB_PATH`, `DRILLMASTER_LOG_DIR`, and `DRILLMASTER_BACKUP_DIR`
+overrides remain supported. Relative overrides resolve below the data root.
+The executable directory and Program Files remain read-only application files.
+
+## Upgrade and data preservation
+
+Before upgrading:
+
+1. Close DrillMaster.
+2. Use the Backup action or copy/verify an external SQLite backup.
+3. Install the newer setup executable over the existing installation.
+4. Launch and verify login, schema version, company/project/well data, and a
+   new backup.
+
+The installer replaces only files below `{app}`. It does not delete or replace
+`%LOCALAPPDATA%\DrillMaster`. On startup, additive migrations are applied and
+recorded in `schema_version`; a migration failure stops startup rather than
+allowing a partial schema to run.
+
+To uninstall, use Windows Apps/Programs. Installed application files and
+shortcuts are removed; database, logs, backups, mapping memory, AI settings,
+and standards overrides remain for possible reinstall or manual retention.
+
+## Optional Ollama, Qwen, and MinerU
+
+The core package works without all optional AI/document components.
 
 ```powershell
 $env:DRILLMASTER_AI_IMPORT = "1"
@@ -84,24 +142,48 @@ $env:DRILLMASTER_AI_MODEL = "qwen2.5:3b"
 $env:DRILLMASTER_OLLAMA_URL = "http://127.0.0.1:11434"
 ```
 
-Install and manage Ollama and the selected model separately. The application
-checks `/api/tags` only after opt-in, uses a bounded timeout, and continues
-without AI when Ollama or the model is unavailable. The optional capability
-reporter checks MinerU package presence without importing it or making network
-calls. It sends workbook mapping context only to the explicitly configured
-local endpoint. Do not configure a
-cloud-labelled model unless the organization's data-transfer and Ollama Cloud
-review permits it. Qwen weights, MinerU, and third-party binaries are never
-bundled by this project.
+Install Ollama and download a selected Qwen model separately, under the
+operator's licensing and data-transfer policy. No Ollama executable, Qwen
+weight, cloud credential, MinerU/magic-pdf package, or third-party binary is
+bundled. The capability reporter detects disabled/unavailable/model-missing
+states without network access unless an explicit probe is requested. Missing
+optional components never prevent core startup.
 
-Camelot, OCR, `welleng`, `torque-drag`, and `gekko` are optional integrations.
-Install them only after reviewing their licenses and validate their capability
-status in the engineering registry. Their absence must not prevent startup.
+## Clean-machine acceptance procedure
+
+The following is the manual Windows acceptance checklist. It must be run on a
+Windows x64 machine without Python, Git, the repository, or a developer
+environment; results must be recorded with the installer hash.
+
+- [ ] install `DrillMaster-1.0.0-Setup.exe`
+- [ ] application launches from the Start Menu shortcut
+- [ ] required data directories and database are created outside Program Files
+- [ ] secure first-run bootstrap creates production accounts
+- [ ] login succeeds; no development fixture account is present
+- [ ] company can be created
+- [ ] project can be created
+- [ ] well can be created
+- [ ] existing UI loads
+- [ ] engineering registry loads
+- [ ] W12 and W13 paths load
+- [ ] Excel import module loads
+- [ ] export modules load
+- [ ] log file is written
+- [ ] database backup succeeds and opens separately
+- [ ] application closes cleanly
+- [ ] reopening preserves company/project/well data
+- [ ] upgrade over that installation preserves data and applies migration
+- [ ] uninstall removes application files but leaves user data
+
+This Linux environment cannot execute a Windows PE executable or run Inno
+Setup. The manual clean-machine, installer upgrade, and Windows Qt-plugin
+checks are therefore **pending**, not claimed as passed. The repository does
+contain a static packaging test and a frozen-bundle smoke command for Windows
+CI/build operators.
 
 ## Release gate
 
-A release candidate is distributable only when these commands pass on the
-build environment and their output is archived:
+Archive these outputs with the release artifact:
 
 ```powershell
 python -m pytest -ra
@@ -109,11 +191,10 @@ python verify_release.py
 python -m compileall -q core dialogs tabs tests
 python -m py_compile app.py run.py main_window.py verify_release.py
 python -m pip wheel . --no-deps --wheel-dir dist
-python -m ruff check .
 git diff --check
+Get-FileHash .\release\DrillMaster-1.0.0-Setup.exe -Algorithm SHA256
 ```
 
-Record the exact commit SHA, wheel filename/hash, Python version, dependency
-lock used, pytest `collected/passed/skipped/failed/errors` counts, and the
-result of a manual backup/restore drill. A green automated gate does not make
-anti-collision, engineering standards, or operational data field-certified.
+A green Python test suite is an automated pass only; it is not a Windows
+clean-machine pass and does not certify the engineering limitations documented
+in `README.md` and `PRODUCTION_READINESS.md`.
