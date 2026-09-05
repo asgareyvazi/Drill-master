@@ -874,13 +874,11 @@ class EngineeringCalculatorTab(DrillTabBase):
 
         total_vol = total_string + total_annular
 
-        # Lag time
-        flow_bbl_min = total_gpm / 42 if total_gpm > 0 else 1
-        lag_time = total_annular / flow_bbl_min if flow_bbl_min > 0 else 0
+        # Lag time + bottoms-up strokes — canonical (AdvancedHydraulicsEngine)
+        lag_time = A.calc_lag_time(total_annular, total_gpm)
 
-        # Bottoms up strokes
         total_output = sum(p.get('output_bbl_stk', 0) for p in self.vol_pumps)
-        bu_strokes = total_annular / total_output if total_output > 0 else 0
+        bu_strokes = A.calc_bottoms_up_strokes(total_annular, total_output)
 
         # Cards
         self._update_card(self.vol_card_string, f"{total_string:.1f}", "bbl")

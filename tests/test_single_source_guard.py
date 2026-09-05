@@ -202,3 +202,28 @@ class TestEngineContractParity:
         assert TrajectoryEngine.calculate_build_rate(0, 30, 300) == 3.0
         assert TrajectoryEngine.calculate_turn_rate(0, 90, 300) == 9.0
         assert TrajectoryEngine.calculate_build_rate(0, 30, 0) == 0.0
+
+
+class TestCanonicalLagAndVolumes:
+    """Canonical lag/bottoms-up methods the volume UI delegates to."""
+
+    def test_lag_time_minutes(self):
+        A = AdvancedHydraulicsEngine
+        # 437 bbl annulus @ 630 gpm → 437/(630/42) = 29.13 min
+        assert A.calc_lag_time(437.0, 630.0) == 437.0 / (630.0 / 42.0)
+        assert A.calc_lag_time(437.0, 0.0) == 0.0
+        assert A.calc_lag_time(0.0, 630.0) == 0.0
+
+    def test_bottoms_up_strokes_and_time(self):
+        A = AdvancedHydraulicsEngine
+        assert A.calc_bottoms_up_strokes(437.0, 0.125) == 437.0 / 0.125
+        assert A.calc_bottoms_up_strokes(437.0, 0.0) == 0.0
+        # time = V / (bbl/stk × spm) minutes
+        assert A.calc_bottoms_up_time(437.0, 0.125, 60.0) == 437.0 / (0.125 * 60.0)
+        assert A.calc_bottoms_up_time(437.0, 0.0, 60.0) == 0.0
+
+    def test_capacity_statics_are_canonical(self):
+        A = AdvancedHydraulicsEngine
+        assert A.calc_pipe_capacity_bbl_ft(8.681) == 8.681 ** 2 / 1029.4
+        assert A.calc_annular_capacity_bbl_ft(12.25, 5.0) == (12.25 ** 2 - 25.0) / 1029.4
+        assert A.calc_pipe_displacement_bbl_ft(5.0, 4.0) == (25.0 - 16.0) / 1029.4

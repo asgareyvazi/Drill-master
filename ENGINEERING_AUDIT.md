@@ -2,7 +2,7 @@
 
 > **Date:** 2026-09-05 (re-audit at HEAD `5f92841` of
 > `arena/01a05747-drill-master`)
-> **Tests:** full suite **421 passed, 2 skipped, 0 failed** (fresh run);
+> **Tests:** full suite **424 passed, 2 skipped, 0 failed** (fresh run);
 > OEOC golden import regressions green (122 tests in the import batch).
 > **Auditor:** Multi-role (Drilling Engineer + Software Architect + QA)
 
@@ -93,7 +93,7 @@ cementing volumes/displacement, nozzle optimization canonical wiring (P0).
 
 ```
 Total:      421 collected
-Passed:     421
+Passed:     424
 Skipped:    2   (headless sandbox — PySide6 display-only tests)
 Failed:     0
 Errors:     0

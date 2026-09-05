@@ -1,7 +1,7 @@
 # DrillMaster — Engineering Architecture Documentation
 
 > **Version:** 2.0 — verified against branch `arena/01a05747-drill-master`
-> at HEAD `5f92841` (2026-09-05), full test suite `421 passed, 2 skipped`.
+> at HEAD `5f92841` (2026-09-05), full test suite `424 passed, 2 skipped`.
 
 ---
 
@@ -139,7 +139,7 @@ torque_drag, gekko, camelot, pytesseract) without blocking startup.
 
 ## 7. Testing
 
-Full suite at HEAD: **421 passed, 2 skipped** (2026-09-05 run). Engineering
+Full suite at HEAD: **424 passed, 2 skipped** (2026-09-05 run). Engineering
 coverage includes `tests/test_p0_engineering_core.py`,
 `test_engineering_ground_truth.py`, `test_engineering_integrations.py`,
 `test_extended_engineering.py`, `test_nozzle_optimization.py`,

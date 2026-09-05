@@ -1113,6 +1113,14 @@ class AdvancedHydraulicsEngine:
         return (pipe_od**2 - pipe_id**2) / 1029.4
 
     @staticmethod
+    def calc_bottoms_up_strokes(annular_volume_bbl: float,
+                                pump_output_bbl_stroke: float) -> float:
+        """Strokes of pump output needed to pump the annulus around (stk)."""
+        if pump_output_bbl_stroke <= 0:
+            return 0.0
+        return annular_volume_bbl / pump_output_bbl_stroke
+
+    @staticmethod
     def calc_bottoms_up_time(annular_volume_bbl: float, pump_output_bbl_stroke: float,
                               spm: float) -> float:
         """زمان Bottoms Up (دقیقه)"""
