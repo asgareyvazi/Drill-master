@@ -6,7 +6,6 @@ P1/P2 Future: NavigationManager, TabRegistry, ContextManager, MenuManager, Expor
 
 import logging
 from PySide6.QtCore import QTimer
-from PySide6.QtWidgets import QLabel
 
 logger = logging.getLogger(__name__)
 
@@ -55,12 +54,26 @@ class AutoSaveManager:
         self._enabled = True
 
     def enable_for_widget(self, name, widget, interval_minutes=5):
+        """Enable autosave using the manager's established minute unit.
+
+        Re-enabling a name replaces the existing timer so repeated setup calls
+        cannot leave multiple save timers attached to the same widget.
+        """
         if not self._enabled:
-            return
+            return None
+
+        existing = self._timers.pop(name, None)
+        if existing is not None:
+            existing.stop()
+            existing.deleteLater()
+
         timer = QTimer(widget)
-        timer.timeout.connect(lambda: widget.save_data() if hasattr(widget, 'save_data') else None)
+        timer.timeout.connect(
+            lambda: widget.save_data() if hasattr(widget, 'save_data') else None
+        )
         timer.start(int(interval_minutes * 60 * 1000))
         self._timers[name] = timer
+        return timer
 
     def set_enabled(self, enabled):
         self._enabled = enabled
@@ -155,13 +168,16 @@ def setup_widget_with_managers(
     autosave_interval=60,
     setup_shortcuts=True,
 ):
-    """Attach the standard managers to a widget (idempotent)."""
+    """Attach standard managers, interpreting ``autosave_interval`` as minutes."""
     if getattr(widget, "_managers_ready", False):
         return
     widget.widget_name = widget_name
     if enable_autosave:
-        widget.autosave_timer = AutoSaveManager(
-            interval_seconds=autosave_interval
+        widget.autosave_timer = AutoSaveManager()
+        widget.autosave_timer.enable_for_widget(
+            widget_name,
+            widget,
+            interval_minutes=autosave_interval,
         )
     if setup_shortcuts:
         widget.shortcut_manager = ShortcutManager(widget)
