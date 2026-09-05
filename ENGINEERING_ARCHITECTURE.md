@@ -28,20 +28,21 @@
 
 ```
 UI Tab / Dialog
-    │  (pure delegation statics — no formulas, no unit constants other
-    │   than m↔ft / pcf↔ppg conversions at the boundary)
-    ▼
-core/engineering/bridge.py            # service layer between UI and engines
+    │  (facade classes of pure delegation statics — no formulas; only
+    │   m↔ft / pcf↔ppg unit conversions at the boundary)
     ▼
 Canonical Engines
-    ├── core/hydraulics_engine.py     # AdvancedHydraulicsEngine (bit ΔP/TFA/
-    │                                 #   HHP/HSI/jet velocity/impact,
-    │                                 #   pump output, capacities, …)
+    ├── core/hydraulics_engine.py
     ├── core/engineering/core.py      # TrajectoryEngine, BitEngine,
     │                                 #   HydraulicsEngine, WellControlEngine
     │                                 #   (compat), BHA/…, facade
     ├── core/engineering/engines/     # specialized engines (see catalog)
     └── core/engineering/extended.py  # MudEngineering (mud-lab kit)
+
+core/engineering/bridge.py            # EngineeringBridge service layer used
+                                      # by core/ai_tools.py (AI tool calls)
+                                      # and programmatic callers — UI tabs
+                                      # call the canonical engines directly
     ▼
 EngineeringResult (value/unit/warnings/assumptions/errors/metadata)
     ▼
