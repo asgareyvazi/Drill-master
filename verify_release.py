@@ -109,7 +109,18 @@ def run_pytest() -> bool:
 
 
 def main() -> int:
-    compile_result = _run([sys.executable, "-m", "compileall", "-q", "."])
+    compile_targets = [
+        "core",
+        "dialogs",
+        "tabs",
+        "tests",
+        "app.py",
+        "main_window.py",
+        "run.py",
+        "verify_release.py",
+        "reset_database.py",
+    ]
+    compile_result = _run([sys.executable, "-m", "compileall", "-q", *compile_targets])
     if compile_result.returncode != 0:
         print("Release verification failed: syntax compilation failed.")
         return 1

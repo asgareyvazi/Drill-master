@@ -1,30 +1,28 @@
-# run.py - نسخه اصلاح شده
+"""Development/source-tree runner for DrillMaster.
 
+Installed deployments should use the ``drillmaster`` console entry point.
+This file remains for local source checkouts and deliberately does not print
+passwords or exception details to the console.
 """
-DrillMaster - Runner Script
-"""
+
+from __future__ import annotations
+
+import logging
 import sys
-import os
-
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from app import DrillMasterApp
 
+logger = logging.getLogger(__name__)
 
-def main():
-    """Main entry point"""
-    print("🚀 Starting DrillMaster...")
+
+def main() -> int:
     try:
-        app = DrillMasterApp(sys.argv)
-        exit_code = app.exec()
-        print(f"✅ DrillMaster exited with code: {exit_code}")
-        sys.exit(exit_code)
-    except Exception as e:
-        print(f"❌ Fatal Error: {e}")
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
+        application = DrillMasterApp(sys.argv)
+        return application.exec()
+    except Exception:
+        logger.exception("Fatal DrillMaster runner error")
+        return 1
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

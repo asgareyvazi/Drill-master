@@ -5,9 +5,7 @@ DrillMaster - Main Application
 import sys
 import logging
 import logging.handlers
-import os
 
-from pathlib import Path
 from PySide6.QtWidgets import (
     QApplication, QMessageBox, QDialog, QSplashScreen
 )
@@ -16,7 +14,7 @@ from PySide6.QtGui import (
     QLinearGradient, QBrush
 )
 
-from PySide6.QtCore import Qt, QRect, QTimer, QEventLoop, QStandardPaths
+from PySide6.QtCore import Qt, QRect, QTimer, QEventLoop
 
 from core.database import (
     DatabaseManager,
@@ -24,40 +22,46 @@ from core.database import (
     is_production_environment,
 )
 from core.error_handler import GlobalErrorHandler
+from core.runtime_config import database_path, log_dir
+from core.version import __version__
 from dialogs.login_dialog import LoginDialog
 from dialogs.startup_dialog import StartupDialog
 from main_window import MainWindow
 
 def _setup_logging() -> None:
-    """تنظیم logging"""
-    base_dir = Path(__file__).resolve().parent
-    log_dir = base_dir / "logs"
-    log_dir.mkdir(parents=True, exist_ok=True)
-    log_file = log_dir / "drillmaster.log"
-
-    file_handler = logging.handlers.RotatingFileHandler(
-        log_file,
-        maxBytes=10 * 1024 * 1024,
-        backupCount=5,
-        encoding='utf-8'
+    """Configure a rotating user-data log with a safe stderr fallback."""
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
     )
-    file_handler.setLevel(logging.INFO)
+    handlers = []
+    try:
+        target_dir = log_dir()
+        target_dir.mkdir(parents=True, exist_ok=True)
+        file_handler = logging.handlers.RotatingFileHandler(
+            target_dir / "drillmaster.log",
+            maxBytes=10 * 1024 * 1024,
+            backupCount=5,
+            encoding="utf-8",
+        )
+        file_handler.setLevel(logging.INFO)
+        file_handler.setFormatter(formatter)
+        handlers.append(file_handler)
+    except OSError:
+        # A read-only profile must not prevent the UI from starting. The
+        # warning is visible on stderr, without including configuration values.
+        pass
 
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.WARNING)
-
-    formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
-    file_handler.setFormatter(formatter)
     console_handler.setFormatter(formatter)
+    handlers.append(console_handler)
 
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.INFO)
     if not root_logger.handlers:
-        root_logger.addHandler(file_handler)
-        root_logger.addHandler(console_handler)
+        for handler in handlers:
+            root_logger.addHandler(handler)
 
 
 _setup_logging()
@@ -67,7 +71,7 @@ logger = logging.getLogger(__name__)
 class AppConfig:
     """تنظیمات برنامه"""
     APP_NAME = "DrillMaster"
-    APP_VERSION = "1.0.0"
+    APP_VERSION = __version__
     ORGANIZATION_NAME = "DrillMaster Inc."
     
     # Timing
@@ -82,8 +86,8 @@ class AppConfig:
     DEFAULT_STYLE = "Fusion"
     
     # Database
-    DB_PATH = "drillmaster.db"
-    LOG_PATH = "logs/drillmaster.log"
+    DB_PATH = database_path()
+    LOG_PATH = str(log_dir() / "drillmaster.log")
 
 
 class DrillMasterSplash(QSplashScreen):
@@ -135,7 +139,7 @@ class DrillMasterSplash(QSplashScreen):
         painter.drawText(
             QRect(0, 265, 500, 25),
             Qt.AlignCenter,
-            "Version 1.0.0  |  © 2024 DrillMaster Inc."
+            f"Version {AppConfig.APP_VERSION}  |  © 2024 DrillMaster Inc."
         )
 
         painter.end()
@@ -162,7 +166,7 @@ class DrillMasterApp(QApplication):
         super().__init__(argv)
 
         self.setApplicationName(AppConfig.APP_NAME)
-        self.setApplicationVersion("1.0.0")
+        self.setApplicationVersion(AppConfig.APP_VERSION)
         self.setOrganizationName("DrillMaster Inc.")
 
         self.setFont(QFont("Segoe UI", 10))
@@ -198,7 +202,10 @@ class DrillMasterApp(QApplication):
                 sys.exit(1)
 
             splash.set_status("Checking data...")
-            if self.is_database_empty():
+            # Demo/sample records are never offered automatically in
+            # production. A production database starts with only the explicit
+            # bootstrap users and is populated by an authenticated operator.
+            if self.is_database_empty() and not is_production_environment():
                 splash.close()
                 self.show_welcome_message()
                 splash.show()
@@ -378,7 +385,10 @@ class DrillMasterApp(QApplication):
             self.create_sample_data()
 
     def create_sample_data(self):
-        """ایجاد داده‌های نمونه."""
+        """Create development-only sample data."""
+        if is_production_environment():
+            logger.warning("Sample data request rejected in production")
+            return False
         try:
             from datetime import date
             session = self.db_manager.create_session()
@@ -493,11 +503,15 @@ class DrillMasterApp(QApplication):
                 self.startup_result = startup_dialog.get_result()
                 return True
             return False
-        except Exception as e:
-            logger.error(f"Startup error: {e}")
-            # Fallback: ادامه بدون startup result
+        except Exception:
+            logger.exception("Startup dialog failed")
             self.startup_result = None
-            return True
+            QMessageBox.critical(
+                None,
+                "Startup Error",
+                "The startup dialog could not be opened. The application will exit.",
+            )
+            return False
 
     def create_main_window(self):
         """ایجاد و نمایش Main Window."""
@@ -556,11 +570,12 @@ def main():
     try:
         app = DrillMasterApp(sys.argv)
         return app.exec()
-    except Exception as e:
-        logger.error(f"Fatal error: {e}")
+    except Exception:
+        logger.exception("Fatal application error")
         QMessageBox.critical(
-            None, "Fatal Error",
-            f"A fatal error occurred:\n\n{str(e)}"
+            None,
+            "Fatal Error",
+            "A fatal error occurred. Review the DrillMaster log for details.",
         )
         return 1
 

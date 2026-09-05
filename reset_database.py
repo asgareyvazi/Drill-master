@@ -1,90 +1,49 @@
-# reset_database.py - نسخه اصلاح شده
-
 #!/usr/bin/env python3
+"""Explicitly reset the configured DrillMaster database.
+
+This destructive utility is for local administration only. It follows the same
+path configuration as the application and never assumes the current directory.
 """
-Reset Database - حذف دیتابیس قدیمی و ساخت جدید
-"""
-import os
+
+from __future__ import annotations
+
 import sys
-import logging
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from pathlib import Path
 
 
-def reset_database():
-    """Reset database completely"""
-    files_to_remove = [
-        'drillmaster.db',
-        'drillmaster.db-shm',
-        'drillmaster.db-wal',
-    ]
-    # ✅ log فایل را حذف نمی‌کنیم
-    
-    print("🧹 Cleaning up old database files...")
-    
-    for file in files_to_remove:
-        if os.path.exists(file):
-            try:
-                os.remove(file)
-                print(f"✅ Removed: {file}")
-            except Exception as e:
-                print(f"❌ Failed to remove {file}: {str(e)}")
-        else:
-            print(f"ℹ️ Not found: {file}")
-    
-    print("\n🔄 Creating new database...")
-    
-    try:
-        from core.database import DatabaseManager
-        
-        db_manager = DatabaseManager()
-        if db_manager.initialize():
-            print("✅ New database created successfully!")
-            
-            # ✅ نمایش اطلاعات کاربران پیش‌فرض
-            print("\n📋 Default Users Created:")
-            print("  👤 admin / DRILLMASTER_ADMIN_PASSWORD or development fixture")
-            print("  👤 engineer / DRILLMASTER_USER_PASSWORD or development fixture")
-            print("  👤 viewer / DRILLMASTER_VIEWER_PASSWORD or development fixture")
-            print("\n⚠️  Set DRILLMASTER_ENV=production and all three password variables before production use.")
-            
-            hierarchy = db_manager.get_hierarchy()
-            print(f"\n📊 Hierarchy: {len(hierarchy)} companies")
-            
-            projects = db_manager.get_all_projects()
-            print(f"📊 Projects: {len(projects)}")
-            
-            db_manager.close()
-            return True
-        else:
-            print("❌ Failed to initialize database")
-            return False
-            
-    except Exception as e:
-        print(f"❌ Error: {str(e)}")
-        import traceback
-        traceback.print_exc()
+def reset_database() -> bool:
+    from core.database import DatabaseManager
+
+    manager = DatabaseManager()
+    if manager.db_path == ":memory:":
+        print("Refusing to reset an in-memory database.")
         return False
+
+    database = Path(manager.db_path)
+    print(f"Resetting configured database: {database}")
+    for path in (database, Path(f"{database}-shm"), Path(f"{database}-wal")):
+        try:
+            path.unlink()
+            print(f"Removed {path}")
+        except FileNotFoundError:
+            pass
+        except OSError as exc:
+            print(f"Could not remove {path}: {exc}")
+            return False
+
+    if not manager.initialize():
+        print("Database initialization failed; review the protected log.")
+        return False
+    try:
+        print(f"Created database with {len(manager.get_hierarchy())} companies.")
+        return True
+    finally:
+        manager.close()
 
 
 if __name__ == "__main__":
-    print("🔄 DrillMaster Database Reset")
-    print("=" * 50)
-    
-    # ✅ تأیید از کاربر
-    confirm = input(
-        "\n⚠️  This will DELETE ALL DATA!\n"
-        "Type 'RESET' to confirm: "
-    )
-    
-    if confirm != "RESET":
-        print("❌ Reset cancelled.")
-        sys.exit(0)
-    
-    if reset_database():
-        print("\n✅ Database reset completed!")
-        print("Run: python run.py")
-    else:
-        print("\n❌ Database reset failed!")
-        sys.exit(1)
+    print("This permanently deletes all data in the configured database.")
+    if input("Type RESET to continue: ") != "RESET":
+        print("Reset cancelled.")
+        raise SystemExit(0)
+    raise SystemExit(0 if reset_database() else 1)

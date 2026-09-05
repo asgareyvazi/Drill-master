@@ -190,7 +190,8 @@ class SettingsDialog(QDialog):
         layout.setSpacing(15)
 
         self.db_path = QLineEdit()
-        self.db_path.setText("drillmaster.db")
+        manager = getattr(self.parent(), "db_manager", None)
+        self.db_path.setText(getattr(manager, "db_path", "Unavailable"))
         self.db_path.setReadOnly(True)
         layout.addRow("Database File:", self.db_path)
 
@@ -220,19 +221,25 @@ class SettingsDialog(QDialog):
             self.backup_path.setText(folder)
 
     def _backup_database(self):
-        import shutil
-        import os
         try:
-            src = "drillmaster.db"
-            if os.path.exists(src):
-                timestamp = QDateTime.currentDateTime().toString("yyyyMMdd_HHmmss")
-                dst = f"drillmaster_backup_{timestamp}.db"
-                shutil.copy2(src, dst)
+            manager = getattr(self.parent(), "db_manager", None)
+            if not manager or manager.db_path == ":memory:":
+                QMessageBox.warning(self, "Backup", "A file-backed database is required.")
+                return
+            timestamp = QDateTime.currentDateTime().toString("yyyyMMdd_HHmmss")
+            dst = QFileDialog.getSaveFileName(
+                self,
+                "Save Database Backup",
+                f"drillmaster_backup_{timestamp}.db",
+                "Database Files (*.db)",
+            )[0]
+            if dst and manager.backup_to(dst):
                 QMessageBox.information(self, "Backup", f"Database backed up to:\n{dst}")
-            else:
-                QMessageBox.warning(self, "Backup", "Database file not found!")
-        except Exception as e:
-            QMessageBox.critical(self, "Backup Error", f"Failed to backup: {str(e)}")
+            elif dst:
+                QMessageBox.warning(self, "Backup", "The database backup could not be created.")
+        except Exception:
+            logger.exception("Settings database backup failed")
+            QMessageBox.critical(self, "Backup Error", "The database backup could not be created.")
 
     def _reset_database(self):
         reply = QMessageBox.warning(

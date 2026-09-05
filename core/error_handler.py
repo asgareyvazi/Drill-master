@@ -6,11 +6,10 @@ Error Handler - مدیریت متمرکز خطاها
 import logging
 import traceback
 from functools import wraps
-from pathlib import Path
 from datetime import datetime, timezone
-from typing import Callable, Optional, Any
+from typing import Callable, Any
 
-from PySide6.QtWidgets import QMessageBox, QApplication
+from core.runtime_config import data_dir
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +68,8 @@ def safe_call(
                     if hasattr(parent, 'show_error'):
                         parent.show_error(msg)
                     else:
+                        from PySide6.QtWidgets import QMessageBox
+
                         QMessageBox.warning(None, "Error", msg)
                 return default
         return wrapper
@@ -123,18 +124,20 @@ class GlobalErrorHandler:
             error_msg = str(exc_value)
             detail = "".join(traceback.format_tb(exc_traceback))
             try:
-                report_dir = Path.home() / ".drillmaster" / "crash_reports"
+                report_dir = data_dir() / "crash_reports"
                 report_dir.mkdir(parents=True, exist_ok=True)
                 report = report_dir / f"crash_{datetime.now(timezone.utc):%Y%m%d_%H%M%S}.log"
                 report.write_text(f"{error_msg}\n\n{detail}", encoding="utf-8")
             except Exception:
                 logger.debug("Could not persist crash report", exc_info=True)
 
+            from PySide6.QtWidgets import QMessageBox
+
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Critical)
             msg.setWindowTitle("Unexpected Error")
-            msg.setText(f"An unexpected error occurred:\n\n{error_msg}")
-            msg.setDetailedText(detail)
+            msg.setText("An unexpected error occurred. Review the DrillMaster log for details.")
+            msg.setDetailedText("A diagnostic report was written to the application data directory.")
             msg.setStandardButtons(QMessageBox.Ok)
             msg.exec()
 

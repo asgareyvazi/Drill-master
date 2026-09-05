@@ -10,6 +10,10 @@ from datetime import date as DateType
 
 from pathlib import Path
 
+from core.runtime_config import backup_dir as configured_backup_dir
+from core.runtime_config import database_path as configured_database_path
+
+
 def _now_utc() -> datetime:
     """برگرداندن زمان UTC بدون tzinfo (برای SQLite سازگاری)"""
     return datetime.now(timezone.utc).replace(tzinfo=None)
@@ -1737,8 +1741,10 @@ class DatabaseManager:
         self.engine = None
         self.Session = None
 
-        base_dir = Path(__file__).resolve().parent.parent
-        self.db_path = str(base_dir / "drillmaster.db")
+        # Mutable database state belongs in the OS user-data directory, not
+        # beside the installed package. Tests and operators can override this
+        # with DRILLMASTER_DB_PATH or by assigning db_path before initialize().
+        self.db_path = configured_database_path()
 
     @property
     def _get_current_user_info(self):
@@ -1754,6 +1760,8 @@ class DatabaseManager:
             
     def initialize(self):
         try:
+            if self.db_path != ":memory:":
+                Path(self.db_path).expanduser().parent.mkdir(parents=True, exist_ok=True)
             self.engine = create_engine(
                 f"sqlite:///{self.db_path}",
                 connect_args={
@@ -1791,14 +1799,23 @@ class DatabaseManager:
             return False
 
     def _apply_safe_schema_upgrades(self):
-        """Additive, non-destructive schema migrations for existing databases.
+        """Apply idempotent, additive migrations and record the schema version.
 
-        Only ADDs new nullable columns/tables via SQLite's ALTER TABLE;
-        never drops or recreates anything. Idempotent: checks the live
-        PRAGMA table_info before each ALTER.
+        ``create_all`` handles new installations. Existing SQLite files receive
+        only nullable columns or tables here; no destructive migration is
+        performed. A failed migration is fatal to startup so the application
+        cannot run against a partially upgraded schema.
         """
+        from sqlalchemy import inspect, text
+
         try:
-            from sqlalchemy import inspect, text
+            with self.engine.begin() as conn:
+                conn.execute(
+                    text(
+                        "CREATE TABLE IF NOT EXISTS schema_version "
+                        "(version INTEGER NOT NULL, applied_at DATETIME NOT NULL)"
+                    )
+                )
 
             inspector = inspect(self.engine)
             upgrades = [
@@ -1836,11 +1853,23 @@ class DatabaseManager:
                             f"ALTER TABLE {table} ADD COLUMN {column} {ddl_type}"
                         )
                     )
-        except Exception as e:
-            logger.error(
-                f"Safe schema upgrade step failed "
-                f"(non-fatal, retried next start): {str(e)}"
-            )
+
+            with self.engine.begin() as conn:
+                current = conn.execute(
+                    text("SELECT MAX(version) FROM schema_version")
+                ).scalar()
+                if current != 1:
+                    conn.execute(text("DELETE FROM schema_version"))
+                    conn.execute(
+                        text(
+                            "INSERT INTO schema_version(version, applied_at) "
+                            "VALUES (1, :applied_at)"
+                        ),
+                        {"applied_at": _now_utc()},
+                    )
+        except Exception:
+            logger.exception("Database schema migration failed")
+            raise
 
     def _bootstrap_passwords(self) -> Dict[str, str]:
         """Resolve bootstrap passwords without a production fallback."""
@@ -1876,13 +1905,19 @@ class DatabaseManager:
         }
 
     def _reject_unsafe_existing_credentials(self, session) -> None:
-        """Prevent legacy development fixture passwords in production."""
+        """Prevent weak hashes and development fixture passwords in production."""
         if not is_production_environment():
             return
-        usernames = tuple(_DEVELOPMENT_FIXTURE_PASSWORDS)
-        users = session.query(User).filter(User.username.in_(usernames)).all()
+        if not _BCRYPT_AVAILABLE:
+            raise RuntimeError("bcrypt is required for production authentication")
+        users = session.query(User).all()
         for user in users:
-            if any(
+            if not str(user.password_hash).startswith(("$2a$", "$2b$", "$2y$")):
+                raise RuntimeError(
+                    "Production database contains a non-bcrypt credential; "
+                    "reset or migrate that account before startup"
+                )
+            if user.username in _DEVELOPMENT_FIXTURE_PASSWORDS and any(
                 self._verify_password(password, user.password_hash)
                 for password in _DEVELOPMENT_FIXTURE_PASSWORDS.values()
             ):
@@ -1956,44 +1991,45 @@ class DatabaseManager:
                 for user in users:
                     session.add(user)
 
-                company = Company(
-                    name="Default Company",
-                    code="DC001",
-                    address="123 Industry St, Houston, TX",
-                    contact_person="John Smith",
-                    contact_email="info@company.com",
-                    contact_phone="+1-234-567-8900",
-                )
-                session.add(company)
-                project = Project(
-                    company=company,
-                    name="Default Project",
-                    code="DP001",
-                    location="Gulf of Mexico",
-                    start_date=datetime(2024, 1, 1).date(),
-                    status="Active",
-                    manager="Jane Doe",
-                    budget=5000000.00,
-                    currency="USD",
-                )
-                session.add(project)
-                well = Well(
-                    project=project,
-                    name="Default Well",
-                    code="DW001",
-                    field_name="Default Field",
-                    location="Block A-12",
-                    coordinates="28.5, -88.5",
-                    elevation=10.5,
-                    water_depth=1500.0,
-                    spud_date=datetime(2024, 3, 1).date(),
-                    target_depth=3500.0,
-                    status="Planning",
-                    well_type="Exploration",
-                    purpose="Oil Production",
-                    well_type_field="Offshore",
-                )
-                session.add(well)
+                if not is_production_environment():
+                    company = Company(
+                        name="Default Company",
+                        code="DC001",
+                        address="123 Industry St, Houston, TX",
+                        contact_person="John Smith",
+                        contact_email="info@company.com",
+                        contact_phone="+1-234-567-8900",
+                    )
+                    session.add(company)
+                    project = Project(
+                        company=company,
+                        name="Default Project",
+                        code="DP001",
+                        location="Gulf of Mexico",
+                        start_date=datetime(2024, 1, 1).date(),
+                        status="Active",
+                        manager="Jane Doe",
+                        budget=5000000.00,
+                        currency="USD",
+                    )
+                    session.add(project)
+                    well = Well(
+                        project=project,
+                        name="Default Well",
+                        code="DW001",
+                        field_name="Default Field",
+                        location="Block A-12",
+                        coordinates="28.5, -88.5",
+                        elevation=10.5,
+                        water_depth=1500.0,
+                        spud_date=datetime(2024, 3, 1).date(),
+                        target_depth=3500.0,
+                        status="Planning",
+                        well_type="Exploration",
+                        purpose="Oil Production",
+                        well_type_field="Offshore",
+                    )
+                    session.add(well)
                 session.commit()
             else:
                 self._reject_unsafe_existing_credentials(session)
@@ -2036,9 +2072,10 @@ class DatabaseManager:
             session.close()
             
     def _hash_password(self, password: str) -> str:
-        """Hash password - bcrypt اگر موجود باشد، وگرنه SHA-256"""
+        """Hash a password with bcrypt; weak fallback is development-only."""
+        if is_production_environment() and not _BCRYPT_AVAILABLE:
+            raise RuntimeError("bcrypt is required for production authentication")
         if _BCRYPT_AVAILABLE:
-            # ✅ bcrypt با per-password salt
             salt = bcrypt.gensalt(rounds=12)
             return bcrypt.hashpw(
                 password.encode('utf-8'), salt
@@ -2117,12 +2154,12 @@ class DatabaseManager:
                     session.rollback()
                 return type("UserObject", (), user_data)()
             return None
-        except Exception as e:
-            logger.error(f"Authentication error: {str(e)}")
+        except Exception:
+            logger.exception("Authentication error")
             return None
         finally:
             session.close()
-            
+
     def generic_save(self, model, data: dict):
         """Persist a mapped model using only columns declared by its table."""
         valid = {column.name for column in model.__table__.columns}
@@ -7782,42 +7819,71 @@ class DatabaseManager:
         finally:
             session.close()
 
+    def backup_to(self, destination) -> Optional[str]:
+        """Create a consistent SQLite backup at ``destination``.
+
+        SQLite's backup API includes WAL state and is safer than copying the
+        main file while the application is running. The destination path is
+        returned only after the backup completes successfully.
+        """
+        import sqlite3
+
+        if self.db_path == ":memory:" or not os.path.exists(self.db_path):
+            return None
+        destination = Path(destination).expanduser()
+        try:
+            if destination.resolve() == Path(self.db_path).expanduser().resolve():
+                logger.warning("Refusing to overwrite the live database with its own backup")
+                return None
+        except OSError:
+            return None
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        source_connection = None
+        destination_connection = None
+        try:
+            source_connection = sqlite3.connect(self.db_path)
+            destination_connection = sqlite3.connect(str(destination))
+            with destination_connection:
+                source_connection.backup(destination_connection)
+            logger.info("Database backup created: %s", destination)
+            return str(destination)
+        except (OSError, sqlite3.Error):
+            logger.exception("Database backup failed")
+            try:
+                if destination.exists():
+                    destination.unlink()
+            except OSError:
+                logger.warning("Could not remove incomplete database backup")
+            return None
+        finally:
+            if source_connection is not None:
+                source_connection.close()
+            if destination_connection is not None:
+                destination_connection.close()
+
     def auto_backup(self, backup_dir=None):
-        """Backup خودکار دیتابیس"""
-        import shutil
-        import os
-
-        if backup_dir is None:
-            base_dir = Path(__file__).resolve().parent.parent
-            backup_dir = str(base_dir / "backups")
-
-        os.makedirs(backup_dir, exist_ok=True)
-
-        if not os.path.exists(self.db_path):
+        """Create a rotating automatic backup in the configured data area."""
+        target_dir = Path(backup_dir) if backup_dir else configured_backup_dir()
+        target_dir.mkdir(parents=True, exist_ok=True)
+        if self.db_path == ":memory:" or not os.path.exists(self.db_path):
             return None
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup_path = os.path.join(
-            backup_dir, f"drillmaster_backup_{timestamp}.db"
-        )
-
-        try:
-            shutil.copy2(self.db_path, backup_path)
-            logger.info(f"Auto-backup created: {backup_path}")
-
-            backups = sorted([
-                f for f in os.listdir(backup_dir)
-                if f.startswith("drillmaster_backup_") and f.endswith(".db")
-            ])
-            while len(backups) > 10:
-                old = os.path.join(backup_dir, backups.pop(0))
-                os.remove(old)
-                logger.info(f"Old backup removed: {old}")
-
-            return backup_path
-        except Exception as e:
-            logger.error(f"Auto-backup error: {e}")
+        backup_path = target_dir / f"drillmaster_backup_{timestamp}.db"
+        result = self.backup_to(backup_path)
+        if not result:
             return None
+
+        backups = sorted(
+            path for path in target_dir.glob("drillmaster_backup_*.db")
+        )
+        while len(backups) > DBConstants.MAX_BACKUP_FILES:
+            old = backups.pop(0)
+            try:
+                old.unlink()
+            except OSError:
+                logger.warning("Could not remove old database backup: %s", old)
+        return result
             
     def search_all(self, query_text: str, well_id: int = None, limit: int = 50) -> list:
         if not query_text or len(query_text) < 2:

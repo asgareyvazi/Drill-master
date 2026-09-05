@@ -1,20 +1,24 @@
 # DrillMaster — Database Architecture Documentation
 
-> **Version:** 1.0 — Audit Baseline (2026-08-24)
+> **Version:** 1.1 — Release-candidate deployment audit (2026-09-05)
 
 ---
 
 ## 1. Overview
 
-The database layer uses SQLAlchemy ORM with SQLite as the storage engine. All models and database operations are currently in a single file (`core/database.py`, 7,094 lines).
+The database layer uses SQLAlchemy ORM with SQLite as the storage engine. All models and database operations are currently in a single file (`core/database.py`, approximately 7,952 lines).
 
 ---
 
 ## 2. Engine Configuration
 
+The SQLite filename is resolved by `core/runtime_config.py`, normally under
+the OS user-data directory. `DRILLMASTER_DB_PATH` can override it; the
+application does not write beside the installed source package.
+
 ```python
 engine = create_engine(
-    "sqlite:///drillmaster.db",
+    f"sqlite:///{configured_database_path()}",
     connect_args={"check_same_thread": False, "timeout": 30},
     poolclass=StaticPool,
     echo=False,
@@ -238,9 +242,13 @@ SQLite with `check_same_thread=False` and `StaticPool` ensures single-connection
 ## 6. Backup Strategy
 
 - **Auto-backup:** Every 30 minutes via `auto_backup()`
-- **Location:** `backups/` directory
+- **Location:** configured `DRILLMASTER_BACKUP_DIR`, normally `<data>/backups/`
 - **Retention:** Max 10 backups
-- **Method:** File copy (`shutil.copy2`)
+- **Method:** SQLite backup API, including WAL state
+- **Recovery:** stop the application, restore a verified backup, and restart;
+  deployments must perform and record a restore drill
+- **Schema:** additive startup migrations are recorded in `schema_version`
+  (current version `1`); migration errors fail initialization
 
 ---
 

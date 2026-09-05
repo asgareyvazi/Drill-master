@@ -634,11 +634,12 @@ class HomeTab(DrillTabBase):
                 self.status_widgets["reports"].setText("📋 0 today")
                 self.status_widgets["reports"].setStyleSheet("color: #f39c12;")
 
-            # Storage (simulated)
-            import os
+            # Storage for the configured database file.
+            from pathlib import Path
 
-            if os.path.exists("drillmaster.db"):
-                size = os.path.getsize("drillmaster.db") / (1024 * 1024)  # MB
+            db_path = getattr(self.db, "db_path", "")
+            if db_path and db_path != ":memory:" and Path(db_path).exists():
+                size = Path(db_path).stat().st_size / (1024 * 1024)  # MB
                 self.status_widgets["storage"].setText(f"💾 {size:.1f} MB")
                 self.status_widgets["storage"].setStyleSheet(
                     "color: #2ecc71;" if size < 100 else "color: #e74c3c;"

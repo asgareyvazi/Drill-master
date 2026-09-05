@@ -27,6 +27,7 @@ from core.managers import StatusBarManager, AutoSaveManager, ShortcutManager
 from core.permissions import require_permission
 from core.selection_manager import SelectionManager
 from core.functions import CentralFunctions
+from core.version import __version__
 
 from tabs.home_tab import HomeTab
 from tabs.w1_well_info import WellInfoTab
@@ -2572,7 +2573,7 @@ class MainWindow(QMainWindow):
     def show_about(self):
         QMessageBox.about(
             self, "About DrillMaster",
-            "<h2>DrillMaster v1.0.0</h2>"
+            f"<h2>DrillMaster v{__version__}</h2>"
             "<p>Drilling Operations Management System</p>"
             "<p>© 2024 DrillMaster Inc.</p>"
         )
@@ -2880,25 +2881,24 @@ class MainWindow(QMainWindow):
     # ==================== Backup ====================
 
     def backup_database(self):
-        import shutil
         try:
-            src = "drillmaster.db"
-            if not os.path.exists(src):
-                QMessageBox.warning(self, "Backup", "Database not found!")
+            if not self.db_manager or self.db_manager.db_path == ":memory:":
+                QMessageBox.warning(self, "Backup", "A file-backed database is required.")
                 return
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename, _ = QFileDialog.getSaveFileName(
-                self, "Save Backup",
+                self,
+                "Save Backup",
                 f"drillmaster_backup_{timestamp}.db",
-                "Database Files (*.db)"
+                "Database Files (*.db)",
             )
-            if filename:
-                shutil.copy2(src, filename)
-                self.status_manager.show_success(
-                    "MainWindow", f"Backup saved: {filename}"
-                )
-        except Exception as e:
-            logger.error(f"Backup error: {e}")
+            if filename and self.db_manager.backup_to(filename):
+                self.status_manager.show_success("MainWindow", f"Backup saved: {filename}")
+            elif filename:
+                QMessageBox.warning(self, "Backup", "The database backup could not be created.")
+        except Exception:
+            logger.exception("Manual database backup failed")
+            QMessageBox.warning(self, "Backup", "The database backup could not be created.")
 
     # ==================== Cleanup ====================
 

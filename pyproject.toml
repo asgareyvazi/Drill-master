@@ -1,6 +1,38 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "drillmaster"
+version = "1.0.0"
+description = "Desktop drilling operations management and engineering calculations"
+readme = "README.md"
+requires-python = ">=3.10,<3.14"
+dependencies = [
+    "PySide6>=6.6,<7",
+    "SQLAlchemy>=2.0,<3",
+    "openpyxl>=3.1,<4",
+    "bcrypt>=4,<5",
+    "numpy>=1.24,<3",
+    "matplotlib>=3.7,<4",
+    "pandas>=2,<3",
+    "pyqtgraph>=0.13,<1",
+    "PyMuPDF>=1.23,<2",
+]
+
+[project.scripts]
+drillmaster = "app:main"
+
+[tool.setuptools]
+py-modules = ["app", "main_window", "run"]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["core*", "dialogs*", "tabs*", "config*"]
+
+[tool.setuptools.package-data]
+config = ["*.json", "company_templates/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
