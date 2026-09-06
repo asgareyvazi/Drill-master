@@ -667,7 +667,9 @@ class ExcelImportDialog(QDialog):
             "review_matrix": review_rows,
             "mineru_provenance": normalized.provenance,
             "raw_ir": normalized.raw_document.to_dict(include_cells=True) if normalized.raw_document is not None else None,
+            "output_dir": parse_result.document.output_dir,
             "output_files": parse_result.document.raw_files,
+            "assets": list(parse_result.document.images),
             "diagnostics": dict(
                 getattr(parse_result, "diagnostics", {})
                 or parse_result.document.metadata.get("diagnostics", {})
@@ -697,6 +699,7 @@ class ExcelImportDialog(QDialog):
             )
             QApplication.processEvents()
             dialog = None
+            parse_result = None
             try:
                 route = route_file(source, template_matcher=self._auto_match_template)
                 parse_result = mineru_results.get(self._result_key(source))
@@ -944,6 +947,12 @@ class ExcelImportDialog(QDialog):
                 failed_files.append(f"{os.path.basename(source)}: {exc}")
                 if dialog is not None:
                     dialog.deleteLater()
+            finally:
+                # The adapter keeps the stable result directory alive through
+                # normalization and review.  Once this file's consumer has
+                # finished, release only the isolated temporary result.
+                if parse_result is not None and parse_result.success:
+                    parse_result.cleanup()
 
         summary_text = (
             f"Batch completed: {len(files)} files\n"

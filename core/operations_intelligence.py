@@ -48,10 +48,30 @@ class OperationsIntelligenceService:
             total_hours = sum(float(item.duration or 0) for item in logs)
             npt_hours = sum(float(item.duration or 0) for item in logs if item.is_npt)
             depths = [float(item.depth_2400 or 0) for item in reports if item.depth_2400 is not None]
-            rops = [float(item.avg_rop or 0) for item in params if item.avg_rop]
-            wobs = [float(item.wob_max or item.wob or 0) for item in params if (item.wob_max or item.wob)]
-            torques = [float(item.torque_max or item.torque or 0) for item in params if (item.torque_max or item.torque)]
-            rpms = [float(item.rpm_max or item.rpm or 0) for item in params if (item.rpm_max or item.rpm)]
+            rops = [float(item.avg_rop) for item in params if item.avg_rop is not None]
+
+            def _range_series(items, minimum_name: str, maximum_name: str) -> list[float]:
+                """Read only the min/max fields defined by DrillingParameters.
+
+                The model has no scalar ``wob``, ``torque``, or ``rpm``
+                attributes.  When both bounds exist, use their midpoint;
+                otherwise preserve the one known bound and omit missing data.
+                """
+                values = []
+                for item in items:
+                    minimum = getattr(item, minimum_name)
+                    maximum = getattr(item, maximum_name)
+                    if minimum is not None and maximum is not None:
+                        values.append((float(minimum) + float(maximum)) / 2.0)
+                    elif maximum is not None:
+                        values.append(float(maximum))
+                    elif minimum is not None:
+                        values.append(float(minimum))
+                return values
+
+            wobs = _range_series(params, "wob_min", "wob_max")
+            torques = _range_series(params, "torque_min", "torque_max")
+            rpms = _range_series(params, "rpm_min", "rpm_max")
 
             # KPIs professional
             current_depth = max(depths, default=0.0)

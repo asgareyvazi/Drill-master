@@ -18,6 +18,7 @@ from core.mineru_engine import (
     parse_pdf_native_fallback,
     resolve_mineru_backend,
     validate_canonical_payload,
+    MinerUOutputError,
 )
 
 
@@ -155,6 +156,51 @@ def test_mineru_invocation_uses_safe_cli_and_parses_markdown(tmp_path, monkeypat
     assert normalized.canonical_data["mud_report"]["mw"] == 12.5
     assert normalized.provenance[0]["source_file"] == str(source.resolve())
     assert normalized.validation.valid is True
+
+
+def test_mineru_materializes_assets_and_keeps_result_alive_until_cleanup(tmp_path, monkeypatch):
+    monkeypatch.setenv("DRILLMASTER_MINERU_CUDA_AVAILABLE", "0")
+    source = tmp_path / "report.pdf"
+    source.write_bytes(b"pdf")
+    output_root = tmp_path / "mineru-output"
+
+    def runner(command, **kwargs):
+        if command[-1] == "--version":
+            return _completed(stdout="MinerU 3.4.5")
+        output = Path(command[command.index("-o") + 1])
+        asset = output / "auto" / "images" / "asset.jpg"
+        asset.parent.mkdir(parents=True, exist_ok=True)
+        asset.write_bytes(b"jpg")
+        (output / "auto" / "page.md").write_text(
+            "# Daily Report\n\n![asset](images/asset.jpg)\n",
+            encoding="utf-8",
+        )
+        return _completed(stdout="parsed")
+
+    result = MinerUAdapter(
+        MinerUConfig(enabled=True, executable="mineru", backend="auto"),
+        runner=runner,
+    ).parse_file(source, output_root)
+
+    assert result.success is True
+    assert result.document is not None
+    assert result.document.output_dir
+    assert Path(result.document.output_dir).is_dir()
+    assert result.document.metadata["assets"] == 1
+    assert Path(result.document.images[0]["path"]).is_file()
+    assert result.document.backend == "pipeline"
+    result.cleanup()
+    assert not Path(result.document.output_dir).exists()
+
+
+def test_missing_referenced_mineru_asset_is_reported(tmp_path):
+    output = tmp_path / "out"
+    output.mkdir()
+    (output / "page.md").write_text("![missing](auto/images/not-created.jpg)", encoding="utf-8")
+    import pytest
+
+    with pytest.raises(MinerUOutputError, match="missing asset"):
+        parse_mineru_output(output, source_file="report.pdf")
 
 
 def test_mineru_invalid_input_and_unsupported_format(tmp_path):

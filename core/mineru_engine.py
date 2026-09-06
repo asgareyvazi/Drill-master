@@ -341,6 +341,14 @@ class MinerUParseResult:
     output_dir: Optional[str] = None
     fallback_available: bool = False
     diagnostics: dict[str, Any] = field(default_factory=dict)
+    cleanup_dir: Optional[str] = None
+
+    def cleanup(self) -> None:
+        """Remove this result's isolated output after its consumer is done."""
+        if not self.cleanup_dir:
+            return
+        shutil.rmtree(self.cleanup_dir, ignore_errors=True)
+        self.cleanup_dir = None
 
 
 @dataclass
@@ -540,17 +548,20 @@ class MinerUAdapter:
         if version_error:
             diagnostics["version_error"] = version_error
 
-        temporary: Optional[tempfile.TemporaryDirectory[str]] = None
+        temporary_root: Optional[Path] = None
         try:
             root = Path(output_dir).expanduser().resolve() if output_dir else self.config.output_dir
             if root is None and self.config.keep_output:
                 root = data_dir() / "mineru-output"
             if root is None:
-                temporary = tempfile.TemporaryDirectory(prefix="drillmaster-mineru-")
-                root = Path(temporary.name)
+                # Do not use TemporaryDirectory here: the result is consumed
+                # after parse_file returns (IR mapping, review, and optional
+                # asset inspection).  The ParseResult owns explicit cleanup.
+                temporary_root = Path(tempfile.mkdtemp(prefix="drillmaster-mineru-"))
+                root = temporary_root
             root.mkdir(parents=True, exist_ok=True)
             identity = hashlib.sha256(str(source).encode("utf-8")).hexdigest()[:10]
-            run_dir = root / f"{source.stem}-{identity}"
+            run_dir = root / f"{_safe_output_stem(source.stem)}-{identity}"
             if run_dir.exists():
                 shutil.rmtree(run_dir)
             run_dir.mkdir(parents=True, exist_ok=True)
@@ -589,7 +600,7 @@ class MinerUAdapter:
                     started,
                     stdout=_text(getattr(exc, "stdout", "")),
                     stderr=_text(getattr(exc, "stderr", "")),
-                    output_dir=str(run_dir) if self.config.keep_output else None,
+                    output_dir=str(run_dir),
                     fallback_available=source.suffix.lower() == ".pdf",
                 )
             except FileNotFoundError as exc:
@@ -598,7 +609,7 @@ class MinerUAdapter:
                     "executable-not-found",
                     f"MinerU executable could not be started: {exc}",
                     started,
-                    output_dir=str(run_dir) if self.config.keep_output else None,
+                    output_dir=str(run_dir),
                     fallback_available=source.suffix.lower() == ".pdf",
                 )
 
@@ -612,7 +623,7 @@ class MinerUAdapter:
                     started,
                     stdout=stdout,
                     stderr=stderr,
-                    output_dir=str(run_dir) if self.config.keep_output else None,
+                    output_dir=str(run_dir),
                     fallback_available=source.suffix.lower() == ".pdf",
                 )
             try:
@@ -630,7 +641,7 @@ class MinerUAdapter:
                     started,
                     stdout=stdout,
                     stderr=stderr,
-                    output_dir=str(run_dir) if self.config.keep_output else None,
+                    output_dir=str(run_dir),
                     fallback_available=source.suffix.lower() == ".pdf",
                 )
             document.metadata["diagnostics"] = dict(diagnostics)
@@ -649,18 +660,12 @@ class MinerUAdapter:
                 stdout=stdout,
                 stderr=stderr,
                 duration_seconds=duration,
-                output_dir=str(run_dir) if self.config.keep_output else None,
+                output_dir=str(run_dir),
                 diagnostics=diagnostics,
+                cleanup_dir=(None if self.config.keep_output else str(temporary_root or run_dir)),
             )
         except OSError as exc:
             return self._failure(source_display, "output-error", f"MinerU output directory error: {exc}", started)
-        finally:
-            if temporary is not None and self.config.keep_output:
-                # keep_output with an implicit temporary root is intentionally
-                # not useful; do not leave an unreferenced temporary tree.
-                temporary.cleanup()
-            elif temporary is not None:
-                temporary.cleanup()
 
     def parse_batch(self, input_paths: Iterable[str | os.PathLike[str]]) -> list[MinerUParseResult]:
         """Parse files independently; one failure does not abort the batch."""
@@ -718,6 +723,39 @@ def _version_from_text(text: str) -> Optional[str]:
     return match.group(1) if match else None
 
 
+def _safe_output_stem(stem: str) -> str:
+    """Keep the isolated Windows output path short and filesystem-safe."""
+    safe = re.sub(r"[^A-Za-z0-9._-]+", "_", stem).strip("._")
+    return (safe or "document")[:80]
+
+
+def _validate_mineru_asset_references(root: Path, content_files: Sequence[Path]) -> None:
+    """Verify every referenced image resolves inside the materialized output."""
+    pattern = re.compile(
+        r"(?P<ref>(?:[A-Za-z0-9_. -]+[\\\\/])+[A-Za-z0-9_. -]+\.(?:png|jpe?g|webp|gif|bmp|tiff?))",
+        re.IGNORECASE,
+    )
+    for content_file in content_files:
+        try:
+            text = content_file.read_text(encoding="utf-8", errors="replace")
+        except OSError as exc:
+            raise MinerUOutputError(f"Cannot read MinerU output {content_file}: {exc}") from exc
+        for raw_ref in pattern.findall(text):
+            ref = raw_ref.replace("\\\\", "/")
+            if ref.startswith(("http://", "https://", "data:")):
+                continue
+            candidates = []
+            ref_path = Path(ref)
+            if ref_path.is_absolute():
+                candidates.append(ref_path)
+            candidates.extend((content_file.parent / ref_path, root / ref_path))
+            if not any(candidate.is_file() for candidate in candidates):
+                raise MinerUOutputError(
+                    f"MinerU output references missing asset '{raw_ref}' "
+                    f"from '{content_file.relative_to(root)}'"
+                )
+
+
 def parse_mineru_output(
     output_dir: str | os.PathLike[str],
     *,
@@ -726,13 +764,15 @@ def parse_mineru_output(
     method: str = "auto",
 ) -> MinerUDocument:
     """Parse a MinerU output directory without assuming a single layout."""
-    root = Path(output_dir)
+    root = Path(output_dir).expanduser().resolve()
     if not root.is_dir():
         raise MinerUOutputError(f"MinerU output directory is missing: {root}")
     files = [path for path in root.rglob("*") if path.is_file()]
     markdown_files = sorted(path for path in files if path.suffix.lower() in {".md", ".markdown"})
     json_files = sorted(path for path in files if path.suffix.lower() == ".json")
+    content_files = markdown_files + json_files
     asset_files = sorted(path for path in files if path.suffix.lower() in IMAGE_SUFFIXES)
+    _validate_mineru_asset_references(root, content_files)
     if not markdown_files and not json_files:
         raise MinerUOutputError(
             f"MinerU completed without Markdown or JSON output in {root}. "
@@ -749,7 +789,8 @@ def parse_mineru_output(
     for path in asset_files:
         document.images.append(
             {
-                "path": str(path.relative_to(root)),
+                "path": str(path.resolve()),
+                "relative_path": str(path.relative_to(root)),
                 "source_file": source_file,
                 "provenance": Provenance(source_file, extraction_method="mineru-asset").to_dict(),
             }
@@ -782,6 +823,7 @@ def parse_mineru_output(
             "pages": document.page_count,
             "tables": document.table_count,
             "assets": len(document.images),
+            "asset_paths": [image["path"] for image in document.images],
         }
     )
     return document

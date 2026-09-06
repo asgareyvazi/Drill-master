@@ -62,6 +62,43 @@ class ImportRepairRegressionTests(unittest.TestCase):
         self.assertIsNone(ValueNormalizer.to_float("Drilling Data"))
         self.assertEqual(ValueNormalizer.to_float("0"), 0.0)
 
+    def test_to_int_preserves_missing_and_rejects_invalid_tokens(self):
+        for value in (None, "", "   "):
+            self.assertIsNone(ValueNormalizer.to_int(value))
+        self.assertEqual(ValueNormalizer.to_int("12"), 12)
+        self.assertIsNone(ValueNormalizer.to_int("not-a-number"))
+
+    def test_missing_nozzle_number_reaches_db_as_null_without_crashing(self):
+        import json
+        from datetime import date
+        try:
+            from dialogs.excel_import_dialog import ExcelImportDialog
+        except ImportError as exc:
+            if "libGL" in str(exc):
+                self.skipTest(f"Qt unavailable in this headless environment: {exc}")
+            raise
+
+        class CaptureDB:
+            def __init__(self):
+                self.payload = None
+
+            def save_drilling_parameters(self, payload):
+                self.payload = payload
+                return True
+
+        dialog = ExcelImportDialog.__new__(ExcelImportDialog)
+        dialog.well_id = 17
+        dialog.db = CaptureDB()
+        dialog._save_drilling_params(
+            {"nozzle1_no": None, "nozzle1_size": "18/32", "nozzle2_no": "   "},
+            report_id=23,
+            report_date=date(2025, 10, 27),
+        )
+        nozzle_rows = json.loads(dialog.db.payload["nozzles_json"])
+        self.assertIsNone(nozzle_rows[0]["quantity"])
+        self.assertEqual(nozzle_rows[0]["size_32nd"], 18.0)
+        self.assertEqual(nozzle_rows[0]["diameter_inch"], 0.5625)
+
     def test_shared_normalizer_covers_typed_import_values(self):
         self.assertEqual(ValueNormalizer.to_int("12"), 12)
         self.assertEqual(ValueNormalizer.to_decimal("12.50"), ValueNormalizer.to_decimal("12.5"))

@@ -171,12 +171,17 @@ class ValueNormalizer:
     @classmethod
     def to_float(cls, value: Any, valid_range=None) -> Optional[float]:
         result = cls.normalize(value, "number", valid_range=valid_range)
-        return float(result.value) if result.ok else None
+        # Missing values are represented as ok=True/missing=True so callers
+        # can distinguish NULL from malformed input.  They still have no
+        # numeric payload and must never reach float(None).
+        return float(result.value) if result.ok and result.value is not None else None
 
     @classmethod
     def to_int(cls, value: Any) -> Optional[int]:
         result = cls.normalize(value, "integer")
-        return int(result.value) if result.ok else None
+        # Do not turn a missing nozzle/count into zero and never call
+        # int(None).  The database boundary will persist this as NULL.
+        return int(result.value) if result.ok and result.value is not None else None
 
     @classmethod
     def to_decimal(cls, value: Any) -> Optional[Decimal]:
