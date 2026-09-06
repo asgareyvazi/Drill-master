@@ -2249,10 +2249,9 @@ class SmartTemplateDialog(QDialog):
             # Phase 3: Time logs
             self._detect_time_logs()
 
-            # Phase 4: optional strict profile fallback. This is internal;
-            # users only see one Auto-Detect button. Profile values fill only
-            # gaps and never overwrite a high-confidence smart detection.
-            self._merge_profile_fallback()
+            # Phase 4: the private profile extractor is not part of the
+            # canonical runtime architecture. Smart Template output remains
+            # reviewable manual mapping data and uses the shared save boundary.
             self._merge_table_records()
             self._merge_ai_fallback()
 
@@ -2365,40 +2364,16 @@ class SmartTemplateDialog(QDialog):
             }
 
     def _merge_profile_fallback(self):
-        """Use a matching company profile as a silent fallback for Auto-Detect."""
-        if not self.filepath:
-            return
-        try:
-            from core.profile_import_engine import ProfileImportEngine
-            extracted = ProfileImportEngine(self.db).analyze_and_extract(self.filepath)
-        except Exception as exc:
-            logger.debug("Profile fallback not applicable: %s", exc)
-            return
-        for section in ("well_info", "daily_report", "mud_report", "drilling_params"):
-            for key, value in (extracted.get(section) or {}).items():
-                if value in (None, "", []):
-                    continue
-                field_path = f"{section}.{key}"
-                current = self.base_extracted.get(section, {}).get(key)
-                if current not in (None, "", []):
-                    continue
-                self.base_extracted.setdefault(section, {})[key] = value
-                self.assignments[field_path] = {"sheet": "Profile fallback", "row": 0, "col": 0, "value": str(value)[:100], "confidence": 0.92, "decision": "REVIEW", "auto": True}
-        if not self.base_extracted.get("time_logs_24h") and extracted.get("time_logs_24h"):
-            self.base_extracted["time_logs_24h"] = extracted["time_logs_24h"]
-        if not self.base_extracted.get("time_logs_morning") and extracted.get("time_logs_morning"):
-            self.base_extracted["time_logs_morning"] = extracted["time_logs_morning"]
-        # Carry all profile-specific multi-tab payloads into the same generic
-        # save pipeline (services, POB, casing, safety, cost, etc.).
-        for key in (
-            "service_companies", "surveys", "pob_records", "casing_report",
-            "cement_report", "bit_report", "bha_report", "bulk_materials",
-            "fuel_water", "safety_report", "bop_components", "waste_records",
-            "cost_records", "equipment_logs", "downhole_equipment",
-        ):
-            value = extracted.get(key)
-            if value and not self.base_extracted.get(key):
-                self.base_extracted[key] = value
+        """Retired compatibility hook; never run a parallel extractor.
+
+        Older callers may still invoke this method, so it remains a no-op
+        rather than importing ``ProfileImportEngine`` and creating invented
+        defaults outside the common IR/review path.
+        """
+        self.detect_status.setText(
+            "Legacy profile fallback disabled; use canonical Excel mapping"
+        )
+        return None
 
     def _source_header(self, sheet, row, col):
         cells = self.cell_cache.get(sheet, {})

@@ -15,7 +15,7 @@ P0 Requirements Implemented:
 - Professional Review Matrix: File, Sheet/Page, Detected Table, Source Cell, Original Value, Normalized Value, Unit, Target Field, Confidence, Decision
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields as dataclass_fields
 from typing import Any, Iterable, List, Dict, Tuple, Optional
 from datetime import time, datetime, date, timedelta
 import math
@@ -57,7 +57,7 @@ class ReviewItem:
     target_field: str = ""
     canonical_field: str = ""  # backward-compatible alias
     expected_type: str = ""
-    confidence: float = 0.0
+    confidence: Optional[float] = None
     certainty: str = ""
     decision: str = "REVIEW"  # ACCEPT / REVIEW / REJECT / CONFIRMED
     status: str = ""
@@ -72,6 +72,15 @@ class ReviewItem:
     row: int = 0
     column: str = ""
     source_value: Any = None
+    # Extended provenance/state fields are appended to preserve the legacy
+    # positional constructor order.
+    page: Optional[int] = None
+    source_table: str = ""
+    section_title: str = ""
+    coordinates: Any = None
+    extraction_method: str = ""
+    validation_message: str = ""
+    review_state: str = "unreviewed"
 
     def __post_init__(self):
         if self.canonical_field and not self.target_field:
@@ -96,6 +105,33 @@ class ReviewItem:
             self.value = self.normalized_value
         if not self.validation_state and self.status:
             self.validation_state = self.status
+        if self.decision in {"ACCEPT", "CONFIRMED"}:
+            self.review_state = "accepted"
+        elif self.decision in {"REJECT", "IGNORED"}:
+            self.review_state = "rejected"
+
+    def to_dict(self) -> dict:
+        """Stable serialization contract for UI, exports, and persistence."""
+        return {field.name: getattr(self, field.name) for field in dataclass_fields(self)}
+
+    def as_dict(self) -> dict:
+        return self.to_dict()
+
+    @classmethod
+    def from_dict(cls, payload: Optional[dict]) -> "ReviewItem":
+        """Deserialize old and new review rows without dropping provenance."""
+        payload = dict(payload or {})
+        aliases = {
+            "table": "detected_table",
+            "source_page": "page",
+            "validation_status": "validation_state",
+            "review_status": "review_state",
+        }
+        for old_key, new_key in aliases.items():
+            if new_key not in payload and old_key in payload:
+                payload[new_key] = payload[old_key]
+        allowed = {field.name for field in dataclass_fields(cls)}
+        return cls(**{key: value for key, value in payload.items() if key in allowed})
 
 
 class ImportReviewMatrix:
@@ -104,6 +140,13 @@ class ImportReviewMatrix:
     def __init__(self):
         self.items: List[ReviewItem] = []
 
+    @classmethod
+    def from_rows(cls, rows: Iterable[dict]) -> "ImportReviewMatrix":
+        matrix = cls()
+        for row in rows or []:
+            matrix.items.append(ReviewItem.from_dict(row))
+        return matrix
+
     def add(self, **kwargs):
         # Handle legacy calls: canonical_field, source_value, and value are
         # all normalized into the explicit ReviewItem contract.
@@ -111,6 +154,12 @@ class ImportReviewMatrix:
             kwargs["target_field"] = kwargs["canonical_field"]
         if "source_value" in kwargs and "original_value" not in kwargs:
             kwargs["original_value"] = kwargs["source_value"]
+        if "source_page" in kwargs and "page" not in kwargs:
+            kwargs["page"] = kwargs["source_page"]
+        if "table" in kwargs and "detected_table" not in kwargs:
+            kwargs["detected_table"] = kwargs["table"]
+        if "validation_status" in kwargs and "validation_state" not in kwargs:
+            kwargs["validation_state"] = kwargs["validation_status"]
         if "normalized_value" not in kwargs and "proposed_value" not in kwargs and "value" in kwargs:
             kwargs["normalized_value"] = kwargs["value"]
         # Build source_cell from row/column if not provided.
@@ -137,19 +186,31 @@ class ImportReviewMatrix:
         return item
 
     def as_rows(self):
-        return [item.__dict__.copy() for item in self.items]
+        return [item.to_dict() for item in self.items]
+
+    def update_from_rows(self, rows: Iterable[dict]) -> None:
+        """Replace decisions/edits while retaining typed ReviewItem objects."""
+        self.items = [ReviewItem.from_dict(row) for row in rows or []]
 
     def filter_by_decision(self, decision: str):
         return [i for i in self.items if i.decision == decision]
 
     def high_confidence(self):
-        return [i for i in self.items if i.confidence >= 0.95]
+        return [i for i in self.items if isinstance(i.confidence, (int, float)) and i.confidence >= 0.95]
 
     def medium_confidence(self):
-        return [i for i in self.items if 0.70 <= i.confidence < 0.95]
+        return [
+            i for i in self.items
+            if isinstance(i.confidence, (int, float)) and 0.70 <= i.confidence < 0.95
+        ]
 
     def low_confidence(self):
-        return [i for i in self.items if i.confidence < 0.70]
+        return [
+            i for i in self.items
+            if i.confidence is None
+            or not isinstance(i.confidence, (int, float))
+            or i.confidence < 0.70
+        ]
 
     def accept_all_high(self):
         for item in self.high_confidence():

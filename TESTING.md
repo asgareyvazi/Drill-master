@@ -1,129 +1,93 @@
-# DrillMaster — Testing Documentation
+# Testing and acceptance guide
 
-> **Version:** 1.0 — Audit Baseline (2026-08-24)
+**Audit date:** 2026-09-06
 
----
+## 1. Local test gate
 
-## 1. Test Suite Overview
+From the repository root, in a dependency-complete environment:
 
-**Location:** `tests/`
-**Framework:** pytest (including existing `unittest.TestCase` tests)
-**Test count:** discovered from `pyproject.toml`; the release gate reports
-collected, passed, skipped, failed, and error counts without a hard-coded total.
-
-### Run Command
 ```bash
-cd /home/user/Drill-master
-source .venv/bin/activate
 python -m pytest -ra
-```
-
-### Release Gate
-```bash
 python verify_release.py
+python -m compileall -q core dialogs tabs tests
+python -m py_compile app.py run.py main_window.py verify_release.py
+python -m pip wheel . --no-deps --wheel-dir dist
+git diff --check
 ```
-The release gate compiles the repository, verifies that pytest collects tests,
-then runs the complete suite using the project configuration. Skips are
-reported separately and any pytest failure or collection error fails the gate.
 
-### Production Bootstrap Credentials
-Set `DRILLMASTER_ENV=production` and explicitly provide
-`DRILLMASTER_ADMIN_PASSWORD`, `DRILLMASTER_USER_PASSWORD`, and
-`DRILLMASTER_VIEWER_PASSWORD`. Development/test fixture credentials are
-available only outside production mode; they are never used as production
-fallbacks.
+The active sandbox did not have `pytest` or `openpyxl`, so only compile and
+pure-Python smoke checks were executable during this audit. No full-suite pass
+count is claimed from this environment.
 
----
+## 2. Real DDR acceptance
 
-## 2. Test Inventory
+The opt-in tests are `tests/test_ddr_acceptance.py`:
 
-### 2.1 P0 Critical Tests
+```bash
+DRILLMASTER_TEST_DDR_XLSX='C:\path\to\DDR.xlsx' \
+DRILLMASTER_TEST_DDR_PDF='C:\path\to\DDR.pdf' \
+python -m pytest -q -m integration tests/test_ddr_acceptance.py
+```
 
-| File | Tests | Focus |
-|------|-------|-------|
-| test_p0_atomic_import.py | 3 | Atomic import transactions, rollback, no orphan data |
-| test_p0_engineering_core.py | 20 | All engineering calculations (trajectory, bit, BHA, hydraulics, well control, operations, mud ledger) |
-| test_p0_permissions.py | 5 | RBAC enforcement, viewer restrictions, permission checks |
-| test_p0_time_log_validation.py | 10 | Time log overlap detection, duration calculation, 24h coverage |
-| test_p0_unit_preservation.py | 8 | Unit conversion preservation, original value retention, canonical normalization |
-| test_p0_well_identity.py | 3 | Well identity management, code uniqueness |
+Each test skips explicitly when its path is absent/unavailable. The PDF test
+also skips when the separately managed MinerU installation is unavailable; it
+does not install MinerU. A supplied but malformed real input fails rather than
+being converted into a synthetic PASS.
 
-### 2.2 Integration Tests
+### Excel assertions
 
-| File | Tests | Focus |
-|------|-------|-------|
-| test_core_import.py | 4 | Core import pipeline, table detection, sheet classification |
-| test_import_quality_extra.py | 3 | Import quality validation, data quality checks |
-| test_operations.py | 3 | Operations intelligence, ROP/NPT trend analysis |
+- source workbook -> `raw_document_from_workbook` -> `ExcelIntelligence`;
+- cache/merge lookup comes from the common IR;
+- original source tokens and normalized values remain separate;
+- canonical schema mapping and bounds run;
+- review rows deserialize as `ReviewItem`;
+- `DatabaseManager.save_imported_multi_tab_data_atomic()` persists without
+  failure in an in-memory DB;
+- non-numeric `Drilling Data`/placeholder tokens remain NULL plus provenance,
+  never zero or a numeric-conversion crash.
 
-### 2.3 Unit Tests
+### PDF assertions
 
-| File | Tests | Focus |
-|------|-------|-------|
-| test_canonical_schema.py | 1 | Canonical schema integrity |
-| test_config_and_mapping.py | 2 | Configuration and mapping store |
-| test_health_check.py | 1 | System health checks |
-| test_table_mapper.py | 1 | Table-to-record mapping |
+- `MinerUAdapter.health_check()` and `parse_file()` run the actual external
+  executable;
+- generated raw output files are present;
+- MinerU tables/text/headings adapt to the common IR;
+- page/row/column/bounding-box provenance, original/normalized values, review
+  states, canonical validation and review rows survive;
+- a real report date is required for DB acceptance; no date is invented;
+- canonical values pass the same atomic DB boundary.
 
----
+## 3. Test categories
 
-## 3. Test Categories
+| Category | Main evidence |
+| --- | --- |
+| Canonical schema | `test_canonical_schema.py`, expanded schema tests: field count, aliases, duplicate-context behavior, types, quantities, criticality, bounds |
+| Shared normalizer | value normalizer tests and import regressions: missing tokens, invalid types, dates/times, zero vs missing |
+| Authoritative units | `test_p0_unit_preservation.py`: original value/unit, conversion rule, canonical value, failed conversion review |
+| Review contract | `test_import_quality_extra.py`, acceptance tests: aliases, serialization/deserialization, decisions, edits, provenance |
+| Atomicity | `test_p0_atomic_import.py`, real-golden DB tests: failure rollback, no orphan/partial records, prior report preservation |
+| MinerU failures | `test_mineru_engine.py`: unavailable executable, bad input/format, process error, timeout, missing/malformed output |
+| Optional AI | mapper capability/failure tests: disabled, unavailable, timeout, malformed response, no invented values |
+| Security | permissions, path/config, shell-free subprocess and secret-handling tests |
+| Packaging/release | packaging smoke, release gate, version/spec/asset checks |
+| Weak assertions | release gate and source-audit checks; acceptance tests assert persisted values/provenance rather than only non-crash |
 
-### 3.1 Atomic Import Tests
-- Verify that multi-table imports are atomic (all or nothing)
-- Verify rollback restores exact pre-import state
-- Verify no orphan child data after failed import
+## 4. Review/UI contract checks
 
-### 3.2 Engineering Core Tests
-- **Trajectory:** Single point, multi-point, validation (monotonic MD, inc range), projection
-- **Bit:** TFA from nozzles, HSI calculation
-- **BHA:** Cumulative length/weight, component validation
-- **Hydraulics:** Annular velocity, ECD, PV/YP from viscometer
-- **Well Control:** Kill MW, MAASP
-- **Operations:** ROP degradation detection, NPT threshold alerts
-- **Mud Ledger:** Closing stock calculation, alert generation
+`ReviewItem` preserves file, sheet/page, table/section, source cell and PDF
+coordinates, original/normalized values and units, target field, confidence,
+certainty, mapping method, validation/review state, decision, reason, and user
+correction. `ImportReviewMatrix.from_rows()` restores serialized rows.
 
-### 3.3 Permission Tests
-- Viewer role cannot delete
-- Engineer role cannot manage users
-- Permission enforcement on critical operations
+The preview supports accept-high, review-medium, reject-low, mapping edit,
+value edit, unit edit, and ignore. `apply_review_changes()` synchronizes those
+edits into the canonical scalar payload before `_do_import()`; a visual edit
+alone is not considered a successful test.
 
-### 3.4 Unit Preservation Tests
-- Original value is preserved after conversion
-- Canonical unit is correctly applied
-- Conversion rule is recorded
-- Failed conversions are flagged
+## 5. Environment and certification limits
 
-### 3.5 Time Log Validation Tests
-- Overlapping time entries are detected
-- Duration calculation is correct
-- 24-hour coverage is verified
-
----
-
-## 4. Missing Tests (Recommended Additions)
-
-### 4.1 Integration Tests
-- Full Excel → Import → Validate → Save → Display pipeline
-- Real-world Excel fixtures (merged cells, multi-row headers)
-- Import → Export → Compare roundtrip
-
-### 4.2 Database Tests
-- Session management under concurrent access
-- Backup and restore verification
-- Migration compatibility
-
-### 4.3 UI Tests
-- Tab switching with data preservation
-- SelectionManager signal propagation
-- Auto-save functionality
-
----
-
-## 5. Test Fixtures
-
-Currently, tests use in-memory SQLite databases and synthetic data. Future improvements should include:
-
-1. **Real Excel fixtures:** Representative drilling spreadsheets
-2. **Edge case fixtures:** Merged cells, hidden rows, formulas
-3. **Large dataset fixtures:** Performance testing with 1000+ rows
+The repository's Windows packaging is not certified on Linux. The user's
+Windows MinerU 3.4.5 installation and OEOC-201 files were not available here.
+Python 3.12 is not PASS unless the exact runtime executes the suite and real
+acceptance. Keep real documents, MinerU outputs, databases, and generated
+builds outside Git unless a fixture is intentionally required.

@@ -852,61 +852,14 @@ class ProfileImportEngine:
     # 3. ذخیره در دیتابیس
     # =====================================================================
     def import_to_db(self, extracted_data: Dict, well_id: int):
-        """داده‌های استخراج شده را مستقیم در دیتابیس ذخیره می‌کند."""
-        session = self.db.create_session()
-        from core.database import TimeLog24H, ServiceCompany
-        
-        try:
-            # 1. Well Info
-            wi = extracted_data["well_info"]
-            wi["id"] = well_id
-            self.db.save_well(wi)
-            
-            # 2. Daily Report
-            dr = extracted_data["daily_report"]
-            dr["well_id"] = well_id
-            report_date = wi.get("report_date") or date.today()
-            dr["report_date"] = report_date
-            
-            saved_report = self.db.save_daily_report(dr)
-            report_id = saved_report.get("id") if saved_report else None
-            
-            if not report_id:
-                raise Exception("Failed to save Daily Report base record.")
+        """Reject the retired direct-write API.
 
-            # 3. Mud Report
-            mr = extracted_data["mud_report"]
-            if mr:
-                mr["well_id"] = well_id
-                mr["report_id"] = report_id
-                mr["report_date"] = report_date
-                self.db.save_mud_report(mr)
-                
-            # 4. Time Logs
-            logs = extracted_data["time_logs_24h"]
-            if logs:
-                session.query(TimeLog24H).filter(TimeLog24H.report_id == report_id).delete()
-                for log in logs:
-                    if log["time_from"]: # فقط رکوردهای دارای زمان
-                        t = TimeLog24H(report_id=report_id, **log)
-                        session.add(t)
-                        
-            # 5. Service Companies
-            comps = extracted_data["service_companies"]
-            if comps:
-                for c in comps:
-                    c["well_id"] = well_id
-                    c["report_id"] = report_id
-                    self.db.save_service_company(c)
-            # 6. ذخیره‌سازی هم‌زمان برای تمامی تب‌های دیگر برنامه (Trajectory, Logistics, Casing, Safety, Cost)
-            self.db.save_imported_multi_tab_data(well_id, report_id, extracted_data)
-            
-            session.commit()
-            return True, report_id
-            
-        except Exception as e:
-            session.rollback()
-            logger.error(f"DB Import Error: {e}")
-            raise e
-        finally:
-            session.close()
+        Profile extraction is retained only for compatibility with callers
+        that explicitly request an analysis.  It is not a persistence path;
+        all production imports must pass the shared review and atomic save
+        boundary in ``ExcelImportDialog``.
+        """
+        raise RuntimeError(
+            "LEGACY_DIRECT_DB_IMPORT_DISABLED: use the canonical import review "
+            "and atomic persistence pipeline"
+        )

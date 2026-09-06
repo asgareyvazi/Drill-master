@@ -1,144 +1,70 @@
-# DrillMaster — AI Mapping Documentation
+# Optional AI mapping boundary
 
-> **Version:** 1.0 — Audit Baseline (2026-08-24)
+**Audit date:** 2026-09-06
 
----
+AI is advisory only. It is not a second import architecture, does not replace
+`ExcelIntelligence`, does not call MinerU, and never writes SQLite.
 
-## 1. Overview
+## Runtime position
 
-The AI mapping system assists in mapping Excel column headers to canonical drilling fields. It uses a local LLM (via Ollama) to provide semantic understanding of ambiguous or non-standard column names.
-
----
-
-## 2. Architecture
-
-```
-Excel Headers
-    │
-    ▼
-Deterministic Keyword Matching (SheetClassifier)
-    │
-    ▼ (if ambiguous)
-AIImportMapper
-    ├── Build compact context (title, headers, samples)
-    ├── Send to Ollama LLM
-    ├── Parse JSON response
-    ├── Validate against canonical schema
-    └── Return proposals with confidence scores
-    │
-    ▼
-Human Review (future)
-    │
-    ▼
-Canonical Schema → Unit Normalization → Database
+```text
+Excel common IR -> deterministic canonical mapping -> unresolved fields only
+                                               -> optional AIImportMapper
+                                               -> schema/type/confidence checks
+                                               -> ReviewItem (REVIEW)
+                                               -> user confirmation -> atomic save
 ```
 
----
+`SmartTemplateDialog._merge_ai_fallback()` is a legacy/manual UI helper. The
+universal import dialog does not invoke Smart Template for an automatic
+fallback. The shared canonical review/save boundary remains mandatory.
 
-## 3. AIImportMapper
+## Configuration
 
-**File:** `core/ai_import_mapper.py`
+| Setting | Environment variable | Actual behavior |
+| --- | --- | --- |
+| Enable | `DRILLMASTER_AI_IMPORT` | disabled unless explicitly enabled |
+| Model | `DRILLMASTER_AI_MODEL` | selected local model; no model is bundled |
+| Ollama URL | `DRILLMASTER_OLLAMA_URL` | local endpoint, default `http://127.0.0.1:11434` |
+| Timeout | `DRILLMASTER_AI_TIMEOUT` | bounded request; failure is review/unavailable |
 
-### 3.1 Configuration
+Capability checks distinguish disabled, service unavailable, model missing,
+invalid response, timeout, and worker error. No cloud fallback is assumed.
 
-| Setting | Env Variable | Default |
-|---------|-------------|---------|
-| Ollama URL | `DRILLMASTER_OLLAMA_URL` | `http://127.0.0.1:11434` |
-| Model | `DRILLMASTER_AI_MODEL` | `qwen2.5-local` |
-| Timeout | `DRILLMASTER_AI_TIMEOUT` | 30-45 seconds |
-| Enable | `DRILLMASTER_AI_IMPORT` | `1` (enabled) |
+## Proposal contract
 
-### 3.2 Prompt Structure
+A proposal must identify a canonical field, source sheet/row/column when known,
+the original value, a proposed value, and a confidence between 0 and 1. The
+field must exist in `FIELD_SPECS`; ambiguous or incomplete proposals are not
+accepted. Missing source coordinates remain `None`, not fabricated coordinates.
+Every AI proposal is low-authority and remains `REVIEW` until a user confirms
+it.
 
-```json
-{
-  "task": "Map workbook cells to canonical drilling fields.",
-  "rules": [
-    "Return JSON only: {proposals: []}.",
-    "Never invent values.",
-    "Keep source_sheet, source_row and source_column.",
-    "Return confidence between 0 and 1.",
-    "Use null when ambiguous."
-  ],
-  "allowed_fields": ["well_info.name", "mud_report.mw", ...],
-  "context": {
-    "sheets": [...],
-    "tables": [...]
-  }
-}
-```
+## Deterministic authority
 
-### 3.3 Proposal Format
+The authoritative path is contextual deterministic mapping:
 
-```json
-{
-  "field": "mud_report.mw",
-  "source_sheet": "Daily Report",
-  "source_row": 17,
-  "source_column": 8,
-  "value": 10.2,
-  "confidence": 0.96
-}
-```
+1. template preferred cell and structural evidence;
+2. contextual canonical alias/label lookup;
+3. typed `normalize_for_field` and field bounds;
+4. explicit `UnitManager` conversion only when a source unit is present;
+5. optional AI only for unresolved fields;
+6. review, then atomic persistence.
 
-### 3.4 Validation Rules
+The 523 alias entries are not globally unique: 37 normalized alias keys are
+shared by multiple fields. AI must not resolve these by string alone.
 
-A proposal is valid if:
-1. `field` is in the canonical schema
-2. `source_sheet` is not empty
-3. `source_row` is not null
-4. `value` is not null
-5. `confidence` is between 0 and 1
+## Failure and security rules
 
----
+AI failure never blocks a deterministic import and never creates defaults or
+zeros. Prompt context is bounded and excludes credentials. Requests use the
+configured local endpoint; callers must approve any data transfer. The model
+output is treated as untrusted text and validated against the canonical schema.
 
-## 4. Deterministic Fallback
+## Review/export
 
-When AI is unavailable, the system falls back to keyword-based matching:
-
-| Header Pattern | Mapped Field |
-|----------------|-------------|
-| MW, Mud Wt., Mud Weight, Density | mud_report.mw |
-| PV, Plastic Viscosity | mud_report.pv |
-| YP, Yield Point | mud_report.yp |
-| WOB, Weight on Bit | drilling_params.wob |
-| RPM, Rotary Speed | drilling_params.rpm |
-| ROP, Rate of Penetration | drilling_params.avg_rop |
-| MD, Measured Depth | survey.md |
-| Inc, Inclination | survey.inc |
-| Azi, Azimuth | survey.azi |
-| TVD, True Vertical Depth | survey.tvd |
-
----
-
-## 5. Current Limitations
-
-1. **No persistent mapping learning:** Each import starts fresh
-2. **No human review UI:** Low-confidence mappings are not presented for manual correction
-3. **No cloud AI fallback:** Only local Ollama is supported
-4. **Limited context window:** Large workbooks are truncated for the prompt
-5. **No multi-language support:** Headers must be in English
-
----
-
-## 6. Future Improvements
-
-### 6.1 Mapping Store
-**File:** `core/mapping_store.py` (exists, needs integration)
-
-Persist successful mappings so the same header pattern is automatically mapped in future imports.
-
-### 6.2 Confidence-Based Review
-- High confidence (>0.9): Auto-accept
-- Medium confidence (0.7-0.9): Present for review
-- Low confidence (<0.7): Require manual mapping
-
-### 6.3 Data Lineage
-Every imported value should store:
-- Source file name
-- Source sheet name
-- Source cell coordinates
-- Original header text
-- Mapping method (deterministic/AI)
-- Confidence score
-- Validation status
+AI source, confidence, proposed/original/normalized values, mapping method,
+validation state and user decision are represented in `ReviewItem`. The Qt
+preview supports mapping/value/unit editing; edits are synchronized to the
+serialized row and applied only after explicit confirmation. There is no claim
+that AI has been tested against the user's Windows runtime or Python 3.12.

@@ -1,86 +1,134 @@
-# DrillMaster import audit — 2026-09-06
+# DrillMaster import consistency audit — 2026-09-06
 
-## Scope and acceptance boundary
+## 1. Scope and exact acceptance boundary
 
-This audit covers the production daily-report import boundary on branch
-`arena/01a07094-drill-master`. The checkout contains and executes the real
-workbook `08-DDR OEOC-208 AZNS-207 2024-Oct-22.xlsx`; the reported
-OEOC-201 PDF/XLSX pair is not present in this checkout. Consequently the
-Excel route is real-document validated, while the reported PDF failure and a
-real MinerU 3.4.5 run remain pending on the user's Windows installation.
+Branch: `arena/01a07094-drill-master`
+Starting audited commit: `0025bdbdcaa862bab531421008f65419c0cb38af`
+Final SHA: fill from `git rev-parse HEAD` after the final commit.
+Working-tree/push result: fill from the final release command.
 
-## Canonical architecture
+This is a source and test-contract audit, not a claim that the user's Windows
+installation was run. The repository's OEOC-208 fixture exists, but the user
+OEOC-201 files and the Windows MinerU 3.4.5 environment are unavailable in this
+Linux sandbox. Python 3.12 was not executed.
 
-1. `core/import_router.py` is the single format router. Known structured XLSX
-   workbooks go directly to `ExcelIntelligence`; PDF and document-style inputs
-   use the external MinerU adapter, with the explicit PDF/unknown-XLSX
-   fallbacks retained.
-2. `core/import_ir.py` is the lossless common raw IR. It records source file,
-   sheet/page, row/column/cell, hidden/merged/formula state, table rows,
-   text blocks, and coordinates without mapping or coercion.
-3. Excel and MinerU adapt into this IR before canonical mapping. Canonical
-   aliases/types/criticality remain in `core/canonical_schema.py`.
-4. `core/value_normalizer.py` is the shared typed boundary for numbers,
-   integers, decimals, strings, dates, times, datetimes, durations, booleans,
-   enums, and engineering quantities. Unit conversion remains explicit in
-   `core/unit_manager.py`; no unit is inferred from an absent source token.
-5. `ImportReviewMatrix` and `ReviewItem` in `core/import_quality.py` are the
-   one review contract. Legacy `value`, `source_value`, and
-   `canonical_field` aliases are accepted and synchronized with
-   `original_value`, `normalized_value`, `target_field`, expected type,
-   status, confidence, reason, correction, and source location.
-6. Persistence is downstream of typed normalization. Malformed numeric text
-   is represented as `NULL` at the model boundary and its original token is
-   retained in review/source-token lineage; it is never converted to zero.
-   `DrillingParameters` now applies the same safe model coercion on insert and
-   update.
+## 2. Thirty-point final report
 
-## Reported failure regressions
+1. **Architecture:** The one supported automatic graph is `Excel -> extractor
+   -> common Import IR -> classification/mapping -> canonical schema -> shared
+   normalization -> explicit units -> validation -> review -> atomic DB`; PDF
+   enters through `MinerUAdapter` and then the same downstream graph.
+2. **Changed files:** `core/import_ir.py`, `core/excel_intelligence.py`,
+   `core/mineru_engine.py`, `core/import_quality.py`, `core/database.py`,
+   `core/profile_import_engine.py`, `dialogs/excel_import_dialog.py`,
+   `dialogs/smart_template_dialog.py`, `tests/test_ddr_acceptance.py`, and the
+   eight reconciled documentation files.
+3. **Discovery:** `core/import_router.py` is the universal format router;
+   `ExcelImportDialog._run_import_pipeline()` is the UI orchestrator;
+   `_do_import()` is the persistence boundary.
+4. **MinerU executable/version/Python:** source supports configured executable
+   or separately managed Python and official `--version`; no user executable
+   was available, so no version/runtime PASS is claimed.
+5. **API/CLI/command:** adapter command is an argument list equivalent to
+   `mineru -p INPUT -o OUTPUT -b BACKEND -m METHOD`, with `shell=False`;
+   actual configured path must be recorded during Windows acceptance.
+6. **Formats:** XLSX/XLSM known templates use Excel; PDF/document/image use
+   MinerU; CSV is conversion-only; legacy XLS and WITSML/LAS are unsupported or
+   placeholder paths.
+7. **Routing:** known template match precedes MinerU; MinerU success normalizes
+   directly; PDF fallback is explicit and can continue only into canonical Excel
+   template mapping.
+8. **Excel preservation:** IR keeps formulas, hidden/merged state, source
+   coordinates, headers/formal tables, original values and later normalized
+   state; cache construction now consumes IR.
+9. **PDF fallback:** Camelot/PyMuPDF/OCR remains a bounded legacy fallback,
+   not a MinerU PASS; it has weaker PDF-native provenance and stops if no
+   canonical template is available.
+10. **IR:** `RawDocument`, `RawTable`, `RawCell`, `SourceLocation` include and
+    round-trip file/page/sheet/table/row/column/cell, original/normalized
+    values, headers, section titles, units, coordinates, extraction method,
+    confidence, validation state, and review state.
+11. **Canonical mapping:** `FIELD_SPECS` is authoritative: 325 fields, 28
+    domains, 12 critical fields, 523 aliases; 37 normalized aliases are
+    context-ambiguous and are not treated as globally unique.
+12. **Provenance:** absent provenance remains `None`/unknown; no missing date,
+    unit, depth, MW, pressure, company, or drilling value is invented.
+13. **UI:** MinerU and fallback stage statuses are shown by the import dialog;
+    preview shows source/normalized/review information before save.
+14. **Errors:** source distinguishes invalid input, unsupported format,
+    unavailable executable/Python, process failure, timeout, missing/malformed
+    output, normalization/schema failure, review rejection, and DB failure.
+15. **Tests:** new env-gated acceptance tests are explicit; current sandbox
+    lacks pytest/openpyxl, so no full test count is claimed.
+16. **Validation:** schema bounds, typed normalizer, engineering checks,
+    duplicate/time-log checks, and model-boundary safe coercion remain in use.
+17. **Real integration:** no real OEOC-201 Excel or Windows MinerU/PDF run was
+    executed here; report **BLOCKED**, not PASS.
+18. **Python 3.12:** not executed; **BLOCKED**.
+19. **Conflicts:** removed the Excel IR/cache split, silent profile fallback,
+    direct profile DB method, and non-atomic database rescue loop.
+20. **Limitations:** legacy Smart Template/profile analysis remains for explicit
+    compatibility; no dedicated ReviewItem ORM table; PDF fallback is weaker.
+21. **SHA:** record exact final `git rev-parse HEAD` in this file/release report.
+22. **Push:** only `git push origin arena/01a07094-drill-master` is allowed;
+    record its result.
+23. **Working tree:** final merge gate requires `git status --short --branch` to
+    be clean after commit/push.
+24. **Database verification:** acceptance tests seed in-memory SQLite and call
+    `save_imported_multi_tab_data_atomic`; they assert zero failures and a
+    positive imported count.
+25. **Review:** acceptance tests round-trip `ReviewItem` rows and verify source,
+    original, normalized, target, decision, validation and review state.
+26. **Persistence:** no extractor or MinerU adapter writes SQLite; only the
+    reviewed canonical payload reaches the atomic boundary.
+27. **Security:** MinerU uses shell-free argument invocation, bounded timeout,
+    isolated output and no credentials; optional AI is disabled by default.
+28. **Packaging:** existing Windows PyInstaller/Inno definitions remain the
+    package path; Linux cannot certify PE/installer/clean-machine behavior.
+29. **Weak assertions:** acceptance tests assert canonical payload,
+    provenance, serialized IR, review rows, atomic persistence and the
+    `Drilling Data` regression—not merely process completion.
+30. **Merge readiness:** **BLOCKED** until dependency-backed tests, actual
+    Windows acceptance, exact SHA, push, and clean-tree evidence are recorded.
 
-- **Excel review crash:** fixed. The producer payload's `value`, `status`,
-  `reason`, and certainty metadata now satisfy the single `ReviewItem`
-  contract. A permanent regression covers this exact legacy payload shape.
-- **MinerU `Drilling Data` numeric conversion:** fixed defensively. Titles and
-  repeated headers are classified before row mapping; unsafe numeric values
-  become `NULL` plus a review item containing original value, expected type,
-  and page/row/column provenance. A permanent Markdown fixture reproduces
-  `Drilling Data` in a drilling-parameter numeric cell and proves it cannot
-  reach a numeric database value.
+## 3. Entry-point matrix
 
-## Preservation and error behavior
+The complete matrix is maintained in [`IMPORT_PIPELINE.md`](../IMPORT_PIPELINE.md).
+The important source classifications are:
 
-Merged cells, hidden rows/columns, formula text, Excel date/time/timedelta
-values, multi-row/side-by-side table records, repeated headers, notes,
-footers, and placeholder rows are retained or classified in the common IR.
-Safe rows continue when an individual cell requires review. Fatal structural
-validation still stops the import boundary and the existing snapshot/rollback
-path prevents partial report persistence. MinerU remains an optional,
-subprocess-only external process with executable discovery, version/health
-checking, timeout, output validation, per-file batch isolation, and no SQLite
-access.
+- Excel: `ExcelIntelligence` -> common IR -> canonical mapping -> review;
+- PDF: MinerU adapter -> common IR -> `DocumentNormalizer` -> review;
+- CSV/document conversion: conversion helper only, no direct DB write;
+- Smart/profile/universal legacy utilities: not automatic canonical persistence;
+- WITSML/LAS/XLS: unsupported/placeholder;
+- review/dialog/service: `ReviewItem` and `_do_import` are the shared boundary.
 
-## Validation status
+## 4. ReviewItem end-to-end audit
 
-The temporary test environment used DrillMaster dependencies but did **not**
-install or copy MinerU. Results:
+`ReviewItem` now exposes a stable dataclass contract and `to_dict()` /
+`from_dict()` methods. `ImportReviewMatrix` restores rows and exports typed
+rows. The preview binds payload rows to UI rows, applies mapping/value/unit
+edits, records decisions, and applies confirmed scalar changes to the canonical
+payload before `_do_import()`. Rejected/ignored scalar fields are removed
+rather than replaced with empty or zero values. Review rows are included in
+import reports and professional exports; they are not stored in a separate ORM
+review table.
 
-- `python -m compileall ...`: passed.
-- `pytest -q`: **494 passed, 5 skipped, 4 warnings**.
-- `python verify_release.py`: passed with the same full-suite count.
-- `tools/static_audit.py`: completed informational audit; it reports existing
-  legacy counts (94 wildcard imports, 45 bare except handlers, 141 duplicate
-  method names) and does not fail the build.
-- Real Excel: the repository's real OEOC-208 workbook regression suite passed.
-- Real reported PDF/XLSX pair: unavailable here; not claimed as executed.
-- Real MinerU 3.4.5, the user's Windows executable/environment, and Python
-  3.12 compatibility: not executable from this Linux checkout; not claimed as
-  PASS.
+## 5. Test and evidence status
 
-## Remaining limitations
+Executed in this sandbox:
 
-The reported OEOC-201 documents and the user's separately managed MinerU
-installation must still be run end-to-end by the user. That run must capture
-the official command, executable/version, Python runtime, generated Markdown/
-JSON/assets, table classification, review matrix, normalized canonical data,
-unit lineage, and database result. Existing informational legacy static-audit
-findings and five environment-gated skips are not import-data failures.
+- `python -m compileall -q core dialogs tests/test_ddr_acceptance.py`: PASS.
+- pure-Python IR/review serialization smoke check: PASS.
+- `git diff --check`: PASS at audit time.
+
+Not executable here:
+
+- `pytest`: command unavailable.
+- `openpyxl`-dependent Excel extraction: dependency unavailable.
+- real OEOC-201 Excel: unavailable.
+- Windows MinerU 3.4.5/PDF: unavailable.
+- Python 3.12 and Windows packaging: unavailable.
+
+The final report must not claim the prior repository snapshot's historical test
+counts as evidence for this changed tree.

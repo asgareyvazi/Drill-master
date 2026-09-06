@@ -229,6 +229,7 @@ class Provenance:
     bounding_box: Optional[tuple[float, ...]] = None
     extraction_method: str = "mineru"
     confidence: Optional[float] = None
+    source_table: Optional[str] = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -240,6 +241,7 @@ class Provenance:
             "bounding_box": list(self.bounding_box) if self.bounding_box else None,
             "extraction_method": self.extraction_method,
             "confidence": self.confidence,
+            "source_table": self.source_table,
         }
 
 
@@ -962,12 +964,44 @@ class NormalizedDocument:
             "warnings": self.warnings,
             "validation_errors": self.validation.errors,
             "mineru_provenance": self.provenance,
-            "raw_ir": self.raw_document.to_dict() if self.raw_document is not None else None,
+            "raw_ir": self.raw_document.to_dict(include_cells=True) if self.raw_document is not None else None,
         }
 
 
 class DocumentNormalizer:
     """Map only unambiguous MinerU items to the existing canonical schema."""
+
+    @staticmethod
+    def _update_raw_cell_state(raw_document, table_index: int, row_number: int,
+                               column_index: int, normalized_value: Any,
+                               field_path: Optional[str], normalization: Any,
+                               review: bool = False) -> None:
+        """Carry normalization/validation/review state back into the IR."""
+        if raw_document is None or table_index >= len(raw_document.tables):
+            return
+        table = raw_document.tables[table_index]
+        if row_number <= 0 or row_number > len(table.rows):
+            return
+        row = table.rows[row_number - 1]
+        if column_index <= 0 or column_index > len(row):
+            return
+        cell = row[column_index - 1]
+        cell.normalized_value = normalized_value
+        spec = FIELD_SPECS.get(field_path) if field_path else None
+        cell.normalized_unit = spec.unit if spec is not None else None
+        cell.validation_state = (
+            "valid" if normalization is None or getattr(normalization, "ok", False)
+            else "needs_review"
+        )
+        cell.review_state = "review" if review or cell.validation_state != "valid" else "accepted"
+        if review:
+            table.review_state = "review"
+
+    @staticmethod
+    def _table_source(provenance: Provenance, table: DocumentTable) -> dict[str, Any]:
+        source = provenance.to_dict()
+        source["source_table"] = table.name or None
+        return source
 
     TABLE_KEY_MAP = {
         "time_log": "time_logs_24h",
@@ -1014,7 +1048,7 @@ class DocumentNormalizer:
                         {
                             "level": "review",
                             "message": f"No unambiguous canonical field for table column '{header}'.",
-                            "source": table.provenance.to_dict(),
+                            "source": self._table_source(table.provenance, table),
                         }
                     )
             storage_key = self._storage_key(table_context, table_fields)
@@ -1037,6 +1071,7 @@ class DocumentNormalizer:
                                     table.provenance.bounding_box,
                                     table.provenance.extraction_method,
                                     table.provenance.confidence,
+                                    source_table=table.name,
                                 ).to_dict(),
                             }
                         )
@@ -1076,9 +1111,18 @@ class DocumentNormalizer:
                                             table.provenance.bounding_box,
                                             table.provenance.extraction_method,
                                             table.provenance.confidence,
+                                            source_table=table.name,
                                         ).to_dict(),
                                     }
                                 )
+                        self._update_raw_cell_state(
+                            raw_document, table_index, row_number, index + 1,
+                            normalized_value, field_path, normalization,
+                            review=bool(
+                                normalization is not None
+                                and (normalization.needs_review or normalization.missing)
+                            ),
+                        )
                         short_key = field_path.rsplit(".", 1)[-1]
                         record[short_key] = normalized_value
                         fields_extracted += 1
@@ -1091,6 +1135,7 @@ class DocumentNormalizer:
                             bounding_box=table.provenance.bounding_box,
                             extraction_method=table.provenance.extraction_method,
                             confidence=table.provenance.confidence,
+                            source_table=table.name,
                         ).to_dict()
                         provenance.append(
                             {
@@ -1122,7 +1167,7 @@ class DocumentNormalizer:
                             {
                                 "level": "review",
                                 "message": f"Duplicate canonical section {storage_key}; table values were not selected.",
-                                "source": table.provenance.to_dict(),
+                                "source": self._table_source(table.provenance, table),
                             }
                         )
                 elif table_records:

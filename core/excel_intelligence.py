@@ -53,6 +53,11 @@ class Candidate:
     raw_score: float = 0.0  # base score before normalization
     final_score: float = 0.0  # normalized 0-1
     reason: str = ""
+    original_value: Any = None
+
+    def __post_init__(self):
+        if self.original_value is None:
+            self.original_value = self.value
 
 
 @dataclass
@@ -75,11 +80,15 @@ class ExtractionResult:
     data_type: str = ""
     canonical_unit: str = ""
     engineering_bounds: tuple = (None, None)
+    original_value: Any = None
+    normalized_value: Any = None
 
     def to_dict(self) -> dict:
         return {
             "field": self.canonical_field,
             "value": self.value,
+            "original_value": self.original_value,
+            "normalized_value": self.normalized_value if self.normalized_value is not None else self.value,
             "status": self.status,
             "confidence": round(self.confidence, 2),
             "certainty": self.certainty,
@@ -204,6 +213,37 @@ class MergeCellAnalyzer:
                         )
         except Exception as e:
             logger.debug(f"Merge cell analysis error: {e}")
+
+    @classmethod
+    def from_raw_cells(cls, raw_cells, sheet: str = ""):
+        """Build merge lookup from the common IR, not from openpyxl."""
+        analyzer = cls.__new__(cls)
+        analyzer._merge_map = {}
+        cells = {
+            (cell.location.row, cell.location.column): cell
+            for cell in raw_cells
+            if cell.location.sheet == sheet
+            and cell.location.row is not None
+            and isinstance(cell.location.column, int)
+        }
+        for key, cell in cells.items():
+            if not cell.merged or not cell.merge_anchor:
+                continue
+            anchor = next(
+                (
+                    candidate for candidate in cells.values()
+                    if candidate.location.cell == cell.merge_anchor
+                ),
+                None,
+            )
+            if anchor is None:
+                continue
+            analyzer._merge_map[key] = (
+                anchor.location.row,
+                anchor.location.column,
+                anchor.value,
+            )
+        return analyzer
 
     def get_value(self, row: int, col: int) -> Tuple[Any, bool]:
         key = (row, col)
@@ -649,8 +689,8 @@ class FieldExtractor:
         # Select best candidate
         if not candidates:
             return ExtractionResult(
-                canonical_field=canonical, value=None, status="UNRESOLVED",
-                confidence=0.0, certainty="LOW", source="not_found",
+                canonical_field=canonical, value=None, original_value=None, normalized_value=None,
+                status="UNRESOLVED", confidence=0.0, certainty="LOW", source="not_found",
                 reason=f"Field '{field_name}' not found by any strategy",
                 data_type=spec.quantity if spec else "text",
                 canonical_unit=spec.unit if spec else "",
@@ -683,6 +723,8 @@ class FieldExtractor:
         return ExtractionResult(
             canonical_field=canonical,
             value=best.value,
+            original_value=best.original_value,
+            normalized_value=best.value,
             status=status,
             confidence=best.final_score,
             certainty=mapping_certainty(best.final_score, method=best.source),
@@ -1026,17 +1068,35 @@ class ExcelIntelligence:
         self._build_cache()
 
     def _build_cache(self):
-        for ws in self.workbook.worksheets:
-            if ws.sheet_state != 'visible' and ws.title.lower() == 'setting':
+        """Build all mapping indexes from the common raw IR.
+
+        The workbook is adapted once in ``__init__``.  Reading worksheet cells
+        again here would create a second extraction architecture and could
+        disagree on formulas, merges, or provenance.
+        """
+        by_sheet: Dict[str, List[Any]] = {}
+        for raw_cell in self.raw_document.cells:
+            sheet = raw_cell.location.sheet
+            if not sheet:
                 continue
-            cells = {}
-            for row in ws.iter_rows():
-                for cell in row:
-                    if cell.value is not None and str(cell.value).strip():
-                        cells[(cell.row, cell.column)] = cell.value
-            self.cell_cache[ws.title] = cells
-            self.merge_analyzers[ws.title] = MergeCellAnalyzer(ws)
-            self.label_detectors[ws.title] = LabelDetector(cells)
+            by_sheet.setdefault(sheet, []).append(raw_cell)
+
+        for sheet, raw_cells in by_sheet.items():
+            if sheet.lower() == "setting":
+                continue
+            cells = {
+                (raw_cell.location.row, raw_cell.location.column): raw_cell.value
+                for raw_cell in raw_cells
+                if raw_cell.location.row is not None
+                and isinstance(raw_cell.location.column, int)
+                and raw_cell.value is not None
+                and str(raw_cell.value).strip()
+            }
+            self.cell_cache[sheet] = cells
+            self.merge_analyzers[sheet] = MergeCellAnalyzer.from_raw_cells(
+                self.raw_document.cells, sheet
+            )
+            self.label_detectors[sheet] = LabelDetector(cells)
 
     # Quantities that must hold numeric values. Non-numeric source tokens
     # (e.g. "N.C") are converted to NULL and preserved as provenance.
@@ -1278,7 +1338,7 @@ class ExcelIntelligence:
         section, key = canonical_path.split(".", 1)
         spec = FIELD_SPECS.get(canonical_path)
         value = result.value
-        original_value = value
+        original_value = result.original_value if result.original_value is not None else value
         if spec is not None:
             normalization = normalize_for_field(value, spec)
             if normalization.missing:
@@ -1324,6 +1384,27 @@ class ExcelIntelligence:
                 value = None
                 canonical.setdefault(section, {})[key + "_source"] = token
         canonical.setdefault(section, {})[key] = value
+
+        # Keep the common IR synchronized with the mapping result.  The
+        # source token remains in ``original_value``; only the explicit
+        # normalized/state fields are changed.
+        for raw_cell in report.raw_document.cells if report.raw_document is not None else ():
+            if (
+                raw_cell.location.sheet == actual_sheet
+                and raw_cell.location.cell == result.cell
+            ):
+                raw_cell.normalized_value = value
+                raw_cell.normalized_unit = spec.unit if spec is not None else None
+                raw_cell.confidence = result.confidence
+                raw_cell.validation_state = (
+                    "valid" if not result.validation or result.validation == "valid"
+                    else "needs_review"
+                )
+                raw_cell.review_state = (
+                    "accepted" if result.status == "OK" and raw_cell.validation_state == "valid"
+                    else "review"
+                )
+                break
 
     @staticmethod
     def _normalize_table_records(records: List[Dict], storage_key: str) -> List[Dict]:

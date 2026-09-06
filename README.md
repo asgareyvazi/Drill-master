@@ -130,6 +130,40 @@ Ollama access and data-transfer approval. MinerU, `magic-pdf`, Camelot, OCR,
 packages are listed in `requirements-optional.txt` and must be installed and
 licensed separately.
 
+## Import architecture and acceptance status
+
+The supported import graph is exactly:
+
+```text
+Excel -> extractor -> common Import IR -> canonical mapping
+      -> shared typed normalization -> explicit unit conversion
+      -> validation -> ReviewItem preview -> atomic persistence
+PDF/document/image -> external MinerU adapter -> same downstream path
+```
+
+`core/import_ir.py` is lossless and preserves source file/page/sheet/table,
+row/column/cell, headers, section titles, source units when supplied,
+coordinates, original/normalized values, extraction method, confidence,
+validation state, and review state. `ExcelIntelligence` maps from that IR; it
+does not reread the workbook as a competing extractor. MinerU remains an
+external, separately managed installation: DrillMaster neither reinstalls it
+nor merges its Python environment with the application runtime.
+
+The canonical schema currently has 325 fields in 28 domains, 12 critical
+fields, and 523 alias entries. Thirty-seven normalized aliases are ambiguous
+without field context. Missing values/provenance remain NULL/unknown; low
+confidence and ambiguity remain review items; no defaults or zeros are
+invented. `ProfileImportEngine` direct DB writes and its Smart Template silent
+fallback are disabled. CSV/PDF conversion helpers, WITSML placeholders,
+legacy XLS, and the Smart Template manual UI are explicitly bounded legacy or
+unsupported routes; they are not alternate automatic persistence architectures.
+
+Real-document certification is environment-gated. Set
+`DRILLMASTER_TEST_DDR_XLSX` and `DRILLMASTER_TEST_DDR_PDF` to run the real DDR
+acceptance tests. They skip explicitly when paths or MinerU are unavailable.
+The user's OEOC-201 Excel and Windows MinerU/PDF were not available in this
+Linux checkout, so Windows acceptance is **BLOCKED**, not PASS.
+
 ## Engineering and import limitations
 
 - Anti-Collision remains **PARTIAL / SCREENING** and must not be represented as

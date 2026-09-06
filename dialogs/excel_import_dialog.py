@@ -45,9 +45,7 @@ from core.mineru_engine import (
     MinerUParseResult,
 )
 from core.unit_manager import UnitManager
-from dialogs.smart_template_dialog import (
-    SmartTemplateDialog, ValueNormalizer, FIELD_LABELS,
-)
+from dialogs.smart_template_dialog import ValueNormalizer, FIELD_LABELS
 
 logger = logging.getLogger(__name__)
 
@@ -116,7 +114,9 @@ class ImportPreviewDialog(QDialog):
         self.table.setSortingEnabled(True)
         self.table.horizontalHeader().setStretchLastSection(True)
 
-        # Populate from review matrix
+        # Keep the serialized rows tied to their UI rows so edits and
+        # decisions reach the canonical payload, not just the visual table.
+        self._row_payloads = []
         for item in report.get("review", []):
             row = self.table.rowCount()
             self.table.insertRow(row)
@@ -148,6 +148,9 @@ class ImportPreviewDialog(QDialog):
                 except Exception:
                     pass
                 self.table.setItem(row, col, it)
+            if self.table.item(row, 0) is not None:
+                self.table.item(row, 0).setData(Qt.UserRole, item)
+            self._row_payloads.append(item)
 
         # Add issues as rows too
         for issue in report.get("issues", [])[:30]:
@@ -169,6 +172,7 @@ class ImportPreviewDialog(QDialog):
                 it = QTableWidgetItem(str(val))
                 it.setBackground(QColor("#fadbd8"))
                 self.table.setItem(row, col, it)
+            self._row_payloads.append(None)
 
         self.table.resizeColumnsToContents()
         layout.addWidget(self.table, 1)
@@ -234,9 +238,28 @@ class ImportPreviewDialog(QDialog):
                 conf_str = conf_item.text().replace("%", "")
                 conf = float(conf_str) / 100 if conf_str else 0
                 if conf >= 0.95:
-                    self.table.setItem(row, 9, QTableWidgetItem("ACCEPT"))
+                    self._set_decision(row, "ACCEPT")
             except Exception:
                 pass
+
+    def _payload_for_row(self, row: int):
+        item = self.table.item(row, 0)
+        payload = item.data(Qt.UserRole) if item is not None else None
+        if isinstance(payload, dict):
+            return payload
+        return self._row_payloads[row] if 0 <= row < len(self._row_payloads) else None
+
+    def _set_decision(self, row: int, decision: str) -> None:
+        self.table.setItem(row, 9, QTableWidgetItem(decision))
+        payload = self._payload_for_row(row)
+        if payload is not None:
+
+            payload["decision"] = decision
+            payload["review_state"] = (
+                "accepted" if decision in {"ACCEPT", "CONFIRMED"}
+                else "rejected" if decision in {"REJECT", "IGNORED"}
+                else "unreviewed"
+            )
 
     def _filter_medium(self):
         for row in range(self.table.rowCount()):
@@ -260,7 +283,7 @@ class ImportPreviewDialog(QDialog):
                 conf_str = conf_item.text().replace("%", "")
                 conf = float(conf_str) / 100 if conf_str else 0
                 if conf < 0.70:
-                    self.table.setItem(row, 9, QTableWidgetItem("REJECT"))
+                    self._set_decision(row, "REJECT")
             except Exception:
                 pass
 
@@ -273,9 +296,11 @@ class ImportPreviewDialog(QDialog):
         new_field, ok = QInputDialog.getText(self, "Edit Mapping", f"Target field (current: {current}):", text=current)
         if ok and new_field:
             self.table.setItem(row, 7, QTableWidgetItem(new_field))
-            self.table.setItem(row, 9, QTableWidgetItem("CONFIRMED"))
-            # Update extracted if possible
-            # For simplicity, we store edit in table only; _do_import will read decision
+            payload = self._payload_for_row(row)
+            if payload is not None:
+                payload["target_field"] = new_field
+                payload["canonical_field"] = new_field
+            self._set_decision(row, "CONFIRMED")
 
     def _edit_value(self):
         row = self.table.currentRow()
@@ -286,7 +311,12 @@ class ImportPreviewDialog(QDialog):
         new_val, ok = QInputDialog.getText(self, "Edit Value", "Normalized value:", text=current)
         if ok:
             self.table.setItem(row, 5, QTableWidgetItem(new_val))
-            self.table.setItem(row, 9, QTableWidgetItem("CONFIRMED"))
+            payload = self._payload_for_row(row)
+            if payload is not None:
+                payload["normalized_value"] = new_val
+                payload["value"] = new_val
+                payload["proposed_value"] = new_val
+            self._set_decision(row, "CONFIRMED")
 
     def _edit_unit(self):
         row = self.table.currentRow()
@@ -297,7 +327,10 @@ class ImportPreviewDialog(QDialog):
         new_unit, ok = QInputDialog.getText(self, "Edit Unit", "Unit:", text=current)
         if ok:
             self.table.setItem(row, 6, QTableWidgetItem(new_unit))
-            self.table.setItem(row, 9, QTableWidgetItem("CONFIRMED"))
+            payload = self._payload_for_row(row)
+            if payload is not None:
+                payload["unit"] = new_unit
+            self._set_decision(row, "CONFIRMED")
             # Try to re-normalize with UnitManager
             try:
                 orig_item = self.table.item(row, 4)
@@ -323,6 +356,11 @@ class ImportPreviewDialog(QDialog):
                     converted = UnitManager.convert(num_val, quantity, src_unit or current, new_unit)
                     if converted is not None:
                         self.table.setItem(row, 5, QTableWidgetItem(str(converted)))
+                        payload = self._payload_for_row(row)
+                        if payload is not None:
+                            payload["normalized_value"] = converted
+                            payload["value"] = converted
+                            payload["proposed_value"] = converted
             except Exception as exc:
                 logger.debug(f"Unit re-normalize failed: {exc}")
 
@@ -331,7 +369,7 @@ class ImportPreviewDialog(QDialog):
         if row < 0:
             QMessageBox.warning(self, "No selection", "Select a row first")
             return
-        self.table.setItem(row, 9, QTableWidgetItem("IGNORED"))
+        self._set_decision(row, "IGNORED")
 
     def _confirm(self):
         # Check if any critical errors remain
@@ -350,12 +388,58 @@ class ImportPreviewDialog(QDialog):
         self.accept()
 
     def get_decisions(self) -> Dict[int, str]:
-        """Return row index -> decision mapping."""
+        """Return decisions and synchronize every edited ReviewItem row."""
         decisions = {}
         for row in range(self.table.rowCount()):
             dec_item = self.table.item(row, 9)
-            decisions[row] = dec_item.text() if dec_item else "REVIEW"
+            decision = dec_item.text() if dec_item else "REVIEW"
+            decisions[row] = decision
+            payload = self._payload_for_row(row)
+            if payload is None:
+                continue
+            payload["decision"] = decision
+            payload["target_field"] = self.table.item(row, 7).text() if self.table.item(row, 7) else payload.get("target_field", "")
+            payload["canonical_field"] = payload.get("target_field", payload.get("canonical_field", ""))
+            payload["unit"] = self.table.item(row, 6).text() if self.table.item(row, 6) else payload.get("unit", "")
+            normalized = self.table.item(row, 5).text() if self.table.item(row, 5) else ""
+            payload["normalized_value"] = normalized
+            payload["value"] = normalized
+            payload["proposed_value"] = normalized
+            payload["review_state"] = (
+                "accepted" if decision in {"ACCEPT", "CONFIRMED"}
+                else "rejected" if decision in {"REJECT", "IGNORED"}
+                else "unreviewed"
+            )
         return decisions
+
+    def apply_review_changes(self, extracted: dict) -> dict:
+        """Apply confirmed scalar edits/rejections to the canonical payload.
+
+        Row-oriented edits remain in the review export for manual handling;
+        scalar canonical fields can be safely applied by their dotted path.
+        """
+        self.get_decisions()
+        for payload in self._row_payloads:
+            if not payload:
+                continue
+            field_path = payload.get("target_field") or payload.get("canonical_field") or ""
+            if "." not in field_path:
+                continue
+            section, key = field_path.split(".", 1)
+            section_data = extracted.setdefault(section, {})
+            decision = str(payload.get("decision", "REVIEW")).upper()
+            if decision in {"REJECT", "IGNORED"}:
+                section_data.pop(key, None)
+                section_data.pop(f"{key}_source", None)
+                continue
+            if decision not in {"ACCEPT", "CONFIRMED"}:
+                continue
+            normalized = payload.get("normalized_value", payload.get("value"))
+            # Empty UI text is not a value.  Keep the original canonical state
+            # rather than inventing an empty string.
+            if normalized not in (None, ""):
+                section_data[key] = normalized
+        return extracted
 
 
 class ExcelImportDialog(QDialog):
@@ -545,20 +629,27 @@ class ExcelImportDialog(QDialog):
             )
             review_rows.append(
                 {
-                    "sheet": source.get("source_sheet", "") or source.get("source_page", ""),
+                    "file": Path(source).name,
+                    "sheet": source.get("source_sheet", ""),
+                    "page": source.get("source_page"),
                     "row": source.get("source_row", 0) or 0,
                     "column": source.get("source_column", ""),
                     "detected_table": "MinerU document",
+                    "source_table": source.get("source_table", ""),
                     "source_cell": location,
+                    "coordinates": source.get("bounding_box"),
+                    "extraction_method": source.get("extraction_method", ""),
                     "original_value": warning.get("value", ""),
                     "normalized_value": warning.get("normalized_value"),
                     "value": warning.get("normalized_value"),
                     "target_field": warning.get("field", ""),
                     "canonical_field": warning.get("field", ""),
                     "expected_type": warning.get("expected_type", ""),
-                    "confidence": 0.0,
+                    "confidence": source.get("confidence"),
                     "decision": "REVIEW",
                     "status": "REVIEW_REQUIRED",
+                    "validation_state": "needs_review",
+                    "review_state": "unreviewed",
                     "reason": warning.get("message", "Review required"),
                     "mapping_method": "MinerU document normalization",
                 }
@@ -573,7 +664,7 @@ class ExcelImportDialog(QDialog):
             "warnings": normalized.warnings,
             "review_matrix": review_rows,
             "mineru_provenance": normalized.provenance,
-            "raw_ir": normalized.raw_document.to_dict() if normalized.raw_document is not None else None,
+            "raw_ir": normalized.raw_document.to_dict(include_cells=True) if normalized.raw_document is not None else None,
             "output_files": parse_result.document.raw_files,
         }
         logger.info(
@@ -638,7 +729,14 @@ class ExcelImportDialog(QDialog):
                 # openpyxl -> ExcelIntelligence -> canonical JSON.  The legacy
                 # SmartTemplate dialog is not run first and cannot overwrite
                 # or compete with this result.
-                if extracted is None and route.engine == "excel_intelligence":
+                if extracted is None and (
+                    route.engine == "excel_intelligence"
+                    or (
+                        route.engine == "mineru"
+                        and route.fallback_engine == "pdf_fallback"
+                        and path != source
+                    )
+                ):
                     from openpyxl import load_workbook
                     from core.excel_intelligence import ExcelIntelligence
                     workbook = load_workbook(path, data_only=False, read_only=False)
@@ -676,7 +774,7 @@ class ExcelImportDialog(QDialog):
                             "template_version": rep.template_version,
                             "review_matrix": review_rows,
                             "source_tokens": rep.source_tokens,
-                            "raw_ir": rep.raw_document.to_dict() if rep.raw_document is not None else None,
+                            "raw_ir": rep.raw_document.to_dict(include_cells=True) if rep.raw_document is not None else None,
                         }
                     finally:
                         workbook.close()
@@ -692,73 +790,18 @@ class ExcelImportDialog(QDialog):
                     elif path.lower().endswith(".xls"):
                         raise ValueError("Legacy .xls requires conversion to .xlsx before import")
 
-                    # Existing Excel/smart-template path; known structured
-                    # workbooks remain on Excel Intelligence and never invoke
-                    # MinerU first.
-                    dialog = SmartTemplateDialog(self.db, self.well_id, None, preload_file=path)
-                    QApplication.processEvents()
-                    dialog._smart_auto_detect()
-                    extracted = dialog._build_final_data_from_assignments()
-
-                    if dialog.wb is not None:
-                        template = self._auto_match_template(
-                            [ws.title for ws in dialog.wb.worksheets]
+                    # A converter or a MinerU failure is not permission to
+                    # enter the retired heuristic/profile importer.  Without
+                    # a canonical template there is no safe mapping contract.
+                    if route.engine in {"csv", "mineru"}:
+                        raise ValueError(
+                            "No canonical template was available after the "
+                            f"{route.engine} fallback; import stopped before persistence"
                         )
-                        if template:
-                            try:
-                                from core.excel_intelligence import ExcelIntelligence
-                                rep = ExcelIntelligence(dialog.wb, template).extract()
-                                extracted = dict(rep.canonical_json)
-                                review_rows = [
-                                    {
-                                        "sheet": r.sheet,
-                                        "row": r.row,
-                                        "column": r.col,
-                                        "detected_table": "scalar",
-                                        "source_cell": r.cell,
-                                        "original_value": (
-                                            rep.source_tokens.get(r.canonical_field, {}).get("original_value", r.value)
-                                            if r.status in ("REVIEW_REQUIRED", "CONFLICT", "INVALID")
-                                            else r.original_label
-                                        ),
-                                        "normalized_value": (
-                                            None if r.canonical_field in rep.source_tokens else r.value
-                                        ),
-                                        "value": (
-                                            None if r.canonical_field in rep.source_tokens else r.value
-                                        ),
-                                        "unit": r.canonical_unit,
-                                        "target_field": r.canonical_field,
-                                        "canonical_field": r.canonical_field,
-                                        "confidence": r.confidence,
-                                        "certainty": r.certainty,
-                                        "status": r.status,
-                                        "expected_type": rep.source_tokens.get(r.canonical_field, {}).get("expected_type", r.data_type),
-                                        "decision": (
-                                            "REVIEW"
-                                            if r.status in (
-                                                "REVIEW_REQUIRED", "CONFLICT",
-                                            ) else "ACCEPT"
-                                        ),
-                                        "reason": r.reason,
-                                    }
-                                    for r in rep.field_results
-                                    if r.status != "OK" or r.certainty == "LOW"
-                                ]
-                                extracted["metadata"] = {
-                                    "template": template.get("name", ""),
-                                    "template_version": rep.template_version,
-                                    "review_matrix": review_rows,
-                                    "source_tokens": rep.source_tokens,
-                                    "raw_ir": rep.raw_document.to_dict() if rep.raw_document is not None else None,
-                                }
-                            except Exception as tmpl_exc:
-                                logger.error(
-                                    f"Template engine failed for {os.path.basename(path)}: "
-                                    f"{tmpl_exc}; falling back to smart detection",
-                                    exc_info=True,
-                                )
-                                extracted = dialog._build_final_data_from_assignments()
+
+                    # No heuristic/profile importer is reachable from the
+                    # universal route.  Every successful branch above has
+                    # already produced the canonical payload.
 
                 # Existing quality and time-log validation remains the source
                 # of truth for the database import boundary.
@@ -835,7 +878,9 @@ class ExcelImportDialog(QDialog):
                         dialog.deleteLater()
                     continue
 
-                preview.get_decisions()  # decisions remain in the audit report
+                preview.apply_review_changes(extracted)
+                # Decisions and edits are now part of the audit payload and
+                # the exact canonical object sent to the atomic save boundary.
                 self.import_status.setText(f"Importing {os.path.basename(source)} - Atomic transaction...")
                 result = self._do_import(extracted, refresh_ui=False)
                 result["file"] = source

@@ -1,431 +1,109 @@
-# DrillMaster — Import Pipeline Documentation
+# Import pipeline and entry-point matrix
 
-> **Version:** 1.1 — Import contract audit (2026-09-06)
+**Audit date:** 2026-09-06
+**Canonical persistence boundary:** `ExcelImportDialog._do_import()` plus
+`DatabaseManager.save_imported_multi_tab_data_atomic()`.
 
-> The permanent status and limitations for the current repair are recorded in
-> [`docs/IMPORT_AUDIT_2026-09.md`](docs/IMPORT_AUDIT_2026-09.md). This document
-> describes the route and remains the operational reference.
-
----
-
-## 0. One route, one raw contract, one review contract
-
-`core/import_router.py` selects the engine. A known structured workbook takes
-`openpyxl -> ExcelIntelligence`; document-style files take the external
-MinerU adapter; explicit fallbacks are only used after a primary-engine
-failure. Both primary engines adapt source material to `core/import_ir.py`
-before canonical mapping. `core/value_normalizer.py` performs deterministic
-loss-averse typing, while `core/unit_manager.py` performs explicit unit
-conversion. `core/import_quality.py:ReviewItem` is the shared review and
-lineage contract; legacy `value`/`source_value` aliases are normalized there,
-not removed from producers.
-
-A malformed numeric token (including a title such as `Drilling Data`) is
-stored as `NULL` at the typed/database boundary and retained as an original
-source token with expected type and location for review. It is never invented
-as zero. A missing source unit, date component, depth, pressure, mud weight,
-or company attribute remains unknown.
-
-## 1. Pipeline Overview
-
-The import pipeline transforms raw Excel/PDF files into validated, normalized data stored in the database. It is designed to handle real-world drilling spreadsheets with irregular layouts, merged cells, multi-row headers, and inconsistent naming.
-
-```
-Excel/PDF → Scan → Classify → Map → Normalize → Validate → Review → Commit
-```
-
----
-
-## 2. Stage 1: Workbook Scanning
-
-**File:** `core/universal_import.py` — `WorkbookScanner`
-
-### 2.1 File-Level Metadata
-- File name, size, type (.xlsx, .xls)
-- Sheet count, hidden sheets
-- Total merged ranges, total formula count
-- Overall density (non-empty / total cells)
-
-### 2.2 Sheet-Level Analysis
-For each sheet:
-- Row count, column count
-- Hidden state
-- Merged cell ranges
-- Hidden rows and columns
-- Used range coordinates
-- Non-empty cell count, total cells
-- Density (populated / area)
-- Empty cell ratio
-- Formula count
-
-### 2.3 Table Detection
-
-The table detector identifies table regions within each sheet using:
-
-1. **Row Band Detection:** Groups consecutive rows with ≥2 populated cells, splitting on ≥2 consecutive empty rows
-2. **Column Gap Detection:** Identifies side-by-side tables by detecting gaps of ≥3 empty columns
-3. **Header Detection:** Analyzes first 3 rows for text ratio > 0.6 to identify header rows (supports 1-3 row headers)
-4. **Title Detection:** Looks 1-2 rows above the first header for merged or sparse title rows
-5. **Density Calculation:** Row density (data cells / possible cells) and column density (columns with data / total columns)
-6. **Type Consistency:** Per-column analysis of numeric vs date vs text dominance
-
-### 2.4 Table Types
-- **Vertical:** Headers in row, data in rows below (most common)
-- **Horizontal:** Headers in column, data in columns to the right
-- **Nested:** BHA, bit records with sub-tables
-- **Continuation:** Long tables split across page breaks
-
-### 2.5 Column Profiling
-
-For each column in a detected table:
-- Header text
-- Sample values (first 5)
-- Data type (numeric, date, text)
-- Min/max values (for numeric)
-- Blank ratio
-- Density
-- Confidence score
-
----
-
-## 3. Stage 2: Sheet Classification
-
-**File:** `core/universal_import.py` — `SheetClassifier`
-
-### 3.1 Classification Categories
-
-| Category | Keywords |
-|----------|----------|
-| Daily Report | daily, ddr, report, remark, operation, activities, 24h, rig activity |
-| Mud | mud, fluid, rheology, pv, yp, gel, chemical, funnel, filtrate |
-| Drilling | drilling, parameter, wob, rpm, torque, rop, spp, pump |
-| BHA | bha, bottom hole assembly, component, stabilizer, drill collar, dc, hwdp |
-| Bit | bit, iadc, nozzle, tfa, bit run, bit record |
-| Survey | survey, md, inclination, azimuth, tvd, north, east, dls, deviation |
-| Trajectory | trajectory, wellbore, plan, vs, hd, section view, plan view |
-| Safety | safety, hse, lti, incident, near miss, drill, h2s, fire, bop drill |
-| BOP | bop, blow out preventer, wellhead, ram, annular, koomey, pressure test |
-| Logistics | logistics, pob, personnel, fuel, water, bulk, inventory, transport |
-| Services | service, company, contractor, third party |
-| Cost | cost, afe, expense, budget, invoice, daily cost |
-| Planning | plan, lookahead, forecast, 7 days, schedule |
-| Reference | reference, lookup, master, config, template, code, activity code |
-
-### 3.2 Classification Signals
-1. Sheet name (highest weight)
-2. Table headers
-3. Table titles
-4. Cell content samples
-5. Data type patterns (e.g., MD + Inc + Azi → Survey)
-
----
-
-## 4. Stage 3: AI-Assisted Mapping
-
-**File:** `core/ai_import_mapper.py` — `AIImportMapper`
-
-### 4.1 Architecture
-- Uses Ollama local LLM (configurable model)
-- Sends compact context (table title, headers, sample values)
-- Returns proposals with confidence scores
-- Validates against canonical schema
-
-### 4.2 Proposal Format
-```json
-{
-  "field": "mud_report.mw",
-  "source_sheet": "Daily Report",
-  "source_row": 17,
-  "source_column": 8,
-  "value": 10.2,
-  "confidence": 0.96
-}
-```
-
-### 4.3 Validation Rules
-- Field must be in canonical schema
-- Source sheet, row, column must be present
-- Value must not be null
-- Confidence must be between 0 and 1
-
-### 4.4 Fallback
-If AI is unavailable, mapping falls back to keyword-based heuristics.
-
----
-
-## 5. Stage 4: Unit Normalization
-
-**File:** `core/unit_manager.py` — `UnitManager`
-
-### 5.1 Supported Conversions
-
-| Quantity | From | To (Canonical) | Factor |
-|----------|------|----------------|--------|
-| Length | ft | m | 0.3048 |
-| Length | in | m | 0.0254 |
-| Pressure | bar | psi | 14.5038 |
-| Density | SG | ppg | 8.3454 |
-| Flow Rate | L/min | gpm | 0.2642 |
-| Temperature | °F | C | (x-32)×5/9 |
-| Torque | N·m | ft·lbf | 0.7376 |
-| Force | kN | klbf | 0.2248 |
-| ROP | ft/hr | m/hr | 0.3048 |
-
-### 5.2 Preservation Record
-Every conversion creates a `UnitRecord`:
-```python
-UnitRecord(
-    field="mud_report.mw",
-    quantity="density",
-    source_unit="sg",
-    canonical_unit="ppg",
-    original_value=1.50,
-    normalized_value=12.52,
-    conversion_rule="1.50 SG * 8.3454 = 12.52 ppg",
-    confidence=1.0
-)
-```
-
----
-
-## 6. Stage 5: Validation
-
-### 6.1 Validation Rules
-- Required fields (critical=True in canonical schema)
-- Numeric range checks
-- Date format validation
-- Cross-field consistency (e.g., depth_in < depth_out)
-- Duplicate detection
-
-### 6.2 Validation Output
-```json
-{
-  "level": "error",
-  "sheet": "Daily Report",
-  "row": 17,
-  "field": "mud_report.mw",
-  "value": -5.0,
-  "message": "Mud weight cannot be negative"
-}
-```
-
----
-
-## 7. Stage 6: Atomic Database Commit
-
-**File:** `core/database.py` — `DatabaseManager.save_imported_multi_tab_data_atomic()`
-
-### 7.1 Transaction Model
-```
-BEGIN TRANSACTION
-    Save DailyReport
-    Save Surveys
-    Save POB Records
-    Save Service Companies
-    Save Casing Report
-    Save Cement Report
-    Save Bit Report
-    Save BHA Report
-    Save Bulk Materials
-    Save Fuel/Water Inventory
-    Save Safety Report
-    Save BOP Components
-    Save Waste Records
-    Save Cost Records
-    Save Equipment Logs
-    Save Downhole Equipment
-COMMIT (or ROLLBACK ALL)
-```
-
-### 7.2 Guarantees
-- No partial imports (all or nothing)
-- No orphan child data
-- Previous report data preserved via snapshot
-- Rollback restores exact pre-import state
-
----
-
-## 8. Known Limitations
-
-1. **No data lineage table:** Imported values are not linked back to source cells
-2. **No human review UI:** Low-confidence mappings are not presented for manual review
-3. **Limited PDF support:** Only text-based PDFs (no OCR)
-4. **No LAS/WITSML import:** Placeholders exist but not implemented
-5. **AI mapping requires Ollama:** No fallback to cloud AI services
-
-
----
-
-## 9. Company-Template Import Path (verified 2026-08-31)
-
-### Flow (the ONLY import path for company workbooks)
-```
-Workbook sheets -> _auto_match_template(sheet names)
-                 -> templates/OEOC_DDR_v3.json (anchored sections)
-                 -> ExcelIntelligence.extract()  -> canonical JSON
-                 -> ExcelImportDialog._do_import (atomic)
-                 -> SQLite (all-or-nothing)
-                 -> existing UI tabs via DB getters
-```
-- Template match is GENERIC (sheet-name based). No company-specific code
-  branches; company-specific layout lives in the JSON template.
-- `_unified_import` routes a matched structured workbook directly to
-  `ExcelIntelligence`; the legacy SmartTemplate engine is only a fallback for
-  unknown XLSX/CSV/PDF-converted workbooks after the selected primary route
-  fails. It does not compete with the matched-template path.
-
-### Canonical model
-- `core/canonical_schema.py` FIELD_SPECS: 325 fields (aliases, engineering
-  bounds, quantity + canonical unit, criticality).
-- Scalar extraction: preferred cell (template anchor) > merge > exact label
-  > alias > fuzzy. Label fallback is column/row-locked to the template anchor
-  when the anchor is near the label, so neighbouring tables (e.g. cement
-  additives vs. safety drills) never contaminate.
-- Numeric normalizers: '17-1/2"' -> 17.5, '18/32"' -> 0.5625, '3K' -> 3000.
-- Placeholders: "N.C" on numeric fields -> NULL + `fl_source` + metadata
-  source_tokens (missing/N.C/zero distinguishable). "-", "--", "n/a" on
-  numeric columns -> NULL (DB layer `coerce_model_values`).
-- Units: PCF kept native for the Mud UI; SG/ppg converted via UnitManager
-  with original value + unit preserved (mw_original/mw_unit).
-
-### Atomic persistence (core/database.py save_imported_multi_tab_data_atomic)
-Sections: surveys, POB breakdown (logistics -> ServiceCompanyPOB),
-service_companies, lookahead (seven_days_lookahead), casing, cement, bit,
-BHA, bulk materials, fuel/water, safety (safety_reports; drill dates
-Gregorian-only, Jalali preserved as observations text), BOP components
-(3K -> 3000 psi, component_type inferred from name, non-numeric rows
-skipped), waste, cost, equipment, downhole.
-Daily Report + Mud + Drilling Parameters + time logs are saved by the dialog
-inside the same atomic block; the saver filters to model columns.
-
-### Additive schema migration
-`DatabaseManager.initialize` -> `_apply_safe_schema_upgrades`: ALTER TABLE
-ADD COLUMN only (pump_liner_size), idempotent, never deletes/recreates.
-
-### Verified against the REAL workbook (2026-08-31)
-See ENGINEERING_AUDIT.md section H for the full value matrix. Import result:
-102 records, 0 failures; golden regression in `tests/test_real_oeoc_golden.py`
-(32 tests) and `tests/test_multi_company_template.py`.
-
-### Known limitations
-1. 24h time-log rows stored as `timedelta` are skipped (7/10 stored; morning 6/7)
-2. Lookahead rows without activity text skipped (11/13 stored)
-3. Service NPT not mirrored into npt_reports
-4. UI verification is headless (no libGL in CI sandbox)
-
----
-
-## 10. External MinerU Document Intelligence (Phase)
-
-MinerU is an optional external engine. DrillMaster never vendors the MinerU
-package, its Python environment, or its models. The adapter is
-`core/mineru_engine.py`; it is independent of PySide6 and SQLite.
-
-### 10.1 Detection and configuration
-
-Detection order is:
-
-1. `DRILLMASTER_MINERU_EXECUTABLE` / `MINERU_EXECUTABLE`
-2. `DRILLMASTER_MINERU_PYTHON` / `MINERU_PYTHON` (invoked as
-   `python -m mineru`)
-3. `mineru` or `mineru.exe` on `PATH`
-4. An existing user-home development virtual-environment convention
-
-The following settings are supported. They can be configured through the
-MinerU tab in Settings or through environment variables. The `MINERU_*`
-aliases are accepted for portable scripts. Persisted non-secret settings are
-stored in the user data directory (`config/mineru.json`), never in the
-repository:
-
-| Setting | Default |
-|---|---|
-| `DRILLMASTER_MINERU_ENABLED` | enabled when MinerU is detected |
-| `DRILLMASTER_MINERU_EXECUTABLE` | auto-discovery |
-| `DRILLMASTER_MINERU_PYTHON` | unset |
-| `DRILLMASTER_MINERU_BACKEND` | `hybrid-engine` |
-| `DRILLMASTER_MINERU_METHOD` | `auto` |
-| `DRILLMASTER_MINERU_OUTPUT_DIR` | isolated temporary directory |
-| `DRILLMASTER_MINERU_TIMEOUT` | `600` seconds |
-| `DRILLMASTER_MINERU_KEEP_OUTPUT` | `false` |
-
-The adapter provides `is_available()`, `get_version()`, `health_check()`,
-`parse_file()`, and `parse_batch()`.
-
-### 10.2 Invocation and process safety
-
-For MinerU 3.x CLI installations the adapter invokes the configured external
-launcher using an argument list equivalent to:
+## 1. Supported pipeline
 
 ```text
-mineru -p INPUT -o OUTPUT -b hybrid-engine -m auto
+route_file
+  Excel template match -> openpyxl -> raw_document_from_workbook
+  PDF/document/image  -> MinerUAdapter -> MinerUDocument
+                         -> raw_document_from_mineru
+  both                -> classification/mapping
+                         -> FIELD_SPECS / contextual aliases
+                         -> value_normalizer
+                         -> UnitManager where an explicit source unit exists
+                         -> validation and ReviewItem
+                         -> preview/edit/confirmation
+                         -> atomic DB save
 ```
 
-The actual executable is selected by configuration/discovery. `shell=False`,
-argument-list invocation, captured UTF-8 output, an explicit timeout, exit
-code checks, isolated output directories, and per-file batch results prevent
-shell injection and cross-file contamination.
+The raw IR is lossless and source-oriented. It is not canonical JSON and does
+not perform guessing. `ExcelIntelligence` consumes its IR cache, not a second
+workbook walk. `DocumentNormalizer` consumes the MinerU-adapted IR and uses the
+same schema and typed normalizer downstream.
 
-### 10.3 Routing
+## 2. Entry-point matrix
+
+| Entry point / format | Common IR | Shared typed normalizer | DB write | Fallback/status |
+| --- | --- | --- | --- | --- |
+| `core.import_router.route_file` | route only | no | no | known XLSX -> Excel; PDF/document/image -> MinerU; CSV -> converter; XLS -> unsupported |
+| `ExcelIntelligence.extract()` | **yes**, workbook adapter | **yes**, `normalize_for_field` | no | no alternate mapper inside extractor |
+| `MinerUAdapter.parse_file()` | produces external document; adapter to IR occurs in normalizer | no by itself | no | distinct errors for unavailable/executable/input/format/process/timeout/output |
+| `DocumentNormalizer.normalize()` | **yes**, `raw_document_from_mineru` | **yes** | no | ambiguous/invalid values remain review/NULL; never guessed |
+| `ExcelImportDialog._run_import_pipeline()` | yes for successful Excel/MinerU paths | yes downstream | **yes**, after preview | PDF legacy conversion can feed canonical Excel template only; no profile fallback |
+| `ExcelImportDialog._do_import()` | receives canonical payload + review report | validation and unit boundary | **yes**, snapshot/rollback + atomic multi-tab save | no partial success is reported as success |
+| `SmartTemplateDialog` (manual UI) | not in its historical scanner | partial local legacy rules | no direct write; caller must use shared save | explicit manual/legacy route; profile fallback is disabled and is not called by universal import |
+| `ProfileImportEngine.analyze_and_extract()` | no | no | no | compatibility analysis only; direct `import_to_db()` raises `LEGACY_DIRECT_DB_IMPORT_DISABLED` |
+| `core.universal_import.py` | no common IR in scanner | no shared persistence normalizer | no | scanner/classifier support for legacy UI/tests only |
+| `document_import.csv_to_xlsx()` | no (converter only) | no | no | conversion-only; universal route stops if no canonical template follows |
+| `document_import.pdf_to_xlsx()` | no (legacy converter) | no | no | explicit PDF fallback; output must re-enter canonical Excel template path |
+| `import_adapters.pdf_tables.py` | no | no | no | legacy Camelot/PyMuPDF/OCR helper, not a direct DB route |
+| `core.witsml_import.WITSMLImportEngine` | no | no | no | XML validation/placeholder; actual WITSML import unsupported |
+| `core.managers.ImportCoordinator` | no | no | no | placeholder returning “coordinated in dialog”; not a second service |
+| `templates/*.json` | configuration consumed by Excel extractor | extractor applies shared normalizer | no | no executable fallback |
+| `ReviewItem` / `ImportReviewMatrix` | carries IR-derived provenance | records normalization/validation state | no ORM write | serialized with `to_dict/from_dict`; preview edits are applied before save |
+| `LineageTracker` / professional export | consumes lineage/review metadata | no mapping | export only | source provenance remains unknown when unavailable |
+| `core.db_services` / service repositories | domain CRUD used by application tabs | no import IR/normalizer | **yes when called directly**, not an import route | must not be mistaken for the import coordinator |
+| `core.excel_normalizer.py` | legacy workbook cleanup utility | no shared import mapping | no | compatibility helper; canonical route is Excel IR |
+| `core.import_profiler.py` | timing/diagnostic instrumentation | no | no | observability only |
+| `tools/mineru_integration.py` | developer integration harness | no | no | diagnostic/manual, not production persistence |
+
+## 3. Format behavior
+
+### Excel/XLSX/XLSM
+
+A matching JSON template selects `ExcelIntelligence`. Workbook cells are
+adapted once, including formulas, hidden/merged state, coordinates and formal
+table headers. Preferred anchors, contextual aliases, exact labels and fuzzy
+candidates are scored; low confidence, conflicts, bounds failures and
+non-numeric tokens become review states. `.xls` is rejected rather than
+silently converted by an unvalidated library.
+
+### PDF and document-style input
+
+MinerU is the primary parser and runs out of process using the official CLI
+shape:
 
 ```text
-Known structured XLSX template -> ExcelIntelligence -> canonical JSON
-Unknown/document-style XLSX     -> MinerU -> normalizer -> canonical schema
-PDF                              -> MinerU -> normalizer
-                                  -> Camelot -> PyMuPDF -> Tesseract fallback
-DOCX/PPTX/Image                 -> MinerU -> normalizer -> canonical schema
-CSV                              -> existing CSV -> XLSX -> existing importer
+mineru -p INPUT -o OUTPUT -b BACKEND -m METHOD
 ```
 
-Known structured workbooks are matched before MinerU and do not pay a MinerU
-startup cost. A MinerU failure on unknown XLSX falls back to the existing
-smart/template importer. A MinerU failure on PDF is explicitly logged and
-falls back to the existing three-tier PDF path. DOCX/PPTX/Image parsing
-returns an actionable error when MinerU is unavailable because no equivalent
-existing DB importer exists.
+The configured backend/method defaults are `hybrid-engine`/`auto`. The actual
+configured executable or separately managed Python runtime is used; DrillMaster
+does not install MinerU or merge environments. The adapter parses Markdown,
+JSON, HTML tables and assets, adapts them to the common IR, normalizes only
+unambiguous fields, and sends the result to the same preview/atomic boundary.
 
-### 10.4 Intermediate representation
+When MinerU is unavailable for a PDF, the existing Camelot -> PyMuPDF -> OCR
+converter is an explicitly labeled fallback. It is not a MinerU PASS and has
+weaker PDF-native provenance. It can continue only if the generated workbook
+matches a canonical Excel template; otherwise the import stops before DB write.
 
-MinerU output is not treated as canonical JSON. `MinerUDocument` contains:
+### CSV
 
-- pages and page text
-- headings
-- text blocks
-- tables and rows
-- extracted assets
-- backend/method metadata
-- raw output file names
+CSV conversion supports UTF-8 and Persian-compatible encodings and creates an
+XLSX intermediate. It is not itself canonical mapping. Without a matching
+canonical template the route stops before persistence; it does not silently
+invoke Smart Template/profile defaults.
 
-Each extracted item carries `Provenance`: source file, page/sheet when MinerU
-provides it, row/column when available, bounding box when available,
-extraction method, and confidence. Missing values remain `None`; the adapter
-does not invent coordinates, page numbers, units, dates, depths, pressures, or
-well values.
+### WITSML/LAS and legacy XLS
 
-`core/import_ir.py` is the shared lossless IR for Excel and MinerU. It
-preserves formula text, hidden/merged state, source cells, table rows, text
-blocks, and source coordinates before mapping. `MinerUDocument` is adapted to
-that IR and `ExcelIntelligence` exposes the same IR summary in its import
-report.
+WITSML is currently a placeholder/unsupported import contract. LAS and legacy
+XLS are not claimed as implemented import paths. Unsupported formats produce a
+structured route error.
 
-`DocumentNormalizer` resolves only unambiguous labels through the existing
-`core/canonical_schema.py` registry. Numeric literals are converted only when
-the value is unambiguously numeric; units are never inferred or converted.
-Ambiguous/unknown values remain out of the canonical payload and become review
-warnings. Existing scalar report sections retain the dictionary shape expected
-by the database layer; true table collections remain lists.
+## 4. Error and atomicity behavior
 
-The existing `FieldSpec` bounds are applied to values that are safely numeric.
-Validation errors stop the MinerU route before database import. The normalized
-payload is passed to the existing preview and
-`DatabaseManager.save_imported_multi_tab_data_atomic()` boundary; MinerU has
-no database dependency and never writes SQLite directly.
+Errors are distinguished as route/unsupported, invalid input, unavailable
+external executable/Python, process nonzero, timeout, malformed/missing output,
+normalization/schema validation, review rejection, and DB persistence failure.
+The dialog reports the engine and stage in UI status. Atomic multi-tab failure
+rolls back the transaction and the dialog restores/removes the report snapshot;
+the old per-table rescue path has been removed.
 
-### 10.5 UI and AI boundaries
-
-The Import Dialog uses the existing `FunctionWorker` QThread architecture for
-MinerU batch execution. Status messages identify engine detection, MinerU
-parsing, normalization, validation, preview, and atomic import. The preview
-shows MinerU source/backend/method/page/table/field counts and warnings.
-
-`core/ai_import_mapper.py` remains optional and advisory. MinerU does not call
-Ollama, Qwen, or RAG. Retrieval and embeddings remain future phases.
+No missing report date, unit, depth, MW, pressure, drilling parameter, company,
+or provenance value is synthesized. A user correction is explicit in the
+review matrix and is the only way an ambiguous value is accepted.

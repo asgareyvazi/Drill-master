@@ -1,108 +1,83 @@
-# Production readiness and release-candidate audit
+# Production readiness and final import consistency gate
 
-Branch: `arena/01a07094-drill-master`
-Application version: `1.0.0`
-Audit date: 2026-09-05
-Scope: startup through packaging and desktop deployment
+**Branch:** `arena/01a07094-drill-master`
+**Audit date:** 2026-09-06
+**Release posture:** **NOT MERGE-READY until the available test environment is
+recreated and the required real Windows acceptance is recorded.**
 
-## Implemented blockers
+## Architecture gate
 
-- Mutable database, log, backup, and local-AI settings paths now resolve to an
-  OS user-data directory and can be overridden with documented environment
-  variables. The source/install directory is not a runtime write target.
-- Production bootstrap credentials are explicit and development fixture
-  passwords are rejected. Production no longer creates demo company/project/
-  well records or offers sample data automatically.
-- Startup dialog failures are fatal instead of silently continuing with a
-  missing startup result. Login/fatal dialogs avoid exposing exception details.
-- SQLite backups use the SQLite backup API, including WAL state; automatic
-  backups use a configured directory and retention limit.
-- Additive schema upgrades are recorded in `schema_version`; migration errors
-  fail initialization instead of being marked non-fatal.
-- Optional Ollama/Qwen mapping is disabled by default, offline-safe, bounded by
-  a timeout, and explicit about disabled/unavailable/missing-model states.
-  No AI binary, model, cloud service, or MinerU asset is bundled.
-- Manual and automatic backup UI paths use the configured database rather than
-  assuming `./drillmaster.db`; the home storage indicator follows the same
-  path.
-- Packaging metadata, a canonical version source, dependency locks, a
-  PyInstaller one-folder spec, an Inno Setup installer definition, Windows
-  build script, package smoke test, and Windows runbook are present.
-- The desktop first-run flow collects production credentials in process memory
-  and initializes an empty production database without demo records.
-- A headless smoke suite covers runtime paths, production schema/auth/fixture
-  isolation, engineering registry/export imports, W12/W13 source interfaces,
-  optional AI detection, and packaging configuration.
-
-## Acceptance matrix
-
-| Area | Result | Evidence |
+| Requirement | Status | Evidence |
 | --- | --- | --- |
-| Startup and fatal-error handling | PASS | `app.py`, `run.py`; startup-dialog failures now stop launch |
-| Configuration and filesystem portability | PASS | `core/runtime_config.py`; `README.md`, `DEPLOYMENT.md` |
-| Database initialization and migration | PASS | `core/database.py`; versioned additive migration smoke test |
-| Authentication and RBAC | PASS | production bootstrap tests; `core/permissions.py` |
-| Import and canonical SSOT paths | PASS | existing regression suite plus smoke interfaces |
-| UI thinness and W12/W13 headless path | PASS | existing W13 acceptance tests and smoke test |
-| Export/reporting imports | PASS | smoke test for DDR/professional exporters |
-| Logging and secret handling | PASS | rotating user-data log; no password logging; generic auth errors |
-| Backup/recovery behavior | PASS with operator drill required | SQLite backup API and documented restore drill |
-| Version and packaging | PASS (automated) | `core/version.py`, PyInstaller spec, lock files, package smoke test |
-| Optional AI readiness | PASS | opt-in `AIImportMapper`; no bundled models/binaries |
-| Windows deployment | AUTOMATED PASS; manual Windows pending | PyInstaller/Inno definitions, build script, clean-machine checklist |
+| One canonical Excel downstream path | PASS by source audit | `ExcelIntelligence` consumes `RawDocument`; no DB write in extractor |
+| One canonical MinerU/PDF downstream path | PASS by source audit | `MinerUAdapter` -> `DocumentNormalizer` -> common IR/schema/review/save |
+| No hidden ProfileImportEngine fallback | PASS | Smart Template hook disabled; direct profile DB method disabled |
+| No DB legacy rescue after atomic failure | PASS | compatibility method delegates only to atomic saver |
+| ReviewItem complete serialization/edit/save contract | PASS by source audit | `to_dict/from_dict`, matrix restore, preview edit propagation |
+| Real OEOC-201 Excel | **BLOCKED** | user file not present; local Python lacks runtime dependencies |
+| Real Windows MinerU 3.4.5/PDF | **BLOCKED** | Windows executable/environment unavailable here |
+| Python 3.12 acceptance | **BLOCKED** | Python 3.12 runtime not executed |
 
-## Explicit remaining limitations
+## Required real acceptance
 
-- Automated tests cannot certify a real operator's backup restore procedure;
-  each deployment must perform and record one.
-- SQLite is local storage and is not encrypted at rest. OS ACLs and backup
-  protection remain deployment responsibilities.
-- There is no server-side identity provider, MFA, tenant isolation, or remote
-  replication in this desktop release.
-- Anti-Collision is **PARTIAL / SCREENING**, not a complete validated
-  uncertainty methodology. No ISCWSA/API TR 5C3 or field-certification claim
-  is made.
-- Optional third-party engineering/document packages are not guaranteed to be
-  installed and must be licensed and validated independently.
-- The application does not provide automatic update delivery or a licensing
-  service. Installer hash, commit SHA, and dependency lock must be recorded by
-  the release operator.
-- This Linux environment cannot execute Windows PE files or Inno Setup. Manual
-  clean-machine installation, Windows Qt-plugin execution, installer upgrade,
-  and uninstall/data-preservation checks remain pending; they are not claimed
-  as passed.
+Run on the user's actual Windows installation without reinstalling MinerU or
+merging Python environments. Record:
 
-## Required final gate record
+- exact `mineru.exe` path and output of `mineru --version`;
+- the separately managed Python executable and version;
+- the exact command generated by `MinerUAdapter`;
+- generated Markdown/JSON/assets and tables;
+- canonical values, original/normalized units, review items, coordinates and
+  source provenance;
+- atomic database counts and UI-visible values;
+- confirmation that a `Drilling Data` title cannot reach numeric conversion;
+- explicit result for Python 3.12 only if that runtime was actually used.
 
-The final release record must include the exact output counts from:
+The official command shape is `mineru -p INPUT -o OUTPUT -b BACKEND -m METHOD`;
+the configured installation, not this document, is authoritative for paths.
 
-```text
-python -m pytest -ra
-python verify_release.py
-python -m compileall -q core dialogs tabs tests
-python -m py_compile app.py run.py main_window.py verify_release.py
-python -m pip wheel . --no-deps --wheel-dir dist
-python packaging/package_smoke.py --bundle-dir release/DrillMaster-1.0.0 --run
-git diff --check
-git status --short --branch
-```
+## Test gate
 
-Latest candidate validation (Python 3.11 virtual environment):
+The new `tests/test_ddr_acceptance.py` tests are marked `integration` and use
+`DRILLMASTER_TEST_DDR_XLSX` and `DRILLMASTER_TEST_DDR_PDF`. They skip explicitly
+when the relevant path is not supplied or when MinerU is unavailable. The
+repository also contains atomicity, schema/alias/bounds, normalizer, unit,
+optional-AI, MinerU failure-mode, security, packaging, and release tests.
 
-- `python -m pytest -ra`: **474 passed, 4 skipped**, 0 failed/errors.
-- `python verify_release.py`: **collected=478, passed=474, skipped=4,
-  failed=0, errors=0**, plus source/package compile check passed.
-- `python -m compileall -q core dialogs tabs tests`: passed.
-- Targeted `py_compile` for startup, runner, release, reset, packaging, and
-  touched modules: passed.
-- `git diff --check`: passed.
-- Source wheel build: `dist/drillmaster-1.0.0-py3-none-any.whl`, 710,876 bytes,
-  SHA-256
-  `35e66b0a0eb91774852b1be1ccb01876e321ce2bfa52c41c73fa4f9fc7b4634c`.
-- Windows PE/installer build: **not executed here**; this Linux environment
-  has no Windows Python/Qt toolchain, Wine, or Inno Setup.
+This workspace did not contain `pytest` or `openpyxl` on the active Python
+runtime, so this audit could run syntax compilation and focused pure-Python
+smoke checks but could not claim a full pytest result. Do not copy an older
+pass count into a release record.
 
-A release is not declared until the exact commit is recorded, the final diff
-is reviewed, the branch is pushed, and the working tree is clean after
-commit/push. The automated result above does not replace the operator backup
-restore drill.
+## Security and packaging
+
+MinerU is subprocess-only with `shell=False`, argument-list invocation,
+input/format checks, isolated output, timeout, captured output, and separate
+process/output errors. AI is disabled by default and advisory. No passwords,
+MinerU environment, AI models, or generated real-document outputs belong in
+Git.
+
+The Windows PyInstaller/Inno Setup build remains defined by the existing
+packaging scripts. This Linux environment cannot build/run the Windows PE
+installer or perform clean-machine upgrade/uninstall checks; those are
+BLOCKED until executed on Windows.
+
+## Remaining defects/limitations
+
+1. No real OEOC-201 evidence is available in this checkout.
+2. PDF legacy fallback (Camelot/PyMuPDF/OCR) has weaker PDF-native provenance
+   and is not a MinerU PASS; it is allowed only when canonical Excel template
+   mapping can continue.
+3. Smart Template and `ProfileImportEngine.analyze_and_extract()` remain
+   compatibility code and should not be described as canonical importers.
+4. Review items are exported in the import report but are not a dedicated ORM
+   table; long-term audit retention depends on the report/export mechanism.
+5. Existing informational legacy/static-audit findings remain outside this
+   targeted fix.
+
+## Merge gate
+
+Merge readiness requires a clean working tree after commit, exact SHA, pushed
+branch `arena/01a07094-drill-master`, fresh dependency-backed test output,
+package smoke output, and the Windows acceptance record. Until then the status
+is **BLOCKED**.
