@@ -896,6 +896,12 @@ class DynamicTableExtractor:
                     actual_start = r + 1
                     break
 
+        # Resolve configured columns against the nearest semantic header.  The
+        # template's ``col`` remains a fallback/alias, not a hard positional
+        # contract, so harmless inserted columns or reordered table fields do
+        # not silently move values into the wrong canonical field.
+        columns = self._resolve_semantic_columns(table_def, columns, actual_start)
+
         # Find end row with row classification
         end_row = actual_start
         blank_count = 0
@@ -933,6 +939,69 @@ class DynamicTableExtractor:
 
         return self._build_result(table_def, sheet, actual_start, end_row,
                                    columns, rejected_count, rejection_reasons)
+
+    def _resolve_semantic_columns(self, table_def: Dict, columns: List[Dict], data_row: int) -> List[Dict]:
+        """Resolve table columns from contextual header labels.
+
+        Positional template coordinates are deliberately retained as a
+        fallback because they are useful for sparse/merged legacy templates.
+        When a nearby row contains semantic labels, however, the labels win.
+        This is generic and configuration-driven; it contains no workbook or
+        company-specific coordinates.
+        """
+        if not columns:
+            return columns
+
+        aliases = {
+            "from": {"from", "start", "time from", "begin", "begin time"},
+            "to": {"to", "end", "time to", "end time"},
+            "hrs": {"hrs", "hours", "duration", "h", "hours worked"},
+            "code": {"code", "main code", "activity code", "no"},
+            "sub code": {"sub code", "sub-code", "subcategory"},
+            "main phase": {"main phase", "phase", "activity"},
+            "status": {"status", "state"},
+            "rig activity": {"rig activity", "activity", "description", "remarks", "remark"},
+            "activity": {"activity", "description", "remarks", "remark"},
+        }
+
+        def normalize(value):
+            return re.sub(r"[^a-z0-9]+", " ", str(value or "").lower()).strip()
+
+        expected = []
+        for column in columns:
+            label = normalize(column.get("field") or column.get("canonical", "").split(".")[-1])
+            candidates = {label} | {normalize(item) for item in column.get("aliases", [])}
+            candidates |= aliases.get(label, set())
+            expected.append({normalize(item) for item in candidates if normalize(item)})
+
+        explicit_header = table_def.get("header_row")
+        candidate_rows = [explicit_header] if explicit_header else range(max(1, data_row - 6), data_row)
+        best = None
+        for row in candidate_rows:
+            if not row:
+                continue
+            matches = []
+            used = set()
+            for col_index, candidates in enumerate(expected):
+                found = None
+                for (r, c), value in self.cells.items():
+                    if r != row or c in used:
+                        continue
+                    token = normalize(value)
+                    if token in candidates or any(token == item or token.startswith(item + " ") for item in candidates if len(item) >= 3):
+                        found = c
+                        break
+                if found is not None:
+                    matches.append((col_index, found))
+                    used.add(found)
+            if len(matches) >= 2 and (best is None or len(matches) > len(best)):
+                best = matches
+        if best is None:
+            return columns
+        resolved = [dict(column) for column in columns]
+        for index, col in best:
+            resolved[index]["col"] = col
+        return resolved
 
     def _classify_row(self, row: int, columns: List[Dict]) -> str:
         """Classify a row as: data, header_repeat, subtotal, footer, note, unit_row, title."""
@@ -1037,6 +1106,18 @@ class DynamicTableExtractor:
                         key = col_def.get("field", f"col_{c}")
                     record[key] = val
             if has_value and record:
+                record["_source_row"] = r
+                record["_source_cells"] = {
+                    str(col_def.get("canonical") or col_def.get("field")): f"R{r}C{col_def.get('col')}"
+                    for col_def in columns
+                }
+                is_morning_table = any(
+                    str(column.get("canonical", "")).startswith("time_log_morning.")
+                    for column in columns
+                )
+                if is_morning_table and record.get("time_log_morning.time_from") in (None, ""):
+                    record["_classification"] = "continuation"
+                    record["_review_reason"] = "Continuation text has no independent time anchor"
                 records.append(record)
 
         return TableExtraction(

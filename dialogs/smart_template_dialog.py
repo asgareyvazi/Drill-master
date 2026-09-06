@@ -2724,16 +2724,25 @@ class SmartTemplateDialog(QDialog):
             hrs_raw = row_cells.get(col_map.get("hrs"))
 
             if not time_from_raw and not hrs_raw:
-                # continuation row
-                if logs and col_map.get("desc"):
+                # Preserve continuation rows as reviewable source records.  Do
+                # not merge text or invent a time anchor: the reviewer needs
+                # the original cell and the exact continuation text.
+                if col_map.get("desc"):
                     desc_val = row_cells.get(col_map["desc"])
                     if desc_val:
-                        logs[-1]["activity_description"] += (
-                            " " + str(desc_val)
-                        )
+                        logs.append({
+                            "time_from": None,
+                            "time_to": None,
+                            "duration": None,
+                            "activity_description": str(desc_val).strip(),
+                            "source_cell": f"R{r}:C{col_map['desc']}",
+                            "source_row": r,
+                            "classification": "continuation",
+                            "review_reason": "Continuation text has no independent time anchor",
+                        })
                 continue
 
-            hrs = ValueNormalizer.to_float(hrs_raw) or 0.0
+            hrs = ValueNormalizer.to_float(hrs_raw)
 
             # Main/sub code.  Some DDR exports leave the dedicated code
             # cells empty and put 2.3 in the phase or description column.

@@ -1366,6 +1366,19 @@ class DocumentNormalizer:
                             }
                         )
                     if record:
+                        record["_source_row"] = row_number
+                        record["_source_cells"] = {
+                            str(field_path or headers[index]): {
+                                "page": table.provenance.source_page,
+                                "row": row_number,
+                                "column": index + 1,
+                            }
+                            for index, field_path in enumerate(table_fields)
+                            if index < len(headers)
+                        }
+                        if storage_key == "time_logs_morning" and record.get("time_from") in (None, ""):
+                            record["_classification"] = "continuation"
+                            record["_review_reason"] = "Continuation text has no independent time anchor"
                         table_records.append(record)
 
                 # Existing DB import code expects scalar report sections as
@@ -1391,6 +1404,12 @@ class DocumentNormalizer:
             raw_text = raw_document.text_blocks[block_index][0] if block_index < len(raw_document.text_blocks) else block.text
             field_path, value = self._resolve_text_block(raw_text)
             if field_path is None:
+                warnings.append({
+                    "level": "review",
+                    "message": f"Unresolved or ambiguous text label in document: {raw_text!r}",
+                    "value": raw_text,
+                    "source": block.provenance.to_dict(),
+                })
                 continue
             section, key = field_path.split(".", 1)
             section_data = canonical.setdefault(section, {})
@@ -1506,6 +1525,7 @@ class DocumentNormalizer:
     @staticmethod
     def _resolve_field(label: str, context: str = "") -> Optional[str]:
         normalized = " ".join(str(label).strip().lower().split())
+        context = " ".join(str(context or "").lower().split())
         if not normalized:
             return None
         exact = [path for path in FIELD_SPECS if path.lower() == normalized]
@@ -1516,16 +1536,36 @@ class DocumentNormalizer:
             for path, spec in FIELD_SPECS.items()
             if normalized in {" ".join(alias.lower().split()) for alias in spec.aliases}
         ]
+        # ``Hrs`` is intentionally broad in the canonical schema. Add the
+        # morning duration candidate only when the surrounding table context
+        # says it is a morning time log; absent that context it remains
+        # ambiguous and is emitted for review.
+        if normalized in {"hrs", "hours"} and "time log morning" in context:
+            if "time_log_morning.duration" not in candidates:
+                candidates.append("time_log_morning.duration")
         if len(candidates) == 1:
             return candidates[0]
         # Context may safely disambiguate a table whose title explicitly
-        # names a canonical section; it never invents a value or unit.
+        # names a canonical section; it never invents a value or unit. Prefer
+        # the most specific section phrase ("time log morning" over "time log").
         sections = {path.split(".", 1)[0] for path in candidates}
-        for section in sections:
-            if re.search(rf"\b{re.escape(section.replace('_', ' '))}\b", context):
-                scoped = [path for path in candidates if path.startswith(section + ".")]
-                if len(scoped) == 1:
-                    return scoped[0]
+        section_aliases = {
+            "well_info": ("well info", "well information"),
+            "daily_report": ("daily report", "daily reporting"),
+            "time_log": ("time log", "24h log", "24 hour log"),
+            "time_log_morning": ("time log morning", "morning log", "morning time log"),
+        }
+        contextual = [
+            section for section in sections
+            if any(
+                re.search(rf"\b{re.escape(alias)}\b", context)
+                for alias in section_aliases.get(section, (section.replace("_", " "),))
+            )
+        ]
+        for section in sorted(contextual, key=len, reverse=True):
+            scoped = [path for path in candidates if path.startswith(section + ".")]
+            if len(scoped) == 1:
+                return scoped[0]
         # Existing alias lookup is useful for exact, non-colliding aliases.
         mapped = lookup_alias(label)
         return mapped if mapped in candidates and len(candidates) == 1 else None
@@ -1535,7 +1575,16 @@ class DocumentNormalizer:
         if not match:
             return None, ""
         label, value = match.groups()
-        return self._resolve_field(label), value.strip()
+        normalized = " ".join(label.lower().split())
+        # A qualified label supplies context; a bare ambiguous alias remains
+        # unresolved and is emitted as review by normalize().
+        if normalized.endswith("report date"):
+            field_path = self._resolve_field("report date", normalized)
+        elif normalized.endswith("hrs") or normalized.endswith("hours"):
+            field_path = self._resolve_field("hrs", normalized)
+        else:
+            field_path = self._resolve_field(label, normalized)
+        return field_path, value.strip()
 
     def _storage_key(self, context: str, fields: list[Optional[str]]) -> str:
         sections = [field_path.split(".", 1)[0] for field_path in fields if field_path]

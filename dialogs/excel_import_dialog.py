@@ -34,6 +34,7 @@ from PySide6.QtGui import QColor
 
 from core.text_utils import wrap_text
 from core.import_quality import ImportValidator, find_duplicates, TimeLogValidator, decision_for_confidence
+from core.import_diagnostics import PersistenceIssue
 from core.ai_import_mapper import AIImportMapper, model_catalog, get_selected_model, set_selected_model
 from core.async_workers import FunctionWorker
 from core.import_router import route_file
@@ -51,6 +52,28 @@ from dialogs.smart_template_dialog import ValueNormalizer, FIELD_LABELS
 logger = logging.getLogger(__name__)
 
 ALL_EXPECTED_FIELDS = list(FIELD_LABELS.keys())
+
+
+def has_meaningful_canonical_data(extracted: dict) -> bool:
+    """Evaluate every canonical collection, including table-only PDF data."""
+    ignored = {"metadata", "provenance", "review_matrix", "raw_document"}
+
+    def meaningful(value):
+        if value is None or value is False:
+            return False
+        if isinstance(value, str):
+            return bool(value.strip())
+        if isinstance(value, (int, float)):
+            return True
+        if isinstance(value, dict):
+            return any(meaningful(item) for key, item in value.items() if key not in ignored)
+        if isinstance(value, (list, tuple, set)):
+            return any(meaningful(item) for item in value)
+        return True
+
+    return isinstance(extracted, dict) and any(
+        meaningful(value) for key, value in extracted.items() if key not in ignored
+    )
 
 # Universal aliases as per spec
 UNIVERSAL_ALIASES = {
@@ -888,11 +911,8 @@ class ExcelImportDialog(QDialog):
                         }
                     )
 
-                if not any(
-                    extracted.get(key)
-                    for key in ("well_info", "daily_report", "mud_report", "drilling_params", "time_logs_24h")
-                ):
-                    raise ValueError("No report data was detected")
+                if not has_meaningful_canonical_data(extracted):
+                    raise ValueError("No meaningful canonical report data was detected")
 
                 self.import_status.setText(
                     f"Preview for {os.path.basename(source)} - Waiting for user confirmation..."
@@ -969,7 +989,7 @@ class ExcelImportDialog(QDialog):
         else:
             self.accept()
 
-    def _resolve_import_well(self, well_info):
+    def _resolve_import_well(self, well_info, session=None):
         """Resolve workbook well with universal aliases."""
         from core.database import Well, Project
         # Universal alias handling
@@ -985,7 +1005,8 @@ class ExcelImportDialog(QDialog):
         if not name and not code:
             return self.well_id
 
-        session = self.db.create_session()
+        owns_session = session is None
+        session = session or self.db.create_session()
         try:
             query = session.query(Well)
             existing = query.filter(Well.code == code).first() if code else None
@@ -1006,11 +1027,14 @@ class ExcelImportDialog(QDialog):
             values = self.db.coerce_model_values(Well, values)
             well = Well(**values)
             session.add(well)
-            session.commit()
+            session.flush()
+            if owns_session:
+                session.commit()
             self.well_id = well.id
             return well.id
         finally:
-            session.close()
+            if owns_session:
+                session.close()
 
     @staticmethod
     def _auto_match_template(sheet_names: list) -> dict:
@@ -1069,11 +1093,19 @@ class ExcelImportDialog(QDialog):
             "report_id": None,
             "section_id": None,
             "import_report": None,
+            "status": "ACCEPT",
+            "review": 0,
+            "review_items": [],
+            "diagnostics": [],
+            "validation_errors": 0,
         }
-        session = None
+        # Every object created or updated below participates in this one
+        # session.  Helpers receive it explicitly and only flush for IDs.
+        session = self.db.create_session()
         report_id = None
         created_new_report = False
         import_snapshot = None
+        stage = "validation"
 
         try:
             from core.database import Section, DailyReport
@@ -1102,9 +1134,12 @@ class ExcelImportDialog(QDialog):
             quality.failed += time_validation.failed
             results["import_report"] = quality.as_dict()
             results["import_report"]["review"].extend((extracted.get("metadata") or {}).get("review_matrix", []))
+            results["review"] = len(results["import_report"].get("review", []))
+            results["review_items"].extend(results["import_report"].get("review", []))
 
             if quality.errors and not report_data.get("report_date"):
-                results["failed"] += 1
+                results["validation_errors"] += len(quality.errors)
+                results["status"] = "VALIDATION_ERROR"
                 results["details"].append("❌ Import stopped: invalid Daily Report - MISSING_INPUT report_date")
                 return results
 
@@ -1112,6 +1147,7 @@ class ExcelImportDialog(QDialog):
                 results["details"].append(f"⚠️ Skipped {len(duplicate_indexes)} duplicate time-log rows")
 
             # Well
+            stage = "well"
             wi = extracted.get("well_info", {})
             # Well-level header attributes that live in the report header
             # (LTA days, actual rig days) belong on the Well record too —
@@ -1125,73 +1161,66 @@ class ExcelImportDialog(QDialog):
                 ):
                     wi[_wkey] = _dr_header[_wkey]
             if not self.well_id or wi.get("name") or wi.get("code"):
-                self._resolve_import_well(wi)
+                self._resolve_import_well(wi, session=session)
                 results["well_id"] = self.well_id
             if wi:
                 wi_save = dict(wi)
                 wi_save["id"] = self.well_id
-                if self.db.save_well(wi_save):
+                if self.db.save_well(wi_save, session=session):
                     results["details"].append(f"✅ Well Info: {len(wi)} fields (identity resolved via universal aliases)")
 
             # Section
+            stage = "section"
             section_name = self._safe_text(wi.get("section_name"), "Imported Section")
             section_id = None
 
-            session = self.db.create_session()
-            try:
-                existing = session.query(Section).filter(
-                    Section.well_id == self.well_id,
-                    Section.name == section_name,
-                ).first()
+            existing = session.query(Section).filter(
+                Section.well_id == self.well_id,
+                Section.name == section_name,
+            ).first()
 
-                if existing:
-                    section_id = existing.id
-                else:
-                    dr_data = extracted.get("daily_report", {})
-                    depth_from = ValueNormalizer.to_float(dr_data.get("depth_0000"))
-                    depth_to = ValueNormalizer.to_float(dr_data.get("depth_2400"))
-                    # No fake defaults: preserve None as 0 only for DB constraints but flag as review
-                    new_section = Section(
-                        well_id=self.well_id,
-                        name=section_name,
-                        code=self._safe_text(wi.get("section_code"), ""),
-                        # Missing depth is unknown, not zero.  The schema
-                        # permits NULL and lineage/review keeps the source
-                        # token when a malformed value was supplied.
-                        depth_from=depth_from,
-                        depth_to=depth_to,
-                    )
-                    session.add(new_section)
-                    session.flush()
-                    section_id = new_section.id
-                    results["details"].append(f"✅ Section '{section_name}' created (identity: name + depth range)")
-
-                session.commit()
-            finally:
-                session.close()
-                session = None
+            if existing:
+                section_id = existing.id
+            else:
+                dr_data = extracted.get("daily_report", {})
+                depth_from = ValueNormalizer.to_float(dr_data.get("depth_0000"))
+                depth_to = ValueNormalizer.to_float(dr_data.get("depth_2400"))
+                new_section = Section(
+                    well_id=self.well_id,
+                    name=section_name,
+                    code=self._safe_text(wi.get("section_code"), ""),
+                    depth_from=depth_from,
+                    depth_to=depth_to,
+                )
+                session.add(new_section)
+                session.flush()
+                section_id = new_section.id
+                results["details"].append(f"✅ Section '{section_name}' created (identity: name + depth range)")
 
             if not section_id:
-                results["failed"] += 1
+                results["validation_errors"] += 1
+                results["status"] = "VALIDATION_ERROR"
                 results["details"].append("❌ No valid section - MISSING_INPUT")
                 return results
 
             results["section_id"] = section_id
 
             # Daily Report - no fake defaults
+            stage = "daily_report"
             dr = dict(extracted.get("daily_report", {}))
             dr["well_id"] = self.well_id
             dr["section_id"] = section_id
             raw_report_date = dr.get("report_date") or wi.get("report_date")
             if raw_report_date in (None, ""):
-                results["failed"] += 1
+                results["validation_errors"] += 1
+                results["status"] = "VALIDATION_ERROR"
                 results["details"].append("❌ Import stopped: report date is missing - MISSING_INPUT")
                 return results
             dr["report_date"] = self._normalize_date(raw_report_date)
             dr.setdefault("status", "Draft")
 
             supplied_report_number = ValueNormalizer.to_int(dr.get("report_number"))
-            report_num = self._ensure_report_number(dr, section_id)
+            report_num = self._ensure_report_number(dr, section_id, session=session)
             dr["report_number"] = report_num
             dr["report_number_source"] = "imported" if supplied_report_number else "generated"
 
@@ -1229,9 +1258,9 @@ class ExcelImportDialog(QDialog):
                     dr["forecast"] = forecast_val.strip()
 
             created_new_report = not bool(dr.get("id"))
-            if not created_new_report or hasattr(self.db, "snapshot_import_target"):
-                import_snapshot = self.db.snapshot_import_target(self.well_id, section_id, dr["report_date"])
-            saved = self.db.save_daily_report(dr)
+            # The outer transaction itself protects existing reports; taking
+            # a separately committed snapshot would create a second boundary.
+            saved = self.db.save_daily_report(dr, session=session)
             report_id = None
 
             if saved and saved.get("id"):
@@ -1240,16 +1269,18 @@ class ExcelImportDialog(QDialog):
                 results["imported"] += 1
                 results["details"].append(f"✅ Report #{saved.get('report_number', '?')} - Atomic transaction started")
             else:
-                report_id = self._create_fallback_report(dr, section_id, report_num, results)
+                report_id = self._create_fallback_report(dr, section_id, report_num, results, session=session)
 
             if not report_id:
                 results["details"].append("❌ Could not create Daily Report")
-                results["failed"] += 1
+                results["validation_errors"] += 1
+                results["status"] = "VALIDATION_ERROR"
                 return results
 
             results["report_id"] = report_id
 
             # Mud with unit preservation
+            stage = "mud_report"
             mud_data = extracted.get("mud_report", {}) or {}
             if not mud_data.get("chemicals_json") and extracted.get("bulk_materials"):
                 mud_data["chemicals_json"] = json.dumps([
@@ -1292,9 +1323,10 @@ class ExcelImportDialog(QDialog):
                         )
 
             self._save_mud_report(mud_data, report_id, dr["report_date"],
-                                  daily_report=dr)
+                                  daily_report=dr, session=session)
 
             # Drilling params with universal aliases
+            stage = "drilling_parameters"
             drilling_extracted = extracted.get("drilling_params", {})
             # Map WOB aliases
             wob_aliases = ["wob", "wt. on bit", "bit load", "weight on bit", "w.o.b", "wob_max"]
@@ -1306,71 +1338,96 @@ class ExcelImportDialog(QDialog):
                 drilling_extracted, report_id, dr["report_date"],
                 param_table=extracted.get("drilling_params_table") or [],
                 scr_data=extracted.get("scr_data") or [],
+                session=session,
             )
 
             if extracted.get("time_logs_24h"):
-                self._save_time_logs(report_id, extracted["time_logs_24h"])
-                results["details"].append(f"✅ Time logs: {len(extracted['time_logs_24h'])} entries - Validated: 24h total, overlap/gap checked")
+                stage = "time_logs_24h"
+                time_result = self._save_time_logs(report_id, extracted["time_logs_24h"], session=session)
+                results.setdefault("review_items", []).extend(time_result.get("review", []))
+                results["review"] = results.get("review", 0) + len(time_result.get("review", []))
+                results["details"].append(
+                    f"✅ Time logs: {time_result.get('valid', 0)} valid, "
+                    f"{len(time_result.get('review', []))} reviewable - no invented times"
+                )
 
             if extracted.get("time_logs_morning"):
-                self._save_morning_logs(report_id, extracted["time_logs_morning"])
-                results["details"].append(f"✅ Morning logs: {len(extracted['time_logs_morning'])} entries")
+                stage = "time_logs_morning"
+                morning_result = self._save_morning_logs(report_id, extracted["time_logs_morning"], session=session)
+                results.setdefault("review_items", []).extend(morning_result.get("review", []))
+                results["review"] = results.get("review", 0) + len(morning_result.get("review", []))
+                results["details"].append(
+                    f"✅ Morning logs: {morning_result.get('valid', 0)} valid, "
+                    f"{len(morning_result.get('review', []))} reviewable continuation/invalid rows"
+                )
 
             # Atomic multi-tab import
+            stage = "multi_tab_persistence"
             if hasattr(self.db, 'save_imported_multi_tab_data_atomic'):
                 try:
-                    multi_res = self.db.save_imported_multi_tab_data_atomic(self.well_id, report_id, extracted)
+                    multi_res = self.db.save_imported_multi_tab_data_atomic(
+                        self.well_id, report_id, extracted, session=session
+                    )
+                    results.setdefault("diagnostics", []).extend(multi_res.get("diagnostics", []))
+                    results.setdefault("review_items", []).extend(multi_res.get("review_rows", []))
+                    results["review"] = results.get("review", 0) + multi_res.get("review", 0)
+                    results["validation_errors"] = results.get("validation_errors", 0) + multi_res.get("validation_errors", 0)
                     for k, count in multi_res.items():
-                        if k in ("failed", "error"):
+                        if k in ("failed", "error", "imported", "review", "diagnostics", "review_rows", "validation_errors"):
                             if k == "failed":
                                 results["failed"] += int(count or 0)
-                        elif k == "imported":
                             continue
-                        elif count and count > 0:
+                        if isinstance(count, (int, float)) and count > 0:
                             results["details"].append(f"✅ {k}: {count} records imported (atomic)")
                     results["imported"] += multi_res.get("imported", 0)
                 except Exception as atomic_exc:
                     logger.error(f"Atomic multi-tab import failed: {atomic_exc}", exc_info=True)
-                    # Rollback handled inside atomic method via session_scope
-                    if import_snapshot:
-                        self.db.restore_import_snapshot(import_snapshot)
-                    elif created_new_report:
-                        self.db.delete_daily_report(report_id)
+                    diagnostic = getattr(atomic_exc, "issue", None)
+                    if diagnostic is not None:
+                        results.setdefault("diagnostics", []).append(diagnostic.to_dict())
                     results["failed"] += 1
                     results["details"].append(f"↩️ Atomic rollback: {atomic_exc} - No partial data kept")
-                    results["imported"] = 0
-                    return results
+                    raise
 
-            if results["failed"] and report_id:
-                if import_snapshot:
-                    self.db.restore_import_snapshot(import_snapshot)
-                elif created_new_report:
-                    self.db.delete_daily_report(report_id)
+            if results["failed"]:
+                session.rollback()
                 results["details"].append("↩️ Import rolled back: no partial report was kept - Transaction integrity preserved")
                 results["imported"] = 0
                 return results
 
-            results["details"].append("✅ Atomic transaction committed - All 15 tables saved or none")
+            # The only successful import commit.  All report-scoped writes,
+            # including IDs obtained via flush(), are committed together.
+            session.commit()
+            results["status"] = (
+                "VALIDATION_ERROR" if results.get("validation_errors", 0)
+                else "REVIEW_REQUIRED" if results.get("review", 0)
+                else "ACCEPT"
+            )
+            results["details"].append("✅ Atomic transaction committed - All report-scoped data saved or none")
             return results
 
         except Exception as e:
-            results["failed"] = 1
+            results["failed"] = max(1, results.get("failed", 0))
+            diagnostic = getattr(e, "issue", None)
+            if diagnostic is None:
+                diagnostic = PersistenceIssue.from_exception(
+                    e,
+                    stage=f"import.{stage}",
+                    entity=stage,
+                    operation="flush/commit",
+                )
+            results["status"] = diagnostic.status
+            issue_dict = diagnostic.to_dict()
+            if issue_dict not in results.setdefault("diagnostics", []):
+                results["diagnostics"].append(issue_dict)
             results["details"].append(f"❌ Error: {str(e)}")
             logger.error(f"Import error: {e}", exc_info=True)
             if session:
                 try:
                     session.rollback()
-                except Exception:
-                    pass
-            if report_id:
-                try:
-                    if import_snapshot:
-                        self.db.restore_import_snapshot(import_snapshot)
-                    elif created_new_report:
-                        self.db.delete_daily_report(report_id)
                     results["details"].append("↩️ Import rolled back after failure - No orphan data")
                 except Exception:
-                    logger.error("Import rollback cleanup failed", exc_info=True)
+                    logger.error("Import rollback failed", exc_info=True)
             return results
         finally:
             if session:
@@ -1379,25 +1436,28 @@ class ExcelImportDialog(QDialog):
                 except Exception:
                     pass
 
-    def _ensure_report_number(self, dr: dict, section_id: int) -> int:
+    def _ensure_report_number(self, dr: dict, section_id: int, session=None) -> int:
         if dr.get("report_number"):
             num = ValueNormalizer.to_int(dr["report_number"])
             if num and num > 0:
                 return num
 
         from core.database import DailyReport
-        session = self.db.create_session()
+        owns_session = session is None
+        session = session or self.db.create_session()
         try:
             last = session.query(DailyReport).filter(
                 DailyReport.section_id == section_id,
             ).order_by(DailyReport.report_number.desc()).first()
             return (last.report_number + 1) if last else 1
         finally:
-            session.close()
+            if owns_session:
+                session.close()
 
-    def _create_fallback_report(self, dr: dict, section_id: int, report_num: int, results: dict) -> int:
+    def _create_fallback_report(self, dr: dict, section_id: int, report_num: int, results: dict, session=None) -> int:
         from core.database import DailyReport
-        session = self.db.create_session()
+        owns_session = session is None
+        session = session or self.db.create_session()
         try:
             existing = session.query(DailyReport).filter(
                 DailyReport.well_id == self.well_id,
@@ -1419,7 +1479,9 @@ class ExcelImportDialog(QDialog):
                     summary=dr.get("summary", ""),
                 )
                 session.add(existing)
-                session.commit()
+                session.flush()
+                if owns_session:
+                    session.commit()
                 results["details"].append(f"⚠️ Fallback report #{report_num} - No fake defaults, depth preserved as NULL if missing")
 
             report_id = existing.id
@@ -1427,12 +1489,16 @@ class ExcelImportDialog(QDialog):
             return report_id
 
         except Exception as e:
-            logger.error(f"Fallback report error: {e}")
-            return None
+            if owns_session:
+                session.rollback()
+                logger.error(f"Fallback report error: {e}")
+                return None
+            raise
         finally:
-            session.close()
+            if owns_session:
+                session.close()
 
-    def _save_mud_report(self, mr: dict, report_id: int, report_date, daily_report=None):
+    def _save_mud_report(self, mr: dict, report_id: int, report_date, daily_report=None, session=None):
         if not mr:
             return
         mr_save = dict(mr)
@@ -1507,8 +1573,10 @@ class ExcelImportDialog(QDialog):
             mr_save["summary"] = (summary + "\n" if summary else "") + "\n".join(provenance)
 
         try:
-            self.db.save_mud_report(mr_save)
+            self.db.save_mud_report(mr_save, session=session)
         except Exception as e:
+            if session is not None:
+                raise
             logger.error(f"Mud report save error: {e}")
 
     @staticmethod
@@ -1525,7 +1593,7 @@ class ExcelImportDialog(QDialog):
         except (ValueError, ZeroDivisionError):
             return None
 
-    def _save_drilling_params(self, dp: dict, report_id: int, report_date, param_table=None, scr_data=None):
+    def _save_drilling_params(self, dp: dict, report_id: int, report_date, param_table=None, scr_data=None, session=None):
         if not dp:
             return
         dp_save = dict(dp)
@@ -1630,99 +1698,153 @@ class ExcelImportDialog(QDialog):
                 dp_save[field] = ValueNormalizer.to_float(dp_save[field])
 
         try:
-            self.db.save_drilling_parameters(dp_save)
+            self.db.save_drilling_parameters(dp_save, session=session)
         except Exception as e:
+            if session is not None:
+                raise
             logger.error(f"Drilling params save error: {e}")
 
-    def _save_time_logs(self, report_id: int, logs: list):
-        session = self.db.create_session()
+    def _save_time_logs(self, report_id: int, logs: list, session=None):
+        """Save valid 24-hour rows in the caller's transaction.
+
+        Invalid source rows are returned as review items rather than swallowed;
+        a caller-owned session receives exceptions so the outer import can
+        rollback every report-scoped object.
+        """
+        owns_session = session is None
+        session = session or self.db.create_session()
+        review_items = []
+        saved = 0
         try:
             from core.database import TimeLog24H
             session.query(TimeLog24H).filter(TimeLog24H.report_id == report_id).delete()
-            saved = 0
-            for log in logs:
+            for index, log in enumerate(logs):
                 time_from = ValueNormalizer.to_time(log.get("time_from"))
                 time_to = ValueNormalizer.to_time(log.get("time_to"))
                 if time_from is None or time_to is None:
-                    logger.warning("Skipping time log with missing/invalid time range")
+                    review_items.append({
+                        "source_cell": log.get("source_cell") or log.get("source_cells"),
+                        "source_row": log.get("source_row") or index,
+                        "original_value": {"time_from": log.get("time_from"), "time_to": log.get("time_to")},
+                        "normalized_value": {"time_from": time_from, "time_to": time_to},
+                        "classification": "invalid_time_range",
+                        "reason": "Both time anchors are required for persistence",
+                        "status": "REVIEW_REQUIRED",
+                    })
                     continue
                 raw_duration = log.get("duration")
                 try:
                     duration = None if raw_duration in (None, "") else float(raw_duration)
                 except (TypeError, ValueError, OverflowError):
-                    logger.warning("Skipping time log with invalid duration: %r", raw_duration)
-                    continue
+                    duration = None
                 if duration is not None and (duration < 0 or duration > 24):
-                    logger.warning("Skipping time log with out-of-range duration: %r", raw_duration)
+                    review_items.append({
+                        "source_cell": log.get("source_cell") or log.get("source_cells"),
+                        "source_row": log.get("source_row") or index,
+                        "original_value": raw_duration,
+                        "normalized_value": duration,
+                        "classification": "invalid_duration",
+                        "reason": "Duration must be between 0 and 24 hours",
+                        "status": "REVIEW_REQUIRED",
+                    })
                     continue
-                tlog = TimeLog24H(
-                    report_id=report_id,
-                    time_from=time_from,
-                    time_to=time_to,
-                    duration=duration,
-                    main_phase=str(log.get("main_phase", ""))[:100],
+                session.add(TimeLog24H(
+                    report_id=report_id, time_from=time_from, time_to=time_to,
+                    duration=duration, main_phase=str(log.get("main_phase", ""))[:100],
                     main_code=str(log.get("main_code", ""))[:100],
                     sub_code=str(log.get("sub_code", ""))[:100],
-                    status=str(log.get("status", ""))[:50],
-                    is_npt=bool(log.get("is_npt", False)),
+                    status=str(log.get("status", ""))[:50], is_npt=bool(log.get("is_npt", False)),
                     npt_category=str(log.get("npt_category", ""))[:100],
                     activity_description=wrap_text(str(log.get("activity_description", ""))),
                     contractor=str(log.get("contractor", ""))[:100],
-                )
-                session.add(tlog)
+                ))
                 saved += 1
-            session.commit()
-            logger.info(f"Saved {saved} time logs (no fake defaults, duration validated)")
-        except Exception as e:
-            session.rollback()
-            logger.error(f"Time log save error: {e}")
+            session.flush()
+            if owns_session:
+                session.commit()
+            return {"valid": saved, "review": review_items}
+        except Exception:
+            if owns_session:
+                session.rollback()
+                logger.exception("Time log save error")
+                return {"valid": saved, "review": review_items}
+            raise
         finally:
-            session.close()
+            if owns_session:
+                session.close()
 
-    def _save_morning_logs(self, report_id: int, logs: list):
-        session = self.db.create_session()
+    def _save_morning_logs(self, report_id: int, logs: list, session=None):
+        """Persist anchored morning rows and retain continuation rows as review."""
+        owns_session = session is None
+        session = session or self.db.create_session()
+        review_items = []
+        saved = 0
         try:
             from core.database import TimeLogMorning
             session.query(TimeLogMorning).filter(TimeLogMorning.report_id == report_id).delete()
-            saved = 0
-            for log in logs:
+            for index, log in enumerate(logs):
                 time_from = ValueNormalizer.to_time(log.get("time_from"))
                 time_to = ValueNormalizer.to_time(log.get("time_to"))
+                description = str(log.get("activity_description", "")).strip()
                 if time_from is None or time_to is None:
-                    logger.warning("Skipping morning log with missing/invalid time range")
+                    classification = log.get("classification") or (
+                        "continuation" if description else "invalid_time_range"
+                    )
+                    review_items.append({
+                        "source_cell": log.get("source_cell") or log.get("source_cells"),
+                        "source_row": log.get("source_row") or index,
+                        "continuation_text": description if classification == "continuation" else "",
+                        "original_value": {"time_from": log.get("time_from"), "time_to": log.get("time_to"), "description": description},
+                        "normalized_value": {"time_from": time_from, "time_to": time_to},
+                        "classification": classification,
+                        "reason": log.get("review_reason") or (
+                            "Continuation row has no independent time anchor; no time was invented"
+                            if classification == "continuation" else
+                            "Both time anchors are required for persistence"
+                        ),
+                        "status": "REVIEW_REQUIRED",
+                    })
                     continue
                 raw_duration = log.get("duration")
                 try:
                     duration = None if raw_duration in (None, "") else float(raw_duration)
                 except (TypeError, ValueError, OverflowError):
-                    logger.warning("Skipping morning log with invalid duration: %r", raw_duration)
-                    continue
+                    duration = None
                 if duration is not None and (duration < 0 or duration > 24):
-                    logger.warning("Skipping morning log with out-of-range duration: %r", raw_duration)
+                    review_items.append({
+                        "source_cell": log.get("source_cell") or log.get("source_cells"),
+                        "source_row": log.get("source_row") or index,
+                        "original_value": raw_duration,
+                        "normalized_value": duration,
+                        "classification": "invalid_duration",
+                        "reason": "Duration must be between 0 and 24 hours",
+                        "status": "REVIEW_REQUIRED",
+                    })
                     continue
-                tlog = TimeLogMorning(
-                    report_id=report_id,
-                    time_from=time_from,
-                    time_to=time_to,
-                    duration=duration,
-                    main_phase=str(log.get("main_phase", ""))[:100],
+                session.add(TimeLogMorning(
+                    report_id=report_id, time_from=time_from, time_to=time_to,
+                    duration=duration, main_phase=str(log.get("main_phase", ""))[:100],
                     main_code=str(log.get("main_code", ""))[:100],
                     sub_code=str(log.get("sub_code", ""))[:100],
-                    status=str(log.get("status", ""))[:50],
-                    is_npt=bool(log.get("is_npt", False)),
+                    status=str(log.get("status", ""))[:50], is_npt=bool(log.get("is_npt", False)),
                     npt_category=str(log.get("npt_category", ""))[:100],
-                    activity_description=wrap_text(str(log.get("activity_description", ""))),
+                    activity_description=wrap_text(description),
                     contractor=str(log.get("contractor", ""))[:100],
-                )
-                session.add(tlog)
+                ))
                 saved += 1
-            session.commit()
-            logger.info(f"Saved {saved} morning logs")
-        except Exception as e:
-            session.rollback()
-            logger.error(f"Morning log save error: {e}")
+            session.flush()
+            if owns_session:
+                session.commit()
+            return {"valid": saved, "review": review_items}
+        except Exception:
+            if owns_session:
+                session.rollback()
+                logger.exception("Morning log save error")
+                return {"valid": saved, "review": review_items}
+            raise
         finally:
-            session.close()
+            if owns_session:
+                session.close()
 
     def _normalize_date(self, value) -> dt_date:
         result = ValueNormalizer.to_date(value)

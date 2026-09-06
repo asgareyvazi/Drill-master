@@ -51,7 +51,8 @@ except ImportError:
         "Install with: pip install bcrypt"
     )
 
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
+from core.import_diagnostics import PersistenceError, PersistenceIssue
 logger = logging.getLogger(__name__)
 
 # Development/test bootstrap fixtures are intentionally isolated from
@@ -1802,9 +1803,10 @@ class DatabaseManager:
         """Apply idempotent, additive migrations and record the schema version.
 
         ``create_all`` handles new installations. Existing SQLite files receive
-        only nullable columns or tables here; no destructive migration is
-        performed. A failed migration is fatal to startup so the application
-        cannot run against a partially upgraded schema.
+        additive columns first, followed by a data-preserving table rebuild only
+        when ORM-nullable columns are installed as legacy NOT NULL. A failed
+        migration is fatal to startup so the application cannot run against a
+        partially upgraded schema.
         """
         from sqlalchemy import inspect, text
 
@@ -1854,22 +1856,126 @@ class DatabaseManager:
                         )
                     )
 
+            self._migrate_nullable_contracts(inspector)
             with self.engine.begin() as conn:
                 current = conn.execute(
                     text("SELECT MAX(version) FROM schema_version")
                 ).scalar()
-                if current != 1:
+                if current != 2:
                     conn.execute(text("DELETE FROM schema_version"))
                     conn.execute(
                         text(
                             "INSERT INTO schema_version(version, applied_at) "
-                            "VALUES (1, :applied_at)"
+                            "VALUES (2, :applied_at)"
                         ),
                         {"applied_at": _now_utc()},
                     )
         except Exception:
             logger.exception("Database schema migration failed")
             raise
+
+    def audit_orm_schema_nullable_contract(self) -> list[dict]:
+        """Return installed ORM-nullability mismatches without modifying data."""
+        from sqlalchemy import inspect
+        inspector = inspect(self.engine)
+        mismatches = []
+        for table_name, model_table in Base.metadata.tables.items():
+            if table_name not in inspector.get_table_names():
+                continue
+            installed = {item["name"]: item for item in inspector.get_columns(table_name)}
+            for column in model_table.columns:
+                item = installed.get(column.name)
+                if item is not None and column.nullable and not item.get("nullable", True):
+                    mismatches.append({
+                        "table": table_name,
+                        "column": column.name,
+                        "orm_nullable": True,
+                        "database_nullable": False,
+                    })
+        return mismatches
+
+    def _migrate_nullable_contracts(self, inspector) -> list[dict]:
+        """Reconcile legacy SQLite NOT NULL columns with ORM nullability.
+
+        SQLite cannot alter a column's nullability in place.  For every
+        existing table where the current ORM explicitly allows NULL but the
+        installed database does not, rebuild that table from the authoritative
+        SQLAlchemy table definition and copy all shared data.  Foreign keys are
+        disabled only for the bounded rebuild and are restored by SQLite on the
+        next connection.  The operation is idempotent because a second
+        inspection finds no mismatch.
+        """
+        from sqlalchemy import MetaData, Table, inspect as sqlalchemy_inspect, text
+
+        mismatches = []
+        for table_name, model_table in Base.metadata.tables.items():
+            if table_name not in inspector.get_table_names():
+                continue
+            existing = {
+                column["name"]: column
+                for column in inspector.get_columns(table_name)
+            }
+            for column in model_table.columns:
+                installed = existing.get(column.name)
+                if installed is None:
+                    continue
+                if column.nullable and not installed.get("nullable", True):
+                    mismatches.append({
+                        "table": table_name,
+                        "column": column.name,
+                        "orm_nullable": True,
+                        "database_nullable": False,
+                    })
+
+        if not mismatches:
+            return []
+
+        # Rebuild one table at a time.  All mismatches for a table are handled
+        # together so an interrupted migration cannot leave a mixed contract.
+        for table_name in sorted({item["table"] for item in mismatches}):
+            source = Base.metadata.tables[table_name]
+            metadata = MetaData()
+            temporary_name = f"__drillmaster_migrate_{table_name}"
+            target = source.to_metadata(metadata, name=temporary_name)
+            # Resolve copied foreign keys against lightweight metadata copies;
+            # only the temporary table is created, so existing tables are not
+            # duplicated in SQLite.
+            for foreign_key in source.foreign_keys:
+                remote = foreign_key.column.table
+                if remote.name not in metadata.tables:
+                    remote.to_metadata(metadata)
+            # SQLite index names are database-global.  Rebuilding while the
+            # old table still exists therefore needs temporary index names.
+            for index in target.indexes:
+                if index.name:
+                    index.name = f"{index.name}__migrated"
+            shared = [
+                column.name
+                for column in source.columns
+                if column.name in {
+                    item["name"] for item in inspector.get_columns(table_name)
+                }
+            ]
+            if not shared:
+                raise RuntimeError(f"Cannot migrate {table_name}: no shared columns")
+            with self.engine.begin() as conn:
+                conn.execute(text("PRAGMA foreign_keys=OFF"))
+                try:
+                    target.create(conn)
+                    columns = ", ".join(f'"{name}"' for name in shared)
+                    conn.execute(text(
+                        f'INSERT INTO "{temporary_name}" ({columns}) '
+                        f'SELECT {columns} FROM "{table_name}"'
+                    ))
+                    conn.execute(text(f'DROP TABLE "{table_name}"'))
+                    conn.execute(text(
+                        f'ALTER TABLE "{temporary_name}" RENAME TO "{table_name}"'
+                    ))
+                finally:
+                    conn.execute(text("PRAGMA foreign_keys=ON"))
+            inspector = sqlalchemy_inspect(self.engine)
+
+        return mismatches
 
     def _bootstrap_passwords(self) -> Dict[str, str]:
         """Resolve bootstrap passwords without a production fallback."""
@@ -2352,9 +2458,10 @@ class DatabaseManager:
         finally:
             session.close()
     
-    def save_section(self, section_data: dict):
-        """Save or update a section"""
-        session = self.create_session()
+    def save_section(self, section_data: dict, session: Optional[Session] = None):
+        """Save/update a section, optionally inside an import transaction."""
+        owns_session = session is None
+        session = session or self.create_session()
         try:
             if section_data.get("id"):
                 section = session.query(Section).filter(Section.id == section_data["id"]).first()
@@ -2368,14 +2475,18 @@ class DatabaseManager:
                 section = Section(**{k: v for k, v in section_data.items() if k in valid_keys and k != "id"})
                 session.add(section)
                 session.flush()
-            session.commit()
+            if owns_session:
+                session.commit()
             return section.id
         except Exception as e:
-            session.rollback()
-            logger.error(f"Error saving section: {e}")
-            return None
+            if owns_session:
+                session.rollback()
+                logger.error(f"Error saving section: {e}")
+                return None
+            raise
         finally:
-            session.close()
+            if owns_session:
+                session.close()
         
     def get_daily_reports_by_section(self, section_id: int)-> List[Dict[str, Any]]:
         session = self.create_session()
@@ -2442,7 +2553,7 @@ class DatabaseManager:
                 out[k] = v
         return out
 
-    def save_well(self, well_data: dict) -> bool:
+    def save_well(self, well_data: dict, session: Optional[Session] = None) -> bool:
         date_fields = ['spud_date', 'start_hole_date', 'rig_move_date', 'report_date']
         for field in date_fields:
             if field in well_data:
@@ -2458,20 +2569,17 @@ class DatabaseManager:
                         well_data[field] = None
                 elif isinstance(val, datetime):
                     well_data[field] = val.date()
-                elif isinstance(val, date):
-                    pass
-                elif val is None:
+                elif isinstance(val, date) or val is None:
                     pass
                 else:
                     well_data[field] = None
 
-        # فیلتر فیلدهای نامعتبر
         valid_keys = {c.name for c in Well.__table__.columns}
-        filtered_data = {k: v for k, v in well_data.items() if k in valid_keys}
-
-        filtered_data = self.coerce_model_values(Well, filtered_data)
-
-        session = self.create_session()
+        filtered_data = self.coerce_model_values(
+            Well, {k: v for k, v in well_data.items() if k in valid_keys}
+        )
+        owns_session = session is None
+        session = session or self.create_session()
         try:
             well_id = filtered_data.get("id")
             if well_id:
@@ -2485,25 +2593,28 @@ class DatabaseManager:
             else:
                 well = Well(**filtered_data)
                 session.add(well)
-            session.commit()
-            
-            user_info = self._get_current_user_info
-            self.log_audit(
-                action="update" if well_id else "create",
-                entity_type="well",
-                entity_id=well.id if hasattr(well, 'id') else well_id,
-                entity_name=filtered_data.get("name", ""),
-                user_id=user_info['user_id'],
-                username=user_info['username'],
-            )
-
+            session.flush()
+            if owns_session:
+                session.commit()
+                user_info = self._get_current_user_info
+                self.log_audit(
+                    action="update" if well_id else "create",
+                    entity_type="well",
+                    entity_id=well.id,
+                    entity_name=filtered_data.get("name", ""),
+                    user_id=user_info['user_id'],
+                    username=user_info['username'],
+                )
             return True
         except Exception as e:
-            session.rollback()
-            logger.error(f"Error saving well: {e}")
-            return False
+            if owns_session:
+                session.rollback()
+                logger.error(f"Error saving well: {e}")
+                return False
+            raise
         finally:
-            session.close()
+            if owns_session:
+                session.close()
     
     def delete_well(self, well_id: int) -> bool:
         try:
@@ -2551,22 +2662,18 @@ class DatabaseManager:
         finally:
             session.close()
 
-    def save_daily_report(self, data: dict):
-        session = self.create_session()
+    def save_daily_report(self, data: dict, session: Optional[Session] = None):
+        owns_session = session is None
+        session = session or self.create_session()
         try:
             if "report_date" in data and isinstance(data["report_date"], str):
                 try:
-                    data["report_date"] = datetime.strptime(
-                        data["report_date"], "%Y-%m-%d"
-                    ).date()
+                    data["report_date"] = datetime.strptime(data["report_date"], "%Y-%m-%d").date()
                 except ValueError:
                     pass
-
             report_id = data.get("id")
             if report_id:
-                report = session.query(DailyReport).filter(
-                    DailyReport.id == report_id
-                ).first()
+                report = session.query(DailyReport).filter(DailyReport.id == report_id).first()
                 if not report:
                     return None
                 valid_keys = {c.name for c in DailyReport.__table__.columns}
@@ -2576,25 +2683,20 @@ class DatabaseManager:
                 report.updated_at = _now_utc()
             else:
                 valid_keys = {c.name for c in DailyReport.__table__.columns}
-                filtered_data = {
-                    k: v for k, v in data.items() if k in valid_keys
-                }
-                report = DailyReport(**filtered_data)
+                report = DailyReport(**{k: v for k, v in data.items() if k in valid_keys})
                 session.add(report)
-                session.flush()
-
-            session.commit()
-            
-            from core.permissions import permissions
-            self.log_audit(
-                action="update" if report_id else "create",
-                entity_type="daily_report",
-                entity_id=report.id,
-                entity_name=f"Report #{report.report_number}",
-                user_id=permissions.user_id,
-                username=permissions.username,
-            )
-            
+            session.flush()
+            if owns_session:
+                session.commit()
+                from core.permissions import permissions
+                self.log_audit(
+                    action="update" if report_id else "create",
+                    entity_type="daily_report",
+                    entity_id=report.id,
+                    entity_name=f"Report #{report.report_number}",
+                    user_id=permissions.user_id,
+                    username=permissions.username,
+                )
             return {
                 "id": report.id,
                 "report_number": report.report_number,
@@ -2609,11 +2711,14 @@ class DatabaseManager:
                 "section_id": report.section_id,
             }
         except Exception as e:
-            session.rollback()
-            logger.error(f"Error saving daily report: {e}")
-            return None
+            if owns_session:
+                session.rollback()
+                logger.error(f"Error saving daily report: {e}")
+                return None
+            raise
         finally:
-            session.close()
+            if owns_session:
+                session.close()
             
     def snapshot_import_target(self, well_id, section_id, report_date):
         session = self.create_session()
@@ -2894,7 +2999,7 @@ class DatabaseManager:
             session.flush()
         return obj.id
 
-    def save_imported_multi_tab_data_atomic(self, well_id: int, report_id: int, extracted: dict) -> dict:
+    def save_imported_multi_tab_data_atomic(self, well_id: int, report_id: int, extracted: dict, session: Optional[Session] = None) -> dict:
         """Atomic transaction for all import tables.
 
         Implements:
@@ -2921,12 +3026,11 @@ class DatabaseManager:
         - No orphan child data
         - Previous report not corrupted (via snapshot)
         """
-        results = {"failed": 0, "imported": 0}
+        results = {"failed": 0, "imported": 0, "review": 0, "diagnostics": []}
         try:
-            with self.session_scope() as session:
+            with (self.session_scope() if session is None else nullcontext(session)) as session:
                 report_obj = session.get(DailyReport, report_id)
                 if report_obj is None:
-                    results["failed"] += 1
                     raise ValueError(f"Report {report_id} not found for atomic import")
                 imported_report_date = report_obj.report_date
                 # Existing installations may still have the historical
@@ -2936,7 +3040,7 @@ class DatabaseManager:
                 from sqlalchemy import inspect
                 survey_columns = {
                     column["name"]: column.get("nullable", True)
-                    for column in inspect(session.bind).get_columns("survey_points")
+                    for column in inspect(session.connection()).get_columns("survey_points")
                 }
                 survey_angles_nullable = (
                     survey_columns.get("inc", False)
@@ -2944,18 +3048,55 @@ class DatabaseManager:
                 )
 
                 # Helper to count
-                def count(key, ok):
-                    if ok:
-                        results[key] = results.get(key, 0) + (1 if not isinstance(ok, int) else ok)
-                        results["imported"] += (1 if not isinstance(ok, int) else ok)
-                    else:
-                        results["failed"] += 1
+                def count(key, ok, *, review=False, reason=""):
+                    amount = 1 if not isinstance(ok, int) else ok
+                    if amount:
+                        results[key] = results.get(key, 0) + amount
+                        results["imported"] += amount
+                    elif review:
+                        results["review"] += 1
+                        results.setdefault("review_rows", []).append({
+                            "entity": key,
+                            "reason": reason or "Source row requires review and was not persisted",
+                            "status": "REVIEW_REQUIRED",
+                        })
+
+                def validation_issue(*, entity, field="", row=None, source=None, original=None, normalized=None, message=""):
+                    results["validation_errors"] = results.get("validation_errors", 0) + 1
+                    results.setdefault("diagnostics", []).append(PersistenceIssue(
+                        stage="persistence.validation",
+                        entity=entity,
+                        field=field,
+                        source=source,
+                        row=row,
+                        original_value=original,
+                        normalized_value=normalized,
+                        expected_type="canonical value",
+                        operation="validate",
+                        message=message,
+                        status="VALIDATION_ERROR",
+                    ).to_dict())
 
                 # 1. Surveys
                 surveys = extracted.get("surveys", [])
                 if surveys:
+                    if not survey_angles_nullable and any(
+                        isinstance(item, dict) and (item.get("inc") is None or item.get("azi") is None)
+                        for item in surveys
+                    ):
+                        issue = PersistenceIssue(
+                            stage="schema.compatibility",
+                            entity="survey_points",
+                            field="inc/azi",
+                            expected_type="nullable FLOAT",
+                            operation="migrate",
+                            message="Existing survey_points schema does not allow reviewable NULL angles",
+                            status="PERSISTENCE_ERROR",
+                        )
+                        results["diagnostics"].append(issue.to_dict())
+                        raise PersistenceError(issue, result=results)
                     valid = []
-                    for s in surveys:
+                    for survey_index, s in enumerate(surveys, 1):
                         if not isinstance(s, dict):
                             continue
                         s = dict(s)
@@ -2977,7 +3118,10 @@ class DatabaseManager:
                         azi = _sfloat(s.get("azi"))
                         if md is None or md < 0:
                             # MD is the row identity and cannot be omitted.
-                            results["failed"] += 1
+                            validation_issue(
+                                entity="survey_points", field="md", row=survey_index, source=s.get("_source_cells"), original=s.get("md"),
+                                normalized=md, message="Measured depth is required and must be non-negative"
+                            )
                             results["survey_review"] = results.get("survey_review", 0) + 1
                             continue
                         if inc is None or azi is None:
@@ -2986,12 +3130,33 @@ class DatabaseManager:
                             # station. A legacy NOT NULL schema is detected
                             # here and rejects the row before engine use.
                             if not survey_angles_nullable:
-                                results["failed"] += 1
+                                # The actionable schema diagnostic is raised before
+                                # row processing above; retain this guard for a
+                                # concurrently changed schema.
+                                validation_issue(
+                                    entity="survey_points", field="inc/azi", row=survey_index, source=s.get("_source_cells"),
+                                    original={"inc": s.get("inc"), "azi": s.get("azi")},
+                                    normalized={"inc": inc, "azi": azi},
+                                    message="Survey inclination/azimuth requires nullable schema support"
+                                )
                                 results["survey_review"] = results.get("survey_review", 0) + 1
                                 continue
                             results["survey_review"] = results.get("survey_review", 0) + 1
+                            results["review"] += 1
+                            results.setdefault("review_rows", []).append({
+                                "row": survey_index,
+                                "source_cell": s.get("_source_cells"),
+                                "original_value": {"inc": s.get("inc"), "azi": s.get("azi")},
+                                "normalized_value": {"inc": inc, "azi": azi},
+                                "classification": "missing_survey_angle",
+                                "reason": "Survey station persisted with NULL angle for review; no angle was invented",
+                                "status": "REVIEW_REQUIRED",
+                            })
                         elif not 0 <= inc <= 180:
-                            results["failed"] += 1
+                            validation_issue(
+                                entity="survey_points", field="inc", row=survey_index, source=s.get("_source_cells"), original=s.get("inc"),
+                                normalized=inc, message="Inclination must be between 0 and 180 degrees"
+                            )
                             results["survey_review"] = results.get("survey_review", 0) + 1
                             continue
                         s["md"], s["inc"], s["azi"] = md, inc, azi
@@ -3645,11 +3810,20 @@ class DatabaseManager:
 
                 session.flush()
             return results
+        except PersistenceError:
+            raise
         except Exception as exc:
             logger.error(f"Atomic import failed, rollback: {exc}", exc_info=True)
             results["failed"] += 1
             results["error"] = str(exc)
-            raise
+            issue = PersistenceIssue.from_exception(
+                exc,
+                stage="persistence.atomic_import",
+                entity="import_report",
+                operation="flush/commit",
+            )
+            results["diagnostics"].append(issue.to_dict())
+            raise PersistenceError(issue, result=results) from exc
 
     def save_imported_multi_tab_data(self, well_id: int, report_id: int, extracted: dict) -> dict:
         """Persist imported sections through one atomic transaction only.
@@ -3662,8 +3836,9 @@ class DatabaseManager:
         return self.save_imported_multi_tab_data_atomic(well_id, report_id, extracted)
 
     # ---------- Drilling Parameters ----------
-    def save_drilling_parameters(self, data: dict):
-        session = self.create_session()
+    def save_drilling_parameters(self, data: dict, session: Optional[Session] = None):
+        owns_session = session is None
+        session = session or self.create_session()
         try:
             if data.get('report_id'):
                 existing = session.query(DrillingParameters).filter(
@@ -3676,14 +3851,10 @@ class DatabaseManager:
                 ).first()
             else:
                 existing = None
-
-            # Apply the same typed model-boundary coercion on both insert and
-            # update.  A malformed token such as ``Drilling Data`` becomes
-            # NULL (never zero and never a driver-level Float exception);
-            # import provenance/review retains the original token upstream.
             columns = set(DrillingParameters.__table__.columns.keys())
-            clean = {k: v for k, v in data.items() if k in columns}
-            clean = self.coerce_model_values(DrillingParameters, clean)
+            clean = self.coerce_model_values(
+                DrillingParameters, {k: v for k, v in data.items() if k in columns}
+            )
             if existing:
                 for key, value in clean.items():
                     if hasattr(existing, key) and key not in ['id', 'well_id', 'report_date', 'report_id']:
@@ -3695,15 +3866,18 @@ class DatabaseManager:
                 session.add(new_record)
                 session.flush()
                 record_id = new_record.id
-
-            session.commit()
+            if owns_session:
+                session.commit()
             return record_id
         except Exception as e:
-            session.rollback()
-            logger.error(f"Error saving drilling parameters: {e}")
-            return None
+            if owns_session:
+                session.rollback()
+                logger.error(f"Error saving drilling parameters: {e}")
+                return None
+            raise
         finally:
-            session.close()
+            if owns_session:
+                session.close()
 
     def get_drilling_parameters(
         self,
@@ -3743,21 +3917,18 @@ class DatabaseManager:
             session.close()
 
     # ---------- Mud Report ----------
-    def save_mud_report(self, data: dict):
-        session = self.create_session()
+    def save_mud_report(self, data: dict, session: Optional[Session] = None):
+        owns_session = session is None
+        session = session or self.create_session()
         try:
             if data.get('report_id'):
-                existing = session.query(MudReport).filter(
-                    MudReport.report_id == data['report_id']
-                ).first()
+                existing = session.query(MudReport).filter(MudReport.report_id == data['report_id']).first()
             elif data.get('well_id') and data.get('report_date'):
                 existing = session.query(MudReport).filter(
-                    MudReport.well_id == data['well_id'],
-                    MudReport.report_date == data['report_date'],
+                    MudReport.well_id == data['well_id'], MudReport.report_date == data['report_date']
                 ).first()
             else:
                 existing = None
-
             if existing:
                 for key, value in data.items():
                     if hasattr(existing, key) and key not in ['id', 'well_id', 'report_date', 'report_id']:
@@ -3765,23 +3936,23 @@ class DatabaseManager:
                 existing.updated_at = _now_utc()
                 record_id = existing.id
             else:
-                # Keep only columns the model knows (provenance-only keys
-                # like mw_unit/mw_original are ignored for storage).
                 columns = set(MudReport.__table__.columns.keys())
-                clean = {k: v for k, v in data.items() if k in columns}
-                new_record = MudReport(**clean)
+                new_record = MudReport(**{k: v for k, v in data.items() if k in columns})
                 session.add(new_record)
                 session.flush()
                 record_id = new_record.id
-
-            session.commit()
+            if owns_session:
+                session.commit()
             return record_id
         except Exception as e:
-            session.rollback()
-            logger.error(f"Error saving mud report: {e}")
-            return None
+            if owns_session:
+                session.rollback()
+                logger.error(f"Error saving mud report: {e}")
+                return None
+            raise
         finally:
-            session.close()
+            if owns_session:
+                session.close()
 
     def get_mud_report(self, well_id: int = None, report_id: int = None, report_date=None):
         session = self.create_session()

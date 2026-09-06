@@ -247,8 +247,29 @@ SQLite with `check_same_thread=False` and `StaticPool` ensures single-connection
 - **Method:** SQLite backup API, including WAL state
 - **Recovery:** stop the application, restore a verified backup, and restart;
   deployments must perform and record a restore drill
-- **Schema:** additive startup migrations are recorded in `schema_version`
-  (current version `1`); migration errors fail initialization
+- **Schema:** startup migrations are recorded in `schema_version` (current
+  version `2`).  Additive upgrades are followed by an idempotent SQLite
+  nullability-contract audit/rebuild for legacy `NOT NULL` columns where the
+  ORM explicitly allows `NULL`; migration errors fail initialization.
+
+## 6.1 Import transaction boundary
+
+The universal Excel/PDF import opens one outer SQLAlchemy session in
+`ExcelImportDialog._do_import()`. Well, section, daily report, mud, drilling
+parameters, time logs, morning logs, and every report-scoped collection receive
+that session. Save helpers `flush()` only when an identifier is needed; they do
+not commit or swallow exceptions when a caller-owned import session is passed.
+There is exactly one successful commit, or the outer rollback removes all
+objects created/updated by that report import. Ordinary CRUD calls omit the
+session and retain their own commit behavior.
+
+Import results expose `ACCEPT`, `REVIEW_REQUIRED`, `VALIDATION_ERROR`, and
+`PERSISTENCE_ERROR` separately. Structured diagnostics include stage,
+entity/field, row/source, original and normalized values, expected type,
+operation, exception type/message, traceback, and available provenance.
+Reviewable input is never counted as a persistence failure; morning
+continuation rows remain review items with their source cells and text rather
+than receiving invented time values.
 
 ---
 
