@@ -2600,9 +2600,9 @@ class DatabaseManager:
                 "report_number": report.report_number,
                 "report_date": report.report_date,
                 "rig_day": report.rig_day,
-                "depth_0000": report.depth_0000 or 0,
-                "depth_0600": report.depth_0600 or 0,
-                "depth_2400": report.depth_2400 or 0,
+                "depth_0000": report.depth_0000,
+                "depth_0600": report.depth_0600,
+                "depth_2400": report.depth_2400,
                 "summary": report.summary or "",
                 "status": report.status or "Draft",
                 "well_id": report.well_id,
@@ -3850,17 +3850,20 @@ class DatabaseManager:
             else:
                 existing = None
 
+            # Apply the same typed model-boundary coercion on both insert and
+            # update.  A malformed token such as ``Drilling Data`` becomes
+            # NULL (never zero and never a driver-level Float exception);
+            # import provenance/review retains the original token upstream.
+            columns = set(DrillingParameters.__table__.columns.keys())
+            clean = {k: v for k, v in data.items() if k in columns}
+            clean = self.coerce_model_values(DrillingParameters, clean)
             if existing:
-                for key, value in data.items():
+                for key, value in clean.items():
                     if hasattr(existing, key) and key not in ['id', 'well_id', 'report_date', 'report_id']:
                         setattr(existing, key, value)
                 existing.updated_at = _now_utc()
                 record_id = existing.id
             else:
-                # Keep only columns the model knows (provenance-only keys
-                # like mw_unit/mw_original are ignored for storage).
-                columns = set(DrillingParameters.__table__.columns.keys())
-                clean = {k: v for k, v in data.items() if k in columns}
                 new_record = DrillingParameters(**clean)
                 session.add(new_record)
                 session.flush()

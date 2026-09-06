@@ -22,13 +22,15 @@ from difflib import SequenceMatcher
 import re
 import logging
 import time
-from datetime import date
+from datetime import date, time as dt_time, timedelta
 
 from core.canonical_schema import (
     FIELD_SPECS, lookup_alias, get_engineering_bounds,
     get_quantity_unit, get_field_spec, CANONICAL_FIELDS,
     mapping_certainty,
 )
+from core.import_ir import raw_document_from_workbook
+from core.value_normalizer import normalize_for_field
 
 logger = logging.getLogger(__name__)
 
@@ -137,6 +139,9 @@ class ImportReport:
     # Provenance for values that could not be stored as-is (e.g. "N.C").
     # {canonical_path: {"original_value": ..., "cell": ..., "sheet": ..., "status": "NON_NUMERIC"}}
     source_tokens: Dict[str, Dict] = field(default_factory=dict)
+    # Shared lossless IR snapshot.  Canonical JSON remains deliberately small;
+    # this object is consumed by diagnostics/lineage, not persisted as a DB row.
+    raw_document: Any = None
 
     def summary(self) -> str:
         return (
@@ -1011,6 +1016,10 @@ class ExcelIntelligence:
     def __init__(self, workbook, template: Dict = None):
         self.workbook = workbook
         self.template = template or {}
+        # Both Excel and MinerU are adapted to the same raw IR before the
+        # canonical schema mapper runs.  It retains hidden/merged/formula
+        # provenance without changing the established extraction semantics.
+        self.raw_document = raw_document_from_workbook(workbook)
         self.cell_cache = {}
         self.merge_analyzers = {}
         self.label_detectors = {}
@@ -1043,6 +1052,7 @@ class ExcelIntelligence:
         report = ImportReport(
             file_name=getattr(self.workbook, 'filename', ''),
             template_version=self.template.get("version", "none"),
+            raw_document=self.raw_document,
         )
 
         canonical = {}
@@ -1085,6 +1095,14 @@ class ExcelIntelligence:
                             else:
                                 report.fields_rejected += 1
                             self._store_scalar(report, canonical, canonical_path, result, actual_sheet)
+                            if canonical_path in report.source_tokens:
+                                # Typed normalization rejected the candidate;
+                                # keep the record as NULL but force explicit
+                                # review instead of silently accepting it.
+                                if decision == "ACCEPT":
+                                    report.fields_accepted = max(0, report.fields_accepted - 1)
+                                result.status = "REVIEW_REQUIRED"
+                                report.fields_review += 1
                         elif result.status == "REVIEW_REQUIRED":
                             report.fields_review += 1
                             self._store_scalar(report, canonical, canonical_path, result, actual_sheet)
@@ -1260,21 +1278,48 @@ class ExcelIntelligence:
         section, key = canonical_path.split(".", 1)
         spec = FIELD_SPECS.get(canonical_path)
         value = result.value
-        if (
-            value is not None
-            and spec is not None
-            and spec.quantity in self.NUMERIC_QUANTITIES
-            and isinstance(value, str)
-        ):
-            try:
-                float(value.replace(",", "").strip())
-            except (ValueError, TypeError):
-                token = value.strip()
+        original_value = value
+        if spec is not None:
+            normalization = normalize_for_field(value, spec)
+            if normalization.missing:
+                value = None
+                if isinstance(original_value, str) and original_value.strip():
+                    token = original_value.strip()
+                    report.source_tokens[canonical_path] = {
+                        "original_value": original_value,
+                        "normalized_value": None,
+                        "cell": result.cell,
+                        "sheet": actual_sheet or result.sheet,
+                        "expected_type": normalization.expected_type,
+                        "status": "PLACEHOLDER",
+                        "review": True,
+                    }
+                    canonical.setdefault(section, {})[key + "_source"] = token
+            elif normalization.ok:
+                # Canonical JSON keeps legacy serializable date/time tokens
+                # and raw Excel timedelta semantics.  The typed normalizer
+                # still validates them; UI/DB boundaries perform the final
+                # explicit conversion.
+                if spec.quantity in {"date", "datetime", "timestamp"} and isinstance(value, (str, bytes)):
+                    value = str(value).strip()
+                elif spec.quantity in {"time", "duration", "timedelta"} and isinstance(value, (str, bytes)):
+                    value = str(value).strip()
+                elif spec.quantity in {"time", "duration", "timedelta"} and isinstance(value, (dt_time, timedelta)):
+                    value = value
+                elif spec.quantity in {"date", "datetime", "timestamp"} and hasattr(normalization.value, "isoformat"):
+                    value = normalization.value.isoformat()
+                else:
+                    value = normalization.value
+            elif normalization.needs_review:
+                token = str(value).strip()
                 report.source_tokens[canonical_path] = {
-                    "original_value": token,
+                    "original_value": value,
+                    "normalized_value": None,
                     "cell": result.cell,
                     "sheet": actual_sheet or result.sheet,
+                    "expected_type": normalization.expected_type,
                     "status": "NON_NUMERIC",
+                    "review": True,
                 }
                 value = None
                 canonical.setdefault(section, {})[key + "_source"] = token
@@ -1299,7 +1344,30 @@ class ExcelIntelligence:
             for k, v in rec.items():
                 if k is None:
                     continue
-                key = str(k).split(".")[-1]
+                canonical_path = str(k)
+                key = canonical_path.split(".")[-1]
+                spec = FIELD_SPECS.get(canonical_path)
+                if spec is not None:
+                    normalization = normalize_for_field(v, spec)
+                    if normalization.missing:
+                        if isinstance(v, str) and v.strip():
+                            short[key + "_source"] = v.strip()
+                        v = None
+                    elif normalization.ok:
+                        if spec.quantity in {"date", "datetime", "timestamp"} and isinstance(v, (str, bytes)):
+                            v = str(v).strip()
+                        elif spec.quantity in {"date", "datetime", "timestamp"} and hasattr(normalization.value, "isoformat"):
+                            v = normalization.value.isoformat()
+                        elif spec.quantity in {"time", "duration", "timedelta"} and isinstance(v, (str, bytes, dt_time, timedelta)):
+                            v = str(v).strip() if isinstance(v, (str, bytes)) else v
+                        else:
+                            v = normalization.value
+                    elif normalization.needs_review:
+                        # Retain the original source token beside a NULL
+                        # typed value; the review matrix can show it without
+                        # risking an ORM Float/Integer conversion.
+                        short[key + "_source"] = v
+                        v = None
                 if key == "duration" and isinstance(v, (int, float)) and not isinstance(v, bool):
                     v = round(float(v), 2)
                 short[key] = v

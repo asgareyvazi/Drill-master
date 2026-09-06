@@ -30,6 +30,8 @@ from typing import Any, Callable, Iterable, Mapping, Optional, Sequence
 
 from core.canonical_schema import FIELD_SPECS, lookup_alias
 from core.runtime_config import data_dir, read_mineru_settings
+from core.value_normalizer import normalize_for_field
+from core.import_ir import raw_document_from_mineru
 
 logger = logging.getLogger(__name__)
 
@@ -708,6 +710,7 @@ def _new_provenance(source_file: str, page: Optional[int] = None, *, method: str
 def _parse_markdown(text: str, document: MinerUDocument, source_file: str) -> None:
     lines = text.splitlines()
     current_page: Optional[int] = None
+    current_heading = ""
     page_text: dict[int, list[str]] = {}
     i = 0
     while i < len(lines):
@@ -717,9 +720,10 @@ def _parse_markdown(text: str, document: MinerUDocument, source_file: str) -> No
             current_page = int(page_match.group(1))
         heading_match = re.match(r"^(#{1,6})\s+(.+?)\s*$", line)
         if heading_match:
+            current_heading = heading_match.group(2).strip()
             document.headings.append(
                 DocumentHeading(
-                    text=heading_match.group(2).strip(),
+                    text=current_heading,
                     level=len(heading_match.group(1)),
                     provenance=_new_provenance(source_file, current_page),
                 )
@@ -736,6 +740,7 @@ def _parse_markdown(text: str, document: MinerUDocument, source_file: str) -> No
                     headers=headers,
                     rows=rows,
                     provenance=_new_provenance(source_file, current_page, method="mineru-markdown-table"),
+                    name=current_heading,
                 )
             )
             continue
@@ -943,6 +948,7 @@ class NormalizedDocument:
     tables_extracted: int
     pages: int
     needs_review: bool = False
+    raw_document: Any = None
 
     def metadata(self) -> dict[str, Any]:
         return {
@@ -956,6 +962,7 @@ class NormalizedDocument:
             "warnings": self.warnings,
             "validation_errors": self.validation.errors,
             "mineru_provenance": self.provenance,
+            "raw_ir": self.raw_document.to_dict() if self.raw_document is not None else None,
         }
 
 
@@ -985,15 +992,21 @@ class DocumentNormalizer:
     }
 
     def normalize(self, document: MinerUDocument) -> NormalizedDocument:
+        # The external engine's representation is adapted to the same raw IR
+        # used by Excel before canonical mapping/typed normalization.
+        raw_document = raw_document_from_mineru(document)
         canonical: dict[str, Any] = {}
         provenance: list[dict[str, Any]] = []
         warnings: list[dict[str, Any]] = []
         fields_extracted = 0
 
-        for table in document.tables:
+        for table_index, table in enumerate(document.tables):
+            raw_table = raw_document.tables[table_index] if table_index < len(raw_document.tables) else None
+            headers = [str(cell.value) for cell in raw_table.headers] if raw_table is not None else list(table.headers)
+            rows = [[cell.value for cell in row] for row in raw_table.rows] if raw_table is not None else list(table.rows)
             table_fields: list[Optional[str]] = []
-            table_context = f"{table.name} {' '.join(table.headers)}".lower()
-            for header in table.headers:
+            table_context = f"{table.name} {' '.join(headers)}".lower()
+            for header in headers:
                 field_path = self._resolve_field(header, table_context)
                 table_fields.append(field_path)
                 if field_path is None and header.strip():
@@ -1007,7 +1020,27 @@ class DocumentNormalizer:
             storage_key = self._storage_key(table_context, table_fields)
             if any(field_path for field_path in table_fields):
                 table_records: list[dict[str, Any]] = []
-                for row_number, row in enumerate(table.rows, 1):
+                for row_number, row in enumerate(rows, 1):
+                    row_class = self._classify_row(row, headers, table_fields)
+                    if row_class != "data":
+                        warnings.append(
+                            {
+                                "level": "review",
+                                "message": f"Ignored {row_class} row; it was not mapped as report data.",
+                                "value": " | ".join(str(cell) for cell in row if cell not in (None, "")),
+                                "source": Provenance(
+                                    document.source_file,
+                                    table.provenance.source_page,
+                                    table.provenance.source_sheet,
+                                    row_number,
+                                    None,
+                                    table.provenance.bounding_box,
+                                    table.provenance.extraction_method,
+                                    table.provenance.confidence,
+                                ).to_dict(),
+                            }
+                        )
+                        continue
                     record: dict[str, Any] = {}
                     for index, field_path in enumerate(table_fields):
                         if field_path is None or index >= len(row):
@@ -1015,8 +1048,39 @@ class DocumentNormalizer:
                         value = row[index]
                         if value == "":
                             continue
+                        spec = FIELD_SPECS.get(field_path)
+                        normalized_value = value
+                        normalization = normalize_for_field(value, spec) if spec is not None else None
+                        if normalization is not None:
+                            normalized_value = normalization.value if normalization.ok else None
+                            if normalization.needs_review or (
+                                normalization.missing and isinstance(value, str) and value.strip()
+                            ):
+                                warnings.append(
+                                    {
+                                        "level": "review",
+                                        "field": field_path,
+                                        "value": value,
+                                        "normalized_value": None,
+                                        "expected_type": normalization.expected_type,
+                                        "message": (
+                                            f"Value {value!r} was preserved for review; it is not a safe "
+                                            f"{normalization.expected_type} literal."
+                                        ),
+                                        "source": Provenance(
+                                            document.source_file,
+                                            table.provenance.source_page,
+                                            table.provenance.source_sheet,
+                                            row_number,
+                                            index + 1,
+                                            table.provenance.bounding_box,
+                                            table.provenance.extraction_method,
+                                            table.provenance.confidence,
+                                        ).to_dict(),
+                                    }
+                                )
                         short_key = field_path.rsplit(".", 1)[-1]
-                        record[short_key] = _safe_canonical_value(field_path, value)
+                        record[short_key] = normalized_value
                         fields_extracted += 1
                         item_provenance = Provenance(
                             source_file=document.source_file,
@@ -1031,7 +1095,14 @@ class DocumentNormalizer:
                         provenance.append(
                             {
                                 "canonical_field": field_path,
-                                "value": value,
+                                "original_value": value,
+                                "normalized_value": normalized_value,
+                                "value": value,  # legacy consumer alias
+                                "normalization_state": (
+                                    "missing" if normalization is not None and normalization.missing
+                                    else "valid" if normalization is None or normalization.ok
+                                    else "needs_review"
+                                ),
                                 **item_provenance,
                             }
                         )
@@ -1057,8 +1128,9 @@ class DocumentNormalizer:
                 elif table_records:
                     canonical.setdefault(storage_key, []).extend(table_records)
 
-        for block in document.text_blocks:
-            field_path, value = self._resolve_text_block(block.text)
+        for block_index, block in enumerate(document.text_blocks):
+            raw_text = raw_document.text_blocks[block_index][0] if block_index < len(raw_document.text_blocks) else block.text
+            field_path, value = self._resolve_text_block(raw_text)
             if field_path is None:
                 continue
             section, key = field_path.split(".", 1)
@@ -1072,18 +1144,52 @@ class DocumentNormalizer:
                     }
                 )
                 continue
-            section_data[key] = _safe_canonical_value(field_path, value)
+            spec = FIELD_SPECS.get(field_path)
+            normalization = normalize_for_field(value, spec) if spec is not None else None
+            normalized_value = value if normalization is None else (normalization.value if normalization.ok else None)
+            section_data[key] = normalized_value
+            if normalization is not None and (
+                normalization.needs_review
+                or (normalization.missing and isinstance(value, str) and value.strip())
+            ):
+                warnings.append(
+                    {
+                        "level": "review",
+                        "field": field_path,
+                        "value": value,
+                        "normalized_value": None,
+                        "expected_type": normalization.expected_type,
+                        "message": (
+                            f"Value {value!r} was preserved for review; it is not a safe "
+                            f"{normalization.expected_type} literal."
+                        ),
+                        "source": block.provenance.to_dict(),
+                    }
+                )
             fields_extracted += 1
             provenance.append(
                 {
                     "canonical_field": field_path,
+                    "original_value": value,
+                    "normalized_value": normalized_value,
                     "value": value,
+                    "normalization_state": (
+                        "missing" if normalization is not None and normalization.missing
+                        else "valid" if normalization is None or normalization.ok
+                        else "needs_review"
+                    ),
                     **block.provenance.to_dict(),
                 }
             )
 
         validation = validate_canonical_payload(canonical)
         warnings.extend(validation.warnings)
+        # A normalization review is also a validation warning at the import
+        # boundary, even though the typed canonical payload now contains NULL.
+        # This keeps UI/error summaries from losing malformed source tokens.
+        validation.warnings.extend(
+            warning for warning in warnings if warning not in validation.warnings
+        )
         return NormalizedDocument(
             source_file=document.source_file,
             canonical_data=canonical,
@@ -1094,7 +1200,47 @@ class DocumentNormalizer:
             tables_extracted=document.table_count,
             pages=document.page_count,
             needs_review=bool(warnings or validation.errors),
+            raw_document=raw_document,
         )
+
+    @staticmethod
+    def _classify_row(row: list[str], headers: list[str], fields: list[Optional[str]]) -> str:
+        """Keep headings/units/notes out of typed record conversion.
+
+        MinerU commonly emits a section title such as ``Drilling Data`` as a
+        physical table row.  It is metadata, not a drilling parameter.  The
+        classifier is intentionally conservative: mixed/textual operational
+        rows are retained, while a row that is clearly a repeated header,
+        unit row, or title is reviewed and skipped.
+        """
+        values = [str(value).strip() for value in row if value not in (None, "")]
+        if not values:
+            return "empty"
+        lowered = [value.lower() for value in values]
+        header_tokens = {
+            " ".join(str(header).strip().lower().split())
+            for header in headers if str(header).strip()
+        }
+        if any(value in header_tokens for value in lowered):
+            return "repeated-header"
+        if any(re.fullmatch(r"(?:[a-z°²%/]+(?:-[a-z0-9²%/]+)?)", value) for value in lowered):
+            numeric_fields = sum(
+                1 for field_path in fields
+                if field_path and FIELD_SPECS.get(field_path) and FIELD_SPECS[field_path].quantity in {
+                    "integer", "number", "length", "density", "pressure", "force", "rpm", "torque",
+                    "rate", "flow_rate", "volume", "viscosity", "temperature", "angle", "dls", "area",
+                    "stress", "currency",
+                }
+            )
+            if numeric_fields and not any(re.search(r"\d", value) for value in lowered):
+                return "unit"
+        if len(values) == 1 and re.search(
+            r"\b(?:drilling data|mud data|daily report|report data|table|parameters?|notes?|remarks?)\b",
+            values[0],
+            re.IGNORECASE,
+        ):
+            return "title"
+        return "data"
 
     @staticmethod
     def _resolve_field(label: str, context: str = "") -> Optional[str]:
@@ -1143,35 +1289,17 @@ class DocumentNormalizer:
 
 
 def _safe_canonical_value(field_path: str, value: Any) -> Any:
-    """Convert only unambiguous numeric literals; never infer units/dates."""
+    """Return a typed value or ``None``; never leak malformed text to SQL.
+
+    The normalizer's caller records the original token and location as a
+    review item.  This helper remains for compatibility with integrations that
+    imported it directly.
+    """
     spec = FIELD_SPECS.get(field_path)
-    if spec is None or spec.quantity not in {
-        "integer",
-        "number",
-        "length",
-        "density",
-        "pressure",
-        "force",
-        "rpm",
-        "torque",
-        "rate",
-        "flow_rate",
-        "volume",
-        "viscosity",
-        "temperature",
-        "angle",
-        "dls",
-        "area",
-        "stress",
-        "currency",
-    }:
+    if spec is None:
         return value
-    text = str(value).strip().replace(",", "")
-    if re.fullmatch(r"[-+]?\d+", text):
-        return int(text)
-    if re.fullmatch(r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)", text):
-        return float(text)
-    return value
+    result = normalize_for_field(value, spec)
+    return result.value if result.ok else None
 
 
 def validate_canonical_payload(canonical: Mapping[str, Any]) -> CanonicalValidation:

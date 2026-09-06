@@ -1,8 +1,30 @@
 # DrillMaster — Import Pipeline Documentation
 
-> **Version:** 1.0 — Audit Baseline (2026-08-24)
+> **Version:** 1.1 — Import contract audit (2026-09-06)
+
+> The permanent status and limitations for the current repair are recorded in
+> [`docs/IMPORT_AUDIT_2026-09.md`](docs/IMPORT_AUDIT_2026-09.md). This document
+> describes the route and remains the operational reference.
 
 ---
+
+## 0. One route, one raw contract, one review contract
+
+`core/import_router.py` selects the engine. A known structured workbook takes
+`openpyxl -> ExcelIntelligence`; document-style files take the external
+MinerU adapter; explicit fallbacks are only used after a primary-engine
+failure. Both primary engines adapt source material to `core/import_ir.py`
+before canonical mapping. `core/value_normalizer.py` performs deterministic
+loss-averse typing, while `core/unit_manager.py` performs explicit unit
+conversion. `core/import_quality.py:ReviewItem` is the shared review and
+lineage contract; legacy `value`/`source_value` aliases are normalized there,
+not removed from producers.
+
+A malformed numeric token (including a title such as `Drilling Data`) is
+stored as `NULL` at the typed/database boundary and retained as an original
+source token with expected type and location for review. It is never invented
+as zero. A missing source unit, date component, depth, pressure, mud weight,
+or company attribute remains unknown.
 
 ## 1. Pipeline Overview
 
@@ -247,8 +269,10 @@ Workbook sheets -> _auto_match_template(sheet names)
 ```
 - Template match is GENERIC (sheet-name based). No company-specific code
   branches; company-specific layout lives in the JSON template.
-- `_unified_import` runs the template engine first and only falls back to
-  heuristic smart-detection when no template matches.
+- `_unified_import` routes a matched structured workbook directly to
+  `ExcelIntelligence`; the legacy SmartTemplate engine is only a fallback for
+  unknown XLSX/CSV/PDF-converted workbooks after the selected primary route
+  fails. It does not compete with the matched-template path.
 
 ### Canonical model
 - `core/canonical_schema.py` FIELD_SPECS: 325 fields (aliases, engineering
@@ -376,6 +400,12 @@ provides it, row/column when available, bounding box when available,
 extraction method, and confidence. Missing values remain `None`; the adapter
 does not invent coordinates, page numbers, units, dates, depths, pressures, or
 well values.
+
+`core/import_ir.py` is the shared lossless IR for Excel and MinerU. It
+preserves formula text, hidden/merged state, source cells, table rows, text
+blocks, and source coordinates before mapping. `MinerUDocument` is adapted to
+that IR and `ExcelIntelligence` exposes the same IR summary in its import
+report.
 
 `DocumentNormalizer` resolves only unambiguous labels through the existing
 `core/canonical_schema.py` registry. Numeric literals are converted only when

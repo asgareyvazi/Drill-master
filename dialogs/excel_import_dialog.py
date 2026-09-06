@@ -535,18 +535,32 @@ class ExcelImportDialog(QDialog):
         extracted = dict(normalized.canonical_data)
         review_rows = []
         for warning in normalized.warnings:
+            source = warning.get("source") if isinstance(warning.get("source"), dict) else {}
+            location = " ".join(
+                part for part in (
+                    f"page {source.get('source_page')}" if source.get("source_page") is not None else "",
+                    f"row {source.get('source_row')}" if source.get("source_row") is not None else "",
+                    f"column {source.get('source_column')}" if source.get("source_column") is not None else "",
+                ) if part
+            )
             review_rows.append(
                 {
-                    "sheet": warning.get("source", {}).get("source_page", "") if isinstance(warning.get("source"), dict) else "",
+                    "sheet": source.get("source_sheet", "") or source.get("source_page", ""),
+                    "row": source.get("source_row", 0) or 0,
+                    "column": source.get("source_column", ""),
                     "detected_table": "MinerU document",
-                    "source_cell": "",
+                    "source_cell": location,
                     "original_value": warning.get("value", ""),
-                    "normalized_value": warning.get("value", ""),
+                    "normalized_value": warning.get("normalized_value"),
+                    "value": warning.get("normalized_value"),
                     "target_field": warning.get("field", ""),
                     "canonical_field": warning.get("field", ""),
+                    "expected_type": warning.get("expected_type", ""),
                     "confidence": 0.0,
                     "decision": "REVIEW",
+                    "status": "REVIEW_REQUIRED",
                     "reason": warning.get("message", "Review required"),
+                    "mapping_method": "MinerU document normalization",
                 }
             )
         extracted["metadata"] = {
@@ -559,6 +573,7 @@ class ExcelImportDialog(QDialog):
             "warnings": normalized.warnings,
             "review_matrix": review_rows,
             "mineru_provenance": normalized.provenance,
+            "raw_ir": normalized.raw_document.to_dict() if normalized.raw_document is not None else None,
             "output_files": parse_result.document.raw_files,
         }
         logger.info(
@@ -619,6 +634,53 @@ class ExcelImportDialog(QDialog):
                         "Configure MINERU_EXECUTABLE or MINERU_PYTHON in Settings/environment."
                     )
 
+                # Known structured workbooks have exactly one canonical path:
+                # openpyxl -> ExcelIntelligence -> canonical JSON.  The legacy
+                # SmartTemplate dialog is not run first and cannot overwrite
+                # or compete with this result.
+                if extracted is None and route.engine == "excel_intelligence":
+                    from openpyxl import load_workbook
+                    from core.excel_intelligence import ExcelIntelligence
+                    workbook = load_workbook(path, data_only=False, read_only=False)
+                    try:
+                        template = self._auto_match_template([ws.title for ws in workbook.worksheets])
+                        if not template:
+                            raise ValueError("Structured Excel route selected without a matching template")
+                        rep = ExcelIntelligence(workbook, template).extract()
+                        extracted = dict(rep.canonical_json)
+                        review_rows = [
+                            {
+                                "sheet": r.sheet,
+                                "row": r.row,
+                                "column": r.col,
+                                "detected_table": "scalar",
+                                "source_cell": r.cell,
+                                "original_value": rep.source_tokens.get(r.canonical_field, {}).get("original_value", r.value),
+                                "normalized_value": None if r.canonical_field in rep.source_tokens else r.value,
+                                "value": None if r.canonical_field in rep.source_tokens else r.value,
+                                "unit": r.canonical_unit,
+                                "target_field": r.canonical_field,
+                                "canonical_field": r.canonical_field,
+                                "confidence": r.confidence,
+                                "certainty": r.certainty,
+                                "status": r.status,
+                                "expected_type": rep.source_tokens.get(r.canonical_field, {}).get("expected_type", r.data_type),
+                                "decision": "REVIEW" if r.status != "OK" or r.canonical_field in rep.source_tokens else "ACCEPT",
+                                "reason": r.reason,
+                            }
+                            for r in rep.field_results
+                            if r.status != "OK" or r.certainty == "LOW" or r.canonical_field in rep.source_tokens
+                        ]
+                        extracted["metadata"] = {
+                            "template": template.get("name", ""),
+                            "template_version": rep.template_version,
+                            "review_matrix": review_rows,
+                            "source_tokens": rep.source_tokens,
+                            "raw_ir": rep.raw_document.to_dict() if rep.raw_document is not None else None,
+                        }
+                    finally:
+                        workbook.close()
+
                 if extracted is None:
                     if route.engine == "csv":
                         from core.document_import import csv_to_xlsx
@@ -654,17 +716,24 @@ class ExcelImportDialog(QDialog):
                                         "column": r.col,
                                         "detected_table": "scalar",
                                         "source_cell": r.cell,
-                                        "original_value": r.value if r.status in (
-                                            "REVIEW_REQUIRED", "CONFLICT", "INVALID",
-                                        ) else r.original_label,
-                                        "normalized_value": r.value,
-                                        "value": r.value,
+                                        "original_value": (
+                                            rep.source_tokens.get(r.canonical_field, {}).get("original_value", r.value)
+                                            if r.status in ("REVIEW_REQUIRED", "CONFLICT", "INVALID")
+                                            else r.original_label
+                                        ),
+                                        "normalized_value": (
+                                            None if r.canonical_field in rep.source_tokens else r.value
+                                        ),
+                                        "value": (
+                                            None if r.canonical_field in rep.source_tokens else r.value
+                                        ),
                                         "unit": r.canonical_unit,
                                         "target_field": r.canonical_field,
                                         "canonical_field": r.canonical_field,
                                         "confidence": r.confidence,
                                         "certainty": r.certainty,
                                         "status": r.status,
+                                        "expected_type": rep.source_tokens.get(r.canonical_field, {}).get("expected_type", r.data_type),
                                         "decision": (
                                             "REVIEW"
                                             if r.status in (
@@ -681,6 +750,7 @@ class ExcelImportDialog(QDialog):
                                     "template_version": rep.template_version,
                                     "review_matrix": review_rows,
                                     "source_tokens": rep.source_tokens,
+                                    "raw_ir": rep.raw_document.to_dict() if rep.raw_document is not None else None,
                                 }
                             except Exception as tmpl_exc:
                                 logger.error(
@@ -997,8 +1067,11 @@ class ExcelImportDialog(QDialog):
                         well_id=self.well_id,
                         name=section_name,
                         code=self._safe_text(wi.get("section_code"), ""),
-                        depth_from=depth_from if depth_from is not None else 0.0,
-                        depth_to=depth_to if depth_to is not None else 0.0,
+                        # Missing depth is unknown, not zero.  The schema
+                        # permits NULL and lineage/review keeps the source
+                        # token when a malformed value was supplied.
+                        depth_from=depth_from,
+                        depth_to=depth_to,
                     )
                     session.add(new_section)
                     session.flush()
@@ -1387,7 +1460,7 @@ class ExcelImportDialog(QDialog):
             nozzles.append({
                 "row": idx,
                 "size_32nd": size_32,
-                "quantity": qty if qty is not None else 0,
+                "quantity": qty,
                 "diameter_inch": round(size_32 / 32.0, 4) if size_32 is not None else None,
                 "text": str(size_text).strip() if size_text is not None else "",
             })

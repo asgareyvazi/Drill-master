@@ -34,26 +34,46 @@ class ImportIssue:
 
 @dataclass
 class ReviewItem:
-    """Professional Review Matrix item as per spec."""
-    file: str = ""  # File Name
-    sheet: str = ""  # Sheet/Page
-    detected_table: str = ""  # Detected Table
-    source_cell: str = ""  # Source Cell (e.g. B12)
-    original_value: Any = None  # Original Value
-    normalized_value: Any = None  # Normalized Value
-    unit: str = ""  # Unit
-    target_field: str = ""  # Target Field
-    canonical_field: str = ""  # alias for backward compat
-    confidence: float = 0.0  # Confidence
-    decision: str = "REVIEW"  # Decision: ACCEPT / REVIEW / REJECT / CONFIRMED
-    transform: str = ""  # Edit Mapping / Edit Value / Edit Unit etc.
-    # backward compat fields
+    """The one review/lineage contract shared by every import route.
+
+    ``value`` is intentionally part of the public contract.  Older Excel
+    producers called it ``value`` while newer producers used
+    ``normalized_value``; keeping the alias here prevents a producer from
+    losing the original token or crashing the review boundary.  The canonical
+    fields are ``original_value`` and ``normalized_value`` and are synchronized
+    in ``__post_init__``.
+    """
+    file: str = ""  # File name
+    sheet: str = ""  # Sheet/page
+    detected_table: str = ""  # Detected table/section
+    source_cell: str = ""  # Excel cell or PDF coordinate token
+    original_value: Any = None
+    normalized_value: Any = None
+    value: Any = None  # producer-compatible proposed/normalized value alias
+    proposed_value: Any = None
+    unit: str = ""
+    original_unit: str = ""
+    normalized_unit: str = ""
+    target_field: str = ""
+    canonical_field: str = ""  # backward-compatible alias
+    expected_type: str = ""
+    confidence: float = 0.0
+    certainty: str = ""
+    decision: str = "REVIEW"  # ACCEPT / REVIEW / REJECT / CONFIRMED
+    status: str = ""
+    severity: str = "warning"
+    validation_state: str = ""
+    mapping_method: str = ""
+    transform: str = ""
+    reason: str = ""
+    resolution: str = ""
+    user_correction: Any = None
+    # Backward-compatible row/column fields used by legacy Excel records.
     row: int = 0
     column: str = ""
     source_value: Any = None
 
     def __post_init__(self):
-        # Sync legacy fields
         if self.canonical_field and not self.target_field:
             self.target_field = self.canonical_field
         if not self.canonical_field and self.target_field:
@@ -62,6 +82,20 @@ class ReviewItem:
             self.source_value = self.original_value
         if self.original_value is None and self.source_value is not None:
             self.original_value = self.source_value
+        # ``value`` and ``proposed_value`` are aliases accepted at the
+        # boundary; normalized_value remains the canonical serialized value.
+        if self.proposed_value is None and self.value is not None:
+            self.proposed_value = self.value
+        if self.value is None and self.proposed_value is not None:
+            self.value = self.proposed_value
+        if self.normalized_value is None and self.proposed_value is not None:
+            self.normalized_value = self.proposed_value
+        if self.proposed_value is None and self.normalized_value is not None:
+            self.proposed_value = self.normalized_value
+        if self.value is None and self.normalized_value is not None:
+            self.value = self.normalized_value
+        if not self.validation_state and self.status:
+            self.validation_state = self.status
 
 
 class ImportReviewMatrix:
@@ -71,21 +105,30 @@ class ImportReviewMatrix:
         self.items: List[ReviewItem] = []
 
     def add(self, **kwargs):
-        # Handle legacy calls: canonical_field, source_value, etc.
+        # Handle legacy calls: canonical_field, source_value, and value are
+        # all normalized into the explicit ReviewItem contract.
         if "canonical_field" in kwargs and "target_field" not in kwargs:
             kwargs["target_field"] = kwargs["canonical_field"]
         if "source_value" in kwargs and "original_value" not in kwargs:
             kwargs["original_value"] = kwargs["source_value"]
-        # Build source_cell from row/column if not provided
+        if "normalized_value" not in kwargs and "proposed_value" not in kwargs and "value" in kwargs:
+            kwargs["normalized_value"] = kwargs["value"]
+        # Build source_cell from row/column if not provided.
         if not kwargs.get("source_cell") and kwargs.get("row"):
             col = kwargs.get("column", "")
             if isinstance(col, int):
-                # Convert to letter
                 try:
                     from openpyxl.utils import get_column_letter
                     col_letter = get_column_letter(col)
                 except Exception:
-                    col_letter = str(col)
+                    # Review generation must remain usable in the minimal
+                    # backend/test environment without openpyxl.
+                    number = col
+                    letters = ""
+                    while number > 0:
+                        number, remainder = divmod(number - 1, 26)
+                        letters = chr(65 + remainder) + letters
+                    col_letter = letters or str(col)
             else:
                 col_letter = str(col) if col else ""
             kwargs["source_cell"] = f"{col_letter}{kwargs.get('row','')}"

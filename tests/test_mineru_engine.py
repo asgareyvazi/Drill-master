@@ -213,9 +213,10 @@ def test_no_fabricated_values_and_invalid_canonical_data_rejected():
     normalized = DocumentNormalizer().normalize(
         parse_mineru_output_from_text("Mud Weight: unclear\nUnknown: 123\n")
     )
-    assert normalized.canonical_data == {"mud_report": {"mw": "unclear"}}
+    assert normalized.canonical_data == {"mud_report": {"mw": None}}
     assert normalized.validation.valid is True
     assert normalized.validation.warnings
+    assert any(item.get("value") == "unclear" for item in normalized.warnings)
 
     invalid = validate_canonical_payload({"mud_report": {"mw": 30.0}})
     assert invalid.valid is False
