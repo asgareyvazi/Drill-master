@@ -143,7 +143,7 @@ def test_real_ddr_excel_canonical_ir_review_and_atomic_db():
                 "The supplied DDR workbook does not match the canonical OEOC "
                 f"template; sheets={sorted(actual_sheets)}"
             )
-        report = ExcelIntelligence(workbook, template).extract()
+        report = ExcelIntelligence(workbook, template, source_file=str(source.resolve())).extract()
     finally:
         workbook.close()
 

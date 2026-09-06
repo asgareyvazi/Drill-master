@@ -1055,8 +1055,16 @@ class DynamicTableExtractor:
 class ExcelIntelligence:
     """Main orchestrator for robust Excel extraction."""
 
-    def __init__(self, workbook, template: Dict = None):
+    def __init__(self, workbook, template: Dict = None, source_file: Optional[str] = None):
         self.workbook = workbook
+        # openpyxl may discard the input path (notably when given a Path
+        # object). The caller at the file boundary supplies it explicitly so
+        # IR provenance never degrades to an empty source document.
+        if source_file and not getattr(workbook, "filename", None):
+            try:
+                workbook.filename = str(source_file)
+            except Exception:
+                pass
         self.template = template or {}
         # Both Excel and MinerU are adapted to the same raw IR before the
         # canonical schema mapper runs.  It retains hidden/merged/formula

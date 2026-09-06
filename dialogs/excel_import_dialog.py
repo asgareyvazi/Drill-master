@@ -744,7 +744,7 @@ class ExcelImportDialog(QDialog):
                         template = self._auto_match_template([ws.title for ws in workbook.worksheets])
                         if not template:
                             raise ValueError("Structured Excel route selected without a matching template")
-                        rep = ExcelIntelligence(workbook, template).extract()
+                        rep = ExcelIntelligence(workbook, template, source_file=path).extract()
                         extracted = dict(rep.canonical_json)
                         review_rows = [
                             {
