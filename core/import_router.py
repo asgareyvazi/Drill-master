@@ -38,19 +38,13 @@ def route_file(
     path = Path(source_file)
     suffix = path.suffix.lower()
     if suffix in {".xlsx", ".xlsm"}:
-        if template_matcher is not None:
-            sheet_names = _sheet_names(path)
-            try:
-                matched = template_matcher(sheet_names)
-            except Exception:
-                matched = None
-            if matched:
-                return ImportRoute(str(path), "excel_intelligence", "known structured workbook")
+        # Excel is always handled by the deterministic Excel/IR extractor.
+        # Templates are optional configuration that improves coverage; they
+        # are not an identity gate and XLSX never depends on MinerU.
         return ImportRoute(
             str(path),
-            "mineru",
-            "unknown or document-style workbook",
-            fallback_engine="excel_intelligence",
+            "excel_intelligence",
+            "generic Excel IR extraction" if template_matcher is None else "Excel IR extraction with optional template",
         )
     if suffix == ".csv":
         return ImportRoute(str(path), "csv", "CSV remains on the existing deterministic converter")

@@ -29,8 +29,8 @@ from core.canonical_schema import (
     get_quantity_unit, get_field_spec, CANONICAL_FIELDS,
     mapping_certainty,
 )
-from core.import_ir import raw_document_from_workbook
-from core.value_normalizer import normalize_for_field
+from core.import_ir import raw_document_from_workbook, SourceLocation
+from core.canonical_mapper import resolve_canonical_field, normalize_canonical_value
 
 logger = logging.getLogger(__name__)
 
@@ -1207,6 +1207,119 @@ class ExcelIntelligence:
         "flow_rate", "volume", "temperature", "currency",
     })
 
+    def extract_generic(self) -> ImportReport:
+        """Extract an unknown workbook using semantic labels from the common IR.
+
+        This is deliberately conservative: it maps only an unambiguous label
+        with a nearby value and leaves ambiguous/unresolved content for review.
+        It never depends on a filename, company name, sheet name, or MinerU.
+        """
+        started = time.time()
+        report = ImportReport(
+            file_name=getattr(self.workbook, "filename", ""),
+            template_version="generic-ir",
+            raw_document=self.raw_document,
+        )
+        canonical = {}
+        seen = set()
+        for raw_cell in self.raw_document.cells:
+            value = raw_cell.value
+            if value in (None, "") or not isinstance(value, str):
+                continue
+            label = str(value).strip()
+            sheet = raw_cell.location.sheet or ""
+            nearby_values = [
+                str(item).strip()
+                for (candidate_row, candidate_col), item in self.cell_cache.get(sheet, {}).items()
+                if abs(candidate_row - (raw_cell.location.row or 0)) <= 2
+                and abs(candidate_col - (raw_cell.location.column or 0)) <= 3
+                and item not in (None, "")
+            ]
+            context = " ".join(
+                [f"{sheet} {raw_cell.table or ''} {raw_cell.section_title or ''}"]
+                + nearby_values
+            )
+            field_path = resolve_canonical_field(label, context)
+            if not field_path or field_path in seen:
+                continue
+            row = raw_cell.location.row or 0
+            column = raw_cell.location.column if isinstance(raw_cell.location.column, int) else 0
+            cells = self.cell_cache.get(sheet, {})
+            candidate = None
+            for distance in range(1, 8):
+                for position in ((row, column + distance), (row + distance, column)):
+                    candidate = cells.get(position)
+                    if candidate not in (None, "") and str(candidate).strip().lower() != label.lower():
+                        break
+                if candidate not in (None, "") and str(candidate).strip().lower() != label.lower():
+                    break
+            if candidate in (None, ""):
+                report.fields_unresolved += 1
+                continue
+            normalized = normalize_canonical_value(candidate, field_path)
+            spec = FIELD_SPECS.get(field_path)
+            confidence = 0.82
+            status = "OK" if normalized.validation_state in {"valid", "missing"} else "REVIEW_REQUIRED"
+            result = ExtractionResult(
+                canonical_field=field_path,
+                value=normalized.normalized_value,
+                original_value=normalized.original_value,
+                status=status,
+                confidence=confidence,
+                certainty=mapping_certainty(confidence, "label_match"),
+                source="generic-semantic",
+                cell=f"{sheet}!R{row}C{column}",
+                row=row,
+                col=column,
+                sheet=sheet,
+                original_label=label,
+                reason=normalized.review_reason,
+                validation=normalized.validation_state,
+                data_type=normalized.expected_type,
+                canonical_unit=spec.unit if spec else "",
+                engineering_bounds=get_engineering_bounds(field_path),
+            )
+            report.field_results.append(result)
+            report.fields_detected += 1
+            if status == "OK":
+                report.fields_accepted += 1
+            else:
+                report.fields_review += 1
+                report.source_tokens[field_path] = {
+                    "original_value": candidate,
+                    "normalized_value": normalized.normalized_value,
+                    "sheet": sheet,
+                    "cell": result.cell,
+                    "expected_type": normalized.expected_type,
+                    "status": "REVIEW",
+                }
+            section, key = field_path.split(".", 1)
+            storage_section = {
+                "time_log": "time_logs_24h",
+                "time_log_morning": "time_logs_morning",
+            }.get(section, section)
+            if storage_section in {"time_logs_24h", "time_logs_morning"}:
+                canonical.setdefault(storage_section, [{}])[0][key] = normalized.normalized_value
+            else:
+                canonical.setdefault(storage_section, {})[key] = normalized.normalized_value
+            report.field_provenance[field_path] = {
+                "source_file": self.raw_document.source_file,
+                "source_sheet": sheet,
+                "source_cell": result.cell,
+                "source_row": row,
+                "source_column": column,
+                "original_value": candidate,
+                "normalized_value": normalized.normalized_value,
+                "extraction_method": "generic-semantic",
+                "confidence": confidence,
+                "validation_state": normalized.validation_state,
+                "review_state": "accepted" if status == "OK" else "review",
+            }
+            seen.add(field_path)
+        report.canonical_json = canonical
+        report.extraction_time_ms = (time.time() - started) * 1000
+        return report
+
     def extract(self) -> ImportReport:
         """Run full extraction pipeline."""
         start_time = time.time()
@@ -1467,7 +1580,7 @@ class ExcelIntelligence:
         value = result.value
         original_value = result.original_value if result.original_value is not None else value
         if spec is not None:
-            normalization = normalize_for_field(value, spec)
+            normalization = normalize_canonical_value(value, canonical_path)
             if normalization.missing:
                 value = None
                 if isinstance(original_value, str) and original_value.strip():
@@ -1617,7 +1730,7 @@ class ExcelIntelligence:
                 key = canonical_path.split(".")[-1]
                 spec = FIELD_SPECS.get(canonical_path)
                 if spec is not None:
-                    normalization = normalize_for_field(v, spec)
+                    normalization = normalize_canonical_value(v, canonical_path)
                     if normalization.missing:
                         if isinstance(v, str) and v.strip():
                             short[key + "_source"] = v.strip()

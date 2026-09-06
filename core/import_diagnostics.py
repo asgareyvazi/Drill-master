@@ -12,7 +12,32 @@ class ImportStatus(str, Enum):
     REVIEW_REQUIRED = "REVIEW_REQUIRED"
     VALIDATION_ERROR = "VALIDATION_ERROR"
     PERSISTENCE_ERROR = "PERSISTENCE_ERROR"
+
+
+STATUS_PRECEDENCE = (
+    ImportStatus.PERSISTENCE_ERROR.value,
+    ImportStatus.VALIDATION_ERROR.value,
+    ImportStatus.REVIEW_REQUIRED.value,
+    ImportStatus.ACCEPT.value,
+)
+
+
 import traceback as traceback_module
+
+
+def determine_import_status(*, persistence_error: bool = False,
+                            validation_error: bool = False,
+                            review_required: bool = False) -> str:
+    """Return the deterministic final status for an import result."""
+    flags = {
+        ImportStatus.PERSISTENCE_ERROR.value: persistence_error,
+        ImportStatus.VALIDATION_ERROR.value: validation_error,
+        ImportStatus.REVIEW_REQUIRED.value: review_required,
+    }
+    for status in STATUS_PRECEDENCE:
+        if flags.get(status):
+            return status
+    return ImportStatus.ACCEPT.value
 
 
 @dataclass
@@ -80,6 +105,18 @@ class PersistenceError(RuntimeError):
         super().__init__(issue.message)
         self.issue = issue
         self.result = result or {}
+
+    def to_dict(self) -> dict[str, Any]:
+        return self.issue.to_dict()
+
+
+class SchemaMigrationError(RuntimeError):
+    """Structured fatal error raised when a SQLite migration cannot complete."""
+
+    def __init__(self, issue: PersistenceIssue, *, result: Optional[dict] = None):
+        super().__init__(issue.message)
+        self.issue = issue
+        self.result = result or {"diagnostics": [issue.to_dict()]}
 
     def to_dict(self) -> dict[str, Any]:
         return self.issue.to_dict()

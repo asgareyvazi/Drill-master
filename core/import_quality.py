@@ -81,6 +81,13 @@ class ReviewItem:
     extraction_method: str = ""
     validation_message: str = ""
     review_state: str = "unreviewed"
+    # Canonical cross-format provenance/entity fields.  These are appended to
+    # preserve compatibility with older positional ReviewItem constructors.
+    source_document: str = ""
+    source_location: Any = None
+    entity: str = ""
+    field: str = ""
+    message: str = ""
 
     def __post_init__(self):
         if self.canonical_field and not self.target_field:
@@ -126,6 +133,9 @@ class ReviewItem:
             "source_page": "page",
             "validation_status": "validation_state",
             "review_status": "review_state",
+            "source_row": "row",
+            "source_column": "column",
+            "source_cells": "source_location",
         }
         for old_key, new_key in aliases.items():
             if new_key not in payload and old_key in payload:

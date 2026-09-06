@@ -269,7 +269,23 @@ entity/field, row/source, original and normalized values, expected type,
 operation, exception type/message, traceback, and available provenance.
 Reviewable input is never counted as a persistence failure; morning
 continuation rows remain review items with their source cells and text rather
-than receiving invented time values.
+than receiving invented time values. Final status precedence is deterministic:
+`PERSISTENCE_ERROR` > `VALIDATION_ERROR` > `REVIEW_REQUIRED` > `ACCEPT`.
+
+All source formats first become the lossless IR in `core/import_ir.py`. Excel
+uses `ExcelIntelligence.extract()` for matched templates and the same module's
+`extract_generic()` for unknown `.xlsx` files; it never routes XLSX through
+MinerU. PDF/MinerU and Excel both use `core/canonical_mapper.py` for canonical
+alias resolution, contextual `Hrs`/`Report Date` disambiguation, typed
+normalization, and the `ReviewItem` contract. Unknown or ambiguous labels are
+reviewable with document/page/sheet/table/cell provenance rather than guessed.
+
+Schema v2 migration uses the live SQLite `CREATE TABLE` SQL as the rebuild
+source. It copies every live column, preserves defaults, embedded constraints,
+foreign keys, external indexes, triggers, and unknown data, verifies the
+result, checks `PRAGMA foreign_key_check`, records the version, and rolls back
+as one migration transaction. Future versions are rejected before any table
+creation or import write.
 
 ---
 

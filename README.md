@@ -102,7 +102,7 @@ The default database is a per-user SQLite file. On first initialization the
 schema is created and `schema_version` is recorded. Existing databases receive
 only the additive, idempotent migrations in `DatabaseManager`; migration
 errors fail startup rather than allowing a partially upgraded database to run.
-The current schema version is `1`.
+The current schema version is `2`. Future schema versions are rejected before startup or import; v1-to-v2 migration runs atomically and verifies the live SQLite contract before imports are enabled.
 
 Use the in-application Backup action or configured automatic backup. The
 backup uses SQLite's backup API, includes WAL state, and retains ten automatic

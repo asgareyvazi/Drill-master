@@ -855,8 +855,12 @@ class TestFullImportPipeline:
             dlg.well_id = None
             result = dlg._do_import(dict(oeoc_report.canonical_json))
 
-        assert result.get("imported") == 102
+        # One BOP row has no source component type. It is retained in the
+        # shared ReviewItem matrix rather than receiving an invented type.
+        assert result.get("imported") == 101
         assert result.get("failed") == 0
+        assert result.get("status") == "REVIEW_REQUIRED"
+        assert any(item.get("entity") == "bop_components" for item in result.get("review_items", []))
         session = manager.create_session()
         try:
             well = session.query(Well).first()

@@ -1993,9 +1993,16 @@ class MainWindow(QMainWindow):
         if well_id is None and self.current_well:
             well_id = self.current_well['id'] if isinstance(self.current_well, dict) else self.current_well.id
 
-        message = f"Import done! ✅ {total} imported, ❌ {failed} failed"
+        status_counts = {}
+        for result in results:
+            status = result.get("status", "PERSISTENCE_ERROR")
+            status_counts[status] = status_counts.get(status, 0) + 1
+        status_text = ", ".join(f"{status}: {count}" for status, count in sorted(status_counts.items()))
+        message = f"Import done! {status_text} | {total} records written"
         self._show_import_summary(results)
-        if failed:
+        if any(result.get("status") in {"VALIDATION_ERROR", "PERSISTENCE_ERROR"} for result in results):
+            self.status_manager.show_warning("MainWindow", message)
+        elif any(result.get("status") == "REVIEW_REQUIRED" for result in results):
             self.status_manager.show_warning("MainWindow", message)
         else:
             self.status_manager.show_success("MainWindow", message)
@@ -2044,10 +2051,23 @@ class MainWindow(QMainWindow):
                     )
             details = result.get("details", [])
             lines.extend(details[-10:])
-            if result.get("failed", 0) == 0 and result.get("imported", 0) > 0:
-                successful.append(file_name)
-            elif result.get("failed", 0) > 0 or result.get("skipped", 0) > 0:
-                failed.append(file_name)
+            status = result.get("status", "PERSISTENCE_ERROR")
+            if status in {"ACCEPT", "REVIEW_REQUIRED"}:
+                successful.append(f"{file_name} [{status}]")
+            else:
+                failed.append(f"{file_name} [{status}]")
+            for diagnostic in result.get("diagnostics", [])[:20]:
+                lines.append(
+                    f"[{diagnostic.get('status', 'PERSISTENCE_ERROR')}] "
+                    f"{diagnostic.get('stage', '')}/{diagnostic.get('entity', '')} "
+                    f"row {diagnostic.get('row', '')}: {diagnostic.get('message', '')}"
+                )
+            for item in result.get("review_items", [])[:20]:
+                lines.append(
+                    f"[REVIEW_REQUIRED] {item.get('source_document', item.get('file', file_name))} "
+                    f"{item.get('source_cell', '')} -> {item.get('canonical_field', item.get('target_field', ''))}: "
+                    f"{item.get('reason', item.get('validation_message', 'Review required'))}"
+                )
 
         if not lines:
             return
@@ -2090,6 +2110,23 @@ class MainWindow(QMainWindow):
                     item.get("target_field", item.get("canonical_field", "")),
                     f"{float(item.get('confidence', 0)):.0%}" if item.get("confidence") not in (None, "") else "",
                     item.get("decision", "REVIEW"),
+                ]
+                for col, value in enumerate(values):
+                    table.setItem(row, col, QTableWidgetItem(str(value)))
+            for item in result.get("review_items", []):
+                row = table.rowCount()
+                table.insertRow(row)
+                values = [
+                    item.get("source_document", item.get("file", file_name)),
+                    item.get("sheet", ""),
+                    item.get("detected_table", item.get("source_table", "Review")),
+                    item.get("source_cell", ""),
+                    str(item.get("original_value", ""))[:120],
+                    str(item.get("normalized_value", item.get("value", "")))[:120],
+                    item.get("unit", ""),
+                    item.get("canonical_field", item.get("target_field", "")),
+                    f"{float(item.get('confidence', 0)):.0%}" if item.get("confidence") not in (None, "") else "",
+                    "REVIEW_REQUIRED",
                 ]
                 for col, value in enumerate(values):
                     table.setItem(row, col, QTableWidgetItem(str(value)))

@@ -29,8 +29,8 @@ import time
 from typing import Any, Callable, Iterable, Mapping, Optional, Sequence
 
 from core.canonical_schema import FIELD_SPECS, lookup_alias
+from core.canonical_mapper import resolve_canonical_field, normalize_canonical_value
 from core.runtime_config import data_dir, read_mineru_settings
-from core.value_normalizer import normalize_for_field
 from core.import_ir import raw_document_from_mineru
 
 logger = logging.getLogger(__name__)
@@ -1299,7 +1299,7 @@ class DocumentNormalizer:
                             continue
                         spec = FIELD_SPECS.get(field_path)
                         normalized_value = value
-                        normalization = normalize_for_field(value, spec) if spec is not None else None
+                        normalization = normalize_canonical_value(value, field_path) if spec is not None else None
                         if normalization is not None:
                             normalized_value = normalization.value if normalization.ok else None
                             if normalization.needs_review or (
@@ -1400,9 +1400,21 @@ class DocumentNormalizer:
                 elif table_records:
                     canonical.setdefault(storage_key, []).extend(table_records)
 
+        text_values = [item[0] for item in raw_document.text_blocks]
+        table_contexts = [
+            (
+                " ".join(part for part in (table.name, getattr(table, "section_title", None)) if part),
+                getattr(table.provenance, "source_page", None),
+            )
+            for table in document.tables
+        ]
         for block_index, block in enumerate(document.text_blocks):
             raw_text = raw_document.text_blocks[block_index][0] if block_index < len(raw_document.text_blocks) else block.text
-            field_path, value = self._resolve_text_block(raw_text)
+            nearby = text_values[max(0, block_index - 3): block_index] + text_values[block_index + 1: block_index + 4]
+            page = getattr(block.provenance, "source_page", None)
+            page_contexts = [text for text, table_page in table_contexts if page is None or table_page in (None, page)]
+            context = " ".join(page_contexts + nearby + [block.provenance.source_sheet or ""])
+            field_path, value = self._resolve_text_block(raw_text, context)
             if field_path is None:
                 warnings.append({
                     "level": "review",
@@ -1423,7 +1435,7 @@ class DocumentNormalizer:
                 )
                 continue
             spec = FIELD_SPECS.get(field_path)
-            normalization = normalize_for_field(value, spec) if spec is not None else None
+            normalization = normalize_canonical_value(value, field_path) if spec is not None else None
             normalized_value = value if normalization is None else (normalization.value if normalization.ok else None)
             section_data[key] = normalized_value
             if normalization is not None and (
@@ -1524,67 +1536,17 @@ class DocumentNormalizer:
 
     @staticmethod
     def _resolve_field(label: str, context: str = "") -> Optional[str]:
-        normalized = " ".join(str(label).strip().lower().split())
-        context = " ".join(str(context or "").lower().split())
-        if not normalized:
-            return None
-        exact = [path for path in FIELD_SPECS if path.lower() == normalized]
-        if len(exact) == 1:
-            return exact[0]
-        candidates = [
-            path
-            for path, spec in FIELD_SPECS.items()
-            if normalized in {" ".join(alias.lower().split()) for alias in spec.aliases}
-        ]
-        # ``Hrs`` is intentionally broad in the canonical schema. Add the
-        # morning duration candidate only when the surrounding table context
-        # says it is a morning time log; absent that context it remains
-        # ambiguous and is emitted for review.
-        if normalized in {"hrs", "hours"} and "time log morning" in context:
-            if "time_log_morning.duration" not in candidates:
-                candidates.append("time_log_morning.duration")
-        if len(candidates) == 1:
-            return candidates[0]
-        # Context may safely disambiguate a table whose title explicitly
-        # names a canonical section; it never invents a value or unit. Prefer
-        # the most specific section phrase ("time log morning" over "time log").
-        sections = {path.split(".", 1)[0] for path in candidates}
-        section_aliases = {
-            "well_info": ("well info", "well information"),
-            "daily_report": ("daily report", "daily reporting"),
-            "time_log": ("time log", "24h log", "24 hour log"),
-            "time_log_morning": ("time log morning", "morning log", "morning time log"),
-        }
-        contextual = [
-            section for section in sections
-            if any(
-                re.search(rf"\b{re.escape(alias)}\b", context)
-                for alias in section_aliases.get(section, (section.replace("_", " "),))
-            )
-        ]
-        for section in sorted(contextual, key=len, reverse=True):
-            scoped = [path for path in candidates if path.startswith(section + ".")]
-            if len(scoped) == 1:
-                return scoped[0]
-        # Existing alias lookup is useful for exact, non-colliding aliases.
-        mapped = lookup_alias(label)
-        return mapped if mapped in candidates and len(candidates) == 1 else None
+        """Resolve PDF labels through the same contextual canonical mapper as Excel."""
+        return resolve_canonical_field(label, context)
 
-    def _resolve_text_block(self, text: str) -> tuple[Optional[str], str]:
+    def _resolve_text_block(self, text: str, context: str = "") -> tuple[Optional[str], str]:
         match = re.match(r"^\s*([^:：|\t]{2,80})\s*[:：|\t]\s*(.+?)\s*$", text)
         if not match:
             return None, ""
         label, value = match.groups()
-        normalized = " ".join(label.lower().split())
-        # A qualified label supplies context; a bare ambiguous alias remains
-        # unresolved and is emitted as review by normalize().
-        if normalized.endswith("report date"):
-            field_path = self._resolve_field("report date", normalized)
-        elif normalized.endswith("hrs") or normalized.endswith("hours"):
-            field_path = self._resolve_field("hrs", normalized)
-        else:
-            field_path = self._resolve_field(label, normalized)
-        return field_path, value.strip()
+        # The label's surrounding page/table headings are part of the mapping
+        # decision. Bare ambiguous labels stay unresolved for review.
+        return self._resolve_field(label, context or label), value.strip()
 
     def _storage_key(self, context: str, fields: list[Optional[str]]) -> str:
         sections = [field_path.split(".", 1)[0] for field_path in fields if field_path]
@@ -1605,10 +1567,7 @@ def _safe_canonical_value(field_path: str, value: Any) -> Any:
     review item.  This helper remains for compatibility with integrations that
     imported it directly.
     """
-    spec = FIELD_SPECS.get(field_path)
-    if spec is None:
-        return value
-    result = normalize_for_field(value, spec)
+    result = normalize_canonical_value(value, field_path)
     return result.value if result.ok else None
 
 

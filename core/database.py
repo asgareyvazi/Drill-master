@@ -4,6 +4,7 @@ Database - SQLAlchemy ORM setup and DatabaseManager class
 import random
 import math
 import logging
+import re
 from datetime import datetime, date, timedelta, timezone, time as datetime_time
 from typing import Optional, Dict, Any, List, Tuple
 from datetime import date as DateType
@@ -52,7 +53,9 @@ except ImportError:
     )
 
 from contextlib import contextmanager, nullcontext
-from core.import_diagnostics import PersistenceError, PersistenceIssue
+from core.import_diagnostics import (
+    PersistenceError, PersistenceIssue, SchemaMigrationError, ImportStatus, determine_import_status,
+)
 logger = logging.getLogger(__name__)
 
 # Development/test bootstrap fixtures are intentionally isolated from
@@ -1741,6 +1744,8 @@ class DatabaseManager:
     def __init__(self):
         self.engine = None
         self.Session = None
+        self.last_diagnostic = None
+        self.schema_version = 2
 
         # Mutable database state belongs in the OS user-data directory, not
         # beside the installed package. Tests and operators can override this
@@ -1760,21 +1765,19 @@ class DatabaseManager:
             return {'user_id': None, 'username': 'system'}
             
     def initialize(self):
+        """Open the database, validate its version, and apply one atomic migration."""
         try:
             if self.db_path != ":memory:":
                 Path(self.db_path).expanduser().parent.mkdir(parents=True, exist_ok=True)
             self.engine = create_engine(
                 f"sqlite:///{self.db_path}",
-                connect_args={
-                    "check_same_thread": False,
-                    "timeout": 30,
-                },
+                connect_args={"check_same_thread": False, "timeout": 30},
                 poolclass=StaticPool,
                 echo=False,
                 pool_pre_ping=True,
             )
 
-            from sqlalchemy import event, text
+            from sqlalchemy import event
 
             @event.listens_for(self.engine, "connect")
             def set_sqlite_pragma(dbapi_connection, connection_record):
@@ -1785,94 +1788,486 @@ class DatabaseManager:
                 cursor.execute("PRAGMA foreign_keys=ON")
                 cursor.close()
 
-            self.Session = sessionmaker(
-                bind=self.engine,
-                autoflush=False, 
-                autocommit=False,
-            )
-            Base.metadata.create_all(self.engine)
+            self.Session = sessionmaker(bind=self.engine, autoflush=False, autocommit=False)
+            # Reject a future schema before create_all can create any new
+            # application tables around it.
+            self._reject_future_schema()
             self._apply_safe_schema_upgrades()
+            self._verify_import_schema()
             self.create_default_data()
             return True
-
-        except Exception as e:
-            logger.error(f"Database initialization failed: {str(e)}")
+        except SchemaMigrationError as exc:
+            self.last_diagnostic = exc.issue.to_dict()
+            logger.error("Database schema migration failed: %s", exc.issue.message, exc_info=True)
+            return False
+        except Exception as exc:
+            issue = PersistenceIssue.from_exception(
+                exc,
+                stage="schema.initialization",
+                entity="database",
+                operation="initialize",
+            )
+            self.last_diagnostic = issue.to_dict()
+            logger.error("Database initialization failed: %s", exc, exc_info=True)
             return False
 
-    def _apply_safe_schema_upgrades(self):
-        """Apply idempotent, additive migrations and record the schema version.
+    @staticmethod
+    def _quote_sqlite_identifier(value: str) -> str:
+        return '"' + str(value).replace('"', '""') + '"'
 
-        ``create_all`` handles new installations. Existing SQLite files receive
-        additive columns first, followed by a data-preserving table rebuild only
-        when ORM-nullable columns are installed as legacy NOT NULL. A failed
-        migration is fatal to startup so the application cannot run against a
-        partially upgraded schema.
-        """
-        from sqlalchemy import inspect, text
+    def _raw_table_exists(self, connection, table_name: str) -> bool:
+        row = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
+            (table_name,),
+        ).fetchone()
+        return row is not None
 
+    def _raw_schema_version(self, connection) -> Optional[int]:
+        if not self._raw_table_exists(connection, "schema_version"):
+            return None
+        rows = connection.execute("SELECT version FROM schema_version ORDER BY version").fetchall()
+        if not rows:
+            return None
+        versions = [int(row[0]) for row in rows if row[0] is not None]
+        if not versions:
+            return None
+        return max(versions)
+
+    def _reject_future_schema(self):
+        raw = self.engine.raw_connection()
         try:
-            with self.engine.begin() as conn:
-                conn.execute(
-                    text(
-                        "CREATE TABLE IF NOT EXISTS schema_version "
-                        "(version INTEGER NOT NULL, applied_at DATETIME NOT NULL)"
-                    )
+            version = self._raw_schema_version(raw)
+            if version is not None and version > self.schema_version:
+                issue = PersistenceIssue(
+                    stage="schema.compatibility",
+                    entity="schema_version",
+                    field="version",
+                    original_value=version,
+                    normalized_value=version,
+                    expected_type=f"supported schema <= {self.schema_version}",
+                    operation="verify",
+                    message=(
+                        f"Unsupported future database schema version {version}; "
+                        f"this application supports version {self.schema_version}"
+                    ),
+                    status=ImportStatus.PERSISTENCE_ERROR.value,
                 )
+                raise SchemaMigrationError(issue)
+        finally:
+            raw.close()
 
-            inspector = inspect(self.engine)
-            upgrades = [
-                ("drilling_parameters", "pump_liner_size", "VARCHAR(200)"),
-                ("service_companies", "npt_hours", "FLOAT"),
-                ("service_companies", "hole_section", "VARCHAR(100)"),
-                ("service_companies", "duration_day", "FLOAT"),
-                ("service_companies", "condition", "VARCHAR(50)"),
-                ("service_companies", "issue", "TEXT"),
-                ("mud_reports", "calcium", "FLOAT"),
-                ("mud_reports", "kcl", "FLOAT"),
-                ("mud_reports", "mbt", "FLOAT"),
-                ("mud_reports", "pf_mf", "FLOAT"),
-                ("mud_reports", "total_hardness", "FLOAT"),
-                ("mud_reports", "flowline_temp", "FLOAT"),
-                ("mud_reports", "pit_volumes_json", "TEXT"),
-                ("fuel_water_inventory", "fuel_camp_consumed", "FLOAT"),
-                ("fuel_water_inventory", "fuel_camp_stock", "FLOAT"),
-                ("fuel_water_inventory", "fuel_camp_received", "FLOAT"),
-                ("fuel_water_inventory", "dw_consumed", "FLOAT"),
-                ("fuel_water_inventory", "dw_stock", "FLOAT"),
-                ("fuel_water_inventory", "dw_received", "FLOAT"),
-                ("daily_reports", "forecast", "TEXT"),
-                ("wells", "drilling_engineer", "VARCHAR(100)"),
+    @staticmethod
+    def _split_sql_definitions(body: str) -> list[str]:
+        """Split a CREATE TABLE body on top-level commas only."""
+        pieces, start, depth = [], 0, 0
+        quote = None
+        i = 0
+        while i < len(body):
+            char = body[i]
+            if quote:
+                if char == quote:
+                    if i + 1 < len(body) and body[i + 1] == quote:
+                        i += 1
+                    else:
+                        quote = None
+            elif char in "'\"`":
+                quote = char
+            elif char == "[":
+                quote = "]"
+            elif char == "(":
+                depth += 1
+            elif char == ")":
+                depth = max(0, depth - 1)
+            elif char == "," and depth == 0:
+                pieces.append(body[start:i])
+                start = i + 1
+            i += 1
+        pieces.append(body[start:])
+        return pieces
+
+    @staticmethod
+    def _definition_name(definition: str) -> Optional[str]:
+        match = re.match(r"\s*(?:\"([^\"]+)\"|`([^`]+)`|\[([^\]]+)\]|([^\s]+))", definition)
+        if not match:
+            return None
+        return next((item for item in match.groups() if item is not None), None)
+
+    def _rewrite_live_create_sql(self, create_sql: str, table_name: str,
+                                 temporary_name: str, relaxed_columns: set[str]) -> str:
+        """Rewrite only the table name and targeted NOT NULL tokens.
+
+        The original SQLite CREATE TABLE statement remains authoritative for
+        every other column, default, constraint, and foreign-key clause.
+        """
+        if not create_sql:
+            raise RuntimeError(f"Missing sqlite_master CREATE SQL for {table_name}")
+        open_index = create_sql.find("(")
+        if open_index < 0:
+            raise RuntimeError(f"Invalid CREATE SQL for {table_name}")
+        depth, quote, close_index = 0, None, None
+        i = open_index
+        while i < len(create_sql):
+            char = create_sql[i]
+            if quote:
+                if char == quote:
+                    if i + 1 < len(create_sql) and create_sql[i + 1] == quote:
+                        i += 1
+                    else:
+                        quote = None
+            elif char in "'\"`":
+                quote = char
+            elif char == "[":
+                quote = "]"
+            elif char == "(":
+                depth += 1
+            elif char == ")":
+                depth -= 1
+                if depth == 0:
+                    close_index = i
+                    break
+            i += 1
+        if close_index is None:
+            raise RuntimeError(f"Unbalanced CREATE SQL for {table_name}")
+        header = create_sql[:open_index]
+        header = re.sub(
+            r"(?is)(CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?)"
+            r"(?:\"[^\"]+\"|`[^`]+`|\[[^\]]+\]|[^\s(]+)\s*$",
+            lambda match: match.group(1) + self._quote_sqlite_identifier(temporary_name),
+            header,
+        )
+        if self._quote_sqlite_identifier(temporary_name) not in header:
+            raise RuntimeError(f"Could not rename live CREATE SQL for {table_name}")
+        definitions = []
+        for definition in self._split_sql_definitions(create_sql[open_index + 1:close_index]):
+            name = self._definition_name(definition)
+            if name in relaxed_columns and not re.match(r"\s*(?:PRIMARY|UNIQUE|CONSTRAINT|FOREIGN|CHECK)\b", definition, re.I):
+                definition = re.sub(r"\s+NOT\s+NULL\b", "", definition, count=1, flags=re.I)
+            definitions.append(definition)
+        return header + "(" + ",".join(definitions) + ")" + create_sql[close_index + 1:]
+
+    def _live_table_contract(self, connection, table_name: str) -> dict:
+        q = self._quote_sqlite_identifier(table_name)
+        columns = connection.execute(f"PRAGMA table_info({q})").fetchall()
+        indexes = connection.execute(f"PRAGMA index_list({q})").fetchall()
+        foreign_keys = connection.execute(f"PRAGMA foreign_key_list({q})").fetchall()
+        objects = connection.execute(
+            "SELECT type, name, sql FROM sqlite_master "
+            "WHERE tbl_name=? AND type IN ('index','trigger') AND sql IS NOT NULL "
+            "ORDER BY type,name",
+            (table_name,),
+        ).fetchall()
+        return {
+            "columns": [row[1] for row in columns],
+            "indexes": [row[1] for row in indexes if row[1]],
+            "foreign_keys": [tuple(row) for row in foreign_keys],
+            "objects": [(row[0], row[1]) for row in objects],
+        }
+
+    def _rebuild_live_table(self, connection, table_name: str, relaxed_columns: set[str]):
+        q = self._quote_sqlite_identifier(table_name)
+        row = connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name=?",
+            (table_name,),
+        ).fetchone()
+        if not row or not row[0]:
+            raise RuntimeError(f"Cannot rebuild {table_name}: live CREATE SQL is unavailable")
+        contract = self._live_table_contract(connection, table_name)
+        columns = connection.execute(f"PRAGMA table_info({q})").fetchall()
+        names = [row[1] for row in columns]
+        temporary_name = f"__drillmaster_migrate_{table_name}"
+        create_sql = self._rewrite_live_create_sql(row[0], table_name, temporary_name, relaxed_columns)
+        connection.execute(create_sql)
+        quoted_columns = ", ".join(self._quote_sqlite_identifier(name) for name in names)
+        qt = self._quote_sqlite_identifier(temporary_name)
+        connection.execute(
+            f"INSERT INTO {qt} ({quoted_columns}) SELECT {quoted_columns} FROM {q}"
+        )
+        connection.execute(f"DROP TABLE {q}")
+        connection.execute(
+            f"ALTER TABLE {qt} RENAME TO {self._quote_sqlite_identifier(table_name)}"
+        )
+        # External indexes and triggers are not part of CREATE TABLE. Recreate
+        # their original SQL after the old table has been removed.
+        for object_type, object_name in contract["objects"]:
+            object_sql = connection.execute(
+                "SELECT sql FROM sqlite_master WHERE type=? AND name=?",
+                (object_type, object_name),
+            ).fetchone()
+            # The query above cannot see the dropped object's SQL, so the SQL
+            # is captured before the rebuild below in _capture_live_objects.
+        return contract
+
+    def _capture_live_objects(self, connection, table_name: str) -> list[tuple[str, str, str]]:
+        return [
+            tuple(row)
+            for row in connection.execute(
+                "SELECT type, name, sql FROM sqlite_master "
+                "WHERE tbl_name=? AND type IN ('index','trigger') AND sql IS NOT NULL",
+                (table_name,),
+            ).fetchall()
+        ]
+
+    def _rebuild_live_table_preserving_objects(self, connection, table_name: str, relaxed_columns: set[str]):
+        q = self._quote_sqlite_identifier(table_name)
+        table_row = connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name=?", (table_name,)
+        ).fetchone()
+        if not table_row or not table_row[0]:
+            raise RuntimeError(f"Cannot rebuild {table_name}: live CREATE SQL is unavailable")
+        objects = self._capture_live_objects(connection, table_name)
+        foreign_keys_before = [tuple(row) for row in connection.execute(
+            f"PRAGMA foreign_key_list({q})"
+        ).fetchall()]
+        columns = connection.execute(f"PRAGMA table_info({q})").fetchall()
+        names = [row[1] for row in columns]
+        temporary_name = f"__drillmaster_migrate_{table_name}"
+        connection.execute(
+            self._rewrite_live_create_sql(table_row[0], table_name, temporary_name, relaxed_columns)
+        )
+        quoted_columns = ", ".join(self._quote_sqlite_identifier(name) for name in names)
+        qt = self._quote_sqlite_identifier(temporary_name)
+        connection.execute(f"INSERT INTO {qt} ({quoted_columns}) SELECT {quoted_columns} FROM {q}")
+        connection.execute(f"DROP TABLE {q}")
+        connection.execute(f"ALTER TABLE {qt} RENAME TO {q}")
+        for object_type, object_name, object_sql in objects:
+            if object_sql:
+                connection.execute(object_sql)
+        after = self._live_table_contract(connection, table_name)
+        if after["columns"] != names:
+            raise RuntimeError(f"Column preservation check failed for {table_name}")
+        after_objects = self._capture_live_objects(connection, table_name)
+        if {name for typ, name, _ in after_objects if typ == "index"} != {name for typ, name, _ in objects if typ == "index"}:
+            raise RuntimeError(f"Index preservation check failed for {table_name}")
+        if sorted(after["foreign_keys"]) != sorted(foreign_keys_before):
+            raise RuntimeError(f"Foreign-key preservation check failed for {table_name}")
+
+    def _migrate_nullable_contracts(self, inspector=None, *, connection=None) -> list[dict]:
+        """Relax only ORM-nullability mismatches using the live SQLite schema."""
+        owns_connection = connection is None
+        raw = connection or self.engine.raw_connection()
+        try:
+            table_names = {
+                row[0] for row in raw.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                ).fetchall()
+            }
+            mismatches = []
+            for table_name, model_table in Base.metadata.tables.items():
+                if table_name not in table_names:
+                    continue
+                installed = {
+                    row[1]: row for row in raw.execute(
+                        f"PRAGMA table_info({self._quote_sqlite_identifier(table_name)})"
+                    ).fetchall()
+                }
+                relaxed = set()
+                for column in model_table.columns:
+                    item = installed.get(column.name)
+                    if item is not None and column.nullable and bool(item[3]):
+                        relaxed.add(column.name)
+                        mismatches.append({
+                            "table": table_name,
+                            "column": column.name,
+                            "orm_nullable": True,
+                            "database_nullable": False,
+                        })
+                if relaxed:
+                    self._rebuild_live_table_preserving_objects(raw, table_name, relaxed)
+            if owns_connection:
+                raw.commit()
+            return mismatches
+        finally:
+            if owns_connection:
+                raw.close()
+
+    def _verify_import_schema(self):
+        """Verify the schema contract required by the import boundary."""
+        raw = self.engine.raw_connection()
+        try:
+            version = self._raw_schema_version(raw)
+            if version != self.schema_version:
+                raise RuntimeError(f"Unsupported schema version {version!r}; expected {self.schema_version}")
+            missing_tables = [
+                name for name in Base.metadata.tables
+                if not self._raw_table_exists(raw, name)
             ]
-            for table, column, ddl_type in upgrades:
-                if table not in inspector.get_table_names():
-                    continue
-                existing = {col["name"] for col in inspector.get_columns(table)}
-                if column in existing:
-                    continue
-                with self.engine.begin() as conn:
-                    conn.execute(
-                        text(
-                            f"ALTER TABLE {table} ADD COLUMN {column} {ddl_type}"
-                        )
-                    )
+            if missing_tables:
+                raise RuntimeError(f"Missing required tables: {', '.join(missing_tables)}")
+            fk = raw.execute("PRAGMA foreign_keys").fetchone()
+            if not fk or int(fk[0]) != 1:
+                raise RuntimeError("SQLite foreign-key enforcement is disabled")
+            for table_name, model_table in Base.metadata.tables.items():
+                installed = {
+                    row[1]: row for row in raw.execute(
+                        f"PRAGMA table_info({self._quote_sqlite_identifier(table_name)})"
+                    ).fetchall()
+                }
+                missing = [col.name for col in model_table.columns if col.name not in installed]
+                if missing:
+                    raise RuntimeError(f"Missing columns in {table_name}: {', '.join(missing)}")
+                for col in model_table.columns:
+                    if col.nullable and installed[col.name][3]:
+                        raise RuntimeError(f"Nullable contract not migrated: {table_name}.{col.name}")
+        finally:
+            raw.close()
 
-            self._migrate_nullable_contracts(inspector)
-            with self.engine.begin() as conn:
-                current = conn.execute(
-                    text("SELECT MAX(version) FROM schema_version")
-                ).scalar()
-                if current != 2:
-                    conn.execute(text("DELETE FROM schema_version"))
-                    conn.execute(
-                        text(
-                            "INSERT INTO schema_version(version, applied_at) "
-                            "VALUES (2, :applied_at)"
-                        ),
-                        {"applied_at": _now_utc()},
-                    )
-        except Exception:
-            logger.exception("Database schema migration failed")
+    def assert_import_schema_supported(self):
+        """Fail closed before any report-scoped import write.
+
+        Isolated in-memory test engines historically build ``Base.metadata``
+        directly.  They receive an explicit v2 marker here, while file-backed
+        databases without a migrated marker fail closed and must go through
+        ``initialize()``.
+        """
+        self._reject_future_schema()
+        raw = self.engine.raw_connection()
+        try:
+            url = str(getattr(self.engine, "url", ""))
+            if ":memory:" in url:
+                # Legacy isolated test engines do not install the initialize()
+                # connect listener. Enable the same invariant before verify;
+                # file-backed production databases fail closed instead.
+                raw.execute("PRAGMA foreign_keys=ON")
+            if self._raw_schema_version(raw) is None:
+                url = str(getattr(self.engine, "url", ""))
+                if ":memory:" not in url:
+                    raise RuntimeError("Database schema is not initialized; call DatabaseManager.initialize()")
+                raw.execute(
+                    "CREATE TABLE IF NOT EXISTS schema_version "
+                    "(version INTEGER NOT NULL, applied_at DATETIME NOT NULL)"
+                )
+                raw.execute("DELETE FROM schema_version")
+                raw.execute(
+                    "INSERT INTO schema_version(version, applied_at) VALUES (?, ?)",
+                    (self.schema_version, _now_utc()),
+                )
+                raw.commit()
+        finally:
+            raw.close()
+        try:
+            self._verify_import_schema()
+        except Exception as exc:
+            issue = exc.issue if isinstance(exc, SchemaMigrationError) else PersistenceIssue.from_exception(
+                exc,
+                stage="schema.compatibility",
+                entity="database",
+                operation="verify-before-import",
+                status=ImportStatus.PERSISTENCE_ERROR.value,
+            )
+            raise PersistenceError(issue, result={"diagnostics": [issue.to_dict()]}) from exc
+
+    def _apply_safe_schema_upgrades(self):
+        """Apply version-1-to-2 upgrades in one SQLite transaction.
+
+        The live SQLite schema is the source of truth during rebuilds. ORM
+        metadata is used only to identify which nullable contracts the current
+        application requires; it never supplies the replacement table.
+        """
+        raw = self.engine.raw_connection()
+        migration_started = False
+        try:
+            version = self._raw_schema_version(raw)
+            if version is not None and version > self.schema_version:
+                self._reject_future_schema()
+            # SQLite only permits toggling foreign_keys outside a transaction.
+            raw.commit()
+            raw.execute("PRAGMA foreign_keys=OFF")
+            if int(raw.execute("PRAGMA foreign_keys").fetchone()[0]) != 0:
+                raise RuntimeError("SQLite refused to disable foreign-key checks before migration")
+            raw.execute("BEGIN")
+            migration_started = True
+            raw.execute(
+                "CREATE TABLE IF NOT EXISTS schema_version "
+                "(version INTEGER NOT NULL, applied_at DATETIME NOT NULL)"
+            )
+            # Create missing application tables inside the same transaction;
+            # do not use metadata.create_all before migration because that
+            # would leave new tables behind after a failed legacy rebuild.
+            from sqlalchemy.schema import CreateIndex, CreateTable
+            for model_table in Base.metadata.sorted_tables:
+                if not self._raw_table_exists(raw, model_table.name):
+                    raw.execute(str(CreateTable(model_table).compile(dialect=self.engine.dialect)))
+            for model_table in Base.metadata.sorted_tables:
+                for index in model_table.indexes:
+                    if index.name and not raw.execute(
+                        "SELECT 1 FROM sqlite_master WHERE type='index' AND name=?", (index.name,)
+                    ).fetchone():
+                        raw.execute(str(CreateIndex(index).compile(dialect=self.engine.dialect)))
+            version = self._raw_schema_version(raw)
+            if version is not None and version > self.schema_version:
+                raise RuntimeError(f"Unsupported future schema version {version}")
+            if version in (None, 1):
+                upgrades = [
+                    ("drilling_parameters", "pump_liner_size", "VARCHAR(200)"),
+                    ("service_companies", "npt_hours", "FLOAT"),
+                    ("service_companies", "hole_section", "VARCHAR(100)"),
+                    ("service_companies", "duration_day", "FLOAT"),
+                    ("service_companies", "condition", "VARCHAR(50)"),
+                    ("service_companies", "issue", "TEXT"),
+                    ("mud_reports", "calcium", "FLOAT"),
+                    ("mud_reports", "kcl", "FLOAT"),
+                    ("mud_reports", "mbt", "FLOAT"),
+                    ("mud_reports", "pf_mf", "FLOAT"),
+                    ("mud_reports", "total_hardness", "FLOAT"),
+                    ("mud_reports", "flowline_temp", "FLOAT"),
+                    ("mud_reports", "pit_volumes_json", "TEXT"),
+                    ("fuel_water_inventory", "fuel_camp_consumed", "FLOAT"),
+                    ("fuel_water_inventory", "fuel_camp_stock", "FLOAT"),
+                    ("fuel_water_inventory", "fuel_camp_received", "FLOAT"),
+                    ("fuel_water_inventory", "dw_consumed", "FLOAT"),
+                    ("fuel_water_inventory", "dw_stock", "FLOAT"),
+                    ("fuel_water_inventory", "dw_received", "FLOAT"),
+                    ("daily_reports", "forecast", "TEXT"),
+                    ("wells", "drilling_engineer", "VARCHAR(100)"),
+                ]
+                for table_name, column_name, ddl_type in upgrades:
+                    if not self._raw_table_exists(raw, table_name):
+                        continue
+                    columns = {
+                        row[1] for row in raw.execute(
+                            f"PRAGMA table_info({self._quote_sqlite_identifier(table_name)})"
+                        ).fetchall()
+                    }
+                    if column_name not in columns:
+                        raw.execute(
+                            f"ALTER TABLE {self._quote_sqlite_identifier(table_name)} "
+                            f"ADD COLUMN {self._quote_sqlite_identifier(column_name)} {ddl_type}"
+                        )
+            # Verify and repair nullable contracts on every startup, including
+            # v2 databases whose live schema was changed by an old installer.
+            self._migrate_nullable_contracts(connection=raw)
+            raw.execute("DELETE FROM schema_version")
+            raw.execute(
+                "INSERT INTO schema_version(version, applied_at) VALUES (?, ?)",
+                (self.schema_version, _now_utc()),
+            )
+            foreign_key_errors = raw.execute("PRAGMA foreign_key_check").fetchall()
+            if foreign_key_errors:
+                raise RuntimeError(f"Foreign-key integrity check failed: {foreign_key_errors[:3]}")
+            raw.commit()
+            migration_started = False
+        except SchemaMigrationError:
+            if migration_started:
+                raw.rollback()
             raise
+        except Exception as exc:
+            if migration_started:
+                raw.rollback()
+            issue = PersistenceIssue.from_exception(
+                exc,
+                stage="schema.migration",
+                entity="database",
+                operation="atomic-migrate",
+                status=ImportStatus.PERSISTENCE_ERROR.value,
+            )
+            raise SchemaMigrationError(issue) from exc
+        finally:
+            try:
+                raw.execute("PRAGMA foreign_keys=ON")
+                raw.commit()
+            finally:
+                raw.close()
+        self._verify_import_schema()
 
     def audit_orm_schema_nullable_contract(self) -> list[dict]:
         """Return installed ORM-nullability mismatches without modifying data."""
@@ -1892,89 +2287,6 @@ class DatabaseManager:
                         "orm_nullable": True,
                         "database_nullable": False,
                     })
-        return mismatches
-
-    def _migrate_nullable_contracts(self, inspector) -> list[dict]:
-        """Reconcile legacy SQLite NOT NULL columns with ORM nullability.
-
-        SQLite cannot alter a column's nullability in place.  For every
-        existing table where the current ORM explicitly allows NULL but the
-        installed database does not, rebuild that table from the authoritative
-        SQLAlchemy table definition and copy all shared data.  Foreign keys are
-        disabled only for the bounded rebuild and are restored by SQLite on the
-        next connection.  The operation is idempotent because a second
-        inspection finds no mismatch.
-        """
-        from sqlalchemy import MetaData, Table, inspect as sqlalchemy_inspect, text
-
-        mismatches = []
-        for table_name, model_table in Base.metadata.tables.items():
-            if table_name not in inspector.get_table_names():
-                continue
-            existing = {
-                column["name"]: column
-                for column in inspector.get_columns(table_name)
-            }
-            for column in model_table.columns:
-                installed = existing.get(column.name)
-                if installed is None:
-                    continue
-                if column.nullable and not installed.get("nullable", True):
-                    mismatches.append({
-                        "table": table_name,
-                        "column": column.name,
-                        "orm_nullable": True,
-                        "database_nullable": False,
-                    })
-
-        if not mismatches:
-            return []
-
-        # Rebuild one table at a time.  All mismatches for a table are handled
-        # together so an interrupted migration cannot leave a mixed contract.
-        for table_name in sorted({item["table"] for item in mismatches}):
-            source = Base.metadata.tables[table_name]
-            metadata = MetaData()
-            temporary_name = f"__drillmaster_migrate_{table_name}"
-            target = source.to_metadata(metadata, name=temporary_name)
-            # Resolve copied foreign keys against lightweight metadata copies;
-            # only the temporary table is created, so existing tables are not
-            # duplicated in SQLite.
-            for foreign_key in source.foreign_keys:
-                remote = foreign_key.column.table
-                if remote.name not in metadata.tables:
-                    remote.to_metadata(metadata)
-            # SQLite index names are database-global.  Rebuilding while the
-            # old table still exists therefore needs temporary index names.
-            for index in target.indexes:
-                if index.name:
-                    index.name = f"{index.name}__migrated"
-            shared = [
-                column.name
-                for column in source.columns
-                if column.name in {
-                    item["name"] for item in inspector.get_columns(table_name)
-                }
-            ]
-            if not shared:
-                raise RuntimeError(f"Cannot migrate {table_name}: no shared columns")
-            with self.engine.begin() as conn:
-                conn.execute(text("PRAGMA foreign_keys=OFF"))
-                try:
-                    target.create(conn)
-                    columns = ", ".join(f'"{name}"' for name in shared)
-                    conn.execute(text(
-                        f'INSERT INTO "{temporary_name}" ({columns}) '
-                        f'SELECT {columns} FROM "{table_name}"'
-                    ))
-                    conn.execute(text(f'DROP TABLE "{table_name}"'))
-                    conn.execute(text(
-                        f'ALTER TABLE "{temporary_name}" RENAME TO "{table_name}"'
-                    ))
-                finally:
-                    conn.execute(text("PRAGMA foreign_keys=ON"))
-            inspector = sqlalchemy_inspect(self.engine)
-
         return mismatches
 
     def _bootstrap_passwords(self) -> Dict[str, str]:
@@ -3026,7 +3338,20 @@ class DatabaseManager:
         - No orphan child data
         - Previous report not corrupted (via snapshot)
         """
-        results = {"failed": 0, "imported": 0, "review": 0, "diagnostics": []}
+        if session is None:
+            # The orchestration boundary verifies once before opening its
+            # caller-owned session. Reusing a session must not open a second
+            # raw connection or transaction underneath it.
+            self.assert_import_schema_supported()
+        results = {
+            "failed": 0,
+            "imported": 0,
+            "review": 0,
+            "validation_errors": 0,
+            "status": ImportStatus.ACCEPT.value,
+            "diagnostics": [],
+            "review_rows": [],
+        }
         try:
             with (self.session_scope() if session is None else nullcontext(session)) as session:
                 report_obj = session.get(DailyReport, report_id)
@@ -3076,6 +3401,116 @@ class DatabaseManager:
                         message=message,
                         status="VALIDATION_ERROR",
                     ).to_dict())
+
+                def review_issue(*, entity, field="", row=None, source=None, original=None, message=""):
+                    results["review"] = results.get("review", 0) + 1
+                    results.setdefault("review_rows", []).append({
+                        "entity": entity,
+                        "field": field,
+                        "row": row,
+                        "source_location": source,
+                        "original_value": original,
+                        "normalized_value": None,
+                        "reason": message,
+                        "status": ImportStatus.REVIEW_REQUIRED.value,
+                        "decision": "REVIEW",
+                    })
+
+                def _source_for_row(row):
+                    return row.get("_source_cells") if isinstance(row, dict) else None
+
+                def _required_text(row, names):
+                    return any(str(row.get(name, "") or "").strip() for name in names)
+
+                def _number_value(value):
+                    if value in (None, ""):
+                        return None
+                    try:
+                        number = float(value)
+                    except (TypeError, ValueError):
+                        return None
+                    return number if math.isfinite(number) else None
+
+                # Validate every row that would otherwise be discarded by a
+                # report-scoped phase. The old ``continue`` branches remain
+                # defensive guards, but no malformed source row is silent.
+                required_rows = (
+                    ("pob_records", ("company_name",)),
+                    ("service_companies", ("company_name",)),
+                    ("lookahead", ("activity",)),
+                    ("casing_data", ("size",)),
+                    ("cement_additives", ("material_type",)),
+                    ("bha_components", ("component_name", "name")),
+                    ("downhole_equipment", ("equipment_name", "name")),
+                    ("formation_data", ("formation_name", "name")),
+                    ("bulk_materials", ("material_name",)),
+                    ("bop_components", ("component_name", "name")),
+                    ("waste_records", ("waste_type",)),
+                    ("cost_records", ("category", "cost_category")),
+                    ("equipment_logs", ("equipment_name",)),
+                )
+                for collection, names in required_rows:
+                    collection_rows = extracted.get(collection) or []
+                    if not isinstance(collection_rows, list):
+                        continue
+                    for row_number, row in enumerate(collection_rows, 1):
+                        if not isinstance(row, dict):
+                            review_issue(
+                                entity=collection, row=row_number, source=None,
+                                original=row, message="Source row is not a mapping; row retained for review"
+                            )
+                        elif not _required_text(row, names):
+                            review_issue(
+                                entity=collection, field="/".join(names), row=row_number,
+                                source=_source_for_row(row), original=row,
+                                message=f"Required source field missing: {' or '.join(names)}; row retained for review"
+                            )
+
+                for key, value in (extracted.get("logistics") or {}).items() if isinstance(extracted.get("logistics"), dict) else []:
+                    if value not in (None, "") and _number_value(value) is None and str(key).startswith("pob_"):
+                        validation_issue(
+                            entity="logistics", field=str(key), original=value,
+                            message="Personnel count must be numeric when supplied"
+                        )
+
+                for collection, field_name in (("waste_records", "volume"),):
+                    for row_number, row in enumerate(extracted.get(collection) or [], 1):
+                        if isinstance(row, dict) and row.get(field_name) in (None, ""):
+                            review_issue(
+                                entity=collection, field=field_name, row=row_number,
+                                source=_source_for_row(row), original=row,
+                                message=f"Required source field missing: {field_name}; row retained for review"
+                            )
+
+                for row_number, row in enumerate(extracted.get("surveys") or [], 1):
+                    if not isinstance(row, dict):
+                        validation_issue(entity="survey_points", row=row_number, original=row, message="Survey row is not a mapping")
+                        continue
+                    md_value = _number_value(row.get("md"))
+                    if md_value is None or md_value < 0:
+                        validation_issue(entity="survey_points", field="md", row=row_number, source=_source_for_row(row), original=row.get("md"), normalized=md_value, message="Measured depth is required and must be non-negative")
+                    for field_name in ("inc", "azi"):
+                        raw_value = row.get(field_name)
+                        if raw_value not in (None, "") and _number_value(raw_value) is None:
+                            validation_issue(entity="survey_points", field=field_name, row=row_number, source=_source_for_row(row), original=raw_value, message=f"{field_name} must be numeric when supplied")
+
+                for row_number, row in enumerate(extracted.get("bop_components") or [], 1):
+                    if isinstance(row, dict):
+                        if not _required_text(row, ("component_type", "type")):
+                            review_issue(entity="bop_components", field="component_type", row=row_number, source=_source_for_row(row), original=row, message="BOP component type is required; no type was invented")
+                        if row.get("working_pressure") in (None, ""):
+                            review_issue(entity="bop_components", field="working_pressure", row=row_number, source=_source_for_row(row), original=row.get("working_pressure"), message="Working pressure is required; row retained for review")
+                        elif _number_value(row.get("working_pressure")) is None:
+                            validation_issue(entity="bop_components", field="working_pressure", row=row_number, source=_source_for_row(row), original=row.get("working_pressure"), message="Working pressure must be numeric")
+
+                for collection, field_name in (("waste_records", "volume"), ("equipment_logs", "hours_worked")):
+                    for row_number, row in enumerate(extracted.get(collection) or [], 1):
+                        if isinstance(row, dict) and row.get(field_name) not in (None, "") and _number_value(row.get(field_name)) is None:
+                            validation_issue(entity=collection, field=field_name, row=row_number, source=_source_for_row(row), original=row.get(field_name), message=f"{field_name} must be numeric when supplied")
+
+                if results.get("validation_errors"):
+                    results["status"] = ImportStatus.VALIDATION_ERROR.value
+                    return results
 
                 # 1. Surveys
                 surveys = extracted.get("surveys", [])
@@ -3631,23 +4066,6 @@ class DatabaseManager:
                         # Canonical 'type' -> model component_type
                         if bp.get("type") and not bp.get("component_type"):
                             bp["component_type"] = bp["type"]
-                        # component_type is NOT NULL: infer a generic type
-                        # from the component name when the workbook omits it
-                        # (name-based classification, not company-specific).
-                        if not str(bp.get("component_type") or "").strip():
-                            comp_name = str(bp.get("component_name") or "").lower()
-                            if "annular" in comp_name:
-                                bp["component_type"] = "Annular"
-                            elif "ram" in comp_name or "blind" in comp_name or "shear" in comp_name:
-                                bp["component_type"] = "Ram"
-                            elif "spool" in comp_name:
-                                bp["component_type"] = "Spool"
-                            elif "choke" in comp_name or "kill" in comp_name:
-                                bp["component_type"] = "Choke/Kill"
-                            elif "hanger" in comp_name:
-                                bp["component_type"] = "Hanger"
-                            else:
-                                bp["component_type"] = "Other"
                         # 'rams' placeholder -> None (no invented values)
                         if str(bp.get("rams", "")).strip() in ("-", "--", "n/a"):
                             bp["rams"] = None
@@ -3673,9 +4091,10 @@ class DatabaseManager:
                                     f"{bp.get('remarks') or ''} "
                                     f"last_test original: {lt}"
                                 ).strip()
+                        if not str(bp.get("component_type") or "").strip():
+                            continue
                         bp["well_id"] = well_id
                         bp["report_id"] = report_id
-                        bp.setdefault("last_test_date", imported_report_date)
                         valid_keys = {c.name for c in BOPComponent.__table__.columns}
                         filtered = {k: v for k, v in bp.items() if k in valid_keys and k != "id"}
                         filtered = self.coerce_model_values(BOPComponent, filtered)
@@ -3720,8 +4139,10 @@ class DatabaseManager:
                         c["well_id"] = well_id
                         valid_keys = {cname.name for cname in CostRecord.__table__.columns}
                         filtered = {k: v for k, v in c.items() if k in valid_keys and k != "id"}
+                        if not filtered.get("category") and filtered.get("cost_category"):
+                            filtered["category"] = filtered["cost_category"]
                         if not filtered.get("category"):
-                            filtered["category"] = filtered.get("cost_category", "Operational")
+                            continue
                         session.add(CostRecord(**filtered))
                         saved += 1
                     count("cost_records", saved)
@@ -3738,10 +4159,8 @@ class DatabaseManager:
                             continue
                         item["well_id"] = well_id
                         item["report_id"] = report_id
-                        try:
-                            item["hours_worked"] = float(item.get("hours_worked", 0) or 0)
-                        except (TypeError, ValueError):
-                            continue
+                        if item.get("hours_worked") not in (None, ""):
+                            item["hours_worked"] = float(item["hours_worked"])
                         valid_keys = {c.name for c in EquipmentLog.__table__.columns}
                         filtered = {k: v for k, v in item.items() if k in valid_keys and k != "id"}
                         session.add(EquipmentLog(**filtered))
@@ -3809,12 +4228,19 @@ class DatabaseManager:
                     count("downhole_equipment", 1)
 
                 session.flush()
+                if results.get("validation_errors"):
+                    session.rollback()
+            results["status"] = determine_import_status(
+                validation_error=bool(results.get("validation_errors")),
+                review_required=bool(results.get("review")),
+            )
             return results
         except PersistenceError:
             raise
         except Exception as exc:
             logger.error(f"Atomic import failed, rollback: {exc}", exc_info=True)
             results["failed"] += 1
+            results["status"] = ImportStatus.PERSISTENCE_ERROR.value
             results["error"] = str(exc)
             issue = PersistenceIssue.from_exception(
                 exc,

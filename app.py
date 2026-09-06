@@ -680,7 +680,7 @@ def run_package_smoke() -> int:
                     schema_version = session.execute(
                         text("SELECT MAX(version) FROM schema_version")
                     ).scalar()
-                    if schema_version != 1:
+                    if schema_version != manager.schema_version:
                         return 1
                 finally:
                     session.close()

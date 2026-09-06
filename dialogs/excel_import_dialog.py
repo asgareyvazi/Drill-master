@@ -34,7 +34,10 @@ from PySide6.QtGui import QColor
 
 from core.text_utils import wrap_text
 from core.import_quality import ImportValidator, find_duplicates, TimeLogValidator, decision_for_confidence
-from core.import_diagnostics import PersistenceIssue
+from core.import_diagnostics import (
+    PersistenceIssue, PersistenceError, ImportStatus, determine_import_status,
+)
+from core.import_quality import ReviewItem
 from core.ai_import_mapper import AIImportMapper, model_catalog, get_selected_model, set_selected_model
 from core.async_workers import FunctionWorker
 from core.import_router import route_file
@@ -55,10 +58,20 @@ ALL_EXPECTED_FIELDS = list(FIELD_LABELS.keys())
 
 
 def has_meaningful_canonical_data(extracted: dict) -> bool:
-    """Evaluate every canonical collection, including table-only PDF data."""
+    """Return true only for semantic canonical values, not provenance metadata."""
     ignored = {"metadata", "provenance", "review_matrix", "raw_document"}
 
-    def meaningful(value):
+    def business_key(key: object) -> bool:
+        key = str(key or "")
+        return not (
+            key.startswith("_")
+            or key.endswith("_source")
+            or key in {"source_row", "source_cells", "report_date_source"}
+        )
+
+    def meaningful(value, *, key: object = ""):
+        if not business_key(key):
+            return False
         if value is None or value is False:
             return False
         if isinstance(value, str):
@@ -66,14 +79,43 @@ def has_meaningful_canonical_data(extracted: dict) -> bool:
         if isinstance(value, (int, float)):
             return True
         if isinstance(value, dict):
-            return any(meaningful(item) for key, item in value.items() if key not in ignored)
+            return any(
+                meaningful(item, key=item_key)
+                for item_key, item in value.items()
+                if item_key not in ignored
+            )
         if isinstance(value, (list, tuple, set)):
             return any(meaningful(item) for item in value)
         return True
 
     return isinstance(extracted, dict) and any(
-        meaningful(value) for key, value in extracted.items() if key not in ignored
+        meaningful(value, key=key)
+        for key, value in extracted.items()
+        if key not in ignored
     )
+
+
+def _canonical_review_row(payload: dict, *, default_status: str = "REVIEW_REQUIRED") -> dict:
+    """Normalize legacy producer dictionaries to the shared ReviewItem shape."""
+    row = dict(payload or {})
+    if "row" not in row and row.get("source_row") is not None:
+        row["row"] = row["source_row"]
+    if "source_location" not in row and row.get("source_cells") is not None:
+        row["source_location"] = row["source_cells"]
+    location = row.get("source_location")
+    if not row.get("source_cell") and isinstance(location, dict):
+        row["source_cell"] = "; ".join(
+            str(value) for value in location.values() if value not in (None, "")
+        )
+    row.setdefault("source_document", row.get("file", ""))
+    if "entity" not in row:
+        row["entity"] = "time_log_morning" if "continuation_text" in row else row.get("record_type", "time_log")
+    row.setdefault("field", row.get("canonical_field", row.get("target_field", "")))
+    row.setdefault("status", default_status)
+    row.setdefault("decision", "REVIEW")
+    row.setdefault("reason", row.get("message", "Review required"))
+    row.setdefault("validation_message", row.get("reason", "Review required"))
+    return ReviewItem.from_dict(row).to_dict()
 
 # Universal aliases as per spec
 UNIVERSAL_ALIASES = {
@@ -678,6 +720,7 @@ class ExcelImportDialog(QDialog):
                     "mapping_method": "MinerU document normalization",
                 }
             )
+        review_rows = [_canonical_review_row(item) for item in review_rows]
         extracted["metadata"] = {
             "source": source_label,
             "source_engine": source_label,
@@ -723,6 +766,7 @@ class ExcelImportDialog(QDialog):
             QApplication.processEvents()
             dialog = None
             parse_result = None
+            error_status = ImportStatus.PERSISTENCE_ERROR.value
             try:
                 route = route_file(source, template_matcher=self._auto_match_template)
                 parse_result = mineru_results.get(self._result_key(source))
@@ -795,14 +839,17 @@ class ExcelImportDialog(QDialog):
                     cached_workbook = load_workbook(path, data_only=True, read_only=False)
                     try:
                         template = self._auto_match_template([ws.title for ws in workbook.worksheets])
-                        if not template:
-                            raise ValueError("Structured Excel route selected without a matching template")
-                        rep = ExcelIntelligence(
+                        excel_engine = ExcelIntelligence(
                             workbook,
-                            template,
+                            template or {},
                             source_file=path,
                             cached_workbook=cached_workbook,
-                        ).extract()
+                        )
+                        rep = (
+                            excel_engine.extract()
+                            if template
+                            else excel_engine.extract_generic()
+                        )
                         extracted = dict(rep.canonical_json)
                         review_rows = [
                             {
@@ -828,7 +875,7 @@ class ExcelImportDialog(QDialog):
                             if r.status != "OK" or r.certainty == "LOW" or r.canonical_field in rep.source_tokens
                         ]
                         extracted["metadata"] = {
-                            "template": template.get("name", ""),
+                            "template": (template or {}).get("name", ""),
                             "template_version": rep.template_version,
                             "review_matrix": review_rows,
                             "source_tokens": rep.source_tokens,
@@ -912,6 +959,7 @@ class ExcelImportDialog(QDialog):
                     )
 
                 if not has_meaningful_canonical_data(extracted):
+                    error_status = ImportStatus.VALIDATION_ERROR.value
                     raise ValueError("No meaningful canonical report data was detected")
 
                 self.import_status.setText(
@@ -944,11 +992,14 @@ class ExcelImportDialog(QDialog):
                 result["import_report"] = import_report_dict
                 results.append(result)
 
-                if result.get("failed", 0) == 0 and result.get("imported", 0) > 0:
-                    successful_files.append(os.path.basename(source))
+                result_status = result.get("status", ImportStatus.PERSISTENCE_ERROR.value)
+                if result_status in {ImportStatus.ACCEPT.value, ImportStatus.REVIEW_REQUIRED.value}:
+                    successful_files.append(
+                        f"{os.path.basename(source)} [{result_status}]"
+                    )
                 else:
                     failed_files.append(
-                        f"{os.path.basename(source)}: "
+                        f"{os.path.basename(source)} [{result_status}]: "
                         f"{result.get('details', [])[-1] if result.get('details') else 'Failed'}"
                     )
                 if dialog is not None:
@@ -960,6 +1011,11 @@ class ExcelImportDialog(QDialog):
                     "file": source,
                     "failed": 1,
                     "imported": 0,
+                    "status": error_status,
+                    "diagnostics": [PersistenceIssue.from_exception(
+                        exc, stage="import.routing", entity="source_document", operation="route/normalize",
+                        status=error_status,
+                    ).to_dict()],
                     "details": [f"❌ {os.path.basename(source)}: {exc}"],
                     "error": str(exc),
                 }
@@ -1098,9 +1154,25 @@ class ExcelImportDialog(QDialog):
             "review_items": [],
             "diagnostics": [],
             "validation_errors": 0,
+            "validation_diagnostics": [],
         }
         # Every object created or updated below participates in this one
-        # session.  Helpers receive it explicitly and only flush for IDs.
+        # session. Helpers receive it explicitly and only flush for IDs.
+        try:
+            self.db.assert_import_schema_supported()
+        except Exception as schema_exc:
+            issue = getattr(schema_exc, "issue", None) or PersistenceIssue.from_exception(
+                schema_exc,
+                stage="schema.compatibility",
+                entity="database",
+                operation="verify-before-import",
+                status=ImportStatus.PERSISTENCE_ERROR.value,
+            )
+            results["status"] = ImportStatus.PERSISTENCE_ERROR.value
+            results["failed"] = 1
+            results["diagnostics"].append(issue.to_dict())
+            results["details"].append(f"❌ Import blocked by schema compatibility: {issue.message}")
+            return results
         session = self.db.create_session()
         report_id = None
         created_new_report = False
@@ -1118,29 +1190,48 @@ class ExcelImportDialog(QDialog):
             time_validation = TimeLogValidator.validate_logs(time_logs, sheet="Time Logs 24H")
             quality.issues.extend(time_validation.issues)
 
-            # Filter time logs: keep only valid with time_from/to
-            valid_time_logs = [
-                row for row in time_logs
-                if isinstance(row, dict) and row.get("time_from") not in (None, "") and row.get("time_to") not in (None, "")
-            ]
-            extracted["time_logs_24h"] = valid_time_logs
+            # Keep every source row through the persistence boundary. Invalid
+            # and continuation rows are represented as ReviewItems there;
+            # they are never silently filtered out before provenance capture.
+            extracted["time_logs_24h"] = time_logs
 
             duplicate_indexes = set(find_duplicates(time_logs, "time_log"))
-            for index in sorted(duplicate_indexes, reverse=True):
-                if index < len(time_logs):
-                    del time_logs[index]
-                    quality.skipped += 1
             quality.total += time_validation.total
             quality.failed += time_validation.failed
             results["import_report"] = quality.as_dict()
             results["import_report"]["review"].extend((extracted.get("metadata") or {}).get("review_matrix", []))
+            results["import_report"]["review"] = [
+                _canonical_review_row(item)
+                for item in results["import_report"].get("review", [])
+            ]
             results["review"] = len(results["import_report"].get("review", []))
             results["review_items"].extend(results["import_report"].get("review", []))
 
-            if quality.errors and not report_data.get("report_date"):
-                results["validation_errors"] += len(quality.errors)
-                results["status"] = "VALIDATION_ERROR"
-                results["details"].append("❌ Import stopped: invalid Daily Report - MISSING_INPUT report_date")
+            # Every collected validation error participates in final status.
+            # Validation is completed before any destructive/write operation.
+            if quality.errors:
+                results["validation_errors"] = len(quality.errors)
+                results["validation_diagnostics"] = [
+                    PersistenceIssue(
+                        stage="validation.import",
+                        entity=issue.field or "import_record",
+                        field=issue.field or "",
+                        source={"file": extracted.get("metadata", {}).get("source_file", ""), "sheet": issue.sheet, "row": issue.row},
+                        row=issue.row,
+                        original_value=issue.value,
+                        expected_type="canonical value",
+                        operation="validate",
+                        message=issue.message,
+                        status=ImportStatus.VALIDATION_ERROR.value,
+                    ).to_dict()
+                    for issue in quality.errors
+                ]
+                results["diagnostics"].extend(results["validation_diagnostics"])
+                results["status"] = ImportStatus.VALIDATION_ERROR.value
+                results["details"].append(
+                    f"❌ Import stopped before persistence: {len(quality.errors)} validation error(s)"
+                )
+                session.rollback()
                 return results
 
             if duplicate_indexes:
@@ -1199,8 +1290,15 @@ class ExcelImportDialog(QDialog):
 
             if not section_id:
                 results["validation_errors"] += 1
-                results["status"] = "VALIDATION_ERROR"
+                results["status"] = ImportStatus.VALIDATION_ERROR.value
+                issue = PersistenceIssue(
+                    stage="validation.section", entity="section", field="section_id",
+                    original_value=section_name, operation="validate",
+                    message="No valid section could be resolved", status=ImportStatus.VALIDATION_ERROR.value,
+                )
+                results["diagnostics"].append(issue.to_dict())
                 results["details"].append("❌ No valid section - MISSING_INPUT")
+                session.rollback()
                 return results
 
             results["section_id"] = section_id
@@ -1213,8 +1311,15 @@ class ExcelImportDialog(QDialog):
             raw_report_date = dr.get("report_date") or wi.get("report_date")
             if raw_report_date in (None, ""):
                 results["validation_errors"] += 1
-                results["status"] = "VALIDATION_ERROR"
+                results["status"] = ImportStatus.VALIDATION_ERROR.value
+                issue = PersistenceIssue(
+                    stage="validation.daily_report", entity="daily_report", field="report_date",
+                    original_value=raw_report_date, operation="validate",
+                    message="Report date is required", status=ImportStatus.VALIDATION_ERROR.value,
+                )
+                results["diagnostics"].append(issue.to_dict())
                 results["details"].append("❌ Import stopped: report date is missing - MISSING_INPUT")
+                session.rollback()
                 return results
             dr["report_date"] = self._normalize_date(raw_report_date)
             dr.setdefault("status", "Draft")
@@ -1274,7 +1379,14 @@ class ExcelImportDialog(QDialog):
             if not report_id:
                 results["details"].append("❌ Could not create Daily Report")
                 results["validation_errors"] += 1
-                results["status"] = "VALIDATION_ERROR"
+                results["status"] = ImportStatus.VALIDATION_ERROR.value
+                issue = PersistenceIssue(
+                    stage="persistence.daily_report", entity="daily_report", field="id",
+                    original_value=dr, operation="insert",
+                    message="Daily report could not be created", status=ImportStatus.VALIDATION_ERROR.value,
+                )
+                results["diagnostics"].append(issue.to_dict())
+                session.rollback()
                 return results
 
             results["report_id"] = report_id
@@ -1344,7 +1456,9 @@ class ExcelImportDialog(QDialog):
             if extracted.get("time_logs_24h"):
                 stage = "time_logs_24h"
                 time_result = self._save_time_logs(report_id, extracted["time_logs_24h"], session=session)
-                results.setdefault("review_items", []).extend(time_result.get("review", []))
+                results.setdefault("review_items", []).extend(
+                    _canonical_review_row(item) for item in time_result.get("review", [])
+                )
                 results["review"] = results.get("review", 0) + len(time_result.get("review", []))
                 results["details"].append(
                     f"✅ Time logs: {time_result.get('valid', 0)} valid, "
@@ -1354,7 +1468,9 @@ class ExcelImportDialog(QDialog):
             if extracted.get("time_logs_morning"):
                 stage = "time_logs_morning"
                 morning_result = self._save_morning_logs(report_id, extracted["time_logs_morning"], session=session)
-                results.setdefault("review_items", []).extend(morning_result.get("review", []))
+                results.setdefault("review_items", []).extend(
+                    _canonical_review_row(item) for item in morning_result.get("review", [])
+                )
                 results["review"] = results.get("review", 0) + len(morning_result.get("review", []))
                 results["details"].append(
                     f"✅ Morning logs: {morning_result.get('valid', 0)} valid, "
@@ -1369,9 +1485,22 @@ class ExcelImportDialog(QDialog):
                         self.well_id, report_id, extracted, session=session
                     )
                     results.setdefault("diagnostics", []).extend(multi_res.get("diagnostics", []))
-                    results.setdefault("review_items", []).extend(multi_res.get("review_rows", []))
+                    review_rows = [
+                        _canonical_review_row(item)
+                        for item in multi_res.get("review_rows", [])
+                    ]
+                    results.setdefault("review_items", []).extend(review_rows)
                     results["review"] = results.get("review", 0) + multi_res.get("review", 0)
                     results["validation_errors"] = results.get("validation_errors", 0) + multi_res.get("validation_errors", 0)
+                    if multi_res.get("validation_errors", 0):
+                        session.rollback()
+                        results["status"] = ImportStatus.VALIDATION_ERROR.value
+                        results["imported"] = 0
+                        results["failed"] = 0
+                        results["details"].append(
+                            "❌ Import rolled back before commit: validation errors in report-scoped rows"
+                        )
+                        return results
                     for k, count in multi_res.items():
                         if k in ("failed", "error", "imported", "review", "diagnostics", "review_rows", "validation_errors"):
                             if k == "failed":
@@ -1383,8 +1512,17 @@ class ExcelImportDialog(QDialog):
                 except Exception as atomic_exc:
                     logger.error(f"Atomic multi-tab import failed: {atomic_exc}", exc_info=True)
                     diagnostic = getattr(atomic_exc, "issue", None)
-                    if diagnostic is not None:
+                    atomic_result = getattr(atomic_exc, "result", {}) or {}
+                    results.setdefault("diagnostics", []).extend(
+                        item for item in atomic_result.get("diagnostics", [])
+                        if item not in results["diagnostics"]
+                    )
+                    if diagnostic is not None and diagnostic.to_dict() not in results["diagnostics"]:
                         results.setdefault("diagnostics", []).append(diagnostic.to_dict())
+                    results.setdefault("review_items", []).extend(
+                        _canonical_review_row(item)
+                        for item in atomic_result.get("review_rows", [])
+                    )
                     results["failed"] += 1
                     results["details"].append(f"↩️ Atomic rollback: {atomic_exc} - No partial data kept")
                     raise
@@ -1398,10 +1536,10 @@ class ExcelImportDialog(QDialog):
             # The only successful import commit.  All report-scoped writes,
             # including IDs obtained via flush(), are committed together.
             session.commit()
-            results["status"] = (
-                "VALIDATION_ERROR" if results.get("validation_errors", 0)
-                else "REVIEW_REQUIRED" if results.get("review", 0)
-                else "ACCEPT"
+            results["status"] = determine_import_status(
+                persistence_error=False,
+                validation_error=bool(results.get("validation_errors", 0)),
+                review_required=bool(results.get("review", 0)),
             )
             results["details"].append("✅ Atomic transaction committed - All report-scoped data saved or none")
             return results
@@ -1574,10 +1712,10 @@ class ExcelImportDialog(QDialog):
 
         try:
             self.db.save_mud_report(mr_save, session=session)
-        except Exception as e:
-            if session is not None:
-                raise
-            logger.error(f"Mud report save error: {e}")
+        except Exception:
+            # Persistence failures belong to the outer import transaction;
+            # never convert them into a successful-looking empty phase.
+            raise
 
     @staticmethod
     def _fraction_to_32nds(text) -> Optional[float]:
@@ -1699,10 +1837,8 @@ class ExcelImportDialog(QDialog):
 
         try:
             self.db.save_drilling_parameters(dp_save, session=session)
-        except Exception as e:
-            if session is not None:
-                raise
-            logger.error(f"Drilling params save error: {e}")
+        except Exception:
+            raise
 
     def _save_time_logs(self, report_id: int, logs: list, session=None):
         """Save valid 24-hour rows in the caller's transaction.
@@ -1737,6 +1873,17 @@ class ExcelImportDialog(QDialog):
                     duration = None if raw_duration in (None, "") else float(raw_duration)
                 except (TypeError, ValueError, OverflowError):
                     duration = None
+                if raw_duration not in (None, "") and duration is None:
+                    review_items.append({
+                        "source_cell": log.get("source_cell") or log.get("source_cells"),
+                        "source_row": log.get("source_row") or index,
+                        "original_value": raw_duration,
+                        "normalized_value": None,
+                        "classification": "invalid_duration",
+                        "reason": "Duration must be numeric when supplied",
+                        "status": "REVIEW_REQUIRED",
+                    })
+                    continue
                 if duration is not None and (duration < 0 or duration > 24):
                     review_items.append({
                         "source_cell": log.get("source_cell") or log.get("source_cells"),
@@ -1766,8 +1913,7 @@ class ExcelImportDialog(QDialog):
         except Exception:
             if owns_session:
                 session.rollback()
-                logger.exception("Time log save error")
-                return {"valid": saved, "review": review_items}
+            logger.exception("Time log save error")
             raise
         finally:
             if owns_session:
@@ -1810,6 +1956,17 @@ class ExcelImportDialog(QDialog):
                     duration = None if raw_duration in (None, "") else float(raw_duration)
                 except (TypeError, ValueError, OverflowError):
                     duration = None
+                if raw_duration not in (None, "") and duration is None:
+                    review_items.append({
+                        "source_cell": log.get("source_cell") or log.get("source_cells"),
+                        "source_row": log.get("source_row") or index,
+                        "original_value": raw_duration,
+                        "normalized_value": None,
+                        "classification": "invalid_duration",
+                        "reason": "Duration must be numeric when supplied",
+                        "status": "REVIEW_REQUIRED",
+                    })
+                    continue
                 if duration is not None and (duration < 0 or duration > 24):
                     review_items.append({
                         "source_cell": log.get("source_cell") or log.get("source_cells"),
@@ -1839,8 +1996,7 @@ class ExcelImportDialog(QDialog):
         except Exception:
             if owns_session:
                 session.rollback()
-                logger.exception("Morning log save error")
-                return {"valid": saved, "review": review_items}
+            logger.exception("Morning log save error")
             raise
         finally:
             if owns_session:
