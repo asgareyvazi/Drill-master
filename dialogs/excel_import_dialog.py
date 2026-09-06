@@ -43,6 +43,7 @@ from core.mineru_engine import (
     MinerUError,
     MinerUNormalizationError,
     MinerUParseResult,
+    parse_pdf_native_fallback,
 )
 from core.unit_manager import UnitManager
 from dialogs.smart_template_dialog import ValueNormalizer, FIELD_LABELS
@@ -606,7 +607,7 @@ class ExcelImportDialog(QDialog):
         # actionable per-file failure in _run_import_pipeline.
         self._run_import_pipeline(self._pending_import_files, {})
 
-    def _mineru_extracted(self, source, parse_result):
+    def _mineru_extracted(self, source, parse_result, *, source_label="MinerU", fallback_diagnostics=None):
         """Return canonical data and review metadata for a successful parse."""
         if not parse_result or not parse_result.success or parse_result.document is None:
             raise MinerUError(parse_result.error if parse_result else "MinerU produced no result")
@@ -619,33 +620,33 @@ class ExcelImportDialog(QDialog):
         extracted = dict(normalized.canonical_data)
         review_rows = []
         for warning in normalized.warnings:
-            source = warning.get("source") if isinstance(warning.get("source"), dict) else {}
+            source_details = warning.get("source") if isinstance(warning.get("source"), dict) else {}
             location = " ".join(
                 part for part in (
-                    f"page {source.get('source_page')}" if source.get("source_page") is not None else "",
-                    f"row {source.get('source_row')}" if source.get("source_row") is not None else "",
-                    f"column {source.get('source_column')}" if source.get("source_column") is not None else "",
+                    f"page {source_details.get('source_page')}" if source_details.get("source_page") is not None else "",
+                    f"row {source_details.get('source_row')}" if source_details.get("source_row") is not None else "",
+                    f"column {source_details.get('source_column')}" if source_details.get("source_column") is not None else "",
                 ) if part
             )
             review_rows.append(
                 {
                     "file": Path(source).name,
-                    "sheet": source.get("source_sheet", ""),
-                    "page": source.get("source_page"),
-                    "row": source.get("source_row", 0) or 0,
-                    "column": source.get("source_column", ""),
+                    "sheet": source_details.get("source_sheet", ""),
+                    "page": source_details.get("source_page"),
+                    "row": source_details.get("source_row", 0) or 0,
+                    "column": source_details.get("source_column", ""),
                     "detected_table": "MinerU document",
-                    "source_table": source.get("source_table", ""),
+                    "source_table": source_details.get("source_table", ""),
                     "source_cell": location,
-                    "coordinates": source.get("bounding_box"),
-                    "extraction_method": source.get("extraction_method", ""),
+                    "coordinates": source_details.get("bounding_box"),
+                    "extraction_method": source_details.get("extraction_method", ""),
                     "original_value": warning.get("value", ""),
                     "normalized_value": warning.get("normalized_value"),
                     "value": warning.get("normalized_value"),
                     "target_field": warning.get("field", ""),
                     "canonical_field": warning.get("field", ""),
                     "expected_type": warning.get("expected_type", ""),
-                    "confidence": source.get("confidence"),
+                    "confidence": source_details.get("confidence"),
                     "decision": "REVIEW",
                     "status": "REVIEW_REQUIRED",
                     "validation_state": "needs_review",
@@ -655,7 +656,8 @@ class ExcelImportDialog(QDialog):
                 }
             )
         extracted["metadata"] = {
-            "source": "MinerU",
+            "source": source_label,
+            "source_engine": source_label,
             "backend": parse_result.document.backend,
             "method": parse_result.document.method,
             "pages": parse_result.document.page_count,
@@ -666,6 +668,12 @@ class ExcelImportDialog(QDialog):
             "mineru_provenance": normalized.provenance,
             "raw_ir": normalized.raw_document.to_dict(include_cells=True) if normalized.raw_document is not None else None,
             "output_files": parse_result.document.raw_files,
+            "diagnostics": dict(
+                getattr(parse_result, "diagnostics", {})
+                or parse_result.document.metadata.get("diagnostics", {})
+                or {}
+            ),
+            "fallback_diagnostics": fallback_diagnostics or {},
         }
         logger.info(
             "MinerU normalized: file=%s pages=%d tables=%d fields=%d warnings=%d",
@@ -702,17 +710,42 @@ class ExcelImportDialog(QDialog):
                     QApplication.processEvents()
                     extracted = self._mineru_extracted(source, parse_result)
                 elif route.engine == "mineru" and route.fallback_engine == "pdf_fallback":
-                    # MinerU failure is explicit and traceable; retain the
-                    # established Camelot -> PyMuPDF -> Tesseract fallback.
-                    reason = parse_result.error if parse_result else "MinerU was unavailable"
-                    logger.warning("MinerU PDF fallback: file=%s reason=%s", Path(source).name, reason)
+                    # PDF fallback remains PDF-native and is adapted directly
+                    # into the same common document IR.  It must never create
+                    # or parse an intermediate workbook.
+                    primary_reason = parse_result.error if parse_result else "MinerU was unavailable"
+                    logger.warning("MinerU PDF fallback: file=%s reason=%s", Path(source).name, primary_reason)
                     self.import_status.setText(
-                        f"{os.path.basename(source)} - MinerU unavailable; using PDF fallback..."
+                        f"{os.path.basename(source)} - MinerU unavailable; using PDF-native fallback..."
                     )
-                    from core.document_import import pdf_to_xlsx
-                    clean = Path(os.path.join(QDir.tempPath(), Path(source).stem + "_pdf_import.xlsx"))
-                    pdf_to_xlsx(source, clean)
-                    path = str(clean)
+                    try:
+                        fallback_document = parse_pdf_native_fallback(source)
+                        fallback_result = MinerUParseResult(
+                            source_file=str(source),
+                            success=True,
+                            document=fallback_document,
+                        )
+                        extracted = self._mineru_extracted(
+                            source,
+                            fallback_result,
+                            source_label="PDF native fallback",
+                            fallback_diagnostics={
+                                "primary": {
+                                    "error_type": parse_result.error_type if parse_result else "not-run",
+                                    "error": primary_reason,
+                                },
+                                "fallback": {
+                                    "engine": fallback_document.method,
+                                    "pages": fallback_document.page_count,
+                                    "tables": fallback_document.table_count,
+                                },
+                            },
+                        )
+                    except Exception as fallback_exc:
+                        raise MinerUError(
+                            "PDF_IMPORT_FAILED: MinerU cause: "
+                            f"{primary_reason}; PDF fallback cause: {fallback_exc}"
+                        ) from fallback_exc
                 elif route.engine == "mineru" and route.fallback_engine == "excel_intelligence":
                     # Unknown XLSX can still use the established smart importer
                     # if MinerU is unavailable or fails.
@@ -729,22 +762,21 @@ class ExcelImportDialog(QDialog):
                 # openpyxl -> ExcelIntelligence -> canonical JSON.  The legacy
                 # SmartTemplate dialog is not run first and cannot overwrite
                 # or compete with this result.
-                if extracted is None and (
-                    route.engine == "excel_intelligence"
-                    or (
-                        route.engine == "mineru"
-                        and route.fallback_engine == "pdf_fallback"
-                        and path != source
-                    )
-                ):
+                if extracted is None and route.engine == "excel_intelligence":
                     from openpyxl import load_workbook
                     from core.excel_intelligence import ExcelIntelligence
                     workbook = load_workbook(path, data_only=False, read_only=False)
+                    cached_workbook = load_workbook(path, data_only=True, read_only=False)
                     try:
                         template = self._auto_match_template([ws.title for ws in workbook.worksheets])
                         if not template:
                             raise ValueError("Structured Excel route selected without a matching template")
-                        rep = ExcelIntelligence(workbook, template, source_file=path).extract()
+                        rep = ExcelIntelligence(
+                            workbook,
+                            template,
+                            source_file=path,
+                            cached_workbook=cached_workbook,
+                        ).extract()
                         extracted = dict(rep.canonical_json)
                         review_rows = [
                             {
@@ -774,10 +806,12 @@ class ExcelImportDialog(QDialog):
                             "template_version": rep.template_version,
                             "review_matrix": review_rows,
                             "source_tokens": rep.source_tokens,
+                            "field_provenance": rep.field_provenance,
                             "raw_ir": rep.raw_document.to_dict(include_cells=True) if rep.raw_document is not None else None,
                         }
                     finally:
                         workbook.close()
+                        cached_workbook.close()
 
                 if extracted is None:
                     if route.engine == "csv":
@@ -838,7 +872,7 @@ class ExcelImportDialog(QDialog):
                     quality.review.add(**item)
 
                 import_report_dict = quality.as_dict()
-                if metadata.get("source") == "MinerU":
+                if metadata.get("source") in {"MinerU", "PDF native fallback"}:
                     import_report_dict.update(
                         {
                             "source_engine": "MinerU",

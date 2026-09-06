@@ -372,7 +372,12 @@ def raw_document_from_mineru(document: Any) -> RawDocument:
     return raw
 
 
-def raw_document_from_workbook(workbook: Any, *, max_cells: int = 250_000) -> RawDocument:
+def raw_document_from_workbook(
+    workbook: Any,
+    *,
+    cached_workbook: Any = None,
+    max_cells: int = 250_000,
+) -> RawDocument:
     """Adapt populated Excel cells, formulas, hidden state, and table layout.
 
     The adapter is the only workbook walk used by ``ExcelIntelligence``.  The
@@ -383,6 +388,10 @@ def raw_document_from_workbook(workbook: Any, *, max_cells: int = 250_000) -> Ra
         source_file=source_file,
         metadata={"ir_version": IR_VERSION, "engine": "Excel"},
     )
+    cached_sheets = {
+        worksheet.title: worksheet
+        for worksheet in (getattr(cached_workbook, "worksheets", []) or [])
+    }
     for worksheet in getattr(workbook, "worksheets", []) or []:
         hidden_rows = getattr(worksheet, "row_dimensions", {})
         hidden_columns = getattr(worksheet, "column_dimensions", {})
@@ -413,10 +422,27 @@ def raw_document_from_workbook(workbook: Any, *, max_cells: int = 250_000) -> Ra
                 )
                 row_dimension = hidden_rows.get(cell.row)
                 column_dimension = hidden_columns.get(getattr(cell, "column_letter", ""))
+                cached_sheet = cached_sheets.get(worksheet.title)
+                cached_cell = (
+                    cached_sheet.cell(cell.row, cell.column)
+                    if cached_sheet is not None
+                    else None
+                )
+                source_value = cell.value
+                mapped_value = (
+                    cached_cell.value
+                    if (
+                        isinstance(source_value, str)
+                        and source_value.startswith("=")
+                        and cached_cell is not None
+                        and cached_cell.value is not None
+                    )
+                    else source_value
+                )
                 raw_cell = RawCell(
-                    value=cell.value,
+                    value=mapped_value,
                     location=location,
-                    original_value=cell.value,
+                    original_value=mapped_value,
                     table=worksheet.title,
                     extraction_method="excel-cell",
                     confidence=None,

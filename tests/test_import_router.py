@@ -24,6 +24,8 @@ def test_pdf_docx_pptx_and_images_route_to_mineru(tmp_path):
         path.write_bytes(b"fixture")
         route = route_file(str(path))
         assert route.engine == "mineru"
+        if suffix == ".pdf":
+            assert route.fallback_engine == "pdf_fallback"
 
 
 def test_known_structured_excel_stays_on_excel_intelligence(tmp_path):

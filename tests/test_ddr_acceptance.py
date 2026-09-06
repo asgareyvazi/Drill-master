@@ -129,6 +129,7 @@ def test_real_ddr_excel_canonical_ir_review_and_atomic_db():
     from core.excel_intelligence import ExcelIntelligence
 
     workbook = load_workbook(source, data_only=False, read_only=False)
+    cached_workbook = load_workbook(source, data_only=True, read_only=False)
     try:
         template = json.loads(TEMPLATE_PATH.read_text(encoding="utf-8"))
         expected_sheets = {
@@ -143,9 +144,15 @@ def test_real_ddr_excel_canonical_ir_review_and_atomic_db():
                 "The supplied DDR workbook does not match the canonical OEOC "
                 f"template; sheets={sorted(actual_sheets)}"
             )
-        report = ExcelIntelligence(workbook, template, source_file=str(source.resolve())).extract()
+        report = ExcelIntelligence(
+            workbook,
+            template,
+            source_file=str(source.resolve()),
+            cached_workbook=cached_workbook,
+        ).extract()
     finally:
         workbook.close()
+        cached_workbook.close()
 
     assert report.raw_document is not None
     _assert_ir_details(report.raw_document)

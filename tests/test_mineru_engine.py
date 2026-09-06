@@ -15,6 +15,8 @@ from core.mineru_engine import (
     MinerUAdapter,
     MinerUConfig,
     parse_mineru_output,
+    parse_pdf_native_fallback,
+    resolve_mineru_backend,
     validate_canonical_payload,
 )
 
@@ -31,6 +33,18 @@ def test_mineru_discovery_prefers_explicit_path(monkeypatch, tmp_path):
     from core.mineru_engine import discover_mineru_executable
 
     assert discover_mineru_executable(str(executable)) == str(executable.resolve())
+
+
+def test_cpu_backend_is_selected_without_cuda(monkeypatch):
+    monkeypatch.setenv("DRILLMASTER_MINERU_CUDA_AVAILABLE", "0")
+    assert resolve_mineru_backend("auto") == "pipeline"
+    assert resolve_mineru_backend("hybrid-engine") == "pipeline"
+
+
+def test_gpu_backend_can_be_selected_when_cuda_is_available(monkeypatch):
+    monkeypatch.setenv("DRILLMASTER_MINERU_CUDA_AVAILABLE", "1")
+    assert resolve_mineru_backend("auto") == "hybrid-engine"
+    assert resolve_mineru_backend("hybrid-engine") == "hybrid-engine"
 
 
 def test_mineru_version_and_health_check():
@@ -86,13 +100,16 @@ def test_mineru_persisted_configuration_is_supported(monkeypatch, tmp_path):
     assert config.keep_output is True
 
 
-def test_mineru_invocation_uses_safe_cli_and_parses_markdown(tmp_path):
+def test_mineru_invocation_uses_safe_cli_and_parses_markdown(tmp_path, monkeypatch):
+    monkeypatch.setenv("DRILLMASTER_MINERU_CUDA_AVAILABLE", "1")
     source = tmp_path / "report.pdf"
     source.write_bytes(b"pdf fixture")
     calls = []
 
     def runner(command, **kwargs):
         calls.append((command, kwargs))
+        if command[-1] == "--version":
+            return _completed(stdout="MinerU 3.4.5")
         output = Path(command[command.index("-o") + 1])
         output.mkdir(parents=True, exist_ok=True)
         (output / "report.md").write_text(
@@ -118,7 +135,15 @@ def test_mineru_invocation_uses_safe_cli_and_parses_markdown(tmp_path):
     assert result.success is True
     assert result.document is not None
     assert result.document.table_count == 1
-    command, kwargs = calls[0]
+    assert result.diagnostics == {
+        "executable": "mineru.exe",
+        "python": None,
+        "python_executable": None,
+        "version": "3.4.5",
+        "backend": "hybrid-engine",
+        "method": "auto",
+    }
+    command, kwargs = next((command, kwargs) for command, kwargs in calls if "-p" in command)
     assert command[:1] == ["mineru.exe"]
     assert command[command.index("-p") + 1] == str(source.resolve())
     assert command[command.index("-b") + 1] == "hybrid-engine"
@@ -177,6 +202,8 @@ def test_mineru_malformed_or_missing_output_is_not_success(tmp_path):
     source.write_bytes(b"docx")
 
     def runner(command, **kwargs):
+        if command[-1] == "--version":
+            return _completed(stdout="MinerU 3.4.5")
         Path(command[command.index("-o") + 1]).mkdir(parents=True, exist_ok=True)
         return _completed()
 
@@ -235,6 +262,47 @@ def parse_mineru_output_from_text(text: str):
     return parse_mineru_output(root, source_file="document.pdf")
 
 
+def test_pdf_native_fallback_adapts_rows_to_common_ir(monkeypatch, tmp_path):
+    source = tmp_path / "report.pdf"
+    source.write_bytes(b"pdf")
+    monkeypatch.setattr(
+        "core.import_adapters.pdf_tables.extract_tables",
+        lambda _source: {
+            "engine": "pymupdf",
+            "tier": 2,
+            "metrics": [{"engine": "pymupdf", "rows": 2}],
+            "tables": [{
+                "data": [
+                    {"Report Date": "2026-09-05", "Mud Weight": "12.5"},
+                    {"Report Date": "2026-09-06", "Mud Weight": "12.6"},
+                ],
+                "report": {"page": 3},
+            }],
+        },
+    )
+    document = parse_pdf_native_fallback(source)
+    assert document.backend == "pdf-native-fallback"
+    assert document.method == "pymupdf"
+    assert document.page_count == 1
+    assert document.table_count == 1
+    assert document.tables[0].provenance.source_page == 3
+    assert document.tables[0].rows[0][0] == "2026-09-05"
+
+
+def test_pdf_native_fallback_reports_empty_output(monkeypatch, tmp_path):
+    source = tmp_path / "report.pdf"
+    source.write_bytes(b"pdf")
+    monkeypatch.setattr(
+        "core.import_adapters.pdf_tables.extract_tables",
+        lambda _source: {"tables": [], "error": "all PDF tiers failed"},
+    )
+    import pytest
+    from core.mineru_engine import MinerUOutputError
+
+    with pytest.raises(MinerUOutputError, match="all PDF tiers failed"):
+        parse_pdf_native_fallback(source)
+
+
 def test_mineru_batch_isolates_file_failures(tmp_path):
     good = tmp_path / "good.pdf"
     bad = tmp_path / "bad.pdf"
@@ -242,6 +310,8 @@ def test_mineru_batch_isolates_file_failures(tmp_path):
     bad.write_bytes(b"bad")
 
     def runner(command, **kwargs):
+        if command[-1] == "--version":
+            return _completed(stdout="MinerU 3.4.5")
         source = Path(command[command.index("-p") + 1])
         output = Path(command[command.index("-o") + 1])
         if source.name == "bad.pdf":

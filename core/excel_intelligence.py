@@ -148,6 +148,9 @@ class ImportReport:
     # Provenance for values that could not be stored as-is (e.g. "N.C").
     # {canonical_path: {"original_value": ..., "cell": ..., "sheet": ..., "status": "NON_NUMERIC"}}
     source_tokens: Dict[str, Dict] = field(default_factory=dict)
+    # Provenance for canonical scalar values, including values assembled from
+    # multiple source cells such as DDR report dates.
+    field_provenance: Dict[str, Dict] = field(default_factory=dict)
     # Shared lossless IR snapshot.  Canonical JSON remains deliberately small;
     # this object is consumed by diagnostics/lineage, not persisted as a DB row.
     raw_document: Any = None
@@ -1055,7 +1058,13 @@ class DynamicTableExtractor:
 class ExcelIntelligence:
     """Main orchestrator for robust Excel extraction."""
 
-    def __init__(self, workbook, template: Dict = None, source_file: Optional[str] = None):
+    def __init__(
+        self,
+        workbook,
+        template: Dict = None,
+        source_file: Optional[str] = None,
+        cached_workbook=None,
+    ):
         self.workbook = workbook
         # openpyxl may discard the input path (notably when given a Path
         # object). The caller at the file boundary supplies it explicitly so
@@ -1069,7 +1078,10 @@ class ExcelIntelligence:
         # Both Excel and MinerU are adapted to the same raw IR before the
         # canonical schema mapper runs.  It retains hidden/merged/formula
         # provenance without changing the established extraction semantics.
-        self.raw_document = raw_document_from_workbook(workbook)
+        self.raw_document = raw_document_from_workbook(
+            workbook,
+            cached_workbook=cached_workbook,
+        )
         self.cell_cache = {}
         self.merge_analyzers = {}
         self.label_detectors = {}
@@ -1292,6 +1304,28 @@ class ExcelIntelligence:
             if assembled is not None:
                 daily["report_date"] = assembled.isoformat()
                 daily["report_date_source"] = "assembled(year/month/day)"
+                components = [
+                    report.field_provenance.get(f"daily_report.{part}")
+                    for part in ("report_year", "report_month", "report_day")
+                ]
+                components = [component for component in components if component]
+                source_sheets = list(dict.fromkeys(component.get("source_sheet", "") for component in components))
+                report.field_provenance["daily_report.report_date"] = {
+                    "source_file": report.raw_document.source_file if report.raw_document is not None else "",
+                    "source_sheet": source_sheets[0] if len(source_sheets) == 1 else source_sheets,
+                    "source_cell": [component.get("source_cell") for component in components],
+                    "merged_cell": [component.get("merged_cell") for component in components],
+                    "source_header": [component.get("source_header") for component in components],
+                    "source_row": [component.get("source_row") for component in components],
+                    "source_column": [component.get("source_column") for component in components],
+                    "original_value": [component.get("original_value") for component in components],
+                    "normalized_value": daily["report_date"],
+                    "extraction_method": "assembled-date",
+                    "confidence": min((component.get("confidence", 0.0) for component in components), default=0.0),
+                    "validation_state": "valid",
+                    "review_state": "accepted",
+                    "components": components,
+                }
 
         report.canonical_json = canonical
         report.extraction_time_ms = (time.time() - start_time) * 1000
@@ -1345,6 +1379,10 @@ class ExcelIntelligence:
         """
         section, key = canonical_path.split(".", 1)
         spec = FIELD_SPECS.get(canonical_path)
+        target = canonical.setdefault(section, {})
+        missing = object()
+        existing_value = target.get(key, missing)
+        existing_source_token = report.source_tokens.get(canonical_path)
         value = result.value
         original_value = result.original_value if result.original_value is not None else value
         if spec is not None:
@@ -1391,7 +1429,68 @@ class ExcelIntelligence:
                 }
                 value = None
                 canonical.setdefault(section, {})[key + "_source"] = token
-        canonical.setdefault(section, {})[key] = value
+        # A template can expose the same DDR date more than once (for
+        # example, direct cells on DDR Remark and formula links on DDR Data).
+        # A lower-quality duplicate must never erase an already normalized
+        # value. This is deterministic duplicate resolution, not a company
+        # or workbook-specific hardcode.
+        preserve_existing = (
+            existing_value is not missing
+            and existing_value not in (None, "")
+            and value in (None, "")
+        )
+        conflict_with_existing = (
+            existing_value is not missing
+            and existing_value not in (None, "")
+            and value not in (None, "")
+            and existing_value != value
+        )
+        if preserve_existing or conflict_with_existing:
+            value = existing_value
+            if existing_source_token is None:
+                report.source_tokens.pop(canonical_path, None)
+                target.pop(key + "_source", None)
+        else:
+            target[key] = value
+            if value not in (None, "") and existing_source_token is not None:
+                report.source_tokens.pop(canonical_path, None)
+                target.pop(key + "_source", None)
+
+        source_ir_cell = next(
+            (
+                raw_cell for raw_cell in (report.raw_document.cells if report.raw_document is not None else ())
+                if raw_cell.location.sheet == actual_sheet and raw_cell.location.cell == result.cell
+            ),
+            None,
+        )
+        if canonical_path not in report.field_provenance or not (preserve_existing or conflict_with_existing):
+            report.field_provenance[canonical_path] = {
+                "source_file": report.raw_document.source_file if report.raw_document is not None else "",
+                "source_sheet": actual_sheet or result.sheet,
+                "source_cell": result.cell,
+                "merged_cell": (
+                    source_ir_cell.merge_anchor or result.cell
+                    if source_ir_cell is not None and source_ir_cell.merged
+                    else None
+                ),
+                "source_header": result.original_label,
+                "source_row": result.row,
+                "source_column": result.col,
+                "original_value": original_value,
+                "normalized_value": value,
+                "extraction_method": result.source or "excel-template",
+                "confidence": result.confidence,
+                "validation_state": result.validation or "unvalidated",
+                "review_state": "accepted" if result.status == "OK" else "review",
+            }
+        if conflict_with_existing:
+            report.field_provenance[canonical_path].setdefault("alternates", []).append({
+                "source_sheet": actual_sheet or result.sheet,
+                "source_cell": result.cell,
+                "original_value": original_value,
+                "normalized_value": value,
+                "status": "CONFLICT",
+            })
 
         # Keep the common IR synchronized with the mapping result.  The
         # source token remains in ``original_value``; only the explicit

@@ -52,6 +52,38 @@ SUPPORTED_SUFFIXES = frozenset(
     }
 )
 IMAGE_SUFFIXES = frozenset({".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".tif", ".tiff"})
+CPU_MINERU_BACKEND = "pipeline"
+GPU_MINERU_BACKEND = "hybrid-engine"
+SUPPORTED_MINERU_METHODS = frozenset({"auto", "txt", "ocr"})
+
+
+def cuda_available() -> bool:
+    """Return CUDA availability without making torch/MinerU a hard dependency."""
+    configured = _first_env("DRILLMASTER_MINERU_CUDA_AVAILABLE", "MINERU_CUDA_AVAILABLE")
+    if configured is not None:
+        return _parse_bool(configured, default=False)
+    try:
+        import torch  # type: ignore
+
+        return bool(torch.cuda.is_available())
+    except (ImportError, AttributeError, RuntimeError):
+        return False
+
+
+def resolve_mineru_backend(requested: str) -> str:
+    """Resolve ``auto``/GPU backends to a backend supported by this machine."""
+    requested = (requested or "auto").strip().lower()
+    if requested == "auto":
+        return GPU_MINERU_BACKEND if cuda_available() else CPU_MINERU_BACKEND
+    if requested in {"hybrid-engine", "vlm-engine", "hybrid-http-client", "vlm-http-client"} and not cuda_available():
+        logger.info("CUDA unavailable; selecting CPU-compatible MinerU backend pipeline instead of %s", requested)
+        return CPU_MINERU_BACKEND
+    return requested
+
+
+def resolve_mineru_method(requested: str) -> str:
+    requested = (requested or "auto").strip().lower()
+    return requested if requested in SUPPORTED_MINERU_METHODS else "auto"
 
 
 class MinerUError(RuntimeError):
@@ -98,7 +130,7 @@ class MinerUConfig:
     enabled: bool = False
     executable: Optional[str] = None
     python_executable: Optional[str] = None
-    backend: str = "hybrid-engine"
+    backend: str = "auto"
     method: str = "auto"
     output_dir: Optional[Path] = None
     timeout_seconds: int = 600
@@ -138,7 +170,7 @@ class MinerUConfig:
 
         backend = _configured_value(
             persisted, "backend", "DRILLMASTER_MINERU_BACKEND", "MINERU_BACKEND"
-        ) or "hybrid-engine"
+        ) or "auto"
         method = _configured_value(
             persisted, "method", "DRILLMASTER_MINERU_METHOD", "MINERU_METHOD"
         ) or "auto"
@@ -308,6 +340,7 @@ class MinerUParseResult:
     duration_seconds: float = 0.0
     output_dir: Optional[str] = None
     fallback_available: bool = False
+    diagnostics: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -317,6 +350,8 @@ class MinerUHealth:
     executable: Optional[str]
     python_executable: Optional[str]
     version: Optional[str] = None
+    backend: str = CPU_MINERU_BACKEND
+    method: str = "auto"
     error: Optional[str] = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -326,6 +361,8 @@ class MinerUHealth:
             "executable": self.executable,
             "python_executable": self.python_executable,
             "version": self.version,
+            "backend": self.backend,
+            "method": self.method,
             "error": self.error,
         }
 
@@ -340,6 +377,23 @@ class MinerUAdapter:
     ) -> None:
         self.config = config or MinerUConfig.from_environment()
         self._runner = runner or subprocess.run
+        self._version_cache: Optional[str] = None
+
+    def _diagnostics(self, *, version: Optional[str] = None) -> dict[str, Any]:
+        return {
+            "executable": self.config.executable,
+            "python": self.config.python_executable,
+            "python_executable": self.config.python_executable,
+            "version": version or self._version_cache or "unknown",
+            "backend": self.resolved_backend(),
+            "method": self.resolved_method(),
+        }
+
+    def resolved_backend(self) -> str:
+        return resolve_mineru_backend(self.config.backend)
+
+    def resolved_method(self) -> str:
+        return resolve_mineru_method(self.config.method)
 
     @staticmethod
     def is_available() -> bool:
@@ -360,6 +414,8 @@ class MinerUAdapter:
                 enabled=False,
                 executable=self.config.executable,
                 python_executable=self.config.python_executable,
+                backend=self.resolved_backend(),
+                method=self.resolved_method(),
                 error="MinerU is disabled or not detected",
             )
         if not prefix:
@@ -368,6 +424,8 @@ class MinerUAdapter:
                 enabled=True,
                 executable=None,
                 python_executable=self.config.python_executable,
+                backend=self.resolved_backend(),
+                method=self.resolved_method(),
                 error=(
                     "MinerU was not found. Configure MINERU_EXECUTABLE or "
                     "MINERU_PYTHON, or add mineru to PATH."
@@ -381,6 +439,8 @@ class MinerUAdapter:
                 executable=self.config.executable,
                 python_executable=self.config.python_executable,
                 version=version,
+                backend=self.resolved_backend(),
+                method=self.resolved_method(),
             )
         except MinerUError as exc:
             return MinerUHealth(
@@ -388,10 +448,14 @@ class MinerUAdapter:
                 enabled=True,
                 executable=self.config.executable,
                 python_executable=self.config.python_executable,
+                backend=self.resolved_backend(),
+                method=self.resolved_method(),
                 error=str(exc),
             )
 
     def get_version(self) -> str:
+        if self._version_cache is not None:
+            return self._version_cache
         prefix = self._command_prefix()
         if not prefix:
             raise MinerUNotInstalledError(
@@ -399,8 +463,8 @@ class MinerUAdapter:
             )
         try:
             completed = self._run_control(prefix + ["--version"])
-        except FileNotFoundError as exc:
-            raise MinerUExecutableError(f"MinerU executable could not be started: {exc}") from exc
+        except (FileNotFoundError, OSError, subprocess.SubprocessError) as exc:
+            raise MinerUExecutableError(f"MinerU version probe failed: {exc}") from exc
         output = _combined_output(completed)
         if completed.returncode != 0:
             # Some installations expose --help but not --version.  A help
@@ -412,14 +476,17 @@ class MinerUAdapter:
             help_output = _combined_output(help_result)
             match = _version_from_text(help_output)
             if help_result.returncode == 0 and match:
+                self._version_cache = match
                 return match
             if help_result.returncode == 0:
-                return "unknown"
+                self._version_cache = "unknown"
+                return self._version_cache
             raise MinerUExecutableError(
                 f"MinerU CLI probe failed with exit code {completed.returncode}: "
                 f"{_safe_process_message(output)}"
             )
-        return _version_from_text(output) or "unknown"
+        self._version_cache = _version_from_text(output) or "unknown"
+        return self._version_cache
 
     def _run_control(self, command: Sequence[str]) -> subprocess.CompletedProcess:
         return self._runner(
@@ -460,6 +527,19 @@ class MinerUAdapter:
                 fallback_available=source.suffix.lower() == ".pdf",
             )
 
+        version_error = None
+        try:
+            version = self.get_version()
+        except MinerUError as exc:
+            # A usable parser may not expose --version; preserve that fact in
+            # diagnostics without pretending a version is known.
+            version = "unknown"
+            version_error = str(exc)
+            logger.warning("MinerU version probe unavailable: %s", exc)
+        diagnostics = self._diagnostics(version=version)
+        if version_error:
+            diagnostics["version_error"] = version_error
+
         temporary: Optional[tempfile.TemporaryDirectory[str]] = None
         try:
             root = Path(output_dir).expanduser().resolve() if output_dir else self.config.output_dir
@@ -480,15 +560,15 @@ class MinerUAdapter:
                 "-o",
                 str(run_dir),
                 "-b",
-                self.config.backend,
+                self.resolved_backend(),
                 "-m",
-                self.config.method,
+                self.resolved_method(),
             ]
             logger.info(
                 "MinerU parse started: file=%s backend=%s method=%s",
                 source.name,
-                self.config.backend,
-                self.config.method,
+                self.resolved_backend(),
+                self.resolved_method(),
             )
             try:
                 completed = self._runner(
@@ -539,8 +619,8 @@ class MinerUAdapter:
                 document = parse_mineru_output(
                     run_dir,
                     source_file=str(source),
-                    backend=self.config.backend,
-                    method=self.config.method,
+                    backend=self.resolved_backend(),
+                    method=self.resolved_method(),
                 )
             except MinerUOutputError as exc:
                 return self._failure(
@@ -553,6 +633,7 @@ class MinerUAdapter:
                     output_dir=str(run_dir) if self.config.keep_output else None,
                     fallback_available=source.suffix.lower() == ".pdf",
                 )
+            document.metadata["diagnostics"] = dict(diagnostics)
             duration = time.monotonic() - started
             logger.info(
                 "MinerU parse finished: file=%s duration=%.2fs pages=%d tables=%d",
@@ -569,6 +650,7 @@ class MinerUAdapter:
                 stderr=stderr,
                 duration_seconds=duration,
                 output_dir=str(run_dir) if self.config.keep_output else None,
+                diagnostics=diagnostics,
             )
         except OSError as exc:
             return self._failure(source_display, "output-error", f"MinerU output directory error: {exc}", started)
@@ -702,6 +784,94 @@ def parse_mineru_output(
             "assets": len(document.images),
         }
     )
+    return document
+
+
+def parse_pdf_native_fallback(input_path: str | os.PathLike[str]) -> MinerUDocument:
+    """Adapt the deterministic PDF-native fallback directly into common IR.
+
+    This path never creates an XLSX and therefore cannot enter an Excel parser.
+    It intentionally preserves the fallback engine, page, table, and raw text
+    provenance for the same normalizer used by MinerU output.
+    """
+    from core.import_adapters.pdf_tables import extract_tables
+
+    source = str(Path(input_path).expanduser().resolve())
+    result = extract_tables(source)
+    if not result.get("tables"):
+        raise MinerUOutputError(
+            "PDF fallback produced no tables or text: "
+            + str(result.get("error") or "unknown PDF fallback error")
+        )
+    document = MinerUDocument(
+        source_file=source,
+        backend="pdf-native-fallback",
+        method=str(result.get("engine") or "pdf-native"),
+        metadata={
+            "fallback": True,
+            "engine": result.get("engine"),
+            "tier": result.get("tier"),
+            "metrics": result.get("metrics", []),
+        },
+    )
+    page_numbers: set[int] = set()
+    for table_number, payload in enumerate(result.get("tables", []), 1):
+        data = payload.get("data", []) if isinstance(payload, Mapping) else []
+        report = payload.get("report", {}) if isinstance(payload, Mapping) else {}
+        if not isinstance(data, list) or not data:
+            continue
+
+        # PyMuPDF fallback returns a wrapper whose records carry their own
+        # page and data values.  Camelot/OCR return ordinary row dictionaries.
+        nested = [item for item in data if isinstance(item, Mapping) and isinstance(item.get("data"), Mapping)]
+        if nested:
+            records = [item.get("data", {}) for item in nested]
+            page = report.get("page")
+            if page is None:
+                page = nested[0].get("page")
+        else:
+            records = [item for item in data if isinstance(item, Mapping)]
+            page = payload.get("page") if isinstance(payload, Mapping) else None
+            page = page if page is not None else report.get("page")
+
+        if not records:
+            continue
+        headers: list[str] = []
+        for record in records:
+            for key in record:
+                if key not in headers:
+                    headers.append(str(key))
+        rows = [[str(record.get(header, "") or "") for header in headers] for record in records]
+        try:
+            page_number = int(page) if page is not None else None
+        except (TypeError, ValueError):
+            page_number = None
+        if page_number is not None:
+            page_numbers.add(page_number)
+        document.tables.append(
+            DocumentTable(
+                headers=headers,
+                rows=rows,
+                provenance=Provenance(
+                    source,
+                    source_page=page_number,
+                    extraction_method=f"pdf-fallback-{result.get('engine') or 'native'}",
+                    source_table=f"pdf-table-{table_number}",
+                ),
+                name=f"PDF table {table_number}",
+            )
+        )
+
+    if not document.tables:
+        raise MinerUOutputError("PDF fallback returned rows in an unsupported shape")
+    for page_number in sorted(page_numbers) or [1]:
+        document.pages.append(
+            DocumentPage(
+                number=page_number,
+                provenance=Provenance(source, source_page=page_number, extraction_method="pdf-native-fallback"),
+            )
+        )
+    document.metadata.update({"pages": document.page_count, "tables": document.table_count})
     return document
 
 
@@ -951,12 +1121,14 @@ class NormalizedDocument:
     pages: int
     needs_review: bool = False
     raw_document: Any = None
+    backend: str = ""
+    method: str = ""
 
     def metadata(self) -> dict[str, Any]:
         return {
             "source": "MinerU",
-            "backend": "",
-            "method": "",
+            "backend": self.backend,
+            "method": self.method,
             "pages": self.pages,
             "tables": self.tables_extracted,
             "fields_extracted": self.fields_extracted,
@@ -1246,6 +1418,8 @@ class DocumentNormalizer:
             pages=document.page_count,
             needs_review=bool(warnings or validation.errors),
             raw_document=raw_document,
+            backend=document.backend,
+            method=document.method,
         )
 
     @staticmethod
