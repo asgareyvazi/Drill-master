@@ -901,9 +901,14 @@ class DrillingParametersTab(QWidget):
 
         bit_type = data.get("bit_type", "")
         if bit_type:
-            index = self.bit_type.findText(str(bit_type))
+            value = str(bit_type)
+            index = self.bit_type.findText(value)
             if index >= 0:
                 self.bit_type.setCurrentIndex(index)
+            else:
+                self.bit_type.setEditable(True)
+                self.bit_type.setCurrentIndex(-1)
+                self.bit_type.setCurrentText(value)
 
         self.bit_manufacturer.setText(safe_str("manufacturer"))
         self.iadc_code.setText(safe_str("iadc_code"))
@@ -1315,6 +1320,10 @@ class MudReportTab(QWidget):
         if product_type in [type_combo.itemText(i)
                              for i in range(type_combo.count())]:
             type_combo.setCurrentText(product_type)
+        elif product_type:
+            type_combo.setEditable(True)
+            type_combo.setCurrentIndex(-1)
+            type_combo.setCurrentText(str(product_type))
         self.chemicals_table.setCellWidget(row, 1, type_combo)
 
         received_spin = QDoubleSpinBox()
@@ -1341,7 +1350,12 @@ class MudReportTab(QWidget):
 
         unit_combo = QComboBox()
         unit_combo.addItems(["kg", "lb", "bbl", "gal", "l", "m³"])
-        unit_combo.setCurrentText(unit)
+        if unit in [unit_combo.itemText(i) for i in range(unit_combo.count())]:
+            unit_combo.setCurrentText(unit)
+        elif unit:
+            unit_combo.setEditable(True)
+            unit_combo.setCurrentIndex(-1)
+            unit_combo.setCurrentText(str(unit))
         self.chemicals_table.setCellWidget(row, 5, unit_combo)
 
     def remove_chemical_row(self):
@@ -1530,7 +1544,13 @@ class MudReportTab(QWidget):
             except (ValueError, TypeError):
                 return default
 
-        self.mud_type.setCurrentText(str(data.get("mud_type", "") or ""))
+        mud_type = str(data.get("mud_type", "") or "")
+        if mud_type in [self.mud_type.itemText(i) for i in range(self.mud_type.count())]:
+            self.mud_type.setCurrentText(mud_type)
+        elif mud_type:
+            self.mud_type.setEditable(True)
+            self.mud_type.setCurrentIndex(-1)
+            self.mud_type.setCurrentText(mud_type)
         self.mw.setValue(safe_val("mw", 65.0))
         self.pv.setValue(safe_val("pv"))
         self.yp.setValue(safe_val("yp"))

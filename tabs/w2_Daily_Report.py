@@ -32,6 +32,7 @@ from core.text_utils import wrap_text, wrap_html
 logger = logging.getLogger(__name__)
 
 from core.time_utils import TimeLineEdit, DrillTime
+from core.combo_identity import DEFAULT_ACTIVITY_CATALOG
 
 class DailyReportWidget(DrillTabBase):
     """تب گزارش روزانه با استفاده از توابع مرکزی"""
@@ -840,23 +841,28 @@ class DailyReportWidget(DrillTabBase):
         # ستون 3: فاز اصلی
         main_phase_combo = QComboBox()
         phases = [
-            "MOV - Moving", "DRL - Drilling", "LOG - Logging", 
-            "CSG - Casing/Liner", "COM - Completion", "FTS - Formation Testing",
-            "PIH - Pilot Hole", "COR - Coring", "REE - Re-Entry", "ABD - Abandonment"
+            ("MOV - Moving", "MOV"), ("DRL - Drilling", "DRL"), ("LOG - Logging", "LOG"),
+            ("CSG - Casing/Liner", "CSG"), ("COM - Completion", "COM"), ("FTS - Formation Testing", "FTS"),
+            ("PIH - Pilot Hole", "PIH"), ("COR - Coring", "COR"), ("REE - Re-Entry", "REE"), ("ABD - Abandonment", "ABD")
         ]
-        main_phase_combo.addItems(phases)
+        for label, identity in phases:
+            main_phase_combo.addItem(label, identity)
         if log_data and hasattr(log_data, 'main_phase'):
-            index = main_phase_combo.findText(log_data.main_phase, Qt.MatchContains)
+            index = self._find_code_index(main_phase_combo, log_data.main_phase)
             if index >= 0:
                 main_phase_combo.setCurrentIndex(index)
+            elif str(log_data.main_phase or "").strip():
+                self._set_unresolved_combo_value(main_phase_combo, log_data.main_phase)
         table.setCellWidget(row, 3, main_phase_combo)
 
         # ستون 4: QStackedWidget برای دو کامبو (عادی و NPT)
         stacked = QStackedWidget()
         normal_code_combo = QComboBox()
-        normal_code_combo.addItems(list(self.main_codes_dict.keys()))
+        for option in DEFAULT_ACTIVITY_CATALOG.main_options():
+            normal_code_combo.addItem(option.label, option.identity)
         npt_code_combo = QComboBox()
-        npt_code_combo.addItems(list(self.NPT_CODES.keys()))
+        for code in self.NPT_CODES:
+            npt_code_combo.addItem(code, code)
 
         is_npt = False
         if log_data and hasattr(log_data, 'is_npt'):
@@ -897,6 +903,8 @@ class DailyReportWidget(DrillTabBase):
             index = status_combo.findText(log_data.status)
             if index >= 0:
                 status_combo.setCurrentIndex(index)
+            elif str(log_data.status or "").strip():
+                self._set_unresolved_combo_value(status_combo, log_data.status)
         table.setCellWidget(row, 6, status_combo)
 
         # ستون 7: چک‌باکس NPT
@@ -1058,10 +1066,18 @@ class DailyReportWidget(DrillTabBase):
     def _find_code_index(self, combo, stored_value):
         wanted = self._code_variants(stored_value)
         for index in range(combo.count()):
-            candidate = self._code_variants(combo.itemText(index))
-            if any(a == b or a in b or b in a for a in wanted for b in candidate):
+            data = combo.itemData(index)
+            candidates = self._code_variants(data) + self._code_variants(combo.itemText(index))
+            if any(a == b or a in b or b in a for a in wanted for b in candidates):
                 return index
         return -1
+
+    @staticmethod
+    def _set_unresolved_combo_value(combo, value):
+        """Show an unresolved source token without selecting item zero."""
+        combo.setEditable(True)
+        combo.setCurrentIndex(-1)
+        combo.setCurrentText(str(value))
 
     def _select_code_value(self, combo, stored_value):
         index = self._find_code_index(combo, stored_value)
@@ -1070,14 +1086,20 @@ class DailyReportWidget(DrillTabBase):
         elif stored_value:
             # Preserve an imported code not present in the local catalogue;
             # silently replacing it with the first item is data corruption.
-            combo.setEditable(True)
-            combo.setCurrentText(str(stored_value))
+            self._set_unresolved_combo_value(combo, stored_value)
+
+    def _combo_value(self, combo):
+        """Stable itemData identity, never the visible label or index."""
+        data = combo.currentData()
+        return data if data not in (None, "") else combo.currentText()
 
     def _update_sub_codes_normal(self, sub_combo, main_code):
-        """به‌روزرسانی زیرکدها برای فعالیت عادی"""
+        """به‌روزرسانی زیرکدها برای فعالیت عادی using the shared catalogue."""
         sub_combo.clear()
-        if main_code in self.main_codes_dict:
-            sub_combo.addItems(self.main_codes_dict[main_code])
+        main_resolution = DEFAULT_ACTIVITY_CATALOG.resolve_main(main_code)
+        options = DEFAULT_ACTIVITY_CATALOG.sub_options(main_resolution.code if main_resolution.accepted else None)
+        for option in options:
+            sub_combo.addItem(option.label, option.identity)
         sub_combo.setEditable(True)
 
     def _update_sub_codes_for_npt(self, sub_combo, npt_code):
@@ -1464,7 +1486,7 @@ class DailyReportWidget(DrillTabBase):
             if stacked and isinstance(stacked, QStackedWidget):
                 current = stacked.currentWidget()
                 if isinstance(current, QComboBox):
-                    main_code = current.currentText()
+                    main_code = self._combo_value(current)
 
             npt_checkbox = table.cellWidget(row, 7)
             is_npt = (
@@ -1493,12 +1515,12 @@ class DailyReportWidget(DrillTabBase):
                 "time_to": to_python_time,
                 "duration": duration,
                 "main_phase": (
-                    table.cellWidget(row, 3).currentText()
+                    self._combo_value(table.cellWidget(row, 3))
                     if table.cellWidget(row, 3) else ""
                 ),
                 "main_code": main_code,
                 "sub_code": (
-                    table.cellWidget(row, 5).currentText()
+                    self._combo_value(table.cellWidget(row, 5))
                     if table.cellWidget(row, 5) else ""
                 ),
                 "status": (
@@ -1614,9 +1636,13 @@ class DailyReportWidget(DrillTabBase):
                 self.summary_text.setPlainText("\n".join(lines))
             else:
                 self.summary_text.setPlainText(report_data.get("summary", "") or "")
-            idx = self.status_combo.findText(report_data.get("status", "Draft"))
-            if idx >= 0:
-                self.status_combo.setCurrentIndex(idx)
+            status_value = str(report_data.get("status", "") or "")
+            if status_value:
+                idx = self.status_combo.findText(status_value)
+                if idx >= 0:
+                    self.status_combo.setCurrentIndex(idx)
+                else:
+                    self._set_unresolved_combo_value(self.status_combo, status_value)
 
             well_id = report_data.get("well_id")
             section_id = report_data.get("section_id")

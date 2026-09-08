@@ -19,6 +19,8 @@ from html.parser import HTMLParser
 import hashlib
 import json
 import logging
+from datetime import date as _date
+
 import os
 from pathlib import Path
 import re
@@ -36,6 +38,7 @@ from core.canonical_mapper import (
 )
 from core.runtime_config import data_dir, read_mineru_settings
 from core.import_ir import raw_document_from_mineru
+from core.combo_identity import DEFAULT_ACTIVITY_CATALOG
 
 logger = logging.getLogger(__name__)
 
@@ -904,6 +907,7 @@ def parse_pdf_native_fallback(input_path: str | os.PathLike[str]) -> MinerUDocum
             page_number = None
         if page_number is not None:
             page_numbers.add(page_number)
+        section_name = str(report.get("section") or "").strip()
         document.tables.append(
             DocumentTable(
                 headers=headers,
@@ -913,8 +917,9 @@ def parse_pdf_native_fallback(input_path: str | os.PathLike[str]) -> MinerUDocum
                     source_page=page_number,
                     extraction_method=f"pdf-fallback-{result.get('engine') or 'native'}",
                     source_table=f"pdf-table-{table_number}",
+                    bounding_box=tuple(report.get("bbox")) if report.get("bbox") else None,
                 ),
-                name=f"PDF table {table_number}",
+                name=section_name.replace("_", " ") if section_name else f"PDF table {table_number}",
             )
         )
 
@@ -1579,6 +1584,67 @@ class DocumentNormalizer:
                     **block.provenance.to_dict(),
                 }
             )
+
+        # Assemble a report date from explicit PDF form components before the
+        # persistence boundary.  The source components remain in the record.
+        daily_report = canonical.get("daily_report")
+        if isinstance(daily_report, dict) and not daily_report.get("report_date"):
+            try:
+                year = int(daily_report.get("report_year"))
+                day = int(daily_report.get("report_day"))
+                month_value = str(daily_report.get("report_month") or "").strip()
+                month = int(month_value) if month_value.isdigit() else next(
+                    index for index, name in enumerate(("january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"), 1)
+                    if name.startswith(month_value.casefold()[:3])
+                )
+                daily_report["report_date"] = _date(year, month, day).isoformat()
+                daily_report["report_date_source"] = "assembled(year/month/day)"
+            except (TypeError, ValueError, StopIteration):
+                warnings.append({
+                    "level": "review",
+                    "field": "daily_report.report_date",
+                    "value": {key: daily_report.get(key) for key in ("report_year", "report_month", "report_day")},
+                    "message": "Report date components could not be assembled without guessing",
+                    "source": {"source_file": document.source_file, "extraction_method": document.method},
+                })
+
+        # Code/Sub-Code are DDR ordinals in PDF text as well as in the
+        # workbook. Resolve them once, after canonical mapping, so MinerU and
+        # the native fallback feed the same application ComboBox identity.
+        for collection_name in ("time_logs_24h", "time_logs_morning"):
+            records = canonical.get(collection_name)
+            if not isinstance(records, list):
+                continue
+            for row_number, record in enumerate(records, 1):
+                if not isinstance(record, dict):
+                    continue
+                raw_main, raw_sub = record.get("main_code"), record.get("sub_code")
+                main_result = DEFAULT_ACTIVITY_CATALOG.resolve_main(raw_main, field=f"{collection_name}.main_code")
+                sub_result = DEFAULT_ACTIVITY_CATALOG.resolve_sub(raw_sub, raw_main, field=f"{collection_name}.sub_code")
+                record["_combo_resolution"] = {
+                    "main_code": main_result.to_dict(),
+                    "sub_code": sub_result.to_dict(),
+                }
+                record["main_code_source"] = raw_main
+                record["sub_code_source"] = raw_sub
+                record["main_code"] = main_result.identity if main_result.accepted else None
+                record["sub_code"] = sub_result.identity if sub_result.accepted else None
+                for resolution in (main_result, sub_result):
+                    if not resolution.accepted:
+                        warnings.append({
+                            "level": "review",
+                            "field": resolution.field,
+                            "value": resolution.source_value,
+                            "normalized_value": None,
+                            "message": resolution.reason,
+                            "source": {
+                                "source_file": document.source_file,
+                                "source_page": record.get("_source_cells", {}).get(resolution.field, {}).get("page"),
+                                "source_row": record.get("_source_row", row_number),
+                                "extraction_method": document.method,
+                                "source_table": collection_name,
+                            },
+                        })
 
         validation = validate_canonical_payload(canonical)
         warnings.extend(validation.warnings)

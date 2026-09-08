@@ -221,6 +221,12 @@ class MaterialHandlingTab(QWidget):
 
     def set_current_report(self, report_id):
         self.current_report_id = report_id
+        # Report-scoped imports are committed before the main window emits its
+        # refresh signal. Reload every service/equipment table with the new
+        # scope; merely changing the ID left imported records invisible until
+        # a manual well reload.
+        if self.current_well_id:
+            self.load_all_data()
 
     def load_all_data(self):
         self.load_notes()
@@ -651,8 +657,14 @@ class EquipmentDialog(QDialog):
         equipment = next((e for e in equipment_list if e.get("id") == self.equipment_id), None)
         if not equipment:
             return
-        idx = self.equipment_type_input.findText(equipment.get("equipment_type", ""))
-        if idx >= 0: self.equipment_type_input.setCurrentIndex(idx)
+        value = str(equipment.get("equipment_type", "") or "")
+        idx = self.equipment_type_input.findText(value)
+        if idx >= 0:
+            self.equipment_type_input.setCurrentIndex(idx)
+        elif value:
+            self.equipment_type_input.setEditable(True)
+            self.equipment_type_input.setCurrentIndex(-1)
+            self.equipment_type_input.setCurrentText(value)
         self.equipment_name_input.setText(equipment.get("equipment_name", ""))
         self.equipment_id_input.setText(equipment.get("equipment_id", ""))
         self.manufacturer_input.setText(equipment.get("manufacturer", ""))
@@ -664,12 +676,24 @@ class EquipmentDialog(QDialog):
                     dt = datetime.strptime(date_val, "%Y-%m-%d")
                     self.service_date_input.setDate(QDate(dt.year, dt.month, dt.day))
                 except: pass
-        idx = self.service_type_input.findText(equipment.get("service_type", ""))
-        if idx >= 0: self.service_type_input.setCurrentIndex(idx)
+        value = str(equipment.get("service_type", "") or "")
+        idx = self.service_type_input.findText(value)
+        if idx >= 0:
+            self.service_type_input.setCurrentIndex(idx)
+        elif value:
+            self.service_type_input.setEditable(True)
+            self.service_type_input.setCurrentIndex(-1)
+            self.service_type_input.setCurrentText(value)
         self.service_provider_input.setText(equipment.get("service_provider", ""))
         self.hours_input.setValue(equipment.get("hours_worked", 0))
-        idx = self.status_input.findText(equipment.get("status", "Operational"))
-        if idx >= 0: self.status_input.setCurrentIndex(idx)
+        value = str(equipment.get("status", "") or "")
+        idx = self.status_input.findText(value)
+        if idx >= 0:
+            self.status_input.setCurrentIndex(idx)
+        elif value:
+            self.status_input.setEditable(True)
+            self.status_input.setCurrentIndex(-1)
+            self.status_input.setCurrentText(value)
         self.notes_input.setText(equipment.get("notes", ""))
 
     def save_equipment(self):

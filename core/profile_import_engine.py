@@ -13,6 +13,8 @@ from datetime import datetime, date, time
 from typing import Dict, List, Any, Optional
 from openpyxl import load_workbook
 
+from core.combo_identity import ComboCatalog, DEFAULT_ACTIVITY_CATALOG, resolve_activity_pair
+
 logger = logging.getLogger(__name__)
 MAX_PROFILE_ROWS = 10000
 MAX_PROFILE_COLS = 200
@@ -98,6 +100,7 @@ class ProfileImportEngine:
         self.db = db_manager
         self.profiles = [OEOC_PROFILE]
         self.cell_cache = {}  # {sheet_name: {row: {col: value}}}
+        self.activity_catalog = DEFAULT_ACTIVITY_CATALOG
         
     def analyze_and_extract(self, filepath: str) -> Dict[str, Any]:
         """فایل را می‌گیرد، پروفایل مناسب را پیدا می‌کند و داده‌ها را با دقت ۱۰۰٪ استخراج می‌کند."""
@@ -605,6 +608,7 @@ class ProfileImportEngine:
                     if main and name and re.match(r"^\s*\d+(?:\.0)?\s*$", str(main)):
                         main_map[str(main).split(".", 1)[0].strip()] = str(name).strip()
             if main_map or sub_map:
+                self.activity_catalog = ComboCatalog(main_map, sub_map)
                 CodeResolver.configure_catalog(main_map, sub_map)
         except Exception as exc:
             logger.debug("Workbook code catalog unavailable: %s", exc)
@@ -744,7 +748,8 @@ class ProfileImportEngine:
         # خواندن دیتا
         # Read until the real table boundary; the old +50 limit truncated
         # long 24-hour logs.
-        for r in range(header_row + 1, min(max(self.cell_cache.get(sheet_name, {}), default=(header_row, 0))[0] + 1, MAX_PROFILE_ROWS)):
+        max_row = max(self.cell_cache.get(sheet_name, {}) or {header_row: {}})
+        for r in range(header_row + 1, min(max_row + 1, MAX_PROFILE_ROWS)):
             if r not in cache: continue
             
             c1_val = str(cache[r].get(1, "")).lower()
@@ -783,14 +788,11 @@ class ProfileImportEngine:
                 raw_sub = raw_sub or composite
             if not raw_main or not str(raw_main).strip():
                 raw_main = raw_phase
-            try:
-                # Keep one canonical resolver for Smart and profile imports.
-                from dialogs.smart_template_dialog import CodeResolver
-                normalized_main = CodeResolver.resolve_main_code(raw_main)
-                normalized_sub = CodeResolver.resolve_sub_code(raw_sub, raw_main)
-            except Exception:
-                normalized_main = str(raw_main or "").strip()
-                normalized_sub = str(raw_sub or "").strip()
+            main_resolution, sub_resolution = resolve_activity_pair(
+                raw_main, raw_sub, catalog=self.activity_catalog
+            )
+            normalized_main = main_resolution.identity if main_resolution.accepted else None
+            normalized_sub = sub_resolution.identity if sub_resolution.accepted else None
 
             contractor = ""
             if is_npt:
@@ -810,7 +812,14 @@ class ProfileImportEngine:
                 "is_npt": is_npt,
                 "npt_category": npt_val if is_npt else "",
                 "activity_description": str(cache[r].get(c_act, "")),
-                "contractor": contractor
+                "contractor": contractor,
+                "_combo_resolution": {
+                    "main_code": main_resolution.to_dict(),
+                    "sub_code": sub_resolution.to_dict(),
+                },
+                "_source_row": r,
+                "_source_cells": {},
+                "_source_sheet": sheet_name,
             })
             
         return logs

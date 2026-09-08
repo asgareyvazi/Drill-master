@@ -544,7 +544,9 @@ class WellInfoTab(DrillTabBase):
                 if idx >= 0:
                     self.section_name.setCurrentIndex(idx)
                 else:
-                    self.section_name.setCurrentText(well_data['section_name'])
+                    self.section_name.setEditable(True)
+                    self.section_name.setCurrentIndex(-1)
+                    self.section_name.setCurrentText(str(well_data['section_name']))
             else:
                 self.section_name.setCurrentIndex(0)
 
@@ -665,7 +667,11 @@ class WellInfoTab(DrillTabBase):
             if idx >= 0:
                 combo.setCurrentIndex(idx)
             else:
-                combo.setCurrentIndex(0)
+                # Imported unknown values remain visible/reviewable; never
+                # replace them with item zero.
+                combo.setEditable(True)
+                combo.setCurrentIndex(-1)
+                combo.setCurrentText(str(text))
 
     def get_form_data(self):
         well_type = "Onshore" if self.well_type_onshore.isChecked() else "Offshore"

@@ -714,6 +714,8 @@ class ServiceCompanyTab(QWidget):
 
     def set_current_report(self, report_id):
         self.current_report_id = report_id
+        if self.current_well_id:
+            self.load_data()
 
     def load_data(self):
         if not self.db or not self.current_well_id: self.table.setRowCount(0); return

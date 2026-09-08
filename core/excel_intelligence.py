@@ -31,6 +31,7 @@ from core.canonical_schema import (
 )
 from core.import_ir import raw_document_from_workbook, SourceLocation
 from core.canonical_mapper import resolve_canonical_field, normalize_canonical_value
+from core.combo_identity import ComboCatalog, DEFAULT_ACTIVITY_CATALOG, ComboResolution
 
 logger = logging.getLogger(__name__)
 
@@ -1209,6 +1210,32 @@ class ExcelIntelligence:
         self.merge_analyzers = {}
         self.label_detectors = {}
         self._build_cache()
+        self.activity_catalog = self._load_activity_catalog()
+
+    def _load_activity_catalog(self) -> ComboCatalog:
+        """Load the workbook's authoritative Activity Codes catalogue.
+
+        The catalogue is read from the same Excel IR as all business values.
+        If a workbook has no catalogue, the application DDR catalogue is used
+        only for the proven DDR activity convention; values still go through
+        the unresolved/review path when they do not match it.
+        """
+        rows = []
+        for raw_cell in self.raw_document.cells:
+            if "activity" not in str(raw_cell.location.sheet or "").casefold() and "code" not in str(raw_cell.location.sheet or "").casefold():
+                continue
+            rows.append(raw_cell)
+        if not rows:
+            return DEFAULT_ACTIVITY_CATALOG
+        by_row = {}
+        for cell in rows:
+            by_row.setdefault(cell.location.row, {})[cell.location.column] = cell.value
+        catalog_rows = [
+            (values.get(1), values.get(2), values.get(3))
+            for _row, values in sorted(by_row.items())
+        ]
+        catalog = ComboCatalog.from_activity_rows(catalog_rows)
+        return catalog if catalog.main_labels or catalog.sub_labels else DEFAULT_ACTIVITY_CATALOG
 
     def _build_cache(self):
         """Build all mapping indexes from the common raw IR.
@@ -1483,6 +1510,7 @@ class ExcelIntelligence:
                                 table_result.records, storage_key,
                                 source_sheet=actual_sheet,
                                 source_file=report.raw_document.source_file if report.raw_document is not None else report.file_name,
+                                activity_catalog=self.activity_catalog,
                             )
                             canonical.setdefault(storage_key, []).extend(normalized)
                     else:
@@ -1530,6 +1558,7 @@ class ExcelIntelligence:
                                         table_result.records, storage_key,
                                         source_sheet=actual_sheet,
                                         source_file=report.raw_document.source_file if report.raw_document is not None else report.file_name,
+                                        activity_catalog=self.activity_catalog,
                                     )
                                     canonical.setdefault(storage_key, []).extend(normalized)
 
@@ -1836,6 +1865,7 @@ class ExcelIntelligence:
         *,
         source_sheet: str = "",
         source_file: str = "",
+        activity_catalog: Optional[ComboCatalog] = None,
     ) -> List[Dict]:
         """Normalize raw table records into canonical short-key records.
 
@@ -1900,6 +1930,30 @@ class ExcelIntelligence:
                 "cells": short.get("_source_cells", {}),
                 "table": storage_key,
             }
+            if storage_key in {"time_logs_24h", "time_logs_morning"}:
+                catalog = activity_catalog or DEFAULT_ACTIVITY_CATALOG
+                prefix = "time_log_morning" if storage_key == "time_logs_morning" else "time_log"
+                raw_main = short.get("main_code")
+                raw_sub = short.get("sub_code")
+                main_result = catalog.resolve_main(raw_main, field=f"{prefix}.main_code")
+                sub_result = catalog.resolve_sub(raw_sub, raw_main, field=f"{prefix}.sub_code")
+                # The UI/domain identity is persisted, never the DDR ordinal.
+                # Original source tokens and resolution diagnostics remain on
+                # the row so ReviewItem creation is lossless.
+                if main_result.accepted:
+                    short["main_code"] = main_result.identity
+                else:
+                    short["main_code"] = None
+                    short["main_code_source"] = raw_main
+                if sub_result.accepted:
+                    short["sub_code"] = sub_result.identity
+                else:
+                    short["sub_code"] = None
+                    short["sub_code_source"] = raw_sub
+                short["_combo_resolution"] = {
+                    "main_code": main_result.to_dict(),
+                    "sub_code": sub_result.to_dict(),
+                }
             out.append(short)
         return out
 

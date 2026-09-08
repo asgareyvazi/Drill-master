@@ -37,6 +37,7 @@ from core.table_record_mapper import extract_records
 from core.import_profiler import ImportProfiler
 from core.async_workers import FunctionWorker
 from core.mapping_store import MappingStore
+from core.combo_identity import ComboCatalog
 
 logger = logging.getLogger(__name__)
 
@@ -1372,6 +1373,9 @@ class CodeResolver:
     def resolve_main_code(raw_code) -> str:
         if raw_code is None:
             return ""
+        shared = ComboCatalog(MAIN_CODE_MAP, SUB_CODE_MAP).resolve_main(raw_code)
+        if shared.accepted:
+            return shared.identity
         code_str = CodeResolver._clean_code(raw_code)
         composite = CodeResolver._composite_number(code_str)
         clean = CodeResolver._main_number(composite or code_str)
@@ -1412,6 +1416,9 @@ class CodeResolver:
 
     @staticmethod
     def resolve_sub_code(raw_sub, raw_main="") -> str:
+        shared = ComboCatalog(MAIN_CODE_MAP, SUB_CODE_MAP).resolve_sub(raw_sub, raw_main)
+        if shared.accepted:
+            return shared.identity
         # A surprising number of DDR sheets put the composite code (2.3) in
         # either the main or sub column. Prefer the explicit composite.
         composite_from_sub = CodeResolver._composite_number(raw_sub)

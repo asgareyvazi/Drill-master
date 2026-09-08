@@ -2014,6 +2014,24 @@ class ExcelImportDialog(QDialog):
                         "status": "REVIEW_REQUIRED",
                     })
                     continue
+                combo_resolution = log.get("_combo_resolution") or {}
+                unresolved_combo = [
+                    item for item in combo_resolution.values()
+                    if isinstance(item, dict) and item.get("status") != "ACCEPT"
+                ]
+                if unresolved_combo:
+                    for item in unresolved_combo:
+                        review_items.append({
+                            "source_cell": log.get("source_cell") or log.get("source_cells"),
+                            "source_row": log.get("source_row") or log.get("_source_row") or index,
+                            "field": item.get("field", ""),
+                            "original_value": item.get("source_value"),
+                            "normalized_value": None,
+                            "classification": "combo_" + str(item.get("method", "unresolved")),
+                            "reason": item.get("reason", "ComboBox value requires review"),
+                            "status": "REVIEW_REQUIRED",
+                        })
+                    continue
                 session.add(TimeLog24H(
                     report_id=report_id, time_from=time_from, time_to=time_to,
                     duration=duration, main_phase=str(log.get("main_phase", ""))[:100],
@@ -2096,6 +2114,24 @@ class ExcelImportDialog(QDialog):
                         "reason": "Duration must be between 0 and 24 hours",
                         "status": "REVIEW_REQUIRED",
                     })
+                    continue
+                combo_resolution = log.get("_combo_resolution") or {}
+                unresolved_combo = [
+                    item for item in combo_resolution.values()
+                    if isinstance(item, dict) and item.get("status") != "ACCEPT"
+                ]
+                if unresolved_combo:
+                    for item in unresolved_combo:
+                        review_items.append({
+                            "source_cell": log.get("source_cell") or log.get("source_cells"),
+                            "source_row": log.get("source_row") or log.get("_source_row") or index,
+                            "field": item.get("field", ""),
+                            "original_value": item.get("source_value"),
+                            "normalized_value": None,
+                            "classification": "combo_" + str(item.get("method", "unresolved")),
+                            "reason": item.get("reason", "ComboBox value requires review"),
+                            "status": "REVIEW_REQUIRED",
+                        })
                     continue
                 session.add(TimeLogMorning(
                     report_id=report_id, time_from=time_from, time_to=time_to,

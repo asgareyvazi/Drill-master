@@ -370,11 +370,23 @@ class SafetyBOPTab(QWidget):
                 safe_set_date(self.last_koomey_test, report_data.get('last_koomey_test'), 5)
                 self.days_since_last_test.setValue(report_data.get('days_since_last_test', 0) or 0)
                 if report_data.get('bop_test_report'):
-                    idx = self.bop_test_report.findText(report_data['bop_test_report'])
-                    if idx >= 0: self.bop_test_report.setCurrentIndex(idx)
+                    value = str(report_data['bop_test_report'])
+                    idx = self.bop_test_report.findText(value)
+                    if idx >= 0:
+                        self.bop_test_report.setCurrentIndex(idx)
+                    else:
+                        self.bop_test_report.setEditable(True)
+                        self.bop_test_report.setCurrentIndex(-1)
+                        self.bop_test_report.setCurrentText(value)
                 if report_data.get('test_status'):
-                    idx = self.test_status.findText(report_data['test_status'])
-                    if idx >= 0: self.test_status.setCurrentIndex(idx)
+                    value = str(report_data['test_status'])
+                    idx = self.test_status.findText(value)
+                    if idx >= 0:
+                        self.test_status.setCurrentIndex(idx)
+                    else:
+                        self.test_status.setEditable(True)
+                        self.test_status.setCurrentIndex(-1)
+                        self.test_status.setCurrentText(value)
 
                 bop_stack = report_data.get('bop_stack_json', [])
                 self.bop_stack_table.setRowCount(0)
@@ -653,10 +665,17 @@ class WasteManagementTab(QWidget):
                 self.hardness.setText(report_data.get('hardness', ''))
                 self.cutting_volume.setValue(report_data.get('cutting_volume', 0))
                 self.oil_content.setValue(report_data.get('oil_content', 0))
-                idx = self.waste_type.findText(report_data.get('waste_type', ''))
-                if idx >= 0: self.waste_type.setCurrentIndex(idx)
-                idx = self.disposal_method.findText(report_data.get('disposal_method', ''))
-                if idx >= 0: self.disposal_method.setCurrentIndex(idx)
+                for combo, key in ((self.waste_type, 'waste_type'), (self.disposal_method, 'disposal_method')):
+                    value = str(report_data.get(key, '') or '')
+                    if not value:
+                        continue
+                    idx = combo.findText(value)
+                    if idx >= 0:
+                        combo.setCurrentIndex(idx)
+                    else:
+                        combo.setEditable(True)
+                        combo.setCurrentIndex(-1)
+                        combo.setCurrentText(value)
                 waste_history = report_data.get('waste_history_json', [])
                 self.waste_table.setRowCount(0)
                 for w in waste_history:
