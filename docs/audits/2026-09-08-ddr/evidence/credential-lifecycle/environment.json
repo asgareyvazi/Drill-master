@@ -1,0 +1,12 @@
+{
+  "os": "Linux-6.1.158+-x86_64-with-glibc2.36",
+  "python": "3.11.2",
+  "sqlite": "3.40.1",
+  "bcrypt": "4.3.0",
+  "sqlalchemy": "2.0.52",
+  "windows_execution": false,
+  "python312_execution": false,
+  "native_qt": "blocked: libGL.so.1",
+  "powershell_available": false,
+  "wine_available": false
+}

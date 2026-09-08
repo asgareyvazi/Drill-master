@@ -1,0 +1,28 @@
+........................................................................ [ 10%]
+......................................s................................. [ 20%]
+........................................................................ [ 30%]
+....................................s................................... [ 40%]
+........................................................................ [ 50%]
+........................................................................ [ 60%]
+............................s........................................... [ 70%]
+.......s................................................................ [ 81%]
+..s...........................................................s......... [ 91%]
+s..............................................................          [100%]
+=============================== warnings summary ===============================
+tests/test_ddr_acceptance.py: 1 warning
+tests/test_ddr_followup_lifecycle.py: 3 warnings
+tests/test_ddr_forensic_regressions.py: 1 warning
+tests/test_ddr_regression.py: 1 warning
+tests/test_excel_intelligence_regressions.py: 3 warnings
+tests/test_golden_ddr.py: 1 warning
+tests/test_real_oeoc_golden.py: 1 warning
+tests/test_review_contract_certification.py: 3 warnings
+  /home/user/Drill-master/.venv/lib/python3.11/site-packages/openpyxl/worksheet/_reader.py:329: UserWarning: Data Validation extension is not supported and will be removed
+    warn(msg)
+
+tests/test_release.py::TestReleaseVerification::test_file_sizes_reasonable
+  /home/user/Drill-master/tests/test_release.py:174: UserWarning: Large files (>3000 lines): [('database.py', 8570), ('w13_Engineering_Calculator.py', 4275)]
+    warnings.warn(f"Large files (>3000 lines): {large_files}")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+704 passed, 7 skipped, 15 warnings in 143.79s (0:02:23)

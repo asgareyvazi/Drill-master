@@ -128,6 +128,8 @@ class LoginDialog(QDialog):
     def _load_saved_credentials(self):
         """بارگذاری username/password ذخیره شده"""
         settings = QSettings("Nikan", "DrillMaster")
+        settings.remove("login/password")  # purge legacy plaintext settings even before successful login
+        settings.sync()
         remembered = settings.value("login/remember", False, type=bool)
 
         if remembered:

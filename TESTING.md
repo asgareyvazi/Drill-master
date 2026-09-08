@@ -94,3 +94,23 @@ Windows/Python 3.12/package commands are in `docs/WINDOWS_ACCEPTANCE.md`.
 Python 3.12 is not PASS unless the exact runtime executes the suite and real
 acceptance. Keep real documents, MinerU outputs, databases, and generated
 builds outside Git unless a fixture is intentionally required.
+
+## Credential lifecycle tests
+
+`tests/test_credential_lifecycle.py` covers the production/development bootstrap,
+offline reset, guard, authentication and secret-redaction boundaries. The shared
+runtime now defaults to production everywhere. `tests/conftest.py` explicitly
+selects test mode **only for an otherwise unconfigured pytest process** and uses
+a disposable data directory/database instead of the normal per-user profile.
+Production tests explicitly override/remove this mode. Do not point tests at an
+operational database. Standalone fixture tools must explicitly select test or
+development mode and an isolated database path; they no longer inherit an unsafe
+library default. No application code detects pytest to weaken its security.
+
+```text
+python -m pytest tests/test_credential_lifecycle.py
+```
+
+Headless protocol tests are not native Qt or Windows startup proof. Exact current
+counts and Windows limitations are in
+`docs/audits/2026-09-08-ddr/PRODUCTION_CREDENTIAL_LIFECYCLE_FIX.md`.

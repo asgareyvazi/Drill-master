@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+  File "/home/user/Drill-master/run.py", line 13, in <module>
+    from app import DrillMasterApp
+  File "/home/user/Drill-master/app.py", line 11, in <module>
+    from PySide6.QtWidgets import (
+ImportError: libGL.so.1: cannot open shared object file: No such file or directory

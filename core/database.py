@@ -58,49 +58,13 @@ from core.import_diagnostics import (
 )
 logger = logging.getLogger(__name__)
 
-# Development/test bootstrap fixtures are intentionally isolated from
-# production by DRILLMASTER_ENV. Production never falls back to these values.
-_DEVELOPMENT_FIXTURE_PASSWORDS = {
-    "admin": "admin123",
-    "engineer": "user123",
-    "viewer": "viewer123",
-}
-_BOOTSTRAP_PASSWORD_ENV = {
-    "admin": "DRILLMASTER_ADMIN_PASSWORD",
-    "engineer": "DRILLMASTER_USER_PASSWORD",
-    "viewer": "DRILLMASTER_VIEWER_PASSWORD",
-}
-_PRODUCTION_ENVIRONMENTS = frozenset({"production", "prod"})
-
-
-def runtime_environment() -> str:
-    """Return the normalized application environment."""
-    value = (
-        os.getenv("DRILLMASTER_ENV")
-        or os.getenv("DRILLMASTER_ENVIRONMENT")
-        or "development"
-    )
-    return value.strip().lower()
-
-
-def is_production_environment() -> bool:
-    """Whether bootstrap and test conveniences must be disabled."""
-    return runtime_environment() in _PRODUCTION_ENVIRONMENTS
-
-
-def bootstrap_password_for_role(role: str) -> Optional[str]:
-    """Return an explicitly configured or development-fixture password.
-
-    This helper is for the local auto-login path only. It deliberately returns
-    no fallback in production.
-    """
-    env_name = _BOOTSTRAP_PASSWORD_ENV.get(role)
-    configured = os.getenv(env_name) if env_name else None
-    if configured:
-        return configured
-    if is_production_environment():
-        return None
-    return _DEVELOPMENT_FIXTURE_PASSWORDS.get(role)
+# Re-export the shared policy for existing application callers.
+from core.credential_policy import (
+    _DEVELOPMENT_FIXTURE_PASSWORDS, _BOOTSTRAP_PASSWORD_ENV,
+    runtime_environment, is_production_environment, bootstrap_password_for_role,
+    resolve_bootstrap_passwords, validate_production_password, is_development_password,
+    CredentialLifecycleError,
+)
 
 Base = declarative_base()
 # ==================== Constants ====================
@@ -1741,7 +1705,8 @@ class CostRecord(Base):
 # DatabaseManager class with updated save/get methods for key tables
 # ----------------------------------------------------------------------
 class DatabaseManager:
-    def __init__(self):
+    def __init__(self, bootstrap_passwords=None):
+        self._bootstrap_override = dict(bootstrap_passwords) if bootstrap_passwords is not None else None
         self.engine = None
         self.Session = None
         self.last_diagnostic = None
@@ -1767,6 +1732,8 @@ class DatabaseManager:
     def initialize(self):
         """Open the database, validate its version, and apply one atomic migration."""
         try:
+            runtime_environment()  # reject ambiguous/unknown modes before touching disk
+            self.last_diagnostic = None
             if self.db_path != ":memory:":
                 Path(self.db_path).expanduser().parent.mkdir(parents=True, exist_ok=True)
             self.engine = create_engine(
@@ -1774,6 +1741,7 @@ class DatabaseManager:
                 connect_args={"check_same_thread": False, "timeout": 30},
                 poolclass=StaticPool,
                 echo=False,
+                hide_parameters=True,  # account hashes must not appear in SQL exception parameters
                 pool_pre_ping=True,
             )
 
@@ -1796,6 +1764,11 @@ class DatabaseManager:
             self._verify_import_schema()
             self.create_default_data()
             return True
+        except CredentialLifecycleError as exc:
+            self.last_diagnostic = {"credential_error": True, "code": exc.code,
+                                    "message": str(exc), "stage": "authentication.bootstrap"}
+            logger.error("Database credential initialization blocked: %s", exc)
+            return False
         except SchemaMigrationError as exc:
             self.last_diagnostic = exc.issue.to_dict()
             logger.error("Database schema migration failed: %s", exc.issue.message, exc_info=True)
@@ -1810,6 +1783,9 @@ class DatabaseManager:
             self.last_diagnostic = issue.to_dict()
             logger.error("Database initialization failed: %s", exc, exc_info=True)
             return False
+
+        finally:
+            self._bootstrap_override = None  # first-run UI secrets are not retained on the manager
 
     @staticmethod
     def _quote_sqlite_identifier(value: str) -> str:
@@ -2290,73 +2266,38 @@ class DatabaseManager:
         return mismatches
 
     def _bootstrap_passwords(self) -> Dict[str, str]:
-        """Resolve bootstrap passwords without a production fallback."""
-        configured = {
-            role: os.getenv(env_name)
-            for role, env_name in _BOOTSTRAP_PASSWORD_ENV.items()
-        }
-        if is_production_environment():
-            missing = [
-                env_name
-                for role, env_name in _BOOTSTRAP_PASSWORD_ENV.items()
-                if not configured[role]
-            ]
-            unsafe = [
-                env_name
-                for role, env_name in _BOOTSTRAP_PASSWORD_ENV.items()
-                if configured[role] in _DEVELOPMENT_FIXTURE_PASSWORDS.values()
-            ]
-            if missing:
-                raise RuntimeError(
-                    "Production bootstrap requires explicit credentials for: "
-                    + ", ".join(missing)
-                )
-            if unsafe:
-                raise RuntimeError(
-                    "Production bootstrap credentials must not use development fixture values"
-                )
-            return {role: configured[role] for role in _BOOTSTRAP_PASSWORD_ENV}
-
-        return {
-            role: configured[role] or _DEVELOPMENT_FIXTURE_PASSWORDS[role]
-            for role in _BOOTSTRAP_PASSWORD_ENV
-        }
+        """Resolve the same secure policy used by desktop setup and reset."""
+        if is_production_environment() and not _BCRYPT_AVAILABLE:
+            raise CredentialLifecycleError("BCRYPT_REQUIRED", "bcrypt is required for production authentication; install the application dependencies.")
+        return resolve_bootstrap_passwords(self._bootstrap_override)
 
     def _reject_unsafe_existing_credentials(self, session) -> None:
-        """Prevent weak hashes and development fixture passwords in production."""
+        """Reject development secrets for EVERY account, including renamed users."""
         if not is_production_environment():
             return
         if not _BCRYPT_AVAILABLE:
-            raise RuntimeError("bcrypt is required for production authentication")
-        users = session.query(User).all()
-        for user in users:
-            if not str(user.password_hash).startswith(("$2a$", "$2b$", "$2y$")):
-                raise RuntimeError(
-                    "Production database contains a non-bcrypt credential; "
-                    "reset or migrate that account before startup"
-                )
-            if user.username in _DEVELOPMENT_FIXTURE_PASSWORDS and any(
-                self._verify_password(password, user.password_hash)
-                for password in _DEVELOPMENT_FIXTURE_PASSWORDS.values()
-            ):
-                raise RuntimeError(
-                    "Production database contains an unsafe development credential; "
-                    "reset that account before startup"
-                )
+            raise CredentialLifecycleError("BCRYPT_REQUIRED", "bcrypt is required for production authentication; install the application dependencies.")
+        recovery = (" Close DrillMaster and back up the database. Configure secure bootstrap credentials, "
+                    "then run python reset_database.py to erase/recreate the entire database. "
+                    "Environment passwords do not overwrite existing accounts.")
+        for user in session.query(User).all():
+            if not re.fullmatch(r"\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}", str(user.password_hash)):
+                raise CredentialLifecycleError("UNSAFE_EXISTING_CREDENTIAL",
+                    "Production database contains a non-bcrypt or malformed credential." + recovery)
+            if any(self._verify_password(password, user.password_hash)
+                   for password in _DEVELOPMENT_FIXTURE_PASSWORDS.values()):
+                raise CredentialLifecycleError("UNSAFE_EXISTING_CREDENTIAL",
+                    "Production database contains an unsafe development credential." + recovery)
 
     def create_default_data(self):
         session = self.create_session()
         try:
             if session.query(User).count() == 0:
                 passwords = self._bootstrap_passwords()
-                admin_password = passwords["admin"]
-                user_password = passwords["engineer"]
-                viewer_password = passwords["viewer"]
 
                 users = [
-                    User(
+                    dict(
                         username="admin",
-                        password_hash=self._hash_password(admin_password),
                         full_name="Administrator",
                         email="admin@drillmaster.com",
                         role="admin",
@@ -2371,9 +2312,8 @@ class DatabaseManager:
                             "can_import": True,
                         }
                     ),
-                    User(
+                    dict(
                         username="engineer",
-                        password_hash=self._hash_password(user_password),
                         full_name="Drilling Engineer",
                         email="engineer@drillmaster.com",
                         role="engineer",
@@ -2388,9 +2328,8 @@ class DatabaseManager:
                             "can_import": True,
                         }
                     ),
-                    User(
+                    dict(
                         username="viewer",
-                        password_hash=self._hash_password(viewer_password),
                         full_name="Report Viewer",
                         email="viewer@drillmaster.com",
                         role="viewer",
@@ -2407,7 +2346,8 @@ class DatabaseManager:
                     ),
                 ]
                 for user in users:
-                    session.add(user)
+                    if user["username"] in passwords:
+                        session.add(User(**user, password_hash=self._hash_password(passwords[user["username"]])))
 
                 if not is_production_environment():
                     company = Company(
@@ -2491,8 +2431,10 @@ class DatabaseManager:
             
     def _hash_password(self, password: str) -> str:
         """Hash a password with bcrypt; weak fallback is development-only."""
-        if is_production_environment() and not _BCRYPT_AVAILABLE:
-            raise RuntimeError("bcrypt is required for production authentication")
+        if is_production_environment():
+            if not _BCRYPT_AVAILABLE:
+                raise CredentialLifecycleError("BCRYPT_REQUIRED", "bcrypt is required for production authentication.")
+            validate_production_password(password)
         if _BCRYPT_AVAILABLE:
             salt = bcrypt.gensalt(rounds=12)
             return bcrypt.hashpw(
@@ -2535,7 +2477,7 @@ class DatabaseManager:
         return secrets.compare_digest(old_hash, stored_hash)
 
     def authenticate_user(self, username: str, password: str)-> Optional[Any]:
-        if is_production_environment() and password in _DEVELOPMENT_FIXTURE_PASSWORDS.values():
+        if is_production_environment() and is_development_password(password):
             return None
 
         session = self.create_session()
@@ -2549,6 +2491,8 @@ class DatabaseManager:
                 .first()
             )
 
+            if user and is_production_environment() and not str(user.password_hash).startswith(("$2a$", "$2b$", "$2y$")):
+                return None  # legacy SHA verification remains development-only
             if user and self._verify_password(
                 password, user.password_hash
             ):

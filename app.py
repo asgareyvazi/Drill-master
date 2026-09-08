@@ -187,7 +187,7 @@ class DrillMasterApp(QApplication):
         # The desktop application defaults to production behavior. Development
         # fixtures remain available only when the operator explicitly selects
         # DRILLMASTER_ENV=development or test.
-        if not os.getenv("DRILLMASTER_ENV") and not os.getenv("DRILLMASTER_ENVIRONMENT"):
+        if "DRILLMASTER_ENV" not in os.environ and "DRILLMASTER_ENVIRONMENT" not in os.environ:
             os.environ["DRILLMASTER_ENV"] = "production"
 
         self.initialize()
@@ -196,6 +196,7 @@ class DrillMasterApp(QApplication):
     def _needs_first_run_bootstrap() -> bool:
         """Return whether a new file-backed desktop database needs setup."""
         import sqlite3
+        from contextlib import closing
 
         path = database_path()
         if path == ":memory:":
@@ -204,7 +205,7 @@ class DrillMasterApp(QApplication):
         if not database.exists():
             return True
         try:
-            with sqlite3.connect(str(database)) as connection:
+            with closing(sqlite3.connect(str(database))) as connection:
                 table = connection.execute(
                     "SELECT 1 FROM sqlite_master WHERE type='table' AND name='users'"
                 ).fetchone()
@@ -217,33 +218,36 @@ class DrillMasterApp(QApplication):
             return False
 
     def _run_first_run_bootstrap(self) -> bool:
-        """Collect production credentials before the first schema bootstrap."""
-        explicit_environment = (
-            os.getenv("DRILLMASTER_ENV") or os.getenv("DRILLMASTER_ENVIRONMENT") or ""
-        ).strip().lower()
-        if explicit_environment in {"development", "dev", "test", "testing"}:
-            return True
-        if not self._needs_first_run_bootstrap():
-            return True
+        """Use explicit environment credentials or the existing secure setup UI."""
+        from core.credential_policy import (
+            CredentialLifecycleError, _BOOTSTRAP_PASSWORD_ENV, resolve_bootstrap_passwords,
+        )
+        self._bootstrap_credentials = None
         try:
+            if not is_production_environment() or not self._needs_first_run_bootstrap():
+                return True
+            if any(name in os.environ for name in _BOOTSTRAP_PASSWORD_ENV.values()):
+                # Respect supplied credentials; never replace invalid/empty settings
+                # with silent defaults or an unnecessary interactive prompt.
+                resolve_bootstrap_passwords()
+                return True
             ensure_writable_directories()
             dialog = BootstrapDialog()
-            if dialog.exec() != QDialog.Accepted:
-                return False
-            passwords = dialog.passwords()
-            os.environ["DRILLMASTER_ADMIN_PASSWORD"] = passwords["admin"]
-            os.environ["DRILLMASTER_USER_PASSWORD"] = passwords["engineer"]
-            os.environ["DRILLMASTER_VIEWER_PASSWORD"] = passwords["viewer"]
+            try:
+                if dialog.exec() != QDialog.Accepted:
+                    return False
+                self._bootstrap_credentials = resolve_bootstrap_passwords(dialog.passwords())
+            finally:
+                dialog.deleteLater()
             logger.info("First-run production bootstrap credentials collected")
             return True
+        except CredentialLifecycleError as exc:
+            logger.error("First-run credential configuration blocked: %s", exc)
+            QMessageBox.critical(None, "First-run credentials required", str(exc))
+            return False
         except Exception:
-            logger.exception("First-run bootstrap failed")
-            QMessageBox.critical(
-                None,
-                "First-run setup failed",
-                "DrillMaster could not complete secure first-run setup. "
-                "No database was initialized.",
-            )
+            logger.error("First-run bootstrap could not be completed")
+            QMessageBox.critical(None, "First-run setup failed", "Could not complete secure setup. No database was initialized.")
             return False
 
     def initialize(self):
@@ -265,12 +269,15 @@ class DrillMasterApp(QApplication):
                 return
 
             splash.set_status("Initializing database...")
-            self.db_manager = DatabaseManager()
+            self.db_manager = DatabaseManager(bootstrap_passwords=self._bootstrap_credentials)
+            self._bootstrap_credentials = None  # UI secrets do not enter os.environ or child processes
             if not self.db_manager.initialize():
                 splash.close()
                 QMessageBox.critical(
                     None, "Database Error",
-                    "Failed to initialize database.\nApplication will exit."
+                    ((self.db_manager.last_diagnostic or {}).get("message")
+                     if (self.db_manager.last_diagnostic or {}).get("credential_error") else
+                     "Failed to initialize database. Check the database diagnostics. Application will exit.")
                 )
                 sys.exit(1)
 
@@ -661,18 +668,26 @@ def run_package_smoke() -> int:
         "tabs.w12_Analysis",
         "tabs.w13_Engineering_Calculator",
     )
+    from core.credential_policy import _BOOTSTRAP_PASSWORD_ENV
+    keys = ("DRILLMASTER_ENV", "DRILLMASTER_ENVIRONMENT", "DRILLMASTER_DATA_DIR",
+            "DRILLMASTER_DB_PATH", "DRILLMASTER_AI_IMPORT", *_BOOTSTRAP_PASSWORD_ENV.values())
+    previous = {key: os.environ.get(key) for key in keys}
     try:
         with tempfile.TemporaryDirectory(prefix="drillmaster-package-smoke-") as directory:
             os.environ["DRILLMASTER_ENV"] = "test"
+            os.environ.pop("DRILLMASTER_ENVIRONMENT", None)
             os.environ["DRILLMASTER_DATA_DIR"] = directory
+            os.environ["DRILLMASTER_DB_PATH"] = str(Path(directory) / "package-smoke.db")
+            for key in _BOOTSTRAP_PASSWORD_ENV.values():
+                os.environ.pop(key, None)
             os.environ["DRILLMASTER_AI_IMPORT"] = "0"
             ensure_writable_directories()
             for module_name in required_modules:
                 importlib.import_module(module_name)
             manager = DatabaseManager()
-            if not manager.initialize():
-                return 1
             try:
+                if not manager.initialize():
+                    return 1
                 session = manager.create_session()
                 try:
                     from sqlalchemy import text
@@ -690,6 +705,13 @@ def run_package_smoke() -> int:
     except Exception:
         logger.exception("Frozen package smoke test failed")
         return 1
+
+    finally:
+        for key, value in previous.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
 
 
 def main():

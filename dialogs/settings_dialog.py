@@ -352,7 +352,14 @@ class SettingsDialog(QDialog):
             if reply2 == QMessageBox.Ok:
                 text, ok = QInputDialog.getText(self, "Confirm Reset", "Type RESET to confirm:")
                 if ok and text == "RESET":
-                    QMessageBox.information(self, "Reset", "Please close the app and run reset_db.py")
+                    QMessageBox.information(self, "Offline reset required",
+                        "No data has been changed. Close all DrillMaster instances and back up the database.\n"
+                        "From the source checkout run: python reset_database.py\n"
+                        "Production reset requires a secure DRILLMASTER_ADMIN_PASSWORD in that shell; "
+                        "engineer/viewer passwords are optional. Missing or invalid settings refuse reset before deletion.\n"
+                        "Reset erases database users and operational data, but keeps external settings/backups. "
+                        "Use the same environment and database-path settings when restarting. "
+                        "Packaged installations require the administrator's source reset utility.")
 
     def save_settings(self):
         """Save settings - نسخه اصلاح شده"""

@@ -19,8 +19,8 @@ class BootstrapDialog(QDialog):
 
     _ROLES = (
         ("admin", "Administrator password"),
-        ("engineer", "Engineer password"),
-        ("viewer", "Viewer password"),
+        ("engineer", "Engineer password (optional)"),
+        ("viewer", "Viewer password (optional)"),
     )
 
     def __init__(self, parent=None):
@@ -35,8 +35,8 @@ class BootstrapDialog(QDialog):
     def _build_ui(self) -> None:
         layout = QVBoxLayout(self)
         intro = QLabel(
-            "This is the first run of DrillMaster. Create the three initial "
-            "production accounts below. Passwords are used only to create "
+            "This is the first run of DrillMaster. Create an administrator account. "
+            "Engineer and viewer accounts are optional; leave both fields blank to omit them. Passwords are used only to create "
             "salted database hashes and are never written to the application "
             "directory or executable."
         )
@@ -76,8 +76,13 @@ class BootstrapDialog(QDialog):
         for role, label in self._ROLES:
             password, confirm = self._fields[role]
             value = password.text()
-            if len(value) < 12:
-                QMessageBox.warning(self, "Incomplete setup", f"{label} must contain at least 12 characters.")
+            if role != "admin" and not value and not confirm.text():
+                continue
+            from core.credential_policy import validate_production_password, CredentialLifecycleError
+            try:
+                validate_production_password(value)
+            except CredentialLifecycleError as exc:
+                QMessageBox.warning(self, "Incomplete setup", str(exc))
                 password.setFocus()
                 return
             if value != confirm.text():

@@ -80,8 +80,8 @@ installer:
 - does not delete user data during uninstall.
 
 On a clean machine the first launch creates required directories and opens the
-secure first-run bootstrap dialog. The operator creates unique passwords for
-Administrator, Engineer, and Viewer. The application holds plaintext values
+secure first-run bootstrap dialog if no environment bootstrap credentials were supplied. The operator creates unique passwords for
+Administrator; Engineer and Viewer accounts are optional. The application holds plaintext values
 only during that process and stores salted bcrypt hashes in the database. It
 creates no demo company, project, well, or development account.
 
@@ -90,9 +90,10 @@ application exits without silently proceeding. The protected rotating log can
 be used for diagnostics.
 
 Unattended enterprise bootstrap can supply the existing environment variables
-`DRILLMASTER_ENV=production`, `DRILLMASTER_ADMIN_PASSWORD`,
-`DRILLMASTER_USER_PASSWORD`, and `DRILLMASTER_VIEWER_PASSWORD` through a
-restricted secret mechanism. Do not put them in the installer, executable,
+`DRILLMASTER_ENV=production` and `DRILLMASTER_ADMIN_PASSWORD` through a restricted
+secret mechanism. `DRILLMASTER_USER_PASSWORD` and `DRILLMASTER_VIEWER_PASSWORD`
+are optional: set them to secure values to create those accounts, or leave them
+unset. Empty settings are errors, not fixture fallbacks. Do not put them in the installer, executable,
 source tree, or a committed `.env` file.
 
 ## Application data
@@ -198,3 +199,60 @@ Get-FileHash .\release\DrillMaster-1.0.0-Setup.exe -Algorithm SHA256
 A green Python test suite is an automated pass only; it is not a Windows
 clean-machine pass and does not certify the engineering limitations documented
 in `README.md` and `PRODUCTION_READINESS.md`.
+
+## Secure full-database reset (credential lifecycle)
+
+Desktop startup, DatabaseManager and the offline CLI all default to production.
+Only explicit development/test mode permits fixture credentials. Unknown/empty
+mode values and conflicting environment aliases fail closed. `.env` files are
+not automatically loaded; configure variables in the process that launches the
+application/reset utility.
+
+Close all instances and back up the database. From the source checkout run
+`python reset_database.py`; confirm the displayed path and type `RESET` only
+when intending to erase all users and operational records. The GUI settings
+button only explains this offline procedure and does not itself reset anything.
+
+Production reset requires a new secure administrator bootstrap configuration,
+even when resetting an existing safe database. Missing/invalid settings or missing
+bcrypt refuse reset before deletion. A complete replacement is built and checked
+in the same directory before atomic promotion. Busy/locked files, preparation
+failure or replacement failure preserve the existing logical database. Concurrent
+startup/reset is unsupported: keep all instances closed through the operation.
+External settings, logs and backups are not reset. Any separate external
+license/device configuration is not touched by this file-scoped utility.
+
+Existing unsafe credentials are not silently rotated when an environment password
+changes. Back up first, then use the destructive reset recovery path with secure
+settings. Restore/rotation while preserving all operational data requires a
+separately administered migration; there is no automatic password conversion.
+
+### PowerShell / Python 3.12 procedure (requires verification on Windows)
+
+Use the same Windows account and `DRILLMASTER_DATA_DIR` / `DRILLMASTER_DB_PATH`
+settings for reset and startup. Do not run a reset against another user's data
+profile accidentally. Do not paste real passwords into commands, tickets or logs.
+The following reads a temporary password without displaying it:
+
+```powershell
+$env:DRILLMASTER_ENV = 'production'
+Remove-Item Env:DRILLMASTER_ENVIRONMENT -ErrorAction SilentlyContinue
+# Unset optional account variables if those accounts are not wanted.
+Remove-Item Env:DRILLMASTER_USER_PASSWORD -ErrorAction SilentlyContinue
+Remove-Item Env:DRILLMASTER_VIEWER_PASSWORD -ErrorAction SilentlyContinue
+$secure = Read-Host 'New administrator password (12+ characters, <=72 UTF-8 bytes)' -AsSecureString
+$env:DRILLMASTER_ADMIN_PASSWORD = [System.Net.NetworkCredential]::new('', $secure).Password
+try {
+    py -3.12 reset_database.py
+    if ($LASTEXITCODE -eq 0) { py -3.12 run.py }
+} finally {
+    Remove-Item Env:DRILLMASTER_ADMIN_PASSWORD -ErrorAction SilentlyContinue
+    $secure.Dispose()
+}
+```
+
+For a genuinely empty installation, `py -3.12 run.py` with no password settings
+uses the secure first-run dialog instead; no reset is necessary. After successful
+bootstrap, subsequent launches use stored bcrypt hashes and do not require the
+bootstrap environment settings. GUI-created passwords are passed in process
+memory to initialization, not exported to child-process environment variables.

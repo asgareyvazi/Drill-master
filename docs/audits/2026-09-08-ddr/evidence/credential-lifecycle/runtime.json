@@ -1,0 +1,12 @@
+{
+  "platform": "Linux-6.1.158+-x86_64-with-glibc2.36",
+  "python": "3.11.2",
+  "scope": "Real SQLite + actual offline reset CLI; no GUI or Windows claim",
+  "existing_development_database_in_default_mode": "UNSAFE_EXISTING_CREDENTIAL",
+  "missing_configuration_reset": "REFUSED; original bytes unchanged",
+  "production_accounts_after_reset": 1,
+  "restart_without_bootstrap_environment": "SUCCESS",
+  "authentication_after_reset": "SUCCESS",
+  "plaintext_in_reset_stdout_stderr": false,
+  "windows_python312": "NOT VERIFIED: no Windows execution environment exposed"
+}

@@ -27,8 +27,8 @@ removes installed application files but does not remove the user data
 directory, database, logs, or backups.
 
 At first run, DrillMaster opens a secure bootstrap dialog when no database
-exists. Create unique passwords for the Administrator, Engineer, and Viewer
-accounts. The plaintext passwords remain only in process memory while the
+exists and no bootstrap environment credentials are supplied. Create a unique
+Administrator password; Engineer and Viewer accounts are optional. The plaintext passwords remain only in process memory while the
 initial salted bcrypt hashes are created. No password is embedded in the
 executable or written to an environment/configuration file by the application.
 Production starts with no demo company, project, or well.
@@ -86,7 +86,7 @@ directory. The central path configuration is in `core/runtime_config.py`.
 | `DRILLMASTER_AI_SETTINGS_PATH` | Selected local-AI model settings | `<data>\config\ai_settings.json` |
 | `DRILLMASTER_MAPPING_MEMORY_PATH` | User-confirmed mapping memory | `<data>\config\mapping_memory.json` |
 | `DRILLMASTER_STANDARDS_PATH` | User operational-standard overrides | `<data>\config\operational_standards.json` |
-| `DRILLMASTER_ENV` or `DRILLMASTER_ENVIRONMENT` | Explicit `production`, `development`, or `test` mode | Desktop app defaults to production |
+| `DRILLMASTER_ENV` or `DRILLMASTER_ENVIRONMENT` | Explicit `production`, `development`, or `test` mode | Desktop, database library and reset CLI default to production |
 | `DRILLMASTER_AUTO_LOGIN` | Development/test convenience only | disabled |
 
 Production bootstrap passwords may be supplied by an enterprise deployment
@@ -95,6 +95,25 @@ flow does not persist them. Development fixture passwords are rejected in
 production. Production requires bcrypt and stores passwords only as salted
 bcrypt hashes; development-only fallback hashing must not be used for
 production data. A local SQLite database is not an encrypted secrets store.
+
+Only `DRILLMASTER_ADMIN_PASSWORD` is required for unattended production bootstrap.
+Set `DRILLMASTER_USER_PASSWORD` / `DRILLMASTER_VIEWER_PASSWORD` only when those
+accounts are wanted; unset optional settings rather than supplying empty strings.
+Passwords require 12 characters minimum and 72 UTF-8 bytes maximum. Bootstrap
+settings never overwrite existing users. No `.env` file is auto-loaded.
+
+For a full reset, close every application instance, back up the configured DB,
+and run `python reset_database.py` with secure bootstrap settings in that same
+shell. Reset validates and builds a replacement before replacing the old file.
+Missing/invalid credentials refuse reset before deletion. This erases all database
+users and operational data, not external settings or backups. The settings dialog
+provides offline instructions; clicking it does not perform a reset.
+See [the credential lifecycle report](docs/audits/2026-09-08-ddr/PRODUCTION_CREDENTIAL_LIFECYCLE_FIX.md).
+
+Local fixture use must explicitly select `DRILLMASTER_ENV=development` or `test`
+and should use a separate `DRILLMASTER_DATA_DIR`. Unknown, empty, or conflicting
+environment selectors are rejected; no filename/CWD-based mode inference is used.
+
 
 ## Database, migrations, backup, and recovery
 
