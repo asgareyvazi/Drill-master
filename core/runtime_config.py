@@ -136,3 +136,13 @@ def describe_paths() -> dict[str, str]:
         "standards": str(standards_path()),
         "mineru_settings": str(mineru_settings_path()),
     }
+
+
+def drill_pipe_reference_paths() -> list[Path]:
+    """Optional user/vendor reference, never relative to process CWD."""
+    import sys
+    root = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent))
+    configured = os.getenv("DRILLMASTER_DRILLPIPE_PATH")
+    paths = [_configured_path("DRILLMASTER_DRILLPIPE_PATH", data_dir() / "DrillPipe.xlsx")] if configured else []
+    return paths + [data_dir() / "DrillPipe.xlsx", root / "resources" / "DrillPipe.xlsx",
+                    root / "data" / "DrillPipe.xlsx", root / "DrillPipe.xlsx", root / "tabs" / "DrillPipe.xlsx"]

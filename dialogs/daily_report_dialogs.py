@@ -77,21 +77,7 @@ class AddActivityDialog(QDialog):
         "Other": ["Other"],
     }
 
-    NPT_CODES = {
-        "T-FISH": "Fishing",
-        "T-STUCK PIPE": "Stuck Pipe",
-        "T-WELL CONTROL": "Well Control",
-        "T-HOLE CONDITION": "Hole Condition",
-        "F-DRILL STRING": "Drill String Failure",
-        "F-CASING": "Casing Failure",
-        "W-MATERIAL": "Waiting for Material",
-        "W-SERVICE EQUIPMENT": "Waiting for Service Equipment",
-        "W-WEATHER": "Waiting on Weather",
-        "W-STOP OPERATION": "Stop Operation",
-        "RR-TDS": "TDS Repair",
-        "RR-PUMP": "Pump Repair",
-        "RR-SHAKER": "Shaker Repair",
-    }
+    from core.npt_catalog import NPT_CODES
 
     CONTRACTORS = [
         "Operator", "Drilling Contractor", "Mud Company",
@@ -195,6 +181,7 @@ class AddActivityDialog(QDialog):
         self.npt_code_combo = QComboBox()
         for code, desc in self.NPT_CODES.items():
             self.npt_code_combo.addItem(f"{code} - {desc}", code)
+        self.npt_code_combo.setCurrentIndex(-1)
         self.npt_code_combo.setVisible(False)
         self.npt_label = QLabel("NPT Code:")
         self.npt_label.setVisible(False)
@@ -209,6 +196,7 @@ class AddActivityDialog(QDialog):
         self.contractor_combo = QComboBox()
         self.contractor_combo.addItems(self.CONTRACTORS)
         self.contractor_combo.setEditable(True)
+        self.contractor_combo.setCurrentIndex(-1)
         self.contractor_combo.setVisible(False)
         self.contractor_label = QLabel("Responsible:")
         self.contractor_label.setVisible(False)
@@ -270,7 +258,7 @@ class AddActivityDialog(QDialog):
         self._update_duration()
 
     def _on_npt_changed(self, state):
-        is_npt = state == Qt.Checked
+        is_npt = state == Qt.CheckState.Checked or state == Qt.CheckState.Checked.value
         self.npt_code_combo.setVisible(is_npt)
         self.npt_label.setVisible(is_npt)
         self.contractor_combo.setVisible(is_npt)

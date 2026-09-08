@@ -1,0 +1,91 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____________ test_real_ddr_excel_canonical_ir_review_and_atomic_db _____________
+
+    @pytest.mark.integration
+    def test_real_ddr_excel_canonical_ir_review_and_atomic_db():
+        source = _env_file("DRILLMASTER_TEST_DDR_XLSX")
+        if not TEMPLATE_PATH.is_file():
+            pytest.fail(f"Canonical OEOC template is missing: {TEMPLATE_PATH}")
+
+        from openpyxl import load_workbook
+        from core.excel_intelligence import ExcelIntelligence
+
+        workbook = load_workbook(source, data_only=False, read_only=False)
+        cached_workbook = load_workbook(source, data_only=True, read_only=False)
+        try:
+            template = json.loads(TEMPLATE_PATH.read_text(encoding="utf-8"))
+            expected_sheets = {
+                part.replace("_", " ").lower()
+                for key in template
+                if key.startswith("sheet_")
+                for part in [key.split("_", 2)[-1]]
+            }
+            actual_sheets = {sheet.title.lower() for sheet in workbook.worksheets}
+            if not expected_sheets.intersection(actual_sheets):
+                pytest.fail(
+                    "The supplied DDR workbook does not match the canonical OEOC "
+                    f"template; sheets={sorted(actual_sheets)}"
+                )
+            report = ExcelIntelligence(
+                workbook,
+                template,
+                source_file=str(source.resolve()),
+                cached_workbook=cached_workbook,
+            ).extract()
+        finally:
+            workbook.close()
+            cached_workbook.close()
+
+        assert report.raw_document is not None
+        _assert_ir_details(report.raw_document)
+        assert report.raw_document.metadata.get("engine") == "Excel"
+        assert report.canonical_json, "Real Excel produced no canonical data"
+
+        review_rows = []
+        for result in report.field_results:
+            if result.status != "OK" or result.certainty == "LOW" or result.canonical_field in report.source_tokens:
+                source_token = report.source_tokens.get(result.canonical_field, {})
+                review_rows.append(
+                    {
+                        "file": source.name,
+                        "sheet": result.sheet,
+                        "source_cell": result.cell,
+                        "original_value": source_token.get("original_value", result.original_value),
+                        "normalized_value": None if source_token else result.normalized_value,
+                        "target_field": result.canonical_field,
+                        "confidence": result.confidence,
+                        "decision": "REVIEW",
+                        "validation_state": result.validation or "unvalidated",
+                        "review_state": "unreviewed",
+                    }
+                )
+        _assert_review_contract(review_rows)
+
+        manager = _db_manager()
+        well_id, report_id = _seed_report(manager)
+        persisted = manager.save_imported_multi_tab_data_atomic(
+            well_id, report_id, dict(report.canonical_json)
+        )
+        assert persisted.get("failed") == 0, persisted
+        assert persisted.get("imported", 0) > 0, persisted
+
+        # The known historical crash token must never become a float conversion
+        # exception.  If it exists in source, the extractor must preserve it as a
+        # review token/NULL, not invent zero.
+        for token in report.source_tokens.values():
+>           assert token.get("normalized_value") is None
+E           AssertionError: assert 71 is None
+E            +  where 71 = <built-in method get of dict object at 0x7f1cf5a65080>('normalized_value')
+E            +    where <built-in method get of dict object at 0x7f1cf5a65080> = {'original_value': 71, 'normalized_value': 71, 'cell': 'L9', 'sheet': 'DDR Data', ...}.get
+
+tests/test_ddr_acceptance.py:194: AssertionError
+=============================== warnings summary ===============================
+tests/test_ddr_acceptance.py::test_real_ddr_excel_canonical_ir_review_and_atomic_db
+  /home/user/Drill-master/.venv/lib/python3.11/site-packages/openpyxl/worksheet/_reader.py:329: UserWarning: Data Validation extension is not supported and will be removed
+    warn(msg)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_ddr_acceptance.py::test_real_ddr_excel_canonical_ir_review_and_atomic_db
+1 failed, 1 warning in 5.28s

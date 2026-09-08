@@ -1,7 +1,7 @@
 """Report, TimeLog, Survey, BHA, Bit repositories."""
 
 from .base import BaseRepository
-from core.database import DailyReport, TimeLog24H, TimeLogMorning, SurveyPoint, BHAReport, BitReport
+from core.database import DailyReport, TimeLog24H, TimeLogMorning, BHAReport, BitReport
 from core.import_quality import TimeLogValidator
 from typing import List, Dict, Optional
 import logging
@@ -74,17 +74,10 @@ class ReportRepository(BaseRepository):
 
 class SurveyRepository(BaseRepository):
     def save_points(self, points: List[Dict]) -> int:
-        with self.db.session_scope() as session:
-            saved = 0
-            for p in points:
-                if not isinstance(p, dict) or p.get("md") in (None, ""):
-                    continue
-                valid_keys = {c.name for c in SurveyPoint.__table__.columns}
-                filtered = {k: v for k, v in p.items() if k in valid_keys and k != "id"}
-                session.add(SurveyPoint(**filtered))
-                saved += 1
-            session.flush()
-            return saved
+        """Use the same numeric isolation/engineering/upsert path as the UI."""
+        result = self.db.save_survey_records(points)
+        self.last_review_items = result["review_items"]
+        return result["accepted"]
 
 
 class BHARepository(BaseRepository):

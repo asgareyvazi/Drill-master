@@ -212,7 +212,10 @@ class TestFullImportPipeline:
             
             # Verify bulk materials
             bulks = session.query(BulkMaterials).filter(BulkMaterials.report_id == report_id).all()
-            assert len(bulks) == 2
+            assert len(bulks) == 0  # chemicals are not Fuel/Water bulk inventory
+            import json
+            mud = session.query(MudReport).filter_by(report_id=report_id).one()
+            assert len(json.loads(mud.chemicals_json)) == 2
             
             # Verify costs
             costs = session.query(CostRecord).filter(CostRecord.well_id == well_id).all()
@@ -246,7 +249,10 @@ class TestFullImportPipeline:
         session = db.create_session()
         try:
             count1 = session.query(BulkMaterials).filter(BulkMaterials.report_id == report_id).count()
-            assert count1 == 1
+            assert count1 == 0
+            import json
+            mud = session.query(MudReport).filter_by(report_id=report_id).one()
+            assert json.loads(mud.chemicals_json)[0]["product"] == "Barite"
         finally:
             session.close()
     

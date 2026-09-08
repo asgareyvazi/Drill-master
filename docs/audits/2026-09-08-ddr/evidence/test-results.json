@@ -1,0 +1,170 @@
+{
+  "baseline": {
+    "name": "pytest",
+    "errors": "0",
+    "failures": "0",
+    "skipped": "8",
+    "tests": "544",
+    "time": "53.353",
+    "timestamp": "2026-09-08T08:28:26.919104+00:00",
+    "hostname": "e2b.local",
+    "passed": 536,
+    "skip_reasons": [
+      {
+        "test": "test_real_ddr_excel_canonical_ir_review_and_atomic_db",
+        "reason": "DRILLMASTER_TEST_DDR_XLSX is not set; real DDR acceptance is opt-in"
+      },
+      {
+        "test": "test_real_ddr_pdf_mineru_common_ir_review_and_atomic_db",
+        "reason": "DRILLMASTER_TEST_DDR_PDF is not set; real DDR acceptance is opt-in"
+      },
+      {
+        "test": "test_report_cost_paths_do_not_create_default_rig_rates",
+        "reason": "Qt report engine requires libGL"
+      },
+      {
+        "test": "test_missing_nozzle_number_reaches_db_as_null_without_crashing",
+        "reason": "Qt unavailable in this headless environment: libGL.so.1: cannot open shared object file: No such file or directory"
+      },
+      {
+        "test": "test_real_mineru_parse_and_normalize",
+        "reason": "Set MINERU_INTEGRATION_INPUT to run against a real MinerU installation"
+      },
+      {
+        "test": "test_real_windows_bundle_smoke_when_provided",
+        "reason": "Windows bundle not available in this environment"
+      },
+      {
+        "test": "test_all_core_modules_importable",
+        "reason": "No display \u2014 PySide6 requires libGL"
+      },
+      {
+        "test": "test_no_circular_imports",
+        "reason": "No display \u2014 PySide6 requires libGL"
+      }
+    ]
+  },
+  "baseline-optin": {
+    "name": "pytest",
+    "errors": "0",
+    "failures": "1",
+    "skipped": "0",
+    "tests": "1",
+    "time": "5.279",
+    "timestamp": "2026-09-08T09:08:55.214331+00:00",
+    "hostname": "e2b.local",
+    "passed": 0,
+    "skip_reasons": []
+  },
+  "targeted": {
+    "name": "pytest",
+    "errors": "0",
+    "failures": "0",
+    "skipped": "0",
+    "tests": "72",
+    "time": "24.845",
+    "timestamp": "2026-09-08T09:22:00.354017+00:00",
+    "hostname": "e2b.local",
+    "passed": 72,
+    "skip_reasons": []
+  },
+  "import": {
+    "name": "pytest",
+    "errors": "0",
+    "failures": "0",
+    "skipped": "1",
+    "tests": "119",
+    "time": "34.439",
+    "timestamp": "2026-09-08T09:16:07.263191+00:00",
+    "hostname": "e2b.local",
+    "passed": 118,
+    "skip_reasons": [
+      {
+        "test": "test_missing_nozzle_number_reaches_db_as_null_without_crashing",
+        "reason": "Qt unavailable in this headless environment: libGL.so.1: cannot open shared object file: No such file or directory"
+      }
+    ]
+  },
+  "engineering": {
+    "name": "pytest",
+    "errors": "0",
+    "failures": "0",
+    "skipped": "1",
+    "tests": "137",
+    "time": "0.826",
+    "timestamp": "2026-09-08T09:16:42.818174+00:00",
+    "hostname": "e2b.local",
+    "passed": 136,
+    "skip_reasons": [
+      {
+        "test": "test_report_cost_paths_do_not_create_default_rig_rates",
+        "reason": "Qt report engine requires libGL"
+      }
+    ]
+  },
+  "integration": {
+    "name": "pytest",
+    "errors": "0",
+    "failures": "0",
+    "skipped": "0",
+    "tests": "97",
+    "time": "29.572",
+    "timestamp": "2026-09-08T09:16:44.071924+00:00",
+    "hostname": "e2b.local",
+    "passed": 97,
+    "skip_reasons": []
+  },
+  "real-acceptance": {
+    "name": "pytest",
+    "errors": "0",
+    "failures": "0",
+    "skipped": "0",
+    "tests": "1",
+    "time": "5.023",
+    "timestamp": "2026-09-08T09:22:25.967335+00:00",
+    "hostname": "e2b.local",
+    "passed": 1,
+    "skip_reasons": []
+  },
+  "full": {
+    "name": "pytest",
+    "errors": "0",
+    "failures": "0",
+    "skipped": "7",
+    "tests": "616",
+    "time": "80.891",
+    "timestamp": "2026-09-08T09:17:14.329914+00:00",
+    "hostname": "e2b.local",
+    "passed": 609,
+    "skip_reasons": [
+      {
+        "test": "test_real_ddr_pdf_mineru_common_ir_review_and_atomic_db",
+        "reason": "DRILLMASTER_TEST_DDR_PDF is not set; real DDR acceptance is opt-in"
+      },
+      {
+        "test": "test_report_cost_paths_do_not_create_default_rig_rates",
+        "reason": "Qt report engine requires libGL"
+      },
+      {
+        "test": "test_missing_nozzle_number_reaches_db_as_null_without_crashing",
+        "reason": "Qt unavailable in this headless environment: libGL.so.1: cannot open shared object file: No such file or directory"
+      },
+      {
+        "test": "test_real_mineru_parse_and_normalize",
+        "reason": "Set MINERU_INTEGRATION_INPUT to run against a real MinerU installation"
+      },
+      {
+        "test": "test_real_windows_bundle_smoke_when_provided",
+        "reason": "Windows bundle not available in this environment"
+      },
+      {
+        "test": "test_all_core_modules_importable",
+        "reason": "No display \u2014 PySide6 requires libGL"
+      },
+      {
+        "test": "test_no_circular_imports",
+        "reason": "No display \u2014 PySide6 requires libGL"
+      }
+    ]
+  }
+}

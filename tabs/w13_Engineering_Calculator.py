@@ -337,12 +337,8 @@ class EngineeringCalculatorTab(DrillTabBase):
 
     def _load_drill_pipe_db(self):
         """بارگذاری دیتابیس DrillPipe از فایل Excel"""
-        possible_paths = [
-            "DrillPipe.xlsx",
-            "data/DrillPipe.xlsx",
-            "resources/DrillPipe.xlsx",
-            os.path.join(os.path.dirname(__file__), "DrillPipe.xlsx"),
-        ]
+        from core.runtime_config import drill_pipe_reference_paths
+        possible_paths = drill_pipe_reference_paths()
         for path in possible_paths:
             if os.path.exists(path):
                 try:
@@ -351,7 +347,7 @@ class EngineeringCalculatorTab(DrillTabBase):
                     return
                 except Exception as e:
                     logger.warning(f"Could not load DrillPipe.xlsx: {e}")
-        logger.warning("DrillPipe.xlsx not found - table will be empty")
+        logger.warning("Optional DrillPipe vendor reference unavailable. Set DRILLMASTER_DRILLPIPE_PATH or place DrillPipe.xlsx in the application data directory. Other calculations remain available. Searched: %s", possible_paths)
 
     def init_ui(self):
         main_layout = QVBoxLayout(self)

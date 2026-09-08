@@ -1,0 +1,12 @@
+/home/user/Drill-master/.venv/lib/python3.11/site-packages/openpyxl/worksheet/_reader.py:329: UserWarning: Data Validation extension is not supported and will be removed
+  warn(msg)
+{
+  "file": "08-DDR OEOC-208 AZNS-207 2024-Oct-22.xlsx",
+  "status": "REVIEW_REQUIRED",
+  "imported": 101,
+  "failed": 0,
+  "review": 65,
+  "reload_equal": true,
+  "reimport_equal": true,
+  "output": "/home/user/audit/golden-a-release-evidence"
+}

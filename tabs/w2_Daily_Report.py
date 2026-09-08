@@ -183,68 +183,8 @@ class DailyReportWidget(DrillTabBase):
             "Subsea Operation": ["Run/ Retrieve Riser Equip.", "Subsea Installation"],
         }
         
-        self.NPT_CODES = {
-            # T = Trouble
-            "T-FISH": "Fishing Operations",
-            "T-STUCK": "Stuck Pipe",
-            "T-KICK": "Kick / Well Control",
-            "T-LOST-CIRC": "Lost Circulation",
-            "T-TIGHT-HOLE": "Tight Hole / Pack-off",
-            "T-FLOW CASE": "Flow Case / Well Control",
-            "T-HOLE CONDITION": "Hole Condition",
-            "T-BOP": "BOP Equipment Problem",
-            "T-SHALLOW-GAS": "Shallow Gas",
-            "T-H2S": "H2S Encounter",
-            "T-CASING": "Casing/Cementing Problem",
-            "T-SLOUGHING": "Sloughing/Caving",
-            "T-WELL CONTROL": "Well Control (General)",
-            "T-JUNK": "Junk in Hole",
-            "T-SIDETRACK": "Sidetrack Required",
-
-            # F = Failure
-            "F-BIT": "Bit Failure",
-            "F-BHA": "BHA Component Failure",
-            "F-DRILL STRING": "Drill String Failure",
-            "F-TDS": "Top Drive Failure",
-            "F-PUMP": "Mud Pump Failure",
-            "F-POWER": "Power System Failure",
-            "F-HOIST": "Hoisting System Failure",
-            "F-ROT": "Rotating System Failure",
-            "F-CIRC": "Circulating System Failure",
-            "F-MWD": "MWD/LWD Tool Failure",
-            "F-MOTOR": "Downhole Motor Failure",
-            "F-CASING": "Casing Running Equipment",
-            "F-EVALUATION": "Evaluation Failure",
-            "F-HOLE CONDITION": "Hole Condition Failure",
-            "F-SOLID-CTRL": "Solid Control Equipment",
-            "F-IBOP": "IBOP/Float Failure",
-
-            # W = Waiting
-            "W-CLIENT": "Waiting on Client Decision",
-            "W-MATERIAL": "Waiting on Material/Parts",
-            "W-SERVICE EQUIPMENT": "Waiting for Service Equipment",
-            "W-SERVICE QUALITY": "Service Quality Issue",
-            "W-WEATHER": "Waiting on Weather",
-            "W-PERMIT": "Waiting on Permit",
-            "W-LOGISTICS": "Waiting on Logistics",
-            "W-FUEL": "Waiting on Fuel",
-            "W-STOP OPERATION": "Stop Operation",
-            "W-FORCE MAJOR": "Force Majeure (General)",
-            "W-FORCE MAJEURE- 2ND WAR": "Force Majeure - War",
-            "W-CREW": "Waiting on Crew/Personnel",
-
-            # RR = Rig Repair
-            "RR-TDS": "Top Drive Repair",
-            "RR-PUMP": "Mud Pump Repair",
-            "RR-SHAKER": "Shaker/Solid Control Repair",
-            "RR-EAZY TORQUE": "Easy Torque Repair",
-            "RR-KELLY HOSE": "Kelly Hose/Swivel Repair",
-            "RR-POWER TONG": "Power Tong Repair",
-            "RR-IBOP": "IBOP Repair",
-            "RR-CRANE": "Crane/Lifting Equipment",
-            "RR-GENERATOR": "Generator/Power Repair",
-            "RR-OTHER": "Other Rig Repair",
-        }
+        from core.npt_catalog import NPT_CODES
+        self.NPT_CODES = NPT_CODES
         
         self.init_ui()
         self.setup_connections()
@@ -577,11 +517,15 @@ class DailyReportWidget(DrillTabBase):
             # ========== انتخاب خودکار اولین سکشن ==========
             if self.db_manager and well_id:
                 sections = self.db_manager.get_sections_by_well(well_id)
-                if sections:
+                if len(sections) == 1:
                     first_section = sections[0]
                     # انتخاب سکشن از طریق SelectionManager (این باعث فراخوانی on_section_changed می‌شود)
                     self.sel_manager.select_section(first_section['id'], first_section)
                     self.create_report_btn.setEnabled(True)
+                elif sections:
+                    self.sel_manager.select_section(None, {})
+                    self.create_report_btn.setEnabled(False)
+                    self.status_manager.show_warning("DailyReport", "Select a section explicitly; this well has multiple sections.")
                 else:
                     # اگر هیچ سکشنی وجود ندارد، از کاربر بپرسیم که آیا می‌خواهد یکی ایجاد کند
                     reply = QMessageBox.question(
@@ -595,7 +539,7 @@ class DailyReportWidget(DrillTabBase):
                         if dialog.exec():
                             # بارگذاری مجدد سکشن‌ها و انتخاب اولین
                             sections = self.db_manager.get_sections_by_well(well_id)
-                            if sections:
+                            if len(sections) == 1:
                                 self.sel_manager.select_section(sections[0]['id'], sections[0])
                                 self.create_report_btn.setEnabled(True)
                             else:
@@ -864,6 +808,8 @@ class DailyReportWidget(DrillTabBase):
         for code in self.NPT_CODES:
             npt_code_combo.addItem(code, code)
 
+        normal_code_combo.setCurrentIndex(-1)
+        npt_code_combo.setCurrentIndex(-1)
         is_npt = False
         if log_data and hasattr(log_data, 'is_npt'):
             is_npt = log_data.is_npt
@@ -874,6 +820,8 @@ class DailyReportWidget(DrillTabBase):
             idx = self._find_code_index(target_combo, stored_main_code)
             if idx >= 0:
                 target_combo.setCurrentIndex(idx)
+            elif stored_main_code:
+                self._set_unresolved_combo_value(target_combo, stored_main_code)
 
         stacked.addWidget(normal_code_combo)
         stacked.addWidget(npt_code_combo)
@@ -1252,9 +1200,7 @@ class DailyReportWidget(DrillTabBase):
         valid_ids = [s['id'] for s in sections]
 
         if section_id not in valid_ids:
-            if valid_ids:
-                return True, f"Section corrected to {valid_ids[0]}"
-            return False, "No sections exist. Create a section first."
+            return False, "Selected section does not belong to this well. Select a valid section explicitly."
 
         return True, ""
 
@@ -1291,12 +1237,6 @@ class DailyReportWidget(DrillTabBase):
             if not is_valid:
                 self.status_manager.show_error("DailyReport", message)
                 return False
-
-            # اگر section_id نیاز به تصحیح داشت
-            if "corrected" in message:
-                sections = self.db_manager.get_sections_by_well(well_id)
-                section_id = sections[0]['id']
-                self.current_section_id = section_id
 
             # جمع‌آوری داده
             report_data = self._collect_report_data(well_id, section_id)
@@ -1418,10 +1358,13 @@ class DailyReportWidget(DrillTabBase):
                         contractor=log.get("contractor", "")
                     ))
             
+            session.flush()
+            self.db_manager.auto_update_from_daily_report(report_id, session=session)
             session.commit()
         except Exception as e:
             session.rollback()
             logger.error(f"Time log save error: {e}")
+            raise
         finally:
             session.close()
 

@@ -1,3 +1,5 @@
+> Historical report for the preceding branch. Current remediation, corrected counts and certification limits: [2026-09-08 session report](audits/2026-09-08-ddr/REPORT.md).
+
 # Real import forensic audit — 2026-09-08
 
 ## Scope and evidence boundary

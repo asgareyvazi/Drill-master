@@ -173,15 +173,16 @@ class MudValidator:
             except (ValueError, TypeError):
                 r.add_error(field, "Must be a number")
 
-        try:
-            s = float(data.get("solid_percent") or 0)
-            o = float(data.get("oil_percent") or 0)
-            w = float(data.get("water_percent") or 0)
-            total = s + o + w
-            if total > 0 and abs(total - 100) > 5:
-                r.add_warning("solids", f"Solids+Oil+Water = {total:.1f}% (expected ~100%)")
-        except (ValueError, TypeError):
-            pass
+        composition = [data.get(k) for k in ("solid_percent", "oil_percent", "water_percent")]
+        if any(v is not None for v in composition) and any(v is None for v in composition):
+            r.add_warning("composition", "Partial composition: solids/oil/water not all supplied; total cannot be validated")
+        elif all(v is not None for v in composition):
+            try:
+                total = sum(float(v) for v in composition)
+                if abs(total - 100) > 5:
+                    r.add_warning("solids", f"Solids+Oil+Water = {total:.1f}% (expected ~100%)")
+            except (ValueError, TypeError):
+                pass  # individual invalid fields are reported above
 
         return r
 

@@ -453,6 +453,7 @@ class AddBHAComponentDialog(QDialog):
                 self.tool_type.setCurrentIndex(idx)
             else:
                 self.tool_type.setCurrentText(data.get('Tool Type', ''))
+            self.description.setText(str(data.get("Component Name") or data.get("Description") or ""))
             self.od.setValue(float(data.get('OD (in)', 0) or 0))
             self.id_.setValue(float(data.get('ID (in)', 0) or 0))
             self.length.setValue(float(data.get('Length (m)', 0) or 0))
@@ -463,7 +464,7 @@ class AddBHAComponentDialog(QDialog):
     def _save(self):
         self.result = {
             "Tool Type": self.tool_type.currentText(),
-            "Description": self.description.text(),
+            "Component Name": self.description.text(),
             "OD (in)": str(self.od.value()),
             "ID (in)": str(self.id_.value()),
             "Length (m)": str(self.length.value()),

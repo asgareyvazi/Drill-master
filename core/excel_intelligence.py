@@ -666,6 +666,11 @@ class FieldExtractor:
         # Strategy 4: Alias match
         aliases = self._get_aliases(canonical)
         alias_matches = self.labels.find_aliases(aliases)
+        # A matching label adjacent to an empty value anchor is evidence of
+        # missing data, not permission to borrow a value from another table.
+        if value in (None, "") and row and col and not (is_merged and merge_val is not None):
+            if any(lr == row and 0 < col - lc <= 4 for lr, lc, *_ in (label_matches + alias_matches)):
+                preferred_anchor_missing = True
         for lr, lc, lv, matched_alias in alias_matches:
             anchor_near_label = abs(row - lr) <= 3 and abs(col - lc) <= 3
             nearby = self.labels.find_near_label(lr, lc)
@@ -754,8 +759,19 @@ class FieldExtractor:
                 if best.value != second.value:
                     status = "CONFLICT"
 
+        # A single value under a compound oil/water label has no unambiguous
+        # component identity. It is not two percentages and not necessarily oil.
+        compound_composition = False
+        if canonical in {"mud_report.oil_percent", "mud_report.water_percent"}:
+            labels_left = [str(v).lower() for (r, c), v in self.cells.items()
+                           if r == best.row and 0 < best.col - c <= 4 and isinstance(v, str)]
+            compound_composition = any("oil" in v and "water" in v for v in labels_left)
+            if compound_composition:
+                status = "REVIEW_REQUIRED"
+                best.reason = "Single source value under combined Oil / Water label; component assignment requires review"
+
         # Engineering validation
-        validation = self._validate_engineering(best.value, canonical, spec)
+        validation = "ambiguous_composition" if compound_composition else self._validate_engineering(best.value, canonical, spec)
 
         # Confidence policy. A verified template anchor can be accepted as a
         # mapping method without pretending its numeric score is 0.99; typed
@@ -1059,6 +1075,10 @@ class DynamicTableExtractor:
 
         if not values:
             return "empty"
+        if all(value.startswith("=") for value in values):
+            # No cached measurement or entered source value in this row.
+            # Formula expressions remain in RawDocument, not phantom records.
+            return "formula_only"
 
         all_text = " ".join(values)
 
@@ -1124,8 +1144,10 @@ class DynamicTableExtractor:
             # into records as phantom data.
             row_class = self._classify_row(r, columns)
             if row_class != "data":
-                rejected_count += 1
-                rejection_reasons.append(f"R{r}: {row_class}")
+                reason = f"R{r}: {row_class}"
+                if reason not in rejection_reasons:
+                    rejected_count += 1
+                    rejection_reasons.append(reason)
                 continue
             record = {}
             has_value = False
@@ -1290,8 +1312,20 @@ class ExcelIntelligence:
             raw_document=self.raw_document,
         )
         canonical = {}
+        from core.semantic_tables import detect_tables
+        tables, consumed = detect_tables(self.cell_cache)
+        for sheet, storage, mapping, first, last, rows in tables:
+            normalized = self._normalize_table_records(rows, storage, source_sheet=sheet,
+                source_file=self.raw_document.source_file, activity_catalog=self.activity_catalog)
+            canonical.setdefault(storage, []).extend(normalized)
+            report.table_results.append(TableExtraction(name=storage, sheet=sheet, start_row=first, end_row=last,
+                columns=[{"canonical": p, "col": c} for p, c in mapping.items()], records=rows, row_count=len(rows), confidence=0.8))
+        report.tables_detected = len(tables)
+        report.total_rows_extracted = sum(len(t[-1]) for t in tables)
         seen = set()
         for raw_cell in self.raw_document.cells:
+            if (raw_cell.location.sheet, raw_cell.location.row, raw_cell.location.column) in consumed:
+                continue
             value = raw_cell.value
             if value in (None, "") or not isinstance(value, str):
                 continue

@@ -15,6 +15,7 @@ from PySide6.QtWidgets import *
 from PySide6.QtGui import *
 
 from core.managers import StatusBarManager, TableManager, ExportManager, setup_widget_with_managers
+from core.domain_records import optional_date
 from core.database import DatabaseManager, LogisticsPersonnel, ServiceCompanyPOB, FuelWaterInventory
 from core.database import BulkMaterials, TransportLog, TransportNotes
 from core.base_tab import DrillTabBase
@@ -220,7 +221,7 @@ class PersonnelLogisticsTab(QWidget):
             today.addDays(30).toString("yyyy-MM-dd")
         ]
         for col, value in enumerate(default_values):
-            item = QTableWidgetItem(str(value))
+            item = QTableWidgetItem("" if value is None else str(value))
             if col in [3]:
                 item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
             self.pob_table.setItem(row, col, item)
@@ -255,6 +256,7 @@ class PersonnelLogisticsTab(QWidget):
             return False
         try:
             saved_count = 0
+            rejected = []
             for row in range(self.pob_table.rowCount()):
                 id_item = self.pob_table.item(row, 0)
                 company_item = self.pob_table.item(row, 1)
@@ -264,15 +266,22 @@ class PersonnelLogisticsTab(QWidget):
                 date_out_item = self.pob_table.item(row, 5)
                 if not company_item or not company_item.text():
                     continue
+                try:
+                    date_in = optional_date(date_in_item.text() if date_in_item else None)
+                    date_out = optional_date(date_out_item.text() if date_out_item else None)
+                    count = int(count_item.text()) if count_item and count_item.text() else None
+                except ValueError as exc:
+                    rejected.append(f"POB row {row + 1}, company {company_item.text()}: {exc}")
+                    continue
                 pob_data = {
                     "well_id": self.current_well_id,
                     "section_id": self.current_section_id,
                     "report_id": self.current_report_id,
                     "company_name": company_item.text(),
                     "service_type": service_item.text() if service_item else "",
-                    "personnel_count": int(count_item.text()) if count_item and count_item.text() else 0,
-                    "date_in": datetime.strptime(date_in_item.text(), "%Y-%m-%d").date() if date_in_item and date_in_item.text() else None,
-                    "date_out": datetime.strptime(date_out_item.text(), "%Y-%m-%d").date() if date_out_item and date_out_item.text() else None,
+                    "personnel_count": count,
+                    "date_in": date_in,
+                    "date_out": date_out,
                     "remarks": ""
                 }
                 if id_item and id_item.text():
@@ -282,8 +291,12 @@ class PersonnelLogisticsTab(QWidget):
                     saved_count += 1
                     if not id_item or not id_item.text():
                         self.pob_table.setItem(row, 0, QTableWidgetItem(str(result)))
+                else:
+                    rejected.append(f"POB row {row + 1}: persistence failed for {company_item.text()}; see database log")
             self.status_manager.show_success("PersonnelTab", f"Saved {saved_count} POB records")
-            return True
+            if rejected:
+                self.status_manager.show_error("PersonnelTab", "\n".join(rejected))
+            return not rejected
         except Exception as e:
             logger.error(f"Error saving POB data: {e}")
             self.status_manager.show_error("PersonnelTab", f"Save failed: {e}")
@@ -313,7 +326,7 @@ class PersonnelLogisticsTab(QWidget):
                     item.get("date_out", "")
                 ]
                 for col, value in enumerate(values):
-                    table_item = QTableWidgetItem(str(value))
+                    table_item = QTableWidgetItem("" if value is None else str(value))
                     if col in [3]:
                         table_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
                     self.pob_table.setItem(row, col, table_item)
@@ -337,7 +350,7 @@ class PersonnelLogisticsTab(QWidget):
             datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         ]
         for col, value in enumerate(default_values):
-            self.crew_table.setItem(row, col, QTableWidgetItem(str(value)))
+            self.crew_table.setItem(row, col, QTableWidgetItem("" if value is None else str(value)))
             
     def remove_crew_row(self):
         current_row = self.crew_table.currentRow()
@@ -376,8 +389,8 @@ class PersonnelLogisticsTab(QWidget):
                     "name": name_item.text(),
                     "position": position_item.text() if position_item else "",
                     "company": company_item.text() if company_item else "",
-                    "arrival_date": datetime.strptime(arrival_item.text(), "%Y-%m-%d").date() if arrival_item and arrival_item.text() else None,
-                    "departure_date": datetime.strptime(departure_item.text(), "%Y-%m-%d").date() if departure_item and departure_item.text() else None,
+                    "arrival_date": optional_date(arrival_item.text() if arrival_item else None),
+                    "departure_date": optional_date(departure_item.text() if departure_item else None),
                     "contact_info": contact_item.text() if contact_item else "",
                     "remarks": remarks_item.text() if remarks_item else ""
                 }
@@ -423,7 +436,7 @@ class PersonnelLogisticsTab(QWidget):
                     item.get("created_at", "").strftime("%Y-%m-%d %H:%M:%S") if item.get("created_at") else ""
                 ]
                 for col, value in enumerate(values):
-                    self.crew_table.setItem(row, col, QTableWidgetItem(str(value)))
+                    self.crew_table.setItem(row, col, QTableWidgetItem("" if value is None else str(value)))
             self.status_manager.show_success("PersonnelTab", f"Loaded {len(crew_data)} crew records")
         except Exception as e:
             logger.error(f"Error loading crew data: {e}")
@@ -929,7 +942,7 @@ class FuelWaterTab(QWidget):
         self.bulk_table.insertRow(row)
         default_values = ["", "New Material", "kg", "0.0", "0.0", "0.0", "0.0", ""]
         for col, value in enumerate(default_values):
-            item = QTableWidgetItem(str(value))
+            item = QTableWidgetItem("" if value is None else str(value))
             if col in [3, 4, 5, 6]:
                 item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
             self.bulk_table.setItem(row, col, item)
@@ -1049,7 +1062,7 @@ class FuelWaterTab(QWidget):
                     ""
                 ]
                 for col, value in enumerate(values):
-                    table_item = QTableWidgetItem(str(value))
+                    table_item = QTableWidgetItem("" if value is None else str(value))
                     if col in [3, 4, 5, 6]:
                         table_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
                     self.bulk_table.setItem(row, col, table_item)
@@ -1354,7 +1367,7 @@ class TransportLogTab(QWidget):
                 purpose.text(), status.currentText(), remarks.toPlainText()
             ]
             for col, value in enumerate(values):
-                item = QTableWidgetItem(str(value))
+                item = QTableWidgetItem("" if value is None else str(value))
                 if col in [7, 8, 9]:
                     item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
                 self.transport_table.setItem(row, col, item)

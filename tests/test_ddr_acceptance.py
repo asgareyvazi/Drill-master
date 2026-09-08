@@ -169,7 +169,7 @@ def test_real_ddr_excel_canonical_ir_review_and_atomic_db():
                     "sheet": result.sheet,
                     "source_cell": result.cell,
                     "original_value": source_token.get("original_value", result.original_value),
-                    "normalized_value": None if source_token else result.normalized_value,
+                    "normalized_value": source_token.get("normalized_value", result.normalized_value),
                     "target_field": result.canonical_field,
                     "confidence": result.confidence,
                     "decision": "REVIEW",
@@ -191,7 +191,15 @@ def test_real_ddr_excel_canonical_ir_review_and_atomic_db():
     # exception.  If it exists in source, the extractor must preserve it as a
     # review token/NULL, not invent zero.
     for token in report.source_tokens.values():
-        assert token.get("normalized_value") is None
+        if token.get("status") == "SOURCE_UNIT_PENDING":
+            # Numeric magnitude survives a unit-resolution review. It is not
+            # an invalid numeric token and must not be silently discarded.
+            import math
+            assert math.isfinite(float(token["normalized_value"]))
+            assert token["normalized_value"] == token["original_value"]
+            assert token["review"] is True
+        else:
+            assert token.get("normalized_value") is None
 
 
 @pytest.mark.integration

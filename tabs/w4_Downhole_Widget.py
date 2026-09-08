@@ -343,7 +343,7 @@ class DownholeWidget(DrillTabBase):
             self.equipment_table.setRowCount(0)
 
         # ========== Formation (well-level) ==========
-        form_info = self.db.get_formation_report(self.current_well)
+        form_info = self.db.get_formation_report(self.current_well, report_id=self.current_report_id)
         if form_info:
             formations = form_info.get('formations', [])
             if isinstance(formations, str):
@@ -377,7 +377,7 @@ class DownholeWidget(DrillTabBase):
                         "well_id": self.current_well,
                         "report_id": self.current_report_id,
                         "bha_name": bha_name,
-                        "bha_data_json": bha_data
+                        "bha_data": bha_data
                     }
                     result = self.db.save_bha_report(self.current_well, bha_report_data)
                     if not result:
@@ -450,7 +450,7 @@ class DownholeWidget(DrillTabBase):
                 headers = [self.bha_table.horizontalHeaderItem(c).text()
                           for c in range(self.bha_table.columnCount())]
                 for col, header in enumerate(headers):
-                    val = data.get(header, "")
+                    val = data.get(header, data.get("Description", "") if header == "Component Name" else "")
                     item = QTableWidgetItem(str(val))
                     self.bha_table.setItem(row, col, item)
                 self.show_message(f"{data.get('Tool Type', 'Component')} added to BHA")
@@ -639,7 +639,7 @@ class BHAManager:
 
     def setup_table(self):
         headers = ["Tool Type", "OD (in)", "ID (in)", "Length (m)", "Serial No",
-                   "Weight (kg)", "Connection Type", "Make-up Torque (ft-lb)", "Remarks"]
+                   "Weight (kg)", "Connection Type", "Make-up Torque (ft-lb)", "Remarks", "Component Name", "Cumulative Length (m)"]
         self.table.setColumnCount(len(headers))
         self.table.setHorizontalHeaderLabels(headers)
         widths = [150, 80, 80, 100, 120, 100, 120, 120, 200]
@@ -674,26 +674,27 @@ class BHAManager:
         return total_length, total_weight
 
     def get_all_data(self):
-        return [ { self.table.horizontalHeaderItem(col).text(): (self.table.item(row, col).text() if self.table.item(row, col) else "")
-                  for col in range(self.table.columnCount()) } for row in range(self.table.rowCount()) ]
+        records = []
+        for row in range(self.table.rowCount()):
+            record = {self.table.horizontalHeaderItem(col).text(): (self.table.item(row, col).text() if self.table.item(row, col) else "") for col in range(self.table.columnCount())}
+            item = self.table.item(row, 0)
+            if item and item.data(Qt.UserRole):
+                record["_provenance"] = item.data(Qt.UserRole)
+            records.append(record)
+        return records
 
     def load_data(self, data):
-        """بارگذاری داده‌ها در جدول - نسخه خوانا"""
+        from core.domain_records import bha_record
         self.table.setRowCount(0)
-        if not data:
-            return
-        for row_data in data:
+        for source in data or []:
+            record = bha_record(source)
             row = self.table.rowCount()
             self.table.insertRow(row)
-            if isinstance(row_data, dict):
-                for col, key in enumerate(row_data.keys()):
-                    if col < self.table.columnCount():
-                        self.table.setItem(row, col, QTableWidgetItem(str(row_data[key])))
-            elif isinstance(row_data, (list, tuple)):
-                for col, val in enumerate(row_data):
-                    if col < self.table.columnCount():
-                        self.table.setItem(row, col, QTableWidgetItem(str(val)))
-                        
+            for col in range(self.table.columnCount()):
+                value = record.get(self.table.horizontalHeaderItem(col).text())
+                self.table.setItem(row, col, QTableWidgetItem("" if value is None else str(value)))
+            self.table.item(row, 0).setData(Qt.UserRole, record["_provenance"])
+
     def delete_row(self):
         r = self.table.currentRow()
         if r >= 0: self.table.removeRow(r)
@@ -744,16 +745,25 @@ class DownholeEquipmentManager:
         return due
 
     def get_all_data(self):
-        return [ { self.table.horizontalHeaderItem(col).text(): (self.table.item(row, col).text() if self.table.item(row, col) else "")
-                  for col in range(self.table.columnCount()) } for row in range(self.table.rowCount()) ]
+        records = []
+        for row in range(self.table.rowCount()):
+            record = {self.table.horizontalHeaderItem(col).text(): (self.table.item(row, col).text() if self.table.item(row, col) else "") for col in range(self.table.columnCount())}
+            item = self.table.item(row, 0)
+            if item and item.data(Qt.UserRole):
+                record["_provenance"] = item.data(Qt.UserRole)
+            records.append(record)
+        return records
 
     def load_data(self, data):
         self.table.setRowCount(0)
-        for row_data in data:
+        from core.domain_records import named_record, DOWNHOLE_FIELDS
+        for row_data in data or []:
+            row_data = named_record(row_data, DOWNHOLE_FIELDS)
             row = self.table.rowCount()
             self.table.insertRow(row)
             for col, header in enumerate([self.table.horizontalHeaderItem(c).text() for c in range(self.table.columnCount())]):
-                self.table.setItem(row, col, QTableWidgetItem(str(row_data.get(header, ""))))
+                self.table.setItem(row, col, QTableWidgetItem(str(row_data.get(header) or "")))
+            self.table.item(row, 0).setData(Qt.UserRole, row_data.get("_provenance", {}))
 
     def delete_row(self):
         r = self.table.currentRow()
@@ -780,19 +790,28 @@ class FormationManager:
         row = self.table.rowCount()
         self.table.insertRow(row)
         for col, header in enumerate([self.table.horizontalHeaderItem(c).text() for c in range(self.table.columnCount())]):
-            item = QTableWidgetItem(str(data.get(header, "")))
+            item = QTableWidgetItem("" if data.get(header) is None else str(data[header]))
             if col in [3,4,5,6]: item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
             if col == 7 and data.get("Color", "").startswith("#"):
                 item.setBackground(QColor(data["Color"]))
             self.table.setItem(row, col, item)
+        self.table.item(row, 0).setData(Qt.UserRole, data.get("_provenance", {}))
 
     def get_all_data(self):
-        return [ { self.table.horizontalHeaderItem(col).text(): (self.table.item(row, col).text() if self.table.item(row, col) else "")
-                  for col in range(self.table.columnCount()) } for row in range(self.table.rowCount()) ]
+        records = []
+        for row in range(self.table.rowCount()):
+            record = {self.table.horizontalHeaderItem(col).text(): (self.table.item(row, col).text() if self.table.item(row, col) else "") for col in range(self.table.columnCount())}
+            item = self.table.item(row, 0)
+            if item and item.data(Qt.UserRole):
+                record["_provenance"] = item.data(Qt.UserRole)
+            records.append(record)
+        return records
 
     def load_data(self, data):
         self.table.setRowCount(0)
-        for d in data: self.add_formation_row(d)
+        from core.domain_records import named_record, FORMATION_FIELDS
+        for d in data or []:
+            self.add_formation_row(named_record(d, FORMATION_FIELDS))
 
     def import_from_las(self, filepath):
         try:

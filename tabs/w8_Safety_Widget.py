@@ -23,6 +23,50 @@ from core.standards import bop_test_interval_days
 logger = logging.getLogger(__name__)
 
 
+def _load_nullable_safety_fields(owner, data, mapping):
+    """Keep source NULL distinct from a widget's minimum display value."""
+    from core.domain_records import optional_date
+    owner._missing_safety_fields = set()
+    owner._loaded_report_date = data.get("report_date")
+    for field, attribute in mapping.items():
+        widget = getattr(owner, attribute)
+        blocker = QSignalBlocker(widget)
+        value = data.get(field)
+        missing = value is None
+        if missing:
+            owner._missing_safety_fields.add(field)
+        widget.setSpecialValueText("Not supplied" if missing else "")
+        if isinstance(widget, QDateEdit):
+            parsed = optional_date(value)
+            widget.setDate(QDate(parsed.year, parsed.month, parsed.day) if parsed else widget.minimumDate())
+            signal = widget.dateChanged
+        else:
+            widget.setValue(value if value is not None else widget.minimum())
+            signal = widget.valueChanged
+        del blocker
+        if not getattr(widget, "_nullable_safety_connected", False):
+            def edited(_value, field=field, widget=widget):
+                owner._missing_safety_fields.discard(field)
+                widget.setSpecialValueText("")
+            signal.connect(edited)
+            widget._nullable_safety_connected = True
+
+
+def _preserve_nullable_safety_fields(owner, data):
+    for field in getattr(owner, "_missing_safety_fields", set()):
+        if field in data:
+            data[field] = None
+    if data.get("report_id"):
+        report = owner.db.get_daily_report_by_id(data["report_id"])
+        if not report or not report.get("report_date"):
+            raise ValueError("Safety save requires a valid dated report")
+        data["report_date"] = report["report_date"]
+    else:
+        data["report_date"] = getattr(owner, "_loaded_report_date", None)
+        if not data["report_date"]:
+            raise ValueError("Select a dated report before saving safety data")
+
+
 # ==================== Safety & BOP Tab ====================
 class SafetyBOPTab(QWidget):
     """Safety and BOP Management Tab"""
@@ -306,7 +350,7 @@ class SafetyBOPTab(QWidget):
             report_data = {
                 'well_id': well_id,
                 'report_id': report_id,
-                'report_date': date.today(),
+                'report_date': None,  # resolved from the selected report before save
                 'report_type': 'Daily',
                 'last_fire_drill': self.last_fire_drill.date().toPython(),
                 'last_bop_drill': self.last_bop_drill.date().toPython(),
@@ -318,22 +362,12 @@ class SafetyBOPTab(QWidget):
                 'days_since_last_test': self.days_since_last_test.value(),
                 'bop_stack_json': bop_stack_data
             }
+            _preserve_nullable_safety_fields(self, report_data)
             record_id = self.db.save_safety_report(report_data)
             if record_id:
-                for component_data in bop_stack_data:
-                    comp = {
-                        'well_id': well_id,
-                        'safety_report_id': record_id,
-                        'component_name': component_data.get('Name', ''),
-                        'component_type': component_data.get('Type', ''),
-                        'working_pressure': float(component_data.get('WP (psi)', 0)),
-                        'size': component_data.get('Size (in)', ''),
-                        'ram_type': component_data.get('RAMs', ''),
-                        'last_test_date': QDate.fromString(component_data['Last Test'], "yyyy-MM-dd").toPython() if component_data.get('Last Test') else None,
-                        'next_test_due': QDate.fromString(component_data['Next Due'], "yyyy-MM-dd").toPython() if component_data.get('Next Due') else None,
-                        'remarks': component_data.get('Remarks', '')
-                    }
-                    self.db.save_bop_component(comp)
+                reviews = getattr(self.db, "last_safety_review", [])
+                if reviews:
+                    QMessageBox.warning(self, "Safety review", "\n".join(f"Row {r.get('row')}: {r.get('reason')}" for r in reviews))
                 return True
         except Exception as e:
             logger.error(f"Error saving BOP data: {e}")
@@ -343,32 +377,16 @@ class SafetyBOPTab(QWidget):
         if not self.db:
             return False
         try:
+            self.bop_stack_table.setRowCount(0)
             report_data = self.db.get_safety_report(well_id, report_id=report_id)
             if report_data:
 
-                def safe_set_date(widget, value, default_days_ago=7):
-                    if value is None:
-                        widget.setDate(QDate.currentDate().addDays(-default_days_ago))
-                    elif isinstance(value, date):
-                        widget.setDate(QDate(value.year, value.month, value.day))
-                    elif isinstance(value, QDate):
-                        widget.setDate(value)
-                    else:
-                        try:
-                            from datetime import datetime
-                            dt = datetime.strptime(str(value), "%Y-%m-%d").date()
-                            widget.setDate(QDate(dt.year, dt.month, dt.day))
-                        except:
-                            widget.setDate(QDate.currentDate().addDays(-default_days_ago))
-                            
-                safe_set_date(self.last_fire_drill, report_data.get('last_fire_drill'), 7)
-                safe_set_date(self.last_bop_drill, report_data.get('last_bop_drill'), 14)
-                safe_set_date(self.last_h2s_drill, report_data.get('last_h2s_drill'), 21)
-                self.days_no_lti.setValue(report_data.get('days_without_lti', 0) or 0)
-                safe_set_date(self.last_rams_test, report_data.get('last_rams_test'), 10)
-                self.test_pressure.setValue(report_data.get('test_pressure', 0) or 0)
-                safe_set_date(self.last_koomey_test, report_data.get('last_koomey_test'), 5)
-                self.days_since_last_test.setValue(report_data.get('days_since_last_test', 0) or 0)
+                _load_nullable_safety_fields(self, report_data, {
+                    "last_fire_drill": "last_fire_drill", "last_bop_drill": "last_bop_drill",
+                    "last_h2s_drill": "last_h2s_drill", "days_without_lti": "days_no_lti",
+                    "last_rams_test": "last_rams_test", "test_pressure": "test_pressure",
+                    "last_koomey_test": "last_koomey_test", "days_since_last_test": "days_since_last_test",
+                })
                 if report_data.get('bop_test_report'):
                     value = str(report_data['bop_test_report'])
                     idx = self.bop_test_report.findText(value)
@@ -394,7 +412,7 @@ class SafetyBOPTab(QWidget):
                     self.add_bop_row()
                     row = self.bop_stack_table.rowCount() - 1
                     for col, key in enumerate(['Name', 'Type', 'WP (psi)', 'Size (in)', 'RAMs', 'Last Test', 'Next Due', 'Remarks']):
-                        self.bop_stack_table.setItem(row, col, QTableWidgetItem(str(comp.get(key, ''))))
+                        self.bop_stack_table.setItem(row, col, QTableWidgetItem('' if comp.get(key) is None else str(comp[key])))
                 return True
         except Exception as e:
             logger.error(f"Error loading BOP data: {e}")
@@ -619,7 +637,7 @@ class WasteManagementTab(QWidget):
             report_data = {
                 'well_id': well_id,
                 'report_id': report_id,
-                'report_date': date.today(),
+                'report_date': None,  # resolved from the selected report before save
                 'report_type': 'Daily',
                 'recycled_volume': self.recycled_volume.value(),
                 'waste_ph': self.waste_ph.value(),
@@ -631,23 +649,12 @@ class WasteManagementTab(QWidget):
                 'disposal_method': self.disposal_method.currentText(),
                 'waste_history_json': waste_history
             }
+            _preserve_nullable_safety_fields(self, report_data)
             record_id = self.db.save_safety_report(report_data)
             if record_id:
-                for waste in waste_history:
-                    try:
-                        vol = float(waste.get('Volume (BBL)', '0'))
-                        ph = float(waste.get('pH', '7.0'))
-                    except: vol, ph = 0, 7.0
-                    self.db.save_waste_record({
-                        'well_id': well_id,
-                        'safety_report_id': record_id,
-                        'record_date': date.today(),
-                        'waste_type': waste.get('Type', ''),
-                        'volume': vol,
-                        'ph': ph,
-                        'disposal_method': waste.get('Disposal Method', ''),
-                        'remarks': waste.get('Remarks', '')
-                    })
+                reviews = getattr(self.db, "last_safety_review", [])
+                if reviews:
+                    QMessageBox.warning(self, "Safety review", "\n".join(f"Row {r.get('row')}: {r.get('reason')}" for r in reviews))
                 return True
         except Exception as e:
             logger.error(f"Error saving waste data: {e}")
@@ -657,17 +664,19 @@ class WasteManagementTab(QWidget):
         if not self.db:
             return False
         try:
+            self.waste_table.setRowCount(0)
             report_data = self.db.get_safety_report(well_id, report_id=report_id)
             if report_data:
-                self.recycled_volume.setValue(report_data.get('recycled_volume', 0))
-                self.waste_ph.setValue(report_data.get('waste_ph', 7.0))
-                self.turbidity.setText(report_data.get('turbidity', ''))
-                self.hardness.setText(report_data.get('hardness', ''))
-                self.cutting_volume.setValue(report_data.get('cutting_volume', 0))
-                self.oil_content.setValue(report_data.get('oil_content', 0))
+                _load_nullable_safety_fields(self, report_data, {
+                    "recycled_volume": "recycled_volume", "waste_ph": "waste_ph",
+                    "cutting_volume": "cutting_volume", "oil_content": "oil_content",
+                })
+                self.turbidity.setText(str(report_data.get('turbidity') or ''))
+                self.hardness.setText(str(report_data.get('hardness') or ''))
                 for combo, key in ((self.waste_type, 'waste_type'), (self.disposal_method, 'disposal_method')):
                     value = str(report_data.get(key, '') or '')
                     if not value:
+                        combo.setCurrentIndex(-1)
                         continue
                     idx = combo.findText(value)
                     if idx >= 0:
@@ -684,7 +693,7 @@ class WasteManagementTab(QWidget):
                     # اصلاح این بخش:
                     for col in range(self.waste_table.columnCount()):
                         key = self.waste_table.horizontalHeaderItem(col).text()
-                        self.waste_table.setItem(row, col, QTableWidgetItem(str(w.get(key, ''))))
+                        self.waste_table.setItem(row, col, QTableWidgetItem('' if w.get(key) is None else str(w[key])))
                     # end for
                 return True
         except Exception as e:

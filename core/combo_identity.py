@@ -326,3 +326,25 @@ def resolve_activity_pair(main: Any, sub: Any, *, catalog: ComboCatalog = DEFAUL
     main_result = catalog.resolve_main(main, field=f"{field_prefix}.main_code")
     sub_result = catalog.resolve_sub(sub, main_result.identity or main, field=f"{field_prefix}.sub_code")
     return main_result, sub_result
+
+
+def resolve_options(value: Any, options: Iterable[ComboOption], *, field: str) -> ComboResolution:
+    """Resolve a non-ordinal domain catalogue. Numeric input is a code, not an index."""
+    options = tuple(options)
+    text = str(value).strip() if value is not None else ""
+    if text:
+        stages = (
+            ("identity", lambda o: text == o.identity),
+            ("label", lambda o: text == o.label),
+            ("code", lambda o: text == o.code),
+            ("normalized_label", lambda o: normalize_label(text) == normalize_label(o.label)),
+            ("alias", lambda o: normalize_label(text) in {normalize_label(a) for a in o.aliases}),
+        )
+        for method, match in stages:
+            matches = {o.identity: o for o in options if match(o)}
+            if len(matches) == 1:
+                o = next(iter(matches.values()))
+                return ComboResolution(field, value, o.identity, o.label, o.code, "ACCEPT", method, "Resolved to catalogue identity")
+            if matches:
+                return ComboResolution(field, value, None, None, None, "REVIEW_REQUIRED", "ambiguous", "Multiple catalogue identities match", tuple(matches))
+    return ComboResolution(field, value, None, None, None, "REVIEW_REQUIRED", "unresolved", "No authoritative identity; no default selected")

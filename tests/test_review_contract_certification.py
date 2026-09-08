@@ -101,10 +101,10 @@ def test_real_workbook_golden_shape_and_semantic_validation():
     # an explanation and a new audit artifact.
     assert report.tables_detected == 17
     assert report.total_rows_extracted == 147
-    assert report.rejected_rows == 14
+    assert report.rejected_rows == 10  # each rejected source row counted once, not twice
     # ``ImportReport.validation_errors`` counts source-level review states;
     # canonical validation must still have no typed/bounds errors.
-    assert report.validation_errors == 9
+    assert report.validation_errors == 10  # combined Oil/Water is now explicitly ambiguous
     assert report.fields_detected == 141
 
     validation = validate_canonical_payload(report.canonical_json)
@@ -114,7 +114,7 @@ def test_real_workbook_golden_shape_and_semantic_validation():
 def test_real_workbook_review_items_have_complete_lineage_and_keep_ambiguity():
     report = _report()
     rows = _review_rows(report)
-    assert len(rows) == 29
+    assert len(rows) == 30  # retained compound-composition review, not guessed oil %
     assert rows
     for item in rows:
         assert item.file

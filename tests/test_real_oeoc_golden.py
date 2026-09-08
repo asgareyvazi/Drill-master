@@ -198,7 +198,11 @@ class TestDatabasePath:
         assert safety is not None
         assert safety["days_without_lti"] == 468
         assert safety["last_fire_drill"] is None
-        assert "1403-07-30" in (safety.get("safety_observations") or "")
+        assert "1403-07-30" not in (safety.get("safety_observations") or "")
+        from core.database import AuditLog
+        with db.session_scope() as session:
+            metadata = session.query(AuditLog).filter_by(action="import_source_metadata", entity_type="safety").all()
+            assert any("1403-07-30" in row.details for row in metadata)
 
         # POB (UI tab w7 consumes get_service_company_pob)
         pobs = db.get_service_company_pob(well_id, report_id=report_id)
@@ -585,7 +589,7 @@ class TestMudExtrasImport:
         try:
             row = session.query(MudReport).filter_by(report_id=report_id).first()
             assert row.calcium == 320
-            assert row.kcl == 12
+            assert row.kcl is None  # KCL concentration blank; 12 is inventory stock, not %
             assert row.total_hardness == 400
         finally:
             session.close()
@@ -620,8 +624,9 @@ class TestMudExtrasImport:
             assert pits["suction1_vol"] == 270
             assert pits["degasser_mw"] == 71
             assert pits["reserve3_mw"] == 62
-            # N.C source token preserved as provenance, never 0
-            assert "fl (original): N.C" in (row.summary or "")
+            # Source stays canonical/audit metadata, not the user's summary.
+            assert canonical["mud_report"]["fl_source"] == "N.C"
+            assert "original" not in (row.summary or "")
         finally:
             session.close()
 
@@ -676,7 +681,7 @@ class TestRowTablesPersistence:
             row = session.query(BHAReport).filter_by(report_id=report_id).first()
             assert row is not None
             assert len(row.bha_data_json or []) == 9
-            assert row.bha_data_json[0]["component_name"] == '17-1/2" MT Bit'
+            assert row.bha_data_json[0]["Component Name"] == '17-1/2" MT Bit'
         finally:
             session.close()
 
@@ -690,9 +695,9 @@ class TestRowTablesPersistence:
         try:
             de = session.query(DownholeEquipment).filter_by(report_id=report_id).first()
             assert len(de.equipment_data_json or []) == 3
-            assert de.equipment_data_json[0]["equipment_name"] == '9-1/2" Bit Sub'
+            assert de.equipment_data_json[0]["Equipment Name"] == '9-1/2" Bit Sub'
             fr = session.query(FormationReport).filter_by(report_id=report_id).first()
-            assert fr.formations_json[0]["name"] == "Aghajari"
+            assert fr.formations_json[0]["Formation Name"] == "Aghajari"
             cs = session.query(CasingReport).filter_by(report_id=report_id).first()
             casing = _json.loads(cs.casing_json)
             assert casing[0]["size"] == 20
@@ -883,8 +888,8 @@ class TestSaveSurveyPointsNulls:
         """Regression: save_survey_points defined its float helper inside
         the update branch, so the INSERT branch raised NameError, and
         derived columns were coerced to 0.0. Insert path must work and
-        NULLs must persist for tvd/north/east/vs/hd/dls (inc/azi are
-        NOT NULL -> 0)."""
+        NULLs must persist for missing input and derived fields; angles
+        must never be replaced by zero."""
         from core.database import SurveyPoint
         well_id, section_id, report_id = _seed_well_report(db)
         ok = db.save_survey_points([
@@ -910,8 +915,8 @@ class TestSaveSurveyPointsNulls:
                 report_id=report_id, md=50.0
             ).first()
             assert row is not None
-            assert row.inc == 0      # NOT NULL column fallback
-            assert row.azi == 0
+            assert row.inc is None  # shared manual/import contract never invents an angle
+            assert row.azi is None
             assert row.tvd is None
             assert row.north is None
             assert row.east is None
@@ -939,6 +944,7 @@ class TestSaveSurveyPointsNulls:
             rows = session.query(SurveyPoint).filter_by(report_id=report_id).all()
             assert len(rows) == 1
             assert rows[0].inc == 2.0
-            assert rows[0].tvd is None
+            import math
+            assert rows[0].tvd == pytest.approx(108 * math.cos(math.radians(2)))
         finally:
             session.close()

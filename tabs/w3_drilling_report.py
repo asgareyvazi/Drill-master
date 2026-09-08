@@ -1014,6 +1014,9 @@ class MudReportTab(QWidget):
         self.current_data = {}
         self.init_ui()
         self.setup_connections()
+        self._composition_missing = set()
+        for key in ("solid_percent", "oil_percent", "water_percent"):
+            getattr(self, key).valueChanged.connect(lambda _value, field=key: self._composition_missing.discard(field))
         logger.info("MudReportTab initialized")
 
     def init_ui(self):
@@ -1313,10 +1316,12 @@ class MudReportTab(QWidget):
         self.chemicals_table.setCellWidget(row, 0, product_edit)
 
         type_combo = QComboBox()
-        type_combo.addItems([
-            "Viscosifier", "Weight Material", "Alkalinity",
-            "Filtration Control", "Lubricant", "Shale Inhibitor"
-        ])
+        from core.domain_records import CHEMICAL_TYPES, chemical_type
+        for identity in CHEMICAL_TYPES:
+            type_combo.addItem(identity, identity)
+        type_combo.setCurrentIndex(-1)
+        resolution = chemical_type(product, product_type)
+        product_type = resolution.identity or ""
         if product_type in [type_combo.itemText(i)
                              for i in range(type_combo.count())]:
             type_combo.setCurrentText(product_type)
@@ -1350,6 +1355,7 @@ class MudReportTab(QWidget):
 
         unit_combo = QComboBox()
         unit_combo.addItems(["kg", "lb", "bbl", "gal", "l", "m³"])
+        unit_combo.setCurrentIndex(-1)
         if unit in [unit_combo.itemText(i) for i in range(unit_combo.count())]:
             unit_combo.setCurrentText(unit)
         elif unit:
@@ -1383,9 +1389,12 @@ class MudReportTab(QWidget):
     
     # ============ Update helper methods (for live calculations) ============
     def check_percentages_total(self):
-        total = self.solid_percent.value() + self.oil_percent.value() + self.water_percent.value()
-        if abs(total - 100) > 0.1:
-            logger.warning(f"Solids+Oil+Water = {total:.1f}%, expected 100%")
+        from core.validators import MudValidator
+        if getattr(self, "_composition_missing", set()):
+            return  # incomplete composition is reported once on save, not while loading
+        result = MudValidator.validate({key: getattr(self, key).value() for key in ("solid_percent", "oil_percent", "water_percent")})
+        for issue in result.warnings:
+            logger.warning(str(issue))
 
     def update_mud_volumes(self):
         from core.engineering.engines.mud_volume import MudVolumeEngine
@@ -1487,16 +1496,18 @@ class MudReportTab(QWidget):
             "summary": self.mud_summary.toPlainText(),
             "chemicals_json": json.dumps(chemicals),
         }
+        for key in getattr(self, "_composition_missing", set()):
+            mud_data[key] = None
         # Pit readings are import-only; preserve whatever was loaded.
         if getattr(self, "_pit_volumes_json", None):
             mud_data["pit_volumes_json"] = self._pit_volumes_json
         from core.validators import MudValidator
         validation = MudValidator.validate(mud_data)
         if not validation.is_valid:
-            self.show_error(validation.summary())
+            QMessageBox.critical(self, "Mud validation", validation.summary())
             return False
         if validation.warnings:
-            self.show_warning(validation.summary())
+            QMessageBox.warning(self, "Mud validation", validation.summary())
         result = self.db_manager.save_mud_report(mud_data)
         return result is not None
 
@@ -1517,6 +1528,14 @@ class MudReportTab(QWidget):
                 "stock": stock_widget.value() if stock_widget else 0,
                 "unit": unit_widget.currentText() if unit_widget else "kg",
             })
+        sources = getattr(self, "_chemical_sources", [])
+        for row, chemical in enumerate(chemicals):
+            if row < len(sources) and chemical["product"] == sources[row].get("product"):
+                source = sources[row]
+                chemical["_provenance"] = source.get("_provenance", {})
+                for key in ("received", "used", "stock"):
+                    if source.get(key) is None and chemical[key] == 0:
+                        chemical[key] = None
         return chemicals
 
     def save_data(self):
@@ -1568,9 +1587,14 @@ class MudReportTab(QWidget):
         self.cake_thickness.setValue(safe_val("cake_thickness"))
         self.ph.setValue(safe_val("ph", 9.5))
         self.temperature.setValue(safe_val("temperature", 25.0))
-        self.solid_percent.setValue(safe_val("solid_percent"))
-        self.oil_percent.setValue(safe_val("oil_percent"))
-        self.water_percent.setValue(safe_val("water_percent"))
+        self._composition_missing = {key for key in ("solid_percent", "oil_percent", "water_percent") if data.get(key) is None}
+        for key in ("solid_percent", "oil_percent", "water_percent"):
+            widget = getattr(self, key)
+            blocker = QSignalBlocker(widget)
+            widget.setValue(safe_val(key))
+            widget.setToolTip("Not supplied in source" if key in self._composition_missing else "")
+            del blocker
+        self.check_percentages_total()
         self.chloride.setValue(safe_val("chloride"))
         self.calcium.setValue(safe_val("calcium"))
         self.kcl.setValue(safe_val("kcl"))
@@ -1597,10 +1621,12 @@ class MudReportTab(QWidget):
             self.pit_readings.clear()
 
         chemicals_json = data.get("chemicals_json")
+        self.chemicals_table.setRowCount(0)
+        self._chemical_sources = []
         if chemicals_json:
-            self.chemicals_table.setRowCount(0)
             try:
                 chemicals = json.loads(chemicals_json) if isinstance(chemicals_json, str) else chemicals_json
+                self._chemical_sources = chemicals
                 for c in chemicals:
                     self.add_chemical_row(
                         c.get("product", ""),

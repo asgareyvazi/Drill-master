@@ -278,7 +278,14 @@ FIELD_SPECS: Dict[str, FieldSpec] = {
         _F("survey.tool", "text", "", False, ["tool"]),
 
         # ---------------- BHA ----------------
-        _F("bha.component_name", "text", "", False, ["item", "component name"]),
+        _F("bha.component_name", "text", "", False, ["item", "component name", "component", "description"]),
+        _F("bha.tool_type", "text", "", False, ["tool type"]),
+        _F("bha.id", "length", "in", False, ["id", "i.d.", "inner diameter"]),
+        _F("bha.weight", "number", "kg", False, ["weight", "weight (kg)"]),
+        _F("bha.serial", "text", "", False, ["serial", "serial no", "serial number"]),
+        _F("bha.connection_type", "text", "", False, ["connection", "connection type"]),
+        _F("bha.make_up_torque", "torque", "ft-lb", False, ["make-up torque", "mu torque"]),
+        _F("bha.remarks", "text", "", False, ["remarks", "bha remarks"]),
         _F("bha.od", "length", "in", False, ["od (in)", "od"]),
         _F("bha.length", "length", "m", False, ["length (m)", "length"]),
         _F("bha.cum_length", "length", "m", False, ["cum. len", "cum length"]),

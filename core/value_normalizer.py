@@ -30,7 +30,7 @@ _UNIT_SUFFIXES = frozenset({
     "ppg", "sg", "pcf", "lb/ft3", "kg/m3", "kg/m^3", "psi", "bar", "kpa", "mpa", "kpsi",
     "klb", "klbf", "lbf", "n", "kn", "rpm", "gpm", "lpm", "l/min", "m3/hr", "m3/h",
     "bbl/hr", "bbl/min", "spm", "bbl", "m3", "gal", "cc", "cp", "cps", "sec", "s",
-    "hr", "hrs", "h", "min", "day", "days", "deg", "rad", "sqm", "m2", "m²",
+    "hr", "hrs", "h", "min", "day", "days", "deg", "°", "rad", "sqm", "m2", "m²",
     "in2", "in²", "ftlb", "ft-lb", "n-m", "nm", "kn-m", "klbf-ft", "%", "c", "f", "°c", "°f",
 })
 
