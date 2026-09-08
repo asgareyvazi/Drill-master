@@ -65,6 +65,36 @@ def test_formula_and_cached_views_preserve_date_and_provenance():
         formula_ir_workbook.close()
 
 
+def test_repository_workbook_contains_meaningful_semantic_evidence():
+    """The repository's real DDR must reach canonical business data, not metadata only."""
+    template = json.loads(TEMPLATE.read_text(encoding="utf-8"))
+    formula_workbook = load_workbook(FIXTURE, data_only=False, read_only=False)
+    cached_workbook = load_workbook(FIXTURE, data_only=True, read_only=False)
+    try:
+        report = ExcelIntelligence(
+            formula_workbook,
+            template,
+            source_file=str(FIXTURE.resolve()),
+            cached_workbook=cached_workbook,
+        ).extract()
+    finally:
+        formula_workbook.close()
+        cached_workbook.close()
+
+    well_info = report.canonical_json.get("well_info", {})
+    daily_report = report.canonical_json.get("daily_report", {})
+    time_logs = report.canonical_json.get("time_logs_24h", [])
+    surveys = report.canonical_json.get("surveys", [])
+
+    # These are semantic report values from the actual workbook, rather than
+    # metadata such as page/table counts or provenance dictionaries.
+    assert well_info.get("name") == "AZNS-207"
+    assert daily_report.get("report_date") == "2024-10-22"
+    assert daily_report.get("depth_2400") == 225.0
+    assert time_logs and any(row.get("activity_description") for row in time_logs)
+    assert surveys and surveys[0].get("md") == 50.0
+
+
 def test_invalid_formula_duplicate_cannot_erase_valid_date_components():
     template = json.loads(TEMPLATE.read_text(encoding="utf-8"))
     workbook = load_workbook(FIXTURE, data_only=False, read_only=False)

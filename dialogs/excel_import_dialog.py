@@ -767,11 +767,13 @@ class ExcelImportDialog(QDialog):
             dialog = None
             parse_result = None
             error_status = ImportStatus.PERSISTENCE_ERROR.value
+            pipeline_stage = "route"
             try:
                 route = route_file(source, template_matcher=self._auto_match_template)
                 parse_result = mineru_results.get(self._result_key(source))
                 path = source
                 extracted = None
+                pipeline_stage = "open"
 
                 if route.engine == "mineru" and parse_result and parse_result.success:
                     self.import_status.setText(
@@ -835,8 +837,10 @@ class ExcelImportDialog(QDialog):
                 if extracted is None and route.engine == "excel_intelligence":
                     from openpyxl import load_workbook
                     from core.excel_intelligence import ExcelIntelligence
+                    pipeline_stage = "open"
                     workbook = load_workbook(path, data_only=False, read_only=False)
                     cached_workbook = load_workbook(path, data_only=True, read_only=False)
+                    pipeline_stage = "mapping"
                     try:
                         template = self._auto_match_template([ws.title for ws in workbook.worksheets])
                         excel_engine = ExcelIntelligence(
@@ -912,6 +916,7 @@ class ExcelImportDialog(QDialog):
 
                 # Existing quality and time-log validation remains the source
                 # of truth for the database import boundary.
+                pipeline_stage = "validation"
                 report_data = extracted.get("daily_report", {})
                 quality = ImportValidator.validate_rows([report_data], "daily_report", "Daily Report")
                 time_logs = extracted.get("time_logs_24h", []) or []
@@ -960,8 +965,10 @@ class ExcelImportDialog(QDialog):
 
                 if not has_meaningful_canonical_data(extracted):
                     error_status = ImportStatus.VALIDATION_ERROR.value
+                    pipeline_stage = "meaningful_data"
                     raise ValueError("No meaningful canonical report data was detected")
 
+                pipeline_stage = "ui_preview"
                 self.import_status.setText(
                     f"Preview for {os.path.basename(source)} - Waiting for user confirmation..."
                 )
@@ -986,6 +993,7 @@ class ExcelImportDialog(QDialog):
                 preview.apply_review_changes(extracted)
                 # Decisions and edits are now part of the audit payload and
                 # the exact canonical object sent to the atomic save boundary.
+                pipeline_stage = "persistence"
                 self.import_status.setText(f"Importing {os.path.basename(source)} - Atomic transaction...")
                 result = self._do_import(extracted, refresh_ui=False)
                 result["file"] = source
@@ -1006,15 +1014,33 @@ class ExcelImportDialog(QDialog):
                     dialog.deleteLater()
 
             except Exception as exc:
-                logger.error("Universal import failed for %s: %s", source, exc, exc_info=True)
+                logger.error("Universal import failed for %s at %s: %s", source, pipeline_stage, exc, exc_info=True)
+                # A source/open/mapping/validation failure is not a database
+                # failure.  Preserve the four public statuses, but identify
+                # the first failed stage explicitly so an empty workbook,
+                # corrupt ZIP, mapping error, preview/UI error, and DB error
+                # cannot collapse into one generic "routing" diagnostic.
+                diagnostic_stage = {
+                    "route": "import.routing",
+                    "open": "import.open",
+                    "mapping": "import.mapping",
+                    "validation": "import.validation",
+                    "meaningful_data": "validation.meaningful_data",
+                    "ui_preview": "ui.preview",
+                    "persistence": "import.persistence",
+                }.get(pipeline_stage, "import.unknown")
+                if pipeline_stage != "persistence" and pipeline_stage != "ui_preview":
+                    error_status = ImportStatus.VALIDATION_ERROR.value
+                diagnostic_status = error_status
                 err_result = {
                     "file": source,
                     "failed": 1,
                     "imported": 0,
-                    "status": error_status,
+                    "status": diagnostic_status,
                     "diagnostics": [PersistenceIssue.from_exception(
-                        exc, stage="import.routing", entity="source_document", operation="route/normalize",
-                        status=error_status,
+                        exc, stage=diagnostic_stage, entity="source_document",
+                        operation=("open_workbook" if pipeline_stage == "open" else pipeline_stage),
+                        status=diagnostic_status,
                     ).to_dict()],
                     "details": [f"❌ {os.path.basename(source)}: {exc}"],
                     "error": str(exc),
