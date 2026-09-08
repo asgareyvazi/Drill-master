@@ -179,16 +179,13 @@ class SevenDaysLookaheadTab(QWidget):
         if not self.db or not self.current_report_id:
             return
         plans = self.db.get_seven_days_lookahead(report_id=self.current_report_id)
-        for i in range(self.lookahead_table.rowCount()):
-            for j in range(2, 6):
-                self.lookahead_table.setItem(i, j, QTableWidgetItem(""))
-        for plan in plans:
-            day_num = plan.get("day_number", 1) - 1
-            if 0 <= day_num < self.lookahead_table.rowCount():
-                self.lookahead_table.setItem(day_num, 2, QTableWidgetItem(plan.get("activity", "")))
-                self.lookahead_table.setItem(day_num, 3, QTableWidgetItem(plan.get("tools", "")))
-                self.lookahead_table.setItem(day_num, 4, QTableWidgetItem(plan.get("responsible", "")))
-                self.lookahead_table.setItem(day_num, 5, QTableWidgetItem(plan.get("remarks", "")))
+        self.lookahead_table.setRowCount(len(plans))
+        for index, plan in enumerate(plans):
+            values = [plan.get("day_number"), plan.get("plan_date"), plan.get("activity"),
+                      plan.get("tools"), plan.get("responsible"), plan.get("remarks")]
+            for column, value in enumerate(values):
+                self.lookahead_table.setItem(index, column, QTableWidgetItem("" if value is None else str(value)))
+            self.lookahead_table.item(index, 0).setData(Qt.UserRole, plan)
         self.status_label.setText(f"Loaded {len(plans)} plan items")
 
     def fill_week_plan(self):
@@ -226,62 +223,31 @@ class SevenDaysLookaheadTab(QWidget):
         export_manager.export_table_with_dialog(self.lookahead_table, f"lookahead_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
 
     def save_plan(self):
-        if not self.db or not self.current_report_id:
-            self.status_label.setText("No report selected")
-            return
-        
-        if not self.current_well_id:
-            self.status_label.setText("No well selected")
-            return
-        
-        plans = []
-        today = QDate.currentDate()
-        
-        for i in range(self.lookahead_table.rowCount()):
-            # دریافت آیتم‌ها با بررسی None
-            activity_item = self.lookahead_table.item(i, 2)
-            tools_item = self.lookahead_table.item(i, 3)
-            responsible_item = self.lookahead_table.item(i, 4)
-            remarks_item = self.lookahead_table.item(i, 5)
-            
-            plan_data = {
-                "well_id": self.current_well_id,
-                "section_id": self.current_section_id,
-                "report_id": self.current_report_id,
-                "plan_date": today.addDays(i).toPython(),  # تبدیل به Python date
-                "day_number": i + 1,
-                "activity": activity_item.text() if activity_item else "",
-                "tools": tools_item.text() if tools_item else "",
-                "responsible": responsible_item.text() if responsible_item else "",
-                "remarks": remarks_item.text() if remarks_item else "",
-                "status": "Planned",
-                "priority": "Normal",
-                "progress_percentage": 0,
-                "created_by": None
-            }
-            plans.append(plan_data)
-        
-        saved = 0
-        errors = []
-        
-        for plan in plans:
-            try:
-                if self.db.save_seven_days_lookahead(plan):
-                    saved += 1
-                else:
-                    errors.append(f"Day {plan['day_number']}: {plan['activity']}")
-            except Exception as e:
-                errors.append(f"Day {plan['day_number']}: {str(e)}")
-        
-        if saved > 0:
-            self.status_label.setText(f"Saved {saved} of {len(plans)} items")
-            self.status_manager.show_success("SevenDaysLookaheadTab", f"Saved {saved} plan items")
-            if errors:
-                self.status_manager.show_warning("SevenDaysLookaheadTab", f"Failed to save {len(errors)} items")
-        else:
-            self.status_label.setText("Failed to save plan items")
-            self.status_manager.show_error("SevenDaysLookaheadTab", "No items were saved")
-            
+        from core.save_outcome import save_all
+        def persist():
+            if not self.db or not self.current_report_id or not self.current_well_id:
+                raise ValueError("Select a well and report before saving the plan")
+            plans = []
+            for index in range(self.lookahead_table.rowCount()):
+                first = self.lookahead_table.item(index, 0)
+                original = first.data(Qt.UserRole) if first else None
+                plan = dict(original) if isinstance(original, dict) else {}
+                for column, field in enumerate(("day_number", "plan_date", "activity", "tools", "responsible", "remarks")):
+                    item = self.lookahead_table.item(index, column)
+                    plan[field] = item.text().strip() if item else None
+                if not any(plan.get(key) for key in ("activity", "tools", "responsible", "remarks")) and not plan.get("id"):
+                    continue
+                plan["day_number"] = plan.get("day_number") or None
+                plans.append(plan)
+            return self.db.save_lookahead_records(self.current_well_id, self.current_report_id, plans)
+        self.last_save_outcome = save_all([("Lookahead", persist)])
+        self.status_label.setText(self.last_save_outcome.summary())
+        notifier = self.status_manager.show_success if self.last_save_outcome else self.status_manager.show_error
+        notifier("SevenDaysLookaheadTab", self.last_save_outcome.summary())
+        if self.last_save_outcome:
+            self.load_lookahead_plan()
+        return bool(self.last_save_outcome)
+
 @make_scrollable
 class NPTReportTab(QWidget):
     def __init__(self, db_manager=None, parent_widget=None):
@@ -2757,11 +2723,10 @@ class PlanningWidget(DrillTabBase):
             self.status_bar.showMessage(f"Data refreshed at {datetime.now().strftime('%H:%M:%S')}", 3000)
 
     def save_data(self):
-        if hasattr(self.lookahead_tab, 'save_plan'):
-            self.lookahead_tab.save_plan()
-            self.show_success("Lookahead plan saved")
-            return True
-        return False
+        from core.save_outcome import save_all
+        self.last_save_outcome = save_all([("Lookahead", self.lookahead_tab.save_plan)])
+        (self.show_success if self.last_save_outcome else self.show_error)(self.last_save_outcome.summary())
+        return bool(self.last_save_outcome)
 
     def refresh(self):
         self.show_progress("Refreshing data...")

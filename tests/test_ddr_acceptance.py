@@ -161,7 +161,7 @@ def test_real_ddr_excel_canonical_ir_review_and_atomic_db():
 
     review_rows = []
     for result in report.field_results:
-        if result.status != "OK" or result.certainty == "LOW" or result.canonical_field in report.source_tokens:
+        if result.status != "OK" or result.certainty == "LOW" or report.source_tokens.get(result.canonical_field, {}).get("review", False):
             source_token = report.source_tokens.get(result.canonical_field, {})
             review_rows.append(
                 {
@@ -198,6 +198,10 @@ def test_real_ddr_excel_canonical_ir_review_and_atomic_db():
             assert math.isfinite(float(token["normalized_value"]))
             assert token["normalized_value"] == token["original_value"]
             assert token["review"] is True
+        elif token.get("status") == "SOURCE_UNIT_RESOLVED":
+            assert token["source_unit"] in {"pcf", "sg", "ppg"}
+            assert token["normalized_value"] == token["original_value"]
+            assert token["review"] is False
         else:
             assert token.get("normalized_value") is None
 

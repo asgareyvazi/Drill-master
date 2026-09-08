@@ -1,3 +1,5 @@
+> **Historical baseline report.** The current lifecycle follow-up, test counts, review reconciliation and decision are in [FOLLOWUP_REPORT.md](FOLLOWUP_REPORT.md). Original evidence below is preserved for comparison.
+
 # DDR forensic remediation and certification report
 
 **Date:** 2026-09-08 · **Decision: NOT PRODUCTION CERTIFIED**

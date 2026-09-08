@@ -48,6 +48,13 @@ FORMATION_FIELDS = {
 
 
 def is_metadata_value(value):
+    if isinstance(value, str) and value.lstrip().startswith(("{", "[")):
+        import ast
+        try:
+            if isinstance(ast.literal_eval(value), (dict, list)):
+                return True
+        except (ValueError, SyntaxError):
+            pass
     return isinstance(value, (dict, list, tuple, set)) or (
         isinstance(value, str) and bool(re.match(r"^(?:[A-Za-z]:[\\/]|/|file://|\\\\)", value))
     )
@@ -116,10 +123,12 @@ def optional_date(value):
 def collection_value(value, field):
     """Legacy nullable JSON collection contract: empty list or explicit error."""
     import json
-    if value is None:
+    if value is None or (isinstance(value, str) and not value.strip()):
         return []
     if isinstance(value, str):
         value = json.loads(value)
+    if value is None:  # JSON null has the same semantics as SQL NULL
+        return []
     if not isinstance(value, list) or not all(isinstance(row, dict) for row in value):
         raise ValueError(f"{field} must contain a list of records")
     return value
@@ -203,3 +212,28 @@ def isolate_import_rows(extracted):
         if collection in data:
             data[collection] = accepted
     return data, issues
+
+
+def bha_records(rows):
+    """Normalize a complete named BHA and recompute cumulative lengths.
+
+    Unknown length makes subsequent cumulative totals unknown, not zero.
+    """
+    result, cumulative, changed = [], 0.0, False
+    for row in collection_value(rows, "bha_data"):
+        record = bha_record(row)
+        length = record["Length (m)"]
+        if length is not None and length < 0:
+            raise ValueError("BHA length must be non-negative")
+        original = record["_provenance"].get("source_record", {})
+        original_length = original.get("Length (m)", original.get("length"))
+        if original_length is not None and ValueNormalizer.to_float(original_length) != length:
+            changed = True
+        cumulative = cumulative + length if cumulative is not None and length is not None else None
+        if not changed and record["Cumulative Length (m)"] is not None:
+            # A source may supply a cumulative anchor for a partial assembly.
+            # Preserve it on an untouched round trip, rather than assume zero.
+            cumulative = record["Cumulative Length (m)"]
+        record["Cumulative Length (m)"] = cumulative
+        result.append(record)
+    return result

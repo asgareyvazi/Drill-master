@@ -2649,43 +2649,29 @@ class MainWindow(QMainWindow):
     # ==================== Save/Load ====================
 
     def save_current_tab(self):
-        current_tab = self.tab_widget.currentWidget()
-        if hasattr(current_tab, 'save_data'):
-            try:
-                if current_tab.save_data():
-                    tab_name = self.tab_widget.tabText(
-                        self.tab_widget.currentIndex()
-                    )
-                    self.status_manager.show_success(
-                        "MainWindow", f"Saved: {tab_name}"
-                    )
-                    self._invalidate_hierarchy_cache()
-                else:
-                    self.status_manager.show_error(
-                        "MainWindow", "Save failed"
-                    )
-            except Exception as e:
-                self.status_manager.show_error("MainWindow", str(e))
-        else:
-            self.status_manager.show_message(
-                "MainWindow", "Nothing to save", 2000
-            )
+        from core.save_outcome import save_all
+        tab = self.tab_widget.currentWidget()
+        if not hasattr(tab, "save_data"):
+            self.status_manager.show_message("MainWindow", "No save operation for this view", 2000)
+            return False
+        name = self.tab_widget.tabText(self.tab_widget.currentIndex())
+        self.last_save_outcome = save_all([(name, tab.save_data)])
+        notifier = self.status_manager.show_success if self.last_save_outcome else self.status_manager.show_error
+        notifier("MainWindow", self.last_save_outcome.summary())
+        if self.last_save_outcome:
+            self._invalidate_hierarchy_cache()
+        return bool(self.last_save_outcome)
+
     def save_all_tabs(self):
-        saved = 0
-        for i in range(self.tab_widget.count()):
-            tab = self.tab_widget.widget(i)
-            if hasattr(tab, 'save_data'):
-                try:
-                    if tab.save_data():
-                        saved += 1
-                except Exception as e:
-                    logger.error(
-                        f"Error saving {self.tab_widget.tabText(i)}: {e}"
-                    )
-        self.status_manager.show_success(
-            "MainWindow", f"Saved {saved} tabs"
-        )
-        return saved
+        from core.save_outcome import save_all
+        steps = [(self.tab_widget.tabText(i), self.tab_widget.widget(i).save_data)
+                 for i in range(self.tab_widget.count()) if hasattr(self.tab_widget.widget(i), "save_data")]
+        self.last_save_outcome = save_all(steps)
+        notifier = self.status_manager.show_success if self.last_save_outcome else self.status_manager.show_error
+        notifier("MainWindow", self.last_save_outcome.summary())
+        if self.last_save_outcome.saved:
+            self._invalidate_hierarchy_cache()
+        return bool(self.last_save_outcome)
 
     def auto_save(self):
         current_tab = self.tab_widget.currentWidget()

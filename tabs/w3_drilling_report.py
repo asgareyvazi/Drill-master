@@ -212,33 +212,14 @@ class DrillingReportWidget(DrillTabBase):
             )
             return False
 
-        try:
-            results = {
-                "drilling": self.drilling_tab.save_data_for_report(
-                    self.current_report_id
-                ),
-                "mud": self.mud_tab.save_data_for_report(
-                    self.current_report_id
-                ),
-            }
-            success_count = sum(1 for r in results.values() if r)
-            if success_count > 0:
-                self.status_manager.show_success(
-                    "DrillingReport_Main",
-                    f"Saved {success_count}/{len(results)} tabs"
-                )
-                return True
-            else:
-                self.status_manager.show_error(
-                    "DrillingReport_Main", "Failed to save tabs"
-                )
-                return False
-        except Exception as e:
-            logger.error(f"Save all error: {e}")
-            self.status_manager.show_error(
-                "DrillingReport_Main", f"Save error: {str(e)}"
-            )
-            return False
+        from core.save_outcome import save_all
+        self.last_save_outcome = save_all([
+            ("Drilling Parameters", lambda: self.drilling_tab.save_data_for_report(self.current_report_id)),
+            ("Mud", lambda: self.mud_tab.save_data_for_report(self.current_report_id)),
+        ])
+        notifier = self.status_manager.show_success if self.last_save_outcome else self.status_manager.show_error
+        notifier("DrillingReport_Main", self.last_save_outcome.summary())
+        return bool(self.last_save_outcome)
 
     def export_complete_report(self):
         """اکسپورت کامل گزارش حفاری به PDF یا HTML"""
@@ -1307,12 +1288,12 @@ class MudReportTab(QWidget):
 
     # ============ Chemicals Table Methods ============
 
-    def add_chemical_row(self, product="", product_type="", received=0,
-                          used=0, stock=0, unit="kg"):
+    def add_chemical_row(self, product="", product_type="", received=None,
+                          used=None, stock=None, unit=None):
         row = self.chemicals_table.rowCount()
         self.chemicals_table.insertRow(row)
 
-        product_edit = QLineEdit(product or f"Chemical_{row+1}")
+        product_edit = QLineEdit(product or "")
         self.chemicals_table.setCellWidget(row, 0, product_edit)
 
         type_combo = QComboBox()
@@ -1333,24 +1314,24 @@ class MudReportTab(QWidget):
 
         received_spin = QDoubleSpinBox()
         received_spin.setRange(0, 10000)
-        received_spin.setValue(received)
+        received_spin.setValue(0 if received is None else received)
         received_spin.valueChanged.connect(
-            lambda val, r=row: self.calculate_stock_for_row(r)
+            lambda val, product=product_edit: self.calculate_stock_for_product(product)
         )
         self.chemicals_table.setCellWidget(row, 2, received_spin)
 
         used_spin = QDoubleSpinBox()
         used_spin.setRange(0, 10000)
-        used_spin.setValue(used)
+        used_spin.setValue(0 if used is None else used)
         used_spin.valueChanged.connect(
-            lambda val, r=row: self.calculate_stock_for_row(r)
+            lambda val, product=product_edit: self.calculate_stock_for_product(product)
         )
         self.chemicals_table.setCellWidget(row, 3, used_spin)
 
         stock_spin = QDoubleSpinBox()
         stock_spin.setRange(-10000, 10000)
-        stock_spin.setValue(stock)
-        stock_spin.setReadOnly(True)
+        stock_spin.setValue(0 if stock is None else stock)
+        stock_spin.setReadOnly(False)  # explicit current reading, never a fabricated opening balance
         self.chemicals_table.setCellWidget(row, 4, stock_spin)
 
         unit_combo = QComboBox()
@@ -1363,6 +1344,11 @@ class MudReportTab(QWidget):
             unit_combo.setCurrentIndex(-1)
             unit_combo.setCurrentText(str(unit))
         self.chemicals_table.setCellWidget(row, 5, unit_combo)
+        product_edit.setProperty("source_record", {"product": product, "received": received, "used": used, "stock": stock, "unit": unit})
+        for widget in (received_spin, used_spin, stock_spin):
+            widget.setProperty("explicitly_edited", False)
+            widget.valueChanged.connect(lambda _value, widget=widget: widget.setProperty("explicitly_edited", True))
+            widget.lineEdit().textEdited.connect(lambda _text, widget=widget: widget.setProperty("explicitly_edited", True))
 
     def remove_chemical_row(self):
         current_row = self.chemicals_table.currentRow()
@@ -1370,23 +1356,30 @@ class MudReportTab(QWidget):
             self.chemicals_table.removeRow(current_row)
 
     def calculate_stock(self):
+        return [self.calculate_stock_for_row(row) for row in range(self.chemicals_table.rowCount())]
+
+    def calculate_stock_for_product(self, product):
+        # Locate the stable row owner after deletion/reordering; never capture an old row ordinal.
         for row in range(self.chemicals_table.rowCount()):
-            received_widget = self.chemicals_table.cellWidget(row, 2)
-            used_widget = self.chemicals_table.cellWidget(row, 3)
-            stock_widget = self.chemicals_table.cellWidget(row, 4)
-            if received_widget and used_widget and stock_widget:
-                stock = received_widget.value() - used_widget.value()
-                stock_widget.setValue(stock)
-    
+            if self.chemicals_table.cellWidget(row, 0) is product:
+                return self.calculate_stock_for_row(row)
+
     def calculate_stock_for_row(self, row):
-        """محاسبه خودکار موجودی برای یک ردیف خاص"""
-        received_widget = self.chemicals_table.cellWidget(row, 2)
-        used_widget = self.chemicals_table.cellWidget(row, 3)
-        stock_widget = self.chemicals_table.cellWidget(row, 4)
-        if received_widget and used_widget and stock_widget:
-            stock = received_widget.value() - used_widget.value()
-            stock_widget.setValue(stock)
-    
+        from core.mud_records import chemical_balance
+        product = self.chemicals_table.cellWidget(row, 0)
+        stock = self.chemicals_table.cellWidget(row, 4)
+        if product is None or stock is None:
+            return None
+        record = dict(product.property("source_record") or {})
+        for column, key in ((2, "received"), (3, "used")):
+            widget = self.chemicals_table.cellWidget(row, column)
+            if widget:
+                record[key] = widget.value()
+        result = chemical_balance(record)
+        stock.setProperty("derived_balance", result)
+        stock.setToolTip("Derived balance: " + str(result) + ". Source/current stock is unchanged.")
+        return result
+
     # ============ Update helper methods (for live calculations) ============
     def check_percentages_total(self):
         from core.validators import MudValidator
@@ -1460,11 +1453,14 @@ class MudReportTab(QWidget):
     def save_data_for_report(self, report_id):
         if not self.current_well:
             return False
+        report = self.db_manager.get_daily_report_by_id(report_id)
+        if not report or not report.get("report_date"):
+            raise ValueError("Mud save requires a valid dated report")
         chemicals = self.collect_chemicals()
         mud_data = {
             "well_id": self.current_well,
             "report_id": report_id,
-            "report_date": date.today(),
+            "report_date": report["report_date"],
             "mud_type": self.mud_type.currentText(),
             "sample_time": self.sample_time.time().toPython(),
             "mw": self.mw.value(),
@@ -1496,6 +1492,9 @@ class MudReportTab(QWidget):
             "summary": self.mud_summary.toPlainText(),
             "chemicals_json": json.dumps(chemicals),
         }
+        from core.mud_records import preserve_widget_values
+        mud_data = preserve_widget_values(getattr(self, "_loaded_mud_source", {}),
+            getattr(self, "_loaded_mud_display", {}), mud_data, getattr(self, "_mud_touched", set()))
         for key in getattr(self, "_composition_missing", set()):
             mud_data[key] = None
         # Pit readings are import-only; preserve whatever was loaded.
@@ -1504,12 +1503,22 @@ class MudReportTab(QWidget):
         from core.validators import MudValidator
         validation = MudValidator.validate(mud_data)
         if not validation.is_valid:
+            from core.save_outcome import validation_outcome
+            self.last_save_outcome = validation_outcome("Mud", validation)
             QMessageBox.critical(self, "Mud validation", validation.summary())
             return False
         if validation.warnings:
             QMessageBox.warning(self, "Mud validation", validation.summary())
         result = self.db_manager.save_mud_report(mud_data)
-        return result is not None
+        from core.save_outcome import validation_outcome, SaveIssue
+        self.last_save_outcome = validation_outcome("Mud", validation, saved=1 if result else 0)
+        for index, chemical in enumerate(chemicals, 1):
+            if not chemical.get("type"):
+                self.last_save_outcome.issues.append(SaveIssue("Mud chemicals", "Unresolved chemical category", status="REVIEW_REQUIRED", row=index, field="type",
+                    corrective_action="Confirm a supported catalogue role; original product/quantity/unit are preserved."))
+        if not result:
+            self.last_save_outcome.issues.append(SaveIssue("Mud", "Database did not confirm persistence", status="SYSTEM_ERROR"))
+        return bool(self.last_save_outcome)
 
     def collect_chemicals(self):
         chemicals = []
@@ -1528,14 +1537,22 @@ class MudReportTab(QWidget):
                 "stock": stock_widget.value() if stock_widget else 0,
                 "unit": unit_widget.currentText() if unit_widget else "kg",
             })
-        sources = getattr(self, "_chemical_sources", [])
+        from core.domain_records import chemical_type
         for row, chemical in enumerate(chemicals):
-            if row < len(sources) and chemical["product"] == sources[row].get("product"):
-                source = sources[row]
+            product = self.chemicals_table.cellWidget(row, 0)
+            source = product.property("source_record") if product else None
+            if isinstance(source, dict):
                 chemical["_provenance"] = source.get("_provenance", {})
-                for key in ("received", "used", "stock"):
-                    if source.get(key) is None and chemical[key] == 0:
+                for column, key in ((2, "received"), (3, "used"), (4, "stock")):
+                    widget = self.chemicals_table.cellWidget(row, column)
+                    if source.get(key) is None and chemical[key] == 0 and not widget.property("explicitly_edited"):
                         chemical[key] = None
+            chemical["type"] = chemical_type(chemical["product"], chemical["type"]).identity
+            chemical["unit"] = chemical["unit"] or None
+        chemicals = [row for row in chemicals if any(row.get(key) not in (None, "") for key in ("product", "type", "received", "used", "stock", "unit"))]
+        for index, chemical in enumerate(chemicals, 1):
+            if not chemical.get("product"):
+                raise ValueError(f"Mud chemical row {index}: product name is required")
         return chemicals
 
     def save_data(self):
@@ -1564,6 +1581,7 @@ class MudReportTab(QWidget):
                 return default
 
         mud_type = str(data.get("mud_type", "") or "")
+        self.mud_type.setCurrentIndex(-1)
         if mud_type in [self.mud_type.itemText(i) for i in range(self.mud_type.count())]:
             self.mud_type.setCurrentText(mud_type)
         elif mud_type:
@@ -1634,43 +1652,49 @@ class MudReportTab(QWidget):
                         float(c.get("received", 0) or 0),
                         float(c.get("used", 0) or 0),
                         float(c.get("stock", 0) or 0),
-                        c.get("unit", "kg"),
+                        c.get("unit"),
                     )
+                    row = self.chemicals_table.rowCount() - 1
+                    self.chemicals_table.cellWidget(row, 0).setProperty("source_record", c)
+                    for column in (2, 3, 4):
+                        widget = self.chemicals_table.cellWidget(row, column)
+                        widget.setProperty("explicitly_edited", False)
+
             except (json.JSONDecodeError, TypeError):
-                pass
-                
+                raise ValueError("Mud chemicals must be a JSON collection of named records")
+
+        from copy import deepcopy
+        self._loaded_mud_source = deepcopy(data)
+        self._loaded_mud_display = {}
+        self._mud_touched = set()
+        for key in data:
+            widget = getattr(self, key, None)
+            if isinstance(widget, (QDoubleSpinBox, QSpinBox)):
+                self._loaded_mud_display[key] = widget.value()
+                if not widget.property("mud_tracking"):
+                    widget.valueChanged.connect(lambda _value, key=key: self._mud_touched.add(key))
+                    widget.lineEdit().textEdited.connect(lambda _text, key=key: (self._mud_touched.add(key), self._composition_missing.discard(key)))
+                    widget.setProperty("mud_tracking", True)
+                if data[key] is None:
+                    widget.setToolTip("Not supplied; unchanged save preserves NULL. Editing supplies a value.")
+        from datetime import time as PythonTime
+        supplied_time = data.get("sample_time")
+        if isinstance(supplied_time, str) and supplied_time:
+            supplied_time = PythonTime.fromisoformat(supplied_time)
+        self.sample_time.blockSignals(True)
+        self.sample_time.setTime(QTime(supplied_time.hour, supplied_time.minute, supplied_time.second) if supplied_time else QTime(0, 0))
+        self.sample_time.setToolTip("Source sample time" if supplied_time else "Not supplied; unchanged save preserves NULL")
+        self.sample_time.blockSignals(False)
+        self._loaded_mud_display["sample_time"] = self.sample_time.time().toPython()
+        if not self.sample_time.property("mud_tracking"):
+            self.sample_time.timeChanged.connect(lambda _value: self._mud_touched.add("sample_time"))
+            self.sample_time.setProperty("mud_tracking", True)
+
     def clear_form(self):
-        self.mud_type.setCurrentIndex(0)
-        self.mw.setValue(65.0)
-        self.pv.setValue(0)
-        self.yp.setValue(0)
-        self.funnel_vis.setValue(0)
-        self.gel_10s.setValue(0)
-        self.gel_10m.setValue(0)
-        self.fl_nc.setChecked(False)
-        self.fl.setEnabled(True)
-        self.fl.setValue(0)
-        self.cake_thickness.setValue(0)
-        self.ph.setValue(9.5)
-        self.temperature.setValue(25.0)
-        self.solid_percent.setValue(0)
-        self.oil_percent.setValue(0)
-        self.water_percent.setValue(0)
-        self.chloride.setValue(0)
-        self.calcium.setValue(0)
-        self.kcl.setValue(0)
-        self.mbt.setValue(0)
-        self.pf_mf.setValue(0)
-        self.total_hardness.setValue(0)
-        self.flowline_temp.setValue(0)
-        self.volume_hole.setValue(0)
-        self.total_circulated.setValue(0)
-        self.loss_downhole.setValue(0)
-        self.loss_surface.setValue(0)
-        self.chemicals_table.setRowCount(0)
-        self.mud_summary.clear()
-        self._pit_volumes_json = None
-        self.pit_readings.clear()
+        numeric = ["mw", "pv", "yp", "funnel_vis", "gel_10s", "gel_10m", "fl", "cake_thickness", "ph", "temperature",
+            "solid_percent", "oil_percent", "water_percent", "chloride", "calcium", "kcl", "mbt", "pf_mf", "total_hardness",
+            "flowline_temp", "volume_hole", "total_circulated", "loss_downhole", "loss_surface", "sample_time"]
+        self.load_from_dict({key: None for key in numeric})
 
     def refresh(self):
         self.load_data()

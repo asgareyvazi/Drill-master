@@ -214,12 +214,7 @@ class PersonnelLogisticsTab(QWidget):
     def add_pob_row(self):
         row = self.pob_table.rowCount()
         self.pob_table.insertRow(row)
-        today = QDate.currentDate()
-        default_values = [
-            "", "New Company", "Service", "0",
-            today.toString("yyyy-MM-dd"),
-            today.addDays(30).toString("yyyy-MM-dd")
-        ]
+        default_values = ["", "", "", "", "", ""]
         for col, value in enumerate(default_values):
             item = QTableWidgetItem("" if value is None else str(value))
             if col in [3]:
@@ -293,9 +288,12 @@ class PersonnelLogisticsTab(QWidget):
                         self.pob_table.setItem(row, 0, QTableWidgetItem(str(result)))
                 else:
                     rejected.append(f"POB row {row + 1}: persistence failed for {company_item.text()}; see database log")
-            self.status_manager.show_success("PersonnelTab", f"Saved {saved_count} POB records")
-            if rejected:
-                self.status_manager.show_error("PersonnelTab", "\n".join(rejected))
+            from core.save_outcome import SaveOutcome, SaveIssue
+            self.last_save_outcome = SaveOutcome(saved=saved_count, issues=[
+                SaveIssue("POB", reason, status="SYSTEM_ERROR" if "persistence failed" in reason else "INVALID_SOURCE",
+                          corrective_action="Correct the indicated row/date/count, then retry.") for reason in rejected])
+            notifier = self.status_manager.show_error if rejected else self.status_manager.show_success
+            notifier("PersonnelTab", self.last_save_outcome.summary())
             return not rejected
         except Exception as e:
             logger.error(f"Error saving POB data: {e}")
@@ -1715,21 +1713,18 @@ class LogisticsWidget(DrillTabBase):
             self.transport_tab.load_transport_logs()
         
     def save_all_data(self):
-        success = True
+        from core.save_outcome import save_all
+        steps = []
         if self.personnel_tab:
-            if not self.personnel_tab.save_pob_to_db(): success = False
-            if not self.personnel_tab.save_crew_to_db(): success = False
+            steps.extend([("POB", self.personnel_tab.save_pob_to_db), ("Crew", self.personnel_tab.save_crew_to_db)])
         if self.fuel_water_tab:
-            if not self.fuel_water_tab.save_fuel_water_to_db(): success = False
-            if not self.fuel_water_tab.save_bulk_materials_to_db(): success = False
+            steps.extend([("Fuel / Water", self.fuel_water_tab.save_fuel_water_to_db), ("Bulk inventory", self.fuel_water_tab.save_bulk_materials_to_db)])
         if self.transport_tab:
-            if not self.transport_tab.save_transport_logs_to_db(): success = False
-        if success:
-            self.show_success("All logistics data saved")
-        else:
-            self.show_error("Some data failed to save")
-        return success
-    
+            steps.append(("Transport", self.transport_tab.save_transport_logs_to_db))
+        self.last_save_outcome = save_all(steps)
+        (self.show_success if self.last_save_outcome else self.show_error)(self.last_save_outcome.summary())
+        return bool(self.last_save_outcome)
+
     def load_all_data(self):
         if not self.current_well_id:
             QMessageBox.warning(self, "Warning", "Please select a well first")

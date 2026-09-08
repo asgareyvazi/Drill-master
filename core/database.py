@@ -4687,12 +4687,12 @@ class DatabaseManager:
             session.close()
     # ========== BHA Report ==========
     def save_bha_report(self, well_id: int, bha_data: dict):
-        from core.domain_records import bha_record
+        from core.domain_records import bha_records
         bha_data = dict(bha_data)
         if "bha_data_json" in bha_data and "bha_data" not in bha_data:
             bha_data["bha_data"] = bha_data["bha_data_json"]
-        if isinstance(bha_data.get("bha_data"), list):
-            bha_data["bha_data"] = [bha_record(row) for row in bha_data["bha_data"]]
+        if "bha_data" in bha_data:
+            bha_data["bha_data"] = bha_records(bha_data["bha_data"])
         session = self.create_session()
         try:
             if bha_data.get('report_id'):
@@ -4728,7 +4728,7 @@ class DatabaseManager:
         except Exception as e:
             session.rollback()
             logger.error(f"Error saving BHA report: {e}")
-            return None
+            raise
         finally:
             session.close()
 
@@ -4754,12 +4754,16 @@ class DatabaseManager:
             return None
         except Exception as e:
             logger.error(f"Error getting BHA report: {e}")
-            return None
+            raise
         finally:
             session.close()
             
     # ========== Downhole Equipment ==========
     def save_downhole_equipment(self, well_id: int, equipment_data: dict):
+        from core.domain_records import named_record, collection_value, DOWNHOLE_FIELDS
+        equipment_data = dict(equipment_data)
+        if "equipment_data_json" in equipment_data:
+            equipment_data["equipment_data_json"] = [named_record(row, DOWNHOLE_FIELDS) for row in collection_value(equipment_data["equipment_data_json"], "equipment_data_json")]
         session = self.create_session()
         try:
             if equipment_data.get('report_id'):
@@ -4781,7 +4785,7 @@ class DatabaseManager:
                 equip = DownholeEquipment(
                     well_id=well_id,
                     report_id=equipment_data.get('report_id'),
-                    equipment_data_json=equipment_data.get('equipment_data_json', {}),
+                    equipment_data_json=equipment_data.get('equipment_data_json', []),
                     created_at=_now_utc()
                 )
                 session.add(equip)
@@ -4792,7 +4796,7 @@ class DatabaseManager:
         except Exception as e:
             session.rollback()
             logger.error(f"Error saving downhole equipment: {e}")
-            return None
+            raise
         finally:
             session.close()
 
@@ -4821,13 +4825,17 @@ class DatabaseManager:
             return None
         except Exception as e:
             logger.error(f"Error getting downhole equipment: {e}")
-            return None
+            raise
         finally:
             session.close()
 
  
     # ========== Formation Report ==========
     def save_formation_report(self, well_id: int, formation_data: dict):
+        from core.domain_records import named_record, collection_value, FORMATION_FIELDS
+        formation_data = dict(formation_data)
+        if "formations" in formation_data:
+            formation_data["formations"] = [named_record(row, FORMATION_FIELDS) for row in collection_value(formation_data["formations"], "formations")]
         session = self.create_session()
         try:
             if formation_data.get('report_id'):
@@ -4863,7 +4871,7 @@ class DatabaseManager:
         except Exception as e:
             session.rollback()
             logger.error(f"Error saving formation report: {e}")
-            return None
+            raise
         finally:
             session.close()
 
@@ -4886,7 +4894,7 @@ class DatabaseManager:
             return None
         except Exception as e:
             logger.error(f"Error getting formation report: {e}")
-            return None
+            raise
         finally:
             session.close()
         
@@ -4976,43 +4984,88 @@ class DatabaseManager:
             session.close()
 
     # ========== Survey Points ==========
-    def save_survey_records(self, points: list, session: Optional[Session] = None):
-        """Normalize, isolate source errors, calculate, and upsert actual stations.
+    def save_survey_records(self, points: list, session: Optional[Session] = None, *, replace_scope=None):
+        """Shared Add/Edit/Delete-snapshot persistence with stable row identity.
 
-        The caller owns the transaction when supplied. Unexpected database or
-        engineering failures propagate; invalid source rows are ReviewItems.
+        replace_scope=(well_id, report_id) explicitly declares a complete UI
+        snapshot. Missing rows are deleted ONLY when that snapshot is valid.
+        An invalid row never turns into a deletion; accepted edits still save.
         """
         from core.survey_records import prepare_surveys, DERIVED_FIELDS
-        records, reviews, rejected = prepare_surveys(points)
+        from core.domain_records import collection_value
+        points = collection_value(points, "surveys")
+        groups = {}
+        for row in points:
+            context = (row.get("well_id"), row.get("report_id"))
+            if replace_scope is not None and context != tuple(replace_scope):
+                raise ValueError("Survey snapshot contains a different well/report context")
+            groups.setdefault(context, []).append(row)
+        records, reviews, rejected = [], [], 0
+        for rows in groups.values():
+            accepted, issues, bad = prepare_surveys(rows)
+            records.extend(accepted)
+            reviews.extend(issues)
+            rejected += bad
+        contexts = set(groups)
+        if replace_scope is not None:
+            contexts.add(tuple(replace_scope))
+        calculated = 0
         with (self.session_scope() if session is None else nullcontext(session)) as active:
+            for well_id, report_id in contexts:
+                if not well_id or active.get(Well, well_id) is None:
+                    raise ValueError("Survey requires an existing well")
+                if report_id:
+                    report = active.get(DailyReport, report_id)
+                    if report is None or report.well_id != well_id:
+                        raise ValueError("Survey report does not belong to the selected well")
+            retained = set()
+            used_ids = set()
             for row in records:
                 well_id, report_id = row.get("well_id"), row.get("report_id")
-                if not well_id:
-                    raise ValueError("Survey record requires well_id")
-                existing = active.query(SurveyPoint).filter_by(
-                    well_id=well_id, report_id=report_id, md=row["md"]
-                ).first()
-                fields = ("md", "inc", "azi", *DERIVED_FIELDS, "tool", "remarks", "section_id")
-                values = {key: row.get(key) for key in fields}
-                if existing:
-                    for key, value in values.items():
-                        setattr(existing, key, value)
+                row_id = row.get("id")
+                if row_id is not None:
+                    if row_id in used_ids:
+                        raise ValueError("Duplicate survey record ID in edit batch")
+                    used_ids.add(row_id)
+                    existing = active.get(SurveyPoint, row_id)
+                    if existing is None or (existing.well_id, existing.report_id) != (well_id, report_id):
+                        raise ValueError("Survey ID does not belong to this well/report")
+                    collision = active.query(SurveyPoint).filter_by(well_id=well_id, report_id=report_id, md=row["md"]).first()
+                    if collision is not None and collision.id != row_id:
+                        raise ValueError("Edited measured depth collides with another station")
                 else:
-                    active.add(SurveyPoint(well_id=well_id, report_id=report_id, **values))
+                    existing = active.query(SurveyPoint).filter_by(well_id=well_id, report_id=report_id, md=row["md"]).first()
+                if existing is None:
+                    existing = SurveyPoint(well_id=well_id, report_id=report_id)
+                    active.add(existing)
+                for key in ("md", "inc", "azi", *DERIVED_FIELDS):
+                    setattr(existing, key, row.get(key))
+                for key in ("tool", "remarks", "section_id", "calculation_id", "measured_at"):
+                    if key in row:
+                        setattr(existing, key, row[key])
+                active.flush()
+                retained.add(existing.id)
+            if replace_scope is not None and not rejected:
+                query = active.query(SurveyPoint).filter_by(well_id=replace_scope[0], report_id=replace_scope[1])
+                if retained:
+                    query = query.filter(~SurveyPoint.id.in_(retained))
+                query.delete(synchronize_session=False)
             active.flush()
-            # A manual Add Record may send one station. Recompute the entire
-            # report trajectory so appends/edits use the same tie-on context as
-            # bulk import, rather than treating every new point as a first point.
-            for well_id, report_id in {(r.get("well_id"), r.get("report_id")) for r in records}:
+            for well_id, report_id in contexts:
                 stations = active.query(SurveyPoint).filter_by(well_id=well_id, report_id=report_id).order_by(SurveyPoint.md).all()
                 derived, _, _ = prepare_surveys([{k: getattr(p, k) for k in ("md", "inc", "azi")} for p in stations])
                 by_md = {p["md"]: p for p in derived}
                 for station in stations:
-                    for field in DERIVED_FIELDS:
-                        setattr(station, field, by_md[station.md][field])
+                    for key in DERIVED_FIELDS:
+                        setattr(station, key, by_md[station.md][key])
+                    calculated += station.tvd is not None
+            audit_report_id = next(iter(contexts))[1] if len(contexts) == 1 else None
+            active.add(AuditLog(action="survey_edit", entity_type="daily_report" if audit_report_id else "survey_batch", entity_id=audit_report_id, details=json.dumps({
+                "source": points, "replace_scope": replace_scope, "review_items": reviews,
+            }, default=str)))
             active.flush()
         return {"accepted": len(records), "rejected": rejected, "review_items": reviews,
-                "calculated": sum(r["tvd"] is not None for r in records)}
+                "calculated": calculated, "status": "INVALID_SOURCE" if rejected else "REVIEW_REQUIRED" if reviews else "SUCCESS"}
 
     def save_survey_points(self, points: list):
         """Compatibility boolean API; manual and import use save_survey_records."""
@@ -5334,7 +5387,14 @@ class DatabaseManager:
         from core.domain_records import optional_date
         pob_data = dict(pob_data)
         for field in ("date_in", "date_out"):
-            pob_data[field] = optional_date(pob_data.get(field))
+            if field in pob_data:
+                pob_data[field] = optional_date(pob_data[field])
+        if "personnel_count" in pob_data:
+            from core.value_normalizer import ValueNormalizer
+            count = ValueNormalizer.normalize(pob_data["personnel_count"], "integer")
+            if not count.ok or count.value is None or count.value < 0:
+                raise ValueError("POB personnel_count requires a non-negative integer")
+            pob_data["personnel_count"] = count.value
         session = self.create_session()
         try:
             if pob_data.get("id"):
@@ -5368,7 +5428,7 @@ class DatabaseManager:
         except Exception as e:
             session.rollback()
             logger.error(f"Error saving service company POB: {e}")
-            return None
+            raise
         finally:
             session.close()
 
@@ -5924,6 +5984,7 @@ class DatabaseManager:
             else:
                 existing = None
 
+            old_collections = {key: getattr(existing, key) if existing is not None else [] for key in ("bop_stack_json", "waste_history_json")}
             if existing:
                 for key, value in report_data.items():
                     if hasattr(existing, key) and key not in ['id', 'well_id', 'report_date', 'report_id']:
@@ -5936,6 +5997,11 @@ class DatabaseManager:
                 session.flush()
                 record_id = report.id
             self.last_safety_review = self._sync_safety_children(session, record_id, report_data)
+            target = session.get(SafetyReport, record_id)
+            for key, entity in (("bop_stack_json", "bop_components"), ("waste_history_json", "waste_records")):
+                if key in report_data:
+                    rejected = any(r.get("entity") == entity for r in self.last_safety_review)
+                    setattr(target, key, old_collections[key] if rejected else [])
             session.flush()
             if owns_session:
                 session.commit()
@@ -5988,6 +6054,11 @@ class DatabaseManager:
                     from core.canonical_mapper import review_item
                     issues.append(review_item(field=collection + ".date", entity=collection, original_value=row,
                                               location=row["_source_location"], reason=str(exc), status="INVALID_SOURCE").to_dict())
+            if issues:
+                reviews.extend(issues)
+                # Keep the stored collection intact. Other independent safety
+                # collections may still save. Preserve attempted edits in audit.
+                continue
             query = session.query(model).filter(model.well_id == data["well_id"])
             if data.get("report_id"):
                 query = query.filter(model.report_id == data["report_id"])
@@ -6016,8 +6087,10 @@ class DatabaseManager:
                     query = query.filter(SafetyReport.report_date == report_date)
             report = query.order_by(SafetyReport.report_date.desc()).first()
             from core.domain_records import collection_value
-            bops = self.get_bop_components(well_id=well_id, report_id=report_id)
-            wastes = self.get_waste_records(well_id=well_id, report_id=report_id)
+            child_report_id = report.report_id if report is not None else report_id
+            child_well_id = report.well_id if report is not None else well_id
+            bops = self.get_bop_components(well_id=child_well_id, report_id=child_report_id)
+            wastes = self.get_waste_records(well_id=child_well_id, report_id=child_report_id)
             bop_view = [{target: row.get(source) for target, source in {
                 "Name": "component_name", "Type": "component_type", "WP (psi)": "working_pressure",
                 "Size (in)": "size", "RAMs": "ram_type", "Last Test": "last_test_date",
@@ -6600,31 +6673,70 @@ class DatabaseManager:
             session.close()
 
     # ========== Equipment Log ==========
-    def save_equipment_log(self, log_data: dict):
-        # Generic table detection can produce false positives. Enforce the
-        # model contract before SQLAlchemy gets a chance to emit noisy errors.
-        if not str((log_data or {}).get("equipment_name", "")).strip():
-            logger.warning("Skipping equipment row without equipment_name")
-            return None
-        try:
-            hours = float((log_data or {}).get("hours_worked", 0) or 0)
-        except (TypeError, ValueError):
-            logger.warning("Skipping equipment row with non-numeric hours_worked: %r", log_data.get("hours_worked"))
-            return None
+    def save_equipment_records(self, well_id, report_id, equipment_type, records):
+        """Atomic editor snapshot for one report/type, including explicit clear."""
+        from core.domain_records import collection_value
+        from core.save_outcome import SaveOutcome
+        rows = collection_value(records, "equipment")
+        with self.session_scope() as session:
+            report = session.get(DailyReport, report_id)
+            if report is None or report.well_id != well_id:
+                raise ValueError("Select an equipment report belonging to this well")
+            ids = []
+            for row in rows:
+                data = dict(row, well_id=well_id, report_id=report_id, equipment_type=equipment_type)
+                if data.get("id"):
+                    previous = session.get(EquipmentLog, data["id"])
+                    if previous is None or (previous.well_id, previous.report_id, previous.equipment_type) != (well_id, report_id, equipment_type):
+                        raise ValueError("Equipment ID does not belong to this report/type")
+                identity = self.save_equipment_log(data, session=session)
+                if identity in ids:
+                    raise ValueError("Duplicate equipment identity in editor snapshot")
+                ids.append(identity)
+            query = session.query(EquipmentLog).filter_by(well_id=well_id, report_id=report_id, equipment_type=equipment_type)
+            if ids:
+                query = query.filter(~EquipmentLog.id.in_(ids))
+            query.delete(synchronize_session=False)
+            session.add(AuditLog(action="equipment_edit", entity_type="daily_report", entity_id=report_id,
+                                 details=json.dumps({"type": equipment_type, "source": records}, default=str)))
+        return SaveOutcome(saved=len(ids))
+
+    def save_equipment_log(self, log_data: dict, session: Optional[Session] = None):
+        from core.value_normalizer import ValueNormalizer
+        from core.domain_records import optional_date
+        if not str((log_data or {}).get("equipment_name") or "").strip():
+            raise ValueError("Equipment equipment_name is required")
         log_data = dict(log_data)
-        log_data["hours_worked"] = hours
-        session = self.create_session()
+        if "hours_worked" in log_data:
+            hours = ValueNormalizer.normalize(log_data["hours_worked"], "number")
+            if not hours.ok or (hours.value is None and log_data["hours_worked"] not in (None, "")) or (hours.value is not None and hours.value < 0):
+                raise ValueError("Equipment hours_worked must be finite and non-negative")
+            log_data["hours_worked"] = hours.value
+        if "service_date" in log_data:
+            log_data["service_date"] = optional_date(log_data["service_date"])
+        owns_session = session is None
+        session = session or self.create_session()
         try:
+            if not log_data.get("id") and log_data.get("report_id"):
+                matches = session.query(EquipmentLog).filter_by(well_id=log_data["well_id"], report_id=log_data["report_id"],
+                    equipment_type=log_data.get("equipment_type", ""), equipment_name=log_data["equipment_name"],
+                    equipment_id=log_data.get("equipment_id", "")).all()
+                if len(matches) > 1:
+                    raise ValueError("Equipment identity is ambiguous; select the record ID explicitly")
+                if matches:
+                    log_data["id"] = matches[0].id
             if log_data.get("id"):
                 log = session.query(EquipmentLog).filter(EquipmentLog.id == log_data["id"]).first()
                 if log:
+                    if "well_id" in log_data and log.well_id != log_data["well_id"]:
+                        raise ValueError("Equipment ID belongs to another well")
                     for key, value in log_data.items():
                         if hasattr(log, key) and key != 'id':
                             setattr(log, key, value)
                     log.updated_at = _now_utc()
                     record_id = log.id
                 else:
-                    return None
+                    raise ValueError("Equipment ID does not exist")
             else:
                 log = EquipmentLog(
                     well_id=log_data["well_id"],
@@ -6646,14 +6758,17 @@ class DatabaseManager:
                 session.add(log)
                 session.flush()
                 record_id = log.id
-            session.commit()
+            if owns_session:
+                session.commit()
             return record_id
         except Exception as e:
-            session.rollback()
+            if owns_session:
+                session.rollback()
             logger.error(f"Error saving equipment log: {e}")
-            return None
+            raise
         finally:
-            session.close()
+            if owns_session:
+                session.close()
 
     def get_equipment_logs(self, well_id: int = None, section_id: int = None, report_id: int = None, equipment_type: str = None, status: str = None):
         session = self.create_session()
@@ -6756,6 +6871,51 @@ class DatabaseManager:
             session.close()
 
     # ========== Seven Days Lookahead ==========
+    def save_lookahead_records(self, well_id, report_id, records):
+        """Persist an explicit planning editor snapshot, never guessed dates.
+
+        Stable IDs preserve rows/dates/actuals; invalid rows inhibit deletion.
+        Valid rows save independently, unexpected failures roll back the batch.
+        """
+        from core.domain_records import collection_value, optional_date
+        from core.save_outcome import SaveOutcome, SaveIssue
+        result, accepted = SaveOutcome(), []
+        for index, source in enumerate(collection_value(records, "lookahead"), 1):
+            row = dict(source)
+            try:
+                row["plan_date"] = optional_date(row.get("plan_date"))
+                if row["plan_date"] is None:
+                    raise ValueError("plan_date is required; supply the planned date")
+                if not str(row.get("activity") or "").strip():
+                    raise ValueError("activity is required")
+                if row.get("day_number") is not None:
+                    row["day_number"] = int(row["day_number"])
+                accepted.append(row)
+            except (ValueError, TypeError) as exc:
+                result.issues.append(SaveIssue("Lookahead", str(exc), status="INVALID_SOURCE", row=index,
+                                              corrective_action="Correct this plan row and save again; no existing rows were deleted."))
+        with self.session_scope() as session:
+            report = session.get(DailyReport, report_id)
+            if report is None or report.well_id != well_id:
+                raise ValueError("Planning report does not belong to the selected well")
+            ids = []
+            for row in accepted:
+                if row.get("id"):
+                    previous = session.get(SevenDaysLookahead, row["id"])
+                    if previous is None or previous.report_id != report_id or previous.well_id != well_id:
+                        raise ValueError("Lookahead ID does not belong to this report")
+                row.update(well_id=well_id, report_id=report_id)
+                ids.append(self._save_atomic(session, SevenDaysLookahead, row))
+                result.saved += 1
+            if not result.issues:
+                query = session.query(SevenDaysLookahead).filter_by(well_id=well_id, report_id=report_id)
+                if ids:
+                    query = query.filter(~SevenDaysLookahead.id.in_(ids))
+                query.delete(synchronize_session=False)
+            session.add(AuditLog(action="lookahead_edit", entity_type="daily_report", entity_id=report_id,
+                                 details=json.dumps({"source": records, "result": result.to_dict()}, default=str)))
+        return result
+
     def save_seven_days_lookahead(self, lookahead_data: dict):
         """
         ✅ FIX: حذف import PySide از داخل تابع دیتابیس
@@ -6900,6 +7060,8 @@ class DatabaseManager:
                     "remarks": p.remarks,
                     "status": p.status,
                     "progress_percentage": p.progress_percentage,
+                    "actual_start": p.actual_start,
+                    "actual_end": p.actual_end,
                     "created_at": p.created_at,
                     "updated_at": p.updated_at
                 }

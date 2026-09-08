@@ -57,5 +57,11 @@ def prepare_surveys(records):
 
 def plot_series(records):
     """Presentation data uses only real stations with calculated coordinates."""
-    usable = [r for r in records if all(r.get(k) is not None for k in ("md", "inc", "azi", *DERIVED_FIELDS))]
+    import math
+    def finite(record):
+        try:
+            return all(math.isfinite(float(record.get(k))) for k in ("md", "inc", "azi", *DERIVED_FIELDS))
+        except (ValueError, TypeError, OverflowError):
+            return False
+    usable = [r for r in records if isinstance(r, dict) and finite(r)]
     return {key: [r[key] for r in usable] for key in ("md", "north", "east", "tvd", "hd")}

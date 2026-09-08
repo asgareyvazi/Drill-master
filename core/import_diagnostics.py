@@ -63,7 +63,8 @@ class PersistenceIssue:
     status: str = "PERSISTENCE_ERROR"
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        from core.save_outcome import public_status
+        return {**asdict(self), "outcome_status": public_status(self.status)}
 
     @classmethod
     def from_exception(

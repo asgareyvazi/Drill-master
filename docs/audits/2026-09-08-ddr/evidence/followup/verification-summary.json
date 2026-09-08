@@ -1,0 +1,43 @@
+{
+  "baseline": "eb8041de79d44f6ac6099ca84e569116af0d617c",
+  "branch": "arena/01a0801f-drill-master",
+  "python": "3.11.2",
+  "platform": "Linux-6.1.158+-x86_64-with-glibc2.36",
+  "tests": {
+    "baseline": {
+      "tests": 616,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 7,
+      "passed": 609,
+      "junit_seconds": 85.07
+    },
+    "focused-complete": {
+      "tests": 46,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 46,
+      "junit_seconds": 28.474
+    },
+    "subsystem-complete": {
+      "tests": 165,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 1,
+      "passed": 164,
+      "junit_seconds": 89.545
+    },
+    "full-complete": {
+      "tests": 662,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 7,
+      "passed": 655,
+      "junit_seconds": 111.294
+    }
+  },
+  "native_qt": "BLOCKED: libGL.so.1",
+  "windows_python312": "NOT VERIFIED",
+  "golden_b": "NOT AVAILABLE / NOT VERIFIED"
+}

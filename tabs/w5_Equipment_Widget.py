@@ -710,34 +710,34 @@ class EquipmentWidget(DrillTabBase):
 
     # ==================== Save/Load Methods ====================
     def save_rig_equipment(self, data):
-        self.equipment_data['rig_equipment'] = data
-        return True
+        return self.save_all_data(section_filter={"Rig Equipment"})
 
     def load_rig_equipment(self):
-        return self.equipment_data.get('rig_equipment', None)
+        self.load_all_data()
+        return self.rig_tab.get_table_data()
 
     def save_inventory(self, data):
-        self.equipment_data['inventory'] = data
-        return True
+        return self.save_all_data(section_filter={"Inventory"})
 
     def load_inventory(self):
-        return self.equipment_data.get('inventory', None)
+        self.load_all_data()
+        return self.inventory_tab.get_table_data()
 
     def save_drill_pipe(self, data):
-        self.equipment_data['drill_pipe'] = data
-        return True
+        return self.save_all_data(section_filter={"Drill Pipe"})
 
     def load_drill_pipe(self):
-        return self.equipment_data.get('drill_pipe', None)
+        self.load_all_data()
+        return self.pipe_tab.get_table_data()
 
     def save_solid_control(self, data):
-        self.equipment_data['solid_control'] = data
-        return True
+        return self.save_all_data(section_filter={"Solid Control"})
 
     def load_solid_control(self):
-        return self.equipment_data.get('solid_control', None)
+        self.load_all_data()
+        return self.solid_tab.get_table_data()
 
-    def save_all_data(self):
+    def save_all_data(self, section_filter=None):
         """ذخیره تمام تب‌ها در equipment_logs"""
         if not self.current_well:
             self.show_message("No well selected", 3000)
@@ -746,11 +746,14 @@ class EquipmentWidget(DrillTabBase):
         if not self.db:
             return False
 
-        saved_total = 0
+        from core.save_outcome import save_all
+        if not isinstance(section_filter, (set, tuple, list)):
+            section_filter = None  # QAction/PushButton may pass its checked boolean
+        groups = {name: [] for name in ("Rig Equipment", "Inventory", "Drill Pipe", "Solid Control")}
 
         # ===== 1. Rig Equipment =====
         rig_data = self.rig_tab.get_table_data()
-        for row_data in rig_data:
+        for row_index, row_data in enumerate(rig_data, 1):
             if not row_data or not row_data[0].strip():
                 continue
             log_data = {
@@ -765,15 +768,11 @@ class EquipmentWidget(DrillTabBase):
                 "service_date": row_data[5] if len(row_data) > 5 else None,
                 "notes": row_data[7] if len(row_data) > 7 else "",
             }
-            try:
-                if self.db.save_equipment_log(log_data):
-                    saved_total += 1
-            except Exception as e:
-                logger.error(f"Save rig equipment error: {e}")
+            groups[log_data["equipment_type"]].append(log_data)
 
         # ===== 2. Inventory =====
         inv_data = self.inventory_tab.get_table_data()
-        for row_data in inv_data:
+        for row_index, row_data in enumerate(inv_data, 1):
             if not row_data or not row_data[0].strip():
                 continue
             log_data = {
@@ -791,15 +790,11 @@ class EquipmentWidget(DrillTabBase):
                     if len(row_data) > 6 else ""
                 ),
             }
-            try:
-                if self.db.save_equipment_log(log_data):
-                    saved_total += 1
-            except Exception as e:
-                logger.error(f"Save inventory error: {e}")
+            groups[log_data["equipment_type"]].append(log_data)
 
         # ===== 3. Drill Pipe =====
         pipe_data = self.pipe_tab.get_table_data()
-        for row_data in pipe_data:
+        for row_index, row_data in enumerate(pipe_data, 1):
             if not row_data or not row_data[0].strip():
                 continue
             log_data = {
@@ -818,15 +813,11 @@ class EquipmentWidget(DrillTabBase):
                     if len(row_data) > 6 else ""
                 ),
             }
-            try:
-                if self.db.save_equipment_log(log_data):
-                    saved_total += 1
-            except Exception as e:
-                logger.error(f"Save drill pipe error: {e}")
+            groups[log_data["equipment_type"]].append(log_data)
 
         # ===== 4. Solid Control =====
         solid_data = self.solid_tab.get_table_data()
-        for row_data in solid_data:
+        for row_index, row_data in enumerate(solid_data, 1):
             if not row_data or not row_data[0].strip():
                 continue
             log_data = {
@@ -836,8 +827,7 @@ class EquipmentWidget(DrillTabBase):
                 "equipment_name": row_data[0] if len(row_data) > 0 else "",
                 "equipment_id": row_data[1] if len(row_data) > 1 else "",
                 "hours_worked": (
-                    float(row_data[3]) if len(row_data) > 3
-                    and row_data[3] else 0
+                    row_data[3] if len(row_data) > 3 and row_data[3] else None
                 ),
                 "status": "Operational",
                 "notes": (
@@ -847,18 +837,13 @@ class EquipmentWidget(DrillTabBase):
                     if len(row_data) > 7 else ""
                 ),
             }
-            try:
-                if self.db.save_equipment_log(log_data):
-                    saved_total += 1
-            except Exception as e:
-                logger.error(f"Save solid control error: {e}")
+            groups[log_data["equipment_type"]].append(log_data)
 
-        if saved_total > 0:
-            self.show_success(f"Saved {saved_total} equipment records")
-            return True
-        else:
-            self.show_message("No data to save", 3000)
-            return False
+        steps = [(name, lambda name=name, rows=rows: self.db.save_equipment_records(self.current_well, self.current_report_id, name, rows))
+                 for name, rows in groups.items() if not section_filter or name in section_filter]
+        self.last_save_outcome = save_all(steps)
+        (self.show_success if self.last_save_outcome else self.show_error)(self.last_save_outcome.summary())
+        return bool(self.last_save_outcome)
 
     def load_all_data(self):
         """بارگذاری از equipment_logs"""

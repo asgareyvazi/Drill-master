@@ -569,6 +569,14 @@ class FieldExtractor:
         spec = FIELD_SPECS.get(canonical)
         critical = spec.critical if spec else False
 
+        def looks_like_label(value):
+            text = str(value).strip()
+            # Match this field's semantic aliases even when the publisher
+            # appends units. No workbook coordinates or names are involved.
+            key = re.sub(r"\([^)]*\)", "", text).strip().casefold()
+            aliases = {re.sub(r"\([^)]*\)", "", alias).strip().casefold() for alias in (spec.aliases if spec else [])}
+            return self.labels._looks_like_label(text) or key in aliases
+
         candidates = []
         preferred_authoritative = False
         preferred_anchor_missing = False
@@ -581,7 +589,7 @@ class FieldExtractor:
         # field.
         value = self.cells.get((row, col))
         if value is not None and str(value).strip():
-            if not self.labels._looks_like_label(str(value)):
+            if not looks_like_label(value):
                 preferred_authoritative = True
                 # Preferred cell has a real value — this is the STRONGEST signal.
                 # Template v3 positions were verified against the real Excel.
@@ -596,7 +604,11 @@ class FieldExtractor:
                 for dc in range(1, 8):
                     right_val = self.cells.get((row, col + dc))
                     if right_val is not None and str(right_val).strip():
-                        if not self.labels._looks_like_label(str(right_val)):
+                        if looks_like_label(right_val):
+                            break  # next header is a structural boundary
+                        if spec and spec.quantity not in {"text", "string"} and not normalize_canonical_value(right_val, canonical).ok:
+                            break  # do not wander into an adjacent table
+                        if not looks_like_label(right_val):
                             preferred_authoritative = True
                             candidates.append(Candidate(
                                 value=right_val, source="preferred_cell",
@@ -615,7 +627,7 @@ class FieldExtractor:
         # Strategy 2: Merge cell — reject labels, look right
         merge_val, is_merged = self.merge.get_value(row, col)
         if merge_val is not None and str(merge_val).strip():
-            if not self.labels._looks_like_label(str(merge_val)):
+            if not looks_like_label(merge_val):
                 candidates.append(Candidate(
                     value=merge_val, source="merge_cell",
                     row=row, col=col, sheet=sheet,
@@ -626,7 +638,11 @@ class FieldExtractor:
                 for dc in range(1, 8):
                     right_val = self.cells.get((row, col + dc))
                     if right_val is not None and str(right_val).strip():
-                        if not self.labels._looks_like_label(str(right_val)):
+                        if looks_like_label(right_val):
+                            break  # next header is a structural boundary
+                        if spec and spec.quantity not in {"text", "string"} and not normalize_canonical_value(right_val, canonical).ok:
+                            break  # do not wander into an adjacent table
+                        if not looks_like_label(right_val):
                             candidates.append(Candidate(
                                 value=right_val, source="merge_cell",
                                 row=row, col=col+dc, sheet=sheet,
@@ -1070,7 +1086,7 @@ class DynamicTableExtractor:
             val = self.cells.get((row, c))
             if val is None:
                 val, _ = self.merge.get_value(row, c)
-            if val is not None:
+            if val is not None and str(val).strip():
                 values.append(str(val).strip().lower())
 
         if not values:
@@ -1642,7 +1658,16 @@ class ExcelIntelligence:
             if source_mw.get("status") == "ENGINEERING_REVIEW" and source_mw.get("original_value") not in (None, ""):
                 mud_values["mw"] = source_mw["original_value"]
                 source_mw["normalized_value"] = source_mw["original_value"]
-                source_mw["status"] = "SOURCE_UNIT_PENDING"
+                source_mw["status"] = "SOURCE_UNIT_RESOLVED"
+                source_mw["source_unit"] = source_unit
+                source_mw["review"] = False
+                for field_result in report.field_results:
+                    if field_result.canonical_field == "mud_report.mw":
+                        field_result.status = "OK"
+                        field_result.validation = "valid"
+                        field_result.value = mud_values["mw"]
+                        field_result.normalized_value = mud_values["mw"]
+                        field_result.reason = "Density source unit resolved from explicit unit field"
                 mud_values.pop("mw_source", None)
 
         report.canonical_json = canonical

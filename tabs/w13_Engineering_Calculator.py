@@ -4232,11 +4232,10 @@ class EngineeringCalculatorTab(DrillTabBase):
             layout.addWidget(table)
         else:
             msg = QLabel(
-                "⚠️ DrillPipe.xlsx not found!\n\n"
-                "Place DrillPipe.xlsx in one of these locations:\n"
-                "• DrillPipe.xlsx (root)\n"
-                "• data/DrillPipe.xlsx\n"
-                "• resources/DrillPipe.xlsx"
+                "Optional vendor DrillPipe reference is unavailable.\n\n"
+                "Set DRILLMASTER_DRILLPIPE_PATH, place DrillPipe.xlsx in the application data directory, "
+                "or use Browse below. Expected vendor sheet: Aa.\n"
+                "Only vendor-reference lookup is unavailable; independent calculations remain usable."
             )
             msg.setAlignment(Qt.AlignCenter)
             msg.setStyleSheet("color: #e74c3c; font-size: 13px; padding: 30px;")

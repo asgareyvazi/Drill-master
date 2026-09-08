@@ -362,70 +362,25 @@ class DownholeWidget(DrillTabBase):
         
     def save_all_data_to_db(self):
         if not self.current_well:
-            self.show_error("No well selected. Please select a well first.")
+            self.show_error("INVALID_SOURCE: Select a well before saving downhole records")
             return False
+        from core.save_outcome import save_all
+        steps = []
+        if self.bha_manager is not None:
+            bha_data = self.bha_manager.get_all_data()
+            steps.append(("BHA", lambda: self.db.save_bha_report(self.current_well, {
+                "report_id": self.current_report_id, "bha_name": self.bha_name_input.text().strip(),
+                "bha_data": bha_data})))
+        if self.equipment_manager is not None:
+            steps.append(("Downhole Equipment", lambda: self.db.save_downhole_equipment(self.current_well, {
+                "report_id": self.current_report_id, "equipment_data_json": self.equipment_manager.get_all_data()})))
+        if self.formation_manager is not None:
+            steps.append(("Formation", lambda: self.db.save_formation_report(self.current_well, {
+                "report_id": self.current_report_id, "formations": self.formation_manager.get_all_data()})))
+        self.last_save_outcome = save_all(steps)
+        (self.show_success if self.last_save_outcome else self.show_error)(self.last_save_outcome.summary())
+        return bool(self.last_save_outcome)
 
-        success = True
-
-        try:
-            # ========== 1. BHA ==========
-            if hasattr(self, 'bha_manager'):
-                bha_data = self.bha_manager.get_all_data()
-                if bha_data:
-                    bha_name = self.bha_name_input.text().strip() if hasattr(self, 'bha_name_input') else "Unnamed BHA"
-                    bha_report_data = {
-                        "well_id": self.current_well,
-                        "report_id": self.current_report_id,
-                        "bha_name": bha_name,
-                        "bha_data": bha_data
-                    }
-                    result = self.db.save_bha_report(self.current_well, bha_report_data)
-                    if not result:
-                        success = False
-
-
-            # ========== 2. Downhole Equipment ==========
-            if hasattr(self, 'equipment_manager'):
-                equipment_data = self.equipment_manager.get_all_data()
-                if equipment_data:
-                    equip_data = {
-                        "well_id": self.current_well,
-                        "report_id": self.current_report_id,
-                        "equipment_data_json": equipment_data
-                    }
-                    result = self.db.save_downhole_equipment(self.current_well, equip_data)
-                    if not result:
-                        success = False
-
-
-            # ========== 3. Formation Evaluation ==========
-            if hasattr(self, 'formation_manager'):
-                formation_data = self.formation_manager.get_all_data()
-                if formation_data:
-                    form_data = {
-                        "well_id": self.current_well,
-                        "report_id": self.current_report_id,
-                        "report_name": f"Formation Report {date.today()}",
-                        "formations": formation_data
-                    }
-                    result = self.db.save_formation_report(self.current_well, form_data)
-                    if not result:
-                        success = False
-
-            if success:
-                self.show_success("All downhole data saved successfully")
-            else:
-                self.show_error("Some downhole data failed to save")
-
-            return success
-
-        except Exception as e:
-            logger.error(f"Save error: {e}")
-            import traceback
-            traceback.print_exc()
-            self.show_error(f"Save error: {str(e)}")
-            return False
-        
     def save_data(self):
         """For AutoSaveManager"""
         return self.save_all_data_to_db()
@@ -575,7 +530,7 @@ class DownholeWidget(DrillTabBase):
             "Top MD (m)": str(top),
             "Base MD (m)": str(base),
             "Thickness (m)": str(base - top),
-            "Top TVD (m)": str(top),
+            "Top TVD (m)": None,  # MD is not TVD without trajectory evidence
             "Color": getattr(self.formation_manager, 'current_color', '#8B4513'),
             "Description": self.description_input.text().strip(),
             "Properties": ""

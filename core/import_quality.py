@@ -90,6 +90,7 @@ class ReviewItem:
     field: str = ""
     message: str = ""
     classification: str = ""
+    outcome_status: str = ""
 
     def __post_init__(self):
         # Normalize provenance at the contract boundary.  Producers are
@@ -207,7 +208,10 @@ class ReviewItem:
 
     def to_dict(self) -> dict:
         """Stable serialization contract for UI, exports, and persistence."""
-        return {field.name: getattr(self, field.name) for field in dataclass_fields(self)}
+        from core.save_outcome import public_status
+        payload = {field.name: getattr(self, field.name) for field in dataclass_fields(self)}
+        payload["outcome_status"] = public_status(self.status)
+        return payload
 
     def as_dict(self) -> dict:
         return self.to_dict()

@@ -11,7 +11,6 @@ from datetime import date as dt_date
 from typing import Optional
 from core.value_normalizer import ValueNormalizer
 from core.text_utils import wrap_text
-from core.unit_manager import UnitManager
 from core.import_quality import ImportValidator, find_duplicates, TimeLogValidator, ReviewItem
 from core.import_diagnostics import PersistenceIssue, ImportStatus, determine_import_status
 
@@ -122,7 +121,10 @@ class DDRImportService:
         self.well_id = well_id
 
     def import_records(self, extracted):
-        return self._do_import(extracted)
+        from core.save_outcome import public_status
+        result = self._do_import(extracted)
+        result["outcome_status"] = public_status(result["status"])
+        return result
 
     def _resolve_import_well(self, well_info, session=None):
         """Resolve workbook well with universal aliases."""
@@ -182,7 +184,13 @@ class DDRImportService:
                 session.close()
 
 
-    def _do_import(self, extracted: dict, refresh_ui: bool = True) -> dict:
+    def _do_import(self, extracted, refresh_ui=True):
+        from core.save_outcome import public_status
+        result = self._execute_import(extracted, refresh_ui=refresh_ui)
+        result["outcome_status"] = public_status(result["status"])
+        return result
+
+    def _execute_import(self, extracted: dict, refresh_ui: bool = True) -> dict:
         """Core import logic with atomic transaction and no fake defaults."""
         from copy import deepcopy
         extracted = deepcopy(extracted)
@@ -446,39 +454,13 @@ class DDRImportService:
             # Mud with unit preservation
             stage = "mud_report"
             mud_data = extracted.get("mud_report", {}) or {}
-            # Unit preservation for MW: detect SG vs ppg / explicit PCF unit
-            if mud_data.get("mw") and isinstance(mud_data.get("mw"), str):
-                val, unit = UnitManager.detect_unit(mud_data["mw"])
-                if val is not None and unit:
-                    record = UnitManager.create_record("mud_report.mw", "density", unit, val, "ppg")
-                    mud_data["mw"] = record.normalized_value
-                    mud_data["mw_original"] = record.original_value
-                    mud_data["mw_unit"] = record.source_unit
-                    results["details"].append(f"📏 Unit preserved: {record.conversion_rule}")
-            elif mud_data.get("mw") not in (None, "") and mud_data.get("mw_unit"):
-                # Numeric value with an explicit source unit anchor (PCF).
-                # The Mud UI is PCF-native ("MW (pcf)", range 0-200), so
-                # PCF is kept as-is; any other unit (SG, ppg, ...) is
-                # converted to canonical ppg with provenance preserved.
-                unit_norm = UnitManager.normalize(mud_data["mw_unit"])
-                if unit_norm == "pcf":
-                    mud_data["mw_original"] = mud_data["mw"]
-                    mud_data["mw_unit"] = "PCF"
-                    results["details"].append(
-                        "📏 Unit preserved: PCF (native UI unit)"
-                    )
-                else:
-                    record = UnitManager.create_record(
-                        "mud_report.mw", "density",
-                        mud_data["mw_unit"], mud_data["mw"], "ppg"
-                    )
-                    if record.normalized_value is not None:
-                        mud_data["mw"] = record.normalized_value
-                        mud_data["mw_original"] = record.original_value
-                        mud_data["mw_unit"] = record.source_unit
-                        results["details"].append(
-                            f"📏 Unit preserved: {record.conversion_rule}"
-                        )
+            # The existing MudReport widget/model is PCF-native. Source
+            # representation remains in immutable audit; all explicit units
+            # reach the same domain unit, including suffix-bearing strings.
+            from core.mud_records import mud_density_pcf
+            mud_data, density_lineage = mud_density_pcf(mud_data)
+            if density_lineage:
+                results["details"].append("Density converted to PCF using the existing UnitManager")
 
             self._save_mud_report(mud_data, report_id, dr["report_date"],
                                   daily_report=dr, session=session)
@@ -1007,7 +989,7 @@ class DDRImportService:
                 review_items.extend(npt_reviews)
                 time_from = ValueNormalizer.to_time(log.get("time_from"))
                 time_to = ValueNormalizer.to_time(log.get("time_to"))
-                description = str(log.get("activity_description", "")).strip()
+                description = str(log.get("activity_description") or "").strip()
                 if time_from is None or time_to is None:
                     classification = log.get("classification") or (
                         "continuation" if description else "invalid_time_range"
@@ -1200,8 +1182,8 @@ class DDRImportService:
                         else "confidence-review"
                     ),
                     "original_value": rep.source_tokens.get(r.canonical_field, {}).get("original_value", r.value),
-                    "normalized_value": None if r.canonical_field in rep.source_tokens else r.value,
-                    "value": None if r.canonical_field in rep.source_tokens else r.value,
+                    "normalized_value": rep.source_tokens.get(r.canonical_field, {}).get("normalized_value", r.value),
+                    "value": rep.source_tokens.get(r.canonical_field, {}).get("normalized_value", r.value),
                     "unit": r.canonical_unit,
                     "target_field": r.canonical_field,
                     "canonical_field": r.canonical_field,
@@ -1213,7 +1195,7 @@ class DDRImportService:
                     "reason": r.reason,
                 }
                 for r in rep.field_results
-                if r.status != "OK" or r.certainty == "LOW" or r.canonical_field in rep.source_tokens
+                if r.status != "OK" or r.certainty == "LOW" or rep.source_tokens.get(r.canonical_field, {}).get("review", False)
             ]
             extracted["metadata"] = {
                 "template": (template or {}).get("name", ""),

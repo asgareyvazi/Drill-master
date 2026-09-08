@@ -1,7 +1,7 @@
 """Report, TimeLog, Survey, BHA, Bit repositories."""
 
 from .base import BaseRepository
-from core.database import DailyReport, TimeLog24H, TimeLogMorning, BHAReport, BitReport
+from core.database import DailyReport, TimeLog24H, TimeLogMorning, BitReport
 from core.import_quality import TimeLogValidator
 from typing import List, Dict, Optional
 import logging
@@ -82,25 +82,11 @@ class SurveyRepository(BaseRepository):
 
 class BHARepository(BaseRepository):
     def save(self, well_id: int, data: Dict) -> int:
-        with self.db.session_scope() as session:
-            report_id = data.get("report_id")
-            if report_id:
-                existing = session.query(BHAReport).filter(BHAReport.report_id == report_id).first()
-                if existing:
-                    existing.bha_name = data.get("bha_name", existing.bha_name)
-                    existing.bha_data_json = data.get("bha_data", existing.bha_data_json)
-                    session.flush()
-                    return existing.id
-            # create new
-            obj = BHAReport(
-                well_id=well_id,
-                report_id=report_id,
-                bha_name=data.get("bha_name", "Unnamed BHA"),
-                bha_data_json=data.get("bha_data", {}),
-            )
-            session.add(obj)
-            session.flush()
-            return obj.id
+        """Manual repository uses the same named validation/calculation path."""
+        result = self.db.save_bha_report(well_id, data)
+        if result is None:
+            raise RuntimeError("BHA persistence failed; inspect database diagnostics")
+        return result
 
 
 class BitRepository(BaseRepository):

@@ -489,8 +489,10 @@ class MaterialHandlingTab(QWidget):
         QMessageBox.warning(self, "Well Not Selected", "Please select a well before adding data.\nGo to 'Well Information' tab and select a well first.")
 
     def save_all_pending(self):
-        """ذخیره همه داده‌های pending"""
-        return True
+        """Record dialogs persist immediately; there is no pending batch."""
+        from core.save_outcome import SaveOutcome
+        self.last_save_outcome = SaveOutcome(saved=0)
+        return self.last_save_outcome
     
     def save_all_data(self):
         """ذخیره همه داده‌ها"""
@@ -795,14 +797,11 @@ class ServicesWidget(DrillTabBase):
         auto_save_manager.enable_for_widget("ServicesWidget", self, interval_minutes=5)
 
     def save_data(self) -> bool:
-        """ذخیره تمام داده‌های تب‌ها"""
-        if not self.current_well_id:
-            return False
-
-        success = True
-        
-        if hasattr(self.material_handling_tab, 'save_all_pending'):
-            if not self.material_handling_tab.save_all_pending():
-                success = False
-        
-        return success
+        """Dialogs persist immediately; propagate the actual zero-pending outcome."""
+        from core.save_outcome import save_all
+        def save_pending():
+            if not self.current_well_id:
+                raise ValueError("Select a well before saving services")
+            return self.material_handling_tab.save_all_pending()
+        self.last_save_outcome = save_all([("Services", save_pending)])
+        return bool(self.last_save_outcome)

@@ -341,7 +341,7 @@ class SurveyDataTab(QWidget):
     
     def add_row(self, data=None):
         if data is None:
-            data = ["0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "MWD", ""]
+            data = [""] * self.survey_table.columnCount()
         return self.table_manager.add_row(data)
     
     def delete_row(self):
@@ -354,51 +354,31 @@ class SurveyDataTab(QWidget):
             self.table_manager.import_from_csv(filename)
     
     def calculate_trajectory(self):
-        if self.survey_table.rowCount() < 1:
-            QMessageBox.warning(self, "Error", "At least 1 survey point is required")
-            return
-        from core.engineering.core import TrajectoryEngine
-        surveys = []
+        from core.survey_records import prepare_surveys, DERIVED_FIELDS
         rows = []
-        for row in range(self.survey_table.rowCount()):
-            md_item = self.survey_table.item(row, 1)
-            inc_item = self.survey_table.item(row, 2)
-            azi_item = self.survey_table.item(row, 3)
-            if md_item and inc_item and azi_item:
-                try:
-                    surveys.append({
-                        "md": float(md_item.text()),
-                        "inc": float(inc_item.text()),
-                        "azi": float(azi_item.text()),
-                    })
-                    rows.append(row)
-                except ValueError:
-                    QMessageBox.warning(self, "Error", f"Invalid data in row {row+1}")
-                    return
-        if not surveys:
-            QMessageBox.warning(self, "Error", "No valid survey points")
-            return
+        for index in range(self.survey_table.rowCount()):
+            record = {key: self.survey_table.item(index, column).text() if self.survey_table.item(index, column) else None
+                      for column, key in enumerate(("md", "inc", "azi"), 1)}
+            record["_ui_row"] = index
+            rows.append(record)
         try:
-            pts = TrajectoryEngine.calculate(surveys)
+            records, issues, rejected = prepare_surveys(rows)
+            for index in range(self.survey_table.rowCount()):
+                for column in range(4, 10):
+                    self.survey_table.setItem(index, column, QTableWidgetItem(""))
+            for record in records:
+                if record["tvd"] is not None:
+                    self.update_row_calculations(record["_ui_row"], *(record[k] for k in DERIVED_FIELDS))
+            self.highlight_calculated_cells()
+            if issues:
+                QMessageBox.warning(self, "Survey review", "\n".join(f"Row {r['row']}: {r['reason']}" for r in issues))
+            elif not records:
+                QMessageBox.warning(self, "Survey review", "No measured survey stations supplied")
+            return records
         except Exception as exc:
-            QMessageBox.warning(self, "Error", str(exc))
-            return
-        last = pts[-1]
-        for row, pt in zip(rows, pts):
-            self.update_row_calculations(row, pt.tvd, pt.north, pt.east, pt.vs, pt.hd, pt.dls)
-            if pt.dls > 8:
-                item = self.survey_table.item(row, 9)
-                if item:
-                    item.setBackground(QColor(255, 200, 200))
-                    item.setToolTip(f"High DLS {pt.dls:.2f}°/30m")
-        self.highlight_calculated_cells()
-        QMessageBox.information(self, "Success",
-            f"Trajectory calculation completed (Minimum Curvature)\n\n"
-            f"Final Results:\n"
-            f"• TVD: {last.tvd:.2f} m\n"
-            f"• North: {last.north:.2f} m\n"
-            f"• East: {last.east:.2f} m\n"
-            f"• HD: {last.hd:.2f} m")
+            logger.exception("Trajectory calculation failed")
+            QMessageBox.critical(self, "Survey SYSTEM_ERROR", str(exc))
+            return []
 
     def update_row_calculations(self, row, tvd, north, east, vs, hd, dls):
         self.survey_table.setItem(row, 4, QTableWidgetItem(f"{tvd:.2f}"))
@@ -449,15 +429,30 @@ class SurveyDataTab(QWidget):
                 continue
             record.update(well_id=self.current_well_id, report_id=self.current_report_id,
                           section_id=getattr(self, "current_section_id", None), _source_location={"row": row + 1, "table": "Survey UI"})
+            id_item = self.survey_table.item(row, 0)
+            if id_item and id_item.text().strip():
+                record["id"] = int(id_item.text())
             rows.append(record)
         try:
-            result = self.db_manager.save_survey_records(rows)
+            result = self.db_manager.save_survey_records(rows, replace_scope=(self.current_well_id, self.current_report_id))
             self.last_save_result = result
+            from core.save_outcome import SaveOutcome, SaveIssue
+            self.last_save_outcome = SaveOutcome(saved=result["accepted"], issues=[
+                SaveIssue("Survey", r["reason"], status=r.get("status", "REVIEW_REQUIRED"), row=r.get("row"), field=r.get("field", ""))
+                for r in result["review_items"]])
             if result["review_items"]:
                 QMessageBox.warning(self, "Survey review", f"Saved {result['accepted']}; rejected {result['rejected']}; calculated {result['calculated']}.\n" +
                                     "\n".join(f"Row {r['row']}: {r['reason']}" for r in result["review_items"]))
             if not result["rejected"]:
                 self.load_data()
+                parent = self.parentWidget()
+                # The owner also refreshes plots on report selection; an
+                # explicit save must refresh the sibling plot tab as well.
+                while parent is not None:
+                    if hasattr(parent, "plot_tab"):
+                        parent.plot_tab.load_for_report(self.current_report_id)
+                        break
+                    parent = parent.parentWidget()
             return result["rejected"] == 0
         except Exception as exc:
             logger.exception("Survey persistence/calculation failure")
@@ -609,9 +604,8 @@ class TrajectoryPlotTab(QWidget):
             self.plot_2d_side.plot(hd, tvd, pen=pg.mkPen('r', width=2), symbol='s')
             self.plot_2d_side.invertY(True)
         if hasattr(self, "axes_3d"):
-            self.axes_3d.plot(east, north, tvd, marker="o")
-            self.axes_3d.set(xlabel="East (m)", ylabel="North (m)", zlabel="TVD (m)")
-            self.axes_3d.invert_zaxis()
+            from core.trajectory_plot import draw_trajectory_3d
+            draw_trajectory_3d(self.axes_3d, survey_data or [])
             self.canvas_3d.draw_idle()
         self.plot_3d_label.setText(f"Measured survey stations: {len(tvd)}")
         self.plots = {"2d_plan": {"east": east, "north": north},
@@ -854,22 +848,18 @@ class TrajectoryWidget(DrillTabBase):
         return data
     
     def save_data(self):
-        success = True
+        from core.save_outcome import save_all
+        steps = []
         if self.trip_sheet_tab:
-            if not self.trip_sheet_tab.save_data():
-                success = False
+            steps.append(("Trip Sheet", self.trip_sheet_tab.save_data))
         if self.survey_data_tab:
-            if not self.survey_data_tab.save_data():
-                success = False
+            steps.append(("Survey", self.survey_data_tab.save_data))
+        self.last_save_outcome = save_all(steps)
         if self.plot_tab and self.current_report_id:
-            self.plot_tab.current_report_id = self.current_report_id
-            self.plot_tab.load_plots()  # optional presentation, not an engineering selection
-        if success:
-            self.show_success("Trajectory data saved")
-        else:
-            self.show_error("Trajectory save incomplete: inspect the Trip Sheet and Survey row diagnostics")
-        return success
-    
+            self.plot_tab.load_for_report(self.current_report_id)
+        (self.show_success if self.last_save_outcome else self.show_error)(self.last_save_outcome.summary())
+        return bool(self.last_save_outcome)
+
     def refresh_data(self):
         self.load_wells()
         self.update_tabs()

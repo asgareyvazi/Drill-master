@@ -368,7 +368,9 @@ class SafetyBOPTab(QWidget):
                 reviews = getattr(self.db, "last_safety_review", [])
                 if reviews:
                     QMessageBox.warning(self, "Safety review", "\n".join(f"Row {r.get('row')}: {r.get('reason')}" for r in reviews))
-                return True
+                from core.save_outcome import SaveOutcome, SaveIssue
+                self.last_save_outcome = SaveOutcome(saved=1, issues=[SaveIssue("BOP", r.get("reason", "Review required"), status="REVIEW_REQUIRED", row=r.get("row"), field=r.get("field", "")) for r in reviews])
+                return bool(self.last_save_outcome)
         except Exception as e:
             logger.error(f"Error saving BOP data: {e}")
         return False
@@ -655,7 +657,9 @@ class WasteManagementTab(QWidget):
                 reviews = getattr(self.db, "last_safety_review", [])
                 if reviews:
                     QMessageBox.warning(self, "Safety review", "\n".join(f"Row {r.get('row')}: {r.get('reason')}" for r in reviews))
-                return True
+                from core.save_outcome import SaveOutcome, SaveIssue
+                self.last_save_outcome = SaveOutcome(saved=1, issues=[SaveIssue("Waste", r.get("reason", "Review required"), status="REVIEW_REQUIRED", row=r.get("row"), field=r.get("field", "")) for r in reviews])
+                return bool(self.last_save_outcome)
         except Exception as e:
             logger.error(f"Error saving waste data: {e}")
         return False
@@ -756,13 +760,17 @@ class SafetyWidget(DrillTabBase):
         if not self.current_well_id:
             self.show_error("No well selected")
             return False
-        success_safety = self.safety_bop_tab.save_to_database(self.current_well_id, self.current_report_id)
-        success_waste = self.waste_tab.save_to_database(self.current_well_id, self.current_report_id)
-        if success_safety or success_waste:
-            self.show_success("Safety data saved")
-            return True
-        self.show_error("Failed to save safety data")
-        return False
+        from core.save_outcome import save_all
+        def save_tab(tab):
+            tab.last_save_outcome = None
+            saved = tab.save_to_database(self.current_well_id, self.current_report_id)
+            return tab.last_save_outcome if tab.last_save_outcome is not None else saved
+        self.last_save_outcome = save_all([
+            ("BOP", lambda: save_tab(self.safety_bop_tab)),
+            ("Waste", lambda: save_tab(self.waste_tab)),
+        ])
+        (self.show_success if self.last_save_outcome else self.show_error)(self.last_save_outcome.summary())
+        return bool(self.last_save_outcome)
 
     def refresh(self):
         self.load_data()

@@ -58,7 +58,7 @@ def _review_rows(report):
         if not (
             result.status != "OK"
             or result.certainty == "LOW"
-            or result.canonical_field in report.source_tokens
+            or report.source_tokens.get(result.canonical_field, {}).get("review", False)
         ):
             continue
         rows.append(
@@ -81,7 +81,7 @@ def _review_rows(report):
                     "original_value": report.source_tokens.get(
                         result.canonical_field, {}
                     ).get("original_value", result.original_value),
-                    "normalized_value": None if result.canonical_field in report.source_tokens else result.value,
+                    "normalized_value": report.source_tokens.get(result.canonical_field, {}).get("normalized_value", result.value),
                     "expected_type": result.data_type,
                     "confidence": result.confidence,
                     "status": result.status,
@@ -104,8 +104,8 @@ def test_real_workbook_golden_shape_and_semantic_validation():
     assert report.rejected_rows == 10  # each rejected source row counted once, not twice
     # ``ImportReport.validation_errors`` counts source-level review states;
     # canonical validation must still have no typed/bounds errors.
-    assert report.validation_errors == 10  # combined Oil/Water is now explicitly ambiguous
-    assert report.fields_detected == 141
+    assert report.validation_errors == 8  # weather labels no longer masquerade as invalid measurements
+    assert report.fields_detected == 137  # three weather labels + Received Items heading are not source values
 
     validation = validate_canonical_payload(report.canonical_json)
     assert validation.valid, validation.errors
@@ -114,7 +114,9 @@ def test_real_workbook_golden_shape_and_semantic_validation():
 def test_real_workbook_review_items_have_complete_lineage_and_keep_ambiguity():
     report = _report()
     rows = _review_rows(report)
-    assert len(rows) == 30  # retained compound-composition review, not guessed oil %
+    assert len(rows) == 30  # known density resolved; missing Received Items is now explicit
+    assert not any(item.field == "mud_report.mw" for item in rows)
+    assert any(item.field == "daily_report.received_items" for item in rows)
     assert rows
     for item in rows:
         assert item.file
