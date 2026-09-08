@@ -19,11 +19,49 @@ from core.mineru_engine import (
     resolve_mineru_backend,
     validate_canonical_payload,
     MinerUOutputError,
+    MinerUDocument,
+    DocumentTable,
+    Provenance,
 )
 
 
 def _completed(code=0, stdout="", stderr=""):
     return subprocess.CompletedProcess(["mineru"], code, stdout=stdout, stderr=stderr)
+
+
+def test_pdf_numeric_unit_is_not_assumed_from_canonical_field():
+    document = MinerUDocument(
+        source_file="report.pdf",
+        backend="pipeline",
+        method="auto",
+        tables=[DocumentTable(
+            headers=["Mud Weight"],
+            rows=[["10.2"]],
+            provenance=Provenance("report.pdf", source_page=1),
+            name="mud report",
+        )],
+    )
+    normalized = DocumentNormalizer().normalize(document)
+    assert normalized.canonical_data["mud_report"]["mw"] is None
+    assert any("No explicit source unit" in warning.get("message", "") for warning in normalized.warnings)
+    assert normalized.provenance[0]["normalization_state"] == "needs_review"
+
+
+def test_pdf_numeric_unit_requires_matching_explicit_header_unit():
+    document = MinerUDocument(
+        source_file="report.pdf",
+        backend="pipeline",
+        method="auto",
+        tables=[DocumentTable(
+            headers=["Mud Weight (ppg)"],
+            rows=[["10.2"]],
+            provenance=Provenance("report.pdf", source_page=1),
+            name="mud report",
+        )],
+    )
+    normalized = DocumentNormalizer().normalize(document)
+    assert normalized.canonical_data["mud_report"]["mw"] == 10.2
+    assert normalized.validation.valid is True
 
 
 def test_mineru_discovery_prefers_explicit_path(monkeypatch, tmp_path):
@@ -153,7 +191,10 @@ def test_mineru_invocation_uses_safe_cli_and_parses_markdown(tmp_path, monkeypat
     assert kwargs["timeout"] == 30
 
     normalized = DocumentNormalizer().normalize(result.document)
-    assert normalized.canonical_data["mud_report"]["mw"] == 12.5
+    # The header has no unit, so the value must remain a reviewable NULL;
+    # the canonical ppg unit is never inferred from the field name.
+    assert normalized.canonical_data["mud_report"]["mw"] is None
+    assert any("No explicit source unit" in warning.get("message", "") for warning in normalized.warnings)
     assert normalized.provenance[0]["source_file"] == str(source.resolve())
     assert normalized.validation.valid is True
 
@@ -230,6 +271,7 @@ def test_mineru_timeout_and_process_failure_are_reported(tmp_path):
     assert timeout_result.success is False
     assert timeout_result.error_type == "timeout"
     assert timeout_result.fallback_available is True
+    assert not any((tmp_path / "timeout-output").iterdir())
 
     def failure_runner(command, **kwargs):
         return _completed(2, stderr="backend unavailable")
@@ -241,6 +283,7 @@ def test_mineru_timeout_and_process_failure_are_reported(tmp_path):
     assert failure_result.success is False
     assert failure_result.error_type == "process-failed"
     assert "backend unavailable" in (failure_result.error or "")
+    assert not any((tmp_path / "failure-output").iterdir())
 
 
 def test_mineru_malformed_or_missing_output_is_not_success(tmp_path):
@@ -259,6 +302,7 @@ def test_mineru_malformed_or_missing_output_is_not_success(tmp_path):
     ).parse_file(source, tmp_path / "output")
     assert result.success is False
     assert result.error_type == "output-missing"
+    assert not any((tmp_path / "output").iterdir())
 
 
 def test_table_normalization_preserves_unknown_values_and_provenance(tmp_path):

@@ -1,6 +1,6 @@
 # Import pipeline and entry-point matrix
 
-**Audit date:** 2026-09-06
+**Audit date:** 2026-09-08
 **Canonical persistence boundary:** `ExcelImportDialog._do_import()` plus
 `DatabaseManager.save_imported_multi_tab_data_atomic()`.
 
@@ -14,8 +14,8 @@ route_file
   both                -> classification/mapping
                          -> FIELD_SPECS / contextual aliases
                          -> value_normalizer
-                         -> UnitManager where an explicit source unit exists
-                         -> validation and ReviewItem
+                         -> UnitManager only where an explicit source unit exists
+                         -> semantic validation and ReviewItem
                          -> preview/edit/confirmation
                          -> atomic DB save
 ```
@@ -51,7 +51,23 @@ same schema and typed normalizer downstream.
 | `core.import_profiler.py` | timing/diagnostic instrumentation | no | no | observability only |
 | `tools/mineru_integration.py` | developer integration harness | no | no | diagnostic/manual, not production persistence |
 
-## 3. Format behavior
+## 3. ReviewItem and semantic validation contract
+
+Every field or persistence-generated review row is normalized through
+`ReviewItem.from_dict()`. The contract derives the canonical entity from a
+canonical field when a legacy producer supplied the old `time_log` default,
+retains row-level `source_cells` under `source_location`, and requires a
+mapping method, expected type, reason, entity, and source location. Table
+records carry source file/sheet/row/table metadata from extraction through DB
+validation. Same-value scalar sources are classified as
+`DUPLICATE_CONFIRMED`, while different values remain conflicts.
+
+The real-workbook certification artifact is `docs/review_audit_2026-09.json`;
+the human summary is `docs/REVIEW_AUDIT_2026-09.md`. It compares the historical
+79-item audit with the corrected output and treats disappearance of an
+ambiguous token as a regression.
+
+## 4. Format behavior
 
 ### Excel/XLSX/XLSM
 
@@ -71,16 +87,23 @@ shape:
 mineru -p INPUT -o OUTPUT -b BACKEND -m METHOD
 ```
 
-The configured backend/method defaults are `hybrid-engine`/`auto`. The actual
-configured executable or separately managed Python runtime is used; DrillMaster
-does not install MinerU or merge environments. The adapter parses Markdown,
-JSON, HTML tables and assets, adapts them to the common IR, normalizes only
-unambiguous fields, and sends the result to the same preview/atomic boundary.
+The configured backend/method defaults are `auto`/`auto`; `auto` resolves to
+`pipeline` without CUDA and `hybrid-engine` when CUDA is explicitly available.
+The actual configured executable or separately managed Python runtime is used;
+DrillMaster does not install MinerU or merge environments. The adapter parses
+Markdown, JSON, HTML tables and assets, adapts them to the common IR, normalizes
+only unambiguous fields, and sends the result to the same preview/atomic
+boundary. Failed, timed-out, nonzero, and malformed/partial runs are isolated
+and their temporary output is removed unless `keep_output` is explicitly set.
 
-When MinerU is unavailable for a PDF, the existing Camelot -> PyMuPDF -> OCR
-converter is an explicitly labeled fallback. It is not a MinerU PASS and has
-weaker PDF-native provenance. It can continue only if the generated workbook
-matches a canonical Excel template; otherwise the import stops before DB write.
+For PDF only, MinerU failure is wired to the existing Camelot -> PyMuPDF -> OCR
+converter through `parse_pdf_native_fallback()`. This is an explicitly labeled
+`PDF native fallback`, not a MinerU PASS, and it carries weaker PDF-native
+provenance. The fallback is adapted directly to `MinerUDocument` and the same
+`DocumentNormalizer`; it may continue only if canonical template matching
+succeeds. Other document formats do not receive this fallback. A PDF numeric
+field with a ppg destination is not assigned ppg unless its value or header
+explicitly establishes ppg; otherwise it remains NULL/reviewable.
 
 ### CSV
 
@@ -95,7 +118,7 @@ WITSML is currently a placeholder/unsupported import contract. LAS and legacy
 XLS are not claimed as implemented import paths. Unsupported formats produce a
 structured route error.
 
-## 4. Error and atomicity behavior
+## 5. Error and atomicity behavior
 
 Errors are distinguished as route/unsupported, invalid input, unavailable
 external executable/Python, process nonzero, timeout, malformed/missing output,

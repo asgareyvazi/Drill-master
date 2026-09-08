@@ -96,26 +96,102 @@ def has_meaningful_canonical_data(extracted: dict) -> bool:
 
 
 def _canonical_review_row(payload: dict, *, default_status: str = "REVIEW_REQUIRED") -> dict:
-    """Normalize legacy producer dictionaries to the shared ReviewItem shape."""
+    """Normalize every producer to the shared, lossless ReviewItem shape.
+
+    Persistence producers may only have a row-level ``_source_cells`` map,
+    while field mapping has an Excel cell.  Both are retained: ``source_cell``
+    is the compact display token and ``source_location`` is the structured
+    lineage object used by audits and exports.
+    """
     row = dict(payload or {})
     if "row" not in row and row.get("source_row") is not None:
         row["row"] = row["source_row"]
     if "source_location" not in row and row.get("source_cells") is not None:
         row["source_location"] = row["source_cells"]
     location = row.get("source_location")
-    if not row.get("source_cell") and isinstance(location, dict):
-        row["source_cell"] = "; ".join(
-            str(value) for value in location.values() if value not in (None, "")
+    if isinstance(location, dict):
+        location = dict(location)
+        location.setdefault("file", row.get("file") or row.get("source_document", ""))
+        location.setdefault("sheet", row.get("sheet", ""))
+        if row.get("row"):
+            location.setdefault("row", row["row"])
+        if row.get("column") not in (None, ""):
+            location.setdefault("column", row["column"])
+        row["source_location"] = location
+    if isinstance(row.get("source_cell"), dict):
+        row["source_location"] = row.get("source_location") or row["source_cell"]
+        cell_map = row["source_cell"]
+        row["source_cell"] = (
+            cell_map.get("cell") or cell_map.get("source_cell")
+            or "; ".join(str(value) for value in cell_map.values() if value not in (None, ""))
         )
+    elif not row.get("source_cell") and isinstance(location, dict):
+        # Use a compact cell token for display, while retaining the complete
+        # row/table cell map in source_location.
+        row["source_cell"] = location.get("cell") or location.get("address") or ""
+        if not row["source_cell"] and isinstance(location.get("cells"), dict):
+            row["source_cell"] = "; ".join(
+                str(value) for value in location["cells"].values() if value not in (None, "")
+            )
+        if not row["source_cell"]:
+            row["source_cell"] = "; ".join(
+                str(value) for key, value in location.items()
+                if key not in {"file", "sheet", "row", "column", "table"}
+                and value not in (None, "")
+                and not isinstance(value, (dict, list))
+            )
     row.setdefault("source_document", row.get("file", ""))
-    if "entity" not in row:
+    field = row.get("field") or row.get("canonical_field") or row.get("target_field", "")
+    row["field"] = field
+    if not row.get("entity"):
         row["entity"] = "time_log_morning" if "continuation_text" in row else row.get("record_type", "time_log")
-    row.setdefault("field", row.get("canonical_field", row.get("target_field", "")))
+    if row.get("entity") == "time_log" and "." in field:
+        row["entity"] = field.split(".", 1)[0]
+    row.setdefault("detected_table", row.get("entity", ""))
+    row.setdefault("expected_type", "canonical value")
+    row.setdefault("mapping_method", row.get("extraction_method") or (
+        "excel-template" if row.get("sheet") or row.get("file") else "persistence-validation"
+    ))
+    row.setdefault("classification", row.get("classification") or "review-required")
     row.setdefault("status", default_status)
     row.setdefault("decision", "REVIEW")
     row.setdefault("reason", row.get("message", "Review required"))
     row.setdefault("validation_message", row.get("reason", "Review required"))
     return ReviewItem.from_dict(row).to_dict()
+
+
+def _enrich_record_reviews(items: list, records: list, entity: str) -> list:
+    """Attach table provenance to persistence-generated review rows."""
+    indexed = {
+        record.get("_source_row"): record
+        for record in records or []
+        if isinstance(record, dict) and record.get("_source_row") is not None
+    }
+    for item in items or []:
+        record = indexed.get(item.get("source_row"))
+        if record is None and isinstance(item.get("source_location"), dict):
+            source_cells = item["source_location"].get("cells") or item["source_location"]
+            record = next(
+                (candidate for candidate in records or []
+                 if isinstance(candidate, dict) and candidate.get("_source_cells") == source_cells),
+                None,
+            )
+        if not isinstance(record, dict):
+            record = {}
+        location = dict(record.get("_source_location") or {})
+        location.setdefault("file", record.get("_source_file", ""))
+        location.setdefault("sheet", record.get("_source_sheet", ""))
+        location.setdefault("row", record.get("_source_row"))
+        location.setdefault("cells", record.get("_source_cells", {}))
+        item.setdefault("source_location", location)
+        item.setdefault("file", record.get("_source_file", ""))
+        item.setdefault("sheet", record.get("_source_sheet", ""))
+        item.setdefault("source_document", record.get("_source_file", ""))
+        item.setdefault("entity", entity)
+        item.setdefault("detected_table", entity)
+        item.setdefault("mapping_method", "excel-template-table")
+        item.setdefault("expected_type", "canonical row")
+    return items
 
 # Universal aliases as per spec
 UNIVERSAL_ALIASES = {
@@ -857,11 +933,27 @@ class ExcelImportDialog(QDialog):
                         extracted = dict(rep.canonical_json)
                         review_rows = [
                             {
+                                "file": Path(path).name,
                                 "sheet": r.sheet,
                                 "row": r.row,
                                 "column": r.col,
+                                "source_location": {
+                                    "file": Path(path).name,
+                                    "sheet": r.sheet,
+                                    "row": r.row,
+                                    "column": r.col,
+                                    "cell": r.cell,
+                                },
                                 "detected_table": "scalar",
                                 "source_cell": r.cell,
+                                "entity": r.canonical_field.split(".", 1)[0] if "." in r.canonical_field else "",
+                                "mapping_method": r.source or "excel-template",
+                                "classification": (
+                                    "mapping-conflict" if r.status == "CONFLICT"
+                                    else "invalid-source-token" if r.canonical_field in rep.source_tokens
+                                    else "missing-source-value" if r.status == "UNRESOLVED"
+                                    else "confidence-review"
+                                ),
                                 "original_value": rep.source_tokens.get(r.canonical_field, {}).get("original_value", r.value),
                                 "normalized_value": None if r.canonical_field in rep.source_tokens else r.value,
                                 "value": None if r.canonical_field in rep.source_tokens else r.value,
@@ -884,6 +976,7 @@ class ExcelImportDialog(QDialog):
                             "review_matrix": review_rows,
                             "source_tokens": rep.source_tokens,
                             "field_provenance": rep.field_provenance,
+                            "duplicate_mappings": rep.duplicate_mappings,
                             "raw_ir": rep.raw_document.to_dict(include_cells=True) if rep.raw_document is not None else None,
                         }
                     finally:
@@ -1886,7 +1979,7 @@ class ExcelImportDialog(QDialog):
                 if time_from is None or time_to is None:
                     review_items.append({
                         "source_cell": log.get("source_cell") or log.get("source_cells"),
-                        "source_row": log.get("source_row") or index,
+                        "source_row": log.get("source_row") or log.get("_source_row") or index,
                         "original_value": {"time_from": log.get("time_from"), "time_to": log.get("time_to")},
                         "normalized_value": {"time_from": time_from, "time_to": time_to},
                         "classification": "invalid_time_range",
@@ -1902,7 +1995,7 @@ class ExcelImportDialog(QDialog):
                 if raw_duration not in (None, "") and duration is None:
                     review_items.append({
                         "source_cell": log.get("source_cell") or log.get("source_cells"),
-                        "source_row": log.get("source_row") or index,
+                        "source_row": log.get("source_row") or log.get("_source_row") or index,
                         "original_value": raw_duration,
                         "normalized_value": None,
                         "classification": "invalid_duration",
@@ -1913,7 +2006,7 @@ class ExcelImportDialog(QDialog):
                 if duration is not None and (duration < 0 or duration > 24):
                     review_items.append({
                         "source_cell": log.get("source_cell") or log.get("source_cells"),
-                        "source_row": log.get("source_row") or index,
+                        "source_row": log.get("source_row") or log.get("_source_row") or index,
                         "original_value": raw_duration,
                         "normalized_value": duration,
                         "classification": "invalid_duration",
@@ -1935,7 +2028,7 @@ class ExcelImportDialog(QDialog):
             session.flush()
             if owns_session:
                 session.commit()
-            return {"valid": saved, "review": review_items}
+            return {"valid": saved, "review": _enrich_record_reviews(review_items, logs, "time_log")}
         except Exception:
             if owns_session:
                 session.rollback()
@@ -1964,7 +2057,7 @@ class ExcelImportDialog(QDialog):
                     )
                     review_items.append({
                         "source_cell": log.get("source_cell") or log.get("source_cells"),
-                        "source_row": log.get("source_row") or index,
+                        "source_row": log.get("source_row") or log.get("_source_row") or index,
                         "continuation_text": description if classification == "continuation" else "",
                         "original_value": {"time_from": log.get("time_from"), "time_to": log.get("time_to"), "description": description},
                         "normalized_value": {"time_from": time_from, "time_to": time_to},
@@ -1985,7 +2078,7 @@ class ExcelImportDialog(QDialog):
                 if raw_duration not in (None, "") and duration is None:
                     review_items.append({
                         "source_cell": log.get("source_cell") or log.get("source_cells"),
-                        "source_row": log.get("source_row") or index,
+                        "source_row": log.get("source_row") or log.get("_source_row") or index,
                         "original_value": raw_duration,
                         "normalized_value": None,
                         "classification": "invalid_duration",
@@ -1996,7 +2089,7 @@ class ExcelImportDialog(QDialog):
                 if duration is not None and (duration < 0 or duration > 24):
                     review_items.append({
                         "source_cell": log.get("source_cell") or log.get("source_cells"),
-                        "source_row": log.get("source_row") or index,
+                        "source_row": log.get("source_row") or log.get("_source_row") or index,
                         "original_value": raw_duration,
                         "normalized_value": duration,
                         "classification": "invalid_duration",
@@ -2018,7 +2111,7 @@ class ExcelImportDialog(QDialog):
             session.flush()
             if owns_session:
                 session.commit()
-            return {"valid": saved, "review": review_items}
+            return {"valid": saved, "review": _enrich_record_reviews(review_items, logs, "time_log_morning")}
         except Exception:
             if owns_session:
                 session.rollback()

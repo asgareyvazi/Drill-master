@@ -59,10 +59,19 @@ _DEFAULT_BOUNDS: Dict[str, Tuple[Optional[float], Optional[float]]] = {
 
 
 def _F(path, quantity="text", unit="", critical=False, aliases=(), bounds=None):
-    """Compact FieldSpec constructor."""
+    """Compact FieldSpec constructor.
+
+    Density bounds are expressed in the declared source/canonical unit.  The
+    historical default of 25 is appropriate for ppg/SG-like densities but is
+    invalid for pcf (the real workbook legitimately contains values around
+    70).  Keep this correction in the single registry rather than adding an
+    importer-specific exception.
+    """
     min_val = max_val = None
     if bounds:
         min_val, max_val = bounds
+    elif str(unit).lower() == "pcf":
+        min_val, max_val = 0.0, 200.0
     return FieldSpec(path, quantity, unit, critical, tuple(aliases), min_val, max_val)
 
 

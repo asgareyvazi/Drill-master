@@ -151,6 +151,9 @@ class ImportReport:
     # Provenance for canonical scalar values, including values assembled from
     # multiple source cells such as DDR report dates.
     field_provenance: Dict[str, Dict] = field(default_factory=dict)
+    # Same-value source locations are retained as an explicit duplicate audit;
+    # they are not silently dropped and are not treated as conflicts.
+    duplicate_mappings: List[Dict] = field(default_factory=list)
     # Shared lossless IR snapshot.  Canonical JSON remains deliberately small;
     # this object is consumed by diagnostics/lineage, not persisted as a DB row.
     raw_document: Any = None
@@ -502,6 +505,10 @@ class CandidateScorer:
             provenance_score * 0.05
         )
         
+        # Confidence remains evidence-based; a preferred coordinate is not
+        # inflated to an acceptance-looking score.  Field extraction applies
+        # the deterministic-anchor policy separately, while malformed source
+        # tokens still fail typed validation.
         return max(0.0, min(1.0, score))
 
     @staticmethod
@@ -562,11 +569,19 @@ class FieldExtractor:
         critical = spec.critical if spec else False
 
         candidates = []
+        preferred_authoritative = False
+        preferred_anchor_missing = False
 
-        # Strategy 1: Preferred cell — HIGH confidence when non-label value
+        # Strategy 1: Preferred cell — the template anchor is authoritative
+        # when it contains a value (including an explicit placeholder such as
+        # '-').  Never replace an anchored placeholder with a diagonal value
+        # from a neighbouring table.  This is especially important for
+        # engineering fields where a plausible number can still be the wrong
+        # field.
         value = self.cells.get((row, col))
         if value is not None and str(value).strip():
             if not self.labels._looks_like_label(str(value)):
+                preferred_authoritative = True
                 # Preferred cell has a real value — this is the STRONGEST signal.
                 # Template v3 positions were verified against the real Excel.
                 candidates.append(Candidate(
@@ -581,6 +596,7 @@ class FieldExtractor:
                     right_val = self.cells.get((row, col + dc))
                     if right_val is not None and str(right_val).strip():
                         if not self.labels._looks_like_label(str(right_val)):
+                            preferred_authoritative = True
                             candidates.append(Candidate(
                                 value=right_val, source="preferred_cell",
                                 row=row, col=col+dc, sheet=sheet,
@@ -588,6 +604,12 @@ class FieldExtractor:
                                 reason=f"Value right of label at {self._col_letter(col)}{row}",
                             ))
                             break
+                if not preferred_authoritative:
+                    # The configured cell is the label itself and no value is
+                    # present on its anchored row.  Keep this as an explicit
+                    # unresolved source rather than fuzzy-matching another
+                    # note/table row.
+                    preferred_anchor_missing = True
 
         # Strategy 2: Merge cell — reject labels, look right
         merge_val, is_merged = self.merge.get_value(row, col)
@@ -676,6 +698,15 @@ class FieldExtractor:
                     reason=f"Fuzzy ({ratio:.0%}) '{lv}' at {self._col_letter(lc)}{lr}",
                 ))
 
+        # An explicit template anchor outranks broad label/alias/fuzzy
+        # searches.  This prevents a valid value in a neighbouring table from
+        # being misclassified as the anchored field.  If the anchor is a
+        # label with no value, the field remains unresolved at that location.
+        if preferred_authoritative:
+            candidates = [candidate for candidate in candidates if candidate.source == "preferred_cell"]
+        elif preferred_anchor_missing:
+            candidates = []
+
         # Normalize textual numeric formats BEFORE scoring so that
         # '17-1/2"' -> 17.5 and '3K' -> 3000 are scored as the numbers they are.
         if spec and spec.quantity in self.NUMERIC_QUANTITIES:
@@ -691,10 +722,17 @@ class FieldExtractor:
 
         # Select best candidate
         if not candidates:
+            anchor = f"{self._col_letter(col)}{row}" if row and col else ""
+            reason = (
+                f"Template anchor {anchor} has no value"
+                if preferred_anchor_missing and anchor
+                else f"Field '{field_name}' not found by any strategy"
+            )
             return ExtractionResult(
                 canonical_field=canonical, value=None, original_value=None, normalized_value=None,
-                status="UNRESOLVED", confidence=0.0, certainty="LOW", source="not_found",
-                reason=f"Field '{field_name}' not found by any strategy",
+                status="UNRESOLVED", confidence=0.0, certainty="LOW", source="template_anchor" if anchor else "not_found",
+                cell=anchor, row=row, col=col, sheet=sheet,
+                reason=reason,
                 data_type=spec.quantity if spec else "text",
                 canonical_unit=spec.unit if spec else "",
             )
@@ -718,9 +756,13 @@ class FieldExtractor:
         # Engineering validation
         validation = self._validate_engineering(best.value, canonical, spec)
 
-        # Confidence policy
+        # Confidence policy. A verified template anchor can be accepted as a
+        # mapping method without pretending its numeric score is 0.99; typed
+        # and engineering-invalid values always remain reviewable.
         decision = confidence_decision(best.final_score, critical)
-        if decision == "REJECT" and status == "OK":
+        if validation not in {"valid", "missing"} and status == "OK":
+            status = "REVIEW_REQUIRED"
+        elif decision == "REJECT" and status == "OK" and not preferred_authoritative:
             status = "REVIEW_REQUIRED"
 
         return ExtractionResult(
@@ -1359,9 +1401,10 @@ class ExcelIntelligence:
                         spec = FIELD_SPECS.get(canonical_path)
                         critical = spec.critical if spec else False
                         decision = confidence_decision(result.confidence, critical)
+                        if result.status in {"OK", "REVIEW_REQUIRED"}:
+                            report.fields_detected += 1
 
                         if result.status == "OK":
-                            report.fields_detected += 1
                             if decision == "ACCEPT":
                                 report.fields_accepted += 1
                             elif decision == "REVIEW":
@@ -1437,7 +1480,9 @@ class ExcelIntelligence:
                             }
                             storage_key = key_map.get(section, section)
                             normalized = self._normalize_table_records(
-                                table_result.records, storage_key
+                                table_result.records, storage_key,
+                                source_sheet=actual_sheet,
+                                source_file=report.raw_document.source_file if report.raw_document is not None else report.file_name,
                             )
                             canonical.setdefault(storage_key, []).extend(normalized)
                     else:
@@ -1482,7 +1527,9 @@ class ExcelIntelligence:
                                     }
                                     storage_key = key_map.get(section, section)
                                     normalized = self._normalize_table_records(
-                                        table_result.records, storage_key
+                                        table_result.records, storage_key,
+                                        source_sheet=actual_sheet,
+                                        source_file=report.raw_document.source_file if report.raw_document is not None else report.file_name,
                                     )
                                     canonical.setdefault(storage_key, []).extend(normalized)
 
@@ -1520,6 +1567,20 @@ class ExcelIntelligence:
                     "review_state": "accepted",
                     "components": components,
                 }
+
+        # Resolve source-unit context after all scalar anchors have been
+        # visited.  DDR layouts may place MW Unit below Mud Weight; preserve a
+        # numeric PCF/SG source token for the explicit UnitManager conversion
+        # instead of treating it as ppg or discarding it as out-of-range.
+        mud_values = canonical.get("mud_report")
+        source_mw = report.source_tokens.get("mud_report.mw")
+        source_unit = str(mud_values.get("mw_unit", "") if isinstance(mud_values, dict) else "").strip().lower()
+        if isinstance(mud_values, dict) and source_mw and source_unit in {"pcf", "sg", "ppg"}:
+            if source_mw.get("status") == "ENGINEERING_REVIEW" and source_mw.get("original_value") not in (None, ""):
+                mud_values["mw"] = source_mw["original_value"]
+                source_mw["normalized_value"] = source_mw["original_value"]
+                source_mw["status"] = "SOURCE_UNIT_PENDING"
+                mud_values.pop("mw_source", None)
 
         report.canonical_json = canonical
         report.extraction_time_ms = (time.time() - start_time) * 1000
@@ -1595,6 +1656,42 @@ class ExcelIntelligence:
                         "review": True,
                     }
                     canonical.setdefault(section, {})[key + "_source"] = token
+            elif normalization.ok and result.validation not in {"valid", "missing"}:
+                # Engineering bounds/type checks are a second semantic
+                # boundary.  A value can be syntactically numeric yet still
+                # be wrong for the field (for example a PCF token selected for
+                # the ppg mud-weight field).  An explicit source suffix is
+                # safe to retain for the later UnitManager conversion; a bare
+                # out-of-range value remains NULL/reviewable.
+                source_unit_match = re.search(
+                    r"(?:^|\s)(pcf|ppg|sg)\s*$", str(original_value or ""), re.IGNORECASE
+                )
+                explicit_source_unit = source_unit_match.group(1).lower() if source_unit_match else ""
+                if canonical_path == "mud_report.mw" and explicit_source_unit:
+                    value = normalization.value
+                    target.setdefault("mw_unit", explicit_source_unit.upper())
+                    report.source_tokens[canonical_path] = {
+                        "original_value": original_value,
+                        "normalized_value": value,
+                        "source_unit": explicit_source_unit,
+                        "cell": result.cell,
+                        "sheet": actual_sheet or result.sheet,
+                        "expected_type": normalization.expected_type,
+                        "status": "SOURCE_UNIT_PENDING",
+                        "review": True,
+                    }
+                else:
+                    report.source_tokens[canonical_path] = {
+                        "original_value": original_value,
+                        "normalized_value": None,
+                        "cell": result.cell,
+                        "sheet": actual_sheet or result.sheet,
+                        "expected_type": normalization.expected_type,
+                        "status": "ENGINEERING_REVIEW",
+                        "review": True,
+                    }
+                    value = None
+                    canonical.setdefault(section, {})[key + "_source"] = original_value
             elif normalization.ok:
                 # Canonical JSON keeps legacy serializable date/time tokens
                 # and raw Excel timedelta semantics.  The typed normalizer
@@ -1639,7 +1736,14 @@ class ExcelIntelligence:
             and value not in (None, "")
             and existing_value != value
         )
-        if preserve_existing or conflict_with_existing:
+        duplicate_with_existing = (
+            existing_value is not missing
+            and existing_value not in (None, "")
+            and value not in (None, "")
+            and existing_value == value
+            and report.field_provenance.get(canonical_path, {}).get("source_cell") != result.cell
+        )
+        if preserve_existing or conflict_with_existing or duplicate_with_existing:
             value = existing_value
             if existing_source_token is None:
                 report.source_tokens.pop(canonical_path, None)
@@ -1657,7 +1761,9 @@ class ExcelIntelligence:
             ),
             None,
         )
-        if canonical_path not in report.field_provenance or not (preserve_existing or conflict_with_existing):
+        if canonical_path not in report.field_provenance or not (
+            preserve_existing or conflict_with_existing or duplicate_with_existing
+        ):
             report.field_provenance[canonical_path] = {
                 "source_file": report.raw_document.source_file if report.raw_document is not None else "",
                 "source_sheet": actual_sheet or result.sheet,
@@ -1685,6 +1791,22 @@ class ExcelIntelligence:
                 "normalized_value": value,
                 "status": "CONFLICT",
             })
+        if duplicate_with_existing:
+            duplicate = {
+                "source_file": report.raw_document.source_file if report.raw_document is not None else report.file_name,
+                "source_sheet": actual_sheet or result.sheet,
+                "source_cell": result.cell,
+                "original_value": original_value,
+                "normalized_value": value,
+                "status": "DUPLICATE_CONFIRMED",
+                "classification": "duplicate-same-value",
+            }
+            report.field_provenance[canonical_path].setdefault("duplicates", []).append(duplicate)
+            report.duplicate_mappings.append({
+                "canonical_field": canonical_path,
+                "primary": report.field_provenance[canonical_path].get("source_cell", ""),
+                **duplicate,
+            })
 
         # Keep the common IR synchronized with the mapping result.  The
         # source token remains in ``original_value``; only the explicit
@@ -1708,7 +1830,13 @@ class ExcelIntelligence:
                 break
 
     @staticmethod
-    def _normalize_table_records(records: List[Dict], storage_key: str) -> List[Dict]:
+    def _normalize_table_records(
+        records: List[Dict],
+        storage_key: str,
+        *,
+        source_sheet: str = "",
+        source_file: str = "",
+    ) -> List[Dict]:
         """Normalize raw table records into canonical short-key records.
 
         * Full canonical paths ("time_log.time_from") become short keys
@@ -1758,6 +1886,20 @@ class ExcelIntelligence:
             if storage_key == "bulk_materials":
                 if short.get("product_type") and not short.get("material_name"):
                     short["material_name"] = short["product_type"]
+            # Keep table provenance beside canonical row values.  Persistence
+            # and ReviewItem construction can therefore report the original
+            # worksheet/table without reconstructing it from a bare row index.
+            if source_sheet:
+                short["_source_sheet"] = source_sheet
+            if source_file:
+                short["_source_file"] = source_file
+            short["_source_location"] = {
+                "file": source_file,
+                "sheet": source_sheet,
+                "row": short.get("_source_row"),
+                "cells": short.get("_source_cells", {}),
+                "table": storage_key,
+            }
             out.append(short)
         return out
 

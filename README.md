@@ -161,8 +161,10 @@ unsupported routes; they are not alternate automatic persistence architectures.
 Real-document certification is environment-gated. Set
 `DRILLMASTER_TEST_DDR_XLSX` and `DRILLMASTER_TEST_DDR_PDF` to run the real DDR
 acceptance tests. They skip explicitly when paths or MinerU are unavailable.
-The user's OEOC-201 Excel and Windows MinerU/PDF were not available in this
-Linux checkout, so Windows acceptance is **BLOCKED**, not PASS.
+AZNS-12 production asset not present in repository/workspace. The user's
+Windows MinerU/PDF and Python 3.12/package runtime were not available in this
+Linux checkout, so Windows acceptance is **BLOCKED**, not PASS. See
+`docs/WINDOWS_ACCEPTANCE.md` for the exact PowerShell sequence.
 
 ## Engineering and import limitations
 

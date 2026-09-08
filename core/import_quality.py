@@ -17,6 +17,7 @@ P0 Requirements Implemented:
 
 from dataclasses import dataclass, field, fields as dataclass_fields
 from typing import Any, Iterable, List, Dict, Tuple, Optional
+from collections.abc import Mapping
 from datetime import time, datetime, date, timedelta
 import math
 import re
@@ -88,8 +89,95 @@ class ReviewItem:
     entity: str = ""
     field: str = ""
     message: str = ""
+    classification: str = ""
 
     def __post_init__(self):
+        # Normalize provenance at the contract boundary.  Producers are
+        # intentionally allowed to submit legacy ``source_cells`` dictionaries
+        # or only row/column fields, but no ReviewItem leaves this boundary
+        # without a structured source location.
+        if isinstance(self.source_cell, Mapping):
+            location = dict(self.source_cell)
+            if self.source_location is None:
+                self.source_location = location
+            self.source_cell = (
+                location.get("cell")
+                or location.get("source_cell")
+                or location.get("address")
+                or ""
+            )
+        if self.source_document == "" and self.file:
+            self.source_document = self.file
+        if self.file == "" and isinstance(self.source_location, Mapping):
+            self.file = str(
+                self.source_location.get("file")
+                or self.source_location.get("source_file")
+                or self.source_document
+                or ""
+            )
+        if self.sheet == "" and isinstance(self.source_location, Mapping):
+            self.sheet = str(
+                self.source_location.get("sheet")
+                or self.source_location.get("source_sheet")
+                or ""
+            )
+        if self.source_location is None:
+            self.source_location = {}
+        if isinstance(self.source_location, Mapping):
+            location = dict(self.source_location)
+            if self.file:
+                location.setdefault("file", self.file)
+            if self.sheet:
+                location.setdefault("sheet", self.sheet)
+            if self.page is not None:
+                location.setdefault("page", self.page)
+            if self.row:
+                location.setdefault("row", self.row)
+            if self.column not in (None, ""):
+                location.setdefault("column", self.column)
+            if self.source_cell:
+                location.setdefault("cell", self.source_cell)
+            self.source_location = location
+        if not self.source_cell and isinstance(self.source_location, Mapping):
+            self.source_cell = str(
+                self.source_location.get("cell")
+                or self.source_location.get("address")
+                or ""
+            )
+            if not self.source_cell and isinstance(self.source_location.get("cells"), Mapping):
+                self.source_cell = "; ".join(
+                    str(value) for value in self.source_location["cells"].values()
+                    if value not in (None, "")
+                )
+            if not self.source_cell:
+                self.source_cell = "; ".join(
+                    str(value) for key, value in self.source_location.items()
+                    if key not in {"file", "sheet", "row", "column", "table"}
+                    and value not in (None, "")
+                    and not isinstance(value, (Mapping, list))
+                )
+        if self.field == "" and self.target_field:
+            self.field = self.target_field
+        if self.target_field == "" and self.field:
+            self.target_field = self.field
+        # A historical default used ``time_log`` for every row.  Preserve an
+        # explicit non-scalar entity, but derive the entity from a canonical
+        # field when the producer omitted it or supplied that default.
+        if self.field and (not self.entity or (self.entity == "time_log" and "." in self.field)):
+            self.entity = self.field.split(".", 1)[0]
+        if not self.detected_table:
+            self.detected_table = self.entity
+        if not self.expected_type:
+            self.expected_type = "canonical value"
+        if not self.mapping_method:
+            self.mapping_method = (
+                "mineru-ir" if self.page is not None or (
+                    isinstance(self.source_location, Mapping)
+                    and self.source_location.get("page") is not None
+                ) else "source-validation"
+            )
+        if not self.classification:
+            self.classification = "review-required"
         if self.canonical_field and not self.target_field:
             self.target_field = self.canonical_field
         if not self.canonical_field and self.target_field:

@@ -1,7 +1,7 @@
 # Production readiness and final import consistency gate
 
 **Branch:** `arena/01a07094-drill-master`
-**Audit date:** 2026-09-06
+**Audit date:** 2026-09-08
 **Release posture:** **NOT MERGE-READY until the available test environment is
 recreated and the required real Windows acceptance is recorded.**
 
@@ -13,8 +13,8 @@ recreated and the required real Windows acceptance is recorded.**
 | One canonical MinerU/PDF downstream path | PASS by source audit | `MinerUAdapter` -> `DocumentNormalizer` -> common IR/schema/review/save |
 | No hidden ProfileImportEngine fallback | PASS | Smart Template hook disabled; direct profile DB method disabled |
 | No DB legacy rescue after atomic failure | PASS | compatibility method delegates only to atomic saver |
-| ReviewItem complete serialization/edit/save contract | PASS by source audit | `to_dict/from_dict`, matrix restore, preview edit propagation |
-| Real OEOC-201 Excel | **BLOCKED** | user file not present; local Python lacks runtime dependencies |
+| ReviewItem complete serialization/edit/save contract | PASS by source + real-workbook audit | `to_dict/from_dict`, normalized provenance/entity/type/mapping metadata, matrix restore, preview edit propagation; 0 missing core fields in the 2026-09-08 audit |
+| AZNS-12 production Excel/PDF | **BLOCKED** | AZNS-12 production asset not present in repository/workspace. |
 | Real Windows MinerU 3.4.5/PDF | **BLOCKED** | Windows executable/environment unavailable here |
 | Python 3.12 acceptance | **BLOCKED** | Python 3.12 runtime not executed |
 
@@ -44,16 +44,18 @@ when the relevant path is not supplied or when MinerU is unavailable. The
 repository also contains atomicity, schema/alias/bounds, normalizer, unit,
 optional-AI, MinerU failure-mode, security, packaging, and release tests.
 
-This workspace did not contain `pytest` or `openpyxl` on the active Python
-runtime, so this audit could run syntax compilation and focused pure-Python
-smoke checks but could not claim a full pytest result. Do not copy an older
-pass count into a release record.
+A dependency-backed Python 3.11 environment at `/tmp/drill-venv` executed the
+complete suite: **530 passed, 8 skipped, 0 failed/errors** (538 collected),
+plus the real repository workbook audit. The base shell's `pytest` command is
+not installed, and no Python 3.12 runtime, Windows executable, real MinerU
+installation, AZNS-12 asset, or production DB was executed. The pass count is
+therefore Linux/Python-3.11 evidence, not Windows/Python-3.12 acceptance.
 
 ## Security and packaging
 
 MinerU is subprocess-only with `shell=False`, argument-list invocation,
 input/format checks, isolated output, timeout, captured output, and separate
-process/output errors. AI is disabled by default and advisory. No passwords,
+process/output errors; failed/partial output is removed unless explicitly retained. PDF density units are not assumed. AI is disabled by default and advisory. No passwords,
 MinerU environment, AI models, or generated real-document outputs belong in
 Git.
 
@@ -64,15 +66,17 @@ BLOCKED until executed on Windows.
 
 ## Remaining defects/limitations
 
-1. No real OEOC-201 evidence is available in this checkout.
-2. PDF legacy fallback (Camelot/PyMuPDF/OCR) has weaker PDF-native provenance
-   and is not a MinerU PASS; it is allowed only when canonical Excel template
-   mapping can continue.
-3. Smart Template and `ProfileImportEngine.analyze_and_extract()` remain
+1. AZNS-12 production asset is unavailable: **AZNS-12 production asset not present in repository/workspace.**
+2. Real MinerU/PDF execution, Windows GUI/Python 3.12/package acceptance, and
+   production DB acceptance are not demonstrated here.
+3. PDF native fallback (Camelot/PyMuPDF/OCR) is wired for PDF-only failure,
+   carries weaker PDF-native provenance, and is not a MinerU PASS; it is allowed
+   only when canonical template mapping can continue.
+4. Smart Template and `ProfileImportEngine.analyze_and_extract()` remain
    compatibility code and should not be described as canonical importers.
-4. Review items are exported in the import report but are not a dedicated ORM
+5. Review items are exported in the import report but are not a dedicated ORM
    table; long-term audit retention depends on the report/export mechanism.
-5. Existing informational legacy/static-audit findings remain outside this
+6. Existing informational legacy/static-audit findings remain outside this
    targeted fix.
 
 ## Merge gate

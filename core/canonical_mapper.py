@@ -56,6 +56,27 @@ def normalize_canonical_value(value: Any, field_path: str) -> CanonicalValue:
     if spec is None:
         return CanonicalValue(field_path, value, value)
     result = normalize_for_field(value, spec)
+    # A unit suffix on a unitless field is not harmless text.  For example,
+    # ``3,441,012 N`` is a coordinate token, not a Newton value for latitude.
+    # Keep it reviewable instead of accepting a plausible but semantically
+    # wrong float.  Fields with a canonical unit are handled by their normal
+    # unit-preservation/conversion boundary.
+    if (
+        result.ok
+        and not result.missing
+        and not spec.unit
+        and spec.quantity in {"number", "float", "decimal", "integer"}
+        and isinstance(value, str)
+        and re.search(r"[-+]?\d[\d,]*(?:\.\d+)?\s+[A-Za-z°/%²/_-]+\s*$", value.strip())
+    ):
+        return CanonicalValue(
+            field_path,
+            value,
+            None,
+            expected_type=result.expected_type,
+            validation_state="needs_review",
+            review_reason="Unit-bearing source token has no canonical unit context",
+        )
     if result.missing:
         state = "missing"
     elif result.ok:

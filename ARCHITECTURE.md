@@ -1,8 +1,8 @@
 # DrillMaster architecture and import audit
 
 **Branch:** `arena/01a07094-drill-master`
-**Audit date:** 2026-09-06
-**Status:** canonical import path repaired; real OEOC-201/Windows MinerU acceptance is **BLOCKED** in this Linux checkout.
+**Audit date:** 2026-09-08
+**Status:** source-level certification checks pass; AZNS-12 production asset, real MinerU/PDF, Windows/Python 3.12/package, and production DB acceptance remain **BLOCKED** in this Linux checkout.
 
 ## 1. One canonical runtime architecture
 
@@ -78,7 +78,17 @@ target/canonical field, expected type, confidence/certainty, mapping method,
 transform, validation state/message, decision, review state, reason, and user
 correction. `ReviewItem.to_dict()` and `ReviewItem.from_dict()` support the
 serialized UI/export contract; `ImportReviewMatrix.from_rows()` restores a
-matrix.
+matrix. At this boundary, legacy row-level `source_cells` are normalized into
+structured `source_location`, the entity is derived from a canonical field
+instead of defaulting to `time_log`, and missing mapping method/type/reason
+metadata is filled with an explicit contract value. Table persistence rows
+retain file, sheet, source row, detected table, and every source cell. A
+same-value duplicate is retained as `DUPLICATE_CONFIRMED` provenance; it is not
+silently merged into a different value.
+
+The real workbook audit is recorded in `docs/REVIEW_AUDIT_2026-09.md` and its
+JSON artifact. It has zero missing provenance/core fields and retains all
+legitimate ambiguity categories.
 
 The Qt preview renders these fields. Mapping, normalized-value, unit, accept,
 reject, and ignore edits are synchronized back into the serialized row and
@@ -116,8 +126,10 @@ MinerU is an externally managed installation. DrillMaster does not reinstall
 it, merge its Python environment with DrillMaster's Python, or bundle it. The
 adapter uses an argument list with `shell=False`, validates input suffixes,
 uses isolated output directories, captures output, enforces timeout/exit/output
-checks, and reports unavailable executable, Python, process, timeout,
-unsupported format, malformed output, normalization, and DB errors separately.
+checks, removes failed/partial temporary output unless retention is explicit,
+and reports unavailable executable, Python, process, timeout, unsupported
+format, malformed output, normalization, and DB errors separately. PDF density
+values are not assigned ppg without an explicit source unit.
 Optional AI is advisory, disabled by default, local-only when enabled, and
 never has direct DB access.
 

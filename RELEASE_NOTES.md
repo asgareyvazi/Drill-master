@@ -1,4 +1,4 @@
-# Release notes — import consistency audit (2026-09-06)
+# Release notes — import consistency audit (2026-09-08)
 
 ## Branch
 
@@ -24,17 +24,25 @@
   `DRILLMASTER_TEST_DDR_XLSX` and `DRILLMASTER_TEST_DDR_PDF`.
 - Reconciled architecture, pipeline, AI, readiness, testing, README, and audit
   documentation with source behavior.
+- Corrected ReviewItem provenance/entity/type/mapping normalization across
+  field, time-log, lookahead, BOP, and survey persistence rows; retained
+  same-value duplicate provenance explicitly.
+- Corrected template-anchor precedence so placeholders and empty note anchors
+  cannot be replaced by diagonal/fuzzy values; added real-workbook golden
+  counts, semantic validation, and a complete 79-item baseline/current audit.
+- Added PDF density unit safety (`10.2` is not ppg without explicit source
+  evidence), failed MinerU output cleanup, and Windows acceptance sequencing.
 
 ## Certification status
 
 - Source compile and pure-Python IR/review smoke checks: **PASS** in this
   workspace.
-- Full pytest suite: **NOT EXECUTED**; `pytest` and `openpyxl` are unavailable
-  in the active sandbox runtime.
-- Repository OEOC-208 fixture: present, but no real extraction PASS is claimed
-  without the dependency-complete test environment.
-- User OEOC-201 Excel: **BLOCKED / not available**.
-- User Windows MinerU 3.4.5/PDF: **BLOCKED / not available**.
+- Dependency-backed Python 3.11 complete suite: **530 passed, 8 skipped, 0
+  failed/errors** (538 collected); real repository workbook audit: **PASS for
+  source-level evidence**. This is not Windows/Python 3.12 acceptance.
+- Repository workbook fixture: audited; this is not AZNS-12 production evidence.
+- **AZNS-12 production asset not present in repository/workspace.**
+- User Windows MinerU/PDF: **BLOCKED / not available**.
 - Python 3.12: **BLOCKED / not executed**.
 - Windows PyInstaller/Inno Setup and clean-machine checks: **BLOCKED / not
   executed**.

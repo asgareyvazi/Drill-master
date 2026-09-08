@@ -3382,8 +3382,15 @@ class DatabaseManager:
                         results["review"] += 1
                         results.setdefault("review_rows", []).append({
                             "entity": key,
+                            "field": "",
+                            "source_location": {},
+                            "source_cell": "",
                             "reason": reason or "Source row requires review and was not persisted",
+                            "classification": "persistence-review",
+                            "mapping_method": "persistence-validation",
+                            "expected_type": "canonical value",
                             "status": "REVIEW_REQUIRED",
+                            "decision": "REVIEW",
                         })
 
                 def validation_issue(*, entity, field="", row=None, source=None, original=None, normalized=None, message=""):
@@ -3404,20 +3411,48 @@ class DatabaseManager:
 
                 def review_issue(*, entity, field="", row=None, source=None, original=None, message=""):
                     results["review"] = results.get("review", 0) + 1
+                    location = dict(source) if isinstance(source, dict) else {}
+                    location.setdefault("row", row)
                     results.setdefault("review_rows", []).append({
                         "entity": entity,
                         "field": field,
                         "row": row,
-                        "source_location": source,
+                        "source_location": location,
+                        "source_cell": location.get("cell") or location.get("address") or "",
                         "original_value": original,
                         "normalized_value": None,
+                        "classification": _review_classification(entity, field, message),
                         "reason": message,
                         "status": ImportStatus.REVIEW_REQUIRED.value,
                         "decision": "REVIEW",
+                        "mapping_method": "persistence-validation",
+                        "expected_type": "canonical value",
                     })
 
                 def _source_for_row(row):
-                    return row.get("_source_cells") if isinstance(row, dict) else None
+                    if not isinstance(row, dict):
+                        return {}
+                    location = dict(row.get("_source_location") or {})
+                    cells = row.get("_source_cells")
+                    if cells is not None:
+                        location.setdefault("cells", cells)
+                    location.setdefault("file", row.get("_source_file", ""))
+                    location.setdefault("sheet", row.get("_source_sheet", ""))
+                    location.setdefault("row", row.get("_source_row"))
+                    location.setdefault("table", "")
+                    return location
+
+                def _review_classification(entity, field, message):
+                    text = str(message or "").lower()
+                    if "continuation" in text:
+                        return "continuation-row"
+                    if "angle" in text or "survey" in str(entity).lower():
+                        return "survey-ambiguity"
+                    if "bop" in str(entity).lower() or "component type" in text:
+                        return "bop-ambiguity"
+                    if "missing" in text or "required" in text:
+                        return "missing-required-value"
+                    return "persistence-review"
 
                 def _required_text(row, names):
                     return any(str(row.get(name, "") or "").strip() for name in names)
@@ -3578,14 +3613,21 @@ class DatabaseManager:
                                 continue
                             results["survey_review"] = results.get("survey_review", 0) + 1
                             results["review"] += 1
+                            location = _source_for_row(s)
                             results.setdefault("review_rows", []).append({
-                                "row": survey_index,
-                                "source_cell": s.get("_source_cells"),
+                                "entity": "survey_points",
+                                "field": "inc/azi",
+                                "row": s.get("_source_row") or survey_index,
+                                "source_location": location,
+                                "source_cell": location.get("cell") or "",
                                 "original_value": {"inc": s.get("inc"), "azi": s.get("azi")},
                                 "normalized_value": {"inc": inc, "azi": azi},
-                                "classification": "missing_survey_angle",
+                                "classification": "survey-ambiguity",
                                 "reason": "Survey station persisted with NULL angle for review; no angle was invented",
                                 "status": "REVIEW_REQUIRED",
+                                "decision": "REVIEW",
+                                "mapping_method": "persistence-validation",
+                                "expected_type": "nullable angle",
                             })
                         elif not 0 <= inc <= 180:
                             validation_issue(

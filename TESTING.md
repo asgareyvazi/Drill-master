@@ -1,6 +1,6 @@
 # Testing and acceptance guide
 
-**Audit date:** 2026-09-06
+**Audit date:** 2026-09-08
 
 ## 1. Local test gate
 
@@ -15,9 +15,11 @@ python -m pip wheel . --no-deps --wheel-dir dist
 git diff --check
 ```
 
-The active sandbox did not have `pytest` or `openpyxl`, so only compile and
-pure-Python smoke checks were executable during this audit. No full-suite pass
-count is claimed from this environment.
+The base shell does not provide `pytest`, but the dependency-backed
+`/tmp/drill-venv` Python 3.11 environment executed the complete suite:
+**530 passed, 8 skipped, 0 failed/errors** (538 collected). The real repository
+workbook audit also completed. No Python 3.12, Windows GUI/package, real
+MinerU/PDF, AZNS-12, or production-DB result is claimed from Linux.
 
 ## 2. Real DDR acceptance
 
@@ -87,7 +89,8 @@ alone is not considered a successful test.
 ## 5. Environment and certification limits
 
 The repository's Windows packaging is not certified on Linux. The user's
-Windows MinerU 3.4.5 installation and OEOC-201 files were not available here.
+Windows MinerU installation and AZNS-12 files were not available here. Exact
+Windows/Python 3.12/package commands are in `docs/WINDOWS_ACCEPTANCE.md`.
 Python 3.12 is not PASS unless the exact runtime executes the suite and real
 acceptance. Keep real documents, MinerU outputs, databases, and generated
 builds outside Git unless a fixture is intentionally required.

@@ -29,7 +29,11 @@ import time
 from typing import Any, Callable, Iterable, Mapping, Optional, Sequence
 
 from core.canonical_schema import FIELD_SPECS, lookup_alias
-from core.canonical_mapper import resolve_canonical_field, normalize_canonical_value
+from core.canonical_mapper import (
+    CanonicalValue,
+    resolve_canonical_field,
+    normalize_canonical_value,
+)
 from core.runtime_config import data_dir, read_mineru_settings
 from core.import_ir import raw_document_from_mineru
 
@@ -601,6 +605,7 @@ class MinerUAdapter:
                     stdout=_text(getattr(exc, "stdout", "")),
                     stderr=_text(getattr(exc, "stderr", "")),
                     output_dir=str(run_dir),
+                    cleanup_dir=None if self.config.keep_output else str(temporary_root or run_dir),
                     fallback_available=source.suffix.lower() == ".pdf",
                 )
             except FileNotFoundError as exc:
@@ -610,6 +615,7 @@ class MinerUAdapter:
                     f"MinerU executable could not be started: {exc}",
                     started,
                     output_dir=str(run_dir),
+                    cleanup_dir=None if self.config.keep_output else str(temporary_root or run_dir),
                     fallback_available=source.suffix.lower() == ".pdf",
                 )
 
@@ -624,6 +630,7 @@ class MinerUAdapter:
                     stdout=stdout,
                     stderr=stderr,
                     output_dir=str(run_dir),
+                    cleanup_dir=None if self.config.keep_output else str(temporary_root or run_dir),
                     fallback_available=source.suffix.lower() == ".pdf",
                 )
             try:
@@ -642,6 +649,7 @@ class MinerUAdapter:
                     stdout=stdout,
                     stderr=stderr,
                     output_dir=str(run_dir),
+                    cleanup_dir=None if self.config.keep_output else str(temporary_root or run_dir),
                     fallback_available=source.suffix.lower() == ".pdf",
                 )
             document.metadata["diagnostics"] = dict(diagnostics)
@@ -684,9 +692,15 @@ class MinerUAdapter:
         stdout: str = "",
         stderr: str = "",
         output_dir: Optional[str] = None,
+        cleanup_dir: Optional[str] = None,
         fallback_available: bool = False,
     ) -> MinerUParseResult:
         logger.warning("MinerU parse failed: file=%s type=%s error=%s", Path(source_file).name, error_type, error)
+        if cleanup_dir:
+            # Failed/partial output must never be reused by a later import.
+            # Keep it only when the operator explicitly requested retained
+            # MinerU output through ``keep_output``.
+            shutil.rmtree(cleanup_dir, ignore_errors=True)
         return MinerUParseResult(
             source_file=source_file,
             success=False,
@@ -1183,7 +1197,84 @@ class NormalizedDocument:
 
 
 class DocumentNormalizer:
-    """Map only unambiguous MinerU items to the existing canonical schema."""
+    """Map only unambiguous MinerU items to the existing canonical schema.
+
+    A canonical field unit is a destination contract, not evidence that the
+    source used that unit.  PDF tables therefore require an explicit unit in
+    the header or value before a unit-bearing number can enter canonical data.
+    """
+
+    _UNIT_ALIASES = {
+        "ppg": "ppg", "lb/gal": "ppg", "lbgal": "ppg",
+        "sg": "sg", "m": "m", "meter": "m", "meters": "m",
+        "ft": "ft", "feet": "ft", "in": "in", "inch": "in", "inches": "in",
+        "psi": "psi", "bar": "bar", "kpa": "kpa", "mpa": "mpa",
+        "deg": "deg", "degree": "deg", "degrees": "deg", "°": "deg",
+        "rpm": "rpm", "gpm": "gpm", "lpm": "lpm", "bbl": "bbl",
+        "hr": "hr", "hrs": "hr", "h": "hr", "sec": "sec", "s": "sec",
+        "c": "c", "°c": "c", "f": "f", "°f": "f",
+    }
+
+    @classmethod
+    def _explicit_unit(cls, value: Any, header: str = "") -> Optional[str]:
+        """Find a unit token explicitly attached to a PDF value/header."""
+        text = str(value or "").strip().lower()
+        header_text = str(header or "").strip().lower()
+        # Prefer a unit in the value, then a parenthesized/bracketed or
+        # trailing unit in its header. Bare numeric values have no unit.
+        value_match = re.search(
+            r"[-+]?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?\s*([a-z°/²-]+)\s*$",
+            text,
+            re.IGNORECASE,
+        )
+        header_match = re.search(
+            r"(?:\(|\[|,|\s)([a-z°/²]+(?:/[a-z0-9²]+)?)\s*(?:\)|\])?\s*$",
+            header_text,
+            re.IGNORECASE,
+        )
+        token = (value_match.group(1) if value_match else header_match.group(1) if header_match else "")
+        token = token.strip().replace(" ", "")
+        return cls._UNIT_ALIASES.get(token)
+
+    @classmethod
+    def _normalize_document_value(cls, value: Any, field_path: str, header: str = "") -> CanonicalValue:
+        spec = FIELD_SPECS.get(field_path)
+        result = normalize_canonical_value(value, field_path)
+        # Density values are especially dangerous: a bare 10.2 can be ppg,
+        # SG, or another source unit.  Other canonical units retain the
+        # established contextual mappings used by existing PDF tables; they
+        # still undergo typed normalization and validation.
+        if spec is None or spec.unit != "ppg" or result.missing:
+            return result
+        source_unit = cls._explicit_unit(value, header)
+        if source_unit is None:
+            return CanonicalValue(
+                field_path,
+                value,
+                None,
+                expected_type=result.expected_type,
+                unit=spec.unit,
+                validation_state="needs_review",
+                review_reason=(
+                    f"No explicit source unit for {field_path}; the canonical "
+                    f"unit {spec.unit} was not assumed"
+                ),
+            )
+        expected_unit = cls._UNIT_ALIASES.get(str(spec.unit).lower(), str(spec.unit).lower())
+        if source_unit != expected_unit:
+            return CanonicalValue(
+                field_path,
+                value,
+                None,
+                expected_type=result.expected_type,
+                unit=spec.unit,
+                validation_state="needs_review",
+                review_reason=(
+                    f"Source unit {source_unit} does not match canonical unit "
+                    f"{spec.unit}; conversion is not inferred"
+                ),
+            )
+        return result
 
     @staticmethod
     def _update_raw_cell_state(raw_document, table_index: int, row_number: int,
@@ -1202,7 +1293,11 @@ class DocumentNormalizer:
         cell = row[column_index - 1]
         cell.normalized_value = normalized_value
         spec = FIELD_SPECS.get(field_path) if field_path else None
-        cell.normalized_unit = spec.unit if spec is not None else None
+        cell.normalized_unit = (
+            spec.unit if spec is not None and (
+                normalization is None or getattr(normalization, "validation_state", "valid") == "valid"
+            ) else None
+        )
         cell.validation_state = (
             "valid" if normalization is None or getattr(normalization, "ok", False)
             else "needs_review"
@@ -1256,6 +1351,10 @@ class DocumentNormalizer:
             table_context = f"{table.name} {' '.join(headers)}".lower()
             for header in headers:
                 field_path = self._resolve_field(header, table_context)
+                if field_path is None:
+                    # Units are mapping context, not part of the alias.
+                    stripped_header = re.sub(r"\s*[\[(].*?[\])]?\s*$", "", str(header)).strip()
+                    field_path = self._resolve_field(stripped_header, table_context)
                 table_fields.append(field_path)
                 if field_path is None and header.strip():
                     warnings.append(
@@ -1299,7 +1398,10 @@ class DocumentNormalizer:
                             continue
                         spec = FIELD_SPECS.get(field_path)
                         normalized_value = value
-                        normalization = normalize_canonical_value(value, field_path) if spec is not None else None
+                        normalization = (
+                            self._normalize_document_value(value, field_path, headers[index])
+                            if spec is not None else None
+                        )
                         if normalization is not None:
                             normalized_value = normalization.value if normalization.ok else None
                             if normalization.needs_review or (
@@ -1313,7 +1415,8 @@ class DocumentNormalizer:
                                         "normalized_value": None,
                                         "expected_type": normalization.expected_type,
                                         "message": (
-                                            f"Value {value!r} was preserved for review; it is not a safe "
+                                            normalization.review_reason
+                                            or f"Value {value!r} was preserved for review; it is not a safe "
                                             f"{normalization.expected_type} literal."
                                         ),
                                         "source": Provenance(
@@ -1435,7 +1538,11 @@ class DocumentNormalizer:
                 )
                 continue
             spec = FIELD_SPECS.get(field_path)
-            normalization = normalize_canonical_value(value, field_path) if spec is not None else None
+            text_header = raw_text.split(":", 1)[0] if ":" in raw_text else raw_text
+            normalization = (
+                self._normalize_document_value(value, field_path, text_header)
+                if spec is not None else None
+            )
             normalized_value = value if normalization is None else (normalization.value if normalization.ok else None)
             section_data[key] = normalized_value
             if normalization is not None and (
@@ -1450,7 +1557,8 @@ class DocumentNormalizer:
                         "normalized_value": None,
                         "expected_type": normalization.expected_type,
                         "message": (
-                            f"Value {value!r} was preserved for review; it is not a safe "
+                            normalization.review_reason
+                            or f"Value {value!r} was preserved for review; it is not a safe "
                             f"{normalization.expected_type} literal."
                         ),
                         "source": block.provenance.to_dict(),
@@ -1580,6 +1688,9 @@ def validate_canonical_payload(canonical: Mapping[str, Any]) -> CanonicalValidat
     """
     errors: list[dict[str, Any]] = []
     warnings: list[dict[str, Any]] = []
+    mud_unit = ""
+    if isinstance(canonical.get("mud_report"), Mapping):
+        mud_unit = str(canonical["mud_report"].get("mw_unit", "") or "").strip().lower()
     numeric_quantities = {
         "integer", "number", "length", "density", "pressure", "force", "rpm",
         "torque", "rate", "flow_rate", "volume", "viscosity", "temperature",
@@ -1618,6 +1729,11 @@ def validate_canonical_payload(canonical: Mapping[str, Any]) -> CanonicalValidat
             errors.append({"level": "error", "field": field_path, "value": value, "message": "Expected an integer."})
             return
         if isinstance(value, (int, float)) and not isinstance(value, bool):
+            # ``mud_report.mw`` is a source-unit value until the explicit
+            # UnitManager boundary.  Its ppg destination bound cannot be
+            # applied to a PCF/SG source token.
+            if field_path == "mud_report.mw" and mud_unit in {"pcf", "sg"}:
+                return
             if spec.min_val is not None and value < spec.min_val:
                 errors.append({"level": "error", "field": field_path, "value": value, "message": f"Value is below minimum {spec.min_val}."})
             if spec.max_val is not None and value > spec.max_val:
