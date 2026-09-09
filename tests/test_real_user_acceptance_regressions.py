@@ -19,6 +19,7 @@ from core.database import DatabaseManager, Company, Project, Well, Section
 from core.domain_records import collection_value, restore_named_text
 from core.repositories.base import BaseRepository
 from core.repositories.well_repository import WellRepository
+from core.editor_state import editor_loaded, editor_saved
 from core.save_outcome import save_all
 from core.text_utils import safe_str
 
@@ -57,6 +58,9 @@ class Table:
 
     def setHorizontalHeaderLabels(self, labels):
         self.headers = [Item(label) for label in labels]
+
+    def setEditTriggers(self, value):
+        self.edit_triggers = value
 
     def setColumnWidth(self, *_):
         pass
@@ -101,7 +105,9 @@ class Widget:
 def actual_class(path, name, **namespace):
     tree = ast.parse((ROOT / path).read_text())
     node = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == name)
-    env = dict(QTableWidgetItem=Item, TableManager=lambda _: None,
+    env = dict(editor_loaded=editor_loaded, editor_saved=editor_saved,
+               QAbstractItemView=SimpleNamespace(NoEditTriggers=0, DoubleClicked=1, EditKeyPressed=2),
+               QTableWidgetItem=Item, TableManager=lambda _: None,
                Qt=SimpleNamespace(UserRole=256, AlignRight=1, AlignVCenter=2),
                QColor=Color, QWidget=Widget, logger=logging.getLogger(name),
                safe_str=safe_str, restore_named_text=restore_named_text,
@@ -285,6 +291,8 @@ def test_report_engines_import_without_qt(engine_name):
 
 class Text:
     def __init__(self): self.value = ""
+    def setReadOnly(self, value): self.read_only = value
+    def setEnabled(self, value): self.enabled = value
     def text(self): return self.value
     def setText(self, value): self.value = value
     def clear(self): self.value = ""
@@ -312,6 +320,8 @@ def downhole_editor(db):
         setattr(obj, f"_loaded_{kind}_id", identity)
     obj.current_well, obj.current_section = well, section
     obj.bha_name_input, obj.bha_selector, obj.well_label = Text(), Combo(), Text()
+    for name in ("add_bha_tool_btn", "remove_bha_tool_btn", "save_bha_btn", "delete_bha_btn", "export_bha_btn"):
+        setattr(obj, name, Text())
     for kind, name in (("bha", "BHAManager"), ("equipment", "DownholeEquipmentManager"), ("formation", "FormationManager")):
         value = manager(name)
         setattr(obj, f"{kind}_manager", value)

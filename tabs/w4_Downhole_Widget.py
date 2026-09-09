@@ -19,6 +19,7 @@ from PySide6.QtCore import *
 from PySide6.QtGui import *
 from core.database import DatabaseManager
 from core.managers import StatusBarManager, TableManager, ExportManager, DrillingManager
+from core.editor_state import editor_loaded, editor_saved
 from core.base_tab import DrillTabBase
 from core.selection_manager import SelectionManager
 from core.text_utils import safe_str, fmt_num
@@ -45,11 +46,13 @@ class DownholeWidget(DrillTabBase):
         self.saved_formations = {}
         self._downhole_loaded_context = None
         self._bha_requires_selection = False
+        self._bha_legacy_read_only = False
 
         self.init_ui()
         self.setup_managers()
         self.setup_connections()
         logger.info("DownholeWidget initialized")
+        self.configure_save_tracking()
 
     # --------------------------------------------------------------
     # رابط کاربری
@@ -307,11 +310,13 @@ class DownholeWidget(DrillTabBase):
         self.well_label.setText("Well: Not Selected")
         self.load_all_data_from_db()
 
+    @editor_loaded()
     def load_all_data_from_db(self):
         """Load the selected report only; no fallback to another report's data."""
         self._downhole_loaded_context = None
         self.bha_data = {}
         self._bha_requires_selection = False
+        self._set_bha_read_only(False)
         for table in (self.bha_table, self.equipment_table, self.formation_table):
             table.setRowCount(0)
         self.bha_name_input.clear()
@@ -322,11 +327,14 @@ class DownholeWidget(DrillTabBase):
         if not report or report.get("well_id") != self.current_well:
             raise ValueError("Selected Downhole report does not belong to the current well")
         bha_info = self.db.get_bha_report(self.current_well, report_id=self.current_report_id)
+        self._bha_original_record = bha_info
         if bha_info:
             data = bha_info.get("bha_configs")
             if isinstance(data, str):
                 data = json.loads(data)
             if isinstance(data, dict):  # documented legacy named BHA configurations
+                self._set_bha_read_only(bool(data))
+                self._bha_requires_selection = bool(data)
                 self.bha_data = {name: collection_value(rows, "BHA") for name, rows in data.items()}
             else:
                 name = bha_info.get("bha_name") or "Report BHA"
@@ -386,7 +394,21 @@ class DownholeWidget(DrillTabBase):
     # --------------------------------------------------------------
     # BHA Operations
     # --------------------------------------------------------------
+    def _set_bha_read_only(self, read_only):
+        self._bha_legacy_read_only = read_only
+        self.bha_name_input.setReadOnly(read_only)
+        self.bha_table.setEditTriggers(QAbstractItemView.NoEditTriggers if read_only else
+                                      QAbstractItemView.DoubleClicked | QAbstractItemView.EditKeyPressed)
+        for button in (self.add_bha_tool_btn, self.remove_bha_tool_btn, self.save_bha_btn, self.delete_bha_btn):
+            button.setEnabled(not read_only)
+        self.export_bha_btn.setText("Export all legacy BHAs (JSON archive)" if read_only else "Export BHA")
+        if read_only:
+            self.show_warning("Legacy named BHA configurations are read-only. Select each name to inspect; editing, replacement and deletion require a lossless migration.")
+
     def add_bha_tool(self):
+        if self._bha_legacy_read_only:
+            self.show_error("Legacy BHA is read-only; no components were added.")
+            return False
         """اضافه کردن کامپوننت BHA با دیالوگ"""
         from dialogs.drilling_report_dialogs import AddBHAComponentDialog
         
@@ -405,15 +427,19 @@ class DownholeWidget(DrillTabBase):
                 self.show_message(f"{data.get('Tool Type', 'Component')} added to BHA")
 
     def remove_bha_tool(self):
+        if self._bha_legacy_read_only:
+            self.show_error("Legacy BHA is read-only; no components were removed.")
+            return False
         self.bha_manager.delete_row()
 
+    @editor_saved('BHA')
     def save_bha_config(self):
         name = self.bha_name_input.text().strip()
         if not name:
             self.show_error("Enter BHA name")
             return False
         if not self.current_report_id or not self.save_context_ready() or self._bha_requires_selection:
-            self.show_error("Open/reload the selected report before saving BHA")
+            self.show_error("Legacy BHA is read-only; migration is required" if self._bha_requires_selection else "Open/reload the selected report before saving BHA")
             return False
         from core.save_outcome import save_all
         records = self.bha_manager.get_all_data()
@@ -430,14 +456,14 @@ class DownholeWidget(DrillTabBase):
         if name in self.bha_data:
             self.bha_manager.load_data(self.bha_data[name])
             self.bha_name_input.setText(name)
-            self._bha_requires_selection = len(self.bha_data) > 1
+            self._bha_requires_selection = self._bha_legacy_read_only
             # Multiple named configurations need an explicit migration, not
             # silently replacing all of them with the selected one.
             self.show_message(f"BHA '{name}' loaded")
 
     def delete_bha_config(self):
         if not self.current_report_id or not self.save_context_ready() or self._bha_requires_selection:
-            self.show_error("Open/reload a single report BHA before deleting")
+            self.show_error("Legacy BHA is read-only; deletion is blocked" if self._bha_requires_selection else "Open/reload a single report BHA before deleting")
             return False
         if QMessageBox.question(self, "Delete BHA", "Delete the selected report's BHA components?", QMessageBox.Yes | QMessageBox.No) != QMessageBox.Yes:
             return False
@@ -464,6 +490,14 @@ class DownholeWidget(DrillTabBase):
             self.show_error(f"Cannot calculate BHA totals: {exc}")
 
     def export_bha_data(self):
+        if self._bha_legacy_read_only:
+            filename, _ = QFileDialog.getSaveFileName(self, "Archive all legacy BHA configurations", "legacy_bha.json", "JSON (*.json)")
+            if not filename:
+                return False
+            from pathlib import Path
+            Path(filename).write_text(json.dumps(self._bha_original_record, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
+            self.show_success("All original BHA alternatives and provenance archived; editing remains unsupported.")
+            return True
         ExportManager(self).export_table_with_dialog(self.bha_table, "bha_data")
 
     def update_bha_selector(self):

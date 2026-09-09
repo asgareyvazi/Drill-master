@@ -18,6 +18,7 @@ from core.managers import StatusBarManager, TableManager, ExportManager, setup_w
 from core.domain_records import optional_date
 from core.database import DatabaseManager, LogisticsPersonnel, ServiceCompanyPOB, FuelWaterInventory
 from core.database import BulkMaterials, TransportLog, TransportNotes
+from core.editor_state import editor_loaded, editor_saved
 from core.base_tab import DrillTabBase
 
 logger = logging.getLogger(__name__)
@@ -243,6 +244,7 @@ class PersonnelLogisticsTab(QWidget):
                 continue
         QMessageBox.information(self, "Total POB", f"Total Personnel On Board: {total}")
         
+    @editor_saved('POB')
     def save_pob_to_db(self):
         if not self.current_well_id:
             QMessageBox.warning(self, "Warning", "Please select a well first.")
@@ -300,6 +302,7 @@ class PersonnelLogisticsTab(QWidget):
             self.status_manager.show_error("PersonnelTab", f"Save failed: {e}")
             return False
             
+    @editor_loaded('POB')
     def load_pob_data(self):
         if not self.current_well_id:
             return
@@ -331,6 +334,7 @@ class PersonnelLogisticsTab(QWidget):
             self.status_manager.show_success("PersonnelTab", f"Loaded {len(pob_data)} POB records")
         except Exception as e:
             logger.error(f"Error loading POB data: {e}")
+            raise
             
     def export_pob_data(self):
         export_manager = ExportManager(self)
@@ -361,6 +365,7 @@ class PersonnelLogisticsTab(QWidget):
             self.crew_table.removeRow(current_row)
             self.status_manager.show_success("PersonnelTab", "Crew row removed")
             
+    @editor_saved('Crew')
     def save_crew_to_db(self):
         if not self.current_well_id:
             QMessageBox.warning(self, "Warning", "Please select a well first.")
@@ -407,6 +412,7 @@ class PersonnelLogisticsTab(QWidget):
             self.status_manager.show_error("PersonnelTab", f"Save failed: {e}")
             return False
             
+    @editor_loaded('Crew')
     def load_crew_data(self):
         if not self.current_well_id:
             return
@@ -438,6 +444,7 @@ class PersonnelLogisticsTab(QWidget):
             self.status_manager.show_success("PersonnelTab", f"Loaded {len(crew_data)} crew records")
         except Exception as e:
             logger.error(f"Error loading crew data: {e}")
+            raise
             
     def import_crew_data(self):
         filename, _ = QFileDialog.getOpenFileName(self, "Import Crew Data", "", "CSV Files (*.csv);;All Files (*.*)")
@@ -461,6 +468,7 @@ class PersonnelLogisticsTab(QWidget):
         export_manager = ExportManager(self)
         export_manager.export_table_with_dialog(self.crew_table, "crew_data")
         
+    @editor_saved("Transport note")
     def save_transport_note(self):
         if not self.current_well_id:
             QMessageBox.warning(self, "Warning", "Please select a well first.")
@@ -469,6 +477,7 @@ class PersonnelLogisticsTab(QWidget):
             return
         try:
             note_data = {
+                "id": getattr(self, "_loaded_note_id", None),
                 "well_id": self.current_well_id,
                 "section_id": self.current_section_id,
                 "report_id": self.current_report_id,
@@ -482,10 +491,14 @@ class PersonnelLogisticsTab(QWidget):
             if result:
                 self.status_manager.show_success("PersonnelTab", "Transport note saved")
                 self.clear_transport_notes()
+                self._loaded_note_id = None
+                return True
         except Exception as e:
             logger.error(f"Error saving transport note: {e}")
             self.status_manager.show_error("PersonnelTab", f"Save failed: {e}")
+            raise
             
+    @editor_loaded("Transport note")
     def load_notes_data(self):
         if not self.current_well_id:
             return
@@ -494,19 +507,24 @@ class PersonnelLogisticsTab(QWidget):
         try:
             notes = self.db.get_transport_notes(
                 well_id=self.current_well_id,
-                note_date=self.note_date.date().toPython()
+                note_date=self.note_date.date().toPython(),
+                report_id=self.current_report_id
             )
             if notes:
                 note = notes[0]
+                self._loaded_note_id = note["id"]
                 self.note_title.setText(note.get("title", ""))
                 self.transport_notes.setPlainText(note.get("content", ""))
                 self.note_category.setCurrentText(note.get("category", "General"))
                 self.note_priority.setCurrentText(note.get("priority", "Normal"))
                 self.status_manager.show_success("PersonnelTab", f"Loaded note from {note['note_date']}")
             else:
+                self._loaded_note_id = None
+                self.clear_transport_notes()
                 self.status_manager.show_message("PersonnelTab", "No notes found for selected date")
         except Exception as e:
             logger.error(f"Error loading notes: {e}")
+            raise
             
     def clear_transport_notes(self):
         self.note_title.clear()
@@ -812,6 +830,7 @@ class FuelWaterTab(QWidget):
             self.status_manager.show_warning("FuelWaterTab", f"Low water stock: {water_days:.1f} days remaining")
         self.status_manager.show_success("FuelWaterTab", "Calculation completed")
         
+    @editor_saved('Fuel / Water')
     def save_fuel_water_to_db(self):
         if not self.current_well_id:
             QMessageBox.warning(self, "Warning", "Please select a well first.")
@@ -871,6 +890,7 @@ class FuelWaterTab(QWidget):
             self.status_manager.show_error("FuelWaterTab", f"Save failed: {str(e)}")
             return False
             
+    @editor_loaded('Fuel / Water')
     def load_fuel_water_from_db(self):
         if not self.current_well_id:
             return
@@ -918,6 +938,7 @@ class FuelWaterTab(QWidget):
         except Exception as e:
             logger.error(f"Error loading fuel/water data: {e}")
             self.status_manager.show_error("FuelWaterTab", f"Load failed: {str(e)}")
+            raise
         
     def clear_fields(self):
         self.fuel_consumed.setValue(0)
@@ -979,6 +1000,7 @@ class FuelWaterTab(QWidget):
         QMessageBox.information(self, "Summary", msg)
         
         
+    @editor_saved('Bulk inventory')
     def save_bulk_materials_to_db(self):
         if not self.current_well_id:
             QMessageBox.warning(self, "Warning", "Please select a well first.")
@@ -1034,6 +1056,7 @@ class FuelWaterTab(QWidget):
             self.status_manager.show_error("FuelWaterTab", f"Save failed: {str(e)}")
             return False
         
+    @editor_loaded('Bulk inventory')
     def load_bulk_materials_from_db(self):
         if not self.current_well_id:
             return
@@ -1068,6 +1091,7 @@ class FuelWaterTab(QWidget):
                 
         except Exception as e:
             logger.error(f"Error loading bulk materials: {e}")
+            raise
             
     def export_bulk_data(self):
         export_manager = ExportManager(self)
@@ -1403,6 +1427,7 @@ class TransportLogTab(QWidget):
             self.update_stats()
             self.status_manager.show_success("TransportTab", "Log marked as completed")
             
+    @editor_saved()
     def save_transport_logs_to_db(self):
         if not self.current_well_id:
             QMessageBox.warning(self, "Warning", "Please select a well first.")
@@ -1472,6 +1497,7 @@ class TransportLogTab(QWidget):
         finally:
             session.close()
             
+    @editor_loaded()
     def load_transport_logs(self):
         if not self.current_well_id:
             return
@@ -1498,6 +1524,7 @@ class TransportLogTab(QWidget):
             self.status_manager.show_success("TransportTab", f"Loaded {len(logs)} logs")
         except Exception as e:
             logger.error(f"Error loading transport logs: {e}")
+            raise
             
     def export_transport_data(self):
         export_manager = ExportManager(self)
@@ -1567,6 +1594,7 @@ class LogisticsWidget(DrillTabBase):
         
         self.init_ui()
         self.setup_managers()
+        self.configure_save_tracking()
         
     def init_ui(self):
         scroll_area = QScrollArea()
@@ -1698,6 +1726,7 @@ class LogisticsWidget(DrillTabBase):
             self.personnel_tab.current_report_id = self.current_report_id
             self.personnel_tab.load_pob_data()
             self.personnel_tab.load_crew_data()
+            self.personnel_tab.load_notes_data()
         
         if self.fuel_water_tab:
             self.fuel_water_tab.current_well_id = self.current_well_id
@@ -1732,6 +1761,7 @@ class LogisticsWidget(DrillTabBase):
         if self.personnel_tab:
             self.personnel_tab.load_pob_data()
             self.personnel_tab.load_crew_data()
+            self.personnel_tab.load_notes_data()
             self.personnel_tab.load_notes_data()
         if self.fuel_water_tab:
             self.fuel_water_tab.load_fuel_water_from_db()

@@ -48,6 +48,7 @@ class DrillTabBase(QWidget):
     ):
         super().__init__(parent)  # ✅ pass parent to Qt directly
 
+        self._edit_sections = {}
         self.widget_name = widget_name
         self.db = db_manager
         self.status_manager = StatusBarManager()
@@ -95,6 +96,23 @@ class DrillTabBase(QWidget):
     # Internal Signal Handlers
     # ================================================================
 
+    def configure_save_tracking(self):
+        from core.editor_bindings import configure
+        self._edit_sections = configure(self)
+
+    @property
+    def is_dirty(self):
+        return any(section.dirty for section in self._edit_sections.values())
+
+    def save_changes(self):
+        from core.save_outcome import save_all
+        self.last_save_outcome = save_all([(self.widget_name, self._save_changed_sections)])
+        return self.last_save_outcome
+
+    def _save_changed_sections(self):
+        from core.save_outcome import save_all
+        return save_all([(name, section.save) for name, section in self._edit_sections.items()])
+
     def _apply_pending_context(self):
         """A failed load is pending, not a successfully loaded editor.
 
@@ -107,7 +125,8 @@ class DrillTabBase(QWidget):
             if pending is None:
                 continue
             try:
-                getattr(self, f"on_{kind}_changed")(*pending)
+                if getattr(self, f"on_{kind}_changed")(*pending) is False:
+                    raise RuntimeError(f"{kind} context loader did not succeed")
             except Exception:
                 logger.exception("%s.on_%s_changed (pending)", self.widget_name, kind)
                 return False

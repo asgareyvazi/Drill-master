@@ -23,6 +23,7 @@ from core.managers import (
     ExportManager,
     DrillingManager,
 )
+from core.editor_state import editor_loaded, editor_saved
 from core.base_tab import DrillTabBase
 from core.selection_manager import SelectionManager
 
@@ -71,6 +72,7 @@ class DrillingReportWidget(DrillTabBase):
         self.setup_connections()
         self.register_tabs_with_managers()
         logger.info("DrillingReport initialized")
+        self.configure_save_tracking()
 
     def init_ui(self):
         layout = QVBoxLayout(self)
@@ -168,6 +170,7 @@ class DrillingReportWidget(DrillTabBase):
                     getattr(tab, method)(report_id)
                 except Exception as e:
                     logger.error(f"Error: {e}")
+                    raise
 
     def load_all_tabs(self):
         if not self.current_well:
@@ -773,6 +776,7 @@ class DrillingParametersTab(QWidget):
     def set_current_well(self, well_id):
         self.current_well = well_id
 
+    @editor_loaded()
     def load_for_report(self, report_id):
         if not self.db_manager:
             return
@@ -782,6 +786,7 @@ class DrillingParametersTab(QWidget):
         else:
             self.clear_form()
 
+    @editor_saved()
     def save_data_for_report(self, report_id):
         if not self.current_well:
             return False
@@ -862,6 +867,7 @@ class DrillingParametersTab(QWidget):
             logger.debug("DrillingParametersTab: no report selected yet")
             return False
         
+    @editor_loaded()
     def load_from_dict(self, data: dict):
         def safe_val(key, default=0):
             v = data.get(key)
@@ -1441,6 +1447,7 @@ class MudReportTab(QWidget):
     def set_current_well(self, well_id):
         self.current_well = well_id
 
+    @editor_loaded()
     def load_for_report(self, report_id):
         if not self.db_manager:
             return
@@ -1450,6 +1457,7 @@ class MudReportTab(QWidget):
         else:
             self.clear_form()
 
+    @editor_saved()
     def save_data_for_report(self, report_id):
         if not self.current_well:
             return False
@@ -1570,6 +1578,7 @@ class MudReportTab(QWidget):
             logger.debug("MudReportTab: no report selected yet")
             return False
         
+    @editor_loaded()
     def load_from_dict(self, data: dict):
         def safe_val(key, default=0):
             v = data.get(key)

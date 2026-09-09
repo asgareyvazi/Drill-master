@@ -1,5 +1,7 @@
 """Base Repository - abstracts session handling for domain repositories."""
 
+from core.legacy_bha import protect_bha_insert, protect_bha_record
+
 from typing import List, Dict, Optional, Any
 from contextlib import contextmanager
 import logging
@@ -28,10 +30,12 @@ class BaseRepository:
             if obj_id and obj is None:
                 raise ValueError(f"{model.__name__} no longer exists; reload before saving")
             if obj is None:
+                protect_bha_insert(session, model, values)
                 obj = model(**values)
                 session.add(obj)
                 session.flush()
             else:
+                protect_bha_record(obj)
                 for k, v in values.items():
                     setattr(obj, k, v)
                 session.flush()
@@ -59,5 +63,6 @@ class BaseRepository:
             obj = session.get(model, obj_id)
             if not obj:
                 return False
+            protect_bha_record(obj)
             session.delete(obj)
             return True

@@ -14,6 +14,9 @@ class OutcomeStatus(str, Enum):
     INVALID_SOURCE = "INVALID_SOURCE"
     UNSUPPORTED = "UNSUPPORTED"
     SYSTEM_ERROR = "SYSTEM_ERROR"
+    NO_CHANGES = "NO_CHANGES"
+    SAVED = "SAVED"
+    CONTEXT_BLOCKED = "CONTEXT_BLOCKED"
 
 
 @dataclass
@@ -26,6 +29,7 @@ class SaveIssue:
     corrective_action: str = "Inspect the section diagnostics before retrying; do not assume it saved."
     exception_type: str = ""
     traceback: str = ""
+    code: str = ""
 
 
 @dataclass
@@ -41,14 +45,38 @@ class SaveOutcome:
                 return status
         return "SUCCESS"
 
+    @property
+    def disposition(self):
+        if self.status == "SUCCESS":
+            return "SAVED" if self.saved else "NO_CHANGES"
+        if self.status == "REVIEW_REQUIRED" and any(i.code == "CONTEXT_BLOCKED" for i in self.issues):
+            return "CONTEXT_BLOCKED"
+        return "VALIDATION_ERROR" if self.status == "INVALID_SOURCE" else self.status
+
+    @property
+    def counts(self):
+        counts = {}
+        def visit(value):
+            if value.get("sections"):
+                for child in value["sections"].values():
+                    visit(child)
+            else:
+                key = value["disposition"]
+                counts[key] = counts.get(key, 0) + 1
+                if value["saved"] and key != "SAVED":
+                    counts["SAVED"] = counts.get("SAVED", 0) + 1
+        visit(self.to_dict())
+        return counts
+
     def __bool__(self):
         return self.status == "SUCCESS"
 
     def to_dict(self):
-        return {**asdict(self), "status": self.status}
+        return {**asdict(self), "status": self.status, "disposition": self.disposition}
 
     def summary(self):
-        lines = [f"{self.status}: {self.saved} save operation(s) completed."]
+        lines = ["NO_CHANGES: Nothing to save." if self.disposition == "NO_CHANGES" else
+                 f"{self.disposition}: {self.saved} save operation(s) completed; section counts: {self.counts}."]
         for issue in self.issues:
             location = issue.section + (f" row {issue.row}" if issue.row is not None else "")
             if issue.field:
@@ -70,10 +98,12 @@ def save_all(steps):
             if owner is not None and hasattr(owner, "last_save_outcome"):
                 owner.last_save_outcome = None
             ready = getattr(owner, "save_context_ready", None)
-            if callable(ready) and not ready():
+            if getattr(owner, "_edit_sections", None) == {}:
+                outcome = SaveOutcome()
+            elif callable(ready) and not ready():
                 outcome = SaveOutcome(issues=[SaveIssue(section,
                     "The selected context has not been loaded successfully; stale editor data was not saved.",
-                    status="REVIEW_REQUIRED", corrective_action="Open/reload this tab, resolve any load error, and save again.")])
+                    status="REVIEW_REQUIRED", code="CONTEXT_BLOCKED", corrective_action="Open/reload this tab, resolve any load error, and save again.")])
                 owner.last_save_outcome = outcome
             else:
                 value = callback()

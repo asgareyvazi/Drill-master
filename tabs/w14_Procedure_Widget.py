@@ -12,6 +12,7 @@ from PySide6.QtCore import *
 from PySide6.QtGui import *
 from PySide6.QtPrintSupport import QPrinter, QPrintDialog
 
+from core.editor_state import editor_loaded, editor_saved
 from core.base_tab import DrillTabBase
 from core.database import DatabaseManager
 from core.managers import StatusBarManager, ExportManager
@@ -58,6 +59,7 @@ class ProcedureWidget(DrillTabBase):
         # ایجاد قالب‌های پیش‌فرض
         if self.db:
             self.db.create_default_procedure_templates()
+        self.configure_save_tracking()
 
     def init_ui(self):
         main_layout = QHBoxLayout(self)
@@ -840,6 +842,7 @@ class ProcedureEditorPage(QWidget):
         self._update_checklist_progress()
         self._update_steps_progress()
 
+    @editor_loaded()
     def load_procedure(self, proc_id: int):
         self.current_proc_id = proc_id
         proc = self.db.get_procedure_by_id(proc_id)
@@ -904,6 +907,7 @@ class ProcedureEditorPage(QWidget):
         self._update_checklist_progress()
         self._update_steps_progress()
 
+    @editor_saved("Procedure")
     def save_procedure(self) -> bool:
         title = self.title_edit.text().strip()
         if not title:

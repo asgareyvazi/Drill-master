@@ -24,6 +24,7 @@ from core.managers import (
     StatusBarManager, AutoSaveManager, ShortcutManager,
     TableManager, TableButtonManager, ExportManager
 )
+from core.editor_state import editor_loaded, editor_saved
 from core.base_tab import DrillTabBase
 from core.selection_manager import SelectionManager
 from dialogs.planning_dialog import WellPlanDialog
@@ -175,6 +176,7 @@ class SevenDaysLookaheadTab(QWidget):
             self.current_report_id = report_id
             self.load_lookahead_plan()
 
+    @editor_loaded()
     def load_lookahead_plan(self):
         if not self.db or not self.current_report_id:
             return
@@ -222,6 +224,7 @@ class SevenDaysLookaheadTab(QWidget):
         export_manager = ExportManager(self)
         export_manager.export_table_with_dialog(self.lookahead_table, f"lookahead_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
 
+    @editor_saved()
     def save_plan(self):
         from core.save_outcome import save_all
         def persist():
@@ -2482,6 +2485,7 @@ class PlanningWidget(DrillTabBase):
         self.current_report_id = None
         self.current_section_id = None
         self.init_ui()
+        self.configure_save_tracking()
 
     def init_ui(self):
         main_layout = QVBoxLayout(self)

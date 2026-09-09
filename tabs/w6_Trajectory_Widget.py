@@ -33,6 +33,7 @@ from core.managers import (
     StatusBarManager, TableManager, ExportManager,
     TableButtonManager, setup_widget_with_managers
 )
+from core.editor_state import editor_loaded, editor_saved
 from core.base_tab import DrillTabBase
 
 logger = logging.getLogger(__name__)
@@ -161,6 +162,7 @@ class TripSheetTab(QWidget):
         except ValueError as e:
             QMessageBox.warning(self, "Error", f"Invalid depth values: {str(e)}")
     
+    @editor_saved()
     def save_data(self):
         if not self.current_well_id or not self.current_report_id:
             self.status_manager.show_error("TripSheet", "Well or report not selected")
@@ -236,6 +238,7 @@ class TripSheetTab(QWidget):
         finally:
             session.close()
         
+    @editor_loaded()
     def load_data(self):
         if not self.current_well_id:
             return
@@ -416,6 +419,7 @@ class SurveyDataTab(QWidget):
         except (TypeError, ValueError):
             return None
     
+    @editor_saved()
     def save_data(self):
         if not self.current_well_id:
             QMessageBox.warning(self, "Survey", "Select a well before saving surveys")
@@ -459,6 +463,7 @@ class SurveyDataTab(QWidget):
             QMessageBox.critical(self, "Survey system error", str(exc))
             return False
 
+    @editor_loaded()
     def load_data(self):
         if not self.current_well_id:
             return
@@ -709,6 +714,7 @@ class TrajectoryWidget(DrillTabBase):
         
         self.init_ui()
         setup_widget_with_managers(self, "TrajectoryWidget", enable_autosave=True, autosave_interval=5, setup_shortcuts=True)
+        self.configure_save_tracking()
     
     def init_ui(self):
         main_layout = QVBoxLayout(self)

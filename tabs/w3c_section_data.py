@@ -17,6 +17,7 @@ from core.managers import (
     StatusBarManager, ExportManager, TableManager,
     DrillingManager, AutoSaveManager
 )
+from core.editor_state import editor_loaded, editor_saved
 from core.base_tab import DrillTabBase
 from core.selection_manager import SelectionManager
 
@@ -142,6 +143,7 @@ class CementReportTab(QWidget):
         r=self.materials_table.currentRow()
         if r>=0: self.materials_table.removeRow(r)
 
+    @editor_loaded()
     def load_for_report(self, report_id):
         if self.db_manager:
             data = self.db_manager.get_cement_report(report_id=report_id)
@@ -156,6 +158,7 @@ class CementReportTab(QWidget):
         d = {"well_id":self.current_well,"report_id":report_id,"report_date":date.today(),"report_name":self.report_name.text(),"cement_type":self.cement_type.currentText(),"job_type":self.job_type.currentText(),"materials_json":json.dumps(mats),"slurry_density":self.slurry_density.value(),"slurry_yield":self.slurry_yield.value(),"mix_water":self.mix_water.value(),"thickening_time":f"{self.thickening_hours.value():02d}:{self.thickening_minutes.value():02d}","compressive_strength":self.compressive_strength.value(),"fluid_loss":self.fluid_loss.value(),"cement_volume":self.cement_volume.value(),"displacement_volume":self.displacement_volume.value(),"top_of_cement":self.top_of_cement.value(),"bottom_of_cement":self.bottom_of_cement.value(),"summary":self.cement_summary.toPlainText()}
         return self.db_manager.save_cement_report(d) is not None
 
+    @editor_saved()
     def save_data(self):
         if self.parent and hasattr(self.parent,'current_section_id') and self.parent.current_section_id:
             return self.save_data_for_report(None)
@@ -193,6 +196,7 @@ class CementReportTab(QWidget):
             data = self.db_manager.get_cement_report(well_id=self.current_well) if self.db_manager else None
             if data: self.load_from_dict(data)
 
+    @editor_loaded()
     def load_from_dict(self, data):
         def sv(k,d=0):
             v=data.get(k); 
@@ -303,6 +307,7 @@ class CasingReportTab(QWidget):
         r=self.casing_table.currentRow()
         if r>=0:self.casing_table.removeRow(r)
 
+    @editor_loaded()
     def load_for_report(self,report_id):
         if self.db_manager:
             data=self.db_manager.get_casing_report(report_id=report_id)
@@ -317,6 +322,7 @@ class CasingReportTab(QWidget):
         rpt={"well_id":self.current_well,"report_id":report_id,"report_date":date.today(),"report_name":self.report_name.text(),"casing_type":self.casing_type.currentText(),"casing_json":json.dumps(cd),"burst_pressure":self.burst_pressure.value(),"collapse_pressure":self.collapse_pressure.value(),"tensile_strength":self.tensile_strength.value(),"makeup_torque":self.makeup_torque.value(),"drift_diameter":self.drift_diameter.value(),"internal_yield":self.internal_yield.value(),"running_speed":self.running_speed.value(),"fillup_frequency":self.fillup_frequency.value(),"centralizer_spacing":self.centralizer_spacing.value(),"scratcher_spacing":self.scratcher_spacing.value(),"summary":self.casing_summary.toPlainText()}
         return self.db_manager.save_casing_report(rpt) is not None
 
+    @editor_saved()
     def save_data(self):
         if self.parent and hasattr(self.parent,'current_section_id'):
             return self.save_data_for_report(None)
@@ -353,6 +359,7 @@ class CasingReportTab(QWidget):
             data=self.db_manager.get_casing_report(well_id=self.current_well)
             if data:self.load_from_dict(data)
 
+    @editor_loaded()
     def load_from_dict(self,data):
         def sv(k,d=0):
             v=data.get(k)
@@ -370,7 +377,9 @@ class CasingReportTab(QWidget):
             try:
                 cs=json.loads(cj) if isinstance(cj,str) else cj
                 for c in cs:self.add_casing_row(float(c.get("size",0)or 0),float(c.get("od",0)or 0),float(c.get("id",0)or 0),float(c.get("weight",0)or 0),str(c.get("grade","")or""),str(c.get("connection","")or""),float(c.get("from",0)or 0),float(c.get("to",0)or 0),float(c.get("shoe",0)or 0),str(c.get("remarks","")or""))
-            except Exception as e:logger.error(f"Casing JSON error: {e}")
+            except Exception as e:
+                logger.error(f"Casing JSON error: {e}")
+                raise
 
     def clear_form(self):
         self.report_name.clear();self.casing_type.setCurrentIndex(0)
@@ -570,6 +579,7 @@ class CasingTallyWidget(QWidget):
         self.calculate_tally()
         self.summary_text.setPlainText(f"📊 CASING TALLY SUMMARY\nTotal: {self.stats_labels['total_joints'].text()} joints\nLength: {self.stats_labels['total_length'].text()}\nWeight: {self.stats_labels['total_weight'].text()}\nCapacity: {self.stats_labels['total_capacity'].text()}\nBuoyancy: {self.buoyancy_factor.value():.3f}")
 
+    @editor_saved()
     def save_tally_report(self):
         if not self.current_well:
             QMessageBox.warning(self, "Warning", "Select a well first.")
@@ -629,6 +639,7 @@ class CasingTallyWidget(QWidget):
                 return True
         return False
         
+    @editor_loaded()
     def load_tally_report(self):
         if not self.current_well or not self.db_manager:return
         rpt=self.db_manager.get_casing_report(well_id=self.current_well)
@@ -648,8 +659,11 @@ class CasingTallyWidget(QWidget):
             p=data.get("parameters",{})
             self.rt_depth.setValue(p.get("rt_depth",3000));self.mud_weight.setValue(p.get("mud_weight",65))
             self.calculate_tally()
-        except Exception as e:logger.error(f"Load tally error: {e}")
+        except Exception as e:
+            logger.error(f"Load tally error: {e}")
+            raise
 
+    @editor_loaded()
     def load_tally_for_report(self,report_id):self.current_report_id=report_id;self.load_tally_report()
     def export_tally_data(self):ExportManager(self).export_table_with_dialog(self.tally_table,"casing_tally")
     def export_summary_report(self):
@@ -748,7 +762,9 @@ class ServiceCompanyTab(QWidget):
                         it = self.table.item(row, col)
                         if it: it.setBackground(QColor(cm))
             self.total_label.setText(f"Total: {len(companies)}"); self.active_label.setText(f"Active: {ac}"); self.personnel_label.setText(f"Personnel: {tp}")
-        except Exception as e: logger.error(f"Load service companies: {e}")
+        except Exception as e:
+            logger.error(f"Load service companies: {e}")
+            raise
 
     def filter_table(self):
         st = self.search_input.text().lower(); sf = self.status_filter.currentText()
@@ -1184,6 +1200,7 @@ class FailureReportTab(QWidget):
             "approved_date": self.approved_date.date().toString("yyyy-MM-dd"),
         }
 
+    @editor_loaded("Failure reports")
     def _load_data(self, data):
         self.report_no.setText(data.get("report_no", ""))
         try:
@@ -1242,6 +1259,7 @@ class FailureReportTab(QWidget):
                 self.loc_well.setText(well.get("name", ""))
                 self.loc_project.setText(well.get("project_name", ""))
 
+    @editor_saved("Failure reports")
     def save_report(self):
         if not self.current_well:
             QMessageBox.warning(self, "Warning", "Select a well first")
@@ -1299,7 +1317,10 @@ class FailureReportTab(QWidget):
             session.commit()
             session.close()
         except Exception as e:
+            session.rollback()
+            session.close()
             logger.error(f"Save failure reports error: {e}")
+            raise
 
     def _load_from_db(self):
         if not self.db_manager or not self.current_well:
@@ -1320,6 +1341,7 @@ class FailureReportTab(QWidget):
         except Exception as e:
             logger.error(f"Load failure reports error: {e}")
             self.reports_list = []
+            raise
 
     def _refresh_selector(self):
         self.report_selector.blockSignals(True)
@@ -1524,12 +1546,11 @@ class BitRecordTab(QWidget):
         if row >= 0:
             self.bit_table.removeRow(row)
 
+    @editor_saved()
     def save_data(self):
         if not self.current_well or not self.db_manager:
             return False
         records = self._get_all_data()
-        if not records:
-            return True
         import json
         data = {
             "report_date": date.today(),
@@ -1539,6 +1560,7 @@ class BitRecordTab(QWidget):
         result = self.db_manager.save_bit_report(self.current_well, data)
         return result is not None
 
+    @editor_loaded()
     def load_data(self):
         if not self.current_well or not self.db_manager:
             return
@@ -1561,6 +1583,7 @@ class BitRecordTab(QWidget):
                     self.bit_table.setItem(row, col, item)
         except Exception as e:
             logger.error(f"Load bit record error: {e}")
+            raise
 
     def export_data(self):
         from core.managers import ExportManager
@@ -1606,6 +1629,7 @@ class SectionDataWidget(DrillTabBase):
             logger.error(f"Section sub-tabs error: {e}")
 
         self.init_ui()
+        self.configure_save_tracking()
     def init_ui(self):
         layout = QVBoxLayout(self)
         header = QWidget()

@@ -14,6 +14,7 @@ from PySide6.QtGui import *
 
 from core.managers import StatusBarManager, TableManager, ExportManager, TableButtonManager
 from core.database import DailyReport, Well
+from core.editor_state import editor_loaded, editor_saved
 from core.base_tab import DrillTabBase
 
 logger = logging.getLogger(__name__)
@@ -114,6 +115,7 @@ class RigEquipmentTab(QWidget):
     def remove_row(self):
         self.table_manager.delete_row()
         
+    @editor_saved()
     def save_data(self):
         try:
             data = self.get_table_data()
@@ -154,6 +156,7 @@ class RigEquipmentTab(QWidget):
             data.append(row_data)
         return data
         
+    @editor_loaded()
     def load_table_data(self, data):
         self.table.setRowCount(0)
         for row_data in data:
@@ -295,6 +298,7 @@ class InventoryTab(QWidget):
         except Exception as e:
             logger.error(f"Calculation failed: {str(e)}")
             
+    @editor_saved()
     def save_data(self):
         try:
             data = self.get_table_data()
@@ -335,6 +339,7 @@ class InventoryTab(QWidget):
             data.append(row_data)
         return data
         
+    @editor_loaded()
     def load_table_data(self, data):
         self.table.setRowCount(0)
         for row_data in data:
@@ -420,6 +425,7 @@ class DrillPipeTab(QWidget):
     def remove_row(self):
         self.table_manager.delete_row()
         
+    @editor_saved()
     def save_data(self):
         try:
             data = self.get_table_data()
@@ -460,6 +466,7 @@ class DrillPipeTab(QWidget):
             data.append(row_data)
         return data
         
+    @editor_loaded()
     def load_table_data(self, data):
         self.table.setRowCount(0)
         for row_data in data:
@@ -544,6 +551,7 @@ class SolidControlTab(QWidget):
     def remove_row(self):
         self.table_manager.delete_row()
         
+    @editor_saved()
     def save_data(self):
         try:
             data = self.get_table_data()
@@ -584,6 +592,7 @@ class SolidControlTab(QWidget):
             data.append(row_data)
         return data
         
+    @editor_loaded()
     def load_table_data(self, data):
         self.table.setRowCount(0)
         for row_data in data:
@@ -609,6 +618,7 @@ class EquipmentWidget(DrillTabBase):
         self.init_ui()
         self.setup_shortcuts()
         self.load_data()
+        self.configure_save_tracking()
 
     def init_ui(self):
         main_layout = QVBoxLayout(self)
@@ -845,6 +855,7 @@ class EquipmentWidget(DrillTabBase):
         (self.show_success if self.last_save_outcome else self.show_error)(self.last_save_outcome.summary())
         return bool(self.last_save_outcome)
 
+    @editor_loaded()
     def load_all_data(self):
         """بارگذاری از equipment_logs"""
         if not self.current_well or not self.db:
@@ -859,8 +870,8 @@ class EquipmentWidget(DrillTabBase):
             # ===== Rig Equipment =====
             rig_logs = self.db.get_equipment_logs(
                 well_id=self.current_well,
+                report_id=self.current_report_id,
                 equipment_type="Rig Equipment",
-                report_id=self.current_report_id if self.current_report_id else None,
             )
             if rig_logs:
                 data = []
@@ -880,6 +891,7 @@ class EquipmentWidget(DrillTabBase):
             # ===== Inventory =====
             inv_logs = self.db.get_equipment_logs(
                 well_id=self.current_well,
+                report_id=self.current_report_id,
                 equipment_type="Inventory",
             )
             if inv_logs:
@@ -908,6 +920,7 @@ class EquipmentWidget(DrillTabBase):
             # ===== Drill Pipe =====
             pipe_logs = self.db.get_equipment_logs(
                 well_id=self.current_well,
+                report_id=self.current_report_id,
                 equipment_type="Drill Pipe",
             )
             if pipe_logs:
@@ -937,6 +950,7 @@ class EquipmentWidget(DrillTabBase):
             # ===== Solid Control =====
             solid_logs = self.db.get_equipment_logs(
                 well_id=self.current_well,
+                report_id=self.current_report_id,
                 equipment_type="Solid Control",
             )
             if solid_logs:
@@ -965,6 +979,7 @@ class EquipmentWidget(DrillTabBase):
 
         except Exception as e:
             logger.error(f"Load equipment data error: {e}")
+            raise
             
 
     def refresh_data(self):

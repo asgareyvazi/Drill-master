@@ -11,6 +11,7 @@ from PySide6.QtCore import *
 from PySide6.QtGui import *
 from PySide6.QtSvg import QSvgGenerator
 
+from core.editor_state import editor_loaded
 from core.base_tab import DrillTabBase
 from core.wellbore_schematic_engine import (
     WellboreSchematic, WellboreSchematicRenderer, SchematicConfig,
@@ -32,6 +33,7 @@ class WellboreSchematicTab(DrillTabBase):
         self._is_loading = False
 
         self.init_ui()
+        self.configure_save_tracking()
 
     def init_ui(self):
         main_layout = QHBoxLayout(self)
@@ -460,8 +462,9 @@ class WellboreSchematicTab(DrillTabBase):
             td = well_data.get("target_depth", 3000) or 3000
             self.td_spin.setValue(td)
             # Auto-generate
-            QTimer.singleShot(500, self.auto_generate)
+            return self.auto_generate()
 
+    @editor_loaded()
     def auto_generate(self):
         """ساخت خودکار شماتیک از DB."""
         if not self.current_well_id or not self.db:
@@ -486,6 +489,7 @@ class WellboreSchematicTab(DrillTabBase):
         except Exception as e:
             logger.error(f"Auto-generate error: {e}")
             self.canvas_status.setText(f"❌ Error: {str(e)[:50]}")
+            raise
 
     def _apply_manual_changes(self):
         """اعمال تغییرات دستی."""

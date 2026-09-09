@@ -1,0 +1,5 @@
+bha=0
+dirty=0
+full=0
+compileall=0
+diff_check=0

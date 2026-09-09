@@ -78,7 +78,7 @@ class AutoSaveManager:
     @staticmethod
     def save_widget(name, widget):
         from core.save_outcome import save_all
-        callback = getattr(widget, "save_data", None)
+        callback = getattr(widget, "save_changes", None) or getattr(widget, "save_data", None)
         result = save_all([(name, callback)] if callable(callback) else [])
         if not result:
             import logging

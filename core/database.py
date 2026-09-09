@@ -3,6 +3,7 @@ Database - SQLAlchemy ORM setup and DatabaseManager class
 """
 import random
 import math
+from core.legacy_bha import protect_bha_insert, protect_bha_record, require_editable_bha
 import logging
 import re
 from datetime import datetime, date, timedelta, timezone, time as datetime_time
@@ -2531,10 +2532,12 @@ class DatabaseManager:
             if data and data.get("id") and obj is None:
                 raise ValueError(f"{model.__name__} no longer exists; reload before saving")
             if obj is None:
+                protect_bha_insert(session, model, values)
                 obj = model(**values)
                 session.add(obj)
                 session.flush()
             else:
+                protect_bha_record(obj)
                 for key, value in values.items():
                     setattr(obj, key, value)
                 session.flush()
@@ -2555,6 +2558,7 @@ class DatabaseManager:
             obj = session.get(model, object_id)
             if obj is None:
                 return False
+            protect_bha_record(obj)
             session.delete(obj)
             return True
 
@@ -3745,6 +3749,7 @@ class DatabaseManager:
                     bha["report_id"] = report_id
                     existing = session.query(BHAReport).filter(BHAReport.report_id == report_id).first()
                     if existing:
+                        require_editable_bha(existing.bha_data_json)
                         existing.bha_name = bha.get("bha_name", existing.bha_name)
                         existing.bha_data_json = bha.get("bha_data", existing.bha_data_json)
                         existing.updated_at = _now_utc()
@@ -3767,6 +3772,7 @@ class DatabaseManager:
                                 review_issue(entity="bha", field=target, source=_source_for_row(source_row), original=raw,
                                              message="Metadata is not domain data" if is_metadata_value(raw) else "Invalid or unresolved BHA field")
                     if existing:
+                        require_editable_bha(existing.bha_data_json)
                         existing.bha_name = existing.bha_name or "Imported BHA"
                         existing.bha_data_json = rows or existing.bha_data_json
                         existing.updated_at = _now_utc()
@@ -4649,6 +4655,7 @@ class DatabaseManager:
                 existing = None
 
             if existing:
+                require_editable_bha(existing.bha_data_json)
                 existing.bha_name = bha_data.get('bha_name', existing.bha_name)
                 existing.bha_data_json = bha_data.get('bha_data', existing.bha_data_json)
                 existing.updated_at = _now_utc()
@@ -8566,4 +8573,3 @@ class DatabaseManager:
             session.close()
 
         return results[:limit]
-        

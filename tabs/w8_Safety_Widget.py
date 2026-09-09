@@ -17,6 +17,7 @@ from core.managers import (
     setup_widget_with_managers, StatusBarManager
 )
 from core.database import DatabaseManager, WasteRecord, BOPComponent, SafetyIncident, SafetyReport
+from core.editor_state import editor_loaded, editor_saved
 from core.base_tab import DrillTabBase
 from core.standards import bop_test_interval_days
 
@@ -335,6 +336,7 @@ class SafetyBOPTab(QWidget):
         self.days_no_lti.setValue(current_days + 1)
         QMessageBox.information(self, "LTI Days Updated", f"Days without LTI: {current_days + 1}")
 
+    @editor_saved()
     def save_to_database(self, well_id, report_id=None):
         if not self.db:
             return False
@@ -375,6 +377,7 @@ class SafetyBOPTab(QWidget):
             logger.error(f"Error saving BOP data: {e}")
         return False
 
+    @editor_loaded()
     def load_from_database(self, well_id, report_id=None):
         if not self.db:
             return False
@@ -418,6 +421,7 @@ class SafetyBOPTab(QWidget):
                 return True
         except Exception as e:
             logger.error(f"Error loading BOP data: {e}")
+            raise
         return False
 
 
@@ -623,6 +627,7 @@ class WasteManagementTab(QWidget):
         export_manager = ExportManager(self)
         export_manager.export_table_with_dialog(self.waste_table, "waste_data")
 
+    @editor_saved()
     def save_to_database(self, well_id, report_id=None):
         if not self.db:
             return False
@@ -664,6 +669,7 @@ class WasteManagementTab(QWidget):
             logger.error(f"Error saving waste data: {e}")
         return False
 
+    @editor_loaded()
     def load_from_database(self, well_id, report_id=None):
         if not self.db:
             return False
@@ -702,6 +708,7 @@ class WasteManagementTab(QWidget):
                 return True
         except Exception as e:
             logger.error(f"Error loading waste data: {e}")
+            raise
         return False
 
 
@@ -722,6 +729,7 @@ class SafetyWidget(DrillTabBase):
             autosave_interval=5,
             setup_shortcuts=True
         )
+        self.configure_save_tracking()
 
     def init_ui(self):
         main_layout = QVBoxLayout(self)

@@ -3,9 +3,177 @@
 **Decision: NOT PRODUCTION ACCEPTED**
 Audit executed 2026-09-09. Requested report location retains the 2026-09-08 directory.
 
+## 0. Latest targeted iteration — R18/R19 (2026-09-09)
+
+**Overall: NOT PRODUCTION ACCEPTED. This iteration is partial, not full completion of the requested R18/R19 acceptance.**
+
+Only R18/R19 and directly exposed save/context regressions were changed. The
+193-file inventory below belongs to the previous broad audit and was **not rerun**.
+The verified starting commit was `7d21679ee64012ba425302b9fbc7445dee334142`, on
+`arena/01a0801f-drill-master`. A restored old Git HEAD was recovered by a same-branch
+fast-forward after archiving/stashing and independently verifying 154 preserved
+file hashes. The recovered baseline was clean before these changes.
+
+### Results and limits
+
+| Gate | Current result | Evidence |
+|---|---|---|
+| New focused regressions | **48 passed**, no failures/errors | `evidence/r18-r19/focused.txt` |
+| R18 dirty/context regressions | **22 passed** | `evidence/r18-r19/dirty-contract.txt` |
+| R19 legacy BHA preservation | **26 passed** | `evidence/r18-r19/bha-preservation.txt` |
+| Save All/BHA/engineering/import subsystem | **298 passed** | `evidence/r18-r19/subsystem.txt` |
+| Full suite, actual Golden A enabled | **786 passed, 6 skipped**, no failures/errors | `evidence/r18-r19/full.txt` |
+| compileall / diff whitespace | **exit 0 / exit 0** | `evidence/r18-r19/final-exit-codes.txt` |
+| R18 application-wide requirement | **PARTIAL / OPEN** — common mechanism implemented; unsupported and insufficiently verified legacy editor paths remain | Details below |
+| R19 alternative C | **PASS in the executed report-scoped software/protocol scope:** named selection/inspection, read-only preservation and destructive-write guards | Editing/migration is **not implemented**; native GUI remains unverified |
+| Native Windows/desktop acceptance | **BLOCKED / NOT VERIFIED** | Unchanged gates below |
+
+### R18 implementation and boundary
+
+- Existing `SaveOutcome`/`save_all` remains the sole outcome/coordinator architecture.
+  Its backward-compatible status has an explicit `disposition`: `NO_CHANGES`,
+  `SAVED`, `REVIEW_REQUIRED`, `VALIDATION_ERROR`, `SYSTEM_ERROR`,
+  `CONTEXT_BLOCKED`, or existing `UNSUPPORTED`. Summaries distinguish no work
+  from persisted operations and show leaf-section outcome counts.
+- `DrillTabBase.save_changes` and explicit persistent-section bindings share
+  local raw editor snapshots. Baselines are established at construction and
+  declared successful load/save boundaries, **not on the first Save All**.
+  Clean sections do not invoke their savers. No widget-to-database comparison,
+  global monkey patch, second Save All coordinator or always-dirty rule was added.
+  Default/read-only/no-op tabs have no pending sections.
+- MainWindow Save All/current-tab Save and both AutoSave entry points route through
+  that contract. Independent dirty sections keep the existing partial-success
+  policy. Invalid/system/unsupported results remain dirty; confirmed persistence
+  with retained review warnings is reported as review, not global success.
+- Pending BaseTab context is preserved. False loader returns now fail the load.
+  Each section also retains the context of its successful load plus load-failure
+  state, so a superficially ready parent cannot lend readiness to a failed child.
+  Load exceptions are propagated at inspected boundaries instead of silently
+  acknowledging stale values.
+- DDR no longer offers invalid “Save anyway?” and no longer blindly cascades
+  saves into unrelated tabs. Its BaseTab report handler now really calls the
+  loader (BaseTab already assigns the current ID); the duplicate direct
+  MainWindow load connection was removed. Existing Well/DDR saves do not
+  reselect the hierarchy and reload other pending editors. Equipment inventory,
+  pipe and solid-control reads now use the selected report, not all well reports.
+- Existing nullable-value restoration is used for Well/DDR scalar placeholders;
+  explicit scalar edits are tracked separately. The test matrix verifies NULL,
+  valid zero and invalid-text preservation through actual Downhole services.
+
+**R18 is not closed. Important architectural limits discovered during this work:**
+
+1. The manual schematic saver serializes only part of the model, while loading
+   regenerates a schematic rather than restoring that saved document. Global
+   Save All therefore returns **UNSUPPORTED and retains dirty state**, instead
+   of falsely certifying a lossless save/reload. Rendering is not disabled.
+   The separate legacy local schematic save/export behavior is not certified.
+2. Procedure General/Checklist/Steps are separate from supplementary/PJSM and
+   approval details that the existing `save_procedure` does not persist. The
+   latter now have a distinct dirty boundary and explicit **UNSUPPORTED** outcome;
+   saving General cannot mark them saved. Their persistence must be completed
+   before claiming all valid dirty authoring fields can save/reload exactly.
+3. The remaining legacy editor-specific payload/reload paths are **not proven
+   application-wide** by this matrix. In particular Section Data has historical
+   well/section/report routing (including legacy `save_data` paths passing
+   `report_id=None`, and tally/bit well-level retrieval) requiring alignment.
+   The new context guards do not constitute certification of those domain
+   writers or of every nullable field. This is a source-level limit, not merely
+   a missing Windows screenshot.
+
+Consequently the requested condition “every valid dirty editor saves exactly and
+reloads exactly” is **not accepted**. Green common-contract tests must not be used
+to claim it. The safe unsupported outcomes are a stopgap, not completion of those
+features or permission to discard the pending edits.
+
+### R18 requested matrix — what was actually exercised
+
+The production MainWindow Save All method, BaseTab methods, production bindings,
+AutoSaveManager and Downhole managers/services are executed with table/widget
+protocols and a real Production-mode SQLite database. This is **not native Qt**.
+
+| Requested case | Executed evidence in `test_r18_r19_save_preservation.py` |
+|---|---|
+| All clean | Saver failure sentinels plus SQL observer: zero INSERT/UPDATE/DELETE |
+| One valid dirty | One BHA save; clean equipment/formation callbacks prohibited |
+| Two valid dirty | BHA + equipment persisted; exact saved-section count |
+| Invalid + valid partial | Invalid BHA unchanged/dirty; independent equipment persisted |
+| Cancelled edit/dialog | Actual cancelled Add BHA method; reverted edit also clean |
+| Context changed / child load failed | Failed parent pending event and separately mismatched child snapshot block savers |
+| Hidden clean | No write and NO_CHANGES |
+| Read-only/no-op | Callback existence does not create pending work |
+| Clean AutoSave | No callback/write |
+| Dirty valid AutoSave | Confirmed one-section persistence |
+| Failed save retains dirty | Injected persistence failure; actual DB unchanged |
+| Success clears dirty | Successful retry and local button save; subsequent global/timer no-op |
+| Exact save/reload | Normalized BHA records survive DB close/reinitialize and actual loader |
+| NULL fidelity | Blank optional ID remains SQL/JSON NULL after another edit |
+| Valid zero fidelity | Weight zero remains zero, not missing |
+| Invalid never becomes NULL | Malformed length cannot overwrite prior valid record |
+| Old report cannot write into new | New report stays empty; original report record unchanged after failed load |
+
+Additional tests cover same-context reload failure, unsupported dirty work,
+existing Well save with an invalid BHA sibling and preserved selection, legacy
+read-only selection, and independent equipment persistence. These do not certify
+all other editors' complete lifecycle.
+
+### R19 choice C — preserve, inspect, explicitly do not edit
+
+The historical widget source (`ad7ea0d`) actually reads a JSON string or object
+mapping **original configuration name → component rows**; it formerly chose the
+first key. The authoritative `BHAReport.bha_data_json` column holds that document;
+`get_bha_report` exposes it as `bha_configs`. Current list-based persistence cannot
+round-trip the named alternatives. No new schema or parallel BHA engine was added.
+
+- Original names populate selector `itemData`. Both alternatives can be selected
+  and inspected without renaming or flattening them. Named legacy documents,
+  including single-name maps, stay read-only.
+- Name/table editing and add/remove/save/delete controls are disabled for legacy
+  data; callable mutation actions also reject it with a migration explanation.
+  Selection/inspection never becomes dirty save work.
+- Service writes, generic updates/deletes, repository updates/deletes and generic
+  inserts that would hide a protected report behind a replacement record are
+  rejected. Both import-upsert branches are guarded inside the existing atomic
+  transaction; attempted replacement rolls back. Import rejection still uses
+  the existing `PersistenceError` envelope, with an explicit legacy read-only
+  reason; this is not advertised as successful editable import support.
+- UI JSON archive writes the original selected BHA report document containing
+  **all** alternatives, not just the displayed configuration. Cancel writes no
+  file. Professional Excel exports both original configuration names and the
+  complete raw document/lineage in its chunked Raw Data sheet.
+- The fixture has two differently named configurations, different component
+  order/dimensions/lengths, provenance, NULL and legitimate zero. It is tested as
+  both a JSON object and historical JSON-encoded string. Load/list/select/inspect,
+  restart/reload, write/delete/import rejection, no duplicate replacement record,
+  JSON/Excel export and unchanged unselected alternatives are asserted.
+
+This verifies the existing **report-scoped** workflow and public service/repository
+paths. Direct administrative SQL, intentional whole-well/report destruction,
+and discovery/selection of unrelated unscoped historical BHA report records are
+not certified by this fixture. No claim of editable multi-configuration support
+or automatic migration is made.
+
+### Remaining mandatory acceptance gates
+
+- **R18 source-level blockers above must be resolved**, followed by per-editor
+  lifecycle tests; it is not enough to rerun the current green suite.
+- Windows + Python 3.12 startup/first-run/login, native QMainWindow construction,
+  each registered editor's initial snapshot/load/failed-load/save/cancel behavior,
+  hidden/visible tab transitions, real Save All clicks and timer callbacks.
+- Native legacy BHA selector/table read-only behavior, both configurations,
+  archive file dialogs and real application restart; older unscoped BHA discovery
+  is a separate unverified compatibility boundary.
+- Native charts, all required PDF paths, actual Windows packaging/installer and
+  installed-package smoke tests. Linux protocols/compileall do not prove these.
+- Six full-suite skips are explicit in the log: actual PDF fixture, native Qt
+  import repair, actual MinerU integration, Windows bundle, native startup and
+  native tab checks. Golden B: **NOT AVAILABLE / NOT VERIFIED**.
+
+Commands and execution boundaries: `evidence/r18-r19/commands.md`. Test DBs,
+exports, credentials and temporary recovery archives are not committed.
+
 ## 1. Executive assessment
 
-This iteration delivers implemented persistence, selection-state, calculation-presentation and reporting repairs, plus fresh Production-mode service exercises. It is **not completion of the requested desktop production acceptance**. Native startup fails before application construction because `libGL.so.1` is unavailable. Windows/Python 3.12 and an installed Windows package were not executed. Two functional requirements also remain open: comprehensive dirty/no-change handling across Save All, and editing/migrating legacy multiple named BHA configurations.
+This iteration delivers implemented persistence, selection-state, calculation-presentation and reporting repairs, plus fresh Production-mode service exercises. It is **not completion of the requested desktop production acceptance**. Native startup fails before application construction because `libGL.so.1` is unavailable. Windows/Python 3.12 and an installed Windows package were not executed. The latest targeted status is in section 0: R18 remains partially open; R19 uses safe read-only alternative C in its tested report-scoped boundary, not editable migration support.
 
 Usable within the executed scope:
 - Secure first creation, authentication, database reopen, explicit hierarchy creation and offline recovery at service/CLI level.
@@ -55,7 +223,7 @@ Legend: **G** = native GUI BLOCKED; **S** = real service/API storage or export e
 | 24h/morning operations | G | S/SC | S/import | S | S report cascade | Missing time anchors retained for review | GUI blocked |
 | Drilling/bit/casing/cement/trip sheet | G | S/SC | S/SC | S/SC | SC/S cascade | No unexpected final service error | GUI blocked |
 | Downhole/formation | G | P + S | P + S | P + disk reopen | P/SC/S | R01–R06, R14–R16 repaired | GUI blocked |
-| BHA/components | G | P + S | P + S | P + disk reopen | P + S | Current report fixed; legacy multi-config limitation | **FAIL: R19 remains** |
+| BHA/components | G | P + S | P + S | P + disk reopen | P + S | Current report fixed; legacy multi-config limitation | **Read-only software path verified; native NV (section 0)** |
 | Wellbore schematic | G | SC | SC | SC | SC | Native rendering unknown | BLOCKED |
 | Survey/trajectory | G | S | S | S/recalculation | S/SC | Missing azimuth is a review, not zero | GUI blocked |
 | Mud/rheology/composition/chemicals | G | S | S | S/reopen | SC/S cascade | Unknown roles/composition remain review-required | GUI blocked |
@@ -97,8 +265,8 @@ Severity: P0 data loss/security/startup; P1 major workflow; P2 important; P3 min
 | R15 P0 | Supply one well ID with another well's report ID to a Downhole saver; independent FKs do not validate the pair. | BHA/equipment/formation services verify the owning report in their transaction before updates. | Fixed in these services; three scoped regressions |
 | R16 P1 | Calculate totals with missing weight/hours, or check service with no date: old code implied zero totals or “All equipment up to date.” | BHA delegates to existing engine and marks missing weight unknown; hours remain unknown when incomplete; invalid input explicit; missing service dates remain REVIEW_REQUIRED. Blank new equipment/formation rows no longer invent dates/serials/geology. | Fixed; totals/controller-missing-input and service-date tests |
 | R17 P3 | Downhole always claimed Auto-save ON independent of settings; optional DrillPipe notice used fatal-looking red. | Truthful setting-dependent wording and neutral optional-reference styling. Vendor-reference absence is not suppressed. | Source/UI declarations corrected; appearance NV |
-| R18 P1 | Global Save All enumerates all savers; there is no complete application-wide dirty/no-change contract, including read-only/no-op tabs. | Pending-context guard prevents the confirmed destructive path but does not implement universal dirty detection or promise no-op filtering. | **OPEN; native dirty-state iteration required** |
-| R19 P1 | Legacy BHA JSON may contain multiple named configurations, whereas the current report saver persists a single list. Flattening/replacing it loses alternatives. | Preserve legacy data, allow reading selections, block replacement of the multi-config BHA with a review; independent equipment/formation saves may continue. No schema migration or duplicate BHA engine invented. | **OPEN: legacy multi-config edit/migration unsupported** |
+| R18 P1 | Global Save All previously enumerated every saver without dirty/no-change semantics. | Common per-section snapshots/context/load/save boundaries and honest dispositions implemented; 22 new DB/protocol tests pass. Schematic/supplementary Procedure and other legacy domain lifecycle limits remain (section 0). | **PARTIAL / OPEN — not application-wide accepted** |
+| R19 P1 | Legacy named configuration maps cannot be losslessly edited by the current list saver. | Alternative C: named read-only inspection; UI/service/repository/import replacement guards; lossless JSON/Excel archive; 26 new preservation tests pass. See report-scoped/unscoped boundary in section 0. | **Read-only software path verified; editable migration unsupported; native NV** |
 
 No claim is made that all remaining GUI or authorization defects have been found. In particular, R15 is not certification of every generic ORM parent-context mutation.
 
@@ -245,7 +413,7 @@ PASS applies only where the gate is genuinely established at its stated scope. A
 | DDR lifecycle | **BLOCKED** | Service import/edit/delete/replay passes; complete native workflow unverified |
 | Import | **BLOCKED** | Actual A service gate passes; native wizard, PDF and second actual workbook not verified |
 | Save All | **FAIL** | Confirmed pending-context data loss fixed, but global dirty/no-change requirement R18 remains |
-| Operational tabs | **FAIL** | Native coverage blocked and legacy multi-BHA R19 remains unsupported |
+| Operational tabs | **FAIL** | Native coverage blocked; R19 editing unsupported but read-only preservation tested |
 | Engineering | **BLOCKED** | Automated/direct contracts pass within scope; native inputs/results and field validation unverified |
 | Reporting | **BLOCKED** | HTML/Excel repaired/executed; PDF/native visual/other format acceptance incomplete |
 | Visualization | **BLOCKED** | Agg boundary passes; native 2D/3D interaction/platform unverified |
@@ -258,7 +426,7 @@ PASS applies only where the gate is genuinely established at its stated scope. A
 
 1. Provide a working native Qt runtime and the target Windows/Python 3.12 package; execute the module matrix as real widgets, including first-run/login/logout, keyboard/menu/button paths, modals, invalid/cancel, navigation and restart.
 2. Close **R18** with an application-wide dirty/context/no-change policy, preserving successful independent saves and guarding read-only/no-op tabs. Test actual hidden/visible editors and timers, not only callback protocols.
-3. Close **R19** with an explicit, lossless multiple-configuration lifecycle/migration consistent with the existing BHA model and calculator consumers; do not silently flatten legacy source.
+3. Verify **R19 alternative C** natively and resolve unscoped historical discovery if required; editable migration remains a separate future capability and must never silently flatten source.
 4. Verify PDF and other promised formats, bilingual layout, all native charts, peripheral knowledge/AI/reference routes and role-based authorization. Retain engineering screening limitations and obtain appropriate domain review.
 5. Rerun focused/subsystem/full/real-runtime acceptance after those changes. A second real source workbook must be supplied or explicitly remain unavailable; do not fabricate Golden B.
 

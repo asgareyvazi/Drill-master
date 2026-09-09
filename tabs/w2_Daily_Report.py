@@ -12,6 +12,7 @@ from PySide6.QtPrintSupport import QPrinter, QPrintDialog
 
 from PySide6.QtGui import QTextOption
 
+from core.editor_state import editor_loaded, editor_saved
 from core.base_tab import DrillTabBase
 from core.permissions import require_permission
 from dialogs.hierarchy_dialogs import NewDailyReportDialog
@@ -189,6 +190,7 @@ class DailyReportWidget(DrillTabBase):
         self.init_ui()
         self.setup_connections()
         self.setup_managers()
+        self.configure_save_tracking()
   
     # -------- رابط کاربری (بدون تغییر) --------
     def init_ui(self):
@@ -556,7 +558,7 @@ class DailyReportWidget(DrillTabBase):
         
     def on_section_changed(self, section_id, section_data):
         """وقتی سکشنی انتخاب می‌شود."""
-        if not section_id or section_id == self.current_section_id:
+        if not section_id:
             return  # اگه تغییر نکرده، کاری نکن
         
         self.current_section_id = section_id
@@ -578,8 +580,8 @@ class DailyReportWidget(DrillTabBase):
 
     def on_report_changed(self, report_id, report_info):
         """بارگذاری گزارش مشخص از SelectionManager."""
-        if report_id and report_id != self.current_report_id:
-            self.load_report_by_id(report_id)
+        if report_id:
+            return self.load_report_by_id(report_id)
 
     def calculate_report_number_from_spud_date(self):
         if not self.current_well_id:
@@ -677,6 +679,7 @@ class DailyReportWidget(DrillTabBase):
                 self.load_report_by_id(latest_report["id"])
         except Exception as e:
             logger.error(f"Error loading reports: {e}")
+            raise
 
     def on_date_changed(self):
         """هنگام تغییر تاریخ، شماره گزارش و روز ریگ را به‌روز می‌کنیم"""
@@ -1157,7 +1160,9 @@ class DailyReportWidget(DrillTabBase):
         if self.current_report and self.current_report.get("id"):
             report_data["id"] = self.current_report["id"]
 
-        return report_data
+        from core.mud_records import preserve_widget_values
+        return preserve_widget_values(self.current_report or {}, getattr(self, "_loaded_report_display", {}),
+                                      report_data, getattr(self, "_form_touched", ()))
 
     def _build_header_snapshot(self, well_id: int) -> dict:
         """ساخت snapshot از اطلاعات چاه"""
@@ -1218,9 +1223,11 @@ class DailyReportWidget(DrillTabBase):
                     )
                 )
 
+    @editor_saved()
     def save_report(self) -> bool:
         """ذخیره گزارش روزانه - نسخه refactor شده"""
         try:
+            creating_report = not (self.current_report and self.current_report.get("id"))
             well_id = self.current_well_id
             section_id = self.current_section_id
 
@@ -1248,14 +1255,10 @@ class DailyReportWidget(DrillTabBase):
             from core.validators import DailyReportValidator
             validation = DailyReportValidator.validate(report_data)
             if not validation.is_valid:
-                reply = QMessageBox.warning(
-                    self, "⚠️ Validation Issues",
-                    f"Issues:\n\n{validation.summary()}\n\nSave anyway?",
-                    QMessageBox.Yes | QMessageBox.No,
-                    QMessageBox.No
-                )
-                if reply != QMessageBox.Yes:
-                    return False
+                from core.save_outcome import validation_outcome
+                self.last_save_outcome = validation_outcome("Daily report", validation)
+                self.status_manager.show_error("DailyReport", self.last_save_outcome.summary())
+                return False
 
             # ذخیره
             result = self.db_manager.save_daily_report(report_data)
@@ -1275,10 +1278,11 @@ class DailyReportWidget(DrillTabBase):
             self.save_time_logs_to_db(report_id)
 
             # ذخیره تب‌های دیگر
-            self._save_related_tabs()
+            # Global saves are coordinated by MainWindow, never cascaded here.
 
             # refresh UI
-            self._refresh_after_save(result)
+            if creating_report:
+                self._refresh_after_save(result)
 
             self.status_manager.show_success(
                 "DailyReport",
@@ -1293,31 +1297,6 @@ class DailyReportWidget(DrillTabBase):
             )
             return False
 
-    def _save_related_tabs(self) -> None:
-        """ذخیره داده‌های تب‌های مرتبط"""
-        if not self.parent_window:
-            return
-
-        tab_saves = [
-            ('drilling_report_tab', 'save_all_tabs'),
-            ('downhole_tab', 'save_all_data_to_db'),
-            ('equipment_widget', 'save_all_data'),
-            ('logistics_widget', 'save_all_data'),
-            ('safety_widget', 'save_data'),
-            ('services_widget', 'save_data'),
-            ('trajectory_widget', 'save_data'),
-        ]
-
-        for attr_name, method_name in tab_saves:
-            tab = getattr(self.parent_window, attr_name, None)
-            if tab and hasattr(tab, method_name):
-                try:
-                    getattr(tab, method_name)()
-                except Exception as e:
-                    logger.error(
-                        f"Error saving {attr_name}.{method_name}: {e}"
-                    )
-                    
     def save_time_logs_to_db(self, report_id):
         session = self.db_manager.create_session()
         try:
@@ -1540,6 +1519,7 @@ class DailyReportWidget(DrillTabBase):
         except Exception as e:
             logger.error(f"Error loading reports dialog: {e}")
             self.status_manager.show_error("DailyReport", f"Error: {str(e)[:100]}")
+            raise
 
     def _load_selected_report_from_dialog(self, dialog, table):
         selected_items = table.selectedItems()
@@ -1552,6 +1532,7 @@ class DailyReportWidget(DrillTabBase):
             dialog.accept()
             self.status_manager.show_success("DailyReport", "Report loaded")
 
+    @editor_loaded()
     def load_report_by_id(self, report_id):
         self.current_report_id = report_id
         self.current_daily_report_id = report_id
@@ -1560,18 +1541,19 @@ class DailyReportWidget(DrillTabBase):
             report_data = self.db_manager.get_daily_report_by_id(report_id)
             if not report_data:
                 self.status_manager.show_error("DailyReport", "Report not found")
-                return
+                return False
 
             self.current_report = report_data
+            self._loaded_report_display = {}
             self.current_well_id = report_data.get("well_id")
             self.current_section_id = report_data.get("section_id")
 
             self.report_date.setDate(report_data["report_date"])
-            self.report_number.setValue(report_data.get("report_number", 1))
-            self.rig_day.setValue(report_data.get("rig_day", 1))
-            self.depth_0000.setValue(report_data.get("depth_0000", 0))
-            self.depth_0600.setValue(report_data.get("depth_0600", 0))
-            self.depth_2400.setValue(report_data.get("depth_2400", 0))
+            self.report_number.setValue(report_data.get("report_number") if report_data.get("report_number") is not None else 0)
+            self.rig_day.setValue(report_data.get("rig_day") if report_data.get("rig_day") is not None else 0)
+            self.depth_0000.setValue(report_data.get("depth_0000") if report_data.get("depth_0000") is not None else 0)
+            self.depth_0600.setValue(report_data.get("depth_0600") if report_data.get("depth_0600") is not None else 0)
+            self.depth_2400.setValue(report_data.get("depth_2400") if report_data.get("depth_2400") is not None else 0)
             import textwrap
             raw_summary = report_data.get("summary", "") or ""
             if len(raw_summary) > 150:
@@ -1594,10 +1576,15 @@ class DailyReportWidget(DrillTabBase):
             self.load_time_logs(report_id, self.time_24_table, is_morning=False)
             self.load_time_logs(report_id, self.morning_table, is_morning=True)
 
+            self._loaded_report_display = self._collect_report_data(well_id, section_id)
+            from core.editor_state import reset_form_edit_tracking
+            reset_form_edit_tracking(self,
+                          [(key, getattr(self, key)) for key in ("report_date", "report_number", "rig_day", "depth_0000", "depth_0600", "depth_2400")])
             self.status_manager.show_success("DailyReport", f"Report #{report_data.get('report_number', '')} loaded")
         except Exception as e:
             logger.error(f"Load report error: {e}")
             self.status_manager.show_error("DailyReport", f"Error loading report: {str(e)[:100]}")
+            raise
 
     def load_time_logs(self, report_id, table, is_morning=False):
         table.setRowCount(0)
@@ -1612,6 +1599,7 @@ class DailyReportWidget(DrillTabBase):
             QTimer.singleShot(100, lambda: self._adjust_all_row_heights(table))
         except Exception as e:
             logger.error(f"Error loading time logs: {e}")
+            raise
         finally:
             session.close()
 

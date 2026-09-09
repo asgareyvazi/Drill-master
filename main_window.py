@@ -1099,13 +1099,7 @@ class MainWindow(QMainWindow):
                 if hasattr(self, 'export_widget') else None
             )
         )
-        self.sel_manager.report_changed.connect(
-            lambda rid, ri: (
-                self.daily_report_tab.load_report_by_id(rid)
-                if rid and hasattr(self, 'daily_report_tab')
-                else None
-            )
-        )
+        # DailyReport loads through DrillTabBase, retaining failed pending context.
     # ==================== Setup ====================
 
     def setup_managers(self):
@@ -1124,6 +1118,9 @@ class MainWindow(QMainWindow):
             self.safety_widget,
             self.services_widget,
             self.section_data_tab,
+            self.planning_widget,
+            self.procedure_widget,
+            self.wellbore_schematic_tab,
         ]
         for tab in tabs_with_save:
             if hasattr(tab, 'save_data'):
@@ -2655,16 +2652,16 @@ class MainWindow(QMainWindow):
             self.status_manager.show_message("MainWindow", "No save operation for this view", 2000)
             return False
         name = self.tab_widget.tabText(self.tab_widget.currentIndex())
-        self.last_save_outcome = save_all([(name, tab.save_data)])
+        self.last_save_outcome = save_all([(name, getattr(tab, "save_changes", tab.save_data))])
         notifier = self.status_manager.show_success if self.last_save_outcome else self.status_manager.show_error
         notifier("MainWindow", self.last_save_outcome.summary())
-        if self.last_save_outcome:
+        if self.last_save_outcome.saved:
             self._invalidate_hierarchy_cache()
         return bool(self.last_save_outcome)
 
     def save_all_tabs(self):
         from core.save_outcome import save_all
-        steps = [(self.tab_widget.tabText(i), self.tab_widget.widget(i).save_data)
+        steps = [(self.tab_widget.tabText(i), getattr(self.tab_widget.widget(i), "save_changes", self.tab_widget.widget(i).save_data))
                  for i in range(self.tab_widget.count()) if hasattr(self.tab_widget.widget(i), "save_data")]
         self.last_save_outcome = save_all(steps)
         notifier = self.status_manager.show_success if self.last_save_outcome else self.status_manager.show_error

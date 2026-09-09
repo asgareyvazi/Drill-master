@@ -24,6 +24,7 @@ except ImportError:
     def show_error_message(parent, message):
         QMessageBox.critical(parent, "Error", message)
 
+from core.editor_state import editor_loaded, editor_saved
 from core.base_tab import DrillTabBase
 
 logger = logging.getLogger(__name__)
@@ -45,6 +46,7 @@ class WellInfoTab(DrillTabBase):
 
         self.init_ui()
         self.setup_connections()
+        self.configure_save_tracking()
 
     def init_ui(self):
         main_layout = QVBoxLayout(self)
@@ -624,10 +626,16 @@ class WellInfoTab(DrillTabBase):
             # ========== OBJECTIVES ==========
             self.objectives.setPlainText(well_data.get('objectives') or '')
 
+            self._loaded_form_values = self.get_form_data()
+            from core.editor_state import reset_form_edit_tracking
+            fields = [(key, getattr(self, key)) for key in ("gle_msl", "rte_msl", "gle_rte", "water_depth", "derrick_height", "lta_day", "actual_rig_days", "rig_heading", "kop1", "kop2", "latitude", "longitude", "northing", "easting", "spud_date", "start_hole_date", "rig_move_date", "report_date")]
+            fields.extend([(key, self.estimated_depth) for key in ("target_depth", "estimated_final_depth")])
+            reset_form_edit_tracking(self, fields)
             logger.info(f"Well data loaded successfully for well ID: {well_id}")
             
         except Exception as e:
             logger.error(f"Failed to load well data: {str(e)}")
+            raise
         finally:
             self.is_loading = False
 
@@ -725,21 +733,29 @@ class WellInfoTab(DrillTabBase):
             "objectives": self.objectives.toPlainText().strip(),
         }
         
+    @editor_saved()
     def save_data(self, show_popup=False):
+        creating_well = not self.current_well
         try:
-            well_data = self.get_form_data()
+            from core.mud_records import preserve_widget_values
+            well_data = preserve_widget_values(self.current_well or {}, getattr(self, "_loaded_form_values", {}), self.get_form_data(), getattr(self, "_form_touched", ()))
             from core.validators import WellValidator
             validation = WellValidator.validate(well_data)
+            from core.save_outcome import validation_outcome
             if not validation.is_valid:
+                self.last_save_outcome = validation_outcome("Well", validation)
                 if show_popup:
                     show_error_message(self, validation.summary())
                 return False
             if validation.warnings and show_popup:
                 show_warning_message(self, validation.summary())
 
-            if self.spud_date.date() > self.start_hole_date.date():
+            if well_data.get("spud_date") and well_data.get("start_hole_date") and str(well_data["spud_date"]) > str(well_data["start_hole_date"]):
                 if show_popup:
                     show_error_message(self, "Spud Date cannot be after Start Hole Date!")
+                from core.save_outcome import SaveIssue, SaveOutcome
+                self.last_save_outcome = SaveOutcome()
+                self.last_save_outcome.issues.append(SaveIssue("Well", "Spud Date cannot be after Start Hole Date", status="INVALID_SOURCE", field="spud_date"))
                 return False
 
             if self.current_well:
@@ -759,7 +775,7 @@ class WellInfoTab(DrillTabBase):
                         session.close()
                 
                 # ========== REFRESH HIERARCHY ==========
-                if self.main_window:
+                if self.main_window and creating_well:
                     self.main_window.populate_hierarchy()
                     # Select the newly saved/updated well
                     if well_data.get('id'):
@@ -772,9 +788,10 @@ class WellInfoTab(DrillTabBase):
                 self.data_saved.emit()
 
                 # اطلاع به SelectionManager
-                if self.main_window and well_data.get('id'):
+                if self.main_window and creating_well and well_data.get('id'):
                     self.main_window.sel_manager.select_well(well_data['id'], well_data)
                 
+                self.last_save_outcome = validation_outcome("Well", validation, saved=1)
                 return True
             else:
                 if show_popup:
@@ -789,8 +806,9 @@ class WellInfoTab(DrillTabBase):
     def on_well_changed(self, well_id, well_data):
         """Called externally when well selection changes."""
         if well_id and well_id != (self.current_well.get('id') if self.current_well else None):
-            self.load_well_by_id(well_id)
+            return self.load_well_by_id(well_id)
 
+    @editor_loaded()
     def load_well_by_id(self, well_id):
         try:
             well_data = self.db.get_well_by_id(well_id)
@@ -803,6 +821,7 @@ class WellInfoTab(DrillTabBase):
             return False
         except Exception as e:
             logger.error(f"Error loading well {well_id}: {e}")
+            raise
             return False
 
     def create_new_well_dialog(self):
@@ -848,6 +867,7 @@ class WellInfoTab(DrillTabBase):
         except Exception as e:
             logger.error(f"Error loading well dialog: {e}")
             show_error_message(self, f"Error: {str(e)}")
+            raise
 
     def delete_well(self):
         if not self.current_well:
