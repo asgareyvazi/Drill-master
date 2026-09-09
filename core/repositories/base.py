@@ -25,6 +25,8 @@ class BaseRepository:
         with self.db.session_scope() as session:
             obj_id = data.get("id") if data and data.get("id") else None
             obj = session.get(model, obj_id) if obj_id else None
+            if obj_id and obj is None:
+                raise ValueError(f"{model.__name__} no longer exists; reload before saving")
             if obj is None:
                 obj = model(**values)
                 session.add(obj)

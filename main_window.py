@@ -2675,11 +2675,8 @@ class MainWindow(QMainWindow):
 
     def auto_save(self):
         current_tab = self.tab_widget.currentWidget()
-        if hasattr(current_tab, 'save_data'):
-            try:
-                current_tab.save_data()
-            except Exception as e:
-                logger.error(f"Auto-save error: {e}")
+        self.last_auto_save_outcome = AutoSaveManager.save_widget("Current tab", current_tab)
+        return bool(self.last_auto_save_outcome)
 
     def refresh_all_tabs(self):
         self.show_loading("Refreshing...")

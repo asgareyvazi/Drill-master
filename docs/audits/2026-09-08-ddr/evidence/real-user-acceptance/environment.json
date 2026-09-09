@@ -1,0 +1,19 @@
+{
+  "date": "2026-09-09",
+  "platform": "Linux-6.1.158+-x86_64-with-glibc2.36",
+  "python": "3.11.2",
+  "sqlite": "3.40.1",
+  "baseline": "ac3845fef8e848a62c6bd7a6f0a95601835572c3",
+  "branch": "arena/01a0801f-drill-master",
+  "dependencies": {
+    "SQLAlchemy": "2.0.52",
+    "bcrypt": "4.3.0",
+    "PySide6": "6.11.2",
+    "openpyxl": "3.1.5",
+    "matplotlib": "3.11.1",
+    "numpy": "2.4.6",
+    "pandas": "2.3.3",
+    "pytest": "9.1.1",
+    "ruff": "0.16.6"
+  }
+}

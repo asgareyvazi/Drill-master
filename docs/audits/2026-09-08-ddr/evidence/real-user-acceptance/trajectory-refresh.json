@@ -1,0 +1,22 @@
+[
+  {
+    "input": "valid",
+    "state": "READY",
+    "lines": 1
+  },
+  {
+    "input": "empty",
+    "state": "NO_DATA",
+    "lines": 0
+  },
+  {
+    "input": "incomplete",
+    "state": "INSUFFICIENT_DATA",
+    "lines": 0
+  },
+  {
+    "input": "valid-again",
+    "state": "READY",
+    "lines": 1
+  }
+]

@@ -4238,7 +4238,7 @@ class EngineeringCalculatorTab(DrillTabBase):
                 "Only vendor-reference lookup is unavailable; independent calculations remain usable."
             )
             msg.setAlignment(Qt.AlignCenter)
-            msg.setStyleSheet("color: #e74c3c; font-size: 13px; padding: 30px;")
+            msg.setStyleSheet("color: #c9a65a; font-size: 13px; padding: 30px;")
             layout.addWidget(msg)
 
             load_btn = QPushButton("📂 Browse for DrillPipe.xlsx")

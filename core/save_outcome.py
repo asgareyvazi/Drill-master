@@ -69,16 +69,23 @@ def save_all(steps):
             owner = getattr(callback, "__self__", None)
             if owner is not None and hasattr(owner, "last_save_outcome"):
                 owner.last_save_outcome = None
-            value = callback()
-            detailed = getattr(owner, "last_save_outcome", None)
-            if isinstance(value, SaveOutcome):
-                outcome = value
-            elif isinstance(detailed, SaveOutcome):
-                outcome = detailed
-            elif value is True or (type(value) is int and value > 0):
-                outcome = SaveOutcome(saved=1)
+            ready = getattr(owner, "save_context_ready", None)
+            if callable(ready) and not ready():
+                outcome = SaveOutcome(issues=[SaveIssue(section,
+                    "The selected context has not been loaded successfully; stale editor data was not saved.",
+                    status="REVIEW_REQUIRED", corrective_action="Open/reload this tab, resolve any load error, and save again.")])
+                owner.last_save_outcome = outcome
             else:
-                outcome = SaveOutcome(issues=[SaveIssue(section, f"Save returned {value!r} without a structured result")])
+                value = callback()
+                detailed = getattr(owner, "last_save_outcome", None)
+                if isinstance(value, SaveOutcome):
+                    outcome = value
+                elif isinstance(detailed, SaveOutcome):
+                    outcome = detailed
+                elif value is True or (type(value) is int and value > 0):
+                    outcome = SaveOutcome(saved=1)
+                else:
+                    outcome = SaveOutcome(issues=[SaveIssue(section, f"Save returned {value!r} without a structured result")])
         except Exception as exc:
             invalid = isinstance(exc, ValueError)
             unsupported = isinstance(exc, NotImplementedError)

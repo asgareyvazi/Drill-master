@@ -1,0 +1,11 @@
+{
+  "mode": "production",
+  "target": "build/acceptance/recovery-final/live.db",
+  "cancel_keeps_bytes": true,
+  "missing_bootstrap_keeps_bytes": true,
+  "secure_reset_exit": 0,
+  "fresh_login_without_bootstrap": true,
+  "backup_restore_and_login": true,
+  "unrelated_target_unchanged": true,
+  "secrets_not_printed": true
+}

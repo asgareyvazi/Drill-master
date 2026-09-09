@@ -1,0 +1,22 @@
+{
+  "DDRReportEngine": {
+    "returned_success": false,
+    "file_exists": false,
+    "classification": "BLOCKED: Qt libGL unavailable"
+  },
+  "EOWRReportEngine": {
+    "returned_success": false,
+    "file_exists": false,
+    "classification": "BLOCKED: Qt libGL unavailable"
+  },
+  "NPTReportEngine": {
+    "returned_success": false,
+    "file_exists": false,
+    "classification": "BLOCKED: Qt libGL unavailable"
+  },
+  "CostReportEngine": {
+    "returned_success": false,
+    "file_exists": false,
+    "classification": "BLOCKED: Qt libGL unavailable"
+  }
+}

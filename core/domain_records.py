@@ -84,7 +84,10 @@ def bha_record(row):
                  (r"\bs[.]\s*stab\b", "Stabilizer (String)"), (r"\bbit\b", "Bit"))
         result["Tool Type"] = next((kind for pattern, kind in rules if re.search(pattern, name)), None)
     for field in ("OD (in)", "ID (in)", "Length (m)", "Weight (kg)", "Make-up Torque (ft-lb)", "Cumulative Length (m)"):
-        result[field] = ValueNormalizer.to_float(result[field])
+        normalized = ValueNormalizer.normalize(result[field], "float")
+        if not normalized.ok:
+            raise ValueError(f"{field}: {normalized.error}")
+        result[field] = normalized.value
     return result
 
 
@@ -237,3 +240,14 @@ def bha_records(rows):
         record["Cumulative Length (m)"] = cumulative
         result.append(record)
     return result
+
+
+def restore_named_text(source, texts):
+    """Read a named editor without converting untouched NULL/zero to strings.
+
+    The snapshot is normalized domain data, not inferred from a display default.
+    Empty edited cells explicitly clear a value; raw provenance stays separate.
+    """
+    from core.text_utils import safe_str
+    return {key: deepcopy(source[key]) if key in source and text == safe_str(source[key])
+            else (None if text == "" else text) for key, text in texts.items()}

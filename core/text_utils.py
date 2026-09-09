@@ -52,4 +52,5 @@ def format_date(value, default=""):
 
 
 def fmt_num(value, digits=1, default=0.0):
-    return f"{safe_float(value, default):.{digits}f}"
+    number = safe_float(value, default)
+    return "—" if number is None else f"{number:.{digits}f}"

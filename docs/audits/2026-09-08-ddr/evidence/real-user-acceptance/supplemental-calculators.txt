@@ -1,0 +1,2 @@
+Supplemental cases: 50
+Exception contract TrajectoryCalculator.calculate missing MissingInputError MISSING_INPUT: surveys

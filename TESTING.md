@@ -114,3 +114,19 @@ python -m pytest tests/test_credential_lifecycle.py
 Headless protocol tests are not native Qt or Windows startup proof. Exact current
 counts and Windows limitations are in
 `docs/audits/2026-09-08-ddr/PRODUCTION_CREDENTIAL_LIFECYCLE_FIX.md`.
+
+## Real-user acceptance (2026-09)
+
+See `docs/audits/2026-09-08-ddr/REAL_USER_ACCEPTANCE_AUDIT.md` for the
+**NOT PRODUCTION ACCEPTED** decision, repaired defects and open native/dirty-state
+requirements. Reproduce the isolated Production service exercise with:
+
+```bash
+python tools/real_user_acceptance.py "path/to/actual-workbook.xlsx" --output build/new-acceptance-run
+```
+
+The output directory must not already exist. It creates its own database and
+generated bootstrap credential; it does not reset an operational database.
+Generated databases and workbooks must remain outside Git. For the opt-in real
+Excel test, set `DRILLMASTER_TEST_DDR_XLSX` (not `DRILLMASTER_REAL_DDR_XLSX`).
+Table/control protocol tests are not native Qt or Windows certification.

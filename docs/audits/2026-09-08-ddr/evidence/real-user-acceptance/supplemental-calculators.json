@@ -1,0 +1,1512 @@
+[
+  {
+    "calculator": "WellControlEngine.kill_mw",
+    "state": "valid",
+    "inputs": {
+      "original_mw_ppg": 10,
+      "sidpp_psi": 520,
+      "tvd_ft": 5000
+    },
+    "result": {
+      "success": true,
+      "value": 12.0,
+      "values": {
+        "kill_mw_ppg": 12.0
+      },
+      "unit": "ppg",
+      "formula": "Kill MW = original MW + SIDPP / (0.052 \u00d7 TVD)",
+      "method": "IWCF / IADC well-control manuals; Bourgoyne et al.",
+      "assumptions": [
+        "SIDPP represents underbalance at bit TVD",
+        "Oilfield constant 0.052 psi/ppg/ft"
+      ],
+      "warnings": [],
+      "validation_status": "ok",
+      "metadata": {},
+      "error": "",
+      "scope": "COMPLETE"
+    }
+  },
+  {
+    "calculator": "WellControlEngine.kill_mw",
+    "state": "missing",
+    "inputs": {
+      "original_mw_ppg": null,
+      "sidpp_psi": null,
+      "tvd_ft": null
+    },
+    "result": {
+      "success": false,
+      "value": null,
+      "values": {},
+      "unit": "",
+      "formula": "",
+      "method": "",
+      "assumptions": [],
+      "warnings": [],
+      "validation_status": "missing_input",
+      "metadata": {},
+      "error": "MISSING_INPUT: original_mw_ppg",
+      "scope": "PARTIAL"
+    }
+  },
+  {
+    "calculator": "WellControlEngine.maasp",
+    "state": "valid",
+    "inputs": {
+      "max_allowable_mw_ppg": 14,
+      "current_mw_ppg": 10,
+      "shoe_tvd_ft": 3000
+    },
+    "result": {
+      "success": true,
+      "value": 624.0,
+      "values": {
+        "maasp_psi": 624.0
+      },
+      "unit": "psi",
+      "formula": "MAASP = (Frac MW \u2212 Current MW) \u00d7 0.052 \u00d7 Shoe TVD",
+      "method": "IWCF / IADC well-control manuals; Bourgoyne et al.",
+      "assumptions": [
+        "Weakest point is the casing shoe",
+        "Frac MW from LOT or given equivalent MW"
+      ],
+      "warnings": [],
+      "validation_status": "ok",
+      "metadata": {},
+      "error": "",
+      "scope": "COMPLETE"
+    }
+  },
+  {
+    "calculator": "WellControlEngine.maasp",
+    "state": "missing",
+    "inputs": {
+      "max_allowable_mw_ppg": null,
+      "current_mw_ppg": null,
+      "shoe_tvd_ft": null
+    },
+    "result": {
+      "success": false,
+      "value": null,
+      "values": {},
+      "unit": "",
+      "formula": "",
+      "method": "",
+      "assumptions": [],
+      "warnings": [],
+      "validation_status": "missing_input",
+      "metadata": {},
+      "error": "MISSING_INPUT: current_mw_ppg",
+      "scope": "PARTIAL"
+    }
+  },
+  {
+    "calculator": "WellControlEngine.formation_pressure",
+    "state": "valid",
+    "inputs": {
+      "mw_ppg": 10,
+      "tvd_ft": 5000,
+      "sidpp_psi": 520
+    },
+    "result": {
+      "success": true,
+      "value": 3120.0,
+      "values": {
+        "hydrostatic_psi": 2600.0,
+        "formation_pressure_psi": 3120.0,
+        "pressure_gradient_psi_ft": 0.624,
+        "equivalent_mw_ppg": 12.0,
+        "mw_ppg": 10.0,
+        "tvd_ft": 5000.0,
+        "sidpp_psi": 520.0
+      },
+      "unit": "psi",
+      "formula": "P_form = 0.052\u00d7MW\u00d7TVD + SIDPP; EMW = P_form/(0.052\u00d7TVD)",
+      "method": "IWCF / IADC well-control manuals; Bourgoyne et al.",
+      "assumptions": [
+        "SIDPP is measured with the well shut in and the bit on bottom",
+        "Gradient and EMW are averages over the full TVD"
+      ],
+      "warnings": [],
+      "validation_status": "ok",
+      "metadata": {
+        "units": {
+          "pressure": "psi",
+          "mw": "ppg",
+          "tvd": "ft"
+        }
+      },
+      "error": "",
+      "scope": "COMPLETE"
+    }
+  },
+  {
+    "calculator": "WellControlEngine.formation_pressure",
+    "state": "missing",
+    "inputs": {
+      "mw_ppg": null,
+      "tvd_ft": null,
+      "sidpp_psi": null
+    },
+    "result": {
+      "success": false,
+      "value": null,
+      "values": {},
+      "unit": "",
+      "formula": "",
+      "method": "",
+      "assumptions": [],
+      "warnings": [],
+      "validation_status": "missing_input",
+      "metadata": {},
+      "error": "MISSING_INPUT: mw_ppg",
+      "scope": "PARTIAL"
+    }
+  },
+  {
+    "calculator": "CalculatorBridge.kick_volume",
+    "state": "valid",
+    "inputs": {
+      "pit_gain_bbl": 10,
+      "annular_capacity_bbl_ft": 0.05
+    },
+    "result": {
+      "success": true,
+      "value": 10.0,
+      "values": {
+        "kick_volume_bbl": 10.0,
+        "kick_height_ft": 200.0,
+        "is_kick": true,
+        "location": "uniform_annulus",
+        "influx_gradient_psi_ft": null,
+        "kick_type": null,
+        "sidpp_psi": null,
+        "sicp_psi": null,
+        "tvd_ft": null
+      },
+      "unit": "bbl",
+      "formula": "V = pit gain; H = V / annular capacity (BHA then DP/OH); G_i from SICP\u2212SIDPP",
+      "method": "IWCF / IADC well-control manuals; Bourgoyne et al.",
+      "assumptions": [
+        "Pit gain is entirely formation influx (no surface additions)",
+        "Annulus is fully occupied by influx over the computed height",
+        "SICP\u2212SIDPP method assumes influx still around the BHA/OH"
+      ],
+      "warnings": [],
+      "validation_status": "ok",
+      "metadata": {
+        "units": {
+          "volume": "bbl",
+          "height": "ft",
+          "gradient": "psi/ft"
+        }
+      },
+      "error": "",
+      "scope": "COMPLETE"
+    }
+  },
+  {
+    "calculator": "CalculatorBridge.kick_volume",
+    "state": "missing",
+    "inputs": {
+      "pit_gain_bbl": null,
+      "annular_capacity_bbl_ft": null
+    },
+    "result": {
+      "success": false,
+      "value": null,
+      "values": {},
+      "unit": "",
+      "formula": "",
+      "method": "",
+      "assumptions": [],
+      "warnings": [],
+      "validation_status": "missing_input",
+      "metadata": {},
+      "error": "MISSING_INPUT: pit_gain_bbl",
+      "scope": "PARTIAL"
+    }
+  },
+  {
+    "calculator": "CalculatorBridge.trip_margin",
+    "state": "valid",
+    "inputs": {
+      "mw_ppg": 11,
+      "formation_emw_ppg": 10,
+      "tvd_ft": 5000,
+      "swab_pressure_psi": 100
+    },
+    "result": {
+      "success": true,
+      "value": 1.0,
+      "values": {
+        "trip_margin_ppg": 1.0,
+        "trip_margin_psi": 260.0,
+        "mw_ppg": 11.0,
+        "formation_emw_ppg": 10.0,
+        "required_trip_margin_ppg": 0.3846,
+        "adequate": true
+      },
+      "unit": "ppg",
+      "formula": "Trip margin (ppg) = MW \u2212 Pore EMW; psi = 0.052 \u00d7 TM \u00d7 TVD",
+      "method": "IWCF / IADC well-control manuals; Bourgoyne et al.",
+      "assumptions": [
+        "Pore pressure expressed as equivalent mud weight at bit TVD",
+        "Swab, if given, is converted with 0.052 \u00d7 TVD",
+        "Does not include cutting load or temperature effects"
+      ],
+      "warnings": [],
+      "validation_status": "ok",
+      "metadata": {
+        "units": {
+          "mw": "ppg",
+          "tvd": "ft",
+          "pressure": "psi"
+        }
+      },
+      "error": "",
+      "scope": "COMPLETE"
+    }
+  },
+  {
+    "calculator": "CalculatorBridge.trip_margin",
+    "state": "missing",
+    "inputs": {
+      "mw_ppg": null,
+      "formation_emw_ppg": null,
+      "tvd_ft": null,
+      "swab_pressure_psi": null
+    },
+    "result": {
+      "success": false,
+      "value": null,
+      "values": {},
+      "unit": "",
+      "formula": "",
+      "method": "",
+      "assumptions": [],
+      "warnings": [],
+      "validation_status": "missing_input",
+      "metadata": {},
+      "error": "MISSING_INPUT: mw_ppg",
+      "scope": "PARTIAL"
+    }
+  },
+  {
+    "calculator": "CementEngine.displacement",
+    "state": "valid",
+    "inputs": {
+      "casing_id_in": 6.276,
+      "casing_length_ft": 5000,
+      "shoe_track_ft": 80
+    },
+    "result": {
+      "success": true,
+      "value": 188.255,
+      "values": {
+        "displacement_volume_bbl": 188.255,
+        "shoe_track_volume_bbl": 3.061,
+        "total_pump_bbl": 191.316
+      },
+      "unit": "bbl",
+      "formula": "Displacement = (ID\u00b2/1029.4) \u00d7 (L \u2212 shoe track)",
+      "method": "Oilfield capacity (D\u00b2/1029.4) + stacked column hydrostatic",
+      "assumptions": [],
+      "warnings": [],
+      "validation_status": "ok",
+      "metadata": {},
+      "error": "",
+      "scope": "COMPLETE"
+    }
+  },
+  {
+    "calculator": "CementEngine.displacement",
+    "state": "missing",
+    "inputs": {
+      "casing_id_in": null,
+      "casing_length_ft": null,
+      "shoe_track_ft": null
+    },
+    "result": {
+      "success": false,
+      "value": null,
+      "values": {},
+      "unit": "",
+      "formula": "",
+      "method": "",
+      "assumptions": [],
+      "warnings": [],
+      "validation_status": "missing_input",
+      "metadata": {},
+      "error": "MISSING_INPUT: casing_id_in",
+      "scope": "PARTIAL"
+    }
+  },
+  {
+    "calculator": "CementEngine.toc_from_volume",
+    "state": "valid",
+    "inputs": {
+      "hole_size_in": 8.5,
+      "casing_od_in": 7,
+      "slurry_bbl": 100,
+      "excess_pct": 10,
+      "shoe_md_ft": 5000
+    },
+    "result": {
+      "success": true,
+      "value": 974.98,
+      "values": {
+        "toc_md_ft": 974.98,
+        "cement_height_ft": 4025.02,
+        "annular_capacity_with_excess_bbl_ft": 0.02484
+      },
+      "unit": "ft",
+      "formula": "height = slurry_bbl / [(Dh\u00b2\u2212OD\u00b2)/1029.4 \u00d7 (1+excess)]; TOC = shoe \u2212 height",
+      "method": "Oilfield capacity (D\u00b2/1029.4) + stacked column hydrostatic",
+      "assumptions": [
+        "Gauge hole; excess accounts for washout"
+      ],
+      "warnings": [],
+      "validation_status": "ok",
+      "metadata": {},
+      "error": "",
+      "scope": "COMPLETE"
+    }
+  },
+  {
+    "calculator": "CementEngine.toc_from_volume",
+    "state": "missing",
+    "inputs": {
+      "hole_size_in": null,
+      "casing_od_in": null,
+      "slurry_bbl": null,
+      "excess_pct": null,
+      "shoe_md_ft": null
+    },
+    "result": {
+      "success": false,
+      "value": null,
+      "values": {},
+      "unit": "",
+      "formula": "",
+      "method": "",
+      "assumptions": [],
+      "warnings": [],
+      "validation_status": "missing_input",
+      "metadata": {},
+      "error": "MISSING_INPUT: hole_size_in",
+      "scope": "PARTIAL"
+    }
+  },
+  {
+    "calculator": "MudVolumeEngine.dilution",
+    "state": "valid",
+    "inputs": {
+      "current_mw": 12,
+      "target_mw": 10,
+      "system_vol": 1000,
+      "dilutant_mw": 8.33
+    },
+    "result": {
+      "success": true,
+      "value": 1197.605,
+      "values": {
+        "water_required_bbl": 1197.605,
+        "final_volume_bbl": 2197.605
+      },
+      "unit": "bbl",
+      "formula": "V_water = V \u00d7 (MW1\u2212MW2)/(MW2\u2212MW_dilutant)",
+      "method": "Material balance",
+      "assumptions": [],
+      "warnings": [],
+      "validation_status": "ok",
+      "metadata": {},
+      "error": "",
+      "scope": "COMPLETE"
+    }
+  },
+  {
+    "calculator": "MudVolumeEngine.dilution",
+    "state": "missing",
+    "inputs": {
+      "current_mw": null,
+      "target_mw": null,
+      "system_vol": null,
+      "dilutant_mw": null
+    },
+    "result": {
+      "success": false,
+      "value": null,
+      "values": {},
+      "unit": "",
+      "formula": "",
+      "method": "",
+      "assumptions": [],
+      "warnings": [],
+      "validation_status": "missing_input",
+      "metadata": {},
+      "error": "MISSING_INPUT: current_mw",
+      "scope": "PARTIAL"
+    }
+  },
+  {
+    "calculator": "MudVolumeEngine.mix",
+    "state": "valid",
+    "inputs": {
+      "mw1": 10,
+      "vol1": 100,
+      "mw2": 12,
+      "vol2": 100
+    },
+    "result": {
+      "success": true,
+      "value": 11.0,
+      "values": {
+        "final_mw": 11.0,
+        "total_volume": 200.0
+      },
+      "unit": "density unit of inputs",
+      "formula": "MW_mix = (MW1\u00d7V1 + MW2\u00d7V2)/(V1+V2)",
+      "method": "Volume-weighted mix",
+      "assumptions": [],
+      "warnings": [],
+      "validation_status": "ok",
+      "metadata": {},
+      "error": "",
+      "scope": "COMPLETE"
+    }
+  },
+  {
+    "calculator": "MudVolumeEngine.mix",
+    "state": "missing",
+    "inputs": {
+      "mw1": null,
+      "vol1": null,
+      "mw2": null,
+      "vol2": null
+    },
+    "result": {
+      "success": false,
+      "value": null,
+      "values": {},
+      "unit": "",
+      "formula": "",
+      "method": "",
+      "assumptions": [],
+      "warnings": [],
+      "validation_status": "missing_input",
+      "metadata": {},
+      "error": "MISSING_INPUT: mw1",
+      "scope": "PARTIAL"
+    }
+  },
+  {
+    "calculator": "BitPerformanceEngine.from_daily_params",
+    "state": "valid",
+    "inputs": {
+      "params": {
+        "bit_size": 8.5,
+        "depth_in": 1000,
+        "depth_out": 1200,
+        "hours_on_bottom": 10,
+        "wob_max": 20,
+        "rpm_max": 100,
+        "torque_max": 5
+      }
+    },
+    "result": {
+      "success": true,
+      "value": 20.0,
+      "values": {
+        "bit_no": null,
+        "serial": null,
+        "bit_size_in": 8.5,
+        "depth_in": 1000.0,
+        "depth_out": 1200.0,
+        "footage": 200.0,
+        "hours_on_bottom": 10.0,
+        "rop": 20.0,
+        "wob_klbf": 20.0,
+        "rpm": 100.0,
+        "torque_ft_lbf": 5000.0,
+        "mse_psi": 50976.7,
+        "dull": null,
+        "formation": null,
+        "section": null
+      },
+      "unit": "m/hr",
+      "formula": "footage = depth_out \u2212 depth_in; ROP = footage / hours; MSE via Teale",
+      "method": "Daily Report bit run roll-up",
+      "assumptions": [
+        "Depths in metres, ROP in m/hr, WOB in klbf"
+      ],
+      "warnings": [],
+      "validation_status": "ok",
+      "metadata": {},
+      "error": "",
+      "scope": "COMPLETE"
+    }
+  },
+  {
+    "calculator": "BitPerformanceEngine.from_daily_params",
+    "state": "missing",
+    "inputs": {
+      "params": {}
+    },
+    "result": {
+      "success": false,
+      "value": null,
+      "values": {},
+      "unit": "",
+      "formula": "",
+      "method": "",
+      "assumptions": [],
+      "warnings": [],
+      "validation_status": "missing_input",
+      "metadata": {},
+      "error": "MISSING_INPUT: drilling_params",
+      "scope": "PARTIAL"
+    }
+  },
+  {
+    "calculator": "BitPerformanceEngine.rollup",
+    "state": "valid",
+    "inputs": {
+      "runs": [
+        {
+          "bit_size": 8.5,
+          "depth_in": 1000,
+          "depth_out": 1200,
+          "hours_on_bottom": 10,
+          "wob_max": 20,
+          "rpm_max": 100,
+          "torque_max": 5
+        },
+        {
+          "bit_size": 8.5,
+          "depth_in": 1000,
+          "depth_out": 1200,
+          "hours_on_bottom": 10,
+          "wob_max": 20,
+          "rpm_max": 100,
+          "torque_max": 5
+        }
+      ]
+    },
+    "result": {
+      "success": true,
+      "value": 20.0,
+      "values": {
+        "runs": 2,
+        "total_footage": 400.0,
+        "total_hours": 20.0,
+        "avg_rop": 20.0,
+        "details": [
+          {
+            "bit_no": null,
+            "serial": null,
+            "bit_size_in": 8.5,
+            "depth_in": 1000.0,
+            "depth_out": 1200.0,
+            "footage": 200.0,
+            "hours_on_bottom": 10.0,
+            "rop": 20.0,
+            "wob_klbf": 20.0,
+            "rpm": 100.0,
+            "torque_ft_lbf": 5000.0,
+            "mse_psi": 50976.7,
+            "dull": null,
+            "formation": null,
+            "section": null
+          },
+          {
+            "bit_no": null,
+            "serial": null,
+            "bit_size_in": 8.5,
+            "depth_in": 1000.0,
+            "depth_out": 1200.0,
+            "footage": 200.0,
+            "hours_on_bottom": 10.0,
+            "rop": 20.0,
+            "wob_klbf": 20.0,
+            "rpm": 100.0,
+            "torque_ft_lbf": 5000.0,
+            "mse_psi": 50976.7,
+            "dull": null,
+            "formation": null,
+            "section": null
+          }
+        ]
+      },
+      "unit": "m/hr",
+      "formula": "\u03a3 footage / \u03a3 hours",
+      "method": "Daily Report bit run roll-up",
+      "assumptions": [],
+      "warnings": [],
+      "validation_status": "ok",
+      "metadata": {},
+      "error": "",
+      "scope": "COMPLETE"
+    }
+  },
+  {
+    "calculator": "BitPerformanceEngine.rollup",
+    "state": "missing",
+    "inputs": {
+      "runs": []
+    },
+    "result": {
+      "success": false,
+      "value": null,
+      "values": {},
+      "unit": "",
+      "formula": "",
+      "method": "",
+      "assumptions": [],
+      "warnings": [],
+      "validation_status": "missing_input",
+      "metadata": {},
+      "error": "MISSING_INPUT: bit_runs",
+      "scope": "PARTIAL"
+    }
+  },
+  {
+    "calculator": "FishingEngine.adjusted_weight",
+    "state": "valid",
+    "inputs": {
+      "od_in": 5,
+      "id_in": 4.276
+    },
+    "result": {
+      "success": true,
+      "value": 17.93,
+      "values": {
+        "adjusted_weight_ppf": 17.93,
+        "od_in": 5.0,
+        "id_in": 4.276
+      },
+      "unit": "lb/ft",
+      "formula": "W = 2.67 \u00d7 (OD\u00b2 \u2212 ID\u00b2)",
+      "method": "Legacy free-point/stretch chart approximations \u2014 SCREENING",
+      "assumptions": [
+        "Plain-end steel body (no tool joints)",
+        "Steel \u2248 490 lb/ft\u00b3"
+      ],
+      "warnings": [],
+      "validation_status": "ok",
+      "metadata": {
+        "units": {
+          "diameter": "in",
+          "weight": "lb/ft"
+        }
+      },
+      "error": "",
+      "scope": "PARTIAL / SCREENING"
+    }
+  },
+  {
+    "calculator": "FishingEngine.adjusted_weight",
+    "state": "missing",
+    "inputs": {
+      "od_in": null,
+      "id_in": null
+    },
+    "result": {
+      "success": false,
+      "value": null,
+      "values": {},
+      "unit": "",
+      "formula": "",
+      "method": "",
+      "assumptions": [],
+      "warnings": [],
+      "validation_status": "missing_input",
+      "metadata": {},
+      "error": "MISSING_INPUT: od_in",
+      "scope": "PARTIAL"
+    }
+  },
+  {
+    "calculator": "FishingEngine.free_point",
+    "state": "valid",
+    "inputs": {
+      "stretch_in": 12,
+      "pipe_weight_ppf": 19.5,
+      "pull_lbf": 100000
+    },
+    "result": {
+      "success": true,
+      "value": 1720.6,
+      "values": {
+        "free_point_ft": 1720.6,
+        "stretch_in": 12.0,
+        "pipe_weight_ppf": 19.5,
+        "pull_lbf": 100000.0
+      },
+      "unit": "ft",
+      "formula": "FP = 735294 \u00d7 \u0394L \u00d7 W / P",
+      "method": "Legacy free-point/stretch chart approximations \u2014 SCREENING",
+      "assumptions": [
+        "Stretch measured with the string free and under the given pull",
+        "Constant stretch approximation (E = 30e6 psi, A \u2248 W/3.4)"
+      ],
+      "warnings": [],
+      "validation_status": "ok",
+      "metadata": {
+        "units": {
+          "stretch": "in",
+          "pull": "lbf",
+          "length": "ft"
+        }
+      },
+      "error": "",
+      "scope": "PARTIAL / SCREENING"
+    }
+  },
+  {
+    "calculator": "FishingEngine.free_point",
+    "state": "missing",
+    "inputs": {
+      "stretch_in": null,
+      "pipe_weight_ppf": null,
+      "pull_lbf": null
+    },
+    "result": {
+      "success": false,
+      "value": null,
+      "values": {},
+      "unit": "",
+      "formula": "",
+      "method": "",
+      "assumptions": [],
+      "warnings": [],
+      "validation_status": "missing_input",
+      "metadata": {},
+      "error": "MISSING_INPUT: stretch_in",
+      "scope": "PARTIAL"
+    }
+  },
+  {
+    "calculator": "FishingEngine.string_stretch",
+    "state": "valid",
+    "inputs": {
+      "length_ft": 10000,
+      "mw_ppg": 10
+    },
+    "result": {
+      "success": true,
+      "value": 0.01,
+      "values": {
+        "string_stretch_in": 0.01,
+        "length_ft": 10000.0,
+        "mw_ppg": 10.0
+      },
+      "unit": "in",
+      "formula": "\u0394L = L/96250000 \u00d7 (65.44 \u2212 1.44 \u00d7 MW)",
+      "method": "Legacy free-point/stretch chart approximations \u2014 SCREENING",
+      "assumptions": [
+        "Free string hanging under its own buoyed weight"
+      ],
+      "warnings": [],
+      "validation_status": "ok",
+      "metadata": {
+        "units": {
+          "length": "ft",
+          "mw": "ppg",
+          "stretch": "in"
+        }
+      },
+      "error": "",
+      "scope": "PARTIAL / SCREENING"
+    }
+  },
+  {
+    "calculator": "FishingEngine.string_stretch",
+    "state": "missing",
+    "inputs": {
+      "length_ft": null,
+      "mw_ppg": null
+    },
+    "result": {
+      "success": false,
+      "value": null,
+      "values": {},
+      "unit": "",
+      "formula": "",
+      "method": "",
+      "assumptions": [],
+      "warnings": [],
+      "validation_status": "missing_input",
+      "metadata": {},
+      "error": "MISSING_INPUT: length_ft",
+      "scope": "PARTIAL"
+    }
+  },
+  {
+    "calculator": "FishingEngine.jar_operating_range",
+    "state": "valid",
+    "inputs": {
+      "string_weight_lbs": 200000,
+      "buoyancy_factor": 0.85,
+      "overpull_lbs": 50000
+    },
+    "result": {
+      "success": true,
+      "value": 220000.0,
+      "values": {
+        "buoyant_weight_lbs": 170000.0,
+        "upward_force_lbs": 220000.0,
+        "downward_force_lbs": 170000.0,
+        "recommended_jar_setting_lbs": 176000.0
+      },
+      "unit": "lbf",
+      "formula": "F_down = W\u00d7BF; F_up = W\u00d7BF + overpull; jar setting \u2248 0.8\u00d7F_up",
+      "method": "Legacy free-point/stretch chart approximations \u2014 SCREENING",
+      "assumptions": [
+        "Buoyancy factor supplied by the caller (single-source BF)",
+        "80 % jar-setting factor is a legacy field rule of thumb"
+      ],
+      "warnings": [],
+      "validation_status": "ok",
+      "metadata": {
+        "units": {
+          "force": "lbf"
+        }
+      },
+      "error": "",
+      "scope": "PARTIAL / SCREENING"
+    }
+  },
+  {
+    "calculator": "FishingEngine.jar_operating_range",
+    "state": "missing",
+    "inputs": {
+      "string_weight_lbs": null,
+      "buoyancy_factor": null,
+      "overpull_lbs": null
+    },
+    "result": {
+      "success": false,
+      "value": null,
+      "values": {},
+      "unit": "",
+      "formula": "",
+      "method": "",
+      "assumptions": [],
+      "warnings": [],
+      "validation_status": "missing_input",
+      "metadata": {},
+      "error": "MISSING_INPUT: string_weight_lbs",
+      "scope": "PARTIAL"
+    }
+  },
+  {
+    "calculator": "FishingEngine.overshot_fit",
+    "state": "valid",
+    "inputs": {
+      "fish_od_in": 5,
+      "overshot_id_in": 5.25
+    },
+    "result": {
+      "success": true,
+      "value": 0.25,
+      "values": {
+        "clearance_in": 0.25,
+        "compatible": true,
+        "recommendation": "OK",
+        "fish_od_in": 5.0,
+        "overshot_id_in": 5.25
+      },
+      "unit": "in",
+      "formula": "Clearance = Overshot ID \u2212 Fish OD; 0 < clearance < 0.5 in",
+      "method": "Legacy free-point/stretch chart approximations \u2014 SCREENING",
+      "assumptions": [
+        "Legacy 0.5 in clearance band for grapple sizing"
+      ],
+      "warnings": [],
+      "validation_status": "ok",
+      "metadata": {
+        "units": {
+          "diameter": "in",
+          "clearance": "in"
+        }
+      },
+      "error": "",
+      "scope": "PARTIAL / SCREENING"
+    }
+  },
+  {
+    "calculator": "FishingEngine.overshot_fit",
+    "state": "missing",
+    "inputs": {
+      "fish_od_in": null,
+      "overshot_id_in": null
+    },
+    "result": {
+      "success": false,
+      "value": null,
+      "values": {},
+      "unit": "",
+      "formula": "",
+      "method": "",
+      "assumptions": [],
+      "warnings": [],
+      "validation_status": "missing_input",
+      "metadata": {},
+      "error": "MISSING_INPUT: fish_od_in",
+      "scope": "PARTIAL"
+    }
+  },
+  {
+    "calculator": "TorqueDragEngine.component_air_weight",
+    "state": "valid",
+    "inputs": {
+      "length_m": 30,
+      "weight_ppf": 19.5
+    },
+    "result": {
+      "success": true,
+      "value": 1919.2914,
+      "values": {
+        "length_m": 30.0,
+        "weight_ppf": 19.5,
+        "air_weight_lbs": 1919.2914
+      },
+      "unit": "lb",
+      "formula": "W_air = length_m \u00d7 3.28084 \u00d7 weight_ppf",
+      "method": "Drill-string component air weight",
+      "assumptions": [
+        "Component length is supplied in metres and weight in lb/ft"
+      ],
+      "warnings": [],
+      "validation_status": "ok",
+      "metadata": {},
+      "error": "",
+      "scope": "PARTIAL"
+    }
+  },
+  {
+    "calculator": "TorqueDragEngine.component_air_weight",
+    "state": "missing",
+    "inputs": {
+      "length_m": null,
+      "weight_ppf": null
+    },
+    "result": {
+      "success": false,
+      "value": null,
+      "values": {},
+      "unit": "",
+      "formula": "",
+      "method": "",
+      "assumptions": [],
+      "warnings": [],
+      "validation_status": "missing_input",
+      "metadata": {},
+      "error": "MISSING_INPUT: length_m",
+      "scope": "PARTIAL"
+    }
+  },
+  {
+    "calculator": "TorqueDragEngine.calculate_weight_card",
+    "state": "valid",
+    "inputs": {
+      "components": [
+        {
+          "length": 30,
+          "weight": 19.5
+        }
+      ],
+      "mud_density_pcf": 71,
+      "inclination_deg": 20,
+      "top_drive_weight_klbf": 10,
+      "friction_factor": 0.2
+    },
+    "result": {
+      "success": true,
+      "value": 11.542182,
+      "values": {
+        "total_air_weight_lbs": 1919.2914,
+        "axial_air_weight_lbs": 1803.543966,
+        "axial_air_weight_klbf": 1.803544,
+        "buoyed_weight_lbs": 1542.182122,
+        "buoyed_weight_klbf": 1.542182,
+        "top_drive_weight_lbs": 10000.0,
+        "top_drive_weight_klbf": 10.0,
+        "buoyancy_factor": 0.855084,
+        "drag_lbs": 105.49147,
+        "hook_load_lbs": 11542.182122,
+        "pickup_lbs": 11647.673592,
+        "slackoff_lbs": 11436.690652,
+        "inclination_deg": 20.0,
+        "friction_factor": 0.2,
+        "mud_density_pcf": 71.0,
+        "mud_density_ppg": 9.491978609625669
+      },
+      "unit": "klbf",
+      "formula": "W_axial=W_air cos(I); W_buoyed=W_axial BF; Drag=W_buoyed \u03bc sin(I)",
+      "method": "Buoyed string-weight and inclination-drag card",
+      "assumptions": [
+        "Simple buoyancy factor supplied by the caller",
+        "Top-drive/block weight is an additive surface load",
+        "Inclination drag uses a constant friction factor"
+      ],
+      "warnings": [],
+      "validation_status": "ok",
+      "metadata": {
+        "production_ready": false,
+        "model": "simple-weight-drag-card"
+      },
+      "error": "",
+      "scope": "PARTIAL"
+    }
+  },
+  {
+    "calculator": "TorqueDragEngine.calculate_weight_card",
+    "state": "missing",
+    "inputs": {
+      "components": [],
+      "mud_density_pcf": null,
+      "inclination_deg": null,
+      "top_drive_weight_klbf": null,
+      "friction_factor": null
+    },
+    "result": {
+      "success": false,
+      "value": null,
+      "values": {},
+      "unit": "",
+      "formula": "",
+      "method": "",
+      "assumptions": [],
+      "warnings": [],
+      "validation_status": "missing_input",
+      "metadata": {},
+      "error": "MISSING_INPUT: mud_density_pcf",
+      "scope": "PARTIAL"
+    }
+  },
+  {
+    "calculator": "TorqueDragEngine.casing_landing_load",
+    "state": "valid",
+    "inputs": {
+      "casing_weight_ppf": 29,
+      "length_ft": 5000,
+      "buoyancy_factor": 0.85,
+      "friction_factor": 0.2
+    },
+    "result": {
+      "success": true,
+      "value": 98.6,
+      "values": {
+        "total_air_weight_lbs": 145000.0,
+        "buoyed_weight_lbs": 123250.0,
+        "buoyed_weight_klbf": 123.25,
+        "friction_load_lbs": 24650.0,
+        "hook_load_lbs": 98600.0,
+        "buoyancy_factor": 0.85,
+        "friction_factor": 0.2
+      },
+      "unit": "klbf",
+      "formula": "W_buoyed=W_air BF; F_friction=W_buoyed \u03bc; W_hook=W_buoyed\u2212F_friction",
+      "method": "Casing landing-load screening card",
+      "assumptions": [
+        "Straight-hole landing-load screening",
+        "Constant friction factor supplied by the caller"
+      ],
+      "warnings": [],
+      "validation_status": "ok",
+      "metadata": {
+        "production_ready": false,
+        "model": "casing-landing-load-card"
+      },
+      "error": "",
+      "scope": "PARTIAL"
+    }
+  },
+  {
+    "calculator": "TorqueDragEngine.casing_landing_load",
+    "state": "missing",
+    "inputs": {
+      "casing_weight_ppf": null,
+      "length_ft": null,
+      "buoyancy_factor": null,
+      "friction_factor": null
+    },
+    "result": {
+      "success": false,
+      "value": null,
+      "values": {},
+      "unit": "",
+      "formula": "",
+      "method": "",
+      "assumptions": [],
+      "warnings": [],
+      "validation_status": "missing_input",
+      "metadata": {},
+      "error": "MISSING_INPUT: casing_weight_ppf",
+      "scope": "PARTIAL"
+    }
+  },
+  {
+    "calculator": "TrajectoryCalculator.calculate",
+    "state": "valid",
+    "inputs": {
+      "surveys": [
+        {
+          "md": 0,
+          "inc": 0,
+          "azi": 90
+        },
+        {
+          "md": 100,
+          "inc": 10,
+          "azi": 90
+        }
+      ]
+    },
+    "result": [
+      {
+        "md": 0.0,
+        "inc": 0.0,
+        "azi": 90.0,
+        "tvd": 0.0,
+        "north": 0.0,
+        "east": 0.0,
+        "vs": 0.0,
+        "hd": 0.0,
+        "dls": 0,
+        "build_rate": 0,
+        "turn_rate": 0
+      },
+      {
+        "md": 100.0,
+        "inc": 10.0,
+        "azi": 90.0,
+        "tvd": 99.49307700452988,
+        "north": 5.329979035243909e-16,
+        "east": 8.704516337208162,
+        "vs": 5.329979035243909e-16,
+        "hd": 8.704516337208162,
+        "dls": 3.0000000000000036,
+        "build_rate": 3.0,
+        "turn_rate": 0.0
+      }
+    ]
+  },
+  {
+    "calculator": "TrajectoryCalculator.calculate",
+    "state": "missing",
+    "inputs": {
+      "surveys": []
+    },
+    "exception": "MissingInputError",
+    "message": "MISSING_INPUT: surveys"
+  },
+  {
+    "calculator": "AntiCollisionEngine.calculate_clearance",
+    "state": "valid",
+    "inputs": {
+      "reference": [
+        {
+          "north": 0,
+          "east": 0,
+          "tvd": 100
+        }
+      ],
+      "offset": [
+        {
+          "north": 10,
+          "east": 0,
+          "tvd": 100
+        }
+      ]
+    },
+    "result": {
+      "error": "MISSING_INPUT: reference_trajectory[0].md"
+    }
+  },
+  {
+    "calculator": "AntiCollisionEngine.calculate_clearance",
+    "state": "missing",
+    "inputs": {
+      "reference": [],
+      "offset": []
+    },
+    "result": {
+      "error": "MISSING_INPUT: reference_trajectory"
+    }
+  },
+  {
+    "calculator": "CalculatorBridge.min_curvature_pair",
+    "state": "valid",
+    "inputs": {
+      "md1": 0,
+      "inc1": 0,
+      "azi1": 90,
+      "md2": 100,
+      "inc2": 10,
+      "azi2": 90
+    },
+    "result": {
+      "success": true,
+      "value": 99.493077,
+      "values": {
+        "delta_tvd": 99.493077,
+        "delta_north": 0.0,
+        "delta_east": 8.704516,
+        "dls_deg_30m": 3.0,
+        "ratio_factor": 1.002546,
+        "tvd": 99.49307700452988,
+        "north": 5.329979035243909e-16,
+        "east": 8.704516337208162,
+        "vs": 5.329979035243909e-16,
+        "hd": 8.704516337208162,
+        "closure_azimuth_deg": 90.0
+      },
+      "unit": "m",
+      "formula": "",
+      "method": "Minimum Curvature",
+      "assumptions": [],
+      "warnings": [],
+      "validation_status": "ok",
+      "metadata": {},
+      "error": "",
+      "scope": "COMPLETE"
+    }
+  },
+  {
+    "calculator": "CalculatorBridge.min_curvature_pair",
+    "state": "missing",
+    "inputs": {
+      "md1": null,
+      "inc1": null,
+      "azi1": null,
+      "md2": null,
+      "inc2": null,
+      "azi2": null
+    },
+    "result": {
+      "success": false,
+      "value": null,
+      "values": {},
+      "unit": "",
+      "formula": "",
+      "method": "",
+      "assumptions": [],
+      "warnings": [],
+      "validation_status": "missing_input",
+      "metadata": {},
+      "error": "MISSING_INPUT: survey[0].md",
+      "scope": "PARTIAL"
+    }
+  },
+  {
+    "calculator": "CalculatorBridge.mse",
+    "state": "valid",
+    "inputs": {
+      "wob_lbf": 20000,
+      "torque_ft_lbf": 5000,
+      "rpm": 100,
+      "rop_ft_hr": 30,
+      "bit_diameter_in": 8.5
+    },
+    "result": {
+      "success": true,
+      "value": 111079.1,
+      "values": {
+        "mse_psi": 111079.1,
+        "axial_term_psi": 352.5,
+        "rotary_term_psi": 110726.6,
+        "bit_area_in2": 56.745,
+        "wob_lbf": 20000.0,
+        "rpm": 100.0,
+        "torque_ft_lbf": 5000.0,
+        "rop_ft_hr": 30.0,
+        "bit_diameter_in": 8.5
+      },
+      "unit": "psi",
+      "formula": "MSE = WOB/Ab + (120\u03c0 \u00d7 RPM \u00d7 T) / (Ab \u00d7 ROP)",
+      "method": "Teale (1965) Mechanical Specific Energy",
+      "assumptions": [
+        "Teale MSE in oilfield units (WOB lbf, T ft\u00b7lbf, ROP ft/hr, D in)",
+        "120\u03c0 conversion (not the 480 spreadsheet constant)",
+        "Surface WOB and torque \u2014 no downhole correction, no MSE efficiency factor"
+      ],
+      "warnings": [],
+      "validation_status": "ok",
+      "metadata": {
+        "constant_120pi": 376.99111843077515
+      },
+      "error": "",
+      "scope": "COMPLETE"
+    }
+  },
+  {
+    "calculator": "CalculatorBridge.mse",
+    "state": "missing",
+    "inputs": {
+      "wob_lbf": null,
+      "torque_ft_lbf": null,
+      "rpm": null,
+      "rop_ft_hr": null,
+      "bit_diameter_in": null
+    },
+    "result": {
+      "success": false,
+      "value": null,
+      "values": {},
+      "unit": "",
+      "formula": "",
+      "method": "",
+      "assumptions": [],
+      "warnings": [],
+      "validation_status": "missing_input",
+      "metadata": {},
+      "error": "MISSING_INPUT: wob_lbf",
+      "scope": "PARTIAL"
+    }
+  },
+  {
+    "calculator": "CalculatorBridge.mud_balance",
+    "state": "valid",
+    "inputs": {
+      "active_volume_bbl": 1000,
+      "additions_bbl": 10,
+      "losses_bbl": 5
+    },
+    "result": {
+      "success": true,
+      "value": 1005.0,
+      "values": {
+        "active_volume_bbl": 1000.0,
+        "additions_bbl": 10.0,
+        "losses_bbl": 5.0,
+        "transfers_in_bbl": 0.0,
+        "transfers_out_bbl": 0.0,
+        "returns_bbl": 0.0,
+        "dilution_bbl": 0.0,
+        "dumped_bbl": 0.0,
+        "final_volume_bbl": 1005.0,
+        "net_change_bbl": 5.0
+      },
+      "unit": "bbl",
+      "formula": "final = active + additions + transfers_in + returns + dilution \u2212 losses \u2212 transfers_out \u2212 dumped",
+      "method": "Mass/volume balance; no hidden defaults",
+      "assumptions": [
+        "Volumes in the same unit (bbl)",
+        "Dilution is added water (volume up); dumped is discarded mud",
+        "No compressibility / temperature correction"
+      ],
+      "warnings": [],
+      "validation_status": "ok",
+      "metadata": {},
+      "error": "",
+      "scope": "COMPLETE"
+    }
+  },
+  {
+    "calculator": "CalculatorBridge.mud_balance",
+    "state": "missing",
+    "inputs": {
+      "active_volume_bbl": null,
+      "additions_bbl": null,
+      "losses_bbl": null
+    },
+    "result": {
+      "success": false,
+      "value": null,
+      "values": {},
+      "unit": "",
+      "formula": "",
+      "method": "",
+      "assumptions": [],
+      "warnings": [],
+      "validation_status": "missing_input",
+      "metadata": {},
+      "error": "MISSING_INPUT: active_volume_bbl",
+      "scope": "PARTIAL"
+    }
+  },
+  {
+    "calculator": "CalculatorBridge.cement_volumes",
+    "state": "valid",
+    "inputs": {
+      "hole_size_in": 8.5,
+      "casing_od_in": 7,
+      "open_hole_length_ft": 5000,
+      "excess_pct": 10
+    },
+    "result": {
+      "success": true,
+      "value": 124.223,
+      "values": {
+        "hole_volume_bbl": 350.933,
+        "annular_volume_bbl": 112.93,
+        "annular_volume_cuft": 634.06,
+        "annular_with_excess_bbl": 124.223,
+        "excess_pct": 10.0,
+        "casing_capacity_bbl": null,
+        "steel_displacement_bbl": null,
+        "shoe_track_volume_bbl": 0.0,
+        "spacer_volume_bbl": 0.0,
+        "slurry_volume_bbl": 124.223,
+        "slurry_volume_cuft": 697.46,
+        "sacks": null,
+        "mix_water_bbl": null,
+        "slurry_density_ppg": null,
+        "yield_ft3_sk": null,
+        "displacement_volume_bbl": null,
+        "total_pump_bbl": 124.223,
+        "pump_time_min": null,
+        "hydrostatic_psi": null,
+        "stacked_hydrostatic": null,
+        "toc_md_ft": null,
+        "shoe_md_ft": null,
+        "lead": null,
+        "tail": null
+      },
+      "unit": "bbl",
+      "formula": "Annulus=(Dh\u00b2\u2212OD\u00b2)/1029.4\u00d7L; slurry=annulus\u00d7(1+excess)+shoe track; H=\u03a3 0.052 MW TVD",
+      "method": "Oilfield capacity (D\u00b2/1029.4) + stacked column hydrostatic",
+      "assumptions": [
+        "Gauge hole (no washout other than the excess %)",
+        "Capacity factor D\u00b2/1029.4 bbl/ft",
+        "Yield and mix water must be laboratory / vendor values \u2014 not invented",
+        "Stacked hydrostatic uses layer TVD, never MD-as-TVD"
+      ],
+      "warnings": [
+        "Job-volume / hydrostatic worksheet \u2014 not a laboratory cement design (no UCA, thickening time, gas-migration model)"
+      ],
+      "validation_status": "warning",
+      "metadata": {},
+      "error": "",
+      "scope": "COMPLETE"
+    }
+  },
+  {
+    "calculator": "CalculatorBridge.cement_volumes",
+    "state": "missing",
+    "inputs": {
+      "hole_size_in": null,
+      "casing_od_in": null,
+      "open_hole_length_ft": null,
+      "excess_pct": null
+    },
+    "result": {
+      "success": false,
+      "value": null,
+      "values": {},
+      "unit": "",
+      "formula": "",
+      "method": "",
+      "assumptions": [],
+      "warnings": [],
+      "validation_status": "missing_input",
+      "metadata": {},
+      "error": "MISSING_INPUT: hole_size_in",
+      "scope": "PARTIAL"
+    }
+  }
+]

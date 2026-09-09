@@ -1,0 +1,39 @@
+Working directory: /home/user/Drill-master
+Branch: arena/01a0801f-drill-master
+Baseline after safe same-branch fast-forward history recovery: ac3845fef8e848a62c6bd7a6f0a95601835572c3
+
+# Recreated runtime (not a Windows/lockfile certification)
+python -m venv .venv
+.venv/bin/pip install -r requirements.txt pytest pytest-qt ruff
+
+# Focused: 33 passed
+QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -p no:pytest-qt tests/test_real_user_acceptance_regressions.py --junitxml=build/acceptance/focused.xml
+
+# Affected subsystem: 343 passed, 2 skipped
+QT_QPA_PLATFORM=offscreen DRILLMASTER_TEST_DDR_XLSX="$PWD/08-DDR OEOC-208 AZNS-207 2024-Oct-22.xlsx" .venv/bin/python -m pytest -p no:pytest-qt tests/test_real_user_acceptance_regressions.py tests/test_ddr_followup_lifecycle.py tests/test_ddr_forensic_regressions.py tests/test_ddr_acceptance.py tests/test_credential_lifecycle.py tests/test_engineering_completion.py tests/test_engineering_ground_truth.py tests/test_engineering_integrations.py tests/test_extended_engineering.py tests/test_p0_engineering_core.py tests/test_release_gate_and_w13.py tests/test_release_smoke.py tests/test_packaging_smoke.py --junitxml=build/acceptance/subsystem.xml
+
+# Entire suite: 738 passed, 6 skipped; original workbook opt-in explicitly enabled
+QT_QPA_PLATFORM=offscreen DRILLMASTER_TEST_DDR_XLSX="$PWD/08-DDR OEOC-208 AZNS-207 2024-Oct-22.xlsx" .venv/bin/python -m pytest -p no:pytest-qt --junitxml=build/acceptance/full.xml
+
+# Actual Production lifecycle. Output directory MUST be new.
+.venv/bin/python tools/real_user_acceptance.py "08-DDR OEOC-208 AZNS-207 2024-Oct-22.xlsx" --output build/acceptance/production-complete
+
+# Additional executable audit probes, run from repository root.
+# These probes write beneath build/acceptance; recovery-final must not exist.
+QT_QPA_PLATFORM=offscreen .venv/bin/python docs/audits/2026-09-08-ddr/evidence/real-user-acceptance/trace-engineering.py
+.venv/bin/python docs/audits/2026-09-08-ddr/evidence/real-user-acceptance/supplemental-calculators.py
+.venv/bin/python docs/audits/2026-09-08-ddr/evidence/real-user-acceptance/recovery-probe.py
+
+# Actual desktop attempt: fails before constructing application at missing libGL.so.1
+QT_QPA_PLATFORM=offscreen .venv/bin/python run.py
+# PDF renderer attempts recorded separately in pdf-attempts.json; no PDF generated.
+# sudo apt-get update / install libgl1 libegl1 libxkbcommon0 libdbus-1-3 libxcb-cursor0 xvfb failed at unavailable Debian endpoints.
+
+# Static verification
+.venv/bin/python -m compileall -q core tabs dialogs main_window.py tools/real_user_acceptance.py tests/test_real_user_acceptance_regressions.py
+.venv/bin/ruff check --select F tests/test_real_user_acceptance_regressions.py tools/real_user_acceptance.py
+.venv/bin/ruff check --select F821 core/base_tab.py core/database.py core/report_engine.py core/professional_export.py core/domain_records.py core/managers.py core/text_utils.py core/save_outcome.py main_window.py
+git diff --check
+
+Native widget rendering, Windows/Python 3.12 and the installed package remain NOT VERIFIED.
+No benchmark DB, generated workbook or plaintext credential is committed. Source/workflow JSON and test logs are evidence, not native GUI acceptance.

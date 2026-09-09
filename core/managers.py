@@ -69,11 +69,21 @@ class AutoSaveManager:
 
         timer = QTimer(widget)
         timer.timeout.connect(
-            lambda: widget.save_data() if hasattr(widget, 'save_data') else None
+            lambda: self.save_widget(name, widget)
         )
         timer.start(int(interval_minutes * 60 * 1000))
         self._timers[name] = timer
         return timer
+
+    @staticmethod
+    def save_widget(name, widget):
+        from core.save_outcome import save_all
+        callback = getattr(widget, "save_data", None)
+        result = save_all([(name, callback)] if callable(callback) else [])
+        if not result:
+            import logging
+            logging.getLogger("core.managers").warning("Auto-save: %s", result.summary())
+        return result
 
     def set_enabled(self, enabled):
         self._enabled = enabled
@@ -217,8 +227,12 @@ class ExportManager:
                         else:
                             row.append("")
                     writer.writerow(row)
-        except Exception as e:
-            logger.error(f"Export error: {e}")
+            return path
+        except Exception:
+            from PySide6.QtWidgets import QMessageBox
+            logger.exception("CSV export failed")
+            QMessageBox.critical(None, "Export failed", "CSV was not exported completely. Check the destination permissions and runtime log, then retry.")
+            return False
 
 
 class ShortcutManager:

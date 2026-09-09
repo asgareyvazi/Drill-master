@@ -2528,6 +2528,8 @@ class DatabaseManager:
         values = {k: v for k, v in (data or {}).items() if k in valid and k != "id"}
         with self.session_scope() as session:
             obj = session.get(model, data.get("id")) if data and data.get("id") else None
+            if data and data.get("id") and obj is None:
+                raise ValueError(f"{model.__name__} no longer exists; reload before saving")
             if obj is None:
                 obj = model(**values)
                 session.add(obj)
@@ -2810,25 +2812,11 @@ class DatabaseManager:
         return out
 
     def save_well(self, well_data: dict, session: Optional[Session] = None) -> bool:
-        date_fields = ['spud_date', 'start_hole_date', 'rig_move_date', 'report_date']
-        for field in date_fields:
+        from core.domain_records import optional_date
+        well_data = dict(well_data)
+        for field in ('spud_date', 'start_hole_date', 'rig_move_date', 'report_date'):
             if field in well_data:
-                val = well_data[field]
-                if isinstance(val, str):
-                    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y"):
-                        try:
-                            well_data[field] = datetime.strptime(val, fmt).date()
-                            break
-                        except ValueError:
-                            continue
-                    else:
-                        well_data[field] = None
-                elif isinstance(val, datetime):
-                    well_data[field] = val.date()
-                elif isinstance(val, date) or val is None:
-                    pass
-                else:
-                    well_data[field] = None
+                well_data[field] = optional_date(well_data[field])
 
         valid_keys = {c.name for c in Well.__table__.columns}
         filtered_data = self.coerce_model_values(
@@ -4630,6 +4618,14 @@ class DatabaseManager:
         finally:
             session.close()
     # ========== BHA Report ==========
+    @staticmethod
+    def _require_report_well(session, well_id, report_id):
+        """FK existence alone does not enforce the report/well pair."""
+        if report_id is not None:
+            report = session.get(DailyReport, report_id)
+            if report is None or report.well_id != well_id:
+                raise ValueError("Report does not belong to the selected well")
+
     def save_bha_report(self, well_id: int, bha_data: dict):
         from core.domain_records import bha_records
         bha_data = dict(bha_data)
@@ -4639,6 +4635,7 @@ class DatabaseManager:
             bha_data["bha_data"] = bha_records(bha_data["bha_data"])
         session = self.create_session()
         try:
+            self._require_report_well(session, well_id, bha_data.get("report_id"))
             if bha_data.get('report_id'):
                 existing = session.query(BHAReport).filter(
                     BHAReport.report_id == bha_data['report_id']
@@ -4710,6 +4707,7 @@ class DatabaseManager:
             equipment_data["equipment_data_json"] = [named_record(row, DOWNHOLE_FIELDS) for row in collection_value(equipment_data["equipment_data_json"], "equipment_data_json")]
         session = self.create_session()
         try:
+            self._require_report_well(session, well_id, equipment_data.get("report_id"))
             if equipment_data.get('report_id'):
                 existing = session.query(DownholeEquipment).filter(
                     DownholeEquipment.report_id == equipment_data['report_id']
@@ -4782,6 +4780,7 @@ class DatabaseManager:
             formation_data["formations"] = [named_record(row, FORMATION_FIELDS) for row in collection_value(formation_data["formations"], "formations")]
         session = self.create_session()
         try:
+            self._require_report_well(session, well_id, formation_data.get("report_id"))
             if formation_data.get('report_id'):
                 existing = session.query(FormationReport).filter(
                     FormationReport.report_id == formation_data['report_id']

@@ -95,78 +95,61 @@ class DrillTabBase(QWidget):
     # Internal Signal Handlers
     # ================================================================
 
+    def _apply_pending_context(self):
+        """A failed load is pending, not a successfully loaded editor.
+
+        Stop at the failed parent to avoid mixing a new report with an old well.
+        The pending event can be retried on reopening/refresh, and Save All must
+        not persist these stale widgets into the newly selected context.
+        """
+        for kind in ("well", "section", "report"):
+            pending = getattr(self, f"_pending_{kind}")
+            if pending is None:
+                continue
+            try:
+                getattr(self, f"on_{kind}_changed")(*pending)
+            except Exception:
+                logger.exception("%s.on_%s_changed (pending)", self.widget_name, kind)
+                return False
+            setattr(self, f"_loaded_{kind}_id", pending[0])
+            setattr(self, f"_pending_{kind}", None)
+        return True
+
+    def save_context_ready(self):
+        """Whether this editor actually loaded the selected domain identities."""
+        return all(getattr(self, f"_pending_{kind}") is None and
+                   getattr(self, f"_loaded_{kind}_id") == getattr(self, f"current_{kind}_id")
+                   for kind in ("well", "section", "report"))
+
     def _on_well_changed_internal(self, well_id, well_data):
-        """Handle well change signal."""
         self.current_well_id = well_id
         self.current_well_data = well_data or {}
-
-        # ✅ Reset section/report when well changes
-        self.current_section_id = None
+        self.current_section_id = self.current_report_id = None
         self.current_section_data = {}
-        self.current_report_id = None
         self.current_report_data = {}
-
+        self._loaded_section_id = self._loaded_report_id = None
+        self._pending_well = (well_id, self.current_well_data)
+        self._pending_section = self._pending_report = None
         if self.isVisible():
-            self._loaded_well_id = well_id
-            self._pending_well = None
-            try:
-                self.on_well_changed(well_id, self.current_well_data)
-            except Exception as e:
-                logger.error(
-                    f"{self.widget_name}.on_well_changed error: {e}",
-                    exc_info=True,
-                )
-        else:
-            # Queue for when tab becomes visible
-            self._pending_well = (well_id, self.current_well_data)
-            # Clear downstream pending too
-            self._pending_section = None
-            self._pending_report = None
+            self._apply_pending_context()
 
     def _on_section_changed_internal(self, section_id, section_data):
-        """Handle section change signal."""
         self.current_section_id = section_id
         self.current_section_data = section_data or {}
-
-        # Reset report when section changes
         self.current_report_id = None
         self.current_report_data = {}
-
+        self._loaded_report_id = None
+        self._pending_section = (section_id, self.current_section_data)
+        self._pending_report = None
         if self.isVisible():
-            self._loaded_section_id = section_id
-            self._pending_section = None
-            try:
-                self.on_section_changed(
-                    section_id, self.current_section_data
-                )
-            except Exception as e:
-                logger.error(
-                    f"{self.widget_name}.on_section_changed error: {e}",
-                    exc_info=True,
-                )
-        else:
-            self._pending_section = (section_id, self.current_section_data)
-            self._pending_report = None
+            self._apply_pending_context()
 
     def _on_report_changed_internal(self, report_id, report_data):
-        """Handle report change signal."""
         self.current_report_id = report_id
         self.current_report_data = report_data or {}
-
+        self._pending_report = (report_id, self.current_report_data)
         if self.isVisible():
-            self._loaded_report_id = report_id
-            self._pending_report = None
-            try:
-                self.on_report_changed(
-                    report_id, self.current_report_data
-                )
-            except Exception as e:
-                logger.error(
-                    f"{self.widget_name}.on_report_changed error: {e}",
-                    exc_info=True,
-                )
-        else:
-            self._pending_report = (report_id, self.current_report_data)
+            self._apply_pending_context()
 
     def _on_selection_cleared_internal(self):
         """Handle full clear signal."""
@@ -206,39 +189,7 @@ class DrillTabBase(QWidget):
         if self._pending_report is None and self.current_report_id is not None and self._loaded_report_id != self.current_report_id:
             self._pending_report = (self.current_report_id, self.current_report_data)
 
-        # Process in order: well -> section -> report
-        if self._pending_well is not None:
-            well_id, well_data = self._pending_well
-            self._pending_well = None
-            self._loaded_well_id = well_id
-            try:
-                self.on_well_changed(well_id, well_data)
-            except Exception as e:
-                logger.error(
-                    f"{self.widget_name}.on_well_changed (pending): {e}"
-                )
-
-        if self._pending_section is not None:
-            section_id, section_data = self._pending_section
-            self._pending_section = None
-            self._loaded_section_id = section_id
-            try:
-                self.on_section_changed(section_id, section_data)
-            except Exception as e:
-                logger.error(
-                    f"{self.widget_name}.on_section_changed (pending): {e}"
-                )
-
-        if self._pending_report is not None:
-            report_id, report_data = self._pending_report
-            self._pending_report = None
-            self._loaded_report_id = report_id
-            try:
-                self.on_report_changed(report_id, report_data)
-            except Exception as e:
-                logger.error(
-                    f"{self.widget_name}.on_report_changed (pending): {e}"
-                )
+        self._apply_pending_context()
 
     # ================================================================
     # Override These in Subclasses
@@ -306,16 +257,14 @@ class DrillTabBase(QWidget):
         self.load_data()
 
     def force_refresh(self):
-        """Reload the current context and notify this tab immediately."""
-        if self.current_well_id is not None:
-            self._loaded_well_id = None
-            self._on_well_changed_internal(self.current_well_id, self.current_well_data)
-        if self.current_section_id is not None:
-            self._loaded_section_id = None
-            self._on_section_changed_internal(self.current_section_id, self.current_section_data)
-        if self.current_report_id is not None:
-            self._loaded_report_id = None
-            self._on_report_changed_internal(self.current_report_id, self.current_report_data)
+        """Reload without losing downstream selection during parent resets."""
+        context = [(kind, getattr(self, f"current_{kind}_id"),
+                    dict(getattr(self, f"current_{kind}_data")))
+                   for kind in ("well", "section", "report")]
+        for kind, identity, data in context:
+            if identity is not None:
+                setattr(self, f"_loaded_{kind}_id", None)
+                getattr(self, f"_on_{kind}_changed_internal")(identity, data)
         if self.current_well_id is None:
             self.load_data()
 

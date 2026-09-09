@@ -10,9 +10,6 @@ from typing import Dict, List, Any, Optional
 
 from sqlalchemy import func
 
-from PySide6.QtGui import QTextDocument, QPageSize, QPageLayout
-from PySide6.QtCore import QMarginsF
-from PySide6.QtPrintSupport import QPrinter
 
 logger = logging.getLogger(__name__)
 
@@ -143,21 +140,10 @@ class DDRReportEngine:
         params = data["params"] or {}
         mud = data["mud"] or {}
 
-        def fmt_num(value, digits=1, default=0):
-            """فرمت امن برای مقادیر عددی"""
-            try:
-                if value is None or value == "":
-                    value = default
-                return f"{float(value):.{digits}f}"
-            except (ValueError, TypeError):
-                return f"{float(default):.{digits}f}"
+        def fmt_num(value, digits=1, default=None):
+            from core.text_utils import fmt_num as format_number
+            return format_number(value, digits, default)
 
-        def safe_str(value, default=""):
-            """رشته امن"""
-            if value is None:
-                return default
-            return str(value)
-            
         section = data["section"] or {}
         logs_24 = data["logs_24h"]
         logs_m = data["logs_morning"]
@@ -190,10 +176,8 @@ class DDRReportEngine:
         rd = safe_str(r.get("report_date", ""))
         rno = safe_str(r.get("report_number", ""))
         rig_day = safe_str(r.get("rig_day", ""))
-        d0 = float(r.get("depth_0000") or 0)
-        d6 = float(r.get("depth_0600") or 0)
-        d24 = float(r.get("depth_2400") or 0)
-        progress = d24 - d0
+        d0, d6, d24 = (r.get(key) for key in ("depth_0000", "depth_0600", "depth_2400"))
+        progress = d24 - d0 if d24 is not None and d0 is not None else None
         summary = safe_str(r.get("summary", ""), "")
         status = safe_str(r.get("status", "Draft"), "Draft")
 
@@ -369,10 +353,10 @@ table {{
 <div class="section-title">📏 Depth Summary</div>
 <table class="info-grid">
 <tr>
-    <td class="label">@ 00:00</td><td class="value"><b>{d0:.1f}</b> m</td>
-    <td class="label">@ 06:00</td><td class="value"><b>{d6:.1f}</b> m</td>
-    <td class="label">@ 24:00</td><td class="value"><b>{d24:.1f}</b> m</td>
-    <td class="label">Progress</td><td class="value" style="color:{bc.accent_color};font-weight:bold">{progress:.1f} m</td>
+    <td class="label">@ 00:00</td><td class="value"><b>{fmt_num(d0, 1)}</b> m</td>
+    <td class="label">@ 06:00</td><td class="value"><b>{fmt_num(d6, 1)}</b> m</td>
+    <td class="label">@ 24:00</td><td class="value"><b>{fmt_num(d24, 1)}</b> m</td>
+    <td class="label">Progress</td><td class="value" style="color:{bc.accent_color};font-weight:bold">{fmt_num(progress, 1)} m</td>
 </tr>
 </table>"""
 
@@ -518,6 +502,9 @@ table {{
 
     def _save_pdf(self, html: str, output_path: str) -> bool:
         try:
+            from PySide6.QtGui import QTextDocument, QPageSize, QPageLayout
+            from PySide6.QtCore import QMarginsF
+            from PySide6.QtPrintSupport import QPrinter
             printer = QPrinter(QPrinter.HighResolution)
             printer.setOutputFormat(QPrinter.PdfFormat)
             printer.setOutputFileName(output_path)
@@ -663,13 +650,8 @@ class EOWRReportEngine:
                 )
                 return False
 
-            # ✅ اگر plan نداشته باشد
-            if not data.get("plan"):
-                logger.warning(
-                    f"No active plan for well {well_id}"
-                )
-                return False
-
+            # EOWR is an actual-history report, not a WellPlan report.
+            # _collect_data has no "plan" key; planning is optional here.
             html = self._build_html(data, selected_sections=None)
 
             if format == "pdf":
@@ -774,8 +756,8 @@ class EOWRReportEngine:
                 # Derived summaries
                 total_reports = len(daily_reports)
                 final_depth = max(
-                    [(r.depth_2400 or 0) for r in daily_reports],
-                    default=0
+                    [r.depth_2400 for r in daily_reports if r.depth_2400 is not None],
+                    default=None
                 )
                 total_npt = sum(
                     [(l.duration or 0) for l in time_logs_24h if l.is_npt]
@@ -785,8 +767,8 @@ class EOWRReportEngine:
                 )
                 npt_pct = total_npt / total_hours * 100 if total_hours > 0 else 0
 
-                avg_rop = 0
-                rops = [p.avg_rop for p in drilling_params if p.avg_rop]
+                avg_rop = None
+                rops = [p.avg_rop for p in drilling_params if p.avg_rop is not None]
                 if rops:
                     avg_rop = sum(rops) / len(rops)
 
@@ -846,7 +828,7 @@ class EOWRReportEngine:
         s.setdefault("total_cost", None)
         cost_value = s.get("total_cost")
         cost_display = (
-            f"${cost_value:,.0f}" if cost_value is not None
+            f"${fmt_num(cost_value, 0, default=None)}" if cost_value is not None
             else "N/A (no stored cost records)"
         )
         
@@ -884,20 +866,20 @@ body {{
     padding: 0;
 }}
 h1 {{
-    color: {bc.primary_color};
-    border-bottom: 3px solid {bc.secondary_color};
+    color: {safe_str(bc.primary_color)};
+    border-bottom: 3px solid {safe_str(bc.secondary_color)};
     padding-bottom: 8px;
     font-size: 18pt;
 }}
 h2 {{
-    color: {bc.secondary_color};
+    color: {safe_str(bc.secondary_color)};
     border-bottom: 1px solid #bdc3c7;
     padding-bottom: 4px;
     margin-top: 18px;
     font-size: 13pt;
 }}
 h3 {{
-    color: {bc.primary_color};
+    color: {safe_str(bc.primary_color)};
     margin-top: 10px;
     font-size: 11pt;
 }}
@@ -909,11 +891,11 @@ h3 {{
 .cover .title {{
     font-size: 26pt;
     font-weight: bold;
-    color: {bc.primary_color};
+    color: {safe_str(bc.primary_color)};
 }}
 .cover .subtitle {{
     font-size: 14pt;
-    color: {bc.secondary_color};
+    color: {safe_str(bc.secondary_color)};
     margin-top: 10px;
 }}
 .cover .meta {{
@@ -925,7 +907,7 @@ h3 {{
     width: 22%;
     margin: 5px;
     background: #f8f9fa;
-    border-left: 4px solid {bc.secondary_color};
+    border-left: 4px solid {safe_str(bc.secondary_color)};
     border-radius: 4px;
     padding: 10px;
     vertical-align: top;
@@ -933,7 +915,7 @@ h3 {{
 .kpi-value {{
     font-size: 18pt;
     font-weight: bold;
-    color: {bc.primary_color};
+    color: {safe_str(bc.primary_color)};
 }}
 .kpi-label {{
     font-size: 8pt;
@@ -946,7 +928,7 @@ h3 {{
     font-size: 8pt;
 }}
 .table th {{
-    background: {bc.primary_color};
+    background: {safe_str(bc.primary_color)};
     color: white;
     padding: 5px;
     border: 1px solid #ccc;
@@ -999,20 +981,20 @@ h3 {{
 <h1>1. Executive Summary</h1>
 <div>
     <div class="kpi-box">
-        <div class="kpi-value">{s.get("total_reports", 0)}</div>
+        <div class="kpi-value">{safe_str(s.get("total_reports", 0))}</div>
         <div class="kpi-label">Rig Days / Reports</div>
     </div>
     <div class="kpi-box">
-        <div class="kpi-value">{s.get("final_depth", 0):.0f} m</div>
+        <div class="kpi-value">{fmt_num(s.get("final_depth", 0), 0, default=None)} m</div>
         <div class="kpi-label">Final Depth</div>
     </div>
     <div class="kpi-box">
-        <div class="kpi-value">{s.get("avg_rop", 0):.1f}</div>
+        <div class="kpi-value">{fmt_num(s.get("avg_rop", 0), 1, default=None)}</div>
         <div class="kpi-label">Average ROP (m/hr)</div>
     </div>
     <div class="kpi-box">
-        <div class="kpi-value">{s.get("total_npt", 0):.1f} h</div>
-        <div class="kpi-label">Total NPT ({s.get("npt_pct", 0):.1f}%)</div>
+        <div class="kpi-value">{fmt_num(s.get("total_npt", 0), 1, default=None)} h</div>
+        <div class="kpi-label">Total NPT ({fmt_num(s.get("npt_pct", 0), 1, default=None)}%)</div>
     </div>
 </div>
 <div class="note">
@@ -1025,12 +1007,12 @@ h3 {{
 <h1>2. Well Information</h1>
 <table class="table">
 <tr><th>Field</th><th>Value</th><th>Field</th><th>Value</th></tr>
-<tr><td>Well Name</td><td>{well_name}</td><td>Well Code</td><td>{w.get('code','')}</td></tr>
-<tr><td>Well Type</td><td>{w.get('well_type','')}</td><td>Well Shape</td><td>{w.get('well_shape','')}</td></tr>
-<tr><td>Target Depth</td><td>{w.get('target_depth',0)} m</td><td>Water Depth</td><td>{w.get('water_depth',0)} m</td></tr>
-<tr><td>Spud Date</td><td>{w.get('spud_date','')}</td><td>Formation</td><td>{w.get('formation','')}</td></tr>
-<tr><td>Supervisor Day</td><td>{w.get('supervisor_day','')}</td><td>Supervisor Night</td><td>{w.get('supervisor_night','')}</td></tr>
-<tr><td>Geologist</td><td>{w.get('geologist1','')}</td><td>Toolpusher</td><td>{w.get('tool_pusher_day','')}</td></tr>
+<tr><td>Well Name</td><td>{well_name}</td><td>Well Code</td><td>{safe_str(w.get('code',''))}</td></tr>
+<tr><td>Well Type</td><td>{safe_str(w.get('well_type',''))}</td><td>Well Shape</td><td>{safe_str(w.get('well_shape',''))}</td></tr>
+<tr><td>Target Depth</td><td>{safe_str(w.get('target_depth',0))} m</td><td>Water Depth</td><td>{safe_str(w.get('water_depth',0))} m</td></tr>
+<tr><td>Spud Date</td><td>{safe_str(w.get('spud_date',''))}</td><td>Formation</td><td>{safe_str(w.get('formation',''))}</td></tr>
+<tr><td>Supervisor Day</td><td>{safe_str(w.get('supervisor_day',''))}</td><td>Supervisor Night</td><td>{safe_str(w.get('supervisor_night',''))}</td></tr>
+<tr><td>Geologist</td><td>{safe_str(w.get('geologist1',''))}</td><td>Toolpusher</td><td>{safe_str(w.get('tool_pusher_day',''))}</td></tr>
 </table>
 """
 
@@ -1041,12 +1023,12 @@ h3 {{
 <tr><th>Name</th><th>Code</th><th>Depth From</th><th>Depth To</th><th>Hole Size</th><th>Purpose</th></tr>"""
             for sec in sections:
                 html += f"""<tr>
-<td>{sec.get('name','')}</td>
-<td>{sec.get('code','')}</td>
-<td>{sec.get('depth_from',0)}</td>
-<td>{sec.get('depth_to',0)}</td>
-<td>{sec.get('hole_size',0)}</td>
-<td>{sec.get('purpose','')}</td>
+<td>{safe_str(sec.get('name',''))}</td>
+<td>{safe_str(sec.get('code',''))}</td>
+<td>{safe_str(sec.get('depth_from',0))}</td>
+<td>{safe_str(sec.get('depth_to',0))}</td>
+<td>{safe_str(sec.get('hole_size',0))}</td>
+<td>{safe_str(sec.get('purpose',''))}</td>
 </tr>"""
             html += "</table>"
         else:
@@ -1058,17 +1040,16 @@ h3 {{
             html += """<table class="table">
 <tr><th>Date</th><th>Report #</th><th>Rig Day</th><th>Depth 24:00</th><th>Progress</th><th>Status</th><th>Summary</th></tr>"""
             for r in daily_reports:
-                d0 = r.depth_0000 or 0
-                d24 = r.depth_2400 or 0
-                progress = d24 - d0
+                d0, d24 = r.depth_0000, r.depth_2400
+                progress = d24 - d0 if d24 is not None and d0 is not None else None
                 summary = wrap_html((r.summary or ""), 150)
                 html += f"""<tr>
-<td>{r.report_date}</td>
-<td>{r.report_number}</td>
-<td>{r.rig_day}</td>
-<td>{d24:.1f}</td>
-<td>{progress:.1f}</td>
-<td>{r.status}</td>
+<td>{safe_str(r.report_date)}</td>
+<td>{safe_str(r.report_number)}</td>
+<td>{safe_str(r.rig_day)}</td>
+<td>{fmt_num(d24, 1, default=None)}</td>
+<td>{fmt_num(progress, 1, default=None)}</td>
+<td>{safe_str(r.status)}</td>
 <td>{summary}</td>
 </tr>"""
             html += "</table>"
@@ -1080,16 +1061,16 @@ h3 {{
 <tr><th>Date</th><th>Bit No</th><th>Bit Size</th><th>Depth In</th><th>Depth Out</th><th>Bit Drilled</th><th>ROP</th><th>WOB Max</th><th>RPM Max</th><th>SPP Max</th></tr>"""
             for p in drilling_params:
                 html += f"""<tr>
-<td>{p.report_date}</td>
+<td>{safe_str(p.report_date)}</td>
 <td>{p.bit_no or ''}</td>
 <td>{p.bit_size or ''}</td>
-<td>{p.depth_in or 0}</td>
-<td>{p.depth_out or 0}</td>
-<td>{p.bit_drilled or 0}</td>
-<td>{p.avg_rop or 0:.1f}</td>
-<td>{p.wob_max or 0}</td>
-<td>{p.rpm_max or 0}</td>
-<td>{p.pump_pressure_max or 0}</td>
+<td>{safe_str(p.depth_in)}</td>
+<td>{safe_str(p.depth_out)}</td>
+<td>{safe_str(p.bit_drilled)}</td>
+<td>{fmt_num(p.avg_rop, 1, default=None)}</td>
+<td>{safe_str(p.wob_max)}</td>
+<td>{safe_str(p.rpm_max)}</td>
+<td>{safe_str(p.pump_pressure_max)}</td>
 </tr>"""
             html += "</table>"
 
@@ -1100,15 +1081,15 @@ h3 {{
 <tr><th>Date</th><th>Type</th><th>MW</th><th>PV</th><th>YP</th><th>FL</th><th>pH</th><th>Temp</th><th>Loss DH</th></tr>"""
             for m in mud_reports:
                 html += f"""<tr>
-<td>{m.report_date}</td>
+<td>{safe_str(m.report_date)}</td>
 <td>{m.mud_type or ''}</td>
-<td>{m.mw or 0:.1f}</td>
-<td>{m.pv or 0:.1f}</td>
-<td>{m.yp or 0:.1f}</td>
-<td>{m.fl or 0:.1f}</td>
-<td>{m.ph or 0:.1f}</td>
-<td>{m.temperature or 0:.1f}</td>
-<td>{m.loss_downhole or 0:.1f}</td>
+<td>{fmt_num(m.mw, 1, default=None)}</td>
+<td>{fmt_num(m.pv, 1, default=None)}</td>
+<td>{fmt_num(m.yp, 1, default=None)}</td>
+<td>{fmt_num(m.fl, 1, default=None)}</td>
+<td>{fmt_num(m.ph, 1, default=None)}</td>
+<td>{fmt_num(m.temperature, 1, default=None)}</td>
+<td>{fmt_num(m.loss_downhole, 1, default=None)}</td>
 </tr>"""
             html += "</table>"
 
@@ -1123,21 +1104,21 @@ h3 {{
             html += f"""
 <div class="note">
 <b>Final Survey:</b><br>
-MD: {last.md:.2f} m | TVD: {last.tvd:.2f} m | North: {last.north:.2f} m |
-East: {last.east:.2f} m | HD: {last.hd:.2f} m | DLS: {last.dls:.2f}
+MD: {fmt_num(last.md, 2, default=None)} m | TVD: {fmt_num(last.tvd, 2, default=None)} m | North: {fmt_num(last.north, 2, default=None)} m |
+East: {fmt_num(last.east, 2, default=None)} m | HD: {fmt_num(last.hd, 2, default=None)} m | DLS: {fmt_num(last.dls, 2, default=None)}
 </div>
 """
             html += """<table class="table">
 <tr><th>MD</th><th>Inc</th><th>Azi</th><th>TVD</th><th>North</th><th>East</th><th>DLS</th></tr>"""
-            for srow in surveys[:100]:
+            for srow in surveys:
                 html += f"""<tr>
-<td>{srow.md:.2f}</td>
-<td>{srow.inc:.2f}</td>
-<td>{srow.azi:.2f}</td>
-<td>{srow.tvd:.2f}</td>
-<td>{srow.north:.2f}</td>
-<td>{srow.east:.2f}</td>
-<td>{srow.dls:.2f}</td>
+<td>{fmt_num(srow.md, 2, default=None)}</td>
+<td>{fmt_num(srow.inc, 2, default=None)}</td>
+<td>{fmt_num(srow.azi, 2, default=None)}</td>
+<td>{fmt_num(srow.tvd, 2, default=None)}</td>
+<td>{fmt_num(srow.north, 2, default=None)}</td>
+<td>{fmt_num(srow.east, 2, default=None)}</td>
+<td>{fmt_num(srow.dls, 2, default=None)}</td>
 </tr>"""
             html += "</table>"
 
@@ -1148,9 +1129,9 @@ East: {last.east:.2f} m | HD: {last.hd:.2f} m | DLS: {last.dls:.2f}
 <tr><th>Date</th><th>Days without LTI</th><th>Near Miss</th><th>Last Fire Drill</th><th>Last BOP Drill</th></tr>"""
             for sr in safety_reports:
                 html += f"""<tr>
-<td>{sr.report_date}</td>
-<td>{sr.days_without_lti or 0}</td>
-<td>{sr.near_miss_count or 0}</td>
+<td>{safe_str(sr.report_date)}</td>
+<td>{safe_str(sr.days_without_lti)}</td>
+<td>{safe_str(sr.near_miss_count)}</td>
 <td>{sr.last_fire_drill or ''}</td>
 <td>{sr.last_bop_drill or ''}</td>
 </tr>"""
@@ -1166,13 +1147,13 @@ East: {last.east:.2f} m | HD: {last.hd:.2f} m | DLS: {last.dls:.2f}
             html += """<table class="table">
 <tr><th>Date</th><th>Category</th><th>Planned</th><th>Actual</th><th>Variance</th><th>Status</th></tr>"""
             for c in cost_records:
-                variance = (c.planned_cost or 0) - (c.actual_cost or 0)
+                variance = c.planned_cost - c.actual_cost if c.planned_cost is not None and c.actual_cost is not None else None
                 html += f"""<tr>
 <td>{c.cost_date or ''}</td>
 <td>{c.category or ''}</td>
-<td>{c.planned_cost or 0:.2f}</td>
-<td>{c.actual_cost or 0:.2f}</td>
-<td>{variance:.2f}</td>
+<td>{fmt_num(c.planned_cost, 2, default=None)}</td>
+<td>{fmt_num(c.actual_cost, 2, default=None)}</td>
+<td>{fmt_num(variance, 2, default=None)}</td>
 <td>{c.status or ''}</td>
 </tr>"""
             html += "</table>"
@@ -1182,7 +1163,7 @@ East: {last.east:.2f} m | HD: {last.hd:.2f} m | DLS: {last.dls:.2f}
         # Footer
         html += f"""
 <div class="footer">
-{bc.footer_text} | EOWR | {datetime.now().strftime("%Y-%m-%d %H:%M")} | {well_name}
+{safe_str(bc.footer_text)} | EOWR | {datetime.now().strftime("%Y-%m-%d %H:%M")} | {well_name}
 </div>
 </body></html>
 """
@@ -1190,6 +1171,9 @@ East: {last.east:.2f} m | HD: {last.hd:.2f} m | DLS: {last.dls:.2f}
 
     def _save_pdf(self, html: str, output_path: str) -> bool:
         try:
+            from PySide6.QtGui import QTextDocument, QPageSize, QPageLayout
+            from PySide6.QtCore import QMarginsF
+            from PySide6.QtPrintSupport import QPrinter
             printer = QPrinter(QPrinter.HighResolution)
             printer.setOutputFormat(QPrinter.PdfFormat)
             printer.setOutputFileName(output_path)
@@ -1246,7 +1230,7 @@ East: {last.east:.2f} m | HD: {last.hd:.2f} m | DLS: {last.dls:.2f}
             ]
             for i, (k, v) in enumerate(metrics, 5):
                 ws.cell(row=i, column=1, value=k)
-                ws.cell(row=i, column=2, value=str(v))
+                ws.cell(row=i, column=2, value=v)
 
             # Sections
             self._write_sheet_from_objects(
@@ -1283,15 +1267,9 @@ East: {last.east:.2f} m | HD: {last.hd:.2f} m | DLS: {last.dls:.2f}
             return
         ws = wb.create_sheet(sheet_name[:31])
 
-        # headers
-        cols = list(objects[0].__table__.columns.keys())
-        for c, h in enumerate(cols, 1):
-            ws.cell(row=1, column=c, value=h)
+        from core.professional_export import _write_records
+        _write_records(ws, [obj if isinstance(obj, dict) else {col.name: getattr(obj, col.name) for col in obj.__table__.columns} for obj in objects])
 
-        for r, obj in enumerate(objects, 2):
-            for c, h in enumerate(cols, 1):
-                ws.cell(row=r, column=c, value=str(getattr(obj, h, "")))
-                
 class NPTReportEngine:
     """موتور تولید NPT Summary Report حرفه‌ای"""
 
@@ -1579,6 +1557,9 @@ h2 {{ color: #e74c3c; border-bottom: 1px solid #fadbd8; margin-top: 15px; font-s
 
     def _save_pdf(self, html, path):
         try:
+            from PySide6.QtGui import QTextDocument, QPageSize, QPageLayout
+            from PySide6.QtCore import QMarginsF
+            from PySide6.QtPrintSupport import QPrinter
             printer = QPrinter(QPrinter.HighResolution)
             printer.setOutputFormat(QPrinter.PdfFormat)
             printer.setOutputFileName(path)
@@ -1913,6 +1894,9 @@ h2 {{ color: #27ae60; border-bottom: 1px solid #d5f5e3; margin-top: 15px; font-s
 
     def _save_pdf(self, html, path):
         try:
+            from PySide6.QtGui import QTextDocument, QPageSize, QPageLayout
+            from PySide6.QtCore import QMarginsF
+            from PySide6.QtPrintSupport import QPrinter
             printer = QPrinter(QPrinter.HighResolution)
             printer.setOutputFormat(QPrinter.PdfFormat)
             printer.setOutputFileName(path)
@@ -2029,7 +2013,10 @@ class PlanReportEngine:
             if not plans:
                 return None
 
-            active_plan = next((p for p in plans if p.is_active), plans[0])
+            active = [plan for plan in plans if plan.is_active]
+            if len(active) != 1:
+                raise ValueError("Export requires exactly one active plan for the selected well")
+            active_plan = active[0]
 
             activities = session.query(PlannedActivity).filter(
                 PlannedActivity.well_id == well_id,
@@ -2163,6 +2150,9 @@ h2 {{ color: #9b59b6; border-bottom: 1px solid #e8daef; margin-top: 15px; font-s
 
     def _save_pdf(self, html, path):
         try:
+            from PySide6.QtGui import QTextDocument, QPageSize, QPageLayout
+            from PySide6.QtCore import QMarginsF
+            from PySide6.QtPrintSupport import QPrinter
             printer = QPrinter(QPrinter.HighResolution)
             printer.setOutputFormat(QPrinter.PdfFormat)
             printer.setOutputFileName(path)

@@ -1,0 +1,22 @@
+[
+  {
+    "model": "Section",
+    "create_edit_reopen_delete": true,
+    "scope": "real generic API on isolated Production graph; children removed before parents; not native dialog/cascade certification"
+  },
+  {
+    "model": "Well",
+    "create_edit_reopen_delete": true,
+    "scope": "real generic API on isolated Production graph; children removed before parents; not native dialog/cascade certification"
+  },
+  {
+    "model": "Project",
+    "create_edit_reopen_delete": true,
+    "scope": "real generic API on isolated Production graph; children removed before parents; not native dialog/cascade certification"
+  },
+  {
+    "model": "Company",
+    "create_edit_reopen_delete": true,
+    "scope": "real generic API on isolated Production graph; children removed before parents; not native dialog/cascade certification"
+  }
+]
