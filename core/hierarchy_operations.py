@@ -5,7 +5,8 @@ on the database and tree widget but are called from MainWindow.
 """
 
 import logging
-from PySide6.QtWidgets import QMessageBox, QMenu, QAction
+from PySide6.QtGui import QAction
+from PySide6.QtWidgets import QMessageBox, QMenu
 from PySide6.QtCore import Qt
 
 logger = logging.getLogger(__name__)

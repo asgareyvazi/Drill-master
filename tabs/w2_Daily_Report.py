@@ -747,7 +747,7 @@ class DailyReportWidget(DrillTabBase):
                         hour = int(parts[0])
                         minute = int(parts[1]) if len(parts) > 1 else 0
                         from_time.set_time(hour, minute)
-                    except:
+                    except (AttributeError, IndexError, ValueError):
                         from_time.set_time(8, 0)
         else:
             from_time.set_time(8, 0)
@@ -772,7 +772,7 @@ class DailyReportWidget(DrillTabBase):
                         hour = int(parts[0])
                         minute = int(parts[1]) if len(parts) > 1 else 0
                         to_time.set_time(hour, minute)
-                    except:
+                    except (AttributeError, IndexError, ValueError):
                         to_time.set_time(16, 0)
         else:
             to_time.set_time(16, 0)
@@ -1841,8 +1841,8 @@ class DailyReportWidget(DrillTabBase):
                         total_time += duration
                         if npt_widget.isChecked():
                             total_npt += duration
-                    except:
-                        pass
+                    except (AttributeError, TypeError, ValueError):
+                        pass  # incomplete row — excluded from totals
             self.total_time_label.setText(f"Total Time: {total_time:.1f}h")
             self.total_npt_label.setText(f"NPT Time: {total_npt:.1f}h")
             if total_time > 0:

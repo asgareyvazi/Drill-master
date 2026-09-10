@@ -288,8 +288,8 @@ class SafetyBOPTab(QWidget):
                             self.clear_bop_row_highlight(row)
                         next_due_item = QTableWidgetItem(next_due.toString("yyyy-MM-dd"))
                         self.bop_stack_table.setItem(row, 6, next_due_item)
-                except:
-                    pass
+                except (AttributeError, TypeError, ValueError):
+                    pass  # row without parseable last-test date
         message = "✅ BOP Test Schedule Updated\n\n"
         if overdue_count > 0:
             message += f"⚠️ {overdue_count} components are OVERDUE for testing\n"
@@ -598,7 +598,8 @@ class WasteManagementTab(QWidget):
                     volume_by_method[wm] = volume_by_method.get(wm,0) + vol
                     if ph_item:
                         ph_values.append(float(ph_item.text()))
-                except: pass
+                except (AttributeError, TypeError, ValueError):
+                    pass  # incomplete waste row
         avg_ph = sum(ph_values)/len(ph_values) if ph_values else 7.0
         report = f"📊 Waste Management Report\n\nTotal Volume: {total_volume:.1f} BBL\nAvg pH: {avg_ph:.1f}\nRecords: {self.waste_table.rowCount()}\n"
         if volume_by_type:

@@ -428,7 +428,7 @@ class ProfileImportEngine:
                 # Find the first row containing material type/unit headers.
                 header_row = next((r for r in range(bulk_row, bulk_row + 5) if "mat. type" in row_text(r) or "unit" in row_text(r)), None)
                 if header_row:
-                    name_columns = [(c, cells.get((header_row, c))) for c in range(1, MAX_PROFILE_COLS) if cells.get((header_row, c)) not in (None, "", "Mat. Type", "Unit")]
+                    name_columns = [(c, cell(header_row, c)) for c in range(1, MAX_PROFILE_COLS) if cell(header_row, c) not in (None, "", "Mat. Type", "Unit")]
                     row_by_label = {}
                     for r in range(header_row + 1, header_row + 8):
                         text = row_text(r)
@@ -437,16 +437,16 @@ class ProfileImportEngine:
                         elif "received" in text: row_by_label["received"] = r
                     for c, name in name_columns:
                         if not name or str(name).lower() in {"bulk data", "unit"}: continue
-                        initial = self._to_float(cells.get((row_by_label.get("initial", 0), c)))
-                        used = self._to_float(cells.get((row_by_label.get("used", 0), c))) or 0.0
-                        received = self._to_float(cells.get((row_by_label.get("received", 0), c))) or 0.0
+                        initial = self._to_float(cell(row_by_label.get("initial", 0), c))
+                        used = self._to_float(cell(row_by_label.get("used", 0), c)) or 0.0
+                        received = self._to_float(cell(row_by_label.get("received", 0), c)) or 0.0
                         if initial is not None or used or received:
                             result["bulk_materials"].append({"material_name": str(name).strip(), "unit": "", "initial_stock": initial or 0.0, "received": received, "used": used, "current_stock": (initial or 0.0) + received - used})
 
             pob_row = find_row("personnel on board")
             if pob_row:
                 for r in range(pob_row + 1, pob_row + 12):
-                    values = [cells.get((r, c)) for c in range(1, MAX_PROFILE_COLS)]
+                    values = [cell(r, c) for c in range(1, MAX_PROFILE_COLS)]
                     text = " ".join(str(v or "") for v in values)
                     if not text.strip() or "total" in text.lower(): continue
                     count = next((self._to_float(v) for v in values if self._to_float(v) is not None), None)
@@ -458,8 +458,8 @@ class ProfileImportEngine:
             bop_row = find_row("bop stack and well head")
             if bop_row:
                 for r in range(bop_row + 2, min(bop_row + 30, MAX_PROFILE_ROWS)):
-                    name, kind = cells.get((r, 2)), cells.get((r, 3))
-                    pressure, size = self._to_float(cells.get((r, 5))), cells.get((r, 6))
+                    name, kind = cell(r, 2), cell(r, 3)
+                    pressure, size = self._to_float(cell(r, 5)), cell(r, 6)
                     if name and (pressure is not None or size):
                         result["bop_components"].append({"component_name": str(name), "component_type": str(kind or "BOP"), "working_pressure": pressure or 0.0, "size": str(size or ""), "status": "Operational"})
 
@@ -470,9 +470,9 @@ class ProfileImportEngine:
                 entries = []
                 if header_row:
                     for r in range(header_row + 1, min(header_row + 40, MAX_PROFILE_ROWS)):
-                        size = cells.get((r, 39)) or cells.get((r, 13))
+                        size = cell(r, 39) or cell(r, 13)
                         if size:
-                            entries.append({"size": str(size), "from": cells.get((r, 40)) or cells.get((r, 14)), "to": cells.get((r, 42)) or cells.get((r, 16)), "grade": cells.get((r, 43)) or cells.get((r, 17)), "weight": cells.get((r, 44)) or cells.get((r, 18)), "thread": cells.get((r, 47)) or cells.get((r, 21))})
+                            entries.append({"size": str(size), "from": cell(r, 40) or cell(r, 14), "to": cell(r, 42) or cell(r, 16), "grade": cell(r, 43) or cell(r, 17), "weight": cell(r, 44) or cell(r, 18), "thread": cell(r, 47) or cell(r, 21)})
                 if entries:
                     result["casing_report"] = {"casing_json": json.dumps(entries, ensure_ascii=False), "report_name": "Imported casing information"}
 
@@ -481,9 +481,9 @@ class ProfileImportEngine:
             if cement_row:
                 materials = []
                 for r in range(cement_row + 2, min(cement_row + 80, MAX_PROFILE_ROWS)):
-                    name = cells.get((r, 14))
+                    name = cell(r, 14)
                     if name and str(name).strip().lower() not in {"material type", "unit"}:
-                        materials.append({"material": str(name).strip(), "used": self._to_float(cells.get((r, 16))) or 0.0, "received": self._to_float(cells.get((r, 17))) or 0.0, "on_hand": self._to_float(cells.get((r, 18))) or 0.0, "unit": str(cells.get((r, 19)) or "")})
+                        materials.append({"material": str(name).strip(), "used": self._to_float(cell(r, 16)) or 0.0, "received": self._to_float(cell(r, 17)) or 0.0, "on_hand": self._to_float(cell(r, 18)) or 0.0, "unit": str(cell(r, 19) or "")})
                 if materials:
                     result["cement_report"] = {"materials_json": json.dumps(materials, ensure_ascii=False), "report_name": "Imported cement additives"}
 
@@ -494,9 +494,9 @@ class ProfileImportEngine:
                 components = []
                 for row in range(header_row + 1, min(header_row + 40, MAX_PROFILE_ROWS)):
                     for base in (2, 6):
-                        name = cells.get((row, base))
+                        name = cell(row, base)
                         if name and str(name).strip().lower() not in {"item", "bha"}:
-                            components.append({"component_name": str(name), "od": cells.get((row, base + 1)), "length": cells.get((row, base + 2)), "cumulative_length": cells.get((row, base + 3))})
+                            components.append({"component_name": str(name), "od": cell(row, base + 1), "length": cell(row, base + 2), "cumulative_length": cell(row, base + 3)})
                 if components:
                     result["bha_report"] = {"bha_name": "Imported BHA", "bha_data": components}
 
@@ -505,9 +505,9 @@ class ProfileImportEngine:
             if downhole_row:
                 equipment = []
                 for r in range(downhole_row + 1, min(downhole_row + 50, MAX_PROFILE_ROWS)):
-                    name = cells.get((r, 10))
+                    name = cell(r, 10)
                     if name and str(name).strip().lower() not in {"equipment", "down hole equipment"}:
-                        equipment.append({"equipment_name": str(name), "od": cells.get((r, 12)), "serial_number": cells.get((r, 14)), "rotating_hours": cells.get((r, 16)), "cumulative_hours": cells.get((r, 18))})
+                        equipment.append({"equipment_name": str(name), "od": cell(r, 12), "serial_number": cell(r, 14), "rotating_hours": cell(r, 16), "cumulative_hours": cell(r, 18)})
                 if equipment:
                     result["downhole_equipment"] = {"equipment_data_json": json.dumps(equipment, ensure_ascii=False)}
 
@@ -523,11 +523,11 @@ class ProfileImportEngine:
                     "pump_output": ("pump output", "flow rate", "flow"),
                 }
                 for row in range(drilling_row + 1, min(drilling_row + 15, MAX_PROFILE_ROWS)):
-                    label = str(cells.get((row, 2), "")).lower()
+                    label = str(cell(row, 2, "")).lower()
                     for field, names in aliases.items():
                         if not any(name in label for name in names):
                             continue
-                        numbers = [self._to_float(cells.get((row, col))) for col in (5, 6, 7, 9)]
+                        numbers = [self._to_float(cell(row, col)) for col in (5, 6, 7, 9)]
                         numbers = [value for value in numbers if value is not None]
                         if numbers:
                             result["drilling_params"][field + "_min"] = min(numbers)
@@ -540,16 +540,16 @@ class ProfileImportEngine:
                 "serial_number": ("bit serial",), "iadc_code": ("iadc",),
             }
             for row in range(1, MAX_PROFILE_ROWS):
-                label = str(cells.get((row, 2), "")).lower()
+                label = str(cell(row, 2, "")).lower()
                 for field, names in bit_aliases.items():
                     if any(name in label for name in names):
-                        value = next((cells.get((row, col)) for col in range(3, 12) if cells.get((row, col)) not in (None, "")), None)
+                        value = next((cell(row, col) for col in range(3, 12) if cell(row, col) not in (None, "")), None)
                         if value not in (None, ""):
                             result["bit_report"][field] = self._to_float(value) if field == "bit_size" else str(value).strip()
 
             lta_row = find_row("days without lta")
             if lta_row:
-                value = next((self._to_float(cells.get((lta_row, c))) for c in range(1, MAX_PROFILE_COLS) if self._to_float(cells.get((lta_row, c))) is not None), None)
+                value = next((self._to_float(cell(lta_row, c)) for c in range(1, MAX_PROFILE_COLS) if self._to_float(cell(lta_row, c)) is not None), None)
                 if value is not None:
                     result["safety_report"]["days_without_lti"] = int(value)
 
@@ -557,8 +557,23 @@ class ProfileImportEngine:
         try:
             if val is None: return None
             return float(val)
-        except:
+        except (TypeError, ValueError):
             return None
+
+    @staticmethod
+    def _sheet_cell(cells, row, col, default=None):
+        """Read one cell from a sheet cache, tolerating both cache shapes.
+
+        ``_build_unmerged_cache`` produces ``{row: {col: value}}``. Older
+        callers were written against flat ``{(row, col): value}`` caches;
+        raw tuple-key reads silently returned ``None`` for every cell and
+        made whole extraction branches dead code. All readers must go
+        through this accessor.
+        """
+        row_values = cells.get(row)
+        if isinstance(row_values, dict):
+            return row_values.get(col, default)
+        return cells.get((row, col), default)
             
     # ------------------- توابع کمکی جادویی -------------------
 
@@ -566,11 +581,11 @@ class ProfileImportEngine:
         """Extract vendor mud-chemical tables embedded in DDR Data."""
         for sheet, cells in self.cell_cache.items():
             for row in range(1, MAX_PROFILE_ROWS):
-                text = " ".join(str(cells.get((row, col), "")).lower() for col in range(1, MAX_PROFILE_COLS))
+                text = " ".join(str(self._sheet_cell(cells, row, col, "")).lower() for col in range(1, MAX_PROFILE_COLS))
                 if "mud chemical" not in text:
                     continue
                 header_row = row + 1
-                headers = {col: str(cells.get((header_row, col), "")).lower() for col in range(1, MAX_PROFILE_COLS)}
+                headers = {col: str(self._sheet_cell(cells, header_row, col, "")).lower() for col in range(1, MAX_PROFILE_COLS)}
                 columns = {}
                 for col, header in headers.items():
                     compact = re.sub(r"[^a-z0-9]", "", header)
@@ -582,14 +597,14 @@ class ProfileImportEngine:
                 if "name" not in columns:
                     continue
                 for data_row in range(header_row + 1, min(header_row + 100, MAX_PROFILE_ROWS)):
-                    name = cells.get((data_row, columns["name"]))
+                    name = self._sheet_cell(cells, data_row, columns["name"])
                     if not name or str(name).strip().lower() in {"material", "product type"}:
                         continue
-                    used = self._to_float(cells.get((data_row, columns.get("used", 0)))) or 0.0
-                    received = self._to_float(cells.get((data_row, columns.get("received", 0)))) or 0.0
-                    stock = self._to_float(cells.get((data_row, columns.get("stock", 0))))
+                    used = self._to_float(self._sheet_cell(cells, data_row, columns.get("used", 0))) or 0.0
+                    received = self._to_float(self._sheet_cell(cells, data_row, columns.get("received", 0))) or 0.0
+                    stock = self._to_float(self._sheet_cell(cells, data_row, columns.get("stock", 0)))
                     if stock is not None or used or received:
-                        result["bulk_materials"].append({"material_name": str(name).strip(), "unit": str(cells.get((data_row, columns.get("unit", 0))) or ""), "initial_stock": stock or 0.0, "received": received, "used": used, "current_stock": (stock or 0.0) + received - used, "source_sheet": sheet, "source_row": data_row})
+                        result["bulk_materials"].append({"material_name": str(name).strip(), "unit": str(self._sheet_cell(cells, data_row, columns.get("unit", 0)) or ""), "initial_stock": stock or 0.0, "received": received, "used": used, "current_stock": (stock or 0.0) + received - used, "source_sheet": sheet, "source_row": data_row})
                 return
 
     def _configure_workbook_code_catalog(self):
@@ -600,7 +615,11 @@ class ProfileImportEngine:
                 if not any(token in sheet_name.lower() for token in ("activity", "code", "iadc")):
                     continue
                 for row in range(1, MAX_PROFILE_ROWS):
-                    main, sub, name = cells.get((row, 1)), cells.get((row, 2)), cells.get((row, 3))
+                    main, sub, name = (
+                        self._sheet_cell(cells, row, 1),
+                        self._sheet_cell(cells, row, 2),
+                        self._sheet_cell(cells, row, 3),
+                    )
                     if sub and name:
                         match = re.match(r"^(\d+)[./-](\d+)", str(sub).strip())
                         if match:
@@ -668,11 +687,15 @@ class ProfileImportEngine:
             if val is not None and str(val).strip() not in ("", "-", "---"):
                 # تبدیل نوع
                 if data_type == "float":
-                    try: return float(re.sub(r'[^\d\.\-]', '', str(val)))
-                    except: pass
+                    try:
+                        return float(re.sub(r'[^\d\.\-]', '', str(val)))
+                    except (TypeError, ValueError):
+                        continue
                 elif data_type == "int":
-                    try: return int(float(re.sub(r'[^\d\.\-]', '', str(val))))
-                    except: pass
+                    try:
+                        return int(float(re.sub(r'[^\d\.\-]', '', str(val))))
+                    except (TypeError, ValueError):
+                        continue
                 else:
                     return str(val).strip()
         return None
@@ -697,7 +720,8 @@ class ProfileImportEngine:
                              "jul":7, "aug":8, "sep":9, "oct":10, "nov":11, "dec":12}
                 m = month_map.get(vals[1].lower()[:3], 1)
                 return date(y, m, d)
-            except: pass
+            except (TypeError, ValueError, IndexError):
+                pass
         return None
 
     def _extract_text_block(self, sheet_name, start_keyword, stop_keyword):
@@ -717,6 +741,19 @@ class ProfileImportEngine:
 
     def _extract_time_logs(self, sheet_name):
         cache = self.cell_cache.get(sheet_name, {})
+
+        # The NPT contractor resolver lives in the dialog layer (Qt).
+        # Core must import it lazily and degrade to an explicit
+        # "resolver unavailable" state — never to a swallowed NameError.
+        try:
+            from dialogs.smart_template_dialog import CodeResolver
+        except ImportError as exc:
+            # Missing Qt/dialog module in headless runs degrades to an
+            # explicit "resolver unavailable" state. A broken dialog module
+            # (e.g. SyntaxError) must propagate instead of being masked.
+            logger.debug("CodeResolver unavailable for time-log extraction: %s", exc)
+            CodeResolver = None
+
         logs = []
         
         # پیدا کردن هدر جدول
@@ -768,8 +805,10 @@ class ProfileImportEngine:
             tf = self._convert_time(tf_raw)
             tt = self._convert_time(cache[r].get(c_to))
             
-            try: hrs = float(hrs_raw)
-            except: hrs = 0.0
+            try:
+                hrs = float(hrs_raw)
+            except (TypeError, ValueError):
+                hrs = 0.0
             
             npt_val = str(cache[r].get(c_npt, "")).strip()
             is_npt = bool(npt_val and npt_val not in ("-", "---", "None"))
@@ -795,10 +834,13 @@ class ProfileImportEngine:
             normalized_sub = sub_resolution.identity if sub_resolution.accepted else None
 
             contractor = ""
-            if is_npt:
+            if is_npt and CodeResolver is not None:
                 try:
                     contractor = CodeResolver.guess_contractor(npt_val or str(raw_main or ""))
-                except Exception:
+                except Exception as exc:
+                    logger.debug(
+                        "Contractor resolution failed for NPT value %r: %s", npt_val, exc
+                    )
                     contractor = ""
 
             logs.append({
@@ -854,7 +896,8 @@ class ProfileImportEngine:
             if 0 <= f < 1:
                 sec = int(f * 86400)
                 return time(sec//3600, (sec%3600)//60)
-        except: pass
+        except (TypeError, ValueError):
+            pass
         return None
 
     # =====================================================================

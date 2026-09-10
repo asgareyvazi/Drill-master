@@ -1853,7 +1853,7 @@ class DrillingParamsTab(QWidget):
                     rop = float(rec.get("ROP (m/hr)", 0))
                     if depth > 0 and rop > 0:
                         rop_points.append({'depth': depth, 'rop': rop})
-                except:
+                except (TypeError, ValueError):
                     continue
 
             if rop_points:
@@ -1884,8 +1884,8 @@ class DrillingParamsTab(QWidget):
                             if val is not None:
                                 try:
                                     return float(val)
-                                except:
-                                    pass
+                                except (TypeError, ValueError):
+                                    continue
                         return default
 
                     metres = get_float_value(rec, ["Metres Drilled", "Metres Drilled (m)", "Mètres"], 0)
@@ -2309,8 +2309,8 @@ class MaterialInventoryTab(QWidget):
                 current = initial + received - used
                 self.material_table.setItem(row, 5, QTableWidgetItem(f"{current:.1f}"))
                 self.save_material_row(row)
-            except:
-                pass
+            except (AttributeError, TypeError, ValueError):
+                pass  # incomplete/empty table cell — balance stays uncalculated
 
     def save_material_row(self, row):
         """ذخیره یک ردیف در دیتابیس"""

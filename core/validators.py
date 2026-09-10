@@ -23,6 +23,8 @@ from typing import Dict, List, Optional, Tuple
 import math
 import re
 
+from core.import_quality import ImportValidator as _ImportQualityValidator
+
 logger = logging.getLogger(__name__)
 
 
@@ -535,20 +537,22 @@ class CostValidator:
         return r
 
 
-class ImportValidator:
-    """Legacy wrapper for backward compat - delegates to import_quality module"""
+class ImportValidator(_ImportQualityValidator):
+    """DEPRECATED alias of :class:`core.import_quality.ImportValidator`.
 
-    @staticmethod
-    def validate_rows(rows, required_fields=()):
-        result = ValidationResult()
-        for index, row in enumerate(rows or [], start=2):
-            if not isinstance(row, dict):
-                result.add_error(str(index), "Row must be an object")
-                continue
-            for field in required_fields:
-                if row.get(field) in (None, ""):
-                    result.add_error(f"row {index}.{field}", "Required value is missing - MISSING_INPUT")
-        return result
+    Historical note (2026-09-09 audit): this wrapper predated the canonical
+    import-quality validator and previously implemented an incompatible
+    ``validate_rows(rows, required_fields)`` signature while its docstring
+    claimed — falsely — to delegate to the import_quality module. Production
+    code (``core/ddr_import_service.py``, ``dialogs/excel_import_dialog.py``)
+    has always imported the authoritative class from ``core.import_quality``.
+
+    This class now *actually* delegates by subclassing the canonical
+    implementation, so the two names can never drift apart again. New code
+    must import ``from core.import_quality import ImportValidator`` directly.
+    """
+
+    __doc__ += _ImportQualityValidator.__doc__ or ""
 
 
 def cross_validate(data):

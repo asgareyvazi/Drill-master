@@ -344,7 +344,7 @@ class HomeTab(DrillTabBase):
             rgb = tuple(int(color[i : i + 2], 16) for i in (0, 2, 4))
             darkened = tuple(max(0, c - 30) for c in rgb)
             return f"#{darkened[0]:02x}{darkened[1]:02x}{darkened[2]:02x}"
-        except:
+        except (AttributeError, ValueError, IndexError):
             return color
 
     def setup_connections(self):
@@ -590,7 +590,7 @@ class HomeTab(DrillTabBase):
                 hierarchy = self.db.get_hierarchy()
                 db_status = "✅ Connected"
                 db_color = "#27ae60"
-            except:
+            except Exception:
                 db_status = "❌ Disconnected"
                 db_color = "#e74c3c"
 

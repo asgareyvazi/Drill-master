@@ -927,7 +927,7 @@ class AddSurveyDialog(EngineeringBaseDialog):
         lbl = self.calc_tvd.text()
         try:
             tvd = float(lbl.split(' ')[0])
-        except:
+        except (ValueError, IndexError):
             tvd = self.md.value()
 
         try:
@@ -935,8 +935,8 @@ class AddSurveyDialog(EngineeringBaseDialog):
             east = float(self.calc_east.text().split(' ')[0])
             dls = float(self.calc_dls.text().split(' ')[0])
             hd = float(self.calc_hd.text().split(' ')[0])
-        except:
-            pass
+        except (ValueError, IndexError):
+            pass  # uncalculated labels stay at 0 in the result payload
 
         self.result = {
             "md": self.md.value(),

@@ -1,6 +1,9 @@
 # Testing and acceptance guide
 
-**Audit date:** 2026-09-08
+**Audit date:** 2026-09-08 — **last re-verified:** 2026-09-09 (see
+`docs/audits/2026-09-09/MASTER_FORENSIC_AUDIT.md` for the current evidence;
+counts below are only valid for the run that produced them and must never be
+copied forward without re-running).
 
 ## 1. Local test gate
 
@@ -15,11 +18,38 @@ python -m pip wheel . --no-deps --wheel-dir dist
 git diff --check
 ```
 
-The base shell does not provide `pytest`, but the dependency-backed
-`/tmp/drill-venv` Python 3.11 environment executed the complete suite:
-**530 passed, 8 skipped, 0 failed/errors** (538 collected). The real repository
-workbook audit also completed. No Python 3.12, Windows GUI/package, real
-MinerU/PDF, AZNS-12, or production-DB result is claimed from Linux.
+### Headless Qt
+
+The suite runs headless with the offscreen platform. Two cases:
+
+1. **Normal Linux with libGL available** (e.g. CI runners):
+   `QT_QPA_PLATFORM=offscreen python -m pytest -ra`
+2. **Minimal sandbox without system Qt libraries**: `tools/qt_headless_env.sh`
+   builds no-op stub libraries (`libGL.so.1`, `libEGL.so.1`,
+   `libxkbcommon.so.0`, `libdbus-1.so.3`) from the exact undefined-symbol sets
+   of the installed Qt binaries. Source it, then run pytest. These stubs
+   return 0/NULL ("capability absent") — offscreen raster UI testing works;
+   anything genuinely requiring OpenGL does not and is an environment limit,
+   not a code defect.
+
+Qt-dependent tests skip **only on a real capability probe** (importing
+`PySide6.QtWidgets` with the offscreen platform). Earlier releases skipped on
+the `DISPLAY` environment variable, which hid real failures — including a
+broken `QAction` import and a phantom `validate_rows` import discovered on
+2026-09-09. Do not reintroduce DISPLAY-based skips.
+
+### Latest verified run (2026-09-09, Python 3.11, sandbox with Qt stubs)
+
+```text
+Collected: 812   Passed: 808   Failed: 0   Errors: 0   Skipped: 4   XFailed: 0   XPassed: 0
+```
+
+The 4 skips are legitimate opt-ins (real DDR workbook/PDF paths, MinerU
+integration input, Windows bundle). This number is evidence for that run only —
+re-run the suite before quoting any count. No Python 3.12/3.13 local run,
+Windows GUI/package, real MinerU/PDF, or production-DB result is claimed from
+this environment; the CI workflow (`.github/workflows/ci.yml`) exercises
+Python 3.10–3.13 on GitHub runners.
 
 ## 2. Real DDR acceptance
 

@@ -9,6 +9,23 @@ import os
 from pathlib import Path
 
 
+def _qt_gui_importable() -> bool:
+    """Probe whether PySide6 GUI modules can actually load here.
+
+    Replaces the old DISPLAY-env sniffing, which hid real failures: the
+    release-import test once contained a broken ``from core.validators
+    import validate_rows`` import that stayed green for every recorded
+    headless run because the whole test skipped when DISPLAY was unset —
+    even on machines where offscreen Qt worked perfectly.
+    """
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    try:
+        import PySide6.QtWidgets  # noqa: F401
+        return True
+    except Exception as exc:  # ImportError (libGL etc.) or any load failure
+        return False
+
+
 class TestReleaseVerification:
     """Release gate tests — all must pass before shipping."""
     
@@ -25,9 +42,10 @@ class TestReleaseVerification:
     
     def test_all_core_modules_importable(self):
         """All core modules must import without error."""
-        # Skip if no display (headless CI/sandbox)
-        if not os.environ.get("DISPLAY") and sys.platform == "linux":
-            pytest.skip("No display — PySide6 requires libGL")
+        # Skip only when PySide6 GUI modules genuinely cannot load
+        # (capability probe — never based on the DISPLAY variable).
+        if not _qt_gui_importable():
+            pytest.skip("PySide6 GUI modules cannot load (no display and offscreen platform unavailable)")
         from core.database import DatabaseManager, Well, DailyReport
         from core.db_models import Base
         from core.canonical_schema import FIELD_SPECS, CANONICAL_FIELDS
@@ -37,7 +55,7 @@ class TestReleaseVerification:
         from core.selection_manager import SelectionManager
         from core.lineage import LineageTracker, get_import_lineage
         from core.engineering import TrajectoryEngine, HydraulicsEngine
-        from core.validators import validate_rows
+        from core.validators import WellValidator, DailyReportValidator, MudValidator
         from core.import_quality import ImportValidator
         from core.hierarchy_operations import delete_entity, check_delete_permission
         assert True
@@ -140,8 +158,8 @@ class TestReleaseVerification:
     
     def test_no_circular_imports(self):
         """Core modules must not have circular import issues."""
-        if not os.environ.get("DISPLAY") and sys.platform == "linux":
-            pytest.skip("No display — PySide6 requires libGL")
+        if not _qt_gui_importable():
+            pytest.skip("PySide6 GUI modules cannot load (no display and offscreen platform unavailable)")
         import core.database
         import core.db_models
         import core.managers

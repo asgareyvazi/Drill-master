@@ -82,7 +82,10 @@ class ImportRepairRegressionTests(unittest.TestCase):
             def __init__(self):
                 self.payload = None
 
-            def save_drilling_parameters(self, payload):
+            def save_drilling_parameters(self, payload, session=None):
+                # Production contract (core/database.py: save_drilling_parameters(
+                # data, session=None)) — the capture double must accept the
+                # caller-owned session keyword.
                 self.payload = payload
                 return True
 

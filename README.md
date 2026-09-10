@@ -215,13 +215,22 @@ python -m app
 Run from the repository root:
 
 ```bash
-python -m pytest -ra
+QT_QPA_PLATFORM=offscreen python -m pytest -ra
 python verify_release.py
 python -m compileall -q core dialogs tabs tests
 python -m py_compile app.py run.py main_window.py verify_release.py
 python -m pip wheel . --no-deps --wheel-dir dist
 git diff --check
 ```
+
+On headless Linux the test suite uses the offscreen Qt platform; if the system
+lacks the Qt runtime libraries (minimal sandboxes), source
+`tools/qt_headless_env.sh` first (it builds no-op stubs — see TESTING.md).
+Continuous integration (`.github/workflows/ci.yml`) runs the same gate on
+Python 3.10–3.13: compile check, a blocking ruff defect gate (E722 bare
+excepts, F821 undefined names), a blocking lint-debt ratchet (the finding count
+under the full project config may not grow), and the full test suite.
+Current verification evidence lives in `docs/audits/<latest-date>/`.
 
 `verify_release.py` performs a source compile check, dynamic pytest collection,
 and the complete configured pytest suite. The Windows frozen package smoke

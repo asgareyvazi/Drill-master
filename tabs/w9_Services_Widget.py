@@ -677,7 +677,8 @@ class EquipmentDialog(QDialog):
                 try:
                     dt = datetime.strptime(date_val, "%Y-%m-%d")
                     self.service_date_input.setDate(QDate(dt.year, dt.month, dt.day))
-                except: pass
+                except (ValueError, AttributeError):
+                    pass
         value = str(equipment.get("service_type", "") or "")
         idx = self.service_type_input.findText(value)
         if idx >= 0:

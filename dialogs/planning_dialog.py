@@ -1082,8 +1082,8 @@ class WellPlanDialog(QDialog):
                             from datetime import datetime
                             sd = datetime.strptime(sd, "%Y-%m-%d").date()
                         self.spud_date.setDate(QDate(sd.year, sd.month, sd.day))
-                    except:
-                        pass
+                    except (ValueError, KeyError, TypeError, AttributeError):
+                        pass  # spud date absent/unparseable — keep widget date
         except Exception as e:
             logger.error(f"Load well info error: {e}")
 
@@ -1111,13 +1111,13 @@ class WellPlanDialog(QDialog):
                 try:
                     if act.get('start'):
                         start_dt = datetime.strptime(str(act['start']), "%Y-%m-%d %H:%M")
-                except:
+                except (ValueError, TypeError):
                     start_dt = datetime.now()
 
                 try:
                     if act.get('end'):
                         end_dt = datetime.strptime(str(act['end']), "%Y-%m-%d %H:%M")
-                except:
+                except (ValueError, TypeError):
                     end_dt = datetime.now() + timedelta(hours=act.get('duration_hrs', 0))
 
                 if not start_dt:

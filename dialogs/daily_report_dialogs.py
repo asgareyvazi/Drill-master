@@ -150,8 +150,8 @@ class AddActivityDialog(QDialog):
             parts = self.prev_time.split(":")
             self.time_from_h.setValue(int(parts[0]))
             self.time_from_m.setValue(int(parts[1]) if len(parts) > 1 else 0)
-        except:
-            pass
+        except (AttributeError, IndexError, ValueError):
+            pass  # prev_time absent or not HH:MM — keep widget defaults
 
         layout.addWidget(g_time)
 

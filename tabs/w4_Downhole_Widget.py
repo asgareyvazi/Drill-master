@@ -888,7 +888,8 @@ class FormationManager:
                     name = self.table.item(row, 0).text()
                     depths.append((top+base)/2)
                     formations.append(name)
-                except: pass
+                except (AttributeError, TypeError, ValueError):
+                    pass  # incomplete formation row stays out of the LAS export
             if depths:
                 las.add_curve("DEPT", depths, unit="m")
                 las.add_curve("FORMATION", formations)

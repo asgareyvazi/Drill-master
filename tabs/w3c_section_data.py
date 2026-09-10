@@ -199,17 +199,21 @@ class CementReportTab(QWidget):
     @editor_loaded()
     def load_from_dict(self, data):
         def sv(k,d=0):
-            v=data.get(k); 
-            try: return float(v) if v is not None else d
-            except: return d
+            v=data.get(k)
+            try:
+                return float(v) if v is not None else d
+            except (TypeError, ValueError):
+                return d
         self.report_name.setText(str(data.get("report_name","") or ""))
         self.cement_type.setCurrentText(str(data.get("cement_type","") or ""))
         self.job_type.setCurrentText(str(data.get("job_type","") or ""))
         self.slurry_density.setValue(sv("slurry_density",120)); self.slurry_yield.setValue(sv("slurry_yield",1.18))
         self.mix_water.setValue(sv("mix_water",5.2))
         tp=str(data.get("thickening_time","04:30") or "04:30").split(":")
-        try: self.thickening_hours.setValue(int(tp[0])); self.thickening_minutes.setValue(int(tp[1]))
-        except: pass
+        try:
+            self.thickening_hours.setValue(int(tp[0])); self.thickening_minutes.setValue(int(tp[1]))
+        except (IndexError, ValueError):
+            pass
         self.compressive_strength.setValue(sv("compressive_strength",2500)); self.fluid_loss.setValue(sv("fluid_loss"))
         self.cement_volume.setValue(sv("cement_volume")); self.displacement_volume.setValue(sv("displacement_volume"))
         self.top_of_cement.setValue(sv("top_of_cement")); self.bottom_of_cement.setValue(sv("bottom_of_cement"))
@@ -220,7 +224,8 @@ class CementReportTab(QWidget):
             try:
                 ms=json.loads(mj) if isinstance(mj,str) else mj
                 for m in ms: self.add_material_row(m.get("material",""),m.get("type",""),float(m.get("received",0) or 0),float(m.get("consumed",0) or 0),float(m.get("backload",0) or 0),float(m.get("inventory",0) or 0),m.get("unit","kg"))
-            except: pass
+            except (TypeError, ValueError, KeyError, json.JSONDecodeError):
+                pass  # malformed legacy materials JSON — leave table empty
 
     def clear_form(self):
         self.report_name.clear(); self.cement_type.setCurrentIndex(0); self.job_type.setCurrentIndex(0)
@@ -363,8 +368,10 @@ class CasingReportTab(QWidget):
     def load_from_dict(self,data):
         def sv(k,d=0):
             v=data.get(k)
-            try:return float(v) if v is not None else d
-            except:return d
+            try:
+                return float(v) if v is not None else d
+            except (TypeError, ValueError):
+                return d
         self.report_name.setText(str(data.get("report_name","") or ""))
         self.casing_type.setCurrentText(str(data.get("casing_type","") or ""))
         for attr,key in [(self.burst_pressure,"burst_pressure"),(self.collapse_pressure,"collapse_pressure"),(self.tensile_strength,"tensile_strength"),(self.makeup_torque,"makeup_torque"),(self.drift_diameter,"drift_diameter"),(self.internal_yield,"internal_yield"),(self.running_speed,"running_speed"),(self.centralizer_spacing,"centralizer_spacing"),(self.scratcher_spacing,"scratcher_spacing")]:
@@ -566,7 +573,8 @@ class CasingTallyWidget(QWidget):
                         if col==5:tl=v
                         elif col==7:tw=v
                         else:tc=v
-                    except:pass
+                    except (TypeError, ValueError):
+                        pass
         al=tl/inj if inj>0 else 0
         self.stats_labels["total_joints"].setText(str(total));self.stats_labels["total_length"].setText(f"{tl:.2f} m")
         self.stats_labels["total_weight"].setText(f"{tw:.2f} Klbs");self.stats_labels["total_capacity"].setText(f"{tc:.3f} bbl")
@@ -1205,7 +1213,8 @@ class FailureReportTab(QWidget):
         self.report_no.setText(data.get("report_no", ""))
         try:
             self.issue_date.setDate(QDate.fromString(data.get("issue_date", ""), "yyyy-MM-dd"))
-        except: pass
+        except (AttributeError, TypeError):
+            pass
 
         loc = data.get("location_type", "In Site")
         if loc in self.loc_radios:

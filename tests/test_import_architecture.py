@@ -190,7 +190,7 @@ def test_outer_import_rolls_back_after_each_phase(monkeypatch, stage, patch_targ
 
         manager = memory_manager()
         well_id, report_id = seed_report(manager)
-        dialog = object.__new__(ExcelImportDialog)
+        dialog = ExcelImportDialog.__new__(ExcelImportDialog)
         dialog.db = manager
         dialog.well_id = well_id
 

@@ -1915,7 +1915,9 @@ h2 {{ color: #27ae60; border-bottom: 1px solid #d5f5e3; margin-top: 15px; font-s
             with open(path, 'w', encoding='utf-8') as f:
                 f.write(html)
             return True
-        except: return False
+        except OSError as exc:
+            logger.debug("HTML export failed for %s: %s", path, exc)
+            return False
 
     def _save_excel(self, data, path):
         try:
@@ -2171,7 +2173,9 @@ h2 {{ color: #9b59b6; border-bottom: 1px solid #e8daef; margin-top: 15px; font-s
             with open(path, 'w', encoding='utf-8') as f:
                 f.write(html)
             return True
-        except: return False
+        except OSError as exc:
+            logger.debug("HTML export failed for %s: %s", path, exc)
+            return False
 
     def _save_excel(self, data, path):
         try:

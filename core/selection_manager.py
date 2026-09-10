@@ -89,6 +89,30 @@ class SelectionManager(QObject):
 
     # ==================== Selection Methods ====================
 
+    def _ownership_conflict(self, child_data, child_kind: str) -> bool:
+        """Detect a child selection that belongs to a different well.
+
+        A selection context like ``well = A, section = B`` where B belongs to
+        well C is incoherent. When the child payload carries an explicit
+        ``well_id`` that contradicts the currently selected well, the
+        selection is rejected (logged) instead of silently accepted.
+        Payloads without ``well_id`` cannot be checked and pass through —
+        the guard is defensive, not a new API requirement.
+        """
+        if self._well_id is None or not isinstance(child_data, dict):
+            return False
+        child_well = child_data.get("well_id")
+        if child_well is None or child_well == self._well_id:
+            return False
+        logger.warning(
+            "Rejected %s selection %s: belongs to well %s, but well %s is selected",
+            child_kind,
+            child_data.get("id"),
+            child_well,
+            self._well_id,
+        )
+        return True
+
     def select_well(
         self, well_id: int, well_data: dict = None, force: bool = False
     ):
@@ -132,6 +156,8 @@ class SelectionManager(QObject):
             section_data: Section data dict (optional)
             force: Force emit even if same ID
         """
+        if self._ownership_conflict(section_data, "section"):
+            return
         changed = section_id != self._section_id
         data_changed = section_data is not None and section_data != self._section_data
         self._section_id = section_id
@@ -160,6 +186,8 @@ class SelectionManager(QObject):
             report_data: Report data dict (optional)
             force: Force emit even if same ID
         """
+        if self._ownership_conflict(report_data, "report"):
+            return
         changed = report_id != self._report_id
         data_changed = report_data is not None and report_data != self._report_data
         self._report_id = report_id

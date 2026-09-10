@@ -1410,8 +1410,8 @@ class EngineeringCalculatorTab(DrillTabBase):
             if item:
                 try:
                     total += float(item.text())
-                except:
-                    pass
+                except (TypeError, ValueError):
+                    pass  # non-numeric nozzle cell
         self.hy_tfa_label.setText(f"TFA: {total:.4f} in²")
   
     # ========== Collect & Calculate ==========
@@ -1467,7 +1467,7 @@ class EngineeringCalculatorTab(DrillTabBase):
                         name=f"{ptype} ({od:.3f}\")", pipe_type=ptype,
                         od=od, id=id_, length=length, weight_ppf=wt
                     ))
-            except:
+            except (AttributeError, TypeError, ValueError):
                 continue
 
         # Casings from table
@@ -1485,7 +1485,7 @@ class EngineeringCalculatorTab(DrillTabBase):
                         name=ctype, section_type=st, od=od, id=id_,
                         top_md=fr, bottom_md=to
                     ))
-            except:
+            except (AttributeError, TypeError, ValueError):
                 continue
 
         # Nozzles from table
@@ -1496,7 +1496,7 @@ class EngineeringCalculatorTab(DrillTabBase):
                 size = int(size_text.split('/')[0])
                 qty = int(self.hy_nzl_table.item(row, 2).text())
                 e.nozzles.append(BitNozzle(size_32nds=size, quantity=qty))
-            except:
+            except (AttributeError, TypeError, ValueError, IndexError):
                 continue
 
         # Well Profile

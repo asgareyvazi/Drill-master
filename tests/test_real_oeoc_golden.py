@@ -360,7 +360,7 @@ class Test24HTimeLog:
         well_id, section_id, report_id = _seed_well_report(db)
         with _QtStubs():
             from dialogs.excel_import_dialog import ExcelImportDialog
-            dlg = object.__new__(ExcelImportDialog)
+            dlg = ExcelImportDialog.__new__(ExcelImportDialog)
             dlg.db = db
             # Same filtering the dialog applies: drop all-empty rows
             valid = [
@@ -578,7 +578,7 @@ class TestMudExtrasImport:
         report_date = _date.fromisoformat(canonical["daily_report"]["report_date"])
         with _QtStubs():
             from dialogs.excel_import_dialog import ExcelImportDialog
-            dlg = object.__new__(ExcelImportDialog)
+            dlg = ExcelImportDialog.__new__(ExcelImportDialog)
             dlg.db = db
             dlg.well_id = well_id
             dlg._save_mud_report(
@@ -604,7 +604,7 @@ class TestMudExtrasImport:
         report_date = _date.fromisoformat(canonical["daily_report"]["report_date"])
         with _QtStubs():
             from dialogs.excel_import_dialog import ExcelImportDialog
-            dlg = object.__new__(ExcelImportDialog)
+            dlg = ExcelImportDialog.__new__(ExcelImportDialog)
             dlg.db = db
             dlg.well_id = well_id
             dlg._save_mud_report(
@@ -642,7 +642,7 @@ class TestBitRunImport:
         report_date = _date.fromisoformat(canonical["daily_report"]["report_date"])
         with _QtStubs():
             from dialogs.excel_import_dialog import ExcelImportDialog
-            dlg = object.__new__(ExcelImportDialog)
+            dlg = ExcelImportDialog.__new__(ExcelImportDialog)
             dlg.db = db
             dlg.well_id = well_id
             dlg._save_drilling_params(
@@ -733,7 +733,7 @@ class TestRowTablesPersistence:
         well_id, section_id, report_id = _seed_well_report(db)
         with _QtStubs():
             from dialogs.excel_import_dialog import ExcelImportDialog
-            dlg = object.__new__(ExcelImportDialog)
+            dlg = ExcelImportDialog.__new__(ExcelImportDialog)
             dlg.db = db
             dlg.well_id = well_id
             dr = dict(canonical.get("daily_report", {}))
@@ -855,7 +855,7 @@ class TestFullImportPipeline:
 
         with _QtStubs():
             from dialogs.excel_import_dialog import ExcelImportDialog
-            dlg = object.__new__(ExcelImportDialog)
+            dlg = ExcelImportDialog.__new__(ExcelImportDialog)
             dlg.db = manager
             dlg.well_id = None
             result = dlg._do_import(dict(oeoc_report.canonical_json))

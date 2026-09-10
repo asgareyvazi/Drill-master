@@ -975,7 +975,7 @@ class FuelWaterTab(QWidget):
                 try:
                     session.query(BulkMaterials).filter(BulkMaterials.id == int(id_item.text())).delete()
                     session.commit()
-                except:
+                except Exception:
                     session.rollback()
                 finally:
                     session.close()
@@ -1405,7 +1405,7 @@ class TransportLogTab(QWidget):
                 try:
                     session.query(TransportLog).filter(TransportLog.id == int(id_item.text())).delete()
                     session.commit()
-                except:
+                except Exception:
                     session.rollback()
                 finally:
                     session.close()

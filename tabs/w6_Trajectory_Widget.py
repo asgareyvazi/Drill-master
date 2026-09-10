@@ -209,7 +209,7 @@ class TripSheetTab(QWidget):
                 
                 try:
                     time_obj = datetime.strptime(time_str, "%H:%M").time()
-                except:
+                except (TypeError, ValueError):
                     time_obj = datetime.now().time()
                 
                 entry = TripSheetEntry(

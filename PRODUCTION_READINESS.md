@@ -1,9 +1,31 @@
 # Production readiness and final import consistency gate
 
-**Branch:** `arena/01a07094-drill-master`
-**Audit date:** 2026-09-08
-**Release posture:** **NOT MERGE-READY until the available test environment is
-recreated and the required real Windows acceptance is recorded.**
+**Branch:** `arena/01a085e0-drill-master`
+**Audit date:** 2026-09-08 — **re-verified:** 2026-09-09
+(`docs/audits/2026-09-09/` holds the current forensic evidence and acceptance
+table; the sections below retain the 2026-09-08 import-gate results).
+**Release posture:** **NOT MERGE-READY until the required real Windows
+acceptance is recorded.**
+
+## Re-verification 2026-09-09 (summary)
+
+* Full suite, Python 3.11, headless offscreen Qt: **808 passed, 0 failed,
+  4 skipped (opt-in only)** — supersedes the 2026-09-08 count below.
+* P0 defects fixed this session: undefined `CodeResolver` NameError silently
+  dropped NPT contractors; dead tuple-key cache readers in
+  `core/profile_import_engine.py` (workbook code catalog, embedded mud
+  chemicals); two incompatible `ImportValidator` classes; broken `QAction`
+  imports in `core/hierarchy_operations.py` and `core/toolbar_manager.py`
+  (hidden for every recorded headless run by a DISPLAY-based skip); unsafe
+  `object.__new__(QtDialog)` test construction.
+* Well-centric acceptance scenario (one rig, three wells, sidetrack
+  non-merge, DDR continuity, section/well consistency): automated in
+  `tests/test_well_centric_acceptance.py`.
+* CI added: `.github/workflows/ci.yml` (Python 3.10–3.13, compile, ruff
+  defect gate E722/F821, lint-debt ratchet, full suite offscreen). Its first
+  executed result is pending — CI itself is **NOT VERIFIED** until it runs.
+* Still NOT VERIFIED / BLOCKED: Windows GUI, installer, real MinerU/PDF,
+  production database, Python 3.10/3.12/3.13 outside CI.
 
 ## Architecture gate
 
@@ -45,11 +67,13 @@ repository also contains atomicity, schema/alias/bounds, normalizer, unit,
 optional-AI, MinerU failure-mode, security, packaging, and release tests.
 
 A dependency-backed Python 3.11 environment at `/tmp/drill-venv` executed the
-complete suite: **530 passed, 8 skipped, 0 failed/errors** (538 collected),
-plus the real repository workbook audit. The base shell's `pytest` command is
-not installed, and no Python 3.12 runtime, Windows executable, real MinerU
-installation, AZNS-12 asset, or production DB was executed. The pass count is
-therefore Linux/Python-3.11 evidence, not Windows/Python-3.12 acceptance.
+complete suite on 2026-09-08: 530 passed, 8 skipped, 0 failed/errors (538
+collected), plus the real repository workbook audit. **Superseded on
+2026-09-09 by the run recorded at the top of this file.** The base shell's
+`pytest` command is not installed, and no Python 3.12 runtime, Windows
+executable, real MinerU installation, AZNS-12 asset, or production DB was
+executed. The pass count is therefore Linux/Python-3.11 evidence, not
+Windows/Python-3.12 acceptance.
 
 ## Security and packaging
 
