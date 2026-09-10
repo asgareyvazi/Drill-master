@@ -11,12 +11,16 @@ zero semantics) was completed in the prior phase and is unchanged here.
 | Item | Value |
 | --- | --- |
 | Branch | `arena/01a085e0-drill-master` |
-| HEAD (local) | `1e36be3` — "Add blocking CI workflow …" |
-| Prior commit | `5e92732` — "Fix schematic no-fabrication and inventory zero semantics" (recreation of the session-reset-lost `0bdf364`; identical tree) |
+| HEAD (local) | workflow commit — "Add blocking CI workflow …" (single unpushed, blocked commit) |
+| Doc commit | this audit (pushed; on the remote branch) |
+| Zero-semantics commit | `5e92732` — "Fix schematic no-fabrication and inventory zero semantics" (recreation of the session-reset-lost `0bdf364`; identical tree; pushed) |
 | Base | `7936a59` (remote branch head at session start) |
-| Remote branch head | `5e92732` after this phase's push (was `7936a59`) |
+| Remote branch head | this audit's commit after this phase's push (was `7936a59`) |
 | Working tree | clean (`git status` = nothing to commit; `git diff --check` clean) |
-| `.github/workflows/ci.yml` | tracked locally in `1e36be3`; **NOT on remote** (push blocked) |
+| `.github/workflows/ci.yml` | tracked locally in the workflow commit; **NOT on remote** (push blocked by missing `workflows` permission) |
+
+Commit topology (blocking commit kept last so everything else reaches remote):
+`7936a59` → `5e92732` (pushed) → this audit (pushed) → workflow commit (blocked, workflow file).
 
 Session-reset note: local commits do not survive session resets (working
 tree does). `0bdf364`/`7936a59` did not exist as local objects at session
