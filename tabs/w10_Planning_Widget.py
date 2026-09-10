@@ -2283,12 +2283,15 @@ class MaterialInventoryTab(QWidget):
             materials = query.all()
             self.material_table.setRowCount(len(materials))
             for i, m in enumerate(materials):
+                # Unknown stock (None) displays as an em dash, never 0.0.
+                def _fmt(v):
+                    return "—" if v is None else f"{v:.1f}"
                 self.material_table.setItem(i, 0, QTableWidgetItem(m.material_name))
                 self.material_table.setItem(i, 1, QTableWidgetItem(m.unit))
-                self.material_table.setItem(i, 2, QTableWidgetItem(f"{m.initial_stock:.1f}"))
-                self.material_table.setItem(i, 3, QTableWidgetItem(f"{m.received:.1f}"))
-                self.material_table.setItem(i, 4, QTableWidgetItem(f"{m.used:.1f}"))
-                self.material_table.setItem(i, 5, QTableWidgetItem(f"{m.current_stock:.1f}"))
+                self.material_table.setItem(i, 2, QTableWidgetItem(_fmt(m.initial_stock)))
+                self.material_table.setItem(i, 3, QTableWidgetItem(_fmt(m.received)))
+                self.material_table.setItem(i, 4, QTableWidgetItem(_fmt(m.used)))
+                self.material_table.setItem(i, 5, QTableWidgetItem(_fmt(m.current_stock)))
                 self.material_table.setItem(i, 6, QTableWidgetItem(m.updated_at.strftime("%Y-%m-%d") if m.updated_at else ""))
                 self.material_table.setItem(i, 7, QTableWidgetItem(""))
             self.update_chart()
@@ -2321,10 +2324,21 @@ class MaterialInventoryTab(QWidget):
             from core.database import BulkMaterials
             material_name = self.material_table.item(row, 0).text()
             unit = self.material_table.item(row, 1).text()
-            initial = float(self.material_table.item(row, 2).text() or 0)
-            received = float(self.material_table.item(row, 3).text() or 0)
-            used = float(self.material_table.item(row, 4).text() or 0)
-            current = initial + received - used
+
+            def _plan_value(col):
+                # Plan-input trichotomy: empty or "—" = not planned
+                # (None); a typed 0 is an explicit zero.
+                text = self.material_table.item(row, col).text().strip()
+                if text in ("", "—"):
+                    return None
+                return float(text)
+
+            initial = _plan_value(2)
+            received = _plan_value(3) or 0.0
+            used = _plan_value(4) or 0.0
+            current = (
+                initial + received - used if initial is not None else None
+            )
 
             existing = session.query(BulkMaterials).filter(
                 BulkMaterials.well_id == self.current_well_id,

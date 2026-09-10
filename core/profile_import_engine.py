@@ -441,7 +441,10 @@ class ProfileImportEngine:
                         used = self._to_float(cell(row_by_label.get("used", 0), c)) or 0.0
                         received = self._to_float(cell(row_by_label.get("received", 0), c)) or 0.0
                         if initial is not None or used or received:
-                            result["bulk_materials"].append({"material_name": str(name).strip(), "unit": "", "initial_stock": initial or 0.0, "received": received, "used": used, "current_stock": (initial or 0.0) + received - used})
+                            # Missing opening stays None (never 0.0): a
+                            # movement-only row has an unknown opening and
+                            # therefore an unknown closing.
+                            result["bulk_materials"].append({"material_name": str(name).strip(), "unit": "", "initial_stock": initial, "received": received, "used": used, "current_stock": (initial + received - used) if initial is not None else None})
 
             pob_row = find_row("personnel on board")
             if pob_row:
@@ -457,11 +460,16 @@ class ProfileImportEngine:
             # BOP / wellhead table embedded in DDR Data.
             bop_row = find_row("bop stack and well head")
             if bop_row:
-                for r in range(bop_row + 2, min(bop_row + 30, MAX_PROFILE_ROWS)):
-                    name, kind = cell(r, 2), cell(r, 3)
-                    pressure, size = self._to_float(cell(r, 5)), cell(r, 6)
-                    if name and (pressure is not None or size):
-                        result["bop_components"].append({"component_name": str(name), "component_type": str(kind or "BOP"), "working_pressure": pressure or 0.0, "size": str(size or ""), "status": "Operational"})
+                    for r in range(bop_row + 2, min(bop_row + 30, MAX_PROFILE_ROWS)):
+                        name, kind = cell(r, 2), cell(r, 3)
+                        pressure, size = self._to_float(cell(r, 5)), cell(r, 6)
+                        if name and (pressure is not None or size):
+                            # working_pressure: missing stays None — the
+                            # import review gate flags it and the save layer
+                            # skips it (column is NOT NULL). Never 0.0: a
+                            # 0-psi rating would be fabricated engineering
+                            # data and would bypass both guards.
+                            result["bop_components"].append({"component_name": str(name), "component_type": str(kind or "BOP"), "working_pressure": pressure, "size": str(size or ""), "status": "Operational"})
 
             # Previous casing table embedded in the main report sheet.
             casing_row = find_row("previous casing information")
@@ -483,7 +491,9 @@ class ProfileImportEngine:
                 for r in range(cement_row + 2, min(cement_row + 80, MAX_PROFILE_ROWS)):
                     name = cell(r, 14)
                     if name and str(name).strip().lower() not in {"material type", "unit"}:
-                        materials.append({"material": str(name).strip(), "used": self._to_float(cell(r, 16)) or 0.0, "received": self._to_float(cell(r, 17)) or 0.0, "on_hand": self._to_float(cell(r, 18)) or 0.0, "unit": str(cell(r, 19) or "")})
+                        # Stock trichotomy (same as bulk materials): missing
+                        # on_hand stays None — never a fabricated 0.0.
+                        materials.append({"material": str(name).strip(), "used": self._to_float(cell(r, 16)) or 0.0, "received": self._to_float(cell(r, 17)) or 0.0, "on_hand": self._to_float(cell(r, 18)), "unit": str(cell(r, 19) or "")})
                 if materials:
                     result["cement_report"] = {"materials_json": json.dumps(materials, ensure_ascii=False), "report_name": "Imported cement additives"}
 
@@ -604,7 +614,10 @@ class ProfileImportEngine:
                     received = self._to_float(self._sheet_cell(cells, data_row, columns.get("received", 0))) or 0.0
                     stock = self._to_float(self._sheet_cell(cells, data_row, columns.get("stock", 0)))
                     if stock is not None or used or received:
-                        result["bulk_materials"].append({"material_name": str(name).strip(), "unit": str(self._sheet_cell(cells, data_row, columns.get("unit", 0)) or ""), "initial_stock": stock or 0.0, "received": received, "used": used, "current_stock": (stock or 0.0) + received - used, "source_sheet": sheet, "source_row": data_row})
+                        # Missing stock stays None (never 0.0): the row
+                        # records movements only, with unknown opening and
+                        # therefore unknown closing.
+                        result["bulk_materials"].append({"material_name": str(name).strip(), "unit": str(self._sheet_cell(cells, data_row, columns.get("unit", 0)) or ""), "initial_stock": stock, "received": received, "used": used, "current_stock": (stock + received - used) if stock is not None else None, "source_sheet": sheet, "source_row": data_row})
                 return
 
     def _configure_workbook_code_catalog(self):

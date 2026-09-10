@@ -880,10 +880,19 @@ class BulkMaterials(Base):
     report_date = Column(Date, nullable=False)
     material_name = Column(String(100), nullable=False)
     unit = Column(String(50), default="kg")
-    initial_stock = Column(Float, default=0.0)
+    # Trichotomy by design: NULL = opening not reported (missing),
+    # 0.0 = explicitly reported zero stock, value = reported stock.
+    # No client-side default: it coerced explicit None to 0.0 at INSERT,
+    # collapsing missing into zero. (No DDL change: `default` here is
+    # client-side only; the emitted schema stays `FLOAT` nullable.)
+    initial_stock = Column(Float)
+    # received/used absent = no movement (0.0) — established daily-report
+    # convention, distinct from the opening-stock trichotomy.
     received = Column(Float, default=0.0)
     used = Column(Float, default=0.0)
-    current_stock = Column(Float, default=0.0)
+    # NULL = closing unknown (opening was missing and could not be
+    # carried forward); otherwise derived opening + received - used.
+    current_stock = Column(Float)
     created_at = Column(DateTime, default=_now_utc)
     updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc)
     created_by = Column(Integer, ForeignKey("users.id"))
@@ -3858,8 +3867,19 @@ class DatabaseManager:
                             b["current_stock"] = init + recv + adj - used - ret
                         valid_keys = {c.name for c in BulkMaterials.__table__.columns}
                         filtered = {k: v for k, v in b.items() if k in valid_keys and k != "id"}
-                        # Prevent negative stock - will be flagged but allow save, then warning
-                        session.add(BulkMaterials(**filtered))
+                        # Re-import of the same report must upsert, never
+                        # duplicate, the material rows it owns.
+                        existing_bulk = session.query(BulkMaterials).filter(
+                            BulkMaterials.report_id == report_id,
+                            BulkMaterials.material_name == b["material_name"],
+                        ).first()
+                        if existing_bulk:
+                            for key, value in filtered.items():
+                                if key not in ("id", "well_id", "report_id"):
+                                    setattr(existing_bulk, key, value)
+                            existing_bulk.updated_at = _now_utc()
+                        else:
+                            session.add(BulkMaterials(**filtered))
                         saved += 1
                     count("bulk_materials", saved)
 
@@ -5634,22 +5654,48 @@ class DatabaseManager:
                 for key, value in material_data.items():
                     if hasattr(existing, key) and key not in ['id', 'well_id', 'report_date', 'report_id']:
                         setattr(existing, key, value)
-                existing.current_stock = existing.initial_stock + existing.received - existing.used
+                # Closing stays unknown (NULL) when the opening is
+                # unknown; never fabricated from a synthetic 0.
+                if existing.initial_stock is None:
+                    existing.current_stock = None
+                else:
+                    existing.current_stock = (
+                        (existing.initial_stock or 0.0)
+                        + (existing.received or 0.0)
+                        - (existing.used or 0.0)
+                    )
                 existing.updated_at = _now_utc()
                 record_id = existing.id
             else:
-                initial_stock = float(material_data.get("initial_stock", 0.0) or 0.0)
+                # Opening trichotomy: explicit value (incl. 0.0) is a
+                # fact and is preserved; missing (None) may be carried
+                # forward from the previous closing — never the other
+                # way around. Carry-forward NEVER overwrites a supplied
+                # opening, whatever its value.
+                initial_raw = material_data.get("initial_stock")
+                initial_stock = (
+                    float(initial_raw) if initial_raw is not None else None
+                )
                 received = float(material_data.get("received", 0.0) or 0.0)
                 used = float(material_data.get("used", 0.0) or 0.0)
-                if material_data.get("carry_forward", True) and material_data.get("well_id") and material_data.get("report_date"):
+                if (
+                    initial_stock is None
+                    and material_data.get("carry_forward", True)
+                    and material_data.get("well_id")
+                    and material_data.get("report_date")
+                ):
                     previous = session.query(BulkMaterials).filter(
                         BulkMaterials.well_id == material_data["well_id"],
                         BulkMaterials.material_name == material_data["material_name"],
                         BulkMaterials.report_date < material_data["report_date"],
                     ).order_by(BulkMaterials.report_date.desc()).first()
-                    if previous:
+                    if previous and previous.current_stock is not None:
                         initial_stock = previous.current_stock
-                current_stock = initial_stock + received - used
+                current_stock = (
+                    initial_stock + received - used
+                    if initial_stock is not None
+                    else None
+                )
                 material = BulkMaterials(
                     well_id=material_data["well_id"],
                     section_id=material_data.get("section_id"),

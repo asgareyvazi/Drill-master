@@ -38,11 +38,15 @@ the `DISPLAY` environment variable, which hid real failures — including a
 broken `QAction` import and a phantom `validate_rows` import discovered on
 2026-09-09. Do not reintroduce DISPLAY-based skips.
 
-### Latest verified run (2026-09-09, Python 3.11, sandbox with Qt stubs)
+### Latest verified run (2026-09-10, Python 3.11, sandbox with Qt stubs)
 
 ```text
-Collected: 812   Passed: 808   Failed: 0   Errors: 0   Skipped: 4   XFailed: 0   XPassed: 0
+Collected: 848   Passed: 844   Failed: 0   Errors: 0   Skipped: 4   XFailed: 0   XPassed: 0
 ```
+
+(The 2026-09-09 baseline before the zero-semantics phase was 812 collected /
+808 passed / 4 skipped — the +32 tests are the schematic no-fabrication and
+inventory zero-semantics suites below.)
 
 The 4 skips are legitimate opt-ins (real DDR workbook/PDF paths, MinerU
 integration input, Windows bundle). This number is evidence for that run only —
@@ -50,6 +54,17 @@ re-run the suite before quoting any count. No Python 3.12/3.13 local run,
 Windows GUI/package, real MinerU/PDF, or production-DB result is claimed from
 this environment; the CI workflow (`.github/workflows/ci.yml`) exercises
 Python 3.10–3.13 on GitHub runners.
+
+### Raster rendering tests and the QApplication singleton
+
+`test_schematic_no_fabrication.py` renders schematics through the REAL
+`WellboreSchematicRenderer` in a **subprocess**. Reason:
+`test_autosave_manager_regression.py` creates a `QCoreApplication` singleton;
+after that test, a `QApplication` cannot be constructed in-process (Qt:
+"Please destroy the QCoreApplication singleton before creating a new
+QApplication instance"), and `QPixmap`/`QFont` fatally abort without one.
+The subprocess runs the unmodified production renderer with real
+`QPainter`/`QPixmap` — process isolation, not a skip and not a stub.
 
 ## 2. Real DDR acceptance
 
@@ -103,6 +118,8 @@ being converted into a synthetic PASS.
 | Security | permissions, path/config, shell-free subprocess and secret-handling tests |
 | Packaging/release | packaging smoke, release gate, version/spec/asset checks |
 | Weak assertions | release gate and source-audit checks; acceptance tests assert persisted values/provenance rather than only non-crash |
+| Schematic no-fabrication | `test_schematic_no_fabrication.py`: empty well → no invented TD/GL/KB/casings; explicit zero survives; partial source shows only known facts; string casing sizes parsed exactly; existing saved schematic rows never overwritten by fabricated content; repeated generation deterministic; real raster render of unknown states (subprocess — see above) |
+| Inventory zero≠missing | `test_inventory_zero_semantics.py`: explicit-zero/missing/nonzero openings stay distinct through the save path, the mud ledger, import extraction, atomic import persistence and re-import (upsert, no duplicates); carry-forward applies only to genuinely missing openings |
 
 ## 4. Review/UI contract checks
 

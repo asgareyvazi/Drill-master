@@ -19,9 +19,16 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class LedgerEntry:
+    """One material row for one report date.
+
+    opening_stock trichotomy: None = opening not reported (missing),
+    0.0 = explicitly reported zero stock, value = reported stock.
+    An unknown opening propagates to an unknown closing (None) —
+    it is never silently replaced by 0.
+    """
     date: date
     material_name: str
-    opening_stock: float = 0.0
+    opening_stock: Optional[float] = None
     received: float = 0.0
     used: float = 0.0
     returned: float = 0.0
@@ -31,7 +38,9 @@ class LedgerEntry:
     report_id: Optional[int] = None
 
     @property
-    def closing_stock(self) -> float:
+    def closing_stock(self) -> Optional[float]:
+        if self.opening_stock is None:
+            return None
         return self.opening_stock + self.received + self.adjusted - self.used - self.returned
 
     def to_dict(self):
@@ -71,18 +80,21 @@ class MudChemicalLedger:
 
             for r in rows:
                 mat = r.material_name
-                # Opening should be previous closing if not explicitly stored
+                # Opening trichotomy: the stored value is authoritative.
+                # None = not reported; 0.0 = explicit zero stock (a real
+                # fact that must NOT be "carried forward" away).
                 opening = r.initial_stock
-                if mat in last_closing_by_material and opening == 0:
-                    # If opening is 0 but previous closing exists, use it (carry_forward)
-                    # But only if no received/used - indicates missing opening
-                    if r.received == 0 and r.used == 0:
-                        opening = last_closing_by_material[mat]
+                # Carry-forward is a fallback for MISSING opening data
+                # only — never a replacement for an explicit value.
+                if opening is None:
+                    previous_closing = last_closing_by_material.get(mat)
+                    if previous_closing is not None:
+                        opening = previous_closing
 
                 entry = LedgerEntry(
                     date=r.report_date,
                     material_name=mat,
-                    opening_stock=float(opening or 0),
+                    opening_stock=opening,
                     received=float(r.received or 0),
                     used=float(r.used or 0),
                     returned=0.0,  # Not yet in BulkMaterials model, future
@@ -124,6 +136,10 @@ class MudChemicalLedger:
 
             for entry in mats_sorted:
                 closing = entry.closing_stock
+
+                # Unknown opening/closing: no stock judgment is possible.
+                if closing is None or entry.opening_stock is None:
+                    continue
 
                 # Negative Stock
                 if closing < 0:

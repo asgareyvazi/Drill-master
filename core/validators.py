@@ -391,17 +391,22 @@ class BulkValidator:
                 r.add_warning(f"bulk[{idx}].material_name", f"Duplicate material: {name}")
             seen_names.add(name)
 
-            # Stock checks
+            # Stock checks — trichotomy-aware: a missing opening (None)
+            # or missing closing cannot be cross-checked against 0.
             try:
-                initial = float(m.get("initial_stock", 0) or 0)
+                initial_raw = m.get("initial_stock")
                 received = float(m.get("received", 0) or 0)
                 used = float(m.get("used", 0) or 0)
-                current = float(m.get("current_stock", 0) or 0)
-                expected = initial + received - used
-                if abs(current - expected) > 0.01 and current != 0:
-                    r.add_warning(f"bulk[{idx}].current_stock", f"Stock mismatch: {current} != {initial}+{received}-{used}={expected}")
-                if current < 0:
-                    r.add_error(f"bulk[{idx}].current_stock", f"Negative stock: {current}")
+                current_raw = m.get("current_stock")
+                if current_raw is not None:
+                    current = float(current_raw)
+                    if current < 0:
+                        r.add_error(f"bulk[{idx}].current_stock", f"Negative stock: {current}")
+                    if initial_raw is not None:
+                        initial = float(initial_raw)
+                        expected = initial + received - used
+                        if abs(current - expected) > 0.01 and current != 0:
+                            r.add_warning(f"bulk[{idx}].current_stock", f"Stock mismatch: {current} != {initial}+{received}-{used}={expected}")
             except (TypeError, ValueError):
                 r.add_error(f"bulk[{idx}]", "Stock values must be numeric")
 

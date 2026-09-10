@@ -1023,6 +1023,17 @@ class FuelWaterTab(QWidget):
                 # خواندن id اگر موجود باشد
                 id_item = self.bulk_table.item(row, 0)
                 
+                # Opening trichotomy at the UI boundary: an EMPTY cell is
+                # "not reported" (None) — carry-forward/unknown downstream.
+                # A typed 0 is an explicit zero and is preserved exactly.
+                def _cell_float(item, default=0.0):
+                    if item is None:
+                        return default
+                    text = item.text().strip()
+                    if not text:
+                        return default
+                    return float(text)
+
                 material_data = {
                     "well_id": self.current_well_id,
                     "section_id": self.current_section_id,
@@ -1030,9 +1041,9 @@ class FuelWaterTab(QWidget):
                     "report_date": self.report_date.date().toPython(),
                     "material_name": material_item.text().strip(),
                     "unit": unit_item.text().strip() if unit_item else "kg",
-                    "initial_stock": float(initial_item.text() or 0) if initial_item else 0.0,
-                    "received": float(received_item.text() or 0) if received_item else 0.0,
-                    "used": float(used_item.text() or 0) if used_item else 0.0,
+                    "initial_stock": _cell_float(initial_item, default=None),
+                    "received": _cell_float(received_item),
+                    "used": _cell_float(used_item),
                 }
                 
                 if id_item and id_item.text().strip():
@@ -1072,14 +1083,18 @@ class FuelWaterTab(QWidget):
             for item in materials_data:
                 row = self.bulk_table.rowCount()
                 self.bulk_table.insertRow(row)
+                def _fmt_stock(value):
+                    # Unknown stock displays as an em dash, never as 0.0.
+                    return "—" if value is None else f"{value:.1f}"
+
                 values = [
                     str(item["id"]),
                     item.get("material_name", ""),
                     item.get("unit", "kg"),
-                    f"{item.get('initial_stock', 0):.1f}",
-                    f"{item.get('received', 0):.1f}",
-                    f"{item.get('used', 0):.1f}",
-                    f"{item.get('current_stock', 0):.1f}",
+                    _fmt_stock(item.get("initial_stock")),
+                    _fmt_stock(item.get("received", 0)),
+                    _fmt_stock(item.get("used", 0)),
+                    _fmt_stock(item.get("current_stock")),
                     ""
                 ]
                 for col, value in enumerate(values):
