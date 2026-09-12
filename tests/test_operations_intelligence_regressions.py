@@ -81,3 +81,92 @@ def test_operations_intelligence_uses_current_drilling_parameters_schema():
     assert result["kpis"]["wob_trend"] == [15.0]
     assert result["kpis"]["torque_trend"] == [120.0]
     assert result["kpis"]["rpm_trend"] == [90.0]
+
+
+from datetime import time as _time
+
+from core.database import DailyReport as _DailyReport, TimeLog24H, Well as _Well
+
+
+def _manager_empty_well():
+    """A well with one daily report but no time logs and no drilling params.
+
+    ROP, NPT% and productive time are therefore genuinely unknown.
+    """
+    manager, existing_well_id = _manager_with_report()
+    session = manager.create_session()
+    try:
+        project_id = session.get(_Well, existing_well_id).project_id
+        well = _Well(name="Unknown Metrics Well", code="OI-EMPTY", project_id=project_id)
+        session.add(well)
+        session.flush()
+        session.add(
+            _DailyReport(
+                well_id=well.id,
+                report_number=1,
+                report_date=date(2025, 10, 28),
+                depth_2400=500.0,
+            )
+        )
+        session.commit()
+        well_id = well.id
+    finally:
+        session.close()
+    return manager, well_id
+
+
+def test_unknown_rop_and_npt_are_none_not_fabricated_zero():
+    """KPI-01 regression: absent source data yields None (unknown), not 0.0.
+
+    Reporting 0.0 m/hr ROP or 0% NPT for a well with no time logs / no
+    drilling parameters asserts a false fact. Unknown must stay unknown, the
+    same no-fabrication contract already applied to cost_per_meter.
+    """
+    manager, well_id = _manager_empty_well()
+    kpis = OperationsIntelligenceService(manager).analyze_well(well_id)["kpis"]
+
+    assert kpis["average_rop"] is None
+    assert kpis["npt_percent"] is None
+    assert kpis["productive_hours"] is None
+    # Unknown NPT must not fabricate an NPT insight, and analysis must not crash.
+    assert "error" not in kpis
+    # cost stays None too (no cost records) — unchanged behaviour.
+    assert kpis["cost_per_meter"] is None
+
+
+def test_known_rop_and_npt_are_computed():
+    """With time logs and ROP present, real values are still reported."""
+    manager, existing_well_id = _manager_with_report()
+    session = manager.create_session()
+    try:
+        project_id = session.get(_Well, existing_well_id).project_id
+        well = _Well(name="Known Metrics Well", code="OI-KNOWN", project_id=project_id)
+        session.add(well)
+        session.flush()
+        report = _DailyReport(
+            well_id=well.id, report_number=1,
+            report_date=date(2025, 10, 29), depth_2400=800.0,
+        )
+        session.add(report)
+        session.flush()
+        session.add(TimeLog24H(
+            report_id=report.id, time_from=_time(0), time_to=_time(18),
+            duration=18.0, is_npt=False,
+        ))
+        session.add(TimeLog24H(
+            report_id=report.id, time_from=_time(18), time_to=_time(23, 59),
+            duration=6.0, is_npt=True,
+        ))
+        session.add(DrillingParameters(
+            well_id=well.id, report_id=report.id,
+            report_date=report.report_date, avg_rop=15.0,
+        ))
+        session.commit()
+        well_id = well.id
+    finally:
+        session.close()
+
+    kpis = OperationsIntelligenceService(manager).analyze_well(well_id)["kpis"]
+    assert kpis["average_rop"] == 15.0
+    assert kpis["npt_percent"] == 25.0  # 6 of 24 hours
+    assert kpis["productive_hours"] == 18.0

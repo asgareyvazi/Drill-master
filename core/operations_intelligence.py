@@ -73,12 +73,18 @@ class OperationsIntelligenceService:
             torques = _range_series(params, "torque_min", "torque_max")
             rpms = _range_series(params, "rpm_min", "rpm_max")
 
-            # KPIs professional
+            # KPIs professional. Rate/percentage metrics are reported as
+            # ``None`` ("unknown") when their source data is absent, never as a
+            # fabricated 0.0: a well with no drilling-parameter ROP has an
+            # unknown average ROP, and a well with no recorded time has an
+            # unknown NPT percentage and unknown productive time. Reporting 0.0
+            # would assert a false fact (0 m/hr ROP, 0% NPT) — the same
+            # no-fabrication contract already applied to cost below.
             current_depth = max(depths, default=0.0)
             daily_progress = depths[-1] - depths[-2] if len(depths) >= 2 else 0
-            avg_rop = round(sum(rops) / len(rops), 2) if rops else 0.0
-            npt_percent = round(npt_hours / total_hours * 100, 2) if total_hours else 0.0
-            productive_hours = round(total_hours - npt_hours, 2)
+            avg_rop = round(sum(rops) / len(rops), 2) if rops else None
+            npt_percent = round(npt_hours / total_hours * 100, 2) if total_hours else None
+            productive_hours = round(total_hours - npt_hours, 2) if total_hours else None
             rig_days = len(reports)
 
             # Cost per meter is reported only from stored cost records.
@@ -160,7 +166,10 @@ class OperationsIntelligenceService:
                 )
 
             # NPT
-            npt_insight = OperationsIntelligenceEngine.analyze_npt_trend(npt_percent, threshold=20.0)
+            npt_insight = (
+                OperationsIntelligenceEngine.analyze_npt_trend(npt_percent, threshold=20.0)
+                if npt_percent is not None else None
+            )
             if npt_insight:
                 insights.append(
                     Insight(
@@ -297,7 +306,7 @@ class OperationsIntelligenceService:
             if len(rops) >= 7 and len(torques) >= 7:
                 rop_decline = (rops[0] - rops[-1]) / rops[0] * 100 if rops[0] else 0
                 torque_inc = (torques[-1] - torques[0]) / torques[0] * 100 if torques[0] else 0
-                if rop_decline >= 18 and torque_inc > 10 and npt_percent > 15:
+                if rop_decline >= 18 and torque_inc > 10 and npt_percent is not None and npt_percent > 15:
                     insights.append(
                         Insight(
                             kind="hole_condition_pattern",
