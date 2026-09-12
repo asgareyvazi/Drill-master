@@ -178,7 +178,7 @@ Production:
 * `core/operations_intelligence.py` — additive Well-scope `weighted_rop` KPIs.
 
 Tests:
-* `tests/test_weighted_rop.py` — 23 new tests (engine matrix + Well-scope
+* `tests/test_weighted_rop.py` — 19 new tests (engine matrix + Well-scope
   integration).
 
 Docs:

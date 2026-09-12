@@ -344,3 +344,138 @@ class OperationsIntelligenceService:
             return {"kpis": {"reports": 0, "error": str(exc)}, "insights": []}
         finally:
             session.close()
+
+    # ------------------------------------------------------------------
+    # Wellbore- and Section-scoped performance rollups
+    # ------------------------------------------------------------------
+    def analyze_wellbore(self, wellbore_id: int) -> Dict:
+        """Performance KPIs for ONE wellbore (canonical ``wellbore_id``).
+
+        Scope is resolved through the report ownership chain
+        (``DrillingParameters.report_id`` / ``TimeLog24H.report_id`` →
+        ``DailyReport.wellbore_id``), never by rig or free-text name. Reports
+        whose ``wellbore_id`` is NULL ("unknown") are not attributed to any
+        wellbore. Cross-well / cross-wellbore leakage is impossible because the
+        persistence layer already enforces ownership integrity on write.
+        """
+        return self._analyze_scope("wellbore_id", wellbore_id)
+
+    def analyze_section(self, section_id: int) -> Dict:
+        """Performance KPIs for ONE hole section (canonical ``section_id``).
+
+        Same ownership-chain scoping as :meth:`analyze_wellbore` but keyed on
+        ``DailyReport.section_id``; reports with a NULL ``section_id`` are not
+        attributed to any section.
+        """
+        return self._analyze_scope("section_id", section_id)
+
+    def _analyze_scope(self, scope_field: str, scope_id: int) -> Dict:
+        """Shared engine for wellbore/section performance rollups.
+
+        ``scope_field`` is the canonical ``DailyReport`` FK column name
+        (``"wellbore_id"`` or ``"section_id"``). Footage/hours use the canonical
+        paired-observation weighted ROP; time/NPT are aggregated from time logs
+        independently of drilling parameters (no multiplying join). Every rate
+        or percentage is ``None`` ("unknown") when its source data is absent,
+        never a fabricated 0.
+        """
+        from core.database import DailyReport, TimeLog24H, DrillingParameters
+        from core.engineering.engines.bit_performance import BitPerformanceEngine
+
+        if scope_field not in ("wellbore_id", "section_id"):
+            raise ValueError(f"unsupported scope field: {scope_field!r}")
+        scope_col = getattr(DailyReport, scope_field)
+
+        session = self.db.create_session()
+        try:
+            reports = (
+                session.query(DailyReport)
+                .filter(scope_col == scope_id)
+                .order_by(DailyReport.report_date)
+                .all()
+            )
+            if not reports:
+                return {
+                    "scope": scope_field.replace("_id", ""),
+                    "scope_id": scope_id,
+                    "kpis": {"reports": 0},
+                    "insights": [],
+                }
+
+            # Drilling parameters for this scope, via the report ownership chain.
+            params = (
+                session.query(DrillingParameters)
+                .join(DailyReport, DrillingParameters.report_id == DailyReport.id)
+                .filter(scope_col == scope_id)
+                .order_by(DrillingParameters.report_date)
+                .all()
+            )
+            # Time logs for this scope — aggregated separately so BHA/Bit/cost
+            # multiplicity can never inflate hours (no cross join).
+            logs = (
+                session.query(TimeLog24H)
+                .join(DailyReport, TimeLog24H.report_id == DailyReport.id)
+                .filter(scope_col == scope_id)
+                .all()
+            )
+
+            total_hours = sum(float(item.duration or 0) for item in logs)
+            npt_hours = sum(
+                float(item.duration or 0) for item in logs if item.is_npt
+            )
+            depths = [
+                float(r.depth_2400)
+                for r in reports
+                if r.depth_2400 is not None
+            ]
+            current_depth = max(depths, default=0.0)
+
+            weighted = BitPerformanceEngine.weighted_rop(params)
+
+            # avg_rop here is the mean of stored per-DDR avg_rop within scope —
+            # the same daily-average semantic used at Well level, kept DISTINCT
+            # from footage-weighted ROP.
+            rops = [
+                float(p.avg_rop) for p in params if p.avg_rop is not None
+            ]
+            avg_rop = round(sum(rops) / len(rops), 2) if rops else None
+
+            npt_percent = (
+                round(npt_hours / total_hours * 100, 2) if total_hours else None
+            )
+            productive_hours = (
+                round(total_hours - npt_hours, 2) if total_hours else None
+            )
+
+            kpis = {
+                "reports": len(reports),
+                "current_depth": current_depth,
+                "average_rop": avg_rop,
+                "weighted_rop": weighted.value,
+                "weighted_rop_footage": weighted.values.get("total_footage"),
+                "weighted_rop_hours": weighted.values.get("total_hours"),
+                "weighted_rop_valid_pairs": weighted.values.get("valid_pairs"),
+                "total_hours": round(total_hours, 2) if logs else None,
+                "npt_hours": round(npt_hours, 2) if logs else None,
+                "npt_percent": npt_percent,
+                "productive_hours": productive_hours,
+            }
+            return {
+                "scope": scope_field.replace("_id", ""),
+                "scope_id": scope_id,
+                "kpis": kpis,
+                "insights": [],
+            }
+        except Exception as exc:
+            logger.error(
+                f"Scope intelligence failed ({scope_field}={scope_id}): {exc}",
+                exc_info=True,
+            )
+            return {
+                "scope": scope_field.replace("_id", ""),
+                "scope_id": scope_id,
+                "kpis": {"reports": 0, "error": str(exc)},
+                "insights": [],
+            }
+        finally:
+            session.close()

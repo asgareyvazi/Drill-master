@@ -791,6 +791,16 @@ class EOWRReportEngine:
                 if rops:
                     avg_rop = sum(rops) / len(rops)
 
+                # Footage-weighted ROP via the canonical engine — computed from
+                # the SAME valid paired observations, NOT recalculated here and
+                # NOT a mean of per-day rates. Distinct from ``avg_rop`` above.
+                from core.engineering.engines.bit_performance import (
+                    BitPerformanceEngine,
+                )
+                weighted_rop = BitPerformanceEngine.weighted_rop(
+                    drilling_params
+                ).value
+
                 total_cost = (
                     sum(float(c.actual_cost or 0) for c in cost_records)
                     if cost_records else None
@@ -820,6 +830,7 @@ class EOWRReportEngine:
                         "total_reports": total_reports,
                         "final_depth": final_depth,
                         "avg_rop": avg_rop,
+                        "weighted_rop": weighted_rop,
                         "total_npt": total_npt,
                         "npt_pct": npt_pct,
                         "total_cost": total_cost,
@@ -842,6 +853,7 @@ class EOWRReportEngine:
         s.setdefault("total_reports", 0)
         s.setdefault("final_depth", None)
         s.setdefault("avg_rop", None)
+        s.setdefault("weighted_rop", None)
         s.setdefault("total_npt", None)
         s.setdefault("npt_pct", None)
         s.setdefault("total_cost", None)
@@ -1010,6 +1022,10 @@ h3 {{
     <div class="kpi-box">
         <div class="kpi-value">{fmt_num(s.get("avg_rop", 0), 1, default=None)}</div>
         <div class="kpi-label">Average ROP (m/hr)</div>
+    </div>
+    <div class="kpi-box">
+        <div class="kpi-value">{fmt_num(s.get("weighted_rop"), 1, default=None)}</div>
+        <div class="kpi-label">Footage-Weighted ROP (m/hr)</div>
     </div>
     <div class="kpi-box">
         <div class="kpi-value">{fmt_num(s.get("total_npt", 0), 1, default=None)} h</div>
