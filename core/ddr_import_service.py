@@ -321,6 +321,36 @@ class DDRImportService:
                 if self.db.save_well(wi_save, session=session):
                     results["details"].append(f"✅ Well Info: {len(wi)} fields (identity resolved via universal aliases)")
 
+            # Wellbore (Schema v3) — attribute ONLY when the source explicitly
+            # names one. No wellbore is invented from a rig, a well name, or a
+            # section: an ambiguous DDR leaves wellbore_id = NULL ("unknown"),
+            # preserving uncertainty over fabricating certainty. A sidetrack
+            # name is a distinct wellbore and is never merged into its parent.
+            stage = "wellbore"
+            wellbore_id = None
+            wellbore_name = self._safe_text(
+                wi.get("wellbore_name") or wi.get("wellbore"), ""
+            )
+            if wellbore_name:
+                wellbore_type = (
+                    "sidetrack"
+                    if self._safe_text(wi.get("wellbore_type"), "").lower()
+                    == "sidetrack"
+                    else "original"
+                )
+                wellbore_id = self.db.get_or_create_wellbore(
+                    self.well_id,
+                    wellbore_name,
+                    session=session,
+                    wellbore_type=wellbore_type,
+                )
+                if wellbore_id:
+                    results["wellbore_id"] = wellbore_id
+                    results["details"].append(
+                        f"✅ Wellbore '{wellbore_name}' resolved "
+                        f"(identity: well + wellbore name)"
+                    )
+
             # Section
             stage = "section"
             section_name = self._safe_text(wi.get("section_name"), "Imported Section")
@@ -333,12 +363,18 @@ class DDRImportService:
 
             if existing:
                 section_id = existing.id
+                # Backfill wellbore_id only when we now have a deterministic
+                # attribution and the section had none — never overwrite an
+                # existing, possibly different, wellbore assignment.
+                if wellbore_id and existing.wellbore_id is None:
+                    existing.wellbore_id = wellbore_id
             else:
                 dr_data = extracted.get("daily_report", {})
                 depth_from = ValueNormalizer.to_float(dr_data.get("depth_0000"))
                 depth_to = ValueNormalizer.to_float(dr_data.get("depth_2400"))
                 new_section = Section(
                     well_id=self.well_id,
+                    wellbore_id=wellbore_id,
                     name=section_name,
                     code=self._safe_text(wi.get("section_code"), ""),
                     depth_from=depth_from,
@@ -369,6 +405,10 @@ class DDRImportService:
             dr = dict(extracted.get("daily_report", {}))
             dr["well_id"] = self.well_id
             dr["section_id"] = section_id
+            # Carry the deterministically-resolved wellbore onto the report;
+            # stays absent (NULL) when the source did not name a wellbore.
+            if wellbore_id:
+                dr["wellbore_id"] = wellbore_id
             raw_report_date = dr.get("report_date") or wi.get("report_date")
             if raw_report_date in (None, ""):
                 results["validation_errors"] += 1

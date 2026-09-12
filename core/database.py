@@ -226,6 +226,9 @@ class Well(Base):
     updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc)
 
     project = relationship("Project", back_populates="wells")
+    wellbores = relationship(
+        "Wellbore", back_populates="well", cascade="all, delete-orphan"
+    )
     sections = relationship(
         "Section", back_populates="well", cascade="all, delete-orphan"
     )
@@ -234,11 +237,67 @@ class Well(Base):
     )
 
 
+class Wellbore(Base):
+    """A physical drilling path within a Well (Schema v3 foundation).
+
+    Identity rules (see docs/audits/2026-09-12_WELLBORE_SCHEMA_V3.md):
+
+    * A Wellbore has an immutable integer primary key and a stable ``well_id``
+      foreign key. It never changes identity because the rig, the display
+      name, or the daily-report source name changes.
+    * ``wellbore_type`` is structural, not an engineering measurement: an
+      ``"original"`` hole is the default single bore; a ``"sidetrack"`` is a
+      distinct bore that preserves lineage to its parent via
+      ``parent_wellbore_id``. A sidetrack is NOT a new Well.
+    * Physical facts remain honest: ``kickoff_md`` is nullable — unknown stays
+      unknown, and an explicit 0 is a real value, never invented.
+    """
+
+    __tablename__ = "wellbores"
+
+    id = Column(Integer, primary_key=True)
+    well_id = Column(
+        Integer, ForeignKey("wells.id", ondelete="CASCADE"), nullable=False
+    )
+    name = Column(String(100), nullable=False)
+    code = Column(String(50))
+    # "original" (default single bore) or "sidetrack" (branch with lineage).
+    wellbore_type = Column(String(30), nullable=False, default="original")
+    # Sidetrack lineage: the wellbore this one branched from (NULL = root).
+    parent_wellbore_id = Column(
+        Integer, ForeignKey("wellbores.id", ondelete="SET NULL"), nullable=True
+    )
+    # Kick-off measured depth for a sidetrack; NULL when unknown, never 0-by-default.
+    kickoff_md = Column(Float)
+    status = Column(String(50), default="Active")
+    created_at = Column(DateTime, default=_now_utc)
+    updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc)
+
+    well = relationship("Well", back_populates="wellbores")
+    parent = relationship(
+        "Wellbore", remote_side=[id], backref="sidetracks"
+    )
+    sections = relationship(
+        "Section", back_populates="wellbore", foreign_keys="Section.wellbore_id"
+    )
+    daily_reports = relationship(
+        "DailyReport",
+        back_populates="wellbore",
+        foreign_keys="DailyReport.wellbore_id",
+    )
+
+
 class Section(Base):
     __tablename__ = "sections"
 
     id = Column(Integer, primary_key=True)
     well_id = Column(Integer, ForeignKey("wells.id", ondelete="CASCADE"), nullable=False)
+    # Schema v3: a section belongs to a specific wellbore. Nullable for
+    # backward compatibility — historical rows and rows whose wellbore cannot
+    # be deterministically attributed stay NULL ("unknown"), never fabricated.
+    wellbore_id = Column(
+        Integer, ForeignKey("wellbores.id", ondelete="SET NULL"), nullable=True
+    )
     name = Column(String(100), nullable=False)
     code = Column(String(50))
     depth_from = Column(Float, default=0.0)
@@ -253,6 +312,9 @@ class Section(Base):
     updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc)
 
     well = relationship("Well", back_populates="sections")
+    wellbore = relationship(
+        "Wellbore", back_populates="sections", foreign_keys=[wellbore_id]
+    )
     daily_reports = relationship("DailyReport", back_populates="section", cascade="all, delete-orphan")
 
 class DailyReport(Base):
@@ -264,6 +326,12 @@ class DailyReport(Base):
     )
     section_id = Column(
         Integer, ForeignKey("sections.id", ondelete="CASCADE"), nullable=True
+    )
+    # Schema v3: the wellbore this report was recorded against. Nullable for
+    # backward compatibility — a report whose wellbore cannot be deterministically
+    # resolved stays NULL ("unknown"), never guessed from rig or free text.
+    wellbore_id = Column(
+        Integer, ForeignKey("wellbores.id", ondelete="SET NULL"), nullable=True
     )
     report_date = Column(Date, nullable=False)
     report_number = Column(Integer, default=1)
@@ -292,6 +360,9 @@ class DailyReport(Base):
 
     well = relationship("Well", back_populates="daily_reports")
     section = relationship("Section", back_populates="daily_reports")
+    wellbore = relationship(
+        "Wellbore", back_populates="daily_reports", foreign_keys=[wellbore_id]
+    )
     creator = relationship("User", foreign_keys=[created_by])
     time_logs_24h = relationship(
         "TimeLog24H", back_populates="report", cascade="all, delete-orphan"
@@ -1720,7 +1791,11 @@ class DatabaseManager:
         self.engine = None
         self.Session = None
         self.last_diagnostic = None
-        self.schema_version = 2
+        # v3 adds the Wellbore entity plus nullable sections.wellbore_id and
+        # daily_reports.wellbore_id. The wellbores table is created by the
+        # generic "missing table" step; the two columns are added by the
+        # explicit v2->v3 upgrade block in _apply_safe_schema_upgrades.
+        self.schema_version = 3
 
         # Mutable database state belongs in the OS user-data directory, not
         # beside the installed package. Tests and operators can override this
@@ -2101,9 +2176,9 @@ class DatabaseManager:
         """Fail closed before any report-scoped import write.
 
         Isolated in-memory test engines historically build ``Base.metadata``
-        directly.  They receive an explicit v2 marker here, while file-backed
-        databases without a migrated marker fail closed and must go through
-        ``initialize()``.
+        directly.  They receive an explicit current-``schema_version`` marker
+        here, while file-backed databases without a migrated marker fail closed
+        and must go through ``initialize()``.
         """
         self._reject_future_schema()
         raw = self.engine.raw_connection()
@@ -2207,6 +2282,33 @@ class DatabaseManager:
                     ("wells", "drilling_engineer", "VARCHAR(100)"),
                 ]
                 for table_name, column_name, ddl_type in upgrades:
+                    if not self._raw_table_exists(raw, table_name):
+                        continue
+                    columns = {
+                        row[1] for row in raw.execute(
+                            f"PRAGMA table_info({self._quote_sqlite_identifier(table_name)})"
+                        ).fetchall()
+                    }
+                    if column_name not in columns:
+                        raw.execute(
+                            f"ALTER TABLE {self._quote_sqlite_identifier(table_name)} "
+                            f"ADD COLUMN {self._quote_sqlite_identifier(column_name)} {ddl_type}"
+                        )
+            if version in (None, 1, 2):
+                # Schema v3: add the nullable wellbore foreign keys to the two
+                # longitudinal tables. The wellbores table itself was created
+                # above by the generic "missing table" step. Columns are added
+                # as plain nullable INTEGER (no fabricated backfill): existing
+                # rows keep wellbore_id = NULL ("unknown") until a deterministic
+                # attribution assigns them. ADD COLUMN cannot express an inline
+                # REFERENCES clause portably, so the FK lives in the ORM/create
+                # path; SQLite tolerates the column being a plain INTEGER on
+                # upgraded databases.
+                v3_upgrades = [
+                    ("sections", "wellbore_id", "INTEGER"),
+                    ("daily_reports", "wellbore_id", "INTEGER"),
+                ]
+                for table_name, column_name, ddl_type in v3_upgrades:
                     if not self._raw_table_exists(raw, table_name):
                         continue
                     columns = {
@@ -2759,6 +2861,131 @@ class DatabaseManager:
             if owns_session:
                 session.close()
         
+    def save_wellbore(self, wellbore_data: dict, session: Optional[Session] = None):
+        """Save/update a Wellbore, optionally inside an import transaction.
+
+        Mirrors :meth:`save_section`: only real model columns are persisted,
+        and no values are fabricated. Sidetrack lineage (``parent_wellbore_id``,
+        ``kickoff_md``) is stored exactly as supplied — unknown stays NULL.
+        """
+        owns_session = session is None
+        session = session or self.create_session()
+        try:
+            if wellbore_data.get("id"):
+                wellbore = (
+                    session.query(Wellbore)
+                    .filter(Wellbore.id == wellbore_data["id"])
+                    .first()
+                )
+                if wellbore:
+                    for key, value in wellbore_data.items():
+                        if key != "id" and hasattr(wellbore, key):
+                            setattr(wellbore, key, value)
+                    wellbore.updated_at = _now_utc()
+            else:
+                valid_keys = {column.name for column in Wellbore.__table__.columns}
+                wellbore = Wellbore(
+                    **{
+                        k: v
+                        for k, v in wellbore_data.items()
+                        if k in valid_keys and k != "id"
+                    }
+                )
+                session.add(wellbore)
+                session.flush()
+            if owns_session:
+                session.commit()
+            return wellbore.id
+        except Exception as e:
+            if owns_session:
+                session.rollback()
+                logger.error(f"Error saving wellbore: {e}")
+                return None
+            raise
+        finally:
+            if owns_session:
+                session.close()
+
+    def get_or_create_wellbore(
+        self,
+        well_id: int,
+        name: str,
+        session: Optional[Session] = None,
+        wellbore_type: str = "original",
+        parent_wellbore_id: Optional[int] = None,
+        kickoff_md: Optional[float] = None,
+    ) -> Optional[int]:
+        """Return the id of the wellbore ``name`` under ``well_id``, creating it
+        if absent.
+
+        Identity is ``(well_id, name)`` — a wellbore is never merged across
+        wells, and a sidetrack (a distinct name such as ``"ST #1"``) is never
+        collapsed into its parent. Nothing is fabricated: unknown lineage stays
+        NULL.
+        """
+        if well_id is None or not name:
+            return None
+        owns_session = session is None
+        session = session or self.create_session()
+        try:
+            existing = (
+                session.query(Wellbore)
+                .filter(Wellbore.well_id == well_id, Wellbore.name == name)
+                .first()
+            )
+            if existing:
+                return existing.id
+            wellbore = Wellbore(
+                well_id=well_id,
+                name=name,
+                wellbore_type=wellbore_type,
+                parent_wellbore_id=parent_wellbore_id,
+                kickoff_md=kickoff_md,
+            )
+            session.add(wellbore)
+            session.flush()
+            if owns_session:
+                session.commit()
+            return wellbore.id
+        except Exception as e:
+            if owns_session:
+                session.rollback()
+                logger.error(f"Error resolving wellbore: {e}")
+                return None
+            raise
+        finally:
+            if owns_session:
+                session.close()
+
+    def get_wellbores_by_well(self, well_id: int) -> List[Dict[str, Any]]:
+        """Return all wellbores for a well as plain dicts (ordered by id)."""
+        session = self.create_session()
+        try:
+            wellbores = (
+                session.query(Wellbore)
+                .filter(Wellbore.well_id == well_id)
+                .order_by(Wellbore.id)
+                .all()
+            )
+            return [
+                {
+                    "id": wb.id,
+                    "well_id": wb.well_id,
+                    "name": wb.name,
+                    "code": wb.code,
+                    "wellbore_type": wb.wellbore_type,
+                    "parent_wellbore_id": wb.parent_wellbore_id,
+                    "kickoff_md": wb.kickoff_md,
+                    "status": wb.status,
+                }
+                for wb in wellbores
+            ]
+        except Exception as e:
+            logger.error(f"Error getting wellbores for well {well_id}: {str(e)}")
+            raise  # collection query failure is not an empty dataset
+        finally:
+            session.close()
+
     def get_daily_reports_by_section(self, section_id: int)-> List[Dict[str, Any]]:
         session = self.create_session()
         try:

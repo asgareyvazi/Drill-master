@@ -39,7 +39,7 @@ def test_production_schema_auth_and_fixture_isolation(tmp_path, monkeypatch):
             version = session.execute(
                 __import__("sqlalchemy").text("SELECT MAX(version) FROM schema_version")
             ).scalar()
-            assert version == 2
+            assert version == 3
         finally:
             session.close()
         assert manager.authenticate_user("admin", "release-admin-password-9a")
@@ -86,7 +86,7 @@ def test_reopen_upgrade_preserves_production_hierarchy(tmp_path, monkeypatch):
             version = session.execute(
                 __import__("sqlalchemy").text("SELECT MAX(version) FROM schema_version")
             ).scalar()
-            assert version == 2
+            assert version == 3
         finally:
             session.close()
     finally:

@@ -90,3 +90,78 @@ def test_matching_well_id_is_accepted(selection):
     assert selection.current_section_id == 11
     selection.select_report(111, {"id": 111, "well_id": 1})
     assert selection.current_report_id == 111
+
+
+# --------------------------------------------------------------------------
+# Wellbore level (Schema v3): Well → Wellbore → Section → Report
+# --------------------------------------------------------------------------
+def test_well_change_clears_wellbore(selection):
+    selection.select_well(1, {"id": 1, "name": "AZNS 12"})
+    selection.select_wellbore(5, {"id": 5, "well_id": 1, "name": "Original"})
+    selection.select_section(11, {"id": 11, "well_id": 1, "wellbore_id": 5})
+    selection.select_report(111, {"id": 111, "well_id": 1, "wellbore_id": 5})
+    assert selection.current_wellbore_id == 5
+
+    selection.select_well(2, {"id": 2, "name": "AZNS 15"})
+    assert selection.current_wellbore_id is None, "stale wellbore must be cleared"
+    assert selection.current_section_id is None
+    assert selection.current_report_id is None
+
+
+def test_wellbore_change_clears_section_and_report(selection):
+    selection.select_well(1, {"id": 1})
+    selection.select_wellbore(5, {"id": 5, "well_id": 1})
+    selection.select_section(11, {"id": 11, "well_id": 1, "wellbore_id": 5})
+    selection.select_report(111, {"id": 111, "well_id": 1, "wellbore_id": 5})
+    assert selection.current_section_id == 11
+    assert selection.current_report_id == 111
+
+    selection.select_wellbore(6, {"id": 6, "well_id": 1, "name": "ST #1"})
+    assert selection.current_wellbore_id == 6
+    assert selection.current_section_id is None, "section cleared on wellbore change"
+    assert selection.current_report_id is None, "report cleared on wellbore change"
+
+
+def test_cross_well_wellbore_is_rejected(selection):
+    selection.select_well(1, {"id": 1, "name": "AZNS 12"})
+    selection.select_wellbore(9, {"id": 9, "well_id": 2, "name": "other-well bore"})
+    assert selection.current_wellbore_id is None, (
+        "wellbore belonging to a different well must not enter the context"
+    )
+
+
+def test_cross_wellbore_section_is_rejected(selection):
+    selection.select_well(1, {"id": 1})
+    selection.select_wellbore(5, {"id": 5, "well_id": 1})
+    selection.select_section(11, {"id": 11, "well_id": 1, "wellbore_id": 6})
+    assert selection.current_section_id is None, (
+        "section belonging to a different wellbore must not enter the context"
+    )
+
+
+def test_full_context_selects_wellbore(selection):
+    selection.select_full_context(
+        1, 11, 111,
+        well_data={"id": 1},
+        section_data={"id": 11, "well_id": 1, "wellbore_id": 5},
+        report_data={"id": 111, "well_id": 1, "wellbore_id": 5},
+        wellbore_id=5,
+        wellbore_data={"id": 5, "well_id": 1},
+    )
+    assert selection.current_well_id == 1
+    assert selection.current_wellbore_id == 5
+    assert selection.current_section_id == 11
+    assert selection.current_report_id == 111
+
+
+def test_full_context_without_wellbore_stays_backward_compatible(selection):
+    selection.select_full_context(
+        1, 11, 111,
+        well_data={"id": 1},
+        section_data={"id": 11, "well_id": 1},
+        report_data={"id": 111, "well_id": 1},
+    )
+    assert selection.current_well_id == 1
+    assert selection.current_wellbore_id is None
+    assert selection.current_section_id == 11
+    assert selection.current_report_id == 111
