@@ -189,6 +189,46 @@ class DataQualityService:
                 )
             )
 
+            # Scope-attribution coverage: what fraction of this well's reports
+            # carry a genuine (non-NULL, provably-owned) wellbore / section
+            # scope. NULL/ambiguous/unresolved rows are never counted as
+            # covered — this metric describes real data quality, it does not
+            # manufacture coverage.
+            try:
+                from core.scope_attribution import ScopeAttributionService
+
+                cov = ScopeAttributionService(self.db).coverage(well_id)
+                wb_pct = cov.get("wellbore_coverage_pct")
+                sec_pct = cov.get("section_coverage_pct")
+                if wb_pct is not None:
+                    metrics.append(
+                        QualityMetric(
+                            name="Wellbore attribution",
+                            value=wb_pct,
+                            status="good" if wb_pct >= 90 else "warning" if wb_pct >= 50 else "critical",
+                            detail=(
+                                f"{wb_pct}% of {cov.get('total_reports')} reports "
+                                f"have a resolved wellbore ({dict(cov.get('wellbore', {}))})"
+                            ),
+                            evidence=cov.get("wellbore"),
+                        )
+                    )
+                if sec_pct is not None:
+                    metrics.append(
+                        QualityMetric(
+                            name="Section attribution",
+                            value=sec_pct,
+                            status="good" if sec_pct >= 90 else "warning" if sec_pct >= 50 else "critical",
+                            detail=(
+                                f"{sec_pct}% of {cov.get('total_reports')} reports "
+                                f"have a resolved section ({dict(cov.get('section', {}))})"
+                            ),
+                            evidence=cov.get("section"),
+                        )
+                    )
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.error("Scope-attribution coverage failed: %s", exc)
+
             return metrics
         finally:
             session.close()
