@@ -482,10 +482,55 @@ def _check_daily_report_invariants(session, dr):
             )
 
 
+def _resolve_daily_report(session, report_id):
+    if report_id is None:
+        return None
+    obj = session.get(DailyReport, report_id)
+    if obj is not None:
+        return obj
+    for pending in session.new:
+        if isinstance(pending, DailyReport) and pending.id == report_id:
+            return pending
+    return None
+
+
+def _check_report_scoped_well_ownership(session, obj):
+    """A report-scoped snapshot (BHA / Bit / Downhole …) that names a
+    ``report_id`` must belong to the same well as that report.
+
+    A foreign key only proves the report row exists; it does not prove the
+    snapshot's ``well_id`` agrees with the report's well. A NULL ``report_id``
+    is a valid well-level snapshot and is left untouched — unknown ownership is
+    never fabricated.
+    """
+    report_id = getattr(obj, "report_id", None)
+    if report_id is None:
+        return
+    well_id = getattr(obj, "well_id", None)
+    if well_id is None:
+        return
+    report = _resolve_daily_report(session, report_id)
+    if report is not None and report.well_id != well_id:
+        raise OwnershipIntegrityError(
+            f"{type(obj).__name__} ownership conflict: record well_id={well_id} "
+            f"but report {report_id} belongs to well {report.well_id}"
+        )
+
+
+# Report-scoped snapshot tables whose (well_id, report_id) pair must stay
+# coherent. These are daily observations, not longitudinal run entities.
+_REPORT_SCOPED_WELL_MODELS = (
+    "BHAReport",
+    "BitReport",
+    "DownholeEquipment",
+)
+
+
 @event.listens_for(Session, "before_flush")
 def _enforce_ownership_integrity(session, flush_context, instances):
-    """Reject contradictory Well/Wellbore/Section/DailyReport ownership before
-    it can be committed. Runs for every session flush."""
+    """Reject contradictory ownership before it can be committed. Runs for every
+    session flush, so no save path (ORM, service helper, or import) can bypass
+    it."""
     for obj in list(session.new) + list(session.dirty):
         if isinstance(obj, Wellbore):
             _check_wellbore_invariants(session, obj)
@@ -493,6 +538,8 @@ def _enforce_ownership_integrity(session, flush_context, instances):
             _check_section_invariants(session, obj)
         elif isinstance(obj, DailyReport):
             _check_daily_report_invariants(session, obj)
+        elif type(obj).__name__ in _REPORT_SCOPED_WELL_MODELS:
+            _check_report_scoped_well_ownership(session, obj)
 
 
 class ReportRevision(Base):
@@ -5074,6 +5121,9 @@ class DatabaseManager:
     def save_bit_report(self, well_id: int, report_data: dict):
         session = self.create_session()
         try:
+            # A bit snapshot must belong to the same well as its report — the
+            # same guard already applied to BHA / Downhole / Formation saves.
+            self._require_report_well(session, well_id, report_data.get('report_id'))
             existing = None
             if report_data.get('report_id'):
                 existing = session.query(BitReport).filter(
@@ -5120,6 +5170,10 @@ class DatabaseManager:
             session.commit()
             logger.debug(f"Bit report saved with ID: {record_id}")
             return record_id
+        except (OwnershipIntegrityError, ValueError):
+            # Contradictory ownership is a caller error, never silently swallowed.
+            session.rollback()
+            raise
         except Exception as e:
             session.rollback()
             logger.error(f"Error saving bit report: {e}")
