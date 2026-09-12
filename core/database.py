@@ -4610,10 +4610,19 @@ class DatabaseManager:
                             continue
                         c = dict(c)
                         c["well_id"] = well_id
+                        # Resolve the ``cost_category`` alias BEFORE filtering to
+                        # the physical columns. Reading it from the post-filter
+                        # dict never worked (``cost_category`` is not a column),
+                        # so a source row that carried its category only under
+                        # the alias was silently dropped together with its
+                        # amounts. Resolve against the raw row instead. A row
+                        # with neither ``category`` nor ``cost_category`` is
+                        # already routed to review by the required-field loop
+                        # above, so the bare ``continue`` never loses money.
+                        if not c.get("category") and c.get("cost_category"):
+                            c["category"] = c["cost_category"]
                         valid_keys = {cname.name for cname in CostRecord.__table__.columns}
                         filtered = {k: v for k, v in c.items() if k in valid_keys and k != "id"}
-                        if not filtered.get("category") and filtered.get("cost_category"):
-                            filtered["category"] = filtered["cost_category"]
                         if not filtered.get("category"):
                             continue
                         session.add(CostRecord(**filtered))
