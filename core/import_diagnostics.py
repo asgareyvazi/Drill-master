@@ -111,6 +111,19 @@ class PersistenceError(RuntimeError):
         return self.issue.to_dict()
 
 
+class OwnershipIntegrityError(ValueError):
+    """Raised when a persisted ownership chain would become internally
+    contradictory.
+
+    The Well → Wellbore → Section → DailyReport hierarchy must stay coherent:
+    a foreign key alone only proves the referenced row exists, not that it
+    belongs to the same Well/Wellbore. This error is raised at the persistence
+    boundary (a ``before_flush`` hook) so it fires on every save path — ORM
+    helpers, the import service, and direct session use alike — rather than
+    relying on UI selection guards.
+    """
+
+
 class SchemaMigrationError(RuntimeError):
     """Structured fatal error raised when a SQLite migration cannot complete."""
 

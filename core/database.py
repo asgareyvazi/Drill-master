@@ -22,6 +22,7 @@ def _now_utc() -> datetime:
     
 from sqlalchemy import (
     create_engine,
+    event,
     Column,
     Integer,
     String,
@@ -55,6 +56,7 @@ except ImportError:
 
 from contextlib import contextmanager, nullcontext
 from core.import_diagnostics import (
+    OwnershipIntegrityError,
     PersistenceError, PersistenceIssue, SchemaMigrationError, ImportStatus, determine_import_status,
 )
 logger = logging.getLogger(__name__)
@@ -370,6 +372,128 @@ class DailyReport(Base):
     time_logs_morning = relationship(
         "TimeLogMorning", back_populates="report", cascade="all, delete-orphan"
     )
+
+
+# --------------------------------------------------------------------------
+# Ownership-integrity invariants (forensic audit 2026-09-12)
+# --------------------------------------------------------------------------
+# A foreign key only proves the referenced row exists; it does NOT prove the
+# referenced row belongs to the same Well/Wellbore. The Well → Wellbore →
+# Section → DailyReport chain is kept internally consistent here, at the
+# persistence boundary, so contradictory states can never be committed no
+# matter which save path is used (ORM helpers, import service, direct session).
+#
+# NULL is always allowed: a legacy/ambiguous row whose wellbore is unknown
+# keeps wellbore_id = NULL. This enforces coherence WITHOUT fabricating
+# identity — the two rules are complementary.
+
+VALID_WELLBORE_TYPES = frozenset({"original", "sidetrack"})
+
+
+def _resolve_wellbore(session, wellbore_id):
+    """Return the Wellbore for an id using pending + persisted state."""
+    if wellbore_id is None:
+        return None
+    obj = session.get(Wellbore, wellbore_id)
+    if obj is not None:
+        return obj
+    for pending in session.new:
+        if isinstance(pending, Wellbore) and pending.id == wellbore_id:
+            return pending
+    return None
+
+
+def _resolve_section(session, section_id):
+    if section_id is None:
+        return None
+    obj = session.get(Section, section_id)
+    if obj is not None:
+        return obj
+    for pending in session.new:
+        if isinstance(pending, Section) and pending.id == section_id:
+            return pending
+    return None
+
+
+def _check_wellbore_invariants(session, wb):
+    # Structural type must be one of the known values.
+    wb_type = wb.wellbore_type if wb.wellbore_type is not None else "original"
+    if wb_type not in VALID_WELLBORE_TYPES:
+        raise OwnershipIntegrityError(
+            f"Invalid wellbore_type {wb.wellbore_type!r}; "
+            f"expected one of {sorted(VALID_WELLBORE_TYPES)}"
+        )
+    if wb.parent_wellbore_id is not None:
+        # A bore cannot be its own parent.
+        if wb.id is not None and wb.parent_wellbore_id == wb.id:
+            raise OwnershipIntegrityError(
+                f"Wellbore {wb.id} cannot be its own parent"
+            )
+        # Only a sidetrack may carry lineage.
+        if wb_type != "sidetrack":
+            raise OwnershipIntegrityError(
+                "Only a sidetrack wellbore may have a parent_wellbore_id; "
+                f"wellbore_type={wb_type!r}"
+            )
+        parent = _resolve_wellbore(session, wb.parent_wellbore_id)
+        if parent is not None and parent.well_id != wb.well_id:
+            raise OwnershipIntegrityError(
+                f"Sidetrack lineage crosses wells: wellbore well_id={wb.well_id} "
+                f"but parent {wb.parent_wellbore_id} belongs to well "
+                f"{parent.well_id}"
+            )
+
+
+def _check_section_invariants(session, sec):
+    if sec.wellbore_id is None:
+        return  # unknown ownership is allowed (no fabrication)
+    bore = _resolve_wellbore(session, sec.wellbore_id)
+    if bore is not None and bore.well_id != sec.well_id:
+        raise OwnershipIntegrityError(
+            f"Section ownership conflict: section well_id={sec.well_id} but "
+            f"wellbore {sec.wellbore_id} belongs to well {bore.well_id}"
+        )
+
+
+def _check_daily_report_invariants(session, dr):
+    section = _resolve_section(session, dr.section_id)
+    if section is not None and section.well_id != dr.well_id:
+        raise OwnershipIntegrityError(
+            f"DailyReport ownership conflict: report well_id={dr.well_id} but "
+            f"section {dr.section_id} belongs to well {section.well_id}"
+        )
+    if dr.wellbore_id is None:
+        return  # unknown ownership is allowed (no fabrication)
+    bore = _resolve_wellbore(session, dr.wellbore_id)
+    if bore is not None and bore.well_id != dr.well_id:
+        raise OwnershipIntegrityError(
+            f"DailyReport ownership conflict: report well_id={dr.well_id} but "
+            f"wellbore {dr.wellbore_id} belongs to well {bore.well_id}"
+        )
+    # If the report is also tied to a section, the section's (non-NULL) wellbore
+    # must be the same bore — a report cannot claim a different bore than its
+    # own section.
+    if section is not None and section.wellbore_id is not None:
+        if section.wellbore_id != dr.wellbore_id:
+            raise OwnershipIntegrityError(
+                f"DailyReport ownership conflict: report wellbore_id="
+                f"{dr.wellbore_id} contradicts section {dr.section_id} wellbore "
+                f"{section.wellbore_id}"
+            )
+
+
+@event.listens_for(Session, "before_flush")
+def _enforce_ownership_integrity(session, flush_context, instances):
+    """Reject contradictory Well/Wellbore/Section/DailyReport ownership before
+    it can be committed. Runs for every session flush."""
+    for obj in list(session.new) + list(session.dirty):
+        if isinstance(obj, Wellbore):
+            _check_wellbore_invariants(session, obj)
+        elif isinstance(obj, Section):
+            _check_section_invariants(session, obj)
+        elif isinstance(obj, DailyReport):
+            _check_daily_report_invariants(session, obj)
+
 
 class ReportRevision(Base):
     """Immutable snapshot of a daily report for audit/version history."""
@@ -2102,6 +2226,112 @@ class DatabaseManager:
         if sorted(after["foreign_keys"]) != sorted(foreign_keys_before):
             raise RuntimeError(f"Foreign-key preservation check failed for {table_name}")
 
+    def _install_wellbore_foreign_key(self, connection, table_name: str):
+        """Rebuild ``table_name`` so its ``wellbore_id`` column carries a real
+        physical SQLite foreign key to ``wellbores(id)``.
+
+        SQLite's ``ALTER TABLE ... ADD COLUMN`` cannot attach an inline FK, so a
+        freshly created v3 database (built from ORM DDL) physically enforces the
+        wellbore FK while a v2→v3 *upgraded* database would not. That asymmetry
+        is closed here by rebuilding the table from its own live CREATE SQL with
+        the FK clause injected, preserving every column, index, trigger, and row.
+        Runs inside the FK-off migration transaction; the caller's
+        ``foreign_key_check`` validates the result.
+        """
+        q = self._quote_sqlite_identifier(table_name)
+        table_row = connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name=?",
+            (table_name,),
+        ).fetchone()
+        if not table_row or not table_row[0]:
+            return
+        # Already has a wellbore FK? Nothing to do (fresh DBs, re-runs).
+        existing_fks = connection.execute(
+            f"PRAGMA foreign_key_list({q})"
+        ).fetchall()
+        if any(row[2] == "wellbores" for row in existing_fks):
+            return
+        columns = {
+            row[1] for row in connection.execute(f"PRAGMA table_info({q})").fetchall()
+        }
+        if "wellbore_id" not in columns:
+            return
+
+        create_sql = table_row[0]
+        # Find the closing paren of the column/constraint list (quote-aware).
+        open_index = create_sql.find("(")
+        depth, quote, close_index, i = 0, None, None, open_index
+        while i < len(create_sql):
+            char = create_sql[i]
+            if quote:
+                if char == quote:
+                    if i + 1 < len(create_sql) and create_sql[i + 1] == quote:
+                        i += 1
+                    else:
+                        quote = None
+            elif char in "'\"`":
+                quote = char
+            elif char == "[":
+                quote = "]"
+            elif char == "(":
+                depth += 1
+            elif char == ")":
+                depth -= 1
+                if depth == 0:
+                    close_index = i
+                    break
+            i += 1
+        if close_index is None:
+            raise RuntimeError(f"Unbalanced CREATE SQL for {table_name}")
+
+        fk_clause = (
+            ', FOREIGN KEY(wellbore_id) REFERENCES wellbores (id) '
+            'ON DELETE SET NULL'
+        )
+        temporary_name = f"__drillmaster_fk_{table_name}"
+        qt = self._quote_sqlite_identifier(temporary_name)
+        header = create_sql[:open_index]
+        header = re.sub(
+            r"(?is)(CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?)"
+            r"(?:\"[^\"]+\"|`[^`]+`|\[[^\]]+\]|[^\s(]+)\s*$",
+            lambda match: match.group(1) + qt,
+            header,
+        )
+        if qt not in header:
+            raise RuntimeError(f"Could not rename live CREATE SQL for {table_name}")
+        new_sql = (
+            header
+            + create_sql[open_index:close_index]
+            + fk_clause
+            + create_sql[close_index:]
+        )
+
+        objects = self._capture_live_objects(connection, table_name)
+        names = [
+            row[1] for row in connection.execute(f"PRAGMA table_info({q})").fetchall()
+        ]
+        quoted_columns = ", ".join(
+            self._quote_sqlite_identifier(name) for name in names
+        )
+        connection.execute(new_sql)
+        connection.execute(
+            f"INSERT INTO {qt} ({quoted_columns}) SELECT {quoted_columns} FROM {q}"
+        )
+        connection.execute(f"DROP TABLE {q}")
+        connection.execute(f"ALTER TABLE {qt} RENAME TO {q}")
+        for _type, _name, object_sql in objects:
+            if object_sql:
+                connection.execute(object_sql)
+        after = self._live_table_contract(connection, table_name)
+        if after["columns"] != names:
+            raise RuntimeError(
+                f"Column preservation check failed installing wellbore FK on {table_name}"
+            )
+        if not any(row[2] == "wellbores" for row in after["foreign_keys"]):
+            raise RuntimeError(
+                f"Wellbore foreign key was not installed on {table_name}"
+            )
+
     def _migrate_nullable_contracts(self, inspector=None, *, connection=None) -> list[dict]:
         """Relax only ORM-nullability mismatches using the live SQLite schema."""
         owns_connection = connection is None
@@ -2321,6 +2551,13 @@ class DatabaseManager:
                             f"ALTER TABLE {self._quote_sqlite_identifier(table_name)} "
                             f"ADD COLUMN {self._quote_sqlite_identifier(column_name)} {ddl_type}"
                         )
+                # Close the physical-FK asymmetry: a v2->v3 upgraded database
+                # must enforce the wellbore FK exactly like a freshly created v3
+                # database, so a dangling wellbore_id can never be inserted and
+                # ON DELETE SET NULL is honoured at the storage layer too.
+                for table_name in ("sections", "daily_reports"):
+                    if self._raw_table_exists(raw, table_name):
+                        self._install_wellbore_foreign_key(raw, table_name)
             # Verify and repair nullable contracts on every startup, including
             # v2 databases whose live schema was changed by an old installer.
             self._migrate_nullable_contracts(connection=raw)
@@ -2878,8 +3115,17 @@ class DatabaseManager:
                     .first()
                 )
                 if wellbore:
+                    # well_id is an identity field: a wellbore never migrates to
+                    # a different well (that would orphan its sections/reports).
+                    new_well_id = wellbore_data.get("well_id")
+                    if new_well_id is not None and new_well_id != wellbore.well_id:
+                        raise OwnershipIntegrityError(
+                            f"Cannot move wellbore {wellbore.id} from well "
+                            f"{wellbore.well_id} to well {new_well_id}: "
+                            "well_id is immutable"
+                        )
                     for key, value in wellbore_data.items():
-                        if key != "id" and hasattr(wellbore, key):
+                        if key not in ("id", "well_id") and hasattr(wellbore, key):
                             setattr(wellbore, key, value)
                     wellbore.updated_at = _now_utc()
             else:
@@ -2896,6 +3142,11 @@ class DatabaseManager:
             if owns_session:
                 session.commit()
             return wellbore.id
+        except OwnershipIntegrityError:
+            # Contradictory ownership is never silently swallowed.
+            if owns_session:
+                session.rollback()
+            raise
         except Exception as e:
             if owns_session:
                 session.rollback()
@@ -2947,6 +3198,11 @@ class DatabaseManager:
             if owns_session:
                 session.commit()
             return wellbore.id
+        except OwnershipIntegrityError:
+            # Contradictory ownership is never silently swallowed.
+            if owns_session:
+                session.rollback()
+            raise
         except Exception as e:
             if owns_session:
                 session.rollback()

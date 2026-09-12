@@ -352,14 +352,31 @@ class DDRImportService:
                     )
 
             # Section
+            #
+            # Section identity is scoped to its wellbore, not just its well.
+            # When a wellbore is deterministically known, the same section name
+            # under a *different* bore (e.g. an "8-1/2\"" hole drilled in both the
+            # original bore and a sidetrack) is a DISTINCT section — reusing the
+            # original bore's section would attach this report to the wrong bore
+            # and produce a contradictory ownership chain. When no wellbore is
+            # known, fall back to (well, name) among the un-attributed sections.
             stage = "section"
             section_name = self._safe_text(wi.get("section_name"), "Imported Section")
             section_id = None
 
-            existing = session.query(Section).filter(
+            section_query = session.query(Section).filter(
                 Section.well_id == self.well_id,
                 Section.name == section_name,
-            ).first()
+            )
+            if wellbore_id:
+                # Match this bore's section, or an un-attributed one we can adopt.
+                section_query = section_query.filter(
+                    (Section.wellbore_id == wellbore_id)
+                    | (Section.wellbore_id.is_(None))
+                )
+            else:
+                section_query = section_query.filter(Section.wellbore_id.is_(None))
+            existing = section_query.first()
 
             if existing:
                 section_id = existing.id

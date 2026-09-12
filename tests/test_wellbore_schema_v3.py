@@ -305,6 +305,38 @@ class TestImportAttribution:
         finally:
             session.close()
 
+    def test_same_section_name_across_bores_stays_distinct(self, manager):
+        """A section name reused in two bores of one well must resolve to two
+        distinct, correctly-attributed sections — never a shared section that
+        would produce a contradictory report ownership chain."""
+        p1 = ddr_payload("AZNS 12", "2024-10-21", section='8-1/2"')
+        p1["well_info"]["wellbore_name"] = "Original"
+        p2 = ddr_payload("AZNS 12", "2024-11-05", section='8-1/2"')
+        p2["well_info"]["wellbore_name"] = "ST #1"
+        p2["well_info"]["wellbore_type"] = "sidetrack"
+        r1 = import_ddr(manager, p1)
+        r2 = import_ddr(manager, p2)
+        assert r1["status"] == "ACCEPT", r1.get("details")
+        assert r2["status"] == "ACCEPT", r2.get("details")
+        assert r1["section_id"] != r2["section_id"], "same name, different bore"
+
+        session = manager.create_session()
+        try:
+            wb_by_name = {w.name: w.id for w in session.query(Wellbore).all()}
+            sections = session.query(Section).all()
+            assert len(sections) == 2
+            for sec in sections:
+                # Each section is attributed to exactly one bore.
+                assert sec.wellbore_id in wb_by_name.values()
+            reports = session.query(DailyReport).all()
+            assert len(reports) == 2
+            for rep in reports:
+                sec = session.get(Section, rep.section_id)
+                # Report, its section, and its bore all agree.
+                assert rep.wellbore_id == sec.wellbore_id
+        finally:
+            session.close()
+
 
 # --------------------------------------------------------------------------
 # 5. Non-destructive migration v2 → v3
@@ -431,6 +463,69 @@ class TestNonDestructiveMigration:
         try:
             versions = [r[0] for r in con.execute("SELECT version FROM schema_version").fetchall()]
             assert max(versions) == 3
+            # Physical wellbore FK is installed exactly once (not duplicated).
+            for table in ("sections", "daily_reports"):
+                wb_fks = [
+                    r for r in con.execute(f"PRAGMA foreign_key_list({table})").fetchall()
+                    if r[2] == "wellbores"
+                ]
+                assert len(wb_fks) == 1, f"{table}: {wb_fks}"
+        finally:
+            con.close()
+
+    def test_upgraded_db_has_physical_wellbore_fk(self, tmp_path, monkeypatch):
+        """Gate H: an upgraded v2->v3 database must physically enforce the
+        wellbore FK exactly like a fresh v3 database, so a dangling wellbore_id
+        cannot be stored and ON DELETE SET NULL is honoured at the storage
+        layer."""
+        dbp = str(tmp_path / "v2fk.sqlite")
+        monkeypatch.setenv("DRILLMASTER_ENV", "test")
+        monkeypatch.setenv("DRILLMASTER_DB_PATH", dbp)
+        monkeypatch.setenv("DRILLMASTER_DATA_DIR", str(tmp_path))
+        _build_v2_database(dbp)
+
+        manager = DatabaseManager()
+        assert manager.initialize() is True, manager.last_diagnostic
+
+        con = sqlite3.connect(dbp)
+        try:
+            for table in ("sections", "daily_reports"):
+                wb_fks = [
+                    r for r in con.execute(f"PRAGMA foreign_key_list({table})").fetchall()
+                    if r[2] == "wellbores"
+                ]
+                assert len(wb_fks) == 1, f"{table} missing physical wellbore FK"
+                # ON DELETE SET NULL, referencing wellbores(id).
+                assert wb_fks[0][6] == "SET NULL"
+                assert wb_fks[0][4] == "id"
+            # Data survived the rebuild.
+            assert con.execute("SELECT COUNT(*) FROM daily_reports").fetchone()[0] == 1
+            assert con.execute("PRAGMA foreign_key_check").fetchall() == []
+        finally:
+            con.close()
+
+    def test_upgraded_db_rejects_dangling_wellbore_id(self, tmp_path, monkeypatch):
+        """After upgrade, inserting a section with a non-existent wellbore_id is
+        physically rejected (parity with a fresh v3 database)."""
+        dbp = str(tmp_path / "v2dangle.sqlite")
+        monkeypatch.setenv("DRILLMASTER_ENV", "test")
+        monkeypatch.setenv("DRILLMASTER_DB_PATH", dbp)
+        monkeypatch.setenv("DRILLMASTER_DATA_DIR", str(tmp_path))
+        _build_v2_database(dbp)
+
+        manager = DatabaseManager()
+        assert manager.initialize() is True
+
+        con = sqlite3.connect(dbp)
+        try:
+            con.execute("PRAGMA foreign_keys=ON")
+            wid = con.execute("SELECT id FROM wells LIMIT 1").fetchone()[0]
+            with pytest.raises(sqlite3.IntegrityError):
+                con.execute(
+                    "INSERT INTO sections (well_id, wellbore_id, name) VALUES (?, ?, ?)",
+                    (wid, 999999, "dangling"),
+                )
+                con.commit()
         finally:
             con.close()
 
