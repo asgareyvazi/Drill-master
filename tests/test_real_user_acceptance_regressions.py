@@ -495,3 +495,124 @@ def test_unknown_service_date_does_not_mean_up_to_date():
                          {"equipment_name": "Overdue", "next_service": "2000-01-01"}])
     assert equipment.check_service_due() == [{"name": "Overdue", "row": 2}]
     assert equipment.service_review == ["Unknown", "Invalid"]
+
+
+def _analysis_probe(db, well_id):
+    """A minimal stand-in exposing the two AnalysisWidget query methods.
+
+    The methods only read ``self.db`` / ``self.current_well_id``; exercising them
+    on a SimpleNamespace avoids constructing the full Qt widget while still
+    running the real production SQL.
+    """
+    from tabs.w12_Analysis import AnalysisWidget
+    probe = SimpleNamespace(db=db, current_well_id=well_id)
+    session = db.create_session()
+    try:
+        return (
+            AnalysisWidget.calculate_kpis(probe, session),
+            AnalysisWidget.get_npt_data(probe, session),
+        )
+    finally:
+        session.close()
+
+
+def test_analysis_kpis_report_unknown_not_zero(production_db):
+    """A well with a DDR but no drilling parameters / time logs has unknown
+    ROP / NPT / efficiency — never a fabricated 0.0 m/hr, 0% NPT, 100% efficiency
+    (R-4 NULL->zero fabrication). This also matches the canonical
+    OperationsIntelligenceService, which returns None for the same well."""
+    from core.text_utils import fmt_num
+    _, _, well, _, _ = production_db.acceptance_ids
+    kpis, npt = _analysis_probe(production_db, well)
+    assert kpis["avg_rop"] is None
+    assert kpis["best_rop"] is None
+    assert kpis["npt_percentage"] is None
+    assert kpis["efficiency"] is None
+    assert npt["total_npt"] is None
+    assert npt["npt_percentage"] is None
+    # Rendered as the repository's unknown marker, not a fabricated number.
+    assert fmt_num(kpis["avg_rop"], 1, default=None) == "—"
+    assert fmt_num(kpis["npt_percentage"], 1, default=None) == "—"
+    assert fmt_num(npt["npt_percentage"], 1, default=None) == "—"
+
+    # Canonical intelligence layer must agree that the metrics are unknown.
+    from core.operations_intelligence import OperationsIntelligenceService
+    canonical = OperationsIntelligenceService(production_db).analyze_well(well)["kpis"]
+    assert canonical["average_rop"] is None
+    assert canonical["npt_percent"] is None
+
+
+def test_analysis_kpis_real_zero_npt_stays_zero(production_db):
+    """A well with recorded time and no NPT rows has a genuine 0.0h / 0% NPT and
+    100% efficiency — an explicit recorded zero must not be turned into "—"."""
+    from datetime import time
+    from core.database import TimeLog24H, DrillingParameters
+    _, _, well, _, report = production_db.acceptance_ids
+    production_db.generic_save(TimeLog24H, {
+        "report_id": report, "time_from": time(0, 0), "time_to": time(23, 59),
+        "duration": 24.0, "is_npt": False, "main_code": "DRILL",
+    })
+    production_db.generic_save(DrillingParameters, {
+        "well_id": well, "report_id": report, "report_date": date(2026, 9, 8),
+        "avg_rop": 12.5,
+    })
+    kpis, npt = _analysis_probe(production_db, well)
+    assert kpis["avg_rop"] == 12.5
+    assert kpis["npt_percentage"] == 0.0
+    assert kpis["efficiency"] == 100.0
+    assert npt["total_npt"] == 0.0
+    assert npt["npt_percentage"] == 0.0
+
+
+def test_planning_npt_unknown_not_zero_then_real_zero(production_db):
+    """w10 Planning shares the NPT KPI: unknown when no time is recorded, a real
+    0% once time exists with no NPT rows."""
+    from datetime import time
+    from tabs import w10_Planning_Widget
+    from core.database import TimeLog24H
+
+    # NPTReportTab is wrapped by @make_scrollable; recover the undecorated class
+    # (captured in the wrapper's closure) so the pure query logic can be exercised
+    # without constructing the full Qt scroll-area widget.
+    scrollable = w10_Planning_Widget.NPTReportTab
+    inner_cls = next(
+        cell.cell_contents for cell in scrollable.__init__.__closure__
+        if isinstance(cell.cell_contents, type)
+        and hasattr(cell.cell_contents, "get_npt_data")
+    )
+
+    def npt(well_id):
+        probe = SimpleNamespace(db=production_db, current_well_id=well_id,
+                                current_report_id=None, current_section_id=None)
+        session = production_db.create_session()
+        try:
+            return inner_cls.get_npt_data(probe, session)
+        finally:
+            session.close()
+
+    _, _, well, _, report = production_db.acceptance_ids
+    unknown = npt(well)
+    assert unknown["total_npt"] is None and unknown["npt_percentage"] is None
+    production_db.generic_save(TimeLog24H, {
+        "report_id": report, "time_from": time(0, 0), "time_to": time(23, 59),
+        "duration": 24.0, "is_npt": False, "main_code": "DRILL",
+    })
+    real = npt(well)
+    assert real["total_npt"] == 0.0 and real["npt_percentage"] == 0.0
+
+
+def test_eowr_and_ddr_time_analysis_no_false_full_productivity(production_db, tmp_path):
+    """Report exports must not claim 100% productive / 0% NPT for a well/day that
+    has no recorded time (report_engine R-4)."""
+    from core.report_engine import EOWRReportEngine, DDRReportEngine
+    _, _, well, _, report = production_db.acceptance_ids
+    assert DDRReportEngine(production_db).generate(report, str(tmp_path / "ddr.html"), format="html")
+    ddr = (tmp_path / "ddr.html").read_text()
+    # No time logged -> Time Analysis percentages are unknown, not 100%/0%.
+    assert "(100%)" not in ddr
+    assert "<b>100%</b>" not in ddr
+    assert "—" in ddr
+    assert EOWRReportEngine(production_db).generate(well, str(tmp_path / "eowr.html"), format="html")
+    eowr = (tmp_path / "eowr.html").read_text()
+    assert "<td>None</td>" not in eowr
+    assert "—" in eowr

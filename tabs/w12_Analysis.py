@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 from datetime import datetime, date, timedelta
 from sqlalchemy import func, desc
+from core.text_utils import fmt_num
 import logging
 logger = logging.getLogger(__name__)
 import json
@@ -1213,43 +1214,58 @@ class AnalysisWidget(DrillTabBase):
         if not well_id:
             return dict.fromkeys(['current_depth','total_days','avg_rop','total_npt',
                                   'npt_percentage','best_rop','avg_wob','avg_rpm',
-                                  'avg_torque','efficiency','daily_gain'], 0)
+                                  'avg_torque','efficiency','daily_gain'], None)
 
         latest = session.query(DailyReport).filter_by(well_id=well_id)\
                         .order_by(desc(DailyReport.report_date)).first()
-        cur_depth = latest.depth_2400 if latest else 0
+        cur_depth = latest.depth_2400 if latest else None
         total_days = session.query(DailyReport).filter_by(well_id=well_id).count()
 
+        # Rate/parameter metrics are reported as None ("unknown") when their
+        # source data is absent, never as a fabricated 0.0 — the same
+        # no-fabrication contract the canonical OperationsIntelligenceService
+        # applies. A well with no drilling parameters has an unknown ROP, not a
+        # 0 m/hr ROP.
         avg_rop = session.query(func.avg(DrillingParameters.avg_rop))\
-                         .filter(DrillingParameters.well_id == well_id).scalar() or 0
+                         .filter(DrillingParameters.well_id == well_id).scalar()
         best_rop = session.query(func.max(DrillingParameters.avg_rop))\
-                          .filter(DrillingParameters.well_id == well_id).scalar() or 0
+                          .filter(DrillingParameters.well_id == well_id).scalar()
 
         wob_vals = session.query(DrillingParameters.wob_min, DrillingParameters.wob_max)\
                           .filter(DrillingParameters.well_id == well_id).all()
-        avg_wob = np.mean([(wmin+wmax)/2 for wmin,wmax in wob_vals if wmin is not None and wmax is not None]) if wob_vals else 0
+        wob_mids = [(wmin+wmax)/2 for wmin,wmax in wob_vals if wmin is not None and wmax is not None]
+        avg_wob = float(np.mean(wob_mids)) if wob_mids else None
 
         rpm_vals = session.query(DrillingParameters.rpm_min, DrillingParameters.rpm_max)\
                           .filter(DrillingParameters.well_id == well_id).all()
-        avg_rpm = np.mean([(rmin+rmax)/2 for rmin,rmax in rpm_vals if rmin is not None and rmax is not None]) if rpm_vals else 0
+        rpm_mids = [(rmin+rmax)/2 for rmin,rmax in rpm_vals if rmin is not None and rmax is not None]
+        avg_rpm = float(np.mean(rpm_mids)) if rpm_mids else None
 
         tq_vals = session.query(DrillingParameters.torque_min, DrillingParameters.torque_max)\
                          .filter(DrillingParameters.well_id == well_id).all()
-        avg_torque = np.mean([(tmin+tmax)/2 for tmin,tmax in tq_vals if tmin is not None and tmax is not None]) if tq_vals else 0
+        tq_mids = [(tmin+tmax)/2 for tmin,tmax in tq_vals if tmin is not None and tmax is not None]
+        avg_torque = float(np.mean(tq_mids)) if tq_mids else None
 
         total_npt = session.query(func.sum(TimeLog24H.duration)).filter(TimeLog24H.is_npt == True)\
-                           .join(DailyReport).filter(DailyReport.well_id == well_id).scalar() or 0
+                           .join(DailyReport).filter(DailyReport.well_id == well_id).scalar()
         total_hours = session.query(func.sum(TimeLog24H.duration))\
-                             .join(DailyReport).filter(DailyReport.well_id == well_id).scalar() or 1
-        npt_pct = (total_npt / total_hours * 100)
+                             .join(DailyReport).filter(DailyReport.well_id == well_id).scalar()
+        # NPT% and efficiency are unknown when no time has been recorded — the
+        # denominator is genuinely unknown, not 1. A recorded zero-NPT well with
+        # known total hours correctly yields 0% / 100%.
+        if total_hours:
+            npt_hours_value = total_npt or 0.0
+            npt_pct = (npt_hours_value / total_hours * 100)
+            efficiency = 100 - npt_pct
+        else:
+            npt_pct = None
+            efficiency = None
 
-        efficiency = 100 - npt_pct
-
-        daily_gain = 0
+        daily_gain = None
         if total_days > 0:
             first = session.query(DailyReport).filter_by(well_id=well_id)\
                            .order_by(DailyReport.report_date).first()
-            if first and latest:
+            if first and latest and first.depth_2400 is not None and latest.depth_2400 is not None:
                 daily_gain = (latest.depth_2400 - first.depth_2400) / total_days
 
         return {
@@ -1339,7 +1355,7 @@ class AnalysisWidget(DrillTabBase):
     def get_npt_data(self, session):
         well_id = self.current_well_id
         if not well_id:
-            return {'entries': [], 'categories': {}, 'total_npt': 0, 'npt_percentage': 0, 'total_hours': 1}
+            return {'entries': [], 'categories': {}, 'total_npt': None, 'npt_percentage': None, 'total_hours': None}
         npt_rows = session.query(TimeLog24H, DailyReport).join(DailyReport)\
                           .filter(DailyReport.well_id == well_id, TimeLog24H.is_npt == True)\
                           .order_by(DailyReport.report_date, TimeLog24H.time_from).all()
@@ -1360,9 +1376,16 @@ class AnalysisWidget(DrillTabBase):
                 'description': log.activity_description or "",
                 'sub_category': log.sub_code or ""
             })
+        # NPT% is unknown when no time has been recorded for the well; the
+        # denominator is genuinely unknown, not 1. With recorded time and no NPT
+        # rows, NPT is a real 0.0 and the percentage is a real 0%.
         total_hours = session.query(func.sum(TimeLog24H.duration))\
-                             .join(DailyReport).filter(DailyReport.well_id == well_id).scalar() or 1
-        pct = (total_npt / total_hours * 100)
+                             .join(DailyReport).filter(DailyReport.well_id == well_id).scalar()
+        if total_hours:
+            pct = (total_npt / total_hours * 100)
+        else:
+            total_npt = None
+            pct = None
         return {'entries': entries, 'categories': cats, 'total_npt': total_npt,
                 'npt_percentage': pct, 'total_hours': total_hours}
 
@@ -1377,10 +1400,10 @@ class AnalysisWidget(DrillTabBase):
         cards = self.kpi_cards_widget.findChildren(QFrame)
         
         if len(self.kpi_cards) >= 4:
-            self.kpi_cards[0].value_label.setText(f"<b>{kpis['current_depth']:.1f}</b> m")
+            self.kpi_cards[0].value_label.setText(f"<b>{fmt_num(kpis['current_depth'], 1, default=None)}</b> m")
             self.kpi_cards[1].value_label.setText(f"<b>{kpis['total_days']}</b> days")
-            self.kpi_cards[2].value_label.setText(f"<b>{kpis['avg_rop']:.1f}</b> m/hr")
-            self.kpi_cards[3].value_label.setText(f"<b>{kpis['total_npt']:.1f}</b> hrs")
+            self.kpi_cards[2].value_label.setText(f"<b>{fmt_num(kpis['avg_rop'], 1, default=None)}</b> m/hr")
+            self.kpi_cards[3].value_label.setText(f"<b>{fmt_num(kpis['total_npt'], 1, default=None)}</b> hrs")
             
 
     def update_time_depth_data(self):
@@ -1485,9 +1508,9 @@ class AnalysisWidget(DrillTabBase):
                 return {
                     'entries': [],
                     'categories': {},
-                    'total_npt': 0,
-                    'npt_percentage': 0,
-                    'total_hours': 1
+                    'total_npt': None,
+                    'npt_percentage': None,
+                    'total_hours': None
                 }
             finally:
                 session.close()
@@ -1497,10 +1520,10 @@ class AnalysisWidget(DrillTabBase):
         )
 
         self.update_stat_card_value(
-            self.npt_total_card, f"{data['total_npt']:.1f}"
+            self.npt_total_card, fmt_num(data['total_npt'], 1, default=None)
         )
         self.update_stat_card_value(
-            self.npt_percent_card, f"{data['npt_percentage']:.1f}"
+            self.npt_percent_card, fmt_num(data['npt_percentage'], 1, default=None)
         )
 
         session = self.db.create_session()
@@ -1510,10 +1533,11 @@ class AnalysisWidget(DrillTabBase):
         session.close()
 
         daily_avg = (
-            data['total_npt'] / total_days if total_days else 0
+            data['total_npt'] / total_days
+            if total_days and data['total_npt'] is not None else None
         )
         self.update_stat_card_value(
-            self.npt_daily_card, f"{daily_avg:.1f}"
+            self.npt_daily_card, fmt_num(daily_avg, 1, default=None)
         )
 
         top_cat = (
@@ -1651,19 +1675,21 @@ class AnalysisWidget(DrillTabBase):
         rpm = [d['rpm'] for d in data if d['rpm']]
         torque = [d['torque'] for d in data if d['torque']]
 
-        avg_rop = np.mean(rops) if rops else 0
-        best_rop = max(rops) if rops else 0
-        avg_wob = np.mean(wob) if wob else 0
-        avg_rpm = np.mean(rpm) if rpm else 0
-        avg_torque = np.mean(torque) if torque else 0
-        eff = (avg_rop / 20 * 100) if avg_rop > 0 else 0
+        # Absent parameter data is unknown, not zero: report "—" rather than a
+        # fabricated 0.0 for a well with no recorded values of that parameter.
+        avg_rop = float(np.mean(rops)) if rops else None
+        best_rop = max(rops) if rops else None
+        avg_wob = float(np.mean(wob)) if wob else None
+        avg_rpm = float(np.mean(rpm)) if rpm else None
+        avg_torque = float(np.mean(torque)) if torque else None
+        eff = (avg_rop / 20 * 100) if avg_rop else None
 
-        self.update_perf_kpi_card(0, f"{avg_rop:.1f}")
-        self.update_perf_kpi_card(1, f"{best_rop:.1f}")
-        self.update_perf_kpi_card(2, f"{avg_wob:.1f}")
-        self.update_perf_kpi_card(3, f"{avg_rpm:.0f}")
-        self.update_perf_kpi_card(4, f"{avg_torque:.1f}")
-        self.update_perf_kpi_card(5, f"{eff:.1f}")
+        self.update_perf_kpi_card(0, fmt_num(avg_rop, 1, default=None))
+        self.update_perf_kpi_card(1, fmt_num(best_rop, 1, default=None))
+        self.update_perf_kpi_card(2, fmt_num(avg_wob, 1, default=None))
+        self.update_perf_kpi_card(3, fmt_num(avg_rpm, 0, default=None))
+        self.update_perf_kpi_card(4, fmt_num(avg_torque, 1, default=None))
+        self.update_perf_kpi_card(5, fmt_num(eff, 1, default=None))
 
         self.performance_plot.clear()
         if len(data) > 1:
@@ -2032,8 +2058,9 @@ class AnalysisWidget(DrillTabBase):
         # داده واقعی
         total_days = session.query(DailyReport).filter_by(well_id=well_id).count()
         npt_data = self.get_npt_data(session)
-        total_npt_hours = npt_data['total_npt']
+        total_npt_hours = npt_data['total_npt'] or 0.0
         npt_days = total_npt_hours / 24
+        npt_pct_value = npt_data['npt_percentage']
         
         # نرخ‌های فرضی (قابل تنظیم)
         daily_rate = 45000  # USD per day
@@ -2057,7 +2084,7 @@ class AnalysisWidget(DrillTabBase):
         
         report = f"💰 COST ANALYSIS\n{'='*40}\n"
         report += f"Total Rig Days: {total_days}\n"
-        report += f"NPT Days: {npt_days:.1f} ({npt_data['npt_percentage']:.1f}%)\n"
+        report += f"NPT Days: {npt_days:.1f} ({fmt_num(npt_pct_value, 1, default=None)}%)\n"
         report += f"Productive Days: {total_days - npt_days:.1f}\n\n"
         report += f"📊 Cost Breakdown:\n"
         report += f"  Daily Rig Rate:    ${daily_rate:,.0f}/day\n"
@@ -2090,8 +2117,11 @@ class AnalysisWidget(DrillTabBase):
         # امتیازدهی ریسک
         risk_scores = {}
         
-        # 1. NPT Risk
-        if npt_pct > 30:
+        # 1. NPT Risk. Unknown NPT (no recorded time) is not scored as high
+        # risk; treat it as the lowest tier until evidence exists.
+        if npt_pct is None:
+            risk_scores["NPT Risk"] = 3
+        elif npt_pct > 30:
             risk_scores["NPT Risk"] = 9
         elif npt_pct > 20:
             risk_scores["NPT Risk"] = 7

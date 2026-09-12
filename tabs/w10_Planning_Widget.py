@@ -16,6 +16,7 @@ from PySide6.QtGui import *
 from PySide6.QtCharts import *
 
 from sqlalchemy import func
+from core.text_utils import fmt_num
 from core.database import (
     DatabaseManager, TimeLog24H, DailyReport, PlannedActivity, Section, WellPlan,
     DrillingParameters, MudReport
@@ -403,9 +404,9 @@ class NPTReportTab(QWidget):
             self.update_npt_data()
         else:
             self.npt_table.setRowCount(0)
-            self.update_stat_card_value(self.npt_total_card, "0.0")
-            self.update_stat_card_value(self.npt_percent_card, "0.0")
-            self.update_stat_card_value(self.npt_daily_card, "0.0")
+            self.update_stat_card_value(self.npt_total_card, "—")
+            self.update_stat_card_value(self.npt_percent_card, "—")
+            self.update_stat_card_value(self.npt_daily_card, "—")
             self.update_stat_card_value(self.npt_category_card, "-")
             
     def set_current_report(self, report_id, report_date=None):
@@ -423,7 +424,7 @@ class NPTReportTab(QWidget):
     def get_npt_data(self, session, report_id=None, section_id=None):
         well_id = self.current_well_id
         if not well_id:
-            return {'entries': [], 'categories': {}, 'total_npt': 0, 'npt_percentage': 0, 'total_hours': 1}
+            return {'entries': [], 'categories': {}, 'total_npt': None, 'npt_percentage': None, 'total_hours': None}
         query = session.query(TimeLog24H, DailyReport).join(
             DailyReport, TimeLog24H.report_id == DailyReport.id
         ).filter(
@@ -459,8 +460,15 @@ class NPTReportTab(QWidget):
         ).filter(DailyReport.well_id == well_id)
         if report_id:
             total_hours_query = total_hours_query.filter(DailyReport.id == report_id)
-        total_hours = total_hours_query.scalar() or 1
-        npt_pct = (total_npt / total_hours * 100) if total_hours > 0 else 0
+        # NPT% is unknown when no time has been recorded; the denominator is
+        # genuinely unknown, not 1. With recorded time and no NPT rows, NPT is a
+        # real 0.0 and the percentage a real 0%.
+        total_hours = total_hours_query.scalar()
+        if total_hours:
+            npt_pct = (total_npt / total_hours * 100)
+        else:
+            total_npt = None
+            npt_pct = None
         return {'entries': entries, 'categories': categories, 'total_npt': total_npt,
                 'npt_percentage': npt_pct, 'total_hours': total_hours}
 
@@ -512,12 +520,15 @@ class NPTReportTab(QWidget):
             self.npt_table.setItem(i, 7, QTableWidgetItem(e.get('description', '')))
 
         # Cards
-        self.update_stat_card_value(self.npt_total_card, f"{data['total_npt']:.1f}")
-        self.update_stat_card_value(self.npt_percent_card, f"{data['npt_percentage']:.1f}")
+        self.update_stat_card_value(self.npt_total_card, fmt_num(data['total_npt'], 1, default=None))
+        self.update_stat_card_value(self.npt_percent_card, fmt_num(data['npt_percentage'], 1, default=None))
         
         unique_dates = len(set(e['date'] for e in data['entries'] if e.get('date')))
-        daily_avg = data['total_npt'] / unique_dates if unique_dates > 0 else 0
-        self.update_stat_card_value(self.npt_daily_card, f"{daily_avg:.1f}")
+        daily_avg = (
+            data['total_npt'] / unique_dates
+            if unique_dates > 0 and data['total_npt'] is not None else None
+        )
+        self.update_stat_card_value(self.npt_daily_card, fmt_num(daily_avg, 1, default=None))
         
         top_cat = max(data['categories'], key=data['categories'].get) if data['categories'] else "None"
         self.update_stat_card_value(self.npt_category_card, top_cat)

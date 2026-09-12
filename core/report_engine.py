@@ -461,27 +461,39 @@ table {{
 </tr>"""
             html += "</table>"
 
-        # Time Analysis
-        pt_pct = (pt / total * 100) if total > 0 else 100
-        npt_pct = (npt / total * 100) if total > 0 else 0
+        # Time Analysis. When no time has been logged the percentages are
+        # unknown, not "100% productive / 0% NPT" — render "—" and draw an empty
+        # bar rather than fabricating a fully-productive day.
+        if total > 0:
+            pt_pct = pt / total * 100
+            npt_pct = npt / total * 100
+            pt_pct_disp = f"{pt_pct:.0f}"
+            npt_pct_disp = f"{npt_pct:.0f}"
+            pt_bar_w = pt_pct
+            npt_bar_w = npt_pct
+        else:
+            pt_pct_disp = "—"
+            npt_pct_disp = "—"
+            pt_bar_w = 0
+            npt_bar_w = 0
 
         html += f"""
 <div class="section-title">📊 Time Analysis</div>
 <table class="info-grid">
 <tr>
     <td class="label">Total Hours</td>
-    <td class="value"><b>{total:.1f}</b></td>
+    <td class="value"><b>{fmt_num(total, 1)}</b></td>
     <td class="label">Productive</td>
-    <td class="value" style="color:{bc.accent_color}"><b>{pt:.1f}</b> ({pt_pct:.0f}%)</td>
+    <td class="value" style="color:{bc.accent_color}"><b>{fmt_num(pt, 1)}</b> ({pt_pct_disp}%)</td>
     <td class="label">NPT</td>
-    <td class="value" style="color:#e74c3c"><b>{npt:.1f}</b> ({npt_pct:.0f}%)</td>
+    <td class="value" style="color:#e74c3c"><b>{fmt_num(npt, 1)}</b> ({npt_pct_disp}%)</td>
     <td class="label">Efficiency</td>
-    <td class="value"><b>{pt_pct:.0f}%</b></td>
+    <td class="value"><b>{pt_pct_disp}%</b></td>
 </tr>
 </table>
 <div class="time-bar">
-    <div class="time-bar-pt" style="width:{pt_pct:.0f}%"></div>
-    <div class="time-bar-npt" style="width:{npt_pct:.0f}%"></div>
+    <div class="time-bar-pt" style="width:{pt_bar_w:.0f}%"></div>
+    <div class="time-bar-npt" style="width:{npt_bar_w:.0f}%"></div>
 </div>"""
 
         # Summary
@@ -759,13 +771,20 @@ class EOWRReportEngine:
                     [r.depth_2400 for r in daily_reports if r.depth_2400 is not None],
                     default=None
                 )
-                total_npt = sum(
-                    [(l.duration or 0) for l in time_logs_24h if l.is_npt]
-                )
-                total_hours = sum(
-                    [(l.duration or 0) for l in time_logs_24h]
-                )
-                npt_pct = total_npt / total_hours * 100 if total_hours > 0 else 0
+                # NPT / NPT% are unknown when no time has been recorded across
+                # the well, not zero. With recorded time and no NPT rows they are
+                # a real 0.0 / 0%.
+                if time_logs_24h:
+                    total_npt = sum(
+                        [(l.duration or 0) for l in time_logs_24h if l.is_npt]
+                    )
+                    total_hours = sum(
+                        [(l.duration or 0) for l in time_logs_24h]
+                    )
+                    npt_pct = total_npt / total_hours * 100 if total_hours > 0 else None
+                else:
+                    total_npt = None
+                    npt_pct = None
 
                 avg_rop = None
                 rops = [p.avg_rop for p in drilling_params if p.avg_rop is not None]
@@ -821,10 +840,10 @@ class EOWRReportEngine:
         if not s:
             s = {}
         s.setdefault("total_reports", 0)
-        s.setdefault("final_depth", 0)
-        s.setdefault("avg_rop", 0)
-        s.setdefault("total_npt", 0)
-        s.setdefault("npt_pct", 0)
+        s.setdefault("final_depth", None)
+        s.setdefault("avg_rop", None)
+        s.setdefault("total_npt", None)
+        s.setdefault("npt_pct", None)
         s.setdefault("total_cost", None)
         cost_value = s.get("total_cost")
         cost_display = (
