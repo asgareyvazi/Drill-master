@@ -7,7 +7,8 @@ inputs exist) MSE, using the canonical engines.
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, List, Optional
+from collections.abc import Mapping
+from typing import Any, Dict, Iterable, List, Optional
 
 from ..result import (
     EngineeringResult,
@@ -159,17 +160,145 @@ class BitPerformanceEngine:
             section=section,
         )
 
+    # ------------------------------------------------------------------
+    # Canonical paired footage / weighted ROP
+    # ------------------------------------------------------------------
+    VALID_PAIR_RULE = (
+        "depth_in, depth_out, hours_on_bottom all non-null AND "
+        "depth_out >= depth_in AND hours_on_bottom > 0"
+    )
+
+    @staticmethod
+    def paired_observation(row: Any):
+        """Return (footage, hours) for ONE drilling observation iff it forms a
+        complete, valid paired ROP observation; otherwise return None.
+
+        A valid pair requires ALL of:
+            depth_in is not None AND depth_out is not None
+            AND hours_on_bottom is not None
+            AND depth_out >= depth_in
+            AND hours_on_bottom > 0
+
+        An invalid row contributes NEITHER footage NOR hours — never a partial
+        contribution. Explicit zero footage (depth_in == depth_out with
+        hours > 0) is a real recorded zero and DOES form a valid pair
+        (footage = 0, hours > 0).
+
+        ``row`` may be a mapping (dict / import record) or any object exposing
+        ``depth_in`` / ``depth_out`` / ``hours_on_bottom`` attributes (e.g. a
+        DrillingParameters ORM row).
+        """
+        def _get(key):
+            if isinstance(row, Mapping):
+                return row.get(key)
+            return getattr(row, key, None)
+
+        try:
+            d_in = optional_number(_get("depth_in"), "depth_in")
+            d_out = optional_number(_get("depth_out"), "depth_out")
+            hours = optional_number(_get("hours_on_bottom"), "hours_on_bottom")
+        except EngineeringError:
+            # Malformed / non-numeric source token → not a valid pair.
+            return None
+        if d_in is None or d_out is None or hours is None:
+            return None
+        if d_out < d_in:
+            return None
+        if hours <= 0:
+            return None
+        return (d_out - d_in, hours)
+
+    @classmethod
+    def weighted_rop(cls, runs: Iterable[Any]) -> EngineeringResult:
+        """Footage-weighted ROP over a set of drilling observations.
+
+            weighted_rop = Σ(valid-pair footage) / Σ(valid-pair hours)
+
+        Footage and hours are summed from the SAME valid pairs (see
+        :meth:`paired_observation`); rows failing the validity gate contribute
+        nothing. Returns value ``None`` (never 0) when there are no valid pairs
+        or the total valid hours are not positive.
+
+        This is deliberately DISTINCT from:
+          * a mean of per-row ROPs (a mean of ratios, statistically wrong), and
+          * the naive ``Σ(footage)/Σ(hours)`` taken across independently
+            nullable columns, which mispairs footage with unrelated hours.
+        """
+        rows = list(runs or [])
+        total_footage = 0.0
+        total_hours = 0.0
+        valid = 0
+        for row in rows:
+            pair = cls.paired_observation(row)
+            if pair is None:
+                continue
+            footage, hours = pair
+            total_footage += footage
+            total_hours += hours
+            valid += 1
+        considered = len(rows)
+        excluded = considered - valid
+        base_values = {
+            "weighted_rop": None,
+            "total_footage": round(total_footage, 3),
+            "total_hours": round(total_hours, 3),
+            "valid_pairs": valid,
+            "excluded_rows": excluded,
+            "observations_considered": considered,
+        }
+        assumptions = [
+            "Depths in metres, hours in hours → ROP in m/hr",
+            "Only complete valid pairs contribute; invalid rows excluded whole",
+            f"Valid pair: {cls.VALID_PAIR_RULE}",
+        ]
+        if valid == 0 or total_hours <= 0:
+            return ok(
+                None,
+                values=base_values,
+                unit="m/hr",
+                formula="weighted_rop = Σ(valid-pair footage) / Σ(valid-pair hours)",
+                method=cls.METHOD,
+                assumptions=assumptions,
+                warnings=[
+                    "No valid paired footage/hours observations — "
+                    "weighted ROP undefined"
+                ],
+            )
+        wr = total_footage / total_hours
+        base_values["weighted_rop"] = round(wr, 3)
+        warnings = []
+        if excluded:
+            warnings.append(
+                f"{excluded} of {considered} observation(s) excluded "
+                "(incomplete or invalid pair)"
+            )
+        return ok(
+            round(wr, 3),
+            values=base_values,
+            unit="m/hr",
+            formula="weighted_rop = Σ(valid-pair footage) / Σ(valid-pair hours)",
+            method=cls.METHOD,
+            assumptions=assumptions,
+            warnings=warnings,
+        )
+
     @classmethod
     def rollup(cls, runs: List[Dict[str, Any]]) -> EngineeringResult:
         if not runs:
             return missing("bit_runs")
         results = [cls.from_daily_params(r) for r in runs]
+        # Aggregate footage and hours from the SAME valid pairs so a row with
+        # footage but no/zero hours (or vice-versa) never leaks into only one
+        # sum — the classic mispairing that inflates or deflates ROP.
         footage = 0.0
         hours = 0.0
-        for r in results:
-            if r.success:
-                footage += r.values.get("footage") or 0
-                hours += r.values.get("hours_on_bottom") or 0
+        for r in runs:
+            pair = cls.paired_observation(r)
+            if pair is None:
+                continue
+            f, h = pair
+            footage += f
+            hours += h
         avg_rop = footage / hours if hours else None
         return ok(
             avg_rop,
@@ -178,10 +307,11 @@ class BitPerformanceEngine:
                 "total_footage": round(footage, 3),
                 "total_hours": round(hours, 3),
                 "avg_rop": None if avg_rop is None else round(avg_rop, 3),
+                "weighted_rop": None if avg_rop is None else round(avg_rop, 3),
                 "details": [r.values if r.success else {"error": r.error} for r in results],
             },
             unit="m/hr",
-            formula="Σ footage / Σ hours",
+            formula="weighted_rop = Σ(valid-pair footage) / Σ(valid-pair hours)",
             method=cls.METHOD,
         )
 

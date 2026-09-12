@@ -83,6 +83,16 @@ class OperationsIntelligenceService:
             current_depth = max(depths, default=0.0)
             daily_progress = depths[-1] - depths[-2] if len(depths) >= 2 else 0
             avg_rop = round(sum(rops) / len(rops), 2) if rops else None
+
+            # Footage-weighted ROP over the well: Σ(valid-pair footage) /
+            # Σ(valid-pair hours), paired per DrillingParameters row. This is
+            # DISTINCT from ``average_rop`` above (a mean of per-day rates) and
+            # from a naive Σ(footage)/Σ(hours) across independently nullable
+            # columns. Rows lacking a complete valid pair contribute nothing;
+            # with no valid pairs the value is None (unknown), never 0.
+            from core.engineering.engines.bit_performance import BitPerformanceEngine
+            weighted_rop_result = BitPerformanceEngine.weighted_rop(params)
+            weighted_rop = weighted_rop_result.value
             npt_percent = round(npt_hours / total_hours * 100, 2) if total_hours else None
             productive_hours = round(total_hours - npt_hours, 2) if total_hours else None
             rig_days = len(reports)
@@ -130,6 +140,10 @@ class OperationsIntelligenceService:
                 "current_depth": current_depth,
                 "daily_progress": round(daily_progress, 2),
                 "average_rop": avg_rop,
+                "weighted_rop": weighted_rop,
+                "weighted_rop_footage": weighted_rop_result.values.get("total_footage"),
+                "weighted_rop_hours": weighted_rop_result.values.get("total_hours"),
+                "weighted_rop_valid_pairs": weighted_rop_result.values.get("valid_pairs"),
                 "npt_hours": round(npt_hours, 2),
                 "npt_percent": npt_percent,
                 "productive_hours": productive_hours,
