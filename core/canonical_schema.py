@@ -79,6 +79,15 @@ FIELD_SPECS: Dict[str, FieldSpec] = {
     spec.path: spec for spec in [
         # ---------------- Well Info ----------------
         _F("well_info.name", "text", "", True, ["well name", "well", "well number", "well id", "well designation", "well_name"]),
+        # Canonical Wellbore discriminator. Distinct from the Well: a well may
+        # contain an original bore plus one or more sidetracks. This field is
+        # populated ONLY when the source explicitly names a wellbore/bore — it is
+        # never derived from the well name, rig, date, or report sequence. When a
+        # source format does not carry it, it stays absent and Wellbore
+        # attribution correctly remains unresolved (no fabrication).
+        _F("well_info.wellbore_name", "text", "", False, ["wellbore name", "wellbore", "well bore", "bore name", "borehole name", "hole name", "wellbore_name"]),
+        _F("well_info.wellbore_type", "text", "", False, ["wellbore type", "bore type", "wellbore_type"]),
+
         _F("well_info.field_name", "text", "", False, ["field", "field name"]),
         _F("well_info.project_name", "text", "", False, ["project"]),
         _F("well_info.rig_name", "text", "", False, ["rig name", "rig"]),

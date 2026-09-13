@@ -364,26 +364,50 @@ class DDRImportService:
             section_name = self._safe_text(wi.get("section_name"), "Imported Section")
             section_id = None
 
-            section_query = session.query(Section).filter(
-                Section.well_id == self.well_id,
-                Section.name == section_name,
-            )
-            if wellbore_id:
-                # Match this bore's section, or an un-attributed one we can adopt.
-                section_query = section_query.filter(
-                    (Section.wellbore_id == wellbore_id)
-                    | (Section.wellbore_id.is_(None))
+            # Deterministic section identity — never an arbitrary ``.first()``
+            # among ambiguous candidates. Same-name sections can legitimately
+            # exist under different bores (e.g. an 8-1/2" hole drilled in both
+            # the original bore and a sidetrack), so picking one by row order
+            # could attach this report to the wrong bore.
+            candidates = (
+                session.query(Section)
+                .filter(
+                    Section.well_id == self.well_id,
+                    Section.name == section_name,
                 )
+                .all()
+            )
+            existing = None
+            adopt_null = False
+            if wellbore_id:
+                # 1) an exact section already owned by this bore (unique by the
+                #    persistence invariants) wins outright.
+                owned = [s for s in candidates if s.wellbore_id == wellbore_id]
+                if owned:
+                    existing = owned[0]
+                else:
+                    # 2) otherwise adopt an un-attributed (NULL-scope) same-name
+                    #    section ONLY when exactly one exists — two NULL
+                    #    candidates are ambiguous and must not be guessed.
+                    null_sections = [s for s in candidates if s.wellbore_id is None]
+                    if len(null_sections) == 1:
+                        existing = null_sections[0]
+                        adopt_null = True
+                    # len(null_sections) >= 2 → ambiguous: fall through to create
+                    # a fresh, unambiguous section owned by this bore.
             else:
-                section_query = section_query.filter(Section.wellbore_id.is_(None))
-            existing = section_query.first()
+                # Unknown bore: only an un-attributed same-name section can
+                # match, and only when it is unique.
+                null_sections = [s for s in candidates if s.wellbore_id is None]
+                if len(null_sections) == 1:
+                    existing = null_sections[0]
 
             if existing:
                 section_id = existing.id
                 # Backfill wellbore_id only when we now have a deterministic
                 # attribution and the section had none — never overwrite an
                 # existing, possibly different, wellbore assignment.
-                if wellbore_id and existing.wellbore_id is None:
+                if wellbore_id and adopt_null and existing.wellbore_id is None:
                     existing.wellbore_id = wellbore_id
             else:
                 dr_data = extracted.get("daily_report", {})
