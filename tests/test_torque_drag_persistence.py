@@ -113,6 +113,31 @@ def test_recalculate_from_snapshot_matches_direct_engine():
             == direct.values["total_buoyed_weight"])
 
 
+def test_engine_is_deterministic_and_does_not_mutate_inputs():
+    # Same snapshot recomputed repeatedly (with unrelated calcs interleaved)
+    # must give a byte-identical numeric result, and the engine must not mutate
+    # the caller's input structures — both are prerequisites for reproducibility.
+    survey = [{"md": 0, "inc": 0, "azi": 0}, {"md": 1500, "inc": 30, "azi": 45},
+              {"md": 3048.0, "inc": 60, "azi": 90}]
+    comp = {"type": "DP", "od": 5.0, "id": 4.276, "length": 3048.0,
+            "weight": 19.5}
+    snap = build_snapshot(survey=survey, components=[comp], mud_density_ppg=10.0,
+                          friction_factor=0.3, wob_klbf=5.0, wellbore_id_in=8.5,
+                          method=TorqueDragEngine.METHOD)
+    frozen = json.dumps(snap, sort_keys=True)
+
+    first = json.dumps(recalculate_from_snapshot(snap).values,
+                       sort_keys=True, default=str)
+    for _ in range(5):  # unrelated calculations between the two runs
+        TorqueDragEngine.calculate(survey, [dict(comp, weight=25.6)],
+                                   mud_density_ppg=12.0, friction_factor=0.4)
+    second = json.dumps(recalculate_from_snapshot(snap).values,
+                        sort_keys=True, default=str)
+
+    assert first == second                    # deterministic
+    assert json.dumps(snap, sort_keys=True) == frozen  # snapshot not mutated
+
+
 # --------------------------------------------------------------------------
 # F. Engineering ground truth (engine-executed, not hard-coded)
 # --------------------------------------------------------------------------

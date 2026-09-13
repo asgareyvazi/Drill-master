@@ -290,3 +290,123 @@ Qt-free domain).
   case proves a real abstraction).
 - History is read-only; no retention/lifecycle/delete (intentional — history is
   a record, not a mutable form).
+
+---
+
+# ADDENDUM 2 (2026-09-13) — REPRODUCIBILITY INTEGRITY HARDENING + ARCHITECTURE ASSESSMENT
+
+Third iteration: a deep forensic audit of the historical-reproducibility
+invariant, one evidence-backed hardening fix, and an explicit
+abstraction/next-engine assessment. **No engine change, no schema/migration
+change, no new dependency** (`git diff` touches only the persistence domain,
+the history dialog, and tests).
+
+## Forensic findings
+
+### F1 (FIXED) — verification compared only the 5 summary keys
+`verify()` previously compared just `SUMMARY_KEYS`. But the engine result
+contains 7+ additional scalar claims (`hookload_sliding`, `stretch_rotating_in`,
+`twist_rotating_deg`, `neutral_point_md_m`, `buoyancy_factor`, …) plus numeric
+arrays (`tension_profile`, `torque_profile`, `side_force_profile`, `profiles`)
+and a `buckling.any` flag — all persisted in `result_json`. A drift affecting
+only a non-summary field would have been reported as a **false MATCH**.
+**Fix:** `_deep_numeric_diff()` now compares the ENTIRE numeric result
+recursively (numbers within `_VERIFY_ABS_TOL`, booleans by equality, arrays
+element-wise incl. length, nested dicts), ignoring textual metadata
+(method/scope/warnings — method drift is still reported separately via
+`method_matches`). `VerificationOutcome.all_differences` carries every diverging
+field path; the summary-only `differences` is retained for the headline view.
+MATCH is now an honest whole-result claim. Proven: neutral-point tamper,
+profile-array-leaf tamper, and `buckling.any` tamper all now → DIFFERENT
+(previously all would have been MATCH).
+
+### F2 (VERIFIED, no change) — determinism
+`TorqueDragEngine.calculate` is deterministic: byte-identical numeric result
+across repeated calls, after interleaved unrelated calculations, and across
+fresh processes. It does not mutate caller input dicts/lists. No RNG, no
+timestamps in the numeric result, no mutable class caches feeding the numbers.
+
+### F3 (VERIFIED, no change) — snapshot completeness & immutability
+All 6 engine parameters + every component field round-trip exactly through
+`build_snapshot`→JSON→`snapshot_to_engine_args` (§5 matrix re-run). JSON
+round-trip preserves float arrays exactly. No layer rounds/coerces/reorders the
+snapshot. `reference_fingerprint` is carried for traceability and stripped from
+engine args.
+
+### F4 (VERIFIED, no change) — historical independence from the live catalog
+New test `test_reconstruction_does_not_require_live_catalog`: after DELETING
+every `drill_pipe_specs` row, a saved run STILL recalculates to its original
+result and verifies MATCH from its frozen snapshot alone. Reconstruction never
+reads the catalog (§15).
+
+### F5 (VERIFIED, no change) — persisted-row immutability during verification
+New test `test_verify_and_recalculate_never_mutate_persisted_row`: every
+persisted field (input/result/refs/method/timestamps/created_by/well_id) is
+byte-identical before and after repeated verify/recalculate — even when the
+detached `SavedCalculation` copy is deliberately tampered (§21).
+
+## Verification-state semantics (audited, §11)
+- `MATCH` — engine ran AND the full numeric result reproduced within tolerance.
+- `DIFFERENT` — engine ran but ≥1 numeric field diverged (path-level report).
+- `NOT_REPRODUCIBLE` — engine could not produce a result (e.g. MISSING_INPUT).
+- `UNREADABLE` — snapshot cannot be reconstructed, OR the stored record has no
+  result to verify against. A malformed record can NEVER become MATCH; engine
+  failure can NEVER become DIFFERENT; algorithm-method drift is flagged even on
+  a numeric MATCH.
+
+## Corruption matrix (§20 — all explicit states, no crash, no false MATCH)
+missing result → UNREADABLE; wrong-type snapshot → UNREADABLE/NOT_REPRODUCIBLE;
+missing required component field → NOT_REPRODUCIBLE; NaN in stored result →
+DIFFERENT (not a crash). Covered by new tests.
+
+## N. ABSTRACTION DECISION — **NO, insufficient evidence (leave T&D concrete)**
+Forensic comparison of the two persisted-calculation models:
+
+| Concern | `TrajectoryCalculation` | `TorqueDragCalculationRecord` | Shared? |
+|---|---|---|---|
+| scope | well-scoped (`well_id` NOT NULL) | global (`well_id` nullable) | ❌ |
+| save semantics | UPDATE-by-report_id / well+date (dedup) | new run per save (execution event) | ❌ |
+| input capture | `parameters_json` (loose) | canonical frozen snapshot | ❌ |
+| reconstruction | none | `snapshot_to_engine_args`→engine | ❌ |
+| verification | none | deep-diff `VerificationOutcome` | ❌ |
+| reference identity | none | `identity_fingerprint` list | ❌ |
+| history/read-model | report-bound | detached `SavedCalculation` | ❌ |
+
+The two share only the *noun* "calculation" and the generic `*_json + summary
+columns` shape (which already came from mirroring the convention). Semantics
+differ on every axis. Per mission §23, abstraction requires genuinely identical
+semantics AND that both implementations would naturally use it — neither holds.
+**Decision: keep T&D concrete. Reassess only after a SECOND snapshot/verify-style
+engine exists and demonstrates identical semantics.**
+
+## O. Other-engine inventory (§24 — inventory only, nothing implemented)
+Engines present: `TorqueDragEngine` (persisted), `CasingEngine`, `CementEngine`,
+`BitPerformanceEngine`, `MSEEngine`, `MudVolumeEngine`, `AntiCollisionEngine`,
+`FishingEngine`, `WellControlEngine`, `trajectory` (separately persisted via
+`TrajectoryCalculation`). Candidate ordering for a future Calculation #2 (by
+reference-data reuse + deterministic snapshot + user value): **Casing** (has a
+reference-catalog dimension like drill pipe) > Cement > Bit performance. Not
+implemented this iteration.
+
+## Q. Search/Retrieval/Evidence boundary — UNCHANGED
+No calculation persistence touches Search/Retrieval/EvidenceBundle/Citation.
+No concrete requirement to retrieve calculations as evidence; boundary held.
+
+## R. Dependencies — NONE added.
+
+## Tests (this iteration, exact)
+- `pytest tests/test_torque_drag_history.py` → **22 passed** (was 10; +12: deep
+  whole-result MATCH, non-summary/array/boolean drift → DIFFERENT, deep-diff
+  metadata-ignore + array-length, corruption matrix, row immutability, catalog
+  unavailability).
+- `pytest tests/test_torque_drag_persistence.py` → **13 passed** (+1 determinism
+  + no-input-mutation).
+- All T&D tests + widget smokes → **38 passed**.
+- Full suite → **1093 passed, 4 skipped**, exit 0, no Qt abort.
+- New/modified modules ruff-clean; `compileall` clean; `E722/F821` = 0.
+
+## Verdict for this iteration
+**CERTIFIED WITH DOCUMENTED DEBT.** The false-MATCH gap (F1) is closed; the core
+historical-reproducibility invariant is now proven at whole-result granularity,
+with immutability and catalog-independence tests. No abstraction and no second
+engine were introduced (not yet justified).

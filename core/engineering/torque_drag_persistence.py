@@ -218,8 +218,12 @@ class VerificationOutcome:
     """Result of checking a stored run against a fresh engine recalculation.
 
     ``status`` is one of the ``VERIFY_*`` constants. ``stored``/``recalculated``
-    hold the compared summary values (both present only for MATCH/DIFFERENT).
+    hold the compared *summary* values (both present only for MATCH/DIFFERENT).
     ``differences`` lists the summary keys that diverged, with both values.
+    ``all_differences`` lists EVERY diverging numeric field across the whole
+    result (deep comparison — see ``_deep_numeric_diff``), so drift in a
+    non-summary field (e.g. neutral point, stretch, a profile array element)
+    cannot be hidden behind a summary-only MATCH (mission §12).
     ``method_matches`` records whether the stored engine ``method`` equals the
     current engine method — a False here means a claimed exact reproduction
     could actually be an algorithm change (§17/§18), surfaced honestly.
@@ -229,8 +233,18 @@ class VerificationOutcome:
     stored: Dict[str, Optional[float]] = field(default_factory=dict)
     recalculated: Dict[str, Optional[float]] = field(default_factory=dict)
     differences: List[Dict[str, Any]] = field(default_factory=list)
+    all_differences: List[Dict[str, Any]] = field(default_factory=list)
     method_matches: bool = True
     detail: str = ""
+
+
+# Non-numeric metadata keys that are NOT part of the numeric engineering claim
+# and must not drive a DIFFERENT verdict (method drift is handled separately;
+# text warnings/assumptions are advisory). Compared elsewhere or intentionally
+# excluded from the deep numeric diff.
+_NON_NUMERIC_RESULT_KEYS = frozenset({
+    "method", "scope", "warnings", "assumptions", "note", "formula", "unit",
+})
 
 
 def _summaries_differ(stored: Mapping[str, Optional[float]],
@@ -248,6 +262,67 @@ def _summaries_differ(stored: Mapping[str, Optional[float]],
     return diffs
 
 
+def _deep_numeric_diff(stored: Any, recalculated: Any,
+                       path: str = "") -> List[Dict[str, Any]]:
+    """Recursively compare two result structures at every numeric/boolean leaf.
+
+    Compares numbers with ``_VERIFY_ABS_TOL`` and booleans by equality; ignores
+    textual metadata (method/scope/warnings/...). Structural mismatches (a
+    number vs a list, or lists of different length) are reported as differences.
+    Returns a list of ``{"path", "stored", "recalculated"}`` for each divergence
+    — empty means the full numeric result reproduced exactly.
+
+    This is what makes MATCH an honest whole-result claim rather than a
+    five-number summary claim (mission §11/§12).
+    """
+    diffs: List[Dict[str, Any]] = []
+
+    # Both mappings: compare the union of keys (skip non-numeric metadata).
+    if isinstance(stored, Mapping) and isinstance(recalculated, Mapping):
+        keys = set(stored.keys()) | set(recalculated.keys())
+        for key in keys:
+            if key in _NON_NUMERIC_RESULT_KEYS:
+                continue
+            diffs.extend(_deep_numeric_diff(
+                stored.get(key), recalculated.get(key),
+                f"{path}.{key}" if path else str(key)))
+        return diffs
+
+    # Both sequences (but not strings): compare element-wise.
+    if (isinstance(stored, (list, tuple)) and
+            isinstance(recalculated, (list, tuple))):
+        if len(stored) != len(recalculated):
+            diffs.append({"path": path or "(root)",
+                          "stored": f"len={len(stored)}",
+                          "recalculated": f"len={len(recalculated)}"})
+            return diffs
+        for i, (a, b) in enumerate(zip(stored, recalculated)):
+            diffs.extend(_deep_numeric_diff(a, b, f"{path}[{i}]"))
+        return diffs
+
+    # Booleans are meaningful result flags (e.g. buckling.any) — exact equality.
+    a_is_bool = isinstance(stored, bool)
+    b_is_bool = isinstance(recalculated, bool)
+    if a_is_bool or b_is_bool:
+        if stored != recalculated:
+            diffs.append({"path": path or "(root)",
+                          "stored": stored, "recalculated": recalculated})
+        return diffs
+
+    # Numeric leaves: tolerant comparison via _clean_number (drops NaN/inf).
+    a_num = _clean_number(stored)
+    b_num = _clean_number(recalculated)
+    if a_num is not None or b_num is not None:
+        if a_num is None or b_num is None or abs(a_num - b_num) > _VERIFY_ABS_TOL:
+            diffs.append({"path": path or "(root)",
+                          "stored": stored, "recalculated": recalculated})
+        return diffs
+
+    # Non-numeric, non-bool leaves (strings etc.) are not part of the numeric
+    # claim — ignored here (method drift is reported via ``method_matches``).
+    return diffs
+
+
 def verify_saved_calculation(
     snapshot: Mapping[str, Any],
     stored_result: Mapping[str, Any],
@@ -257,10 +332,12 @@ def verify_saved_calculation(
     """Recompute a stored run from its snapshot and classify the outcome.
 
     Pure/observational: it re-runs the real engine on the FROZEN snapshot only
-    (never the live catalog) and compares the headline summary claims against
-    ``stored_result``. It does not mutate anything. ``current_method`` (if
-    given) is compared to the snapshot's engine method so a numeric match under
-    a changed algorithm is not silently reported as exact reproduction.
+    (never the live catalog) and compares the recalculated result against the
+    stored one. Comparison is done over the ENTIRE numeric result (deep diff),
+    not just the promoted summary, so no non-summary drift can hide behind a
+    MATCH. It does not mutate anything. ``current_method`` (if given) is
+    compared to the snapshot's engine method so a numeric match under a changed
+    algorithm is not silently reported as exact reproduction.
     """
     stored_summary = result_summary(stored_result or {})
     snap_method = (snapshot or {}).get("method")
@@ -284,13 +361,27 @@ def verify_saved_calculation(
             detail=getattr(recalc, "error", "engine did not produce a result"),
         )
 
-    recalculated = result_summary(recalc.values)
-    diffs = _summaries_differ(stored_summary, recalculated)
-    status = VERIFY_MATCH if not diffs else VERIFY_DIFFERENT
+    recalculated_summary = result_summary(recalc.values)
+    summary_diffs = _summaries_differ(stored_summary, recalculated_summary)
+    # Deep whole-result comparison. If the stored record has no result at all,
+    # there is nothing to reproduce against -> treat as UNREADABLE.
+    if not stored_result:
+        return VerificationOutcome(
+            status=VERIFY_UNREADABLE,
+            stored=stored_summary,
+            recalculated=recalculated_summary,
+            method_matches=method_matches,
+            detail="stored record has no result to verify against",
+        )
+    all_diffs = _deep_numeric_diff(stored_result, recalc.values)
+
+    status = VERIFY_MATCH if not all_diffs else VERIFY_DIFFERENT
     return VerificationOutcome(
         status=status,
         stored=stored_summary,
-        recalculated=recalculated,
-        differences=diffs,
+        recalculated=recalculated_summary,
+        differences=summary_diffs,
+        all_differences=all_diffs,
         method_matches=method_matches,
     )
+

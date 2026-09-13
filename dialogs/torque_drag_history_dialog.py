@@ -256,10 +256,20 @@ class TorqueDragHistoryDialog(QDialog):
         label, color = _STATUS_STYLE.get(outcome.status, (outcome.status, "#555"))
         parts = [f"<b style='color:{color}'>{label}</b>"]
         if outcome.status == VERIFY_DIFFERENT:
-            for d in outcome.differences:
+            # Report the full-result divergences (deep diff), not just the
+            # promoted summary, so non-summary drift is visible. Cap the list
+            # so a large profile-array drift doesn't flood the panel.
+            shown = outcome.all_differences or [
+                {"path": d["key"], "stored": d["stored"],
+                 "recalculated": d["recalculated"]}
+                for d in outcome.differences
+            ]
+            for d in shown[:12]:
                 parts.append(
-                    f"{d['key']}: stored {_fmt(d['stored'])} vs "
+                    f"{d['path']}: stored {_fmt(d['stored'])} vs "
                     f"recalculated {_fmt(d['recalculated'])}")
+            if len(shown) > 12:
+                parts.append(f"… and {len(shown) - 12} more field(s)")
         if outcome.status in (VERIFY_NOT_REPRODUCIBLE, VERIFY_UNREADABLE) and outcome.detail:
             parts.append(outcome.detail)
         if not outcome.method_matches:
