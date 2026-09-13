@@ -21,6 +21,7 @@ from core.engineering.torque_drag_persistence import (
     recalculate_from_snapshot,
     reference_fingerprints,
     result_summary,
+    verify_saved_calculation,
 )
 from core.repositories.base import BaseRepository
 
@@ -48,6 +49,24 @@ class SavedCalculation:
     def recalculate(self):
         """Re-run the real engine from this run's frozen snapshot."""
         return recalculate_from_snapshot(self.input_snapshot)
+
+    def verify(self, current_method: Optional[str] = None):
+        """Compare the stored result against a fresh recalculation.
+
+        Observational only — returns a ``VerificationOutcome`` and never mutates
+        this record or the stored result (mission §16).
+        """
+        return verify_saved_calculation(
+            self.input_snapshot, self.result, current_method=current_method,
+        )
+
+    @property
+    def component_count(self) -> int:
+        return len(self.input_snapshot.get("components", []) or [])
+
+    @property
+    def survey_count(self) -> int:
+        return len(self.input_snapshot.get("survey", []) or [])
 
 
 class TorqueDragCalculationRepository(BaseRepository):

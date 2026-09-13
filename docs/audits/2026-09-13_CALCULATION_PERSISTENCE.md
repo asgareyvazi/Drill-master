@@ -209,3 +209,84 @@ three new test files, this document. CI: **LOCAL VERIFIED / CI UNVERIFIED**
 reference-traceable across the persistence boundary, proven by save→reload→
 recalculate and by mutation isolation, with the engine and ground truth intact
 and no new dependency or generic framework.
+
+---
+
+# ADDENDUM (2026-09-13) — CALCULATION HISTORY + OBSERVATIONAL VERIFICATION
+
+Second vertical slice on top of the persistence slice above. **No schema change,
+no engine change, no new dependency.** Turns persisted T&D runs into an
+inspectable, honestly-verifiable calculation history.
+
+## Implemented
+- **Verification domain (Qt-free)** in `core/engineering/torque_drag_persistence.py`:
+  `verify_saved_calculation(snapshot, stored_result, current_method=…)` →
+  `VerificationOutcome` with discrete `status` ∈ {`MATCH`, `DIFFERENT`,
+  `NOT_REPRODUCIBLE`, `UNREADABLE`} (constants `VERIFY_*`), per-key
+  `differences`, and `method_matches`. It re-runs the **real engine on the
+  frozen snapshot only** and **never mutates** the stored result (§16). It
+  compares at the engineering-result level (abs tol 1e-6 over rounded engine
+  claims), not formatted strings (§15).
+- **Algorithm-drift honesty (§17/§18):** `method_matches=False` is surfaced when
+  the current engine `method` differs from the snapshot's, so a numeric `MATCH`
+  under a changed algorithm is NOT presented as exact reproduction. This is the
+  smallest concrete guardrail; enforcement/blocking remains bounded debt.
+- **Repository** `SavedCalculation.verify(current_method)`, plus `component_count`
+  / `survey_count` view helpers.
+- **Read-only UI** `dialogs/torque_drag_history_dialog.py`
+  (`TorqueDragHistoryDialog`): list (newest-first) → select → frozen details
+  (identity / inputs / drill string with per-component catalog-vs-manual trace /
+  reference fingerprints / stored result) → "Verify" (observational). Empty and
+  load-failure states handled. No edit/delete; no DB PK shown as identity (§11).
+  A Qt-free `build_history_rows()` projects the list model for unit testing.
+- **W13 wiring:** "📜 Calculation History" button in the Weight tab →
+  `_wt_open_history` (opens the dialog via the existing repo accessor).
+
+## Input-completeness matrix (§7 — re-verified)
+| Engine input | Runtime source | Persisted | Reconstructed | Verified |
+|---|---|---|---|---|
+| survey (md/inc/azi) | `self.dd_surveys` | ✅ snapshot.survey | ✅ | ✅ |
+| bha components (od/id/length/weight/type/grade/connection) | `self.wt_pipes` | ✅ snapshot.components | ✅ | ✅ |
+| mud_density_ppg | weight-card conversion | ✅ parameters | ✅ | ✅ |
+| friction_factor | `wt_friction` | ✅ parameters | ✅ | ✅ |
+| wob_klbf | `wt_wob` | ✅ parameters | ✅ | ✅ |
+| wellbore_id_in | `wt_hole` | ✅ parameters | ✅ | ✅ |
+| reference_fingerprint (per comp) | AddPipeDialog stamp | ✅ (traceability) | stripped before engine | ✅ |
+
+All 6 `TorqueDragEngine.calculate` parameters round-trip; `reference_fingerprint`
+is carried for traceability and stripped from engine args. No hidden UI state
+affects the result.
+
+## Verification evidence (real engine)
+- `MATCH`: untouched run recomputes identically (`165.23`).
+- `DIFFERENT`: divergent stored value reported per-key (stored vs recalculated).
+- `NOT_REPRODUCIBLE`: empty snapshot → engine `MISSING_INPUT`, no crash.
+- `UNREADABLE`: malformed snapshot → caught, reported, no crash.
+- **Immutability:** stored result unchanged after repeated verification.
+- **Current-vs-historical (§19):** Run A saved → catalog enriched → different
+  Run B saved → reload+recalculate Run A equals Run A, never becomes Run B.
+
+## Tests (exact)
+- `pytest tests/test_torque_drag_history.py` → **10 passed** (verification states,
+  method-drift honesty, immutability, current-vs-historical separation, list
+  view-model, empty state, manual-no-fingerprint).
+- `pytest tests/test_torque_drag_history_widget_smoke.py` → **1 passed**
+  (subprocess-isolated: empty state, list, select, details, verify MATCH,
+  no mutation).
+- All T&D tests together → **25 passed**.
+- Full suite `pytest` → **1080 passed, 4 skipped**, exit 0, no Qt abort.
+- New modules ruff-clean; `compileall` clean; `E722/F821` = 0.
+
+## Boundaries preserved
+No schema/migration change (verification is pure domain). No engine change. No
+dependency added. No generic framework. Search/Retrieval/Evidence untouched.
+Catalog UI still read-only. UI owns no engineering logic (delegates to repo +
+Qt-free domain).
+
+## Remaining debt (unchanged + refined)
+- Algorithm-version reproducibility is **detected and surfaced** (method drift
+  flagged) but not **enforced/blocked** — bounded, documented debt.
+- Still T&D-only; no cross-engine persistence (deferred until a second concrete
+  case proves a real abstraction).
+- History is read-only; no retention/lifecycle/delete (intentional — history is
+  a record, not a mutable form).

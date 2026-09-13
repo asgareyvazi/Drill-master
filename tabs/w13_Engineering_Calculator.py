@@ -2243,6 +2243,13 @@ class EngineeringCalculatorTab(DrillTabBase):
         )
         save_calc_btn.clicked.connect(self._wt_save_calculation)
         pf.addRow(save_calc_btn)
+
+        history_btn = QPushButton("📜 Calculation History")
+        history_btn.setToolTip(
+            "Browse, inspect and verify previously saved Torque & Drag runs."
+        )
+        history_btn.clicked.connect(self._wt_open_history)
+        pf.addRow(history_btn)
         layout.addWidget(g_params)
 
         # Results
@@ -2626,6 +2633,26 @@ class EngineeringCalculatorTab(DrillTabBase):
             f"Pickup {refs.get('hookload_pickup')} klbf | "
             f"buoyed {refs.get('total_buoyed_weight')} klbf.\n"
             "Inputs and reference traceability were stored for reproducibility.")
+
+    def _wt_open_history(self):
+        """Open the read-only Torque & Drag calculation-history browser."""
+        repo = self._torque_drag_repo()
+        if repo is None:
+            QMessageBox.warning(
+                self, "Calculation History",
+                "No database is available, so calculation history cannot be "
+                "opened.")
+            return
+        try:
+            from dialogs.torque_drag_history_dialog import TorqueDragHistoryDialog
+            from core.engineering.engines.torque_drag import TorqueDragEngine
+            dlg = TorqueDragHistoryDialog(
+                repo, current_method=TorqueDragEngine.METHOD, parent=self)
+            dlg.exec()
+        except Exception as exc:
+            logger.exception("Failed to open T&D calculation history")
+            QMessageBox.critical(self, "Calculation History",
+                                 f"Could not open history:\n{exc}")
 
     def _create_stuck_tab(self) -> QWidget:
         tab, container, layout = self._make_scroll_tab()

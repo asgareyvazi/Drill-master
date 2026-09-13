@@ -25,6 +25,7 @@ Design rules honored (see docs/audits/2026-09-13_CALCULATION_PERSISTENCE.md):
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Mapping, Optional
 
 # Snapshot format version. Bump ONLY when the snapshot's meaning changes in a
@@ -186,3 +187,110 @@ SUMMARY_KEYS = (
 def result_summary(values: Mapping[str, Any]) -> Dict[str, Optional[float]]:
     """Extract the headline scalar claims from an engine ``values`` dict."""
     return {k: _clean_number(values.get(k)) for k in SUMMARY_KEYS}
+
+
+# --------------------------------------------------------------------------
+# Historical verification (mission §14–§18).
+#
+# Re-running a stored run's snapshot answers "does today's engine still
+# reproduce this historical claim?". The outcome is deliberately a discrete
+# STATE, not a boolean, so the user can tell apart:
+#   MATCH            — recalculated result equals the stored result exactly
+#   DIFFERENT        — engine ran, but the numbers differ (drift / algo change)
+#   NOT_REPRODUCIBLE — engine could not run this snapshot (e.g. MISSING_INPUT)
+#   UNREADABLE       — the stored record/snapshot is corrupt or malformed
+# Verification is OBSERVATIONAL: it NEVER rewrites the stored result (§16).
+# --------------------------------------------------------------------------
+VERIFY_MATCH = "MATCH"
+VERIFY_DIFFERENT = "DIFFERENT"
+VERIFY_NOT_REPRODUCIBLE = "NOT_REPRODUCIBLE"
+VERIFY_UNREADABLE = "UNREADABLE"
+
+# Absolute tolerance for comparing headline klbf/ft-lbf claims. The engine
+# already rounds its reported values (klbf to 2 dp, torque to 1 dp), so an
+# exact stored run recomputes bit-identically; this tolerance only guards
+# against floating-point noise, never masks a real algorithm change.
+_VERIFY_ABS_TOL = 1e-6
+
+
+@dataclass
+class VerificationOutcome:
+    """Result of checking a stored run against a fresh engine recalculation.
+
+    ``status`` is one of the ``VERIFY_*`` constants. ``stored``/``recalculated``
+    hold the compared summary values (both present only for MATCH/DIFFERENT).
+    ``differences`` lists the summary keys that diverged, with both values.
+    ``method_matches`` records whether the stored engine ``method`` equals the
+    current engine method — a False here means a claimed exact reproduction
+    could actually be an algorithm change (§17/§18), surfaced honestly.
+    """
+
+    status: str
+    stored: Dict[str, Optional[float]] = field(default_factory=dict)
+    recalculated: Dict[str, Optional[float]] = field(default_factory=dict)
+    differences: List[Dict[str, Any]] = field(default_factory=list)
+    method_matches: bool = True
+    detail: str = ""
+
+
+def _summaries_differ(stored: Mapping[str, Optional[float]],
+                      recalculated: Mapping[str, Optional[float]]
+                      ) -> List[Dict[str, Any]]:
+    """Return the list of summary keys whose values differ beyond tolerance."""
+    diffs: List[Dict[str, Any]] = []
+    for key in SUMMARY_KEYS:
+        a = stored.get(key)
+        b = recalculated.get(key)
+        if a is None and b is None:
+            continue
+        if a is None or b is None or abs(a - b) > _VERIFY_ABS_TOL:
+            diffs.append({"key": key, "stored": a, "recalculated": b})
+    return diffs
+
+
+def verify_saved_calculation(
+    snapshot: Mapping[str, Any],
+    stored_result: Mapping[str, Any],
+    *,
+    current_method: Optional[str] = None,
+) -> VerificationOutcome:
+    """Recompute a stored run from its snapshot and classify the outcome.
+
+    Pure/observational: it re-runs the real engine on the FROZEN snapshot only
+    (never the live catalog) and compares the headline summary claims against
+    ``stored_result``. It does not mutate anything. ``current_method`` (if
+    given) is compared to the snapshot's engine method so a numeric match under
+    a changed algorithm is not silently reported as exact reproduction.
+    """
+    stored_summary = result_summary(stored_result or {})
+    snap_method = (snapshot or {}).get("method")
+    method_matches = (current_method is None) or (snap_method == current_method)
+
+    try:
+        recalc = recalculate_from_snapshot(snapshot)
+    except Exception as exc:  # corrupt/unreadable snapshot -> honest UNREADABLE
+        return VerificationOutcome(
+            status=VERIFY_UNREADABLE,
+            stored=stored_summary,
+            method_matches=method_matches,
+            detail=f"snapshot could not be reconstructed: {exc}",
+        )
+
+    if not getattr(recalc, "success", False):
+        return VerificationOutcome(
+            status=VERIFY_NOT_REPRODUCIBLE,
+            stored=stored_summary,
+            method_matches=method_matches,
+            detail=getattr(recalc, "error", "engine did not produce a result"),
+        )
+
+    recalculated = result_summary(recalc.values)
+    diffs = _summaries_differ(stored_summary, recalculated)
+    status = VERIFY_MATCH if not diffs else VERIFY_DIFFERENT
+    return VerificationOutcome(
+        status=status,
+        stored=stored_summary,
+        recalculated=recalculated,
+        differences=diffs,
+        method_matches=method_matches,
+    )
