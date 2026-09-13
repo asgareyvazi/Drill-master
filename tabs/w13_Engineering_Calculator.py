@@ -2381,6 +2381,26 @@ class EngineeringCalculatorTab(DrillTabBase):
             )
         QMessageBox.information(self, "Reference catalog import", "\n".join(lines))
 
+        # Best-effort: refresh the sibling Reference-Tables catalog view so newly
+        # imported specs appear immediately, without coupling the tabs tightly.
+        if d["inserted"] or d["enriched"]:
+            self._refresh_reference_catalog_view()
+
+    def _refresh_reference_catalog_view(self):
+        """Ask a sibling Reference-Tables tab to reload its catalog, if present.
+
+        Loosely coupled and never fatal: if the main window or the reference tab
+        is absent (e.g. W13 used in isolation), this is a no-op.
+        """
+        try:
+            win = self.window()
+            ref_tab = getattr(win, "reference_tab", None)
+            reload_fn = getattr(ref_tab, "_dp_catalog_reload", None)
+            if callable(reload_fn):
+                reload_fn()
+        except Exception:
+            pass
+
     def _wt_edit_pipe(self):
         row = self.wt_pipe_table.currentRow()
         if 0 <= row < len(self.wt_pipes):
