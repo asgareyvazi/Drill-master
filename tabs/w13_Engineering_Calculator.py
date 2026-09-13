@@ -3135,6 +3135,21 @@ class EngineeringCalculatorTab(DrillTabBase):
         calc_csg.clicked.connect(self._csg_calc_strength)
         csg_form.addRow(calc_csg)
 
+        save_csg = QPushButton("💾 Save Calculation")
+        save_csg.setToolTip(
+            "Persist this casing-strength run as a reproducible historical "
+            "record (inputs snapshot + full result)."
+        )
+        save_csg.clicked.connect(self._csg_save_calculation)
+        csg_form.addRow(save_csg)
+
+        history_csg = QPushButton("📜 Calculation History")
+        history_csg.setToolTip(
+            "Browse, inspect and verify previously saved casing-strength runs."
+        )
+        history_csg.clicked.connect(self._csg_open_history)
+        csg_form.addRow(history_csg)
+
         g1_lay.addLayout(csg_form)
 
         self.csg_burst_res = self._result_label("#e74c3c")
@@ -3267,7 +3282,7 @@ class EngineeringCalculatorTab(DrillTabBase):
         axial = self.csg_axial.value() or None
         pi = self.csg_pi.value() or None
         pe = self.csg_pe.value() or None
-        r = CasingEngine.evaluate(
+        inputs = dict(
             od_in=self.csg_od.value(),
             id_in=self.csg_id_calc.value(),
             wall_in=self.csg_wall.value(),
@@ -3279,13 +3294,23 @@ class EngineeringCalculatorTab(DrillTabBase):
             connection_collapse_psi=self.csg_conn_coll.value() or None,
             connection_tension_lbf=self.csg_conn_tens.value() or None,
         )
+        r = CasingEngine.evaluate(**inputs)
         if not r.success:
             self.csg_burst_res.setText(f"❌ {r.error}")
             self.csg_collapse_res.setText("")
             self.csg_tensile_res.setText("")
             self.csg_combined_res.setText("")
             self.csg_vme_res.setText("")
+            self._csg_last_run = None
             return
+        # Cache the exact inputs + result of this successful run so it can be
+        # persisted verbatim (the snapshot is built from these, not re-read from
+        # widgets, so a later widget edit cannot alter a saved run).
+        self._csg_last_run = {
+            "inputs": inputs,
+            "result_values": r.values,
+            "method": CasingEngine.METHOD,
+        }
         v = r.values
         self.csg_burst_res.setText(
             f"{v['burst_rating_psi']:,.0f} psi  (govern {v['governing_burst_psi']:,.0f})"
@@ -3312,6 +3337,79 @@ class EngineeringCalculatorTab(DrillTabBase):
             bits.append(f"tension SF {v['tension_sf']}")
         warn = "; ".join(r.warnings[:2]) if r.warnings else "PARTIAL pipe-body"
         self.csg_vme_res.setText((" | ".join(bits) + "\n" + warn) if bits else warn)
+
+    def _casing_repo(self):
+        """Lazily build the casing calculation-history repository (or None)."""
+        if getattr(self, "db", None) is None:
+            return None
+        repo = getattr(self, "_csg_calc_repo", None)
+        if repo is None:
+            try:
+                from core.repositories.casing_repository import (
+                    CasingCalculationRepository,
+                )
+                repo = CasingCalculationRepository(self.db)
+            except Exception:
+                logger.exception("Could not build casing calculation repository")
+                repo = None
+            self._csg_calc_repo = repo
+        return repo
+
+    def _csg_save_calculation(self):
+        """Persist the last successful casing run as a reproducible record."""
+        run = getattr(self, "_csg_last_run", None)
+        if not run:
+            QMessageBox.information(
+                self, "Save Calculation",
+                "Run a Casing Strength calculation first (Calculate Casing "
+                "Strength).")
+            return
+        repo = self._casing_repo()
+        if repo is None:
+            QMessageBox.warning(
+                self, "Save Calculation",
+                "No database is available, so calculations cannot be saved.")
+            return
+        try:
+            calc_id = repo.save_run(
+                inputs=run["inputs"],
+                result_values=run["result_values"],
+                method=run["method"],
+                label="Casing Strength",
+                well_id=getattr(self, "current_well_id", None),
+            )
+        except Exception as exc:
+            logger.exception("Failed to save casing calculation")
+            QMessageBox.critical(self, "Save Calculation",
+                                 f"Could not save calculation:\n{exc}")
+            return
+        v = run["result_values"]
+        QMessageBox.information(
+            self, "Calculation saved",
+            f"Saved Casing Strength run #{calc_id}.\n"
+            f"Burst {v.get('burst_rating_psi')} psi | "
+            f"collapse {v.get('collapse_rating_psi')} psi.\n"
+            "Inputs and full result were stored for reproducibility.")
+
+    def _csg_open_history(self):
+        """Open the read-only casing calculation-history browser."""
+        repo = self._casing_repo()
+        if repo is None:
+            QMessageBox.warning(
+                self, "Calculation History",
+                "No database is available, so calculation history cannot be "
+                "opened.")
+            return
+        try:
+            from dialogs.casing_history_dialog import CasingHistoryDialog
+            from core.engineering.engines.casing import CasingEngine
+            dlg = CasingHistoryDialog(
+                repo, current_method=CasingEngine.METHOD, parent=self)
+            dlg.exec()
+        except Exception as exc:
+            logger.exception("Failed to open casing calculation history")
+            QMessageBox.critical(self, "Calculation History",
+                                 f"Could not open history:\n{exc}")
 
     def _csg_calc_cement(self):
         from core.engineering.engines.cement import CementEngine

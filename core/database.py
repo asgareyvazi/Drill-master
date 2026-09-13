@@ -2017,6 +2017,62 @@ class TorqueDragCalculationRecord(Base):
     creator = relationship("User", foreign_keys=[created_by])
 
 
+class CasingCalculationRecord(Base):
+    """A persisted, reproducible Casing-strength calculation run (history).
+
+    This is DrillMaster's SECOND persistent engineering calculation. It follows
+    the same historical-integrity principles proven for Torque & Drag (frozen
+    self-contained input snapshot + full derived result + engine method +
+    snapshot schema version + promoted summary columns + timestamps), but it is
+    an INDEPENDENT concrete model — casing has a different input class (no
+    survey; pipe geometry + pressures/loads/design factors) and a different
+    result (flat scalar ratings), so it is not forced into a shared ORM base
+    (mission §18/§19: keep implementations concrete unless the ORM shape is
+    genuinely shared, which it is not).
+
+    Global-scoped: ``well_id`` is optional because the Engineering Calculator
+    (W13) casing-strength tool is frequently used without a well context.
+
+    IMPORTANT honesty note (mission §13): unlike drill pipe, the casing "Select
+    from API 5CT database" dialog is backed by a HARD-CODED preset table with no
+    durable persisted identity/provenance. This record therefore does NOT store
+    a reference fingerprint — the frozen numeric snapshot fully reconstructs the
+    calculation on its own, and claiming catalog traceability would be
+    misleading. If an authoritative casing catalog is built later, a fingerprint
+    column can be added then.
+    """
+    __tablename__ = "casing_calculations"
+
+    id = Column(Integer, primary_key=True)
+
+    # Optional context (never required; not part of engineering identity).
+    well_id = Column(Integer, ForeignKey("wells.id"), nullable=True)
+    label = Column(String(200))
+
+    # Algorithm + snapshot identity for reproducibility.
+    method = Column(String(200), nullable=False)
+    snapshot_schema_version = Column(Integer, nullable=False, default=1)
+
+    # Self-contained historical input snapshot and derived result.
+    input_snapshot_json = Column(JSON, nullable=False)
+    result_json = Column(JSON, nullable=True)
+
+    # Promoted headline claims (queryable; canonical psi / lbf).
+    burst_rating_psi = Column(Float)
+    collapse_rating_psi = Column(Float)
+    pipe_body_yield_lbf = Column(Float)
+    governing_burst_psi = Column(Float)
+    governing_collapse_psi = Column(Float)
+    governing_tension_lbf = Column(Float)
+
+    created_at = Column(DateTime, default=_now_utc)
+    updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc)
+    created_by = Column(Integer, ForeignKey("users.id"))
+
+    well = relationship("Well", foreign_keys=[well_id])
+    creator = relationship("User", foreign_keys=[created_by])
+
+
 class ProcedureTemplate(Base):
     """قالب‌های آماده پروسیجر"""
     __tablename__ = "procedure_templates"
