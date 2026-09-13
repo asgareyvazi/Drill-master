@@ -2191,9 +2191,17 @@ class EngineeringCalculatorTab(DrillTabBase):
         rem_btn = QPushButton("🗑️")
         rem_btn.setFixedWidth(30)
         rem_btn.clicked.connect(self._wt_rem_pipe)
+        import_btn = QPushButton("📥 Import Reference Catalog…")
+        import_btn.setToolTip(
+            "Import a vendor drill-pipe workbook (.xlsx) into the persisted "
+            "reference catalog. Imported specs then appear (marked ◆) in Quick "
+            "Select when adding a component."
+        )
+        import_btn.clicked.connect(self._wt_import_reference_catalog)
         ds_btns.addWidget(add_btn)
         ds_btns.addWidget(edit_btn)
         ds_btns.addWidget(rem_btn)
+        ds_btns.addWidget(import_btn)
         ds_btns.addStretch()
         ds_lay.addLayout(ds_btns)
 
@@ -2290,6 +2298,88 @@ class EngineeringCalculatorTab(DrillTabBase):
             if data:
                 self.wt_pipes.append(data)
                 self._wt_refresh_table()
+
+    def _wt_import_reference_catalog(self):
+        """Import a vendor drill-pipe workbook into the persisted catalog.
+
+        The whole batch is imported through the canonical, transaction-safe
+        pipeline (``import_workbook`` → ``DrillPipeSpec.from_vendor_row`` →
+        ``DrillPipeReferenceRepository.import_specs``). The user is shown ONE
+        summary dialog for the entire import — never a per-row prompt — that
+        distinguishes NEW / UNCHANGED / ENRICHED / CONFLICT / INVALID so a bad
+        or conflicting row can never silently overwrite trusted data.
+        """
+        repo = self._drill_pipe_reference_repo()
+        if repo is None:
+            QMessageBox.warning(
+                self, "No Catalog",
+                "No database is available, so the reference catalog cannot be "
+                "imported into. Manual entry and built-in presets still work.",
+            )
+            return
+
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Select vendor drill-pipe workbook", "",
+            "Excel workbooks (*.xlsx *.xlsm)",
+        )
+        if not path:
+            return
+
+        from core.engineering.drill_pipe_import import (
+            import_workbook,
+            read_workbook_rows,
+            DrillPipeImportError,
+        )
+
+        # Let the user pick the sheet when the workbook has more than one, so we
+        # never guess wrong on a multi-tab vendor file. Single-sheet files skip
+        # the prompt entirely.
+        sheet = None
+        try:
+            from openpyxl import load_workbook
+            wb = load_workbook(path, read_only=True)
+            names = wb.sheetnames
+            wb.close()
+            if len(names) > 1:
+                from PyQt5.QtWidgets import QInputDialog
+                preferred = "Aa" if "Aa" in names else names[0]
+                sheet, ok = QInputDialog.getItem(
+                    self, "Select sheet", "Worksheet:", names,
+                    names.index(preferred), False,
+                )
+                if not ok:
+                    return
+        except Exception:
+            sheet = None  # fall back to the active sheet
+
+        try:
+            result = import_workbook(repo, path, sheet=sheet)
+        except DrillPipeImportError as exc:
+            QMessageBox.critical(self, "Import failed", str(exc))
+            return
+        except Exception as exc:  # unexpected — never crash the tab
+            QMessageBox.critical(self, "Import failed", f"Unexpected error:\n{exc}")
+            return
+
+        d = result.as_dict()
+        parse = d["parse"]
+        lines = [
+            f"Workbook: {parse['source']}  (sheet '{parse['sheet']}')",
+            f"Data rows read: {parse['data_rows']}  |  blank rows skipped: {d['blank_rows']}",
+            "",
+            f"✅ New specs added:      {d['inserted']}",
+            f"➖ Already present:       {d['unchanged']}",
+            f"➕ Enriched (filled in):  {d['enriched']}",
+            f"⚠️ Conflicts (skipped):   {d['conflicting']}",
+            f"⛔ Invalid rows (skipped): {d['invalid']}",
+        ]
+        if d["conflicting"] or d["invalid"]:
+            lines.append("")
+            lines.append(
+                "Conflicting and invalid rows were NOT written — existing "
+                "catalog values are untouched. Review the workbook to resolve."
+            )
+        QMessageBox.information(self, "Reference catalog import", "\n".join(lines))
 
     def _wt_edit_pipe(self):
         row = self.wt_pipe_table.currentRow()
