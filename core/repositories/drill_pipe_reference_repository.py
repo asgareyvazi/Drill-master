@@ -23,6 +23,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
+from sqlalchemy.exc import IntegrityError
+
 from core.database import DrillPipeSpecRecord
 from core.engineering.drill_pipe import (
     CONFLICTING,
@@ -122,6 +124,16 @@ class DrillPipeReferenceRepository(BaseRepository):
                              f"identity field issue: {kinds}")
 
         fp = spec.identity_fingerprint()
+        try:
+            return self._upsert_once(spec, fp, created_by)
+        except IntegrityError:
+            # Race: another writer inserted the same identity between our SELECT
+            # and INSERT (the UNIQUE constraint fired). The stored row now
+            # exists, so re-run the reconciliation path against it exactly as if
+            # it had been present all along — never a silent overwrite.
+            return self._upsert_once(spec, fp, created_by, insert_allowed=False)
+
+    def _upsert_once(self, spec, fp, created_by, *, insert_allowed: bool = True) -> RowResult:
         with self.db.session_scope() as session:
             existing = (
                 session.query(DrillPipeSpecRecord)
@@ -129,6 +141,10 @@ class DrillPipeReferenceRepository(BaseRepository):
                 .one_or_none()
             )
             if existing is None:
+                if not insert_allowed:
+                    # Lost the race then lost the row again — treat as transient
+                    # conflict rather than guessing.
+                    return RowResult(CONFLICT, fp, "concurrent modification; retry")
                 values = spec.to_record_values()
                 if created_by is not None:
                     values["created_by"] = created_by

@@ -18,6 +18,63 @@ from PySide6.QtGui import *
 logger = logging.getLogger(__name__)
 
 
+# ==================== Reference-selection logic (Qt-free) ====================
+# These helpers hold the drill-pipe reference-catalog selection LOGIC so it can
+# be unit-tested without constructing a Qt widget (constructing real dialogs in
+# the shared headless test process is environmentally fragile). The dialog is a
+# thin view over them.
+
+REFERENCE_LABEL_PREFIX = "\u25c6 "  # "◆ " marks a persisted reference entry
+
+
+def reference_spec_label(spec):
+    """Human-auditable label built from ENGINEERING identity, never a DB PK."""
+    od = spec.nominal_od_in
+    wt = spec.nominal_weight_ppf
+    parts = [p for p in (spec.manufacturer, spec.model) if p]
+    head = " ".join(parts) if parts else "(unbranded)"
+    grade = f" {spec.grade}" if spec.grade else ""
+    conn = f" {spec.connection}" if spec.connection else ""
+    return f'{REFERENCE_LABEL_PREFIX}{head} {od:g}" {wt:g}#{grade}{conn}'.strip()
+
+
+def build_reference_choices(specs):
+    """Map {display_label: DrillPipeSpec} for offerable drill-pipe references.
+
+    A spec is offerable only if it carries usable OD and weight (identity); any
+    other row is skipped so the UI never presents an unusable reference. Labels
+    that would collide are disambiguated with an identity-fingerprint suffix.
+    """
+    labelled = {}
+    for spec in specs:
+        if spec.nominal_od_in is None or spec.nominal_weight_ppf is None:
+            continue
+        label = reference_spec_label(spec)
+        if label in labelled:
+            label = f"{label} [{spec.identity_fingerprint()[-8:]}]"
+        labelled[label] = spec
+    return labelled
+
+
+def reference_component_fields(spec):
+    """Canonical field values a selected reference contributes to a component.
+
+    Only non-None canonical fields are returned, so selecting a reference never
+    overwrites an existing field with a fabricated default.
+    """
+    fields = {
+        "od": spec.nominal_od_in,
+        "weight": spec.nominal_weight_ppf,
+        "grade": spec.grade or "",
+        "connection": spec.connection or "",
+    }
+    if spec.nominal_id_in is not None:
+        fields["id"] = spec.nominal_id_in
+    if spec.tool_joint_od_in is not None:
+        fields["tj_od"] = spec.tool_joint_od_in
+    return fields
+
+
 # ==================== Base Dialog ====================
 class EngineeringBaseDialog(QDialog):
     """کلاس پایه برای دیالوگ‌های مهندسی"""
@@ -153,11 +210,38 @@ class AddPipeDialog(EngineeringBaseDialog):
 
     GRADES = ["E-75", "X-95", "G-105", "S-135", "Z-140", "V-150", "4145H", "NM"]
 
-    def __init__(self, parent=None, edit_data=None):
+    def __init__(self, parent=None, edit_data=None, reference_repo=None):
+        # Optional persisted drill-pipe reference catalog
+        # (core.repositories.drill_pipe_reference_repository.DrillPipeReferenceRepository).
+        # When supplied, its canonical DrillPipeSpec records are offered in the
+        # "Quick Select" list ALONGSIDE the built-in PIPE_DB and manual entry —
+        # never replacing them. When absent or empty, the dialog behaves exactly
+        # as before (manual entry + built-in quick presets).
+        self._reference_repo = reference_repo
+        self._reference_specs = {}  # display label -> DrillPipeSpec
         super().__init__("🔩 Drill String Component", parent, edit_data)
         self.init_ui()
         if edit_data:
             self._load_data(edit_data)
+
+    _REF_PREFIX = REFERENCE_LABEL_PREFIX  # marks a persisted reference entry
+
+    def _load_reference_specs(self, ptype):
+        """Return {display_label: DrillPipeSpec} from the persisted catalog.
+
+        Only drill-pipe reference records apply (the catalog is drill-pipe
+        specific); other component types return nothing. Any repository/DB error
+        is swallowed so the dialog degrades to built-in presets, never breaking
+        manual entry (empty-catalog safety). The label/selection LOGIC lives in
+        Qt-free module functions (:func:`build_reference_choices`) so it can be
+        unit-tested without constructing a widget."""
+        if self._reference_repo is None or ptype != "Drill Pipe":
+            return {}
+        try:
+            specs = self._reference_repo.all()
+        except Exception:
+            return {}
+        return build_reference_choices(specs)
 
     def init_ui(self):
         layout = QVBoxLayout(self)
@@ -255,12 +339,31 @@ class AddPipeDialog(EngineeringBaseDialog):
     def _on_type_changed(self, ptype):
         self.quick_combo.clear()
         self.quick_combo.addItem("-- Manual Entry --")
+        # Persisted reference-catalog specs first (marked with a prefix), then
+        # the built-in curated presets. Manual entry always remains the default.
+        self._reference_specs = self._load_reference_specs(ptype)
+        for label in self._reference_specs:
+            self.quick_combo.addItem(label)
         for name in self.PIPE_DB.get(ptype, {}):
             self.quick_combo.addItem(name)
 
     def _on_quick_selected(self, name):
-        if name == "-- Manual Entry --":
+        if not name or name == "-- Manual Entry --":
             return
+        # Persisted reference-catalog record?
+        spec = self._reference_specs.get(name)
+        if spec is not None:
+            fields = reference_component_fields(spec)
+            self.od.setValue(fields["od"])
+            self.weight.setValue(fields["weight"])
+            self.grade.setCurrentText(fields["grade"])
+            self.conn.setCurrentText(fields["connection"])
+            if "id" in fields:
+                self.id_.setValue(fields["id"])
+            if "tj_od" in fields:
+                self.tj_od.setValue(fields["tj_od"])
+            return
+        # Built-in curated preset
         data = self.PIPE_DB.get(self.type_combo.currentText(), {}).get(name)
         if data:
             self.od.setValue(data["od"])

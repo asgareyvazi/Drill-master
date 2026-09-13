@@ -155,6 +155,45 @@ def test_import_specs_summary_counts(repo):
     assert len(d["rows"]) == 6
 
 
+def test_insert_race_integrityerror_resolves_not_raises(repo):
+    """A concurrent insert of the same identity (UNIQUE violation between our
+    SELECT and INSERT) must be caught and reconciled, never propagated."""
+    from sqlalchemy.exc import IntegrityError
+
+    from core.database import DrillPipeSpecRecord
+
+    original = repo._upsert_once
+    state = {"first": True}
+
+    def racy(spec, fp, created_by, *, insert_allowed=True):
+        if state["first"]:
+            state["first"] = False
+            # competitor wins the unique key just before our insert
+            with repo.db.session_scope() as s:
+                s.add(DrillPipeSpecRecord(**spec.to_record_values()))
+            raise IntegrityError("UNIQUE", "x", "y")
+        return original(spec, fp, created_by, insert_allowed=insert_allowed)
+
+    repo._upsert_once = racy
+    result = repo.upsert(_spec())
+    assert result.outcome == UNCHANGED  # resolved against the row the racer wrote
+    assert repo.count() == 1
+
+
+def test_unique_constraint_blocks_raw_duplicate(repo):
+    from sqlalchemy.exc import IntegrityError
+
+    from core.database import DrillPipeSpecRecord
+
+    s = _spec()
+    with repo.db.session_scope() as sess:
+        sess.add(DrillPipeSpecRecord(**s.to_record_values()))
+    with pytest.raises(IntegrityError):
+        with repo.db.session_scope() as sess:
+            sess.add(DrillPipeSpecRecord(**s.to_record_values()))
+    assert repo.count() == 1
+
+
 def test_import_is_row_isolated_bad_row_keeps_good_rows(repo):
     specs = [
         _spec(**{"Product": "5DP"}),

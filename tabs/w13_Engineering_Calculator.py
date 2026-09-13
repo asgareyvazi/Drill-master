@@ -2262,9 +2262,29 @@ class EngineeringCalculatorTab(DrillTabBase):
 
     # ========== Weight Methods ==========
 
+    def _drill_pipe_reference_repo(self):
+        """Lazily build the persisted drill-pipe reference repository.
+
+        Returns ``None`` when no database is available (e.g. isolated tabs), so
+        the component dialog degrades to manual entry + built-in presets.
+        """
+        if getattr(self, "db", None) is None:
+            return None
+        repo = getattr(self, "_dp_ref_repo", None)
+        if repo is None:
+            try:
+                from core.repositories.drill_pipe_reference_repository import (
+                    DrillPipeReferenceRepository,
+                )
+                repo = DrillPipeReferenceRepository(self.db)
+            except Exception:
+                repo = None
+            self._dp_ref_repo = repo
+        return repo
+
     def _wt_add_pipe(self):
         from dialogs.engineering_dialogs import AddPipeDialog
-        dlg = AddPipeDialog(self)
+        dlg = AddPipeDialog(self, reference_repo=self._drill_pipe_reference_repo())
         if dlg.exec():
             data = dlg.get_result()
             if data:
@@ -2275,7 +2295,8 @@ class EngineeringCalculatorTab(DrillTabBase):
         row = self.wt_pipe_table.currentRow()
         if 0 <= row < len(self.wt_pipes):
             from dialogs.engineering_dialogs import AddPipeDialog
-            dlg = AddPipeDialog(self, edit_data=self.wt_pipes[row])
+            dlg = AddPipeDialog(self, edit_data=self.wt_pipes[row],
+                                reference_repo=self._drill_pipe_reference_repo())
             if dlg.exec():
                 data = dlg.get_result()
                 if data:
