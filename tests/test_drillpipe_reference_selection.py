@@ -82,6 +82,44 @@ def test_distinct_identities_are_not_collapsed(repo):
     assert len(choices) == 2  # no silent collapse of distinct engineering specs
 
 
+def test_reference_order_is_deterministic_regardless_of_insert_order(repo):
+    # Insert in a scrambled order; the selector list must be reproducible
+    # (ascending engineering identity), never dependent on insert/rowid order.
+    for od, wt in [(6.625, 25.2), (3.5, 13.3), (5.0, 19.5), (4.5, 16.6)]:
+        repo.upsert(
+            DrillPipeSpec.from_vendor_row(
+                {"OD (in)": od, "Weight (ppf)": wt, "Grade": "S-135"}
+            )
+        )
+    ods = [s.nominal_od_in for s in repo.all()]
+    assert ods == sorted(ods)  # deterministic ascending by OD
+    assert ods == [3.5, 4.5, 5.0, 6.625]
+
+
+def test_reference_order_stable_across_two_repos():
+    def build(order):
+        m = DatabaseManager()
+        m.engine = create_engine(
+            "sqlite:///:memory:",
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+        Base.metadata.create_all(m.engine)
+        m.Session = sessionmaker(bind=m.engine, autoflush=False, autocommit=False)
+        r = DrillPipeReferenceRepository(m)
+        for od, wt in order:
+            r.upsert(
+                DrillPipeSpec.from_vendor_row(
+                    {"OD (in)": od, "Weight (ppf)": wt, "Grade": "S-135"}
+                )
+            )
+        return [s.identity_fingerprint() for s in r.all()]
+
+    forward = build([(3.5, 13.3), (4.5, 16.6), (5.0, 19.5), (6.625, 25.2)])
+    reverse = build([(6.625, 25.2), (5.0, 19.5), (4.5, 16.6), (3.5, 13.3)])
+    assert forward == reverse
+
+
 def test_reference_fields_omit_none_no_fabrication():
     spec = _spec()  # ID is None (not provided)
     fields = reference_component_fields(spec)

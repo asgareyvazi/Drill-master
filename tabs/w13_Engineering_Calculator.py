@@ -4241,8 +4241,15 @@ class EngineeringCalculatorTab(DrillTabBase):
         tab = QWidget()
         layout = QVBoxLayout(tab)
 
-        header = QLabel("📋 Drill Pipe Specifications Database")
+        header = QLabel(
+            "📋 Drill Pipe Vendor Sheet Viewer (read-only \u2014 not the calculation catalog)"
+        )
         header.setStyleSheet("font-weight: bold; color: #ecf0f1; padding: 5px;")
+        header.setToolTip(
+            "Read-only preview of an external DrillPipe.xlsx vendor sheet. "
+            "This is NOT the calculation reference catalog and is not used by any "
+            "calculation; select pipes for calculations via a component's Quick Select."
+        )
         layout.addWidget(header)
 
         if self._drill_pipe_df is not None:

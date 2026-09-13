@@ -93,8 +93,29 @@ class DrillPipeReferenceRepository(BaseRepository):
         return self.get_by_identity(spec.identity_fingerprint())
 
     def all(self) -> List[DrillPipeSpec]:
+        """All persisted reference specs in a deterministic engineering order.
+
+        Ordering is by the identity-forming columns (OD, weight, manufacturer,
+        model, grade, connection) with the UNIQUE ``identity_fingerprint`` as the
+        final tie-breaker, so the reference list a user sees is reproducible and
+        independent of insertion/rowid order. ``NULLS`` fall back to the
+        fingerprint tie-break; SQLite orders NULLs first, which is stable.
+        """
         with self.db.session_scope() as session:
-            return [self._to_spec(r) for r in session.query(DrillPipeSpecRecord).all()]
+            rows = (
+                session.query(DrillPipeSpecRecord)
+                .order_by(
+                    DrillPipeSpecRecord.nominal_od_in,
+                    DrillPipeSpecRecord.nominal_weight_ppf,
+                    DrillPipeSpecRecord.manufacturer,
+                    DrillPipeSpecRecord.model,
+                    DrillPipeSpecRecord.grade,
+                    DrillPipeSpecRecord.connection,
+                    DrillPipeSpecRecord.identity_fingerprint,
+                )
+                .all()
+            )
+            return [self._to_spec(r) for r in rows]
 
     def count(self) -> int:
         with self.db.session_scope() as session:
