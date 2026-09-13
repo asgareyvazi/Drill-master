@@ -20,6 +20,8 @@ from core.engineering.drill_pipe import (
     CONFLICTING,
     DUPLICATE,
     IDENTICAL,
+    ISSUE_CONFLICT,
+    ISSUE_INVALID,
     DrillPipeSpec,
     Provenance,
     classify_duplicate,
@@ -90,6 +92,88 @@ class TestVendorNormalization:
         assert spec.nominal_weight_ppf is None
         assert spec.nominal_id_in is None
         assert not spec.has_identity  # OD alone is not identifiable
+
+
+# ----------------------------------------------------------------------
+# 1b. Conflicting / invalid source values (never silently resolved)
+# ----------------------------------------------------------------------
+class TestConflictAndInvalid:
+    def test_conflicting_numeric_columns_leave_field_none_and_record_issue(self):
+        # OD=5.000 and OD (in)=5.125 disagree materially -> must not pick one.
+        spec = DrillPipeSpec.from_vendor_row(
+            {"OD": 5.000, "OD (in)": 5.125, "Weight (ppf)": 19.5}
+        )
+        assert spec.nominal_od_in is None, "conflict must not silently resolve"
+        assert spec.has_issues
+        issue = next(i for i in spec.issues if i.field == "nominal_od_in")
+        assert issue.kind == ISSUE_CONFLICT
+        # Both conflicting raw values are preserved for audit — nothing lost.
+        raw_values = {v for _, v in issue.raw}
+        assert raw_values == {5.000, 5.125}
+
+    def test_agreeing_duplicate_columns_are_not_a_conflict(self):
+        spec = DrillPipeSpec.from_vendor_row(
+            {"OD": 5.0, "OD (in)": 5.0, "Weight (ppf)": 19.5}
+        )
+        assert spec.nominal_od_in == 5.0
+        assert not spec.has_issues
+
+    def test_conflicting_text_columns_detected(self):
+        spec = DrillPipeSpec.from_vendor_row(
+            {"Grade": "S-135", "Steel Grade": "G-105", "OD (in)": 5.0,
+             "Weight (ppf)": 19.5}
+        )
+        assert spec.grade is None
+        assert any(i.field == "grade" and i.kind == ISSUE_CONFLICT for i in spec.issues)
+
+    def test_zero_diameter_is_invalid_not_unknown(self):
+        spec = DrillPipeSpec.from_vendor_row({"OD (in)": 0, "Weight (ppf)": 19.5})
+        assert spec.nominal_od_in is None
+        assert any(i.field == "nominal_od_in" and i.kind == ISSUE_INVALID
+                   for i in spec.issues)
+
+    def test_negative_and_infinite_values_are_invalid(self):
+        for bad in (-1.0, float("inf")):
+            spec = DrillPipeSpec.from_vendor_row({"OD (in)": bad, "Weight (ppf)": 19.5})
+            assert spec.nominal_od_in is None
+            assert any(i.kind == ISSUE_INVALID for i in spec.issues)
+
+    def test_overflow_string_is_invalid_not_a_number(self):
+        # 1e400 overflows to inf -> must be rejected, never become inf OD.
+        spec = DrillPipeSpec.from_vendor_row({"OD (in)": "1e400", "Weight (ppf)": 19.5})
+        assert spec.nominal_od_in is None
+        assert any(i.kind == ISSUE_INVALID for i in spec.issues)
+
+    def test_unknown_sentinels_are_not_flagged_invalid(self):
+        # "unknown" / "n/a" mean not-supplied, a distinct state from invalid.
+        spec = DrillPipeSpec.from_vendor_row(
+            {"OD (in)": 5.0, "Weight (ppf)": 19.5, "Grade": "unknown", "ID (in)": "n/a"}
+        )
+        assert spec.grade is None
+        assert spec.nominal_id_in is None
+        assert not spec.has_issues, "unknown is not an issue"
+
+    def test_bool_is_never_a_measurement(self):
+        spec = DrillPipeSpec.from_vendor_row({"OD (in)": True, "Weight (ppf)": 19.5})
+        assert spec.nominal_od_in is None
+        assert any(i.kind == ISSUE_INVALID for i in spec.issues)
+
+    def test_conflict_does_not_corrupt_other_fields(self):
+        spec = DrillPipeSpec.from_vendor_row(
+            {"OD": 5.0, "OD (in)": 5.125, "ID (in)": 4.276, "Weight (ppf)": 19.5}
+        )
+        # OD is in conflict, but ID and weight remain trustworthy.
+        assert spec.nominal_od_in is None
+        assert spec.nominal_id_in == 4.276
+        assert spec.nominal_weight_ppf == 19.5
+
+    def test_issues_serialized_in_as_dict(self):
+        spec = DrillPipeSpec.from_vendor_row(
+            {"OD": 5.0, "OD (in)": 5.125, "Weight (ppf)": 19.5}
+        )
+        payload = spec.as_dict()
+        assert payload["issues"]
+        assert payload["issues"][0]["kind"] == ISSUE_CONFLICT
 
 
 # ----------------------------------------------------------------------

@@ -36,9 +36,10 @@ exactly ``{length, weight (ppf), od (in), id (in)}``.
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field, asdict
 from datetime import date
-from typing import Any, Dict, Mapping, Optional
+from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 from core.unit_manager import UnitManager
 
@@ -67,41 +68,56 @@ def _norm_header(text: Any) -> str:
     return " ".join(str(text or "").strip().lower().split())
 
 
-def _first_present(row: Mapping[str, Any], aliases) -> Optional[Any]:
-    """Return the first vendor value whose header matches an alias, else None.
-
-    A blank/NaN vendor cell is treated as *absent*, never as 0.
-    """
-    normalized = { _norm_header(k): v for k, v in row.items() }
-    for alias in aliases:
-        key = _norm_header(alias)
-        if key in normalized:
-            value = normalized[key]
-            if _is_missing(value):
-                return None
-            return value
-    return None
+# Sentinel textual values that explicitly encode *unknown*, distinct from a
+# genuine string that merely fails to parse as a number.
+_UNKNOWN_TOKENS = {"", "nan", "none", "null", "n/a", "na", "-", "--", "?", "tbd", "unknown"}
 
 
 def _is_missing(value: Any) -> bool:
+    """True when a vendor cell means *unknown / not supplied*.
+
+    Blank, NaN and explicit unknown sentinels ("n/a", "unknown", …) are missing.
+    A concrete value (including 0, negatives, or an unparseable string) is NOT
+    missing — those are separate states handled downstream (invalid vs conflict).
+    """
     if value is None:
         return True
     if isinstance(value, float):
         # NaN never equals itself.
         return value != value
     if isinstance(value, str):
-        return value.strip() == "" or value.strip().lower() in {"nan", "none", "n/a", "-"}
+        return value.strip().lower() in _UNKNOWN_TOKENS
     return False
 
 
-def _to_float(value: Any) -> Optional[float]:
+def _present_matches(row: Mapping[str, Any], aliases):
+    """Return ``[(header, value), …]`` for every non-missing column whose header
+    matches one of ``aliases``. Unlike a first-wins lookup this surfaces *all*
+    candidates so conflicting source columns can be detected, never silently
+    resolved."""
+    matched = []
+    alias_set = {_norm_header(a) for a in aliases}
+    for header, value in row.items():
+        if _norm_header(header) in alias_set and not _is_missing(value):
+            matched.append((str(header), value))
+    return matched
+
+
+def _to_number(value: Any) -> Optional[float]:
+    """Parse a finite float, or None when the value is not a clean number.
+
+    Note: this does NOT judge the engineering domain (0/negative pass here);
+    domain validity (OD>0 etc.) is enforced separately so we can distinguish
+    'not a number' from 'a number outside the physical domain'."""
     if _is_missing(value):
+        return None
+    if isinstance(value, bool):  # bool is an int subclass — never a measurement
         return None
     try:
         number = float(value)
     except (TypeError, ValueError):
         return None
-    if number != number:  # NaN guard
+    if not math.isfinite(number):  # NaN / inf / 1e400 overflow
         return None
     return number
 
@@ -109,7 +125,7 @@ def _to_float(value: Any) -> Optional[float]:
 def _to_inches(value: Any, source_unit: Optional[str]) -> Optional[float]:
     """Diameter to canonical inches. Only converts when the source unit is
     explicitly non-inch; otherwise the number is assumed already canonical."""
-    number = _to_float(value)
+    number = _to_number(value)
     if number is None:
         return None
     unit = _norm_header(source_unit)
@@ -143,6 +159,34 @@ CONFLICTING = "CONFLICTING"    # same identity, contradictory engineering values
 AMBIGUOUS = "AMBIGUOUS"        # identity cannot be established for one/both
 
 
+# Per-field normalization issue kinds. These make the states the mission
+# requires explicit and distinct — a value is never quietly downgraded from one
+# to another (unknown != invalid != conflicting != zero).
+ISSUE_CONFLICT = "CONFLICTING_SOURCE"   # >1 mapped source column, materially different
+ISSUE_INVALID = "INVALID_VALUE"         # a value outside the physical domain / unparseable
+ISSUE_UNIT = "UNIT_UNCONVERTIBLE"       # a declared source unit could not be converted
+
+
+@dataclass(frozen=True)
+class SpecIssue:
+    """A single, human-actionable normalization problem for one field.
+
+    Issues are *surfaced*, never silently resolved. A field that carries a
+    conflict or invalid value is left ``None`` (unknown) on the canonical spec so
+    it can never masquerade as a trusted engineering value, while the raw
+    evidence is preserved here for audit / manual resolution.
+    """
+
+    field: str
+    kind: str
+    detail: str
+    raw: Tuple[Any, ...] = ()
+
+    def as_dict(self) -> Dict[str, Any]:
+        return {"field": self.field, "kind": self.kind, "detail": self.detail,
+                "raw": list(self.raw)}
+
+
 @dataclass(frozen=True)
 class DrillPipeSpec:
     """Canonical drill-pipe reference specification (master data).
@@ -169,6 +213,15 @@ class DrillPipeSpec:
     # --- provenance + unmapped vendor columns (preserved, never dropped) ---
     provenance: Provenance = field(default_factory=Provenance)
     extra: Dict[str, Any] = field(default_factory=dict)
+
+    # --- normalization issues surfaced for audit / manual resolution ---
+    # Conflicts and invalid values leave their field None (unknown) but are
+    # recorded here rather than silently discarded.
+    issues: Tuple[SpecIssue, ...] = ()
+
+    @property
+    def has_issues(self) -> bool:
+        return bool(self.issues)
 
     # ------------------------------------------------------------------
     # Identity
@@ -210,28 +263,95 @@ class DrillPipeSpec:
     ) -> "DrillPipeSpec":
         """Normalize one arbitrary vendor row into a canonical spec.
 
-        Unmapped columns are preserved verbatim in ``extra`` (audit trail).
-        Missing/blank cells stay ``None``. No value is inferred from another.
+        Safety contract (never silently wrong):
+
+        * **Conflicting source columns** — if two mapped headers for the same
+          canonical field carry materially different values (e.g. ``OD=5.000``
+          and ``OD (in)=5.125``), the field is left ``None`` and a
+          ``CONFLICTING_SOURCE`` issue records both raw values. The conflict is
+          never silently resolved to one of them.
+        * **Invalid values** — a number outside the physical domain (a
+          non-positive or non-finite diameter/weight/tensile) is rejected to
+          ``None`` with an ``INVALID_VALUE`` issue. Invalid is a distinct state
+          from unknown.
+        * **Unknown** — blank/NaN/explicit sentinels stay ``None`` with no
+          issue.
+        * Unmapped columns are preserved verbatim in ``extra``. Nothing is
+          inferred from another field.
         """
+        issues: List[SpecIssue] = []
         mapped_headers = set()
 
-        def take(aliases):
-            value = _first_present(row, aliases)
+        def resolve_text(aliases, field_name):
             for alias in aliases:
                 mapped_headers.add(_norm_header(alias))
-            return value
+            matches = _present_matches(row, aliases)
+            if not matches:
+                return None
+            values = [str(v).strip() for _, v in matches]
+            if len({v.lower() for v in values}) > 1:
+                issues.append(SpecIssue(
+                    field_name, ISSUE_CONFLICT,
+                    "multiple source columns disagree",
+                    tuple((h, v) for h, v in matches),
+                ))
+                return None
+            return values[0] or None
 
-        manufacturer = take(_MANUFACTURER_ALIASES)
-        model = take(_MODEL_ALIASES)
-        grade = take(_GRADE_ALIASES)
-        connection = take(_CONNECTION_ALIASES)
-        od_raw = take(_OD_ALIASES)
-        id_raw = take(_ID_ALIASES)
-        weight_raw = take(_WEIGHT_ALIASES)
-        tj_od_raw = take(_TJ_OD_ALIASES)
-        tj_id_raw = take(_TJ_ID_ALIASES)
-        drift_raw = take(_DRIFT_ALIASES)
-        tensile_raw = take(_TENSILE_ALIASES)
+        def resolve_number(aliases, field_name, *, unit=None, positive=True):
+            for alias in aliases:
+                mapped_headers.add(_norm_header(alias))
+            matches = _present_matches(row, aliases)
+            if not matches:
+                return None
+
+            parsed = []  # (header, raw, canonical_number|None, invalid_reason|None)
+            for header, raw in matches:
+                if unit is not None:
+                    number = _to_inches(raw, unit)
+                else:
+                    number = _to_number(raw)
+                if number is None:
+                    parsed.append((header, raw, None, "unparseable/non-finite"))
+                elif positive and number <= 0:
+                    parsed.append((header, raw, None, "non-positive"))
+                else:
+                    parsed.append((header, raw, number, None))
+
+            valid = [(h, r, n) for (h, r, n, bad) in parsed if bad is None]
+            invalid = [(h, r, bad) for (h, r, n, bad) in parsed if bad is not None]
+
+            # Conflict among the *valid* candidates → refuse to pick one.
+            distinct = {round(n, 9) for _, _, n in valid}
+            if len(distinct) > 1:
+                issues.append(SpecIssue(
+                    field_name, ISSUE_CONFLICT,
+                    "multiple source columns disagree",
+                    tuple((h, r) for h, r, _ in valid),
+                ))
+                return None
+            if valid:
+                return valid[0][2]
+            # No valid value but at least one present-and-invalid value.
+            if invalid:
+                issues.append(SpecIssue(
+                    field_name, ISSUE_INVALID,
+                    "; ".join(f"{h}={r!r} ({why})" for h, r, why in invalid),
+                    tuple((h, r) for h, r, _ in invalid),
+                ))
+            return None
+
+        manufacturer = resolve_text(_MANUFACTURER_ALIASES, "manufacturer")
+        model = resolve_text(_MODEL_ALIASES, "model")
+        grade = resolve_text(_GRADE_ALIASES, "grade")
+        connection = resolve_text(_CONNECTION_ALIASES, "connection")
+        nominal_od = resolve_number(_OD_ALIASES, "nominal_od_in", unit=od_unit)
+        nominal_id = resolve_number(_ID_ALIASES, "nominal_id_in", unit=id_unit)
+        nominal_weight = resolve_number(_WEIGHT_ALIASES, "nominal_weight_ppf")
+        tj_od = resolve_number(_TJ_OD_ALIASES, "tool_joint_od_in", unit=od_unit)
+        tj_id = resolve_number(_TJ_ID_ALIASES, "tool_joint_id_in", unit=id_unit)
+        drift = resolve_number(_DRIFT_ALIASES, "drift_in", unit=od_unit)
+        tensile = resolve_number(_TENSILE_ALIASES, "tensile_rating_klbf")
 
         # Preserve every unmapped column so nothing is silently lost.
         extra = {
@@ -241,19 +361,20 @@ class DrillPipeSpec:
         }
 
         return cls(
-            manufacturer=(str(manufacturer).strip() if not _is_missing(manufacturer) else None),
-            model=(str(model).strip() if not _is_missing(model) else None),
-            grade=(str(grade).strip() if not _is_missing(grade) else None),
-            connection=(str(connection).strip() if not _is_missing(connection) else None),
-            nominal_od_in=_to_inches(od_raw, od_unit),
-            nominal_id_in=_to_inches(id_raw, id_unit),
-            nominal_weight_ppf=_to_float(weight_raw),  # ppf kept numeric (see docstring)
-            tool_joint_od_in=_to_inches(tj_od_raw, od_unit),
-            tool_joint_id_in=_to_inches(tj_id_raw, id_unit),
-            drift_in=_to_inches(drift_raw, od_unit),
-            tensile_rating_klbf=_to_float(tensile_raw),
+            manufacturer=manufacturer,
+            model=model,
+            grade=grade,
+            connection=connection,
+            nominal_od_in=nominal_od,
+            nominal_id_in=nominal_id,
+            nominal_weight_ppf=nominal_weight,  # ppf kept numeric (see docstring)
+            tool_joint_od_in=tj_od,
+            tool_joint_id_in=tj_id,
+            drift_in=drift,
+            tensile_rating_klbf=tensile,
             provenance=provenance or Provenance(),
             extra=extra,
+            issues=tuple(issues),
         )
 
     # ------------------------------------------------------------------
@@ -282,6 +403,7 @@ class DrillPipeSpec:
         d = asdict(self)
         d["provenance"] = self.provenance.as_dict()
         d["identity_key"] = self.identity_key
+        d["issues"] = [i.as_dict() for i in self.issues]
         return d
 
 
