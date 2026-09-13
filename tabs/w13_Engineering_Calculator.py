@@ -2235,6 +2235,14 @@ class EngineeringCalculatorTab(DrillTabBase):
         calc_btn.setStyleSheet("background: #3498db; color: white; font-weight: bold; padding: 8px; border-radius: 4px; border: none;")
         calc_btn.clicked.connect(self._wt_calculate)
         pf.addRow(calc_btn)
+
+        save_calc_btn = QPushButton("💾 Save Calculation")
+        save_calc_btn.setToolTip(
+            "Persist this Torque & Drag run as a reproducible historical record "
+            "(inputs snapshot + result + reference traceability)."
+        )
+        save_calc_btn.clicked.connect(self._wt_save_calculation)
+        pf.addRow(save_calc_btn)
         layout.addWidget(g_params)
 
         # Results
@@ -2494,13 +2502,21 @@ class EngineeringCalculatorTab(DrillTabBase):
             return
         string = []
         for p in self.wt_pipes:
-            string.append({
+            comp = {
                 "name": p.get("type") or "pipe",
+                "type": p.get("type"),
                 "od": p.get("od"),
                 "id": p.get("id"),
                 "length": p.get("length"),
                 "weight": p.get("weight"),
-            })
+                "grade": p.get("grade"),
+                "connection": p.get("connection"),
+            }
+            # Carry durable catalog reference traceability when the component was
+            # seeded from a persisted reference (stamped by AddPipeDialog).
+            if p.get("reference_fingerprint"):
+                comp["reference_fingerprint"] = p["reference_fingerprint"]
+            string.append(comp)
         surveys = []
         if getattr(self, "dd_surveys", None):
             surveys = [
@@ -2520,7 +2536,21 @@ class EngineeringCalculatorTab(DrillTabBase):
         )
         if not r.success:
             self.wt_td.setText(f"❌ {r.error}")
+            self._wt_last_td_run = None
             return
+        # Cache the exact inputs + result of this successful T&D run so it can be
+        # persisted verbatim (the snapshot is built from these, not re-read from
+        # widgets, so a later widget edit cannot alter a saved run).
+        self._wt_last_td_run = {
+            "survey": surveys,
+            "components": string,
+            "mud_density_ppg": mud_density_ppg,
+            "friction_factor": self.wt_friction.value(),
+            "wob_klbf": self.wt_wob.value(),
+            "wellbore_id_in": self.wt_hole.value() or None,
+            "result_values": r.values,
+            "method": TorqueDragEngine.METHOD,
+        }
         v = r.values
         buck = "buckling" if v.get("buckling", {}).get("any") else "no buckling flag"
         np = v.get("neutral_point_md_m")
@@ -2533,6 +2563,70 @@ class EngineeringCalculatorTab(DrillTabBase):
             f"twist {v.get('twist_rotating_deg')}° | NP {np_s} | {buck}  [SCREENING]"
         )
         
+    def _torque_drag_repo(self):
+        """Lazily build the T&D calculation-history repository (or None)."""
+        if getattr(self, "db", None) is None:
+            return None
+        repo = getattr(self, "_td_calc_repo", None)
+        if repo is None:
+            try:
+                from core.repositories.torque_drag_repository import (
+                    TorqueDragCalculationRepository,
+                )
+                repo = TorqueDragCalculationRepository(self.db)
+            except Exception:
+                logger.exception("Could not build T&D calculation repository")
+                repo = None
+            self._td_calc_repo = repo
+        return repo
+
+    def _wt_save_calculation(self):
+        """Persist the last successful T&D run as a reproducible history record.
+
+        Uses the cached inputs+result from the most recent successful
+        ``_wt_run_td`` (never re-read from widgets), so what is saved is exactly
+        what was computed. One dialog, no per-row prompts; DB internals are not
+        surfaced to the user.
+        """
+        run = getattr(self, "_wt_last_td_run", None)
+        if not run:
+            QMessageBox.information(
+                self, "Save Calculation",
+                "Run a Torque & Drag calculation first (Calculate Hook Load with "
+                "a directional survey and drill string).")
+            return
+        repo = self._torque_drag_repo()
+        if repo is None:
+            QMessageBox.warning(
+                self, "Save Calculation",
+                "No database is available, so calculations cannot be saved.")
+            return
+        try:
+            calc_id = repo.save_run(
+                survey=run["survey"],
+                components=run["components"],
+                mud_density_ppg=run["mud_density_ppg"],
+                friction_factor=run["friction_factor"],
+                wob_klbf=run["wob_klbf"],
+                wellbore_id_in=run["wellbore_id_in"],
+                result_values=run["result_values"],
+                method=run["method"],
+                label="Torque & Drag",
+                well_id=getattr(self, "current_well_id", None),
+            )
+        except Exception as exc:
+            logger.exception("Failed to save T&D calculation")
+            QMessageBox.critical(self, "Save Calculation",
+                                 f"Could not save calculation:\n{exc}")
+            return
+        refs = run["result_values"]
+        QMessageBox.information(
+            self, "Calculation saved",
+            f"Saved Torque & Drag run #{calc_id}.\n"
+            f"Pickup {refs.get('hookload_pickup')} klbf | "
+            f"buoyed {refs.get('total_buoyed_weight')} klbf.\n"
+            "Inputs and reference traceability were stored for reproducibility.")
+
     def _create_stuck_tab(self) -> QWidget:
         tab, container, layout = self._make_scroll_tab()
 

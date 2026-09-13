@@ -219,6 +219,11 @@ class AddPipeDialog(EngineeringBaseDialog):
         # as before (manual entry + built-in quick presets).
         self._reference_repo = reference_repo
         self._reference_specs = {}  # display label -> DrillPipeSpec
+        # The catalog reference the user picked from Quick Select, if any. Used
+        # to stamp durable reference traceability onto the component — but only
+        # if the identity-forming values still match at save time (an edit that
+        # diverges from the reference must not carry a misleading fingerprint).
+        self._selected_reference_spec = None
         super().__init__("🔩 Drill String Component", parent, edit_data)
         self.init_ui()
         if edit_data:
@@ -353,6 +358,7 @@ class AddPipeDialog(EngineeringBaseDialog):
         # Persisted reference-catalog record?
         spec = self._reference_specs.get(name)
         if spec is not None:
+            self._selected_reference_spec = spec
             fields = reference_component_fields(spec)
             self.od.setValue(fields["od"])
             self.weight.setValue(fields["weight"])
@@ -363,6 +369,8 @@ class AddPipeDialog(EngineeringBaseDialog):
             if "tj_od" in fields:
                 self.tj_od.setValue(fields["tj_od"])
             return
+        # Any non-reference selection clears the remembered reference.
+        self._selected_reference_spec = None
         # Built-in curated preset
         data = self.PIPE_DB.get(self.type_combo.currentText(), {}).get(name)
         if data:
@@ -435,7 +443,37 @@ class AddPipeDialog(EngineeringBaseDialog):
             "joints": self.joints.value(),
             "serial": self.serial.text(),
         }
+        fp = self._reference_fingerprint_if_unchanged()
+        if fp:
+            self.result["reference_fingerprint"] = fp
         self.accept()
+
+    def _reference_fingerprint_if_unchanged(self):
+        """Return the selected reference's fingerprint iff its identity-forming
+        values still match the edited component; otherwise ``None``.
+
+        This keeps traceability honest: a component that was seeded from a
+        catalog reference but then edited away from it (different OD/weight/
+        grade/connection) must NOT claim to have come from that reference.
+        """
+        spec = self._selected_reference_spec
+        if spec is None:
+            return None
+        try:
+            def _txt(a, b):
+                return (a or "").strip().lower() == (b or "").strip().lower()
+
+            def _num(a, b):
+                return a is not None and abs(float(a) - float(b)) <= 1e-9
+
+            if (_num(spec.nominal_od_in, self.od.value())
+                    and _num(spec.nominal_weight_ppf, self.weight.value())
+                    and _txt(spec.grade, self.grade.currentText())
+                    and _txt(spec.connection, self.conn.currentText())):
+                return spec.identity_fingerprint()
+        except Exception:
+            return None
+        return None
 
 
 # ==================== 2. Add Casing Dialog ====================

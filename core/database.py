@@ -1955,6 +1955,68 @@ class DrillPipeSpecRecord(Base):
     creator = relationship("User", foreign_keys=[created_by])
 
 
+class TorqueDragCalculationRecord(Base):
+    """A persisted, reproducible Torque & Drag calculation run (history).
+
+    This mirrors the existing ``trajectory_calculations`` convention (a
+    ``*_json`` input snapshot + result blob + promoted summary columns +
+    timestamps), but is **global-scoped**: ``well_id`` is optional because the
+    Engineering Calculator (W13) is a standalone tool that is frequently used
+    without a well context. When a well IS selected it is recorded for context,
+    but it is never required and never part of the engineering identity.
+
+    Reproducibility contract (see docs audit):
+
+    * ``input_snapshot_json`` is the *complete* canonical historical input
+      (survey + component specs + scalar parameters + engine method + snapshot
+      schema version), built by
+      ``core.engineering.torque_drag_persistence.build_snapshot``. It is
+      self-contained: reconstruction never reads the mutable master catalog, so
+      later catalog mutation cannot rewrite this run's history (§5/§7/§9).
+    * ``result_json`` is the derived engine result at execution time.
+    * ``method`` records the engine algorithm identity so a future numerical
+      change is detectable rather than silent (§13).
+    * ``reference_fingerprints_json`` lists the catalog reference identities the
+      run used (engineering fingerprints, NOT database primary keys) for
+      traceability (§8).
+
+    Each save is a distinct historical *run* (an execution event); runs are not
+    deduplicated (§14).
+    """
+    __tablename__ = "torque_drag_calculations"
+
+    id = Column(Integer, primary_key=True)
+
+    # Optional context (never required; not part of engineering identity).
+    well_id = Column(Integer, ForeignKey("wells.id"), nullable=True)
+    label = Column(String(200))
+
+    # Algorithm + snapshot identity for reproducibility.
+    method = Column(String(200), nullable=False)
+    snapshot_schema_version = Column(Integer, nullable=False, default=1)
+
+    # Self-contained historical input snapshot and derived result.
+    input_snapshot_json = Column(JSON, nullable=False)
+    result_json = Column(JSON, nullable=True)
+
+    # Reference traceability (engineering fingerprints, not DB ids).
+    reference_fingerprints_json = Column(JSON, nullable=True)
+
+    # Promoted headline claims (queryable; canonical klbf / ft-lbf).
+    hookload_pickup_klbf = Column(Float)
+    hookload_slackoff_klbf = Column(Float)
+    hookload_rotating_klbf = Column(Float)
+    surface_torque_rotating_ft_lbf = Column(Float)
+    total_buoyed_weight_klbf = Column(Float)
+
+    created_at = Column(DateTime, default=_now_utc)
+    updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc)
+    created_by = Column(Integer, ForeignKey("users.id"))
+
+    well = relationship("Well", foreign_keys=[well_id])
+    creator = relationship("User", foreign_keys=[created_by])
+
+
 class ProcedureTemplate(Base):
     """قالب‌های آماده پروسیجر"""
     __tablename__ = "procedure_templates"
