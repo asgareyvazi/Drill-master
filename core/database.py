@@ -1905,6 +1905,56 @@ class PJSMRecord(Base):
     procedure = relationship("OperationalProcedure", back_populates="pjsm_meetings")
 
 
+class DrillPipeSpecRecord(Base):
+    """Canonical drill-pipe *reference* specification (global master data).
+
+    This is reference/master data, NOT operational data: it is deliberately
+    global-scoped (no well/report/project FK), mirroring the existing
+    ``procedure_templates`` / ``export_templates`` reusable-reference precedent.
+    It must never be confused with operational drill-pipe *inventory*
+    (``equipment_logs``, well/report-scoped) or a drill-string *run*.
+
+    The row is written and read only through
+    ``core.engineering.drill_pipe.DrillPipeSpec`` via the reference repository;
+    ``payload_json`` holds the full spec (provenance, issues, unmapped extra) so
+    a record round-trips losslessly. ``identity_fingerprint`` is the deterministic
+    natural key (UNIQUE) derived from the spec's domain identity — never a row
+    index.
+    """
+    __tablename__ = "drill_pipe_specs"
+
+    id = Column(Integer, primary_key=True)
+    identity_fingerprint = Column(String(400), nullable=False, unique=True)
+
+    # Denormalized canonical columns (queryable); canonical units are
+    # inches for diameters, ppf for weight, klbf for tensile.
+    manufacturer = Column(String(200))
+    model = Column(String(200))
+    nominal_od_in = Column(Float)
+    nominal_weight_ppf = Column(Float)
+    grade = Column(String(100))
+    connection = Column(String(100))
+    nominal_id_in = Column(Float)
+    tool_joint_od_in = Column(Float)
+    tool_joint_id_in = Column(Float)
+    drift_in = Column(Float)
+    tensile_rating_klbf = Column(Float)
+
+    # Provenance (reuses the spec's Provenance fields, flattened for queries).
+    source = Column(String(200))
+    source_revision = Column(String(100))
+    status = Column(String(50), default="unverified")
+
+    # Lossless full spec for round-trip reconstruction.
+    payload_json = Column(Text)
+
+    created_at = Column(DateTime, default=_now_utc)
+    updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc)
+    created_by = Column(Integer, ForeignKey("users.id"))
+
+    creator = relationship("User", foreign_keys=[created_by])
+
+
 class ProcedureTemplate(Base):
     """قالب‌های آماده پروسیجر"""
     __tablename__ = "procedure_templates"

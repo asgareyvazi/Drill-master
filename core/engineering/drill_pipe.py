@@ -249,6 +249,23 @@ class DrillPipeSpec:
         gate identity, because vendor sheets frequently omit them."""
         return self.nominal_od_in is not None and self.nominal_weight_ppf is not None
 
+    def identity_fingerprint(self) -> str:
+        """Deterministic, storage-safe string form of :attr:`identity_key`.
+
+        Used as the UNIQUE natural key at the persistence boundary. It is stable
+        across float spelling (5.0 == 5.000) and text case/spacing because it is
+        built from the already-normalized ``identity_key`` tuple.
+        """
+        import json
+
+        def _canon(part: Any) -> Any:
+            if isinstance(part, float):
+                # Collapse 5.0 / 5.000 / 5.000000 to one representation.
+                return format(round(part, 6), ".6f")
+            return part
+
+        return json.dumps([_canon(p) for p in self.identity_key], ensure_ascii=False)
+
     # ------------------------------------------------------------------
     # Vendor row -> canonical spec (safe normalization, no fabrication)
     # ------------------------------------------------------------------
@@ -405,6 +422,76 @@ class DrillPipeSpec:
         d["identity_key"] = self.identity_key
         d["issues"] = [i.as_dict() for i in self.issues]
         return d
+
+    # ------------------------------------------------------------------
+    # Persistence bridge (kept out of the ORM so the domain model stays
+    # storage-agnostic; the repository owns the actual DB row).
+    # ------------------------------------------------------------------
+    def to_record_values(self) -> Dict[str, Any]:
+        """Flat, DB-friendly column values for a reference-catalog row.
+
+        The full spec (including provenance, issues and unmapped ``extra``) is
+        also serialized into ``payload_json`` so a stored record round-trips back
+        to an identical :class:`DrillPipeSpec` without lossy column mapping.
+        """
+        import json
+
+        return {
+            "identity_fingerprint": self.identity_fingerprint(),
+            "manufacturer": self.manufacturer,
+            "model": self.model,
+            "nominal_od_in": self.nominal_od_in,
+            "nominal_weight_ppf": self.nominal_weight_ppf,
+            "grade": self.grade,
+            "connection": self.connection,
+            "nominal_id_in": self.nominal_id_in,
+            "tool_joint_od_in": self.tool_joint_od_in,
+            "tool_joint_id_in": self.tool_joint_id_in,
+            "drift_in": self.drift_in,
+            "tensile_rating_klbf": self.tensile_rating_klbf,
+            "source": self.provenance.source,
+            "source_revision": self.provenance.source_revision,
+            "status": self.provenance.status,
+            "payload_json": json.dumps(self.as_dict(), ensure_ascii=False, default=str),
+        }
+
+    @classmethod
+    def from_record_values(cls, values: Mapping[str, Any]) -> "DrillPipeSpec":
+        """Reconstruct a spec from a stored row's ``payload_json`` (lossless)."""
+        import json
+
+        payload = values.get("payload_json")
+        data = json.loads(payload) if isinstance(payload, str) and payload else dict(values)
+        prov = data.get("provenance") or {}
+        eff = prov.get("effective_date")
+        provenance = Provenance(
+            source=prov.get("source", "") or "",
+            source_revision=prov.get("source_revision", "") or "",
+            effective_date=date.fromisoformat(eff) if eff else None,
+            status=prov.get("status", "unverified") or "unverified",
+            notes=prov.get("notes", "") or "",
+        )
+        issues = tuple(
+            SpecIssue(i.get("field", ""), i.get("kind", ""), i.get("detail", ""),
+                      tuple(tuple(x) if isinstance(x, list) else x for x in i.get("raw", [])))
+            for i in (data.get("issues") or [])
+        )
+        return cls(
+            manufacturer=data.get("manufacturer"),
+            model=data.get("model"),
+            nominal_od_in=data.get("nominal_od_in"),
+            nominal_weight_ppf=data.get("nominal_weight_ppf"),
+            grade=data.get("grade"),
+            connection=data.get("connection"),
+            nominal_id_in=data.get("nominal_id_in"),
+            tool_joint_od_in=data.get("tool_joint_od_in"),
+            tool_joint_id_in=data.get("tool_joint_id_in"),
+            drift_in=data.get("drift_in"),
+            tensile_rating_klbf=data.get("tensile_rating_klbf"),
+            provenance=provenance,
+            extra=dict(data.get("extra") or {}),
+            issues=issues,
+        )
 
 
 def classify_duplicate(a: DrillPipeSpec, b: DrillPipeSpec) -> str:
