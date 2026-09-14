@@ -3964,118 +3964,80 @@ class EngineeringCalculatorTab(DrillTabBase):
     # ========== Well Control Methods ==========
 
     def _wc_calc_kill(self):
-        from core.hydraulics_engine import AdvancedHydraulicsEngine as A
-        tvd_ft = self.wc_tvd.value() * 3.28084
-        md_ft = self.wc_md.value() * 3.28084
-        shoe_tvd_ft = self.wc_shoe_tvd.value() * 3.28084
-        mw_pcf = self.wc_mw.value()
-        mw_ppg = mw_pcf / 7.48
-        sidpp = self.wc_sidpp.value()
-        sicp = self.wc_sicp.value()
-        frac_grad = self.wc_frac.value()
-        pit_gain = self.wc_pit_gain.value()
-        scr1 = self.wc_scr1.value()
-        scr1_spm = self.wc_scr1_spm.value()
-        scr2 = self.wc_scr2.value()
-        scr2_spm = self.wc_scr2_spm.value()
-        pump_output = self.wc_pump_output.value()
-        hole = self.wc_hole_size.value()
-        csg_id = self.wc_last_csg_id.value()
-        method = "Driller's" if self.wc_driller.isChecked() else "Wait & Weight"
-
-        # String volumes — canonical capacity (bbl/ft) × length in ft
-        total_string_vol = 0
-        total_ann_vol = 0
-        string_detail = []
-        ann_detail = []
-
-        for p in self.wc_pipes:
-            od = p.get('od', 0)
-            id_ = p.get('id', 0)
-            L = p.get('length', 0)
-            ptype = p.get('type', '')
-
-            cap = A.calc_pipe_capacity_bbl_ft(id_) * (L * 3.28084)
-            total_string_vol += cap
-            string_detail.append((ptype, L, cap))
-
-            # Annular (simplified: assume in csg if above shoe, OH if below)
-            shoe_m = self.wc_shoe_md.value()
-            if L > 0:
-                ann_id_val = csg_id  # simplified
-                if ann_id_val > od:
-                    ann = (A.calc_annular_capacity_bbl_ft(ann_id_val, od)
-                           * (L * 3.28084))
-                    total_ann_vol += ann
-                    ann_detail.append((f"{ptype} in CSG", L, ann))
-
-        # Kill calculations — canonical WellControlEngine
-        from core.engineering.engines.well_control import WellControlEngine as WC
-        kmw_r = WC.kill_mw(mw_ppg, sidpp, tvd_ft)
-        if not kmw_r.success:
-            self.wc_result.setText(f"❌ {kmw_r.error}")
-            return
-        kmw_ppg = kmw_r.value
-        kmw_pcf = kmw_ppg * 7.48
-        icp = scr1 + sidpp
-        if mw_ppg <= 0:
-            self.wc_result.setText("❌ MISSING_INPUT: positive mud weight")
-            return
-        fcp = scr1 * (kmw_ppg / mw_ppg)
-        maasp_r = WC.maasp(
-            max_allowable_mw_ppg=frac_grad / 0.052 if frac_grad else None,
-            current_mw_ppg=mw_ppg,
-            shoe_tvd_ft=shoe_tvd_ft,
+        # Canonical, Qt-free input boundary + composite computation (mission 7).
+        # The handler now ONLY reads widgets and renders text; every unit
+        # conversion, volume/stroke/ICP/FCP/schedule computation and engine call
+        # lives in core.engineering.well_control_kill_sheet (single owner of unit
+        # conversion, deterministic, snapshot-ready). No formula changed.
+        from core.engineering.well_control_kill_sheet import (
+            build_canonical_kill_sheet_inputs,
+            compute_kill_sheet,
         )
-        if not maasp_r.success:
-            self.wc_result.setText(f"❌ {maasp_r.error}")
+
+        method = "Driller's" if self.wc_driller.isChecked() else "Wait & Weight"
+        inp = build_canonical_kill_sheet_inputs(
+            tvd_m=self.wc_tvd.value(),
+            md_m=self.wc_md.value(),
+            shoe_tvd_m=self.wc_shoe_tvd.value(),
+            hole_size_in=self.wc_hole_size.value(),
+            casing_id_in=self.wc_last_csg_id.value(),
+            casing_od_in=self.wc_last_csg.value(),
+            mw_pcf=self.wc_mw.value(),
+            frac_gradient_psi_ft=self.wc_frac.value(),
+            sidpp_psi=self.wc_sidpp.value(),
+            sicp_psi=self.wc_sicp.value(),
+            pit_gain_bbl=self.wc_pit_gain.value(),
+            scr1_psi=self.wc_scr1.value(),
+            scr1_spm=self.wc_scr1_spm.value(),
+            scr2_psi=self.wc_scr2.value(),
+            scr2_spm=self.wc_scr2_spm.value(),
+            pump_output_bbl_stk=self.wc_pump_output.value(),
+            method=method,
+            well_type=self.wc_well_type.currentText(),
+            pipes_m=self.wc_pipes,
+        )
+        self._wc_last_kill_inputs = inp
+
+        res = compute_kill_sheet(inp)
+        if not res.success:
+            self.wc_result.setText(f"❌ {res.error}")
             return
-        maasp = maasp_r.value
 
-        # Strokes
-        stk_to_bit = total_string_vol / pump_output if pump_output > 0 else 0
-        stk_annular = total_ann_vol / pump_output if pump_output > 0 else 0
-        stk_total = stk_to_bit + stk_annular
+        # Unpack canonical results for the (unchanged) ASCII rendering below.
+        tvd_ft = inp.tvd_ft
+        md_ft = inp.md_ft
+        shoe_tvd_ft = inp.shoe_tvd_ft
+        mw_pcf = res.mw_pcf
+        mw_ppg = res.mw_ppg
+        sidpp = inp.sidpp_psi
+        sicp = inp.sicp_psi
+        frac_grad = inp.frac_gradient_psi_ft
+        pit_gain = inp.pit_gain_bbl
+        scr1 = inp.scr1_psi
+        scr1_spm = inp.scr1_spm
+        scr2 = inp.scr2_psi
+        scr2_spm = inp.scr2_spm
+        pump_output = inp.pump_output_bbl_stk
+        hole = inp.hole_size_in
+        csg_id = inp.casing_id_in
+        total_string_vol = res.total_string_vol_bbl
+        total_ann_vol = res.total_ann_vol_bbl
+        string_detail = res.string_detail
+        ann_detail = res.ann_detail
+        kmw_ppg = res.kill_mw_ppg
+        kmw_pcf = res.kill_mw_pcf
+        icp = res.icp_psi
+        fcp = res.fcp_psi
+        maasp = res.maasp_psi
+        stk_to_bit = res.stk_to_bit
+        stk_annular = res.stk_annular
+        stk_total = res.stk_total
+        kick_type = res.kick_type
+        kick_height = res.kick_height_ft
+        kick_note = res.kick_note
+        schedule = res.choke_schedule
 
-        # Kick height / type — canonical WellControlEngine.kick_volume
-        # (height = pit gain / annular capacity; influx gradient from
-        # SICP−SIDPP over the influx height; type by gradient cut-offs)
-        kick_type = "n/a (enter pit gain + drill string)"
-        kick_height = 0.0
-        kick_note = ""
-        last_pipe_od = self.wc_pipes[-1].get('od', 5) if self.wc_pipes else 5
-        ann_cap_ft = A.calc_annular_capacity_bbl_ft(hole, last_pipe_od)
-        if pit_gain > 0 and ann_cap_ft > 0:
-            kv = WC.kick_volume(
-                pit_gain_bbl=pit_gain,
-                annular_capacity_bbl_ft=ann_cap_ft,
-                mw_ppg=mw_ppg,
-                sidpp_psi=sidpp,
-                sicp_psi=sicp,
-            )
-            if kv.success:
-                kick_height = kv.values.get("kick_height_ft") or 0.0
-                kind = kv.values.get("kick_type")
-                kick_type = {
-                    "gas": "Gas Kick",
-                    "oil": "Oil Kick",
-                    "oil_or_condensate": "Oil Kick",
-                    "salt_water": "Salt Water Kick",
-                    "saltwater": "Salt Water Kick",
-                }.get(kind, "Unknown")
-                if kv.warnings:
-                    kick_note = " ⚠ " + "; ".join(kv.warnings)[:80]
-
-        # Choke schedule
-        schedule = []
-        intervals = 10
-        if stk_to_bit > 0:
-            step = stk_to_bit / intervals
-            dp = (icp - fcp) / intervals
-            for i in range(intervals + 1):
-                strokes = round(i * step)
-                pressure = round(icp - i * dp, 1)
-                schedule.append((strokes, pressure, round(i / intervals * 100)))
+        self._wc_last_kill_result = res
 
         # Build report
         text = f"""╔═════════════════════════════════════════════════════════╗
