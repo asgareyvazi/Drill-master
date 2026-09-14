@@ -360,6 +360,37 @@ class KillSheetResult:
             "warnings": list(self.warnings),
         }
 
+    # Correctness-relevant projection of the WHOLE result (mission §12/§13/§14).
+    # This is what a persisted historical claim stores and what whole-result
+    # verification compares. It deliberately EXCLUDES presentation/diagnostic
+    # metadata (success/error/method/engine_method/warnings/kick_note, and the
+    # human-facing kick_type label) so the shared engine-agnostic
+    # ``deep_numeric_diff`` sees exactly the numeric/structural engineering
+    # answer. Every scalar, both nested detail lists and the choke schedule are
+    # included, so a single changed correctness value cannot hide behind a
+    # summary-only MATCH (the T&D false-MATCH lesson).
+    _CORRECTNESS_KEYS = (
+        "kill_mw_ppg", "kill_mw_pcf", "mw_ppg", "mw_pcf",
+        "mw_increase_ppg", "mw_increase_pcf",
+        "icp_psi", "fcp_psi", "maasp_psi",
+        "total_string_vol_bbl", "total_ann_vol_bbl", "total_well_vol_bbl",
+        "string_detail", "ann_detail",
+        "stk_to_bit", "stk_annular", "stk_total",
+        "kick_height_ft", "choke_schedule",
+    )
+
+    @property
+    def values(self) -> Dict[str, Any]:
+        """Whole correctness-relevant result (verification-core protocol).
+
+        Named ``values`` and paired with ``success``/``error`` so a
+        :class:`KillSheetResult` satisfies the exact duck-typed protocol the
+        shared ``classify_verification`` consumes — enabling reuse of the generic
+        verifier with NO Well-Control-specific branches (mission §47).
+        """
+        d = self.as_dict()
+        return {k: d[k] for k in self._CORRECTNESS_KEYS}
+
 
 # error sentinels so a caller (or a snapshot) can classify failure without
 # string-matching (mission §26)

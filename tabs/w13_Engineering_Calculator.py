@@ -3710,6 +3710,16 @@ class EngineeringCalculatorTab(DrillTabBase):
         calc_btn.clicked.connect(self._wc_calc_kill)
         ks_layout.addWidget(calc_btn)
 
+        # Save / History (calculation #4 persistence)
+        wc_persist_row = QHBoxLayout()
+        wc_save = QPushButton("💾 Save Calculation")
+        wc_save.clicked.connect(self._wc_save_calculation)
+        wc_persist_row.addWidget(wc_save)
+        wc_history = QPushButton("📜 Calculation History")
+        wc_history.clicked.connect(self._wc_open_history)
+        wc_persist_row.addWidget(wc_history)
+        ks_layout.addLayout(wc_persist_row)
+
         # Results
         self.wc_result = QTextEdit()
         self.wc_result.setReadOnly(True)
@@ -4153,6 +4163,87 @@ class EngineeringCalculatorTab(DrillTabBase):
     ╚═════════════════════════════════════════════════════════╝"""
 
         self.wc_result.setText(text)
+
+    # ---- Well Control Kill Sheet persistence (calculation #4) ----------
+    def _wc_kill_sheet_repo(self):
+        """Lazily build the kill-sheet calculation-history repository (or None)."""
+        if getattr(self, "db", None) is None:
+            return None
+        repo = getattr(self, "_wc_calc_repo", None)
+        if repo is None:
+            try:
+                from core.repositories.well_control_kill_sheet_repository import (
+                    WellControlKillSheetRepository,
+                )
+                repo = WellControlKillSheetRepository(self.db)
+            except Exception:
+                logger.exception("Could not build kill-sheet calculation repository")
+                repo = None
+            self._wc_calc_repo = repo
+        return repo
+
+    def _wc_save_calculation(self):
+        """Persist the last successful kill-sheet run as a reproducible record."""
+        inp = getattr(self, "_wc_last_kill_inputs", None)
+        res = getattr(self, "_wc_last_kill_result", None)
+        if inp is None or res is None or not getattr(res, "success", False):
+            QMessageBox.information(
+                self, "Save Calculation",
+                "Run a successful kill sheet first (Calculate Complete Kill "
+                "Sheet).")
+            return
+        repo = self._wc_kill_sheet_repo()
+        if repo is None:
+            QMessageBox.warning(
+                self, "Save Calculation",
+                "No database is available, so calculations cannot be saved.")
+            return
+        try:
+            from core.engineering.well_control_kill_sheet_persistence import (
+                build_snapshot,
+            )
+            from core.engineering.engines.well_control import WellControlEngine
+            snapshot = build_snapshot(inputs=inp, method=WellControlEngine.METHOD)
+            calc_id = repo.save_run(
+                snapshot=snapshot,
+                result=res.values,
+                method=WellControlEngine.METHOD,
+                label="Well Control Kill Sheet",
+                well_id=getattr(self, "current_well_id", None),
+            )
+        except Exception as exc:
+            logger.exception("Failed to save kill-sheet calculation")
+            QMessageBox.critical(self, "Save Calculation",
+                                 f"Could not save calculation:\n{exc}")
+            return
+        QMessageBox.information(
+            self, "Calculation saved",
+            f"Saved Well Control Kill Sheet run #{calc_id}.\n"
+            f"Kill MW {res.kill_mw_ppg:.2f} ppg | MAASP {res.maasp_psi:.0f} psi "
+            f"| {res.stk_total:.0f} strokes.\n"
+            "Inputs and full composite result were stored for reproducibility.")
+
+    def _wc_open_history(self):
+        """Open the read-only kill-sheet calculation-history browser."""
+        repo = self._wc_kill_sheet_repo()
+        if repo is None:
+            QMessageBox.warning(
+                self, "Calculation History",
+                "No database is available, so calculation history cannot be "
+                "opened.")
+            return
+        try:
+            from dialogs.well_control_kill_sheet_history_dialog import (
+                WellControlKillSheetHistoryDialog,
+            )
+            from core.engineering.engines.well_control import WellControlEngine
+            dlg = WellControlKillSheetHistoryDialog(
+                repo, current_method=WellControlEngine.METHOD, parent=self)
+            dlg.exec()
+        except Exception as exc:
+            logger.exception("Failed to open kill-sheet calculation history")
+            QMessageBox.critical(self, "Calculation History",
+                                 f"Could not open history:\n{exc}")
 
     def _wc_calc_choke(self):
         icp = self.cs_icp.value()

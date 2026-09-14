@@ -2127,6 +2127,66 @@ class CementCalculationRecord(Base):
     creator = relationship("User", foreign_keys=[created_by])
 
 
+class WellControlKillSheetCalculationRecord(Base):
+    """A persisted, reproducible Well Control **kill sheet** run (history).
+
+    DrillMaster's FOURTH persistent engineering calculation — and its first
+    *composite* one. Unlike Torque & Drag, Casing and Cement (each a single
+    engine call), a kill sheet runs three ``WellControlEngine`` calls plus
+    domain-level derived arithmetic and a choke schedule, producing a bespoke
+    ``KillSheetResult``. The historical claim is owned by the COMPOSITE, so this
+    record stores the composite's frozen canonical input snapshot and its whole
+    correctness-relevant result — NOT three separate sub-engine records (mission
+    §51/§70). It is again an INDEPENDENT concrete model: the kill sheet's input
+    (well geometry + mud/kick state + pump program + immutable pipe program) and
+    result (scalars PLUS nested string/annular detail lists PLUS a choke
+    schedule) differ from all three prior calculations, so it is deliberately not
+    forced into a shared ORM base (mission §49: keep implementations concrete
+    unless the ORM shape is genuinely shared, which it is not).
+
+    Global-scoped: ``well_id`` is optional because the W13 Well Control worksheet
+    is frequently used without a well context.
+
+    Reference note (mission §35/§36): the kill-sheet pipe program is a MIXED
+    reference (built-in presets / optional DrillPipe catalog / manual entry), but
+    the calculation consumes only each segment's numeric od/id/length/type, which
+    are frozen into the snapshot. Reconstruction needs no live catalog, so this
+    record stores NO reference fingerprint — the frozen numeric snapshot alone
+    reproduces the run.
+    """
+    __tablename__ = "well_control_kill_sheet_calculations"
+
+    id = Column(Integer, primary_key=True)
+
+    # Optional context (never required; not part of engineering identity).
+    well_id = Column(Integer, ForeignKey("wells.id"), nullable=True)
+    label = Column(String(200))
+
+    # Algorithm + snapshot identity for reproducibility.
+    method = Column(String(200), nullable=False)
+    snapshot_schema_version = Column(Integer, nullable=False, default=1)
+
+    # Self-contained historical input snapshot and whole derived result.
+    input_snapshot_json = Column(JSON, nullable=False)
+    result_json = Column(JSON, nullable=True)
+
+    # Promoted headline claims (queryable; safety-critical figures).
+    kill_mw_ppg = Column(Float)
+    icp_psi = Column(Float)
+    fcp_psi = Column(Float)
+    maasp_psi = Column(Float)
+    total_well_vol_bbl = Column(Float)
+    stk_total = Column(Float)
+    kick_height_ft = Column(Float)
+
+    created_at = Column(DateTime, default=_now_utc)
+    updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc)
+    created_by = Column(Integer, ForeignKey("users.id"))
+
+    well = relationship("Well", foreign_keys=[well_id])
+    creator = relationship("User", foreign_keys=[created_by])
+
+
 class ProcedureTemplate(Base):
     """قالب‌های آماده پروسیجر"""
     __tablename__ = "procedure_templates"
