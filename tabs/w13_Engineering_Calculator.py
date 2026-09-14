@@ -3097,10 +3097,16 @@ class EngineeringCalculatorTab(DrillTabBase):
         cs_tab = QWidget()
         cs_layout = QVBoxLayout(cs_tab)
 
-        g1 = QGroupBox("💪 Casing Strength (select from database)")
+        g1 = QGroupBox("💪 Casing Strength (select a preset or enter values)")
         g1_lay = QVBoxLayout(g1)
 
-        select_btn = QPushButton("📋 Select Casing from API 5CT Database")
+        select_btn = QPushButton("📋 Select Casing Preset")
+        select_btn.setToolTip(
+            "Fill OD / ID / weight from a built-in casing preset table. "
+            "The presets are convenience values, not an authoritative catalog; "
+            "the strength engine computes ratings from the entered geometry and "
+            "yield."
+        )
         select_btn.setStyleSheet("background: #3498db; color: white; font-weight: bold; padding: 8px; border-radius: 4px; border: none;")
         select_btn.clicked.connect(self._csg_select_from_db)
         g1_lay.addWidget(select_btn)
@@ -3219,6 +3225,21 @@ class EngineeringCalculatorTab(DrillTabBase):
         cmt_calc.clicked.connect(self._csg_calc_cement)
         f2.addRow(cmt_calc)
 
+        cmt_save = QPushButton("💾 Save Calculation")
+        cmt_save.setToolTip(
+            "Persist this cement job-volume run as a reproducible historical "
+            "record (inputs snapshot + full result)."
+        )
+        cmt_save.clicked.connect(self._cmt_save_calculation)
+        f2.addRow(cmt_save)
+
+        cmt_history = QPushButton("📜 Calculation History")
+        cmt_history.setToolTip(
+            "Browse, inspect and verify previously saved cement job-volume runs."
+        )
+        cmt_history.clicked.connect(self._cmt_open_history)
+        f2.addRow(cmt_history)
+
         self.cmt_result = QTextEdit()
         self.cmt_result.setReadOnly(True)
         self.cmt_result.setMinimumHeight(200)
@@ -3273,9 +3294,9 @@ class EngineeringCalculatorTab(DrillTabBase):
                 if od > 0 and id_ > 0:
                     self.csg_wall.setValue((od - id_) / 2)
                 if data.get('burst'):
-                    self.csg_burst_res.setText(f"{data['burst']:.0f} psi (from API)")
+                    self.csg_burst_res.setText(f"{data['burst']:.0f} psi (preset ref)")
                 if data.get('collapse'):
-                    self.csg_collapse_res.setText(f"{data['collapse']:.0f} psi (from API)")
+                    self.csg_collapse_res.setText(f"{data['collapse']:.0f} psi (preset ref)")
 
     def _csg_calc_strength(self):
         from core.engineering.engines.casing import CasingEngine
@@ -3424,7 +3445,7 @@ class EngineeringCalculatorTab(DrillTabBase):
         shoe_tvd = self.cmt_shoe_tvd.value() or None
         pump = self.cmt_pump.value() or None
         pore = self.cmt_pore.value() or None
-        r = CementEngine.job_volumes(
+        inputs = dict(
             hole_size_in=self.cmt_hole.value(),
             casing_od_in=self.cmt_csg.value(),
             open_hole_length_ft=self.cmt_len.value(),
@@ -3445,9 +3466,19 @@ class EngineeringCalculatorTab(DrillTabBase):
             pump_rate_bbl_min=pump,
             pore_emw_ppg=pore,
         )
+        r = CementEngine.job_volumes(**inputs)
         if not r.success:
             self.cmt_result.setText(f"❌ {r.error}")
+            self._cmt_last_run = None
             return
+        # Cache the exact inputs + result of this successful run so it can be
+        # persisted verbatim (the snapshot is built from these, not re-read from
+        # widgets, so a later widget edit cannot alter a saved run).
+        self._cmt_last_run = {
+            "inputs": inputs,
+            "result_values": r.values,
+            "method": CementEngine.METHOD,
+        }
         v = r.values
         sacks = v.get("sacks")
         sacks_s = f"{sacks:.0f}" if sacks is not None else "n/a (need yield)"
@@ -3471,6 +3502,80 @@ class EngineeringCalculatorTab(DrillTabBase):
             "NOT laboratory cement design (no UCA / thickening time / gas migration)."
         )
         self.cmt_result.setText(text)
+
+    def _cement_repo(self):
+        """Lazily build the cement calculation-history repository (or None)."""
+        if getattr(self, "db", None) is None:
+            return None
+        repo = getattr(self, "_cmt_calc_repo", None)
+        if repo is None:
+            try:
+                from core.repositories.cement_repository import (
+                    CementCalculationRepository,
+                )
+                repo = CementCalculationRepository(self.db)
+            except Exception:
+                logger.exception("Could not build cement calculation repository")
+                repo = None
+            self._cmt_calc_repo = repo
+        return repo
+
+    def _cmt_save_calculation(self):
+        """Persist the last successful cement run as a reproducible record."""
+        run = getattr(self, "_cmt_last_run", None)
+        if not run:
+            QMessageBox.information(
+                self, "Save Calculation",
+                "Run a Cement Volume calculation first (Calculate Cement "
+                "Volumes).")
+            return
+        repo = self._cement_repo()
+        if repo is None:
+            QMessageBox.warning(
+                self, "Save Calculation",
+                "No database is available, so calculations cannot be saved.")
+            return
+        try:
+            calc_id = repo.save_run(
+                inputs=run["inputs"],
+                result_values=run["result_values"],
+                method=run["method"],
+                label="Cement Job Volume",
+                well_id=getattr(self, "current_well_id", None),
+            )
+        except Exception as exc:
+            logger.exception("Failed to save cement calculation")
+            QMessageBox.critical(self, "Save Calculation",
+                                 f"Could not save calculation:\n{exc}")
+            return
+        v = run["result_values"]
+        sacks = v.get("sacks")
+        sacks_s = f"{sacks:.0f}" if sacks is not None else "n/a"
+        QMessageBox.information(
+            self, "Calculation saved",
+            f"Saved Cement Job Volume run #{calc_id}.\n"
+            f"Slurry {v.get('slurry_volume_bbl')} bbl | sacks {sacks_s}.\n"
+            "Inputs and full result were stored for reproducibility.")
+
+    def _cmt_open_history(self):
+        """Open the read-only cement calculation-history browser."""
+        repo = self._cement_repo()
+        if repo is None:
+            QMessageBox.warning(
+                self, "Calculation History",
+                "No database is available, so calculation history cannot be "
+                "opened.")
+            return
+        try:
+            from dialogs.cement_history_dialog import CementHistoryDialog
+            from core.engineering.engines.cement import CementEngine
+            dlg = CementHistoryDialog(
+                repo, current_method=CementEngine.METHOD, parent=self)
+            dlg.exec()
+        except Exception as exc:
+            logger.exception("Failed to open cement calculation history")
+            QMessageBox.critical(self, "Calculation History",
+                                 f"Could not open history:\n{exc}")
 
     def _csg_calc_landing(self):
         bf = self.engine.calc_buoyancy_factor(self.bf_mw.value())

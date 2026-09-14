@@ -2073,6 +2073,60 @@ class CasingCalculationRecord(Base):
     creator = relationship("User", foreign_keys=[created_by])
 
 
+class CementCalculationRecord(Base):
+    """A persisted, reproducible Cement job-volume calculation run (history).
+
+    This is DrillMaster's THIRD persistent engineering calculation. It follows
+    the same historical-integrity principles proven for Torque & Drag and Casing
+    (frozen self-contained input snapshot + full derived result + engine method
+    + snapshot schema version + promoted summary columns + timestamps), but it is
+    again an INDEPENDENT concrete model. Cement's input class (hole/casing
+    geometry + multi-leg slurry program + hydrostatic column) and its result
+    (mixed scalars PLUS nested ``lead``/``tail`` legs and a ``stacked_hydrostatic``
+    layer list) differ from both prior calculations, so it is deliberately not
+    forced into a shared ORM base (mission §28/§33/§34: keep implementations
+    concrete unless the ORM shape is genuinely shared, which it is not).
+
+    Global-scoped: ``well_id`` is optional because the Engineering Calculator
+    (W13) cement worksheet is frequently used without a well context.
+
+    Reference note (mission §23): cement job-volume inputs are direct engineering
+    values (geometry, lengths, densities, yields) with NO catalog/preset behind
+    them, so — like casing — this record stores NO reference fingerprint. The
+    frozen numeric snapshot alone fully reconstructs the run.
+    """
+    __tablename__ = "cement_calculations"
+
+    id = Column(Integer, primary_key=True)
+
+    # Optional context (never required; not part of engineering identity).
+    well_id = Column(Integer, ForeignKey("wells.id"), nullable=True)
+    label = Column(String(200))
+
+    # Algorithm + snapshot identity for reproducibility.
+    method = Column(String(200), nullable=False)
+    snapshot_schema_version = Column(Integer, nullable=False, default=1)
+
+    # Self-contained historical input snapshot and derived result.
+    input_snapshot_json = Column(JSON, nullable=False)
+    result_json = Column(JSON, nullable=True)
+
+    # Promoted headline claims (queryable; canonical bbl / sacks / psi).
+    slurry_volume_bbl = Column(Float)
+    annular_with_excess_bbl = Column(Float)
+    displacement_volume_bbl = Column(Float)
+    total_pump_bbl = Column(Float)
+    sacks = Column(Float)
+    hydrostatic_psi = Column(Float)
+
+    created_at = Column(DateTime, default=_now_utc)
+    updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc)
+    created_by = Column(Integer, ForeignKey("users.id"))
+
+    well = relationship("Well", foreign_keys=[well_id])
+    creator = relationship("User", foreign_keys=[created_by])
+
+
 class ProcedureTemplate(Base):
     """قالب‌های آماده پروسیجر"""
     __tablename__ = "procedure_templates"
