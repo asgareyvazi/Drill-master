@@ -715,6 +715,9 @@ class CodeManagementTab(QWidget):
         self.setup_connections()
 
     def init_ui(self):
+        # This class is wrapped by @make_scrollable, so the whole page already
+        # scrolls. The primary code table still needs a useful minimum height
+        # (see below) or the tall charts stacked under it squeeze it to ~1 row.
         main_layout = QVBoxLayout(self)
 
         header_layout = QHBoxLayout()
@@ -755,7 +758,9 @@ class CodeManagementTab(QWidget):
         ])
         self.code_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.code_table.setAlternatingRowColors(True)
-        self.code_table.setMaximumHeight(350)
+        # Primary dataset for this tab: give it a useful minimum viewport
+        # (several rows) instead of letting the tall charts below squeeze it.
+        self.code_table.setMinimumHeight(240)
         main_layout.addWidget(self.code_table)
 
         # ========== Charts Section ==========
@@ -1380,6 +1385,7 @@ class MilestonesTab(QWidget):
         self.load_data()
 
 # ==================== Well Plan Tab (FACT vs PLAN) ====================
+@make_scrollable
 class WellPlanTab(QWidget):
     def __init__(self, db_manager=None, parent_widget=None):
         super().__init__()
@@ -1397,6 +1403,9 @@ class WellPlanTab(QWidget):
         self.init_ui()
 
     def init_ui(self):
+        # This class is wrapped by @make_scrollable so the page scrolls; the
+        # FACT/PLAN tables below get explicit minimum heights so the tall chart
+        # above them cannot squeeze them to ~3 rows.
         main_layout = QVBoxLayout(self)
 
         # Header
@@ -1436,6 +1445,7 @@ class WellPlanTab(QWidget):
         self.fact_table.setHorizontalHeaderLabels(["Day (Cumulative)", "Date", "Actual Depth (m)"])
         self.fact_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.fact_table.setEditTriggers(QTableWidget.NoEditTriggers)  # غیرقابل ویرایش
+        self.fact_table.setMinimumHeight(200)
         fact_layout.addWidget(self.fact_table)
         fact_group.setLayout(fact_layout)
         main_layout.addWidget(fact_group)
@@ -1447,6 +1457,7 @@ class WellPlanTab(QWidget):
         self.plan_table.setHorizontalHeaderLabels(["Activity", "Start Day", "End Day", "Depth From (m)", "Depth To (m)", "Section"])
         self.plan_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.plan_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.plan_table.setMinimumHeight(200)
         plan_layout.addWidget(self.plan_table)
         plan_group.setLayout(plan_layout)
         main_layout.addWidget(plan_group)
