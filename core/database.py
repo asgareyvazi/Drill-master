@@ -3368,6 +3368,7 @@ class DatabaseManager:
                                 "name": well.name,
                                 "code": well.code,
                                 "status": well.status,
+                                "updated_at": well.updated_at,
                             })
                         company_data["projects"].append(project_data)
                     hierarchy.append(company_data)

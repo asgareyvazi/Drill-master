@@ -457,8 +457,14 @@ class HomeTab(DrillTabBase):
                 type_item = QTableWidgetItem(well_type)
                 self.wells_table.setItem(row, 3, type_item)
 
-                # Last Update (simulated - in real app would be from updated_at)
-                last_update = "Today"  # Placeholder
+                # Last Update — real persisted timestamp (no fabricated value).
+                updated_at = well.get("updated_at")
+                if updated_at is not None and hasattr(updated_at, "strftime"):
+                    last_update = updated_at.strftime("%Y-%m-%d")
+                elif updated_at:
+                    last_update = str(updated_at)
+                else:
+                    last_update = "—"
                 update_item = QTableWidgetItem(last_update)
                 self.wells_table.setItem(row, 4, update_item)
 
