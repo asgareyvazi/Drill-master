@@ -2349,7 +2349,10 @@ class MaterialInventoryTab(QWidget):
     def save_material_row(self, row):
         """ذخیره یک ردیف در دیتابیس"""
         if not self.current_well_id:
-            return
+            self.status_label.setText(
+                "Select a well before entering materials (not saved)."
+            )
+            return False
         session = self.db.create_session()
         try:
             from core.database import BulkMaterials
@@ -2398,11 +2401,20 @@ class MaterialInventoryTab(QWidget):
                 )
                 session.add(new_material)
             session.commit()
+            self.status_label.setText(f"Saved '{material_name}'")
+            return True
         except Exception as e:
             session.rollback()
             logger.error(f"Error saving material: {e}")
+            # Surface the failure: the row is visible in the table but was NOT
+            # persisted, so the user must not be left believing it saved.
+            self.status_label.setText(
+                f"NOT SAVED — database error: {str(e)[:100]}"
+            )
+            return False
         finally:
             session.close()
+
 
     def add_material_dialog(self):
         """دیالوگ افزودن ماده جدید"""
@@ -2460,9 +2472,13 @@ class MaterialInventoryTab(QWidget):
                 session.commit()
                 self.material_table.removeRow(current_row)
                 self.update_chart()
+                self.status_label.setText(f"Deleted '{material_name}'")
             except Exception as e:
                 session.rollback()
                 logger.error(f"Error deleting material: {e}")
+                self.status_label.setText(
+                    f"NOT DELETED — database error: {str(e)[:100]}"
+                )
             finally:
                 session.close()
 
