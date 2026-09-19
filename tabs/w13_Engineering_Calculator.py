@@ -1877,6 +1877,19 @@ class EngineeringCalculatorTab(DrillTabBase):
         res_layout.addWidget(QLabel("MSE (Teale):"), 3, 0)
         res_layout.addWidget(self.bit_res_mse, 3, 1)
 
+        mse_save = QPushButton("💾 Save MSE")
+        mse_save.setToolTip(
+            "Persist this MSE (Teale) run as a reproducible historical record "
+            "(inputs snapshot + full result).")
+        mse_save.clicked.connect(self._mse_save_calculation)
+        res_layout.addWidget(mse_save, 3, 2)
+
+        mse_history = QPushButton("📜 MSE History")
+        mse_history.setToolTip(
+            "Browse, inspect and verify previously saved MSE (Teale) runs.")
+        mse_history.clicked.connect(self._mse_open_history)
+        res_layout.addWidget(mse_history, 3, 3)
+
         bh_layout.addWidget(g_results)
 
         self.bit_reco = QLabel("")
@@ -2007,6 +2020,79 @@ class EngineeringCalculatorTab(DrillTabBase):
         else:
             self.bit_econ_res.setText(f"⚠️ {r.error}")
 
+    def _mse_repo(self):
+        """Lazily build the MSE calculation-history repository (or None)."""
+        if getattr(self, "db", None) is None:
+            return None
+        repo = getattr(self, "_mse_calc_repo", None)
+        if repo is None:
+            try:
+                from core.repositories.mse_repository import (
+                    MSECalculationRepository,
+                )
+                repo = MSECalculationRepository(self.db)
+            except Exception:
+                logger.exception("Could not build MSE calculation repository")
+                repo = None
+            self._mse_calc_repo = repo
+        return repo
+
+    def _mse_save_calculation(self):
+        """Persist the last successful MSE run as a reproducible record."""
+        run = getattr(self, "_mse_last_run", None)
+        if not run:
+            QMessageBox.information(
+                self, "Save Calculation",
+                "Run a Bit Hydraulics calculation first so an MSE value is "
+                "available to save (Calculate Bit Hydraulics).")
+            return
+        repo = self._mse_repo()
+        if repo is None:
+            QMessageBox.warning(
+                self, "Save Calculation",
+                "No database is available, so calculations cannot be saved.")
+            return
+        try:
+            calc_id = repo.save_run(
+                inputs=run["inputs"],
+                result_values=run["result_values"],
+                method=run["method"],
+                label="MSE (Teale)",
+                well_id=getattr(self, "current_well_id", None),
+            )
+        except Exception as exc:
+            logger.exception("Failed to save MSE calculation")
+            QMessageBox.critical(self, "Save Calculation",
+                                 f"Could not save calculation:\n{exc}")
+            return
+        v = run["result_values"]
+        QMessageBox.information(
+            self, "Calculation saved",
+            f"Saved MSE (Teale) run #{calc_id}.\n"
+            f"MSE {v.get('mse_psi')} psi "
+            f"(axial {v.get('axial_term_psi')} + rotary {v.get('rotary_term_psi')}).\n"
+            "Inputs and full result were stored for reproducibility.")
+
+    def _mse_open_history(self):
+        """Open the read-only MSE calculation-history browser."""
+        repo = self._mse_repo()
+        if repo is None:
+            QMessageBox.warning(
+                self, "Calculation History",
+                "No database is available, so calculation history cannot be "
+                "opened.")
+            return
+        try:
+            from dialogs.mse_history_dialog import MSEHistoryDialog
+            from core.engineering.engines.mse import MSEEngine
+            dlg = MSEHistoryDialog(
+                repo, current_method=MSEEngine.METHOD, parent=self)
+            dlg.exec()
+        except Exception as exc:
+            logger.exception("Failed to open MSE calculation history")
+            QMessageBox.critical(self, "Calculation History",
+                                 f"Could not open history:\n{exc}")
+
     def _bit_add_nozzle(self):
         from dialogs.engineering_dialogs import AddNozzleDialog
         dlg = AddNozzleDialog(self)
@@ -2091,17 +2177,31 @@ class EngineeringCalculatorTab(DrillTabBase):
             f"{bh['jet_velocity_fps']:.0f} ft/s ({total_nzl_count} nozzles)")
 
         from core.engineering.engines.mse import MSEEngine
-        mse = MSEEngine.calculate(
+        # Canonical engine units: WOB entered in klbf, converted to lbf ONCE here
+        # (the single owner of this conversion) before the engine call and before
+        # the historical snapshot is built.
+        mse_inputs = dict(
             wob_lbf=self.bit_wob.value() * 1000.0,
             rpm=self.bit_rpm.value(),
             torque_ft_lbf=self.bit_tq.value(),
             rop_ft_hr=self.bit_rop.value(),
             bit_diameter_in=bit_od,
         )
+        mse = MSEEngine.calculate(**mse_inputs)
         if mse.success:
             self.bit_res_mse.setText(f"{mse.value:,.0f} psi")
+            # Cache the exact canonical inputs + full result of this successful
+            # run so it can be persisted verbatim (the snapshot is built from
+            # these, not re-read from widgets, so a later widget edit cannot
+            # alter a saved run).
+            self._mse_last_run = {
+                "inputs": mse_inputs,
+                "result_values": mse.values,
+                "method": MSEEngine.METHOD,
+            }
         else:
             self.bit_res_mse.setText(f"❌ {mse.error}")
+            self._mse_last_run = None
 
         # Engineering recommendation (grounded field ranges; no invented inputs)
         reco = []

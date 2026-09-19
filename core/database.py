@@ -2187,6 +2187,59 @@ class WellControlKillSheetCalculationRecord(Base):
     creator = relationship("User", foreign_keys=[created_by])
 
 
+class MSECalculationRecord(Base):
+    """A persisted, reproducible MSE (Teale) calculation run (history).
+
+    DrillMaster's FIFTH persistent engineering calculation. It follows the same
+    historical-integrity principles proven for the four prior calculations
+    (frozen self-contained input snapshot + full derived result + engine method
+    + snapshot schema version + promoted summary columns + timestamps), but it is
+    again an INDEPENDENT concrete model. MSE's input set (five drilling
+    parameters — WOB, RPM, torque, ROP, bit diameter) and its flat scalar result
+    (mse_psi decomposed into axial/rotary terms + derived bit area) differ from
+    all four prior calculations, so it is deliberately not forced into a shared
+    ORM base (mission §42/§43/§45: keep implementations concrete unless the ORM
+    shape is genuinely shared, which it is not).
+
+    Global-scoped: ``well_id`` is optional because the Engineering Calculator
+    (W13) Bit Hydraulics worksheet is frequently used without a well context.
+
+    Reference note (mission §24/§25): every MSE input is a direct drilling
+    parameter (WOB/RPM/torque/ROP/bit diameter) with NO catalog/preset behind it
+    — the W13 bit diameter is a direct user value, not a Bit-catalog lookup — so
+    this record stores NO reference fingerprint. The frozen numeric snapshot
+    alone fully reconstructs the run.
+    """
+    __tablename__ = "mse_calculations"
+
+    id = Column(Integer, primary_key=True)
+
+    # Optional context (never required; not part of engineering identity).
+    well_id = Column(Integer, ForeignKey("wells.id"), nullable=True)
+    label = Column(String(200))
+
+    # Algorithm + snapshot identity for reproducibility.
+    method = Column(String(200), nullable=False)
+    snapshot_schema_version = Column(Integer, nullable=False, default=1)
+
+    # Self-contained historical input snapshot and derived result.
+    input_snapshot_json = Column(JSON, nullable=False)
+    result_json = Column(JSON, nullable=True)
+
+    # Promoted headline claims (queryable; canonical psi / in²).
+    mse_psi = Column(Float)
+    axial_term_psi = Column(Float)
+    rotary_term_psi = Column(Float)
+    bit_area_in2 = Column(Float)
+
+    created_at = Column(DateTime, default=_now_utc)
+    updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc)
+    created_by = Column(Integer, ForeignKey("users.id"))
+
+    well = relationship("Well", foreign_keys=[well_id])
+    creator = relationship("User", foreign_keys=[created_by])
+
+
 class ProcedureTemplate(Base):
     """قالب‌های آماده پروسیجر"""
     __tablename__ = "procedure_templates"
