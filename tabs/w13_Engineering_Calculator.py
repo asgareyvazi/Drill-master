@@ -4737,7 +4737,264 @@ class EngineeringCalculatorTab(DrillTabBase):
         br_layout.addStretch()
         inner_tabs.addTab(br_tab, "📈 Build/Turn Rate")
 
+        # ===== Anti-Collision (screening) =====
+        inner_tabs.addTab(self._create_anti_collision_tab(), "🚧 Anti-Collision")
+
         return tab
+
+    # ========== Anti-Collision (canonical: AntiCollisionEngine) ==========
+
+    def _create_anti_collision_tab(self) -> QWidget:
+        """Well-to-well separation screening.
+
+        The reference well is the trajectory entered on the "Multi-Survey"
+        tab above (self.dd_surveys). The offset well is entered here. Both
+        use minimum-curvature positions in metres and are screened by the
+        canonical AntiCollisionEngine via CalculatorBridge — no engineering
+        logic lives in the UI. This is a SCREENING tool (no ISCWSA error
+        model); results are transient by design and not persisted.
+        """
+        self.ac_offset_surveys = []
+
+        tab, container, layout = self._make_scroll_tab()
+
+        banner = QLabel(
+            "🚧 SCREENING ONLY — linear-interpolated 3D centreline separation. "
+            "No ISCWSA error model, covariance or tool-error model is applied. "
+            "Reference well = the Multi-Survey trajectory above (metres)."
+        )
+        banner.setWordWrap(True)
+        banner.setStyleSheet(
+            "color: #7f4f00; background: #fff3cd; border: 1px solid #e0a800; "
+            "border-radius: 3px; padding: 6px; font-size: 11px;"
+        )
+        layout.addWidget(banner)
+
+        # ----- Offset well survey -----
+        g1 = QGroupBox("🛢️ Offset Well Survey (Minimum Curvature, metres)")
+        g1_lay = QVBoxLayout(g1)
+        ac_btns = QHBoxLayout()
+        add_off = QPushButton("➕ Add Offset Point")
+        add_off.setStyleSheet(
+            "background: #27ae60; color: white; padding: 4px 10px; "
+            "border-radius: 3px; border: none;"
+        )
+        add_off.clicked.connect(self._ac_add_survey)
+        edit_off = QPushButton("✏️ Edit")
+        edit_off.clicked.connect(self._ac_edit_survey)
+        rem_off = QPushButton("🗑️")
+        rem_off.setFixedWidth(30)
+        rem_off.clicked.connect(self._ac_rem_survey)
+        clear_off = QPushButton("🧹 Clear")
+        clear_off.clicked.connect(self._ac_clear_surveys)
+        for b in (add_off, edit_off, rem_off, clear_off):
+            ac_btns.addWidget(b)
+        ac_btns.addStretch()
+        g1_lay.addLayout(ac_btns)
+
+        self.ac_table = QTableWidget(0, 5)
+        self.ac_table.setHorizontalHeaderLabels(
+            ["#", "MD (m)", "TVD (m)", "North (m)", "East (m)"]
+        )
+        self.ac_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.ac_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.ac_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.ac_table.doubleClicked.connect(self._ac_edit_survey)
+        g1_lay.addWidget(self.ac_table)
+        layout.addWidget(g1)
+
+        # ----- Screening parameters -----
+        g2 = QGroupBox("⚙️ Screening Parameters")
+        f2 = QFormLayout(g2)
+        self.ac_ref_radius = self._make_dspin(0.0, 0, 100, 3, " m")
+        self.ac_off_radius = self._make_dspin(0.0, 0, 100, 3, " m")
+        self.ac_threshold = self._make_dspin(0.0, 0, 100000, 3, " m")
+        f2.addRow("Reference wellbore radius (0 = omit):", self.ac_ref_radius)
+        f2.addRow("Offset wellbore radius (0 = omit):", self.ac_off_radius)
+        f2.addRow("Collision threshold (0 = no scan):", self.ac_threshold)
+        run_btn = QPushButton("🚦 Screen Clearance")
+        run_btn.setStyleSheet(
+            "background: #c0392b; color: white; padding: 6px 14px; "
+            "border-radius: 3px; border: none; font-weight: bold;"
+        )
+        run_btn.clicked.connect(self._ac_screen)
+        f2.addRow(run_btn)
+        layout.addWidget(g2)
+
+        # ----- Results -----
+        g3 = QGroupBox("📋 Screening Result")
+        g3_lay = QVBoxLayout(g3)
+        self.ac_summary = self._result_label("#c0392b")
+        self.ac_summary.setWordWrap(True)
+        g3_lay.addWidget(self.ac_summary)
+        self.ac_result_table = QTableWidget(0, 5)
+        self.ac_result_table.setHorizontalHeaderLabels(
+            ["MD (m)", "Distance (m)", "Clearance (m)", "Sep. Factor", "Trend"]
+        )
+        self.ac_result_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.ac_result_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        g3_lay.addWidget(self.ac_result_table)
+        layout.addWidget(g3)
+        layout.addStretch()
+
+        return tab
+
+    def _ac_add_survey(self):
+        from dialogs.engineering_dialogs import AddSurveyDialog
+        prev = self.ac_offset_surveys[-1] if self.ac_offset_surveys else None
+        dlg = AddSurveyDialog(self, prev_survey=prev)
+        if dlg.exec():
+            data = dlg.get_result()
+            if data:
+                self.ac_offset_surveys.append(data)
+                self._ac_recalculate()
+                self._ac_refresh_table()
+
+    def _ac_edit_survey(self):
+        row = self.ac_table.currentRow()
+        if 0 <= row < len(self.ac_offset_surveys):
+            from dialogs.engineering_dialogs import AddSurveyDialog
+            prev = self.ac_offset_surveys[row - 1] if row > 0 else None
+            dlg = AddSurveyDialog(
+                self, edit_data=self.ac_offset_surveys[row], prev_survey=prev
+            )
+            if dlg.exec():
+                data = dlg.get_result()
+                if data:
+                    self.ac_offset_surveys[row] = data
+                    self._ac_recalculate()
+                    self._ac_refresh_table()
+
+    def _ac_rem_survey(self):
+        row = self.ac_table.currentRow()
+        if 0 <= row < len(self.ac_offset_surveys):
+            self.ac_offset_surveys.pop(row)
+            self._ac_recalculate()
+            self._ac_refresh_table()
+
+    def _ac_clear_surveys(self):
+        self.ac_offset_surveys.clear()
+        self._ac_refresh_table()
+
+    def _ac_recalculate(self):
+        """Recompute offset-well positions with canonical Minimum Curvature."""
+        from core.engineering.core import TrajectoryEngine
+        surveys = [
+            {"md": s.get("md"), "inc": s.get("inc"), "azi": s.get("azi")}
+            for s in self.ac_offset_surveys
+        ]
+        if not surveys:
+            return
+        try:
+            pts = TrajectoryEngine.calculate(surveys)
+        except Exception:
+            return
+        for i, p in enumerate(pts):
+            if i < len(self.ac_offset_surveys):
+                self.ac_offset_surveys[i]["tvd"] = p.tvd
+                self.ac_offset_surveys[i]["north"] = p.north
+                self.ac_offset_surveys[i]["east"] = p.east
+
+    def _ac_refresh_table(self):
+        self.ac_table.setRowCount(0)
+        for i, s in enumerate(self.ac_offset_surveys):
+            row = self.ac_table.rowCount()
+            self.ac_table.insertRow(row)
+            self.ac_table.setItem(row, 0, QTableWidgetItem(str(i + 1)))
+            for col, key in [(1, "md"), (2, "tvd"), (3, "north"), (4, "east")]:
+                self.ac_table.setItem(
+                    row, col, QTableWidgetItem(f"{s.get(key, 0):.2f}")
+                )
+
+    def _ac_screen(self):
+        """Screen reference (Multi-Survey) vs offset well via canonical engine."""
+        ref_pts = [
+            {"md": s.get("md"), "tvd": s.get("tvd"),
+             "north": s.get("north"), "east": s.get("east")}
+            for s in getattr(self, "dd_surveys", [])
+            if s.get("tvd") is not None
+        ]
+        off_pts = [
+            {"md": s.get("md"), "tvd": s.get("tvd"),
+             "north": s.get("north"), "east": s.get("east")}
+            for s in self.ac_offset_surveys
+            if s.get("tvd") is not None
+        ]
+        if len(ref_pts) < 2:
+            self.ac_summary.setText(
+                "❌ MISSING_INPUT: reference well needs ≥2 survey points "
+                "(enter them on the Multi-Survey tab)."
+            )
+            self.ac_result_table.setRowCount(0)
+            return
+        if len(off_pts) < 2:
+            self.ac_summary.setText(
+                "❌ MISSING_INPUT: offset well needs ≥2 survey points."
+            )
+            self.ac_result_table.setRowCount(0)
+            return
+
+        ref_r = self.ac_ref_radius.value()
+        off_r = self.ac_off_radius.value()
+        if ref_r > 0 and off_r > 0:
+            for p in ref_pts:
+                p["wellbore_radius"] = ref_r
+            for p in off_pts:
+                p["wellbore_radius"] = off_r
+
+        threshold = self.ac_threshold.value() or None
+
+        from core.engineering.bridge import CalculatorBridge
+        res = CalculatorBridge.anti_collision(
+            ref_pts, off_pts,
+            collision_threshold=threshold,
+            coordinates_unit="m",
+        )
+        if not res.success:
+            self.ac_summary.setText(f"❌ ENGINE_FAILED: {res.error}")
+            self.ac_result_table.setRowCount(0)
+            return
+
+        v = res.values
+        closest = v.get("closest_approach", {})
+        lines = [
+            f"✅ Closest approach: {closest.get('distance', 0):.2f} m "
+            f"@ MD ref {closest.get('ref_md', 0):.1f} m / "
+            f"offset {closest.get('offset_md', 0):.1f} m"
+        ]
+        if closest.get("clearance") is not None:
+            lines.append(f"   Clearance (centre − radii): {closest['clearance']:.2f} m")
+        if closest.get("separation_factor") is not None:
+            lines.append(f"   Separation factor (supplied σ RSS): {closest['separation_factor']:.2f}")
+        scan = v.get("collision_scan", {})
+        if scan.get("performed"):
+            status = scan.get("status", "?")
+            icon = "🔴" if status == "alert" else "🟢"
+            lines.append(
+                f"{icon} Collision scan @ {scan.get('threshold')} m: {status.upper()} "
+                f"({len(scan.get('events', []))} point(s) below threshold, "
+                f"min margin {scan.get('minimum_margin')})"
+            )
+        for w in res.warnings:
+            lines.append(f"⚠️ {w}")
+        self.ac_summary.setText("\n".join(lines))
+
+        rows = v.get("separation_vs_md", [])
+        self.ac_result_table.setRowCount(0)
+        for r in rows:
+            i = self.ac_result_table.rowCount()
+            self.ac_result_table.insertRow(i)
+            clr = r.get("clearance")
+            sf = r.get("separation_factor")
+            cells = [
+                f"{r.get('md', 0):.1f}",
+                f"{r.get('distance', 0):.2f}",
+                "--" if clr is None else f"{clr:.2f}",
+                "--" if sf is None else f"{sf:.2f}",
+                r.get("convergence", ""),
+            ]
+            for col, text in enumerate(cells):
+                self.ac_result_table.setItem(i, col, QTableWidgetItem(text))
 
     # ========== Directional Methods ==========
 
