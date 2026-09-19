@@ -259,6 +259,11 @@ class CostManagementWidget(DrillTabBase):
         npt_cost = npt_days * daily_rate
         pt_cost = pt_days * daily_rate
 
+        # Percentages are only meaningful when a non-zero rate is entered;
+        # guard against division by zero when both day-rates are left at 0.
+        pt_pct = (pt_cost / total_cost * 100) if total_cost else 0
+        npt_pct = (npt_cost / total_cost * 100) if total_cost else 0
+
         # Cost per meter
         max_depth = 0
         if reports:
@@ -282,8 +287,8 @@ class CostManagementWidget(DrillTabBase):
 ╠═══════════════════════════════════════════════╣
 ║ COST BREAKDOWN:
 ║   Total Cost:       $ {total_cost:,.0f}
-║   Productive Cost:  $ {pt_cost:,.0f} ({pt_cost/total_cost*100:.0f}%)
-║   NPT Cost:         $ {npt_cost:,.0f} ({npt_cost/total_cost*100:.0f}%)
+║   Productive Cost:  $ {pt_cost:,.0f} ({pt_pct:.0f}%)
+║   NPT Cost:         $ {npt_cost:,.0f} ({npt_pct:.0f}%)
 ╠═══════════════════════════════════════════════╣
 ║ EFFICIENCY:
 ║   Cost per Meter:   $ {cpm:,.0f} /m

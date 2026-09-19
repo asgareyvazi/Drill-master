@@ -144,9 +144,18 @@ class SevenDaysLookaheadTab(QWidget):
         self.report_combo.currentIndexChanged.connect(self.on_report_changed)
 
     def set_current_well(self, well_id):
+        # Switching wells invalidates the previously selected report and its
+        # loaded rows. Clear them so Well A's lookahead never leaks into the
+        # Well B view before a new report is chosen.
         self.current_well_id = well_id
-        if self.current_well_id and self.current_section_id:
-            self.load_reports(self.current_well_id, self.current_section_id)
+        self.current_section_id = None
+        self.current_report_id = None
+        self.report_combo.blockSignals(True)
+        self.report_combo.clear()
+        self.report_combo.addItem("-- Select Report --", None)
+        self.report_combo.blockSignals(False)
+        self.lookahead_table.setRowCount(0)
+        self.status_label.setText("Select a section and report to load the plan")
 
     def set_current_section(self, section_id):
         self.current_section_id = section_id
