@@ -400,8 +400,9 @@ class DrillingCalculatorDialog(QDialog):
             return
         kmw_ppg = kmw_r.value
         kmw_pcf = kmw_ppg * 7.48
-        icp = spr + sidpp
-        fcp = spr * (kmw_ppg / mw_ppg)
+        # ICP / FCP via the canonical engine (no re-implemented formulas).
+        icp = WellControlEngine.calculate_icp(spr, sidpp)
+        fcp = WellControlEngine.calculate_fcp(spr, kmw_ppg, mw_ppg)
 
         # MAASP only when the user provides a shoe TVD (no invented values)
         maasp_text = "n/a (enter Shoe TVD)"

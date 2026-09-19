@@ -154,6 +154,69 @@ class WellControlEngine:
             assumptions=["Weakest point is the casing shoe", "Frac MW from LOT or given equivalent MW"],
         )
 
+    @staticmethod
+    def calculate_icp(slow_pump_rate_psi, sidpp_psi) -> float:
+        """Initial Circulating Pressure = slow-pump-rate pressure + SIDPP."""
+        spr = require_number(slow_pump_rate_psi, "slow_pump_rate_psi")
+        sidpp = require_number(sidpp_psi, "sidpp_psi")
+        if spr < 0:
+            raise EngineeringError("slow_pump_rate_psi cannot be negative")
+        if sidpp < 0:
+            raise EngineeringError("sidpp_psi cannot be negative")
+        return spr + sidpp
+
+    @staticmethod
+    def calculate_fcp(slow_pump_rate_psi, kill_mw_ppg, original_mw_ppg) -> float:
+        """Final Circulating Pressure = SPR × (kill MW / original MW)."""
+        spr = require_number(slow_pump_rate_psi, "slow_pump_rate_psi")
+        kmw = require_number(kill_mw_ppg, "kill_mw_ppg")
+        mw = require_number(original_mw_ppg, "original_mw_ppg")
+        if spr < 0:
+            raise EngineeringError("slow_pump_rate_psi cannot be negative")
+        if mw <= 0:
+            raise EngineeringError("original_mw_ppg must be > 0")
+        if kmw <= 0:
+            raise EngineeringError("kill_mw_ppg must be > 0")
+        return spr * (kmw / mw)
+
+    @classmethod
+    def initial_circulating_pressure(cls, slow_pump_rate_psi, sidpp_psi) -> EngineeringResult:
+        """ICP as an EngineeringResult (single owner of the ICP formula)."""
+        try:
+            value = cls.calculate_icp(slow_pump_rate_psi, sidpp_psi)
+        except MissingInputError as exc:
+            return missing(exc.field)
+        except EngineeringError as exc:
+            return failed(str(exc))
+        return ok(
+            value,
+            values={"icp_psi": round(value, 2)},
+            unit="psi",
+            formula="ICP = Slow Pump Rate pressure + SIDPP",
+            method=cls.METHOD,
+            assumptions=["Slow pump rate (SCR) pressure measured at kill rate"],
+        )
+
+    @classmethod
+    def final_circulating_pressure(
+        cls, slow_pump_rate_psi, kill_mw_ppg, original_mw_ppg
+    ) -> EngineeringResult:
+        """FCP as an EngineeringResult (single owner of the FCP formula)."""
+        try:
+            value = cls.calculate_fcp(slow_pump_rate_psi, kill_mw_ppg, original_mw_ppg)
+        except MissingInputError as exc:
+            return missing(exc.field)
+        except EngineeringError as exc:
+            return failed(str(exc))
+        return ok(
+            value,
+            values={"fcp_psi": round(value, 2)},
+            unit="psi",
+            formula="FCP = Slow Pump Rate pressure × (Kill MW / Original MW)",
+            method=cls.METHOD,
+            assumptions=["Friction scales linearly with mud weight ratio"],
+        )
+
     @classmethod
     def kick_tolerance(
         cls,

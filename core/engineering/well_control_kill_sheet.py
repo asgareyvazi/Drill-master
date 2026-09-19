@@ -452,12 +452,14 @@ def compute_kill_sheet(inp: WellControlKillSheetInputs) -> KillSheetResult:
     kmw_ppg = kmw_r.value
     kmw_pcf = kmw_ppg * PCF_PER_PPG
 
-    icp = scr1 + sidpp
+    # ICP / FCP — single-owner formulas (WellControlEngine), same values as the
+    # historical inline arithmetic (icp = scr1 + sidpp; fcp = scr1·kmw/mw).
+    icp = WC.calculate_icp(scr1, sidpp)
     if mw_ppg <= 0:
         return KillSheetResult(
             success=False, error=f"{KILL_INPUT_INVALID}: positive mud weight"
         )
-    fcp = scr1 * (kmw_ppg / mw_ppg)
+    fcp = WC.calculate_fcp(scr1, kmw_ppg, mw_ppg)
 
     # --- MAASP (engine) ----------------------------------------------------
     maasp_r = WC.maasp(
