@@ -2240,6 +2240,56 @@ class MSECalculationRecord(Base):
     creator = relationship("User", foreign_keys=[created_by])
 
 
+class MudVolumeCalculationRecord(Base):
+    """A persisted, reproducible Mud Volume balance calculation run (history).
+
+    DrillMaster's SIXTH persistent engineering calculation. It follows the same
+    historical-integrity principles proven for the five prior calculations
+    (frozen self-contained input snapshot + full derived result + engine method
+    + snapshot schema version + promoted summary columns + timestamps), but it is
+    again an INDEPENDENT concrete model. The mud volume balance input set (eight
+    bbl volume terms) and its flat scalar result (input echo + final_volume_bbl
+    + net_change_bbl) differ from all five prior calculations, so it is
+    deliberately not forced into a shared ORM base (mission §36/§39/§41: keep
+    implementations concrete unless the ORM shape is genuinely shared, which it
+    is not).
+
+    Global-scoped: ``well_id`` is optional because the Engineering Calculator
+    (W13) mud worksheet is frequently used without a well context.
+
+    Reference note (mission §22): every input is a direct engineering volume in
+    bbl with NO catalog/preset behind it, so this record stores NO reference
+    fingerprint. The frozen numeric snapshot alone fully reconstructs the run.
+    """
+    __tablename__ = "mud_volume_calculations"
+
+    id = Column(Integer, primary_key=True)
+
+    # Optional context (never required; not part of engineering identity).
+    well_id = Column(Integer, ForeignKey("wells.id"), nullable=True)
+    label = Column(String(200))
+
+    # Algorithm + snapshot identity for reproducibility.
+    method = Column(String(200), nullable=False)
+    snapshot_schema_version = Column(Integer, nullable=False, default=1)
+
+    # Self-contained historical input snapshot and derived result.
+    input_snapshot_json = Column(JSON, nullable=False)
+    result_json = Column(JSON, nullable=True)
+
+    # Promoted headline claims (queryable; canonical bbl).
+    active_volume_bbl = Column(Float)
+    final_volume_bbl = Column(Float)
+    net_change_bbl = Column(Float)
+
+    created_at = Column(DateTime, default=_now_utc)
+    updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc)
+    created_by = Column(Integer, ForeignKey("users.id"))
+
+    well = relationship("Well", foreign_keys=[well_id])
+    creator = relationship("User", foreign_keys=[created_by])
+
+
 class ProcedureTemplate(Base):
     """قالب‌های آماده پروسیجر"""
     __tablename__ = "procedure_templates"

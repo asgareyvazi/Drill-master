@@ -1877,18 +1877,25 @@ class EngineeringCalculatorTab(DrillTabBase):
         res_layout.addWidget(QLabel("MSE (Teale):"), 3, 0)
         res_layout.addWidget(self.bit_res_mse, 3, 1)
 
+        mse_calc = QPushButton("🔄 Calculate MSE")
+        mse_calc.setToolTip(
+            "Compute MSE (Teale) from WOB/RPM/torque/ROP/bit-size only. "
+            "Independent of nozzles and bit hydraulics.")
+        mse_calc.clicked.connect(self._mse_calculate)
+        res_layout.addWidget(mse_calc, 4, 0)
+
         mse_save = QPushButton("💾 Save MSE")
         mse_save.setToolTip(
             "Persist this MSE (Teale) run as a reproducible historical record "
             "(inputs snapshot + full result).")
         mse_save.clicked.connect(self._mse_save_calculation)
-        res_layout.addWidget(mse_save, 3, 2)
+        res_layout.addWidget(mse_save, 4, 1)
 
         mse_history = QPushButton("📜 MSE History")
         mse_history.setToolTip(
             "Browse, inspect and verify previously saved MSE (Teale) runs.")
         mse_history.clicked.connect(self._mse_open_history)
-        res_layout.addWidget(mse_history, 3, 3)
+        res_layout.addWidget(mse_history, 4, 2)
 
         bh_layout.addWidget(g_results)
 
@@ -2037,6 +2044,39 @@ class EngineeringCalculatorTab(DrillTabBase):
             self._mse_calc_repo = repo
         return repo
 
+    def _mse_calculate(self):
+        """Compute MSE (Teale) from its OWN inputs and cache the run.
+
+        MSE depends only on WOB/RPM/torque/ROP/bit-diameter — none of the bit
+        hydraulics or nozzle state. It is therefore computed independently of
+        ``_bit_calculate``'s nozzle gate so it (and Save) work with or without a
+        nozzle program. The single WOB klbf→lbf conversion is owned here and
+        applied once, before the engine call and before the snapshot.
+        """
+        from core.engineering.engines.mse import MSEEngine
+        mse_inputs = dict(
+            wob_lbf=self.bit_wob.value() * 1000.0,
+            rpm=self.bit_rpm.value(),
+            torque_ft_lbf=self.bit_tq.value(),
+            rop_ft_hr=self.bit_rop.value(),
+            bit_diameter_in=self.bit_od.value(),
+        )
+        mse = MSEEngine.calculate(**mse_inputs)
+        if mse.success:
+            self.bit_res_mse.setText(f"{mse.value:,.0f} psi")
+            # Cache the exact canonical inputs + full result of this successful
+            # run so it can be persisted verbatim (the snapshot is built from
+            # these, not re-read from widgets, so a later widget edit cannot
+            # alter a saved run).
+            self._mse_last_run = {
+                "inputs": mse_inputs,
+                "result_values": mse.values,
+                "method": MSEEngine.METHOD,
+            }
+        else:
+            self.bit_res_mse.setText(f"❌ {mse.error}")
+            self._mse_last_run = None
+
     def _mse_save_calculation(self):
         """Persist the last successful MSE run as a reproducible record."""
         run = getattr(self, "_mse_last_run", None)
@@ -2176,32 +2216,12 @@ class EngineeringCalculatorTab(DrillTabBase):
         self.bit_res_pct.setText(
             f"{bh['jet_velocity_fps']:.0f} ft/s ({total_nzl_count} nozzles)")
 
-        from core.engineering.engines.mse import MSEEngine
-        # Canonical engine units: WOB entered in klbf, converted to lbf ONCE here
-        # (the single owner of this conversion) before the engine call and before
-        # the historical snapshot is built.
-        mse_inputs = dict(
-            wob_lbf=self.bit_wob.value() * 1000.0,
-            rpm=self.bit_rpm.value(),
-            torque_ft_lbf=self.bit_tq.value(),
-            rop_ft_hr=self.bit_rop.value(),
-            bit_diameter_in=bit_od,
-        )
-        mse = MSEEngine.calculate(**mse_inputs)
-        if mse.success:
-            self.bit_res_mse.setText(f"{mse.value:,.0f} psi")
-            # Cache the exact canonical inputs + full result of this successful
-            # run so it can be persisted verbatim (the snapshot is built from
-            # these, not re-read from widgets, so a later widget edit cannot
-            # alter a saved run).
-            self._mse_last_run = {
-                "inputs": mse_inputs,
-                "result_values": mse.values,
-                "method": MSEEngine.METHOD,
-            }
-        else:
-            self.bit_res_mse.setText(f"❌ {mse.error}")
-            self._mse_last_run = None
+        # MSE is INDEPENDENT of bit hydraulics/nozzles (it consumes only
+        # WOB/RPM/torque/ROP/bit-diameter). Compute it via the standalone helper
+        # so the same code path serves both the full bit-hydraulics flow and the
+        # dedicated "Calculate MSE" button — the MSE result must never be gated
+        # behind nozzle presence.
+        self._mse_calculate()
 
         # Engineering recommendation (grounded field ranges; no invented inputs)
         reco = []
@@ -2875,6 +2895,50 @@ class EngineeringCalculatorTab(DrillTabBase):
         wdm_layout.addStretch()
         inner_tabs.addTab(wdm_tab, "⬆️⬇️ Weight/Dilution/Mix")
 
+        # ===== Mud Volume Balance (persistent calculation #6) =====
+        bal_tab = QWidget()
+        bal_layout = QVBoxLayout(bal_tab)
+        gb = QGroupBox("⚖️ Mud Volume Balance")
+        fb = QFormLayout(gb)
+        self.mud_bal_active = self._make_dspin(800, 0, 100000, 1, " bbl")
+        self.mud_bal_add = self._make_dspin(0, 0, 100000, 1, " bbl")
+        self.mud_bal_loss = self._make_dspin(0, 0, 100000, 1, " bbl")
+        self.mud_bal_tin = self._make_dspin(0, 0, 100000, 1, " bbl")
+        self.mud_bal_tout = self._make_dspin(0, 0, 100000, 1, " bbl")
+        self.mud_bal_ret = self._make_dspin(0, 0, 100000, 1, " bbl")
+        self.mud_bal_dil = self._make_dspin(0, 0, 100000, 1, " bbl")
+        self.mud_bal_dump = self._make_dspin(0, 0, 100000, 1, " bbl")
+        fb.addRow("Active volume:", self.mud_bal_active)
+        fb.addRow("Additions:", self.mud_bal_add)
+        fb.addRow("Losses:", self.mud_bal_loss)
+        fb.addRow("Transfers in:", self.mud_bal_tin)
+        fb.addRow("Transfers out:", self.mud_bal_tout)
+        fb.addRow("Returns:", self.mud_bal_ret)
+        fb.addRow("Dilution (water):", self.mud_bal_dil)
+        fb.addRow("Dumped:", self.mud_bal_dump)
+        bb = QPushButton("🔄 Calculate Volume Balance")
+        bb.setStyleSheet("background: #16a085; color: white; font-weight: bold; padding: 8px; border-radius: 4px; border: none;")
+        bb.clicked.connect(self._mud_balance)
+        fb.addRow(bb)
+        bal_save = QPushButton("💾 Save Calculation")
+        bal_save.setToolTip(
+            "Persist this mud volume balance run as a reproducible historical "
+            "record (inputs snapshot + full result).")
+        bal_save.clicked.connect(self._mud_bal_save_calculation)
+        fb.addRow(bal_save)
+        bal_hist = QPushButton("📜 Calculation History")
+        bal_hist.setToolTip(
+            "Browse, inspect and verify previously saved mud volume balance runs.")
+        bal_hist.clicked.connect(self._mud_bal_open_history)
+        fb.addRow(bal_hist)
+        self.mud_bal_res = QTextEdit()
+        self.mud_bal_res.setReadOnly(True)
+        self.mud_bal_res.setMinimumHeight(140)
+        fb.addRow(self.mud_bal_res)
+        bal_layout.addWidget(gb)
+        bal_layout.addStretch()
+        inner_tabs.addTab(bal_tab, "⚖️ Volume Balance")
+
         # ===== Rheology =====
         rh_tab = QWidget()
         rh_layout = QVBoxLayout(rh_tab)
@@ -3066,6 +3130,116 @@ class EngineeringCalculatorTab(DrillTabBase):
                 f"Final MW: {r['final_mw_pcf']:.1f} pcf ({ppg:.2f} ppg)\n"
                 f"Total Volume: {r['total_volume_bbl']:.1f} bbl"
             )
+
+    # ========== Mud Volume Balance (persistent calculation #6) ==========
+
+    def _mud_balance(self):
+        """Compute a mud volume balance and cache the exact run for saving."""
+        from core.engineering.engines.mud_volume import MudVolumeEngine
+        inputs = dict(
+            active_volume_bbl=self.mud_bal_active.value(),
+            additions_bbl=self.mud_bal_add.value(),
+            losses_bbl=self.mud_bal_loss.value(),
+            transfers_in_bbl=self.mud_bal_tin.value(),
+            transfers_out_bbl=self.mud_bal_tout.value(),
+            returns_bbl=self.mud_bal_ret.value(),
+            dilution_bbl=self.mud_bal_dil.value(),
+            dumped_bbl=self.mud_bal_dump.value(),
+        )
+        r = MudVolumeEngine.balance(**inputs)
+        if not r.success:
+            self.mud_bal_res.setText(f"❌ {r.error}")
+            self._mud_bal_last_run = None
+            return
+        # Cache the exact inputs + result of this successful run so it can be
+        # persisted verbatim (the snapshot is built from these, not re-read from
+        # widgets, so a later widget edit cannot alter a saved run).
+        self._mud_bal_last_run = {
+            "inputs": inputs,
+            "result_values": r.values,
+            "method": MudVolumeEngine.METHOD,
+        }
+        v = r.values
+        warn = ("\n⚠️ " + "; ".join(r.warnings)) if r.warnings else ""
+        self.mud_bal_res.setText(
+            "MUD VOLUME BALANCE\n"
+            f"Final volume: {v['final_volume_bbl']:.1f} bbl\n"
+            f"Net change:   {v['net_change_bbl']:+.1f} bbl\n"
+            "final = active + additions + transfers_in + returns + dilution "
+            "− losses − transfers_out − dumped" + warn)
+
+    def _mud_volume_repo(self):
+        """Lazily build the mud volume calculation-history repository (or None)."""
+        if getattr(self, "db", None) is None:
+            return None
+        repo = getattr(self, "_mud_bal_calc_repo", None)
+        if repo is None:
+            try:
+                from core.repositories.mud_volume_repository import (
+                    MudVolumeCalculationRepository,
+                )
+                repo = MudVolumeCalculationRepository(self.db)
+            except Exception:
+                logger.exception("Could not build mud volume calculation repository")
+                repo = None
+            self._mud_bal_calc_repo = repo
+        return repo
+
+    def _mud_bal_save_calculation(self):
+        """Persist the last successful mud volume balance run."""
+        run = getattr(self, "_mud_bal_last_run", None)
+        if not run:
+            QMessageBox.information(
+                self, "Save Calculation",
+                "Run a Mud Volume Balance calculation first (Calculate Volume "
+                "Balance).")
+            return
+        repo = self._mud_volume_repo()
+        if repo is None:
+            QMessageBox.warning(
+                self, "Save Calculation",
+                "No database is available, so calculations cannot be saved.")
+            return
+        try:
+            calc_id = repo.save_run(
+                inputs=run["inputs"],
+                result_values=run["result_values"],
+                method=run["method"],
+                label="Mud Volume Balance",
+                well_id=getattr(self, "current_well_id", None),
+            )
+        except Exception as exc:
+            logger.exception("Failed to save mud volume calculation")
+            QMessageBox.critical(self, "Save Calculation",
+                                 f"Could not save calculation:\n{exc}")
+            return
+        v = run["result_values"]
+        QMessageBox.information(
+            self, "Calculation saved",
+            f"Saved Mud Volume Balance run #{calc_id}.\n"
+            f"Final {v.get('final_volume_bbl')} bbl "
+            f"(net {v.get('net_change_bbl'):+} bbl).\n"
+            "Inputs and full result were stored for reproducibility.")
+
+    def _mud_bal_open_history(self):
+        """Open the read-only mud volume calculation-history browser."""
+        repo = self._mud_volume_repo()
+        if repo is None:
+            QMessageBox.warning(
+                self, "Calculation History",
+                "No database is available, so calculation history cannot be "
+                "opened.")
+            return
+        try:
+            from dialogs.mud_volume_history_dialog import MudVolumeHistoryDialog
+            from core.engineering.engines.mud_volume import MudVolumeEngine
+            dlg = MudVolumeHistoryDialog(
+                repo, current_method=MudVolumeEngine.METHOD, parent=self)
+            dlg.exec()
+        except Exception as exc:
+            logger.exception("Failed to open mud volume calculation history")
+            QMessageBox.critical(self, "Calculation History",
+                                 f"Could not open history:\n{exc}")
 
     def _mud_rheo(self):
         t600 = self.rh_t600.value()
