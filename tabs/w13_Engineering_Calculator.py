@@ -330,7 +330,11 @@ class EngineeringCalculatorTab(DrillTabBase):
     def __init__(self, db_manager=None, parent=None):
         super().__init__("EngineeringCalculatorTab", db_manager, parent)
         self.engine = DrillingCalculationEngine()
-        self.current_well_id = None
+        # Do NOT reset current_well_id here: DrillTabBase.__init__ already
+        # seeded it (and current_well_data) from the SelectionManager. Forcing
+        # None dropped a well that was selected before this tab was first
+        # opened, so saved calculations could be attributed to no well even
+        # though the app had an active selection.
         self._drill_pipe_df = None
         self.init_ui()
         self._load_drill_pipe_db()
@@ -366,6 +370,19 @@ class EngineeringCalculatorTab(DrillTabBase):
             }
         """)
         main_layout.addWidget(header)
+
+        # Well-context banner. Saved calculations are attributed to the current
+        # well, so the engineer must always see which well is active before
+        # calculating/saving (avoids silently saving to the wrong well or to no
+        # well). Reflects the SelectionManager context propagated via
+        # DrillTabBase.on_well_changed.
+        self.well_context_label = QLabel()
+        self.well_context_label.setStyleSheet(
+            "QLabel { font-size: 12px; font-weight: bold; padding: 4px 8px;"
+            " border-radius: 4px; }"
+        )
+        main_layout.addWidget(self.well_context_label)
+        self._update_well_context_label()
 
         # Tabs
         self.tabs = QTabWidget()
@@ -2111,6 +2128,7 @@ class EngineeringCalculatorTab(DrillTabBase):
             f"Saved MSE (Teale) run #{calc_id}.\n"
             f"MSE {v.get('mse_psi')} psi "
             f"(axial {v.get('axial_term_psi')} + rotary {v.get('rotary_term_psi')}).\n"
+            f"{self._save_attribution_line()}"
             "Inputs and full result were stored for reproducibility.")
 
     def _mse_open_history(self):
@@ -2752,6 +2770,7 @@ class EngineeringCalculatorTab(DrillTabBase):
             f"Saved Torque & Drag run #{calc_id}.\n"
             f"Pickup {refs.get('hookload_pickup')} klbf | "
             f"buoyed {refs.get('total_buoyed_weight')} klbf.\n"
+            f"{self._save_attribution_line()}"
             "Inputs and reference traceability were stored for reproducibility.")
 
     def _wt_open_history(self):
@@ -3219,6 +3238,7 @@ class EngineeringCalculatorTab(DrillTabBase):
             f"Saved Mud Volume Balance run #{calc_id}.\n"
             f"Final {v.get('final_volume_bbl')} bbl "
             f"(net {v.get('net_change_bbl'):+} bbl).\n"
+            f"{self._save_attribution_line()}"
             "Inputs and full result were stored for reproducibility.")
 
     def _mud_bal_open_history(self):
@@ -3684,6 +3704,7 @@ class EngineeringCalculatorTab(DrillTabBase):
             f"Saved Casing Strength run #{calc_id}.\n"
             f"Burst {v.get('burst_rating_psi')} psi | "
             f"collapse {v.get('collapse_rating_psi')} psi.\n"
+            f"{self._save_attribution_line()}"
             "Inputs and full result were stored for reproducibility.")
 
     def _csg_open_history(self):
@@ -3829,6 +3850,7 @@ class EngineeringCalculatorTab(DrillTabBase):
             self, "Calculation saved",
             f"Saved Cement Job Volume run #{calc_id}.\n"
             f"Slurry {v.get('slurry_volume_bbl')} bbl | sacks {sacks_s}.\n"
+            f"{self._save_attribution_line()}"
             "Inputs and full result were stored for reproducibility.")
 
     def _cmt_open_history(self):
@@ -4495,6 +4517,7 @@ class EngineeringCalculatorTab(DrillTabBase):
             f"Saved Well Control Kill Sheet run #{calc_id}.\n"
             f"Kill MW {res.kill_mw_ppg:.2f} ppg | MAASP {res.maasp_psi:.0f} psi "
             f"| {res.stk_total:.0f} strokes.\n"
+            f"{self._save_attribution_line()}"
             "Inputs and full composite result were stored for reproducibility.")
 
     def _wc_open_history(self):
@@ -5216,6 +5239,53 @@ class EngineeringCalculatorTab(DrillTabBase):
     # ==================== DrillTabBase Overrides ====================
     def on_well_changed(self, well_id, well_data):
         self.current_well_id = well_id
+        self.current_well_data = well_data or {}
+        self._update_well_context_label()
+
+    def _current_well_label_text(self) -> str:
+        """Human-readable name for the well saved calculations attribute to."""
+        data = getattr(self, "current_well_data", None) or {}
+        name = data.get("name") if isinstance(data, dict) else None
+        if self.current_well_id and name:
+            return f"{name} (#{self.current_well_id})"
+        if self.current_well_id:
+            return f"Well #{self.current_well_id}"
+        return ""
+
+    def _save_attribution_line(self) -> str:
+        """One line naming the well a saved run was attributed to.
+
+        Makes the persisted well context explicit at save time so a run is
+        never silently attributed to the wrong well (or to none).
+        """
+        if self.current_well_id:
+            return f"Attributed to well: {self._current_well_label_text()}.\n"
+        return (
+            "Not attributed to any well (no well was selected).\n"
+        )
+
+    def _update_well_context_label(self):
+        """Keep the well-context banner in sync with the active selection."""
+        label = getattr(self, "well_context_label", None)
+        if label is None:
+            return
+        if self.current_well_id:
+            label.setText(
+                f"\U0001f6e2\ufe0f Saving calculations to: {self._current_well_label_text()}"
+            )
+            label.setStyleSheet(
+                "QLabel { font-size: 12px; font-weight: bold; padding: 4px 8px;"
+                " border-radius: 4px; color: #ecf0f1; background: #2d6a4f; }"
+            )
+        else:
+            label.setText(
+                "\u26a0\ufe0f No well selected \u2014 calculations can be run but "
+                "saved runs will not be attributed to any well."
+            )
+            label.setStyleSheet(
+                "QLabel { font-size: 12px; font-weight: bold; padding: 4px 8px;"
+                " border-radius: 4px; color: #4a3b00; background: #f0d264; }"
+            )
 
     def save_data(self) -> bool:
         return True
