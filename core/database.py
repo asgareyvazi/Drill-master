@@ -6713,30 +6713,56 @@ class DatabaseManager:
             else:
                 existing = None
 
+            def _stock_in(key):
+                """Read an opening stock preserving the three states:
+                an explicit number (incl. 0.0) is a fact; a missing key or a
+                NULL/blank value is UNKNOWN (None) — never silently 0.0."""
+                if key not in inventory_data:
+                    return None
+                v = inventory_data[key]
+                if v is None or v == "":
+                    return None
+                try:
+                    return float(v)
+                except (TypeError, ValueError):
+                    return None
+
             fuel_consumed = float(inventory_data.get("fuel_consumed", 0.0) or 0.0)
-            fuel_stock = float(inventory_data.get("fuel_stock", 0.0) or 0.0)
+            fuel_stock = _stock_in("fuel_stock")
             water_consumed = float(inventory_data.get("water_consumed", 0.0) or 0.0)
-            water_stock = float(inventory_data.get("water_stock", 0.0) or 0.0)
-            # Carry the previous day's closing balance forward. A new day
-            # with no movement must not reset stock to zero.
+            water_stock = _stock_in("water_stock")
+            # Carry the previous day's closing balance forward, but ONLY to fill
+            # a MISSING opening (None). A new day with no movement must not reset
+            # stock to zero; an explicitly-reported opening (incl. 0.0) is a fact
+            # and is never overwritten by carry-forward.
             if not existing and inventory_data.get("carry_forward", True) and inventory_data.get("well_id") and inventory_data.get("report_date"):
                 previous = session.query(FuelWaterInventory).filter(
                     FuelWaterInventory.well_id == inventory_data["well_id"],
                     FuelWaterInventory.report_date < inventory_data["report_date"],
                 ).order_by(FuelWaterInventory.report_date.desc()).first()
                 if previous:
-                    fuel_stock = (
-                        previous.fuel_remaining
-                        if previous.fuel_remaining is not None
-                        else (previous.fuel_stock or 0.0)
-                    )
-                    water_stock = (
-                        previous.water_remaining
-                        if previous.water_remaining is not None
-                        else (previous.water_stock or 0.0)
-                    )
-            fuel_remaining = fuel_stock + float(inventory_data.get("fuel_received", 0.0) or 0.0) - fuel_consumed
-            water_remaining = water_stock + float(inventory_data.get("water_received", 0.0) or 0.0) - water_consumed
+                    if fuel_stock is None:
+                        fuel_stock = (
+                            previous.fuel_remaining
+                            if previous.fuel_remaining is not None
+                            else previous.fuel_stock
+                        )
+                    if water_stock is None:
+                        water_stock = (
+                            previous.water_remaining
+                            if previous.water_remaining is not None
+                            else previous.water_stock
+                        )
+            # An unknown opening yields an unknown remaining — never a value
+            # derived from a fabricated 0 stock.
+            fuel_remaining = (
+                None if fuel_stock is None
+                else fuel_stock + float(inventory_data.get("fuel_received", 0.0) or 0.0) - fuel_consumed
+            )
+            water_remaining = (
+                None if water_stock is None
+                else water_stock + float(inventory_data.get("water_received", 0.0) or 0.0) - water_consumed
+            )
 
             # Runway is UNKNOWN (None -> "N/A"), never a fabricated 0, when
             # daily consumption is not a known positive rate. A 0-day value
@@ -6757,6 +6783,10 @@ class DatabaseManager:
                 existing.updated_at = _now_utc()
                 record_id = existing.id
             else:
+                # fuel_stock / water_stock carry a column default of 0.0, so an
+                # UNKNOWN (None) opening must be inserted as an explicit SQL NULL
+                # to stop the default from fabricating a 0.0 stock fact.
+                from sqlalchemy import null as _sql_null
                 inventory = FuelWaterInventory(
                     well_id=inventory_data["well_id"],
                     section_id=inventory_data.get("section_id"),
@@ -6764,7 +6794,7 @@ class DatabaseManager:
                     report_date=inventory_data["report_date"],
                     fuel_type=inventory_data.get("fuel_type", "Diesel"),
                     fuel_consumed=fuel_consumed,
-                    fuel_stock=fuel_stock,
+                    fuel_stock=(_sql_null() if fuel_stock is None else fuel_stock),
                     fuel_received=inventory_data.get("fuel_received", 0.0),
                     fuel_camp_consumed=inventory_data.get("fuel_camp_consumed"),
                     fuel_camp_stock=inventory_data.get("fuel_camp_stock"),
@@ -6773,7 +6803,7 @@ class DatabaseManager:
                     dw_stock=inventory_data.get("dw_stock"),
                     dw_received=inventory_data.get("dw_received"),
                     water_consumed=water_consumed,
-                    water_stock=water_stock,
+                    water_stock=(_sql_null() if water_stock is None else water_stock),
                     water_received=inventory_data.get("water_received", 0.0),
                     fuel_remaining=fuel_remaining,
                     water_remaining=water_remaining,

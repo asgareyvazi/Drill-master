@@ -37,12 +37,28 @@ def memory_manager():
     return m
 
 
+import types
+
+
 class _Stub:
-    """Minimal stand-in exposing exactly what calculate_kpis touches."""
+    """Minimal stand-in exposing exactly what calculate_kpis touches.
+
+    calculate_kpis became scope-aware in Mission 24 (Track B): it routes shared
+    metrics through ``_canonical_scope_kpis`` and filters W12-specific reductions
+    with ``_scope_reports_query`` / ``_scope_params_query``. The stub carries the
+    whole-well scope (no bore/section selected) and binds those helpers off the
+    real class so parity is checked against the production scope-resolution code.
+    """
     def __init__(self, db, well_id):
         self.db = db
         self.current_well_id = well_id
+        self.current_wellbore_id = None
+        self.current_section_id = None
         self.intelligence_service = OperationsIntelligenceService(db)
+        for name in ("_scope_key", "_scope_reports_query",
+                     "_scope_params_query", "_canonical_scope_kpis"):
+            setattr(self, name,
+                    types.MethodType(getattr(AnalysisWidget, name), self))
 
 
 def seed_well(m, depths_rops, npt=True):

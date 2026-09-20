@@ -558,6 +558,42 @@ class PersonnelLogisticsTab(QWidget):
             self.load_notes_data()
 
 
+# --- Three-state physical-stock spinbox helpers (Track J) ---------------------
+# A physical stock can be UNKNOWN (never reported / imported as NULL), an
+# explicit reported 0.0, or a positive number. A bare QDoubleSpinBox cannot
+# express "blank", so a genuinely-unknown stock loaded from the DB used to be
+# shown (and re-saved) as a fabricated 0.0. The concrete, local fix is the
+# standard Qt special-value idiom: the spinbox minimum is a sentinel one step
+# below 0.0 that renders as "—" (unknown); any value from 0.0 upward is a real
+# number. This is NOT a generic nullable-widget framework — it is applied only
+# to the fixed set of fuel/water STOCK fields whose schema is nullable.
+_STOCK_UNKNOWN_SENTINEL = -1.0
+
+
+def _make_stock_spinbox(suffix=" L"):
+    """A stock QDoubleSpinBox whose minimum position means UNKNOWN ("—")."""
+    box = QDoubleSpinBox()
+    box.setRange(_STOCK_UNKNOWN_SENTINEL, 1000000)
+    box.setSpecialValueText("—")   # shown when value == minimum (unknown)
+    box.setSuffix(suffix)
+    box.setValue(_STOCK_UNKNOWN_SENTINEL)  # default: unknown, not 0
+    return box
+
+
+def _stock_value(box):
+    """Return the stock as float, or None when the box is at the unknown mark."""
+    v = box.value()
+    return None if v <= _STOCK_UNKNOWN_SENTINEL else float(v)
+
+
+def _set_stock_value(box, value):
+    """Show ``value`` (float) or the unknown mark when ``value`` is None."""
+    if value is None:
+        box.setValue(_STOCK_UNKNOWN_SENTINEL)
+    else:
+        box.setValue(float(value))
+
+
 class FuelWaterTab(QWidget):
     """Tab for managing fuel, water, and bulk materials"""
     
@@ -627,10 +663,7 @@ class FuelWaterTab(QWidget):
         self.fuel_consumed.valueChanged.connect(self.calculate_remaining)
         consumption_layout.addRow("Daily Consumption:", self.fuel_consumed)
         
-        self.fuel_stock = QDoubleSpinBox()
-        self.fuel_stock.setRange(0, 1000000)
-        self.fuel_stock.setSuffix(" L")
-        self.fuel_stock.setValue(0)
+        self.fuel_stock = _make_stock_spinbox()
         self.fuel_stock.valueChanged.connect(self.calculate_remaining)
         consumption_layout.addRow("Current Stock:", self.fuel_stock)
         
@@ -648,10 +681,7 @@ class FuelWaterTab(QWidget):
         self.water_consumed.valueChanged.connect(self.calculate_remaining)
         consumption_layout.addRow("Daily Consumption:", self.water_consumed)
         
-        self.water_stock = QDoubleSpinBox()
-        self.water_stock.setRange(0, 1000000)
-        self.water_stock.setSuffix(" L")
-        self.water_stock.setValue(0)
+        self.water_stock = _make_stock_spinbox()
         self.water_stock.valueChanged.connect(self.calculate_remaining)
         consumption_layout.addRow("Current Stock:", self.water_stock)
         
@@ -667,10 +697,7 @@ class FuelWaterTab(QWidget):
         self.dw_consumed.setSuffix(" L")
         self.dw_consumed.setValue(0)
         consumption_layout.addRow("Daily Consumption:", self.dw_consumed)
-        self.dw_stock = QDoubleSpinBox()
-        self.dw_stock.setRange(0, 1000000)
-        self.dw_stock.setSuffix(" L")
-        self.dw_stock.setValue(0)
+        self.dw_stock = _make_stock_spinbox()
         consumption_layout.addRow("Current Stock:", self.dw_stock)
         self.dw_received = QDoubleSpinBox()
         self.dw_received.setRange(0, 1000000)
@@ -684,10 +711,7 @@ class FuelWaterTab(QWidget):
         self.fuel_camp_consumed.setSuffix(" L")
         self.fuel_camp_consumed.setValue(0)
         consumption_layout.addRow("Daily Consumption:", self.fuel_camp_consumed)
-        self.fuel_camp_stock = QDoubleSpinBox()
-        self.fuel_camp_stock.setRange(0, 1000000)
-        self.fuel_camp_stock.setSuffix(" L")
-        self.fuel_camp_stock.setValue(0)
+        self.fuel_camp_stock = _make_stock_spinbox()
         consumption_layout.addRow("Current Stock:", self.fuel_camp_stock)
         self.fuel_camp_received = QDoubleSpinBox()
         self.fuel_camp_received.setRange(0, 1000000)
@@ -819,18 +843,24 @@ class FuelWaterTab(QWidget):
     def calculate_remaining(self):
         try:
             fuel_consumed = self.fuel_consumed.value()
-            fuel_stock = self.fuel_stock.value()
+            fuel_stock = _stock_value(self.fuel_stock)
             water_consumed = self.water_consumed.value()
-            water_stock = self.water_stock.value()
+            water_stock = _stock_value(self.water_stock)
 
-            fuel_remaining = max(0, fuel_stock - fuel_consumed)
-            water_remaining = max(0, water_stock - water_consumed)
+            def _line(label, stock, consumed):
+                # An unknown stock cannot yield a known remaining/runway.
+                if stock is None:
+                    return f"<b>{label}:</b> stock unknown (—)"
+                remaining = max(0, stock - consumed)
+                return (
+                    f"<b>{label}:</b> {remaining:,.1f} L remaining "
+                    f"({self._days_text(remaining, consumed)})"
+                )
 
             result_text = (
-                f"<b>Fuel:</b> {fuel_remaining:,.1f} L remaining "
-                f"({self._days_text(fuel_remaining, fuel_consumed)})<br>"
-                f"<b>Water:</b> {water_remaining:,.1f} L remaining "
-                f"({self._days_text(water_remaining, water_consumed)})"
+                _line("Fuel", fuel_stock, fuel_consumed)
+                + "<br>"
+                + _line("Water", water_stock, water_consumed)
             )
             self.results_label.setText(result_text)
         except Exception as e:
@@ -840,18 +870,19 @@ class FuelWaterTab(QWidget):
         self.calculate_remaining()
         from core.fuel_water_semantics import is_low_stock
         fuel_consumed = self.fuel_consumed.value()
-        fuel_stock = self.fuel_stock.value()
+        fuel_stock = _stock_value(self.fuel_stock)
         water_consumed = self.water_consumed.value()
-        water_stock = self.water_stock.value()
-        fuel_remaining = fuel_stock - fuel_consumed
-        water_remaining = water_stock - water_consumed
-        # Only warn on a KNOWN runway below threshold — a zero/unknown burn rate
-        # must not fire a false "low stock" alarm from a fabricated 0-days value.
-        if is_low_stock(fuel_remaining, fuel_consumed):
+        water_stock = _stock_value(self.water_stock)
+        # An unknown stock cannot produce a runway, so it cannot trigger a
+        # low-stock alarm. Only warn on a KNOWN runway below threshold — a
+        # zero/unknown burn rate must not fire a false "low stock" alarm.
+        fuel_remaining = None if fuel_stock is None else fuel_stock - fuel_consumed
+        water_remaining = None if water_stock is None else water_stock - water_consumed
+        if fuel_remaining is not None and is_low_stock(fuel_remaining, fuel_consumed):
             self.status_manager.show_warning(
                 "FuelWaterTab",
                 f"Low fuel stock: {self._days_text(fuel_remaining, fuel_consumed)} remaining")
-        if is_low_stock(water_remaining, water_consumed):
+        if water_remaining is not None and is_low_stock(water_remaining, water_consumed):
             self.status_manager.show_warning(
                 "FuelWaterTab",
                 f"Low water stock: {self._days_text(water_remaining, water_consumed)} remaining")
@@ -867,12 +898,20 @@ class FuelWaterTab(QWidget):
 
         try:
             fuel_consumed = self.fuel_consumed.value()
-            fuel_stock = self.fuel_stock.value()
+            # A stock at the "—" mark is UNKNOWN, not 0: persist NULL and do not
+            # derive a remaining/runway figure from a value we do not have.
+            fuel_stock = _stock_value(self.fuel_stock)
             water_consumed = self.water_consumed.value()
-            water_stock = self.water_stock.value()
+            water_stock = _stock_value(self.water_stock)
 
-            fuel_remaining = fuel_stock + self.fuel_received.value() - fuel_consumed
-            water_remaining = water_stock + self.water_received.value() - water_consumed
+            fuel_remaining = (
+                None if fuel_stock is None
+                else fuel_stock + self.fuel_received.value() - fuel_consumed
+            )
+            water_remaining = (
+                None if water_stock is None
+                else water_stock + self.water_received.value() - water_consumed
+            )
 
             inventory_data = {
                 "well_id": self.current_well_id,
@@ -889,23 +928,25 @@ class FuelWaterTab(QWidget):
                 "water_received": self.water_received.value(),
                 "water_remaining": water_remaining,
                 "dw_consumed": self.dw_consumed.value(),
-                "dw_stock": self.dw_stock.value(),
+                "dw_stock": _stock_value(self.dw_stock),
                 "dw_received": self.dw_received.value(),
                 "fuel_camp_consumed": self.fuel_camp_consumed.value(),
-                "fuel_camp_stock": self.fuel_camp_stock.value(),
+                "fuel_camp_stock": _stock_value(self.fuel_camp_stock),
                 "fuel_camp_received": self.fuel_camp_received.value(),
             }
 
-            # Only supply a runway when it is truthfully computable (known
-            # positive burn rate). Otherwise leave it unset so persistence
-            # stores NULL (unknown), never a fabricated 0-days critical value.
+            # Only supply a runway when it is truthfully computable (known stock
+            # AND known positive burn rate). Otherwise leave it unset so
+            # persistence stores NULL (unknown), never a fabricated 0-days value.
             from core.fuel_water_semantics import days_remaining as _days_remaining
-            _drf = _days_remaining(fuel_remaining, fuel_consumed)
-            if _drf is not None:
-                inventory_data["days_remaining_fuel"] = _drf
-            _drw = _days_remaining(water_remaining, water_consumed)
-            if _drw is not None:
-                inventory_data["days_remaining_water"] = _drw
+            if fuel_remaining is not None:
+                _drf = _days_remaining(fuel_remaining, fuel_consumed)
+                if _drf is not None:
+                    inventory_data["days_remaining_fuel"] = _drf
+            if water_remaining is not None:
+                _drw = _days_remaining(water_remaining, water_consumed)
+                if _drw is not None:
+                    inventory_data["days_remaining_water"] = _drw
 
             result = self.db.save_fuel_water_inventory(inventory_data)
             if result:
@@ -950,18 +991,28 @@ class FuelWaterTab(QWidget):
                     except (TypeError, ValueError):
                         return default
 
+                def _stock(key):
+                    """Preserve NULL as UNKNOWN; only real numbers become values."""
+                    v = data.get(key)
+                    if v in (None, ""):
+                        return None
+                    try:
+                        return float(v)
+                    except (TypeError, ValueError):
+                        return None
+
                 self.fuel_type.setCurrentText(data.get("fuel_type", "Diesel"))
                 self.fuel_consumed.setValue(_val("fuel_consumed"))
-                self.fuel_stock.setValue(_val("fuel_stock"))
+                _set_stock_value(self.fuel_stock, _stock("fuel_stock"))
                 self.fuel_received.setValue(_val("fuel_received"))
                 self.water_consumed.setValue(_val("water_consumed"))
-                self.water_stock.setValue(_val("water_stock"))
+                _set_stock_value(self.water_stock, _stock("water_stock"))
                 self.water_received.setValue(_val("water_received"))
                 self.dw_consumed.setValue(_val("dw_consumed"))
-                self.dw_stock.setValue(_val("dw_stock"))
+                _set_stock_value(self.dw_stock, _stock("dw_stock"))
                 self.dw_received.setValue(_val("dw_received"))
                 self.fuel_camp_consumed.setValue(_val("fuel_camp_consumed"))
-                self.fuel_camp_stock.setValue(_val("fuel_camp_stock"))
+                _set_stock_value(self.fuel_camp_stock, _stock("fuel_camp_stock"))
                 self.fuel_camp_received.setValue(_val("fuel_camp_received"))
                 self.update_fuel_remaining()
                 self.update_water_remaining()
@@ -1201,30 +1252,35 @@ class FuelWaterTab(QWidget):
 
     def update_fuel_remaining(self):
         """محاسبه خودکار موجودی نهایی سوخت"""
-        stock = self.fuel_stock.value()
+        stock = _stock_value(self.fuel_stock)
         received = self.fuel_received.value()
         consumed = self.fuel_consumed.value()
-        remaining = stock + received - consumed
-        # ذخیره در دیتابیس بعداً
-        self._fuel_remaining = remaining
+        # Unknown opening stock -> unknown remaining (never a fabricated figure).
+        self._fuel_remaining = None if stock is None else stock + received - consumed
         # به‌روزرسانی نمایش
         self.update_results_display()
 
     def update_water_remaining(self):
         """محاسبه خودکار موجودی نهایی آب"""
-        stock = self.water_stock.value()
+        stock = _stock_value(self.water_stock)
         received = self.water_received.value()
         consumed = self.water_consumed.value()
-        remaining = stock + received - consumed
-        self._water_remaining = remaining
+        self._water_remaining = None if stock is None else stock + received - consumed
         self.update_results_display()
 
     def update_results_display(self):
+        def _line(label, remaining, consumed):
+            if remaining is None:
+                return f"<b>{label}:</b> stock unknown (—)"
+            return (
+                f"<b>{label}:</b> {remaining:,.1f} L remaining "
+                f"({self._days_text(remaining, consumed)})"
+            )
+
         self.results_label.setText(
-            f"<b>Fuel:</b> {self._fuel_remaining:,.1f} L remaining "
-            f"({self._days_text(self._fuel_remaining, self.fuel_consumed.value())})<br>"
-            f"<b>Water:</b> {self._water_remaining:,.1f} L remaining "
-            f"({self._days_text(self._water_remaining, self.water_consumed.value())})"
+            _line("Fuel", getattr(self, "_fuel_remaining", None), self.fuel_consumed.value())
+            + "<br>"
+            + _line("Water", getattr(self, "_water_remaining", None), self.water_consumed.value())
         )
 
 

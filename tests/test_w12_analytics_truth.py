@@ -30,10 +30,26 @@ from core.database import (
 from tabs.w12_Analysis import AnalysisWidget
 
 
+import types
+
+
 class _Stub:
-    """Minimal carrier so we can call the widget's data methods Qt-free."""
+    """Minimal carrier so we can call the widget's data methods Qt-free.
+
+    These readers became scope-aware in Mission 24 (Track B): they resolve the
+    active scope through ``_scope_reports_query`` / ``_scope_params_query``. The
+    stub carries the whole-well scope (no bore/section selected) and binds those
+    helpers off the real class, so the unknown-vs-zero contract asserted here is
+    exercised against exactly the production filtering code.
+    """
     def __init__(self, well_id):
         self.current_well_id = well_id
+        self.current_wellbore_id = None
+        self.current_section_id = None
+        for name in ("_scope_key", "_scope_reports_query",
+                     "_scope_params_query", "_canonical_scope_kpis"):
+            setattr(self, name,
+                    types.MethodType(getattr(AnalysisWidget, name), self))
 
 
 def _mgr():

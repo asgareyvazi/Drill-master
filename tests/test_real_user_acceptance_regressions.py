@@ -504,8 +504,20 @@ def _analysis_probe(db, well_id):
     on a SimpleNamespace avoids constructing the full Qt widget while still
     running the real production SQL.
     """
+    import types as _types
     from tabs.w12_Analysis import AnalysisWidget
-    probe = SimpleNamespace(db=db, current_well_id=well_id)
+    from core.operations_intelligence import OperationsIntelligenceService
+    # calculate_kpis / get_npt_data became scope-aware in Mission 24 (Track B):
+    # they resolve the active scope via the widget's scope helpers. The probe
+    # carries the whole-well scope (no bore/section) and binds those helpers off
+    # the real class so production scope-resolution SQL is exercised as-is.
+    probe = SimpleNamespace(db=db, current_well_id=well_id,
+                            current_wellbore_id=None, current_section_id=None,
+                            intelligence_service=OperationsIntelligenceService(db))
+    for _name in ("_scope_key", "_scope_reports_query",
+                  "_scope_params_query", "_canonical_scope_kpis"):
+        setattr(probe, _name,
+                _types.MethodType(getattr(AnalysisWidget, _name), probe))
     session = db.create_session()
     try:
         return (

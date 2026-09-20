@@ -96,6 +96,12 @@ class AnalysisWidget(DrillTabBase):
         self.current_well_id = None
         self.current_well_name = None
         self.current_report_id = None
+        # Analytical scope: when a specific wellbore (original hole or sidetrack)
+        # is selected, analytics are computed for THAT bore only; None means the
+        # whole-well aggregate. Never inferred — mirrors SelectionManager state.
+        self.current_wellbore_id = getattr(
+            self.sel_manager, "current_wellbore_id", None)
+        self.current_wellbore_name = None
         self.quality_service = DataQualityService(self.db)
         self.intelligence_service = OperationsIntelligenceService(self.db)
         self.intelligence_label = QLabel("Operations Intelligence: —")
@@ -163,6 +169,15 @@ class AnalysisWidget(DrillTabBase):
 
         self.init_ui()
 
+        # A wellbore selection must re-scope analytics. DrillTabBase wires
+        # well/section/report but not the bore signal, so — exactly like the W3b
+        # schematic tab — W12 consumes it directly (smallest, lowest-risk change,
+        # no shared-base modification per §7.1).
+        try:
+            self.sel_manager.wellbore_changed.connect(self.on_wellbore_changed)
+        except Exception:
+            pass
+
     def init_ui(self):
         layout = QVBoxLayout(self)
 
@@ -211,6 +226,12 @@ class AnalysisWidget(DrillTabBase):
         self.well_label = QLabel("🌍 Well: Not Selected")
         self.well_label.setStyleSheet("font-size: 14px; color: #bdc3c7;")
         header_layout.addWidget(self.well_label, 1, 0, 1, 2)
+
+        # Explicit analytical scope indicator (Whole-Well vs a specific bore).
+        self.scope_label = QLabel("🌐 Scope: Whole Well")
+        self.scope_label.setStyleSheet(
+            "font-weight: bold; padding: 5px; color: #7f8c8d;")
+        header_layout.addWidget(self.scope_label, 4, 0, 1, 2)
 
         self.kpi_cards_widget = self.create_enhanced_kpi_cards()
         header_layout.addWidget(self.kpi_cards_widget, 0, 2, 2, 3)
@@ -1209,21 +1230,48 @@ class AnalysisWidget(DrillTabBase):
         self.cache_time[key] = now
         return data
 
+    def _scope_reports_query(self, session):
+        """A DailyReport query filtered to the active scope.
+
+        Bore selected -> DailyReport.wellbore_id == bore (unknown-bore reports
+        excluded). Section-only -> DailyReport.section_id. Otherwise the whole
+        well. Always uses the authoritative FK, never rig/name/date.
+        """
+        q = session.query(DailyReport).filter(DailyReport.well_id == self.current_well_id)
+        if self.current_wellbore_id:
+            q = q.filter(DailyReport.wellbore_id == self.current_wellbore_id)
+        return q
+
+    def _scope_params_query(self, session):
+        """A DrillingParameters query filtered to the active scope.
+
+        Bore scope is resolved through the report ownership chain
+        (DrillingParameters.report_id -> DailyReport.wellbore_id) so a
+        parameter row is attributed to exactly the bore its report belongs to.
+        """
+        q = session.query(DrillingParameters).filter(
+            DrillingParameters.well_id == self.current_well_id)
+        if self.current_wellbore_id:
+            q = (q.join(DailyReport, DrillingParameters.report_id == DailyReport.id)
+                  .filter(DailyReport.wellbore_id == self.current_wellbore_id))
+        return q
+
     def calculate_kpis(self, session):
-        """Well KPIs, with shared metrics sourced from the canonical service.
+        """Scope-aware KPIs, with shared metrics from the canonical service.
 
         The metrics that also exist in ``OperationsIntelligenceService`` —
         current depth, average ROP, NPT hours, NPT%, rig days — are taken from
-        that canonical implementation so W12 cannot silently disagree with the
-        report engine or the intelligence dashboard. In particular
-        ``current_depth`` is the well's MAX recorded depth (the canonical
-        meaning), not the latest-by-date reading, which diverge whenever a later
-        report records a shallower depth (correction / section change).
+        that canonical implementation (well- OR bore-scoped) so W12 cannot
+        silently disagree with the report engine or the intelligence dashboard.
+        When a wellbore is selected the canonical bore rollup
+        (``analyze_wellbore``) is used; otherwise the whole-well aggregate
+        (``analyze_well``).
 
         Metrics that are W12-specific scalar reductions and not part of the
         canonical KPI contract (best ROP, mean WOB/RPM/torque midpoints,
-        efficiency, daily depth gain) are computed here, preserving the
-        no-fabrication contract: unknown source data yields None, never 0.0.
+        efficiency, daily depth gain) are computed here from the SAME scope,
+        preserving the no-fabrication contract: unknown source data yields
+        None, never 0.0.
         """
         well_id = self.current_well_id
         if not well_id:
@@ -1231,15 +1279,10 @@ class AnalysisWidget(DrillTabBase):
                                   'npt_percentage','best_rop','avg_wob','avg_rpm',
                                   'avg_torque','efficiency','daily_gain'], None)
 
-        # ---- Shared metrics: canonical source of truth ----
-        service = getattr(self, "intelligence_service", None)
-        if service is None:
-            from core.operations_intelligence import OperationsIntelligenceService
-            service = OperationsIntelligenceService(self.db)
-        canonical = service.analyze_well(well_id).get("kpis", {})
+        # ---- Shared metrics: canonical source of truth (scope-aware) ----
+        canonical = self._canonical_scope_kpis()
         cur_depth = canonical.get("current_depth")
-        total_days = canonical.get("rig_days") or session.query(
-            DailyReport).filter_by(well_id=well_id).count()
+        total_days = canonical.get("rig_days") or self._scope_reports_query(session).count()
         avg_rop = canonical.get("average_rop")
         total_npt = canonical.get("npt_hours")
         npt_pct = canonical.get("npt_percent")
@@ -1247,21 +1290,22 @@ class AnalysisWidget(DrillTabBase):
         efficiency = (100 - npt_pct) if npt_pct is not None else None
 
         # ---- W12-specific reductions (not in the canonical KPI contract) ----
-        best_rop = session.query(func.max(DrillingParameters.avg_rop))\
-                          .filter(DrillingParameters.well_id == well_id).scalar()
+        # All scoped to the same bore/well so they can never mix bores.
+        best_rop = self._scope_params_query(session)\
+            .with_entities(func.max(DrillingParameters.avg_rop)).scalar()
 
-        wob_vals = session.query(DrillingParameters.wob_min, DrillingParameters.wob_max)\
-                          .filter(DrillingParameters.well_id == well_id).all()
+        wob_vals = self._scope_params_query(session)\
+            .with_entities(DrillingParameters.wob_min, DrillingParameters.wob_max).all()
         wob_mids = [(wmin+wmax)/2 for wmin,wmax in wob_vals if wmin is not None and wmax is not None]
         avg_wob = float(np.mean(wob_mids)) if wob_mids else None
 
-        rpm_vals = session.query(DrillingParameters.rpm_min, DrillingParameters.rpm_max)\
-                          .filter(DrillingParameters.well_id == well_id).all()
+        rpm_vals = self._scope_params_query(session)\
+            .with_entities(DrillingParameters.rpm_min, DrillingParameters.rpm_max).all()
         rpm_mids = [(rmin+rmax)/2 for rmin,rmax in rpm_vals if rmin is not None and rmax is not None]
         avg_rpm = float(np.mean(rpm_mids)) if rpm_mids else None
 
-        tq_vals = session.query(DrillingParameters.torque_min, DrillingParameters.torque_max)\
-                         .filter(DrillingParameters.well_id == well_id).all()
+        tq_vals = self._scope_params_query(session)\
+            .with_entities(DrillingParameters.torque_min, DrillingParameters.torque_max).all()
         tq_mids = [(tmin+tmax)/2 for tmin,tmax in tq_vals if tmin is not None and tmax is not None]
         avg_torque = float(np.mean(tq_mids)) if tq_mids else None
 
@@ -1269,9 +1313,9 @@ class AnalysisWidget(DrillTabBase):
         # either endpoint depth is missing (never a fabricated 0).
         daily_gain = None
         if total_days and total_days > 0:
-            first = session.query(DailyReport).filter_by(well_id=well_id)\
+            first = self._scope_reports_query(session)\
                            .order_by(DailyReport.report_date).first()
-            latest = session.query(DailyReport).filter_by(well_id=well_id)\
+            latest = self._scope_reports_query(session)\
                             .order_by(desc(DailyReport.report_date)).first()
             if first and latest and first.depth_2400 is not None and latest.depth_2400 is not None:
                 daily_gain = (latest.depth_2400 - first.depth_2400) / total_days
@@ -1295,9 +1339,10 @@ class AnalysisWidget(DrillTabBase):
         if not well_id:
             return None
         today = date.today()
-        report = session.query(DailyReport).filter_by(well_id=well_id, report_date=today).first()
+        report = self._scope_reports_query(session).filter(
+            DailyReport.report_date == today).first()
         if not report:
-            report = session.query(DailyReport).filter_by(well_id=well_id)\
+            report = self._scope_reports_query(session)\
                             .order_by(desc(DailyReport.report_date)).first()
         if not report:
             return None
@@ -1312,11 +1357,21 @@ class AnalysisWidget(DrillTabBase):
                              TimeLog24H.is_npt == True).scalar() or 0.0) if any_logs else None
         hours = (session.query(func.sum(TimeLog24H.duration))
                  .filter(TimeLog24H.report_id == report.id).scalar() or 0.0) if any_logs else None
+        # Bind parameters/mud to THIS report via report_id (the report is
+        # already scope-selected), not by well+date which could pull a
+        # different bore's row sharing the same date.
         dr = session.query(DrillingParameters).filter(
-            DrillingParameters.well_id == well_id,
-            DrillingParameters.report_date == report.report_date).first()
-        mud = session.query(MudReport).filter(MudReport.well_id == well_id,
-                                               MudReport.report_date == report.report_date).first()
+            DrillingParameters.report_id == report.id).first()
+        if dr is None:
+            dr = session.query(DrillingParameters).filter(
+                DrillingParameters.well_id == well_id,
+                DrillingParameters.report_date == report.report_date).first()
+        mud = session.query(MudReport).filter(
+            MudReport.report_id == report.id).first()
+        if mud is None:
+            mud = session.query(MudReport).filter(
+                MudReport.well_id == well_id,
+                MudReport.report_date == report.report_date).first()
 
         def _mid(lo, hi):
             # Midpoint only when BOTH bounds are known; otherwise unknown (None),
@@ -1346,26 +1401,35 @@ class AnalysisWidget(DrillTabBase):
         well_id = self.current_well_id
         if not well_id:
             return []
-        params = session.query(DrillingParameters).filter(DrillingParameters.well_id == well_id)\
+        params = self._scope_params_query(session)\
                         .order_by(DrillingParameters.report_date).all()
+
+        def _mid(lo, hi):
+            # Midpoint only when BOTH bounds are known; a single known bound is
+            # NOT half a value. Unknown stays None (rendered "—"), never 0.
+            if lo is None or hi is None:
+                return None
+            return (lo + hi) / 2
+
         return [{
             'date': p.report_date,
             'bit_run': p.bit_no or f"Bit #{i+1}",
-            'rop': p.avg_rop or 0,
-            'wob': (p.wob_min + p.wob_max)/2 if p.wob_min and p.wob_max else 0,
-            'rpm': (p.rpm_min + p.rpm_max)/2 if p.rpm_min and p.rpm_max else 0,
-            'torque': (p.torque_min + p.torque_max)/2 if p.torque_min and p.torque_max else 0,
-            'pressure': (p.pump_pressure_min + p.pump_pressure_max)/2 if p.pump_pressure_min else 0,
-            'depth': p.depth_out or 0,
-            'depth_in': p.depth_in or 0,
-            'hours_on_bottom': p.hours_on_bottom or 0,
-            'bit_size': p.bit_size or 0,
+            # avg_rop None = unknown (not measured); a real 0.0 is preserved.
+            'rop': p.avg_rop,
+            'wob': _mid(p.wob_min, p.wob_max),
+            'rpm': _mid(p.rpm_min, p.rpm_max),
+            'torque': _mid(p.torque_min, p.torque_max),
+            'pressure': _mid(p.pump_pressure_min, p.pump_pressure_max),
+            'depth': p.depth_out,
+            'depth_in': p.depth_in,
+            'hours_on_bottom': p.hours_on_bottom,
+            'bit_size': p.bit_size,
         } for i, p in enumerate(params)]
 
     def get_time_depth_data(self, session):
         well_id = self.current_well_id
         if not well_id: return []
-        reports = session.query(DailyReport).filter_by(well_id=well_id)\
+        reports = self._scope_reports_query(session)\
                          .order_by(DailyReport.report_date).all()
         data = []
         # ``prev`` is the last KNOWN depth, or None until one is seen. A missing
@@ -1395,9 +1459,11 @@ class AnalysisWidget(DrillTabBase):
         well_id = self.current_well_id
         if not well_id:
             return {'entries': [], 'categories': {}, 'total_npt': None, 'npt_percentage': None, 'total_hours': None}
-        npt_rows = session.query(TimeLog24H, DailyReport).join(DailyReport)\
-                          .filter(DailyReport.well_id == well_id, TimeLog24H.is_npt == True)\
-                          .order_by(DailyReport.report_date, TimeLog24H.time_from).all()
+        npt_q = session.query(TimeLog24H, DailyReport).join(DailyReport)\
+                          .filter(DailyReport.well_id == well_id, TimeLog24H.is_npt == True)
+        if self.current_wellbore_id:
+            npt_q = npt_q.filter(DailyReport.wellbore_id == self.current_wellbore_id)
+        npt_rows = npt_q.order_by(DailyReport.report_date, TimeLog24H.time_from).all()
         entries = []
         cats = {}
         total_npt = 0.0
@@ -1418,8 +1484,11 @@ class AnalysisWidget(DrillTabBase):
         # NPT% is unknown when no time has been recorded for the well; the
         # denominator is genuinely unknown, not 1. With recorded time and no NPT
         # rows, NPT is a real 0.0 and the percentage is a real 0%.
-        total_hours = session.query(func.sum(TimeLog24H.duration))\
-                             .join(DailyReport).filter(DailyReport.well_id == well_id).scalar()
+        th_q = session.query(func.sum(TimeLog24H.duration))\
+                             .join(DailyReport).filter(DailyReport.well_id == well_id)
+        if self.current_wellbore_id:
+            th_q = th_q.filter(DailyReport.wellbore_id == self.current_wellbore_id)
+        total_hours = th_q.scalar()
         if total_hours:
             pct = (total_npt / total_hours * 100)
         else:
@@ -1428,6 +1497,39 @@ class AnalysisWidget(DrillTabBase):
         return {'entries': entries, 'categories': cats, 'total_npt': total_npt,
                 'npt_percentage': pct, 'total_hours': total_hours}
 
+    # ---- Scope helpers ----
+    def _scope_key(self):
+        """Cache-key suffix that encodes the active scope.
+
+        Whole-well and each bore get distinct keys so switching scope can never
+        surface another scope's cached numbers (§13). Section scope, when a
+        section is selected without a bore, is encoded too.
+        """
+        if self.current_wellbore_id:
+            return f"wellbore:{self.current_wellbore_id}"
+        if getattr(self, "current_section_id", None):
+            return f"section:{self.current_section_id}"
+        return f"well:{self.current_well_id}"
+
+    def _canonical_scope_kpis(self):
+        """Canonical KPIs for the active scope, from the intelligence service.
+
+        Bore selected  -> analyze_wellbore (bore-only, ownership-chain scoped).
+        Section only    -> analyze_section.
+        Otherwise       -> analyze_well (whole-well aggregate).
+        Formulas are never duplicated here — W12 is a consumer of the canonical
+        analytical owner (§9, §37).
+        """
+        service = getattr(self, "intelligence_service", None)
+        if service is None:
+            from core.operations_intelligence import OperationsIntelligenceService
+            service = OperationsIntelligenceService(self.db)
+        if self.current_wellbore_id:
+            return service.analyze_wellbore(self.current_wellbore_id).get("kpis", {})
+        if getattr(self, "current_section_id", None) and not self.current_well_id:
+            return service.analyze_section(self.current_section_id).get("kpis", {})
+        return service.analyze_well(self.current_well_id).get("kpis", {})
+
     # ---- Data update methods ----
     def update_kpi_data(self):
         if not self.current_well_id: return
@@ -1435,7 +1537,7 @@ class AnalysisWidget(DrillTabBase):
             session = self.db.create_session()
             try: return self.calculate_kpis(session)
             finally: session.close()
-        kpis = self.get_cached_data(f'kpis_{self.current_well_id}', fetch)
+        kpis = self.get_cached_data(f'kpis_{self._scope_key()}', fetch)
         cards = self.kpi_cards_widget.findChildren(QFrame)
         
         if len(self.kpi_cards) >= 4:
@@ -1459,7 +1561,7 @@ class AnalysisWidget(DrillTabBase):
             finally:
                 session.close()
 
-        data = self.get_cached_data(f'td_{self.current_well_id}', fetch)
+        data = self.get_cached_data(f'td_{self._scope_key()}', fetch)
 
         if not data:
             # ✅ نمایش پیام به جای crash
@@ -1567,7 +1669,7 @@ class AnalysisWidget(DrillTabBase):
                 session.close()
 
         data = self.get_cached_data(
-            f'npt_{self.current_well_id}', fetch
+            f'npt_{self._scope_key()}', fetch
         )
 
         self.update_stat_card_value(
@@ -1706,7 +1808,7 @@ class AnalysisWidget(DrillTabBase):
                 session.close()
 
         data = self.get_cached_data(
-            f'perf_{self.current_well_id}', fetch
+            f'perf_{self._scope_key()}', fetch
         )
 
         if not data:
@@ -1744,49 +1846,43 @@ class AnalysisWidget(DrillTabBase):
 
         self.performance_plot.clear()
         if len(data) > 1:
+            # Normalise only over KNOWN values; a missing point is a gap in the
+            # series (NaN), never a fabricated 0 that would distort the curve.
             days = list(range(1, len(data) + 1))
             rops_all = [d['rop'] for d in data]
             wob_all = [d['wob'] for d in data]
+            known_rop = [r for r in rops_all if r is not None]
+            known_wob = [w for w in wob_all if w is not None]
+            max_rop = max(known_rop) if known_rop and max(known_rop) > 0 else 1
+            max_wob = max(known_wob) if known_wob and max(known_wob) > 0 else 1
 
-            max_rop = max(rops_all) if max(rops_all) > 0 else 1
-            max_wob = max(wob_all) if max(wob_all) > 0 else 1
+            def _norm(vals, mx):
+                return [(v / mx * 100) if v is not None else float('nan') for v in vals]
 
             self.performance_plot.plot(
-                days,
-                [r / max_rop * 100 for r in rops_all],
-                pen=pg.mkPen('#1abc9c', width=3),
-                name="ROP (norm)"
+                days, _norm(rops_all, max_rop),
+                pen=pg.mkPen('#1abc9c', width=3), name="ROP (norm)",
+                connect="finite",
             )
             self.performance_plot.plot(
-                days,
-                [w / max_wob * 100 for w in wob_all],
-                pen=pg.mkPen('#3498db', width=3),
-                name="WOB (norm)"
+                days, _norm(wob_all, max_wob),
+                pen=pg.mkPen('#3498db', width=3), name="WOB (norm)",
+                connect="finite",
             )
+
+        def _cell(v, digits):
+            # Unknown -> "—"; a real value (including 0.0) -> formatted number.
+            return "—" if v is None else f"{v:.{digits}f}"
 
         self.performance_table.setRowCount(len(data))
         for i, d in enumerate(data):
-            self.performance_table.setItem(
-                i, 0, QTableWidgetItem(str(d['date']))
-            )
-            self.performance_table.setItem(
-                i, 1, QTableWidgetItem(d['bit_run'])
-            )
-            self.performance_table.setItem(
-                i, 2, QTableWidgetItem(f"{d['rop']:.1f}")
-            )
-            self.performance_table.setItem(
-                i, 3, QTableWidgetItem(f"{d['wob']:.1f}")
-            )
-            self.performance_table.setItem(
-                i, 4, QTableWidgetItem(f"{d['rpm']:.0f}")
-            )
-            self.performance_table.setItem(
-                i, 5, QTableWidgetItem(f"{d['torque']:.1f}")
-            )
-            self.performance_table.setItem(
-                i, 6, QTableWidgetItem(f"{d['pressure']:.0f}")
-            )
+            self.performance_table.setItem(i, 0, QTableWidgetItem(str(d['date'])))
+            self.performance_table.setItem(i, 1, QTableWidgetItem(d['bit_run']))
+            self.performance_table.setItem(i, 2, QTableWidgetItem(_cell(d['rop'], 1)))
+            self.performance_table.setItem(i, 3, QTableWidgetItem(_cell(d['wob'], 1)))
+            self.performance_table.setItem(i, 4, QTableWidgetItem(_cell(d['rpm'], 0)))
+            self.performance_table.setItem(i, 5, QTableWidgetItem(_cell(d['torque'], 1)))
+            self.performance_table.setItem(i, 6, QTableWidgetItem(_cell(d['pressure'], 0)))
 
         self.chart_data['performance'] = data
         self.update_dexponent_data(data)
@@ -1803,27 +1899,33 @@ class AnalysisWidget(DrillTabBase):
         rows = []
         depths, dvals = [], []
         for d in data:
-            rop_ft = d['rop'] * 3.28084
-            wob_lbf = d['wob'] * 1000.0
-            bit = d['bit_size']
-            if rop_ft > 0 and d['rpm'] > 0 and wob_lbf > 0 and bit > 0:
-                r = BitPerformanceEngine.d_exponent(rop_ft, d['rpm'], wob_lbf, bit)
-                dval = r.value if r.success else None
-            else:
-                dval = None
+            # d-exponent needs ALL of ROP, RPM, WOB, bit size known and > 0.
+            # A missing input (None) is unknown, not zero — the row simply has
+            # no d-exponent rather than a fabricated one.
+            rop, wob, rpm, bit = d['rop'], d['wob'], d['rpm'], d['bit_size']
+            dval = None
+            if None not in (rop, wob, rpm, bit):
+                rop_ft = rop * 3.28084
+                wob_lbf = wob * 1000.0
+                if rop_ft > 0 and rpm > 0 and wob_lbf > 0 and bit > 0:
+                    r = BitPerformanceEngine.d_exponent(rop_ft, rpm, wob_lbf, bit)
+                    dval = r.value if r.success else None
             rows.append((d, dval))
-            if dval is not None:
+            if dval is not None and d['depth'] is not None:
                 depths.append(d['depth'])
                 dvals.append(dval)
+
+        def _dx(v, digits):
+            return "--" if v is None else f"{v:.{digits}f}"
 
         self.dexponent_table.setRowCount(len(rows))
         for i, (d, dval) in enumerate(rows):
             self.dexponent_table.setItem(i, 0, QTableWidgetItem(str(d['date'])))
             self.dexponent_table.setItem(i, 1, QTableWidgetItem(d['bit_run']))
-            self.dexponent_table.setItem(i, 2, QTableWidgetItem(f"{d['depth']:.0f}"))
-            self.dexponent_table.setItem(i, 3, QTableWidgetItem(f"{d['rop']:.1f}"))
-            self.dexponent_table.setItem(i, 4, QTableWidgetItem(f"{d['wob']:.1f}"))
-            self.dexponent_table.setItem(i, 5, QTableWidgetItem(f"{d['rpm']:.0f}"))
+            self.dexponent_table.setItem(i, 2, QTableWidgetItem(_dx(d['depth'], 0)))
+            self.dexponent_table.setItem(i, 3, QTableWidgetItem(_dx(d['rop'], 1)))
+            self.dexponent_table.setItem(i, 4, QTableWidgetItem(_dx(d['wob'], 1)))
+            self.dexponent_table.setItem(i, 5, QTableWidgetItem(_dx(d['rpm'], 0)))
             self.dexponent_table.setItem(i, 6, QTableWidgetItem(
                 f"{d['bit_size']:.2f}" if d['bit_size'] else "--"))
             item = QTableWidgetItem("--" if dval is None else f"{dval:.3f}")
@@ -1857,13 +1959,18 @@ class AnalysisWidget(DrillTabBase):
                 return self.get_performance_data(session)
             finally:
                 session.close()
-        data = self.get_cached_data(f'perf_{self.current_well_id}', fetch)
+        data = self.get_cached_data(f'perf_{self._scope_key()}', fetch)
         rig_rate = self.cost_rig_rate.value()
         trip_h = self.cost_trip_h.value()
         bit_cost = self.cost_bit_cost.value()
 
         results = []
         for d in data:
+            # Footage/rotating-time need real depths and hours. A missing input
+            # (None) means the run cannot be costed — it is skipped, never
+            # costed against a fabricated 0.
+            if d['depth'] is None or d['depth_in'] is None or d['hours_on_bottom'] is None:
+                continue
             footage_ft = (d['depth'] - d['depth_in']) * 3.28084
             if footage_ft <= 0:
                 continue
@@ -1900,7 +2007,7 @@ class AnalysisWidget(DrillTabBase):
             session = self.db.create_session()
             try: return self.get_today_data(session)
             finally: session.close()
-        today = self.get_cached_data(f'today_{self.current_well_id}', fetch)
+        today = self.get_cached_data(f'today_{self._scope_key()}', fetch)
         if today:
             # Unknown values render as "—" (via fmt_num default=None), never 0.
             self.today_indicators['depth_meter'].setText(fmt_num(today['depth'], 1, default=None))
@@ -1913,8 +2020,8 @@ class AnalysisWidget(DrillTabBase):
                 f"{fmt_num(today['mw_in'], 1, default=None)}/"
                 f"{fmt_num(today['mw_out'], 1, default=None)}")
         session = self.db.create_session()
-        recent = session.query(DailyReport).filter_by(well_id=self.current_well_id)\
-                        .order_by(desc(DailyReport.report_date)).limit(10).all()
+        recent_q = self._scope_reports_query(session)
+        recent = recent_q.order_by(desc(DailyReport.report_date)).limit(10).all()
         self.recent_reports_table.setRowCount(len(recent))
         for i, r in enumerate(recent):
             act = session.query(TimeLog24H.main_code).filter_by(report_id=r.id)\
@@ -1946,33 +2053,33 @@ class AnalysisWidget(DrillTabBase):
             self.results_text.setText("No well selected")
             return
         
-        # گرفتن داده واقعی از DrillingParameters
-        params_list = session.query(DrillingParameters).filter(
-            DrillingParameters.well_id == self.current_well_id
-        ).order_by(DrillingParameters.report_date).all()
-        
-        if not params_list or len(params_list) < 2:
-            # Fallback به Daily Reports
-            reports = session.query(DailyReport).filter_by(
-                well_id=self.current_well_id
-            ).order_by(DailyReport.report_date).all()
-            
-            if len(reports) < 2:
-                self.results_text.setText("Not enough data for ROP prediction (need at least 2 data points)")
-                return
-            
-            days = list(range(1, len(reports) + 1))
-            rops = [r.rop_meter or 0 for r in reports]
+        # Real data from DrillingParameters, scoped to the active bore/well.
+        # A missing avg_rop (None) is UNKNOWN and is dropped from the regression
+        # input — it is NOT coerced to 0 (which would fabricate a data point and
+        # bias the trend). A genuine measured 0.0 is a valid observation and is
+        # kept. The engineering regression (np.polyfit) is unchanged.
+        params_list = self._scope_params_query(session)\
+            .order_by(DrillingParameters.report_date).all()
+
+        rop_series = [p.avg_rop for p in params_list if p.avg_rop is not None]
+        if len(rop_series) >= 2:
+            rops = rop_series
         else:
-            days = list(range(1, len(params_list) + 1))
-            rops = [p.avg_rop or 0 for p in params_list]
-        
-        # Filter valid data
-        x = np.array(days)
-        y = np.array(rops)
-        valid = y > 0
-        x, y = x[valid], y[valid]
-        
+            # Fallback to Daily Reports' rop_meter, same missing-vs-zero rule.
+            reports = self._scope_reports_query(session)\
+                .order_by(DailyReport.report_date).all()
+            rop_series = [r.rop_meter for r in reports if r.rop_meter is not None]
+            if len(rop_series) < 2:
+                self.results_text.setText(
+                    "Not enough valid data for ROP prediction "
+                    "(need at least 2 reports with a recorded ROP)")
+                return
+            rops = rop_series
+
+        days = list(range(1, len(rops) + 1))
+        x = np.array(days, dtype=float)
+        y = np.array(rops, dtype=float)
+
         if len(x) < 2:
             self.results_text.setText("Not enough valid ROP data")
             return
@@ -2116,13 +2223,17 @@ class AnalysisWidget(DrillTabBase):
         # actual cost. Unknown stays unknown ("—"), never a fabricated 0.
         from core.operations_intelligence import OperationsIntelligenceService
         from core.cost_semantics import allocate_npt_cost
+        # Cost is a WHOLE-WELL fact (CostRecord is well-scoped), so its NPT
+        # inputs must also be whole-well — never silently narrowed to the
+        # selected bore, which would allocate whole-well cost against one bore's
+        # NPT and misreport it.
         total_days = session.query(DailyReport).filter_by(well_id=well_id).count()
-        npt_data = self.get_npt_data(session)
-        total_npt_hours = npt_data['total_npt'] or 0.0
+        canonical_kpis = OperationsIntelligenceService(self.db).analyze_well(well_id).get("kpis", {})
+        total_npt_hours = canonical_kpis.get("npt_hours") or 0.0
         npt_days = total_npt_hours / 24
-        npt_pct_value = npt_data['npt_percentage']
+        npt_pct_value = canonical_kpis.get("npt_percent")
 
-        kpis = OperationsIntelligenceService(self.db).analyze_well(well_id).get("kpis", {})
+        kpis = canonical_kpis
         total_cost = kpis.get("total_cost")
         cpm = kpis.get("cost_per_meter")
         well_total_hours = (kpis.get("npt_hours") or 0) + (kpis.get("productive_hours") or 0)
@@ -2154,6 +2265,7 @@ class AnalysisWidget(DrillTabBase):
             self.analytics_plot.setLabel("left", "Cost (K USD)")
 
         report = f"💰 COST ANALYSIS (actual, from recorded cost)\n{'='*40}\n"
+        report += "Scope: Whole Well (cost is recorded at well level)\n"
         report += f"Total Rig Days: {total_days}\n"
         report += f"NPT Days: {npt_days:.1f} ({fmt_num(npt_pct_value, 1, default=None)}%)\n"
         report += f"Productive Days: {total_days - npt_days:.1f}\n\n"
@@ -2174,10 +2286,13 @@ class AnalysisWidget(DrillTabBase):
             self.results_text.setText("No well selected")
             return
         
-        # جمع‌آوری داده
-        npt_data = self.get_npt_data(session)
+        # Risk is a WHOLE-WELL assessment (safety records are well-scoped), so
+        # its NPT input is well-level too — kept consistent with the safety
+        # dimension rather than silently narrowed to the selected bore.
+        from core.operations_intelligence import OperationsIntelligenceService
+        canonical_kpis = OperationsIntelligenceService(self.db).analyze_well(well_id).get("kpis", {})
         total_days = session.query(DailyReport).filter_by(well_id=well_id).count()
-        npt_pct = npt_data['npt_percentage']
+        npt_pct = canonical_kpis.get("npt_percent")
         
         # Safety data
         safety = session.query(SafetyReport).filter_by(well_id=well_id).order_by(
@@ -2206,8 +2321,8 @@ class AnalysisWidget(DrillTabBase):
         # 3. Weather Risk
         risk_scores["Weather"] = 4  # default
         
-        # 4. Well Control Risk
-        risk_scores["Well Control"] = 6 if npt_pct > 15 else 3
+        # 4. Well Control Risk. Unknown NPT is not treated as elevated.
+        risk_scores["Well Control"] = 6 if (npt_pct is not None and npt_pct > 15) else 3
         
         # 5. Safety Risk
         days_no_lti = safety.days_without_lti if safety else 0
@@ -2248,8 +2363,9 @@ class AnalysisWidget(DrillTabBase):
             report += f"  {cat:20s}: [{bar}] {score}/10 {level}\n"
         
         report += f"\n📈 Key Metrics:\n"
+        report += "Scope: Whole Well (safety/NPT risk assessed at well level)\n"
         report += f"  Total Days: {total_days}\n"
-        report += f"  NPT Percentage: {npt_pct:.1f}%\n"
+        report += f"  NPT Percentage: {fmt_num(npt_pct, 1, default=None)}%\n"
         report += f"  Days without LTI: {days_no_lti}\n"
         
         self.results_text.setText(report)
@@ -2415,7 +2531,70 @@ class AnalysisWidget(DrillTabBase):
         
     # ---------- SelectionManager integration ----------
     def on_well_changed(self, well_id, well_data):
+        # A new well clears any prior bore scope (a bore belongs to the old
+        # well). Re-read the manager in case a bore was set in the same cascade.
+        self.current_wellbore_id = getattr(
+            self.sel_manager, "current_wellbore_id", None)
+        self.current_wellbore_name = None
         self.set_current_well(well_id, well_data.get('name', str(well_id)))
+
+    def on_wellbore_changed(self, wellbore_id, wellbore_data):
+        """Re-scope analytics to the selected wellbore (bore) and refresh.
+
+        ``wellbore_id`` None -> whole-well aggregate. All caches are scope-keyed,
+        so switching bores can never show another bore's cached numbers.
+        Unknown-bore records are excluded from a bore-scoped view (never
+        attributed to the selected bore).
+        """
+        self.current_wellbore_id = wellbore_id
+        self.current_wellbore_name = (
+            (wellbore_data or {}).get("name") if wellbore_data else None)
+        self.clear_cache()
+        self.update_scope_indicator()
+        if self.current_well_id:
+            self.update_data_quality()
+            self.update_plan_variance()
+            self.update_intelligence()
+            self.update_all_data()
+
+    def update_scope_indicator(self):
+        """Make the active analytical scope explicit in the UI.
+
+        The user must always know whether a number describes the whole well
+        (an explicit aggregate that may span an original hole and sidetracks) or
+        a single bore. Silent scope is a truth defect.
+        """
+        label = getattr(self, "scope_label", None)
+        if label is None:
+            return
+        if self.current_wellbore_id:
+            name = self.current_wellbore_name or f"#{self.current_wellbore_id}"
+            label.setText(f"🎯 Scope: Wellbore — {name}")
+            label.setToolTip(
+                "Analytics are scoped to this wellbore only. "
+                "Records with an unknown bore are excluded.")
+            label.setStyleSheet(
+                "font-weight: bold; padding: 5px; color: #8e44ad;")
+        else:
+            has_bores = False
+            try:
+                if self.current_well_id and self.db is not None:
+                    has_bores = bool(
+                        self.db.get_wellbores_by_well(self.current_well_id))
+            except Exception:
+                has_bores = False
+            if has_bores:
+                label.setText("🌐 Scope: Whole-Well Aggregate")
+                label.setToolTip(
+                    "This well has multiple wellbores. Figures aggregate every "
+                    "bore (original + sidetracks) plus any unknown-bore records.")
+                label.setStyleSheet(
+                    "font-weight: bold; padding: 5px; color: #2c3e50;")
+            else:
+                label.setText("🌐 Scope: Whole Well")
+                label.setToolTip("Analytics for the whole well.")
+                label.setStyleSheet(
+                    "font-weight: bold; padding: 5px; color: #7f8c8d;")
 
     def on_report_changed(self, report_id, report_data):
         self.current_report_id = report_id
@@ -2492,6 +2671,7 @@ class AnalysisWidget(DrillTabBase):
         self.analysis_tabs.setVisible(True)
         self.bottom_widget.setVisible(True)
         self.auto_update_check.setChecked(True)
+        self.update_scope_indicator()
         self.update_data_quality()
         self.update_plan_variance()
         self.update_intelligence()
