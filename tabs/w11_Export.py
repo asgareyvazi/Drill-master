@@ -366,22 +366,28 @@ class ExportWidget(DrillTabBase):
         )
         layout.addWidget(header)
 
-        # Rates
+        # Optional day-rate PROJECTION inputs. Left at 0 (the default), the
+        # report shows stored ACTUAL cost from CostRecord. A non-zero rate adds
+        # an explicitly-labelled projection alongside — it never replaces or is
+        # presented as actual cost (§12/§27).
         rl = QHBoxLayout()
-        rl.addWidget(QLabel("Rig Rate ($/day):"))
+        rl.addWidget(QLabel("Rig Rate ($/day, optional projection):"))
         self.cost_rig_rate = QDoubleSpinBox()
         self.cost_rig_rate.setRange(0, 999999)
-        self.cost_rig_rate.setValue(45000)
+        self.cost_rig_rate.setValue(0)
         self.cost_rig_rate.setPrefix("$ ")
         rl.addWidget(self.cost_rig_rate)
         rl.addWidget(QLabel("Spread ($/day):"))
         self.cost_spread = QDoubleSpinBox()
         self.cost_spread.setRange(0, 999999)
-        self.cost_spread.setValue(15000)
+        self.cost_spread.setValue(0)
         self.cost_spread.setPrefix("$ ")
         rl.addWidget(self.cost_spread)
         rl.addStretch()
         layout.addLayout(rl)
+        note = QLabel("Leave rates at 0 to report stored actual cost only.")
+        note.setStyleSheet("color: #b9770e; font-size: 9px;")
+        layout.addWidget(note)
 
         fmt_w, self.cost_fmt = self._format_selector()
         layout.addWidget(fmt_w)
@@ -419,11 +425,13 @@ class ExportWidget(DrillTabBase):
         engine = CostReportEngine(self.db)
         self.cost_status.setText("🔄 Generating...")
         QApplication.processEvents()
-        if engine.generate(
-            wid, fn, fmt,
-            self.cost_rig_rate.value(),
-            self.cost_spread.value()
-        ):
+        # A rate of 0 means "no projection" — pass None so the report shows
+        # stored actual cost instead of a fabricated $0 daily projection.
+        rig = self.cost_rig_rate.value() or None
+        spread = self.cost_spread.value() or None
+        if rig is None or spread is None:
+            rig = spread = None
+        if engine.generate(wid, fn, fmt, rig, spread):
             self.cost_status.setText(f"✅ Exported: {fn}")
             if os.name == 'nt':
                 os.startfile(fn)

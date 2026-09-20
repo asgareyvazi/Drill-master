@@ -60,7 +60,15 @@ _CHILD = textwrap.dedent(
     tab = CostManagementWidget(db_manager=m)
     tab.on_well_changed(wid, {})
     tab.afe_table.cellWidget(0, 2).setValue(123456)
-    assert tab.save_data() is True, "engineer save should succeed"
+    outcome = tab.save_data()
+    assert bool(outcome) is True, "engineer save should succeed"
+    assert getattr(outcome, "saved", 0) >= 1, "save should persist AFE lines"
+
+    # No-well save must NOT report success (honest blocked outcome, §2.4).
+    tab.current_well_id = None
+    blocked = tab.save_data()
+    assert bool(blocked) is False, "no-well save must not claim success"
+    tab.on_well_changed(wid, {})
 
     s = m.create_session()
     lines = s.query(CostRecord).filter(

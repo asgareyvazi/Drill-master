@@ -1148,6 +1148,66 @@ class BulkMaterials(Base):
     creator = relationship("User", foreign_keys=[created_by])
 
 
+class InventoryItem(Base):
+    """General consumable/materials inventory (the W5 "Inventory" tab).
+
+    This is a DISTINCT domain from ``BulkMaterials`` (the mud/drilling bulk
+    ledger consumed wholesale by ``MudChemicalLedger``) and from
+    ``FuelWaterInventory`` (a fixed fuel/water schema). General inventory
+    carries an item ``category`` and reorder ``min_level``/``max_level``
+    thresholds that neither of those models represents, and it must never be
+    merged into the mud chemical ledger.
+
+    Identity is (well_id, report_id, item_name): the same item in the same
+    report is one upsert; the same item in a different report is a distinct
+    daily record; the same item in a different well is never merged.
+
+    Three-state numeric semantics (matching BulkMaterials):
+        NULL  = not reported (unknown)
+        0.0   = explicitly reported zero
+        value = reported quantity
+    ``opening_stock`` uses this trichotomy (no client default). ``received``
+    and ``used`` default 0.0 (absence = no movement, the daily-report
+    convention). ``current_stock`` (closing) is derived opening + received -
+    used when opening is known, else NULL (never a fabricated 0).
+    ``min_level``/``max_level`` are reorder thresholds, not daily movements.
+    """
+    __tablename__ = "inventory_items"
+
+    id = Column(Integer, primary_key=True)
+    well_id = Column(Integer, ForeignKey("wells.id", ondelete="CASCADE"), nullable=False)
+    section_id = Column(Integer, ForeignKey("sections.id"), nullable=True)
+    report_id = Column(
+        Integer, ForeignKey("daily_reports.id", ondelete="CASCADE"), nullable=True
+    )
+    report_date = Column(Date)
+    item_name = Column(String(150), nullable=False)
+    category = Column(String(100))
+    unit = Column(String(50))
+    # Trichotomy by design (see class docstring): no client-side default so an
+    # explicit None stays NULL (unknown) instead of being coerced to 0.0.
+    opening_stock = Column(Float)
+    received = Column(Float, default=0.0)
+    used = Column(Float, default=0.0)
+    # NULL = closing unknown (opening missing); else opening + received - used.
+    current_stock = Column(Float)
+    # Reorder thresholds (reference settings, not daily transactions). NULL =
+    # not set.
+    min_level = Column(Float)
+    max_level = Column(Float)
+    created_at = Column(DateTime, default=_now_utc)
+    updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc)
+    created_by = Column(Integer, ForeignKey("users.id"))
+
+    well = relationship(
+        "Well",
+        backref=backref("inventory_items", cascade="all, delete-orphan")
+    )
+    section = relationship("Section", backref="inventory_items")
+    report = relationship("DailyReport", backref="inventory_items")
+    creator = relationship("User", foreign_keys=[created_by])
+
+
 class TransportLog(Base):
     __tablename__ = "transport_logs"
 
@@ -3979,6 +4039,24 @@ class DatabaseManager:
             session.delete(report)
             return True
 
+    def get_planned_total_days(self, well_id: int):
+        """Return the active WellPlan's planned total days, or None if unknown.
+
+        Read-only helper so consumers (e.g. the W16 AFE header) can *mirror* the
+        authoritative planned-days value that the Planning tab owns, without
+        introducing a second persistence path for it.
+        """
+        session = self.create_session()
+        try:
+            plan = session.query(WellPlan).filter(
+                WellPlan.well_id == well_id
+            ).order_by(WellPlan.created_at.desc()).first()
+            if not plan or not plan.planned_total_days:
+                return None
+            return float(plan.planned_total_days)
+        finally:
+            session.close()
+
     def get_actual_vs_plan(self, well_id: int):
         """Return data-backed plan-vs-actual metrics for monitoring dashboards.
 
@@ -6726,6 +6804,132 @@ class DatabaseManager:
             raise  # collection query failure is not an empty dataset
         finally:
             session.close()
+
+    # ========== General Inventory (W5 InventoryTab) ==========
+    def save_inventory_items(self, well_id: int, report_id, rows: list,
+                             report_date=None, section_id=None, user_id=None):
+        """Persist a W5 inventory worksheet to InventoryItem atomically.
+
+        The whole worksheet for (well_id, report_id) is one logical save: its
+        current rows are replaced together in ONE transaction, so a failure on
+        any row rolls the entire save back (no partial worksheet), and clearing
+        the UI then saving yields an empty persisted collection for that report
+        (older reports are untouched). Identity is (well_id, report_id,
+        item_name).
+
+        Three-state semantics are enforced through ``core.inventory_semantics``:
+        a blank opening stays NULL (unknown), an explicit 0 stays 0.0, closing
+        is derived only when opening is known. Carry-forward fills a MISSING
+        opening from the previous report's closing; it never overwrites a
+        supplied opening.
+        """
+        from core.inventory_semantics import normalize_item_row, derive_closing
+        with self.session_scope() as session:
+            # Replace this report's inventory rows only.
+            q = session.query(InventoryItem).filter(InventoryItem.well_id == well_id)
+            if report_id is not None:
+                q = q.filter(InventoryItem.report_id == report_id)
+            else:
+                q = q.filter(InventoryItem.report_id.is_(None))
+                if report_date is not None:
+                    q = q.filter(InventoryItem.report_date == report_date)
+            q.delete(synchronize_session=False)
+
+            saved = 0
+            for raw in rows:
+                if not isinstance(raw, dict):
+                    continue
+                norm = normalize_item_row(raw)
+                if not norm["item_name"]:
+                    continue  # a blank item name is not an inventory line
+                opening = norm["opening_stock"]
+                # Carry-forward only a genuinely MISSING opening.
+                if opening is None and report_date is not None:
+                    prev = session.query(InventoryItem).filter(
+                        InventoryItem.well_id == well_id,
+                        InventoryItem.item_name == norm["item_name"],
+                        InventoryItem.report_date < report_date,
+                    ).order_by(InventoryItem.report_date.desc()).first()
+                    if prev is not None and prev.current_stock is not None:
+                        opening = prev.current_stock
+                closing = derive_closing(opening, norm["received"], norm["used"])
+                session.add(InventoryItem(
+                    well_id=well_id,
+                    section_id=section_id,
+                    report_id=report_id,
+                    report_date=report_date,
+                    item_name=norm["item_name"],
+                    category=norm["category"],
+                    unit=norm["unit"],
+                    opening_stock=opening,
+                    received=norm["received"],
+                    used=norm["used"],
+                    current_stock=closing,
+                    min_level=norm["min_level"],
+                    max_level=norm["max_level"],
+                    created_by=user_id,
+                ))
+                saved += 1
+            return saved
+
+    def get_inventory_items(self, well_id: int = None, report_id=None,
+                            report_date=None):
+        """Return persisted InventoryItem rows (as dicts), unknown preserved."""
+        session = self.create_session()
+        try:
+            query = session.query(InventoryItem)
+            if well_id is not None:
+                query = query.filter(InventoryItem.well_id == well_id)
+            if report_id is not None:
+                query = query.filter(InventoryItem.report_id == report_id)
+            if report_date is not None:
+                query = query.filter(InventoryItem.report_date == report_date)
+            rows = query.order_by(InventoryItem.item_name).all()
+            return [
+                {col.name: getattr(r, col.name)
+                 for col in InventoryItem.__table__.columns}
+                for r in rows
+            ]
+        except Exception as e:
+            logger.error(f"Error getting inventory items: {e}")
+            raise  # collection query failure is not an empty dataset
+        finally:
+            session.close()
+
+    def get_legacy_inventory_notes(self, well_id: int, report_id=None):
+        """Read-only compatibility: decode legacy EquipmentLog "Inventory" rows.
+
+        Older data stored W5 inventory as an encoded ``notes`` string on
+        ``EquipmentLog`` (equipment_type="Inventory",
+        notes="Stock:..|Recv:..|Used:..|Rem:..|Unit:.."). This deterministic
+        reader lets the UI surface that legacy data once so it can be migrated
+        by re-saving; it never writes and never reinterprets ambiguous notes.
+        Returns a list of dicts using the InventoryItem field names; values it
+        cannot parse remain None (unknown), never a fabricated 0.
+        """
+        from core.inventory_semantics import to_float_or_none
+        logs = self.get_equipment_logs(
+            well_id=well_id, report_id=report_id, equipment_type="Inventory")
+        out = []
+        for log in logs or []:
+            notes = log.get("notes", "") or ""
+            parts = {}
+            for part in notes.split("|"):
+                if ":" in part:
+                    k, v = part.split(":", 1)
+                    parts[k.strip()] = v.strip()
+            out.append({
+                "item_name": log.get("equipment_name", "") or "",
+                "category": log.get("equipment_id", "") or "",
+                "opening_stock": to_float_or_none(parts.get("Stock")),
+                "received": to_float_or_none(parts.get("Recv")),
+                "used": to_float_or_none(parts.get("Used")),
+                "current_stock": to_float_or_none(parts.get("Rem")),
+                "unit": parts.get("Unit") or None,
+                "min_level": None,
+                "max_level": None,
+            })
+        return out
 
     # ========== Bulk Materials ==========
     def save_bulk_material(self, material_data: dict):

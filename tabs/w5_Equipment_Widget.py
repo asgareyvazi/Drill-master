@@ -749,6 +749,20 @@ class EquipmentWidget(DrillTabBase):
 
     def save_all_data(self, section_filter=None):
         """ذخیره تمام تب‌ها در equipment_logs"""
+        # Read-only roles must never mutate equipment/inventory, regardless of
+        # whether the control happens to be enabled (Gate Q). Backend
+        # persistence is the authority, not UI widget state.
+        try:
+            from core.permissions import permissions
+            if permissions.is_viewer():
+                self.show_message("Viewer role is read-only: No Save allowed", 3000)
+                return False
+            if not permissions.has_permission("can_edit_reports"):
+                self.show_message("You do not have permission to edit reports", 3000)
+                return False
+        except Exception:
+            pass
+
         if not self.current_well:
             self.show_message("No well selected", 3000)
             return False
@@ -759,7 +773,9 @@ class EquipmentWidget(DrillTabBase):
         from core.save_outcome import save_all
         if not isinstance(section_filter, (set, tuple, list)):
             section_filter = None  # QAction/PushButton may pass its checked boolean
-        groups = {name: [] for name in ("Rig Equipment", "Inventory", "Drill Pipe", "Solid Control")}
+        # "Inventory" is no longer an EquipmentLog notes group: it persists to
+        # the authoritative InventoryItem model via a dedicated step below.
+        groups = {name: [] for name in ("Rig Equipment", "Drill Pipe", "Solid Control")}
 
         # ===== 1. Rig Equipment =====
         rig_data = self.rig_tab.get_table_data()
@@ -780,27 +796,25 @@ class EquipmentWidget(DrillTabBase):
             }
             groups[log_data["equipment_type"]].append(log_data)
 
-        # ===== 2. Inventory =====
-        inv_data = self.inventory_tab.get_table_data()
-        for row_index, row_data in enumerate(inv_data, 1):
+        # ===== 2. Inventory (authoritative InventoryItem model) =====
+        # W5 general inventory persists to InventoryItem — NOT to an encoded
+        # EquipmentLog.notes string. Rows are mapped to the model's field names;
+        # blank numeric cells stay unknown (None), not a fabricated 0.
+        inv_rows = []
+        for row_data in self.inventory_tab.get_table_data():
             if not row_data or not row_data[0].strip():
                 continue
-            log_data = {
-                "well_id": self.current_well,
-                "report_id": self.current_report_id,
-                "equipment_type": "Inventory",
-                "equipment_name": row_data[0] if len(row_data) > 0 else "",
-                "equipment_id": row_data[1] if len(row_data) > 1 else "",
-                "status": "Active",
-                "hours_worked": 0,
-                "notes": (
-                    f"Stock:{row_data[2]}|Recv:{row_data[3]}|"
-                    f"Used:{row_data[4]}|Rem:{row_data[5]}|"
-                    f"Unit:{row_data[6]}"
-                    if len(row_data) > 6 else ""
-                ),
-            }
-            groups[log_data["equipment_type"]].append(log_data)
+            inv_rows.append({
+                "item_name": row_data[0] if len(row_data) > 0 else "",
+                "category": row_data[1] if len(row_data) > 1 else "",
+                "opening_stock": row_data[2] if len(row_data) > 2 else "",
+                "received": row_data[3] if len(row_data) > 3 else "",
+                "used": row_data[4] if len(row_data) > 4 else "",
+                # column 5 (Remaining) is DERIVED — never persisted from the UI.
+                "unit": row_data[6] if len(row_data) > 6 else "",
+                "min_level": row_data[7] if len(row_data) > 7 else "",
+                "max_level": row_data[8] if len(row_data) > 8 else "",
+            })
 
         # ===== 3. Drill Pipe =====
         pipe_data = self.pipe_tab.get_table_data()
@@ -851,9 +865,93 @@ class EquipmentWidget(DrillTabBase):
 
         steps = [(name, lambda name=name, rows=rows: self.db.save_equipment_records(self.current_well, self.current_report_id, name, rows))
                  for name, rows in groups.items() if not section_filter or name in section_filter]
+        if not section_filter or "Inventory" in section_filter:
+            steps.append(("Inventory", lambda rows=inv_rows: self._save_inventory_rows(rows)))
         self.last_save_outcome = save_all(steps)
         (self.show_success if self.last_save_outcome else self.show_error)(self.last_save_outcome.summary())
         return bool(self.last_save_outcome)
+
+    def _report_date_for_current(self):
+        """Best-effort report_date for the current report (for carry-forward)."""
+        if not self.current_report_id or not self.db:
+            return None
+        try:
+            report = self.db.get_daily_report_by_id(self.current_report_id)
+        except Exception:
+            return None
+        if not report:
+            return None
+        if isinstance(report, dict):
+            return report.get("report_date")
+        return getattr(report, "report_date", None)
+
+    def _save_inventory_rows(self, rows):
+        """Persist the W5 inventory worksheet to the InventoryItem model."""
+        user_id = None
+        try:
+            from core.permissions import permissions
+            user_id = getattr(permissions, "user_id", None)
+        except Exception:
+            user_id = None
+        return self.db.save_inventory_items(
+            self.current_well,
+            self.current_report_id,
+            rows,
+            report_date=self._report_date_for_current(),
+            user_id=user_id,
+        )
+
+    @staticmethod
+    def _inv_cell(value):
+        """Render a stored inventory value for the table.
+
+        Unknown (None) shows as an empty cell — never a fabricated "0" — so the
+        three-state distinction survives the round-trip on screen.
+        """
+        if value is None:
+            return ""
+        if isinstance(value, float) and value.is_integer():
+            return str(int(value))
+        return str(value)
+
+    def _load_inventory_rows(self):
+        """Load inventory from InventoryItem; fall back to legacy notes once."""
+        try:
+            items = self.db.get_inventory_items(
+                well_id=self.current_well, report_id=self.current_report_id)
+        except Exception as e:
+            logger.error(f"Inventory load failed: {e}")
+            items = []
+        legacy = False
+        if not items:
+            # One-time compatibility: surface legacy EquipmentLog notes rows so
+            # they can be migrated by re-saving. Read-only, unknown preserved.
+            try:
+                items = self.db.get_legacy_inventory_notes(
+                    self.current_well, report_id=self.current_report_id)
+                legacy = bool(items)
+            except Exception:
+                items = []
+        if not items:
+            return
+        data = []
+        for it in items:
+            data.append([
+                it.get("item_name", "") or "",
+                it.get("category", "") or "",
+                self._inv_cell(it.get("opening_stock")),
+                self._inv_cell(it.get("received")),
+                self._inv_cell(it.get("used")),
+                self._inv_cell(it.get("current_stock")),
+                it.get("unit", "") or "",
+                self._inv_cell(it.get("min_level")),
+                self._inv_cell(it.get("max_level")),
+            ])
+        self.inventory_tab.load_table_data(data)
+        if legacy:
+            self.show_message(
+                "Loaded legacy inventory — re-save to migrate it to the "
+                "structured inventory store.", 5000)
 
     @editor_loaded()
     def load_all_data(self):
@@ -888,34 +986,8 @@ class EquipmentWidget(DrillTabBase):
                     ])
                 self.rig_tab.load_table_data(data)
 
-            # ===== Inventory =====
-            inv_logs = self.db.get_equipment_logs(
-                well_id=self.current_well,
-                report_id=self.current_report_id,
-                equipment_type="Inventory",
-            )
-            if inv_logs:
-                data = []
-                for log in inv_logs:
-                    notes = log.get("notes", "")
-                    parts = {}
-                    if notes:
-                        for part in notes.split("|"):
-                            if ":" in part:
-                                k, v = part.split(":", 1)
-                                parts[k.strip()] = v.strip()
-                    data.append([
-                        log.get("equipment_name", ""),
-                        log.get("equipment_id", ""),
-                        parts.get("Stock", "0"),
-                        parts.get("Recv", "0"),
-                        parts.get("Used", "0"),
-                        parts.get("Rem", "0"),
-                        parts.get("Unit", "pcs"),
-                        "0",
-                        "100",
-                    ])
-                self.inventory_tab.load_table_data(data)
+            # ===== Inventory (authoritative InventoryItem model) =====
+            self._load_inventory_rows()
 
             # ===== Drill Pipe =====
             pipe_logs = self.db.get_equipment_logs(

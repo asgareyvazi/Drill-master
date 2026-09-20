@@ -58,21 +58,29 @@ class CostManagementWidget(DrillTabBase):
 
         self.afe_number = QLineEdit()
         self.afe_number.setPlaceholderText("AFE-2024-001")
-        self.afe_total = QDoubleSpinBox()
-        self.afe_total.setRange(0, 999999999)
-        self.afe_total.setPrefix("$ ")
-        self.afe_total.setDecimals(0)
+        # Total Budget is DERIVED (read-only): it mirrors the sum of the
+        # persisted planned costs in the breakdown below. It is not a separate
+        # editable field that silently vanishes on save.
+        self.afe_total = QLabel("$ 0")
+        self.afe_total.setStyleSheet("font-weight: bold; color: #2c3e50;")
         self.afe_currency = QComboBox()
         # Leading blank represents UNKNOWN currency — never silently assume USD.
         self.afe_currency.addItems(["— (unspecified)", "USD", "EUR", "GBP", "IRR"])
+        # Planned Days is a NON-PERSISTENT reference here. Its authoritative
+        # home is the Planning tab (WellPlan.planned_total_days); this widget
+        # only mirrors it and never writes it, so the label says so plainly.
         self.afe_days = QSpinBox()
         self.afe_days.setRange(0, 999)
         self.afe_days.setSuffix(" days")
+        # Reference mirror of WellPlan.planned_total_days — not editable here so
+        # the UI cannot imply this widget owns/persists planned days.
+        self.afe_days.setReadOnly(True)
+        self.afe_days.setButtonSymbols(QAbstractSpinBox.NoButtons)
 
         hf.addRow("AFE Number:", self.afe_number)
-        hf.addRow("Total Budget:", self.afe_total)
+        hf.addRow("Total Planned (auto):", self.afe_total)
         hf.addRow("Currency:", self.afe_currency)
-        hf.addRow("Planned Days:", self.afe_days)
+        hf.addRow("Planned Days (reference — set in Planning):", self.afe_days)
         layout.addWidget(g_header)
 
         # Cost Categories
@@ -197,6 +205,8 @@ class CostManagementWidget(DrillTabBase):
             f"💰 TOTAL → Planned: ${total_planned:,.0f} | Actual: ${total_actual:,.0f} | "
             f"Variance: ${variance:,.0f} ({'+' if variance >= 0 else ''}{variance/total_planned*100:.1f}%)" if total_planned > 0 else ""
         )
+        # Keep the derived header "Total Planned" in sync with the breakdown.
+        self.afe_total.setText(f"$ {total_planned:,.0f}")
 
     # ===== Daily Cost Tab =====
     def _create_daily_cost_tab(self):
@@ -550,6 +560,7 @@ class CostManagementWidget(DrillTabBase):
         return rows
 
     def save_data(self):
+        from core.save_outcome import SaveOutcome, SaveIssue
         # Enforce the standard permission contract before mutating.
         try:
             from core.permissions import permissions
@@ -564,8 +575,17 @@ class CostManagementWidget(DrillTabBase):
             user_id = None
 
         if not self.current_well_id or not self.db:
-            # Nothing to persist against — do not silently claim success.
-            return True
+            # No well selected: nothing was persisted. Report this HONESTLY as
+            # a blocked context, never as a silent success (§2.4). Save All
+            # reads last_save_outcome and will surface the real disposition.
+            outcome = SaveOutcome(issues=[SaveIssue(
+                "Cost (AFE)",
+                "No well is selected; the AFE worksheet was not saved.",
+                status="REVIEW_REQUIRED", code="CONTEXT_BLOCKED",
+                corrective_action="Select a well, then save the AFE worksheet again.")])
+            self.last_save_outcome = outcome
+            self.show_warning("Select a well before saving the AFE worksheet")
+            return outcome
 
         rows = [r for r in self._read_afe_rows() if r["category"]]
         try:
@@ -575,12 +595,18 @@ class CostManagementWidget(DrillTabBase):
                 currency=self._selected_currency(),
                 user_id=user_id,
             )
+            outcome = SaveOutcome(saved=saved)
+            self.last_save_outcome = outcome
             self.show_success(f"Saved {saved} AFE cost line(s)")
-            return True
+            return outcome
         except Exception as e:
             logger.error(f"AFE save failed: {e}")
+            outcome = SaveOutcome(issues=[SaveIssue(
+                "Cost (AFE)", str(e), status="SYSTEM_ERROR",
+                exception_type=type(e).__name__)])
+            self.last_save_outcome = outcome
             self.show_error(f"AFE save failed: {e}")
-            return False
+            return outcome
 
     def _load_afe_from_db(self):
         """Reload the AFE worksheet from persisted CostRecord budget lines."""
@@ -591,6 +617,7 @@ class CostManagementWidget(DrillTabBase):
         except Exception as e:
             logger.error(f"AFE load failed: {e}")
             return
+        self._mirror_planned_days()
         rows = cost_records_to_afe_rows(records)
         if not rows:
             # No persisted AFE yet — keep the current (default) worksheet.
@@ -601,6 +628,16 @@ class CostManagementWidget(DrillTabBase):
             self._insert_afe_row(r["category"], r["planned_cost"] or 0,
                                  r["actual_cost"] or 0)
         self._update_afe_totals()
+
+    def _mirror_planned_days(self):
+        """Reflect the authoritative WellPlan planned days (read-only mirror)."""
+        if not self.current_well_id or not self.db:
+            return
+        try:
+            days = self.db.get_planned_total_days(self.current_well_id)
+        except Exception:
+            days = None
+        self.afe_days.setValue(int(days) if days else 0)
 
     # ===== DrillTabBase =====
     def on_well_changed(self, well_id, well_data):

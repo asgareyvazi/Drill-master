@@ -1210,24 +1210,43 @@ class AnalysisWidget(DrillTabBase):
         return data
 
     def calculate_kpis(self, session):
+        """Well KPIs, with shared metrics sourced from the canonical service.
+
+        The metrics that also exist in ``OperationsIntelligenceService`` —
+        current depth, average ROP, NPT hours, NPT%, rig days — are taken from
+        that canonical implementation so W12 cannot silently disagree with the
+        report engine or the intelligence dashboard. In particular
+        ``current_depth`` is the well's MAX recorded depth (the canonical
+        meaning), not the latest-by-date reading, which diverge whenever a later
+        report records a shallower depth (correction / section change).
+
+        Metrics that are W12-specific scalar reductions and not part of the
+        canonical KPI contract (best ROP, mean WOB/RPM/torque midpoints,
+        efficiency, daily depth gain) are computed here, preserving the
+        no-fabrication contract: unknown source data yields None, never 0.0.
+        """
         well_id = self.current_well_id
         if not well_id:
             return dict.fromkeys(['current_depth','total_days','avg_rop','total_npt',
                                   'npt_percentage','best_rop','avg_wob','avg_rpm',
                                   'avg_torque','efficiency','daily_gain'], None)
 
-        latest = session.query(DailyReport).filter_by(well_id=well_id)\
-                        .order_by(desc(DailyReport.report_date)).first()
-        cur_depth = latest.depth_2400 if latest else None
-        total_days = session.query(DailyReport).filter_by(well_id=well_id).count()
+        # ---- Shared metrics: canonical source of truth ----
+        service = getattr(self, "intelligence_service", None)
+        if service is None:
+            from core.operations_intelligence import OperationsIntelligenceService
+            service = OperationsIntelligenceService(self.db)
+        canonical = service.analyze_well(well_id).get("kpis", {})
+        cur_depth = canonical.get("current_depth")
+        total_days = canonical.get("rig_days") or session.query(
+            DailyReport).filter_by(well_id=well_id).count()
+        avg_rop = canonical.get("average_rop")
+        total_npt = canonical.get("npt_hours")
+        npt_pct = canonical.get("npt_percent")
+        # Efficiency is the complement of NPT% and shares its unknown semantics.
+        efficiency = (100 - npt_pct) if npt_pct is not None else None
 
-        # Rate/parameter metrics are reported as None ("unknown") when their
-        # source data is absent, never as a fabricated 0.0 — the same
-        # no-fabrication contract the canonical OperationsIntelligenceService
-        # applies. A well with no drilling parameters has an unknown ROP, not a
-        # 0 m/hr ROP.
-        avg_rop = session.query(func.avg(DrillingParameters.avg_rop))\
-                         .filter(DrillingParameters.well_id == well_id).scalar()
+        # ---- W12-specific reductions (not in the canonical KPI contract) ----
         best_rop = session.query(func.max(DrillingParameters.avg_rop))\
                           .filter(DrillingParameters.well_id == well_id).scalar()
 
@@ -1246,25 +1265,14 @@ class AnalysisWidget(DrillTabBase):
         tq_mids = [(tmin+tmax)/2 for tmin,tmax in tq_vals if tmin is not None and tmax is not None]
         avg_torque = float(np.mean(tq_mids)) if tq_mids else None
 
-        total_npt = session.query(func.sum(TimeLog24H.duration)).filter(TimeLog24H.is_npt == True)\
-                           .join(DailyReport).filter(DailyReport.well_id == well_id).scalar()
-        total_hours = session.query(func.sum(TimeLog24H.duration))\
-                             .join(DailyReport).filter(DailyReport.well_id == well_id).scalar()
-        # NPT% and efficiency are unknown when no time has been recorded — the
-        # denominator is genuinely unknown, not 1. A recorded zero-NPT well with
-        # known total hours correctly yields 0% / 100%.
-        if total_hours:
-            npt_hours_value = total_npt or 0.0
-            npt_pct = (npt_hours_value / total_hours * 100)
-            efficiency = 100 - npt_pct
-        else:
-            npt_pct = None
-            efficiency = None
-
+        # Daily depth gain over the campaign: first->last by date. Unknown when
+        # either endpoint depth is missing (never a fabricated 0).
         daily_gain = None
-        if total_days > 0:
+        if total_days and total_days > 0:
             first = session.query(DailyReport).filter_by(well_id=well_id)\
                            .order_by(DailyReport.report_date).first()
+            latest = session.query(DailyReport).filter_by(well_id=well_id)\
+                            .order_by(desc(DailyReport.report_date)).first()
             if first and latest and first.depth_2400 is not None and latest.depth_2400 is not None:
                 daily_gain = (latest.depth_2400 - first.depth_2400) / total_days
 

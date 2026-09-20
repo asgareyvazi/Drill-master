@@ -96,10 +96,39 @@ engine = create_engine(
 | LogisticsPersonnel | logistics_personnel | Personnel on location |
 | ServiceCompanyPOB | service_company_pob | Service company POB |
 | FuelWaterInventory | fuel_water_inventory | Fuel and water tracking |
-| BulkMaterials | bulk_materials | Bulk material inventory |
+| BulkMaterials | bulk_materials | Mud/drilling bulk-material ledger (feeds MudChemicalLedger) |
+| InventoryItem | inventory_items | General consumable/materials inventory (W5 Inventory tab) |
 | TransportLog | transport_logs | Vehicle/boat/helicopter logs |
 | TransportNotes | transport_notes | Transport notes |
-| MaterialRequest | material_requests | Material requests |
+| MaterialRequest | material_requests | Material procurement requests |
+
+#### Inventory domains (distinct — never merged)
+
+The product persists inventory through THREE distinct, non-interchangeable
+authoritative models. They are separate domains and must not be summed together
+(kg of Barite, litres of Diesel and bbl of water are not one quantity):
+
+| Domain | Model | Owner UI | Notes |
+|--------|-------|----------|-------|
+| Mud/drilling bulk material | `BulkMaterials` | W7 Logistics, W10 Planning | Consumed wholesale by `MudChemicalLedger`; no item category / reorder levels |
+| Fuel & water | `FuelWaterInventory` | W7 Logistics | Fixed fuel/water schema |
+| General consumables/materials | `InventoryItem` | W5 Equipment → Inventory tab | Item `category`, reorder `min_level`/`max_level`; report-scoped |
+
+`InventoryItem` is the authoritative store for the W5 Inventory tab. W5 used to
+encode inventory into an `EquipmentLog.notes` string
+(`Stock:..|Recv:..|Used:..|Rem:..|Unit:..`), which lost Min/Max levels and
+collapsed missing into 0. That path is retired for new writes; legacy rows are
+read once via `get_legacy_inventory_notes` (read-only) and migrated by
+re-saving.
+
+Three-state numeric semantics (shared with `BulkMaterials`, enforced in
+`core/inventory_semantics.py`): `None` = not reported (unknown), `0.0` =
+explicitly reported zero, value = reported quantity. `current_stock` (closing)
+= opening + received − used only when opening is known, else NULL — never a
+fabricated 0. Carry-forward fills only a MISSING opening from the previous
+report's closing; it never overwrites an explicit opening (including 0). One
+worksheet save is one atomic transaction; clearing then saving yields an empty
+persisted collection for that report while older reports remain intact.
 
 ### 3.8 Safety
 
@@ -243,6 +272,30 @@ Cost-specific:
 | `save_cost_record(data)` | Upsert a single cost line (OPEX or AFE) |
 | `get_cost_records(well_id, category)` | All cost lines for a well |
 | `get_cost_summary(well_id)` | Per-category `planned`/`actual`/`variance` (variance = planned − actual) |
+| `get_planned_total_days(well_id)` | Read-only mirror of the active `WellPlan.planned_total_days` (Planning owns it; W16 only displays it) |
+
+Note: AFE and OPEX `actual_cost` lines are distinct cost records; total actual
+cost is their sum. There is no code path that writes the same spend to both an
+AFE and an OPEX record, so summing them does not double-count.
+
+Inventory-specific (general consumables — `InventoryItem`):
+
+| Method | Purpose |
+|--------|---------|
+| `save_inventory_items(well_id, report_id, rows, report_date, section_id, user_id)` | Atomically replace a report's inventory worksheet; three-state + carry-forward; identity = (well, report, item_name) |
+| `get_inventory_items(well_id, report_id, report_date)` | Structured inventory rows (unknown preserved as None) |
+| `get_legacy_inventory_notes(well_id, report_id)` | Read-only decode of legacy `EquipmentLog` "Inventory" notes rows (migration compatibility) |
+
+KPI canonical source:
+
+`tabs/w12_Analysis.py::calculate_kpis` sources its shared metrics
+(current depth = MAX recorded depth, average ROP, NPT hours, NPT %, rig days)
+from `OperationsIntelligenceService.analyze_well` so W12, the report engine and
+the intelligence dashboard cannot silently disagree. W12-specific reductions
+(best ROP, mean WOB/RPM/torque, daily depth gain) remain local and keep the
+unknown≠zero contract. The `CostReportEngine` always reports stored actual cost
+as "Total Actual Cost"; a supplied day-rate produces a separately-labelled
+"Projected Total", never actual cost.
 
 ---
 

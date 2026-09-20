@@ -1748,9 +1748,10 @@ class CostReportEngine:
                 categories[cat]["planned"] += float(cr.planned_cost or 0)
                 categories[cat]["actual"] += float(cr.actual_cost or 0)
 
-            # A daily/spread rate is valid only when explicitly supplied by
-            # the caller. Otherwise report stored cost records, not an estimate.
-            rate_supplied = daily_rate is not None and spread_rate is not None
+            # A daily/spread rate is valid only when explicitly supplied AND
+            # non-zero. A zero rate is not a projection (it would fabricate a $0
+            # daily cost); treat it as "no projection" and report stored actuals.
+            rate_supplied = bool(daily_rate) and bool(spread_rate)
             total_daily_cost = (
                 float(daily_rate) + float(spread_rate) if rate_supplied else None
             )
@@ -1768,12 +1769,17 @@ class CostReportEngine:
                 sum(float(c.actual_cost or 0) for c in cost_records)
                 if cost_records else None
             )
+            # ``total_cost`` is ALWAYS the stored actual cost (the authoritative
+            # figure). A supplied day-rate produces a SEPARATE, explicitly
+            # labelled projection — it never overwrites or masquerades as actual
+            # cost (§27/§32).
+            total_cost = stored_actual_cost
             if rate_supplied:
-                total_cost = total_days * total_daily_cost
+                projected_total_cost = total_days * total_daily_cost
                 npt_cost = npt_days * total_daily_cost
-                pt_cost = total_cost - npt_cost
+                pt_cost = projected_total_cost - npt_cost
             else:
-                total_cost = stored_actual_cost
+                projected_total_cost = None
                 npt_cost = None
                 pt_cost = None
 
@@ -1805,6 +1811,7 @@ class CostReportEngine:
                 "spread_rate": spread_rate,
                 "total_daily_cost": total_daily_cost,
                 "total_cost": total_cost,
+                "projected_total_cost": projected_total_cost,
                 "npt_cost": npt_cost,
                 "pt_cost": pt_cost,
                 "npt_days": npt_days,
@@ -1856,19 +1863,19 @@ h2 {{ color: #27ae60; border-bottom: 1px solid #d5f5e3; margin-top: 15px; font-s
 <div class="kpi-row">
     <div class="kpi-box" style="background:#eafaf1;border-left:4px solid #27ae60">
         <div class="kpi-value" style="color:#27ae60">{_money(data["total_cost"])}</div>
-        <div class="kpi-label">Total Well Cost</div>
+        <div class="kpi-label">Total Actual Cost (stored)</div>
     </div>
     <div class="kpi-box" style="background:#fadbd8;border-left:4px solid #e74c3c">
         <div class="kpi-value" style="color:#e74c3c">{_money(data["npt_cost"])}</div>
-        <div class="kpi-label">NPT Cost ({data["npt_days"]:.1f} days)</div>
+        <div class="kpi-label">NPT Cost — projection ({data["npt_days"]:.1f} days)</div>
     </div>
     <div class="kpi-box" style="background:#eaf2f8;border-left:4px solid #3498db">
         <div class="kpi-value" style="color:#3498db">{_money(data["cost_per_meter"])}</div>
-        <div class="kpi-label">Cost per Meter</div>
+        <div class="kpi-label">Cost per Meter (actual)</div>
     </div>
     <div class="kpi-box" style="background:#fef9e7;border-left:4px solid #f39c12">
-        <div class="kpi-value" style="color:#f39c12">{_money(data["total_daily_cost"])}</div>
-        <div class="kpi-label">Daily Cost (Rig + Spread)</div>
+        <div class="kpi-value" style="color:#f39c12">{_money(data["projected_total_cost"])}</div>
+        <div class="kpi-label">Projected Total (day-rate assumption)</div>
     </div>
 </div>
 
