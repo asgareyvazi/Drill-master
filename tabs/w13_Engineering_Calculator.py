@@ -2144,7 +2144,9 @@ class EngineeringCalculatorTab(DrillTabBase):
             from dialogs.mse_history_dialog import MSEHistoryDialog
             from core.engineering.engines.mse import MSEEngine
             dlg = MSEHistoryDialog(
-                repo, current_method=MSEEngine.METHOD, parent=self)
+                repo, current_method=MSEEngine.METHOD, parent=self,
+                well_id=self.current_well_id,
+                well_label=self._current_well_label_text() or None)
             dlg.exec()
         except Exception as exc:
             logger.exception("Failed to open MSE calculation history")
@@ -2786,7 +2788,9 @@ class EngineeringCalculatorTab(DrillTabBase):
             from dialogs.torque_drag_history_dialog import TorqueDragHistoryDialog
             from core.engineering.engines.torque_drag import TorqueDragEngine
             dlg = TorqueDragHistoryDialog(
-                repo, current_method=TorqueDragEngine.METHOD, parent=self)
+                repo, current_method=TorqueDragEngine.METHOD, parent=self,
+                well_id=self.current_well_id,
+                well_label=self._current_well_label_text() or None)
             dlg.exec()
         except Exception as exc:
             logger.exception("Failed to open T&D calculation history")
@@ -3254,7 +3258,9 @@ class EngineeringCalculatorTab(DrillTabBase):
             from dialogs.mud_volume_history_dialog import MudVolumeHistoryDialog
             from core.engineering.engines.mud_volume import MudVolumeEngine
             dlg = MudVolumeHistoryDialog(
-                repo, current_method=MudVolumeEngine.METHOD, parent=self)
+                repo, current_method=MudVolumeEngine.METHOD, parent=self,
+                well_id=self.current_well_id,
+                well_label=self._current_well_label_text() or None)
             dlg.exec()
         except Exception as exc:
             logger.exception("Failed to open mud volume calculation history")
@@ -3720,7 +3726,9 @@ class EngineeringCalculatorTab(DrillTabBase):
             from dialogs.casing_history_dialog import CasingHistoryDialog
             from core.engineering.engines.casing import CasingEngine
             dlg = CasingHistoryDialog(
-                repo, current_method=CasingEngine.METHOD, parent=self)
+                repo, current_method=CasingEngine.METHOD, parent=self,
+                well_id=self.current_well_id,
+                well_label=self._current_well_label_text() or None)
             dlg.exec()
         except Exception as exc:
             logger.exception("Failed to open casing calculation history")
@@ -3866,7 +3874,9 @@ class EngineeringCalculatorTab(DrillTabBase):
             from dialogs.cement_history_dialog import CementHistoryDialog
             from core.engineering.engines.cement import CementEngine
             dlg = CementHistoryDialog(
-                repo, current_method=CementEngine.METHOD, parent=self)
+                repo, current_method=CementEngine.METHOD, parent=self,
+                well_id=self.current_well_id,
+                well_label=self._current_well_label_text() or None)
             dlg.exec()
         except Exception as exc:
             logger.exception("Failed to open cement calculation history")
@@ -4535,7 +4545,9 @@ class EngineeringCalculatorTab(DrillTabBase):
             )
             from core.engineering.engines.well_control import WellControlEngine
             dlg = WellControlKillSheetHistoryDialog(
-                repo, current_method=WellControlEngine.METHOD, parent=self)
+                repo, current_method=WellControlEngine.METHOD, parent=self,
+                well_id=self.current_well_id,
+                well_label=self._current_well_label_text() or None)
             dlg.exec()
         except Exception as exc:
             logger.exception("Failed to open kill-sheet calculation history")

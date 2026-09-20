@@ -80,10 +80,13 @@ class WellControlKillSheetHistoryDialog(QDialog):
     """Browse + inspect + verify persisted kill-sheet runs (read-only)."""
 
     def __init__(self, repository, current_method: Optional[str] = None,
-                 parent=None):
+                 parent=None, well_id: Optional[int] = None,
+                 well_label: Optional[str] = None):
         super().__init__(parent)
         self._repo = repository
         self._current_method = current_method
+        self._well_id = well_id
+        self._well_label = well_label
         self._saved: List = []
         self.setWindowTitle("Well Control Kill Sheet — Calculation History")
         self.resize(980, 580)
@@ -140,6 +143,11 @@ class WellControlKillSheetHistoryDialog(QDialog):
         outer.addWidget(splitter, 1)
 
         bottom = QHBoxLayout()
+        from dialogs.history_well_filter import make_scope_checkbox
+        self.scope_box = make_scope_checkbox(self._well_label)
+        self.scope_box.toggled.connect(self.reload)
+        self.scope_box.setVisible(self._well_id is not None)
+        bottom.addWidget(self.scope_box)
         self.count_label = QLabel("")
         bottom.addWidget(self.count_label)
         bottom.addStretch(1)
@@ -154,7 +162,11 @@ class WellControlKillSheetHistoryDialog(QDialog):
 
     def reload(self):
         try:
-            self._saved = self._repo.all() if self._repo else []
+            from dialogs.history_well_filter import filter_saved_by_well
+            all_saved = self._repo.all() if self._repo else []
+            self._saved = filter_saved_by_well(
+                all_saved, self._well_id,
+                self.scope_box.isChecked() if hasattr(self, 'scope_box') else False)
         except Exception as exc:
             self._saved = []
             self.count_label.setText(f"⚠️ Could not load history: {exc}")
