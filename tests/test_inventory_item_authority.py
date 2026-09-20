@@ -208,6 +208,85 @@ class TestScope:
 
 
 # ---------------------------------------------------------------------------
+# Item-name identity within a worksheet (§3)
+# ---------------------------------------------------------------------------
+
+class TestIdentity:
+    def test_exact_duplicate_names_rejected(self, env):
+        m, ids = env
+        rid = ids["reports"][(ids["w1"], date(2026, 1, 1))]
+        with pytest.raises(ValueError):
+            m.save_inventory_items(ids["w1"], rid, [
+                {"item_name": "A", "opening_stock": "1"},
+                {"item_name": "A", "opening_stock": "2"}],
+                report_date=date(2026, 1, 1))
+
+    def test_whitespace_only_difference_is_duplicate(self, env):
+        m, ids = env
+        rid = ids["reports"][(ids["w1"], date(2026, 1, 1))]
+        with pytest.raises(ValueError):
+            m.save_inventory_items(ids["w1"], rid, [
+                {"item_name": "Barite", "opening_stock": "1"},
+                {"item_name": "  Barite  ", "opening_stock": "2"}],
+                report_date=date(2026, 1, 1))
+
+    def test_case_distinct_names_are_allowed(self, env):
+        # Normalization policy (normalize_item_row) is case-SENSITIVE: 'c' and
+        # 'C' are distinct items, not a duplicate.
+        m, ids = env
+        rid = ids["reports"][(ids["w1"], date(2026, 1, 1))]
+        n = m.save_inventory_items(ids["w1"], rid, [
+            {"item_name": "c", "opening_stock": "1"},
+            {"item_name": "C", "opening_stock": "2"}],
+            report_date=date(2026, 1, 1))
+        assert n == 2
+
+    def test_distinct_names_saved(self, env):
+        m, ids = env
+        rid = ids["reports"][(ids["w1"], date(2026, 1, 1))]
+        n = m.save_inventory_items(ids["w1"], rid, [
+            {"item_name": "A", "opening_stock": "1"},
+            {"item_name": "B", "opening_stock": "2"}],
+            report_date=date(2026, 1, 1))
+        assert n == 2
+
+    def test_same_name_across_reports_is_fine(self, env):
+        m, ids = env
+        r1 = ids["reports"][(ids["w1"], date(2026, 1, 1))]
+        r2 = ids["reports"][(ids["w1"], date(2026, 1, 2))]
+        m.save_inventory_items(ids["w1"], r1, [
+            {"item_name": "A", "opening_stock": "1"}], report_date=date(2026, 1, 1))
+        m.save_inventory_items(ids["w1"], r2, [
+            {"item_name": "A", "opening_stock": "2"}], report_date=date(2026, 1, 2))
+        assert len(m.get_inventory_items(well_id=ids["w1"])) == 2
+
+    def test_duplicate_rejection_preserves_original_worksheet(self, env):
+        # A duplicate-triggered failure must NOT partially save nor wipe the
+        # previously persisted worksheet (the delete is rolled back).
+        m, ids = env
+        rid = ids["reports"][(ids["w1"], date(2026, 1, 1))]
+        m.save_inventory_items(ids["w1"], rid, [
+            {"item_name": "Gloves", "opening_stock": "100"}],
+            report_date=date(2026, 1, 1))
+        with pytest.raises(ValueError):
+            m.save_inventory_items(ids["w1"], rid, [
+                {"item_name": "Gloves", "opening_stock": "9"},
+                {"item_name": "Gloves", "opening_stock": "9"}],
+                report_date=date(2026, 1, 1))
+        rows = m.get_inventory_items(well_id=ids["w1"], report_id=rid)
+        assert [(r["item_name"], r["opening_stock"]) for r in rows] == [("Gloves", 100.0)]
+
+    def test_resave_after_dedup_is_idempotent(self, env):
+        m, ids = env
+        rid = ids["reports"][(ids["w1"], date(2026, 1, 1))]
+        rows = [{"item_name": "A", "opening_stock": "1"},
+                {"item_name": "B", "opening_stock": "2"}]
+        m.save_inventory_items(ids["w1"], rid, rows, report_date=date(2026, 1, 1))
+        m.save_inventory_items(ids["w1"], rid, rows, report_date=date(2026, 1, 1))
+        assert len(m.get_inventory_items(well_id=ids["w1"], report_id=rid)) == 2
+
+
+# ---------------------------------------------------------------------------
 # Atomicity
 # ---------------------------------------------------------------------------
 
@@ -287,3 +366,76 @@ class TestLegacy:
             {"item_name": "Current", "opening_stock": "7"}], report_date=date(2026, 1, 1))
         current = m.get_inventory_items(well_id=ids["w1"], report_id=rid)
         assert [r["item_name"] for r in current] == ["Current"]
+
+    def test_save_retires_legacy_for_same_scope(self, env):
+        # Saving the worksheet is the explicit migration act: legacy notes for
+        # the SAME (well, report) are retired so they can never shadow the
+        # authoritative store afterward.
+        m, ids = env
+        rid = ids["reports"][(ids["w1"], date(2026, 1, 1))]
+        s = m.create_session()
+        try:
+            s.add(EquipmentLog(
+                well_id=ids["w1"], report_id=rid, equipment_type="Inventory",
+                equipment_name="Legacy", notes="Stock:1|Unit:kg"))
+            s.commit()
+        finally:
+            s.close()
+        assert len(m.get_legacy_inventory_notes(ids["w1"], report_id=rid)) == 1
+        m.save_inventory_items(ids["w1"], rid, [
+            {"item_name": "Current", "opening_stock": "7"}],
+            report_date=date(2026, 1, 1))
+        assert m.get_legacy_inventory_notes(ids["w1"], report_id=rid) == []
+
+    def test_clear_then_save_does_not_resurrect_legacy(self, env):
+        # The §5 resurrection bug: legacy load -> clear all -> save empty ->
+        # reload previously re-surfaced legacy rows. After retirement, a cleared
+        # worksheet stays empty on reload.
+        m, ids = env
+        rid = ids["reports"][(ids["w1"], date(2026, 1, 1))]
+        s = m.create_session()
+        try:
+            s.add(EquipmentLog(
+                well_id=ids["w1"], report_id=rid, equipment_type="Inventory",
+                equipment_name="Legacy", notes="Stock:100|Unit:kg"))
+            s.commit()
+        finally:
+            s.close()
+        # User clears the worksheet and saves (empty rows).
+        m.save_inventory_items(ids["w1"], rid, [], report_date=date(2026, 1, 1))
+        # Neither authoritative nor legacy rows remain -> nothing to resurrect.
+        assert m.get_inventory_items(well_id=ids["w1"], report_id=rid) == []
+        assert m.get_legacy_inventory_notes(ids["w1"], report_id=rid) == []
+
+    def test_retirement_is_scoped_to_report_and_inventory_type(self, env):
+        # Retirement must not touch other reports' legacy inventory, nor
+        # non-inventory EquipmentLog rows.
+        m, ids = env
+        rid1 = ids["reports"][(ids["w1"], date(2026, 1, 1))]
+        rid2 = ids["reports"][(ids["w1"], date(2026, 1, 2))]
+        s = m.create_session()
+        try:
+            for rid in (rid1, rid2):
+                s.add(EquipmentLog(
+                    well_id=ids["w1"], report_id=rid, equipment_type="Inventory",
+                    equipment_name="Legacy", notes="Stock:1|Unit:kg"))
+            s.add(EquipmentLog(
+                well_id=ids["w1"], report_id=rid1, equipment_type="Rig Equipment",
+                equipment_name="Pump", notes="ok"))
+            s.commit()
+        finally:
+            s.close()
+        m.save_inventory_items(ids["w1"], rid1, [
+            {"item_name": "Current", "opening_stock": "7"}],
+            report_date=date(2026, 1, 1))
+        # report 1 legacy retired, report 2 legacy intact
+        assert m.get_legacy_inventory_notes(ids["w1"], report_id=rid1) == []
+        assert len(m.get_legacy_inventory_notes(ids["w1"], report_id=rid2)) == 1
+        # Non-inventory equipment survives
+        s = m.create_session()
+        try:
+            n = s.query(EquipmentLog).filter_by(
+                well_id=ids["w1"], equipment_type="Rig Equipment").count()
+        finally:
+            s.close()
+        assert n == 1

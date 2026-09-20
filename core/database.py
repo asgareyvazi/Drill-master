@@ -6686,8 +6686,13 @@ class DatabaseManager:
             fuel_remaining = fuel_stock + float(inventory_data.get("fuel_received", 0.0) or 0.0) - fuel_consumed
             water_remaining = water_stock + float(inventory_data.get("water_received", 0.0) or 0.0) - water_consumed
 
-            days_remaining_fuel = fuel_remaining / fuel_consumed if fuel_consumed > 0 else 0
-            days_remaining_water = water_remaining / water_consumed if water_consumed > 0 else 0
+            # Runway is UNKNOWN (None -> "N/A"), never a fabricated 0, when
+            # daily consumption is not a known positive rate. A 0-day value
+            # would read as an imminent-stockout alarm; that is a truth
+            # corruption when there is simply no burn to divide by.
+            from core.fuel_water_semantics import days_remaining as _days_remaining
+            days_remaining_fuel = _days_remaining(fuel_remaining, fuel_consumed)
+            days_remaining_water = _days_remaining(water_remaining, water_consumed)
 
             if existing:
                 for key, value in inventory_data.items():
@@ -6767,6 +6772,12 @@ class DatabaseManager:
                         "days_remaining_fuel": previous.days_remaining_fuel,
                         "days_remaining_water": previous.days_remaining_water,
                         "created_at": None, "updated_at": None,
+                        # Explicit marker: this row is a carry-forward PREVIEW
+                        # projected from the previous report's closing balance,
+                        # not a persisted record for the requested date. Readers
+                        # must not mistake it for actual saved data.
+                        "is_carry_forward_preview": True,
+                        "source_report_date": previous.report_date,
                     })
                 if carry:
                     return carry
@@ -6795,7 +6806,8 @@ class DatabaseManager:
                     "days_remaining_fuel": i.days_remaining_fuel,
                     "days_remaining_water": i.days_remaining_water,
                     "created_at": i.created_at,
-                    "updated_at": i.updated_at
+                    "updated_at": i.updated_at,
+                    "is_carry_forward_preview": False,
                 }
                 for i in inventories
             ]
@@ -6822,6 +6834,13 @@ class DatabaseManager:
         is derived only when opening is known. Carry-forward fills a MISSING
         opening from the previous report's closing; it never overwrites a
         supplied opening.
+
+        Legacy migration: saving the worksheet for a (well_id, report_id) is the
+        explicit act that makes ``InventoryItem`` authoritative for that scope,
+        so any legacy ``EquipmentLog`` "Inventory" notes rows for the SAME
+        (well_id, report_id) are retired in the same transaction. This makes
+        migration deterministic and, crucially, prevents a cleared worksheet
+        from being re-populated by stale legacy rows on the next load.
         """
         from core.inventory_semantics import normalize_item_row, derive_closing
         with self.session_scope() as session:
@@ -6835,13 +6854,43 @@ class DatabaseManager:
                     q = q.filter(InventoryItem.report_date == report_date)
             q.delete(synchronize_session=False)
 
-            saved = 0
+            # Retire legacy notes-encoded inventory for the SAME scope so it can
+            # neither shadow nor resurrect the authoritative store. Scoped to
+            # equipment_type="Inventory" only; other EquipmentLog rows untouched.
+            legacy_q = session.query(EquipmentLog).filter(
+                EquipmentLog.well_id == well_id,
+                EquipmentLog.equipment_type == "Inventory",
+            )
+            if report_id is not None:
+                legacy_q = legacy_q.filter(EquipmentLog.report_id == report_id)
+            else:
+                legacy_q = legacy_q.filter(EquipmentLog.report_id.is_(None))
+            legacy_q.delete(synchronize_session=False)
+
+            # Enforce item-name identity within THIS worksheet: two rows whose
+            # names normalize identically (whitespace-trimmed, case-sensitive —
+            # matching normalize_item_row) are a duplicate-identity error, not a
+            # silent merge/overwrite. Reject the WHOLE save so the previously
+            # persisted worksheet is preserved (session_scope rolls back the
+            # delete above). Detection precedes any insert -> no partial save.
+            seen_names = set()
+            normalized_rows = []
             for raw in rows:
                 if not isinstance(raw, dict):
                     continue
                 norm = normalize_item_row(raw)
                 if not norm["item_name"]:
                     continue  # a blank item name is not an inventory line
+                if norm["item_name"] in seen_names:
+                    raise ValueError(
+                        "Duplicate inventory item name in worksheet: "
+                        f"{norm['item_name']!r}. Each item must be unique per "
+                        "report; merge the rows or rename before saving.")
+                seen_names.add(norm["item_name"])
+                normalized_rows.append(norm)
+
+            saved = 0
+            for norm in normalized_rows:
                 opening = norm["opening_stock"]
                 # Carry-forward only a genuinely MISSING opening.
                 if opening is None and report_date is not None:

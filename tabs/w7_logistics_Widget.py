@@ -795,39 +795,52 @@ class FuelWaterTab(QWidget):
         self.load_bulk_btn.clicked.connect(self.load_bulk_materials_from_db)
         self.export_bulk_btn.clicked.connect(self.export_bulk_data)
         
+    @staticmethod
+    def _days_text(remaining, consumed):
+        """Render runway; 'N/A' when there is no known positive burn rate."""
+        from core.fuel_water_semantics import days_remaining
+        days = days_remaining(remaining, consumed)
+        return "N/A" if days is None else f"{days:.1f} days"
+
     def calculate_remaining(self):
         try:
             fuel_consumed = self.fuel_consumed.value()
             fuel_stock = self.fuel_stock.value()
             water_consumed = self.water_consumed.value()
             water_stock = self.water_stock.value()
-            
+
             fuel_remaining = max(0, fuel_stock - fuel_consumed)
             water_remaining = max(0, water_stock - water_consumed)
-            
-            fuel_days = fuel_remaining / fuel_consumed if fuel_consumed > 0 else 0
-            water_days = water_remaining / water_consumed if water_consumed > 0 else 0
-            
+
             result_text = (
-                f"<b>Fuel:</b> {fuel_remaining:,.1f} L remaining ({fuel_days:.1f} days)<br>"
-                f"<b>Water:</b> {water_remaining:,.1f} L remaining ({water_days:.1f} days)"
+                f"<b>Fuel:</b> {fuel_remaining:,.1f} L remaining "
+                f"({self._days_text(fuel_remaining, fuel_consumed)})<br>"
+                f"<b>Water:</b> {water_remaining:,.1f} L remaining "
+                f"({self._days_text(water_remaining, water_consumed)})"
             )
             self.results_label.setText(result_text)
         except Exception as e:
             self.results_label.setText(f"Error: {str(e)}")
-            
+
     def calculate_fuel_water(self):
         self.calculate_remaining()
+        from core.fuel_water_semantics import is_low_stock
         fuel_consumed = self.fuel_consumed.value()
         fuel_stock = self.fuel_stock.value()
         water_consumed = self.water_consumed.value()
         water_stock = self.water_stock.value()
-        fuel_days = (fuel_stock - fuel_consumed) / fuel_consumed if fuel_consumed > 0 else 0
-        water_days = (water_stock - water_consumed) / water_consumed if water_consumed > 0 else 0
-        if fuel_days < 3:
-            self.status_manager.show_warning("FuelWaterTab", f"Low fuel stock: {fuel_days:.1f} days remaining")
-        if water_days < 3:
-            self.status_manager.show_warning("FuelWaterTab", f"Low water stock: {water_days:.1f} days remaining")
+        fuel_remaining = fuel_stock - fuel_consumed
+        water_remaining = water_stock - water_consumed
+        # Only warn on a KNOWN runway below threshold — a zero/unknown burn rate
+        # must not fire a false "low stock" alarm from a fabricated 0-days value.
+        if is_low_stock(fuel_remaining, fuel_consumed):
+            self.status_manager.show_warning(
+                "FuelWaterTab",
+                f"Low fuel stock: {self._days_text(fuel_remaining, fuel_consumed)} remaining")
+        if is_low_stock(water_remaining, water_consumed):
+            self.status_manager.show_warning(
+                "FuelWaterTab",
+                f"Low water stock: {self._days_text(water_remaining, water_consumed)} remaining")
         self.status_manager.show_success("FuelWaterTab", "Calculation completed")
         
     @editor_saved('Fuel / Water')
@@ -869,12 +882,16 @@ class FuelWaterTab(QWidget):
                 "fuel_camp_received": self.fuel_camp_received.value(),
             }
 
-            if fuel_consumed > 0:
-                inventory_data["days_remaining_fuel"] = fuel_remaining / fuel_consumed
-            if water_consumed > 0:
-                inventory_data["days_remaining_water"] = (
-                    water_remaining / water_consumed
-                )
+            # Only supply a runway when it is truthfully computable (known
+            # positive burn rate). Otherwise leave it unset so persistence
+            # stores NULL (unknown), never a fabricated 0-days critical value.
+            from core.fuel_water_semantics import days_remaining as _days_remaining
+            _drf = _days_remaining(fuel_remaining, fuel_consumed)
+            if _drf is not None:
+                inventory_data["days_remaining_fuel"] = _drf
+            _drw = _days_remaining(water_remaining, water_consumed)
+            if _drw is not None:
+                inventory_data["days_remaining_water"] = _drw
 
             result = self.db.save_fuel_water_inventory(inventory_data)
             if result:
@@ -1149,11 +1166,11 @@ class FuelWaterTab(QWidget):
         self.update_results_display()
 
     def update_results_display(self):
-        fuel_days = self._fuel_remaining / self.fuel_consumed.value() if self.fuel_consumed.value() > 0 else 0
-        water_days = self._water_remaining / self.water_consumed.value() if self.water_consumed.value() > 0 else 0
         self.results_label.setText(
-            f"<b>Fuel:</b> {self._fuel_remaining:,.1f} L remaining ({fuel_days:.1f} days)<br>"
-            f"<b>Water:</b> {self._water_remaining:,.1f} L remaining ({water_days:.1f} days)"
+            f"<b>Fuel:</b> {self._fuel_remaining:,.1f} L remaining "
+            f"({self._days_text(self._fuel_remaining, self.fuel_consumed.value())})<br>"
+            f"<b>Water:</b> {self._water_remaining:,.1f} L remaining "
+            f"({self._days_text(self._water_remaining, self.water_consumed.value())})"
         )
 
 

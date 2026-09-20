@@ -239,8 +239,12 @@ class InventoryTab(QWidget):
                       
     def add_row(self, data=None):
         if data is None:
-            data = ["New Item", "Category", 0, 0, 0, 0, "pcs", 10, 100]
-        
+            # A NEW blank editor row must not assert reported zero quantities or
+            # fabricated thresholds. Quantity/threshold cells start EMPTY
+            # (unknown); the user enters real values. Only the unit keeps a
+            # harmless placeholder. Blank-named rows are dropped on save.
+            data = ["New Item", "Category", "", "", "", "", "pcs", "", ""]
+
         self.table_manager.add_row(data)
         
     def remove_row(self):
@@ -248,53 +252,53 @@ class InventoryTab(QWidget):
         
 
     def calculate_inventory(self):
+        # The live Remaining cell must obey the SAME three-state contract as
+        # persistence (core/inventory_semantics): a MISSING opening yields an
+        # UNKNOWN remaining (blank), never a fabricated 0-based number. An
+        # explicit 0 opening is a real fact and does produce a computed value.
+        from core.inventory_semantics import (
+            to_float_or_none, normalize_movement, derive_closing,
+        )
         try:
             for row in range(self.table.rowCount()):
-                try:
-                    opening_item = self.table.item(row, 2)
-                    received_item = self.table.item(row, 3)
-                    used_item = self.table.item(row, 4)
+                opening_item = self.table.item(row, 2)
+                received_item = self.table.item(row, 3)
+                used_item = self.table.item(row, 4)
 
-                    if opening_item and received_item and used_item:
-                        opening = float(opening_item.text() or 0)
-                        received = float(received_item.text() or 0)
-                        used = float(used_item.text() or 0)
-                        remaining = opening + received - used
+                opening = to_float_or_none(opening_item.text() if opening_item else None)
+                received = normalize_movement(received_item.text() if received_item else None)
+                used = normalize_movement(used_item.text() if used_item else None)
+                # None when opening is unknown — never opening-as-zero.
+                remaining = derive_closing(opening, received, used)
 
-                        remaining_item = self.table.item(row, 5)
-                        if not remaining_item:
-                            remaining_item = QTableWidgetItem()
-                            self.table.setItem(row, 5, remaining_item)
+                remaining_item = self.table.item(row, 5)
+                if not remaining_item:
+                    remaining_item = QTableWidgetItem()
+                    self.table.setItem(row, 5, remaining_item)
 
-                        remaining_item.setText(f"{remaining:.2f}")
-                        remaining_item.setTextAlignment(
-                            Qt.AlignRight | Qt.AlignVCenter
-                        )
+                # Unknown remaining shows as an empty cell (not "0.00"), keeping
+                # the UI honest with what will be persisted.
+                remaining_item.setText("" if remaining is None else f"{remaining:.2f}")
+                remaining_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
-                        min_item = self.table.item(row, 7)
-                        max_item = self.table.item(row, 8)
-
-                        if min_item and max_item:
-                            try:
-                                min_level = float(min_item.text() or 0)
-                                max_level = float(max_item.text() or 0)
-                                if remaining < min_level:
-                                    remaining_item.setBackground(
-                                        QColor(255, 200, 200)
-                                    )
-                                elif remaining > max_level:
-                                    remaining_item.setBackground(
-                                        QColor(255, 255, 200)
-                                    )
-                                else:
-                                    remaining_item.setBackground(
-                                        QColor(200, 255, 200)
-                                    )
-                            except ValueError:
-                                pass
-                except ValueError:
-                    continue
-
+                # Threshold status is only meaningful when the remaining value
+                # AND the threshold being compared are both known. Missing
+                # min/max are NOT treated as 0.
+                min_item = self.table.item(row, 7)
+                max_item = self.table.item(row, 8)
+                min_level = to_float_or_none(min_item.text() if min_item else None)
+                max_level = to_float_or_none(max_item.text() if max_item else None)
+                if remaining is None:
+                    # No known remaining -> no threshold verdict; clear any tint.
+                    remaining_item.setData(Qt.BackgroundRole, None)
+                elif min_level is not None and remaining < min_level:
+                    remaining_item.setBackground(QColor(255, 200, 200))
+                elif max_level is not None and remaining > max_level:
+                    remaining_item.setBackground(QColor(255, 255, 200))
+                elif min_level is not None or max_level is not None:
+                    remaining_item.setBackground(QColor(200, 255, 200))
+                else:
+                    remaining_item.setData(Qt.BackgroundRole, None)
         except Exception as e:
             logger.error(f"Calculation failed: {str(e)}")
             
