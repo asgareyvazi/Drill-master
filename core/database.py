@@ -3849,10 +3849,23 @@ class DatabaseManager:
                 report = session.query(DailyReport).filter(DailyReport.id == report_id).first()
                 if not report:
                     return None
+                # Edit-lock: on the interactive edit path, a report whose
+                # workflow state is not editable (Submitted/Under Review/
+                # Approved/Final) must not be mutated. Status itself is
+                # workflow-controlled and never changed through a plain save.
+                if owns_session:
+                    from core.report_lifecycle import is_editable
+                    if not is_editable(report.status):
+                        raise ValueError(
+                            f"Report is {report.status or 'locked'} and cannot be edited. "
+                            "Use the workflow actions to change its state.")
                 valid_keys = {c.name for c in DailyReport.__table__.columns}
                 for k, v in data.items():
-                    if k != 'id' and k in valid_keys and hasattr(report, k):
-                        setattr(report, k, v)
+                    if k == 'id' or k not in valid_keys or not hasattr(report, k):
+                        continue
+                    if k == 'status' and owns_session:
+                        continue  # status is workflow-controlled, not editable via save
+                    setattr(report, k, v)
                 report.updated_at = _now_utc()
             else:
                 valid_keys = {c.name for c in DailyReport.__table__.columns}
@@ -4146,10 +4159,98 @@ class DatabaseManager:
             session.add(ApprovalAction(report_id=report_id, action=action, status=status, user_id=user_id, comment=comment))
             return True
 
+    def transition_report(self, report_id, action, has_permission=None, user_id=None,
+                          comment="", expected_well_id=None, expected_section_id=None):
+        """Atomically drive one Daily Report lifecycle transition.
+
+        Backend-authoritative: validates the transition against the domain state
+        machine, verifies the acting user's permission, enforces required
+        comments, checks well/section ownership, then writes status change,
+        immutable revision snapshot, and approval action inside ONE transaction.
+        Any failure rolls the whole thing back — no partial lifecycle state.
+        Returns a :class:`core.report_lifecycle.LifecycleResult`.
+        """
+        from core.report_lifecycle import (
+            decide_transition, LifecycleOutcome, LifecycleResult,
+            ACTION_CREATES_REVISION,
+        )
+        if has_permission is None:
+            has_permission = lambda _perm: True  # noqa: E731 (backend/test caller opts in)
+        try:
+            with self.session_scope() as session:
+                report = session.get(DailyReport, report_id)
+                if report is None:
+                    return LifecycleResult(False, LifecycleOutcome.NOT_FOUND,
+                                           "Report not found.", report_id=report_id)
+
+                # Ownership / context integrity: a report must belong to the
+                # well and section the caller believes it does.
+                if expected_well_id is not None and report.well_id != expected_well_id:
+                    return LifecycleResult(
+                        False, LifecycleOutcome.CONTEXT_ERROR,
+                        "Report does not belong to the selected well.",
+                        report_id=report_id)
+                if expected_section_id is not None and report.section_id != expected_section_id:
+                    return LifecycleResult(
+                        False, LifecycleOutcome.CONTEXT_ERROR,
+                        "Report does not belong to the selected section.",
+                        report_id=report_id)
+
+                current_status = report.status or "Draft"
+                decision = decide_transition(current_status, action, has_permission, comment)
+                if not decision.ok:
+                    return LifecycleResult(False, decision.outcome, decision.message,
+                                           report_id=report_id, new_status=current_status)
+
+                next_status = decision.next_status
+                report.status = next_status
+                report.updated_at = _now_utc()
+
+                revision_id = None
+                if action in ACTION_CREATES_REVISION:
+                    columns = {column.name for column in DailyReport.__table__.columns}
+                    snapshot = {}
+                    for name in columns:
+                        value = getattr(report, name)
+                        snapshot[name] = value.isoformat() if isinstance(value, (date, datetime, datetime_time)) else value
+                    latest = session.query(ReportRevision).filter_by(report_id=report_id).order_by(ReportRevision.revision_no.desc()).first()
+                    revision = ReportRevision(
+                        report_id=report_id,
+                        revision_no=(latest.revision_no + 1 if latest else 1),
+                        status=next_status, snapshot=snapshot, created_by=user_id,
+                        comment=comment or "")
+                    session.add(revision)
+                    session.flush()
+                    revision_id = revision.id
+
+                approval = ApprovalAction(report_id=report_id, action=action,
+                                          status=next_status, user_id=user_id,
+                                          comment=comment or "")
+                session.add(approval)
+                session.flush()
+                action_id = approval.id
+
+                return LifecycleResult(True, LifecycleOutcome.SUCCESS, "",
+                                       report_id=report_id, new_status=next_status,
+                                       revision_id=revision_id, action_id=action_id)
+        except Exception as exc:  # persistence failure -> full rollback happened
+            logger.error("Report transition failed: %s", exc, exc_info=True)
+            return LifecycleResult(False, LifecycleOutcome.PERSISTENCE_ERROR,
+                                   str(exc), report_id=report_id)
+
+    def get_usernames_by_id(self, user_ids):
+        """Map a set of user ids to display names for audit/history views."""
+        ids = {uid for uid in (user_ids or []) if uid is not None}
+        if not ids:
+            return {}
+        with self.session_scope() as session:
+            rows = session.query(User).filter(User.id.in_(ids)).all()
+            return {u.id: (u.full_name or u.username) for u in rows}
+
     def get_report_revisions(self, report_id: int):
         with self.session_scope() as session:
             rows = session.query(ReportRevision).filter_by(report_id=report_id).order_by(ReportRevision.revision_no.desc()).all()
-            return [{"id": r.id, "revision_no": r.revision_no, "status": r.status, "snapshot": r.snapshot, "created_at": r.created_at, "comment": r.comment} for r in rows]
+            return [{"id": r.id, "revision_no": r.revision_no, "status": r.status, "snapshot": r.snapshot, "created_by": r.created_by, "created_at": r.created_at, "comment": r.comment} for r in rows]
 
     def get_approval_history(self, report_id: int):
         with self.session_scope() as session:

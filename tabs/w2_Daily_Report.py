@@ -14,7 +14,7 @@ from PySide6.QtGui import QTextOption
 
 from core.editor_state import editor_loaded, editor_saved
 from core.base_tab import DrillTabBase
-from core.permissions import require_permission
+from core.permissions import require_permission, permissions
 from dialogs.hierarchy_dialogs import NewDailyReportDialog
 
 import textwrap
@@ -231,7 +231,11 @@ class DailyReportWidget(DrillTabBase):
 
         header_layout.addWidget(QLabel("📊 Status:"), 1, 2)
         self.status_combo = QComboBox()
-        self.status_combo.addItems(["Draft", "Submitted", "Approved"])
+        self.status_combo.addItems(["Draft", "Submitted", "Under Review", "Rejected", "Approved", "Final"])
+        # Status is workflow-controlled: it is set by Submit/Approve/Reject
+        # actions, never by casually picking a value here. Display-only.
+        self.status_combo.setEnabled(False)
+        self.status_combo.setToolTip("Status is controlled by the workflow actions (Submit / Approve / Reject).")
         header_layout.addWidget(self.status_combo, 1, 3)
 
         # ردیف 2 - Depth measurements
@@ -434,7 +438,10 @@ class DailyReportWidget(DrillTabBase):
         self.approve_btn.clicked.connect(self.approve_report)
         self.reject_btn = QPushButton("⛔ Reject")
         self.reject_btn.clicked.connect(self._reject_with_comment)
-        
+        self.history_btn = QPushButton("🕑 History")
+        self.history_btn.setToolTip("Show revision and approval history for this report.")
+        self.history_btn.clicked.connect(self._show_report_history)
+
         button_layout.addWidget(self.save_btn)
         button_layout.addWidget(self.load_btn)
         button_layout.addWidget(self.new_btn)
@@ -443,6 +450,7 @@ class DailyReportWidget(DrillTabBase):
         button_layout.addWidget(self.submit_btn)
         button_layout.addWidget(self.approve_btn)
         button_layout.addWidget(self.reject_btn)
+        button_layout.addWidget(self.history_btn)
         button_layout.addStretch()
         
 
@@ -1580,6 +1588,7 @@ class DailyReportWidget(DrillTabBase):
             from core.editor_state import reset_form_edit_tracking
             reset_form_edit_tracking(self,
                           [(key, getattr(self, key)) for key in ("report_date", "report_number", "rig_day", "depth_0000", "depth_0600", "depth_2400")])
+            self._update_workflow_controls()
             self.status_manager.show_success("DailyReport", f"Report #{report_data.get('report_number', '')} loaded")
         except Exception as e:
             logger.error(f"Load report error: {e}")
@@ -2023,22 +2032,85 @@ class DailyReportWidget(DrillTabBase):
             return False
         return self.save_report()
 
-    @require_permission("can_edit_reports")
-    def submit_report(self):
+    def _update_workflow_controls(self):
+        """Reflect the real workflow state + permissions in the UI controls.
+
+        Buttons are enabled only when the transition is structurally valid AND
+        the current user is authorized. Body widgets are locked when the report
+        state is not editable. This mirrors the backend rules; the backend
+        remains the authority that actually rejects illegitimate calls.
+        """
+        from core.report_lifecycle import allowed_actions, is_editable, ACTION_PERMISSION
+        status = (self.current_report or {}).get("status") if self.current_report else None
+        has_report = bool(self.current_report_id)
+        actions = set(allowed_actions(status)) if has_report else set()
+
+        def gate(action):
+            return (action in actions
+                    and permissions.has_permission(ACTION_PERMISSION[action]))
+
+        if hasattr(self, "submit_btn"):
+            self.submit_btn.setEnabled(gate("submit"))
+        if hasattr(self, "approve_btn"):
+            self.approve_btn.setEnabled(gate("approve"))
+        if hasattr(self, "reject_btn"):
+            self.reject_btn.setEnabled(gate("reject"))
+        if hasattr(self, "history_btn"):
+            self.history_btn.setEnabled(has_report)
+
+        editable = has_report and is_editable(status) and permissions.has_permission("can_edit_reports")
+        if hasattr(self, "save_btn"):
+            self.save_btn.setEnabled(editable or not has_report)
+
+    def _show_report_history(self):
+        if not self.current_report_id:
+            self.show_warning("Select a report first")
+            return
+        try:
+            from dialogs.report_history_dialog import ReportHistoryDialog
+            dialog = ReportHistoryDialog(self.db_manager, self.current_report_id, self)
+            dialog.exec()
+        except Exception as exc:
+            logger.error("Show report history failed: %s", exc, exc_info=True)
+            self.show_error(str(exc))
+
+    def _run_transition(self, action, comment="", success_message=""):
+        """Drive one lifecycle action through the atomic backend boundary.
+
+        The backend is authoritative: it validates the transition, permission,
+        comment, and well/section ownership, then writes status + revision +
+        approval action in one transaction. The UI only reflects the outcome.
+        """
         if not self.current_report_id:
             self.show_warning("Select a report first")
             return False
-        try:
-            ok = self.db_manager.set_report_status(self.current_report_id, "Submitted")
-            if ok:
-                self.db_manager.create_report_revision(self.current_report_id, "Submitted")
-                self.load_report_by_id(self.current_report_id)
-                self.show_success("Report submitted for review")
-            return bool(ok)
-        except Exception as exc:
-            logger.error("Submit report failed: %s", exc, exc_info=True)
-            self.show_error(str(exc))
-            return False
+        result = self.db_manager.transition_report(
+            self.current_report_id, action,
+            has_permission=permissions.has_permission,
+            user_id=permissions.user_id, comment=comment,
+            expected_well_id=self.current_well_id,
+            expected_section_id=self.current_section_id,
+        )
+        if result.ok:
+            self.load_report_by_id(self.current_report_id)
+            self.show_success(success_message or f"Report {action} succeeded")
+            return True
+        # Explicit, non-coercing feedback per outcome.
+        from core.report_lifecycle import LifecycleOutcome
+        if result.outcome == LifecycleOutcome.PERMISSION_DENIED:
+            self.show_warning(result.message)
+        elif result.outcome in (LifecycleOutcome.VALIDATION_ERROR,
+                                LifecycleOutcome.INVALID_TRANSITION,
+                                LifecycleOutcome.CONTEXT_ERROR,
+                                LifecycleOutcome.NOT_FOUND):
+            self.show_warning(result.message)
+        else:
+            self.show_error(result.message)
+        return False
+
+    @require_permission("can_edit_reports")
+    def submit_report(self):
+        return self._run_transition("submit", success_message="Report submitted for review")
 
     def _reject_with_comment(self):
         comment, ok = QInputDialog.getMultiLineText(self, "Reject Report", "Reason:")
@@ -2047,40 +2119,20 @@ class DailyReportWidget(DrillTabBase):
 
     @require_permission("can_approve_reports")
     def approve_report(self, comment=""):
-        if not self.current_report_id:
-            self.show_warning("Select a report first")
-            return False
-        try:
-            ok = self.db_manager.set_report_status(self.current_report_id, "Approved", comment=comment)
-            if ok:
-                self.db_manager.create_report_revision(self.current_report_id, "Approved", comment)
-                self.load_report_by_id(self.current_report_id)
-                self.show_success("Report approved")
-            return bool(ok)
-        except Exception as exc:
-            logger.error("Approve report failed: %s", exc, exc_info=True)
-            self.show_error(str(exc))
-            return False
+        return self._run_transition("approve", comment=comment,
+                                    success_message="Report approved")
+
+    def finalize_report(self, comment=""):
+        return self._run_transition("finalize", comment=comment,
+                                    success_message="Report finalized")
 
     @require_permission("can_approve_reports")
     def reject_report(self, comment=""):
-        if not self.current_report_id:
-            self.show_warning("Select a report first")
-            return False
-        if not comment.strip():
+        if not (comment or "").strip():
             self.show_warning("A rejection comment is required")
             return False
-        try:
-            ok = self.db_manager.set_report_status(self.current_report_id, "Rejected", comment=comment)
-            if ok:
-                self.db_manager.create_report_revision(self.current_report_id, "Rejected", comment)
-                self.load_report_by_id(self.current_report_id)
-                self.show_warning("Report rejected")
-            return bool(ok)
-        except Exception as exc:
-            logger.error("Reject report failed: %s", exc, exc_info=True)
-            self.show_error(str(exc))
-            return False
+        return self._run_transition("reject", comment=comment,
+                                    success_message="Report rejected")
 
     def refresh(self):
         if self.current_report_id:
@@ -2198,7 +2250,8 @@ class DailyReportWidget(DrillTabBase):
             </style></head><body>
             <h1>Daily Drilling Report</h1>
             <p>Well: {well_name} | Date: {self.report_date.date().toString('yyyy-MM-dd')} | 
-            Report #: {self.report_number.value()} | Rig Day: {self.rig_day.value()}</p>
+            Report #: {self.report_number.value()} | Rig Day: {self.rig_day.value()} | 
+            Status: {(self.current_report or {}).get('status', 'Draft')}</p>
             <h2>Depth Summary</h2>
             <p>00:00: {self.depth_0000.value():.1f}m | 06:00: {self.depth_0600.value():.1f}m | 
             24:00: {self.depth_2400.value():.1f}m | Progress: {self.depth_2400.value() - self.depth_0000.value():.1f}m</p>
