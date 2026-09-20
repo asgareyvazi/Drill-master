@@ -2320,7 +2320,10 @@ class CostRecord(Base):
     planned_cost = Column(Float, default=0.0)
     actual_cost = Column(Float, default=0.0)
     variance = Column(Float, default=0.0)
-    currency = Column(String(10), default="USD")
+    # No currency default: an unspecified currency stays NULL (unknown) rather
+    # than being silently asserted as USD (§9 no-fabrication). Callers set it
+    # explicitly when the source provides a code.
+    currency = Column(String(10))
     
     cost_date = Column(Date)
     afe_number = Column(String(50))
@@ -9493,6 +9496,40 @@ class DatabaseManager:
             return None
         finally:
             session.close()
+
+    def save_afe_worksheet(self, well_id: int, rows: list, afe_number=None,
+                           currency=None, user_id=None):
+        """Persist a W16 AFE budget worksheet to CostRecord atomically.
+
+        The AFE worksheet is a single logical user operation: all of its budget
+        (``cost_type=AFE``) lines for the well are replaced together in ONE
+        transaction. A failure on any row rolls the whole save back — no partial
+        worksheet (§34). Non-AFE OPEX cost lines for the well are untouched.
+        Variance and currency are normalized through the canonical cost helper
+        so the persisted values can never contradict the summary.
+        """
+        from core.cost_semantics import afe_row_to_cost_record, COST_TYPE_BUDGET
+        with self.session_scope() as session:
+            # Replace only this well's AFE-budget lines; leave OPEX lines alone.
+            session.query(CostRecord).filter(
+                CostRecord.well_id == well_id,
+                CostRecord.cost_type == COST_TYPE_BUDGET,
+            ).delete(synchronize_session=False)
+            saved = 0
+            for row in rows:
+                if not isinstance(row, dict):
+                    continue
+                if not (row.get("category") or "").strip():
+                    continue  # a blank category is not a cost line
+                data = afe_row_to_cost_record(
+                    dict(row, id=None), well_id, afe_number=afe_number,
+                    currency=currency)
+                if user_id is not None:
+                    data["created_by"] = user_id
+                valid = {c.name for c in CostRecord.__table__.columns}
+                session.add(CostRecord(**{k: v for k, v in data.items() if k in valid}))
+                saved += 1
+            return saved
 
     def get_cost_records(self, well_id: int, category: str = None):
         session = self.create_session()

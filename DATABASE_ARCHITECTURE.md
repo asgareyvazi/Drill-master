@@ -148,6 +148,30 @@ engine = create_engine(
 | CostRecord | cost_records | Cost tracking (AFE) |
 | ExportTemplate | export_templates | Export templates |
 
+#### Cost truth boundary (single source of truth)
+
+`CostRecord` (well-scoped) is the **only** persisted cost truth. There is no
+parallel cost table. The canonical semantics live in `core/cost_semantics.py`
+and are shared by every consumer:
+
+* **Variance sign** is `planned - actual` everywhere (positive = under budget).
+  It is recomputed on save (`save_afe_worksheet`) so the stored `variance`
+  column can never contradict `get_cost_summary` / `get_actual_vs_plan` /
+  report engine.
+* **Total actual cost** is `Σ CostRecord.actual_cost`. This is what the report
+  engine, `OperationsIntelligenceService.analyze_well`, W16 Summary, and W12
+  Analysis all report. Rig/spread day-rates entered in W16/W12 are UI
+  **planning assumptions/projections**, never persisted as actual cost.
+* **NPT cost** is an *allocation* of stored actual cost by NPT time fraction
+  (`actual_cost * npt_hours / total_hours`); it is `None` (unknown) when actual
+  cost or recorded time is absent — never a synthetic rig-rate product.
+* **Currency** has no model default: an unspecified currency stays `NULL`
+  (unknown), never silently `USD`.
+* **W16 AFE worksheet** persists via `DatabaseManager.save_afe_worksheet`,
+  which atomically replaces the well's `cost_type="AFE"` budget lines in one
+  transaction (idempotent re-save; OPEX lines untouched). `save_data` used to
+  be a no-op `return True`.
+
 ### 3.13 Audit
 
 | Model | Table | Purpose |
@@ -210,6 +234,15 @@ engine = create_engine(
 ### 4.6 Domain-Specific Operations
 
 Each domain (drilling, mud, safety, logistics, etc.) has dedicated save/get methods. See the source code for complete API.
+
+Cost-specific:
+
+| Method | Purpose |
+|--------|---------|
+| `save_afe_worksheet(well_id, rows, afe_number, currency, user_id)` | Atomically replace the well's `cost_type="AFE"` budget lines in ONE transaction; recomputes canonical variance; leaves OPEX lines untouched (idempotent re-save) |
+| `save_cost_record(data)` | Upsert a single cost line (OPEX or AFE) |
+| `get_cost_records(well_id, category)` | All cost lines for a well |
+| `get_cost_summary(well_id)` | Per-category `planned`/`actual`/`variance` (variance = planned − actual) |
 
 ---
 

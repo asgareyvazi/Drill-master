@@ -12,6 +12,10 @@ from PySide6.QtGui import *
 from core.base_tab import DrillTabBase
 from core.managers import ExportManager
 from core.common_widgets import safe_replace_chart
+from core.cost_semantics import (
+    canonical_variance, allocate_npt_cost, summarize_afe, cost_records_to_afe_rows,
+    COST_TYPE_BUDGET,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +63,8 @@ class CostManagementWidget(DrillTabBase):
         self.afe_total.setPrefix("$ ")
         self.afe_total.setDecimals(0)
         self.afe_currency = QComboBox()
-        self.afe_currency.addItems(["USD", "EUR", "GBP", "IRR"])
+        # Leading blank represents UNKNOWN currency — never silently assume USD.
+        self.afe_currency.addItems(["— (unspecified)", "USD", "EUR", "GBP", "IRR"])
         self.afe_days = QSpinBox()
         self.afe_days.setRange(0, 999)
         self.afe_days.setSuffix(" days")
@@ -80,8 +85,15 @@ class CostManagementWidget(DrillTabBase):
         add_cat.clicked.connect(self._add_cost_category)
         rem_cat = QPushButton("🗑️ Remove")
         rem_cat.clicked.connect(self._rem_cost_category)
+        save_afe = QPushButton("💾 Save AFE")
+        save_afe.setStyleSheet("background: #2980b9; color: white; padding: 4px 10px; border-radius: 3px; border: none; font-weight: bold;")
+        save_afe.clicked.connect(self.save_data)
+        reload_afe = QPushButton("🔄 Reload")
+        reload_afe.clicked.connect(self._load_afe_from_db)
         cat_btns.addWidget(add_cat)
         cat_btns.addWidget(rem_cat)
+        cat_btns.addWidget(save_afe)
+        cat_btns.addWidget(reload_afe)
         cat_btns.addStretch()
         cat_layout.addLayout(cat_btns)
 
@@ -197,21 +209,30 @@ class CostManagementWidget(DrillTabBase):
         self.rig_rate = QDoubleSpinBox()
         self.rig_rate.setRange(0, 999999)
         self.rig_rate.setPrefix("$ ")
-        self.rig_rate.setValue(45000)
+        self.rig_rate.setValue(0)
         self.rig_rate.setSuffix(" /day")
 
         self.spread_rate = QDoubleSpinBox()
         self.spread_rate.setRange(0, 999999)
         self.spread_rate.setPrefix("$ ")
-        self.spread_rate.setValue(15000)
+        self.spread_rate.setValue(0)
         self.spread_rate.setSuffix(" /day")
 
-        self.total_daily = QLabel("$ 60,000 /day")
+        self.total_daily = QLabel("$ 0 /day")
         self.total_daily.setStyleSheet("font-weight: bold; color: #e74c3c; font-size: 14px;")
+
+        assume = QLabel(
+            "⚠️ Day-rate figures below are planning ASSUMPTIONS you enter — they "
+            "are NOT actual recorded cost. Actual cost comes from the AFE tab "
+            "(persisted) and reports."
+        )
+        assume.setWordWrap(True)
+        assume.setStyleSheet("color: #b9770e; font-size: 10px; background: #fef9e7; padding: 4px; border-radius: 3px;")
 
         f1.addRow("Rig Day Rate:", self.rig_rate)
         f1.addRow("Spread Cost:", self.spread_rate)
         f1.addRow("Total Daily:", self.total_daily)
+        f1.addRow(assume)
 
         self.rig_rate.valueChanged.connect(self._update_daily_total)
         self.spread_rate.valueChanged.connect(self._update_daily_total)
@@ -272,9 +293,10 @@ class CostManagementWidget(DrillTabBase):
         cpf = cpm / 3.28084 if max_depth > 0 else 0
 
         text = f"""╔═══════════════════════════════════════════════╗
-║            WELL COST ANALYSIS                 ║
+║     WELL COST PROJECTION (day-rate assumption) ║
+║     NOT actual recorded cost — see AFE/Summary ║
 ╠═══════════════════════════════════════════════╣
-║ PARAMETERS:
+║ PARAMETERS (assumed):
 ║   Rig Day Rate:     $ {self.rig_rate.value():,.0f}
 ║   Spread Cost:      $ {self.spread_rate.value():,.0f}
 ║   Total Daily:      $ {daily_rate:,.0f}
@@ -325,8 +347,15 @@ class CostManagementWidget(DrillTabBase):
         if not self.current_well_id or not self.db:
             return
 
-        daily_rate = self.rig_rate.value() + self.spread_rate.value()
-        hourly_rate = daily_rate / 24
+        # NPT cost is an allocation of the well's STORED ACTUAL cost across NPT
+        # time (canonical model, matching the report engine). It is only known
+        # when actual cost AND total recorded time exist — otherwise "unknown",
+        # never a synthetic rig-rate product.
+        from core.operations_intelligence import OperationsIntelligenceService
+        kpis = OperationsIntelligenceService(self.db).analyze_well(
+            self.current_well_id).get("kpis", {})
+        actual_cost = kpis.get("total_cost")
+        well_total_hours = (kpis.get("npt_hours") or 0) + (kpis.get("productive_hours") or 0)
 
         npt_list = self.db.get_npt_reports(well_id=self.current_well_id) if hasattr(self.db, 'get_npt_reports') else []
 
@@ -338,7 +367,10 @@ class CostManagementWidget(DrillTabBase):
             categories[cat] = categories.get(cat, 0) + hrs
 
         total_npt = sum(categories.values())
-        total_cost = total_npt * hourly_rate
+        total_npt_cost = allocate_npt_cost(actual_cost, total_npt, well_total_hours or None)
+
+        def money(v):
+            return f"$ {v:,.0f}" if v is not None else "$ —"
 
         self.npt_cost_table.setRowCount(0)
         sorted_cats = sorted(categories.items(), key=lambda x: x[1], reverse=True)
@@ -346,21 +378,25 @@ class CostManagementWidget(DrillTabBase):
         for cat, hrs in sorted_cats:
             row = self.npt_cost_table.rowCount()
             self.npt_cost_table.insertRow(row)
-            cost = hrs * hourly_rate
+            cost = allocate_npt_cost(actual_cost, hrs, well_total_hours or None)
             pct = hrs / total_npt * 100 if total_npt > 0 else 0
 
             self.npt_cost_table.setItem(row, 0, QTableWidgetItem(cat))
             hi = QTableWidgetItem(f"{hrs:.1f}")
             hi.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
             self.npt_cost_table.setItem(row, 1, hi)
-            ci = QTableWidgetItem(f"$ {cost:,.0f}")
+            ci = QTableWidgetItem(money(cost))
             ci.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
             self.npt_cost_table.setItem(row, 2, ci)
             self.npt_cost_table.setItem(row, 3, QTableWidgetItem(f"{pct:.1f}%"))
 
+        cost_note = (
+            money(total_npt_cost) if actual_cost is not None
+            else "$ — (no actual cost recorded)"
+        )
         self.npt_cost_summary.setText(
             f"⏱️ Total NPT: {total_npt:.1f} hrs ({total_npt/24:.1f} days) | "
-            f"💰 Total NPT Cost: $ {total_cost:,.0f}"
+            f"💰 Total NPT Cost: {cost_note}"
         )
 
     # ===== Summary Tab =====
@@ -378,10 +414,10 @@ class CostManagementWidget(DrillTabBase):
         cl = QHBoxLayout(cards)
         cl.setContentsMargins(0, 0, 0, 0)
 
-        self.card_total = self._make_card("Total Cost", "$ 0", "", "#e74c3c")
-        self.card_daily = self._make_card("Cost/Day", "$ 0", "", "#3498db")
-        self.card_meter = self._make_card("Cost/Meter", "$ 0", "", "#27ae60")
-        self.card_npt = self._make_card("NPT Cost", "$ 0", "", "#f39c12")
+        self.card_total = self._make_card("Total Actual Cost", "$ —", "", "#e74c3c")
+        self.card_daily = self._make_card("Actual Cost/Day", "$ —", "", "#3498db")
+        self.card_meter = self._make_card("Actual Cost/Meter", "$ —", "", "#27ae60")
+        self.card_npt = self._make_card("NPT Cost (allocated)", "$ —", "", "#f39c12")
 
         cl.addWidget(self.card_total)
         cl.addWidget(self.card_daily)
@@ -419,24 +455,36 @@ class CostManagementWidget(DrillTabBase):
         if not self.current_well_id or not self.db:
             return
 
-        daily_rate = self.rig_rate.value() + self.spread_rate.value()
+        # AUTHORITATIVE cost KPIs come from persisted CostRecord actuals, NOT a
+        # synthetic rig-day rate. Unknown stays unknown ($ —), never a fake 0.
+        # Total actual cost is read directly from the cost summary so it is
+        # available even for a well that has cost lines but no daily reports;
+        # depth-dependent metrics come from the canonical KPI service.
+        from core.operations_intelligence import OperationsIntelligenceService
+        summary = self.db.get_cost_summary(self.current_well_id)
+        actual_vals = [r.get("actual") for r in summary if r.get("actual") is not None]
+        total_cost = sum(float(v) for v in actual_vals) if actual_vals else None
+        kpis = OperationsIntelligenceService(self.db).analyze_well(
+            self.current_well_id).get("kpis", {})
+        cpm = kpis.get("cost_per_meter")
+        npt_hours = kpis.get("npt_hours")
+        total_hours = (npt_hours or 0) + (kpis.get("productive_hours") or 0)
+        npt_cost = allocate_npt_cost(total_cost, npt_hours, total_hours or None)
+        rig_days = kpis.get("rig_days") or 0
+        daily_actual = (total_cost / rig_days) if (total_cost is not None and rig_days) else None
+
+        def money(v):
+            return f"<b>$ {v:,.0f}</b>" if v is not None else "<b>$ —</b>"
+
+        self.card_total.value_label.setText(money(total_cost))
+        self.card_daily.value_label.setText(money(daily_actual))
+        self.card_meter.value_label.setText(money(cpm))
+        self.card_npt.value_label.setText(money(npt_cost))
+
         reports = self.db.get_daily_reports_by_well(self.current_well_id)
-        total_days = len(reports)
-        total_cost = total_days * daily_rate
-
-        max_depth = max((r.get('depth_2400', 0) or 0 for r in reports), default=0)
-        cpm = total_cost / max_depth if max_depth > 0 else 0
-
-        npt_list = self.db.get_npt_reports(well_id=self.current_well_id) if hasattr(self.db, 'get_npt_reports') else []
-        npt_hrs = sum(n.get('duration_hours', 0) for n in npt_list)
-        npt_cost = npt_hrs / 24 * daily_rate
-
-        self.card_total.value_label.setText(f"<b>$ {total_cost:,.0f}</b>")
-        self.card_daily.value_label.setText(f"<b>$ {daily_rate:,.0f}</b>")
-        self.card_meter.value_label.setText(f"<b>$ {cpm:,.0f}</b>")
-        self.card_npt.value_label.setText(f"<b>$ {npt_cost:,.0f}</b>")
-
-        self._draw_cost_chart(reports, daily_rate)
+        # The chart projects the user-entered day-rate ASSUMPTION over rig days;
+        # it is explicitly a projection, distinct from the actual-cost KPIs above.
+        self._draw_cost_chart(reports, self.rig_rate.value() + self.spread_rate.value())
 
     def _draw_cost_chart(self, reports, daily_rate):
         if not reports:
@@ -478,14 +526,88 @@ class CostManagementWidget(DrillTabBase):
     def _export_cost(self):
         ExportManager(self).export_table_with_dialog(self.afe_table, "cost_report")
 
+    # ===== Persistence (canonical CostRecord truth) =====
+    def _selected_currency(self):
+        """Return the chosen currency code, or None when left unspecified (§9)."""
+        text = self.afe_currency.currentText().strip()
+        if not text or text.startswith("—"):
+            return None
+        return text
+
+    def _read_afe_rows(self):
+        """Read AFE worksheet rows from the table as plain dicts."""
+        rows = []
+        for row in range(self.afe_table.rowCount()):
+            cat_item = self.afe_table.item(row, 0)
+            category = cat_item.text().strip() if cat_item else ""
+            pw = self.afe_table.cellWidget(row, 1)
+            aw = self.afe_table.cellWidget(row, 2)
+            rows.append({
+                "category": category,
+                "planned_cost": pw.value() if pw else None,
+                "actual_cost": aw.value() if aw else None,
+            })
+        return rows
+
+    def save_data(self):
+        # Enforce the standard permission contract before mutating.
+        try:
+            from core.permissions import permissions
+            if permissions.is_viewer():
+                self.show_warning("Viewer role is read-only: No Save allowed")
+                return False
+            if not permissions.has_permission("can_edit_reports"):
+                self.show_warning("You do not have permission to edit reports")
+                return False
+            user_id = getattr(permissions, "user_id", None)
+        except Exception:
+            user_id = None
+
+        if not self.current_well_id or not self.db:
+            # Nothing to persist against — do not silently claim success.
+            return True
+
+        rows = [r for r in self._read_afe_rows() if r["category"]]
+        try:
+            saved = self.db.save_afe_worksheet(
+                self.current_well_id, rows,
+                afe_number=self.afe_number.text().strip() or None,
+                currency=self._selected_currency(),
+                user_id=user_id,
+            )
+            self.show_success(f"Saved {saved} AFE cost line(s)")
+            return True
+        except Exception as e:
+            logger.error(f"AFE save failed: {e}")
+            self.show_error(f"AFE save failed: {e}")
+            return False
+
+    def _load_afe_from_db(self):
+        """Reload the AFE worksheet from persisted CostRecord budget lines."""
+        if not self.current_well_id or not self.db:
+            return
+        try:
+            records = self.db.get_cost_records(self.current_well_id)
+        except Exception as e:
+            logger.error(f"AFE load failed: {e}")
+            return
+        rows = cost_records_to_afe_rows(records)
+        if not rows:
+            # No persisted AFE yet — keep the current (default) worksheet.
+            self._update_afe_totals()
+            return
+        self.afe_table.setRowCount(0)
+        for r in rows:
+            self._insert_afe_row(r["category"], r["planned_cost"] or 0,
+                                 r["actual_cost"] or 0)
+        self._update_afe_totals()
+
     # ===== DrillTabBase =====
     def on_well_changed(self, well_id, well_data):
         self.current_well_id = well_id
         self.refresh()
-        
-    def save_data(self):
-        return True
 
     def refresh(self):
+        self._load_afe_from_db()
         self._update_afe_totals()
         self._generate_summary()

@@ -2055,46 +2055,61 @@ class AnalysisWidget(DrillTabBase):
             self.results_text.setText("No well selected")
             return
         
-        # داده واقعی
+        # AUTHORITATIVE cost comes from persisted CostRecord.actual_cost via the
+        # canonical operations-intelligence service — the same number the report
+        # engine and W16 Summary show. No synthetic rig-day rate is treated as
+        # actual cost. Unknown stays unknown ("—"), never a fabricated 0.
+        from core.operations_intelligence import OperationsIntelligenceService
+        from core.cost_semantics import allocate_npt_cost
         total_days = session.query(DailyReport).filter_by(well_id=well_id).count()
         npt_data = self.get_npt_data(session)
         total_npt_hours = npt_data['total_npt'] or 0.0
         npt_days = total_npt_hours / 24
         npt_pct_value = npt_data['npt_percentage']
-        
-        # نرخ‌های فرضی (قابل تنظیم)
-        daily_rate = 45000  # USD per day
-        spread_rate = 15000  # USD per day (services, logistics)
-        
-        total_cost = total_days * (daily_rate + spread_rate)
-        npt_cost = npt_days * (daily_rate + spread_rate)
-        productive_cost = total_cost - npt_cost
-        
-        # نمودار
+
+        kpis = OperationsIntelligenceService(self.db).analyze_well(well_id).get("kpis", {})
+        total_cost = kpis.get("total_cost")
+        cpm = kpis.get("cost_per_meter")
+        well_total_hours = (kpis.get("npt_hours") or 0) + (kpis.get("productive_hours") or 0)
+        npt_cost = allocate_npt_cost(total_cost, total_npt_hours, well_total_hours or None)
+        productive_cost = (
+            total_cost - npt_cost
+            if total_cost is not None and npt_cost is not None else None
+        )
+
+        def money(v):
+            return f"${v:,.0f}" if v is not None else "—"
+
+        # نمودار — only chart known values (skip unknowns instead of plotting 0)
         self.analytics_plot.clear()
-        x = [1, 2, 3]
-        values = [total_cost/1000, productive_cost/1000, npt_cost/1000]
-        colors = ['#3498db', '#2ecc71', '#e74c3c']
-        
-        bargraph = pg.BarGraphItem(x=x, height=values, width=0.6, 
-                                    brushes=colors)
-        self.analytics_plot.addItem(bargraph)
-        self.analytics_plot.setLabel("bottom", "Category")
-        self.analytics_plot.setLabel("left", "Cost (K USD)")
-        
-        report = f"💰 COST ANALYSIS\n{'='*40}\n"
+        if total_cost is not None:
+            labels = ["Total"]
+            values = [total_cost / 1000]
+            if productive_cost is not None:
+                labels.append("Productive")
+                values.append(productive_cost / 1000)
+            if npt_cost is not None:
+                labels.append("NPT")
+                values.append(npt_cost / 1000)
+            x = list(range(1, len(values) + 1))
+            colors = ['#3498db', '#2ecc71', '#e74c3c'][:len(values)]
+            bargraph = pg.BarGraphItem(x=x, height=values, width=0.6, brushes=colors)
+            self.analytics_plot.addItem(bargraph)
+            self.analytics_plot.setLabel("bottom", "Category")
+            self.analytics_plot.setLabel("left", "Cost (K USD)")
+
+        report = f"💰 COST ANALYSIS (actual, from recorded cost)\n{'='*40}\n"
         report += f"Total Rig Days: {total_days}\n"
         report += f"NPT Days: {npt_days:.1f} ({fmt_num(npt_pct_value, 1, default=None)}%)\n"
         report += f"Productive Days: {total_days - npt_days:.1f}\n\n"
-        report += f"📊 Cost Breakdown:\n"
-        report += f"  Daily Rig Rate:    ${daily_rate:,.0f}/day\n"
-        report += f"  Spread Rate:       ${spread_rate:,.0f}/day\n"
-        report += f"  Total Daily Cost:  ${daily_rate + spread_rate:,.0f}/day\n\n"
-        report += f"  Total Cost:        ${total_cost:,.0f}\n"
-        report += f"  Productive Cost:   ${productive_cost:,.0f}\n"
-        report += f"  NPT Cost:          ${npt_cost:,.0f}\n"
-        report += f"  Cost per Meter:    ${total_cost / max(1, session.query(func.max(DailyReport.depth_2400)).filter_by(well_id=well_id).scalar() or 1):,.0f}/m\n"
-        
+        report += f"📊 Cost (from persisted CostRecord actuals):\n"
+        report += f"  Total Actual Cost: {money(total_cost)}\n"
+        report += f"  Productive Cost:   {money(productive_cost)}\n"
+        report += f"  NPT Cost:          {money(npt_cost)}\n"
+        report += f"  Cost per Meter:    {money(cpm)}/m\n"
+        if total_cost is None:
+            report += "\n(No actual cost recorded for this well — enter it in the AFE tab.)\n"
+
         self.results_text.setText(report)
 
     def analyze_risk(self, session):
