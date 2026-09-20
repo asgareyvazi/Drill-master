@@ -1268,22 +1268,41 @@ class DailyReportWidget(DrillTabBase):
                 self.status_manager.show_error("DailyReport", self.last_save_outcome.summary())
                 return False
 
-            # ذخیره
-            result = self.db_manager.save_daily_report(report_data)
-            if not result:
-                self.status_manager.show_error(
-                    "DailyReport", "Failed to save report"
-                )
-                return False
+            # Atomic logical DDR save: the report header and its time logs
+            # (plus the derived NPT synchronization) commit together in ONE
+            # session, so a time-log failure can never leave a committed header
+            # with stale/absent time logs (mission §21/§22/§42).
+            session = self.db_manager.create_session()
+            try:
+                result = self.db_manager.save_daily_report(report_data, session=session)
+                if not result:
+                    session.rollback()
+                    self.status_manager.show_error(
+                        "DailyReport", "Failed to save report"
+                    )
+                    return False
+                report_id = result["id"]
+                self.save_time_logs_to_db(report_id, session=session)
+                session.commit()
+            except Exception:
+                session.rollback()
+                raise
+            finally:
+                session.close()
+
+            # Audit the save outside the data transaction (its own boundary).
+            from core.permissions import permissions as _perms
+            self.db_manager.log_audit(
+                action="update" if not creating_report else "create",
+                entity_type="daily_report", entity_id=report_id,
+                entity_name=f"Report #{result.get('report_number')}",
+                user_id=_perms.user_id, username=_perms.username,
+            )
 
             # به‌روزرسانی state
-            report_id = result["id"]
             self.current_report_id = report_id
             self.current_report = result
             self.current_daily_report_id = report_id
-
-            # ذخیره time logs
-            self.save_time_logs_to_db(report_id)
 
             # ذخیره تب‌های دیگر
             # Global saves are coordinated by MainWindow, never cascaded here.
@@ -1305,8 +1324,15 @@ class DailyReportWidget(DrillTabBase):
             )
             return False
 
-    def save_time_logs_to_db(self, report_id):
-        session = self.db_manager.create_session()
+    def save_time_logs_to_db(self, report_id, session=None):
+        """Persist the 24h/morning time logs and refresh derived NPT.
+
+        When ``session`` is supplied the work joins that transaction (the
+        caller owns commit/rollback), keeping the logical DDR save atomic.
+        When omitted it manages its own session for backward compatibility.
+        """
+        owns_session = session is None
+        session = session or self.db_manager.create_session()
         try:
             session.query(TimeLog24H).filter_by(report_id=report_id).delete()
             session.query(TimeLogMorning).filter_by(report_id=report_id).delete()
@@ -1347,13 +1373,16 @@ class DailyReportWidget(DrillTabBase):
             
             session.flush()
             self.db_manager.auto_update_from_daily_report(report_id, session=session)
-            session.commit()
+            if owns_session:
+                session.commit()
         except Exception as e:
-            session.rollback()
+            if owns_session:
+                session.rollback()
             logger.error(f"Time log save error: {e}")
             raise
         finally:
-            session.close()
+            if owns_session:
+                session.close()
 
     def _extract_time_log_row(self, table, row):
         try:

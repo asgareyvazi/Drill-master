@@ -4127,7 +4127,13 @@ class DatabaseManager:
  
 
     def create_report_revision(self, report_id: int, status="Draft", comment=""):
-        """Store an immutable report snapshot and return its revision id."""
+        """Header-only revision writer — COMPATIBILITY/TEST ONLY.
+
+        Production revisions are created atomically inside :meth:`transition_report`
+        with a COMPLETE snapshot (report + all report-owned child records). This
+        legacy helper snapshots only the DailyReport header and has no production
+        callers. Do not use it for new work.
+        """
         with self.session_scope() as session:
             report = session.get(DailyReport, report_id)
             if report is None:
@@ -4144,7 +4150,14 @@ class DatabaseManager:
             return revision.id
 
     def set_report_status(self, report_id: int, status: str, user_id=None, comment=""):
-        """Change workflow state and persist an approval action."""
+        """Low-level status writer — COMPATIBILITY/TEST ONLY, not a production path.
+
+        This does NOT enforce the lifecycle state machine, permissions, actor
+        identity, content validation, or complete snapshots. The single
+        authoritative production mutation path is :meth:`transition_report`.
+        Retained only because existing tests exercise the raw status field; it
+        has no production callers. Do not wire UI or services to it.
+        """
         allowed = {"Draft", "Submitted", "Under Review", "Rejected", "Approved", "Final"}
         if status not in allowed:
             raise ValueError(f"Unsupported report status: {status}")
@@ -4159,23 +4172,56 @@ class DatabaseManager:
             session.add(ApprovalAction(report_id=report_id, action=action, status=status, user_id=user_id, comment=comment))
             return True
 
+    # ORM classes that make up the complete, report-owned DDR snapshot. Named
+    # here so core.report_snapshot stays Qt/ORM-agnostic and free of import
+    # cycles. Mirrors the authoritative report-owned set (w2 _copy_all_report_data
+    # + time logs); derived analytics are intentionally excluded.
+    _SNAPSHOT_MODELS = {
+        "TimeLog24H": TimeLog24H, "TimeLogMorning": TimeLogMorning,
+        "DrillingParameters": DrillingParameters, "MudReport": MudReport,
+        "CementReport": CementReport, "CasingReport": CasingReport,
+        "BitReport": BitReport, "BHAReport": BHAReport,
+        "DownholeEquipment": DownholeEquipment, "FormationReport": FormationReport,
+        "SafetyReport": SafetyReport, "WellboreSchematic": WellboreSchematic,
+        "TripSheetEntry": TripSheetEntry, "SurveyPoint": SurveyPoint,
+        "LogisticsPersonnel": LogisticsPersonnel, "ServiceCompanyPOB": ServiceCompanyPOB,
+        "FuelWaterInventory": FuelWaterInventory, "BulkMaterials": BulkMaterials,
+        "TransportLog": TransportLog, "TransportNotes": TransportNotes,
+        "ServiceCompany": ServiceCompany, "ServiceNote": ServiceNote,
+        "MaterialRequest": MaterialRequest, "EquipmentLog": EquipmentLog,
+        "SevenDaysLookahead": SevenDaysLookahead, "NPTReport": NPTReport,
+    }
+
     def transition_report(self, report_id, action, has_permission=None, user_id=None,
                           comment="", expected_well_id=None, expected_section_id=None):
         """Atomically drive one Daily Report lifecycle transition.
 
-        Backend-authoritative: validates the transition against the domain state
-        machine, verifies the acting user's permission, enforces required
-        comments, checks well/section ownership, then writes status change,
-        immutable revision snapshot, and approval action inside ONE transaction.
-        Any failure rolls the whole thing back — no partial lifecycle state.
-        Returns a :class:`core.report_lifecycle.LifecycleResult`.
+        Backend-authoritative: verifies an authenticated actor and permission,
+        validates the transition against the domain state machine, enforces
+        required comments, validates operational content for irreversible
+        actions, checks well/section ownership, then writes status change, a
+        COMPLETE immutable revision snapshot, and the approval action inside ONE
+        transaction. Any failure rolls the whole thing back — no partial
+        lifecycle state. Returns a ``core.report_lifecycle.LifecycleResult``.
         """
         from core.report_lifecycle import (
             decide_transition, LifecycleOutcome, LifecycleResult,
-            ACTION_CREATES_REVISION,
+            ACTION_CREATES_REVISION, ACTION_REQUIRES_VALIDATION,
         )
+        from core.report_snapshot import build_report_snapshot
+
+        # SECURITY: no unconditional authorization fallback. A caller with no
+        # permission resolver cannot authorize a lifecycle action (§14/§16/§53).
         if has_permission is None:
-            has_permission = lambda _perm: True  # noqa: E731 (backend/test caller opts in)
+            return LifecycleResult(False, LifecycleOutcome.PERMISSION_DENIED,
+                                   "No authorization context supplied for lifecycle action.",
+                                   report_id=report_id)
+        # SECURITY: an authenticated actor is mandatory for lifecycle writes
+        # (§15/§40). We never persist a NULL actor onto a revision/action.
+        if user_id is None:
+            return LifecycleResult(False, LifecycleOutcome.PERMISSION_DENIED,
+                                   "An authenticated user is required for this action.",
+                                   report_id=report_id)
         try:
             with self.session_scope() as session:
                 report = session.get(DailyReport, report_id)
@@ -4202,17 +4248,30 @@ class DatabaseManager:
                     return LifecycleResult(False, decision.outcome, decision.message,
                                            report_id=report_id, new_status=current_status)
 
+                # Server-side content validation for irreversible actions. A
+                # button being enabled is not validation (§18/§19/§20).
+                if action in ACTION_REQUIRES_VALIDATION:
+                    from core.validators import DailyReportValidator
+                    report_data = {c.name: getattr(report, c.name)
+                                   for c in DailyReport.__table__.columns}
+                    validation = DailyReportValidator.validate(report_data)
+                    if not validation.is_valid:
+                        reasons = "; ".join(e["message"] for e in validation.errors)
+                        return LifecycleResult(
+                            False, LifecycleOutcome.VALIDATION_ERROR,
+                            f"Report cannot be {action}ed: {reasons}",
+                            report_id=report_id, new_status=current_status)
+
                 next_status = decision.next_status
                 report.status = next_status
                 report.updated_at = _now_utc()
+                session.flush()  # ensure snapshot captures the new status/updated_at
 
                 revision_id = None
                 if action in ACTION_CREATES_REVISION:
-                    columns = {column.name for column in DailyReport.__table__.columns}
-                    snapshot = {}
-                    for name in columns:
-                        value = getattr(report, name)
-                        snapshot[name] = value.isoformat() if isinstance(value, (date, datetime, datetime_time)) else value
+                    # COMPLETE self-contained snapshot of the persisted report
+                    # and all its report-owned operational child records (§4-§12).
+                    snapshot = build_report_snapshot(session, report, self._SNAPSHOT_MODELS)
                     latest = session.query(ReportRevision).filter_by(report_id=report_id).order_by(ReportRevision.revision_no.desc()).first()
                     revision = ReportRevision(
                         report_id=report_id,

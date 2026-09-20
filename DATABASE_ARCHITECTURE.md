@@ -51,8 +51,8 @@ engine = create_engine(
 | Model | Table | Purpose |
 |-------|-------|---------|
 | DailyReport | daily_reports | Daily drilling reports |
-| ReportRevision | report_revisions | Immutable report snapshots |
-| ApprovalAction | approval_actions | Workflow approval history |
+| ReportRevision | report_revisions | Immutable **complete** report snapshots (header + all report-owned child records) |
+| ApprovalAction | approval_actions | Workflow approval history (action, actor, comment) |
 | TimeLog24H | time_logs_24h | 24-hour time logs |
 | TimeLogMorning | time_logs_morning | Morning tour time logs |
 
@@ -195,8 +195,9 @@ engine = create_engine(
 | `get_daily_reports_by_well(id)` | Get reports for a well |
 | `get_daily_reports_by_section(id)` | Get reports for a section |
 | `delete_daily_report(id)` | Delete report and all children |
-| `create_report_revision(id)` | Create immutable snapshot |
-| `set_report_status(id, status)` | Change workflow state |
+| `transition_report(id, action, has_permission, user_id, comment, ...)` | **Authoritative** lifecycle path: validates transition + permission + actor + content + ownership, then writes status, a COMPLETE immutable revision snapshot, and the approval action in ONE atomic transaction |
+| `create_report_revision(id)` | Header-only snapshot — COMPATIBILITY/TEST ONLY, not a production path |
+| `set_report_status(id, status)` | Raw status writer — COMPATIBILITY/TEST ONLY, does not enforce the state machine |
 
 ### 4.5 Import Operations
 

@@ -190,13 +190,15 @@ def test_t12_revision_immutability(db, scenario):
     rid = scenario["report"]
     db.save_daily_report({"id": rid, "summary": "first"})
     db.transition_report(rid, "submit", has_permission=ENG, user_id=scenario["eng"])
-    snap_before = db.get_report_revisions(rid)[0]["snapshot"]["summary"]
+    # Mission 19: snapshot is now a complete record; the report header lives
+    # under snapshot["report"].
+    snap_before = db.get_report_revisions(rid)[0]["snapshot"]["report"]["summary"]
     db.transition_report(rid, "reject", has_permission=SUP, user_id=scenario["sup"], comment="no")
     db.save_daily_report({"id": rid, "summary": "second"})  # rejected -> editable
     # earliest revision snapshot unchanged despite later body edits
     revs = db.get_report_revisions(rid)
     submit_rev = [r for r in revs if r["status"] == "Submitted"][0]
-    assert submit_rev["snapshot"]["summary"] == snap_before == "first"
+    assert submit_rev["snapshot"]["report"]["summary"] == snap_before == "first"
 
 
 def test_t13_atomic_failure_rollback(db, scenario):

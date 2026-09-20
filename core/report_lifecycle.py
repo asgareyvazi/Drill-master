@@ -63,6 +63,12 @@ TRANSITIONS = {
 # Workflow actions produce a revision snapshot (audit + immutable history).
 ACTION_CREATES_REVISION = frozenset({"submit", "approve", "reject", "finalize"})
 
+# Actions that assert the report's operational content is sound before an
+# irreversible workflow event. Rejection deliberately does NOT re-validate
+# content — you are rejecting it precisely because something is wrong, and the
+# mandatory comment carries the reason (mission §18/§19/§26).
+ACTION_REQUIRES_VALIDATION = frozenset({"submit", "approve", "finalize"})
+
 
 def is_editable(status: Optional[str]) -> bool:
     """True when a report in ``status`` may have its body edited/saved."""

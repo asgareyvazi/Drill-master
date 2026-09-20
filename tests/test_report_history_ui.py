@@ -89,3 +89,72 @@ print("LABELS", labels)
 """)
     assert "No revision history available." in out
     assert "No approval history available." in out
+
+
+CHILD_SETUP_FULL = CHILD_SETUP + """
+from datetime import time
+from core.database import TimeLog24H, DrillingParameters, MudReport, SurveyPoint
+
+def add_children(db, ids):
+    s = db.create_session()
+    rid = ids["report"]; w = ids["well"]
+    s.add(TimeLog24H(report_id=rid, time_from=time(6,0), time_to=time(12,0), duration=6.0, main_phase="Drilling", is_npt=False, activity_description="drill ahead"))
+    s.add(TimeLog24H(report_id=rid, time_from=time(0,0), time_to=time(6,0), duration=6.0, main_phase="Circulate", is_npt=True, activity_description="stuck pipe"))
+    s.add(DrillingParameters(report_id=rid, well_id=w, report_date=date(2026,9,1), depth_in=100.0, depth_out=200.0))
+    s.add(MudReport(report_id=rid, well_id=w, report_date=date(2026,9,1)))
+    s.add(SurveyPoint(report_id=rid, well_id=w, md=150.0))
+    s.commit(); s.close()
+"""
+
+
+def test_history_shows_structured_operational_content():
+    """§27/§29 — the selected revision renders real child sections, not just JSON."""
+    out = _run(CHILD_SETUP_FULL + """
+from PySide6.QtWidgets import QApplication, QTreeWidget
+app = QApplication.instance() or QApplication([])
+db, ids = make_db()
+add_children(db, ids)
+db.transition_report(ids["report"], "submit", has_permission=ENG, user_id=ids["eng"])
+from dialogs.report_history_dialog import ReportHistoryDialog
+dlg = ReportHistoryDialog(db, ids["report"])
+trees = dlg.findChildren(QTreeWidget)
+tree = trees[0]
+# collect top-level section labels
+labels = []
+root = tree.invisibleRootItem()
+for i in range(root.childCount()):
+    labels.append(root.child(i).text(0))
+print("SECTIONS", labels)
+""")
+    assert "Report Header" in out
+    assert "Time Log (24h)" in out
+    assert "Drilling Parameters" in out
+    assert "Survey" in out
+
+
+def test_history_no_live_data_leak():
+    """§30 — after modifying current children, the old revision is unchanged."""
+    out = _run(CHILD_SETUP_FULL + """
+from PySide6.QtWidgets import QApplication, QTreeWidget
+from core.database import TimeLog24H
+app = QApplication.instance() or QApplication([])
+db, ids = make_db()
+add_children(db, ids)
+db.transition_report(ids["report"], "submit", has_permission=ENG, user_id=ids["eng"])
+# delete all current time logs after the snapshot was captured
+s = db.create_session()
+s.query(TimeLog24H).filter_by(report_id=ids["report"]).delete()
+s.commit(); s.close()
+from dialogs.report_history_dialog import ReportHistoryDialog
+dlg = ReportHistoryDialog(db, ids["report"])
+tree = dlg.findChildren(QTreeWidget)[0]
+root = tree.invisibleRootItem()
+tl = None
+for i in range(root.childCount()):
+    if root.child(i).text(0) == "Time Log (24h)":
+        tl = root.child(i)
+print("TL_PRESENT", tl is not None)
+print("TL_ROWS", tl.childCount() if tl else 0)
+""")
+    assert "TL_PRESENT True" in out
+    assert "TL_ROWS 2" in out  # historical revision still has the 2 rows
