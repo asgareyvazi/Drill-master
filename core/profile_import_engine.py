@@ -301,20 +301,36 @@ class ProfileImportEngine:
                     "setting_depth": self._to_float(cache.get(3, {}).get(2))
                 }
 
-            # E. Logistics Bulk & Fuel/Water
-            elif any(k in lower_name for k in ["bulk", "fuel", "water", "inventory"]):
+            # E. Logistics Bulk & Fuel/Water.
+            # NOTE: the bare word "inventory" is intentionally NOT a keyword
+            # here. A generic "Inventory" sheet is the W5 GENERAL InventoryItem
+            # domain, which is distinct from the mud/bulk ledger and must never
+            # be captured as bulk_materials. Only mud/bulk and fuel/water tables
+            # are extracted; final domain routing is still decided downstream by
+            # core.domain_records.material_route (mud vs fuel_water vs review).
+            elif any(k in lower_name for k in ["bulk", "fuel", "water"]):
                 for r in range(2, min(max(cache, default=1) + 1, MAX_PROFILE_ROWS)):
                     if r not in cache: continue
                     mat = cache[r].get(1) or cache[r].get(2)
                     stock = self._to_float(cache[r].get(3))
-                    if mat and stock is not None:
+                    received = self._to_float(cache[r].get(5))
+                    used = self._to_float(cache[r].get(6))
+                    # A row is real if it has a name and ANY reported quantity or
+                    # movement — a movements-only row (unknown opening) is valid.
+                    if mat and (stock is not None or received is not None or used is not None):
+                        unit_cell = cache[r].get(4)
+                        # Absent movements stay 0.0 (no movement); absent opening
+                        # stays None (unknown) so closing is unknown too — never
+                        # a fabricated stock. Unit is preserved as-is, not "kg".
+                        recv = received if received is not None else 0.0
+                        use = used if used is not None else 0.0
                         res["bulk_materials"].append({
                             "material_name": str(mat),
-                            "unit": str(cache[r].get(4, "kg")),
+                            "unit": (str(unit_cell).strip() if unit_cell not in (None, "") else None),
                             "initial_stock": stock,
-                            "received": self._to_float(cache[r].get(5)) or 0.0,
-                            "used": self._to_float(cache[r].get(6)) or 0.0,
-                            "current_stock": stock + (self._to_float(cache[r].get(5)) or 0.0) - (self._to_float(cache[r].get(6)) or 0.0)
+                            "received": recv,
+                            "used": use,
+                            "current_stock": (stock + recv - use) if stock is not None else None
                         })
 
             # F. Equipment and solid-control logs

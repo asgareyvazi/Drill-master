@@ -1258,61 +1258,43 @@ class MainWindow(QMainWindow):
                         "well_id": well_data["id"],
                         "tab_title": "📋 Procedures",
                     })
-                    
-                    # === Sections ===
-                    for section in well_data.get("sections", []):
-                        section_item = QTreeWidgetItem(well_item)
-                        section_item.setText(
-                            0, f"  📐 {section['name']}"
-                        )
-                        section_item.setText(1, "Section")
-                        section_item.setData(0, Qt.UserRole, {
-                            "type": "section",
-                            "id": section["id"],
-                            "well_id": well_data["id"],
-                        })
-                        
-                        # Section-level sub-items
-                        section_tabs = [
-                            ("🏗️ Cement Report", "📐 Section Data"),
-                            ("📏 Casing Tally", "📐 Section Data"),
-                            ("🔩 Casing Report", "📐 Section Data"),
-                            ("🏢 Service Companies", "📐 Section Data"),
-                        ]
-                        for label, tab_title in section_tabs:
-                            sub = QTreeWidgetItem(section_item)
-                            sub.setText(0, f"    {label}")
-                            sub.setText(1, "Section Tab")
-                            sub.setData(0, Qt.UserRole, {
-                                "type": "section_tab",
-                                "section_id": section["id"],
+
+                    # === Wellbores + Sections ===
+                    # When a well has explicit wellbores (an original bore and/or
+                    # sidetracks), sections are grouped UNDER their owning bore so
+                    # two same-named sections in different bores are visibly
+                    # distinct. Wells with no wellbore rows keep the legacy flat
+                    # section list. Sections whose bore is unknown (legacy NULL)
+                    # are shown directly under the well, honestly un-grouped.
+                    wellbores = well_data.get("wellbores", [])
+                    if wellbores:
+                        for wb in wellbores:
+                            wb_item = QTreeWidgetItem(well_item)
+                            icon = "🪝" if wb.get("wellbore_type") == "sidetrack" else "🕳️"
+                            wb_item.setText(0, f"  {icon} {wb['name']}")
+                            wb_item.setText(1, (
+                                "Sidetrack" if wb.get("wellbore_type") == "sidetrack"
+                                else "Wellbore"))
+                            wb_item.setData(0, Qt.UserRole, {
+                                "type": "wellbore",
+                                "id": wb["id"],
                                 "well_id": well_data["id"],
-                                "tab_title": tab_title,
+                                "wellbore_id": wb["id"],
                             })
-                        
-                        # === Reports in this section ===
-                        for report in section.get("reports", []):
-                            date_str = str(
-                                report.get('report_date', '')
-                            )
-                            rnum = report.get('report_number', '?')
-                            report_item = QTreeWidgetItem(section_item)
-                            report_item.setText(
-                                0, f"    📅 #{rnum} - {date_str}"
-                            )
-                            report_item.setText(1, "Daily Report")
-                            report_item.setData(0, Qt.UserRole, {
-                                "type": "daily_report",
-                                "id": report["id"],
-                                "report_id": report["id"],
-                                "section_id": section["id"],
-                                "well_id": well_data["id"],
-                            })
-                            
-                            # Report-level sub-items
-                            self._add_report_subitems(
-                                report_item, report["id"]
-                            )
+                            for section in wb.get("sections", []):
+                                self._add_section_tree_item(
+                                    wb_item, section, well_data["id"],
+                                    wellbore_id=wb["id"])
+                        # Legacy/unknown-bore sections remain visible under the well.
+                        for section in well_data.get("unassigned_sections", []):
+                            self._add_section_tree_item(
+                                well_item, section, well_data["id"],
+                                wellbore_id=None)
+                    else:
+                        for section in well_data.get("sections", []):
+                            self._add_section_tree_item(
+                                well_item, section, well_data["id"],
+                                wellbore_id=section.get("wellbore_id"))
         
         self.tree_widget.expandToDepth(2)
             
@@ -1320,6 +1302,74 @@ class MainWindow(QMainWindow):
         from core.cache_manager import cache
         cache.delete("main_window_hierarchy")
 
+
+    def _select_wellbore_from_payload(self, data, well_id):
+        """Carry bore scope into the selection when a node knows its wellbore.
+
+        A section/report node created under a wellbore carries ``wellbore_id``.
+        Selecting it must set the bore scope so downstream consumers know which
+        bore is active. An unknown bore (legacy NULL) is left as-is — never
+        fabricated to the original bore.
+        """
+        wellbore_id = data.get("wellbore_id")
+        if not (well_id and wellbore_id):
+            return
+        wb_data = next(
+            (wb for wb in self.db_manager.get_wellbores_by_well(well_id)
+             if wb["id"] == wellbore_id), {})
+        self.sel_manager.select_wellbore(wellbore_id, wb_data)
+
+    def _add_section_tree_item(self, parent_item, section, well_id, wellbore_id=None):
+        """Render one Section node (+ its section tabs and reports).
+
+        Shared by both the bore-grouped and legacy-flat tree layouts so section
+        behaviour stays identical regardless of whether a wellbore node exists.
+        The ``wellbore_id`` scope is carried on every descendant payload so a
+        later selection resolves the correct bore.
+        """
+        section_item = QTreeWidgetItem(parent_item)
+        section_item.setText(0, f"  📐 {section['name']}")
+        section_item.setText(1, "Section")
+        section_item.setData(0, Qt.UserRole, {
+            "type": "section",
+            "id": section["id"],
+            "well_id": well_id,
+            "wellbore_id": wellbore_id,
+        })
+
+        section_tabs = [
+            ("🏗️ Cement Report", "📐 Section Data"),
+            ("📏 Casing Tally", "📐 Section Data"),
+            ("🔩 Casing Report", "📐 Section Data"),
+            ("🏢 Service Companies", "📐 Section Data"),
+        ]
+        for label, tab_title in section_tabs:
+            sub = QTreeWidgetItem(section_item)
+            sub.setText(0, f"    {label}")
+            sub.setText(1, "Section Tab")
+            sub.setData(0, Qt.UserRole, {
+                "type": "section_tab",
+                "section_id": section["id"],
+                "well_id": well_id,
+                "wellbore_id": wellbore_id,
+                "tab_title": tab_title,
+            })
+
+        for report in section.get("reports", []):
+            date_str = str(report.get('report_date', ''))
+            rnum = report.get('report_number', '?')
+            report_item = QTreeWidgetItem(section_item)
+            report_item.setText(0, f"    📅 #{rnum} - {date_str}")
+            report_item.setText(1, "Daily Report")
+            report_item.setData(0, Qt.UserRole, {
+                "type": "daily_report",
+                "id": report["id"],
+                "report_id": report["id"],
+                "section_id": section["id"],
+                "well_id": well_id,
+                "wellbore_id": wellbore_id,
+            })
+            self._add_report_subitems(report_item, report["id"])
 
     def _add_report_subitems(self, parent_item, report_id):
         """زیرآیتم‌ها فقط report-level"""
@@ -1646,12 +1696,26 @@ class MainWindow(QMainWindow):
                 self.sel_manager.select_well(well_id, well_data)
                 self.tab_widget.setCurrentIndex(1)
 
+        elif item_type == "wellbore":
+            well_id = data.get("well_id")
+            wellbore_id = data.get("wellbore_id") or data.get("id")
+            if well_id:
+                well_data = self.db_manager.get_well_by_id(well_id) or {}
+                self.sel_manager.select_well(well_id, well_data)
+            if wellbore_id:
+                wb_data = next(
+                    (wb for wb in self.db_manager.get_wellbores_by_well(well_id)
+                     if wb["id"] == wellbore_id), {}) if well_id else {}
+                self.sel_manager.select_wellbore(wellbore_id, wb_data)
+                self.tab_widget.setCurrentIndex(1)
+
         elif item_type == "section":
             section_id = data.get("id")
             well_id = data.get("well_id")
             if well_id:
                 well_data = self.db_manager.get_well_by_id(well_id) or {}
                 self.sel_manager.select_well(well_id, well_data)
+            self._select_wellbore_from_payload(data, well_id)
             if section_id:
                 sections = self.db_manager.get_sections_by_well(
                     well_id
@@ -1670,6 +1734,8 @@ class MainWindow(QMainWindow):
             if well_id:
                 well_data = self.db_manager.get_well_by_id(well_id) or {}
                 self.sel_manager.select_well(well_id, well_data)
+
+            self._select_wellbore_from_payload(data, well_id)
 
             if section_id:
                 sections = self.db_manager.get_sections_by_well(

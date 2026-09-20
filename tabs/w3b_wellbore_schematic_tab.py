@@ -31,9 +31,20 @@ class WellboreSchematicTab(DrillTabBase):
         self.config = SchematicConfig()
         self.renderer = None
         self._is_loading = False
+        # Bore scope: when a specific wellbore is selected the schematic is
+        # built for that bore only; None = whole-well view. Never inferred.
+        self.current_wellbore_id = getattr(
+            self.sel_manager, "current_wellbore_id", None)
 
         self.init_ui()
         self.configure_save_tracking()
+
+        # A wellbore selection must re-scope the schematic. The base tab only
+        # tracks well/section/report, so the bore signal is wired here.
+        try:
+            self.sel_manager.wellbore_changed.connect(self.on_wellbore_changed)
+        except Exception:
+            pass
 
     def init_ui(self):
         main_layout = QHBoxLayout(self)
@@ -456,9 +467,23 @@ class WellboreSchematicTab(DrillTabBase):
 
     # ==================== Actions ====================
 
+    def on_wellbore_changed(self, wellbore_id, wellbore_data):
+        """Re-scope the schematic to the selected wellbore.
+
+        Selecting a specific bore isolates its casing/formation/completion;
+        an unknown bore keeps the current whole-well view rather than
+        fabricating one.
+        """
+        self.current_wellbore_id = wellbore_id
+        if self.current_well_id:
+            self.auto_generate()
+
     def on_well_changed(self, well_id, well_data):
         """وقتی چاه تغییر می‌کند، شماتیک را به‌روزرسانی می‌کنیم."""
         self.current_well_id = well_id
+        # A new well clears any prior bore scope (bore belongs to the old well).
+        self.current_wellbore_id = getattr(
+            self.sel_manager, "current_wellbore_id", None)
         if well_id and well_data:
             self.well_name_edit.setText(well_data.get("name", ""))
             # TD is displayed exactly as the source reports it: absent
@@ -483,7 +508,10 @@ class WellboreSchematicTab(DrillTabBase):
 
         try:
             builder = SchematicAutoBuilder(self.db)
-            self.schematic = builder.build_from_well(self.current_well_id)
+            # Scope to the selected bore when one is active; otherwise the
+            # whole-well (single-bore / explicit aggregate) view.
+            self.schematic = builder.build_from_well(
+                self.current_well_id, wellbore_id=self.current_wellbore_id)
 
             self._sync_tables_to_schematic()
             self.refresh_drawing()

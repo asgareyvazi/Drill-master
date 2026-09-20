@@ -339,9 +339,16 @@ class DailyReport(Base):
     report_number = Column(Integer, default=1)
     rig_day = Column(Integer, default=1)
     report_title = Column(String(200))
-    depth_0000 = Column(Float, default=0.0)
-    depth_0600 = Column(Float, default=0.0)
-    depth_2400 = Column(Float, default=0.0)
+    # Depth trichotomy: NULL = depth not reported (missing), 0.0 = an explicitly
+    # reported zero depth, value = reported depth. NO client-side default — a
+    # `default=0.0` fired for explicit None at INSERT, collapsing an unknown
+    # imported depth into a fabricated 0 and defeating the None-aware missing-
+    # depth logic used across data_quality, operations_intelligence, report_engine
+    # and the W12 time/depth chart. (No DDL change: the emitted column stays
+    # FLOAT nullable; only the Python-side default is removed.)
+    depth_0000 = Column(Float)
+    depth_0600 = Column(Float)
+    depth_2400 = Column(Float)
     summary = Column(Text)
     forecast = Column(Text)
     status = Column(String(50), default="Draft")
@@ -3454,8 +3461,35 @@ class DatabaseManager:
                 .joinedload(Project.wells)
                 .joinedload(Well.sections)
                 .joinedload(Section.daily_reports)
+            ).options(
+                joinedload(Company.projects)
+                .joinedload(Project.wells)
+                .joinedload(Well.wellbores)
             ).all()
             
+            def _section_data(section, well):
+                return {
+                    "id": section.id,
+                    "name": section.name,
+                    "well_id": well.id,
+                    "wellbore_id": section.wellbore_id,
+                    "reports": [
+                        {
+                            "id": r.id,
+                            "report_date": r.report_date,
+                            "report_number": r.report_number,
+                            "section_id": section.id,
+                            "well_id": well.id,
+                            "wellbore_id": section.wellbore_id,
+                        }
+                        for r in sorted(
+                            section.daily_reports,
+                            key=lambda r: r.report_date or date.min,
+                            reverse=True
+                        )[:50]
+                    ],
+                }
+
             hierarchy = []
             for company in companies:
                 company_data = {
@@ -3472,34 +3506,48 @@ class DatabaseManager:
                         "wells": [],
                     }
                     for well in project.wells:
+                        sorted_sections = sorted(
+                            well.sections, key=lambda s: s.depth_from or 0)
                         well_data = {
                             "id": well.id,
                             "name": well.name,
                             "code": well.code,
                             "status": well.status,
-                            "sections": [],
+                            # Flat section list preserved for backward
+                            # compatibility (legacy consumers / NULL-bore wells).
+                            "sections": [
+                                _section_data(s, well) for s in sorted_sections],
+                            # Bore-aware grouping: sections nested under their
+                            # owning wellbore so the UI can distinguish an
+                            # original hole from a sidetrack that reuses a
+                            # section name. Only populated when wellbores exist;
+                            # sections with an unknown bore appear under
+                            # ``unassigned_sections`` (never fabricated onto the
+                            # original bore).
+                            "wellbores": [],
+                            "unassigned_sections": [],
                         }
-                        for section in sorted(well.sections, key=lambda s: s.depth_from or 0):
-                            section_data = {
-                                "id": section.id,
-                                "name": section.name,
+                        sections_by_bore = {}
+                        for section in sorted_sections:
+                            sections_by_bore.setdefault(
+                                section.wellbore_id, []).append(
+                                    _section_data(section, well))
+                        for wb in sorted(well.wellbores, key=lambda w: w.id):
+                            well_data["wellbores"].append({
+                                "id": wb.id,
                                 "well_id": well.id,
-                                "reports": [
-                                    {
-                                        "id": r.id,
-                                        "report_date": r.report_date,
-                                        "report_number": r.report_number,
-                                        "section_id": section.id,
-                                        "well_id": well.id,
-                                    }
-                                    for r in sorted(
-                                        section.daily_reports,
-                                        key=lambda r: r.report_date or date.min,
-                                        reverse=True
-                                    )[:50]
-                                ],
-                            }
-                            well_data["sections"].append(section_data)
+                                "name": wb.name,
+                                "code": wb.code,
+                                "wellbore_type": wb.wellbore_type,
+                                "parent_wellbore_id": wb.parent_wellbore_id,
+                                "kickoff_md": wb.kickoff_md,
+                                "status": wb.status,
+                                "sections": sections_by_bore.get(wb.id, []),
+                            })
+                        # Sections whose bore is unknown (legacy NULL) — kept
+                        # visible and honestly labelled, not hidden or reattached.
+                        well_data["unassigned_sections"] = sections_by_bore.get(
+                            None, [])
                         project_data["wells"].append(well_data)
                     company_data["projects"].append(project_data)
                 hierarchy.append(company_data)
@@ -3547,6 +3595,10 @@ class DatabaseManager:
                     "id": s.id,
                     "name": s.name,
                     "code": s.code,
+                    # Bore scope preserved: a section belongs to a specific
+                    # wellbore. NULL = legacy/un-attributed (unknown bore), never
+                    # silently reassigned to the original bore.
+                    "wellbore_id": s.wellbore_id,
                     "depth_from": s.depth_from,
                     "depth_to": s.depth_to,
                     "diameter": s.diameter,

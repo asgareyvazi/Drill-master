@@ -571,6 +571,10 @@ class FuelWaterTab(QWidget):
         self.status_manager = StatusBarManager()
         self._fuel_remaining = 0.0
         self._water_remaining = 0.0
+        # Carry-forward provenance state: a projection displayed for a day that
+        # has no persisted row yet. Distinct from real saved data.
+        self._is_carry_forward_preview = False
+        self._carry_forward_source_date = None
 
         self.init_ui()
 
@@ -596,7 +600,17 @@ class FuelWaterTab(QWidget):
         date_layout.addWidget(self.report_date)
         date_layout.addStretch()
         main_layout.addLayout(date_layout)
-        
+
+        # Carry-forward preview banner — hidden until a projected (not persisted)
+        # day is loaded, so a projection is never mistaken for saved fact.
+        self.preview_banner = QLabel("")
+        self.preview_banner.setWordWrap(True)
+        self.preview_banner.setStyleSheet(
+            "color: #8a6d00; background: #fff8e1; border: 1px solid #ffc107; "
+            "border-radius: 4px; padding: 6px; font-weight: bold;")
+        self.preview_banner.setVisible(False)
+        main_layout.addWidget(self.preview_banner)
+
         # Daily Consumption Section
         consumption_group = QGroupBox("Daily Consumption & Stock")
         consumption_layout = QFormLayout()
@@ -895,6 +909,8 @@ class FuelWaterTab(QWidget):
 
             result = self.db.save_fuel_water_inventory(inventory_data)
             if result:
+                # Saving turns a projection into a recorded fact for this day.
+                self._clear_carry_forward_preview()
                 self.status_manager.show_success("FuelWaterTab", "Fuel/water data saved")
                 return True
             else:
@@ -949,13 +965,50 @@ class FuelWaterTab(QWidget):
                 self.fuel_camp_received.setValue(_val("fuel_camp_received"))
                 self.update_fuel_remaining()
                 self.update_water_remaining()
-                self.status_manager.show_success("FuelWaterTab", "Fuel/water data loaded")
+                # A carry-forward projection is NOT a persisted fact for this
+                # day: it is the previous day's closing balance shown so the
+                # user can confirm/adjust it. It must be visibly distinguishable
+                # from real saved data, never presented as authoritative.
+                if data.get("is_carry_forward_preview"):
+                    src = data.get("source_report_date")
+                    self._show_carry_forward_preview(src)
+                    self.status_manager.show_message(
+                        "FuelWaterTab",
+                        "Carry-forward preview shown (not yet saved for this day)")
+                else:
+                    self._clear_carry_forward_preview()
+                    self.status_manager.show_success(
+                        "FuelWaterTab", "Fuel/water data loaded")
             else:
+                self._clear_carry_forward_preview()
                 self.status_manager.show_message("FuelWaterTab", "No data found for selected date")
         except Exception as e:
             logger.error(f"Error loading fuel/water data: {e}")
             self.status_manager.show_error("FuelWaterTab", f"Load failed: {str(e)}")
             raise
+
+    def _show_carry_forward_preview(self, source_date):
+        """Mark the currently displayed fuel/water values as a projection.
+
+        A banner above the results makes the provenance explicit and the state
+        is tracked (``self._is_carry_forward_preview``) so it can be cleared as
+        soon as real data is loaded or saved. No values are altered — only their
+        presentation, so an actual 0.0 is never disguised.
+        """
+        self._is_carry_forward_preview = True
+        self._carry_forward_source_date = source_date
+        src_txt = f" from {source_date}" if source_date else ""
+        self.preview_banner.setText(
+            f"⚠ PREVIEW — carried forward{src_txt}; not yet saved for this day. "
+            f"Confirm and Save to record it.")
+        self.preview_banner.setVisible(True)
+
+    def _clear_carry_forward_preview(self):
+        self._is_carry_forward_preview = False
+        self._carry_forward_source_date = None
+        if hasattr(self, "preview_banner"):
+            self.preview_banner.clear()
+            self.preview_banner.setVisible(False)
         
     def clear_fields(self):
         self.fuel_consumed.setValue(0)
@@ -971,6 +1024,7 @@ class FuelWaterTab(QWidget):
         self.fuel_camp_stock.setValue(0)
         self.fuel_camp_received.setValue(0)
         self.results_label.clear()
+        self._clear_carry_forward_preview()
         self.status_manager.show_success("FuelWaterTab", "Fields cleared")
         
     def add_bulk_row(self):

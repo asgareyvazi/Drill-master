@@ -1301,28 +1301,45 @@ class AnalysisWidget(DrillTabBase):
                             .order_by(desc(DailyReport.report_date)).first()
         if not report:
             return None
-        npt_hours = session.query(func.sum(TimeLog24H.duration))\
-                           .filter(TimeLog24H.report_id == report.id, TimeLog24H.is_npt == True).scalar() or 0
-        hours = session.query(func.sum(TimeLog24H.duration))\
-                       .filter(TimeLog24H.report_id == report.id).scalar() or 0
+        # Recorded time: a genuine sum, and 0.0 is a real fact once any time log
+        # exists. But if NO time log exists for the report the totals are
+        # UNKNOWN (None), not a fabricated 0. NPT with time logs present but no
+        # NPT rows is a real 0.0.
+        any_logs = session.query(TimeLog24H.id)\
+                          .filter(TimeLog24H.report_id == report.id).first() is not None
+        npt_hours = (session.query(func.sum(TimeLog24H.duration))
+                     .filter(TimeLog24H.report_id == report.id,
+                             TimeLog24H.is_npt == True).scalar() or 0.0) if any_logs else None
+        hours = (session.query(func.sum(TimeLog24H.duration))
+                 .filter(TimeLog24H.report_id == report.id).scalar() or 0.0) if any_logs else None
         dr = session.query(DrillingParameters).filter(
             DrillingParameters.well_id == well_id,
             DrillingParameters.report_date == report.report_date).first()
         mud = session.query(MudReport).filter(MudReport.well_id == well_id,
                                                MudReport.report_date == report.report_date).first()
+
+        def _mid(lo, hi):
+            # Midpoint only when BOTH bounds are known; otherwise unknown (None),
+            # never a half-fabricated value from a single bound treated as 0.
+            if lo is None or hi is None:
+                return None
+            return (lo + hi) / 2
+
+        # Unknown physical measurements stay None (rendered "—"), never 0. An
+        # explicit reported 0 (e.g. depth_2400 == 0) is preserved as a fact.
         return {
-            'depth': report.depth_2400 or 0,
-            'rop': dr.avg_rop if dr and dr.avg_rop else 0,
+            'depth': report.depth_2400,
+            'rop': dr.avg_rop if dr else None,
             'hours': hours,
-            'rig_day': report.rig_day or 0,
+            'rig_day': report.rig_day,
             'npt_hours': npt_hours,
-            'mw_in': mud.mw if mud and mud.mw else 0,
-            'mw_out': mud.mw if mud and mud.mw else 0,
+            'mw_in': mud.mw if mud else None,
+            'mw_out': mud.mw if mud else None,
             'main_activity': 'Drilling',
-            'wob': ((dr.wob_min or 0) + (dr.wob_max or 0))/2 if dr else 0,
-            'rpm': ((dr.rpm_min or 0) + (dr.rpm_max or 0))/2 if dr else 0,
-            'torque': ((dr.torque_min or 0) + (dr.torque_max or 0))/2 if dr else 0,
-            'pressure': ((dr.pump_pressure_min or 0) + (dr.pump_pressure_max or 0))/2 if dr else 0
+            'wob': _mid(dr.wob_min, dr.wob_max) if dr else None,
+            'rpm': _mid(dr.rpm_min, dr.rpm_max) if dr else None,
+            'torque': _mid(dr.torque_min, dr.torque_max) if dr else None,
+            'pressure': _mid(dr.pump_pressure_min, dr.pump_pressure_max) if dr else None
         }
 
     def get_performance_data(self, session):
@@ -1351,13 +1368,27 @@ class AnalysisWidget(DrillTabBase):
         reports = session.query(DailyReport).filter_by(well_id=well_id)\
                          .order_by(DailyReport.report_date).all()
         data = []
-        prev = 0
+        # ``prev`` is the last KNOWN depth, or None until one is seen. A missing
+        # depth must NOT be treated as 0 — doing so fabricates a huge false
+        # depth loss on the first gap and a false recovery afterwards. Missing
+        # depth => depth None (chart gap) and gain None (unknown), never 0.
+        prev = None
         for i, r in enumerate(reports):
-            d = r.depth_2400 or 0
-            gain = d - prev if i > 0 else d
-            data.append({'date': r.report_date, 'day': i+1, 'depth': d, 'gain': gain,
-                         'status': 'Normal' if gain > 0 else 'No Progress'})
-            prev = d
+            d = r.depth_2400  # trichotomy preserved: None stays unknown
+            if d is None:
+                gain = None
+                status = 'Unknown'
+            elif prev is None:
+                # First known depth: no prior reference to measure a gain from.
+                gain = None
+                status = 'Unknown'
+            else:
+                gain = d - prev
+                status = 'Normal' if gain > 0 else 'No Progress'
+            data.append({'date': r.report_date, 'day': i+1, 'depth': d,
+                         'gain': gain, 'status': status})
+            if d is not None:
+                prev = d
         return data
 
     def get_npt_data(self, session):
@@ -1445,21 +1476,29 @@ class AnalysisWidget(DrillTabBase):
         depths = [d['depth'] for d in data]
         gains = [d['gain'] for d in data]
 
-        self.time_depth_plot.clear()
-        self.time_depth_plot.plot(
-            days, depths,
-            pen=pg.mkPen(color="#3498db", width=3),
-            symbol='o', symbolSize=8,
-            symbolBrush="#2980b9", name="Depth"
-        )
+        # Plot only KNOWN depths — a missing depth is a gap in the series, not a
+        # data point at 0 m. Fabricating 0 would draw a false plunge to surface.
+        depth_days = [d['day'] for d in data if d['depth'] is not None]
+        depth_vals = [d['depth'] for d in data if d['depth'] is not None]
+        gain_days = [d['day'] for d in data if d['gain'] is not None]
+        gain_vals = [d['gain'] for d in data if d['gain'] is not None]
 
-        if (len(days) > 1
+        self.time_depth_plot.clear()
+        if depth_vals:
+            self.time_depth_plot.plot(
+                depth_days, depth_vals,
+                pen=pg.mkPen(color="#3498db", width=3),
+                symbol='o', symbolSize=8,
+                symbolBrush="#2980b9", name="Depth"
+            )
+
+        if (len(depth_days) > 1
                 and hasattr(self, 'td_show_trend')
                 and self.td_show_trend.isChecked()):
             try:
-                z = np.polyfit(days, depths, 1)
+                z = np.polyfit(depth_days, depth_vals, 1)
                 self.time_depth_plot.plot(
-                    days, np.polyval(z, days),
+                    depth_days, np.polyval(z, depth_days),
                     pen=pg.mkPen(
                         color="#e74c3c", width=2,
                         style=Qt.DashLine
@@ -1470,12 +1509,13 @@ class AnalysisWidget(DrillTabBase):
                 pass
 
         self.daily_gain_plot.clear()
-        self.daily_gain_plot.plot(
-            days, gains,
-            pen=pg.mkPen(color="#2ecc71", width=2),
-            fillLevel=0, brush="#27ae6050",
-            name="Daily Gain"
-        )
+        if gain_vals:
+            self.daily_gain_plot.plot(
+                gain_days, gain_vals,
+                pen=pg.mkPen(color="#2ecc71", width=2),
+                fillLevel=0, brush="#27ae6050",
+                name="Daily Gain"
+            )
 
         self.time_depth_table.setRowCount(len(data))
         for i, row in enumerate(data):
@@ -1485,20 +1525,23 @@ class AnalysisWidget(DrillTabBase):
             self.time_depth_table.setItem(
                 i, 1, QTableWidgetItem(str(row['day']))
             )
+            # Unknown depth/gain render as "—", never a fabricated 0.0.
             self.time_depth_table.setItem(
-                i, 2, QTableWidgetItem(f"{row['depth']:.1f}")
+                i, 2, QTableWidgetItem(
+                    "—" if row['depth'] is None else f"{row['depth']:.1f}")
             )
             self.time_depth_table.setItem(
-                i, 3, QTableWidgetItem(f"{row['gain']:.1f}")
+                i, 3, QTableWidgetItem(
+                    "—" if row['gain'] is None else f"{row['gain']:.1f}")
             )
             self.time_depth_table.setItem(
                 i, 4, QTableWidgetItem(row['status'])
             )
 
         self.chart_data['time_depth'] = {
-            'days': days,
-            'depths': depths,
-            'gains': gains,
+            'days': depth_days,
+            'depths': depth_vals,
+            'gains': gain_vals,
             'data': data
         }
 
@@ -1859,12 +1902,16 @@ class AnalysisWidget(DrillTabBase):
             finally: session.close()
         today = self.get_cached_data(f'today_{self.current_well_id}', fetch)
         if today:
-            self.today_indicators['depth_meter'].setText(f"{today['depth']:.1f}")
-            self.today_indicators['rop_meter'].setText(f"{today['rop']:.1f}")
-            self.today_indicators['hours'].setText(f"{today['hours']:.1f}")
-            self.today_indicators['days'].setText(str(today['rig_day']))
-            self.today_indicators['npt_hours'].setText(f"{today['npt_hours']:.1f}")
-            self.today_indicators['mw_pcf'].setText(f"{today['mw_in']:.1f}/{today['mw_out']:.1f}")
+            # Unknown values render as "—" (via fmt_num default=None), never 0.
+            self.today_indicators['depth_meter'].setText(fmt_num(today['depth'], 1, default=None))
+            self.today_indicators['rop_meter'].setText(fmt_num(today['rop'], 1, default=None))
+            self.today_indicators['hours'].setText(fmt_num(today['hours'], 1, default=None))
+            self.today_indicators['days'].setText(
+                "—" if today['rig_day'] is None else str(today['rig_day']))
+            self.today_indicators['npt_hours'].setText(fmt_num(today['npt_hours'], 1, default=None))
+            self.today_indicators['mw_pcf'].setText(
+                f"{fmt_num(today['mw_in'], 1, default=None)}/"
+                f"{fmt_num(today['mw_out'], 1, default=None)}")
         session = self.db.create_session()
         recent = session.query(DailyReport).filter_by(well_id=self.current_well_id)\
                         .order_by(desc(DailyReport.report_date)).limit(10).all()

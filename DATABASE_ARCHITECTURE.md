@@ -43,8 +43,9 @@ engine = create_engine(
 | User | users | User accounts with RBAC |
 | Company | companies | Operating companies |
 | Project | projects | Drilling projects |
-| Well | wells | Individual wellbores |
-| Section | sections | Well sections (hole intervals) |
+| Well | wells | A surface location / well identity |
+| Wellbore | wellbores | A physical bore within a well — the original hole or a sidetrack (`wellbore_type` original/sidetrack, `parent_wellbore_id`, nullable `kickoff_md`). WELL ≠ WELLBORE. |
+| Section | sections | Hole intervals; `wellbore_id` scopes a section to its bore (NULL = unknown/legacy, never silently the original) |
 
 ### 3.2 Daily Reporting
 
@@ -227,7 +228,8 @@ and are shared by every consumer:
 | Method | Purpose |
 |--------|---------|
 | `get_hierarchy()` | Full company→project→well tree |
-| `get_full_hierarchy()` | Eager-loaded hierarchy with sections and reports |
+| `get_full_hierarchy()` | Eager-loaded company→project→well tree. Each well carries a bore-aware `wellbores` list (sections nested under their owning bore, so an original hole and a sidetrack that reuse a section name stay distinct), an `unassigned_sections` list for unknown-bore (legacy NULL) sections, and a flat `sections` list retained for backward compatibility. |
+| `get_sections_by_well(id)` | Sections for a well, each exposing `wellbore_id` (NULL = unknown bore) |
 | `get_all_projects()` | List all projects |
 
 ### 4.3 Well Operations

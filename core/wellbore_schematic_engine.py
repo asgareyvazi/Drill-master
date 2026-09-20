@@ -155,6 +155,9 @@ class WellboreSchematic:
     (GL/KB of 0 m MSL is a valid fact). No synthetic defaults here.
     """
     well_name: str = ""
+    # Bore identity when the schematic is scoped to a single wellbore. Empty for
+    # the whole-well (single-bore or explicit aggregate) view — never fabricated.
+    wellbore_name: str = ""
     rig_name: str = ""
     total_depth_m: Optional[float] = None
     water_depth_m: Optional[float] = None
@@ -1523,11 +1526,34 @@ class SchematicAutoBuilder:
     def __init__(self, db_manager):
         self.db = db_manager
 
-    def build_from_well(self, well_id: int) -> WellboreSchematic:
-        """ساخت شماتیک از داده‌های چاه."""
+    def build_from_well(
+        self, well_id: int, wellbore_id: Optional[int] = None
+    ) -> WellboreSchematic:
+        """Build a schematic for a well, optionally scoped to one wellbore.
+
+        A well may contain more than one wellbore (an original hole plus one or
+        more sidetracks). Their casing programs, penetrated formations and
+        completions are physically distinct — combining them produces a
+        schematic that describes no real bore.
+
+        * ``wellbore_id is None`` → the legacy well-level view: every record for
+          the well is considered. This is only meaningful for a single-bore
+          well; for a multi-bore well it is an explicit, caller-chosen
+          aggregate, not a silent one.
+        * ``wellbore_id`` given → only records attributable to that bore are
+          used. Attribution follows the ownership chain, never a column added
+          for symmetry: casing by ``section.wellbore_id`` (falling back to its
+          report's bore), formation and completion by ``report.wellbore_id``.
+          Records with an unknown bore (legacy NULL) are excluded from a
+          bore-scoped view rather than being fabricated onto it.
+        """
         well = self.db.get_well_by_id(well_id)
         if not well:
             return WellboreSchematic()
+
+        wellbore_name = ""
+        if wellbore_id is not None:
+            wellbore_name = self._resolve_wellbore_name(well_id, wellbore_id)
 
         schematic = WellboreSchematic(
             well_name=well.get("name") or "",
@@ -1539,27 +1565,150 @@ class SchematicAutoBuilder:
             gle_msl_m=_to_float(well.get("gle_msl")),
             kb_msl_m=_to_float(well.get("rte_msl")),
         )
+        # Preserve bore identity on the schematic when scoped, without
+        # fabricating one for the whole-well view.
+        if wellbore_name:
+            schematic.wellbore_name = wellbore_name
+
+        scope = None
+        if wellbore_id is not None:
+            scope = self._bore_scope(well_id, wellbore_id)
 
         # کیسینگ‌ها از DB
-        self._add_casings_from_db(schematic, well_id)
+        self._add_casings_from_db(schematic, well_id, scope)
 
         # سازندها از DB
-        self._add_formations_from_db(schematic, well_id)
+        self._add_formations_from_db(schematic, well_id, scope)
 
         # Completion از DB
-        self._add_completion_from_db(schematic, well_id)
+        self._add_completion_from_db(schematic, well_id, scope)
 
         # NOTE: no default casing program. A well without casing data
         # yields a schematic without casings — unknown stays unknown.
 
         return schematic
 
+    def _resolve_wellbore_name(self, well_id, wellbore_id):
+        try:
+            for wb in self.db.get_wellbores_by_well(well_id):
+                if wb.get("id") == wellbore_id:
+                    return wb.get("name") or ""
+        except Exception as e:
+            logger.error(f"Error resolving wellbore name: {e}")
+        return ""
+
+    def _bore_scope(self, well_id, wellbore_id):
+        """Resolve the section_ids and report_ids that belong to one bore.
+
+        Returns a dict with ``section_ids`` and ``report_ids`` frozensets used
+        to filter well-level record collections down to a single wellbore. A
+        section or report whose bore is NULL (unknown) is deliberately NOT
+        included — an unknown bore is never claimed by a specific one.
+        """
+        from core.database import Section, DailyReport
+        section_ids = set()
+        report_ids = set()
+        session = self.db.create_session()
+        try:
+            section_ids = {
+                sid for (sid,) in session.query(Section.id).filter(
+                    Section.well_id == well_id,
+                    Section.wellbore_id == wellbore_id,
+                ).all()
+            }
+            report_ids = {
+                rid for (rid,) in session.query(DailyReport.id).filter(
+                    DailyReport.well_id == well_id,
+                    DailyReport.wellbore_id == wellbore_id,
+                ).all()
+            }
+        except Exception as e:
+            logger.error(f"Error resolving bore scope: {e}")
+        finally:
+            session.close()
+        return {
+            "wellbore_id": wellbore_id,
+            "section_ids": frozenset(section_ids),
+            "report_ids": frozenset(report_ids),
+        }
+
+    def _latest_casing_for_bore(self, well_id, scope):
+        """Latest casing report owned by one bore, as a dict like the reader.
+
+        Ownership is by ``section_id`` (a section belongs to exactly one bore),
+        falling back to ``report_id`` when the casing row is attributed to a
+        report rather than a section. A row whose bore cannot be resolved is
+        skipped — it is never claimed by this bore.
+        """
+        from core.database import CasingReport
+        from sqlalchemy import or_
+        session = self.db.create_session()
+        try:
+            sec_ids = scope["section_ids"]
+            rep_ids = scope["report_ids"]
+            if not sec_ids and not rep_ids:
+                return None
+            clauses = []
+            if sec_ids:
+                clauses.append(CasingReport.section_id.in_(sec_ids))
+            if rep_ids:
+                clauses.append(CasingReport.report_id.in_(rep_ids))
+            report = (
+                session.query(CasingReport)
+                .filter(
+                    CasingReport.well_id == well_id,
+                    or_(*clauses),
+                )
+                .order_by(CasingReport.report_date.desc())
+                .first()
+            )
+            if not report:
+                return None
+            return {"casing_json": report.casing_json}
+        except Exception as e:
+            logger.error(f"Error loading bore casing: {e}")
+            return None
+        finally:
+            session.close()
+
+    def _latest_formation_for_bore(self, well_id, scope):
+        """Latest formation report owned by one bore, as a dict like the reader."""
+        from core.database import FormationReport
+        session = self.db.create_session()
+        try:
+            rep_ids = scope["report_ids"]
+            if not rep_ids:
+                return None
+            report = (
+                session.query(FormationReport)
+                .filter(
+                    FormationReport.well_id == well_id,
+                    FormationReport.report_id.in_(rep_ids),
+                )
+                .order_by(FormationReport.updated_at.desc())
+                .first()
+            )
+            if not report:
+                return None
+            return {"formations": report.formations_json or []}
+        except Exception as e:
+            logger.error(f"Error loading bore formation: {e}")
+            return None
+        finally:
+            session.close()
+
     def _add_casings_from_db(
-        self, schematic: WellboreSchematic, well_id: int
+        self, schematic: WellboreSchematic, well_id: int, scope=None
     ):
         """اضافه کردن کیسینگ‌ها از دیتابیس."""
         try:
-            casing_report = self.db.get_casing_report(well_id=well_id)
+            if scope is not None:
+                # Bore-scoped: pick the latest casing report OWNED by this bore
+                # (by section, else by report). Never the well-wide latest,
+                # which could belong to a different bore.
+                casing_report = self._latest_casing_for_bore(well_id, scope)
+            else:
+                casing_report = self.db.get_casing_report(well_id=well_id)
             if not casing_report:
                 return
 
@@ -1641,11 +1790,15 @@ class SchematicAutoBuilder:
             logger.error(f"Error loading casings: {e}")
 
     def _add_formations_from_db(
-        self, schematic: WellboreSchematic, well_id: int
+        self, schematic: WellboreSchematic, well_id: int, scope=None
     ):
         """اضافه کردن سازندها از دیتابیس."""
         try:
-            formation_report = self.db.get_formation_report(well_id)
+            if scope is not None:
+                formation_report = self._latest_formation_for_bore(
+                    well_id, scope)
+            else:
+                formation_report = self.db.get_formation_report(well_id)
             if not formation_report:
                 return
 
@@ -1696,15 +1849,23 @@ class SchematicAutoBuilder:
             logger.error(f"Error loading formations: {e}")
 
     def _add_completion_from_db(
-        self, schematic: WellboreSchematic, well_id: int
+        self, schematic: WellboreSchematic, well_id: int, scope=None
     ):
         """اضافه کردن Completion از دیتابیس."""
         try:
             session = self.db.create_session()
             from core.database import DownholeEquipment
-            eq_records = session.query(DownholeEquipment).filter(
+            eq_query = session.query(DownholeEquipment).filter(
                 DownholeEquipment.well_id == well_id
-            ).all()
+            )
+            if scope is not None:
+                # Bore-scoped: only equipment attributed to this bore's reports.
+                # Unknown-bore (NULL report) equipment is excluded, never
+                # attributed to a specific bore.
+                eq_query = eq_query.filter(
+                    DownholeEquipment.report_id.in_(scope["report_ids"])
+                )
+            eq_records = eq_query.all()
             for eq in eq_records:
                 if eq.equipment_data_json:
                     items = eq.equipment_data_json if isinstance(eq.equipment_data_json, list) else [eq.equipment_data_json]
@@ -1725,7 +1886,7 @@ class SchematicAutoBuilder:
                                 it.get("name") or it.get("type") or ""
                             ).strip()
                             elem_type = ElementType.PACKER if "packer" in str(it.get("type", "")).lower() else ElementType.TUBING
-                            schematic.completions.append(
+                            schematic.completion.append(
                                 CompletionItem(
                                     element_type=elem_type,
                                     depth_m=depth,
