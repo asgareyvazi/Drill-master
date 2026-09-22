@@ -436,3 +436,39 @@ def test_analyze_empty_database_is_safe():
     assert rep.applied == 0
     cov = ScopeAttributionService(m).coverage()
     assert cov["wellbore_coverage_pct"] is None
+
+
+def test_two_bores_one_section_null_null_report_converges_safely():
+    """M26 §19: a well with TWO bores but exactly ONE section, and a report with
+    BOTH wellbore_id and section_id NULL.
+
+    The algorithm must not produce a contradictory or half-broken state:
+      * pass 1: section resolves (unique section in well); wellbore stays
+        AMBIGUOUS (2 bores, no discriminator) — NOT guessed.
+      * pass 2: with section now set, wellbore resolves VIA the section's bore.
+      * pass 3: idempotent (nothing left to apply).
+    No fabrication, no INVALID, deterministic convergence.
+    """
+    m = _mgr()
+    pid = _base(m)
+    w = _well(m, pid, "A")
+    orig = _wellbore(m, w, "Original")
+    _wellbore(m, w, "ST-1", wtype="sidetrack", parent=orig)  # 2nd bore
+    sec = _section(m, w, "12.25", wellbore_id=orig)          # the ONLY section
+    rid = _report(m, w, 1, wellbore_id=None, section_id=None)
+
+    svc = ScopeAttributionService(m)
+
+    rep1 = svc.resolve(w)
+    assert _status(rep1, rid, "section").status == RESOLVED
+    assert _status(rep1, rid, "wellbore").status == AMBIGUOUS
+    wb_id, sec_id = _get_report(m, rid)
+    assert sec_id == sec and wb_id is None  # section set, bore still unknown
+
+    rep2 = svc.resolve(w)
+    assert _status(rep2, rid, "wellbore").status == RESOLVED
+    wb_id, sec_id = _get_report(m, rid)
+    assert sec_id == sec and wb_id == orig  # bore now resolved via the section
+
+    rep3 = svc.resolve(w)
+    assert rep3.applied == 0  # fully converged, idempotent
