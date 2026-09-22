@@ -2,13 +2,11 @@
 Trajectory Widget - ابزار مدیریت تراژکتوری چاه با قابلیت‌های پیشرفته (بازنویسی کامل)
 """
 
-import os
 import csv
-import math
 import json
 import logging
-from datetime import datetime, date, time, timedelta
-from typing import Dict, List, Any, Optional, Tuple
+from datetime import datetime, date
+from typing import Dict, List
 
 try:
     import pyqtgraph as pg
@@ -26,12 +24,11 @@ from PySide6.QtWidgets import *
 from PySide6.QtGui import *
 
 from core.database import (
-    Well, Section, TripSheetEntry, SurveyPoint, 
-    TrajectoryCalculation, TrajectoryPlot, DatabaseManager
+    TripSheetEntry, DatabaseManager
 )
 from core.managers import (
     StatusBarManager, TableManager, ExportManager,
-    TableButtonManager, setup_widget_with_managers
+    setup_widget_with_managers
 )
 from core.editor_state import editor_loaded, editor_saved
 from core.base_tab import DrillTabBase

@@ -4,19 +4,15 @@ Comprehensive Safety Management Module with Database Integration
 """
 
 import logging
-import json
-from datetime import datetime, date, timedelta
-from typing import Dict, Any, List, Optional
 
 from PySide6.QtCore import *
 from PySide6.QtWidgets import *
 from PySide6.QtGui import *
 
 from core.managers import (
-    TableManager, TableButtonManager, ExportManager,
-    setup_widget_with_managers, StatusBarManager
+    TableManager, ExportManager,
+    setup_widget_with_managers
 )
-from core.database import DatabaseManager, WasteRecord, BOPComponent, SafetyIncident, SafetyReport
 from core.editor_state import editor_loaded, editor_saved
 from core.base_tab import DrillTabBase
 from core.standards import bop_test_interval_days

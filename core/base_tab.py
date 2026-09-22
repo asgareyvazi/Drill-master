@@ -20,7 +20,6 @@ Usage:
 
 import logging
 from PySide6.QtWidgets import QWidget, QMessageBox
-from PySide6.QtCore import QTimer
 
 from core.managers import StatusBarManager
 from core.selection_manager import SelectionManager

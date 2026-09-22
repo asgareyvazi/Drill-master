@@ -3,7 +3,7 @@ Home Tab - Dashboard and Overview with Real Data
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -19,9 +19,8 @@ from PySide6.QtWidgets import (
     QFrame,
     QScrollArea,
 )
-from PySide6.QtGui import QFont, QColor, QPalette
+from PySide6.QtGui import QFont, QColor
 from PySide6.QtCore import Qt, QTimer, QDate
-from core.managers import StatusBarManager, TableManager, ExportManager
 from core.database import DailyReport
 from core.base_tab import DrillTabBase
 

@@ -6,7 +6,6 @@ side-by-side tables, and different units.
 """
 
 import pytest
-import os
 import tempfile
 from pathlib import Path
 from datetime import date
@@ -212,7 +211,7 @@ class TestEndToEndImport:
     
     def test_create_well_and_import_data(self, db):
         """Create well, section, and import drilling data."""
-        from core.database import Company, Project, Well, Section, DailyReport
+        from core.database import Company, Project, Well, Section
         
         session = db.create_session()
         try:

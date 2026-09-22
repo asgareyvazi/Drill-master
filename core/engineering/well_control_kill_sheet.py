@@ -46,12 +46,11 @@ would change results and violate the mission's no-formula-change rule.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 from core.hydraulics_engine import AdvancedHydraulicsEngine
 from core.engineering.engines.well_control import WellControlEngine
-from core.engineering.result import EngineeringResult
 
 # --- canonical unit conversion constants (single source, mission §9) --------
 # These are the EXACT factors the historical handler used inline. They live here

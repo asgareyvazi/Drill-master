@@ -30,7 +30,7 @@ class WellIdentityTests(unittest.TestCase):
 
     def test_universal_well_aliases(self):
         """Well, Well Name, Well Number, Well ID, نام چاه → well.name"""
-        from core.database import Company, Project, Well
+        from core.database import Company, Project
 
         with self.db.session_scope() as session:
             company = Company(name="Co", code="C1")

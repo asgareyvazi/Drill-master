@@ -14,7 +14,6 @@ from sqlalchemy.pool import StaticPool
 
 from core.database import (
     DatabaseManager, Base, User, Well, Section, DailyReport, Company, Project,
-    ReportRevision,
 )
 from core.report_lifecycle import (
     decide_transition, resolve_transition, allowed_actions, is_editable,

@@ -16,12 +16,10 @@ Design:
 - Integrates with existing TimeLogValidator (does NOT replace it)
 """
 
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from dataclasses import dataclass
+from typing import Dict, Optional, Tuple
 import logging
-import json
 import re
-from pathlib import Path
 
 from core.combo_identity import DEFAULT_ACTIVITY_CATALOG
 

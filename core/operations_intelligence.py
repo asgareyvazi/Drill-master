@@ -7,8 +7,7 @@ Professional Intelligence Platform:
 """
 
 from dataclasses import dataclass, asdict
-from typing import List, Dict, Optional
-from datetime import date, timedelta
+from typing import List, Dict
 import logging
 
 logger = logging.getLogger(__name__)

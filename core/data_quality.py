@@ -133,7 +133,6 @@ class DataQualityService:
                     if model.__name__ == "DailyReport" or not hasattr(model, "report_id"):
                         continue
                     # Count if report_id not in daily_reports
-                    from sqlalchemy import text
                     # Simplified: just check if any child has report_id that doesn't exist (should be 0 due to FK)
                     pass
 
@@ -249,7 +248,6 @@ class DataQualityService:
 
     def dashboard_kpis(self, well_id: int) -> Dict[str, Any]:
         """Professional dashboard KPIs as per spec for Analysis tab."""
-        from core.database import DailyReport, TimeLog24H, DrillingParameters, MudReport
         from core.operations_intelligence import OperationsIntelligenceService
 
         # Get operations intelligence

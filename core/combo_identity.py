@@ -16,7 +16,7 @@ numeric values are never treated as a UI index.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 import re
 import unicodedata
 from typing import Any, Iterable, Mapping, Optional

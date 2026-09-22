@@ -15,9 +15,8 @@ Architecture:
 Safety: Never silently guess, return MISSING_INPUT or UNSUPPORTED.
 """
 
-import math
 import logging
-from typing import List, Dict, Optional, Tuple, Any
+from typing import List, Dict, Optional, Any
 
 logger = logging.getLogger(__name__)
 
@@ -86,7 +85,6 @@ class WellengAdapter:
                 return None
 
         try:
-            import welleng as we
 
             survey = WellengAdapter.build_survey(points)
             if not survey:

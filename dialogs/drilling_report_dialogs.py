@@ -3,7 +3,6 @@
 Drilling Report Dialogs
 دیالوگ‌های حرفه‌ای برای Bit Record, BHA, Casing Tally
 """
-import math
 import logging
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *

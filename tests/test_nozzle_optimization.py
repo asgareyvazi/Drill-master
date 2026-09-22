@@ -15,7 +15,6 @@ hydraulics engine (`AdvancedHydraulicsEngine.calc_bit_pressure_drop` /
 """
 import math
 import os
-import re
 
 import pytest
 

@@ -30,7 +30,7 @@ import tempfile
 import time
 from typing import Any, Callable, Iterable, Mapping, Optional, Sequence
 
-from core.canonical_schema import FIELD_SPECS, lookup_alias
+from core.canonical_schema import FIELD_SPECS
 from core.canonical_mapper import (
     CanonicalValue,
     resolve_canonical_field,

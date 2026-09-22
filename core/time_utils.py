@@ -3,9 +3,9 @@
 Time utilities for handling 24:00 times in daily reports
 """
 from datetime import time
-from PySide6.QtCore import QTime, Qt, Signal
-from PySide6.QtWidgets import QLineEdit, QStyledItemDelegate, QWidget, QHBoxLayout, QLabel
-from PySide6.QtGui import QValidator, QIntValidator
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import QLineEdit
+from PySide6.QtGui import QValidator
 
 
 class TimeLineEdit(QLineEdit):

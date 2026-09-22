@@ -15,17 +15,14 @@ Wellbore Schematic Engine - موتور رندر حرفه‌ای
 - Export به SVG/PNG/PDF
 """
 
-import math
-import json
 import logging
 from dataclasses import dataclass, field
-from typing import List, Dict, Optional, Tuple
+from typing import List, Optional
 from enum import Enum
 
 from PySide6.QtCore import *
 from PySide6.QtGui import *
 from PySide6.QtWidgets import *
-from PySide6.QtSvg import QSvgGenerator
 
 logger = logging.getLogger(__name__)
 

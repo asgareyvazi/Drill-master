@@ -4,16 +4,13 @@ Equipment Widget - ویجت تجهیزات با قابلیت‌های کامل (
 """
 
 import logging
-import json
-from datetime import datetime, date
-from typing import Dict, Any, List, Optional
+from datetime import datetime
 
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
 
-from core.managers import StatusBarManager, TableManager, ExportManager, TableButtonManager
-from core.database import DailyReport, Well
+from core.managers import StatusBarManager, TableManager, ExportManager
 from core.editor_state import editor_loaded, editor_saved
 from core.base_tab import DrillTabBase
 

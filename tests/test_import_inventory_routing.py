@@ -30,7 +30,7 @@ from sqlalchemy.pool import StaticPool
 
 from core.database import (
     Base, DatabaseManager, Company, Project, Well, Section, DailyReport,
-    BulkMaterials, InventoryItem, FuelWaterInventory,
+    BulkMaterials, InventoryItem,
 )
 from core.domain_records import material_route
 

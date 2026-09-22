@@ -4,8 +4,7 @@ DWI / Operational Procedure Module
 ماژول پروسیجرهای عملیاتی - فاز B
 """
 import logging
-import json
-from datetime import datetime, date
+from datetime import datetime
 
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
@@ -14,8 +13,6 @@ from PySide6.QtPrintSupport import QPrinter, QPrintDialog
 
 from core.editor_state import editor_loaded, editor_saved
 from core.base_tab import DrillTabBase
-from core.database import DatabaseManager
-from core.managers import StatusBarManager, ExportManager
 
 logger = logging.getLogger(__name__)
 
@@ -1612,8 +1609,6 @@ class ProcedurePDFExporter:
             
             # تبدیل به PDF
             try:
-                from PySide6.QtWebEngineWidgets import QWebEngineView
-                from PySide6.QtCore import QUrl
                 
                 # روش 1: از QTextDocument
                 from PySide6.QtGui import QTextDocument

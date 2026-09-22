@@ -14,7 +14,7 @@ References:
 - welleng repository (jonnymaserati/welleng) - as knowledge source, not copy
 """
 
-from ..core import TrajectoryEngine, TrajectoryPoint
+from ..core import TrajectoryEngine
 from typing import List, Dict
 
 

@@ -192,7 +192,7 @@ class TestCanonicalNamespace:
     """Verify canonical paths are preserved."""
 
     def test_one_mapping_registry(self):
-        from core.canonical_schema import lookup_alias, FIELD_SPECS
+        from core.canonical_schema import lookup_alias
         assert lookup_alias("mud weight") == "mud_report.mw"
         assert lookup_alias("well name") == "well_info.name"
         assert lookup_alias("bit size") == "drilling_params.bit_size"

@@ -30,7 +30,6 @@ are screening aids only.
 """
 from __future__ import annotations
 
-from typing import Dict
 
 from ..result import (
     EngineeringResult,

@@ -3,10 +3,9 @@
 Professional Report Engine
 موتور تولید گزارش‌های حرفه‌ای DDR, EOWR, NPT, Cost
 """
-import os
 import logging
-from datetime import datetime, date
-from typing import Dict, List, Any, Optional
+from datetime import datetime
+from typing import Dict, Optional
 
 from sqlalchemy import func
 
@@ -423,7 +422,6 @@ table {{
             tt = log.time_to.strftime("%H:%M") if log.time_to else ""
             cls = ' class="npt-row"' if log.is_npt else ""
             npt_mark = "⚠️" if log.is_npt else ""
-            import textwrap
             desc = log.activity_description or ""
             desc_html = wrap_html(desc)
 
@@ -550,7 +548,7 @@ table {{
         """ذخیره Excel"""
         try:
             from openpyxl import Workbook
-            from openpyxl.styles import Font, PatternFill, Alignment
+            from openpyxl.styles import Font, PatternFill
 
             wb = Workbook()
 
@@ -684,7 +682,7 @@ class EOWRReportEngine:
             BHAReport, SurveyPoint, CementReport, CasingReport,
             SafetyReport, TimeLog24H, TimeLogMorning,
             LogisticsPersonnel, ServiceCompany, TransportLog,
-            MaterialRequest, EquipmentLog, Section
+            MaterialRequest, EquipmentLog
         )
         try:
             session = self.db.create_session()
@@ -2055,7 +2053,7 @@ class PlanReportEngine:
             return False
 
     def _collect_data(self, well_id):
-        from core.database import WellPlan, PlannedActivity, Well
+        from core.database import WellPlan, PlannedActivity
         session = self.db.create_session()
         try:
             well = self.db.get_well_by_id(well_id) or {}

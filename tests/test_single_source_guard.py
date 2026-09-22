@@ -15,7 +15,6 @@ Parity (W13 legacy facade → canonical engines):
   back-off) and jet-velocity/TFA wrappers must reproduce the exact legacy
   numbers through their canonical engine delegates.
 """
-import math
 import os
 import re
 import glob

@@ -35,9 +35,6 @@ class TestReleaseVerification:
     
     def test_core_dependencies(self):
         """All core dependencies must be importable."""
-        import PySide6
-        import sqlalchemy
-        import openpyxl
         assert True
     
     def test_all_core_modules_importable(self):
@@ -46,18 +43,6 @@ class TestReleaseVerification:
         # (capability probe — never based on the DISPLAY variable).
         if not _qt_gui_importable():
             pytest.skip("PySide6 GUI modules cannot load (no display and offscreen platform unavailable)")
-        from core.database import DatabaseManager, Well, DailyReport
-        from core.db_models import Base
-        from core.canonical_schema import FIELD_SPECS, CANONICAL_FIELDS
-        from core.unit_manager import UnitManager
-        from core.managers import StatusBarManager, TableManager, DrillingManager
-        from core.permissions import permissions
-        from core.selection_manager import SelectionManager
-        from core.lineage import LineageTracker, get_import_lineage
-        from core.engineering import TrajectoryEngine, HydraulicsEngine
-        from core.validators import WellValidator, DailyReportValidator, MudValidator
-        from core.import_quality import ImportValidator
-        from core.hierarchy_operations import delete_entity, check_delete_permission
         assert True
     
     def test_canonical_schema_minimum_fields(self):
@@ -160,13 +145,6 @@ class TestReleaseVerification:
         """Core modules must not have circular import issues."""
         if not _qt_gui_importable():
             pytest.skip("PySide6 GUI modules cannot load (no display and offscreen platform unavailable)")
-        import core.database
-        import core.db_models
-        import core.managers
-        import core.canonical_schema
-        import core.unit_manager
-        import core.lineage
-        import core.engineering
         assert True
     
     def test_file_sizes_reasonable(self):

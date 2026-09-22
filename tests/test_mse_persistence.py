@@ -21,7 +21,7 @@ from sqlalchemy import create_engine  # noqa: E402
 from sqlalchemy.orm import sessionmaker  # noqa: E402
 from sqlalchemy.pool import StaticPool  # noqa: E402
 
-from core.database import Base, MSECalculationRecord, DatabaseManager  # noqa: E402
+from core.database import Base, DatabaseManager  # noqa: E402
 from core.engineering.calculation_verification import (  # noqa: E402
     VERIFY_DIFFERENT,
     VERIFY_MATCH,

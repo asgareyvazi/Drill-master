@@ -28,7 +28,7 @@ Architecture:
 - UI → Application Services → Domain / Engineering Core → Repositories → Database
 """
 
-from typing import Dict, List, Any, Optional
+from typing import Dict, Any
 import logging
 
 logger = logging.getLogger(__name__)

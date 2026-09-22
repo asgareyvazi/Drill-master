@@ -17,7 +17,6 @@ Verifies:
 
 import pytest
 import json
-import os
 from pathlib import Path
 
 # Skip if real DDR not available

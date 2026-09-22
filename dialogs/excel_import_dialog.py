@@ -15,29 +15,23 @@ Excel → structural analysis → merged-cell detection → region detection →
 """
 
 import os
-import re
-import json
 import logging
-from datetime import date as dt_date, time as dt_time, datetime as dt_datetime
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict
 
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel,
-    QPushButton, QFileDialog, QComboBox, QLineEdit, QMessageBox,
-    QTextEdit, QTableWidget, QTableWidgetItem, QHeaderView,
-    QTabWidget, QWidget, QSplitter, QProgressBar, QApplication,
-    QInputDialog, QDialogButtonBox,
+    QPushButton, QFileDialog, QComboBox, QMessageBox,
+    QTextEdit, QTableWidget, QTableWidgetItem, QApplication,
+    QInputDialog,
 )
-from PySide6.QtCore import Signal, Qt, QTimer, QDir
+from PySide6.QtCore import Signal, Qt, QDir
 from PySide6.QtGui import QColor
 
-from core.text_utils import wrap_text
-from core.import_quality import ImportValidator, find_duplicates, TimeLogValidator, decision_for_confidence
+from core.import_quality import ImportValidator, find_duplicates, TimeLogValidator
 from core.import_diagnostics import (
-    PersistenceIssue, PersistenceError, ImportStatus, determine_import_status,
+    PersistenceIssue, ImportStatus,
 )
-from core.import_quality import ReviewItem
 from core.ai_import_mapper import AIImportMapper, model_catalog, get_selected_model, set_selected_model
 from core.async_workers import FunctionWorker
 from core.import_router import route_file
@@ -50,9 +44,9 @@ from core.mineru_engine import (
     parse_pdf_native_fallback,
 )
 from core.unit_manager import UnitManager
-from dialogs.smart_template_dialog import ValueNormalizer, FIELD_LABELS
+from dialogs.smart_template_dialog import FIELD_LABELS
 
-from core.ddr_import_service import DDRImportService, _canonical_review_row, _enrich_record_reviews
+from core.ddr_import_service import DDRImportService, _canonical_review_row
 
 logger = logging.getLogger(__name__)
 

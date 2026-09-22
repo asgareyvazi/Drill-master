@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Mapping
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List
 
 from ..result import (
     EngineeringResult,

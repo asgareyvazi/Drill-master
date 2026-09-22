@@ -106,6 +106,6 @@ BLOCKED until executed on Windows.
 ## Merge gate
 
 Merge readiness requires a clean working tree after commit, exact SHA, pushed
-branch `arena/01a07094-drill-master`, fresh dependency-backed test output,
+branch `arena/01a085e0-drill-master`, fresh dependency-backed test output,
 package smoke output, and the Windows acceptance record. Until then the status
 is **BLOCKED**.

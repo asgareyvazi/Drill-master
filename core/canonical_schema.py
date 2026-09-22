@@ -10,7 +10,7 @@ This is the ONE canonical schema of the application:
   templates/company mapping, not in this registry.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple, FrozenSet
 
 

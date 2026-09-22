@@ -5,10 +5,8 @@ with full database integration and SelectionManager support
 """
 
 import os
-import json
 import logging
-from datetime import datetime, date, time
-from typing import Dict, List, Optional
+from datetime import datetime, date
 
 from PySide6.QtCore import *
 from PySide6.QtWidgets import *
@@ -16,8 +14,7 @@ from PySide6.QtGui import *
 
 from core.managers import StatusBarManager, TableManager, ExportManager, setup_widget_with_managers
 from core.domain_records import optional_date
-from core.database import DatabaseManager, LogisticsPersonnel, ServiceCompanyPOB, FuelWaterInventory
-from core.database import BulkMaterials, TransportLog, TransportNotes
+from core.database import BulkMaterials, TransportLog
 from core.editor_state import editor_loaded, editor_saved
 from core.base_tab import DrillTabBase
 

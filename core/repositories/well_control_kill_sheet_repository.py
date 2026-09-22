@@ -27,7 +27,6 @@ from core.engineering.calculation_verification import (
 )
 from core.engineering.well_control_kill_sheet_persistence import (
     SNAPSHOT_SCHEMA_VERSION,
-    build_snapshot,
     recalculate_from_snapshot,
     result_summary,
 )

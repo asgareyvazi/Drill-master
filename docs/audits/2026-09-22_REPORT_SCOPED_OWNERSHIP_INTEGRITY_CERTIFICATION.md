@@ -3,8 +3,15 @@
 Date: 2026-09-22
 Branch: `arena/01a085e0-drill-master`
 Start SHA: `8e176fa` (M25 tip — verified)
-End SHA: `7a3bb4a`
+Implementation tip: `7a3bb4a` (last M26 code/test commit)
+Certification commit: `3f52e2e` (this document; the final repository SHA)
 Parent of start: `0527e95` (M24)
+
+> Note (corrected in Mission 27): "End SHA" here means the last *implementation*
+> commit (`7a3bb4a`). This certification document was committed one commit later
+> as `3f52e2e` — a document cannot contain its own future hash, so the two are
+> reported separately rather than conflated. See
+> `2026-09-22_RELEASE_CANDIDATE_INTEGRITY_CERTIFICATION.md` §3.
 Environment: Python 3.11.2 · SQLAlchemy 2.0.54 · openpyxl · PySide6 6.11.2 · Qt offscreen · Linux x86_64
 
 This is a **forensic hardening / production-safety mission**, not a feature
@@ -22,7 +29,8 @@ sprint. Core principle enforced throughout:
 |---|---|
 | Branch | `arena/01a085e0-drill-master` |
 | Start SHA | `8e176fa` |
-| End SHA | `7a3bb4a` |
+| Implementation tip | `7a3bb4a` (last code/test commit) |
+| Certification commit | `3f52e2e` (this document) |
 | Parent | `0527e95` (M24) |
 | Dirty files at start | none tracked (working tree already matched M25 content) |
 | Untracked at start | `.github/` only |

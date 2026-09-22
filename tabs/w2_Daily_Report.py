@@ -3,7 +3,7 @@ Daily Report Tab - گزارش روزانه با استفاده از توابع �
 """
 
 import logging
-from datetime import datetime, date, time, timedelta
+from datetime import time, timedelta
 import os
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
@@ -15,20 +15,14 @@ from PySide6.QtGui import QTextOption
 from core.editor_state import editor_loaded, editor_saved
 from core.base_tab import DrillTabBase
 from core.permissions import require_permission, permissions
-from dialogs.hierarchy_dialogs import NewDailyReportDialog
 
-import textwrap
 
 from core.managers import (
-    StatusBarManager,
     AutoSaveManager,
-    TableButtonManager,
     ExportManager,
 )
 from core.database import DatabaseManager, Well, DailyReport, TimeLog24H, TimeLogMorning
-from core.selection_manager import SelectionManager
 
-from core.text_utils import wrap_text, wrap_html
 
 logger = logging.getLogger(__name__)
 

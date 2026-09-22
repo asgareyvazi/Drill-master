@@ -4,28 +4,19 @@ Drilling Report - کلاس اصلی یکپارچه برای تمام تب‌ها
 
 import logging
 import json
-from datetime import datetime, date
-from typing import Dict, List, Optional, Any
+from datetime import date
 
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
 import os
-from PySide6.QtPrintSupport import QPrinter, QPrintDialog
-from PySide6.QtSvg import QSvgGenerator
 
-from core.database import DatabaseManager
 from core.managers import (
     StatusBarManager,
-    AutoSaveManager,
-    ShortcutManager,
-    TableButtonManager,
-    ExportManager,
     DrillingManager,
 )
 from core.editor_state import editor_loaded, editor_saved
 from core.base_tab import DrillTabBase
-from core.selection_manager import SelectionManager
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +29,6 @@ try:
 except Exception:
     pass
 
-import matplotlib.pyplot as plt
 
 try:
     from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas

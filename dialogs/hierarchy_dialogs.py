@@ -3,16 +3,13 @@ Hierarchy Dialogs - دیالوگ‌های ایجاد Company، Project و Well
 """
 
 import logging
-from datetime import datetime, date
-from typing import Optional
+from datetime import datetime
 
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
 
 from core.database import DatabaseManager, Company, Project, Well, DailyReport, Section
-from core.managers import StatusBarManager
-import json
 
 logger = logging.getLogger(__name__)
 
@@ -1373,7 +1370,7 @@ class NewDailyReportDialog(BaseHierarchyDialog):
             TimeLog24H, TimeLogMorning, DrillingParameters, MudReport,
             CementReport, CasingReport, BitReport, BHAReport, DownholeEquipment,
             FormationReport, LogisticsPersonnel, ServiceCompanyPOB, FuelWaterInventory,
-            BulkMaterials, TransportLog, TransportNotes, SafetyReport, BOPComponent,
+            BulkMaterials, TransportLog, SafetyReport, BOPComponent,
             WasteRecord, ServiceCompany, ServiceNote, MaterialRequest, EquipmentLog,
             SevenDaysLookahead, TripSheetEntry, SurveyPoint, WellboreSchematic
         )

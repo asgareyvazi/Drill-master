@@ -15,7 +15,6 @@ template/canonical/DB pipeline.
 """
 
 import json
-import os
 from pathlib import Path
 
 import pytest
@@ -172,8 +171,6 @@ class TestPOBExtraction:
 # ============================================================
 class TestDatabasePath:
     def test_safety_and_pob_saved(self, db, canonical):
-        from core.database import (DailyReport, SafetyReport, ServiceCompanyPOB,
-                                   Well)
         well_id, section_id, report_id = _seed_well_report(db)
 
         # Well-level LTA: same merge the import dialog performs generically
@@ -221,7 +218,7 @@ class TestDatabasePath:
     def test_safety_drill_dates_never_fake(self, db, canonical):
         """Drill dates missing in the workbook must stay NULL in the DB —
         never defaulted to today or 0."""
-        from core.database import DailyReport, SafetyReport
+        from core.database import SafetyReport
         well_id, section_id, report_id = _seed_well_report(db)
         db.save_imported_multi_tab_data_atomic(
             well_id, report_id, dict(canonical)
@@ -356,7 +353,7 @@ class Test24HTimeLog:
         """The day-closing row 23:30 -> 24:00 is stored (00:00 convention)
         with its 0.5 h duration — the row is not dropped. Drives the same
         production save path the import dialog uses (_save_time_logs)."""
-        from core.database import DailyReport, TimeLog24H
+        from core.database import TimeLog24H
         well_id, section_id, report_id = _seed_well_report(db)
         with _QtStubs():
             from dialogs.excel_import_dialog import ExcelImportDialog
@@ -410,7 +407,7 @@ class TestLookaheadEmptySourceRows:
             assert row.get("hours") in (None, "", 24)  # only a date/hours stub
 
     def test_only_eleven_stored(self, db, canonical):
-        from core.database import DailyReport, SevenDaysLookahead
+        from core.database import SevenDaysLookahead
         well_id, section_id, report_id = _seed_well_report(db)
         result = db.save_imported_multi_tab_data_atomic(
             well_id, report_id, dict(canonical)
@@ -447,7 +444,7 @@ class TestNPTServiceCompany:
             assert svc.get("npt_hours") in (None, "")
 
     def test_six_companies_saved_no_duplicates(self, db, canonical):
-        from core.database import (DailyReport, ServiceCompany)
+        from core.database import (ServiceCompany)
         well_id, section_id, report_id = _seed_well_report(db)
         result = db.save_imported_multi_tab_data_atomic(
             well_id, report_id, dict(canonical)
@@ -471,7 +468,6 @@ class TestNPTServiceCompany:
     def test_service_npt_hours_generic_path(self, db):
         """A service row WITH Total NPT hours keeps them on its existing
         ServiceCompany row — one row, no duplicate company."""
-        from core.database import (DailyReport, ServiceCompany)
         well_id, section_id, report_id = _seed_well_report(db)
         canonical = {
             "service_companies": [
@@ -494,7 +490,7 @@ class TestNPTServiceCompany:
     def test_npt_report_responsible_party_from_contractor(self, db):
         """An NPT time-log row attributed to a company flows into the
         existing npt_reports representation with that company preserved."""
-        from core.database import (DailyReport, TimeLog24H)
+        from core.database import (TimeLog24H)
         from datetime import time
         well_id, section_id, report_id = _seed_well_report(db)
         session = db.create_session()
@@ -527,7 +523,7 @@ class TestFuelWaterImport:
     fabricated zeros."""
 
     def test_fuel_water_canonical_values_persist(self, db, canonical):
-        from core.database import DailyReport, FuelWaterInventory
+        from core.database import FuelWaterInventory
         well_id, section_id, report_id = _seed_well_report(db)
         result = db.save_imported_multi_tab_data_atomic(
             well_id, report_id, dict(canonical)
@@ -556,7 +552,6 @@ class TestFuelWaterImport:
             session.close()
 
     def test_fuel_water_getter_exposes_extras(self, db, canonical):
-        from core.database import DailyReport
         well_id, section_id, report_id = _seed_well_report(db)
         db.save_imported_multi_tab_data_atomic(well_id, report_id, dict(canonical))
         data = db.get_fuel_water_inventory(well_id, report_id=report_id)
@@ -572,7 +567,7 @@ class TestFuelWaterImport:
 # ============================================================
 class TestMudExtrasImport:
     def test_mud_chemistry_persists(self, db, canonical):
-        from core.database import DailyReport, MudReport
+        from core.database import MudReport
         from datetime import date as _date
         well_id, section_id, report_id = _seed_well_report(db)
         report_date = _date.fromisoformat(canonical["daily_report"]["report_date"])
@@ -595,7 +590,7 @@ class TestMudExtrasImport:
             session.close()
 
     def test_report_header_volumes_map_to_mud(self, db, canonical):
-        from core.database import DailyReport, MudReport
+        from core.database import MudReport
         well_id, section_id, report_id = _seed_well_report(db)
         # The dialog path performs the daily_report -> mud mapping; the
         # atomic saver alone cannot see the dialog. Exercise the dialog
@@ -636,7 +631,7 @@ class TestMudExtrasImport:
 # ============================================================
 class TestBitRunImport:
     def test_bit_run_fields_map(self, db, canonical):
-        from core.database import DailyReport, DrillingParameters
+        from core.database import DrillingParameters
         well_id, section_id, report_id = _seed_well_report(db)
         from datetime import date as _date
         report_date = _date.fromisoformat(canonical["daily_report"]["report_date"])
@@ -673,7 +668,7 @@ class TestBitRunImport:
 # ============================================================
 class TestRowTablesPersistence:
     def test_bha_components_persist(self, db, canonical):
-        from core.database import DailyReport, BHAReport
+        from core.database import BHAReport
         well_id, section_id, report_id = _seed_well_report(db)
         db.save_imported_multi_tab_data_atomic(well_id, report_id, dict(canonical))
         session = db.create_session()
@@ -687,7 +682,7 @@ class TestRowTablesPersistence:
 
     def test_downhole_formation_casing_cement_persist(self, db, canonical):
         import json as _json
-        from core.database import (DailyReport, DownholeEquipment,
+        from core.database import (DownholeEquipment,
                                    FormationReport, CasingReport, CementReport)
         well_id, section_id, report_id = _seed_well_report(db)
         db.save_imported_multi_tab_data_atomic(well_id, report_id, dict(canonical))
@@ -711,7 +706,7 @@ class TestRowTablesPersistence:
             session.close()
 
     def test_solid_control_and_material_request_persist(self, db, canonical):
-        from core.database import (DailyReport, EquipmentLog, MaterialRequest)
+        from core.database import (EquipmentLog, MaterialRequest)
         well_id, section_id, report_id = _seed_well_report(db)
         db.save_imported_multi_tab_data_atomic(well_id, report_id, dict(canonical))
         session = db.create_session()
@@ -756,7 +751,7 @@ class TestRowTablesPersistence:
 # ============================================================
 class TestSurveyNoInventedZeros:
     def test_surveys_keep_nulls(self, db, canonical):
-        from core.database import DailyReport, SurveyPoint
+        from core.database import SurveyPoint
         well_id, section_id, report_id = _seed_well_report(db)
         db.save_imported_multi_tab_data_atomic(well_id, report_id, dict(canonical))
         session = db.create_session()
@@ -783,7 +778,7 @@ class TestSurveyNoInventedZeros:
 # ============================================================
 class TestServiceCompanyExtraFields:
     def test_service_extra_fields_persist(self, db, canonical):
-        from core.database import DailyReport, ServiceCompany
+        from core.database import ServiceCompany
         well_id, section_id, report_id = _seed_well_report(db)
         db.save_imported_multi_tab_data_atomic(well_id, report_id, dict(canonical))
         session = db.create_session()

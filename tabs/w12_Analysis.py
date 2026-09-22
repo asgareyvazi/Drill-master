@@ -3,17 +3,12 @@ Advanced Analysis and Monitoring Tab for Drilling Software
 PySide6 Version – Fully refactored with SelectionManager integration
 """
 import os
-import sys
 import numpy as np
-import pandas as pd
-from datetime import datetime, date, timedelta
+from datetime import datetime, date
 from sqlalchemy import func, desc
 from core.text_utils import fmt_num
 import logging
 logger = logging.getLogger(__name__)
-import json
-import tempfile
-from pathlib import Path
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -23,7 +18,7 @@ from PySide6.QtGui import *
 from PySide6.QtPrintSupport import QPrinter, QPrintDialog
 from core.common_widgets import safe_replace_chart
 
-from core.managers import StatusBarManager, TableManager, ExportManager, setup_widget_with_managers
+from core.managers import ExportManager
 
 import matplotlib
 try:
@@ -66,23 +61,13 @@ except ImportError:
         "Install with: pip install pyqtgraph"
     )
 
-import matplotlib.colors as mcolors
 
 from core.database import (
-    Company, Project, Well, Section, DailyReport, TimeLog24H,
-    TimeLogMorning, User, DrillingParameters, MudReport,
-    CementReport, CasingReport, WellboreSchematic,
-    TripSheetEntry, SurveyPoint, TrajectoryCalculation, TrajectoryPlot,
-    BitReport, BHAReport, DownholeEquipment, FormationReport,
-    LogisticsPersonnel, ServiceCompanyPOB, FuelWaterInventory,
-    BulkMaterials, TransportLog, TransportNotes,
-    SafetyReport, SafetyIncident, BOPComponent, WasteRecord,
-    ServiceCompany, ServiceNote, MaterialRequest, EquipmentLog,
-    SevenDaysLookahead, NPTReport, ActivityCode, TimeDepthData, ROPAnalysis,
-    ExportTemplate, DatabaseManager
+    DailyReport, TimeLog24H,
+    DrillingParameters, MudReport,
+    SafetyReport
 )
 from core.base_tab import DrillTabBase
-from core.selection_manager import SelectionManager
 from core.data_quality import DataQualityService
 from core.operations_intelligence import OperationsIntelligenceService
 
@@ -3060,7 +3045,6 @@ class AnalysisWidget(DrillTabBase):
                     self.show_error("Install pandas: pip install pandas openpyxl")
             else:
                 # CSV fallback
-                import csv
                 tables = {
                     'time_depth': self.time_depth_table,
                     'npt': self.npt_table,

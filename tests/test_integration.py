@@ -5,12 +5,10 @@ using in-memory SQLite database.
 """
 
 import pytest
-from datetime import date, time, datetime
+from datetime import date
 from core.database import (
-    DatabaseManager, Well, Company, Project, Section, DailyReport,
-    MudReport, DrillingParameters, TimeLog24H, SurveyPoint,
-    SafetyReport, BulkMaterials, CostRecord, EquipmentLog,
-    ServiceCompanyPOB, FuelWaterInventory, BHAReport, BitReport,
+    DatabaseManager, Well, Company, Project, Section, MudReport, SurveyPoint,
+    BulkMaterials, CostRecord,
 )
 
 

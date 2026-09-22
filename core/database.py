@@ -1,14 +1,12 @@
 """
 Database - SQLAlchemy ORM setup and DatabaseManager class
 """
-import random
 import math
 from core.legacy_bha import protect_bha_insert, protect_bha_record, require_editable_bha
 import logging
 import re
-from datetime import datetime, date, timedelta, timezone, time as datetime_time
-from typing import Optional, Dict, Any, List, Tuple
-from datetime import date as DateType
+from datetime import datetime, date, timezone, time as datetime_time
+from typing import Optional, Dict, Any, List
 
 from pathlib import Path
 
@@ -63,9 +61,7 @@ logger = logging.getLogger(__name__)
 
 # Re-export the shared policy for existing application callers.
 from core.credential_policy import (
-    _DEVELOPMENT_FIXTURE_PASSWORDS, _BOOTSTRAP_PASSWORD_ENV,
-    runtime_environment, is_production_environment, bootstrap_password_for_role,
-    resolve_bootstrap_passwords, validate_production_password, is_development_password,
+    _DEVELOPMENT_FIXTURE_PASSWORDS, runtime_environment, is_production_environment, resolve_bootstrap_passwords, validate_production_password, is_development_password,
     CredentialLifecycleError,
 )
 

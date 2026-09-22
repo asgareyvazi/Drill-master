@@ -18,8 +18,7 @@ from core.database import (
 )
 from core.report_lifecycle import LifecycleOutcome
 from core.report_snapshot import (
-    snapshot_is_complete, child_count, serialize_value, build_report_snapshot,
-    SNAPSHOT_SCHEMA_VERSION,
+    snapshot_is_complete, child_count, serialize_value, SNAPSHOT_SCHEMA_VERSION,
 )
 
 ENG = lambda p: p in {"can_edit_reports", "can_export"}          # noqa: E731

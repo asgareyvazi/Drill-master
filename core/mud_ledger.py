@@ -9,9 +9,9 @@ P0/P1 Requirements:
 - History: Daily Usage Chart, Stock Trend, Consumption Rate, Days Remaining, Received vs Used
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import List, Dict, Optional
-from datetime import date, timedelta
+from datetime import date
 import logging
 
 logger = logging.getLogger(__name__)

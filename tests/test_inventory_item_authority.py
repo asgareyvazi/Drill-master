@@ -23,8 +23,8 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from core.database import (
-    Base, DatabaseManager, Company, Project, Well, Section, DailyReport,
-    InventoryItem, EquipmentLog,
+    Base, DatabaseManager, Company, Project, Well, DailyReport,
+    EquipmentLog,
 )
 from core import inventory_semantics as inv
 

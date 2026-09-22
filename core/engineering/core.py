@@ -17,7 +17,7 @@ Every calculation has contract:
 - Error conditions
 """
 
-from dataclasses import dataclass, asdict, field
+from dataclasses import dataclass, asdict
 from typing import List, Dict, Optional, Tuple, Any
 import math
 import logging
@@ -26,7 +26,6 @@ from .result import (
     EngineeringResult,
     EngineeringError,
     MissingInputError,
-    UnsupportedCalculationError,
 )
 
 logger = logging.getLogger(__name__)

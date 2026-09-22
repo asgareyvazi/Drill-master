@@ -25,13 +25,12 @@ import time
 from datetime import date, time as dt_time, timedelta
 
 from core.canonical_schema import (
-    FIELD_SPECS, lookup_alias, get_engineering_bounds,
-    get_quantity_unit, get_field_spec, CANONICAL_FIELDS,
+    FIELD_SPECS, get_engineering_bounds,
     mapping_certainty,
 )
-from core.import_ir import raw_document_from_workbook, SourceLocation
+from core.import_ir import raw_document_from_workbook
 from core.canonical_mapper import resolve_canonical_field, normalize_canonical_value
-from core.combo_identity import ComboCatalog, DEFAULT_ACTIVITY_CATALOG, ComboResolution
+from core.combo_identity import ComboCatalog, DEFAULT_ACTIVITY_CATALOG
 
 logger = logging.getLogger(__name__)
 

@@ -12,16 +12,13 @@ from PySide6.QtCore import *
 from PySide6.QtGui import *
 from PySide6.QtPrintSupport import QPrinter, QPrintDialog
 
-from core.database import DatabaseManager, ServiceCompany
 from core.managers import (
-    StatusBarManager, ExportManager, TableManager,
-    DrillingManager, AutoSaveManager
+    StatusBarManager, ExportManager
 )
 from core.editor_state import editor_loaded, editor_saved
 from core.base_tab import DrillTabBase
-from core.selection_manager import SelectionManager
 
-from core.text_utils import wrap_text, wrap_html
+from core.text_utils import wrap_html
 
 logger = logging.getLogger(__name__)
 
@@ -787,7 +784,6 @@ class ServiceCompanyTab(QWidget):
 
     def add_company(self):
         if not self.current_well_id: QMessageBox.warning(self,"Warning","Select a well first"); return
-        from dialogs.hierarchy_dialogs import BaseHierarchyDialog
         dlg = _ServiceCompanyDialog(self.db, self.current_well_id, self.current_report_id, self)
         if dlg.exec(): self.load_data()
 
@@ -1560,7 +1556,6 @@ class BitRecordTab(QWidget):
         if not self.current_well or not self.db_manager:
             return False
         records = self._get_all_data()
-        import json
         data = {
             "report_date": date.today(),
             "report_name": f"Bit Report {date.today()}",

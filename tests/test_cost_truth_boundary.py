@@ -17,7 +17,6 @@ Demonstrated defects fixed and locked here:
 Every test exercises real production code against an isolated in-memory
 DatabaseManager — no mocks.
 """
-from datetime import date
 
 import pytest
 from sqlalchemy import create_engine
@@ -25,7 +24,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from core.database import (
-    Base, DatabaseManager, Company, Project, Well, Section, CostRecord,
+    Base, DatabaseManager, Company, Project, Well, CostRecord,
 )
 from core import cost_semantics as cs
 
@@ -202,7 +201,6 @@ class TestConsumerParity:
         total_actual = sum(r["actual"] for r in summary)
         assert total_actual == 100
         # The canonical KPI service sums the same stored actual cost.
-        from core.operations_intelligence import OperationsIntelligenceService
         # No daily reports -> analyze_well short-circuits; sum CostRecords direct.
         session = manager.create_session()
         try:

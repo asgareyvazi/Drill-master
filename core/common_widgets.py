@@ -5,7 +5,6 @@ Common reusable widgets برای استفاده در همه تب‌ها
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
-from core.managers import ExportManager
 import csv
 import logging
 

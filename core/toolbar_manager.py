@@ -6,7 +6,7 @@ Provides toolbar creation and action definitions.
 import logging
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QToolBar, QLineEdit, QWidget, QHBoxLayout, QLabel
-from PySide6.QtCore import QSize, Qt
+from PySide6.QtCore import QSize
 
 logger = logging.getLogger(__name__)
 

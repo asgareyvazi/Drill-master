@@ -9,9 +9,8 @@ Implements spec:
 
 from datetime import datetime, timezone, date
 import json
-from typing import Dict, List, Any, Optional
+from typing import Dict, Any
 import logging
-from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +58,7 @@ class ProfessionalExportMetadata:
         company_name = ""
         project_name = ""
         try:
-            from core.database import Well, Project, Company
+            from core.database import Well
             with db_manager.session_scope() as session:
                 w_obj = session.get(Well, well_id)
                 if w_obj and w_obj.project:
@@ -140,7 +139,7 @@ class ProfessionalExcelExport:
     def export(self, well_id: int, output_path: str, report_id: int = None, section_id: int = None) -> bool:
         try:
             from openpyxl import Workbook
-            from openpyxl.styles import Font, PatternFill, Alignment
+            from openpyxl.styles import Font, PatternFill
 
             wb = Workbook()
             wb.remove(wb.active)
@@ -283,7 +282,7 @@ class ProfessionalExcelExport:
             # 10. Logistics
             ws10 = wb.create_sheet("Logistics")
             try:
-                from core.database import FuelWaterInventory, BulkMaterials, ServiceCompanyPOB
+                from core.database import BulkMaterials
                 with self.db.session_scope() as session:
                     query = session.query(BulkMaterials).filter(BulkMaterials.well_id == well_id)
                     if report_id is not None:

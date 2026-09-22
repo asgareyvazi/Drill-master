@@ -5,7 +5,6 @@ All engineering formulas live in core/engineering.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
 
 from .result import EngineeringResult, missing
 from .core import (

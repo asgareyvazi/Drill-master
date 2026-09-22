@@ -6,10 +6,8 @@ They can be called from DatabaseManager methods or directly.
 This enables incremental extraction without breaking the existing API.
 """
 
-import json
 import logging
-from datetime import datetime, date, time, timezone
-from typing import Optional, Dict, Any, List
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 

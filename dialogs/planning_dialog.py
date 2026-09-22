@@ -4,15 +4,14 @@
 Well Plan Dialog - برنامه‌ریزی حرفه‌ای عملیات حفاری
 شامل: Phase/Category management, Activity timeline, PLAN vs FACT
 """
-import json
 import logging
-from datetime import datetime, date, timedelta
+from datetime import datetime, timedelta
 
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
 
-from core.database import DatabaseManager, Well, Section, PlannedActivity, WellPlan
+from core.database import DatabaseManager, PlannedActivity, WellPlan
 
 logger = logging.getLogger(__name__)
 # ==================== Plan Import Review Dialog ====================

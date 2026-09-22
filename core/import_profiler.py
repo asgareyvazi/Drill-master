@@ -17,7 +17,7 @@ Use caching, batch requests, confidence-based AI escalation.
 
 import time
 from typing import Dict, List, Any
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 import logging
 
 logger = logging.getLogger(__name__)

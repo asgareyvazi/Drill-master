@@ -27,7 +27,7 @@ from __future__ import annotations
 import math
 from typing import Any, Dict, List, Mapping, Optional
 
-from core.engineering.calculation_verification import (
+from core.engineering.calculation_verification import (  # noqa: F401  (re-exported for repositories/dialogs/tests)
     DEFAULT_NON_NUMERIC_RESULT_KEYS as _NON_NUMERIC_RESULT_KEYS,
     VERIFY_DIFFERENT,
     VERIFY_MATCH,

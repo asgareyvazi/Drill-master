@@ -19,9 +19,8 @@ Future models:
 - Table Transformer → table structure
 """
 
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 import logging
-import re
 
 logger = logging.getLogger(__name__)
 

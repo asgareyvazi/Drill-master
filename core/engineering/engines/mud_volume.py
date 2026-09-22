@@ -8,7 +8,7 @@ tracked separately so the UI can show it without a second formula.
 """
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import List
 
 from ..result import (
     EngineeringResult,
@@ -18,7 +18,6 @@ from ..result import (
     missing,
     failed,
     require_number,
-    optional_number,
 )
 
 

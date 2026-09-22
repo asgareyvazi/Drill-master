@@ -7,7 +7,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from core.import_quality import TimeLogValidator
-from datetime import time
 
 
 class TimeLogValidationTests(unittest.TestCase):

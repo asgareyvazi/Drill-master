@@ -2,7 +2,7 @@
 
 from core.legacy_bha import protect_bha_insert, protect_bha_record
 
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional
 from contextlib import contextmanager
 import logging
 

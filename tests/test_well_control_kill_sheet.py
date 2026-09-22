@@ -17,7 +17,6 @@ These tests prove the relocated composite computation
 
 All tests are Qt-free (no widgets) so they run in the shared interpreter.
 """
-import math
 
 import pytest
 
@@ -26,9 +25,6 @@ from core.engineering.engines.well_control import WellControlEngine
 from core.engineering.well_control_kill_sheet import (
     FT_PER_M,
     PCF_PER_PPG,
-    PSI_PER_PPG_FT,
-    CHOKE_SCHEDULE_INTERVALS,
-    PipeSegment,
     WellControlKillSheetInputs,
     build_canonical_kill_sheet_inputs,
     compute_kill_sheet,

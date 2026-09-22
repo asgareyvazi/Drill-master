@@ -1,7 +1,6 @@
 """Logistics, Equipment, Bulk, Fuel repositories."""
 
 from .base import BaseRepository
-from core.database import BulkMaterials, FuelWaterInventory, EquipmentLog, ServiceCompanyPOB, TransportLog
 from typing import List, Dict
 from core.engineering.core import MudLedgerEngine, ChemicalLedgerEntry
 import logging

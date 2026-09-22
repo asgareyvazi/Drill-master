@@ -18,14 +18,13 @@ lightweight stub holding ``current_well_id`` and a real in-memory session.
 """
 from datetime import date, time
 
-import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from core.database import (
     Base, DatabaseManager, Company, Project, Well, DailyReport,
-    DrillingParameters, TimeLog24H, MudReport,
+    DrillingParameters, TimeLog24H,
 )
 from tabs.w12_Analysis import AnalysisWidget
 

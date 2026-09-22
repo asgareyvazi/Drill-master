@@ -2,11 +2,7 @@
 Planning Widget - Comprehensive planning module for drilling operations (بازنویسی کامل)
 """
 
-import sys
-import os
-from datetime import datetime, date, timedelta, timezone
-import random
-import json
+from datetime import datetime, date, timezone
 import logging
 import numpy as np
 
@@ -18,16 +14,13 @@ from PySide6.QtCharts import *
 from sqlalchemy import func
 from core.text_utils import fmt_num
 from core.database import (
-    DatabaseManager, TimeLog24H, DailyReport, PlannedActivity, Section, WellPlan,
-    DrillingParameters, MudReport
+    TimeLog24H, DailyReport, Section
 )
 from core.managers import (
-    StatusBarManager, AutoSaveManager, ShortcutManager,
-    TableManager, TableButtonManager, ExportManager
+    StatusBarManager, TableManager, ExportManager
 )
 from core.editor_state import editor_loaded, editor_saved
 from core.base_tab import DrillTabBase
-from core.selection_manager import SelectionManager
 from dialogs.planning_dialog import WellPlanDialog
 from core.common_widgets import safe_replace_chart
 import matplotlib
@@ -689,7 +682,6 @@ class NPTReportTab(QWidget):
         
         try:
             # Grab the widget as image
-            from PySide6.QtGui import QPixmap
             
             if filename.endswith('.pdf'):
                 from PySide6.QtPrintSupport import QPrinter
@@ -1572,7 +1564,6 @@ class WellPlanTab(QWidget):
         session = self.db.create_session()
         try:
             from core.database import PlannedActivity
-            from datetime import datetime
 
             query = session.query(PlannedActivity).filter(
                 PlannedActivity.well_id == self.current_well_id
@@ -2140,7 +2131,7 @@ class MudParamsTab(QWidget):
             return
         session = self.db.create_session()
         try:
-            from core.database import MudReport, DailyReport, DrillingParameters
+            from core.database import MudReport, DailyReport
             
             results = session.query(
                 MudReport, DailyReport.depth_2400

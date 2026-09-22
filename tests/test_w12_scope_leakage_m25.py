@@ -22,8 +22,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from core.database import (
-    Base, DatabaseManager, Company, Project, Well, Wellbore, Section,
-    DailyReport, DrillingParameters, MudReport, TimeLog24H,
+    Base, DatabaseManager, Company, Project, Well, Wellbore, DailyReport, DrillingParameters, MudReport, TimeLog24H,
 )
 from core.operations_intelligence import OperationsIntelligenceService
 from tabs.w12_Analysis import AnalysisWidget

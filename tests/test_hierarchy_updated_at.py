@@ -7,9 +7,7 @@ timestamp (or "—" when unavailable). This guards the data contract Qt-free.
 """
 from __future__ import annotations
 
-import os
 
-import pytest
 
 
 def _fresh_manager(tmp_path, monkeypatch):

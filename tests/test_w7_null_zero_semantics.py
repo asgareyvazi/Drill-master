@@ -30,7 +30,6 @@ from sqlalchemy.pool import StaticPool
 
 from core.database import (
     Base, DatabaseManager, Company, Project, Well, DailyReport,
-    FuelWaterInventory,
 )
 
 

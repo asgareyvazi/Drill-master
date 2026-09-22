@@ -1,8 +1,10 @@
 # DrillMaster Engineering Capability Status
 
-Status verified against `arena/01a07094-drill-master` after the Engineering
-Capability Completion work. `EngineeringResult.scope` is authoritative for
-runtime calculations.
+Capability scope is maintained on `arena/01a085e0-drill-master`; the
+domain-by-domain labels below reflect the current engine implementations on
+this branch (the original Engineering Capability Completion work was verified
+on the predecessor `arena/01a07094-drill-master`). `EngineeringResult.scope`
+is authoritative for runtime calculations.
 
 | Domain | Status | Canonical implementation | Methodology and limitations |
 |---|---|---|---|

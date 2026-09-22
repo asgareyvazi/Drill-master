@@ -5,19 +5,16 @@ Engineering Calculator - ادغام شده از نرم‌افزار قبلی
 تمام محاسبات حفاری در یک تب مستقل
 """
 import math
-import itertools
 import logging
 import os
 
 import pandas as pd
-import numpy as np
 
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
 
 from core.base_tab import DrillTabBase
-from core.managers import StatusBarManager, DrillingManager
 from core.common_widgets import safe_replace_chart
 
 logger = logging.getLogger(__name__)
@@ -951,8 +948,7 @@ class EngineeringCalculatorTab(DrillTabBase):
     def _create_hydraulics_tab(self) -> QWidget:
         """تب هیدرولیک پیشرفته با دیالوگ‌ها"""
         from core.hydraulics_engine import (
-            AdvancedHydraulicsEngine, PipeSegment, CasingSection,
-            BitNozzle, MudProperties, SurfaceEquipment, WellProfile
+            AdvancedHydraulicsEngine
         )
 
         self.adv_engine = AdvancedHydraulicsEngine()
@@ -2482,7 +2478,6 @@ class EngineeringCalculatorTab(DrillTabBase):
 
         from core.engineering.drill_pipe_import import (
             import_workbook,
-            read_workbook_rows,
             DrillPipeImportError,
         )
 

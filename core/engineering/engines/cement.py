@@ -6,7 +6,7 @@ centralization FEM, or gas-migration modelling).
 """
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import List
 
 from ..result import (
     EngineeringResult,

@@ -2,8 +2,7 @@
 
 import pytest
 from core.activity_mapper import (
-    ActivityMapper, CANONICAL_ACTIVITIES, KNOWN_CODE_PATTERNS,
-    ActivityMappingResult,
+    ActivityMapper, CANONICAL_ACTIVITIES,
 )
 
 

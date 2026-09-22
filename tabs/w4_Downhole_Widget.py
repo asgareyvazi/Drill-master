@@ -4,7 +4,7 @@ Downhole Widget - ابزار مدیریت تجهیزات زیر سطحی (باز
 
 import logging
 import json
-from datetime import datetime, date, timedelta
+from datetime import date
 # Try to import pandas (optional)
 try:
     import pandas as pd
@@ -12,16 +12,13 @@ try:
 except ImportError:
     PANDAS_AVAILABLE = False
     
-import csv
 
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
-from core.database import DatabaseManager
-from core.managers import StatusBarManager, TableManager, ExportManager, DrillingManager
+from core.managers import TableManager, ExportManager
 from core.editor_state import editor_loaded, editor_saved
 from core.base_tab import DrillTabBase
-from core.selection_manager import SelectionManager
 from core.text_utils import safe_str, fmt_num
 from core.domain_records import collection_value, restore_named_text
 

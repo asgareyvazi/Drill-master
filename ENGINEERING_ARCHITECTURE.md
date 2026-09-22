@@ -1,7 +1,8 @@
 # DrillMaster — Engineering Architecture Documentation
 
-> **Version:** 2.1 — capability status verified against branch
-> `arena/01a07094-drill-master`. See `ENGINEERING_CAPABILITY_STATUS.md` for
+> **Version:** 2.1 — maintained on branch `arena/01a085e0-drill-master`
+> (capability status originally verified on the predecessor
+> `arena/01a07094-drill-master`). See `ENGINEERING_CAPABILITY_STATUS.md` for
 > the current domain-by-domain scope and limitations.
 
 ---

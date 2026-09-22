@@ -4,26 +4,17 @@ Services Management Widget with full database integration and enhanced functiona
 """
 
 import logging
-from datetime import datetime, date
-import csv
-import os
-from typing import Dict, List, Optional, Any
+from datetime import datetime
 
 from PySide6.QtCore import *
 from PySide6.QtWidgets import *
 from PySide6.QtGui import *
 from PySide6.QtPrintSupport import *
 
-from core.database import (
-    ServiceCompany, ServiceNote, MaterialRequest, EquipmentLog,
-    DailyReport, Well, Section
-)
 from core.managers import (
-    StatusBarManager, TableManager, TableButtonManager,
-    ExportManager, AutoSaveManager
+    StatusBarManager, ExportManager, AutoSaveManager
 )
 from core.base_tab import DrillTabBase
-from core.selection_manager import SelectionManager
 
 logger = logging.getLogger(__name__)
 
