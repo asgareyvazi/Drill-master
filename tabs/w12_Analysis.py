@@ -1503,7 +1503,9 @@ class AnalysisWidget(DrillTabBase):
     def get_npt_data(self, session):
         well_id = self.current_well_id
         if not well_id:
-            return {'entries': [], 'categories': {}, 'total_npt': None, 'npt_percentage': None, 'total_hours': None}
+            return {'entries': [], 'categories': {}, 'total_npt': None,
+                    'npt_percentage': None, 'total_hours': None,
+                    'unknown_npt_count': 0}
         npt_q = session.query(TimeLog24H, DailyReport).join(DailyReport)\
                           .filter(DailyReport.well_id == well_id, TimeLog24H.is_npt == True)
         if self.current_wellbore_id:
@@ -1512,11 +1514,19 @@ class AnalysisWidget(DrillTabBase):
         entries = []
         cats = {}
         total_npt = 0.0
+        unknown_count = 0  # NPT rows whose duration is NULL (unprovable length)
         for log, rep in npt_rows:
-            h = log.duration or 0
+            # A NULL duration is UNKNOWN, not 0.0: it must not silently
+            # contribute a fabricated zero to the total, and the entry keeps
+            # None so the row can render as "—" rather than "0.00". A stored
+            # 0.0 is a real fact and is summed/displayed as 0.0.
+            h = log.duration
             cat = log.main_code or "Unknown"
-            cats[cat] = cats.get(cat, 0) + h
-            total_npt += h
+            if h is None:
+                unknown_count += 1
+            else:
+                cats[cat] = cats.get(cat, 0) + h
+                total_npt += h
             entries.append({
                 'date': rep.report_date,
                 'from': log.time_from,
@@ -1540,7 +1550,8 @@ class AnalysisWidget(DrillTabBase):
             total_npt = None
             pct = None
         return {'entries': entries, 'categories': cats, 'total_npt': total_npt,
-                'npt_percentage': pct, 'total_hours': total_hours}
+                'npt_percentage': pct, 'total_hours': total_hours,
+                'unknown_npt_count': unknown_count}
 
     # ---- Scope helpers ----
     def _scope_key(self):
@@ -1708,7 +1719,8 @@ class AnalysisWidget(DrillTabBase):
                     'categories': {},
                     'total_npt': None,
                     'npt_percentage': None,
-                    'total_hours': None
+                    'total_hours': None,
+                    'unknown_npt_count': 0
                 }
             finally:
                 session.close()
@@ -1778,7 +1790,9 @@ class AnalysisWidget(DrillTabBase):
                 )
 
             self.npt_table.setItem(
-                i, 3, QTableWidgetItem(f"{e['hours']:.2f}")
+                i, 3,
+                QTableWidgetItem(
+                    "—" if e['hours'] is None else f"{e['hours']:.2f}")
             )
             self.npt_table.setItem(
                 i, 4, QTableWidgetItem(e['category'])

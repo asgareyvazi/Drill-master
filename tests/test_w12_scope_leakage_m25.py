@@ -23,7 +23,7 @@ from sqlalchemy.pool import StaticPool
 
 from core.database import (
     Base, DatabaseManager, Company, Project, Well, Wellbore, Section,
-    DailyReport, DrillingParameters, MudReport,
+    DailyReport, DrillingParameters, MudReport, TimeLog24H,
 )
 from core.operations_intelligence import OperationsIntelligenceService
 from tabs.w12_Analysis import AnalysisWidget
@@ -52,7 +52,7 @@ def _stub(db, well_id, wellbore_id=None, section_id=None):
     st.current_wellbore_name = None
     st.intelligence_service = OperationsIntelligenceService(db)
     for name in ("_scope_key", "_scope_reports_query", "_scope_params_query",
-                 "_canonical_scope_kpis", "get_today_data",
+                 "_canonical_scope_kpis", "get_today_data", "get_npt_data",
                  "_report_date_unambiguous", "_unique_legacy_row"):
         setattr(st, name, types.MethodType(getattr(AnalysisWidget, name), st))
     return st
@@ -190,3 +190,44 @@ def test_today_data_ambiguous_legacy_child_rows_stay_unknown(db):
         s.close()
     assert td["rop"] is None, "ambiguous legacy params must stay UNKNOWN"
     assert td["mw_in"] is None, "ambiguous legacy mud must stay UNKNOWN"
+
+
+def test_npt_null_duration_is_unknown_not_zero(db):
+    """M26 §15: an NPT time log with duration=NULL is UNKNOWN, not 0.0. It must
+    not contribute a fabricated zero to the total, must be counted as unknown,
+    and its entry keeps hours=None. A stored 0.0 is a real fact and survives."""
+    s = db.create_session()
+    c = Company(name="C", code="C"); s.add(c); s.flush()
+    p = Project(name="P", code="P", company_id=c.id); s.add(p); s.flush()
+    w = Well(name="W1", code="W1", project_id=p.id); s.add(w); s.flush()
+    d = date(2026, 5, 1)
+    r = DailyReport(well_id=w.id, wellbore_id=None, report_number=1,
+                    report_date=d)
+    s.add(r); s.flush()
+    s.add_all([
+        TimeLog24H(report_id=r.id, is_npt=True, duration=2.0, main_code="A",
+                   time_from=time(0, 0), time_to=time(2, 0)),
+        TimeLog24H(report_id=r.id, is_npt=True, duration=None, main_code="B",
+                   time_from=time(2, 0), time_to=time(3, 0)),
+        TimeLog24H(report_id=r.id, is_npt=True, duration=0.0, main_code="C",
+                   time_from=time(3, 0), time_to=time(3, 0)),
+        # productive time so total_hours (the % denominator) is known
+        TimeLog24H(report_id=r.id, is_npt=False, duration=10.0, main_code="DR",
+                   time_from=time(4, 0), time_to=time(14, 0)),
+    ])
+    s.commit()
+    wid = w.id
+    s.close()
+
+    st = _stub(db, wid)
+    s = db.create_session()
+    try:
+        npt = st.get_npt_data(s)
+    finally:
+        s.close()
+    # 2.0 + 0.0; the NULL row contributes nothing (not a fabricated 0).
+    assert npt["total_npt"] == 2.0
+    assert npt["unknown_npt_count"] == 1
+    assert [e["hours"] for e in npt["entries"]] == [2.0, None, 0.0]
+    # Category map excludes the unknown row, keeps the real 0.0.
+    assert npt["categories"] == {"A": 2.0, "C": 0.0}
