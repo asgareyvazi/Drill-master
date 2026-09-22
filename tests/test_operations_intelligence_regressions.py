@@ -302,3 +302,38 @@ def test_canonical_well_kpis_span_wellbores_without_cross_well_contamination():
     assert kpis["npt_hours"] == 12.0                # 6 + 6, other well's 24 excluded
     assert kpis["npt_percent"] == 50.0             # 12 / 24
     assert kpis["average_rop"] == 15.0             # mean(20, 10); 999 excluded
+
+
+def test_current_depth_unknown_not_fabricated_zero():
+    """M26 §16: a well WITH reports but NO known depth must report
+    current_depth = None (UNKNOWN), never a fabricated 0.0 m. A 0.0 would assert
+    the false fact that the hole has zero depth, and would also silently gate
+    cost/meter."""
+    manager = DatabaseManager()
+    manager.engine = create_engine(
+        "sqlite:///:memory:", connect_args={"check_same_thread": False},
+        poolclass=StaticPool)
+    Base.metadata.create_all(manager.engine)
+    manager.Session = sessionmaker(bind=manager.engine, autoflush=False,
+                                   autocommit=False)
+    s = manager.create_session()
+    try:
+        c = Company(name="C", code="C"); s.add(c); s.flush()
+        p = Project(name="P", code="P", company_id=c.id); s.add(p); s.flush()
+        w = Well(name="W", code="W", project_id=p.id); s.add(w); s.flush()
+        # Two reports, both with depth_2400 = NULL (unknown depth).
+        s.add_all([
+            DailyReport(well_id=w.id, report_number=1, report_date=date(2026, 1, 1),
+                        depth_2400=None),
+            DailyReport(well_id=w.id, report_number=2, report_date=date(2026, 1, 2),
+                        depth_2400=None),
+        ])
+        s.commit()
+        wid = w.id
+    finally:
+        s.close()
+
+    kpis = OperationsIntelligenceService(manager).analyze_well(wid)["kpis"]
+    assert kpis["reports"] == 2
+    assert kpis["current_depth"] is None, "unknown depth must not become 0.0"
+    assert kpis["cost_per_meter"] is None

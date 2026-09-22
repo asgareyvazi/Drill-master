@@ -80,7 +80,10 @@ class OperationsIntelligenceService:
             # unknown NPT percentage and unknown productive time. Reporting 0.0
             # would assert a false fact (0 m/hr ROP, 0% NPT) — the same
             # no-fabrication contract already applied to cost below.
-            current_depth = max(depths, default=0.0)
+            # No known depth is UNKNOWN, not a fabricated 0.0 m (reporting 0.0
+            # would assert the hole has zero depth). This mirrors the ROP/NPT
+            # no-fabrication contract in this same method.
+            current_depth = max(depths) if depths else None
             daily_progress = depths[-1] - depths[-2] if len(depths) >= 2 else 0
             avg_rop = round(sum(rops) / len(rops), 2) if rops else None
 
@@ -106,7 +109,7 @@ class OperationsIntelligenceService:
                 cost_records = session.query(CostRecord).filter(CostRecord.well_id == well_id).all()
                 if cost_records:
                     total_cost = sum(float(c.actual_cost or 0) for c in cost_records)
-                    if current_depth > 0:
+                    if current_depth and current_depth > 0:
                         cost_per_meter = total_cost / current_depth
             except Exception:
                 total_cost = None
@@ -428,7 +431,8 @@ class OperationsIntelligenceService:
                 for r in reports
                 if r.depth_2400 is not None
             ]
-            current_depth = max(depths, default=0.0)
+            # No known depth is UNKNOWN, not a fabricated 0.0 m.
+            current_depth = max(depths) if depths else None
 
             weighted = BitPerformanceEngine.weighted_rop(params)
 
