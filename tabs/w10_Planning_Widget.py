@@ -298,7 +298,7 @@ class NPTReportTab(QWidget):
         main_layout.addLayout(header_layout)
 
         # ========== Statistics Cards ==========
-        stats_group = QGroupBox("📊 NPT Statistics")
+        stats_group = QGroupBox("📊 NPT Statistics — Scope: Whole-Well Aggregate (all wellbores/sidetracks)")
         stats_layout = QGridLayout()
         self.npt_total_card = self.create_stat_card("⏱️", "Total NPT", "0.0", "hours", "#e74c3c")
         self.npt_percent_card = self.create_stat_card("📊", "NPT %", "0.0", "%", "#f39c12")
@@ -740,7 +740,7 @@ class CodeManagementTab(QWidget):
         main_layout.addLayout(header_layout)
 
         # ========== Statistics Cards ==========
-        stats_group = QGroupBox("📊 Code Statistics")
+        stats_group = QGroupBox("📊 Code Statistics — Scope: Whole-Well Aggregate (all wellbores/sidetracks)")
         stats_layout = QGridLayout()
         stats_layout.addWidget(QLabel("Total Codes Used:"), 0, 0)
         self.total_codes = QLabel("0")
@@ -1260,7 +1260,7 @@ class MilestonesTab(QWidget):
         header.setAlignment(Qt.AlignCenter)
         layout.addWidget(header)
         
-        info_label = QLabel("Actual time spent in each section vs Planned time based on Section creation data")
+        info_label = QLabel("Actual time spent in each section vs Planned time based on Section creation data\nScope: Whole-Well Aggregate — all sections across every wellbore/sidetrack")
         info_label.setStyleSheet("color: #95a5a6; font-size: 12px;")
         info_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(info_label)

@@ -90,6 +90,18 @@ class ExportWidget(DrillTabBase):
                 if index >= 0:
                     combo.setCurrentIndex(index)
 
+    def _scope_hint(self, plan_level=False):
+        """Whole-well scope banner for well-level report tabs (EOWR/NPT/Cost/Plan).
+
+        These engines query by well_id across every wellbore/sidetrack, so the
+        output is a whole-well aggregate. DDR is report-scoped and gets no banner.
+        """
+        text = ("Scope: Whole-Well (Well-Level Plan)" if plan_level
+                else "Scope: Whole-Well Aggregate — spans all wellbores/sidetracks")
+        lbl = QLabel(text)
+        lbl.setStyleSheet("color: #7f8c8d; font-size: 10px; font-style: italic; padding: 0 6px;")
+        return lbl
+
     def _format_selector(self):
         """ساخت انتخابگر فرمت"""
         w = QWidget()
@@ -236,6 +248,7 @@ class ExportWidget(DrillTabBase):
             "📑 End of Well Report", "#27ae60"
         )
         layout.addWidget(header)
+        layout.addWidget(self._scope_hint())
 
         fmt_w, self.eowr_fmt = self._format_selector()
         layout.addWidget(fmt_w)
@@ -293,6 +306,7 @@ class ExportWidget(DrillTabBase):
             "⏱️ NPT Summary Report", "#e74c3c"
         )
         layout.addWidget(header)
+        layout.addWidget(self._scope_hint())
 
         # Date range
         dr = QHBoxLayout()
@@ -365,6 +379,7 @@ class ExportWidget(DrillTabBase):
             "💰 Cost Analysis Report", "#f39c12"
         )
         layout.addWidget(header)
+        layout.addWidget(self._scope_hint())
 
         # Optional day-rate PROJECTION inputs. Left at 0 (the default), the
         # report shows stored ACTUAL cost from CostRecord. A non-zero rate adds
@@ -447,6 +462,7 @@ class ExportWidget(DrillTabBase):
             "📋 Drilling Plan Report", "#9b59b6"
         )
         layout.addWidget(header)
+        layout.addWidget(self._scope_hint(plan_level=True))
 
         fmt_w, self.plan_fmt = self._format_selector()
         layout.addWidget(fmt_w)
@@ -500,6 +516,7 @@ class ExportWidget(DrillTabBase):
             "📦 Batch Export - All Reports - Professional", "#2c3e50"
         )
         layout.addWidget(header)
+        layout.addWidget(self._scope_hint())
 
         # Professional export info
         info = QLabel(

@@ -40,6 +40,12 @@ class CostManagementWidget(DrillTabBase):
         )
         layout.addWidget(header)
 
+        scope = QLabel("Scope: Whole-Well Aggregate — costs sum across all wellbores/sidetracks")
+        scope.setStyleSheet(
+            "font-size: 11px; color: #bdc3c7; padding: 2px 8px; border: none;"
+        )
+        layout.addWidget(scope)
+
         self.tabs = QTabWidget()
         self.tabs.addTab(self._create_afe_tab(), "📋 AFE")
         self.tabs.addTab(self._create_daily_cost_tab(), "📅 Daily Cost")
