@@ -3810,6 +3810,11 @@ class DatabaseManager:
                     "summary": r.summary,
                     "status": r.status,
                     "well_id": r.well_id,
+                    # Bore scope preserved in the selection/display payload: a
+                    # report belongs to a specific wellbore. NULL = unknown bore,
+                    # never silently reassigned. Consumers that build a selection
+                    # context (main_window, w2, w10) rely on this dimension.
+                    "wellbore_id": r.wellbore_id,
                     "section_id": r.section_id,
                 }
                 for r in reports

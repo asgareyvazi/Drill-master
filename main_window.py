@@ -2242,7 +2242,8 @@ class MainWindow(QMainWindow):
     ):
         """Precise refresh after import with specific IDs - hybrid mode"""
         try:
-            # 1. Load data
+            # 1. Load data (from the PERSISTED rows, never stale pre-import
+            #    payloads) so the effective scope comes from the ownership chain.
             well_data = self.db_manager.get_well_by_id(well_id) or {}
             sections = self.db_manager.get_sections_by_well(well_id)
             section_data = next(
@@ -2251,6 +2252,26 @@ class MainWindow(QMainWindow):
             report_data = (
                 self.db_manager.get_daily_report_by_id(report_id) or {}
             )
+
+            # 1b. Resolve the effective wellbore (bore) from the persisted
+            #     ownership chain: the report's own wellbore_id wins; otherwise
+            #     the section's. A blank/unknown bore stays None (Whole-Well) and
+            #     is NEVER inferred to be Original. This is what carries the bore
+            #     scope from an import straight into the selection, so a
+            #     bore-tagged report opens W12/W3b already scoped to that bore.
+            wellbore_id = report_data.get("wellbore_id")
+            if wellbore_id is None:
+                wellbore_id = section_data.get("wellbore_id")
+            wellbore_data = None
+            if wellbore_id is not None:
+                try:
+                    wellbore_data = next(
+                        (wb for wb in self.db_manager.get_wellbores_by_well(well_id)
+                         if wb["id"] == wellbore_id),
+                        None,
+                    )
+                except Exception:
+                    wellbore_data = None
 
             # 2. Update main state
             self.current_well = well_data
@@ -2261,7 +2282,8 @@ class MainWindow(QMainWindow):
                     f"🛢️ Well: {well_data['name']}"
                 )
 
-            # 3. SelectionManager - force full context
+            # 3. SelectionManager - force full context (well → wellbore →
+            #    section → report), including the resolved bore dimension.
             if hasattr(self.sel_manager, "select_full_context"):
                 self.sel_manager.select_full_context(
                     well_id,
@@ -2270,9 +2292,13 @@ class MainWindow(QMainWindow):
                     well_data,
                     section_data,
                     report_data,
+                    wellbore_id=wellbore_id,
+                    wellbore_data=wellbore_data,
                 )
             else:
                 self.sel_manager.select_well(well_id, well_data)
+                if wellbore_id is not None:
+                    self.sel_manager.select_wellbore(wellbore_id, wellbore_data)
                 self.sel_manager.select_section(section_id, section_data)
                 self.sel_manager.select_report(report_id, report_data)
 
