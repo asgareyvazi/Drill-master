@@ -3721,6 +3721,19 @@ class DatabaseManager:
         wells, and a sidetrack (a distinct name such as ``"ST #1"``) is never
         collapsed into its parent. Nothing is fabricated: unknown lineage stays
         NULL.
+
+        When a wellbore with this ``(well_id, name)`` already exists, its
+        authoritative identity metadata is reconciled against the incoming
+        values (import-identity safety, §23):
+
+        * ``wellbore_type`` or ``parent_wellbore_id`` that CONTRADICT the stored
+          non-null values (e.g. ``original`` vs ``sidetrack``, or a different
+          parent bore) are a conflict and raise ``OwnershipIntegrityError`` —
+          authoritative lineage is never silently mutated.
+        * A stored value that is NULL/unknown is safely ENRICHED from an explicit
+          incoming value (e.g. first-known kickoff_md or parent). Enrichment
+          never overwrites a known value.
+        * Everything matching (or incoming values omitted) is IDEMPOTENT.
         """
         if well_id is None or not name:
             return None
@@ -3733,6 +3746,10 @@ class DatabaseManager:
                 .first()
             )
             if existing:
+                self._reconcile_wellbore_identity(
+                    existing, wellbore_type, parent_wellbore_id, kickoff_md)
+                if owns_session:
+                    session.commit()
                 return existing.id
             wellbore = Wellbore(
                 well_id=well_id,
@@ -3760,6 +3777,46 @@ class DatabaseManager:
         finally:
             if owns_session:
                 session.close()
+
+    @staticmethod
+    def _reconcile_wellbore_identity(
+        existing, wellbore_type, parent_wellbore_id, kickoff_md
+    ):
+        """Reconcile an incoming wellbore identity against the stored row.
+
+        Raises ``OwnershipIntegrityError`` on a genuine contradiction (two
+        known-but-different values for type or parent). Safely enriches a stored
+        NULL from an explicit incoming value. Never overwrites a known value.
+        """
+        # wellbore_type: this column is NOT NULL (create default "original"), so
+        # a stored "original" cannot be distinguished from an explicitly-asserted
+        # "original". Flipping a bore's fundamental type is high-risk, so a plain
+        # "original" incoming value (the caller's non-asserted fallback) is
+        # treated as "no assertion" and ignored, while an EXPLICIT incoming type
+        # that differs from the stored type is a CONFLICT — never a silent flip.
+        incoming_type_asserted = bool(wellbore_type) and wellbore_type != "original"
+        if incoming_type_asserted and wellbore_type != existing.wellbore_type:
+            raise OwnershipIntegrityError(
+                f"Wellbore '{existing.name}' type conflict: stored "
+                f"'{existing.wellbore_type}' vs incoming '{wellbore_type}'. "
+                f"Authoritative identity is not silently mutated (review needed).")
+
+        # parent_wellbore_id: a different KNOWN parent is a lineage conflict; a
+        # stored NULL is enriched from an explicit incoming parent.
+        if parent_wellbore_id is not None:
+            if existing.parent_wellbore_id is None:
+                existing.parent_wellbore_id = parent_wellbore_id
+            elif existing.parent_wellbore_id != parent_wellbore_id:
+                raise OwnershipIntegrityError(
+                    f"Wellbore '{existing.name}' parent conflict: stored "
+                    f"parent {existing.parent_wellbore_id} vs incoming "
+                    f"{parent_wellbore_id}. Lineage is not silently changed.")
+
+        # kickoff_md: safe enrichment of an unknown depth; a different known
+        # value is left as-is (no silent overwrite) — a measured-depth revision
+        # is an explicit edit, not an import side effect.
+        if kickoff_md is not None and existing.kickoff_md is None:
+            existing.kickoff_md = kickoff_md
 
     def get_wellbores_by_well(self, well_id: int) -> List[Dict[str, Any]]:
         """Return all wellbores for a well as plain dicts (ordered by id)."""
