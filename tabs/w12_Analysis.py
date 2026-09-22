@@ -2342,8 +2342,59 @@ class AnalysisWidget(DrillTabBase):
 
         self.results_text.setText(report)
 
+    @staticmethod
+    def _risk_scores(npt_pct, days_without_lti, has_safety_report):
+        """Rule-based risk assessment (NOT a physical measurement).
+
+        Returns a dict mapping each risk category to either an integer score
+        (1-10) or ``None`` when the input needed to assess it is UNKNOWN. A
+        missing input must resolve to UNKNOWN — never a fabricated 0-days / max
+        score. Equipment and Weather have no data source here, so they are
+        UNKNOWN (NOT ASSESSED) rather than a made-up constant asserting a fact.
+
+        This is a business rule, not an engineering formula: thresholds are
+        deliberately explicit so the caller can label the result as an
+        assessment, and so it is unit-testable without Qt.
+        """
+        scores = {}
+
+        # 1. NPT Risk. Unknown NPT (no recorded time) can't be scored -> UNKNOWN.
+        if npt_pct is None:
+            scores["NPT Risk"] = None
+        elif npt_pct > 30:
+            scores["NPT Risk"] = 9
+        elif npt_pct > 20:
+            scores["NPT Risk"] = 7
+        elif npt_pct > 10:
+            scores["NPT Risk"] = 5
+        else:
+            scores["NPT Risk"] = 3
+
+        # 2. Equipment Risk — no data source in this assessment -> NOT ASSESSED.
+        scores["Equipment"] = None
+
+        # 3. Weather Risk — no data source in this assessment -> NOT ASSESSED.
+        scores["Weather"] = None
+
+        # 4. Well Control Risk, derived from NPT; unknown NPT -> UNKNOWN.
+        if npt_pct is None:
+            scores["Well Control"] = None
+        else:
+            scores["Well Control"] = 6 if npt_pct > 15 else 3
+
+        # 5. Safety Risk. With NO safety report (or a NULL days-without-LTI) the
+        # LTI history is UNKNOWN — it must NOT be scored as the maximum-risk
+        # 0-days case. Only a real recorded value is scored.
+        if not has_safety_report or days_without_lti is None:
+            scores["Safety"] = None
+        else:
+            d = days_without_lti
+            scores["Safety"] = 2 if d > 90 else 5 if d > 30 else 8
+
+        return scores
+
     def analyze_risk(self, session):
-        """تحلیل ریسک واقعی"""
+        """Rule-based whole-well risk assessment (not a measurement)."""
         well_id = self.current_well_id
         if not well_id:
             self.results_text.setText("No well selected")
@@ -2361,40 +2412,19 @@ class AnalysisWidget(DrillTabBase):
         safety = session.query(SafetyReport).filter_by(well_id=well_id).order_by(
             SafetyReport.report_date.desc()
         ).first()
-        
-        # امتیازدهی ریسک
-        risk_scores = {}
-        
-        # 1. NPT Risk. Unknown NPT (no recorded time) is not scored as high
-        # risk; treat it as the lowest tier until evidence exists.
-        if npt_pct is None:
-            risk_scores["NPT Risk"] = 3
-        elif npt_pct > 30:
-            risk_scores["NPT Risk"] = 9
-        elif npt_pct > 20:
-            risk_scores["NPT Risk"] = 7
-        elif npt_pct > 10:
-            risk_scores["NPT Risk"] = 5
-        else:
-            risk_scores["NPT Risk"] = 3
-        
-        # 2. Equipment Risk
-        risk_scores["Equipment"] = 5  # default
-        
-        # 3. Weather Risk
-        risk_scores["Weather"] = 4  # default
-        
-        # 4. Well Control Risk. Unknown NPT is not treated as elevated.
-        risk_scores["Well Control"] = 6 if (npt_pct is not None and npt_pct > 15) else 3
-        
-        # 5. Safety Risk
-        days_no_lti = safety.days_without_lti if safety else 0
-        risk_scores["Safety"] = 2 if days_no_lti > 90 else 5 if days_no_lti > 30 else 8
-        
+        days_no_lti = safety.days_without_lti if safety else None
+
+        risk_scores = self._risk_scores(npt_pct, days_no_lti, safety is not None)
+
+        # Only categories with a real (non-UNKNOWN) score are charted and count
+        # toward the overall score; UNKNOWN categories are reported as
+        # NOT ASSESSED, never plotted as a fabricated value.
+        assessed = {k: v for k, v in risk_scores.items() if v is not None}
+
         # نمودار
         self.analytics_plot.clear()
-        categories = list(risk_scores.keys())
-        scores = list(risk_scores.values())
+        categories = list(assessed.keys())
+        scores = list(assessed.values())
         x = list(range(len(categories)))
         
         colors = []
@@ -2406,21 +2436,28 @@ class AnalysisWidget(DrillTabBase):
             else:
                 colors.append('#2ecc71')
         
-        bargraph = pg.BarGraphItem(x=x, height=scores, width=0.6, brushes=colors)
-        self.analytics_plot.addItem(bargraph)
+        if scores:
+            bargraph = pg.BarGraphItem(x=x, height=scores, width=0.6, brushes=colors)
+            self.analytics_plot.addItem(bargraph)
         
         # خط threshold
         threshold = pg.InfiniteLine(pos=7, angle=0, pen=pg.mkPen('#e74c3c', width=2, style=Qt.DashLine))
         self.analytics_plot.addItem(threshold)
         
-        overall = sum(scores) / len(scores)
+        overall = sum(scores) / len(scores) if scores else None
         
-        report = f"⚠️ RISK ASSESSMENT\n{'='*40}\n"
-        report += f"Overall Risk Score: {overall:.1f}/10\n"
-        report += f"Risk Level: {'HIGH' if overall > 7 else 'MEDIUM' if overall > 4 else 'LOW'}\n\n"
+        report = f"⚠️ RISK ASSESSMENT (rule-based, not a measurement)\n{'='*40}\n"
+        if overall is None:
+            report += "Overall Risk Score: NOT ASSESSED (insufficient data)\n\n"
+        else:
+            report += f"Overall Risk Score: {overall:.1f}/10 (assessed categories only)\n"
+            report += f"Risk Level: {'HIGH' if overall > 7 else 'MEDIUM' if overall > 4 else 'LOW'}\n\n"
         report += "📊 Risk Breakdown:\n"
         
         for cat, score in risk_scores.items():
+            if score is None:
+                report += f"  {cat:20s}: NOT ASSESSED (insufficient data)\n"
+                continue
             level = "🔴 HIGH" if score >= 7 else "🟡 MEDIUM" if score >= 4 else "🟢 LOW"
             bar = "█" * score + "░" * (10 - score)
             report += f"  {cat:20s}: [{bar}] {score}/10 {level}\n"
@@ -2429,7 +2466,10 @@ class AnalysisWidget(DrillTabBase):
         report += "Scope: Whole Well (safety/NPT risk assessed at well level)\n"
         report += f"  Total Days: {total_days}\n"
         report += f"  NPT Percentage: {fmt_num(npt_pct, 1, default=None)}%\n"
-        report += f"  Days without LTI: {days_no_lti}\n"
+        report += (
+            f"  Days without LTI: {days_no_lti}\n" if days_no_lti is not None
+            else "  Days without LTI: UNKNOWN (no safety report)\n"
+        )
         
         self.results_text.setText(report)
         
