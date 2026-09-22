@@ -524,13 +524,50 @@ def _check_report_scoped_well_ownership(session, obj):
         )
 
 
-# Report-scoped snapshot tables whose (well_id, report_id) pair must stay
-# coherent. These are daily observations, not longitudinal run entities.
-_REPORT_SCOPED_WELL_MODELS = (
-    "BHAReport",
-    "BitReport",
-    "DownholeEquipment",
-)
+def _discover_report_scoped_well_models():
+    """Every mapped model that carries a NOT-NULL ``well_id`` AND a nullable
+    ``report_id`` foreign key onto ``daily_reports.id``.
+
+    ``_check_report_scoped_well_ownership`` is a pure NON-CONTRADICTION check:
+    it fires only when ``report_id`` is set and rejects only when the record's
+    ``well_id`` disagrees with that report's ``well_id``. A NULL ``report_id``
+    (a legitimate well-level record) always passes — the check never fabricates
+    ownership, it only forbids a record in well A from naming well B's report.
+
+    That contradiction is invalid for EVERY model of this shape, whatever its
+    semantic role (daily snapshot, longitudinal record, or audit row): a
+    ``report_id`` FK onto ``daily_reports`` cannot legitimately point at another
+    well's report. So the guarded set is derived structurally from the schema,
+    not hand-maintained — no identically-shaped model can silently escape it
+    (the M25 tree guarded only BHA/Bit/Downhole while 27 peers were unprotected).
+    """
+    models = set()
+    for mapper in Base.registry.mappers:
+        cls = mapper.class_
+        table = cls.__table__
+        cols = table.columns
+        if "well_id" not in cols or "report_id" not in cols:
+            continue
+        if cols["well_id"].nullable:
+            continue
+        fks = list(cols["report_id"].foreign_keys)
+        if fks and fks[0].target_fullname == "daily_reports.id":
+            models.add(cls.__name__)
+    return frozenset(models)
+
+
+# Report-linked tables whose (well_id, report_id) pair must stay coherent —
+# discovered from the schema so the guard cannot drift behind new models.
+# Populated lazily on first flush (all models are mapped by then); computing it
+# at module-import time would miss the models defined later in this file.
+_REPORT_SCOPED_WELL_MODELS = None
+
+
+def _report_scoped_well_models():
+    global _REPORT_SCOPED_WELL_MODELS
+    if _REPORT_SCOPED_WELL_MODELS is None:
+        _REPORT_SCOPED_WELL_MODELS = _discover_report_scoped_well_models()
+    return _REPORT_SCOPED_WELL_MODELS
 
 
 @event.listens_for(Session, "before_flush")
@@ -538,6 +575,7 @@ def _enforce_ownership_integrity(session, flush_context, instances):
     """Reject contradictory ownership before it can be committed. Runs for every
     session flush, so no save path (ORM, service helper, or import) can bypass
     it."""
+    guarded = _report_scoped_well_models()
     for obj in list(session.new) + list(session.dirty):
         if isinstance(obj, Wellbore):
             _check_wellbore_invariants(session, obj)
@@ -545,7 +583,7 @@ def _enforce_ownership_integrity(session, flush_context, instances):
             _check_section_invariants(session, obj)
         elif isinstance(obj, DailyReport):
             _check_daily_report_invariants(session, obj)
-        elif type(obj).__name__ in _REPORT_SCOPED_WELL_MODELS:
+        elif type(obj).__name__ in guarded:
             _check_report_scoped_well_ownership(session, obj)
 
 
