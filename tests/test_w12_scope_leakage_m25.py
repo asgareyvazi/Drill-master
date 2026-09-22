@@ -53,7 +53,7 @@ def _stub(db, well_id, wellbore_id=None, section_id=None):
     st.intelligence_service = OperationsIntelligenceService(db)
     for name in ("_scope_key", "_scope_reports_query", "_scope_params_query",
                  "_canonical_scope_kpis", "get_today_data",
-                 "_report_date_unambiguous"):
+                 "_report_date_unambiguous", "_unique_legacy_row"):
         setattr(st, name, types.MethodType(getattr(AnalysisWidget, name), st))
     return st
 
@@ -156,3 +156,37 @@ def test_today_data_single_bore_legacy_fallback_still_works(db):
         s.close()
     assert td["rop"] == 15.0, "unambiguous single-bore legacy fallback preserved"
     assert td["mw_in"] == 1.10
+
+
+def test_today_data_ambiguous_legacy_child_rows_stay_unknown(db):
+    """M26 §7/§18: even with ONE report on the date, two legacy well+date child
+    rows make a bare .first() nondeterministic. The fallback must refuse and
+    return UNKNOWN instead of silently hiding the other row."""
+    s = db.create_session()
+    c = Company(name="C", code="C"); s.add(c); s.flush()
+    p = Project(name="P", code="P", company_id=c.id); s.add(p); s.flush()
+    w = Well(name="W1", code="W1", project_id=p.id); s.add(w); s.flush()
+    d = date(2026, 3, 1)
+    r = DailyReport(well_id=w.id, wellbore_id=None, report_number=1,
+                    report_date=d, depth_2400=800)
+    s.add(r); s.flush()
+    # ONE report, but TWO legacy child rows share (well, date) with different
+    # values — ownership of each is unprovable.
+    s.add_all([
+        DrillingParameters(well_id=w.id, report_id=None, report_date=d, avg_rop=15.0),
+        DrillingParameters(well_id=w.id, report_id=None, report_date=d, avg_rop=99.0),
+        MudReport(well_id=w.id, report_id=None, report_date=d, mw=1.10),
+        MudReport(well_id=w.id, report_id=None, report_date=d, mw=1.90),
+    ])
+    s.commit()
+    wid = w.id
+    s.close()
+
+    st = _stub(db, wid)
+    s = db.create_session()
+    try:
+        td = st.get_today_data(s)
+    finally:
+        s.close()
+    assert td["rop"] is None, "ambiguous legacy params must stay UNKNOWN"
+    assert td["mw_in"] is None, "ambiguous legacy mud must stay UNKNOWN"

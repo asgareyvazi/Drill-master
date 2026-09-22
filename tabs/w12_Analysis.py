@@ -1257,6 +1257,20 @@ class AnalysisWidget(DrillTabBase):
             DailyReport.well_id == report.well_id,
             DailyReport.report_date == report.report_date).count() == 1
 
+    def _unique_legacy_row(self, session, model, well_id, report_date):
+        """Return the single legacy child row for (well_id, report_date), or
+        None when there are zero OR MORE THAN ONE.
+
+        The legacy well+date fallback only proves ownership when it maps to a
+        single row. Two rows sharing the (well, date) make a bare ``.first()``
+        nondeterministic and would silently hide one of them, so the ambiguous
+        case must resolve to UNKNOWN (None), never a guessed row.
+        """
+        rows = session.query(model).filter(
+            model.well_id == well_id,
+            model.report_date == report_date).limit(2).all()
+        return rows[0] if len(rows) == 1 else None
+
     def _scope_reports_query(self, session):
         """A DailyReport query filtered to the active scope.
 
@@ -1390,18 +1404,19 @@ class AnalysisWidget(DrillTabBase):
         # (legacy single-bore data whose child rows predate report_id linkage).
         # In a multi-bore day two reports share the date, so the fallback cannot
         # prove ownership and would leak another bore's row: then stay UNKNOWN.
+        # The fallback is also refused when MORE THAN ONE legacy child row shares
+        # the (well, date): a bare .first() there is nondeterministic and would
+        # silently hide the other row(s). Ambiguity -> UNKNOWN, not a guess.
         dr = session.query(DrillingParameters).filter(
             DrillingParameters.report_id == report.id).first()
         if dr is None and self._report_date_unambiguous(session, report):
-            dr = session.query(DrillingParameters).filter(
-                DrillingParameters.well_id == well_id,
-                DrillingParameters.report_date == report.report_date).first()
+            dr = self._unique_legacy_row(
+                session, DrillingParameters, well_id, report.report_date)
         mud = session.query(MudReport).filter(
             MudReport.report_id == report.id).first()
         if mud is None and self._report_date_unambiguous(session, report):
-            mud = session.query(MudReport).filter(
-                MudReport.well_id == well_id,
-                MudReport.report_date == report.report_date).first()
+            mud = self._unique_legacy_row(
+                session, MudReport, well_id, report.report_date)
 
         def _mid(lo, hi):
             # Midpoint only when BOTH bounds are known; otherwise unknown (None),
