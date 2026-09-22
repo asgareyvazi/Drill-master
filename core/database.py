@@ -4071,6 +4071,10 @@ class DatabaseManager:
                 "summary": report.summary or "",
                 "status": report.status or "Draft",
                 "well_id": report.well_id,
+                # Bore dimension in the save return payload so any caller that
+                # builds a selection/context from it keeps the wellbore scope
+                # (§46). Mirrors the persisted row; NULL = unknown bore.
+                "wellbore_id": report.wellbore_id,
                 "section_id": report.section_id,
             }
         except Exception as e:

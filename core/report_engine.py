@@ -997,6 +997,7 @@ h3 {{
     <div class="title">END OF WELL REPORT</div>
     <div class="subtitle">{well_name}</div>
     <div class="meta">
+        <p><b>Scope:</b> Whole-Well Aggregate</p>
         <p><b>Field:</b> {field_name}</p>
         <p><b>Operator:</b> {operator}</p>
         <p><b>Client:</b> {client}</p>
@@ -1248,6 +1249,10 @@ East: {fmt_num(last.east, 2, default=None)} m | HD: {fmt_num(last.hd, 2, default
             ws = wb.create_sheet("Summary")
             ws["A1"] = "END OF WELL REPORT"
             ws["A2"] = data["well"].get("name", "")
+            # Scope metadata (kept in the summary, never mixed into the
+            # engineering data sheets): EOWR aggregates the whole well.
+            ws["A3"] = "Scope"
+            ws["B3"] = "Whole-Well Aggregate"
             ws["A4"] = "Metric"
             ws["B4"] = "Value"
             ws["A4"].font = header_font
@@ -1486,6 +1491,7 @@ h2 {{ color: #e74c3c; border-bottom: 1px solid #fadbd8; margin-top: 15px; font-s
 </style></head><body>
 
 <h1>⏱️ NPT SUMMARY REPORT</h1>
+<p><b>Scope:</b> Whole-Well Aggregate</p>
 <p><b>Well:</b> {well_name} | <b>Period:</b> {data["from_date"]} to {data["to_date"]} | <b>Reports:</b> {data["report_count"]}</p>
 
 <div class="kpi-row">
@@ -1630,6 +1636,7 @@ h2 {{ color: #e74c3c; border-bottom: 1px solid #fadbd8; margin-top: 15px; font-s
             ws.title = "NPT Summary"
             summary = [
                 ("Metric", "Value"),
+                ("Scope", "Whole-Well Aggregate"),
                 ("Total NPT (hrs)", data["total_npt"]),
                 ("NPT %", data["npt_pct"]),
                 ("Daily Average", data["daily_avg"]),
@@ -1858,6 +1865,7 @@ h2 {{ color: #27ae60; border-bottom: 1px solid #d5f5e3; margin-top: 15px; font-s
 </style></head><body>
 
 <h1>💰 COST ANALYSIS REPORT</h1>
+<p><b>Scope:</b> Whole-Well Aggregate</p>
 <p><b>Well:</b> {well_name} | <b>Total Days:</b> {data["total_days"]} | <b>Final Depth:</b> {data["max_depth"]:.0f} m</p>
 
 <div class="kpi-row">
@@ -1973,6 +1981,7 @@ h2 {{ color: #27ae60; border-bottom: 1px solid #d5f5e3; margin-top: 15px; font-s
             ws.title = "Cost Summary"
             rows = [
                 ("Metric", "Value"),
+                ("Scope", "Whole-Well Aggregate"),
                 ("Total Cost", f"${data['total_cost']:,.0f}" if data['total_cost'] is not None else "N/A"),
                 ("NPT Cost", f"${data['npt_cost']:,.0f}" if data['npt_cost'] is not None else "N/A"),
                 ("Productive Cost", f"${data['pt_cost']:,.0f}" if data['pt_cost'] is not None else "N/A"),
@@ -2128,6 +2137,7 @@ h2 {{ color: #9b59b6; border-bottom: 1px solid #e8daef; margin-top: 15px; font-s
 </style></head><body>
 
 <h1>📋 DRILLING PLAN REPORT</h1>
+<p><b>Scope:</b> Whole-Well (Well-Level Plan)</p>
 <p><b>Well:</b> {w.get("name","")} | <b>Plan:</b> {plan.plan_name} | <b>Version:</b> {plan.plan_version}</p>
 <p><b>Planned Spud:</b> {plan.planned_spud_date or ''} | <b>Planned Finish:</b> {plan.planned_finish_date or ''}</p>
 
@@ -2231,6 +2241,7 @@ h2 {{ color: #9b59b6; border-bottom: 1px solid #e8daef; margin-top: 15px; font-s
             ws.title = "Plan Summary"
             rows = [
                 ("Metric", "Value"),
+                ("Scope", "Whole-Well (Well-Level Plan)"),
                 ("Plan Name", data["plan"].plan_name),
                 ("Version", data["plan"].plan_version),
                 ("Planned Days", data["total_days"]),
