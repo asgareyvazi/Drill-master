@@ -87,6 +87,16 @@ from core.data_quality import DataQualityService
 from core.operations_intelligence import OperationsIntelligenceService
 
 
+def _fmt_rig_day(value):
+    """Rig-day cell text: unknown -> "—", a real reported value (incl. 0) kept."""
+    return "—" if value is None else str(value)
+
+
+def _fmt_recent_depth(value):
+    """Recent-report depth cell: unknown -> "—", a real 0.0 -> "0.0"."""
+    return "—" if value is None else f"{value:.1f}"
+
+
 class AnalysisWidget(DrillTabBase):
     """Advanced Professional Analysis and Monitoring Dashboard – PySide6 Version"""
 
@@ -1199,6 +1209,10 @@ class AnalysisWidget(DrillTabBase):
         
         milestones_group = QGroupBox("🏔️ Milestones (FACT vs PLAN)")
         milestones_layout = QVBoxLayout()
+        self.milestones_scope_label = QLabel("Scope: Whole Well")
+        self.milestones_scope_label.setStyleSheet(
+            "color: #9aa5b1; font-style: italic; padding: 2px 4px;")
+        milestones_layout.addWidget(self.milestones_scope_label)
         self.milestones_widget = QWidget()
         self.milestones_widget.setLayout(QVBoxLayout())
         milestones_layout.addWidget(self.milestones_widget)
@@ -1229,6 +1243,19 @@ class AnalysisWidget(DrillTabBase):
         self.data_cache[key] = data
         self.cache_time[key] = now
         return data
+
+    def _report_date_unambiguous(self, session, report):
+        """True when (well_id, report_date) maps to exactly ONE DailyReport.
+
+        Used to gate the legacy well+date fallback for child rows that predate
+        report_id linkage. When more than one report shares the well and date
+        (the multi-bore case), a well+date lookup cannot prove which bore a
+        child row belongs to, so the fallback must be refused (UNKNOWN) rather
+        than risk pulling another bore's row.
+        """
+        return session.query(DailyReport.id).filter(
+            DailyReport.well_id == report.well_id,
+            DailyReport.report_date == report.report_date).count() == 1
 
     def _scope_reports_query(self, session):
         """A DailyReport query filtered to the active scope.
@@ -1358,17 +1385,20 @@ class AnalysisWidget(DrillTabBase):
         hours = (session.query(func.sum(TimeLog24H.duration))
                  .filter(TimeLog24H.report_id == report.id).scalar() or 0.0) if any_logs else None
         # Bind parameters/mud to THIS report via report_id (the report is
-        # already scope-selected), not by well+date which could pull a
-        # different bore's row sharing the same date.
+        # already scope-selected). A well+date fallback is ONLY used when it is
+        # provably unambiguous — i.e. this (well, date) maps to a single report
+        # (legacy single-bore data whose child rows predate report_id linkage).
+        # In a multi-bore day two reports share the date, so the fallback cannot
+        # prove ownership and would leak another bore's row: then stay UNKNOWN.
         dr = session.query(DrillingParameters).filter(
             DrillingParameters.report_id == report.id).first()
-        if dr is None:
+        if dr is None and self._report_date_unambiguous(session, report):
             dr = session.query(DrillingParameters).filter(
                 DrillingParameters.well_id == well_id,
                 DrillingParameters.report_date == report.report_date).first()
         mud = session.query(MudReport).filter(
             MudReport.report_id == report.id).first()
-        if mud is None:
+        if mud is None and self._report_date_unambiguous(session, report):
             mud = session.query(MudReport).filter(
                 MudReport.well_id == well_id,
                 MudReport.report_date == report.report_date).first()
@@ -2027,9 +2057,13 @@ class AnalysisWidget(DrillTabBase):
             act = session.query(TimeLog24H.main_code).filter_by(report_id=r.id)\
                          .order_by(desc(TimeLog24H.duration)).first()
             main_act = act[0] if act else "Drilling"
+            # Presentation truth: an unknown rig-day/depth renders "—", a real
+            # reported 0 renders "0"/"0.0". Never collapse None into a fake 0.
             self.recent_reports_table.setItem(i, 0, QTableWidgetItem(str(r.report_date)))
-            self.recent_reports_table.setItem(i, 1, QTableWidgetItem(str(r.rig_day or 0)))
-            self.recent_reports_table.setItem(i, 2, QTableWidgetItem(f"{r.depth_2400 or 0:.1f}"))
+            self.recent_reports_table.setItem(i, 1, QTableWidgetItem(
+                _fmt_rig_day(r.rig_day)))
+            self.recent_reports_table.setItem(i, 2, QTableWidgetItem(
+                _fmt_recent_depth(r.depth_2400)))
             self.recent_reports_table.setItem(i, 3, QTableWidgetItem(main_act))
         session.close()
 
@@ -2391,7 +2425,17 @@ class AnalysisWidget(DrillTabBase):
             self.status_label.setText("🟡 Monitoring Paused")
 
     def load_milestones_data(self):
-        """بارگذاری داده‌های Milestones (FACT vs PLAN بر اساس Section)"""
+        """Milestones (FACT vs PLAN) per Section — scope-aware, no fabrication.
+
+        FACT = real time logged against each section (TimeLog24H). PLAN = the
+        REAL stored plan (Section.planned_days), the same field the section
+        editor persists and W10's milestones reader consumes — never a
+        display-fabricated duration derived from depth/50 or a flat 5 days.
+
+        Milestones are SECTION facts: a selected wellbore narrows to the
+        sections it owns (Section.wellbore_id), unknown-bore sections are
+        excluded from a bore view; whole-well shows every section.
+        """
         if not self.current_well_id:
             return
         
@@ -2399,15 +2443,24 @@ class AnalysisWidget(DrillTabBase):
         try:
             from core.database import Section, DailyReport, TimeLog24H
             from sqlalchemy import func
-            
-            # دریافت تمام سکشن‌های چاه
-            sections = session.query(Section).filter(
-                Section.well_id == self.current_well_id
-            ).order_by(Section.depth_from).all()
+
+            self._update_milestones_scope_label()
+
+            # Sections in the active scope. Bore selected -> only that bore's
+            # sections (via Section.wellbore_id); otherwise the whole well.
+            sec_q = session.query(Section).filter(
+                Section.well_id == self.current_well_id)
+            if self.current_wellbore_id:
+                sec_q = sec_q.filter(Section.wellbore_id == self.current_wellbore_id)
+            sections = sec_q.order_by(Section.depth_from).all()
             
             if not sections:
-                # اگر سکشنی وجود نداشت، از داده‌های DailyReport استفاده کن
-                self._load_milestones_from_reports(session)
+                # No sections in scope: fall back to report-derived milestones
+                # (whole-well only — report grouping is not section-scoped).
+                if not self.current_wellbore_id:
+                    self._load_milestones_from_reports(session)
+                else:
+                    self._draw_milestones_chart([], [], [])
                 return
             
             fact_data = []
@@ -2417,18 +2470,18 @@ class AnalysisWidget(DrillTabBase):
             for section in sections:
                 section_names.append(section.name)
                 
-                # FACT: زمان واقعی صرف شده در این سکشن (از TimeLog24H)
+                # FACT: real time logged against this section (days).
                 fact_time = session.query(func.sum(TimeLog24H.duration)).join(
                     DailyReport, TimeLog24H.report_id == DailyReport.id
                 ).filter(
                     DailyReport.section_id == section.id
                 ).scalar() or 0
-                fact_data.append(fact_time / 24)  # تبدیل به روز
+                fact_data.append(fact_time / 24)  # hours -> days
                 
-                # PLAN: زمان برنامه‌ریزی شده (از Section.depth_to - depth_from تقسیم بر نرخ فرضی)
-                # یا اگر فیلد planned_days دارید از آن استفاده کنید
-                planned_days = (section.depth_to - section.depth_from) / 50 if section.depth_to > 0 else 5
-                plan_data.append(planned_days)
+                # PLAN: the REAL stored planned duration for this section. When
+                # no plan was entered it is 0 (nothing planned) — never a
+                # fabricated depth/50 or flat 5-day value.
+                plan_data.append(section.planned_days or 0)
             
             # رسم نمودار Milestones
             self._draw_milestones_chart(section_names, fact_data, plan_data)
@@ -2438,13 +2491,29 @@ class AnalysisWidget(DrillTabBase):
         finally:
             session.close()
 
+    def _update_milestones_scope_label(self):
+        """Reflect the milestones scope (bore-narrowed vs whole-well)."""
+        if not hasattr(self, "milestones_scope_label"):
+            return
+        if self.current_wellbore_id:
+            name = self.current_wellbore_name or f"#{self.current_wellbore_id}"
+            self.milestones_scope_label.setText(f"Scope: Wellbore — {name}")
+        else:
+            self.milestones_scope_label.setText("Scope: Whole Well")
+
     def _load_milestones_from_reports(self, session):
-        """بارگذاری Milestones از DailyReport در صورت نبود Section"""
+        """Report-derived milestones when a well has no sections (whole-well).
+
+        FACT depth-band durations are real (cumulative rig days between depth
+        milestones). There is NO stored section plan in this path, so PLAN is
+        genuinely UNKNOWN — we plot FACT only and never fabricate a plan series
+        (the old ``fact * 0.8`` estimate presented a made-up plan as data).
+        Reports with an unknown depth are skipped for banding, not treated as
+        depth 0 (which would fabricate a plunge to zero).
+        """
         try:
             from core.database import DailyReport
-            from sqlalchemy import func
             
-            # گروه‌بندی بر اساس ماه یا هفته
             reports = session.query(
                 DailyReport.report_date,
                 DailyReport.depth_2400,
@@ -2454,27 +2523,29 @@ class AnalysisWidget(DrillTabBase):
             ).order_by(DailyReport.report_date).all()
             
             if not reports:
+                self._draw_milestones_chart([], [], [])
                 return
             
-            # ایجاد نقاط عطف (هر 500 متر یا هر 30 روز)
+            # Milestone bands every ~500 m or ~30 days.
             milestones = []
             fact_times = []
-            last_depth = 0
+            last_depth = None
             cumulative_days = 0
             
             for r in reports:
-                depth = r.depth_2400 or 0
-                if depth - last_depth >= 500 or cumulative_days >= 30:
-                    if last_depth > 0:
-                        milestones.append(f"{last_depth:.0f}-{depth:.0f}m")
-                        fact_times.append(cumulative_days)
+                depth = r.depth_2400  # None = unknown depth (not 0)
+                if depth is not None and last_depth is not None and (
+                        depth - last_depth >= 500 or cumulative_days >= 30):
+                    milestones.append(f"{last_depth:.0f}-{depth:.0f}m")
+                    fact_times.append(cumulative_days)
                     last_depth = depth
                     cumulative_days = 0
+                elif last_depth is None and depth is not None:
+                    last_depth = depth
                 cumulative_days += 1
             
-            if milestones:
-                plan_times = [d * 0.8 for d in fact_times]  # تخمین برنامه
-                self._draw_milestones_chart(milestones, fact_times, plan_times)
+            # PLAN unknown in this path -> empty plan series (no fabrication).
+            self._draw_milestones_chart(milestones, fact_times, [])
                 
         except Exception as e:
             logger.error(f"Error loading milestones from reports: {e}")
@@ -2488,10 +2559,14 @@ class AnalysisWidget(DrillTabBase):
             ax.set_facecolor('#1e1e1e')
             
             x = np.arange(len(sections))
-            width = 0.35
-            
-            bars1 = ax.bar(x - width/2, fact_days, width, label='FACT', color='#3498db', edgecolor='white', linewidth=0.5)
-            bars2 = ax.bar(x + width/2, plan_days, width, label='PLAN', color='#e74c3c', edgecolor='white', linewidth=0.5)
+            # When PLAN is unknown (empty series) draw FACT full-width and omit
+            # the PLAN bars entirely rather than plotting a fabricated plan.
+            has_plan = bool(plan_days) and len(plan_days) == len(sections)
+            width = 0.35 if has_plan else 0.6
+
+            fact_x = (x - width / 2) if has_plan else x
+            bars1 = ax.bar(fact_x, fact_days, width, label='FACT', color='#3498db', edgecolor='white', linewidth=0.5)
+            bars2 = ax.bar(x + width/2, plan_days, width, label='PLAN', color='#e74c3c', edgecolor='white', linewidth=0.5) if has_plan else []
             
             ax.set_xlabel('Section', color='white', fontsize=11)
             ax.set_ylabel('Days', color='white', fontsize=11)

@@ -103,7 +103,8 @@ def _stub(db, well_id, wellbore_id=None, section_id=None):
     st.intelligence_service = OperationsIntelligenceService(db)
     for name in ("_scope_key", "_scope_reports_query", "_scope_params_query",
                  "_canonical_scope_kpis", "get_time_depth_data", "get_npt_data",
-                 "calculate_kpis", "get_performance_data", "get_today_data"):
+                 "calculate_kpis", "get_performance_data", "get_today_data",
+                 "_report_date_unambiguous"):
         setattr(st, name, types.MethodType(getattr(AnalysisWidget, name), st))
     return st
 

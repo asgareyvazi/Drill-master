@@ -47,7 +47,8 @@ class _Stub:
         self.current_wellbore_id = None
         self.current_section_id = None
         for name in ("_scope_key", "_scope_reports_query",
-                     "_scope_params_query", "_canonical_scope_kpis"):
+                     "_scope_params_query", "_canonical_scope_kpis",
+                     "_report_date_unambiguous"):
             setattr(self, name,
                     types.MethodType(getattr(AnalysisWidget, name), self))
 
