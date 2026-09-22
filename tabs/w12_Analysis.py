@@ -2760,8 +2760,12 @@ class AnalysisWidget(DrillTabBase):
                     return "n/a"
                 return f"{item['actual']:.1f}/{item['planned']:.1f} {unit} ({item['pct']:+.1f}%)"
 
+            # Plan variance is computed at WELL level (get_actual_vs_plan is
+            # keyed by well_id, aggregating every bore), so the label says so
+            # explicitly even when a bore is selected — it is NOT narrowed to the
+            # selected bore (§13, no hidden mixed scope).
             self.plan_variance_label.setText(
-                "Plan vs Actual | Depth " + _metric_text(depth, "m") +
+                "Plan vs Actual [Whole-Well] | Depth " + _metric_text(depth, "m") +
                 " | Hours " + _metric_text(hours, "h")
             )
             comparable = depth.get("pct") is not None and hours.get("pct") is not None
@@ -2777,14 +2781,17 @@ class AnalysisWidget(DrillTabBase):
             self.intelligence_label.setText("Operations Intelligence: —")
             return
         try:
+            # Operations Intelligence is a WHOLE-WELL analysis (analyze_well
+            # aggregates every bore); the label states the scope explicitly so
+            # it is never mistaken for the selected bore (§13).
             result = self.intelligence_service.analyze_well(self.current_well_id)
             insights = result.get("insights", [])
             if insights:
                 text = " | ".join(f"{item['severity'].upper()}: {item['message']}" for item in insights[:2])
-                self.intelligence_label.setText("Operations Intelligence: " + text)
+                self.intelligence_label.setText("Operations Intelligence [Whole-Well]: " + text)
                 self.intelligence_label.setStyleSheet("font-weight: bold; padding: 5px; color: #e67e22;")
             else:
-                self.intelligence_label.setText("Operations Intelligence: No critical pattern detected")
+                self.intelligence_label.setText("Operations Intelligence [Whole-Well]: No critical pattern detected")
                 self.intelligence_label.setStyleSheet("font-weight: bold; padding: 5px; color: #27ae60;")
         except Exception as exc:
             logger.error("Operations intelligence failed: %s", exc, exc_info=True)
