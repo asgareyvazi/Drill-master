@@ -263,12 +263,30 @@
   "B": 94,
   "D": 65
  },
- "generated_utc": "2026-09-28T06:43:00+00:00",
+ "generated_utc": "2026-09-28T06:43:26+00:00",
  "recovery_bundles": [
+  {
+   "file": "/home/user/recovery/drillmaster-115fc09.bundle",
+   "sha256": "2b41f3465e0f376b9f9b7484c56c3c541bbc4fa10ae2f7df1d4ef847411146f5",
+   "captured_head": "115fc09",
+   "verified": "clone verified in this session"
+  },
+  {
+   "file": "/home/user/recovery/drillmaster-1d44cb5.bundle",
+   "sha256": "9352a514b41e10dc9256a36afe3ea0b2251ecec27a6c868602594e3965b759d0",
+   "captured_head": "1d44cb5",
+   "verified": "clone verified in this session"
+  },
   {
    "file": "/home/user/recovery/drillmaster-2f61e6f.bundle",
    "sha256": "5cb8762ae153151f61e3d29a2505b0910ecc5d2cf53f9a94ce0729f0d73032b5",
    "captured_head": "2f61e6f",
+   "verified": "clone verified in this session"
+  },
+  {
+   "file": "/home/user/recovery/drillmaster-3b60dfd.bundle",
+   "sha256": "702d83e495a4bd32b9d592b340e91671d44e66720988bd51b0bc9ab9f7b26ee9",
+   "captured_head": "3b60dfd",
    "verified": "clone verified in this session"
   },
   {
@@ -278,15 +296,51 @@
    "verified": "clone verified in this session"
   },
   {
+   "file": "/home/user/recovery/drillmaster-report.bundle",
+   "sha256": "8cd55b2e8baa71382f5b47f74f4327155148f7e463f4bf2e3c55be37a7765562",
+   "captured_head": "69c8553",
+   "verified": "clone verified in this session"
+  },
+  {
+   "file": "/home/user/recovery/drillmaster-6f8663f.bundle",
+   "sha256": "f03748244d5403024ba9249f49ce4058bd45009c24972064981d40474b18a08b",
+   "captured_head": "6f8663f",
+   "verified": "clone verified in this session"
+  },
+  {
+   "file": "/home/user/recovery/drillmaster-8169244.bundle",
+   "sha256": "4e4de85060978f7e257790fe457b2d6565aa4d2546b34283f22f1bb0b9a2e2a3",
+   "captured_head": "8169244",
+   "verified": "clone verified in this session"
+  },
+  {
    "file": "/home/user/recovery/drillmaster-a375b06.bundle",
    "sha256": "22dc2b89aa6d5915d233d1890fd325ec1df65cae2c6c3a6849e1dce322a8b17b",
    "captured_head": "a375b06",
    "verified": "clone verified in this session"
   },
   {
+   "file": "/home/user/recovery/drillmaster-acb6279.bundle",
+   "sha256": "c83382fdfece3d72a1295242a87371af6429315b519ec6addd7fc602afec2cd4",
+   "captured_head": "acb6279",
+   "verified": "clone verified in this session"
+  },
+  {
    "file": "/home/user/recovery/drillmaster-b6e518f.bundle",
    "sha256": "3c61dced7f5fb21dad02a6087325a864f6a9f21051b2374488cd007712f6ce5e",
    "captured_head": "b6e518f",
+   "verified": "clone verified in this session"
+  },
+  {
+   "file": "/home/user/recovery/drillmaster-bbb5117.bundle",
+   "sha256": "fe121fec39d2e90680b726f9a7217e7ca57867ce0f6e0297de69d0f8ebaff838",
+   "captured_head": "bbb5117",
+   "verified": "clone verified in this session"
+  },
+  {
+   "file": "/home/user/recovery/drillmaster-ddf961f.bundle",
+   "sha256": "935fd858ae38b11aacee52345fa28fb0393ca4eeab7fb7febdd0f72d2f7e07f3",
+   "captured_head": "ddf961f",
    "verified": "clone verified in this session"
   }
  ]
