@@ -186,7 +186,7 @@
    },
    "defects_fixed": [],
    "new_findings": [],
-   "evidence_commit": null,
+   "evidence_commit": "86bde32",
    "commit": null,
    "tests": "no production change in this batch; the full suite evidence recorded in the final phase-1 report (1 834 / 0 failures / 0 errors / 4 skipped on the 1d44cb5 tree) stands for this batch too - this batch edits no production file"
   },
@@ -202,7 +202,7 @@
    },
    "defects_fixed": [],
    "new_findings": [],
-   "evidence_commit": null,
+   "evidence_commit": "da5ffb3",
    "commit": null,
    "tests": "no production change in this batch; the full suite evidence recorded in the final phase-1 report (1 834 / 0 failures / 0 errors / 4 skipped on the 1d44cb5 tree) stands for this batch too - this batch edits no production file"
   },
@@ -238,7 +238,7 @@
      "test": null
     }
    ],
-   "evidence_commit": null,
+   "evidence_commit": "a9f7595",
    "commit": null,
    "tests": "defect fix commit 0699e50: new regression file 4 passed; related suites (12 files incl. the regression, the profile-engine and DDR forensics and the time-log/inventory semantics suites) 343 passed / 0 failed / 0 errors / 0 skipped in 49.535 s; mutation validation with `hrs = 0.0` reintroduced -> 3 of 4 new tests fail, restored byte-identical (sha256 f77253848055e1c1..58fb45f9) -> 4/4; compileall OK; ruff unchanged for the touched files (45 concise lines before and after), ratchet population 5 338 <= ceiling 5 375. The other 44 records change no production file; the phase-1 full-suite gate (1 834 / 0 failures / 0 errors / 4 skipped, 1d44cb5 tree) plus that related run cover them; the phase-end full suite will re-run on the final tree"
   }
@@ -263,7 +263,7 @@
   "B": 94,
   "D": 65
  },
- "generated_utc": "2026-09-28T06:42:47+00:00",
+ "generated_utc": "2026-09-28T06:43:00+00:00",
  "recovery_bundles": [
   {
    "file": "/home/user/recovery/drillmaster-2f61e6f.bundle",
