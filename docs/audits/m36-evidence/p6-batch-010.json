@@ -1,0 +1,135 @@
+{
+ "schema": "m36-p6-batch",
+ "batch": "p6-batch-010",
+ "class": "class E (dialog date parse, release-gate return-code checks, test-oracle guards, theme/acceptance helpers): E:9",
+ "records": 9,
+ "sites": 9,
+ "by_classification": {
+  "DUPLICATE/FALSE-POSITIVE": 4,
+  "INTENTIONAL": 3,
+  "VERIFIED-CORRECT": 2
+ },
+ "defects_fixed": [],
+ "new_findings": [],
+ "tests": "no production change in this batch; the full suite evidence recorded in P6_PROGRESS.md (1 831 tests / 0 failures / 0 errors / 4 skipped on the 3f0cf3e tree) stands for this batch too - this batch edits no production file at all",
+ "head": "9655321",
+ "commit": null,
+ "evidence_commit": null,
+ "evidence_files": [
+  "docs/audits/m36-evidence/p6-batch-010.json",
+  "docs/audits/m36-evidence/p6-batch-010.md",
+  "docs/audits/m36-evidence/m36-open-item-register.json",
+  "docs/audits/m36-evidence/m36-master-ledger.json",
+  "docs/audits/m36-evidence/P6_PROGRESS.md",
+  "tools/m36/p6_batch_010.py"
+ ],
+ "staleness": {
+  "checked": 9,
+  "stale": 0,
+  "re_anchored": 0,
+  "method": "every record's recorded text must match the current line exactly; where it does not, the recorded text must match c2e0016^ at that line (the pre-fix revision of tabs/w7_logistics_Widget.py, whose line numbers the register carries) and the difflib map against c2e0016 must land on the same text inside the symbol's AST range - otherwise the batch refuses to apply",
+  "re_anchored_items": []
+ },
+ "method": "each record read at its own site in the current tree with its fallback traced to the consumer (the sheet statistics through their only reader at universal_import.py:386, the validator guards through the numeric-field loops that report the same values, the code-map guards through the map keys' types), and the deciding contract quoted in `evidence`",
+ "items": [
+  {
+   "id": "INV34-006370",
+   "file": "tabs/w9_Services_Widget.py",
+   "line": 671,
+   "classification": "INTENTIONAL",
+   "evidence": "A stored service date ('%Y-%m-%d' string) is parsed back into the dialog's date widget; on an unparseable/partial value the widget keeps its current (default) contents, so no date is invented for a malformed legacy row. The typed guard matches the only failures the parse can raise (`strptime` -> ValueError, a missing attribute -> AttributeError) and the following fields are loaded independently (673-682), so a bad date cannot abort the rest of the load.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-006523",
+   "file": "tests/test_m29_release_closure.py",
+   "line": 83,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Test-oracle arithmetic in `test_required_eleven_pair_plan_matrix`: the matrix at 54-68 contains (0, 0), and the branch structure decides every other p == 0 case before this line (`elif p == 0 and a != 0: assert scalar.variance_pct is None and scalar.status == \"unavailable\"`, 80-81). So `expected = (a - p) / abs(p) * 100 if p else 0` (83) is reached with p == 0 only for (0, 0), where 0% is the correct relative variance (planned and actual are both zero) - and it also avoids a ZeroDivisionError. The guard therefore cannot mask a failing case: (0, 100) is asserted as None/unavailable one branch above.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-006524",
+   "file": "tests/test_m30_semantic_regressions.py",
+   "line": 177,
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Rule mis-fire, not a behaviour to adjudicate: `first` is a boolean one-shot flag inside the monkeypatched `sqlite3.connect` (`first = True` ... `if first: first = False; source.unlink()`, 174-179), not a numeric quantity; the guard makes the disappearing-source condition fire once.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-006718",
+   "file": "ui/utils.py",
+   "line": 130,
+   "classification": "INTENTIONAL",
+   "evidence": "A theme helper ('رنگ hex را تیره‌تر می‌کند' = 'darkens a hex colour'): the failure mode is a colour token that is not a 6-digit hex value, in which case the caller's own token is returned unchanged - presentation only, no measurement, no persistence, and it cannot invent a colour. Residual (recorded, cosmetic): after `hex_color.lstrip('#')` a value that fails the hex parse is returned without its leading '#', exactly as in the sibling helper `HomeTab.darken_color` (adjudicated as INV34-004079 in p6-batch-009). Site: ui/utils.py:121-131.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-006762",
+   "file": "verify_release.py",
+   "line": 296,
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Second register record for verify_release.py:294-297 - the same fail-closed test on the `pip install --target` result, already adjudicated under INV34-006764: a failed install must not be smoke-tested as an installed package",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-006763",
+   "file": "verify_release.py",
+   "line": 277,
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Second register record for verify_release.py:276-278 - the same fail-closed test on the `python -m build --wheel` result, already adjudicated under INV34-006764: a failed wheel build must not be verified as a wheel",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-006764",
+   "file": "verify_release.py",
+   "line": 266,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "`_run(...)` returns a `subprocess.CompletedProcess`, so the subject is its exit status: zero means 'the command succeeded', a non-zero value means 'the command failed' (negative for a signalled process). `if rc:` is therefore exactly the fail-closed test - it proceeds only on a successful command - and no read of the value can be confused with 'absent number', because the value is always set by the call itself. In this same file the explicit form is used where the success set is wider ('if debt.returncode not in (0, 1) or defects.returncode:', verify_lint, 254). Site: `git ls-files -z` (265-267) - an inventory failure must abort the wheel check rather than build from an unknown source set.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-008485",
+   "file": "tabs/w9_Services_Widget.py",
+   "line": 672,
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Second register record for tabs/w9_Services_Widget.py:671/672 - the `pass` line of INV34-006370's handler, already adjudicated under INV34-006370: the date widget keeps its default",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-008562",
+   "file": "tools/real_user_acceptance.py",
+   "line": 159,
+   "classification": "INTENTIONAL",
+   "evidence": "This `pass` is the *expected* path of a negative acceptance assertion: the probe tries to save an invalid date and raises `AssertionError('Invalid date was accepted')` if the write is accepted; reaching the handler means the database refused it. Nothing is hidden - the assert immediately below (160) proves the previously stored value survived (`assert db.get_well_by_id(well)[\"spud_date\"] == date(2026, 9, 1)`), so an accepted-but-silent write could not pass this probe.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  }
+ ]
+}
