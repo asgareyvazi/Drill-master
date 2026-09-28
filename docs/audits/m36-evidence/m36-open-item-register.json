@@ -1,18 +1,18 @@
 {
  "schema": "m36-open-item-register",
- "generated_utc": "2026-09-28T06:42:47+00:00",
+ "generated_utc": "2026-09-28T07:23:44+00:00",
  "source_register": "docs/audits/m35-evidence/m35-open-item-register.json",
  "source_sha256_declared": "d81a77bda0330c75493f4081c4a02e4d106fe7602e49c14f0c67d12977658a6b",
  "totals": {
   "records": 1224,
-  "open": 718,
+  "open": 673,
   "open_by_priority": {
-   "MEDIUM": 718
+   "MEDIUM": 673
   },
   "open_by_class": {
    "E": 241,
    "C": 159,
-   "A": 159,
+   "A": 114,
    "B": 94,
    "D": 65
   },
@@ -7502,13 +7502,16 @@
    "missing_fact": "the intended failure semantics at this call site",
    "why_it_matters": "failures may be reported as successes",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Documented failure semantics of the coordinator: 'Execute independent section saves; report partial success honestly.  Atomicity belongs to the supplied domain service.  This coordinator does not promise rollback across callbacks which commit independent records.' (core/save_outcome.py:88-93).  The handler classifies the failure instead of swallowing it - ValueError -> INVALID_SOURCE, NotImplementedError -> UNSUPPORTED, otherwise SYSTEM_ERROR - and attaches `exception_type=type(exc).__name__, traceback=traceback.format_exc()` with the standing directive 'Inspect the section diagnostics before retrying; do not assume it saved.' (line 29; handler 119-125).  The aggregate adds the failed section's `saved=0` (126) and stores its outcome dict under the section name (128), so a raising section can never be counted as saved and no failure is lost - the loop continues so the user learns about every section that failed.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-014"
+   "p6_batch": "p6-batch-014",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-002773",
@@ -7552,13 +7555,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`SaveOutcome.summary()` is a Qt-free presentation helper: `location = issue.section + (f\" row {issue.row}\" if issue.row is not None else \"\")` then `if issue.field: location += f\" [{issue.field}]\"` (core/save_outcome.py:77-85).  `SaveIssue.field` defaults to \"\" meaning 'no specific field' (line 28), every issue additionally renders its reason and corrective_action, and status/disposition are computed from the issue list independently of the rendered text (41-54) while `counts` walks the serialized sections (56-69).  The truthiness test distinguishes empty-vs-present and cannot drop a real field label or change any disposition.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-014"
+   "p6_batch": "p6-batch-014",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-002784",
@@ -9431,13 +9437,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`self.size.currentData() or 16` mirrors the dialog's own load default - `_load_data`: `s = d.get('size', 16)` with `idx = self.size.findData(s)` and `self.size.setCurrentIndex(idx)` (dialogs/engineering_dialogs.py:765-770) - for a catalog-driven size selector.  The combo is populated from the nozzle catalog and the area preview (`calc_area_single` / `calc_area_total`, 762-763) is visible before saving, so the payload carries exactly the size the user sees.  A nozzle size of 0 is not a catalog entry, so the falsy case cannot be a real design size and no measurement is fabricated.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-014"
+   "p6_batch": "p6-batch-014",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-003276",
@@ -9456,13 +9465,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Documented traceability rule of `AddPipeDialog._reference_fingerprint_if_unchanged`: 'Return the selected reference's fingerprint iff its identity-forming values still match the edited component; otherwise ``None``.  This keeps traceability honest: a component that was seeded from ...' (dialogs/engineering_dialogs.py:451-455).  The fingerprint is an identity claim, not a measurement, so `if fp: self.result[\"reference_fingerprint\"] = fp` (446-448) stores it only while the claim is still true; writing it for a since-edited component would be false provenance, and the absent key reads as 'manual' downstream.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-014"
+   "p6_batch": "p6-batch-014",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-003279",
@@ -9481,13 +9493,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Definitional first-station case of a minimum-curvature survey: with no previous station the values are TVD = MD at surface with zero displacement, dogleg and horizontal departure (`if not self.prev_survey:` ... `f\"{self.md.value():.2f} m (surface)\"`, dialogs/engineering_dialogs.py:1002-1009).  It is reachable only when the dialog was opened for the first point - the ordering gate refuses anything else (`if self.prev_survey and self.md.value() <= self.prev_survey.get('md', 0): ... return`, 1062-1064) - and both tabs recompute the geometry canonically after the dialog returns: they rebuild `{'md','inc','azi'}` and overwrite `tvd/north/east/dls` from `TrajectoryEngine.calculate` (tabs/w13_Engineering_Calculator.py:4887-4896 `_ac_recalculate`, 5047-5062 `_dd_recalculate_from`).",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-014"
+   "p6_batch": "p6-batch-014",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-003280",
@@ -9559,13 +9574,16 @@
    "missing_fact": "the intended failure semantics at this call site",
    "why_it_matters": "failures may be reported as successes",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Bounded fallback inside `AddSurveyDialog._save`: the displayed labels are produced by `_update_calc`, and the narrow handler catches only a label that does not yet carry a number (`float(lbl.split(' ')[0])` raising ValueError/IndexError).  In that state `tvd = self.md.value()` is the dialog's own definition ('surface' branch, dialogs/engineering_dialogs.py:1004) and the following block leaves north/east/DLS/HD at their initialised 0 with the explicit comment 'uncalculated labels stay at 0 in the result payload' (1074-1080).  The geometry the application keeps is recomputed canonically from md/inc/azi by the callers (see INV34-003279), and `_load_data` sets the spin boxes through `setValue`, which fires `valueChanged` -> `_update_calc` (998-1000, 1053-1059), so a loaded or edited row always carries fresh labels.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-014"
+   "p6_batch": "p6-batch-014",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-003296",
@@ -9612,13 +9630,16 @@
    "missing_fact": "the intended failure semantics at this call site",
    "why_it_matters": "failures may be reported as successes",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Unit re-normalisation of one edited cell: `num_val, src_unit = UnitManager.detect_unit(orig_val)`; when detection yields nothing the handler tries `float(orig_val)` and on failure sets `num_val = None` (dialogs/excel_import_dialog.py:392-397), after which the guard `if num_val is not None:` skips the conversion entirely - the writes to `normalized_value`/`value`/`proposed_value` happen only inside the success branch (398-406).  A failed parse therefore cannot fabricate a converted number, the failure is logged (408), and the reviewer still sees the original text in the table.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-014"
+   "p6_batch": "p6-batch-014",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-003299",
@@ -9637,13 +9658,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "The broad handler wraps the per-row visibility computation only: on failure the row is hidden (`self.table.setRowHidden(row, True)`, dialogs/excel_import_dialog.py:318) and its decision is left untouched - the fail-closed direction for a *display* filter; rows with a parseable confidence keep the documented band (`show = 0.70 <= conf < 0.95`, 315).  Nothing is imported or dropped because of this handler: the import carries the reviewer's decisions and decision writing happens exclusively in `_set_decision`.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-014"
+   "p6_batch": "p6-batch-014",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-003300",
@@ -9718,13 +9742,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`conf_item = self.table.item(row, 8)` is the confidence cell of the row the handler was invoked for; `if not conf_item: continue` skips exactly that row and leaves its stored confidence/decision untouched, so a row without the cell is neither auto-classified nor mis-classified through a neighbouring row.  The handlers only decide which rows the reviewer sees; `_set_decision` (295-305) is the single writer of a decision and it resolves the row's own payload through `_payload_for_row` first.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-014"
+   "p6_batch": "p6-batch-014",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-003356",
@@ -9743,13 +9770,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`conf_item = self.table.item(row, 8)` is the confidence cell of the row the handler was invoked for; `if not conf_item: continue` skips exactly that row and leaves its stored confidence/decision untouched, so a row without the cell is neither auto-classified nor mis-classified through a neighbouring row.  The handlers only decide which rows the reviewer sees; `_set_decision` (295-305) is the single writer of a decision and it resolves the row's own payload through `_payload_for_row` first.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-014"
+   "p6_batch": "p6-batch-014",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-003358",
@@ -9768,13 +9798,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`_reject_low` marks REJECT only for rows whose own confidence parses below 0.70 (dialogs/excel_import_dialog.py:320-331) and, like `_accept_high`, resolves the row's own payload before writing the decision; an unparseable or missing cell leaves the row for the reviewer.  No row can be rejected through a stale binding.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-014"
+   "p6_batch": "p6-batch-014",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-003362",
@@ -21737,13 +21770,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`result_summary(result_values or {})` and `result_json=dict(result_values or {})` are the repository's two projections of the *same* caller-supplied composite result, in one unit of work: 'Builds the canonical snapshot from the *exact* inputs used, stores it with the derived result and promoted summary columns, all in a single ``session_scope`` unit of work so a failure leaves no partial row' (cement_repository.py:98-103).  The promoted columns are an index over the JSON payload, never an independent source - `result_summary` is `{k: _clean_number(values.get(k)) for k in SUMMARY_KEYS}` (cement_persistence.py:144-146; the identical helper in mse/mud_volume/torque_drag persistence) and `_clean_number` is documented 'Return a finite float or ``None`` (never a bool, NaN or inf)' - so a key the engine did not produce becomes NULL in the index, never 0.  No caller can pass 'no result': each save handler stores the dict of a run that actually happened and refuses to call the repository when nothing was calculated - `repo = self._mse_repo(); ... repo.save_run(inputs=run[\"inputs\"], result_values=run[\"result_values\"], method=run[\"method\"], ...)` after the explicit refusal '... available to save (Calculate Bit Hydraulics).' (tabs/w13_Engineering_Calculator.py:2098-2116 and the five sibling save handlers).  The `or {}` can therefore only normalise a state no caller produces, and even then it promotes nothing: no unknown becomes a number and no result row is invented.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-014"
+   "p6_batch": "p6-batch-014",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007780",
@@ -21762,13 +21798,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/repositories/cement_repository.py:115 (the result_json write of the same two-projection pair), already adjudicated under INV34-007779: the identical `or {}` on the same call: storing an explicitly empty result mapping instead of NULL keeps the reader contract (`dict(row.result_json or {})`) unchanged and promotes nothing either way",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-014"
+   "p6_batch": "p6-batch-014",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007781",
@@ -21787,13 +21826,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Read-side decoding of a nullable JSON column, decided together with INV34-007782/007783: the write path stores a built snapshot and the composite result, so a NULL input_snapshot can only be a legacy/hand-edited row, and rendering it as {} keeps the row displayable while the verification consumer refuses to certify it (VERIFY_UNREADABLE, 'stored record has no result to verify against', core/engineering/calculation_verification.py:180-185; an unreadable snapshot is reported by the reconstruction handler beforehand, mse_repository.py:62-71).  Distinguishing 'no snapshot' would need a projection change without any consumer able to act on it differently.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-014"
+   "p6_batch": "p6-batch-014",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007782",
@@ -21812,13 +21854,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/repositories/cement_repository.py:159 (result_json read), already adjudicated under INV34-007781: the same decoding of the same nullable column, with the same consumer guarantees",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-014"
+   "p6_batch": "p6-batch-014",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007783",
@@ -21837,13 +21882,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/repositories/cement_repository.py:162 (summary re-derivation on read), already adjudicated under INV34-007781: `result_summary(row.result_json or {})` re-derives the index through the same `_clean_number` gate that maps a missing key to None, so the re-derivation cannot invent a value",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-014"
+   "p6_batch": "p6-batch-014",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007784",
@@ -21962,13 +22010,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`self.result or {}` is passed into `classify_verification` from `Saved*Calculation.verify`.  The classifier is contractually read-only ('Does not mutate anything', core/engineering/calculation_verification.py:169) and its empty-input branch is the refusal quoted under INV34-007781; the recalculated side comes from `recalculate_from_snapshot(self.input_snapshot)`, and a snapshot that cannot be rebuilt returns VERIFY_UNREADABLE *before* this line, with `detail=f\"snapshot could not be reconstructed: {exc}\"` (mse_repository.py:62-71; identical in mud_volume 62-78 and the kill-sheet repository 72-80).  An empty stored side therefore yields a refusal, never MATCH: the comparison is `deep_numeric_diff(stored_result, recalc.values, ...)` over the entire result ('so no non-summary drift can hide behind a MATCH', core/engineering/torque_drag_persistence.py:239-245).",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-014"
+   "p6_batch": "p6-batch-014",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007794",
@@ -21987,13 +22038,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/repositories/mse_repository.py:107 (mse save_run summary), already adjudicated under INV34-007779: the identical computation on the same contract: the mse save handler passes the composite result of the run it just calculated (tabs/w13_Engineering_Calculator.py:2109-2116)",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-014"
+   "p6_batch": "p6-batch-014",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007795",
@@ -22012,13 +22066,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/repositories/mse_repository.py:116 (result_json write), already adjudicated under INV34-007794: the same two-projection pair as INV34-007780, in the mse repository",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-014"
+   "p6_batch": "p6-batch-014",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007796",
@@ -22037,13 +22094,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/repositories/mse_repository.py:157 (input_snapshot read), already adjudicated under INV34-007781: the same nullable-JSON decoding with the same verification refusal",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-014"
+   "p6_batch": "p6-batch-014",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007797",
@@ -22062,13 +22122,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/repositories/mse_repository.py:158 (result read), already adjudicated under INV34-007796: the same `_to_saved` block",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-014"
+   "p6_batch": "p6-batch-014",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007798",
@@ -22087,13 +22150,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/repositories/mse_repository.py:161 (summary re-derivation on read), already adjudicated under INV34-007796: the same gate-protected re-derivation as INV34-007783",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-014"
+   "p6_batch": "p6-batch-014",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007800",
@@ -22112,13 +22178,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/repositories/mud_volume_repository.py:73 (SavedMudVolumeCalculation.verify), already adjudicated under INV34-007792: the identical verification call with the identical empty-stored-result refusal and the identical reconstruction guard before it",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-014"
+   "p6_batch": "p6-batch-014",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007802",
@@ -22137,13 +22206,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/repositories/mud_volume_repository.py:106 (mud-volume save_run summary), already adjudicated under INV34-007779: the same promoted-index derivation from the caller's composite result",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-014"
+   "p6_batch": "p6-batch-014",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007803",
@@ -22162,13 +22234,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/repositories/mud_volume_repository.py:115 (result_json write), already adjudicated under INV34-007802: the same write-side `or {}` as INV34-007780/007795",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-014"
+   "p6_batch": "p6-batch-014",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007804",
@@ -22187,13 +22262,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/repositories/mud_volume_repository.py:155 (input_snapshot read), already adjudicated under INV34-007781: the same nullable-JSON decoding",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-014"
+   "p6_batch": "p6-batch-014",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007805",
@@ -22212,13 +22290,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/repositories/mud_volume_repository.py:156 (result read), already adjudicated under INV34-007804: the same `_to_saved` block",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-014"
+   "p6_batch": "p6-batch-014",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007806",
@@ -22237,13 +22318,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/repositories/mud_volume_repository.py:159 (summary re-derivation on read), already adjudicated under INV34-007804: the same gate-protected re-derivation",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-014"
+   "p6_batch": "p6-batch-014",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007810",
@@ -22312,13 +22396,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`result_summary(result_values or {})` and `result_json=dict(result_values or {})` are the repository's two projections of the *same* caller-supplied composite result, in one unit of work: 'Builds the canonical snapshot from the *exact* inputs used, stores it with the derived result and promoted summary columns, all in a single ``session_scope`` unit of work so a failure leaves no partial row' (cement_repository.py:98-103).  The promoted columns are an index over the JSON payload, never an independent source - `result_summary` is `{k: _clean_number(values.get(k)) for k in SUMMARY_KEYS}` (cement_persistence.py:144-146; the identical helper in mse/mud_volume/torque_drag persistence) and `_clean_number` is documented 'Return a finite float or ``None`` (never a bool, NaN or inf)' - so a key the engine did not produce becomes NULL in the index, never 0.  No caller can pass 'no result': each save handler stores the dict of a run that actually happened and refuses to call the repository when nothing was calculated - `repo = self._mse_repo(); ... repo.save_run(inputs=run[\"inputs\"], result_values=run[\"result_values\"], method=run[\"method\"], ...)` after the explicit refusal '... available to save (Calculate Bit Hydraulics).' (tabs/w13_Engineering_Calculator.py:2098-2116 and the five sibling save handlers).  The `or {}` can therefore only normalise a state no caller produces, and even then it promotes nothing: no unknown becomes a number and no result row is invented.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-014"
+   "p6_batch": "p6-batch-014",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007816",
@@ -22337,13 +22424,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/repositories/torque_drag_repository.py:154 (input_snapshot read), already adjudicated under INV34-007781: the same nullable-JSON decoding; the stored snapshot is what `recalculate_from_snapshot` feeds, and an unreadable one is reported rather than certified",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-014"
+   "p6_batch": "p6-batch-014",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007817",
@@ -22362,13 +22452,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/repositories/torque_drag_repository.py:161 (result read), already adjudicated under INV34-007816: the same `_to_saved` block",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-014"
+   "p6_batch": "p6-batch-014",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007818",
@@ -22387,13 +22480,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`reference_fingerprints_json` is a traceability list, not an engineering value: `reference_fingerprints(snapshot)` collects each component's `reference_fingerprint` order-preserving and de-duplicated (core/engineering/torque_drag_persistence.py:135-147), so an empty list is the honest encoding of 'every component was entered manually'.  The reader keeps that meaning end-to-end: the history dialog renders the count and `', '.join(s.reference_fingerprints) or 'none (all manual)'` (dialogs/torque_drag_history_dialog.py:76,251) and the persistence test pins the empty case (`assert saved.reference_fingerprints == []`, tests/test_torque_drag_history.py:241).  A NULL in a legacy row reads as the same empty list - no catalog identity is invented.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-014"
+   "p6_batch": "p6-batch-014",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007819",
@@ -22412,13 +22508,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/repositories/torque_drag_repository.py:165 (summary re-derivation on read), already adjudicated under INV34-007816: the same gate-protected re-derivation as INV34-007783/007798/007806",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-014"
+   "p6_batch": "p6-batch-014",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007821",
@@ -22437,13 +22536,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/repositories/well_control_kill_sheet_repository.py:82 (SavedKillSheetCalculation.verify), already adjudicated under INV34-007792: the identical verification call with the identical refusal semantics",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-014"
+   "p6_batch": "p6-batch-014",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007824",
@@ -22462,13 +22564,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "The kill-sheet repository documents that it performs no engineering and no unit conversion: 'The caller passes the snapshot already built from the exact ``WellControlKillSheetInputs`` the composite consumed (via ``well_control_kill_sheet_persistence.build_snapshot``) and the whole ``KillSheetResult.as_dict()`` result, so this repository performs no engineering and no unit conversion.' (well_control_kill_sheet_repository.py:119-124).  Its promoted columns come from that result through the same `_clean_number` gate ('Return a finite float or ``None`` (never a bool, NaN or inf)', core/engineering/well_control_kill_sheet_persistence.py:118-127), so a kill-sheet quantity the composite did not produce is stored as NULL in the index while the JSON result stays the authoritative payload.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-014"
+   "p6_batch": "p6-batch-014",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007825",
@@ -22487,13 +22592,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/repositories/well_control_kill_sheet_repository.py:135 (result_json write), already adjudicated under INV34-007824: the write-side sibling of the same documented pass-through contract",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-014"
+   "p6_batch": "p6-batch-014",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007826",
@@ -22512,13 +22620,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/repositories/well_control_kill_sheet_repository.py:179 (input_snapshot read), already adjudicated under INV34-007781: the same nullable-JSON decoding",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-014"
+   "p6_batch": "p6-batch-014",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007827",
@@ -22537,13 +22648,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/repositories/well_control_kill_sheet_repository.py:180 (result read), already adjudicated under INV34-007826: the same `_to_saved` block",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-014"
+   "p6_batch": "p6-batch-014",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007828",
@@ -22562,13 +22676,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/repositories/well_control_kill_sheet_repository.py:183 (summary re-derivation on read), already adjudicated under INV34-007826: the same gate-protected re-derivation",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-014"
+   "p6_batch": "p6-batch-014",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007830",
@@ -23129,13 +23246,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Fail-closed input validation in the dialog that owns the record: a blank or whitespace-only name is refused before `self.result` is built, and the same stripped text is what the payload carries (`name: self.name.text().strip()`, dialogs/engineering_dialogs.py:1255), with the sibling `Base MD must > Top MD` check (1248-1249) following the same pattern.  No default name is invented and no record is written from an invalid form.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-014"
+   "p6_batch": "p6-batch-014",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007935",
@@ -23179,13 +23299,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`report = self.import_report or {}` is a display/gate normalisation of the report object the dialog was constructed with (ctor `self.import_report = import_report`, dialogs/excel_import_dialog.py:106-124); every read is `.get(key, default)`-style, the dialog is modal, and the mapping therefore cannot change between render and confirm.  An empty report cannot reach the reviewer in the first place: the pipeline refuses earlier - `if not has_meaningful_canonical_data(extracted): ... raise ValueError(\"No meaningful canonical report data was detected\")` (891-894) - and the confirm path sends only reviewer-approved subsets (418-432, `apply_review_changes`).",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-014"
+   "p6_batch": "p6-batch-014",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007937",
@@ -23288,13 +23411,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for dialogs/excel_import_dialog.py:419 (`_confirm` report normalisation), already adjudicated under INV34-007936: the same normalisation of the same constructor-held report, with the same pipeline refusal upstream and the same `.get`-based gate below",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-014"
+   "p6_batch": "p6-batch-014",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007942",
@@ -23313,17 +23439,20 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "contract_quote": {
     "kind": "explicit-reporting",
     "quote": "logger.info("
    },
    "register_classification": "OPEN-CONTRACT-CANDIDATE",
-   "p6_evidence": null,
+   "p6_evidence": "`diagnostics` is optional observability metadata of the MinerU provenance block, and the expression is a fallback chain across its possible sources: `getattr(parse_result, \"diagnostics\", {}) or parse_result.document.metadata.get(\"diagnostics\", {}) or {}` (dialogs/excel_import_dialog.py:716-720).  The final `or {}` encodes 'no diagnostics were produced anywhere' inside an audit payload that also carries `mineru_provenance` and `fallback_diagnostics` under their own keys (711, 721); it cannot manufacture a diagnostic and no engineering value is derived from this mapping.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-014"
+   "p6_batch": "p6-batch-014",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007953",
@@ -28094,17 +28223,20 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "contract_quote": {
     "kind": "function-docstring-or-comment",
     "quote": "\"\"\"Run the existing preview/atomic DB path after optional MinerU work.\"\"\""
    },
    "register_classification": "OPEN-CONTRACT-CANDIDATE",
-   "p6_evidence": null,
+   "p6_evidence": "The import decision point: `if not preview.confirmed or preview_result != QDialog.Accepted:` records the file as skipped (`{'skipped': 1, 'imported': 0, 'failed': 0, ...}` plus 'Cancelled by user in preview') and `continue`s without calling `_do_import` (dialogs/excel_import_dialog.py:900-923).  Both conditions are required, so neither a cancelled dialog nor an unconfirmed preview can write anything; the accepted path first applies the reviewer's decisions ('Decisions and edits are now part of the audit payload and the exact canonical object sent to the atomic save boundary', 918-923) and only then runs the atomic save.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-014"
+   "p6_batch": "p6-batch-014",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-008803",
@@ -30568,13 +30700,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Plan-vs-actual bookkeeping with an explicit unknown: `days = self.planned_days_spin.value()` feeds the live estimate (`if days > 0 and depth_to > depth_from: rop = (depth_to - depth_from) / days ... else: self.estimated_rop_label.setText(\"—\")`, dialogs/hierarchy_dialogs.py:1183-1192) and the create path stores `estimated_rop = (depth_to - depth_from) / planned_days if planned_days else None` (1210) - no planned days is persisted as None (unknown), never as a zero ROP, and the label shows an em dash rather than a fabricated rate.  The value is the engineer's own plan input from a non-negative spin box, and zero is a meaningful plan horizon rather than a measurement.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-014"
+   "p6_batch": "p6-batch-014",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-009992",

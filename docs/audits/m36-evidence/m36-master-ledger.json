@@ -241,6 +241,22 @@
    "evidence_commit": "a9f7595",
    "commit": null,
    "tests": "defect fix commit 0699e50: new regression file 4 passed; related suites (12 files incl. the regression, the profile-engine and DDR forensics and the time-log/inventory semantics suites) 343 passed / 0 failed / 0 errors / 0 skipped in 49.535 s; mutation validation with `hrs = 0.0` reintroduced -> 3 of 4 new tests fail, restored byte-identical (sha256 f77253848055e1c1..58fb45f9) -> 4/4; compileall OK; ruff unchanged for the touched files (45 concise lines before and after), ratchet population 5 338 <= ceiling 5 375. The other 44 records change no production file; the phase-1 full-suite gate (1 834 / 0 failures / 0 errors / 4 skipped, 1d44cb5 tree) plus that related run cover them; the phase-end full suite will re-run on the final tree"
+  },
+  {
+   "batch": "p6-batch-014",
+   "class": "phase-2 class A: the calculation-repository and engineering-dialog persistence surface - A:45",
+   "records": 45,
+   "sites": 45,
+   "by_classification": {
+    "DUPLICATE/FALSE-POSITIVE": 23,
+    "INTENTIONAL": 15,
+    "VERIFIED-CORRECT": 7
+   },
+   "defects_fixed": [],
+   "new_findings": [],
+   "evidence_commit": null,
+   "commit": null,
+   "tests": "no production file changes in this batch (all 45 records adjudicated as INTENTIONAL 15 / DUPLICATE 23 / VERIFIED-CORRECT 7; 0 defects), so the evidence is (a) the phase-1 full-suite gate on the pre-batch tree (1 834 passed / 0 failures / 0 errors / 4 skipped, 317.146 s) and (b) a fresh related run on the current tree covering every module the batch quotes: 346 passed / 0 failed / 0 errors / 0 skipped in 94.954 s (/tmp/p6-014-related.xml; includes the cement/mse/mud-volume/torque-drag/kill-sheet persistence, cross-process, history and save-widget suites, the calculation-verification core, the casing-id gate, the save-outcome consumers and the import-pipeline suites).  compileall and the phase-end full suite re-run on the final tree"
   }
  ],
  "start_open": 1224,
@@ -248,22 +264,22 @@
  "arithmetic": {
   "register_open_at_p6_start": 1224,
   "defect_fixed_by_p6": 2,
-  "adjudicated_by_p6_batches": 504,
-  "current_open": 718,
+  "adjudicated_by_p6_batches": 549,
+  "current_open": 673,
   "check": true,
   "note": "every record is either OPEN or carries a terminal evidence-backed classification; the fixed sites are subtracted separately so nothing disappears"
  },
  "open_by_priority": {
-  "MEDIUM": 718
+  "MEDIUM": 673
  },
  "open_by_class": {
   "E": 241,
   "C": 159,
-  "A": 159,
+  "A": 114,
   "B": 94,
   "D": 65
  },
- "generated_utc": "2026-09-28T06:43:46+00:00",
+ "generated_utc": "2026-09-28T07:23:44+00:00",
  "recovery_bundles": [
   {
    "file": "/home/user/recovery/drillmaster-115fc09.bundle",
