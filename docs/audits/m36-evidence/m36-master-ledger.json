@@ -329,7 +329,7 @@
     }
    ],
    "new_findings": [],
-   "evidence_commit": null,
+   "evidence_commit": "9f259e2",
    "commit": null,
    "tests": "the batch's defect fix was verified: new regression 15 passed / 0 failed / 0 errors / 0 skipped in 1.419 s (/tmp/p6-017-fix.xml); mutation validation with the pre-fix coercion reintroduced -> 8 failures, restored byte-identical (sha256 61eea36f811dbbd9aeb4bb29d1367ae6ea4610c1b5da0da5e4463c60a0405d81) and 15/15 green again; related 11-file run 234 passed / 0 failed / 0 errors / 0 skipped in 61.143 s (/tmp/p6-017-related.xml); compileall OK; ruff core/database.py 14 -> 14 findings and the new test file clean (repo total 5578 == the HEAD clone, no debt increase); the batch script itself runs with the provenance gates active (see `staleness`)"
   }
@@ -353,7 +353,7 @@
   "B": 73,
   "D": 65
  },
- "generated_utc": "2026-09-28T08:02:49+00:00",
+ "generated_utc": "2026-09-28T08:03:21+00:00",
  "recovery_bundles": [
   {
    "file": "/home/user/recovery/drillmaster-115fc09.bundle",
@@ -413,6 +413,12 @@
    "file": "/home/user/recovery/drillmaster-8169244.bundle",
    "sha256": "4e4de85060978f7e257790fe457b2d6565aa4d2546b34283f22f1bb0b9a2e2a3",
    "captured_head": "8169244",
+   "verified": "clone verified in this session"
+  },
+  {
+   "file": "/home/user/recovery/drillmaster-9f259e2.bundle",
+   "sha256": "100905d0a3c9cf15fc8130362fa07b59e38fb24d96091894cd6f15bbe8180925",
+   "captured_head": "9f259e2",
    "verified": "clone verified in this session"
   },
   {
