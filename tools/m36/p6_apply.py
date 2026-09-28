@@ -7,10 +7,11 @@ defect flag, remaining_question.  This tool refuses to run if a record is missin
 the batch, if an id is unknown or duplicated, or if the arithmetic does not reconcile.
 
 Produces:
-    docs/audits/m36-evidence/p6-batch-NNN.md      human-readable batch report
-    docs/audits/m36-evidence/m36-open-item-register.json   stamped classifications
+    docs/audits/m36-evidence/m36-open-item-register.json   stamped classifications + evidence
     docs/audits/m36-evidence/m36-master-ledger.json        counts + conservation arithmetic
-    docs/audits/m36-evidence/P6_PROGRESS.md                resume checkpoint
+
+Reporting markdown is deliberately NOT generated (session rule): p6-batch-NNN.json is the
+per-batch machine-readable record.
 
 usage: python tools/m36/p6_apply.py p6-batch-002
 """
@@ -122,121 +123,13 @@ def main() -> int:
     ledger["generated_utc"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
     ledger_path.write_text(json.dumps(ledger, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
 
-    # human-readable batch report
-    lines = [f"# P6 {batch} — class {data.get('class')}", "",
-             f"records **{len(records)}** over **{sites}** sites · "
-             + " · ".join(f"{k}: {v}" for k, v in counts.items()), ""]
-    if data.get("defects_fixed"):
-        lines += ["## Defects fixed", ""] + [f"- {d}" for d in data["defects_fixed"]] + [""]
-    if data.get("new_findings"):
-        lines += ["## New findings (found while adjudicating this batch)", ""]
-        labels = [("trigger", "Trigger"), ("observed", "Observed"),
-                  ("deciding_contract", "Deciding contract"), ("reachable", "Reachable"),
-                  ("status", "Status"), ("fix", "Fix"), ("commit", "Commit"), ("test", "Test"),
-                  ("validation", "Validation"), ("not_patched_because", "Why not patched here"),
-                  ("next_action", "Next action")]
-        for finding in data["new_findings"]:
-            lines += [f"### {finding['id']} — `{finding['file']}:{finding['line']}` "
-                      f"({finding['severity']}, class {finding['class']})", ""]
-            lines += [f"- **{label}:** {finding[key]}"
-                      for key, label in labels if finding.get(key)]
-            lines += [""]
-    def _commit_text(record) -> str:
-        """Per-item commit: the code commit if the item carries one, else the audit-only form."""
-        if record.get("commit"):
-            return record["commit"]
-        if data.get("commit"):
-            return (f"audit-only (no code change; batch code commit {data['commit']}, "
-                    f"evidence commit recorded in the ledger)")
-        return "audit-only, committed with this batch evidence"
-
-    for record in records:
-        source = by_id[record["id"]]
-        lines += [f"## {record['id']} — `{source['file']}:{source['line']}`", "",
-                  f"- **Rule / kind:** `{source['rule']}` / `{source['kind']}` "
-                  f"({source['priority']}, class {source['p6_class']})",
-                  f"- **Symbol:** `{source.get('symbol')}`",
-                  f"- **Register question:** {source.get('question')}",
-                  f"- **Evidence:** {record['evidence']}",
-                  f"- **Classification:** {record['classification']}",
-                  f"- **Defect:** {'yes' if record.get('defect') else 'no'}",
-                  f"- **Test:** {record.get('test') or 'not applicable (no behaviour change)'}",
-                  f"- **Commit:** {_commit_text(record)}",
-                  f"- **Remaining question:** {record.get('remaining_question') or 'none'}", ""]
-    (EVIDENCE / f"{batch}.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
-
-    # progress checkpoint
-    remaining_ids = [r for r in register["records"] if r.get("p6_batch") and r["classification"] == "OPEN"]
+    # Rules for this session: reporting markdown is NOT generated.  The machine-readable record of
+    # a batch is p6-batch-NNN.json (written by the batch script) plus the register and the master
+    # ledger below; the per-batch .md report and the P6_PROGRESS.md resume file are not written.
+    remaining_ids = [r for r in register["records"] if r["classification"] == "OPEN"]
     remaining_ids.sort(key=lambda r: ({"A": 0, "B": 1, "C": 2, "D": 3, "E": 4}[r["p6_class"]],
                                       r["file"], r["line"]))
     nxt = remaining_ids[0] if remaining_ids else None
-    code_commits = " · ".join(f"{b['batch']} {b.get('commit') or 'audit-only'}"
-                             for b in ledger["batches"])
-    live_head = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT,
-                               capture_output=True, text=True).stdout.strip()
-    worktree = ("see `git status --porcelain -uall` at any time - this file is written BEFORE its "
-                "own commit, so the batch's evidence files are still untracked at this moment "
-                "(they are committed immediately after; the six permanent review-required evidence "
-                "files stay untracked by design)")
-    if nxt:
-        next_block = f"""next batch:   {nxt['p6_batch']}
-next item:    {nxt['id']}
-next site:    {nxt['file']}:{nxt['line']}  ({nxt['rule']} / {nxt['kind']})  [class {nxt['p6_class']}]
-command:      python tools/m36/p6_dump.py {nxt['p6_batch']} 45
-              # then write docs/audits/m36-evidence/{nxt['p6_batch']}.json and run:
-              python tools/m36/p6_apply.py {nxt['p6_batch']}
-blockers:     none in the repository; environment needs LD_LIBRARY_PATH=/tmp/qtstub for Qt tests"""
-    else:
-        waiting = sorted((r for r in register["records"] if r["classification"] == "OPEN"),
-                         key=lambda r: ({'A': 0, 'B': 1, 'C': 2, 'D': 3, 'E': 4}[r["p6_class"]],
-                                        r["file"], r["line"]))
-        first_waiting = waiting[0] if waiting else None
-        if first_waiting:
-            next_block = (
-                "HIGH priority is closed - every HIGH record carries a terminal classification.\n"
-                f"remaining:    {len(waiting)} records, all "
-                f"{first_waiting['priority']} and none planned into a batch yet\n"
-                "              (classes: "
-                + ", ".join(f"{k} {v}" for k, v in sorted(Counter(r['p6_class'] for r in waiting).items()))
-                + ")\n"
-                f"next item:    {first_waiting['id']}  {first_waiting['file']}:{first_waiting['line']}"
-                f"  ({first_waiting['rule']} / {first_waiting['kind']})  [class {first_waiting['p6_class']}]\n"
-                "plan step:    python tools/m36/p6_plan.py --priority "
-                f"{first_waiting['priority']}   # appends batch numbers, touches no stamp\n"
-                "              then adjudicate batch-by-batch exactly as in phase 1\n"
-                "blockers:     none in the repository; environment needs LD_LIBRARY_PATH=/tmp/qtstub for Qt tests")
-        else:
-            next_block = "every register record carries a terminal classification - nothing open"
-
-    (EVIDENCE / "P6_PROGRESS.md").write_text(f"""# P6 PROGRESS - authoritative resume point
-
-```text
-HEAD at generation:     {live_head}   (snapshot - this file is written before its own commit;
-                        check `git log -1` for the real HEAD)
-branch:                 arena/01a0c945-drill-master (local only - never pushed)
-last completed batch:   {batch}  ({len(records)} records, {sites} sites, code commit {data.get('commit')})
-HIGH remain:            {high_open}
-MEDIUM remain:          {medium_open}
-OPEN remain:            {len(open_records)}   (of {register['totals']['records']} register records)
-CRITICAL:               0
-register defect-fixed:  {register['totals']['defect_fixed']}
-defects fixed by P6 batches: {sum(len(b['defects_fixed']) for b in ledger['batches'])}  (one entry per fixed defect; commits in the batch reports)
-new findings recorded:  {sum(len(b.get('new_findings', [])) for b in ledger['batches'])}
-code commits by batch:  {code_commits}
-last validation:        ledger check {ledger['arithmetic']['check']}; register {register['totals']['records']} -
-                        {register['totals']['defect_fixed']} fixed - {resolved_total} adjudicated = {len(open_records)} open
-tests (this batch):     {data.get('tests')}
-worktree at generation: {worktree}
-recovery bundles:       /home/user/recovery/drillmaster-*.bundle - catalog + sha256 in
-                        /home/user/recovery/MANIFEST.txt and in the master ledger
-```
-
-## Next exact actions
-
-```text
-{next_block}
-```
-""", encoding="utf-8")
 
     print(f"{batch}: {len(records)} records over {sites} sites -> {counts}")
     print(f"open {len(open_records)} = HIGH {high_open} / MEDIUM {medium_open} | "
