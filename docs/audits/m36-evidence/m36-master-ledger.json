@@ -94,6 +94,30 @@
    "evidence_commit": null,
    "commit": null,
    "tests": "no production change in this batch; the full suite was re-run on the 3f0cf3e fix (1 831 tests / 0 failures / 0 errors / 4 skipped) and the focused slices before it, as recorded in P6_PROGRESS.md"
+  },
+  {
+   "batch": "p6-batch-007",
+   "class": "class E 37 / class D 8 (optional-resource loaders, narrow parser guards, dialog loaders): D:8, E:37",
+   "records": 45,
+   "sites": 44,
+   "by_classification": {
+    "INTENTIONAL": 18,
+    "DUPLICATE/FALSE-POSITIVE": 14,
+    "VERIFIED-CORRECT": 13
+   },
+   "defects_fixed": [],
+   "new_findings": [
+    {
+     "id": "NEW-P6-002",
+     "file": "app.py",
+     "line": 57,
+     "severity": "LOW-MEDIUM",
+     "status": "recorded, not patched"
+    }
+   ],
+   "evidence_commit": null,
+   "commit": null,
+   "tests": "no production change in this batch; the full suite evidence recorded in P6_PROGRESS.md (1 831 tests / 0 failures / 0 errors / 4 skipped on the 3f0cf3e tree) stands for this batch too - every site read here is untracked by this session's changes"
   }
  ],
  "start_open": 1224,
@@ -101,23 +125,23 @@
  "arithmetic": {
   "register_open_at_p6_start": 1224,
   "defect_fixed_by_p6": 2,
-  "adjudicated_by_p6_batches": 225,
-  "current_open": 997,
+  "adjudicated_by_p6_batches": 270,
+  "current_open": 952,
   "check": true,
   "note": "every record is either OPEN or carries a terminal evidence-backed classification; the fixed sites are subtracted separately so nothing disappears"
  },
  "open_by_priority": {
   "MEDIUM": 853,
-  "HIGH": 144
+  "HIGH": 99
  },
  "open_by_class": {
-  "E": 377,
+  "E": 340,
   "A": 294,
   "C": 159,
   "B": 94,
-  "D": 73
+  "D": 65
  },
- "generated_utc": "2026-09-28T06:06:40+00:00",
+ "generated_utc": "2026-09-28T06:07:56+00:00",
  "recovery_bundles": [
   {
    "file": "/home/user/recovery/drillmaster-2f61e6f.bundle",
