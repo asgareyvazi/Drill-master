@@ -263,7 +263,7 @@
   "B": 94,
   "D": 65
  },
- "generated_utc": "2026-09-28T06:43:26+00:00",
+ "generated_utc": "2026-09-28T06:43:46+00:00",
  "recovery_bundles": [
   {
    "file": "/home/user/recovery/drillmaster-115fc09.bundle",
@@ -341,6 +341,12 @@
    "file": "/home/user/recovery/drillmaster-ddf961f.bundle",
    "sha256": "935fd858ae38b11aacee52345fa28fb0393ca4eeab7fb7febdd0f72d2f7e07f3",
    "captured_head": "ddf961f",
+   "verified": "clone verified in this session"
+  },
+  {
+   "file": "/home/user/recovery/drillmaster-eb95f1e.bundle",
+   "sha256": "fcef90a5a46b279ea7c93988d22a79c614b19a9766ca280e7f81e1a0f2d2a67e",
+   "captured_head": "eb95f1e",
    "verified": "clone verified in this session"
   }
  ]
