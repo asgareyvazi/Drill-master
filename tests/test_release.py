@@ -3,27 +3,11 @@
 Run with: python -m pytest tests/test_release.py -v
 """
 
-import pytest
+import importlib
+import subprocess
+
 import sys
-import os
 from pathlib import Path
-
-
-def _qt_gui_importable() -> bool:
-    """Probe whether PySide6 GUI modules can actually load here.
-
-    Replaces the old DISPLAY-env sniffing, which hid real failures: the
-    release-import test once contained a broken ``from core.validators
-    import validate_rows`` import that stayed green for every recorded
-    headless run because the whole test skipped when DISPLAY was unset —
-    even on machines where offscreen Qt worked perfectly.
-    """
-    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-    try:
-        import PySide6.QtWidgets  # noqa: F401
-        return True
-    except Exception as exc:  # ImportError (libGL etc.) or any load failure
-        return False
 
 
 class TestReleaseVerification:
@@ -35,15 +19,30 @@ class TestReleaseVerification:
     
     def test_core_dependencies(self):
         """All core dependencies must be importable."""
-        assert True
+        for module in ("PySide6", "sqlalchemy", "openpyxl", "bcrypt", "numpy",
+                       "matplotlib", "pandas", "pyqtgraph", "fitz"):
+            assert importlib.import_module(module) is not None
     
     def test_all_core_modules_importable(self):
         """All core modules must import without error."""
-        # Skip only when PySide6 GUI modules genuinely cannot load
-        # (capability probe — never based on the DISPLAY variable).
-        if not _qt_gui_importable():
-            pytest.skip("PySide6 GUI modules cannot load (no display and offscreen platform unavailable)")
-        assert True
+        exports = {
+            "core.database": ("DatabaseManager", "Well", "DailyReport"),
+            "core.db_models": ("Base",),
+            "core.canonical_schema": ("FIELD_SPECS", "CANONICAL_FIELDS"),
+            "core.unit_manager": ("UnitManager",),
+            "core.managers": ("StatusBarManager", "TableManager", "DrillingManager"),
+            "core.permissions": ("permissions",),
+            "core.selection_manager": ("SelectionManager",),
+            "core.lineage": ("LineageTracker", "get_import_lineage"),
+            "core.engineering": ("TrajectoryEngine", "HydraulicsEngine"),
+            "core.validators": ("WellValidator", "DailyReportValidator", "MudValidator"),
+            "core.import_quality": ("ImportValidator",),
+            "core.hierarchy_operations": ("delete_entity", "check_delete_permission"),
+        }
+        for name, attributes in exports.items():
+            module = importlib.import_module(name)
+            for attribute in attributes:
+                assert getattr(module, attribute) is not None
     
     def test_canonical_schema_minimum_fields(self):
         """Schema must have at least 100 fields."""
@@ -141,11 +140,21 @@ class TestReleaseVerification:
         from core.permissions import permissions
         assert permissions is not None
     
+    def test_real_entrypoint_source_package_smoke(self):
+        """Core-only imports missed a deleted re-export required by app.py."""
+        root = Path(__file__).resolve().parents[1]
+        result = subprocess.run([sys.executable, str(root / "app.py"), "--package-smoke"],
+                                cwd=root, capture_output=True, text=True, timeout=180)
+        assert result.returncode == 0, result.stdout + result.stderr
+
     def test_no_circular_imports(self):
         """Core modules must not have circular import issues."""
-        if not _qt_gui_importable():
-            pytest.skip("PySide6 GUI modules cannot load (no display and offscreen platform unavailable)")
-        assert True
+        # A fresh process prevents already-cached pytest imports hiding cycles.
+        result = subprocess.run([sys.executable, "-c",
+            "import core.database, core.db_models, core.managers, core.canonical_schema; "
+            "import core.unit_manager, core.lineage, core.engineering"],
+            capture_output=True, text=True, timeout=30)
+        assert result.returncode == 0, result.stdout + result.stderr
     
     def test_file_sizes_reasonable(self):
         """No single file should be excessively large."""

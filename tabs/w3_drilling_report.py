@@ -20,6 +20,49 @@ from core.base_tab import DrillTabBase
 
 logger = logging.getLogger(__name__)
 
+
+def _calc_spin(spin, maximum=None):
+    """Derived-value display: the sentinel minimum means "not computed".
+
+    These fields show numbers produced by the engineering engines. A failed or
+    impossible calculation used to be displayed (and then persisted) as 0, which
+    states a measured zero the engines never returned.
+
+    ``maximum`` is the DOCUMENTED domain bound for the field, passed explicitly
+    at each call site — e.g. ``avg_rop`` is 0-500 m/hr in
+    ``core/validators.py`` (``("avg_rop", 0, 500)``). Without it a plain
+    ``QDoubleSpinBox`` inherits Qt's default maximum of 99.99, which silently
+    truncates every larger computed value (see ``_set_calc``).
+    """
+    spin.setMinimum(-1)
+    if maximum is not None:
+        spin.setMaximum(maximum)
+    spin.setSpecialValueText("Not computed")
+    spin.setValue(-1)
+    return spin
+
+
+def _calc_value(spin):
+    """Read a derived-value display: None when the calculation is unavailable."""
+    return None if spin.value() <= spin.minimum() else spin.value()
+
+
+def _set_calc(spin, value):
+    """Show a real result, or fall back to the explicit "not computed" state.
+
+    A computed value outside the widget's range must never be silently clamped:
+    this read-only field is what ``collect_data`` reads for the payload, so Qt's
+    silent ``setValue`` truncation would display AND persist a number the engine
+    never produced (domain plausibility is the validator's job — it warns for
+    ``avg_rop`` outside 0-500 — not the display's).
+    """
+    if value is None:
+        spin.setValue(spin.minimum())
+        return
+    if value > spin.maximum():
+        spin.setMaximum(value)
+    spin.setValue(value)
+
 import matplotlib
 try:
     import matplotlib
@@ -369,7 +412,7 @@ class DrillingParametersTab(QWidget):
 
         tfa_layout = QHBoxLayout()
         tfa_layout.addWidget(QLabel("Total Flow Area (TFA):"))
-        self.tfa_value = QDoubleSpinBox()
+        self.tfa_value = _calc_spin(QDoubleSpinBox())
         self.tfa_value.setReadOnly(True)
         self.tfa_value.setDecimals(3)
         self.tfa_value.setSuffix(" in²")
@@ -545,13 +588,15 @@ class DrillingParametersTab(QWidget):
         calc_layout = QGridLayout()
 
         calc_layout.addWidget(QLabel("Avg ROP (m/hr):"), 0, 0)
-        self.avg_rop = QDoubleSpinBox()
+        # 0-500 m/hr is the validator's documented domain range for avg_rop
+        # (core/validators.py) — a plain QDoubleSpinBox would default to 99.99.
+        self.avg_rop = _calc_spin(QDoubleSpinBox(), 500)
         self.avg_rop.setReadOnly(True)
         self.avg_rop.setDecimals(2)
         calc_layout.addWidget(self.avg_rop, 0, 1)
 
         calc_layout.addWidget(QLabel("HSI:"), 0, 2)
-        self.hsi = QDoubleSpinBox()
+        self.hsi = _calc_spin(QDoubleSpinBox())
         self.hsi.setReadOnly(True)
         self.hsi.setDecimals(2)
         calc_layout.addWidget(self.hsi, 0, 3)
@@ -659,7 +704,7 @@ class DrillingParametersTab(QWidget):
                         'quantity': qty_widget.value()
                     })
             tfa = DrillingManager.calculate_tfa(nozzles_data)
-            self.tfa_value.setValue(tfa)
+            _set_calc(self.tfa_value, tfa)
         except Exception as e:
             logger.error(f"Error calculating TFA: {e}")
 
@@ -680,7 +725,7 @@ class DrillingParametersTab(QWidget):
             depth_out = self.depth_out.value()
             hours = self.hours_on_bottom.value()
             rop = DrillingManager.calculate_rop(depth_in, depth_out, hours)
-            self.avg_rop.setValue(rop)
+            _set_calc(self.avg_rop, rop)
         except Exception as e:
             logger.error(f"Error calculating ROP: {e}")
 
@@ -690,7 +735,7 @@ class DrillingParametersTab(QWidget):
             flow_rate = (self.pump_output_min.value() + self.pump_output_max.value()) / 2
             bit_size = self.bit_size.value()
             hsi_val = DrillingManager.calculate_hsi(pump_pressure, flow_rate, bit_size)
-            self.hsi.setValue(hsi_val)
+            _set_calc(self.hsi, hsi_val)
         except Exception as e:
             logger.error(f"Error calculating HSI: {e}")
 
@@ -814,7 +859,7 @@ class DrillingParametersTab(QWidget):
             "manufacturer": self.bit_manufacturer.text(),
             "iadc_code": self.iadc_code.text(),
             "nozzles_json": json.dumps(nozzles_data, indent=2),
-            "tfa": self.tfa_value.value(),
+            "tfa": _calc_value(self.tfa_value),
             "depth_in": self.depth_in.value(),
             "depth_out": self.depth_out.value(),
             "bit_drilled": self.bit_drilled.value(),
@@ -836,8 +881,8 @@ class DrillingParametersTab(QWidget):
             "pump2_spm": self.pump2_spm.value(),
             "pump2_spp": self.pump2_spp.value(),
             "pump_liner_size": self.pump_liner_size.text().strip() or None,
-            "avg_rop": self.avg_rop.value(),
-            "hsi": self.hsi.value(),
+            "avg_rop": _calc_value(self.avg_rop),
+            "hsi": _calc_value(self.hsi),
             "annular_velocity": self.annular_velocity.value(),
             "bit_revolution": self.bit_revolution.value(),
         }
@@ -867,6 +912,16 @@ class DrillingParametersTab(QWidget):
                 return float(v)
             except (ValueError, TypeError):
                 return default
+
+        def safe_opt(key):
+            """Stored value, or None when the report holds no recorded number."""
+            v = data.get(key)
+            if v is None:
+                return None
+            try:
+                return float(v)
+            except (ValueError, TypeError):
+                return None
 
         def safe_str(key, default=""):
             v = data.get(key)
@@ -904,7 +959,7 @@ class DrillingParametersTab(QWidget):
             except (json.JSONDecodeError, TypeError):
                 pass
 
-        self.tfa_value.setValue(safe_val("tfa"))
+        _set_calc(self.tfa_value, safe_opt("tfa"))
         self.depth_in.setValue(safe_val("depth_in"))
         self.depth_out.setValue(safe_val("depth_out"))
         self.bit_drilled.setValue(safe_val("bit_drilled"))
@@ -926,8 +981,8 @@ class DrillingParametersTab(QWidget):
         self.pump2_spm.setValue(safe_val("pump2_spm"))
         self.pump2_spp.setValue(safe_val("pump2_spp"))
         self.pump_liner_size.setText(safe_str("pump_liner_size"))
-        self.avg_rop.setValue(safe_val("avg_rop"))
-        self.hsi.setValue(safe_val("hsi"))
+        _set_calc(self.avg_rop, safe_opt("avg_rop"))
+        _set_calc(self.hsi, safe_opt("hsi"))
         self.annular_velocity.setValue(safe_val("annular_velocity"))
         self.bit_revolution.setValue(safe_val("bit_revolution"))
         
@@ -939,7 +994,7 @@ class DrillingParametersTab(QWidget):
         self.bit_manufacturer.clear()
         self.iadc_code.clear()
         self.nozzle_table.setRowCount(0)
-        self.tfa_value.setValue(0)
+        self.tfa_value.setValue(self.tfa_value.minimum())
         self.depth_in.setValue(0)
         self.depth_out.setValue(0)
         self.bit_drilled.setValue(0)
@@ -961,8 +1016,8 @@ class DrillingParametersTab(QWidget):
         self.pump2_spm.setValue(0)
         self.pump2_spp.setValue(0)
         self.pump_liner_size.clear()
-        self.avg_rop.setValue(0)
-        self.hsi.setValue(0)
+        self.avg_rop.setValue(self.avg_rop.minimum())
+        self.hsi.setValue(self.hsi.minimum())
         self.annular_velocity.setValue(0)
         self.bit_revolution.setValue(0)
 

@@ -1,10 +1,11 @@
 """Company/template-agnostic mapping memory with revisioned JSON storage."""
 
 import hashlib
+from copy import deepcopy
 import json
 from pathlib import Path
 
-from core.runtime_config import mapping_memory_path
+from core.runtime_config import mapping_memory_path, atomic_write_json
 
 
 class MappingStore:
@@ -31,11 +32,12 @@ class MappingStore:
     def remember(self, fingerprint, mappings, source="user-confirmed"):
         if not fingerprint or not mappings:
             return
-        entry = self.data.setdefault("mappings", {}).setdefault(
+        candidate = deepcopy(self.data)
+        entry = candidate.setdefault("mappings", {}).setdefault(
             fingerprint, {"revision": 0, "source": source, "fields": {}}
         )
         entry["revision"] += 1
         entry["source"] = source
-        entry["fields"].update(mappings)
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(json.dumps(self.data, ensure_ascii=False, indent=2), encoding="utf-8")
+        entry["fields"].update(deepcopy(mappings))
+        atomic_write_json(self.path, candidate, ensure_ascii=False, indent=2)
+        self.data = candidate

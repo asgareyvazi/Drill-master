@@ -7,7 +7,7 @@ Professional Features:
 """
 
 from dataclasses import dataclass, asdict
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import logging
 
 logger = logging.getLogger(__name__)
@@ -16,8 +16,8 @@ logger = logging.getLogger(__name__)
 @dataclass
 class QualityMetric:
     name: str
-    value: float
-    status: str  # good, warning, critical
+    value: Optional[float]   # None when the metric cannot be computed from the data
+    status: str              # good, warning, critical, unknown
     detail: str = ""
     confidence: float = 1.0
     evidence: dict = None
@@ -82,17 +82,36 @@ class DataQualityService:
             finally:
                 session.close()
 
-        hours = sum(float(log.duration or 0) for log in logs)
-        coverage = min(100.0, hours / 24.0 * 100) if hours else 0.0
-        metrics.append(
-            QualityMetric(
-                name="24h time coverage",
-                value=round(coverage, 1),
-                status="good" if coverage >= 95 else "warning" if coverage >= 70 else "critical",
-                detail=f"{hours:.2f} hours, {len(logs)} entries, overlaps: {overlap_count}, gaps: {gap_count}",
-                evidence={"total_hours": hours, "entries": len(logs), "overlaps": overlap_count, "gaps": gap_count},
+        # 24h coverage is a claim about recorded time. An entry with no recorded
+        # duration makes the total unknown: the missing hours are neither zero nor
+        # a subtotal, so the metric reports "unknown" instead of a fabricated 0 h.
+        unrecorded = sum(1 for log in logs if log.duration is None)
+        if unrecorded:
+            metrics.append(
+                QualityMetric(
+                    name="24h time coverage",
+                    value=None,
+                    status="unknown",
+                    confidence=0.0,
+                    detail=(f"{unrecorded} of {len(logs)} entries have no recorded duration; "
+                            f"coverage cannot be computed, overlaps: {overlap_count}, gaps: {gap_count}"),
+                    evidence={"total_hours": None, "unrecorded_entries": unrecorded,
+                              "recorded_entries": len(logs) - unrecorded, "entries": len(logs),
+                              "overlaps": overlap_count, "gaps": gap_count},
+                )
             )
-        )
+        else:
+            hours = sum(float(log.duration) for log in logs)   # durations are all recorded
+            coverage = min(100.0, hours / 24.0 * 100) if hours else 0.0
+            metrics.append(
+                QualityMetric(
+                    name="24h time coverage",
+                    value=round(coverage, 1),
+                    status="good" if coverage >= 95 else "warning" if coverage >= 70 else "critical",
+                    detail=f"{hours:.2f} hours, {len(logs)} entries, overlaps: {overlap_count}, gaps: {gap_count}",
+                    evidence={"total_hours": hours, "entries": len(logs), "overlaps": overlap_count, "gaps": gap_count},
+                )
+            )
 
         # Unit consistency
         if report:
@@ -234,14 +253,23 @@ class DataQualityService:
 
     def summary(self, report_id: int) -> Dict[str, Any]:
         metrics = self.for_report(report_id)
-        score = round(sum(m.value for m in metrics) / len(metrics), 1) if metrics else 0.0
+        # A metric whose input data is incomplete is excluded from the average and
+        # reported as unknown; it is never scored as if it had passed or failed.
+        known = [m for m in metrics if m.value is not None]
+        unknown = [m.name for m in metrics if m.value is None]
+        score = round(sum(m.value for m in known) / len(known), 1) if known else None
         return {
             "score": score,
-            "status": "good" if score >= 90 else "warning" if score >= 60 else "critical",
+            "status": ("unknown" if score is None else
+                       "good" if score >= 90 else "warning" if score >= 60 else "critical"),
+            "unknown_metrics": unknown,
+            "confidence": round(len(known) / len(metrics), 3) if metrics else 0.0,
             "metrics": [asdict(m) for m in metrics],
             "evidence": {
                 "report_id": report_id,
                 "metric_count": len(metrics),
+                "known_metric_count": len(known),
+                "unknown_metric_count": len(unknown),
                 "timestamp": __import__("datetime").datetime.now().isoformat(),
             },
         }
@@ -258,7 +286,8 @@ class DataQualityService:
 
         # Add data quality
         quality_metrics = self.for_well(well_id)
-        avg_quality = round(sum(m.value for m in quality_metrics) / len(quality_metrics), 1) if quality_metrics else 0
+        known_quality = [m for m in quality_metrics if m.value is not None]
+        avg_quality = round(sum(m.value for m in known_quality) / len(known_quality), 1) if known_quality else None
 
         kpis.update(
             {

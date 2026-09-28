@@ -16,6 +16,7 @@ from pathlib import Path
 REQUIRED_CONFIG = (
     Path("config") / "ai_models.json",
     Path("config") / "company_templates" / "oeoc.json",
+    Path("templates") / "OEOC_DDR_v3.json",
 )
 
 

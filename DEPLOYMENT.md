@@ -1,14 +1,20 @@
 # DrillMaster Windows deployment and release runbook
 
+> **Current evidence — 2026-09-27: [Mission 33 semantic audit](M33_SEMANTIC_AUDIT.md).** Inventory **8934** occurrences adjudicated from the current source: **3712 verified-correct**, **2264 intentional-by-design**, **51 defect-fixed**, **49 removed-with-evidence**, **17 external-acceptance-only**, **2837 under-review** and **4 evidence-incomplete** (the last two stop release certification for repository-verifiable items). This tree is **NOT RELEASE-CERTIFIABLE** — see [M33_RELEASE_CERTIFICATION.md](M33_RELEASE_CERTIFICATION.md). Earlier counts, SHAs and acceptance statements anywhere below are historical or unverified, not current certification.
+
 This repository builds a Windows x64 one-folder application with PyInstaller
 and an Inno Setup installer. The end-user installation does not require
 Python, pip, Git, the repository, or developer tools.
+
+> Status: Windows build/EXE/installer acceptance is **NOT VERIFIED** by this
+> Linux audit. See [independent M27 evidence](docs/audits/2026-09-22_M27_INDEPENDENT_REAUDIT.md).
+> A Python wheel or fake-bundle structural test is not Windows acceptance.
 
 ## Build prerequisites
 
 On a Windows build machine install:
 
-- Python 3.11 x64
+- Python 3.12 x64 (the build default and Windows acceptance target)
 - Inno Setup 6, with `ISCC.exe` on `PATH`
 - Access to the pinned wheels in `requirements-lock.txt`
 
@@ -33,7 +39,7 @@ From the repository root in PowerShell:
 The script:
 
 1. Reads the authoritative version from `core/version.py`.
-2. Creates the ignored Windows build virtual environment.
+2. Creates the ignored Windows build virtual environment; rejects reuse with a different Python version.
 3. Installs the runtime and build locks.
 4. Runs `packaging/DrillMaster.spec`.
 5. Produces a PyInstaller one-folder bundle.

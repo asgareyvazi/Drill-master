@@ -5,6 +5,8 @@ Trajectory Widget - ابزار مدیریت تراژکتوری چاه با قا�
 import csv
 import json
 import logging
+from core.permissions import require_permission
+from core.text_utils import fmt_num
 from datetime import datetime, date
 from typing import Dict, List
 
@@ -103,24 +105,17 @@ class TripSheetTab(QWidget):
             data = None
         
         if data is None:
-            data = [
-                datetime.now().strftime("%H:%M"),
-                "New Activity",
-                "0.0",
-                "0.0",
-                "0.0",
-                "",
-                "",
-                False
-            ]
-        
+            data = ["", datetime.now().strftime("%H:%M"), "", "", "", "", "", "", False]
+        elif isinstance(data, (list, tuple)) and len(data) == 8:
+            data = [""] + list(data)  # legacy caller payload omitted the hidden ID
+
         row = self.table_manager.add_row(data)
         if row >= 0:
             checkbox = QCheckBox()
-            if len(data) > 7:
+            if len(data) > 8:
                 # در صورت وجود مقدار verified در داده (index 7)
-                if isinstance(data, (list, tuple)) and len(data) > 7:
-                    verified_value = data[7]
+                if isinstance(data, (list, tuple)) and len(data) > 8:
+                    verified_value = data[8]
                     if isinstance(verified_value, bool):
                         checkbox.setChecked(verified_value)
                     elif isinstance(verified_value, str):
@@ -145,21 +140,27 @@ class TripSheetTab(QWidget):
             self.table_manager.delete_row()
     
     def calculate_cumulative(self):
+        """Sum entered operation depths; missing terms make the total unknown."""
         try:
+            import math
             cumulative = 0.0
+            values = []
             for row in range(self.trip_table.rowCount()):
-                depth_item = self.trip_table.item(row, 3)
-                if depth_item and depth_item.text():
-                    depth = float(depth_item.text())
-                    cumulative += depth
-                    cum_item = QTableWidgetItem(f"{cumulative:.2f}")
-                    cum_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
-                    self.trip_table.setItem(row, 4, cum_item)
-            QMessageBox.information(self, "Success", f"Cumulative calculation completed\nTotal: {cumulative:.2f} m")
+                item = self.trip_table.item(row, 3)
+                text = item.text().strip() if item is not None else ""
+                depth = None if text in ("", "—") else float(text)
+                if depth is not None and (not math.isfinite(depth) or depth < 0):
+                    raise ValueError("Invalid depth")
+                cumulative = cumulative + depth if cumulative is not None and depth is not None else None
+                values.append(cumulative)
+            for row, value in enumerate(values):
+                self.trip_table.setItem(row, 4, QTableWidgetItem(fmt_num(value, 2, default=None)))
+            QMessageBox.information(self, "Calculation", "Sum of entered operation depths: " + fmt_num(cumulative if values else None, 2, default=None) + " m")
         except ValueError as e:
             QMessageBox.warning(self, "Error", f"Invalid depth values: {str(e)}")
-    
+
     @editor_saved()
+    @require_permission("can_edit_reports")
     def save_data(self):
         if not self.current_well_id or not self.current_report_id:
             self.status_manager.show_error("TripSheet", "Well or report not selected")
@@ -190,9 +191,18 @@ class TripSheetTab(QWidget):
                 
                 time_str = time_item.text().strip()
                 activity = activity_item.text().strip()
-                depth = float(depth_item.text() or 0) if depth_item else 0.0
-                cum_trip = float(cum_item.text() or 0) if cum_item else 0.0
-                duration = float(duration_item.text() or 0) if duration_item else 0.0
+                def optional_measurement(item):
+                    import math
+                    value = item.text().strip() if item is not None else ""
+                    if value in ("", "—"):
+                        return None
+                    number = float(value)
+                    if not math.isfinite(number) or number < 0:
+                        raise ValueError("Trip measurements must be finite and nonnegative")
+                    return number
+                depth = optional_measurement(depth_item)
+                cum_trip = optional_measurement(cum_item)
+                duration = optional_measurement(duration_item)
                 remarks = remarks_item.text().strip() if remarks_item else ""
                 supervisor = supervisor_item.text().strip() if supervisor_item else ""
                 
@@ -206,8 +216,8 @@ class TripSheetTab(QWidget):
                 
                 try:
                     time_obj = datetime.strptime(time_str, "%H:%M").time()
-                except (TypeError, ValueError):
-                    time_obj = datetime.now().time()
+                except (TypeError, ValueError) as exc:
+                    raise ValueError(f"Invalid trip time in row {row + 1}: {time_str}") from exc
                 
                 entry = TripSheetEntry(
                     well_id=self.current_well_id,
@@ -251,9 +261,9 @@ class TripSheetTab(QWidget):
                 self.trip_table.setItem(row, 0, QTableWidgetItem(str(entry['id'])))
                 self.trip_table.setItem(row, 1, QTableWidgetItem(entry['time']))
                 self.trip_table.setItem(row, 2, QTableWidgetItem(entry['activity']))
-                self.trip_table.setItem(row, 3, QTableWidgetItem(str(entry['depth'])))
-                self.trip_table.setItem(row, 4, QTableWidgetItem(str(entry['cum_trip'])))
-                self.trip_table.setItem(row, 5, QTableWidgetItem(str(entry['duration'])))
+                self.trip_table.setItem(row, 3, QTableWidgetItem(fmt_num(entry['depth'], 1, default=None)))
+                self.trip_table.setItem(row, 4, QTableWidgetItem(fmt_num(entry['cum_trip'], 1, default=None)))
+                self.trip_table.setItem(row, 5, QTableWidgetItem(fmt_num(entry['duration'], 1, default=None)))
                 self.trip_table.setItem(row, 6, QTableWidgetItem(entry['remarks']))
                 self.trip_table.setItem(row, 7, QTableWidgetItem(entry['supervisor']))
                 checkbox = QCheckBox()

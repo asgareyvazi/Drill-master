@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import os
 import platform
+import tempfile
 from pathlib import Path
 
 
@@ -146,3 +147,32 @@ def drill_pipe_reference_paths() -> list[Path]:
     paths = [_configured_path("DRILLMASTER_DRILLPIPE_PATH", data_dir() / "DrillPipe.xlsx")] if configured else []
     return paths + [data_dir() / "DrillPipe.xlsx", root / "resources" / "DrillPipe.xlsx",
                     root / "data" / "DrillPipe.xlsx", root / "DrillPipe.xlsx", root / "tabs" / "DrillPipe.xlsx"]
+
+
+def user_templates_dir() -> Path:
+    """Writable custom templates/learning, distinct from bundled templates."""
+    return data_dir() / "templates"
+
+
+def atomic_write_json(path, value, **json_options):
+    """Replace user JSON only after serialization and a complete same-dir write.
+
+    Exceptions propagate to the owning action; an existing file is not truncated.
+    This is file replacement, not a cross-file or concurrent-editor transaction.
+    """
+    payload = json.dumps(value, **json_options)
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    pending = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent,
+                                         prefix="." + path.name + ".", suffix=".tmp",
+                                         delete=False) as stream:
+            pending = Path(stream.name)
+            stream.write(payload)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(pending, path)
+    finally:
+        if pending is not None:
+            pending.unlink(missing_ok=True)

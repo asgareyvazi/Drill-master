@@ -48,6 +48,7 @@ hiddenimports = sorted(
         _module_names(PROJECT_ROOT / "core", "core")
         + _module_names(PROJECT_ROOT / "dialogs", "dialogs")
         + _module_names(PROJECT_ROOT / "tabs", "tabs")
+        + _module_names(PROJECT_ROOT / "ui", "ui")
         + [
             "bcrypt",
             "fitz",
@@ -67,6 +68,9 @@ datas = [
 ]
 for template in sorted((PROJECT_ROOT / "config" / "company_templates").glob("*.json")):
     datas.append((str(template), "config/company_templates"))
+
+for name in ("OEOC_DDR_General.json", "OEOC_DDR_v3.json", "OEOC_DDR_full_extraction.json"):
+    datas.append((str(PROJECT_ROOT / "templates" / name), "templates"))
 
 excludes = [
     # Optional integrations are detected and installed separately. Excluding

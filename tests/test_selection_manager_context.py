@@ -165,3 +165,18 @@ def test_full_context_without_wellbore_stays_backward_compatible(selection):
     assert selection.current_wellbore_id is None
     assert selection.current_section_id == 11
     assert selection.current_report_id == 111
+
+
+def test_cross_section_report_is_rejected(selection):
+    selection.select_well(1, {"id": 1})
+    selection.select_section(11, {"id": 11, "well_id": 1})
+    selection.select_report(111, {"id": 111, "well_id": 1, "section_id": 12})
+    assert selection.current_report_id is None
+
+
+@pytest.mark.parametrize("kind", ["well", "wellbore", "section", "report"])
+def test_new_id_without_payload_does_not_keep_old_identity(selection, kind):
+    select = getattr(selection, f"select_{kind}")
+    select(1, {"id": 1, "name": "old"})
+    select(2)
+    assert getattr(selection, f"current_{kind}_data") == {}

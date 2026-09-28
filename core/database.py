@@ -19,6 +19,7 @@ def _now_utc() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
     
 from sqlalchemy import (
+    func,
     create_engine,
     event,
     Column,
@@ -61,6 +62,8 @@ logger = logging.getLogger(__name__)
 
 # Re-export the shared policy for existing application callers.
 from core.credential_policy import (
+    bootstrap_password_for_role as bootstrap_password_for_role,
+    _BOOTSTRAP_PASSWORD_ENV as _BOOTSTRAP_PASSWORD_ENV,
     _DEVELOPMENT_FIXTURE_PASSWORDS, runtime_environment, is_production_environment, resolve_bootstrap_passwords, validate_production_password, is_development_password,
     CredentialLifecycleError,
 )
@@ -176,7 +179,7 @@ class Well(Base):
     elevation = Column(Float, default=0.0)
     water_depth = Column(Float, default=0.0)
     spud_date = Column(Date)
-    target_depth = Column(Float, default=0.0)
+    target_depth = Column(Float)
     status = Column(String(50), default="Planning")
     well_type = Column(String(50))
     purpose = Column(String(100))
@@ -304,8 +307,8 @@ class Section(Base):
     hole_size = Column(Float)
     purpose = Column(String(100))
     description = Column(Text)
-    planned_days = Column(Float, default=0.0)  
-    planned_rop = Column(Float, default=50.0)  
+    planned_days = Column(Float)
+    planned_rop = Column(Float)
     created_at = Column(DateTime, default=_now_utc)
     updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc)
 
@@ -348,13 +351,13 @@ class DailyReport(Base):
     summary = Column(Text)
     forecast = Column(Text)
     status = Column(String(50), default="Draft")
-    rop_meter = Column(Float, default=0.0)
-    wob = Column(Float, default=0.0)
-    rpm = Column(Float, default=0.0)
-    torque = Column(Float, default=0.0)
-    pressure = Column(Float, default=0.0)
-    mud_weight_in = Column(Float, default=0.0)
-    mud_weight_out = Column(Float, default=0.0)
+    rop_meter = Column(Float)
+    wob = Column(Float)
+    rpm = Column(Float)
+    torque = Column(Float)
+    pressure = Column(Float)
+    mud_weight_in = Column(Float)
+    mud_weight_out = Column(Float)
     bit_number = Column(String(50))
     equipment_data = Column(JSON, nullable=True)
     header_snapshot = Column(JSON, nullable=True)
@@ -520,6 +523,26 @@ def _check_report_scoped_well_ownership(session, obj):
         )
 
 
+def _check_auxiliary_ownership(session, obj):
+    """Explicit section/plan references must agree with their well/report."""
+    well_id = getattr(obj, "well_id", None)
+    if well_id is None:
+        return
+    for field, model in (("section_id", Section), ("plan_id", WellPlan)):
+        identity = getattr(obj, field, None)
+        if identity is None:
+            continue
+        parent = session.get(model, identity)
+        if parent is None or parent.well_id != well_id:
+            raise OwnershipIntegrityError(f"{type(obj).__name__} ownership conflict: {field}={identity} is not owned by well {well_id}")
+    report_id = getattr(obj, "report_id", None)
+    section_id = getattr(obj, "section_id", None)
+    if report_id is not None and section_id is not None:
+        report = _resolve_daily_report(session, report_id)
+        if report is not None and report.section_id is not None and report.section_id != section_id:
+            raise OwnershipIntegrityError(f"{type(obj).__name__} ownership conflict: section {section_id} contradicts report {report_id}")
+
+
 def _discover_report_scoped_well_models():
     """Every mapped model that carries a NOT-NULL ``well_id`` AND a nullable
     ``report_id`` foreign key onto ``daily_reports.id``.
@@ -566,13 +589,83 @@ def _report_scoped_well_models():
     return _REPORT_SCOPED_WELL_MODELS
 
 
+def _ownership_dependents(session, obj):
+    """Revalidate unchanged children when a persisted parent's scope changes.
+
+    Ordinary FK constraints cannot enforce agreement of redundant owner IDs.
+    Query only on ownership edits; identity-map values include simultaneous
+    child edits, so coherent moves remain valid. Bulk/raw SQL is not an ORM
+    flush and remains outside this guard (migrations must validate separately).
+    """
+    from sqlalchemy import inspect
+
+    fields = {
+        Wellbore: ("well_id",),
+        Section: ("well_id", "wellbore_id"),
+        DailyReport: ("well_id", "section_id", "wellbore_id"),
+        WellPlan: ("well_id",),
+    }.get(type(obj), ())
+    state = inspect(obj)
+    relationship_edit = any(
+        any(column.key in fields for column in rel.local_columns)
+        and state.attrs[rel.key].history.has_changes()
+        for rel in state.mapper.relationships
+    )
+    if not state.persistent or not (relationship_edit or any(
+            state.attrs[f].history.has_changes() for f in fields)):
+        return []
+    references = []
+    if isinstance(obj, Wellbore):
+        references = [(Section, Section.wellbore_id),
+                      (DailyReport, DailyReport.wellbore_id),
+                      (Wellbore, Wellbore.parent_wellbore_id)]
+    elif isinstance(obj, Section):
+        references = [(m.class_, m.class_.section_id) for m in Base.registry.mappers
+                      if hasattr(m.class_, "section_id") and hasattr(m.class_, "well_id")]
+    elif isinstance(obj, WellPlan):
+        references = [(PlannedActivity, PlannedActivity.plan_id)]
+    elif isinstance(obj, DailyReport):
+        references = [(mapper.class_, mapper.class_.report_id)
+                      for mapper in Base.registry.mappers
+                      if mapper.class_.__name__ in _report_scoped_well_models()]
+    children = []
+    for model, fk in references:
+        children.extend(session.query(model).filter(fk == obj.id).all())
+    return [child for child in children if child not in session.deleted]
+
+
 @event.listens_for(Session, "before_flush")
 def _enforce_ownership_integrity(session, flush_context, instances):
     """Reject contradictory ownership before it can be committed. Runs for every
-    session flush, so no save path (ORM, service helper, or import) can bypass
-    it."""
+    ordinary ORM session flush. Raw SQL/bulk writes do not fire this hook.
+    Parent scope edits also revalidate their unchanged dependents.
+    """
+    from sqlalchemy import inspect
+
+    changed = list(session.new) + list(session.dirty)
+    affected = set(changed)
+    for obj in changed:
+        affected.update(_ownership_dependents(session, obj))
+    affected.difference_update(session.deleted)
+    # Relationship assignments synchronize FK columns during the flush, after
+    # before_flush. Keep strong references and validate the synchronized state
+    # too; otherwise e.g. SafetyReport(report=foreign_report) bypasses the guard.
+    session.info["_ownership_pending"] = affected
+    relationship_edit = any(
+        state.attrs[rel.key].history.has_changes()
+        and any(c.key in {"well_id", "wellbore_id", "section_id", "report_id", "plan_id"}
+                for c in rel.local_columns)
+        for obj in changed for state in [inspect(obj)]
+        for rel in state.mapper.relationships
+    )
+    if not relationship_edit:
+        _validate_ownership_objects(session, affected)
+
+
+def _validate_ownership_objects(session, objects):
     guarded = _report_scoped_well_models()
-    for obj in list(session.new) + list(session.dirty):
+    for obj in objects:
+        _check_auxiliary_ownership(session, obj)
         if isinstance(obj, Wellbore):
             _check_wellbore_invariants(session, obj)
         elif isinstance(obj, Section):
@@ -581,6 +674,16 @@ def _enforce_ownership_integrity(session, flush_context, instances):
             _check_daily_report_invariants(session, obj)
         elif type(obj).__name__ in guarded:
             _check_report_scoped_well_ownership(session, obj)
+
+
+@event.listens_for(Session, "after_flush_postexec")
+def _validate_synchronized_ownership(session, flush_context):
+    _validate_ownership_objects(session, session.info.pop("_ownership_pending", ()))
+
+
+@event.listens_for(Session, "after_rollback")
+def _clear_pending_ownership(session):
+    session.info.pop("_ownership_pending", None)
 
 
 class ReportRevision(Base):
@@ -871,9 +974,9 @@ class TripSheetEntry(Base):
     )
     time = Column(Time, nullable=False)
     activity = Column(String(200), nullable=False)
-    depth = Column(Float, default=0.0)
-    cum_trip = Column(Float, default=0.0)
-    duration = Column(Float, default=0.0)
+    depth = Column(Float)
+    cum_trip = Column(Float)
+    duration = Column(Float)
     remarks = Column(Text)
     supervisor = Column(String(100))
     verified = Column(Boolean, default=False)
@@ -1094,7 +1197,9 @@ class ServiceCompanyPOB(Base):
     )
     company_name = Column(String(100), nullable=False)
     service_type = Column(String(100))
-    personnel_count = Column(Integer, default=0)
+    # No default: an unknown headcount must persist NULL. A fabricated 0/1 is a
+    # safety-relevant claim ("nobody on board") that nobody entered.
+    personnel_count = Column(Integer)
     date_in = Column(Date)
     date_out = Column(Date)
     remarks = Column(Text)
@@ -1265,8 +1370,9 @@ class TransportLog(Base):
     arrival_time = Column(Time)
     departure_time = Column(Time)
     duration = Column(Float)
-    passengers_in = Column(Integer, default=0)
-    passengers_out = Column(Integer, default=0)
+    # No defaults: an unrecorded passenger count must persist NULL (it feeds POB).
+    passengers_in = Column(Integer)
+    passengers_out = Column(Integer)
     cargo_description = Column(Text)
     status = Column(String(50), default="Scheduled")
     purpose = Column(String(200))
@@ -1326,20 +1432,20 @@ class SafetyReport(Base):
     last_fire_drill = Column(Date)
     last_bop_drill = Column(Date)
     last_h2s_drill = Column(Date)
-    days_without_lti = Column(Integer, default=0)
-    lti_count = Column(Integer, default=0)
-    near_miss_count = Column(Integer, default=0)
+    days_without_lti = Column(Integer)
+    lti_count = Column(Integer)
+    near_miss_count = Column(Integer)
     last_rams_test = Column(Date)
-    test_pressure = Column(Float, default=0.0)
+    test_pressure = Column(Float)
     last_koomey_test = Column(Date)
-    days_since_last_test = Column(Integer, default=0)
+    days_since_last_test = Column(Integer)
     bop_stack_json = Column(JSON)
-    recycled_volume = Column(Float, default=0.0)
-    waste_ph = Column(Float, default=7.0)
+    recycled_volume = Column(Float)
+    waste_ph = Column(Float)
     turbidity = Column(String(100))
     hardness = Column(String(100))
-    cutting_volume = Column(Float, default=0.0)
-    oil_content = Column(Float, default=0.0)
+    cutting_volume = Column(Float)
+    oil_content = Column(Float)
     waste_type = Column(String(100))
     disposal_method = Column(String(100))
     waste_history_json = Column(JSON)
@@ -1476,7 +1582,8 @@ class ServiceCompany(Base):
     contact_phone = Column(String(50))
     contact_email = Column(String(100))
     equipment_used = Column(Text)
-    personnel_count = Column(Integer, default=1)
+    # No default: see ServiceCompanyPOB.personnel_count.
+    personnel_count = Column(Integer)
     status = Column(String(50), default="Active")
     description = Column(Text)
     npt_hours = Column(Float, nullable=True)
@@ -1535,15 +1642,16 @@ class MaterialRequest(Base):
     )
     request_date = Column(Date, nullable=False)
     requested_items = Column(Text)
-    requested_quantity = Column(Float, default=0.0)
+    # No default: an unrecorded quantity must persist NULL, not a measured 0.0.
+    requested_quantity = Column(Float)
     requested_unit = Column(String(50), default="units")
     outstanding_items = Column(Text)
-    outstanding_quantity = Column(Float, default=0.0)
+    outstanding_quantity = Column(Float)
     received_items = Column(Text)
-    received_quantity = Column(Float, default=0.0)
+    received_quantity = Column(Float)
     received_date = Column(Date)
     backload_items = Column(Text)
-    backload_quantity = Column(Float, default=0.0)
+    backload_quantity = Column(Float)
     backload_date = Column(Date)
     remarks = Column(Text)
     status = Column(String(50), default="Pending")
@@ -1577,7 +1685,9 @@ class EquipmentLog(Base):
     service_date = Column(Date)
     service_type = Column(String(100))
     service_provider = Column(String(200))
-    hours_worked = Column(Float, default=0.0)
+    # No ORM default: an omitted/unknown hours_worked must persist NULL. A
+    # fabricated 0.0 is an explicit "worked zero hours" claim (mission §NULL/ZERO).
+    hours_worked = Column(Float)
     status = Column(String(50), default="Operational")
     notes = Column(Text)
     created_at = Column(DateTime, default=_now_utc)
@@ -1610,7 +1720,8 @@ class SevenDaysLookahead(Base):
     remarks = Column(Text)
     status = Column(String(50), default="Planned")
     priority = Column(String(20), default="Normal")
-    progress_percentage = Column(Integer, default=0)
+    # No default: unreported progress is unknown, not 0%.
+    progress_percentage = Column(Integer)
     actual_start = Column(DateTime)
     actual_end = Column(DateTime)
     created_at = Column(DateTime, default=_now_utc)
@@ -1644,8 +1755,8 @@ class NPTReport(Base):
     npt_description = Column(Text, nullable=False)
     responsible_party = Column(String(200))
     department = Column(String(100))
-    cost_impact = Column(Float, default=0.0)
-    delay_days = Column(Float, default=0.0)
+    cost_impact = Column(Float)
+    delay_days = Column(Float)
     safety_incident = Column(Boolean, default=False)
     root_cause = Column(Text)
     corrective_action = Column(Text)
@@ -1798,16 +1909,16 @@ class PlannedActivity(Base):
     # زمان‌بندی برنامه
     planned_start = Column(DateTime, nullable=False)
     planned_end = Column(DateTime, nullable=False)
-    planned_duration_hours = Column(Float, default=0.0)
+    planned_duration_hours = Column(Float)
     
     # اطلاعات عمق
-    planned_depth_from = Column(Float, default=0.0)
-    planned_depth_to = Column(Float, default=0.0)
+    planned_depth_from = Column(Float)
+    planned_depth_to = Column(Float)
     
     # پیشرفت
     progress_percent = Column(Float, default=0.0)
     is_completed = Column(Boolean, default=False)
-    actual_duration_hours = Column(Float, default=0.0)
+    actual_duration_hours = Column(Float)
     
     # ارتباطات
     well = relationship(
@@ -1834,8 +1945,8 @@ class WellPlan(Base):
     # اطلاعات کلی برنامه
     planned_spud_date = Column(Date)
     planned_finish_date = Column(Date)
-    planned_total_days = Column(Float, default=0.0)
-    planned_final_depth = Column(Float, default=0.0)
+    planned_total_days = Column(Float)
+    planned_final_depth = Column(Float)
     
     # وضعیت
     is_active = Column(Boolean, default=True)
@@ -2418,9 +2529,9 @@ class CostRecord(Base):
     
     category = Column(String(100), nullable=False)
     description = Column(Text)
-    planned_cost = Column(Float, default=0.0)
-    actual_cost = Column(Float, default=0.0)
-    variance = Column(Float, default=0.0)
+    planned_cost = Column(Float)
+    actual_cost = Column(Float)
+    variance = Column(Float)
     # No currency default: an unspecified currency stays NULL (unknown) rather
     # than being silently asserted as USD (§9 no-fabrication). Callers set it
     # explicitly when the source provides a code.
@@ -2442,6 +2553,18 @@ class CostRecord(Base):
         "Well",
         backref=backref("cost_records", cascade="all, delete-orphan")
     )    
+@event.listens_for(CostRecord, "before_insert")
+@event.listens_for(CostRecord, "before_update")
+def _canonicalize_cost_record(_mapper, _connection, record):
+    """All ORM writers, including atomic import, share derived cost semantics."""
+    from core.cost_semantics import canonical_variance, normalize_currency
+    from core.engineering.result import optional_number
+    record.planned_cost = optional_number(record.planned_cost, "planned_cost")
+    record.actual_cost = optional_number(record.actual_cost, "actual_cost")
+    record.currency = normalize_currency(record.currency)
+    record.variance = canonical_variance(record.planned_cost, record.actual_cost)
+
+
 # ----------------------------------------------------------------------
 # DatabaseManager class with updated save/get methods for key tables
 # ----------------------------------------------------------------------
@@ -2983,8 +3106,50 @@ class DatabaseManager:
             )
             raise PersistenceError(issue, result={"diagnostics": [issue.to_dict()]}) from exc
 
+    def _verify_stored_ownership(self, connection):
+        """Reject contradictory legacy/external rows; never backfill ownership.
+
+        Single-column SQLite FKs prove existence, not redundant owner agreement.
+        Run inside the migration transaction before marking the schema current.
+        """
+        checks = [
+            ("sections", "wellbores", "wellbore_id", "child.well_id != parent.well_id"),
+            ("daily_reports", "wellbores", "wellbore_id", "child.well_id != parent.well_id"),
+            ("daily_reports", "sections", "section_id",
+             "child.well_id != parent.well_id OR "
+             "(child.wellbore_id IS NOT NULL AND parent.wellbore_id IS NOT NULL "
+             "AND child.wellbore_id != parent.wellbore_id)"),
+            ("wellbores", "wellbores", "parent_wellbore_id", "child.well_id != parent.well_id"),
+        ]
+        checks.extend(
+            (mapper.class_.__tablename__, "daily_reports", "report_id", "child.well_id != parent.well_id")
+            for mapper in Base.registry.mappers
+            if mapper.class_.__name__ in _report_scoped_well_models()
+        )
+        checks.extend((m.class_.__tablename__, "sections", "section_id", "child.well_id != parent.well_id")
+                      for m in Base.registry.mappers
+                      if hasattr(m.class_, "well_id") and hasattr(m.class_, "section_id"))
+        checks.extend((m.class_.__tablename__, "daily_reports", "report_id",
+                       "child.section_id IS NOT NULL AND parent.section_id IS NOT NULL AND child.section_id != parent.section_id")
+                      for m in Base.registry.mappers
+                      if hasattr(m.class_, "report_id") and hasattr(m.class_, "section_id"))
+        checks.append(("planned_activities", "well_plans", "plan_id", "child.well_id != parent.well_id"))
+        for child, parent, fk, conflict in checks:
+            # Identifiers come only from the mapped schema, never user input.
+            quote = self._quote_sqlite_identifier
+            invalid = connection.execute(
+                f"SELECT child.id FROM {quote(child)} AS child "
+                f"JOIN {quote(parent)} AS parent ON child.{quote(fk)} = parent.id "
+                f"WHERE {conflict} LIMIT 1"
+            ).fetchone()
+            if invalid:
+                raise OwnershipIntegrityError(
+                    f"Stored ownership conflict: {child} id={invalid[0]} contradicts {parent}; "
+                    "restore or explicitly review the source database (no automatic repair)"
+                )
+
     def _apply_safe_schema_upgrades(self):
-        """Apply version-1-to-2 upgrades in one SQLite transaction.
+        """Apply supported legacy-to-v3 upgrades in one SQLite transaction.
 
         The live SQLite schema is the source of truth during rebuilds. ORM
         metadata is used only to identify which nullable contracts the current
@@ -3067,9 +3232,8 @@ class DatabaseManager:
                 # as plain nullable INTEGER (no fabricated backfill): existing
                 # rows keep wellbore_id = NULL ("unknown") until a deterministic
                 # attribution assigns them. ADD COLUMN cannot express an inline
-                # REFERENCES clause portably, so the FK lives in the ORM/create
-                # path; SQLite tolerates the column being a plain INTEGER on
-                # upgraded databases.
+                # REFERENCES clause portably; the table rebuild below installs
+                # the physical FK on upgraded databases as well.
                 v3_upgrades = [
                     ("sections", "wellbore_id", "INTEGER"),
                     ("daily_reports", "wellbore_id", "INTEGER"),
@@ -3105,6 +3269,7 @@ class DatabaseManager:
             foreign_key_errors = raw.execute("PRAGMA foreign_key_check").fetchall()
             if foreign_key_errors:
                 raise RuntimeError(f"Foreign-key integrity check failed: {foreign_key_errors[:3]}")
+            self._verify_stored_ownership(raw)
             raw.commit()
             migration_started = False
         except SchemaMigrationError:
@@ -3540,8 +3705,10 @@ class DatabaseManager:
                         "wells": [],
                     }
                     for well in project.wells:
+                        # Unknown depth sorts last; it is never ordered as 0 m.
                         sorted_sections = sorted(
-                            well.sections, key=lambda s: s.depth_from or 0)
+                            well.sections,
+                            key=lambda s: (s.depth_from is None, s.depth_from or 0))
                         well_data = {
                             "id": well.id,
                             "name": well.name,
@@ -4124,7 +4291,7 @@ class DatabaseManager:
     def snapshot_import_target(self, well_id, section_id, report_date):
         session = self.create_session()
         try:
-            report = session.query(DailyReport).filter_by(well_id=well_id, section_id=section_id, report_date=report_date).first()
+            report = session.query(DailyReport).filter_by(well_id=well_id, section_id=section_id, report_date=report_date).one_or_none()
             return self.create_import_snapshot(report.id) if report else None
         finally:
             session.close()
@@ -4144,7 +4311,8 @@ class DatabaseManager:
                     continue
                 for row in session.query(model).filter(getattr(model, "report_id") == report_id).all():
                     snapshot["children"].append((model, {column.name: getattr(row, column.name) for column in model.__table__.columns}))
-            return snapshot
+            from copy import deepcopy
+            return deepcopy(snapshot)
         finally:
             session.close()
 
@@ -4154,7 +4322,12 @@ class DatabaseManager:
             return False
         session = self.create_session()
         try:
+            from copy import deepcopy
+            snapshot = deepcopy(snapshot)
             report_id = snapshot["report"]["id"]
+            report = session.get(DailyReport, report_id)
+            if report is None:
+                return False
             for mapper in list(Base.registry.mappers):
                 model = mapper.class_
                 if model is not DailyReport and hasattr(model, "report_id"):
@@ -4202,8 +4375,9 @@ class DatabaseManager:
         try:
             plan = session.query(WellPlan).filter(
                 WellPlan.well_id == well_id
-            ).order_by(WellPlan.created_at.desc()).first()
-            if not plan or not plan.planned_total_days:
+                , WellPlan.is_active == True
+            ).one_or_none()
+            if not plan or plan.planned_total_days is None:
                 return None
             return float(plan.planned_total_days)
         finally:
@@ -4222,7 +4396,8 @@ class DatabaseManager:
 
             plan = session.query(WellPlan).filter(
                 WellPlan.well_id == well_id
-            ).order_by(WellPlan.created_at.desc()).first()
+                , WellPlan.is_active == True
+            ).one_or_none()
             activities = []
             if plan:
                 activities = session.query(PlannedActivity).filter(
@@ -4241,57 +4416,43 @@ class DatabaseManager:
                 CostRecord.well_id == well_id
             ).all()
 
-            planned_hours = sum(
-                float(a.planned_duration_hours or 0) for a in activities
-            )
-            if not planned_hours and plan and plan.planned_total_days:
-                planned_hours = float(plan.planned_total_days) * 24.0
-            planned_depth = max(
-                (float(a.planned_depth_to or 0) for a in activities), default=0.0
-            )
-            if not planned_depth and plan and plan.planned_final_depth:
-                planned_depth = float(plan.planned_final_depth)
+            from core.actual_vs_plan import activity_plan_totals
+            from core.operational_time import summarize_time_logs
+            from core.cost_semantics import summarize_costs
+            totals = activity_plan_totals(activities)
+            planned_hours = totals["hours"] if activities else (
+                plan.planned_total_days * 24 if plan and plan.planned_total_days is not None else None)
+            planned_depth = totals["depth"] if activities else (plan.planned_final_depth if plan else None)
 
             depths = [float(r.depth_2400) for r in reports if r.depth_2400 is not None]
             actual_depth = max(depths) if depths else None
-            recorded_durations = [
-                float(log.duration) for log in time_logs if log.duration is not None
-            ]
-            actual_hours = sum(recorded_durations) if recorded_durations else None
-            actual_npt_hours = sum(
-                float(log.duration) for log in time_logs
-                if log.is_npt and log.duration is not None
-            ) if time_logs else None
+            time_metrics = summarize_time_logs(time_logs)
+            actual_hours = time_metrics["total_hours"]
+            actual_npt_hours = time_metrics["npt_hours"]
 
             actual_rops = [
                 float(r.rop_meter) for r in reports
-                if r.rop_meter is not None and float(r.rop_meter) > 0
+                if r.rop_meter is not None and float(r.rop_meter) >= 0
             ]
             if not actual_rops:
                 actual_rops = [
                     float(p.avg_rop) for p in drilling_params
-                    if p.avg_rop is not None and float(p.avg_rop) > 0
+                    if p.avg_rop is not None and float(p.avg_rop) >= 0
                 ]
             planned_rop = (
                 planned_depth / planned_hours
-                if planned_depth and planned_hours else None
+                if planned_depth is not None and planned_hours else None
             )
             actual_rop = (
                 sum(actual_rops) / len(actual_rops) if actual_rops else None
             )
-            planned_cost = (
-                sum(float(c.planned_cost or 0) for c in cost_records)
-                if cost_records else None
-            )
-            actual_cost = (
-                sum(float(c.actual_cost or 0) for c in cost_records)
-                if cost_records else None
-            )
+            costs = summarize_costs(cost_records)
+            planned_cost, actual_cost = costs["total_planned"], costs["total_actual"]
 
             comparison = ActualVsPlanEngine.compare_metrics(
                 {
-                    "depth_m": planned_depth or None,
-                    "hours": planned_hours or None,
+                    "depth_m": planned_depth,
+                    "hours": planned_hours,
                     "rop_m_per_hr": planned_rop,
                     "cost": planned_cost,
                 },
@@ -4304,7 +4465,7 @@ class DatabaseManager:
             )
 
             def legacy_metric(key):
-                item = comparison.values.get(key)
+                item = comparison.values.get(key) or comparison.metadata.get("unavailable_metrics", {}).get(key)
                 if item:
                     return {
                         "planned": item["planned"],
@@ -4325,7 +4486,7 @@ class DatabaseManager:
                 "depth": legacy_metric("depth_m"),
                 "hours": legacy_metric("hours"),
                 "rop": legacy_metric("rop_m_per_hr"),
-                "cost": legacy_metric("cost"),
+                "cost": dict(legacy_metric("cost"), currency=costs["currency"], currency_status=costs["status"]),
                 "npt_hours": actual_npt_hours,
                 "plan_id": plan.id if plan else None,
                 "reports": len(reports),
@@ -4407,8 +4568,8 @@ class DatabaseManager:
 
     # ORM classes that make up the complete, report-owned DDR snapshot. Named
     # here so core.report_snapshot stays Qt/ORM-agnostic and free of import
-    # cycles. Mirrors the authoritative report-owned set (w2 _copy_all_report_data
-    # + time logs); derived analytics are intentionally excluded.
+    # cycles. Implements report_snapshot.CHILD_COLLECTIONS; this is deliberately
+    # distinct from next-day copying. Derived analytics are excluded.
     _SNAPSHOT_MODELS = {
         "TimeLog24H": TimeLog24H, "TimeLogMorning": TimeLogMorning,
         "DrillingParameters": DrillingParameters, "MudReport": MudReport,
@@ -4935,7 +5096,8 @@ class DatabaseManager:
                             remarks=remarks,
                             status="Planned",
                             priority="Normal",
-                            progress_percentage=0,
+                            # No progress column exists in the source: unknown, not 0%.
+                            progress_percentage=None,
                             # Planned dates are not evidence of actual execution.
                             # Original scheduled start/end remain in import audit.
                             actual_start=_to_dt(la.get("actual_start")),
@@ -5443,10 +5605,22 @@ class DatabaseManager:
                             notes_parts.append(f"cones: {sc['size_cones']}")
                         if sc.get("cum_hrs") not in (None, ""):
                             notes_parts.append(f"cum hrs: {sc['cum_hrs']}")
-                        try:
-                            hours = float(sc.get("daily_hrs", 0) or 0)
-                        except (TypeError, ValueError):
-                            hours = 0
+                        hours = None
+                        raw_hours = sc.get("daily_hrs")
+                        if raw_hours not in (None, ""):
+                            try:
+                                candidate = float(raw_hours)
+                            except (TypeError, ValueError):
+                                candidate = None
+                            if candidate is not None and math.isfinite(candidate) and candidate >= 0:
+                                hours = candidate
+                            else:
+                                review_issue(
+                                    entity="solid_control", field="daily_hrs",
+                                    source=_source_for_row(sc), original=raw_hours,
+                                    message="daily hours must be a finite non-negative "
+                                            "number; kept as unknown, never 0",
+                                )
                         session.add(EquipmentLog(
                             well_id=well_id, report_id=report_id,
                             equipment_name=name,
@@ -6208,9 +6382,9 @@ class DatabaseManager:
                     from datetime import datetime
                     time_val = datetime.strptime(time_val, "%H:%M").time()
 
-                depth = entry_data.get('depth', 0) if isinstance(entry_data, dict) else getattr(entry_data, 'depth', 0)
-                cum_trip = entry_data.get('cum_trip', 0) if isinstance(entry_data, dict) else getattr(entry_data, 'cum_trip', 0)
-                duration = entry_data.get('duration', 0) if isinstance(entry_data, dict) else getattr(entry_data, 'duration', 0)
+                depth = entry_data.get('depth') if isinstance(entry_data, dict) else getattr(entry_data, 'depth', None)
+                cum_trip = entry_data.get('cum_trip') if isinstance(entry_data, dict) else getattr(entry_data, 'cum_trip', None)
+                duration = entry_data.get('duration') if isinstance(entry_data, dict) else getattr(entry_data, 'duration', None)
                 remarks = entry_data.get('remarks', '') if isinstance(entry_data, dict) else getattr(entry_data, 'remarks', '')
                 supervisor = entry_data.get('supervisor', '') if isinstance(entry_data, dict) else getattr(entry_data, 'supervisor', '')
                 verified = entry_data.get('verified', False) if isinstance(entry_data, dict) else getattr(entry_data, 'verified', False)
@@ -6709,7 +6883,7 @@ class DatabaseManager:
                     report_id=pob_data.get("report_id"),
                     company_name=pob_data["company_name"],
                     service_type=pob_data.get("service_type", ""),
-                    personnel_count=pob_data.get("personnel_count", 0),
+                    personnel_count=pob_data.get("personnel_count"),
                     date_in=pob_data.get("date_in"),
                     date_out=pob_data.get("date_out"),
                     remarks=pob_data.get("remarks", ""),
@@ -6772,10 +6946,15 @@ class DatabaseManager:
             if section_id:
                 query = query.filter(ServiceCompanyPOB.section_id == section_id)
             pobs = query.all()
-            return sum(p.personnel_count for p in pobs)
+            counts = [p.personnel_count for p in pobs]
+            # An incomplete roster is UNKNOWN: it must never read as "0 on board"
+            # (that is the safety-critical zero), and neither is a query failure.
+            if any(count is None for count in counts):
+                return None
+            return sum(counts)
         except Exception as e:
             logger.error(f"Error calculating total POB: {e}")
-            return 0
+            return None
         finally:
             session.close()
     
@@ -7076,13 +7255,16 @@ class DatabaseManager:
                 opening = norm["opening_stock"]
                 # Carry-forward only a genuinely MISSING opening.
                 if opening is None and report_date is not None:
-                    prev = session.query(InventoryItem).filter(
+                    previous = session.query(InventoryItem).filter(
                         InventoryItem.well_id == well_id,
                         InventoryItem.item_name == norm["item_name"],
+                        InventoryItem.unit == norm["unit"],
                         InventoryItem.report_date < report_date,
-                    ).order_by(InventoryItem.report_date.desc()).first()
-                    if prev is not None and prev.current_stock is not None:
-                        opening = prev.current_stock
+                    )
+                    latest_date = previous.with_entities(func.max(InventoryItem.report_date)).scalar()
+                    candidates = previous.filter(InventoryItem.report_date == latest_date).limit(2).all()
+                    if len(candidates) == 1:
+                        opening = candidates[0].current_stock
                 closing = derive_closing(opening, norm["received"], norm["used"])
                 session.add(InventoryItem(
                     well_id=well_id,
@@ -7166,17 +7348,32 @@ class DatabaseManager:
     def save_bulk_material(self, material_data: dict):
         session = self.create_session()
         try:
+            from core.inventory_semantics import normalize_movement
+            from core.engineering.result import optional_number
+            material_data = dict(material_data)
+            for field in ("received", "used"):
+                if field in material_data:
+                    material_data[field] = normalize_movement(material_data[field])
+            if "initial_stock" in material_data:
+                value = material_data["initial_stock"]
+                material_data["initial_stock"] = optional_number(
+                    value.strip() if isinstance(value, str) else value, "initial stock"
+                )
             if material_data.get('report_id'):
                 existing = session.query(BulkMaterials).filter(
+                    BulkMaterials.well_id == material_data['well_id'],
                     BulkMaterials.report_id == material_data['report_id'],
+                    BulkMaterials.unit == material_data.get('unit', 'kg'),
                     BulkMaterials.material_name == material_data['material_name']
-                ).first()
+                ).one_or_none()
             elif material_data.get('well_id') and material_data.get('report_date'):
                 existing = session.query(BulkMaterials).filter(
                     BulkMaterials.well_id == material_data['well_id'],
                     BulkMaterials.report_date == material_data['report_date'],
+                    BulkMaterials.report_id.is_(None),
+                    BulkMaterials.unit == material_data.get('unit', 'kg'),
                     BulkMaterials.material_name == material_data['material_name']
-                ).first()
+                ).one_or_none()
             else:
                 existing = None
 
@@ -7214,13 +7411,16 @@ class DatabaseManager:
                     and material_data.get("well_id")
                     and material_data.get("report_date")
                 ):
-                    previous = session.query(BulkMaterials).filter(
+                    previous_query = session.query(BulkMaterials).filter(
                         BulkMaterials.well_id == material_data["well_id"],
                         BulkMaterials.material_name == material_data["material_name"],
+                        BulkMaterials.unit == material_data.get("unit", "kg"),
                         BulkMaterials.report_date < material_data["report_date"],
-                    ).order_by(BulkMaterials.report_date.desc()).first()
-                    if previous and previous.current_stock is not None:
-                        initial_stock = previous.current_stock
+                    )
+                    latest_date = previous_query.with_entities(func.max(BulkMaterials.report_date)).scalar()
+                    candidates = previous_query.filter(BulkMaterials.report_date == latest_date).limit(2).all()
+                    if len(candidates) == 1:
+                        initial_stock = candidates[0].current_stock
                 current_stock = (
                     initial_stock + received - used
                     if initial_stock is not None
@@ -7311,19 +7511,21 @@ class DatabaseManager:
                 if report_date:
                     query = query.filter(BulkMaterials.report_date == report_date)
             materials = query.all()
-            totals = {
-                "total_initial_stock": 0.0,
-                "total_received": 0.0,
-                "total_used": 0.0,
-                "total_current_stock": 0.0,
-                "material_count": len(materials)
+            # A total containing an unrecorded quantity is UNKNOWN, never a
+            # smaller number (canonical complete-total contract).
+            from core.cost_semantics import complete_total
+
+            def _total(values):
+                values = list(values)
+                return complete_total(values) if values else 0.0
+
+            return {
+                "total_initial_stock": _total(m.initial_stock for m in materials),
+                "total_received": _total(m.received for m in materials),
+                "total_used": _total(m.used for m in materials),
+                "total_current_stock": _total(m.current_stock for m in materials),
+                "material_count": len(materials),
             }
-            for m in materials:
-                totals["total_initial_stock"] += m.initial_stock or 0
-                totals["total_received"] += m.received or 0
-                totals["total_used"] += m.used or 0
-                totals["total_current_stock"] += m.current_stock or 0
-            return totals
         except Exception as e:
             logger.error(f"Error calculating bulk totals: {e}")
             return {}
@@ -7356,8 +7558,8 @@ class DatabaseManager:
                     arrival_time=log_data.get("arrival_time"),
                     departure_time=log_data.get("departure_time"),
                     duration=log_data.get("duration"),
-                    passengers_in=log_data.get("passengers_in", 0),
-                    passengers_out=log_data.get("passengers_out", 0),
+                    passengers_in=log_data.get("passengers_in"),
+                    passengers_out=log_data.get("passengers_out"),
                     cargo_description=log_data.get("cargo_description", ""),
                     status=log_data.get("status", "Scheduled"),
                     purpose=log_data.get("purpose", ""),
@@ -7499,14 +7701,15 @@ class DatabaseManager:
         try:
             if report_data.get('report_id'):
                 existing = session.query(SafetyReport).filter(
-                    SafetyReport.report_id == report_data['report_id']
-                ).first()
+                    SafetyReport.report_id == report_data['report_id'],
+                    SafetyReport.report_type == report_data.get("report_type", "Daily")
+                ).one_or_none()
             elif report_data.get('well_id') and report_data.get('report_date'):
                 existing = session.query(SafetyReport).filter(
                     SafetyReport.well_id == report_data['well_id'],
                     SafetyReport.report_date == report_data['report_date'],
                     SafetyReport.report_type == report_data.get('report_type', 'Daily')
-                ).first()
+                ).one_or_none()
             else:
                 existing = None
 
@@ -7606,12 +7809,15 @@ class DatabaseManager:
         try:
             query = session.query(SafetyReport)
             if report_id:
-                query = query.filter(SafetyReport.report_id == report_id)
+                query = query.filter(SafetyReport.report_id == report_id, SafetyReport.report_type == report_type)
             elif well_id:
                 query = query.filter(SafetyReport.well_id == well_id, SafetyReport.report_type == report_type)
                 if report_date:
                     query = query.filter(SafetyReport.report_date == report_date)
-            report = query.order_by(SafetyReport.report_date.desc()).first()
+            candidates = query.order_by(SafetyReport.report_date.desc()).limit(2).all()
+            if len(candidates) > 1 and candidates[0].report_date == candidates[1].report_date:
+                raise ValueError("Ambiguous safety reports for the selected date/context")
+            report = candidates[0] if candidates else None
             from core.domain_records import collection_value
             child_report_id = report.report_id if report is not None else report_id
             child_well_id = report.well_id if report is not None else well_id
@@ -7886,7 +8092,7 @@ class DatabaseManager:
                     contact_phone=company_data.get("contact_phone", ""),
                     contact_email=company_data.get("contact_email", ""),
                     equipment_used=company_data.get("equipment_used", ""),
-                    personnel_count=company_data.get("personnel_count", 1),
+                    personnel_count=company_data.get("personnel_count"),
                     status=company_data.get("status", "Active"),
                     description=company_data.get("description", ""),
                     npt_hours=company_data.get("npt_hours"),
@@ -8080,15 +8286,15 @@ class DatabaseManager:
                     report_id=request_data.get("report_id"),
                     request_date=request_data["request_date"],
                     requested_items=request_data.get("requested_items", ""),
-                    requested_quantity=request_data.get("requested_quantity", 0.0),
+                    requested_quantity=request_data.get("requested_quantity"),
                     requested_unit=request_data.get("requested_unit", "units"),
                     outstanding_items=request_data.get("outstanding_items", ""),
-                    outstanding_quantity=request_data.get("outstanding_quantity", 0.0),
+                    outstanding_quantity=request_data.get("outstanding_quantity"),
                     received_items=request_data.get("received_items", ""),
-                    received_quantity=request_data.get("received_quantity", 0.0),
+                    received_quantity=request_data.get("received_quantity"),
                     received_date=request_data.get("received_date"),
                     backload_items=request_data.get("backload_items", ""),
-                    backload_quantity=request_data.get("backload_quantity", 0.0),
+                    backload_quantity=request_data.get("backload_quantity"),
                     backload_date=request_data.get("backload_date"),
                     remarks=request_data.get("remarks", ""),
                     status=request_data.get("status", "Pending"),
@@ -8165,10 +8371,18 @@ class DatabaseManager:
             if section_id:
                 query = query.filter(MaterialRequest.section_id == section_id)
             requests = query.all()
-            total_requested = sum(r.requested_quantity or 0 for r in requests)
-            total_received = sum(r.received_quantity or 0 for r in requests)
-            total_backload = sum(r.backload_quantity or 0 for r in requests)
-            balance = total_requested - total_received + total_backload
+            from core.cost_semantics import complete_total
+
+            def _total(values):
+                values = list(values)
+                return complete_total(values) if values else 0.0
+
+            total_requested = _total(r.requested_quantity for r in requests)
+            total_received = _total(r.received_quantity for r in requests)
+            total_backload = _total(r.backload_quantity for r in requests)
+            # An unknown component makes the balance unknown (no partial arithmetic).
+            balance = (total_requested - total_received + total_backload
+                       if None not in (total_requested, total_received, total_backload) else None)
             return {
                 "total_requested": total_requested,
                 "total_received": total_received,
@@ -8276,7 +8490,7 @@ class DatabaseManager:
                     service_date=log_data.get("service_date"),
                     service_type=log_data.get("service_type", ""),
                     service_provider=log_data.get("service_provider", ""),
-                    hours_worked=log_data.get("hours_worked", 0.0),
+                    hours_worked=log_data.get("hours_worked"),
                     status=log_data.get("status", "Operational"),
                     notes=log_data.get("notes", ""),
                     created_by=log_data.get("created_by")
@@ -8356,6 +8570,7 @@ class DatabaseManager:
                 "under_maintenance": 0,
                 "out_of_service": 0,
                 "total_hours": 0.0,
+                "hours_not_recorded": 0,
                 "by_type": {}
             }
             for l in logs:
@@ -8365,14 +8580,26 @@ class DatabaseManager:
                     summary["under_maintenance"] += 1
                 elif l.status == "Out of Service":
                     summary["out_of_service"] += 1
-                summary["total_hours"] += l.hours_worked or 0
+                # An unknown duration makes the aggregate unknown: it must never
+                # read as if that equipment contributed zero hours.
+                if l.hours_worked is None:
+                    summary["hours_not_recorded"] += 1
+                    summary["total_hours"] = None
+                elif summary["total_hours"] is not None:
+                    summary["total_hours"] += l.hours_worked
                 eq_type = l.equipment_type or "Unknown"
                 if eq_type not in summary["by_type"]:
-                    summary["by_type"][eq_type] = {"count": 0, "operational": 0, "total_hours": 0.0}
+                    summary["by_type"][eq_type] = {"count": 0, "operational": 0,
+                                                   "total_hours": 0.0,
+                                                   "hours_not_recorded": 0}
                 summary["by_type"][eq_type]["count"] += 1
                 if l.status == "Operational":
                     summary["by_type"][eq_type]["operational"] += 1
-                summary["by_type"][eq_type]["total_hours"] += l.hours_worked or 0
+                if l.hours_worked is None:
+                    summary["by_type"][eq_type]["hours_not_recorded"] += 1
+                    summary["by_type"][eq_type]["total_hours"] = None
+                elif summary["by_type"][eq_type]["total_hours"] is not None:
+                    summary["by_type"][eq_type]["total_hours"] += l.hours_worked
             return summary
         except Exception as e:
             logger.error(f"Error getting equipment summary: {e}")
@@ -8539,7 +8766,7 @@ class DatabaseManager:
                 remarks=lookahead_data.get("remarks", ""),
                 status=lookahead_data.get("status", "Planned"),
                 priority=lookahead_data.get("priority", "Normal"),
-                progress_percentage=lookahead_data.get("progress_percentage", 0),
+                progress_percentage=lookahead_data.get("progress_percentage"),
                 actual_start=actual_start,
                 actual_end=actual_end,
                 created_by=lookahead_data.get("created_by"),
@@ -8632,7 +8859,7 @@ class DatabaseManager:
                     npt_code=npt_data["npt_code"],
                     npt_description=npt_data["npt_description"],
                     responsible_party=npt_data.get("responsible_party", ""),
-                    cost_impact=npt_data.get("cost_impact", 0.0),
+                    cost_impact=npt_data.get("cost_impact"),
                     status=npt_data.get("status", "Active"),
                     created_by=npt_data.get("created_by")
                 )
@@ -8708,20 +8935,28 @@ class DatabaseManager:
             if end_date:
                 query = query.filter(NPTReport.npt_date <= end_date)
             reports = query.all()
-            total_npt_hours = sum(r.duration_hours or 0 for r in reports)
+            from core.cost_semantics import complete_total
+
+            def _total(values):
+                values = list(values)
+                return complete_total(values) if values else 0.0
+
+            total_npt_hours = _total(r.duration_hours for r in reports)
             total_npt_events = len(reports)
-            category_stats = {}
+            grouped_cat, grouped_code = {}, {}
             for r in reports:
-                cat = r.npt_category or "Unknown"
-                category_stats[cat] = category_stats.get(cat, 0) + (r.duration_hours or 0)
-            code_stats = {}
-            for r in reports:
-                code = r.npt_code or "Unknown"
-                code_stats[code] = code_stats.get(code, 0) + (r.duration_hours or 0)
+                grouped_cat.setdefault(r.npt_category or "Unknown", []).append(r.duration_hours)
+                grouped_code.setdefault(r.npt_code or "Unknown", []).append(r.duration_hours)
+            # A category/code total with an unrecorded duration is unknown, and so is
+            # an average over an incomplete set (never a lower number).
+            category_stats = {cat: _total(values) for cat, values in grouped_cat.items()}
+            code_stats = {code: _total(values) for code, values in grouped_code.items()}
             return {
                 "total_npt_hours": total_npt_hours,
                 "total_npt_events": total_npt_events,
-                "average_npt_per_event": total_npt_hours / total_npt_events if total_npt_events > 0 else 0,
+                "average_npt_per_event": (0 if total_npt_events == 0 else
+                                          (None if total_npt_hours is None
+                                           else total_npt_hours / total_npt_events)),
                 "category_stats": category_stats,
                 "code_stats": code_stats,
                 "reports": len(reports)
@@ -9007,12 +9242,14 @@ class DatabaseManager:
                 "data_points": 0
             }
             for r in reports:
-                if r.report_date:
+                # A missing depth/ROP is not a zero data point: skip the pair so the
+                # chart shows a gap instead of an invented value (arrays stay aligned).
+                if r.report_date and r.depth_2400 is not None and r.rop_meter is not None:
                     data["timestamps"].append(
                         datetime.combine(r.report_date, datetime.min.time())
                     )
-                    data["depths"].append(r.depth_2400 or 0)
-                    data["rop"].append(r.rop_meter or 0)
+                    data["depths"].append(r.depth_2400)
+                    data["rop"].append(r.rop_meter)
             data["data_points"] = len(data["timestamps"])
             return data if data["data_points"] > 0 else None
         except Exception as e:
@@ -9043,12 +9280,18 @@ class DatabaseManager:
                 "data_points": 0
             }
             for p in params:
-                if p.report_date:
+                # Unrecorded parameters are gaps, never 0 data points (a 0 WOB point
+                # would read as a real slack-off). None keeps the arrays aligned.
+                if p.report_date and p.avg_rop is not None and p.depth_out is not None:
+                    mid_wob = ((p.wob_min + p.wob_max) / 2
+                               if p.wob_min is not None and p.wob_max is not None else None)
+                    mid_rpm = ((p.rpm_min + p.rpm_max) / 2
+                               if p.rpm_min is not None and p.rpm_max is not None else None)
                     data["timestamps"].append(datetime.combine(p.report_date, datetime.min.time()))
-                    data["rop"].append(p.avg_rop or 0)
-                    data["wob"].append((p.wob_min + p.wob_max) / 2 if p.wob_min and p.wob_max else 0)
-                    data["rpm"].append((p.rpm_min + p.rpm_max) / 2 if p.rpm_min and p.rpm_max else 0)
-                    data["depths"].append(p.depth_out or 0)
+                    data["rop"].append(p.avg_rop)
+                    data["wob"].append(mid_wob)
+                    data["rpm"].append(mid_rpm)
+                    data["depths"].append(p.depth_out)
             data["data_points"] = len(data["timestamps"])
             return data if data["data_points"] > 0 else None
         except Exception as e:
@@ -9078,7 +9321,14 @@ class DatabaseManager:
                 TimeLog24H.report_id == report_id,
                 TimeLog24H.is_npt == True
             ).all()
+            unrecorded_npt = 0
             for log in npt_logs:
+                if log.duration is None:
+                    # NPTReport.duration_hours is NOT NULL, so a row cannot carry
+                    # "unknown". Deriving one with 0 h would state a duration the
+                    # operator never recorded, so the source log is left underived.
+                    unrecorded_npt += 1
+                    continue
                 # Preserve the source attribution: when the NPT row names a
                 # company (contractor column), keep it as responsible party
                 # instead of a generic placeholder.
@@ -9090,7 +9340,7 @@ class DatabaseManager:
                     "npt_date": report.report_date,
                     "start_time": log.time_from,
                     "end_time": log.time_to,
-                    "duration_hours": log.duration or 0,
+                    "duration_hours": log.duration,
                     "npt_category": "Daily Report",
                     "npt_code": log.main_code or "NPT",
                     "npt_description": log.activity_description or "NPT from daily report",
@@ -9106,16 +9356,29 @@ class DatabaseManager:
                 code = log.main_code
                 if not code:
                     continue
-                code_usage.setdefault(code, {"count": 0, "hours": 0, "last_used": None})
+                code_usage.setdefault(code, {"count": 0, "hours": 0, "last_used": None,
+                                             "unrecorded_hours": 0})
                 used_on = session.get(DailyReport, log.report_id).report_date
                 if used_on and (code_usage[code]["last_used"] is None or used_on > code_usage[code]["last_used"]):
                     code_usage[code]["last_used"] = used_on
                 code_usage[code]["count"] += 1
-                code_usage[code]["hours"] += log.duration or 0
+                if log.duration is None:
+                    code_usage[code]["unrecorded_hours"] += 1
+                else:
+                    code_usage[code]["hours"] += log.duration
             # These are aggregates, not additive counters. Reset disappeared
             # codes as well, including when the final source row is removed.
             session.query(ActivityCode).filter_by(well_id=report.well_id).update({"usage_count": 0, "total_hours": 0.0, "last_used": None}, synchronize_session=False)
-            usage_list = [{"sub_code": code, **data} for code, data in code_usage.items()]
+            if unrecorded_npt:
+                logger.warning("Derived NPT skipped for %s log(s) with no recorded duration "
+                               "in report %s (unknown duration cannot be stored)",
+                               unrecorded_npt, report_id)
+            # A code whose hours are incomplete reports unknown (NULL), never a subtotal.
+            usage_list = [
+                {"sub_code": code,
+                 **{**data, "hours": None if data["unrecorded_hours"] else data["hours"]}}
+                for code, data in code_usage.items()
+            ]
             if usage_list:
                 self.update_code_usage(report.well_id, usage_list, session=session)
 
@@ -9923,6 +10186,9 @@ class DatabaseManager:
                 session.add(record)
                 session.flush()
                 record_id = record.id
+            from core.cost_semantics import canonical_variance, normalize_currency
+            record.currency = normalize_currency(record.currency)
+            record.variance = canonical_variance(record.planned_cost, record.actual_cost)
             session.commit()
             return record_id
         except Exception as e:
@@ -9983,28 +10249,13 @@ class DatabaseManager:
             session.close()
 
     def get_cost_summary(self, well_id: int):
-        session = self.create_session()
-        try:
-            from sqlalchemy import func
-            records = session.query(
-                CostRecord.category,
-                func.sum(CostRecord.planned_cost).label('planned'),
-                func.sum(CostRecord.actual_cost).label('actual'),
-            ).filter(
-                CostRecord.well_id == well_id
-            ).group_by(CostRecord.category).all()
-            return [{
-                "category": r.category,
-                "planned": r.planned or 0,
-                "actual": r.actual or 0,
-                "variance": (r.planned or 0) - (r.actual or 0),
-            } for r in records]
-        except Exception as e:
-            logger.error(f"Cost summary error: {e}")
-            raise  # collection query failure is not an empty dataset
-        finally:
-            session.close()
-            
+        """Category AND currency groups; no implicit conversion or NULL-to-zero."""
+        return self.get_cost_totals(well_id)["groups"]
+
+    def get_cost_totals(self, well_id: int):
+        from core.cost_semantics import summarize_costs
+        return summarize_costs(self.get_cost_records(well_id))
+
     def log_audit(self, action, entity_type="", entity_id=None,
                   entity_name="", details="", user_id=None, username=""):
         session = self.create_session()
@@ -10054,6 +10305,7 @@ class DatabaseManager:
         returned only after the backup completes successfully.
         """
         import sqlite3
+        import tempfile
 
         if self.db_path == ":memory:" or not os.path.exists(self.db_path):
             return None
@@ -10064,29 +10316,40 @@ class DatabaseManager:
                 return None
         except OSError:
             return None
-        destination.parent.mkdir(parents=True, exist_ok=True)
+        temporary = None
         source_connection = None
         destination_connection = None
         try:
-            source_connection = sqlite3.connect(self.db_path)
-            destination_connection = sqlite3.connect(str(destination))
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            with tempfile.NamedTemporaryFile(prefix=".drillmaster-backup-", suffix=".db", dir=destination.parent, delete=False) as handle:
+                temporary = Path(handle.name)
+            # Fail if the source disappears after the existence check; plain
+            # connect() would create an empty DB and publish a false backup.
+            source_connection = sqlite3.connect(
+                Path(self.db_path).resolve().as_uri() + "?mode=ro", uri=True
+            )
+            destination_connection = sqlite3.connect(str(temporary))
             with destination_connection:
                 source_connection.backup(destination_connection)
+            destination_connection.close()
+            destination_connection = None
+            os.replace(temporary, destination)
+            temporary = None
             logger.info("Database backup created: %s", destination)
             return str(destination)
         except (OSError, sqlite3.Error):
             logger.exception("Database backup failed")
-            try:
-                if destination.exists():
-                    destination.unlink()
-            except OSError:
-                logger.warning("Could not remove incomplete database backup")
             return None
         finally:
             if source_connection is not None:
                 source_connection.close()
             if destination_connection is not None:
                 destination_connection.close()
+            if temporary is not None:
+                try:
+                    temporary.unlink(missing_ok=True)
+                except OSError:
+                    logger.warning("Could not remove incomplete temporary backup: %s", temporary)
 
     def auto_backup(self, backup_dir=None):
         """Create a rotating automatic backup in the configured data area."""
@@ -10132,17 +10395,22 @@ class DatabaseManager:
 
         try:
             # Wells
-            wells = session.query(Well).filter(
-                (Well.name.ilike(q)) |
-                (Well.code.ilike(q)) |
-                (Well.field_name.ilike(q)) |
-                (Well.rig_name.ilike(q)) |
-                (Well.operator.ilike(q))
+            well_query = session.query(Well)
+            if well_id is not None:
+                well_query = well_query.filter(Well.id == well_id)
+            wells = well_query.filter(
+                (Well.name.ilike(q, escape='\\')) |
+                (Well.code.ilike(q, escape='\\')) |
+                (Well.field_name.ilike(q, escape='\\')) |
+                (Well.rig_name.ilike(q, escape='\\')) |
+                (Well.operator.ilike(q, escape='\\'))
             ).limit(10).all()
             
             for w in wells:
                 results.append({
                     "type": "well",
+                    "well_id": w.id,
+                    "report_id": None,
                     "id": w.id,
                     "title": w.name,
                     "subtitle": f"Code: {w.code} | Field: {w.field_name}",
@@ -10150,14 +10418,16 @@ class DatabaseManager:
                 })
 
             dr_query = session.query(DailyReport).filter(
-                DailyReport.summary.ilike(q)
+                DailyReport.summary.ilike(q, escape='\\')
             )
-            if well_id:
+            if well_id is not None:
                 dr_query = dr_query.filter(DailyReport.well_id == well_id)
             reports = dr_query.limit(10).all() 
             for r in reports:
                 results.append({
                     "type": "report",
+                    "well_id": r.well_id,
+                    "report_id": r.id,
                     "id": r.id,
                     "title": f"Report #{r.report_number} - {r.report_date}",
                     "subtitle": (r.summary or "")[:100],
@@ -10165,12 +10435,17 @@ class DatabaseManager:
                 })
 
             # Time Logs
-            logs = session.query(TimeLog24H).filter(
-                TimeLog24H.activity_description.ilike(q)
+            log_query = session.query(TimeLog24H, DailyReport.well_id).join(DailyReport, TimeLog24H.report_id == DailyReport.id)
+            if well_id is not None:
+                log_query = log_query.filter(DailyReport.well_id == well_id)
+            logs = log_query.filter(
+                TimeLog24H.activity_description.ilike(q, escape='\\')
             ).limit(10).all()
-            for l in logs:
+            for l, owner_well_id in logs:
                 results.append({
                     "type": "timelog",
+                    "well_id": owner_well_id,
+                    "report_id": l.report_id,
                     "id": l.id,
                     "title": f"{l.main_code or ''} - {l.time_from}",
                     "subtitle": (l.activity_description or "")[:100],
@@ -10179,6 +10454,7 @@ class DatabaseManager:
 
         except Exception as e:
             logger.error(f"Search error: {e}")
+            raise  # a failed search must not become an empty or partial success
         finally:
             session.close()
 

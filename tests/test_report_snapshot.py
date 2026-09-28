@@ -340,3 +340,12 @@ def test_t28_empty_history(db):
     ids = _seed(db, with_children=False)
     assert db.get_report_revisions(ids["report"]) == []
     assert db.get_approval_history(ids["report"]) == []
+
+
+def test_nested_json_snapshot_is_detached_before_persistence():
+    live = {"inputs": [{"weight": 12.5, "source": {"row": 7}}]}
+    historical = serialize_value(live)
+    live["inputs"][0]["weight"] = 99
+    assert historical["inputs"][0]["weight"] == 12.5
+    historical["inputs"][0]["source"]["row"] = 123
+    assert live["inputs"][0]["source"]["row"] == 7

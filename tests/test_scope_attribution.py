@@ -330,13 +330,9 @@ def test_invalid_when_report_wellbore_contradicts_section(monkeypatch):
     r = _report(m, w, 1, wellbore_id=wb1, section_id=s1)
     # Move the section under wb2 directly in the DB (no report change), creating
     # a report(wb1) vs section(wb2) contradiction that analyze must flag.
-    s = m.create_session()
-    try:
-        sec = s.get(Section, s1)
-        sec.wellbore_id = wb2  # allowed: section still in well A
-        s.commit()
-    finally:
-        s.close()
+    with m.engine.begin() as connection:
+        connection.execute(Section.__table__.update().where(Section.id == s1)
+                           .values(wellbore_id=wb2))
     rep = ScopeAttributionService(m).analyze(w)
     assert _status(rep, r, "wellbore").status == INVALID
 
@@ -354,7 +350,8 @@ def test_coverage_reports_real_quality_not_fabricated():
     _report(m, w, 2, wellbore_id=wb)  # already
     svc = ScopeAttributionService(m)
     before = svc.coverage(w)
-    assert before["wellbore_coverage_pct"] == 100.0  # 1 already + 1 resolvable
+    assert before["wellbore_coverage_pct"] == 50.0  # only 1 persisted owner
+    assert before["wellbore_attributable_pct"] == 100.0  # includes proposal
     # A well with no reports -> None (unknown), never fabricated 0/100.
     empty_well = _well(m, pid, "Z")
     empty = svc.coverage(empty_well)
@@ -472,3 +469,54 @@ def test_two_bores_one_section_null_null_report_converges_safely():
 
     rep3 = svc.resolve(w)
     assert rep3.applied == 0  # fully converged, idempotent
+
+
+def test_known_bore_never_resolves_sibling_only_section():
+    m = _mgr()
+    w = _well(m, _base(m), "A")
+    a = _wellbore(m, w, "A")
+    b = _wellbore(m, w, "B")
+    _section(m, w, "B-only", wellbore_id=b)
+    r = _report(m, w, 1, wellbore_id=a)
+    svc = ScopeAttributionService(m)
+    assert _status(svc.analyze(w), r, "section").status == UNRESOLVED
+    assert svc.resolve(w).applied == 0
+    assert _get_report(m, r) == (a, None)
+
+
+def test_analysis_uses_proposed_bore_without_writing():
+    m = _mgr()
+    w = _well(m, _base(m), "A")
+    a = _wellbore(m, w, "A")
+    sec = _section(m, w, "known", wellbore_id=a)
+    _section(m, w, "legacy", wellbore_id=None)
+    r = _report(m, w, 1)
+    svc = ScopeAttributionService(m)
+    preview = svc.analyze(w)
+    assert _get_report(m, r) == (None, None)
+    assert preview.applied == 0
+    assert _status(preview, r, "section").target_id == sec
+    applied = svc.resolve(w)
+    assert [(o.status, o.target_id) for o in preview.outcomes] == [
+        (o.status, o.target_id) for o in applied.outcomes]
+    assert svc.resolve(w).applied == 0
+
+
+@pytest.mark.parametrize("dimension", ["wellbore_id", "section_id"])
+def test_analysis_rejects_legacy_cross_well_scope(dimension):
+    m = _mgr()
+    p = _base(m)
+    a, b = _well(m, p, "A"), _well(m, p, "B")
+    _wellbore(m, a, "A")
+    bb = _wellbore(m, b, "B")
+    bs = _section(m, b, "B", wellbore_id=bb)
+    r = _report(m, a, 1)
+    # Simulate an externally written/pre-guard database, not a supported writer.
+    with m.engine.begin() as conn:
+        conn.execute(DailyReport.__table__.update().where(DailyReport.id == r)
+                     .values(**{dimension: bb if dimension == "wellbore_id" else bs}))
+    svc = ScopeAttributionService(m)
+    for well_filter in (a, None):
+        analysis = svc.analyze(well_filter)
+        assert all(o.status == INVALID for o in analysis.outcomes)
+        assert svc.resolve(well_filter).applied == 0

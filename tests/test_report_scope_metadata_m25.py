@@ -143,8 +143,8 @@ def test_cost_report_is_well_level_and_labelled(db, multibore, tmp_path):
     s = db.create_session()
     # CostRecord is well-scoped (no wellbore dimension). Two categories.
     s.add_all([
-        CostRecord(well_id=multibore["well"], category="Rig", actual_cost=100000.0),
-        CostRecord(well_id=multibore["well"], category="Mud", actual_cost=40000.0),
+        CostRecord(well_id=multibore["well"], category="Rig", currency="USD", actual_cost=100000.0),
+        CostRecord(well_id=multibore["well"], category="Mud", currency="USD", actual_cost=40000.0),
     ])
     s.commit(); s.close()
     out = tmp_path / "cost.html"
@@ -159,7 +159,7 @@ def test_cost_report_is_well_level_and_labelled(db, multibore, tmp_path):
 def test_cost_excel_scope_row(db, multibore, tmp_path):
     from openpyxl import load_workbook
     s = db.create_session()
-    s.add(CostRecord(well_id=multibore["well"], category="Rig", actual_cost=50000.0))
+    s.add(CostRecord(well_id=multibore["well"], category="Rig", currency="USD", actual_cost=50000.0))
     s.commit(); s.close()
     out = tmp_path / "cost.xlsx"
     assert CostReportEngine(db).generate(multibore["well"], str(out), format="excel")

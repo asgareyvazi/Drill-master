@@ -43,15 +43,19 @@ class TestReleaseGate:
         calls = []
         responses = [
             subprocess.CompletedProcess(
-                [], 0, stdout="tests/test_example.py: 3\n", stderr=""
+                [], 0, stdout="tests/test_example.py: 4\n", stderr=""
             ),
             subprocess.CompletedProcess(
-                [], 0, stdout="3 passed, 1 skipped in 0.01s\n", stderr=""
+                [], 0, stdout="4 passed in 0.01s\n", stderr=""
             ),
         ]
 
         def fake_run(command, **kwargs):
             calls.append((command, kwargs))
+            for arg in command:
+                if arg.startswith("--junitxml="):
+                    Path(arg.split("=", 1)[1]).write_text('<testsuites><testsuite>' + ''.join(
+                        f'<testcase classname="test_example" name="test_{i}"/>' for i in range(4)) + '</testsuite></testsuites>')
             return responses[len(calls) - 1]
 
         with patch.object(verify_release.subprocess, "run", side_effect=fake_run):

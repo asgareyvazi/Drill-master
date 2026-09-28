@@ -549,14 +549,14 @@ class AnalysisWidget(DrillTabBase):
         self.time_depth_plot = pg.PlotWidget()
         self.time_depth_plot.setBackground("#1e1e1e")
         self.time_depth_plot.setLabel("left", "Depth (m)", color="#ffffff", size=14)
-        self.time_depth_plot.setLabel("bottom", "Time (Days)", color="#ffffff", size=14)
+        self.time_depth_plot.setLabel("bottom", "Calendar day", color="#ffffff", size=14)
         self.time_depth_plot.showGrid(x=True, y=True, alpha=0.3)
         self.time_depth_plot.setMinimumHeight(300)
         chart_layout.addWidget(self.time_depth_plot)
         
         self.daily_gain_plot = pg.PlotWidget()
         self.daily_gain_plot.setBackground("#1e1e1e")
-        self.daily_gain_plot.setLabel("left", "Daily Gain (m)", color="#ffffff", size=12)
+        self.daily_gain_plot.setLabel("left", "Change since prior known report (m)", color="#ffffff", size=12)
         self.daily_gain_plot.setLabel("bottom", "Days", color="#ffffff", size=12)
         self.daily_gain_plot.showGrid(x=True, y=True, alpha=0.3)
         self.daily_gain_plot.setMaximumHeight(150)
@@ -1253,15 +1253,16 @@ class AnalysisWidget(DrillTabBase):
         """
         rows = session.query(model).filter(
             model.well_id == well_id,
-            model.report_date == report_date).limit(2).all()
+            model.report_date == report_date,
+            model.report_id.is_(None)).limit(2).all()
         return rows[0] if len(rows) == 1 else None
 
     def _scope_reports_query(self, session):
         """A DailyReport query filtered to the active scope.
 
         Bore selected -> DailyReport.wellbore_id == bore (unknown-bore reports
-        excluded). Section-only -> DailyReport.section_id. Otherwise the whole
-        well. Always uses the authoritative FK, never rig/name/date.
+        excluded). Otherwise the whole well. Daily cards add their section/
+        report filter in get_today_data; aggregate charts remain bore-wide.
         """
         q = session.query(DailyReport).filter(DailyReport.well_id == self.current_well_id)
         if self.current_wellbore_id:
@@ -1308,7 +1309,7 @@ class AnalysisWidget(DrillTabBase):
         # ---- Shared metrics: canonical source of truth (scope-aware) ----
         canonical = self._canonical_scope_kpis()
         cur_depth = canonical.get("current_depth")
-        total_days = canonical.get("rig_days") or self._scope_reports_query(session).count()
+        total_days = canonical.get("rig_days")
         avg_rop = canonical.get("average_rop")
         total_npt = canonical.get("npt_hours")
         npt_pct = canonical.get("npt_percent")
@@ -1335,16 +1336,19 @@ class AnalysisWidget(DrillTabBase):
         tq_mids = [(tmin+tmax)/2 for tmin,tmax in tq_vals if tmin is not None and tmax is not None]
         avg_torque = float(np.mean(tq_mids)) if tq_mids else None
 
-        # Daily depth gain over the campaign: first->last by date. Unknown when
-        # either endpoint depth is missing (never a fabricated 0).
+        # Calendar-rate endpoints must be unique and belong to the same bore.
+        # A bare first() silently chose among multiple sections/bores on a day.
         daily_gain = None
-        if total_days and total_days > 0:
-            first = self._scope_reports_query(session)\
-                           .order_by(DailyReport.report_date).first()
-            latest = self._scope_reports_query(session)\
-                            .order_by(desc(DailyReport.report_date)).first()
-            if first and latest and first.depth_2400 is not None and latest.depth_2400 is not None:
-                daily_gain = (latest.depth_2400 - first.depth_2400) / total_days
+        reports = self._scope_reports_query(session).order_by(DailyReport.report_date).all()
+        if reports:
+            first_rows = [r for r in reports if r.report_date == reports[0].report_date]
+            last_rows = [r for r in reports if r.report_date == reports[-1].report_date]
+            if len(first_rows) == len(last_rows) == 1:
+                first, latest = first_rows[0], last_rows[0]
+                elapsed = (latest.report_date - first.report_date).days
+                if (elapsed > 0 and first.wellbore_id == latest.wellbore_id
+                        and first.depth_2400 is not None and latest.depth_2400 is not None):
+                    daily_gain = (latest.depth_2400 - first.depth_2400) / elapsed
 
         return {
             'current_depth': cur_depth,
@@ -1364,25 +1368,23 @@ class AnalysisWidget(DrillTabBase):
         well_id = self.current_well_id
         if not well_id:
             return None
-        today = date.today()
-        report = self._scope_reports_query(session).filter(
-            DailyReport.report_date == today).first()
-        if not report:
-            report = self._scope_reports_query(session)\
-                            .order_by(desc(DailyReport.report_date)).first()
+        query = self._scope_reports_query(session)
+        # Daily cards are report-level, unlike the bore-wide KPI/chart rollups.
+        section_id = getattr(self, "current_section_id", None)
+        if section_id is not None:
+            query = query.filter(DailyReport.section_id == section_id)
+        selected = getattr(self, "current_report_id", None)
+        if selected is not None:
+            candidates = query.filter(DailyReport.id == selected).all()
+        else:
+            latest_date = query.with_entities(func.max(DailyReport.report_date)).scalar()
+            candidates = query.filter(DailyReport.report_date == latest_date).limit(2).all()
+        report = candidates[0] if len(candidates) == 1 else None
         if not report:
             return None
-        # Recorded time: a genuine sum, and 0.0 is a real fact once any time log
-        # exists. But if NO time log exists for the report the totals are
-        # UNKNOWN (None), not a fabricated 0. NPT with time logs present but no
-        # NPT rows is a real 0.0.
-        any_logs = session.query(TimeLog24H.id)\
-                          .filter(TimeLog24H.report_id == report.id).first() is not None
-        npt_hours = (session.query(func.sum(TimeLog24H.duration))
-                     .filter(TimeLog24H.report_id == report.id,
-                             TimeLog24H.is_npt == True).scalar() or 0.0) if any_logs else None
-        hours = (session.query(func.sum(TimeLog24H.duration))
-                 .filter(TimeLog24H.report_id == report.id).scalar() or 0.0) if any_logs else None
+        from core.operational_time import summarize_time_logs
+        time_metrics = summarize_time_logs(session.query(TimeLog24H).filter_by(report_id=report.id).all())
+        hours, npt_hours = time_metrics["total_hours"], time_metrics["npt_hours"]
         # Bind parameters/mud to THIS report via report_id (the report is
         # already scope-selected). A well+date fallback is ONLY used when it is
         # provably unambiguous — i.e. this (well, date) maps to a single report
@@ -1392,14 +1394,16 @@ class AnalysisWidget(DrillTabBase):
         # The fallback is also refused when MORE THAN ONE legacy child row shares
         # the (well, date): a bare .first() there is nondeterministic and would
         # silently hide the other row(s). Ambiguity -> UNKNOWN, not a guess.
-        dr = session.query(DrillingParameters).filter(
-            DrillingParameters.report_id == report.id).first()
-        if dr is None and self._report_date_unambiguous(session, report):
+        rows = session.query(DrillingParameters).filter(
+            DrillingParameters.report_id == report.id).limit(2).all()
+        dr = rows[0] if len(rows) == 1 else None
+        if not rows and self._report_date_unambiguous(session, report):
             dr = self._unique_legacy_row(
                 session, DrillingParameters, well_id, report.report_date)
-        mud = session.query(MudReport).filter(
-            MudReport.report_id == report.id).first()
-        if mud is None and self._report_date_unambiguous(session, report):
+        rows = session.query(MudReport).filter(
+            MudReport.report_id == report.id).limit(2).all()
+        mud = rows[0] if len(rows) == 1 else None
+        if not rows and self._report_date_unambiguous(session, report):
             mud = self._unique_legacy_row(
                 session, MudReport, well_id, report.report_date)
 
@@ -1418,9 +1422,10 @@ class AnalysisWidget(DrillTabBase):
             'hours': hours,
             'rig_day': report.rig_day,
             'npt_hours': npt_hours,
-            'mw_in': mud.mw if mud else None,
-            'mw_out': mud.mw if mud else None,
-            'main_activity': 'Drilling',
+            'mw_in': report.mud_weight_in,
+            'mw_out': report.mud_weight_out,
+            'mud_weight': mud.mw if mud else None,
+            'main_activity': None,  # no authoritative activity classification on this header
             'wob': _mid(dr.wob_min, dr.wob_max) if dr else None,
             'rpm': _mid(dr.rpm_min, dr.rpm_max) if dr else None,
             'torque': _mid(dr.torque_min, dr.torque_max) if dr else None,
@@ -1467,7 +1472,11 @@ class AnalysisWidget(DrillTabBase):
         # depth loss on the first gap and a false recovery afterwards. Missing
         # depth => depth None (chart gap) and gain None (unknown), never 0.
         prev = None
-        for i, r in enumerate(reports):
+        prev_bore = None
+        first_date = reports[0].report_date if reports else None
+        for r in reports:
+            if r.wellbore_id != prev_bore:
+                prev = None
             d = r.depth_2400  # trichotomy preserved: None stays unknown
             if d is None:
                 gain = None
@@ -1478,11 +1487,12 @@ class AnalysisWidget(DrillTabBase):
                 status = 'Unknown'
             else:
                 gain = d - prev
-                status = 'Normal' if gain > 0 else 'No Progress'
-            data.append({'date': r.report_date, 'day': i+1, 'depth': d,
+                status = 'Normal' if gain > 0 else 'Depth decreased' if gain < 0 else 'Unchanged'
+            data.append({'date': r.report_date, 'day': (r.report_date - first_date).days + 1, 'depth': d,
                          'gain': gain, 'status': status})
             if d is not None:
                 prev = d
+                prev_bore = r.wellbore_id
         return data
 
     def get_npt_data(self, session):
@@ -1524,18 +1534,14 @@ class AnalysisWidget(DrillTabBase):
         # NPT% is unknown when no time has been recorded for the well; the
         # denominator is genuinely unknown, not 1. With recorded time and no NPT
         # rows, NPT is a real 0.0 and the percentage is a real 0%.
-        th_q = session.query(func.sum(TimeLog24H.duration))\
-                             .join(DailyReport).filter(DailyReport.well_id == well_id)
+        from core.operational_time import summarize_time_logs
+        th_q = session.query(TimeLog24H).join(DailyReport).filter(DailyReport.well_id == well_id)
         if self.current_wellbore_id:
             th_q = th_q.filter(DailyReport.wellbore_id == self.current_wellbore_id)
-        total_hours = th_q.scalar()
-        if total_hours:
-            pct = (total_npt / total_hours * 100)
-        else:
-            total_npt = None
-            pct = None
-        return {'entries': entries, 'categories': cats, 'total_npt': total_npt,
-                'npt_percentage': pct, 'total_hours': total_hours,
+        metrics = summarize_time_logs(th_q.all())
+        return {'entries': entries, 'categories': cats, 'total_npt': metrics["npt_hours"],
+                'npt_percentage': metrics["npt_percent"], 'total_hours': metrics["total_hours"],
+                'known_npt_hours': metrics["known_npt_hours"],
                 'unknown_npt_count': unknown_count}
 
     # ---- Scope helpers ----
@@ -1636,6 +1642,7 @@ class AnalysisWidget(DrillTabBase):
             )
 
         if (len(depth_days) > 1
+                and len(set(depth_days)) > 1
                 and hasattr(self, 'td_show_trend')
                 and self.td_show_trend.isChecked()):
             try:
@@ -1657,7 +1664,7 @@ class AnalysisWidget(DrillTabBase):
                 gain_days, gain_vals,
                 pen=pg.mkPen(color="#2ecc71", width=2),
                 fillLevel=0, brush="#27ae6050",
-                name="Daily Gain"
+                name="Report depth change"
             )
 
         self.time_depth_table.setRowCount(len(data))
@@ -1996,6 +2003,9 @@ class AnalysisWidget(DrillTabBase):
         """
         from core.engineering.engines.bit_performance import BitPerformanceEngine
         if not self.current_well_id:
+            # Drop the previous well's comparison instead of leaving it on screen.
+            self.cost_table.setRowCount(1)
+            self.cost_table.setItem(0, 0, QTableWidgetItem("NOT ASSESSED: select a well"))
             return
         def fetch():
             session = self.db.create_session()
@@ -2063,6 +2073,9 @@ class AnalysisWidget(DrillTabBase):
             self.today_indicators['mw_pcf'].setText(
                 f"{fmt_num(today['mw_in'], 1, default=None)}/"
                 f"{fmt_num(today['mw_out'], 1, default=None)}")
+        else:
+            for indicator in self.today_indicators.values():
+                indicator.setText("—")
         session = self.db.create_session()
         recent_q = self._scope_reports_query(session)
         recent = recent_q.order_by(desc(DailyReport.report_date)).limit(10).all()
@@ -2070,7 +2083,7 @@ class AnalysisWidget(DrillTabBase):
         for i, r in enumerate(recent):
             act = session.query(TimeLog24H.main_code).filter_by(report_id=r.id)\
                          .order_by(desc(TimeLog24H.duration)).first()
-            main_act = act[0] if act else "Drilling"
+            main_act = act[0] if act and act[0] else "—"
             # Presentation truth: an unknown rig-day/depth renders "—", a real
             # reported 0 renders "0"/"0.0". Never collapse None into a fake 0.
             self.recent_reports_table.setItem(i, 0, QTableWidgetItem(str(r.report_date)))
@@ -2109,36 +2122,27 @@ class AnalysisWidget(DrillTabBase):
         params_list = self._scope_params_query(session)\
             .order_by(DrillingParameters.report_date).all()
 
-        rop_series = [p.avg_rop for p in params_list if p.avg_rop is not None]
-        if len(rop_series) >= 2:
-            rops = rop_series
-        else:
-            # Fallback to Daily Reports' rop_meter, same missing-vs-zero rule.
-            reports = self._scope_reports_query(session)\
-                .order_by(DailyReport.report_date).all()
-            rop_series = [r.rop_meter for r in reports if r.rop_meter is not None]
-            if len(rop_series) < 2:
-                self.results_text.setText(
-                    "Not enough valid data for ROP prediction "
-                    "(need at least 2 reports with a recorded ROP)")
-                return
-            rops = rop_series
-
-        days = list(range(1, len(rops) + 1))
-        x = np.array(days, dtype=float)
-        y = np.array(rops, dtype=float)
-
-        if len(x) < 2:
-            self.results_text.setText("Not enough valid ROP data")
+        observations = [(p.report_date, p.avg_rop) for p in params_list if p.avg_rop is not None]
+        if len(observations) < 2:
+            reports = self._scope_reports_query(session).order_by(DailyReport.report_date).all()
+            observations = [(r.report_date, r.rop_meter) for r in reports if r.rop_meter is not None]
+        if (len({d for d, _ in observations}) < 2
+                or any(d is None or not np.isfinite(float(v)) or v < 0 for d, v in observations)):
+            self.analytics_plot.clear()
+            self.results_text.setText("ROP prediction NOT ASSESSED: need valid ROP observations on two distinct dates")
             return
-        
+        observations.sort(key=lambda row: row[0])
+        days = [(d - observations[0][0]).days + 1 for d, _ in observations]
+        x = np.array(days, dtype=float)
+        y = np.array([v for _, v in observations], dtype=float)
+
         # Linear regression
         z = np.polyfit(x, y, 1)
         p = np.poly1d(z)
         
         # Predict next 5 days
         future_x = list(range(days[-1] + 1, days[-1] + 6))
-        future_y = p(future_x)
+        future_y = np.maximum(0, p(future_x))
         
         # Update chart
         self.analytics_plot.clear()
@@ -2160,6 +2164,7 @@ class AnalysisWidget(DrillTabBase):
         slope = z[0]
         
         report = f"⚡ ROP PREDICTION ANALYSIS\n{'='*40}\n"
+        report += "Linear projection assumption from recorded observations on calendar dates; missing observations omitted, not zero.\n"
         report += f"Data Points: {len(x)}\n"
         report += f"Average ROP: {avg_rop:.2f} m/hr\n"
         report += f"Std Dev: {std_rop:.2f} m/hr\n"
@@ -2191,19 +2196,21 @@ class AnalysisWidget(DrillTabBase):
         npt_data = self.get_npt_data(session)
         entries = npt_data.get('entries', [])
         
-        if len(entries) < 3:
-            self.results_text.setText("⏱️ NPT Forecasting\nNot enough data (need at least 3 NPT events)")
+        if (len({e['date'] for e in entries}) < 3
+                or any(e.get('hours') is None or e.get('date') is None or not np.isfinite(float(e['hours'])) or e['hours'] < 0 for e in entries)):
+            self.analytics_plot.clear()
+            self.results_text.setText("NPT Forecasting: NOT ASSESSED (need complete NPT durations on at least 3 distinct dates)")
             return
         
         # گروه‌بندی NPT بر اساس تاریخ
         daily_npt = {}
         for e in entries:
-            d = str(e['date'])
+            d = e['date']
             daily_npt[d] = daily_npt.get(d, 0) + e['hours']
         
         dates = sorted(daily_npt.keys())
         hours = [daily_npt[d] for d in dates]
-        days = list(range(1, len(hours) + 1))
+        days = [(d - dates[0]).days + 1 for d in dates]
         
         # محاسبه trend
         x = np.array(days)
@@ -2212,8 +2219,8 @@ class AnalysisWidget(DrillTabBase):
         slope = z[0]
         
         # پیش‌بینی 7 روز آینده
-        future_days = list(range(len(days) + 1, len(days) + 8))
-        future_npt = np.polyval(z, future_days)
+        future_days = list(range(days[-1] + 1, days[-1] + 8))
+        future_npt = np.maximum(0, np.polyval(z, future_days))
         
         # نمودار
         self.analytics_plot.clear()
@@ -2232,6 +2239,7 @@ class AnalysisWidget(DrillTabBase):
         total_npt = sum(hours)
         
         report = f"⏱️ NPT FORECASTING ANALYSIS\n{'='*40}\n"
+        report += "Linear projection assumption from observed NPT dates only; missing days are not zero observations.\n"
         report += f"Data Points: {len(days)} days with NPT\n"
         report += f"Total NPT: {total_npt:.1f} hours\n"
         report += f"Average Daily NPT: {avg_npt:.2f} hours\n"
@@ -2277,14 +2285,14 @@ class AnalysisWidget(DrillTabBase):
         # NPT and misreport it.
         total_days = session.query(DailyReport).filter_by(well_id=well_id).count()
         canonical_kpis = OperationsIntelligenceService(self.db).analyze_well(well_id).get("kpis", {})
-        total_npt_hours = canonical_kpis.get("npt_hours") or 0.0
-        npt_days = total_npt_hours / 24
+        total_npt_hours = canonical_kpis.get("npt_hours")
+        npt_days = total_npt_hours / 24 if total_npt_hours is not None else None
         npt_pct_value = canonical_kpis.get("npt_percent")
 
         kpis = canonical_kpis
         total_cost = kpis.get("total_cost")
         cpm = kpis.get("cost_per_meter")
-        well_total_hours = (kpis.get("npt_hours") or 0) + (kpis.get("productive_hours") or 0)
+        well_total_hours = kpis.get("total_hours")
         npt_cost = allocate_npt_cost(total_cost, total_npt_hours, well_total_hours or None)
         productive_cost = (
             total_cost - npt_cost
@@ -2292,7 +2300,8 @@ class AnalysisWidget(DrillTabBase):
         )
 
         def money(v):
-            return f"${v:,.0f}" if v is not None else "—"
+            from core.cost_semantics import format_money
+            return format_money(v, kpis.get("cost_currency"))
 
         # نمودار — only chart known values (skip unknowns instead of plotting 0)
         self.analytics_plot.clear()
@@ -2310,20 +2319,21 @@ class AnalysisWidget(DrillTabBase):
             bargraph = pg.BarGraphItem(x=x, height=values, width=0.6, brushes=colors)
             self.analytics_plot.addItem(bargraph)
             self.analytics_plot.setLabel("bottom", "Category")
-            self.analytics_plot.setLabel("left", "Cost (K USD)")
+            self.analytics_plot.setLabel("left", f"Cost (thousands {kpis.get('cost_currency') or 'currency unknown'})")
 
         report = f"💰 COST ANALYSIS (actual, from recorded cost)\n{'='*40}\n"
         report += "Scope: Whole Well (cost is recorded at well level)\n"
-        report += f"Total Rig Days: {total_days}\n"
-        report += f"NPT Days: {npt_days:.1f} ({fmt_num(npt_pct_value, 1, default=None)}%)\n"
-        report += f"Productive Days: {total_days - npt_days:.1f}\n\n"
+        report += f"Recorded Reports: {total_days}\n"
+        report += f"Recorded Time (days): {fmt_num(well_total_hours / 24 if well_total_hours is not None else None, 1, default=None)}\n"
+        report += f"NPT Days: {fmt_num(npt_days, 1, default=None)} ({fmt_num(npt_pct_value, 1, default=None)}%)\n"
+        report += f"Productive Days: {fmt_num(kpis.get('productive_hours') / 24 if kpis.get('productive_hours') is not None else None, 1, default=None)}\n\n"
         report += f"📊 Cost (from persisted CostRecord actuals):\n"
         report += f"  Total Actual Cost: {money(total_cost)}\n"
         report += f"  Productive Cost:   {money(productive_cost)}\n"
         report += f"  NPT Cost:          {money(npt_cost)}\n"
         report += f"  Cost per Meter:    {money(cpm)}/m\n"
         if total_cost is None:
-            report += "\n(No actual cost recorded for this well — enter it in the AFE tab.)\n"
+            report += "\n(Cost not aggregatable: missing amounts or mixed/unknown currencies. See source cost lines.)\n"
 
         self.results_text.setText(report)
 
@@ -2393,13 +2403,9 @@ class AnalysisWidget(DrillTabBase):
         total_days = session.query(DailyReport).filter_by(well_id=well_id).count()
         npt_pct = canonical_kpis.get("npt_percent")
         
-        # Safety data
-        safety = session.query(SafetyReport).filter_by(well_id=well_id).order_by(
-            SafetyReport.report_date.desc()
-        ).first()
-        days_no_lti = safety.days_without_lti if safety else None
-
-        risk_scores = self._risk_scores(npt_pct, days_no_lti, safety is not None)
+        # Use the same ambiguity-aware observation as Intelligence, not .first().
+        days_no_lti = canonical_kpis.get("safety_kpi", {}).get("days_without_lti")
+        risk_scores = self._risk_scores(npt_pct, days_no_lti, days_no_lti is not None)
 
         # Only categories with a real (non-UNKNOWN) score are charted and count
         # toward the overall score; UNKNOWN categories are reported as
@@ -2449,11 +2455,11 @@ class AnalysisWidget(DrillTabBase):
         
         report += f"\n📈 Key Metrics:\n"
         report += "Scope: Whole Well (safety/NPT risk assessed at well level)\n"
-        report += f"  Total Days: {total_days}\n"
+        report += f"  Recorded Reports: {total_days}\n"
         report += f"  NPT Percentage: {fmt_num(npt_pct, 1, default=None)}%\n"
         report += (
             f"  Days without LTI: {days_no_lti}\n" if days_no_lti is not None
-            else "  Days without LTI: UNKNOWN (no safety report)\n"
+            else "  Days without LTI: UNKNOWN (missing or ambiguous safety observation)\n"
         )
         
         self.results_text.setText(report)
@@ -2495,8 +2501,8 @@ class AnalysisWidget(DrillTabBase):
         
         session = self.db.create_session()
         try:
-            from core.database import Section, DailyReport, TimeLog24H
-            from sqlalchemy import func
+            from core.database import Section
+            from core.actual_vs_plan import section_actual_days
 
             self._update_milestones_scope_label()
 
@@ -2524,23 +2530,16 @@ class AnalysisWidget(DrillTabBase):
             for section in sections:
                 section_names.append(section.name)
                 
-                # FACT: real time logged against this section (days).
-                fact_time = session.query(func.sum(TimeLog24H.duration)).join(
-                    DailyReport, TimeLog24H.report_id == DailyReport.id
-                ).filter(
-                    DailyReport.section_id == section.id
-                ).scalar() or 0
-                fact_data.append(fact_time / 24)  # hours -> days
-                
-                # PLAN: the REAL stored planned duration for this section. When
-                # no plan was entered it is 0 (nothing planned) — never a
-                # fabricated depth/50 or flat 5-day value.
-                plan_data.append(section.planned_days or 0)
-            
+                fact_data.append(section_actual_days(session, section.id))
+                plan_data.append(section.planned_days)
+
             # رسم نمودار Milestones
             self._draw_milestones_chart(section_names, fact_data, plan_data)
             
         except Exception as e:
+            self._draw_milestones_chart([], [], [])
+            if getattr(self, "milestones_scope_label", None) is not None:
+                self.milestones_scope_label.setText("FAILED to load milestones")
             logger.error(f"Error loading milestones data: {e}")
         finally:
             session.close()
@@ -2556,14 +2555,10 @@ class AnalysisWidget(DrillTabBase):
             self.milestones_scope_label.setText("Scope: Whole Well")
 
     def _load_milestones_from_reports(self, session):
-        """Report-derived milestones when a well has no sections (whole-well).
+        """Depth-band elapsed calendar days; never report count or rig-time.
 
-        FACT depth-band durations are real (cumulative rig days between depth
-        milestones). There is NO stored section plan in this path, so PLAN is
-        genuinely UNKNOWN — we plot FACT only and never fabricate a plan series
-        (the old ``fact * 0.8`` estimate presented a made-up plan as data).
-        Reports with an unknown depth are skipped for banding, not treated as
-        depth 0 (which would fabricate a plunge to zero).
+        This fallback has no stored plan. Multiple/unknown bore populations
+        cannot establish one depth progression and remain NOT ASSESSED.
         """
         try:
             from core.database import DailyReport
@@ -2571,12 +2566,12 @@ class AnalysisWidget(DrillTabBase):
             reports = session.query(
                 DailyReport.report_date,
                 DailyReport.depth_2400,
-                DailyReport.rig_day
+                DailyReport.wellbore_id
             ).filter(
                 DailyReport.well_id == self.current_well_id
             ).order_by(DailyReport.report_date).all()
             
-            if not reports:
+            if not reports or len({r.wellbore_id for r in reports}) != 1:
                 self._draw_milestones_chart([], [], [])
                 return
             
@@ -2584,29 +2579,36 @@ class AnalysisWidget(DrillTabBase):
             milestones = []
             fact_times = []
             last_depth = None
-            cumulative_days = 0
-            
+            band_start = None
             for r in reports:
-                depth = r.depth_2400  # None = unknown depth (not 0)
-                if depth is not None and last_depth is not None and (
-                        depth - last_depth >= 500 or cumulative_days >= 30):
-                    milestones.append(f"{last_depth:.0f}-{depth:.0f}m")
-                    fact_times.append(cumulative_days)
-                    last_depth = depth
-                    cumulative_days = 0
-                elif last_depth is None and depth is not None:
-                    last_depth = depth
-                cumulative_days += 1
-            
+                depth = r.depth_2400
+                if depth is None:
+                    continue
+                if last_depth is None:
+                    last_depth, band_start = depth, r.report_date
+                    continue
+                elapsed = (r.report_date - band_start).days
+                if depth - last_depth >= 500 or elapsed >= 30:
+                    milestones.append(f"{last_depth:.0f}-{depth:.0f}m (calendar days)")
+                    fact_times.append(elapsed)
+                    last_depth, band_start = depth, r.report_date
+
             # PLAN unknown in this path -> empty plan series (no fabrication).
             self._draw_milestones_chart(milestones, fact_times, [])
                 
         except Exception as e:
+            self._draw_milestones_chart([], [], [])
+            if getattr(self, "milestones_scope_label", None) is not None:
+                self.milestones_scope_label.setText("FAILED to load milestones")
             logger.error(f"Error loading milestones from reports: {e}")
 
     def _draw_milestones_chart(self, sections, fact_days, plan_days):
         if not sections:
+            if getattr(self, "milestones_widget", None) is not None:
+                safe_replace_chart(self.milestones_widget, QLabel("Milestones: NOT ASSESSED (no sections)"))
             return
+        fact_days = [v if v is not None else float("nan") for v in fact_days]
+        plan_days = [v if v is not None else float("nan") for v in plan_days]
         
         try:
             fig, ax = plt.subplots(figsize=(10, 5), facecolor='#1e1e1e')
@@ -2624,7 +2626,7 @@ class AnalysisWidget(DrillTabBase):
             
             ax.set_xlabel('Section', color='white', fontsize=11)
             ax.set_ylabel('Days', color='white', fontsize=11)
-            ax.set_title('Milestones - FACT vs PLAN (Days per Section)', color='white', fontsize=14, fontweight='bold')
+            ax.set_title('Milestones - FACT vs PLAN (unknown values omitted)', color='white', fontsize=14, fontweight='bold')
             ax.set_xticks(x)
             ax.set_xticklabels(sections, rotation=45, ha='right', color='white')
             ax.tick_params(axis='y', colors='white')
@@ -2634,6 +2636,8 @@ class AnalysisWidget(DrillTabBase):
             # افزودن مقادیر روی میله‌ها
             for bar in bars1:
                 height = bar.get_height()
+                if not np.isfinite(height):
+                    continue
                 ax.annotate(f'{height:.1f}',
                            xy=(bar.get_x() + bar.get_width()/2, height),
                            xytext=(0, 3), textcoords="offset points",
@@ -2641,6 +2645,8 @@ class AnalysisWidget(DrillTabBase):
             
             for bar in bars2:
                 height = bar.get_height()
+                if not np.isfinite(height):
+                    continue
                 ax.annotate(f'{height:.1f}',
                            xy=(bar.get_x() + bar.get_width()/2, height),
                            xytext=(0, 3), textcoords="offset points",
@@ -2665,6 +2671,7 @@ class AnalysisWidget(DrillTabBase):
         self.current_wellbore_id = getattr(
             self.sel_manager, "current_wellbore_id", None)
         self.current_wellbore_name = None
+        self.current_report_id = getattr(self.sel_manager, "current_report_id", None)
         self.set_current_well(well_id, well_data.get('name', str(well_id)))
 
     def on_wellbore_changed(self, wellbore_id, wellbore_data):
@@ -2676,6 +2683,8 @@ class AnalysisWidget(DrillTabBase):
         attributed to the selected bore).
         """
         self.current_wellbore_id = wellbore_id
+        self.current_report_id = getattr(self.sel_manager, "current_report_id", None)
+        self.current_section_id = getattr(self.sel_manager, "current_section_id", None)
         self.current_wellbore_name = (
             (wellbore_data or {}).get("name") if wellbore_data else None)
         self.clear_cache()
@@ -2725,8 +2734,16 @@ class AnalysisWidget(DrillTabBase):
                 label.setStyleSheet(
                     "font-weight: bold; padding: 5px; color: #7f8c8d;")
 
+    def on_section_changed(self, section_id, section_data):
+        self.current_section_id = section_id
+        self.current_report_id = None
+        self.clear_cache()
+        self.update_data_quality()
+        self.update_daily_data()
+
     def on_report_changed(self, report_id, report_data):
         self.current_report_id = report_id
+        self.clear_cache()
         self.update_data_quality()
         self.update_plan_variance()
         self.update_intelligence()
@@ -2880,7 +2897,7 @@ class AnalysisWidget(DrillTabBase):
             
             charts = [
                 (self.time_depth_plot, "Time vs Depth", 50, height/2 + 50, width-100, height/2 - 100),
-                (self.daily_gain_plot, "Daily Gain", 50, 50, width-100, height/2 - 100),
+                (self.daily_gain_plot, "Report depth change", 50, 50, width-100, height/2 - 100),
             ]
             
             for plot, title, x, y, w, h in charts:

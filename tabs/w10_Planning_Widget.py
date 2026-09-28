@@ -7,12 +7,17 @@ import logging
 import numpy as np
 
 from PySide6.QtWidgets import *
+from PySide6.QtWidgets import QLabel
 from PySide6.QtCore import *
+from PySide6.QtCore import QSignalBlocker
 from PySide6.QtGui import *
 from PySide6.QtCharts import *
 
-from sqlalchemy import func
+from core.permissions import require_permission
 from core.text_utils import fmt_num
+from core.cost_semantics import complete_total
+from core.operational_time import summarize_time_logs
+from core.actual_vs_plan import section_actual_days
 from core.database import (
     TimeLog24H, DailyReport, Section
 )
@@ -401,6 +406,9 @@ class NPTReportTab(QWidget):
 
     def set_current_well(self, well_id):
         """تنظیم چاه جاری و بارگذاری داده‌ها"""
+        if self.current_well_id != well_id:
+            self.current_report_id = None
+            self.current_section_id = None
         self.current_well_id = well_id
         if well_id:
             self.update_npt_data()
@@ -428,54 +436,29 @@ class NPTReportTab(QWidget):
         if not well_id:
             return {'entries': [], 'categories': {}, 'total_npt': None, 'npt_percentage': None, 'total_hours': None}
         query = session.query(TimeLog24H, DailyReport).join(
-            DailyReport, TimeLog24H.report_id == DailyReport.id
-        ).filter(
-            DailyReport.well_id == well_id,
-            TimeLog24H.is_npt == True
-        )
-
+            DailyReport, TimeLog24H.report_id == DailyReport.id).filter(DailyReport.well_id == well_id)
+        if report_id:
+            query = query.filter(DailyReport.id == report_id)
         if section_id:
             query = query.filter(DailyReport.section_id == section_id)
-        npt_rows = query.order_by(DailyReport.report_date, TimeLog24H.time_from).all()
-
-        entries = []
-        categories = {}
-        total_npt = 0.0
-        for log, rep in npt_rows:
-            h = log.duration or 0
-            cat = log.main_code or "Unknown"
-            categories[cat] = categories.get(cat, 0) + h
-            total_npt += h
-            entries.append({
-                'date': rep.report_date,
-                'from': log.time_from,
-                'to': log.time_to,
-                'hours': h,
-                'category': cat,
-                'description': log.activity_description or "",
-                'sub_category': log.sub_code or "",
-                'contractor': log.contractor or "Unknown",
-                'main_phase': log.main_phase or "Unknown"
-            })
-        total_hours_query = session.query(func.sum(TimeLog24H.duration)).join(
-            DailyReport, TimeLog24H.report_id == DailyReport.id
-        ).filter(DailyReport.well_id == well_id)
-        if report_id:
-            total_hours_query = total_hours_query.filter(DailyReport.id == report_id)
-        # NPT% is unknown when no time has been recorded; the denominator is
-        # genuinely unknown, not 1. With recorded time and no NPT rows, NPT is a
-        # real 0.0 and the percentage a real 0%.
-        total_hours = total_hours_query.scalar()
-        if total_hours:
-            npt_pct = (total_npt / total_hours * 100)
-        else:
-            total_npt = None
-            npt_pct = None
-        return {'entries': entries, 'categories': categories, 'total_npt': total_npt,
-                'npt_percentage': npt_pct, 'total_hours': total_hours}
+        rows = query.order_by(DailyReport.report_date, TimeLog24H.time_from).all()
+        metrics = summarize_time_logs(log for log, _ in rows)
+        entries, categories = [], {}
+        for log, report in rows:
+            if log.is_npt is not True:
+                continue
+            category = log.main_code or "Unknown"
+            categories.setdefault(category, []).append(log.duration)
+            entries.append(dict(date=report.report_date, **{'from': log.time_from, 'to': log.time_to},
+                                hours=log.duration, category=category,
+                                description=log.activity_description or "", sub_category=log.sub_code or "",
+                                contractor=log.contractor or "Unknown", main_phase=log.main_phase or "Unknown"))
+        return dict(entries=entries, categories={k: complete_total(v) for k,v in categories.items()},
+                    total_npt=metrics['npt_hours'], total_hours=metrics['total_hours'], npt_percentage=metrics['npt_percent'])
 
     def update_npt_data(self):
-        if not self.current_well_id:
+        if not self.current_well_id or not self.db:
+            self._show_npt_unavailable("No well selected")
             return
         session = self.db.create_session()
         try:
@@ -490,9 +473,17 @@ class NPTReportTab(QWidget):
             self.display_npt_data(data)
         except Exception as e:
             logger.error(f"Error in update_npt_data: {e}")
+            self._show_npt_unavailable("FAILED")
         finally:
             session.close()
 
+
+    def _show_npt_unavailable(self, message):
+        self.npt_table.setRowCount(0)
+        for card in (self.npt_total_card, self.npt_percent_card,
+                     self.npt_daily_card, self.npt_category_card):
+            self.update_stat_card_value(card, message)
+        self.draw_all_bar_charts([])
 
     # ----- Display -----
     def display_npt_data(self, data):
@@ -515,7 +506,7 @@ class NPTReportTab(QWidget):
             else:
                 self.npt_table.setItem(i, 2, QTableWidgetItem(str(time_to or '')))
             
-            self.npt_table.setItem(i, 3, QTableWidgetItem(f"{e.get('hours', 0):.2f}"))
+            self.npt_table.setItem(i, 3, QTableWidgetItem(fmt_num(e.get('hours'), 2, default=None)))
             self.npt_table.setItem(i, 4, QTableWidgetItem(e.get('category', '')))
             self.npt_table.setItem(i, 5, QTableWidgetItem(e.get('category', '')))
             self.npt_table.setItem(i, 6, QTableWidgetItem(e.get('sub_category', '')))
@@ -532,7 +523,8 @@ class NPTReportTab(QWidget):
         )
         self.update_stat_card_value(self.npt_daily_card, fmt_num(daily_avg, 1, default=None))
         
-        top_cat = max(data['categories'], key=data['categories'].get) if data['categories'] else "None"
+        known_categories = {k: v for k, v in data['categories'].items() if v is not None}
+        top_cat = max(known_categories, key=known_categories.get) if known_categories and len(known_categories) == len(data['categories']) else "NOT ASSESSED"
         self.update_stat_card_value(self.npt_category_card, top_cat)
 
         self.draw_all_bar_charts(data['entries'])
@@ -560,7 +552,8 @@ class NPTReportTab(QWidget):
             if not group_key or group_key.strip() == "":
                 group_key = default_label
             group_key = group_key.strip()
-            result[group_key] = result.get(group_key, 0) + e['hours']
+            result[group_key] = (None if e['hours'] is None or result.get(group_key, 0) is None
+                               else result.get(group_key, 0) + e['hours'])
         return result
 
     def draw_all_bar_charts(self, entries):
@@ -568,21 +561,24 @@ class NPTReportTab(QWidget):
         contractor_data = {}
         for e in entries:
             cont = e.get('contractor', 'Unknown')
-            contractor_data[cont] = contractor_data.get(cont, 0) + e['hours']
+            contractor_data[cont] = (None if e['hours'] is None or contractor_data.get(cont, 0) is None
+                               else contractor_data.get(cont, 0) + e['hours'])
         self.draw_bar_chart(contractor_data, 'contractor')
 
         # 2. Type (بر اساس main_code کامل)
         type_data = {}
         for e in entries:
             cat = e.get('category', 'Unknown')
-            type_data[cat] = type_data.get(cat, 0) + e['hours']
+            type_data[cat] = (None if e['hours'] is None or type_data.get(cat, 0) is None
+                               else type_data.get(cat, 0) + e['hours'])
         self.draw_bar_chart(type_data, 'type')
 
         # 3. Category (بر اساس main_phase)
         phase_data = {}
         for e in entries:
             phase = e.get('main_phase', 'Unknown')
-            phase_data[phase] = phase_data.get(phase, 0) + e['hours']
+            phase_data[phase] = (None if e['hours'] is None or phase_data.get(phase, 0) is None
+                               else phase_data.get(phase, 0) + e['hours'])
         self.draw_bar_chart(phase_data, 'category')
 
         # 4. Failure (هر main_code که با 'F' شروع شود)
@@ -612,13 +608,16 @@ class NPTReportTab(QWidget):
 
     def draw_bar_chart(self, data_dict, chart_key):
         """رسم نمودار میله‌ای افقی با پاک کردن کامل محتوای قبلی و بررسی صحت ویجت"""
-        filtered = {k: v for k, v in data_dict.items() if v > 0}
+        container = self.chart_widgets[chart_key]["container"]
+        layout = container.layout()
+        while layout.count() > 1:
+            item = layout.takeAt(1)
+            if item.widget():
+                item.widget().deleteLater()
+        filtered = {k: v for k, v in data_dict.items() if v is not None and v > 0}
         if not filtered:
-            # بررسی کنیم که label هنوز وجود دارد
-            if chart_key in self.chart_widgets and self.chart_widgets[chart_key]["label"]:
-                self.chart_widgets[chart_key]["label"].setText(f"No data for {self.chart_titles[chart_key]}")
+            layout.addWidget(QLabel("No complete positive durations; unknown/zero values are not bars"))
             return
-
 
         try:
             sorted_items = sorted(filtered.items(), key=lambda x: x[1], reverse=True)[:10]
@@ -647,12 +646,12 @@ class NPTReportTab(QWidget):
             layout = container.layout()
             if layout is None:
                 return
-            title_widget = layout.itemAt(0).widget() if layout.count() > 0 else None
             while layout.count() > 1:
                 item = layout.takeAt(1)
                 if item and item.widget():
-                    item.widget().setParent(None)
-                    item.widget().deleteLater()
+                    widget = item.widget()
+                    widget.setParent(None)
+                    widget.deleteLater()
             layout.addWidget(canvas)
             plt.close(fig)
 
@@ -692,15 +691,25 @@ class NPTReportTab(QWidget):
                 printer.setOutputFileName(filename)
                 
                 painter = QPainter(printer)
-                self.render(painter)
-                painter.end()
+                if not painter.isActive():
+                    raise OSError("PDF writer could not be opened")
+                try:
+                    self.render(painter)
+                finally:
+                    ended = painter.end()
+                if not ended or printer.printerState() == QPrinter.Error:
+                    raise OSError("PDF writer failed")
             else:
                 pixmap = self.grab()
-                pixmap.save(filename)
-            
+                if not pixmap.save(filename):
+                    raise OSError("Image writer failed")
+
             logger.info(f"Charts exported to: {filename}")
+            return True
         except Exception as e:
             logger.error(f"Chart export error: {e}")
+            QMessageBox.critical(self, "Not exported", f"Charts were not exported: {e}")
+            return False
             
 @make_scrollable
 # ==================== Code Management Tab (Read-only – aggregated from time logs) ====================
@@ -826,6 +835,9 @@ class CodeManagementTab(QWidget):
 
     def set_current_well(self, well_id):
         """تنظیم چاه جاری و بارگذاری داده‌ها"""
+        if self.current_well_id != well_id:
+            self.current_report_id = None
+            self.current_section_id = None
         self.current_well_id = well_id
         if well_id:
             self.load_codes()
@@ -836,7 +848,7 @@ class CodeManagementTab(QWidget):
             self.total_codes.setText("0")
             self.total_phases.setText("0")
             self.total_hours.setText("0.0")
-            self.most_used_code.setText("None")
+            self.most_used_code.setText("NOT ASSESSED")
             
     def set_current_report(self, report_id, report_date=None):
         self.current_report_id = report_id
@@ -854,6 +866,7 @@ class CodeManagementTab(QWidget):
             
     def load_codes(self):
         if not self.db or not self.current_well_id:
+            self._show_codes_unavailable("No well selected")
             return
 
         session = self.db.create_session()
@@ -865,47 +878,35 @@ class CodeManagementTab(QWidget):
             if self.current_section_id:
                 query = query.filter(DailyReport.section_id == self.current_section_id)
 
+            if self.current_report_id:
+                query = query.filter(DailyReport.id == self.current_report_id)
             logs_24h = query.all()
 
             # ========== تجمیع بر اساس Main Code + Sub Code ==========
-            agg = {}
-            main_code_hours = {}
-            sub_code_hours = {}
-            total_productive = 0
-            total_npt = 0
-
+            groups, main_groups, sub_groups = {}, {}, {}
             for log in logs_24h:
                 main_code = log.main_code or "Unknown"
                 sub_code = log.sub_code or ""
                 phase = log.main_phase or "General"
-                duration = log.duration or 0
-                is_npt = log.is_npt
-
-                # کلید ترکیبی
-                key = (phase, main_code, sub_code)
-                if key not in agg:
-                    agg[key] = {'hours': 0, 'productive_hours': 0, 'npt_hours': 0}
-                agg[key]['hours'] += duration
-                if is_npt:
-                    agg[key]['npt_hours'] += duration
-                    total_npt += duration
-                else:
-                    agg[key]['productive_hours'] += duration
-                    total_productive += duration
-
-                # تجمیع Main Code
-                main_code_hours[main_code] = main_code_hours.get(main_code, 0) + duration
-
-                # تجمیع Sub Code
+                groups.setdefault((phase, main_code, sub_code), []).append(log)
+                main_groups.setdefault(main_code, []).append(log)
                 sub_key = f"{main_code} → {sub_code}" if sub_code else main_code
-                sub_code_hours[sub_key] = sub_code_hours.get(sub_key, 0) + duration
+                sub_groups.setdefault(sub_key, []).append(log)
+            def metrics(logs):
+                summary = summarize_time_logs(logs)
+                return dict(hours=summary['total_hours'], productive_hours=summary['productive_hours'], npt_hours=summary['npt_hours'])
+            agg = {k: metrics(v) for k,v in groups.items()}
+            main_code_hours = {k: metrics(v)['hours'] for k,v in main_groups.items()}
+            sub_code_hours = {k: metrics(v)['hours'] for k,v in sub_groups.items()}
+            totals = metrics(logs_24h)
+            total_productive, total_npt = totals['productive_hours'], totals['npt_hours']
 
             # ========== پر کردن جدول ==========
             self.code_table.setRowCount(0)
-            total_hours = 0
+            total_hours = totals['hours']
             phases = set()
 
-            sorted_agg = sorted(agg.items(), key=lambda x: x[1]['hours'], reverse=True)
+            sorted_agg = sorted(agg.items(), key=lambda x: (x[1]['hours'] is not None, x[1]['hours'] or 0), reverse=True)
 
             for (phase, main_code, sub_code), data in sorted_agg:
                 row = self.code_table.rowCount()
@@ -918,10 +919,10 @@ class CodeManagementTab(QWidget):
                 self.code_table.setItem(row, 3, QTableWidgetItem(name))
 
                 total_code_hours = data['hours']
-                productive_hours = data.get('productive_hours', 0)
-                npt_hours = data.get('npt_hours', 0)
+                productive_hours = data['productive_hours']
+                npt_hours = data['npt_hours']
 
-                if total_code_hours > 0:
+                if total_code_hours and productive_hours is not None:
                     productive_percent = (productive_hours / total_code_hours) * 100
                     if productive_percent >= 80:
                         productive_text = "✅ Productive"
@@ -940,25 +941,25 @@ class CodeManagementTab(QWidget):
                 productive_item.setForeground(QColor(productive_color))
                 self.code_table.setItem(row, 4, productive_item)
 
-                hours_item = QTableWidgetItem(f"{total_code_hours:.2f}")
+                hours_item = QTableWidgetItem(f"{fmt_num(total_code_hours, 2, default=None)}")
                 hours_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
                 self.code_table.setItem(row, 5, hours_item)
 
-                total_hours += total_code_hours
                 if phase:
                     phases.add(phase)
 
             # ========== آمار ==========
             self.total_codes.setText(str(len(agg)))
             self.total_phases.setText(str(len(phases)))
-            self.total_hours.setText(f"{total_hours:.2f} hrs")
+            self.total_hours.setText(f"{fmt_num(total_hours, 2, default=None)} hrs")
 
-            if agg:
-                most_used = max(agg.items(), key=lambda x: x[1]['hours'])
+            known = {k:v for k,v in agg.items() if v['hours'] is not None}
+            if known and len(known) == len(agg):
+                most_used = max(known.items(), key=lambda x: (x[1]['hours'] is not None, x[1]['hours'] or 0))
                 name = f"{most_used[0][1]} ({most_used[0][2]})" if most_used[0][2] else most_used[0][1]
                 self.most_used_code.setText(f"{name} ({most_used[1]['hours']:.1f} hrs)")
             else:
-                self.most_used_code.setText("None")
+                self.most_used_code.setText("NOT ASSESSED")
 
             # ========== رسم نمودارها ==========
             self._draw_main_code_chart(main_code_hours)
@@ -967,14 +968,26 @@ class CodeManagementTab(QWidget):
             self.load_status_distribution()
 
         except Exception as e:
+            self._show_codes_unavailable("FAILED to load activity codes")
             logger.error(f"Error loading activity codes: {e}")
         finally:
             session.close()
 
+    def _show_codes_unavailable(self, message):
+        self.code_table.setRowCount(0)
+        self.status_summary_table.setRowCount(0)
+        for label in (self.total_codes, self.total_phases, self.total_hours):
+            label.setText("—")
+        self.most_used_code.setText(message)
+        for container in (self.main_code_chart, self.sub_code_chart, self.productive_pie_chart):
+            safe_replace_chart(container, QLabel(message))
+        self._show_status_chart_error(message)
+
     def _draw_main_code_chart(self, main_code_hours):
         """نمودار میله‌ای ساعات بر اساس Main Code"""
-        filtered = {k: v for k, v in main_code_hours.items() if v > 0}
+        filtered = {k: v for k, v in main_code_hours.items() if v is not None and v > 0}
         if not filtered:
+            safe_replace_chart(self.main_code_chart, QLabel("No complete positive durations"))
             return
 
         try:
@@ -1003,11 +1016,13 @@ class CodeManagementTab(QWidget):
 
         except Exception as e:
             logger.error(f"Error drawing main code chart: {e}")
+            safe_replace_chart(self.main_code_chart, QLabel("FAILED: chart unavailable"))
 
     def _draw_sub_code_chart(self, sub_code_hours):
         """نمودار میله‌ای ساعات بر اساس Sub Code"""
-        filtered = {k: v for k, v in sub_code_hours.items() if v > 0}
+        filtered = {k: v for k, v in sub_code_hours.items() if v is not None and v > 0}
         if not filtered:
+            safe_replace_chart(self.sub_code_chart, QLabel("No complete positive durations"))
             return
 
         try:
@@ -1036,10 +1051,12 @@ class CodeManagementTab(QWidget):
 
         except Exception as e:
             logger.error(f"Error drawing sub code chart: {e}")
+            safe_replace_chart(self.sub_code_chart, QLabel("FAILED: chart unavailable"))
 
     def _draw_productive_pie(self, productive_hours, npt_hours):
         """نمودار دایره‌ای Productive vs NPT"""
-        if productive_hours == 0 and npt_hours == 0:
+        if productive_hours is None or npt_hours is None or (productive_hours == 0 and npt_hours == 0):
+            safe_replace_chart(self.productive_pie_chart, QLabel("NOT ASSESSED: no complete positive classified time"))
             return
 
         try:
@@ -1074,6 +1091,7 @@ class CodeManagementTab(QWidget):
 
         except Exception as e:
             logger.error(f"Error drawing productive pie: {e}")
+            safe_replace_chart(self.productive_pie_chart, QLabel("FAILED: chart unavailable"))
             
     def load_data(self):
         """بارگذاری داده‌ها (برای سازگاری با فراخوانی‌های عمومی)"""
@@ -1094,13 +1112,9 @@ class CodeManagementTab(QWidget):
         session = self.db.create_session()
         try:
             from core.database import TimeLog24H, DailyReport
-            from sqlalchemy import func
 
             # ساخت کوئری پایه
-            query = session.query(
-                TimeLog24H.status,
-                func.sum(TimeLog24H.duration).label('total')
-            ).join(
+            query = session.query(TimeLog24H).join(
                 DailyReport, TimeLog24H.report_id == DailyReport.id
             ).filter(
                 DailyReport.well_id == self.current_well_id
@@ -1115,12 +1129,10 @@ class CodeManagementTab(QWidget):
                 query = query.filter(DailyReport.section_id == self.current_section_id)
 
             # گروه‌بندی و اجرا
-            status_24h = query.group_by(TimeLog24H.status).all()
-
-            status_stats = {}
-            for status, total in status_24h:
-                if status:
-                    status_stats[status] = status_stats.get(status, 0) + (total or 0)
+            status_groups = {}
+            for log in query.all():
+                status_groups.setdefault(log.status or "Unknown status", []).append(log.duration)
+            status_stats = {k: complete_total(v) for k,v in status_groups.items()}
 
             # به‌روزرسانی جدول وضعیت‌ها (در صورت وجود متد)
             if hasattr(self, '_update_status_table'):
@@ -1135,6 +1147,8 @@ class CodeManagementTab(QWidget):
                 logger.warning("_draw_status_pie_chart method not found")
 
         except Exception as e:
+            self.status_summary_table.setRowCount(0)
+            self._show_status_chart_error("FAILED to load status distribution")
             logger.error(f"Error loading status distribution: {e}")
         finally:
             session.close()
@@ -1144,11 +1158,9 @@ class CodeManagementTab(QWidget):
         if not hasattr(self, 'status_summary_table'):
             return
         
-        total_hours = sum(status_stats.values())
-        if total_hours == 0:
-            total_hours = 1
+        total_hours = complete_total(status_stats.values())
         
-        sorted_status = sorted(status_stats.items(), key=lambda x: x[1], reverse=True)
+        sorted_status = sorted(status_stats.items(), key=lambda x: (x[1] is not None, x[1] or 0), reverse=True)
         self.status_summary_table.setRowCount(len(sorted_status))
         
         color_map = {
@@ -1160,12 +1172,12 @@ class CodeManagementTab(QWidget):
         }
         
         for i, (status, hours) in enumerate(sorted_status):
-            days = hours / 24
-            percentage = (hours / total_hours) * 100
+            days = hours / 24 if hours is not None else None
+            percentage = hours / total_hours * 100 if total_hours and hours is not None else None
             
             self.status_summary_table.setItem(i, 0, QTableWidgetItem(status))
-            self.status_summary_table.setItem(i, 1, QTableWidgetItem(f"{days:.1f} days"))
-            self.status_summary_table.setItem(i, 2, QTableWidgetItem(f"{percentage:.1f}%"))
+            self.status_summary_table.setItem(i, 1, QTableWidgetItem(f"{fmt_num(days, 1, default=None)} days"))
+            self.status_summary_table.setItem(i, 2, QTableWidgetItem(f"{fmt_num(percentage, 1, default=None)}%"))
             
             color = color_map.get(status, "#95a5a6")
             for col in range(3):
@@ -1175,7 +1187,10 @@ class CodeManagementTab(QWidget):
                     
     def _draw_status_pie_chart(self, status_stats):
         """نمودار دایره‌ای وضعیت‌ها"""
-        filtered = {k: v for k, v in status_stats.items() if v > 0}
+        if any(v is None for v in status_stats.values()):
+            self._show_status_chart_error("NOT ASSESSED: incomplete durations")
+            return
+        filtered = {k: v for k, v in status_stats.items() if v is not None and v > 0}
         if not filtered:
             self._show_status_chart_error("No status data available")
             return
@@ -1303,26 +1318,10 @@ class MilestonesTab(QWidget):
 
             for section in sections:
                 section_names.append(section.name)
-                depth_from_list.append(section.depth_from or 0)
-                depth_to_list.append(section.depth_to or 0)
-
-                fact_time = session.query(
-                    func.sum(TimeLog24H.duration)
-                ).join(
-                    DailyReport,
-                    TimeLog24H.report_id == DailyReport.id
-                ).filter(
-                    DailyReport.section_id == section.id
-                ).scalar() or 0
-                fact_days.append(fact_time / 24)
-                plan_days.append(section.planned_days or 0)
-
-            # ✅ اگر همه صفر باشند
-            if all(f == 0 for f in fact_days) and all(
-                p == 0 for p in plan_days
-            ):
-                self._show_no_data()
-                return
+                depth_from_list.append(section.depth_from)
+                depth_to_list.append(section.depth_to)
+                fact_days.append(section_actual_days(session, section.id))
+                plan_days.append(section.planned_days)
 
             self._draw_chart(
                 section_names, fact_days, plan_days
@@ -1339,6 +1338,8 @@ class MilestonesTab(QWidget):
             session.close()
     
     def _draw_chart(self, sections, fact_days, plan_days):
+        fact_days = [v if v is not None else float("nan") for v in fact_days]
+        plan_days = [v if v is not None else float("nan") for v in plan_days]
         try:
             
             fig, ax = plt.subplots(figsize=(10, 5), facecolor='#2c3e50')
@@ -1352,7 +1353,7 @@ class MilestonesTab(QWidget):
             
             ax.set_xlabel('Sections', color='white')
             ax.set_ylabel('Days', color='white')
-            ax.set_title('Section Milestones - FACT vs PLAN', color='white', fontsize=14)
+            ax.set_title('Section Milestones - FACT vs PLAN (unknown values omitted)', color='white', fontsize=14)
             ax.set_xticks(x)
             ax.set_xticklabels(sections, rotation=45, ha='right', color='white')
             ax.tick_params(axis='y', colors='white')
@@ -1366,17 +1367,19 @@ class MilestonesTab(QWidget):
             plt.close(fig)
         except Exception as e:
             logger.error(f"Error drawing chart: {e}")
+            safe_replace_chart(self.milestones_chart_widget, QLabel("FAILED: chart unavailable"))
     
     def _fill_table(self, sections, depth_from, depth_to, fact_days, plan_days):
         self.milestones_table.setRowCount(len(sections))
         for i in range(len(sections)):
             self.milestones_table.setItem(i, 0, QTableWidgetItem(sections[i]))
-            self.milestones_table.setItem(i, 1, QTableWidgetItem(f"{depth_from[i]:.1f} m"))
-            self.milestones_table.setItem(i, 2, QTableWidgetItem(f"{depth_to[i]:.1f} m"))
-            self.milestones_table.setItem(i, 3, QTableWidgetItem(f"{fact_days[i]:.1f}"))
-            self.milestones_table.setItem(i, 4, QTableWidgetItem(f"{plan_days[i]:.1f}"))
+            self.milestones_table.setItem(i, 1, QTableWidgetItem(f"{fmt_num(depth_from[i], 1, default=None)} m"))
+            self.milestones_table.setItem(i, 2, QTableWidgetItem(f"{fmt_num(depth_to[i], 1, default=None)} m"))
+            self.milestones_table.setItem(i, 3, QTableWidgetItem(f"{fmt_num(fact_days[i], 1, default=None)}"))
+            self.milestones_table.setItem(i, 4, QTableWidgetItem(f"{fmt_num(plan_days[i], 1, default=None)}"))
     
     def _show_no_data(self):
+        self.milestones_table.setRowCount(0)
         msg_label = QLabel("No Sections Defined.\nCreate sections in Daily Report tab.")
         msg_label.setAlignment(Qt.AlignCenter)
         msg_label.setStyleSheet("color: #95a5a6; font-size: 14px; padding: 50px;")
@@ -1466,12 +1469,12 @@ class WellPlanTab(QWidget):
         # Statistics
         stats_group = QGroupBox("📊 Comparison Stats")
         stats_layout = QGridLayout()
-        self.final_depth_label = QLabel("Final FACT Depth:")
-        self.final_depth_value = QLabel("0 m")
+        self.final_depth_label = QLabel("Maximum Recorded FACT Depth:")
+        self.final_depth_value = QLabel("— m")
         self.plan_final_label = QLabel("Planned Final Depth:")
-        self.plan_final_value = QLabel("0 m")
+        self.plan_final_value = QLabel("— m")
         self.diff_label = QLabel("Difference:")
-        self.diff_value = QLabel("0 m")
+        self.diff_value = QLabel("— m")
         stats_layout.addWidget(self.final_depth_label, 0, 0)
         stats_layout.addWidget(self.final_depth_value, 0, 1)
         stats_layout.addWidget(self.plan_final_label, 0, 2)
@@ -1486,6 +1489,9 @@ class WellPlanTab(QWidget):
         main_layout.addWidget(self.status_label)
 
     def set_current_well(self, well_id):
+        if self.current_well_id != well_id:
+            self.current_report_id = None
+            self.current_section_id = None
         self.current_well_id = well_id
         if well_id:
             self.load_fact_data()
@@ -1536,8 +1542,8 @@ class WellPlanTab(QWidget):
             self.fact_dates = []
 
             for i, rep in enumerate(reports, start=1):
-                self.fact_days.append(i)
-                self.fact_depths.append(rep.depth_2400 or 0)
+                self.fact_days.append((rep.report_date - reports[0].report_date).days + 1)
+                self.fact_depths.append(rep.depth_2400)
                 self.fact_dates.append(rep.report_date)
 
             # نمایش در جدول FACT
@@ -1545,7 +1551,7 @@ class WellPlanTab(QWidget):
             for i in range(len(self.fact_days)):
                 self.fact_table.setItem(i, 0, QTableWidgetItem(str(self.fact_days[i])))
                 self.fact_table.setItem(i, 1, QTableWidgetItem(str(self.fact_dates[i])))
-                self.fact_table.setItem(i, 2, QTableWidgetItem(f"{self.fact_depths[i]:.1f}"))
+                self.fact_table.setItem(i, 2, QTableWidgetItem(f"{fmt_num(self.fact_depths[i], 1, default=None)}"))
 
             self.update_chart()
             self.update_stats()
@@ -1563,9 +1569,18 @@ class WellPlanTab(QWidget):
 
         session = self.db.create_session()
         try:
-            from core.database import PlannedActivity
+            from core.database import PlannedActivity, WellPlan
 
-            query = session.query(PlannedActivity).filter(
+            self.plan_activities, self.plan_points = [], []
+            self._plan_header_depth = None
+            plan = session.query(WellPlan).filter_by(well_id=self.current_well_id, is_active=True).one_or_none()
+            if plan is None:
+                self.update_plan_table()
+                self.update_chart()
+                self.update_stats()
+                return
+            self._plan_header_depth = plan.planned_final_depth if not self.current_section_id else None
+            query = session.query(PlannedActivity).filter(PlannedActivity.plan_id == plan.id,
                 PlannedActivity.well_id == self.current_well_id
             )
             if self.current_section_id:
@@ -1579,8 +1594,8 @@ class WellPlanTab(QWidget):
                 # محاسبه روز شروع و پایان بر اساس تاریخ (نسبت به اولین فعالیت)
                 start_day = self._date_to_relative_day(act.planned_start)
                 end_day = self._date_to_relative_day(act.planned_end)
-                depth_from = act.planned_depth_from or 0
-                depth_to = act.planned_depth_to or 0
+                depth_from = act.planned_depth_from
+                depth_to = act.planned_depth_to
 
                 self.plan_activities.append({
                     'id': act.id,
@@ -1592,20 +1607,25 @@ class WellPlanTab(QWidget):
                     'section_name': act.section.name if act.section else ""
                 })
                 # اضافه کردن نقطه شروع و پایان برای نمودار
-                self.plan_points.append({'day': start_day, 'depth': depth_from})
-                self.plan_points.append({'day': end_day, 'depth': depth_to})
+                if start_day is not None:
+                    self.plan_points.append({'day': start_day, 'depth': depth_from})
+                if end_day is not None:
+                    self.plan_points.append({'day': end_day, 'depth': depth_to})
 
-            # حذف نقاط تکراری و مرتب‌سازی
-            unique_points = {}
-            for p in self.plan_points:
-                unique_points[p['day']] = p['depth']
-            self.plan_points = [{'day': d, 'depth': unique_points[d]} for d in sorted(unique_points.keys())]
+            # Keep simultaneous observations; no arbitrary last-depth wins.
+            self.plan_points.sort(key=lambda point: point['day'])
 
             self.update_plan_table()
             self.update_chart()
             self.update_stats()
 
         except Exception as e:
+            self._plan_header_depth = None
+            self.plan_activities, self.plan_points = [], []
+            self.update_plan_table()
+            self.update_chart()
+            self.update_stats()
+            self.status_label.setText("Plan NOT ASSESSED: " + str(e))
             logger.error(f"Error loading PLAN data: {e}")
         finally:
             session.close()
@@ -1613,11 +1633,12 @@ class WellPlanTab(QWidget):
     def _date_to_relative_day(self, dt):
         """تبدیل datetime به روز نسبی (با احتساب اولین گزارش FACT)"""
         if not self.fact_dates or not dt:
-            return 0
+            return None
         first_date = self.fact_dates[0]
-        delta = dt.date() - first_date
-        return max(0, delta.days + 1)  # روز اول = 1
+        delta = dt - datetime.combine(first_date, datetime.min.time())
+        return delta.total_seconds() / 86400 + 1  # روز اول = 1
 
+    @require_permission("can_edit_reports")
     def open_plan_dialog(self):
         """باز کردن دیالوگ WellPlanDialog برای اضافه کردن فعالیت جدید"""
         if not self.current_well_id:
@@ -1629,6 +1650,7 @@ class WellPlanTab(QWidget):
             self.load_plan_data()  # reload after save
             self.status_label.setText("Plan updated from dialog.")
 
+    @require_permission("can_edit_reports")
     def remove_plan_activity(self):
         """حذف فعالیت انتخاب شده از جدول PLAN"""
         current_row = self.plan_table.currentRow()
@@ -1640,7 +1662,7 @@ class WellPlanTab(QWidget):
         session = self.db.create_session()
         try:
             from core.database import PlannedActivity
-            activity = session.query(PlannedActivity).filter(PlannedActivity.id == act_id).first()
+            activity = session.query(PlannedActivity).filter_by(id=act_id, well_id=self.current_well_id).one_or_none()
             if activity:
                 session.delete(activity)
                 session.commit()
@@ -1666,8 +1688,8 @@ class WellPlanTab(QWidget):
             self.plan_table.setItem(i, 0, QTableWidgetItem(act['activity_name']))
             self.plan_table.setItem(i, 1, QTableWidgetItem(str(act['start_day'])))
             self.plan_table.setItem(i, 2, QTableWidgetItem(str(act['end_day'])))
-            self.plan_table.setItem(i, 3, QTableWidgetItem(f"{act['depth_from']:.1f}"))
-            self.plan_table.setItem(i, 4, QTableWidgetItem(f"{act['depth_to']:.1f}"))
+            self.plan_table.setItem(i, 3, QTableWidgetItem(f"{fmt_num(act['depth_from'], 1, default=None)}"))
+            self.plan_table.setItem(i, 4, QTableWidgetItem(f"{fmt_num(act['depth_to'], 1, default=None)}"))
             self.plan_table.setItem(i, 5, QTableWidgetItem(act['section_name']))
 
     def update_chart(self):
@@ -1703,25 +1725,17 @@ class WellPlanTab(QWidget):
         plt.close(fig)
 
     def update_stats(self):
-        """بروزرسانی آمار مقایسه نهایی"""
-        if hasattr(self, 'fact_depths') and self.fact_depths:
-            final_fact = self.fact_depths[-1]
-            self.final_depth_value.setText(f"{final_fact:.1f} m")
-        else:
-            final_fact = 0
-            self.final_depth_value.setText("0 m")
-
-        if hasattr(self, 'plan_activities') and self.plan_activities:
-            # پیدا کردن آخرین عمق برنامه‌ریزی شده
-            max_depth = max([act['depth_to'] for act in self.plan_activities])
-            self.plan_final_value.setText(f"{max_depth:.1f} m")
-            diff = final_fact - max_depth
-            color = "#2ecc71" if diff >= 0 else "#e74c3c"
-            self.diff_value.setText(f"{diff:+.1f} m")
-            self.diff_value.setStyleSheet(f"color: {color}; font-weight: bold;")
-        else:
-            self.plan_final_value.setText("No PLAN")
-            self.diff_value.setText("N/A")
+        from core.actual_vs_plan import compare
+        known_depths = [v for v in getattr(self, 'fact_depths', []) if v is not None]
+        fact = max(known_depths) if known_depths else None
+        depths = [a['depth_to'] for a in getattr(self, 'plan_activities', [])]
+        planned = (max(depths) if all(v is not None for v in depths) else None) if depths else getattr(self, '_plan_header_depth', None)
+        result = compare("Depth", planned, fact)
+        self.final_depth_value.setText(fmt_num(fact, 1, default=None) + " m")
+        self.plan_final_value.setText(fmt_num(planned, 1, default=None) + " m")
+        self.diff_value.setText(fmt_num(result.variance, 1, default=None) + " m")
+        color = "#95a5a6" if result.variance is None else "#2ecc71" if result.variance >= 0 else "#e74c3c"
+        self.diff_value.setStyleSheet(f"color: {color}; font-weight: bold;")
 
     def clear_chart(self):
         while self.chart_layout.count():
@@ -1816,6 +1830,9 @@ class DrillingParamsTab(QWidget):
         self.refresh_btn.clicked.connect(self.load_data)
 
     def set_current_well(self, well_id):
+        if self.current_well_id != well_id:
+            self.current_report_id = None
+            self.current_section_id = None
         self.current_well_id = well_id
         if well_id:
             self.load_data()
@@ -1828,18 +1845,24 @@ class DrillingParamsTab(QWidget):
         while self.rop_chart_layout.count():
             child = self.rop_chart_layout.takeAt(0)
             if child.widget():
-                child.widget().setParent(None)
-                child.widget().deleteLater()
+                widget = child.widget()
+                widget.setParent(None)
+                widget.deleteLater()
 
     def clear_bit_chart(self):
         while self.bit_chart_layout.count():
             child = self.bit_chart_layout.takeAt(0)
             if child.widget():
-                child.widget().setParent(None)
-                child.widget().deleteLater()
+                widget = child.widget()
+                widget.setParent(None)
+                widget.deleteLater()
 
 
     def load_data(self):
+        self.rop_table.setRowCount(0)
+        self.rop_data, self.bit_records, self.bit_params = [], [], {}
+        self.clear_rop_chart()
+        self.clear_bit_chart()
         if not self.db or not self.current_well_id:
             self.status_label.setText("No well selected")
             return
@@ -1852,7 +1875,11 @@ class DrillingParamsTab(QWidget):
             query = session.query(BitReport).filter(BitReport.well_id == self.current_well_id)
             if self.current_report_id:
                 query = query.filter(BitReport.report_id == self.current_report_id)
-            bit_report = query.order_by(BitReport.report_date.desc()).first()
+            reports = query.order_by(BitReport.report_date.desc()).all()
+            latest = [r for r in reports if r.report_date == reports[0].report_date] if reports else []
+            if len(latest) > 1:
+                raise ValueError("Ambiguous latest Bit Report: select one report")
+            bit_report = latest[0] if latest else None
 
             if not bit_report or not bit_report.bit_records_json:
                 self.status_label.setText("No Bit Record data found.")
@@ -1860,7 +1887,7 @@ class DrillingParamsTab(QWidget):
                 self.clear_bit_chart()
                 return
 
-            records = json.loads(bit_report.bit_records_json)
+            records = json.loads(bit_report.bit_records_json) if isinstance(bit_report.bit_records_json, str) else bit_report.bit_records_json
             self.bit_records = records
 
             if not records:
@@ -1871,9 +1898,9 @@ class DrillingParamsTab(QWidget):
             rop_points = []
             for rec in records:
                 try:
-                    depth = float(rec.get("Depth Out (m)", 0))
-                    rop = float(rec.get("ROP (m/hr)", 0))
-                    if depth > 0 and rop > 0:
+                    depth = float(rec.get("Depth Out (m)"))
+                    rop = float(rec.get("ROP (m/hr)"))
+                    if np.isfinite(depth) and np.isfinite(rop) and depth >= 0 and rop >= 0:
                         rop_points.append({'depth': depth, 'rop': rop})
                 except (TypeError, ValueError):
                     continue
@@ -1897,41 +1924,44 @@ class DrillingParamsTab(QWidget):
                 bit_no = rec.get("Bit No", "").strip()
                 if not bit_no:
                     # اگر Bit No وجود نداشت، از شماره ردیف استفاده کن
-                    bit_no = f"Bit #{idx+1}"
+                    bit_no = f"Unidentified row #{idx+1}"
                 
                 try:
-                    def get_float_value(rec, keys, default=0.0):
+                    def get_float_value(rec, keys, default=None):
                         for k in keys:
                             val = rec.get(k)
                             if val is not None:
                                 try:
-                                    return float(val)
+                                    number = float(val)
+                                    return number if np.isfinite(number) else None
                                 except (TypeError, ValueError):
                                     continue
                         return default
 
-                    metres = get_float_value(rec, ["Metres Drilled", "Metres Drilled (m)", "Mètres"], 0)
-                    rop = get_float_value(rec, ["ROP (m/hr)", "ROP", "Rate of Penetration"], 0)
-                    wob_min = get_float_value(rec, ["WOB Min (klb)", "WOB Min", "WOB (klb) min"], 0)
-                    wob_max = get_float_value(rec, ["WOB Max (klb)", "WOB Max", "WOB (klb) max"], 0)
-                    wob_avg = (wob_min + wob_max) / 2 if (wob_min or wob_max) else 0
+                    metres = get_float_value(rec, ["Metres Drilled", "Metres Drilled (m)", "Mètres"])
+                    rop = get_float_value(rec, ["ROP (m/hr)", "ROP", "Rate of Penetration"])
+                    wob_min = get_float_value(rec, ["WOB Min (klb)", "WOB Min", "WOB (klb) min"])
+                    wob_max = get_float_value(rec, ["WOB Max (klb)", "WOB Max", "WOB (klb) max"])
+                    wob_avg = (wob_min + wob_max) / 2 if wob_min is not None and wob_max is not None else None
 
-                    rpm_min = get_float_value(rec, ["Rot. Min", "RPM Min", "RPM min"], 0)
-                    rpm_max = get_float_value(rec, ["Rot. Max", "RPM Max", "RPM max"], 0)
-                    rpm_avg = (rpm_min + rpm_max) / 2 if (rpm_min or rpm_max) else 0
+                    rpm_min = get_float_value(rec, ["Rot. Min", "RPM Min", "RPM min"])
+                    rpm_max = get_float_value(rec, ["Rot. Max", "RPM Max", "RPM max"])
+                    rpm_avg = (rpm_min + rpm_max) / 2 if rpm_min is not None and rpm_max is not None else None
 
-                    gpm_min = get_float_value(rec, ["FR Min", "GPM Min", "Flow Rate min"], 0)
-                    gpm_max = get_float_value(rec, ["FR Max", "GPM Max", "Flow Rate max"], 0)
-                    gpm_avg = (gpm_min + gpm_max) / 2 if (gpm_min or gpm_max) else 0
+                    gpm_min = get_float_value(rec, ["FR Min", "GPM Min", "Flow Rate min"])
+                    gpm_max = get_float_value(rec, ["FR Max", "GPM Max", "Flow Rate max"])
+                    gpm_avg = (gpm_min + gpm_max) / 2 if gpm_min is not None and gpm_max is not None else None
 
-                    spp_min = get_float_value(rec, ["SPP Min (psi)", "SPP Min", "Pump Pressure min"], 0)
-                    spp_max = get_float_value(rec, ["SPP Max (psi)", "SPP Max", "Pump Pressure max"], 0)
-                    spp_avg = (spp_min + spp_max) / 2 if (spp_min or spp_max) else 0
+                    spp_min = get_float_value(rec, ["SPP Min (psi)", "SPP Min", "Pump Pressure min"])
+                    spp_max = get_float_value(rec, ["SPP Max (psi)", "SPP Max", "Pump Pressure max"])
+                    spp_avg = (spp_min + spp_max) / 2 if spp_min is not None and spp_max is not None else None
 
-                    torque_min = get_float_value(rec, ["TQ Min (klb.ft)", "Torque Min", "TQ min"], 0)
-                    torque_max = get_float_value(rec, ["TQ Max (klb.ft)", "Torque Max", "TQ max"], 0)
-                    torque_avg = (torque_min + torque_max) / 2 if (torque_min or torque_max) else 0
+                    torque_min = get_float_value(rec, ["TQ Min (klb.ft)", "Torque Min", "TQ min"])
+                    torque_max = get_float_value(rec, ["TQ Max (klb.ft)", "Torque Max", "TQ max"])
+                    torque_avg = (torque_min + torque_max) / 2 if torque_min is not None and torque_max is not None else None
 
+                    if bit_no in bit_params:
+                        raise ValueError(f"Repeated bit identity {bit_no}; cannot select an arbitrary observation")
                     bit_params[bit_no] = {
                         "Metres Drilled": metres,
                         "ROP (m/hr)": rop,
@@ -1943,8 +1973,7 @@ class DrillingParamsTab(QWidget):
                     }
 
                 except Exception as e:
-                    logger.warning(f"Error processing bit record {idx}: {e}")
-                    continue
+                    raise ValueError(f"Invalid bit record {idx}: {e}") from e
 
             if bit_params:
                 self.bit_params = bit_params
@@ -1977,7 +2006,7 @@ class DrillingParamsTab(QWidget):
         ax.set_facecolor('#2c3e50')
         ax.scatter(rops, depths, color='#3498db', s=50, alpha=0.7, label='ROP Data')
 
-        if len(rops) > 1:
+        if len(set(rops)) > 1:
             z = np.polyfit(rops, depths, 1)
             trend_rops = np.linspace(min(rops), max(rops), 100)
             trend_depths = np.polyval(z, trend_rops)
@@ -2046,8 +2075,8 @@ class DrillingParamsTab(QWidget):
                 ax.grid(True, alpha=0.3, color='gray')
 
                 for i, param in enumerate(group_data["params"]):
-                    values = [bit_params[bit].get(param, 0) for bit in bit_names]
-                    if max(values) > 0:
+                    values = [bit_params[bit].get(param) for bit in bit_names]
+                    if any(v is not None for v in values):
                         ax.plot(x, values, 
                                marker=group_data["markers"][i % len(group_data["markers"])],
                                color=group_data["colors"][i % len(group_data["colors"])],
@@ -2118,6 +2147,9 @@ class MudParamsTab(QWidget):
         layout.addWidget(self.data_table)
     
     def set_current_well(self, well_id):
+        if self.current_well_id != well_id:
+            self.current_report_id = None
+            self.current_section_id = None
         self.current_well_id = well_id
         self.load_data()
   
@@ -2128,6 +2160,9 @@ class MudParamsTab(QWidget):
         
     def load_data(self):
         if not self.current_well_id or not self.db:
+            self.mud_data = []
+            self.data_table.setRowCount(0)
+            safe_replace_chart(self.chart_widget, QLabel("No well selected"))
             return
         session = self.db.create_session()
         try:
@@ -2147,27 +2182,31 @@ class MudParamsTab(QWidget):
             for mud, depth in results:
                 row = self.data_table.rowCount()
                 self.data_table.insertRow(row)
-                self.data_table.setItem(row, 0, QTableWidgetItem(f"{depth or 0:.1f}"))
-                self.data_table.setItem(row, 1, QTableWidgetItem(f"{mud.mw or 0:.1f}"))
-                self.data_table.setItem(row, 2, QTableWidgetItem(f"{mud.pv or 0:.1f}"))
-                self.data_table.setItem(row, 3, QTableWidgetItem(f"{mud.yp or 0:.1f}"))
-                self.data_table.setItem(row, 4, QTableWidgetItem(f"{mud.gel_10s or 0:.1f}"))
-                self.data_table.setItem(row, 5, QTableWidgetItem(f"{mud.gel_10m or 0:.1f}"))
-                self.data_table.setItem(row, 6, QTableWidgetItem(f"{mud.ph or 0:.1f}"))
+                self.data_table.setItem(row, 0, QTableWidgetItem(f"{fmt_num(depth, 1, default=None)}"))
+                self.data_table.setItem(row, 1, QTableWidgetItem(f"{fmt_num(mud.mw, 1, default=None)}"))
+                self.data_table.setItem(row, 2, QTableWidgetItem(f"{fmt_num(mud.pv, 1, default=None)}"))
+                self.data_table.setItem(row, 3, QTableWidgetItem(f"{fmt_num(mud.yp, 1, default=None)}"))
+                self.data_table.setItem(row, 4, QTableWidgetItem(f"{fmt_num(mud.gel_10s, 1, default=None)}"))
+                self.data_table.setItem(row, 5, QTableWidgetItem(f"{fmt_num(mud.gel_10m, 1, default=None)}"))
+                self.data_table.setItem(row, 6, QTableWidgetItem(f"{fmt_num(mud.ph, 1, default=None)}"))
                 
                 self.mud_data.append({
-                    'depth': depth or 0, 'mw': mud.mw or 0, 'pv': mud.pv or 0,
-                    'yp': mud.yp or 0, 'gel_10s': mud.gel_10s or 0,
-                    'gel_10m': mud.gel_10m or 0, 'ph': mud.ph or 0
+                    'depth': depth, 'mw': mud.mw, 'pv': mud.pv,
+                    'yp': mud.yp, 'gel_10s': mud.gel_10s,
+                    'gel_10m': mud.gel_10m, 'ph': mud.ph, 'temp': mud.temperature
                 })
             self.update_chart()
         except Exception as e:
             logger.error(f"Error loading mud data: {e}")
+            self.mud_data = []
+            self.data_table.setRowCount(0)
+            safe_replace_chart(self.chart_widget, QLabel("FAILED: mud data unavailable"))
         finally:
             session.close()
     
     def update_chart(self):
         if not self.mud_data:
+            safe_replace_chart(self.chart_widget, QLabel("No recorded mud data"))
             return
         try:
             
@@ -2201,6 +2240,7 @@ class MudParamsTab(QWidget):
             plt.close(fig)
         except Exception as e:
             logger.error(f"Error updating chart: {e}")
+            safe_replace_chart(self.chart_widget, QLabel("FAILED: chart unavailable"))
     
     def refresh(self):
         self.load_data()
@@ -2273,6 +2313,9 @@ class MaterialInventoryTab(QWidget):
         pass
 
     def set_current_well(self, well_id):
+        if self.current_well_id != well_id:
+            self.current_report_id = None
+            self.current_section_id = None
         self.current_well_id = well_id
         self.load_data()
 
@@ -2303,12 +2346,15 @@ class MaterialInventoryTab(QWidget):
                 query = query.filter(BulkMaterials.report_id == self.current_report_id)
 
             materials = query.all()
+            blocker = QSignalBlocker(self.material_table)
             self.material_table.setRowCount(len(materials))
             for i, m in enumerate(materials):
                 # Unknown stock (None) displays as an em dash, never 0.0.
                 def _fmt(v):
                     return "—" if v is None else f"{v:.1f}"
-                self.material_table.setItem(i, 0, QTableWidgetItem(m.material_name))
+                identity = QTableWidgetItem(m.material_name)
+                identity.setData(Qt.ItemDataRole.UserRole, m.id)
+                self.material_table.setItem(i, 0, identity)
                 self.material_table.setItem(i, 1, QTableWidgetItem(m.unit))
                 self.material_table.setItem(i, 2, QTableWidgetItem(_fmt(m.initial_stock)))
                 self.material_table.setItem(i, 3, QTableWidgetItem(_fmt(m.received)))
@@ -2316,6 +2362,7 @@ class MaterialInventoryTab(QWidget):
                 self.material_table.setItem(i, 5, QTableWidgetItem(_fmt(m.current_stock)))
                 self.material_table.setItem(i, 6, QTableWidgetItem(m.updated_at.strftime("%Y-%m-%d") if m.updated_at else ""))
                 self.material_table.setItem(i, 7, QTableWidgetItem(""))
+            del blocker
             self.update_chart()
             self.status_label.setText(f"Loaded {len(materials)} materials")
         except Exception as e:
@@ -2325,18 +2372,12 @@ class MaterialInventoryTab(QWidget):
             session.close()
 
     def on_cell_changed(self, row, col):
-        """هنگام تغییر مقدار دریافت یا مصرف، موجودی را محاسبه کن"""
-        if col in [2, 3, 4]:  # Initial, Received, Used
-            try:
-                initial = float(self.material_table.item(row, 2).text() or 0)
-                received = float(self.material_table.item(row, 3).text() or 0)
-                used = float(self.material_table.item(row, 4).text() or 0)
-                current = initial + received - used
-                self.material_table.setItem(row, 5, QTableWidgetItem(f"{current:.1f}"))
-                self.save_material_row(row)
-            except (AttributeError, TypeError, ValueError):
-                pass  # incomplete/empty table cell — balance stays uncalculated
+        if col in (0, 1, 2, 3, 4):
+            # The persistence method validates incomplete cells and only updates
+            # the derived preview after a successful, authorized commit.
+            self.save_material_row(row)
 
+    @require_permission("can_edit_reports")
     def save_material_row(self, row):
         """ذخیره یک ردیف در دیتابیس"""
         if not self.current_well_id:
@@ -2345,10 +2386,14 @@ class MaterialInventoryTab(QWidget):
             )
             return False
         session = self.db.create_session()
+        committed = False
         try:
             from core.database import BulkMaterials
-            material_name = self.material_table.item(row, 0).text()
-            unit = self.material_table.item(row, 1).text()
+            identity_item = self.material_table.item(row, 0)
+            material_name = identity_item.text().strip()
+            unit = self.material_table.item(row, 1).text().strip()
+            if not material_name or not unit:
+                raise ValueError("Material name and unit are required")
 
             def _plan_value(col):
                 # Plan-input trichotomy: empty or "—" = not planned
@@ -2356,7 +2401,11 @@ class MaterialInventoryTab(QWidget):
                 text = self.material_table.item(row, col).text().strip()
                 if text in ("", "—"):
                     return None
-                return float(text)
+                import math
+                value = float(text)
+                if not math.isfinite(value) or value < 0:
+                    raise ValueError("Material quantities must be finite and nonnegative")
+                return value
 
             initial = _plan_value(2)
             received = _plan_value(3) or 0.0
@@ -2365,12 +2414,18 @@ class MaterialInventoryTab(QWidget):
                 initial + received - used if initial is not None else None
             )
 
-            existing = session.query(BulkMaterials).filter(
-                BulkMaterials.well_id == self.current_well_id,
-                BulkMaterials.material_name == material_name,
-                BulkMaterials.report_id == self.current_report_id
-            ).first()
+            query = session.query(BulkMaterials).filter_by(well_id=self.current_well_id)
+            identity = identity_item.data(Qt.ItemDataRole.UserRole)
+            if identity is not None:
+                existing = query.filter_by(id=identity).one_or_none()
+                if existing is None or (self.current_report_id is not None and existing.report_id != self.current_report_id) or (self.current_section_id is not None and existing.section_id != self.current_section_id):
+                    raise ValueError("Selected material no longer belongs to this context")
+            else:
+                existing = query.filter_by(material_name=material_name, unit=unit,
+                                           section_id=self.current_section_id,
+                                           report_id=self.current_report_id).one_or_none()
             if existing:
+                existing.material_name = material_name
                 existing.initial_stock = initial
                 existing.received = received
                 existing.used = used
@@ -2391,10 +2446,20 @@ class MaterialInventoryTab(QWidget):
                     report_date=date.today()
                 )
                 session.add(new_material)
+                existing = new_material
+            session.flush()
+            saved_id = existing.id
             session.commit()
+            committed = True
+            identity_item.setData(Qt.ItemDataRole.UserRole, saved_id)
+            self.material_table.setItem(row, 5, QTableWidgetItem(fmt_num(current, 1, default=None)))
             self.status_label.setText(f"Saved '{material_name}'")
             return True
         except Exception as e:
+            if committed:
+                logger.error("Material saved but display refresh failed", exc_info=True)
+                self.status_label.setText("SAVED — display refresh failed; reload the table")
+                return True
             session.rollback()
             logger.error(f"Error saving material: {e}")
             # Surface the failure: the row is visible in the table but was NOT
@@ -2407,6 +2472,7 @@ class MaterialInventoryTab(QWidget):
             session.close()
 
 
+    @require_permission("can_edit_reports")
     def add_material_dialog(self):
         """دیالوگ افزودن ماده جدید"""
         dialog = QDialog(self)
@@ -2416,7 +2482,9 @@ class MaterialInventoryTab(QWidget):
         unit_edit = QComboBox()
         unit_edit.addItems(["kg", "lb", "bbl", "sacks", "m³", "liters"])
         initial_spin = QDoubleSpinBox()
-        initial_spin.setRange(0, 100000)
+        initial_spin.setRange(-1, 100000)
+        initial_spin.setSpecialValueText("Not recorded")
+        initial_spin.setValue(-1)
         received_spin = QDoubleSpinBox()
         received_spin.setRange(0, 100000)
         used_spin = QDoubleSpinBox()
@@ -2432,19 +2500,23 @@ class MaterialInventoryTab(QWidget):
         layout.addRow(buttons)
         dialog.setLayout(layout)
         if dialog.exec():
+            blocker = QSignalBlocker(self.material_table)
+            initial = initial_spin.value() if initial_spin.value() >= 0 else None
             row = self.material_table.rowCount()
             self.material_table.insertRow(row)
             self.material_table.setItem(row, 0, QTableWidgetItem(name_edit.text()))
             self.material_table.setItem(row, 1, QTableWidgetItem(unit_edit.currentText()))
-            self.material_table.setItem(row, 2, QTableWidgetItem(f"{initial_spin.value():.1f}"))
+            self.material_table.setItem(row, 2, QTableWidgetItem(f"{fmt_num(initial, 1, default=None)}"))
             self.material_table.setItem(row, 3, QTableWidgetItem(f"{received_spin.value():.1f}"))
             self.material_table.setItem(row, 4, QTableWidgetItem(f"{used_spin.value():.1f}"))
-            self.material_table.setItem(row, 5, QTableWidgetItem(f"{initial_spin.value() + received_spin.value() - used_spin.value():.1f}"))
+            self.material_table.setItem(row, 5, QTableWidgetItem(f"{fmt_num(initial + received_spin.value() - used_spin.value() if initial is not None else None, 1, default=None)}"))
             self.material_table.setItem(row, 6, QTableWidgetItem(date.today().strftime("%Y-%m-%d")))
             self.material_table.setItem(row, 7, QTableWidgetItem(""))
+            del blocker
             self.save_material_row(row)
             self.update_chart()
 
+    @require_permission("can_delete_reports")
     def remove_material(self):
         current_row = self.material_table.currentRow()
         if current_row < 0:
@@ -2453,23 +2525,33 @@ class MaterialInventoryTab(QWidget):
         reply = QMessageBox.question(self, "Delete", f"Delete '{material_name}'?", QMessageBox.Yes | QMessageBox.No)
         if reply == QMessageBox.Yes:
             session = self.db.create_session()
+            committed = False
             try:
                 from core.database import BulkMaterials
-                session.query(BulkMaterials).filter(
-                    BulkMaterials.well_id == self.current_well_id,
-                    BulkMaterials.material_name == material_name,
-                    BulkMaterials.report_id == self.current_report_id
-                ).delete()
+                identity = self.material_table.item(current_row, 0).data(Qt.ItemDataRole.UserRole)
+                if identity is None:
+                    raise ValueError("Selected row has no persisted identity")
+                target = session.query(BulkMaterials).filter_by(id=identity, well_id=self.current_well_id).one_or_none()
+                if target is None or (self.current_report_id is not None and target.report_id != self.current_report_id) or (self.current_section_id is not None and target.section_id != self.current_section_id):
+                    raise ValueError("Selected material no longer belongs to this context")
+                session.delete(target)
                 session.commit()
+                committed = True
                 self.material_table.removeRow(current_row)
                 self.update_chart()
                 self.status_label.setText(f"Deleted '{material_name}'")
+                return True
             except Exception as e:
+                if committed:
+                    logger.error("Material deleted but display refresh failed", exc_info=True)
+                    self.status_label.setText("DELETED — display refresh failed; reload the table")
+                    return True
                 session.rollback()
                 logger.error(f"Error deleting material: {e}")
                 self.status_label.setText(
                     f"NOT DELETED — database error: {str(e)[:100]}"
                 )
+                return False
             finally:
                 session.close()
 
@@ -2483,9 +2565,13 @@ class MaterialInventoryTab(QWidget):
         used_vals = []
         for row in range(self.material_table.rowCount()):
             name = self.material_table.item(row, 0).text()
-            used = float(self.material_table.item(row, 4).text() or 0)
+            item = self.material_table.item(row, 4)
+            text = item.text().strip() if item is not None else ""
+            if text in ("", "—"):
+                continue
+            used = float(text)
             if used > 0:
-                materials.append(name)
+                materials.append(f"{name} ({self.material_table.item(row, 1).text()})")
                 used_vals.append(used)
 
         if not materials:
@@ -2518,8 +2604,9 @@ class MaterialInventoryTab(QWidget):
         while self.chart_layout.count():
             child = self.chart_layout.takeAt(0)
             if child.widget():
-                child.widget().setParent(None)
-                child.widget().deleteLater()
+                widget = child.widget()
+                widget.setParent(None)
+                widget.deleteLater()
 
     def export_data(self):
         export_manager = ExportManager(self)
@@ -2651,6 +2738,8 @@ class PlanningWidget(DrillTabBase):
         self.lookahead_tab.set_current_section(section_id)
         self.npt_tab.set_current_section(section_id)
         self.code_tab.set_current_section(section_id)
+        self.well_plan_tab.set_current_section(section_id)
+        self.material_inventory_tab.set_current_section(section_id)
 
     def on_tab_selected(self, index):
         """Refresh the currently selected tab with latest data"""
@@ -2679,6 +2768,8 @@ class PlanningWidget(DrillTabBase):
     def on_well_changed(self, well_id, well_data):
         """Override - sync combo + load data"""
         self.current_well_id = well_id
+        self.current_report_id = None
+        self.current_section_id = None
         name = well_data.get("name", str(well_id)) if well_data else str(well_id)
         
         # Sync combo
@@ -2726,7 +2817,8 @@ class PlanningWidget(DrillTabBase):
             self.code_tab.set_current_section(section_id)
         if hasattr(self, 'material_inventory_tab'):
             self.material_inventory_tab.set_current_section(section_id)
-            
+        self.well_plan_tab.set_current_section(section_id)
+
     def on_report_changed(self, report_id, report_info):
         self.current_report_id = report_id
         report_date = report_info.get('report_date') if report_info else None
@@ -2738,6 +2830,7 @@ class PlanningWidget(DrillTabBase):
         self.drilling_params_tab.set_current_report(report_id, report_date)
         self.mud_params_tab.set_current_report(report_id, report_date)
         if hasattr(self, 'material_inventory_tab'):
+            self.material_inventory_tab.set_current_report(report_id, report_date)
             self.material_inventory_tab.set_current_section(self.current_section_id)
 
     # ==================== متدهای کمکی ====================

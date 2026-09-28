@@ -15,6 +15,7 @@ from PySide6.QtGui import QTextOption
 from core.editor_state import editor_loaded, editor_saved
 from core.base_tab import DrillTabBase
 from core.permissions import require_permission, permissions
+from core.text_utils import fmt_num
 
 
 from core.managers import (
@@ -235,14 +236,18 @@ class DailyReportWidget(DrillTabBase):
         # ردیف 2 - Depth measurements
         header_layout.addWidget(QLabel("📏 Depth @ 00:00 (m):"), 2, 0)
         self.depth_0000 = QDoubleSpinBox()
-        self.depth_0000.setRange(0, 20000)
+        self.depth_0000.setRange(-1, 20000)
+        self.depth_0000.setSpecialValueText("Not recorded")
+        self.depth_0000.setValue(-1)
         self.depth_0000.setDecimals(2)
         self.depth_0000.setSuffix(" m")
         header_layout.addWidget(self.depth_0000, 2, 1)
 
         header_layout.addWidget(QLabel("📏 Depth @ 06:00 (m):"), 2, 2)
         self.depth_0600 = QDoubleSpinBox()
-        self.depth_0600.setRange(0, 20000)
+        self.depth_0600.setRange(-1, 20000)
+        self.depth_0600.setSpecialValueText("Not recorded")
+        self.depth_0600.setValue(-1)
         self.depth_0600.setDecimals(2)
         self.depth_0600.setSuffix(" m")
         header_layout.addWidget(self.depth_0600, 2, 3)
@@ -250,7 +255,9 @@ class DailyReportWidget(DrillTabBase):
         # ردیف 3 - Depth at 24:00
         header_layout.addWidget(QLabel("📏 Depth @ 24:00 (m):"), 3, 0)
         self.depth_2400 = QDoubleSpinBox()
-        self.depth_2400.setRange(0, 20000)
+        self.depth_2400.setRange(-1, 20000)
+        self.depth_2400.setSpecialValueText("Not recorded")
+        self.depth_2400.setValue(-1)
         self.depth_2400.setDecimals(2)
         self.depth_2400.setSuffix(" m")
         header_layout.addWidget(self.depth_2400, 3, 1)
@@ -1147,9 +1154,9 @@ class DailyReportWidget(DrillTabBase):
             "report_date": self.report_date.date().toPython(),
             "report_number": self.report_number.value(),
             "rig_day": self.rig_day.value(),
-            "depth_0000": self.depth_0000.value(),
-            "depth_0600": self.depth_0600.value(),
-            "depth_2400": self.depth_2400.value(),
+            "depth_0000": self._depth_value("depth_0000"),
+            "depth_0600": self._depth_value("depth_0600"),
+            "depth_2400": self._depth_value("depth_2400"),
             "summary": self.summary_text.toPlainText(),
             "status": self.status_combo.currentText(),
             "created_by": (
@@ -1225,6 +1232,7 @@ class DailyReportWidget(DrillTabBase):
                     )
                 )
 
+    @require_permission("can_edit_reports")
     @editor_saved()
     def save_report(self) -> bool:
         """ذخیره گزارش روزانه - نسخه refactor شده"""
@@ -1582,9 +1590,9 @@ class DailyReportWidget(DrillTabBase):
             self.report_date.setDate(report_data["report_date"])
             self.report_number.setValue(report_data.get("report_number") if report_data.get("report_number") is not None else 0)
             self.rig_day.setValue(report_data.get("rig_day") if report_data.get("rig_day") is not None else 0)
-            self.depth_0000.setValue(report_data.get("depth_0000") if report_data.get("depth_0000") is not None else 0)
-            self.depth_0600.setValue(report_data.get("depth_0600") if report_data.get("depth_0600") is not None else 0)
-            self.depth_2400.setValue(report_data.get("depth_2400") if report_data.get("depth_2400") is not None else 0)
+            self.depth_0000.setValue(report_data.get("depth_0000") if report_data.get("depth_0000") is not None else -1)
+            self.depth_0600.setValue(report_data.get("depth_0600") if report_data.get("depth_0600") is not None else -1)
+            self.depth_2400.setValue(report_data.get("depth_2400") if report_data.get("depth_2400") is not None else -1)
             import textwrap
             raw_summary = report_data.get("summary", "") or ""
             if len(raw_summary) > 150:
@@ -1636,6 +1644,7 @@ class DailyReportWidget(DrillTabBase):
             session.close()
 
 
+    @require_permission("can_edit_reports")
     def create_daily_report_for_current_section(self):
         section_id = self.current_section_id
         if not section_id or section_id == -1:
@@ -1654,10 +1663,11 @@ class DailyReportWidget(DrillTabBase):
                         if previous_id:
                             try:
                                 session = self.db_manager.create_session()
-                                dialog._copy_all_report_data(
-                                    session, previous_id, created_id
-                                )
-                                session.close()
+                                try:
+                                    if not dialog._copy_all_report_data(session, previous_id, created_id):
+                                        raise PermissionError("Copy denied")
+                                finally:
+                                    session.close()
                                 self.status_manager.show_success(
                                     "DailyReport", "Data copied from previous report"
                                 )
@@ -1705,9 +1715,9 @@ class DailyReportWidget(DrillTabBase):
                 return False
             
             # پر کردن فیلدهای هدر (عمق‌ها، خلاصه، روز ریگ)
-            self.depth_0000.setValue(source.depth_2400 or 0)
-            self.depth_0600.setValue(source.depth_2400 or 0)
-            self.depth_2400.setValue(source.depth_2400 or 0)  # اختیاری
+            self.depth_0000.setValue(source.depth_2400 if source.depth_2400 is not None else -1)
+            self.depth_0600.setValue(source.depth_2400 if source.depth_2400 is not None else -1)
+            self.depth_2400.setValue(source.depth_2400 if source.depth_2400 is not None else -1)  # اختیاری
             self.summary_text.setPlainText(source.summary or "")
             # روز ریگ را یک روز افزایش می‌دهیم (چون روز جدید است)
             self.rig_day.setValue((source.rig_day or 0) + 1)
@@ -1731,6 +1741,7 @@ class DailyReportWidget(DrillTabBase):
         finally:
             session.close()
 
+    @require_permission("can_edit_reports")
     def copy_data_from_report(self, source_report_id: int, target_report_id: int) -> bool:
         """
         کپی تمام داده‌های مرتبط با یک گزارش روزانه به گزارش دیگر.
@@ -1740,6 +1751,14 @@ class DailyReportWidget(DrillTabBase):
         """
         session = self.db.create_session()
         try:
+            from copy import deepcopy
+            from core.report_lifecycle import is_editable
+            source = session.get(DailyReport, source_report_id)
+            target = session.get(DailyReport, target_report_id)
+            if source is None or target is None or source.id == target.id or source.well_id != target.well_id:
+                raise ValueError("Copy requires distinct source/target reports in the same well")
+            if not is_editable(target.status):
+                raise ValueError("Target report is not editable")
             from core.database import (
                 TimeLog24H, TimeLogMorning, DrillingParameters, MudReport,
                 CementReport, CasingReport, BitReport, BHAReport, DownholeEquipment,
@@ -1762,7 +1781,7 @@ class DailyReportWidget(DrillTabBase):
                 (BHAReport, 'report_id'),
                 (DownholeEquipment, 'report_id'),
                 (FormationReport, 'report_id'),
-                (SafetyReport, 'report_id'),
+                # A previous safety observation is not a new assessment.
                 (WellboreSchematic, 'report_id'),
                 (TripSheetEntry, 'report_id'),
                 (SurveyPoint, 'report_id'),
@@ -1813,8 +1832,12 @@ class DailyReportWidget(DrillTabBase):
                     data = {}
                     for column in model.__table__.columns:
                         if column.name not in ('id', fk_field):
-                            data[column.name] = getattr(rec, column.name)
+                            data[column.name] = deepcopy(getattr(rec, column.name))
                     data[fk_field] = target_report_id
+                    if 'section_id' in data:
+                        data['section_id'] = target.section_id
+                    if 'report_date' in data:
+                        data['report_date'] = target.report_date
                     # ایجاد نمونه جدید
                     new_rec = model(**data)
                     session.add(new_rec)
@@ -1910,15 +1933,27 @@ class DailyReportWidget(DrillTabBase):
         else:
             self.char_counter.setStyleSheet("color: #7f8c8d; font-size: 10px;")
 
+    def _depth_value(self, name):
+        value = getattr(self, name).value()
+        return value if value >= 0 else None
+
+    def _depth_gain(self):
+        start, end = self._depth_value("depth_0000"), self._depth_value("depth_2400")
+        return end - start if start is not None and end is not None else None
+
     def calculate_depth_gained(self):
-        depth_start = self.depth_0000.value()
-        depth_end = self.depth_2400.value()
+        depth_start = self._depth_value("depth_0000")
+        depth_end = self._depth_value("depth_2400")
+        if depth_start is None or depth_end is None:
+            self.status_manager.show_error("DailyReport", "Depth gain: NOT ASSESSED (missing depth)")
+            return
         if depth_end >= depth_start:
             gained = depth_end - depth_start
             self.status_manager.show_message("DailyReport", f"📈 Depth gained today: {gained:.2f} meters", 3000)
         else:
             self.status_manager.show_error("DailyReport", "End depth must be greater than start depth")
 
+    @require_permission("can_edit_reports")
     def copy_previous_day(self, source_report_id=None):
         well_id = self.current_well_id
         section_id = self.current_section_id
@@ -1937,11 +1972,11 @@ class DailyReportWidget(DrillTabBase):
                     DailyReport.well_id == well_id,
                     DailyReport.section_id == section_id,
                     DailyReport.report_date == previous_date
-                ).first()
+                ).one_or_none()
             else:
                 prev_report = session.query(DailyReport).filter(
                     DailyReport.id == source_report_id
-                ).first()
+                ).one_or_none()
 
             if not prev_report:
                 self.show_message("No previous report found", 3000)
@@ -1957,7 +1992,9 @@ class DailyReportWidget(DrillTabBase):
             new_report_id = self.current_report_id
 
             # 2. داده‌های گزارش قبلی را مستقیماً در session کپی کن (بدون load)
-            self.copy_data_from_report(prev_report.id, new_report_id)
+            if not self.copy_data_from_report(prev_report.id, new_report_id):
+                self.show_error("Copy failed; existing target data was not replaced")
+                return False
 
             # 3. مجدداً گزارش جدید را از دیتابیس بارگذاری کن تا داده‌های کپی شده نمایش داده شوند
             self.load_report_by_id(new_report_id)
@@ -1979,9 +2016,9 @@ class DailyReportWidget(DrillTabBase):
         self.report_date.setDate(QDate.currentDate())
         self.report_number.setValue(1)
         self.rig_day.setValue(1)
-        self.depth_0000.setValue(0)
-        self.depth_0600.setValue(0)
-        self.depth_2400.setValue(0)
+        self.depth_0000.setValue(-1)
+        self.depth_0600.setValue(-1)
+        self.depth_2400.setValue(-1)
         self.summary_text.clear()
         self.status_combo.setCurrentText("Draft")
         self.time_24_table.setRowCount(0)
@@ -1991,6 +2028,7 @@ class DailyReportWidget(DrillTabBase):
         self.add_time_log_row(self.morning_table)
         self.status_manager.show_success("DailyReport", "📝 New report ready")
 
+    @require_permission("can_export")
     def print_report(self):
         if not self.current_report:
             self.status_manager.show_error("DailyReport", "No report to print")
@@ -2034,9 +2072,9 @@ class DailyReportWidget(DrillTabBase):
             <p><strong>Date:</strong> {self.report_date.date().toString('yyyy-MM-dd')}</p>
             <p><strong>Report #:</strong> {self.report_number.value()}</p>
             <p><strong>Rig Day:</strong> {self.rig_day.value()}</p>
-            <p><strong>Depth @ 00:00:</strong> {self.depth_0000.value()} m</p>
-            <p><strong>Depth @ 06:00:</strong> {self.depth_0600.value()} m</p>
-            <p><strong>Depth @ 24:00:</strong> {self.depth_2400.value()} m</p>
+            <p><strong>Depth @ 00:00:</strong> {fmt_num(self._depth_value("depth_0000"), 1, default=None)} m</p>
+            <p><strong>Depth @ 06:00:</strong> {fmt_num(self._depth_value("depth_0600"), 1, default=None)} m</p>
+            <p><strong>Depth @ 24:00:</strong> {fmt_num(self._depth_value("depth_2400"), 1, default=None)} m</p>
             <h2>Summary</h2>
             <p>{self.summary_text.toPlainText()}</p>
         </body>
@@ -2205,6 +2243,7 @@ class DailyReportWidget(DrillTabBase):
                 self.update_statistics()
                 self.show_message(f"Activity added: {data['main_code'][:30]}")
 
+    @require_permission("can_export")
     def _export_ddr_pdf(self):
         """اکسپورت DDR حرفه‌ای"""
         if not self.current_report_id:
@@ -2257,6 +2296,7 @@ class DailyReportWidget(DrillTabBase):
             self.status_manager.show_error(
                 "DailyReport", f"Export error: {str(e)}"
             )
+    @require_permission("can_export")
     def _export_ddr_html(self, filename):
         """Fallback: اکسپورت HTML"""
         try:
@@ -2276,8 +2316,8 @@ class DailyReportWidget(DrillTabBase):
             Report #: {self.report_number.value()} | Rig Day: {self.rig_day.value()} | 
             Status: {(self.current_report or {}).get('status', 'Draft')}</p>
             <h2>Depth Summary</h2>
-            <p>00:00: {self.depth_0000.value():.1f}m | 06:00: {self.depth_0600.value():.1f}m | 
-            24:00: {self.depth_2400.value():.1f}m | Progress: {self.depth_2400.value() - self.depth_0000.value():.1f}m</p>
+            <p>00:00: {fmt_num(self._depth_value("depth_0000"), 1, default=None)}m | 06:00: {fmt_num(self._depth_value("depth_0600"), 1, default=None)}m |
+            24:00: {fmt_num(self._depth_value("depth_2400"), 1, default=None)}m | Progress: {fmt_num(self._depth_gain(), 1, default=None)}m</p>
             <h2>Operations</h2>
             <table><tr><th>From</th><th>To</th><th>Hrs</th><th>Phase</th><th>Code</th><th>NPT</th><th>Description</th></tr>
             """

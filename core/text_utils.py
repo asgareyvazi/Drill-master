@@ -51,6 +51,23 @@ def format_date(value, default=""):
     return text[:10] if len(text) >= 10 and text[4] == "-" else (text or default)
 
 
-def fmt_num(value, digits=1, default=0.0):
+def fmt_num(value, digits=1, default=None):
+    """Format a number for display; an unknown value is shown as "—".
+
+    ``default`` used to be ``0.0``, which printed a missing (NULL) engineering
+    value as an explicit zero in the daily report and other HTML/UI surfaces
+    ("Not recorded" in the input widget, "0.0" in the export). Callers that
+    really mean "absent movement is zero" must now say so explicitly with
+    ``default=0.0``; genuine unknown stays unknown.
+    """
     number = safe_float(value, default)
     return "—" if number is None else f"{number:.{digits}f}"
+
+
+def not_recorded_text(field: str) -> str:
+    """Explicit statement for an empty report section.
+
+    A section with no rows means "not recorded for this scope" and must never be
+    readable as a zero/safe fact (missing safety record is not zero incidents).
+    """
+    return f"Not recorded: no {field} data was submitted for this scope."

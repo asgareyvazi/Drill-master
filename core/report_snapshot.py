@@ -6,9 +6,10 @@ record of the operational report at a lifecycle event — not merely the
 database rows at capture time, so that later edits to the current report and its
 child tables can never mutate a historical revision.
 
-Scope of "the DDR" is taken from the repository's own authoritative definition
-of report-owned content (``tabs/w2_Daily_Report.py::_copy_all_report_data`` plus
-the two time-log tables) — NOT every table that happens to carry a ``report_id``.
+Scope of "the DDR" is the explicit CHILD_COLLECTIONS contract below, supplied
+with core.database.DatabaseManager._SNAPSHOT_MODELS, NOT every table carrying
+report_id. A recorded safety assessment belongs in a revision snapshot even
+though copying a prior report must NOT generate a fresh safety assessment.
 Derived analytics (trajectory calculations, time-depth, ROP analysis) and
 engineering calculation histories are deliberately excluded: they are computed
 or independently versioned elsewhere (missions 16/17).
@@ -18,6 +19,7 @@ a generic serialization framework (mission §8/§51).
 """
 from __future__ import annotations
 
+from copy import deepcopy
 from datetime import date, datetime, time as _time
 from typing import Any, Dict, List
 
@@ -39,7 +41,7 @@ def serialize_value(value: Any) -> Any:
     if isinstance(value, (bool, int, float, str)):
         return value
     if isinstance(value, (list, dict)):
-        return value  # already-JSON columns (e.g. header_snapshot)
+        return deepcopy(value)  # detach nested historical input from live JSON columns
     # Fall back to a stable string only for genuinely unexpected types.
     return str(value)
 
@@ -80,7 +82,7 @@ def _order_key(model_name: str):
 
 
 # The authoritative report-owned child collections and their FK field.
-# Mirrors tabs/w2_Daily_Report.py::_copy_all_report_data plus time logs.
+# Explicit revision contract; distinct from next-day carry-forward semantics.
 CHILD_COLLECTIONS: List[tuple] = [
     ("time_logs_24h", "TimeLog24H", "report_id"),
     ("time_logs_morning", "TimeLogMorning", "report_id"),

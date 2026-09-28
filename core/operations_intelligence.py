@@ -10,6 +10,8 @@ from dataclasses import dataclass, asdict
 from typing import List, Dict
 import logging
 
+from core.operational_time import summarize_time_logs
+
 logger = logging.getLogger(__name__)
 
 
@@ -36,16 +38,15 @@ class OperationsIntelligenceService:
         session = self.db.create_session()
         try:
             reports = session.query(DailyReport).filter_by(well_id=well_id).order_by(DailyReport.report_date).all()
-            if not reports:
-                return {"insights": [], "kpis": {"reports": 0}}
 
             logs = session.query(TimeLog24H).join(DailyReport, TimeLog24H.report_id == DailyReport.id).filter(DailyReport.well_id == well_id).all()
             params = session.query(DrillingParameters).filter_by(well_id=well_id).order_by(DrillingParameters.report_date).all()
             mud_reports = session.query(MudReport).filter_by(well_id=well_id).order_by(MudReport.report_date).all()
             safety_reports = session.query(SafetyReport).filter_by(well_id=well_id).order_by(SafetyReport.report_date).all()
 
-            total_hours = sum(float(item.duration or 0) for item in logs)
-            npt_hours = sum(float(item.duration or 0) for item in logs if item.is_npt)
+            time_metrics = summarize_time_logs(logs)
+            total_hours = time_metrics["total_hours"]
+            npt_hours = time_metrics["npt_hours"]
             depths = [float(item.depth_2400 or 0) for item in reports if item.depth_2400 is not None]
             rops = [float(item.avg_rop) for item in params if item.avg_rop is not None]
 
@@ -83,7 +84,14 @@ class OperationsIntelligenceService:
             # would assert the hole has zero depth). This mirrors the ROP/NPT
             # no-fabrication contract in this same method.
             current_depth = max(depths) if depths else None
-            daily_progress = depths[-1] - depths[-2] if len(depths) >= 2 else 0
+            daily_progress = None
+            if (len(reports) >= 2 and reports[-1].depth_2400 is not None
+                    and reports[-2].depth_2400 is not None
+                    and reports[-1].wellbore_id == reports[-2].wellbore_id
+                    and len({r.wellbore_id for r in reports}) == 1
+                    and len({r.report_date for r in reports}) == len(reports)
+                    and (reports[-1].report_date - reports[-2].report_date).days == 1):
+                daily_progress = reports[-1].depth_2400 - reports[-2].depth_2400
             avg_rop = round(sum(rops) / len(rops), 2) if rops else None
 
             # Footage-weighted ROP over the well: Σ(valid-pair footage) /
@@ -95,38 +103,30 @@ class OperationsIntelligenceService:
             from core.engineering.engines.bit_performance import BitPerformanceEngine
             weighted_rop_result = BitPerformanceEngine.weighted_rop(params)
             weighted_rop = weighted_rop_result.value
-            npt_percent = round(npt_hours / total_hours * 100, 2) if total_hours else None
-            productive_hours = round(total_hours - npt_hours, 2) if total_hours else None
-            rig_days = len(reports)
+            npt_percent = (round(time_metrics["npt_percent"], 2)
+                           if time_metrics["npt_percent"] is not None else None)
+            productive_hours = time_metrics["productive_hours"]
+            rig_days = len({r.report_date for r in reports})
 
             # Cost per meter is reported only from stored cost records.
             # No rig-rate estimate is fabricated when actual cost data is absent.
-            cost_per_meter = None
-            total_cost = None
-            try:
-                from core.database import CostRecord
-                cost_records = session.query(CostRecord).filter(CostRecord.well_id == well_id).all()
-                if cost_records:
-                    total_cost = sum(float(c.actual_cost or 0) for c in cost_records)
-                    if current_depth and current_depth > 0:
-                        cost_per_meter = total_cost / current_depth
-            except Exception:
-                total_cost = None
-                cost_per_meter = None
+            from core.database import CostRecord
+            from core.cost_semantics import summarize_costs
+            cost_records = session.query(CostRecord).filter(CostRecord.well_id == well_id).all()
+            cost_summary = summarize_costs(cost_records)
+            total_cost = cost_summary["total_actual"]
+            cost_per_meter = total_cost / current_depth if total_cost is not None and current_depth else None
 
             # Plan variance
             plan_variance = self.db.get_actual_vs_plan(well_id)
 
             # Mud trends
-            mw_trend = [float(m.mw or 0) for m in mud_reports if m.mw]
-            pv_trend = [float(m.pv or 0) for m in mud_reports if m.pv]
+            mw_trend = [float(m.mw) for m in mud_reports if m.mw is not None]
+            pv_trend = [float(m.pv) for m in mud_reports if m.pv is not None]
 
             # Safety KPI
-            safety_kpi = {
-                "days_without_lti": max([s.days_without_lti or 0 for s in safety_reports], default=0),
-                "total_lti": sum(s.lti_count or 0 for s in safety_reports),
-                "total_near_miss": sum(s.near_miss_count or 0 for s in safety_reports),
-            }
+            from core.safety_semantics import safety_kpis
+            safety_kpi = safety_kpis(safety_reports)
 
             # Data Quality Score (based on missing depths, time log coverage, etc.)
             quality_score = 100
@@ -135,23 +135,27 @@ class OperationsIntelligenceService:
                 quality_score -= missing_depths * 5
             if total_hours and abs(total_hours / max(len(reports), 1) - 24) > 1:
                 quality_score -= 10
-            quality_score = max(0, min(100, quality_score))
+            quality_score = max(0, min(100, quality_score)) if reports and total_hours is not None else None
 
             kpis = {
                 "reports": len(reports),
                 "current_depth": current_depth,
-                "daily_progress": round(daily_progress, 2),
+                "daily_progress": round(daily_progress, 2) if daily_progress is not None else None,
                 "average_rop": avg_rop,
                 "weighted_rop": weighted_rop,
                 "weighted_rop_footage": weighted_rop_result.values.get("total_footage"),
                 "weighted_rop_hours": weighted_rop_result.values.get("total_hours"),
                 "weighted_rop_valid_pairs": weighted_rop_result.values.get("valid_pairs"),
-                "npt_hours": round(npt_hours, 2),
+                "npt_hours": npt_hours,
+                "total_hours": total_hours,
                 "npt_percent": npt_percent,
                 "productive_hours": productive_hours,
                 "rig_days": rig_days,
                 "cost_per_meter": None if cost_per_meter is None else round(cost_per_meter, 2),
                 "total_cost": None if total_cost is None else round(total_cost, 2),
+                "cost_currency": cost_summary["currency"],
+                "cost_currency_status": cost_summary["status"],
+                "cost_groups": cost_summary["groups"],
                 "plan_variance": plan_variance,
                 "mud_trend": {"mw": mw_trend[-5:], "pv": pv_trend[-5:]},
                 "torque_trend": torques[-5:],
@@ -213,8 +217,8 @@ class OperationsIntelligenceService:
                         severity=rop_insight["severity"],
                         message=rop_insight["message"],
                         evidence={
-                            "source_reports": [p.report_id for p in params[-7:] if p.report_id],
-                            "date_range": f"Last {min(7, len(params))} reports",
+                            "source_reports": [p.report_id for p in params if p.report_id and p.avg_rop is not None],
+                            "date_range": "All recorded ROP observations in well",
                             "metrics": rop_insight["evidence"],
                             "confidence": rop_insight["confidence"],
                             "reason": "ROP decline may indicate bit wear, formation change, or hydraulics issues",
@@ -245,18 +249,18 @@ class OperationsIntelligenceService:
                     )
 
             # Torque increase
-            if len(torques) >= 3 and torques[-1] > torques[0] * 1.3:
+            if len(torques) >= 3 and torques[0] > 0 and torques[-1] > torques[0] * 1.3:
                 insights.append(
                     Insight(
                         kind="torque_increase",
                         severity="warning",
                         message=f"Torque increased {((torques[-1]/torques[0]-1)*100):.1f}% - may indicate hole condition issues",
                         evidence={
-                            "source_reports": [p.report_id for p in params[-5:] if p.report_id],
-                            "date_range": f"Last {min(5, len(params))} reports",
+                            "source_reports": [p.report_id for p in params if p.report_id and (p.torque_min is not None or p.torque_max is not None)],
+                            "date_range": "All recorded torque observations in well",
                             "metrics": {"first_torque": torques[0], "latest_torque": torques[-1]},
                             "confidence": 0.75,
-                            "reason": "Torque increase + PV increase + NPT Hole Condition pattern",
+                            "reason": "Observed torque increase; PV and NPT cause not established",
                         },
                         recommendation="Check hole condition, BHA, and consider wiper trip",
                     )
@@ -269,7 +273,11 @@ class OperationsIntelligenceService:
                     Insight(
                         kind="plan_delay",
                         severity="warning",
-                        message=f"Behind plan by {abs(depth_var['delta']):.0f}m ({depth_var.get('pct',0):.1f}%)",
+                        # A missing variance percentage is UNKNOWN, never "0.0%".
+                        message=("Behind plan by {:.0f}m{}".format(
+                            abs(depth_var['delta']),
+                            f" ({depth_var['pct']:.1f}%)" if depth_var.get('pct') is not None
+                            else " (percent unavailable)")),
                         evidence={
                             "source_reports": [r.id for r in reports],
                             "date_range": f"{reports[0].report_date} to {reports[-1].report_date}" if reports else "",
@@ -301,11 +309,12 @@ class OperationsIntelligenceService:
                 )
 
             # Safety pattern
-            if safety_kpi["total_lti"] > 0 or safety_kpi["total_near_miss"] > 2:
+            if ((safety_kpi["total_lti"] is not None and safety_kpi["total_lti"] > 0)
+                    or (safety_kpi["total_near_miss"] is not None and safety_kpi["total_near_miss"] > 2)):
                 insights.append(
                     Insight(
                         kind="safety_pattern",
-                        severity="critical" if safety_kpi["total_lti"] > 0 else "warning",
+                        severity="critical" if safety_kpi["total_lti"] is not None and safety_kpi["total_lti"] > 0 else "warning",
                         message=f"Safety: LTI {safety_kpi['total_lti']}, Near Miss {safety_kpi['total_near_miss']}",
                         evidence={
                             "source_reports": [s.report_id for s in safety_reports if s.report_id],
@@ -319,21 +328,22 @@ class OperationsIntelligenceService:
                 )
 
             # Combined pattern example from spec
-            if len(rops) >= 7 and len(torques) >= 7:
-                rop_decline = (rops[0] - rops[-1]) / rops[0] * 100 if rops[0] else 0
-                torque_inc = (torques[-1] - torques[0]) / torques[0] * 100 if torques[0] else 0
+            paired = [p for p in params if p.avg_rop is not None and p.torque_min is not None and p.torque_max is not None][-7:]
+            if len(paired) == 7 and paired[0].avg_rop > 0 and paired[0].torque_min + paired[0].torque_max > 0:
+                rop_decline = (paired[0].avg_rop - paired[-1].avg_rop) / paired[0].avg_rop * 100
+                torque_inc = ((paired[-1].torque_min + paired[-1].torque_max) / (paired[0].torque_min + paired[0].torque_max) - 1) * 100
                 if rop_decline >= 18 and torque_inc > 10 and npt_percent is not None and npt_percent > 15:
                     insights.append(
                         Insight(
                             kind="hole_condition_pattern",
                             severity="critical",
-                            message=f"در ۷ روز اخیر ROP حدود {rop_decline:.0f}٪ کاهش یافته، همزمان Torque و PV افزایش داشته‌اند و NPT مرتبط با Hole Condition بیشتر شده است.",
+                            message=f"Across 7 paired observations, ROP declined {rop_decline:.0f}% and torque increased {torque_inc:.0f}%; whole-well NPT exceeds 15%. Cause not established.",
                             evidence={
-                                "source_reports": [r.id for r in reports[-7:]],
-                                "date_range": f"Last 7 reports",
+                                "source_reports": [p.report_id for p in paired if p.report_id],
+                                "date_range": "Last 7 paired parameter observations (not calendar days)",
                                 "metrics": {"rop_decline_pct": round(rop_decline, 1), "torque_increase_pct": round(torque_inc, 1), "npt_percent": npt_percent},
                                 "confidence": 0.82,
-                                "reason": "Combined ROP degradation + Torque increase + NPT Hole Condition",
+                                "reason": "Concurrent ROP/torque observations and whole-well NPT; no PV or causal evidence",
                             },
                             recommendation="Consider bit change, hole cleaning, and hydraulics review",
                         )
@@ -421,10 +431,9 @@ class OperationsIntelligenceService:
                 .all()
             )
 
-            total_hours = sum(float(item.duration or 0) for item in logs)
-            npt_hours = sum(
-                float(item.duration or 0) for item in logs if item.is_npt
-            )
+            time_metrics = summarize_time_logs(logs)
+            total_hours = time_metrics["total_hours"]
+            npt_hours = time_metrics["npt_hours"]
             depths = [
                 float(r.depth_2400)
                 for r in reports
@@ -443,12 +452,9 @@ class OperationsIntelligenceService:
             ]
             avg_rop = round(sum(rops) / len(rops), 2) if rops else None
 
-            npt_percent = (
-                round(npt_hours / total_hours * 100, 2) if total_hours else None
-            )
-            productive_hours = (
-                round(total_hours - npt_hours, 2) if total_hours else None
-            )
+            npt_percent = (round(time_metrics["npt_percent"], 2)
+                           if time_metrics["npt_percent"] is not None else None)
+            productive_hours = time_metrics["productive_hours"]
 
             kpis = {
                 "reports": len(reports),
@@ -458,8 +464,8 @@ class OperationsIntelligenceService:
                 "weighted_rop_footage": weighted.values.get("total_footage"),
                 "weighted_rop_hours": weighted.values.get("total_hours"),
                 "weighted_rop_valid_pairs": weighted.values.get("valid_pairs"),
-                "total_hours": round(total_hours, 2) if logs else None,
-                "npt_hours": round(npt_hours, 2) if logs else None,
+                "total_hours": total_hours,
+                "npt_hours": npt_hours,
                 "npt_percent": npt_percent,
                 "productive_hours": productive_hours,
             }

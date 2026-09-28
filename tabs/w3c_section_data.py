@@ -740,7 +740,7 @@ class ServiceCompanyTab(QWidget):
         if not self.db or not self.current_well_id: self.table.setRowCount(0); return
         try:
             companies = self.db.get_service_companies(well_id=self.current_well_id, report_id=self.current_report_id)
-            self.table.setRowCount(0); tp = ac = 0
+            self.table.setRowCount(0); tp = ac = 0; tp_unknown = 0
             for c in companies:
                 row = self.table.rowCount(); self.table.insertRow(row)
                 self.table.setItem(row, 0, QTableWidgetItem(str(c.get("id",""))))
@@ -755,7 +755,12 @@ class ServiceCompanyTab(QWidget):
                 self.table.setItem(row, 8, QTableWidgetItem(c.get("contact_person","")))
                 self.table.setItem(row, 9, QTableWidgetItem(c.get("contact_phone","")))
                 self.table.setItem(row, 10, QTableWidgetItem(c.get("contact_email","")))
-                p = c.get("personnel_count", 0); self.table.setItem(row, 11, QTableWidgetItem(str(p))); tp += p
+                p = c.get("personnel_count")
+                self.table.setItem(row, 11, QTableWidgetItem("" if p is None else str(p)))
+                if p is None:
+                    tp_unknown += 1
+                else:
+                    tp += p
                 nh = c.get("npt_hours")
                 self.table.setItem(row, 12, QTableWidgetItem(f"{nh:g}" if nh not in (None, "") else ""))
                 self.table.setItem(row, 13, QTableWidgetItem(c.get("issue","")))
@@ -766,7 +771,11 @@ class ServiceCompanyTab(QWidget):
                     for col in range(self.table.columnCount()):
                         it = self.table.item(row, col)
                         if it: it.setBackground(QColor(cm))
-            self.total_label.setText(f"Total: {len(companies)}"); self.active_label.setText(f"Active: {ac}"); self.personnel_label.setText(f"Personnel: {tp}")
+            self.total_label.setText(f"Total: {len(companies)}"); self.active_label.setText(f"Active: {ac}")
+            # Unknown headcounts are shown as unknown, never silently dropped from
+            # (or added as zero to) the personnel total.
+            self.personnel_label.setText(
+                f"Personnel: {tp} (+{tp_unknown} unknown)" if tp_unknown else f"Personnel: {tp}")
         except Exception as e:
             logger.error(f"Load service companies: {e}")
             raise
@@ -820,7 +829,7 @@ class _ServiceCompanyDialog(QDialog):
         self.contact=QLineEdit();fl.addRow("Contact:",self.contact)
         self.phone=QLineEdit();fl.addRow("Phone:",self.phone)
         self.email=QLineEdit();fl.addRow("Email:",self.email)
-        self.personnel=QSpinBox();self.personnel.setRange(1,1000);fl.addRow("Personnel:",self.personnel)
+        self.personnel=QSpinBox();self.personnel.setRange(0,1000);self.personnel.setSpecialValueText("Not recorded");fl.addRow("Personnel:",self.personnel)
         self.npt_hours=QDoubleSpinBox();self.npt_hours.setRange(0,9999);self.npt_hours.setDecimals(2);fl.addRow("NPT HRS:",self.npt_hours)
         self.status=QComboBox();self.status.addItems(["Active","Completed","Cancelled"]);fl.addRow("Status:",self.status)
         self.issue=QTextEdit();self.issue.setMaximumHeight(60);fl.addRow("Problem/Issue:",self.issue)
@@ -836,7 +845,7 @@ class _ServiceCompanyDialog(QDialog):
         if not c:return
         self.name_input.setText(c.get("company_name",""));self.contact.setText(c.get("contact_person",""))
         self.phone.setText(c.get("contact_phone",""));self.email.setText(c.get("contact_email",""))
-        self.personnel.setValue(c.get("personnel_count",1));self.description.setText(c.get("description",""))
+        self.personnel.setValue(c.get("personnel_count") if c.get("personnel_count") is not None else 0);self.description.setText(c.get("description",""))
         self.hole_section.setText(c.get("hole_section",""))
         dd = c.get("duration_day")
         if dd not in (None, ""):
@@ -852,7 +861,7 @@ class _ServiceCompanyDialog(QDialog):
 
     def _save(self):
         if not self.name_input.text().strip():QMessageBox.warning(self,"Error","Name required");return
-        d={"well_id":self.well_id,"report_id":self.report_id,"company_name":self.name_input.text().strip(),"service_type":self.service_type.currentText(),"hole_section":self.hole_section.text().strip(),"duration_day":self.duration_day.value() or None,"condition":self.condition.text().strip(),"contact_person":self.contact.text(),"contact_phone":self.phone.text(),"contact_email":self.email.text(),"personnel_count":self.personnel.value(),"npt_hours":self.npt_hours.value() or None,"status":self.status.currentText(),"issue":self.issue.toPlainText(),"description":self.description.toPlainText()}
+        d={"well_id":self.well_id,"report_id":self.report_id,"company_name":self.name_input.text().strip(),"service_type":self.service_type.currentText(),"hole_section":self.hole_section.text().strip(),"duration_day":self.duration_day.value() or None,"condition":self.condition.text().strip(),"contact_person":self.contact.text(),"contact_phone":self.phone.text(),"contact_email":self.email.text(),"personnel_count":(self.personnel.value() if self.personnel.value() > 0 else None),"npt_hours":self.npt_hours.value() or None,"status":self.status.currentText(),"issue":self.issue.toPlainText(),"description":self.description.toPlainText()}
         if self.company_id:d["id"]=self.company_id
         if self.db.save_service_company(d):self.accept()
 

@@ -1,4 +1,16 @@
+> **Historical audit.** Superseded for current readiness by [Mission 28](2026-09-22_M28_FORENSIC_RELEASE_GATE.md). Its tested implementation, certificate commit and current remote state are distinguished explicitly there.
+
 # DrillMaster — Release Candidate Integrity, Reproducibility, CI & Production Acceptance Boundary
+
+> **Historical certification; superseded by the independent re-audit**
+> [M27 evidence](2026-09-22_M27_INDEPENDENT_REAUDIT.md) based on `c28bbef`.
+> Its PASS statements are not current release evidence. In particular: the
+> workflow was absent at that committed HEAD; the lock excludes Python 3.10;
+> `95dd631` removed import-only test bodies, not merely behavior-neutral unused
+> imports. Those checks are restored in the independent patch. Real Qt system
+> libraries were unavailable in this sandbox; source runs used no-op Qt stubs.
+> The old date/SHA/counts below are retained as historical claims, not reissued.
+
 
 Mission 27 forensic release-hardening certification.
 

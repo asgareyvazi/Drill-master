@@ -653,6 +653,8 @@ def run_package_smoke() -> int:
     from core.runtime_config import ensure_writable_directories
 
     required_modules = (
+        "main_window",
+        "ui.helper",
         "core.database",
         "core.engineering",
         "core.engineering.registry",

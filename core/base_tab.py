@@ -89,7 +89,8 @@ class DrillTabBase(QWidget):
         try:
             self.status_manager.register_widget(widget_name, self)
         except Exception:
-            pass
+            logger.exception("Permission check failed; operation blocked")
+            return False
 
     # ================================================================
     # Internal Signal Handlers
@@ -243,7 +244,8 @@ class DrillTabBase(QWidget):
                 self.show_warning("You do not have permission to edit reports")
                 return False
         except Exception:
-            pass
+            logger.exception("Permission check failed; operation blocked")
+            return False
         return True
 
     def check_permission(self, permission: str) -> bool:
@@ -263,7 +265,8 @@ class DrillTabBase(QWidget):
                 self.show_warning(f"Permission denied: {permission}")
                 return False
         except Exception:
-            pass
+            logger.exception("Permission check failed; operation blocked")
+            return False
         return True
 
     def load_data(self):

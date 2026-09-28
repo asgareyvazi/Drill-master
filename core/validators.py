@@ -582,11 +582,20 @@ class TimeLogValidator:
     @staticmethod
     def validate_logs(logs: list) -> ValidationResult:
         r = ValidationResult()
-        total = sum(l.get("duration", 0) or 0 for l in logs)
-        if total > 0 and abs(total - 24) > 0.5:
+        recorded = [l.get("duration") for l in logs]
+        unrecorded = sum(1 for value in recorded if value is None)
+        total = sum(float(value) for value in recorded if value is not None)
+        if unrecorded:
+            # An absent duration is unknown; counting it as 0 h silently understates
+            # coverage, so the total is reported as incomplete instead.
+            r.add_warning("total_hours",
+                          f"{unrecorded} entr(ies) have no recorded duration; total hours incomplete")
+        elif total > 0 and abs(total - 24) > 0.5:
             r.add_warning("total_hours", f"Total = {total:.2f}h (expected ~24h)")
         for i, log in enumerate(logs):
-            dur = log.get("duration", 0) or 0
+            dur = log.get("duration")
+            if dur is None:
+                continue
             if dur < 0:
                 r.add_error(f"log_{i}", "Duration cannot be negative")
             if dur > 24:

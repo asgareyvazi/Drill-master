@@ -21,6 +21,8 @@ Contract:
 from __future__ import annotations
 
 from typing import Optional
+import math
+from core.engineering.result import optional_number
 
 
 def to_float_or_none(value) -> Optional[float]:
@@ -32,13 +34,20 @@ def to_float_or_none(value) -> Optional[float]:
     """
     if value is None:
         return None
+    if isinstance(value, bool):
+        return None
     if isinstance(value, (int, float)):
-        return float(value)
+        try:
+            parsed = float(value)
+        except OverflowError:
+            return None
+        return parsed if math.isfinite(parsed) else None
     text = str(value).strip()
     if text == "":
         return None
     try:
-        return float(text)
+        parsed = float(text)
+        return parsed if math.isfinite(parsed) else None
     except (TypeError, ValueError):
         return None
 
@@ -56,8 +65,8 @@ def derive_closing(opening: Optional[float],
 
 
 def normalize_movement(value) -> float:
-    """received/used normalization: absent -> 0.0 (no movement)."""
-    parsed = to_float_or_none(value)
+    """Absent movement means zero; malformed/nonfinite/bool input is an error."""
+    parsed = optional_number(value.strip() if isinstance(value, str) else value, "movement")
     return 0.0 if parsed is None else parsed
 
 
@@ -69,13 +78,17 @@ def normalize_item_row(row: dict) -> dict:
     received (float), used (float), min_level (None|value),
     max_level (None|value). Closing is derived by the caller/persistence.
     """
+    def quantity(field):
+        value = row.get(field)
+        return optional_number(value.strip() if isinstance(value, str) else value, field)
+
     return {
         "item_name": (str(row.get("item_name", "")).strip() or None),
         "category": (str(row.get("category", "")).strip() or None),
         "unit": (str(row.get("unit", "")).strip() or None),
-        "opening_stock": to_float_or_none(row.get("opening_stock")),
+        "opening_stock": quantity("opening_stock"),
         "received": normalize_movement(row.get("received")),
         "used": normalize_movement(row.get("used")),
-        "min_level": to_float_or_none(row.get("min_level")),
-        "max_level": to_float_or_none(row.get("max_level")),
+        "min_level": quantity("min_level"),
+        "max_level": quantity("max_level"),
     }

@@ -232,14 +232,25 @@ class PersonnelLogisticsTab(QWidget):
             
     def calculate_total_pob(self):
         total = 0
+        unknown_rows = 0
         for row in range(self.pob_table.rowCount()):
-            try:
-                count_item = self.pob_table.item(row, 3)
-                if count_item and count_item.text():
-                    total += int(count_item.text())
-            except ValueError:
+            count_item = self.pob_table.item(row, 3)
+            text = count_item.text().strip() if count_item and count_item.text() else ""
+            if not text:
+                unknown_rows += 1
                 continue
-        QMessageBox.information(self, "Total POB", f"Total Personnel On Board: {total}")
+            try:
+                total += int(text)
+            except ValueError:
+                unknown_rows += 1
+        if unknown_rows:
+            # An incomplete roster is UNKNOWN, never a smaller "safe" number.
+            QMessageBox.information(
+                self, "Total POB",
+                f"Total Personnel On Board: {total} + unknown for {unknown_rows} row(s) "
+                "— an incomplete roster cannot be reported as a total")
+        else:
+            QMessageBox.information(self, "Total POB", f"Total Personnel On Board: {total}")
         
     @editor_saved('POB')
     def save_pob_to_db(self):
@@ -319,7 +330,7 @@ class PersonnelLogisticsTab(QWidget):
                     str(item["id"]),
                     item.get("company_name", ""),
                     item.get("service_type", ""),
-                    str(item.get("personnel_count", 0)),
+                    item.get("personnel_count"),
                     item.get("date_in", ""),
                     item.get("date_out", "")
                 ]

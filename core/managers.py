@@ -379,10 +379,15 @@ class DrillingManager:
 
     @staticmethod
     def calculate_tfa(nozzles_data):
+        """TFA of the given nozzles; None when it cannot be computed.
+
+        No nozzles is "not entered", not a measured 0 in², and an engine
+        failure is not a valid result either.
+        """
         from core.engineering.core import BitEngine
         sizes = []
         if not nozzles_data:
-            return 0.0
+            return None
         for n in nozzles_data:
             if isinstance(n, dict):
                 size = n.get("size_32nd", n.get("size", 0))
@@ -393,7 +398,7 @@ class DrillingManager:
         try:
             return BitEngine.calculate_tfa(sizes)
         except Exception:
-            return 0.0
+            return None
 
     @staticmethod
     def calculate_rop(depth_in, depth_out, hours):
@@ -402,8 +407,9 @@ class DrillingManager:
             depth_in=depth_in, depth_out=depth_out, hours_on_bottom=hours, bit_size_in=1
         )
         if not r.success:
-            return 0.0
-        return r.values.get("rop") or 0.0
+            return None
+        # A missing ROP in the engine result is unknown, never 0 m/hr.
+        return r.values.get("rop")
 
     @staticmethod
     def calculate_hsi(pump_pressure, flow_rate, bit_size):
@@ -417,7 +423,7 @@ class DrillingManager:
         try:
             return BitEngine.calculate_hsi(flow_rate, pump_pressure, bit_size)
         except Exception:
-            return 0.0
+            return None
 
     @staticmethod
     def calculate_annular_velocity(flow_rate, hole_id, pipe_od):

@@ -1190,6 +1190,7 @@ class DDRImportService:
         available = set(sheet_names)
         best = None
         best_count = -1
+        candidates = []
         for filename in sorted(os.listdir(templates_dir)):
             if not filename.endswith(".json") or filename.startswith("_"):
                 continue
@@ -1217,6 +1218,11 @@ class DDRImportService:
             if ok and len(sheet_keys) > best_count:
                 best_count = len(sheet_keys)
                 best = tmpl
+                candidates = [filename]
+            elif ok and len(sheet_keys) == best_count:
+                candidates.append(filename)
+        if len(candidates) > 1:
+            raise ValueError("Ambiguous workbook templates; select explicitly: " + ", ".join(candidates))
         return best
 
     def extract_file(self, path, template=None):

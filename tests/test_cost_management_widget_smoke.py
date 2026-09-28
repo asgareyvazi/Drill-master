@@ -59,6 +59,7 @@ _CHILD = textwrap.dedent(
 
     tab = CostManagementWidget(db_manager=m)
     tab.on_well_changed(wid, {})
+    tab.afe_table.cellWidget(0, 5).setCurrentText("USD")
     tab.afe_table.cellWidget(0, 2).setValue(123456)
     outcome = tab.save_data()
     assert bool(outcome) is True, "engineer save should succeed"

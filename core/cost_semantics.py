@@ -19,6 +19,7 @@ Established repository facts this module standardizes:
 from __future__ import annotations
 
 from typing import Optional, List, Dict, Any
+from core.engineering.result import optional_number, require_number, EngineeringError
 
 
 # Persisted CostRecord columns this helper reads/writes for the AFE worksheet.
@@ -41,23 +42,24 @@ def canonical_variance(planned: Optional[float],
     """
     if planned is None and actual is None:
         return None
-    p = float(planned) if planned is not None else None
-    a = float(actual) if actual is not None else None
+    p = optional_number(planned, "planned cost")
+    a = optional_number(actual, "actual cost")
     if p is None or a is None:
         # One side unknown -> variance is unknown, not a half-truth.
         return None
-    return p - a
+    return require_number(p - a, "cost variance")
 
 
 def percent_used(planned: Optional[float],
                  actual: Optional[float]) -> Optional[float]:
     """Actual as a percentage of planned. None when planned is unknown/zero."""
-    if planned is None or actual is None:
+    p = optional_number(planned, "planned cost")
+    actual = optional_number(actual, "actual cost")
+    if p is None or actual is None:
         return None
-    p = float(planned)
     if p == 0:
         return None  # cannot express "% of zero budget" as a fact
-    return float(actual) / p * 100.0
+    return require_number(require_number(actual, "actual cost") / p * 100.0, "percent used")
 
 
 def allocate_npt_cost(actual_cost: Optional[float],
@@ -70,11 +72,16 @@ def allocate_npt_cost(actual_cost: Optional[float],
     same contract used by the report engine. No synthetic rig-day rate is ever
     introduced here.
     """
+    actual_cost = optional_number(actual_cost, "actual cost")
+    npt_hours = optional_number(npt_hours, "NPT hours")
+    total_hours = optional_number(total_hours, "total hours")
     if actual_cost is None or total_hours in (None, 0) or npt_hours is None:
         return None
     if total_hours <= 0:
         return None
-    return float(actual_cost) * float(npt_hours) / float(total_hours)
+    if npt_hours < 0 or npt_hours > total_hours:
+        raise EngineeringError("NPT hours must be between zero and total hours")
+    return require_number(actual_cost * (npt_hours / total_hours), "allocated NPT cost")
 
 
 def normalize_currency(value: Optional[str]) -> Optional[str]:
@@ -85,6 +92,10 @@ def normalize_currency(value: Optional[str]) -> Optional[str]:
     if value is None:
         return None
     text = str(value).strip().upper()
+    # These explicitly denote missing provenance, not monetary units. Do not
+    # aggregate two UNKNOWN-labelled rows as though their currency were proven.
+    if text in {"UNKNOWN", "UNSPECIFIED", "N/A", "NOT RECORDED", "NOT ASSESSED", "NONE", "NULL", "—"}:
+        return None
     return text or None
 
 
@@ -106,11 +117,15 @@ def afe_row_to_cost_record(row: Dict[str, Any], well_id: int,
         "planned_cost": planned,
         "actual_cost": actual,
         "variance": canonical_variance(planned, actual),
-        "currency": normalize_currency(currency),
+        "currency": normalize_currency(row.get("currency", currency)),
         "afe_number": (afe_number or None),
         "cost_type": COST_TYPE_BUDGET,
         "status": row.get("status") or "Pending",
     }
+    for key in ("description", "cost_date", "vendor", "invoice_number", "notes", "created_by", "created_at"):
+        if key in row:
+            data[key] = row[key]
+    data["afe_number"] = row.get("afe_number", afe_number) if afe_number is None else afe_number
     if row.get("id"):
         data["id"] = row["id"]
     return data
@@ -126,25 +141,64 @@ def cost_records_to_afe_rows(records: List[Dict[str, Any]]) -> List[Dict[str, An
     for r in records:
         if (r.get("cost_type") or "") != COST_TYPE_BUDGET:
             continue
-        rows.append({
-            "id": r.get("id"),
-            "category": r.get("category") or "",
-            "planned_cost": r.get("planned_cost"),
-            "actual_cost": r.get("actual_cost"),
-        })
+        row = dict(r)
+        row["currency"] = normalize_currency(r.get("currency"))
+        rows.append(row)
     rows.sort(key=lambda x: (x.get("category") or ""))
     return rows
 
 
 def summarize_afe(rows: List[Dict[str, Any]]) -> Dict[str, Optional[float]]:
     """Totals for a set of AFE rows using the canonical variance convention."""
-    planned_vals = [r.get("planned_cost") for r in rows if r.get("planned_cost") is not None]
-    actual_vals = [r.get("actual_cost") for r in rows if r.get("actual_cost") is not None]
-    total_planned = sum(float(v) for v in planned_vals) if planned_vals else None
-    total_actual = sum(float(v) for v in actual_vals) if actual_vals else None
+    totals = summarize_costs(rows)
+    return dict(totals, percent_used=percent_used(totals["total_planned"], totals["total_actual"]))
+
+
+def complete_total(values):
+    """A complete amount total, never a subtotal disguised as the total."""
+    from core.engineering.result import optional_number
+    values = [optional_number(v, "amount") for v in values]
+    return require_number(sum(values), "amount total") if values and all(v is not None for v in values) else None
+
+
+def summarize_costs(records):
+    """CostRecord currency contract: no FX model, no project-currency inference.
+
+    Single explicit currency permits totals; mixed/unknown currency does not.
+    Category/currency groups remain available. NULL amounts invalidate that
+    side's total, independently of the other side. Raw rows retain known facts.
+    Accept ORM rows or their repository dict representation, not derived results.
+    """
+    def read(row, key):
+        return row.get(key) if isinstance(row, dict) else getattr(row, key)
+
+    records = list(records)
+    grouped = {}
+    for row in records:
+        key = (normalize_currency(read(row, "currency")), read(row, "category") or "")
+        grouped.setdefault(key, []).append(row)
+    groups = []
+    for (currency, category), rows in sorted(grouped.items(), key=lambda item: (item[0][0] or "", item[0][1])):
+        planned = complete_total(read(r, "planned_cost") for r in rows) if currency else None
+        actual = complete_total(read(r, "actual_cost") for r in rows) if currency else None
+        groups.append(dict(currency=currency, category=category, planned=planned,
+                           actual=actual, variance=canonical_variance(planned, actual)))
+    currencies = {read_key[0] for read_key in grouped}
+    currency = next(iter(currencies)) if len(currencies) == 1 and None not in currencies else None
+    planned = complete_total(read(r, "planned_cost") for r in records) if currency else None
+    actual = complete_total(read(r, "actual_cost") for r in records) if currency else None
     return {
-        "total_planned": total_planned,
-        "total_actual": total_actual,
-        "variance": canonical_variance(total_planned, total_actual),
-        "percent_used": percent_used(total_planned, total_actual),
+        "currency": currency,
+        "status": ("no-records" if not records else "unknown-currency" if None in currencies
+                   else "multi-currency" if len(currencies) > 1 else "single-currency"),
+        "total_planned": planned, "total_actual": actual,
+        "variance": canonical_variance(planned, actual),
+        "groups": groups,
     }
+
+
+def format_money(value, currency):
+    """Explicit currency codes work in text, HTML and spreadsheet labels."""
+    currency = normalize_currency(currency)
+    amount = f"{value:,.2f}" if value is not None else "—"
+    return f"{currency} {amount}" if currency else f"{amount} (currency unknown)"

@@ -48,6 +48,8 @@ _CHILD = textwrap.dedent(
     from PySide6.QtWidgets import QApplication, QTableWidgetItem
     app = QApplication.instance() or QApplication([])
 
+    from core.permissions import permissions
+    permissions.set_user({"role": "engineer"})
     from tabs.w10_Planning_Widget import MaterialInventoryTab
 
     tab = MaterialInventoryTab(mgr)

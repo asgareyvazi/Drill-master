@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [switch]$PortableOnly,
-    [string]$Python = "py -3.11"
+    [string]$Python = "py -3.12"
 )
 
 $ErrorActionPreference = "Stop"
@@ -17,16 +17,29 @@ $buildVenv = Join-Path $Root ".windows-build-venv"
 $buildPython = Join-Path $buildVenv "Scripts\python.exe"
 if (-not (Test-Path $buildPython)) {
     Invoke-Expression "$Python -m venv `"$buildVenv`""
+    if ($LASTEXITCODE -ne 0) { throw "Build virtualenv creation failed" }
+}
+
+$requestedVersion = Invoke-Expression "$Python -c 'import sys; print(sys.version.split()[0])'"
+if ($LASTEXITCODE -ne 0) { throw "Requested Python is unavailable" }
+$actualVersion = & $buildPython -c 'import sys; print(sys.version.split()[0])'
+if ($LASTEXITCODE -ne 0 -or $actualVersion -ne $requestedVersion) {
+    throw "Existing build virtualenv does not match requested Python. Remove .windows-build-venv and retry."
 }
 
 & $buildPython -m pip install --upgrade pip
+if ($LASTEXITCODE -ne 0) { throw "pip upgrade failed" }
 & $buildPython -m pip install -r requirements-lock.txt -r requirements-build.txt
+if ($LASTEXITCODE -ne 0) { throw "Locked dependency installation failed" }
+& $buildPython -m pip check
+if ($LASTEXITCODE -ne 0) { throw "Dependency consistency check failed" }
 
 Remove-Item (Join-Path $Root "build") -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item (Join-Path $Root "dist") -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item (Join-Path $Root "release") -Recurse -Force -ErrorAction SilentlyContinue
 
 & $buildPython -m PyInstaller --noconfirm --clean (Join-Path $Root "packaging\DrillMaster.spec")
+if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed" }
 $bundle = Join-Path $Root "dist\DrillMaster"
 $exe = Join-Path $bundle "DrillMaster.exe"
 if (-not (Test-Path $exe)) {

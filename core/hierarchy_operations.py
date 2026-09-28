@@ -11,7 +11,7 @@ from PySide6.QtWidgets import QMessageBox, QMenu
 logger = logging.getLogger(__name__)
 
 
-def check_delete_permission(status_manager=None) -> bool:
+def check_delete_permission(status_manager=None, entity_type="well") -> bool:
     """P0: Permission enforcement for all delete operations."""
     try:
         from core.permissions import permissions
@@ -19,12 +19,16 @@ def check_delete_permission(status_manager=None) -> bool:
             if status_manager:
                 status_manager.show_error("Hierarchy", "Viewer role is read-only: No Delete allowed")
             return False
-        if not permissions.has_permission("can_delete_well") and not permissions.has_permission("can_delete_reports"):
+        required = {"company": "can_delete_well", "project": "can_delete_well",
+                    "well": "can_delete_well", "section": "can_delete_reports",
+                    "report": "can_delete_reports"}.get(entity_type)
+        if required is None or not permissions.has_permission(required):
             if status_manager:
-                status_manager.show_error("Hierarchy", "Permission denied: delete requires can_delete_well or can_delete_reports")
+                status_manager.show_error("Hierarchy", "Permission denied: delete is not authorized for this entity")
             return False
     except Exception:
-        pass
+        logger.exception("Delete permission check failed; operation blocked")
+        return False
     return True
 
 
@@ -35,7 +39,7 @@ def delete_entity(db_manager, entity_type: str, entity_id: int,
     entity_type: 'company', 'project', 'well', 'section', 'report'
     Returns True if deleted successfully.
     """
-    if not check_delete_permission(status_manager):
+    if not check_delete_permission(status_manager, entity_type):
         return False
     
     labels = {

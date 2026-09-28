@@ -196,7 +196,7 @@ class TestConsumerParity:
         manager.save_afe_worksheet(well_id, [
             {"category": "A", "planned_cost": 100, "actual_cost": 40},
             {"category": "B", "planned_cost": 200, "actual_cost": 60},
-        ])
+        ], currency="USD")
         summary = manager.get_cost_summary(well_id)
         total_actual = sum(r["actual"] for r in summary)
         assert total_actual == 100
@@ -214,7 +214,7 @@ class TestConsumerParity:
     def test_summary_variance_sign_is_planned_minus_actual(self, env):
         manager, well_id = env
         manager.save_afe_worksheet(
-            well_id, [{"category": "A", "planned_cost": 100, "actual_cost": 130}])
+            well_id, [{"category": "A", "planned_cost": 100, "actual_cost": 130}], currency="USD")
         summary = manager.get_cost_summary(well_id)
         # Over budget -> negative variance (planned - actual).
         assert summary[0]["variance"] == -30

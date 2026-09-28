@@ -52,6 +52,8 @@ def test_package_smoke_validates_a_supplied_bundle(tmp_path):
     (bundle / "config" / "company_templates").mkdir(parents=True)
     (bundle / "config" / "ai_models.json").write_text("{}", encoding="utf-8")
     (bundle / "config" / "company_templates" / "oeoc.json").write_text("{}", encoding="utf-8")
+    (bundle / "templates").mkdir()
+    (bundle / "templates" / "OEOC_DDR_v3.json").write_text("{}")
     (bundle / "Qt6Core.dll").write_bytes(b"test")
     (bundle / "platforms").mkdir()
     (bundle / "platforms" / "qwindows.dll").write_bytes(b"test")
@@ -62,5 +64,16 @@ def test_real_windows_bundle_smoke_when_provided():
     configured = os.getenv("DRILLMASTER_BUNDLE_DIR")
     if not configured:
         pytest.skip("Windows bundle not available in this environment")
-    errors = _load_package_smoke().validate_bundle(Path(configured))
+    smoke = _load_package_smoke()
+    errors = smoke.validate_bundle(Path(configured))
     assert not errors, "\n".join(errors)
+    assert os.name == "nt", "ENVIRONMENT-BLOCKED: a Windows runtime is required"
+    assert smoke.run_smoke(Path(configured).resolve()) == 0
+
+
+def test_wheel_includes_desktop_ui_and_builtin_templates():
+    import tomllib
+    config = tomllib.loads((ROOT / "pyproject.toml").read_text())
+    assert "ui*" in config["tool"]["setuptools"]["packages"]["find"]["include"]
+    assert "templates*" in config["tool"]["setuptools"]["packages"]["find"]["include"]
+    assert "OEOC_DDR_v3.json" in config["tool"]["setuptools"]["package-data"]["templates"]

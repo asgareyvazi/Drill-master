@@ -114,6 +114,7 @@ def test_database_actual_vs_plan_uses_recorded_hours_and_costs_only():
     session.add(CostRecord(
         well_id=well_id,
         category="rig",
+        currency="USD",
         planned_cost=100.0,
         actual_cost=120.0,
     ))

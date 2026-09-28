@@ -1,9 +1,16 @@
 # Testing and acceptance guide
 
-**Audit date:** 2026-09-08 — **last re-verified:** 2026-09-09 (see
-`docs/audits/2026-09-09/MASTER_FORENSIC_AUDIT.md` for the current evidence;
-counts below are only valid for the run that produced them and must never be
-copied forward without re-running).
+> **Current evidence — 2026-09-27: [Mission 33 semantic audit](M33_SEMANTIC_AUDIT.md).** Inventory **8934** occurrences adjudicated from the current source: **3712 verified-correct**, **2264 intentional-by-design**, **51 defect-fixed**, **49 removed-with-evidence**, **17 external-acceptance-only**, **2837 under-review** and **4 evidence-incomplete** (the last two stop release certification for repository-verifiable items). This tree is **NOT RELEASE-CERTIFIABLE** — see [M33_RELEASE_CERTIFICATION.md](M33_RELEASE_CERTIFICATION.md). Earlier counts, SHAs and acceptance statements anywhere below are historical or unverified, not current certification.
+
+
+
+**Historical independent evidence (2026-09-22):**
+[`M27 re-audit`](docs/audits/2026-09-22_M27_INDEPENDENT_REAUDIT.md).
+Historical counts below are evidence only for their original runs.
+Install the lock on Python 3.11–3.13, plus
+`pytest==9.1.1 ruff==0.16.6 build==1.6.1` for the source gate.
+The gate defaults to a clean worktree; use `--allow-dirty` for development only.
+Pytest always isolates writable data/config paths, even with an explicit ENV.
 
 ## 1. Local test gate
 
@@ -38,7 +45,7 @@ the `DISPLAY` environment variable, which hid real failures — including a
 broken `QAction` import and a phantom `validate_rows` import discovered on
 2026-09-09. Do not reintroduce DISPLAY-based skips.
 
-### Latest verified run (2026-09-10, Python 3.11, sandbox with Qt stubs)
+### Historical run (2026-09-10, Python 3.11, sandbox with Qt stubs)
 
 ```text
 Collected: 848   Passed: 844   Failed: 0   Errors: 0   Skipped: 4   XFailed: 0   XPassed: 0
@@ -52,8 +59,8 @@ The 4 skips are legitimate opt-ins (real DDR workbook/PDF paths, MinerU
 integration input, Windows bundle). This number is evidence for that run only —
 re-run the suite before quoting any count. No Python 3.12/3.13 local run,
 Windows GUI/package, real MinerU/PDF, or production-DB result is claimed from
-this environment; the CI workflow (`.github/workflows/ci.yml`) exercises
-Python 3.10–3.13 on GitHub runners.
+that historical environment. The current workflow targets Python 3.11–3.13;
+remote execution has not been verified. The release lock does not support 3.10.
 
 ### Raster rendering tests and the QApplication singleton
 
@@ -76,7 +83,7 @@ DRILLMASTER_TEST_DDR_PDF='C:\path\to\DDR.pdf' \
 python -m pytest -q -m integration tests/test_ddr_acceptance.py
 ```
 
-Each test skips explicitly when its path is absent/unavailable. The PDF test
+Each test skips when its path is unset; a supplied nonexistent path fails. The PDF test
 also skips when the separately managed MinerU installation is unavailable; it
 does not install MinerU. A supplied but malformed real input fails rather than
 being converted into a synthetic PASS.

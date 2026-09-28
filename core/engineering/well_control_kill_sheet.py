@@ -142,6 +142,12 @@ class WellControlKillSheetInputs:
     # formula — kept only so a saved snapshot can render the original numbers).
     display: Mapping[str, Any] = field(default_factory=dict)
 
+    # Absence provenance: raw inputs whose value was not recorded. The builder
+    # has always substituted 0.0 for its float fields (historical arithmetic is
+    # preserved), so without this the engine cannot tell "recorded zero" from
+    # "never entered" and a kill sheet could be computed from missing SIDPP/SCR.
+    missing_inputs: Tuple[str, ...] = ()
+
     def as_dict(self) -> Dict[str, Any]:
         d = {
             "tvd_ft": self.tvd_ft,
@@ -248,16 +254,35 @@ def build_canonical_kill_sheet_inputs(
             )
         )
 
+    # Inputs the composite computation actually consumes. ``scr1_spm``/
+    # ``scr2_spm`` are echo-only display metadata and are deliberately absent.
+    required_raw = {
+        "tvd_m": tvd_m,
+        "md_m": md_m,
+        "shoe_tvd_m": shoe_tvd_m,
+        "hole_size_in": hole_size_in,
+        "mw_pcf": mw_pcf,
+        "frac_gradient_psi_ft": frac_gradient_psi_ft,
+        "sidpp_psi": sidpp_psi,
+        "sicp_psi": sicp_psi,
+        "scr1_psi": scr1_psi,
+        "pit_gain_bbl": pit_gain_bbl,
+        "pump_output_bbl_stk": pump_output_bbl_stk,
+    }
+    missing_inputs = tuple(name for name, value in required_raw.items() if _num(value) is None)
+
     display = {
         "tvd_m": tvd_m,
         "md_m": md_m,
         "shoe_tvd_m": shoe_tvd_m,
         "mw_pcf": mw_pcf,
         "casing_od_in": casing_od_in,
+        "casing_id_in": casing_id_in,
         "pipes_m": [dict(p) for p in (pipes_m or ())],
     }
 
     return WellControlKillSheetInputs(
+        missing_inputs=missing_inputs,
         tvd_ft=(_num(tvd_m) or 0.0) * FT_PER_M,
         md_ft=(_num(md_m) or 0.0) * FT_PER_M,
         shoe_tvd_ft=(_num(shoe_tvd_m) or 0.0) * FT_PER_M,
@@ -407,6 +432,15 @@ def compute_kill_sheet(inp: WellControlKillSheetInputs) -> KillSheetResult:
     """
     A = AdvancedHydraulicsEngine
     WC = WellControlEngine
+
+    if inp.missing_inputs:
+        # A kill sheet computed from absent kick data looks plausible and is
+        # wrong (e.g. absent SIDPP becomes "no overpressure"). Refuse instead.
+        return KillSheetResult(
+            success=False,
+            error=(f"{KILL_INPUT_INVALID}: missing required kill-sheet inputs: "
+                   + ", ".join(inp.missing_inputs)),
+        )
 
     mw_ppg = inp.mw_ppg
     mw_pcf = mw_ppg * PCF_PER_PPG

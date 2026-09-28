@@ -16,6 +16,31 @@ except Exception as exc:  # pragma: no cover - environment-dependent Qt import
     pytest.skip(f"manager dependencies are unavailable: {exc}", allow_module_level=True)
 
 
+def _widget_capable_application():
+    """One live application per process, of a class widgets can use.
+
+    This test previously built a bare ``QCoreApplication``. That singleton stays
+    alive for the whole pytest process, and after it ``QApplication`` can no
+    longer be constructed ("Please destroy the QCoreApplication singleton"), so
+    every later widget test aborted with "QWidget: Cannot create a QWidget
+    without QApplication". The repository already isolates its renderer test for
+    this reason; building a widget-capable application here removes the cause for
+    every other test. The fallback keeps this file runnable where no GUI platform
+    exists at all (widgets cannot be created there in any case).
+    """
+    existing = QCoreApplication.instance()
+    if existing is not None:
+        return existing
+    try:
+        from PySide6.QtWidgets import QApplication
+
+        return QApplication([])
+    except Exception as exc:  # pragma: no cover - platform without GUI support
+        print(f"test_autosave_manager_regression: no QApplication available ({exc}); "
+              f"falling back to QCoreApplication - widget tests cannot run in this process")
+        return QCoreApplication([])
+
+
 class _SaveWidget(QObject):
     def __init__(self):
         super().__init__()
@@ -27,7 +52,9 @@ class _SaveWidget(QObject):
 
 def test_setup_widget_with_managers_uses_minute_api_and_is_idempotent():
     """The helper must use AutoSaveManager's interval_minutes API."""
-    app = QCoreApplication.instance() or QCoreApplication([])
+    # The application must exist (and be widget-capable) before any QObject or
+    # QTimer work: this is what keeps the process usable for later widget tests.
+    app = _widget_capable_application()
     widget = _SaveWidget()
 
     setup_widget_with_managers(

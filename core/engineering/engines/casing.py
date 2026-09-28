@@ -206,6 +206,14 @@ class CasingEngine:
                 id_ = od - 2.0 * t
             if id_ <= 0 or id_ >= od:
                 raise EngineeringError("ID must be > 0 and < OD")
+            # A load that was NOT supplied and a load supplied as exactly zero
+            # both evaluate at zero stress, but they are not the same statement:
+            # the first means "no biaxial/Pi correction was claimed", the second
+            # means "the engineer states the load is zero". Keep them apart in
+            # the reported values (module contract: optional_number returns None
+            # for absent input; casing_persistence likewise preserves None loads).
+            fax_supplied = not (axial_tension_lbf is None or axial_tension_lbf == "")
+            pi_supplied = not (internal_pressure_psi is None or internal_pressure_psi == "")
             fax = optional_number(axial_tension_lbf, "axial_tension_lbf") or 0.0
             pi = optional_number(internal_pressure_psi, "internal_pressure_psi") or 0.0
             if pi < 0:
@@ -225,15 +233,31 @@ class CasingEngine:
             working = pc_corr / df if df and df > 0 else None
             values = {
                 "collapse_uncorrected_psi": round(pc0, 1),
-                "fyax_psi": round(yp_ax, 1),
-                "axial_stress_psi": round(sa, 1),
+                # Only claim a biaxial (fyax) / Pi result when the load was
+                # actually supplied; an absent load is reported as not recorded
+                # rather than as a measured zero.
+                "fyax_psi": round(yp_ax, 1) if fax_supplied else None,
+                "axial_stress_psi": round(sa, 1) if fax_supplied else None,
                 "collapse_fyax_psi": round(pc_ax, 1),
                 "collapse_combined_psi": round(pc_corr, 1),
-                "internal_pressure_psi": pi,
+                "internal_pressure_psi": pi if pi_supplied else None,
+                "axial_tension_supplied": fax_supplied,
+                "internal_pressure_supplied": pi_supplied,
                 "regime": regime,
                 "d_over_t": round(dt, 4),
                 "working_pressure_psi": None if working is None else round(working, 1),
             }
+            warnings = []
+            if not fax_supplied:
+                warnings.append(
+                    "Axial tension not supplied — collapse reported without biaxial "
+                    "fyax reduction (uniaxial API 5C3 rating)"
+                )
+            if not pi_supplied:
+                warnings.append(
+                    "Internal pressure not supplied — collapse Pi addendum not applied "
+                    "(rating at zero internal pressure)"
+                )
             return ok(
                 round(pc_corr, 1),
                 values=values,
@@ -244,6 +268,7 @@ class CasingEngine:
                     "API 5C3 biaxial fyax (tension positive)",
                     "Internal-pressure addendum Pc' = Pc + Pi (1 − 2t/D)",
                 ],
+                warnings=warnings,
                 scope=cls.SCOPE,
             )
         except MissingInputError as exc:
@@ -415,7 +440,7 @@ class CasingEngine:
             design_factor=collapse_design_factor,
         )
 
-        warnings: List[str] = list(b.warnings) + list(c.warnings) + list(t.warnings)
+        warnings: List[str] = list(b.warnings) + list(c.warnings) + list(t.warnings) + list(comb.warnings)
         if yp_t is None:
             warnings.append("Temperature derating not applied — pass yield_at_temp_psi if Yp is reduced")
         else:

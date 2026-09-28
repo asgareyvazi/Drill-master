@@ -122,10 +122,10 @@ def test_milestones_uses_real_stored_plan_not_fabricated(db, two_bore_sections):
                          wellbore_id=two_bore_sections["orig"])
     st.load_milestones_data()
     names, fact, plan = st.captured
-    # Original bore owns the 12-1/4" (plan 8) and 17-1/2" (no plan -> 0).
+    # Original bore owns the 12-1/4" (plan 8) and 17-1/2" (explicit planned zero).
     by_name = dict(zip(names, plan))
     assert by_name['12-1/4"'] == 8.0          # real stored plan
-    # No stored plan -> 0 (nothing planned), never depth/50 (=20) or flat 5.
+    # Stored explicit zero -> 0, never depth/50 (=20) or flat 5.
     assert by_name['17-1/2"'] == 0.0
     # depth/50 would have produced (1000-0)/50 = 20; prove that did NOT happen.
     assert by_name['17-1/2"'] != 20.0

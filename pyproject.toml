@@ -32,10 +32,11 @@ version = {attr = "core.version.__version__"}
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["core*", "dialogs*", "tabs*", "config*"]
+include = ["core*", "dialogs*", "tabs*", "config*", "ui*", "templates*"]
 
 [tool.setuptools.package-data]
 config = ["*.json", "company_templates/*.json"]
+templates = ["OEOC_DDR_General.json", "OEOC_DDR_v3.json", "OEOC_DDR_full_extraction.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

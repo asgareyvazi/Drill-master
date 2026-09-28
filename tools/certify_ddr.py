@@ -88,7 +88,9 @@ def certify(path, output):
         "survey_md": [[r["md"] for r in payload.get("surveys", [])], [r["md"] for r in after["SurveyPoint"]]],
         "survey_inc": [[r.get("inc") for r in payload.get("surveys", [])], [r["inc"] for r in after["SurveyPoint"]]],
         "survey_azi": [[r.get("azi") for r in payload.get("surveys", [])], [r["azi"] for r in after["SurveyPoint"]]],
-        "pob_total": [payload.get("logistics", {}).get("pob_total"), sum(r["personnel_count"] for r in after["ServiceCompanyPOB"])],
+        "pob_total": [payload.get("logistics", {}).get("pob_total"),
+                      (None if any(r["personnel_count"] is None for r in after["ServiceCompanyPOB"])
+                       else sum(r["personnel_count"] for r in after["ServiceCompanyPOB"]))],
     }
     evidence = {
         "scope": "Actual shared application service; no Qt stubs; NOT desktop/Windows certification",

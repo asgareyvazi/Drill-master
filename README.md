@@ -1,5 +1,9 @@
 # DrillMaster
 
+> **Current evidence — 2026-09-27: [Mission 33 semantic audit](M33_SEMANTIC_AUDIT.md).** Inventory **8934** occurrences adjudicated from the current source: **3712 verified-correct**, **2264 intentional-by-design**, **51 defect-fixed**, **49 removed-with-evidence**, **17 external-acceptance-only**, **2837 under-review** and **4 evidence-incomplete** (the last two stop release certification for repository-verifiable items). This tree is **NOT RELEASE-CERTIFIABLE** — see [M33_RELEASE_CERTIFICATION.md](M33_RELEASE_CERTIFICATION.md). Earlier counts, SHAs and acceptance statements anywhere below are historical or unverified, not current certification.
+
+
+
 DrillMaster is a Windows-oriented Qt desktop application for drilling
 operations records, canonical report import, and deterministic engineering
 calculations. The UI routes calculations through the canonical engineering
@@ -201,14 +205,18 @@ Linux checkout, so Windows acceptance is **BLOCKED**, not PASS. See
 
 ## Development and release validation
 
-The source checkout requires Python 3.10-3.13 and the dependencies in
-`requirements.txt`. For a reproducible development environment:
+Project metadata declares Python 3.10–3.13 with ranged dependencies. The
+**release lock requires Python 3.11–3.13** (`contourpy==1.3.3` excludes 3.10).
+This audit executed Python 3.11 only; wheel resolution is not runtime acceptance.
+For a locked development environment:
 
 ```bash
 python -m venv .venv
 # Linux/macOS: . .venv/bin/activate
 # Windows PowerShell: .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements-lock.txt
+# Verification tools (not runtime dependencies):
+python -m pip install pytest==9.1.1 ruff==0.16.6 build==1.6.1
 python -m app
 ```
 
@@ -226,14 +234,15 @@ git diff --check
 On headless Linux the test suite uses the offscreen Qt platform; if the system
 lacks the Qt runtime libraries (minimal sandboxes), source
 `tools/qt_headless_env.sh` first (it builds no-op stubs — see TESTING.md).
-Continuous integration (`.github/workflows/ci.yml`) runs the same gate on
-Python 3.10–3.13: compile check, a blocking ruff defect gate (E722 bare
-excepts, F821 undefined names), a blocking lint-debt ratchet (the finding count
-under the full project config may not grow), and the full test suite.
-Current verification evidence lives in `docs/audits/<latest-date>/`.
+The source workflow `.github/workflows/ci.yml` is supplied for Python
+3.11–3.13 with real system Qt libraries. **No GitHub Actions pass is claimed**;
+current execution evidence and remaining blockers are in
+[`M27 independent re-audit`](docs/audits/2026-09-22_M27_INDEPENDENT_REAUDIT.md).
 
-`verify_release.py` performs a source compile check, dynamic pytest collection,
-and the complete configured pytest suite. The Windows frozen package smoke
-test is run by `packaging/build_windows.ps1`; it checks the executable, JSON
-assets, Qt platform plugin, import paths, database initialization, schema, and
-export/import module boundaries without enabling optional AI components.
+`verify_release.py` checks Git SHA/worktree, runtime pins, pip consistency,
+required resources, blocking E722/F821 findings, the pinned lint-debt ratchet,
+compilation, pytest collection/execution accounting (including unexpected
+xfail/xpass), and a real Python wheel build/resource check. It rejects dirty
+worktrees by default; `--allow-dirty` explicitly denotes a development run.
+It does **not** certify Windows, a frozen executable, or production documents.
+The Windows EXE smoke is separately invoked by `packaging/build_windows.ps1`.

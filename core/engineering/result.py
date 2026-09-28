@@ -109,7 +109,7 @@ def require_number(value: Any, field: str) -> float:
         raise EngineeringError(f"Invalid numeric value for {field}: {value!r}")
     try:
         number = float(value)
-    except (TypeError, ValueError) as exc:
+    except (TypeError, ValueError, OverflowError) as exc:
         raise EngineeringError(f"Invalid numeric value for {field}: {value!r}") from exc
     if not math.isfinite(number):
         raise EngineeringError(f"Invalid numeric value for {field}: {value!r}")
@@ -123,7 +123,7 @@ def optional_number(value: Any, field: str) -> Optional[float]:
         raise EngineeringError(f"Invalid numeric value for {field}: {value!r}")
     try:
         number = float(value)
-    except (TypeError, ValueError) as exc:
+    except (TypeError, ValueError, OverflowError) as exc:
         raise EngineeringError(f"Invalid numeric value for {field}: {value!r}") from exc
     if not math.isfinite(number):
         raise EngineeringError(f"Invalid numeric value for {field}: {value!r}")

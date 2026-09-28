@@ -791,7 +791,12 @@ class ProcedureEditorPage(QWidget):
                 self.well_name_edit.setText(well.get('name', ''))
                 self.rig_name_edit.setText(well.get('rig_name', ''))
                 self.field_edit.setText(well.get('field_name', ''))
-                self.mud_weight.setValue(float(well.get('gle_msl', 0) or 0))
+                # GLE-MSL is a ground-level *elevation* (m), not a mud weight:
+                # it used to be written into the "Mud Weight (pcf)" box, showing a
+                # length as a mud weight. The well record carries no mud weight, so
+                # the field stays for the user to enter (these status fields are
+                # procedure context only and are not persisted by save_procedure).
+                self.mud_weight.setValue(0)
         
         self.title_label.setText("📋 New Procedure")
         self.status_label.setText("")

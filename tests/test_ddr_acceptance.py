@@ -33,7 +33,7 @@ def _env_file(name: str) -> Path:
         pytest.skip(f"{name} is not set; real DDR acceptance is opt-in")
     path = Path(value).expanduser()
     if not path.is_file():
-        pytest.skip(f"{name} does not point to a file: {path}")
+        pytest.fail(f"{name} does not point to a file: {path}")
     return path
 
 
@@ -214,7 +214,7 @@ def test_real_ddr_pdf_mineru_common_ir_review_and_atomic_db():
     adapter = MinerUAdapter()
     health = adapter.health_check()
     if not health.available:
-        pytest.skip("MinerU is unavailable in this environment: " + str(health.error or health.to_dict()))
+        pytest.fail("ENVIRONMENT-BLOCKED: MinerU is unavailable for the explicitly requested PDF acceptance: " + str(health.error or health.to_dict()))
     result = adapter.parse_file(source)
     assert result.success, result.error
     assert result.document is not None

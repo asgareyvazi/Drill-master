@@ -729,10 +729,14 @@ class MainWindow(QMainWindow):
         if not query or len(query) < 2:
             return
 
-        results = self.db_manager.search_all(
-            query,
-            well_id=self.sel_manager.current_well_id
-        )
+        try:
+            results = self.db_manager.search_all(
+                query, well_id=self.sel_manager.current_well_id
+            )
+        except Exception:
+            logger.exception("Global search failed")
+            self.status_manager.show_message("MainWindow", "Search FAILED — results unavailable", 5000)
+            return False
 
         if not results:
             self.status_manager.show_message(
@@ -1485,23 +1489,13 @@ class MainWindow(QMainWindow):
 
         menu.exec(self.tree_widget.viewport().mapToGlobal(position))
         
-    def _check_delete_permission(self) -> bool:
-        """P0: Permission enforcement for all delete operations."""
-        try:
-            from core.permissions import permissions
-            if permissions.is_viewer():
-                self.status_manager.show_error("MainWindow", "Viewer role is read-only: No Delete allowed")
-                return False
-            if not permissions.has_permission("can_delete_well") and not permissions.has_permission("can_delete_reports"):
-                self.status_manager.show_error("MainWindow", "Permission denied: delete requires can_delete_well or can_delete_reports")
-                return False
-        except Exception:
-            pass
-        return True
+    def _check_delete_permission(self, entity_type="well") -> bool:
+        from core.hierarchy_operations import check_delete_permission
+        return check_delete_permission(self.status_manager, entity_type)
 
     def _delete_company(self, company_id: int):
         """حذف شرکت - P0 with permission + audit + atomic"""
-        if not self._check_delete_permission():
+        if not self._check_delete_permission("company"):
             return
         reply = QMessageBox.question(
             self, "Delete Company",
@@ -1547,7 +1541,7 @@ class MainWindow(QMainWindow):
 
     def _delete_project(self, project_id: int):
         """حذف پروژه - P0 with permission"""
-        if not self._check_delete_permission():
+        if not self._check_delete_permission("project"):
             return
         reply = QMessageBox.question(
             self, "Delete Project",
@@ -1593,7 +1587,7 @@ class MainWindow(QMainWindow):
 
     def _delete_well(self, well_id: int):
         """حذف چاه - P0 with permission + atomic child deletion"""
-        if not self._check_delete_permission():
+        if not self._check_delete_permission("well"):
             return
         reply = QMessageBox.question(
             self, "Delete Well",
@@ -1638,7 +1632,7 @@ class MainWindow(QMainWindow):
 
     def _delete_section(self, section_id: int, well_id: int = None):
         """حذف سکشن - P0 with permission"""
-        if not self._check_delete_permission():
+        if not self._check_delete_permission("section"):
             return
         reply = QMessageBox.question(
             self, "Delete Section",

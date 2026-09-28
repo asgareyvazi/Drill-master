@@ -43,7 +43,7 @@ overwritten, so the operation is idempotent.
 from __future__ import annotations
 
 from collections import Counter, defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from typing import Dict, List, Optional
 import logging
 
@@ -84,7 +84,7 @@ class AttributionReport:
             "wellbore": dict(self.wellbore),
             "section": dict(self.section),
             "applied": self.applied,
-            "outcomes": [vars(o) for o in self.outcomes],
+            "outcomes": [asdict(o) for o in self.outcomes],
         }
 
 
@@ -114,7 +114,9 @@ class ScopeAttributionService:
     def resolve(self, well_id: Optional[int] = None) -> AttributionReport:
         """Assign only provably-unique wellbore/section owners; commit once.
 
-        Idempotent: a second call finds the same rows ``ALREADY`` attributed.
+        Monotonic convergence: a newly assigned section can prove a bore on
+        the next explicit call. Once stable, repeated calls write nothing.
+        This is not a promise of one-pass fixed-point resolution.
         Never overwrites existing scope and never crosses a well boundary (the
         persistence invariants enforce the latter regardless).
         """
@@ -134,7 +136,7 @@ class ScopeAttributionService:
     # Shared engine
     # ------------------------------------------------------------------
     def _compute(self, session, well_id, apply: bool) -> AttributionReport:
-        from core.database import DailyReport, Section, Wellbore
+        from core.database import DailyReport, Section, Wellbore, Well
 
         result = AttributionReport()
 
@@ -160,10 +162,39 @@ class ScopeAttributionService:
             if sec.wellbore_id is not None:
                 sections_by_wellbore[sec.wellbore_id].append(sec.id)
 
+        well_ids = {row[0] for row in session.query(Well.id).all()}
+        invalid_candidate_wells = {
+            sec.well_id for sections in sections_by_well.values() for sec in sections
+            if sec.well_id not in well_ids or (sec.wellbore_id is not None
+                and sec.wellbore_id not in wellbores_by_well.get(sec.well_id, []))
+        }
         reports = rep_q.order_by(DailyReport.report_date).all()
         result.total_reports = len(reports)
 
         for rep in reports:
+            # Do not propose any repair for contradictory legacy/external rows.
+            # Filtering by well intentionally makes foreign owners unavailable.
+            bores = wellbores_by_well.get(rep.well_id, [])
+            sec = section_by_id.get(rep.section_id)
+            invalid = (
+                rep.well_id not in well_ids
+                or (rep.section_id is None and rep.well_id in invalid_candidate_wells)
+                or (rep.wellbore_id is not None and rep.wellbore_id not in bores)
+                or (rep.section_id is not None and (
+                    sec is None or sec.well_id != rep.well_id
+                    or (sec.wellbore_id is not None and sec.wellbore_id not in bores)
+                    or (rep.wellbore_id is not None and sec.wellbore_id is not None
+                        and rep.wellbore_id != sec.wellbore_id)
+                ))
+            )
+            if invalid:
+                for dimension in ("wellbore", "section"):
+                    getattr(result, dimension)[INVALID] += 1
+                    result.outcomes.append(ReportOutcome(
+                        rep.id, dimension, INVALID,
+                        detail="Existing scope or attribution candidates contradict the ownership chain",
+                    ))
+                continue
             wb_outcome = self._classify_wellbore(
                 rep, wellbores_by_well, section_by_id
             )
@@ -177,7 +208,8 @@ class ScopeAttributionService:
 
             # Section resolution can use a wellbore that is now known (either
             # pre-existing or just resolved above).
-            effective_wb = rep.wellbore_id
+            effective_wb = (wb_outcome.target_id
+                            if wb_outcome.status == RESOLVED else rep.wellbore_id)
             sec_outcome = self._classify_section(
                 rep,
                 effective_wb,
@@ -284,6 +316,10 @@ class ScopeAttributionService:
 
         # Rule 2: the well has exactly one section.
         well_sections = sections_by_well.get(rep.well_id, [])
+        if effective_wb is not None:
+            # A known bore rules out a unique section belonging to its sibling.
+            well_sections = [sec for sec in well_sections
+                             if sec.wellbore_id in (None, effective_wb)]
         if len(well_sections) == 1:
             return ReportOutcome(
                 rep.id, "section", RESOLVED,
@@ -310,18 +346,20 @@ class ScopeAttributionService:
     def coverage(self, well_id: Optional[int] = None) -> Dict:
         """Return scope-attribution coverage percentages for a well (or all).
 
-        Coverage counts ONLY genuinely-attributed reports (ALREADY + the
-        provably RESOLVED ones); NULL/ambiguous/unresolved rows are never
-        treated as covered. Percentages are ``None`` when there are no reports
+        Coverage counts persisted, valid attribution (ALREADY) only.
+        Separate attributable percentages include provably RESOLVED proposals;
+        read-only analysis must not present a proposal as an existing FK. Percentages are ``None`` when there are no reports
         (unknown, never a fabricated 0/100).
         """
         report = self.analyze(well_id)
         total = report.total_reports
 
-        def _pct(counter: Counter) -> Optional[float]:
+        def _pct(counter: Counter, include_proposals=False) -> Optional[float]:
             if not total:
                 return None
-            covered = counter.get(ALREADY, 0) + counter.get(RESOLVED, 0)
+            covered = counter.get(ALREADY, 0)
+            if include_proposals:
+                covered += counter.get(RESOLVED, 0)
             return round(covered / total * 100, 1)
 
         return {
@@ -329,6 +367,8 @@ class ScopeAttributionService:
             "total_reports": total,
             "wellbore_coverage_pct": _pct(report.wellbore),
             "section_coverage_pct": _pct(report.section),
+            "wellbore_attributable_pct": _pct(report.wellbore, True),
+            "section_attributable_pct": _pct(report.section, True),
             "wellbore": dict(report.wellbore),
             "section": dict(report.section),
         }

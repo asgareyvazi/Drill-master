@@ -33,7 +33,6 @@ class CalculatorBridge:
     well_control = WellControlEngine
     casing = CasingEngine
     cement = CementEngine
-    mse = MSEEngine
     mud_volume = MudVolumeEngine
     torque_drag = TorqueDragEngine
     bit_performance = BitPerformanceEngine

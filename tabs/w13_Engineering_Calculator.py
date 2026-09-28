@@ -3639,9 +3639,14 @@ class EngineeringCalculatorTab(DrillTabBase):
         )
         fy = v.get("fyax_psi")
         comb = v.get("collapse_combined_psi")
-        self.csg_combined_res.setText(
-            f"{comb:,.0f} psi  fyax={fy:,.0f} psi" if comb is not None else "--"
-        )
+        if comb is None:
+            self.csg_combined_res.setText("--")
+        elif fy is None:
+            self.csg_combined_res.setText(
+                f"{comb:,.0f} psi  fyax=n/a (no axial load supplied)"
+            )
+        else:
+            self.csg_combined_res.setText(f"{comb:,.0f} psi  fyax={fy:,.0f} psi")
         bits = []
         if v.get("vme_psi") is not None:
             bits.append(f"VME {v['vme_psi']:,.0f} psi (u={v.get('vme_utilization', 0):.3f})")
@@ -3915,13 +3920,13 @@ class EngineeringCalculatorTab(DrillTabBase):
         wf = QFormLayout(g_well)
         self.wc_well_type = QComboBox()
         self.wc_well_type.addItems(["Vertical", "Directional", "Horizontal"])
-        self.wc_tvd = self._make_dspin(3000, 0, 20000, 0, " m")
-        self.wc_md = self._make_dspin(3200, 0, 20000, 0, " m")
-        self.wc_shoe_tvd = self._make_dspin(2000, 0, 20000, 0, " m")
-        self.wc_shoe_md = self._make_dspin(2050, 0, 20000, 0, " m")
-        self.wc_hole_size = self._make_dspin(8.5, 0, 50, 3, " in")
-        self.wc_last_csg = self._make_dspin(9.625, 0, 50, 3, " in OD")
-        self.wc_last_csg_id = self._make_dspin(8.835, 0, 50, 3, " in ID")
+        self.wc_tvd = self._make_wc_spin(20000, 0, " m")
+        self.wc_md = self._make_wc_spin(20000, 0, " m")
+        self.wc_shoe_tvd = self._make_wc_spin(20000, 0, " m")
+        self.wc_shoe_md = self._make_wc_spin(20000, 0, " m")
+        self.wc_hole_size = self._make_wc_spin(50, 3, " in")
+        self.wc_last_csg = self._make_wc_spin(50, 3, " in OD")
+        self.wc_last_csg_id = self._make_wc_spin(50, 3, " in ID")
         wf.addRow("Well Type:", self.wc_well_type)
         wf.addRow("TVD:", self.wc_tvd)
         wf.addRow("MD (Bit Depth):", self.wc_md)
@@ -3968,11 +3973,11 @@ class EngineeringCalculatorTab(DrillTabBase):
         # Mud & Kick Data
         g_mud = QGroupBox("🧪 Mud & Kick Data")
         mf = QFormLayout(g_mud)
-        self.wc_mw = self._make_dspin(90, 0, 200, 1, " pcf")
-        self.wc_frac = self._make_dspin(0.8, 0, 2, 3, " psi/ft")
-        self.wc_sidpp = self._make_dspin(500, 0, 10000, 0, " psi")
-        self.wc_sicp = self._make_dspin(700, 0, 10000, 0, " psi")
-        self.wc_pit_gain = self._make_dspin(10, 0, 500, 0, " bbl")
+        self.wc_mw = self._make_wc_spin(200, 1, " pcf")
+        self.wc_frac = self._make_wc_spin(2, 3, " psi/ft")
+        self.wc_sidpp = self._make_wc_spin(10000, 0, " psi")
+        self.wc_sicp = self._make_wc_spin(10000, 0, " psi")
+        self.wc_pit_gain = self._make_wc_spin(500, 0, " bbl")
         mf.addRow("Current MW:", self.wc_mw)
         mf.addRow("Frac Gradient:", self.wc_frac)
         mf.addRow("SIDPP:", self.wc_sidpp)
@@ -3983,11 +3988,11 @@ class EngineeringCalculatorTab(DrillTabBase):
         # Pump Data
         g_pump = QGroupBox("💧 Pump & SCR Data")
         pf = QFormLayout(g_pump)
-        self.wc_scr1 = self._make_dspin(800, 0, 5000, 0, " psi @ SCR")
-        self.wc_scr1_spm = self._make_dspin(30, 0, 200, 0, " spm")
-        self.wc_scr2 = self._make_dspin(600, 0, 5000, 0, " psi @ SCR")
-        self.wc_scr2_spm = self._make_dspin(25, 0, 200, 0, " spm")
-        self.wc_pump_output = self._make_dspin(0.09, 0, 1, 5, " bbl/stk")
+        self.wc_scr1 = self._make_wc_spin(5000, 0, " psi @ SCR")
+        self.wc_scr1_spm = self._make_wc_spin(200, 0, " spm")
+        self.wc_scr2 = self._make_wc_spin(5000, 0, " psi @ SCR")
+        self.wc_scr2_spm = self._make_wc_spin(200, 0, " spm")
+        self.wc_pump_output = self._make_wc_spin(1, 5, " bbl/stk")
         pf.addRow("SCR #1 Pressure:", self.wc_scr1)
         pf.addRow("SCR #1 SPM:", self.wc_scr1_spm)
         pf.addRow("SCR #2 Pressure:", self.wc_scr2)
@@ -4237,8 +4242,10 @@ class EngineeringCalculatorTab(DrillTabBase):
         self.wc_pipe_table.setRowCount(0)
         total_string = 0
         total_ann = 0
-        csg_id = self.wc_last_csg_id.value()
-        hole = self.wc_hole_size.value()
+        csg_id = self._wc_value(self.wc_last_csg_id)
+        hole = self._wc_value(self.wc_hole_size)
+        shoe_md = self._wc_value(self.wc_shoe_md)
+        ann_known = csg_id is not None and hole is not None and shoe_md is not None
 
         for p in self.wc_pipes:
             row = self.wc_pipe_table.rowCount()
@@ -4261,16 +4268,22 @@ class EngineeringCalculatorTab(DrillTabBase):
             self.wc_pipe_table.setItem(row, 5, vi)
 
             # Annular volume (simplified)
-            ann_id = csg_id if L < self.wc_shoe_md.value() else hole
-            if ann_id > od:
+            ann_id = csg_id if (shoe_md is not None and L < shoe_md) else hole
+            if ann_known and ann_id > od:
                 ann_vol = (A.calc_annular_capacity_bbl_ft(ann_id, od)
                            * 3.28084 * L)
                 total_ann += ann_vol
 
-        self.wc_string_summary.setText(
-            f"String: {total_string:.2f} bbl | Annular: {total_ann:.2f} bbl | "
-            f"Total: {total_string + total_ann:.2f} bbl"
-        )
+        if ann_known:
+            self.wc_string_summary.setText(
+                f"String: {total_string:.2f} bbl | Annular: {total_ann:.2f} bbl | "
+                f"Total: {total_string + total_ann:.2f} bbl"
+            )
+        else:
+            self.wc_string_summary.setText(
+                f"String: {total_string:.2f} bbl | Annular: — "
+                "(hole size / casing / shoe depth not recorded)"
+            )
     
     # ========== Well Control Methods ==========
 
@@ -4284,25 +4297,26 @@ class EngineeringCalculatorTab(DrillTabBase):
             build_canonical_kill_sheet_inputs,
             compute_kill_sheet,
         )
+        from core.text_utils import fmt_num
 
         method = "Driller's" if self.wc_driller.isChecked() else "Wait & Weight"
         inp = build_canonical_kill_sheet_inputs(
-            tvd_m=self.wc_tvd.value(),
-            md_m=self.wc_md.value(),
-            shoe_tvd_m=self.wc_shoe_tvd.value(),
-            hole_size_in=self.wc_hole_size.value(),
-            casing_id_in=self.wc_last_csg_id.value(),
-            casing_od_in=self.wc_last_csg.value(),
-            mw_pcf=self.wc_mw.value(),
-            frac_gradient_psi_ft=self.wc_frac.value(),
-            sidpp_psi=self.wc_sidpp.value(),
-            sicp_psi=self.wc_sicp.value(),
-            pit_gain_bbl=self.wc_pit_gain.value(),
-            scr1_psi=self.wc_scr1.value(),
-            scr1_spm=self.wc_scr1_spm.value(),
-            scr2_psi=self.wc_scr2.value(),
-            scr2_spm=self.wc_scr2_spm.value(),
-            pump_output_bbl_stk=self.wc_pump_output.value(),
+            tvd_m=self._wc_value(self.wc_tvd),
+            md_m=self._wc_value(self.wc_md),
+            shoe_tvd_m=self._wc_value(self.wc_shoe_tvd),
+            hole_size_in=self._wc_value(self.wc_hole_size),
+            casing_id_in=self._wc_value(self.wc_last_csg_id),
+            casing_od_in=self._wc_value(self.wc_last_csg),
+            mw_pcf=self._wc_value(self.wc_mw),
+            frac_gradient_psi_ft=self._wc_value(self.wc_frac),
+            sidpp_psi=self._wc_value(self.wc_sidpp),
+            sicp_psi=self._wc_value(self.wc_sicp),
+            pit_gain_bbl=self._wc_value(self.wc_pit_gain),
+            scr1_psi=self._wc_value(self.wc_scr1),
+            scr1_spm=self._wc_value(self.wc_scr1_spm),
+            scr2_psi=self._wc_value(self.wc_scr2),
+            scr2_spm=self._wc_value(self.wc_scr2_spm),
+            pump_output_bbl_stk=self._wc_value(self.wc_pump_output),
             method=method,
             well_type=self.wc_well_type.currentText(),
             pipes_m=self.wc_pipes,
@@ -4357,11 +4371,11 @@ class EngineeringCalculatorTab(DrillTabBase):
     ╠═════════════════════════════════════════════════════════╣
     ║ WELL DATA:
     ║   Well Type:      {self.wc_well_type.currentText()}
-    ║   TVD:            {self.wc_tvd.value():.0f} m ({tvd_ft:.0f} ft)
-    ║   MD:             {self.wc_md.value():.0f} m ({md_ft:.0f} ft)
-    ║   Shoe TVD:       {self.wc_shoe_tvd.value():.0f} m ({shoe_tvd_ft:.0f} ft)
-    ║   Hole Size:      {hole:.3f}" 
-    ║   Last CSG:       {self.wc_last_csg.value():.3f}" OD / {csg_id:.3f}" ID
+    ║   TVD:            {fmt_num(inp.display.get('tvd_m'), 0)} m ({tvd_ft:.0f} ft)
+    ║   MD:             {fmt_num(inp.display.get('md_m'), 0)} m ({md_ft:.0f} ft)
+    ║   Shoe TVD:       {fmt_num(inp.display.get('shoe_tvd_m'), 0)} m ({shoe_tvd_ft:.0f} ft)
+    ║   Hole Size:      {fmt_num(hole, 3)}"
+    ║   Last CSG:       {fmt_num(inp.display.get('casing_od_in'), 3)}" OD / {fmt_num(inp.display.get('casing_id_in'), 3)}" ID
     ╠═════════════════════════════════════════════════════════╣
     ║ DRILL STRING VOLUMES:"""
 
@@ -5195,6 +5209,26 @@ class EngineeringCalculatorTab(DrillTabBase):
         if suffix:
             sp.setSuffix(suffix)
         return sp
+
+    def _make_wc_spin(self, max_v, dec, suffix="") -> QDoubleSpinBox:
+        """Kill-sheet input that can express "not recorded".
+
+        ``QDoubleSpinBox`` has no NULL, so the minimum value renders an explicit
+        marker and reads back as ``None`` (the same idiom the daily report uses
+        for its depth readings). The kill sheet is a safety document: a pre-filled
+        SIDPP/SICP/TVD would be submitted as a measured fact the user never
+        entered, so every consumed input starts "not recorded".
+        """
+        sp = self._make_dspin(-1, -1, max_v, dec, suffix)
+        sp.setSpecialValueText("Not recorded")
+        return sp
+
+    @staticmethod
+    def _wc_value(spin):
+        """Read a kill-sheet input; the sentinel reads back as ``None``."""
+        if spin.specialValueText() and spin.value() <= spin.minimum():
+            return None
+        return spin.value()
 
     def _update_stuck(self):
         fp = self.engine.calc_free_point(

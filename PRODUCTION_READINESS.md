@@ -1,6 +1,15 @@
 # Production readiness and final import consistency gate
 
-**Branch:** `arena/01a085e0-drill-master`
+> **Current evidence — 2026-09-27: [Mission 33 semantic audit](M33_SEMANTIC_AUDIT.md).** Inventory **8934** occurrences adjudicated from the current source: **3712 verified-correct**, **2264 intentional-by-design**, **51 defect-fixed**, **49 removed-with-evidence**, **17 external-acceptance-only**, **2837 under-review** and **4 evidence-incomplete** (the last two stop release certification for repository-verifiable items). This tree is **NOT RELEASE-CERTIFIABLE** — see [M33_RELEASE_CERTIFICATION.md](M33_RELEASE_CERTIFICATION.md). Earlier counts, SHAs and acceptance statements anywhere below are historical or unverified, not current certification.
+
+## Historical readiness records
+
+The dated material below is retained for provenance. Its uses of “current”,
+“verified”, and “release posture” refer to those historical dates. The Mission 29
+boundary above is the current status. In particular, the supported exact runtime
+lock requires Python 3.11–3.13; broad package metadata is not proof that this lock
+installs on Python 3.10. No hosted Actions success is claimed.
+
 **Audit date:** 2026-09-08 — **re-verified:** 2026-09-09
 (`docs/audits/2026-09-09/` holds the current forensic evidence and acceptance
 table; the sections below retain the 2026-09-08 import-gate results).
@@ -21,9 +30,8 @@ acceptance is recorded.**
 * Well-centric acceptance scenario (one rig, three wells, sidetrack
   non-merge, DDR continuity, section/well consistency): automated in
   `tests/test_well_centric_acceptance.py`.
-* CI added: `.github/workflows/ci.yml` (Python 3.10–3.13, compile, ruff
-  defect gate E722/F821, lint-debt ratchet, full suite offscreen). Its first
-  executed result is pending — CI itself is **NOT VERIFIED** until it runs.
+* Historical CI intent was not present at audit-start HEAD. The independent
+  M27 patch supplies a workflow; remote CI remains **NOT VERIFIED**.
 * Still NOT VERIFIED / BLOCKED: Windows GUI, installer, real MinerU/PDF,
   production database, Python 3.10/3.12/3.13 outside CI.
 
@@ -106,6 +114,6 @@ BLOCKED until executed on Windows.
 ## Merge gate
 
 Merge readiness requires a clean working tree after commit, exact SHA, pushed
-branch `arena/01a085e0-drill-master`, fresh dependency-backed test output,
+release branch (record its exact name and SHA), fresh dependency-backed test output,
 package smoke output, and the Windows acceptance record. Until then the status
 is **BLOCKED**.

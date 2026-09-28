@@ -220,8 +220,8 @@ def test_canonical_kpis_do_not_multiply_across_one_to_many_children():
                                report_name="Bit-1", bit_records_json=[]))
         session.add(_BitReport(well_id=well.id, report_id=report.id, report_date=report.report_date,
                                report_name="Bit-2", bit_records_json=[]))
-        session.add(_CostRecord(well_id=well.id, category="Rig", actual_cost=100000.0))
-        session.add(_CostRecord(well_id=well.id, category="Mud", actual_cost=50000.0))
+        session.add(_CostRecord(well_id=well.id, category="Rig", currency="USD", actual_cost=100000.0))
+        session.add(_CostRecord(well_id=well.id, category="Mud", currency="USD", actual_cost=50000.0))
         session.commit()
         well_id = well.id
     finally:

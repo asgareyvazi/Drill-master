@@ -111,7 +111,7 @@ def test_today_data_no_cross_bore_param_fallback(db):
     # ambiguous (two reports share the date) -> no fabrication from ST-1.
     assert td is not None
     assert td["rop"] is None, "must not borrow the sidetrack's ROP 60"
-    assert td["mw_in"] is None, "must not borrow the sidetrack's mud weight"
+    assert td["mud_weight"] is None, "must not borrow the sidetrack's mud weight"
 
 
 def test_today_data_sidetrack_uses_own_linked_rows(db):
@@ -124,7 +124,7 @@ def test_today_data_sidetrack_uses_own_linked_rows(db):
     finally:
         s.close()
     assert td["rop"] == 60.0
-    assert td["mw_in"] == 1.60
+    assert td["mud_weight"] == 1.60
 
 
 def test_today_data_single_bore_legacy_fallback_still_works(db):
@@ -154,7 +154,7 @@ def test_today_data_single_bore_legacy_fallback_still_works(db):
     finally:
         s.close()
     assert td["rop"] == 15.0, "unambiguous single-bore legacy fallback preserved"
-    assert td["mw_in"] == 1.10
+    assert td["mud_weight"] == 1.10
 
 
 def test_today_data_ambiguous_legacy_child_rows_stay_unknown(db):
@@ -188,7 +188,7 @@ def test_today_data_ambiguous_legacy_child_rows_stay_unknown(db):
     finally:
         s.close()
     assert td["rop"] is None, "ambiguous legacy params must stay UNKNOWN"
-    assert td["mw_in"] is None, "ambiguous legacy mud must stay UNKNOWN"
+    assert td["mud_weight"] is None, "ambiguous legacy mud must stay UNKNOWN"
 
 
 def test_npt_null_duration_is_unknown_not_zero(db):
@@ -225,8 +225,49 @@ def test_npt_null_duration_is_unknown_not_zero(db):
     finally:
         s.close()
     # 2.0 + 0.0; the NULL row contributes nothing (not a fabricated 0).
-    assert npt["total_npt"] == 2.0
+    assert npt["total_npt"] is None
+    assert npt["known_npt_hours"] == 2.0
+    assert npt["npt_percentage"] is None
     assert npt["unknown_npt_count"] == 1
     assert [e["hours"] for e in npt["entries"]] == [2.0, None, 0.0]
     # Category map excludes the unknown row, keeps the real 0.0.
     assert npt["categories"] == {"A": 2.0, "C": 0.0}
+
+
+def test_daily_view_refuses_multiple_reports_without_explicit_selection(db):
+    ids = _two_bore_same_date(db)
+    st = _stub(db, ids["well"])
+    with db.create_session() as s:
+        assert st.get_today_data(s) is None
+        st.current_report_id = ids["rs"]
+        assert st.get_today_data(s)["rop"] == 60
+        # Explicit selection outside the bore is not replaced by another report.
+        st.current_wellbore_id = ids["orig"]
+        assert st.get_today_data(s) is None
+
+
+def test_daily_view_refuses_multiple_linked_parameter_rows(db):
+    ids = _two_bore_same_date(db)
+    with db.create_session() as s:
+        s.add(DrillingParameters(well_id=ids["well"], report_id=ids["rs"],
+                                report_date=ids["date"], avg_rop=99))
+        s.commit()
+        st = _stub(db, ids["well"], wellbore_id=ids["st1"])
+        assert st.get_today_data(s)["rop"] is None
+
+
+def test_daily_cards_respect_section_but_aggregate_charts_remain_bore_scoped(db):
+    from core.database import Section
+    ids = _two_bore_same_date(db)
+    with db.create_session() as s:
+        selected_section = Section(well_id=ids["well"], wellbore_id=ids["orig"], name="selected")
+        other_section = Section(well_id=ids["well"], wellbore_id=ids["orig"], name="other")
+        s.add_all([selected_section, other_section])
+        s.flush()
+        s.get(DailyReport, ids["ro"]).section_id = selected_section.id
+        s.add(DailyReport(well_id=ids["well"], wellbore_id=ids["orig"],
+                          section_id=other_section.id, report_date=date(2026, 1, 11), depth_2400=9999))
+        s.commit()
+        st = _stub(db, ids["well"], wellbore_id=ids["orig"], section_id=selected_section.id)
+        assert st.get_today_data(s)["depth"] == 1000
+        assert st._scope_reports_query(s).count() == 2

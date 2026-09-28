@@ -401,19 +401,24 @@ class TestCostImportLineage:
         finally:
             session.close()
 
-    def test_explicit_category_and_amounts_round_trip(self, db, well_with_section):
+    @pytest.mark.parametrize("currency", [None, "USD", "EUR"])
+    def test_explicit_category_and_amounts_round_trip(self, db, well_with_section, currency):
         well_id = well_with_section["well_id"]
         report_id = self._report(db, well_with_section)
 
         db.save_imported_multi_tab_data_atomic(well_id, report_id, {
             "cost_records": [
                 {"category": "Fuel", "description": "Diesel",
-                 "planned_cost": 2000.0, "actual_cost": 2500.0},
+                 "planned_cost": 2000.0, "actual_cost": 2500.0, "currency": currency},
             ],
         })
         summary = db.get_cost_summary(well_id)
         fuel = [row for row in summary if row["category"] == "Fuel"]
         assert len(fuel) == 1
-        assert fuel[0]["planned"] == 2000.0
-        assert fuel[0]["actual"] == 2500.0
-        assert fuel[0]["variance"] == -500.0
+        raw = db.get_cost_records(well_id)
+        assert raw[0]["planned_cost"] == 2000.0
+        assert raw[0]["actual_cost"] == 2500.0
+        assert raw[0]["currency"] == currency
+        assert fuel[0]["planned"] == (2000.0 if currency else None)
+        assert fuel[0]["actual"] == (2500.0 if currency else None)
+        assert fuel[0]["variance"] == (-500.0 if currency else None)

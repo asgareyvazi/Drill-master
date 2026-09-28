@@ -12,6 +12,29 @@ logger = logging.getLogger(__name__)
 
 
 # ==================== Bit Record Dialog ====================
+def _not_recorded(spin):
+    """Give a measurement spin box an explicit "not recorded" state.
+
+    These dialogs previously started at 0 (and bit size at a fabricated 8.5 in),
+    so an absent measurement was saved as a measured zero. The minimum now carries
+    the sentinel and reads back as ``None``.
+    """
+    spin.setMinimum(-1)
+    spin.setSpecialValueText("Not recorded")
+    return spin
+
+
+def _spin_value(spin):
+    """Sentinel-aware read: a value at the minimum means "not recorded"."""
+    return None if spin.value() <= spin.minimum() else spin.value()
+
+
+def _spin_text(spin):
+    """Text for persistence: an unrecorded measurement is blank, never "0.0"."""
+    value = _spin_value(spin)
+    return "" if value is None else str(value)
+
+
 class AddBitRecordDialog(QDialog):
     """دیالوگ اضافه کردن رکورد مته"""
 
@@ -68,10 +91,10 @@ class AddBitRecordDialog(QDialog):
         f1 = QFormLayout(g1)
 
         self.bit_no = QLineEdit(str(self.bit_number))
-        self.bit_size = QDoubleSpinBox()
-        self.bit_size.setRange(0, 50)
+        self.bit_size = _not_recorded(QDoubleSpinBox())
+        self.bit_size.setMaximum(50)
         self.bit_size.setDecimals(3)
-        self.bit_size.setValue(8.5)
+        self.bit_size.setValue(-1)
         self.bit_size.setSuffix(" in")
 
         self.bit_type = QComboBox()
@@ -106,9 +129,10 @@ class AddBitRecordDialog(QDialog):
         nzl_layout = QFormLayout(g_nzl)
         self.jets = QLineEdit()
         self.jets.setPlaceholderText("e.g., 3x16 or 16-16-14")
-        self.tfa = QDoubleSpinBox()
-        self.tfa.setRange(0, 5)
+        self.tfa = _not_recorded(QDoubleSpinBox())
+        self.tfa.setMaximum(5)
         self.tfa.setDecimals(4)
+        self.tfa.setValue(-1)
         self.tfa.setSuffix(" in²")
         nzl_layout.addRow("Jets:", self.jets)
         nzl_layout.addRow("TFA:", self.tfa)
@@ -118,17 +142,20 @@ class AddBitRecordDialog(QDialog):
         g2 = QGroupBox("📏 Depth & Performance")
         f2 = QGridLayout(g2)
 
-        self.depth_in = QDoubleSpinBox()
-        self.depth_in.setRange(0, 20000)
+        self.depth_in = _not_recorded(QDoubleSpinBox())
+        self.depth_in.setMaximum(20000)
+        self.depth_in.setValue(-1)
         self.depth_in.setSuffix(" m")
-        self.depth_out = QDoubleSpinBox()
-        self.depth_out.setRange(0, 20000)
+        self.depth_out = _not_recorded(QDoubleSpinBox())
+        self.depth_out.setMaximum(20000)
+        self.depth_out.setValue(-1)
         self.depth_out.setSuffix(" m")
         self.metres_drilled = QLabel("0.0 m")
         self.metres_drilled.setStyleSheet("font-weight: bold; color: #27ae60;")
 
-        self.hours = QDoubleSpinBox()
-        self.hours.setRange(0, 5000)
+        self.hours = _not_recorded(QDoubleSpinBox())
+        self.hours.setMaximum(5000)
+        self.hours.setValue(-1)
         self.hours.setDecimals(1)
         self.hours.setSuffix(" hrs")
         self.rop = QLabel("0.0 m/hr")
@@ -155,41 +182,52 @@ class AddBitRecordDialog(QDialog):
         g3 = QGroupBox("⚙️ Operating Parameters")
         f3 = QGridLayout(g3)
 
-        self.wob_min = QDoubleSpinBox()
-        self.wob_min.setRange(0, 100)
+        self.wob_min = _not_recorded(QDoubleSpinBox())
+        self.wob_min.setMaximum(100)
+        self.wob_min.setValue(-1)
         self.wob_min.setSuffix(" klb")
-        self.wob_max = QDoubleSpinBox()
-        self.wob_max.setRange(0, 100)
+        self.wob_max = _not_recorded(QDoubleSpinBox())
+        self.wob_max.setMaximum(100)
+        self.wob_max.setValue(-1)
         self.wob_max.setSuffix(" klb")
 
-        self.rpm_min = QDoubleSpinBox()
-        self.rpm_min.setRange(0, 500)
-        self.rpm_max = QDoubleSpinBox()
-        self.rpm_max.setRange(0, 500)
+        self.rpm_min = _not_recorded(QDoubleSpinBox())
+        self.rpm_min.setMaximum(500)
+        self.rpm_min.setValue(-1)
+        self.rpm_max = _not_recorded(QDoubleSpinBox())
+        self.rpm_max.setMaximum(500)
+        self.rpm_max.setValue(-1)
 
-        self.spp_min = QDoubleSpinBox()
-        self.spp_min.setRange(0, 10000)
+        self.spp_min = _not_recorded(QDoubleSpinBox())
+        self.spp_min.setMaximum(10000)
+        self.spp_min.setValue(-1)
         self.spp_min.setSuffix(" psi")
-        self.spp_max = QDoubleSpinBox()
-        self.spp_max.setRange(0, 10000)
+        self.spp_max = _not_recorded(QDoubleSpinBox())
+        self.spp_max.setMaximum(10000)
+        self.spp_max.setValue(-1)
         self.spp_max.setSuffix(" psi")
 
-        self.flow_min = QDoubleSpinBox()
-        self.flow_min.setRange(0, 5000)
+        self.flow_min = _not_recorded(QDoubleSpinBox())
+        self.flow_min.setMaximum(5000)
+        self.flow_min.setValue(-1)
         self.flow_min.setSuffix(" gpm")
-        self.flow_max = QDoubleSpinBox()
-        self.flow_max.setRange(0, 5000)
+        self.flow_max = _not_recorded(QDoubleSpinBox())
+        self.flow_max.setMaximum(5000)
+        self.flow_max.setValue(-1)
         self.flow_max.setSuffix(" gpm")
 
-        self.torque_min = QDoubleSpinBox()
-        self.torque_min.setRange(0, 100)
+        self.torque_min = _not_recorded(QDoubleSpinBox())
+        self.torque_min.setMaximum(100)
+        self.torque_min.setValue(-1)
         self.torque_min.setSuffix(" klb.ft")
-        self.torque_max = QDoubleSpinBox()
-        self.torque_max.setRange(0, 100)
+        self.torque_max = _not_recorded(QDoubleSpinBox())
+        self.torque_max.setMaximum(100)
+        self.torque_max.setValue(-1)
         self.torque_max.setSuffix(" klb.ft")
 
-        self.mw = QDoubleSpinBox()
-        self.mw.setRange(0, 200)
+        self.mw = _not_recorded(QDoubleSpinBox())
+        self.mw.setMaximum(200)
+        self.mw.setValue(-1)
         self.mw.setSuffix(" pcf")
 
         f3.addWidget(QLabel(""), 0, 0)
@@ -267,31 +305,57 @@ class AddBitRecordDialog(QDialog):
     def _calc(self):
         drilled = self.depth_out.value() - self.depth_in.value()
         self.metres_drilled.setText(f"{max(0, drilled):.1f} m")
-        hrs = self.hours.value()
-        if hrs > 0 and drilled > 0:
-            rop = drilled / hrs
-            self.rop.setText(f"{rop:.2f} m/hr")
+        hrs = _spin_value(self.hours)
+        depth_in, depth_out = _spin_value(self.depth_in), _spin_value(self.depth_out)
+        drilled = (depth_out - depth_in) if depth_in is not None and depth_out is not None else None
+        if hrs and drilled is not None and drilled > 0:
+            self.rop.setText(f"{drilled / hrs:.2f} m/hr")
         else:
-            self.rop.setText("0.0 m/hr")
+            # No measured zero: the calculation is unavailable, not 0.0 m/hr.
+            self.rop.setText("— m/hr")
+
+    @staticmethod
+    def _loaded(spin, *values):
+        """Load the first present measurement; an absent one stays "not recorded"."""
+        for value in values:
+            if value not in (None, ""):
+                try:
+                    spin.setValue(float(value))
+                except (TypeError, ValueError):
+                    spin.setValue(-1)
+                return
+        spin.setValue(-1)
 
     def _load(self, data):
         self.bit_no.setText(str(data.get('Bit No', '')))
-        self.bit_size.setValue(float(data.get('Size (in)', data.get('bit_size', 8.5)) or 8.5))
+        self._loaded(self.bit_size, data.get('Size (in)'), data.get('bit_size'))
         idx = self.bit_type.findText(str(data.get('Type', data.get('bit_type', ''))))
         if idx >= 0:
             self.bit_type.setCurrentIndex(idx)
-        self.depth_in.setValue(float(data.get('Depth In (m)', data.get('depth_in', 0)) or 0))
-        self.depth_out.setValue(float(data.get('Depth Out (m)', data.get('depth_out', 0)) or 0))
-        self.hours.setValue(float(data.get('Hours', data.get('hours_on_bottom', 0)) or 0))
-        self.wob_min.setValue(float(data.get('WOB Min (klb)', 0) or 0))
-        self.wob_max.setValue(float(data.get('WOB Max (klb)', 0) or 0))
-        self.rpm_min.setValue(float(data.get('Rot. Min', 0) or 0))
-        self.rpm_max.setValue(float(data.get('Rot. Max', 0) or 0))
+        self._loaded(self.depth_in, data.get('Depth In (m)'), data.get('depth_in'))
+        self._loaded(self.depth_out, data.get('Depth Out (m)'), data.get('depth_out'))
+        self._loaded(self.hours, data.get('Hours'), data.get('hours_on_bottom'))
+        self._loaded(self.wob_min, data.get('WOB Min (klb)'))
+        self._loaded(self.wob_max, data.get('WOB Max (klb)'))
+        self._loaded(self.rpm_min, data.get('Rot. Min'))
+        self._loaded(self.rpm_max, data.get('Rot. Max'))
+        self._loaded(self.spp_min, data.get('SPP Min (psi)'))
+        self._loaded(self.spp_max, data.get('SPP Max (psi)'))
+        self._loaded(self.flow_min, data.get('FR Min'))
+        self._loaded(self.flow_max, data.get('FR Max'))
+        self._loaded(self.torque_min, data.get('TQ Min (klb.ft)'))
+        self._loaded(self.torque_max, data.get('TQ Max (klb.ft)'))
+        self._loaded(self.mw, data.get('MW (pcf)'))
+        self._loaded(self.tfa, data.get('TFA (in²)'))
 
     def _save(self):
-        drilled = max(0, self.depth_out.value() - self.depth_in.value())
-        hrs = self.hours.value()
-        rop = drilled / hrs if hrs > 0 else 0
+        depth_in, depth_out, hrs = (_spin_value(self.depth_in),
+                                    _spin_value(self.depth_out),
+                                    _spin_value(self.hours))
+        # A drilled interval or ROP cannot be computed from an unrecorded term.
+        drilled = (max(0.0, depth_out - depth_in)
+                   if depth_in is not None and depth_out is not None else None)
+        rop = (drilled / hrs) if (drilled is not None and hrs) else None
 
         # Dull grade string
         dull_parts = []
@@ -301,7 +365,7 @@ class AddBitRecordDialog(QDialog):
 
         self.result = {
             "Bit No": self.bit_no.text(),
-            "Size (in)": str(self.bit_size.value()),
+            "Size (in)": _spin_text(self.bit_size),
             "Manufacture": self.manufacturer.currentText(),
             "BHA No": self.bha_no.text(),
             "Type": self.bit_type.currentText(),
@@ -309,24 +373,24 @@ class AddBitRecordDialog(QDialog):
             "Serial No": self.serial_no.text(),
             "Jets": self.jets.text(),
             "CMT": "New" if not self.edit_data else "Rerun",
-            "Depth In (m)": str(self.depth_in.value()),
-            "Depth Out (m)": str(self.depth_out.value()),
+            "Depth In (m)": _spin_text(self.depth_in),
+            "Depth Out (m)": _spin_text(self.depth_out),
             "Formation": "",
-            "Metres Drilled": str(round(drilled, 1)),
-            "Hours": str(self.hours.value()),
-            "ROP (m/hr)": str(round(rop, 2)),
-            "WOB Min (klb)": str(self.wob_min.value()),
-            "WOB Max (klb)": str(self.wob_max.value()),
-            "Rot. Min": str(self.rpm_min.value()),
-            "Rot. Max": str(self.rpm_max.value()),
-            "SPP Min (psi)": str(self.spp_min.value()),
-            "SPP Max (psi)": str(self.spp_max.value()),
-            "FR Min": str(self.flow_min.value()),
-            "FR Max": str(self.flow_max.value()),
-            "TQ Min (klb.ft)": str(self.torque_min.value()),
-            "TQ Max (klb.ft)": str(self.torque_max.value()),
-            "MW (pcf)": str(self.mw.value()),
-            "TFA (in²)": str(self.tfa.value()),
+            "Metres Drilled": "" if drilled is None else str(round(drilled, 1)),
+            "Hours": _spin_text(self.hours),
+            "ROP (m/hr)": "" if rop is None else str(round(rop, 2)),
+            "WOB Min (klb)": _spin_text(self.wob_min),
+            "WOB Max (klb)": _spin_text(self.wob_max),
+            "Rot. Min": _spin_text(self.rpm_min),
+            "Rot. Max": _spin_text(self.rpm_max),
+            "SPP Min (psi)": _spin_text(self.spp_min),
+            "SPP Max (psi)": _spin_text(self.spp_max),
+            "FR Min": _spin_text(self.flow_min),
+            "FR Max": _spin_text(self.flow_max),
+            "TQ Min (klb.ft)": _spin_text(self.torque_min),
+            "TQ Max (klb.ft)": _spin_text(self.torque_max),
+            "MW (pcf)": _spin_text(self.mw),
+            "TFA (in²)": _spin_text(self.tfa),
             "Dull Grade": dull_grade,
             "Reason Pulled": self.reason.currentText(),
             "Remarks": self.remarks.toPlainText(),
@@ -375,22 +439,23 @@ class AddBHAComponentDialog(QDialog):
         self.description.setPlaceholderText("e.g., 6-3/4\" PDM Motor 1.15° Bend")
         f1.addRow("Description:", self.description)
 
-        self.od = QDoubleSpinBox()
-        self.od.setRange(0, 50)
+        self.od = _not_recorded(QDoubleSpinBox())
+        self.od.setMaximum(50)
+        self.od.setValue(-1)
         self.od.setDecimals(3)
         self.od.setSuffix(" in")
-        self.od.setValue(6.75)
         f1.addRow("OD:", self.od)
 
-        self.id_ = QDoubleSpinBox()
-        self.id_.setRange(0, 50)
+        self.id_ = _not_recorded(QDoubleSpinBox())
+        self.id_.setMaximum(50)
+        self.id_.setValue(-1)
         self.id_.setDecimals(3)
         self.id_.setSuffix(" in")
-        self.id_.setValue(2.813)
         f1.addRow("ID:", self.id_)
 
-        self.length = QDoubleSpinBox()
-        self.length.setRange(0, 100)
+        self.length = _not_recorded(QDoubleSpinBox())
+        self.length.setMaximum(100)
+        self.length.setValue(-1)
         self.length.setDecimals(2)
         self.length.setSuffix(" m")
         f1.addRow("Length:", self.length)
@@ -399,8 +464,9 @@ class AddBHAComponentDialog(QDialog):
         self.serial.setPlaceholderText("Serial number")
         f1.addRow("Serial No:", self.serial)
 
-        self.weight = QDoubleSpinBox()
-        self.weight.setRange(0, 10000)
+        self.weight = _not_recorded(QDoubleSpinBox())
+        self.weight.setMaximum(10000)
+        self.weight.setValue(-1)
         self.weight.setSuffix(" kg")
         f1.addRow("Weight:", self.weight)
 
@@ -422,8 +488,9 @@ class AddBHAComponentDialog(QDialog):
         self.connection_bot.setEditable(True)
         f1.addRow("Connection (Bottom):", self.connection_bot)
 
-        self.torque = QDoubleSpinBox()
-        self.torque.setRange(0, 200000)
+        self.torque = _not_recorded(QDoubleSpinBox())
+        self.torque.setMaximum(200000)
+        self.torque.setValue(-1)
         self.torque.setSuffix(" ft-lb")
         f1.addRow("MU Torque:", self.torque)
 
@@ -453,24 +520,25 @@ class AddBHAComponentDialog(QDialog):
             else:
                 self.tool_type.setCurrentText(data.get('Tool Type', ''))
             self.description.setText(str(data.get("Component Name") or data.get("Description") or ""))
-            self.od.setValue(float(data.get('OD (in)', 0) or 0))
-            self.id_.setValue(float(data.get('ID (in)', 0) or 0))
-            self.length.setValue(float(data.get('Length (m)', 0) or 0))
+            self._loaded(self.od, data.get('OD (in)'))
+            self._loaded(self.id_, data.get('ID (in)'))
+            self._loaded(self.length, data.get('Length (m)'))
             self.serial.setText(str(data.get('Serial No', '')))
-            self.weight.setValue(float(data.get('Weight (kg)', 0) or 0))
+            self._loaded(self.weight, data.get('Weight (kg)'))
+            self._loaded(self.torque, data.get('Make-up Torque (ft-lb)'))
             self.remarks.setText(str(data.get('Remarks', '')))
 
     def _save(self):
         self.result = {
             "Tool Type": self.tool_type.currentText(),
             "Component Name": self.description.text(),
-            "OD (in)": str(self.od.value()),
-            "ID (in)": str(self.id_.value()),
-            "Length (m)": str(self.length.value()),
+            "OD (in)": _spin_text(self.od),
+            "ID (in)": _spin_text(self.id_),
+            "Length (m)": _spin_text(self.length),
             "Serial No": self.serial.text(),
-            "Weight (kg)": str(self.weight.value()),
+            "Weight (kg)": _spin_text(self.weight),
             "Connection Type": f"{self.connection_top.currentText()} / {self.connection_bot.currentText()}",
-            "Make-up Torque (ft-lb)": str(self.torque.value()),
+            "Make-up Torque (ft-lb)": _spin_text(self.torque),
             "Remarks": self.remarks.text(),
         }
         self.accept()

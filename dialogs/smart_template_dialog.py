@@ -35,6 +35,7 @@ from core.table_record_mapper import extract_records
 from core.import_profiler import ImportProfiler
 from core.async_workers import FunctionWorker
 from core.mapping_store import MappingStore
+from core.runtime_config import atomic_write_json, user_templates_dir
 from core.combo_identity import ComboCatalog
 
 logger = logging.getLogger(__name__)
@@ -1525,15 +1526,15 @@ class LearningManager:
         self._load()
 
     def _get_path(self) -> str:
-        d = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "templates",
-        )
-        os.makedirs(d, exist_ok=True)
-        return os.path.join(d, "_learning_data.json")
+        directory = user_templates_dir()
+        directory.mkdir(parents=True, exist_ok=True)
+        return str(directory / "_learning_data.json")
 
     def _load(self):
         path = self._get_path()
+        if not os.path.exists(path):
+            # Read legacy learning without changing application resources.
+            path = str(Path(__file__).resolve().parent.parent / "templates" / "_learning_data.json")
         if os.path.exists(path):
             try:
                 with open(path, "r", encoding="utf-8") as f:
@@ -1543,13 +1544,12 @@ class LearningManager:
 
     def save(self):
         try:
-            with open(self._get_path(), "w", encoding="utf-8") as f:
-                json.dump(
-                    self.corrections, f, indent=2,
-                    ensure_ascii=False, default=str,
-                )
+            atomic_write_json(self._get_path(), self.corrections, indent=2,
+                              ensure_ascii=False, default=str)
+            return True
         except Exception as e:
             logger.error(f"Learning save error: {e}")
+            return False
 
     def record_correction(
         self,
@@ -3302,20 +3302,26 @@ class SmartTemplateDialog(QDialog):
 
             template["assignments"][fp] = entry
 
-        # Save
-        td = os.path.join(
-            os.path.dirname(os.path.dirname(__file__)),
-            "templates",
-        )
-        os.makedirs(td, exist_ok=True)
-        safe_name = re.sub(r'[^\w\-]', '_', name)
-        filepath = os.path.join(td, f"{safe_name}.json")
+        try:
+            # Save
+            td = str(user_templates_dir())
+            os.makedirs(td, exist_ok=True)
+            safe_name = re.sub(r'[^\w\-]', '_', name)
+            filepath = os.path.join(td, f"{safe_name}.json")
 
-        with open(filepath, 'w', encoding='utf-8') as f:
-            json.dump(
-                template, f, indent=2,
-                ensure_ascii=False, default=str,
-            )
+            if os.path.exists(filepath):
+                with open(filepath, encoding='utf-8') as existing:
+                    previous = json.load(existing)
+                if previous.get('name') != name:
+                    QMessageBox.warning(self, "Name collision", "This name normalizes to an existing template filename. Choose a distinct name.")
+                    return False
+                if QMessageBox.question(self, "Replace template", f"Replace '{name}'?", QMessageBox.Yes | QMessageBox.No) != QMessageBox.Yes:
+                    return False
+            atomic_write_json(filepath, template, indent=2, ensure_ascii=False, default=str)
+        except (OSError, ValueError, TypeError) as exc:
+            logger.exception("Template save failed")
+            QMessageBox.critical(self, "Not saved", f"Template was not saved: {exc}")
+            return False
 
         QMessageBox.information(
             self, "✅ Saved",
@@ -3367,10 +3373,9 @@ class SmartTemplateDialog(QDialog):
         return best_anchor
 
     def _load_template_file(self):
-        td = os.path.join(
-            os.path.dirname(os.path.dirname(__file__)),
-            "templates",
-        )
+        td = str(user_templates_dir())
+        if not os.path.isdir(td):
+            td = str(Path(__file__).resolve().parent.parent / "templates")
         if not os.path.exists(td):
             return
         fp, _ = QFileDialog.getOpenFileName(

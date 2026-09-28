@@ -5,13 +5,16 @@ Well Plan Dialog - برنامه‌ریزی حرفه‌ای عملیات حفار
 شامل: Phase/Category management, Activity timeline, PLAN vs FACT
 """
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
 
 from core.database import DatabaseManager, PlannedActivity, WellPlan
+from core.permissions import require_permission
+from core.text_utils import fmt_num
+from core.cost_semantics import complete_total
 
 logger = logging.getLogger(__name__)
 # ==================== Plan Import Review Dialog ====================
@@ -682,7 +685,9 @@ class WellPlanDialog(QDialog):
         layout.addRow("Planned Finish:", self.finish_date)
 
         self.final_depth = QDoubleSpinBox()
-        self.final_depth.setRange(0, 20000)
+        self.final_depth.setRange(-1, 20000)
+        self.final_depth.setSpecialValueText("Not planned")
+        self.final_depth.setValue(-1)
         self.final_depth.setSuffix(" m")
         layout.addRow("Final Depth:", self.final_depth)
 
@@ -813,9 +818,9 @@ class WellPlanDialog(QDialog):
                 self.activities.append({
                     "phase": phase,
                     "activity": activity_name,
-                    "depth_from": 0,
-                    "depth_to": 0,
-                    "duration_hrs": 0,
+                    "depth_from": None,
+                    "depth_to": None,
+                    "duration_hrs": None,
                     "start": "",
                     "end": "",
                     "section": "",
@@ -858,7 +863,7 @@ class WellPlanDialog(QDialog):
 
     def _refresh_table(self):
         self.act_table.setRowCount(0)
-        total_hrs = 0
+        total_hrs = complete_total(a.get('duration_hrs') for a in self.activities)
 
         for act in self.activities:
             row = self.act_table.rowCount()
@@ -871,12 +876,11 @@ class WellPlanDialog(QDialog):
             self.act_table.setItem(row, 0, phase_item)
 
             self.act_table.setItem(row, 1, QTableWidgetItem(act.get('activity', '')))
-            self.act_table.setItem(row, 2, QTableWidgetItem(f"{act.get('depth_from', 0):.0f}"))
-            self.act_table.setItem(row, 3, QTableWidgetItem(f"{act.get('depth_to', 0):.0f}"))
+            self.act_table.setItem(row, 2, QTableWidgetItem(f"{fmt_num(act.get('depth_from'), 0, default=None)}"))
+            self.act_table.setItem(row, 3, QTableWidgetItem(f"{fmt_num(act.get('depth_to'), 0, default=None)}"))
 
-            dur = act.get('duration_hrs', 0)
-            total_hrs += dur
-            dur_item = QTableWidgetItem(f"{dur:.1f}")
+            dur = act.get('duration_hrs')
+            dur_item = QTableWidgetItem(f"{fmt_num(dur, 1, default=None)}")
             dur_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
             self.act_table.setItem(row, 4, dur_item)
 
@@ -890,16 +894,24 @@ class WellPlanDialog(QDialog):
                 if item and row % 2 == 0:
                     item.setBackground(QColor(color + "15"))
 
-        total_days = total_hrs / 24
+        total_days = total_hrs / 24 if total_hrs is not None else None
         self.act_count_label.setText(f"{len(self.activities)} activities")
         self.plan_summary.setText(
             f"📊 Total: {len(self.activities)} activities | "
-            f"{total_hrs:.1f} hours ({total_days:.1f} days)"
+            f"{fmt_num(total_hrs, 1, default=None)} hours ({fmt_num(total_days, 1, default=None)} days)"
         )
 
     def _draw_timeline(self):
         """رسم نمودار Gantt ساده"""
-        if not self.activities:
+        if not self.activities or any(a.get('duration_hrs') is None for a in self.activities):
+            if self.timeline_widget.layout() is None:
+                self.timeline_widget.setLayout(QVBoxLayout())
+            layout = self.timeline_widget.layout()
+            while layout.count():
+                item = layout.takeAt(0)
+                if item.widget():
+                    item.widget().deleteLater()
+            layout.addWidget(QLabel("Timeline NOT ASSESSED: no complete planned durations"))
             return
 
         try:
@@ -917,9 +929,7 @@ class WellPlanDialog(QDialog):
             colors_list = []
 
             for i, act in enumerate(self.activities):
-                dur = act.get('duration_hrs', 0)
-                if dur <= 0:
-                    dur = 1
+                dur = act.get('duration_hrs')
 
                 color = act.get('color', '#3498db')
                 ax.barh(i, dur, left=cum_hrs, height=0.6, color=color, alpha=0.8, edgecolor='white')
@@ -977,25 +987,26 @@ class WellPlanDialog(QDialog):
             if not raw_activities:
                 return
 
-            cum_depth = 0
+            cum_depth = None
+            staged = []
             for act in raw_activities:
                 activity = act.get("activity", "")
                 iadc = act.get("iadc_code", "")
-                interval = act.get("interval", 0)
-                depth = act.get("depth", 0)
-                hours = act.get("hours", 0)
+                interval = act.get("interval")
+                depth = act.get("depth")
+                hours = act.get("hours")
                 formation = act.get("formation", "")
 
                 # Depth range
                 depth_from = cum_depth
-                depth_to = depth if depth > 0 else depth_from
-                if interval > 0 and depth > 0:
+                depth_to = depth
+                if interval is not None and depth is not None:
                     depth_from = depth
                     depth_to = depth + interval
-                elif depth > cum_depth:
+                elif depth is not None and cum_depth is not None and depth > cum_depth:
                     depth_from = cum_depth
                     depth_to = depth
-                if depth_to > cum_depth:
+                if depth_to is not None and (cum_depth is None or depth_to > cum_depth):
                     cum_depth = depth_to
 
                 # Phase از IADC
@@ -1006,7 +1017,7 @@ class WellPlanDialog(QDialog):
                         color = pd.get("color", "#3498db")
                         break
 
-                self.activities.append({
+                staged.append({
                     "phase": phase,
                     "activity": activity[:200],
                     "depth_from": depth_from,
@@ -1018,11 +1029,12 @@ class WellPlanDialog(QDialog):
                     "color": color,
                 })
 
+            self.activities.extend(staged)
             self._refresh_table()
             QMessageBox.information(
-                self, "Import Complete",
-                f"✅ Imported {len(raw_activities)} activities\n"
-                f"📏 Max depth: {cum_depth:.0f} m"
+                self, "Staged for review",
+                f"Staged {len(raw_activities)} activities (not saved). Review phase/depth assumptions and enter schedules.\n"
+                f"📏 Max depth: {fmt_num(cum_depth, 0, default=None)} m"
             )
 
         except ImportError:
@@ -1037,8 +1049,8 @@ class WellPlanDialog(QDialog):
 
     def _map_iadc_to_phase(self, iadc_code):
         if not iadc_code:
-            return "10-CONTINGENCY"
-        code = iadc_code.strip().lower()
+            return ""
+        code = str(iadc_code).strip().lower()
         mapping = {
             "drlg": "05-PRODUCTION HOLE",
             "drilling": "05-PRODUCTION HOLE",
@@ -1064,7 +1076,7 @@ class WellPlanDialog(QDialog):
         for key, phase in mapping.items():
             if key in code:
                 return phase
-        return "05-PRODUCTION HOLE"
+        return ""
 
     # ==================== Load/Save ====================
 
@@ -1073,7 +1085,7 @@ class WellPlanDialog(QDialog):
             well = self.db.get_well_by_id(self.well_id)
             if well:
                 self.header_label.setText(f"📋 Well Plan - {well.get('name', '')}")
-                self.final_depth.setValue(well.get('target_depth', 0) or 0)
+                self.final_depth.setValue(well['target_depth'] if well.get('target_depth') is not None else -1)
                 if well.get('spud_date'):
                     try:
                         sd = well['spud_date']
@@ -1086,9 +1098,15 @@ class WellPlanDialog(QDialog):
         except Exception as e:
             logger.error(f"Load well info error: {e}")
 
+    @require_permission("can_edit_reports")
     def save_plan(self):
         session = self.db.create_session()
         try:
+            if self.spud_date.date().daysTo(self.finish_date.date()) < 0:
+                raise ValueError("Planned finish cannot precede planned spud")
+            # Explicitly saving a new active revision supersedes the previous
+            # active revision, atomically; historical revisions are retained.
+            session.query(WellPlan).filter_by(well_id=self.well_id, is_active=True).update({"is_active": False})
             plan = WellPlan(
                 well_id=self.well_id,
                 plan_name=self.plan_name.text() or f"Plan {datetime.now().strftime('%Y-%m-%d')}",
@@ -1096,7 +1114,7 @@ class WellPlanDialog(QDialog):
                 planned_spud_date=self.spud_date.date().toPython(),
                 planned_finish_date=self.finish_date.date().toPython(),
                 planned_total_days=self.spud_date.date().daysTo(self.finish_date.date()),
-                planned_final_depth=self.final_depth.value(),
+                planned_final_depth=self.final_depth.value() if self.final_depth.value() >= 0 else None,
                 description=self.description.toPlainText(),
                 is_active=True
             )
@@ -1104,36 +1122,28 @@ class WellPlanDialog(QDialog):
             session.flush()
 
             for act in self.activities:
-                # Parse dates
-                start_dt = None
-                end_dt = None
-                try:
-                    if act.get('start'):
-                        start_dt = datetime.strptime(str(act['start']), "%Y-%m-%d %H:%M")
-                except (ValueError, TypeError):
-                    start_dt = datetime.now()
-
-                try:
-                    if act.get('end'):
-                        end_dt = datetime.strptime(str(act['end']), "%Y-%m-%d %H:%M")
-                except (ValueError, TypeError):
-                    end_dt = datetime.now() + timedelta(hours=act.get('duration_hrs', 0))
-
-                if not start_dt:
-                    start_dt = datetime.now()
-                if not end_dt:
-                    end_dt = start_dt + timedelta(hours=act.get('duration_hrs', 0))
+                # Invalid/missing input must not silently become today's date.
+                start_dt = datetime.strptime(str(act.get('start', '')), "%Y-%m-%d %H:%M")
+                end_dt = datetime.strptime(str(act.get('end', '')), "%Y-%m-%d %H:%M")
+                if end_dt < start_dt:
+                    raise ValueError("Activity end cannot precede start")
+                import math
+                for field in ('duration_hrs', 'depth_from', 'depth_to'):
+                    value = act.get(field)
+                    if value is not None and (not math.isfinite(float(value)) or float(value) < 0):
+                        raise ValueError(f"Invalid planned {field}")
 
                 pa = PlannedActivity(
                     well_id=self.well_id,
                     plan_id=plan.id,
+                    section_id=act.get('section_id'),
                     activity_name=act.get('activity', ''),
                     phase_code=act.get('phase', ''),
                     planned_start=start_dt,
                     planned_end=end_dt,
-                    planned_duration_hours=act.get('duration_hrs', 0),
-                    planned_depth_from=act.get('depth_from', 0),
-                    planned_depth_to=act.get('depth_to', 0),
+                    planned_duration_hours=act.get('duration_hrs'),
+                    planned_depth_from=act.get('depth_from'),
+                    planned_depth_to=act.get('depth_to'),
                 )
                 session.add(pa)
 
@@ -1141,11 +1151,13 @@ class WellPlanDialog(QDialog):
             self.plan_id = plan.id
             QMessageBox.information(self, "Success", f"Plan saved! ({len(self.activities)} activities)")
             self.accept()
+            return True
 
         except Exception as e:
             session.rollback()
             QMessageBox.critical(self, "Error", f"Save failed: {str(e)}")
             logger.error(f"Save plan error: {e}")
+            return False
         finally:
             session.close()
 
@@ -1176,6 +1188,7 @@ class AddPlanActivityDialog(QDialog):
         f1 = QFormLayout(g1)
 
         self.phase_combo = QComboBox()
+        self.phase_combo.addItem("Not planned", None)
         for phase_name in DRILLING_PHASES:
             color = DRILLING_PHASES[phase_name]["color"]
             self.phase_combo.addItem(f"🔵 {phase_name}", phase_name)
@@ -1193,32 +1206,38 @@ class AddPlanActivityDialog(QDialog):
         f2 = QFormLayout(g2)
 
         self.depth_from = QDoubleSpinBox()
-        self.depth_from.setRange(0, 20000)
+        self.depth_from.setRange(-1, 20000)
+        self.depth_from.setSpecialValueText("Not planned")
+        self.depth_from.setValue(-1)
         self.depth_from.setSuffix(" m")
         f2.addRow("Depth From:", self.depth_from)
 
         self.depth_to = QDoubleSpinBox()
-        self.depth_to.setRange(0, 20000)
+        self.depth_to.setRange(-1, 20000)
+        self.depth_to.setSpecialValueText("Not planned")
+        self.depth_to.setValue(-1)
         self.depth_to.setSuffix(" m")
         f2.addRow("Depth To:", self.depth_to)
 
         self.duration = QDoubleSpinBox()
-        self.duration.setRange(0, 10000)
+        self.duration.setRange(-1, 10000)
+        self.duration.setSpecialValueText("Not planned")
+        self.duration.setValue(-1)
         self.duration.setDecimals(1)
         self.duration.setSuffix(" hrs")
         f2.addRow("Duration:", self.duration)
 
-        self.days_label = QLabel("= 0.0 days")
+        self.days_label = QLabel("= — days")
         self.days_label.setStyleSheet("color: #3498db; font-weight: bold;")
         f2.addRow("", self.days_label)
         self.duration.valueChanged.connect(
-            lambda v: self.days_label.setText(f"= {v/24:.1f} days")
+            lambda v: self.days_label.setText(f"= {v/24:.1f} days" if v >= 0 else "= — days")
         )
 
         layout.addWidget(g2)
 
         # Time
-        g3 = QGroupBox("📅 Schedule (optional)")
+        g3 = QGroupBox("📅 Schedule (required to save)")
         f3 = QFormLayout(g3)
 
         self.start_dt = QDateTimeEdit(QDateTime.currentDateTime())
@@ -1280,9 +1299,16 @@ class AddPlanActivityDialog(QDialog):
         else:
             self.activity_combo.setCurrentText(act)
 
-        self.depth_from.setValue(data.get('depth_from', 0))
-        self.depth_to.setValue(data.get('depth_to', 0))
-        self.duration.setValue(data.get('duration_hrs', 0))
+        self.depth_from.setValue(data['depth_from'] if data.get('depth_from') is not None else -1)
+        self.depth_to.setValue(data['depth_to'] if data.get('depth_to') is not None else -1)
+        self.duration.setValue(data['duration_hrs'] if data.get('duration_hrs') is not None else -1)
+
+        for key, widget in (("start", self.start_dt), ("end", self.end_dt)):
+            parsed = QDateTime.fromString(str(data.get(key, "")), "yyyy-MM-dd HH:mm")
+            if parsed.isValid():
+                widget.setDateTime(parsed)
+        index = self.section_combo.findData(data.get("section_id"))
+        self.section_combo.setCurrentIndex(max(0, index))
 
     def _save(self):
         phase_key = self.phase_combo.currentData() or ""
@@ -1291,12 +1317,13 @@ class AddPlanActivityDialog(QDialog):
         self.result = {
             "phase": phase_key,
             "activity": self.activity_combo.currentText(),
-            "depth_from": self.depth_from.value(),
-            "depth_to": self.depth_to.value(),
-            "duration_hrs": self.duration.value(),
+            "depth_from": self.depth_from.value() if self.depth_from.value() >= 0 else None,
+            "depth_to": self.depth_to.value() if self.depth_to.value() >= 0 else None,
+            "duration_hrs": self.duration.value() if self.duration.value() >= 0 else None,
             "start": self.start_dt.dateTime().toString("yyyy-MM-dd HH:mm"),
             "end": self.end_dt.dateTime().toString("yyyy-MM-dd HH:mm"),
             "section": self.section_combo.currentText() if self.section_combo.currentData() else "",
+            "section_id": self.section_combo.currentData(),
             "color": color,
         }
         self.accept()

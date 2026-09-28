@@ -185,7 +185,8 @@ class ProfessionalExcelExport:
                         for r, log in enumerate(logs, 2):
                             ws3.cell(row=r, column=1, value=str(log.time_from))
                             ws3.cell(row=r, column=2, value=str(log.time_to))
-                            ws3.cell(row=r, column=3, value=log.duration or 0)
+                            # Unrecorded duration exports as an empty cell, not 0 hours.
+                            ws3.cell(row=r, column=3, value=log.duration)
                             ws3.cell(row=r, column=4, value=log.main_phase or "")
                             ws3.cell(row=r, column=5, value=log.main_code or "")
                             ws3.cell(row=r, column=6, value=log.sub_code or "")

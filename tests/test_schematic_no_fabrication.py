@@ -106,11 +106,11 @@ class TestCaseAEmptyWell:
         assert s.tubing_bottom_m is None
 
     def test_td_not_replaced_by_3000(self, manager):
-        # Well created without target_depth: the ORM column default
-        # stores 0.0. 0 must survive — the old code turned it into 3000.
+        # Omitted target depth is UNKNOWN, not either the old ORM zero or
+        # the older schematic fallback of 3000. Case B separately proves zero.
         well_id = make_well(manager)
         s = build(manager, well_id)
-        assert s.total_depth_m == 0.0
+        assert s.total_depth_m is None
 
     def test_missing_well_returns_all_unknown_schematic(self, manager):
         s = build(manager, 999999)
@@ -348,7 +348,7 @@ class TestCaseDExistingSchematicPreserved:
         """A schematic whose TD is unknown persists null, not a number."""
         well_id = make_well(manager)
         s = build(manager, well_id)
-        assert s.total_depth_m == 0.0  # ORM column default, preserved
+        assert s.total_depth_m is None  # omitted measurement stays unknown
         # Explicitly-unknown TD (None) round-trips through the tab's
         # payload contract as JSON null:
         payload = self._tab_style_payload(

@@ -145,6 +145,12 @@ class SelectionManager(QObject):
                     self._wellbore_id,
                 )
                 return True
+        if child_kind == "report" and self._section_id is not None:
+            child_section = child_data.get("section_id")
+            if child_section is not None and child_section != self._section_id:
+                logger.warning("Rejected report from section %s; selected section is %s",
+                               child_section, self._section_id)
+                return True
         return False
 
     def select_well(
@@ -163,7 +169,7 @@ class SelectionManager(QObject):
         self._well_id = well_id
         if well_data is not None:
             self._well_data = well_data
-        elif self._well_data is None:
+        elif changed or self._well_data is None:
             self._well_data = {}
 
         # A refresh with the same id is still a meaningful update (notably
@@ -205,7 +211,7 @@ class SelectionManager(QObject):
         self._wellbore_id = wellbore_id
         if wellbore_data is not None:
             self._wellbore_data = wellbore_data
-        elif self._wellbore_data is None:
+        elif changed or self._wellbore_data is None:
             self._wellbore_data = {}
 
         if changed or data_changed or force:
@@ -237,7 +243,7 @@ class SelectionManager(QObject):
         self._section_id = section_id
         if section_data is not None:
             self._section_data = section_data
-        elif self._section_data is None:
+        elif changed or self._section_data is None:
             self._section_data = {}
 
         if changed or data_changed or force:
@@ -267,7 +273,7 @@ class SelectionManager(QObject):
         self._report_id = report_id
         if report_data is not None:
             self._report_data = report_data
-        elif self._report_data is None:
+        elif changed or self._report_data is None:
             self._report_data = {}
 
         if changed or data_changed or force:

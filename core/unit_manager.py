@@ -101,7 +101,6 @@ _UNITS: Dict[str, Dict[str, Tuple[float, float]]] = {
         "l": (0.00628981, 0.0),
         "liter": (0.00628981, 0.0),
         "ft3": (0.178107606, 0.0),
-        "m3": (6.28981077, 0.0),
     },
     # Density / MW - base: ppg
     "density": {
