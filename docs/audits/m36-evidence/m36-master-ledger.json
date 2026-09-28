@@ -332,6 +332,22 @@
    "evidence_commit": "9f259e2",
    "commit": null,
    "tests": "the batch's defect fix was verified: new regression 15 passed / 0 failed / 0 errors / 0 skipped in 1.419 s (/tmp/p6-017-fix.xml); mutation validation with the pre-fix coercion reintroduced -> 8 failures, restored byte-identical (sha256 61eea36f811dbbd9aeb4bb29d1367ae6ea4610c1b5da0da5e4463c60a0405d81) and 15/15 green again; related 11-file run 234 passed / 0 failed / 0 errors / 0 skipped in 61.143 s (/tmp/p6-017-related.xml); compileall OK; ruff core/database.py 14 -> 14 findings and the new test file clean (repo total 5578 == the HEAD clone, no debt increase); the batch script itself runs with the provenance gates active (see `staleness`)"
+  },
+  {
+   "batch": "p6-batch-018",
+   "class": "phase-2 class B (persistence / import-IR semantics): B:45 - the daily-report readers and the revision writer, the import IR/quality/diagnostics boundary, the repository layer split out of DatabaseManager, one PDF-adapter plan/actual guard, one report-history serializer and one casing-persistence assertion",
+   "records": 45,
+   "sites": 43,
+   "by_classification": {
+    "VERIFIED-CORRECT": 36,
+    "INTENTIONAL": 7,
+    "DUPLICATE/FALSE-POSITIVE": 2
+   },
+   "defects_fixed": [],
+   "new_findings": [],
+   "evidence_commit": null,
+   "commit": null,
+   "tests": "no production code was changed in this batch, so no new regression was written and no mutation validation applies; the batch script itself runs with the provenance and fingerprint gates active (see `staleness`), i.e. all 45 records were re-anchored and re-identified against the hash-verified tree before any classification was written"
   }
  ],
  "start_open": 1224,
@@ -339,21 +355,21 @@
  "arithmetic": {
   "register_open_at_p6_start": 1224,
   "defect_fixed_by_p6": 2,
-  "adjudicated_by_p6_batches": 684,
-  "current_open": 538,
+  "adjudicated_by_p6_batches": 729,
+  "current_open": 493,
   "check": true,
   "note": "every record is either OPEN or carries a terminal evidence-backed classification; the fixed sites are subtracted separately so nothing disappears"
  },
  "open_by_priority": {
-  "MEDIUM": 538
+  "MEDIUM": 493
  },
  "open_by_class": {
   "E": 241,
   "C": 159,
-  "B": 73,
-  "D": 65
+  "D": 65,
+  "B": 28
  },
- "generated_utc": "2026-09-28T08:03:21+00:00",
+ "generated_utc": "2026-09-28T08:30:46+00:00",
  "recovery_bundles": [
   {
    "file": "/home/user/recovery/drillmaster-115fc09.bundle",
