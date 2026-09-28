@@ -121,6 +121,15 @@ def main() -> int:
              + " · ".join(f"{k}: {v}" for k, v in counts.items()), ""]
     if data.get("defects_fixed"):
         lines += ["## Defects fixed", ""] + [f"- {d}" for d in data["defects_fixed"]] + [""]
+    def _commit_text(record) -> str:
+        """Per-item commit: the code commit if the item carries one, else the audit-only form."""
+        if record.get("commit"):
+            return record["commit"]
+        if data.get("commit"):
+            return (f"audit-only (no code change; batch code commit {data['commit']}, "
+                    f"evidence commit recorded in the ledger)")
+        return "audit-only, committed with this batch evidence"
+
     for record in records:
         source = by_id[record["id"]]
         lines += [f"## {record['id']} — `{source['file']}:{source['line']}`", "",
@@ -132,7 +141,7 @@ def main() -> int:
                   f"- **Classification:** {record['classification']}",
                   f"- **Defect:** {'yes' if record.get('defect') else 'no'}",
                   f"- **Test:** {record.get('test') or 'not applicable (no behaviour change)'}",
-                  f"- **Commit:** {data.get('commit') or 'audit-only, committed with this batch'}",
+                  f"- **Commit:** {_commit_text(record)}",
                   f"- **Remaining question:** {record.get('remaining_question') or 'none'}", ""]
     (EVIDENCE / f"{batch}.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 

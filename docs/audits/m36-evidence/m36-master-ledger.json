@@ -15,6 +15,23 @@
    "defects_fixed": [],
    "commit": null,
    "tests": "ledger/register validation (no production change)"
+  },
+  {
+   "batch": "p6-batch-003",
+   "class": "A (safety / authorization / mutation) - all 45 records are class A (A:45)",
+   "records": 45,
+   "sites": 43,
+   "by_classification": {
+    "INTENTIONAL": 16,
+    "DUPLICATE/FALSE-POSITIVE": 15,
+    "VERIFIED-CORRECT": 13,
+    "GENUINE_DEFECT": 1
+   },
+   "defects_fixed": [
+    "INV34-006021 / INV34-008432 - tabs/w7_logistics_Widget.py FuelWaterTab.update_bulk_stock_for_row (line 825): `float(cell.text() or 0)` turned an unreported opening balance into 0 and displayed a fabricated \"Current Stock\", while the em dash the loader writes for unknown raised through the handler. One statement, one defect, two register records. Fix commit c2e0016, regression tests/test_bulk_stock_three_state_smoke.py (mutation-killed: fabricated '5.0' observed with the original expression)."
+   ],
+   "commit": "c2e0016",
+   "tests": "tests/test_bulk_stock_three_state_smoke.py PASS; tests/test_inventory_live_calc_smoke.py PASS; tests/test_permission_failclosed_regression.py PASS; full suite 1828 results, 0 failures, 6 documented skips (post-fix, this worktree)"
   }
  ],
  "start_open": 1224,
@@ -22,21 +39,21 @@
  "arithmetic": {
   "register_open_at_p6_start": 1224,
   "defect_fixed_by_p6": 2,
-  "adjudicated_by_p6_batches": 45,
-  "current_open": 1177,
+  "adjudicated_by_p6_batches": 90,
+  "current_open": 1132,
   "check": true,
   "note": "every record is either OPEN or carries a terminal evidence-backed classification; the fixed sites are subtracted separately so nothing disappears"
  },
  "open_by_priority": {
   "MEDIUM": 853,
-  "HIGH": 324
+  "HIGH": 279
  },
  "open_by_class": {
   "E": 377,
-  "A": 356,
+  "A": 311,
   "C": 204,
   "D": 126,
   "B": 114
  },
- "generated_utc": "2026-09-28T05:24:28+00:00"
+ "generated_utc": "2026-09-28T05:42:24+00:00"
 }
