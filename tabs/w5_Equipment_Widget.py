@@ -118,8 +118,8 @@ class RigEquipmentTab(QWidget):
             data = self.get_table_data()
             if self.parent_widget and hasattr(self.parent_widget, 'save_rig_equipment'):
                 return self.parent_widget.save_rig_equipment(data)
-            QMessageBox.information(self, "Success", "Rig equipment data saved")
-            return True
+            QMessageBox.warning(self, "Not saved", "No persistence provider is attached")
+            return False
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Failed to save: {str(e)}")
             return False
@@ -254,17 +254,18 @@ class InventoryTab(QWidget):
         # UNKNOWN remaining (blank), never a fabricated 0-based number. An
         # explicit 0 opening is a real fact and does produce a computed value.
         from core.inventory_semantics import (
-            to_float_or_none, normalize_movement, derive_closing,
+            normalize_item_row, derive_closing,
         )
         try:
             for row in range(self.table.rowCount()):
-                opening_item = self.table.item(row, 2)
-                received_item = self.table.item(row, 3)
-                used_item = self.table.item(row, 4)
-
-                opening = to_float_or_none(opening_item.text() if opening_item else None)
-                received = normalize_movement(received_item.text() if received_item else None)
-                used = normalize_movement(used_item.text() if used_item else None)
+                numeric_cells = {}
+                for field, column in (("opening_stock", 2), ("received", 3), ("used", 4),
+                                      ("min_level", 7), ("max_level", 8)):
+                    item = self.table.item(row, column)
+                    numeric_cells[field] = item.text() if item else None
+                normalized = normalize_item_row(numeric_cells)
+                opening = normalized["opening_stock"]
+                received, used = normalized["received"], normalized["used"]
                 # None when opening is unknown — never opening-as-zero.
                 remaining = derive_closing(opening, received, used)
 
@@ -281,10 +282,7 @@ class InventoryTab(QWidget):
                 # Threshold status is only meaningful when the remaining value
                 # AND the threshold being compared are both known. Missing
                 # min/max are NOT treated as 0.
-                min_item = self.table.item(row, 7)
-                max_item = self.table.item(row, 8)
-                min_level = to_float_or_none(min_item.text() if min_item else None)
-                max_level = to_float_or_none(max_item.text() if max_item else None)
+                min_level, max_level = normalized["min_level"], normalized["max_level"]
                 if remaining is None:
                     # No known remaining -> no threshold verdict; clear any tint.
                     remaining_item.setData(Qt.BackgroundRole, None)
@@ -298,6 +296,15 @@ class InventoryTab(QWidget):
                     remaining_item.setData(Qt.BackgroundRole, None)
         except Exception as e:
             logger.error(f"Calculation failed: {str(e)}")
+            for row in range(self.table.rowCount()):
+                item = self.table.item(row, 5)
+                if item is None:
+                    item = QTableWidgetItem()
+                    self.table.setItem(row, 5, item)
+                item.setText("INVALID")
+                item.setToolTip("Calculation failed: invalid worksheet numeric input")
+                item.setData(Qt.BackgroundRole, None)
+            return False
             
     @editor_saved()
     def save_data(self):
@@ -305,8 +312,8 @@ class InventoryTab(QWidget):
             data = self.get_table_data()
             if self.parent_widget and hasattr(self.parent_widget, 'save_inventory'):
                 return self.parent_widget.save_inventory(data)
-            QMessageBox.information(self, "Success", "Inventory data saved")
-            return True
+            QMessageBox.warning(self, "Not saved", "No persistence provider is attached")
+            return False
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Failed to save: {str(e)}")
             return False
@@ -432,8 +439,8 @@ class DrillPipeTab(QWidget):
             data = self.get_table_data()
             if self.parent_widget and hasattr(self.parent_widget, 'save_drill_pipe'):
                 return self.parent_widget.save_drill_pipe(data)
-            QMessageBox.information(self, "Success", "Drill pipe data saved")
-            return True
+            QMessageBox.warning(self, "Not saved", "No persistence provider is attached")
+            return False
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Failed to save: {str(e)}")
             return False
@@ -558,8 +565,8 @@ class SolidControlTab(QWidget):
             data = self.get_table_data()
             if self.parent_widget and hasattr(self.parent_widget, 'save_solid_control'):
                 return self.parent_widget.save_solid_control(data)
-            QMessageBox.information(self, "Success", "Solid control data saved")
-            return True
+            QMessageBox.warning(self, "Not saved", "No persistence provider is attached")
+            return False
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Failed to save: {str(e)}")
             return False
@@ -762,7 +769,17 @@ class EquipmentWidget(DrillTabBase):
                 self.show_message("You do not have permission to edit reports", 3000)
                 return False
         except Exception:
-            pass
+            # Fail closed, exactly like core.permissions.require_permission (which logs
+            # the failure and sets allowed = False) and W16's save_data (which returns a
+            # SYSTEM_ERROR outcome). An access control that cannot be evaluated must never
+            # authorise the mutation the comment above this block forbids.
+            logger.exception("Permission check failed; equipment save blocked")
+            self.show_message(
+                "Permission check failed: nothing was saved. "
+                "Try again or contact an administrator.",
+                5000,
+            )
+            return False
 
         if not self.current_well:
             self.show_message("No well selected", 3000)
