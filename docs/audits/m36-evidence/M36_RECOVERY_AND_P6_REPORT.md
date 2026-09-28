@@ -122,14 +122,17 @@ fix merely shifted are re-anchored through the line map derived from the real di
 ## 5. Exact resume point (for the next agent, without chat history)
 
 ```text
-current HEAD ...... 3f0cf3e (code) -> a375b06 (batch-004 evidence)  [git log --oneline -5]
+current HEAD ...... b6e518f  [git log --oneline] - chain this session: 3f0cf3e (mud-ledger fix) ->
+                    a375b06 (batch-004 evidence) -> b6e518f (batch-004 stamp + report)
 branch ............ arena/01a0c945-drill-master  LOCAL-ONLY — NOT SYNCHRONIZED TO GITHUB
 worktree .......... see `git status --porcelain -uall`; the only untracked entries are the five
                     review-required M31-M34 ledgers and the full-suite JUnit copy (kept out of the
                     wheel on purpose: tests/test_release_boundary_imports.py forbids docs/audits)
-recovery bundle ... /home/user/recovery/drillmaster-a375b06.bundle
+recovery bundles .. /home/user/recovery/drillmaster-b6e518f.bundle  <- takes everything above
+                    sha256 3c61dced7f5fb21dad02a6087325a864f6a9f21051b2374488cd007712f6ce5e
+                    (clone-verified, 809 tracked files)
+                    /home/user/recovery/drillmaster-a375b06.bundle
                     sha256 22dc2b89aa6d5915d233d1890fd325ec1df65cae2c6c3a6849e1dce322a8b17b
-                    (clone-verified, 809 tracked files; earlier bundles 2f61e6f, acb6279, ...)
 tooling ........... tools/m36/p6_{plan,dump,apply,stamp}.py + p6_batch_00{2,3,4}.py (committed)
 progress file ..... docs/audits/m36-evidence/P6_PROGRESS.md (authoritative resume point)
 
