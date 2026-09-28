@@ -78,6 +78,22 @@
    "evidence_commit": null,
    "commit": "ff2000a",
    "tests": "focused kill-sheet suite (this file + test_well_control_kill_sheet{,_cross_process,_persistence} + test_well_control_icp_fcp_consolidation) 45 tests PASS after the fix; the new regression file is 3/3 and mutation-validated (gate removed and truthiness gate both fail, restored byte-identical 30d03000...5eb5f20fe); ruff clean on both changed files"
+  },
+  {
+   "batch": "p6-batch-006",
+   "class": "class D (lower-risk guards/preview conveniences): D:45",
+   "records": 45,
+   "sites": 42,
+   "by_classification": {
+    "DUPLICATE/FALSE-POSITIVE": 20,
+    "INTENTIONAL": 16,
+    "VERIFIED-CORRECT": 9
+   },
+   "defects_fixed": [],
+   "new_findings": [],
+   "evidence_commit": null,
+   "commit": null,
+   "tests": "no production change in this batch; the full suite was re-run on the 3f0cf3e fix (1 831 tests / 0 failures / 0 errors / 4 skipped) and the focused slices before it, as recorded in P6_PROGRESS.md"
   }
  ],
  "start_open": 1224,
@@ -85,23 +101,23 @@
  "arithmetic": {
   "register_open_at_p6_start": 1224,
   "defect_fixed_by_p6": 2,
-  "adjudicated_by_p6_batches": 180,
-  "current_open": 1042,
+  "adjudicated_by_p6_batches": 225,
+  "current_open": 997,
   "check": true,
   "note": "every record is either OPEN or carries a terminal evidence-backed classification; the fixed sites are subtracted separately so nothing disappears"
  },
  "open_by_priority": {
   "MEDIUM": 853,
-  "HIGH": 189
+  "HIGH": 144
  },
  "open_by_class": {
   "E": 377,
   "A": 294,
   "C": 159,
-  "D": 118,
-  "B": 94
+  "B": 94,
+  "D": 73
  },
- "generated_utc": "2026-09-28T06:05:18+00:00",
+ "generated_utc": "2026-09-28T06:06:40+00:00",
  "recovery_bundles": [
   {
    "file": "/home/user/recovery/drillmaster-2f61e6f.bundle",
