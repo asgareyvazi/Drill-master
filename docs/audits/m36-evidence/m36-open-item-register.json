@@ -1,17 +1,17 @@
 {
  "schema": "m36-open-item-register",
- "generated_utc": "2026-09-28T06:33:58+00:00",
+ "generated_utc": "2026-09-28T06:34:58+00:00",
  "source_register": "docs/audits/m35-evidence/m35-open-item-register.json",
  "source_sha256_declared": "d81a77bda0330c75493f4081c4a02e4d106fe7602e49c14f0c67d12977658a6b",
  "totals": {
   "records": 1224,
-  "open": 808,
+  "open": 763,
   "open_by_priority": {
-   "MEDIUM": 808
+   "MEDIUM": 763
   },
   "open_by_class": {
-   "A": 249,
    "E": 241,
+   "A": 204,
    "C": 159,
    "B": 94,
    "D": 65
@@ -555,13 +555,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "The rule's premise (an unknown coerced to a synthetic zero) is refuted at this site: the two lines above set the closing to NULL whenever the opening is unknown - `if existing.initial_stock is None: existing.current_stock = None` with the comment 'Closing stays unknown (NULL) when the opening is unknown; never fabricated from a synthetic 0.' (7384-7387).  Inside the else arm `initial_stock` is therefore non-None, so `(existing.initial_stock or 0.0)` can only ever yield the real value; `received`/`used` are *movements*, for which the domain rule is documented in core/inventory_semantics.py: 'Absent movement means zero' (`normalize_movement`, applied to this same payload at 7354-7356).  The new-row arm below repeats the same trichotomy explicitly ('Opening trichotomy: explicit value (incl. 0.0) is a fact and is preserved; missing (None) may be carried forward from the previous closing - never the other way around', 7397-7401). Site: `(existing.initial_stock or 0.0)` (7390).",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-012"
+   "p6_batch": "p6-batch-012",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-000498",
@@ -580,13 +583,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/database.py:7391 - `+ (existing.received or 0.0)`, already adjudicated under INV34-000497: The rule's premise (an unknown coerced to a synthetic zero) is refuted at this site: the two lines above set the closing to NULL whenever the opening is unknown - `if existing.initial_stock is None: existing.current_stock = None` with the comment 'Closing stays unknown (NULL) when the opening is unknown; never fabricated from a synthetic 0.' (7384-7387).  Inside the else arm `initial_stock` is therefore non-None, so `(existing.initial_stock or 0.0)` can only ever yield the real value; `received`/`used` are *movements*, for which the domain rule is documented in core/inventory_semantics.py: 'Absent movement means zero' (`normalize_movement`, applied to this same payload at 7354-7356).  The new-row arm below repeats the same trichotomy explicitly ('Opening trichotomy: explicit value (incl. 0.0) is a fact and is preserved; missing (None) may be carried forward from the previous closing - never the other way around', 7397-7401).",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-012"
+   "p6_batch": "p6-batch-012",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-000499",
@@ -605,13 +611,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/database.py:7392 - `- (existing.used or 0.0)`, already adjudicated under INV34-000497: The rule's premise (an unknown coerced to a synthetic zero) is refuted at this site: the two lines above set the closing to NULL whenever the opening is unknown - `if existing.initial_stock is None: existing.current_stock = None` with the comment 'Closing stays unknown (NULL) when the opening is unknown; never fabricated from a synthetic 0.' (7384-7387).  Inside the else arm `initial_stock` is therefore non-None, so `(existing.initial_stock or 0.0)` can only ever yield the real value; `received`/`used` are *movements*, for which the domain rule is documented in core/inventory_semantics.py: 'Absent movement means zero' (`normalize_movement`, applied to this same payload at 7354-7356).  The new-row arm below repeats the same trichotomy explicitly ('Opening trichotomy: explicit value (incl. 0.0) is a fact and is preserved; missing (None) may be carried forward from the previous closing - never the other way around', 7397-7401).",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-012"
+   "p6_batch": "p6-batch-012",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-000699",
@@ -867,13 +876,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Rule mis-fire, not a behaviour to adjudicate: The subject is the activity-code text of a time-log row (`code = log.main_code`, then `if not code: continue`, 9356-9358); codes are strings such as '2.1', and empties simply have no code usage to accumulate.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-012"
+   "p6_batch": "p6-batch-012",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-000744",
@@ -892,13 +904,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Derived-row tracking with an explicit ownership rule: the set difference `stale = set(previous.get(key, [])) - set(generated[key])` (9397) feeds `if stale: ...delete(...)` and is preceded by the block's own contract - 'Track only our own derived records. Never delete manual rows based merely on matching timestamps or an empty source report.' (9313-9314).  The ids compared come from the previous `daily_derived` audit entry, so a manual row can never fall into the difference.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-012"
+   "p6_batch": "p6-batch-012",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-000763",
@@ -917,13 +932,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/database.py:6839-6842 - `delete_logistics_personnel` selects the row by primary key and deletes only when it was found, already adjudicated under INV34-000965: Same construct as the phase-1 upsert primary INV34-000965 (p6-batch-011): `session.query(Model).filter(...).first()` / `.one_or_none()` returns the row or None and the branch is the update-or-insert decision.  The subject is an Optional[model] produced by the query itself, so the bare truthiness test IS the presence test - no numeric value is involved.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-012"
+   "p6_batch": "p6-batch-012",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-000770",
@@ -1195,13 +1213,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`get_export_templates(template_type: str = None, created_by: int = None)` uses the optional parameters as *filters*: `if template_type:` and `if created_by:` (9447-9449) add the respective clause, so a falsy value means 'do not filter' (all templates / all creators) - the empty selection an unfiltered listing is supposed to return.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-012"
+   "p6_batch": "p6-batch-012",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-000825",
@@ -1320,13 +1341,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/database.py:6168-6176 - `save_bha_report`'s `else: existing = None` arm feeding the same presence test, already adjudicated under INV34-000965: Same construct as the phase-1 upsert primary INV34-000965 (p6-batch-011): `session.query(Model).filter(...).first()` / `.one_or_none()` returns the row or None and the branch is the update-or-insert decision.  The subject is an Optional[model] produced by the query itself, so the bare truthiness test IS the presence test - no numeric value is involved.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-012"
+   "p6_batch": "p6-batch-012",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-000931",
@@ -1345,13 +1369,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/database.py:7377-7380 - the bulk-material `else: existing = None` arm, already adjudicated under INV34-000965: Same construct as the phase-1 upsert primary INV34-000965 (p6-batch-011): `session.query(Model).filter(...).first()` / `.one_or_none()` returns the row or None and the branch is the update-or-insert decision.  The subject is an Optional[model] produced by the query itself, so the bare truthiness test IS the presence test - no numeric value is involved.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-012"
+   "p6_batch": "p6-batch-012",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-000932",
@@ -1426,13 +1453,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/database.py:10170-10188 - `save_cost_record` upsert, already adjudicated under INV34-000965: Same construct as the phase-1 upsert primary INV34-000965 (p6-batch-011): `session.query(Model).filter(...).first()` / `.one_or_none()` returns the row or None and the branch is the update-or-insert decision.  The subject is an Optional[model] produced by the query itself, so the bare truthiness test IS the presence test - no numeric value is involved.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-012"
+   "p6_batch": "p6-batch-012",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-000942",
@@ -1451,13 +1481,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/database.py:6241-6248 - `save_downhole_equipment`, already adjudicated under INV34-000965: Same construct as the phase-1 upsert primary INV34-000965 (p6-batch-011): `session.query(Model).filter(...).first()` / `.one_or_none()` returns the row or None and the branch is the update-or-insert decision.  The subject is an Optional[model] produced by the query itself, so the bare truthiness test IS the presence test - no numeric value is involved.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-012"
+   "p6_batch": "p6-batch-012",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-000955",
@@ -1476,13 +1509,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/database.py:6319-6322 - `save_formation_report`, already adjudicated under INV34-000965: Same construct as the phase-1 upsert primary INV34-000965 (p6-batch-011): `session.query(Model).filter(...).first()` / `.one_or_none()` returns the row or None and the branch is the update-or-insert decision.  The subject is an Optional[model] produced by the query itself, so the bare truthiness test IS the presence test - no numeric value is involved.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-012"
+   "p6_batch": "p6-batch-012",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-000957",
@@ -1501,17 +1537,20 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "contract_quote": {
     "kind": "function-docstring-or-comment",
     "quote": "# a MISSING opening (None). A new day with no movement must not reset"
    },
    "register_classification": "OPEN-CONTRACT-CANDIDATE",
-   "p6_evidence": null,
+   "p6_evidence": "The carry-forward guard of `save_fuel_water_inventory` is documented in the code above it: '...stock to zero; an explicitly-reported opening (incl. 0.0) is a fact and is never overwritten by carry-forward.' (7015-7016).  `previous` is the row result of the strictly-previous-date query and `if previous:` (7022) is the row-presence test that decides whether a projection exists at all; the per-fluid branches inside then only fill a stock that is still None (`if fuel_stock is None:`, 7023).",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-012"
+   "p6_batch": "p6-batch-012",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-000965",
@@ -1978,13 +2017,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/database.py:9579-9596 - `save_procedure` upsert (`data.get('id')` -> lookup -> `if proc:` update, else insert), already adjudicated under INV34-000965: Same construct as the phase-1 upsert primary INV34-000965 (p6-batch-011): `session.query(Model).filter(...).first()` / `.one_or_none()` returns the row or None and the branch is the update-or-insert decision.  The subject is an Optional[model] produced by the query itself, so the bare truthiness test IS the presence test - no numeric value is involved.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-012"
+   "p6_batch": "p6-batch-012",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-001011",
@@ -2003,13 +2045,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/database.py:7713-7717 - the `else: existing = None` arm of `save_safety_report`, already adjudicated under INV34-000965: Same construct as the phase-1 upsert primary INV34-000965 (p6-batch-011): `session.query(Model).filter(...).first()` / `.one_or_none()` returns the row or None and the branch is the update-or-insert decision.  The subject is an Optional[model] produced by the query itself, so the bare truthiness test IS the presence test - no numeric value is involved.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-012"
+   "p6_batch": "p6-batch-012",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-001026",
@@ -2056,13 +2101,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/database.py:6598-6601 - `save_trajectory_calculation`, already adjudicated under INV34-000965: Same construct as the phase-1 upsert primary INV34-000965 (p6-batch-011): `session.query(Model).filter(...).first()` / `.one_or_none()` returns the row or None and the branch is the update-or-insert decision.  The subject is an Optional[model] produced by the query itself, so the bare truthiness test IS the presence test - no numeric value is involved.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-012"
+   "p6_batch": "p6-batch-012",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-001049",
@@ -2608,13 +2656,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Report-number allocation with a documented floor: `return (last.report_number + 1) if last else 1` (702) - the section's highest number plus one, or 1 when the section has no report yet; a workbook-supplied number is honoured earlier (`if dr.get(\"report_number\"): num = ValueNormalizer.to_int(...); if num and num > 0: return num`, 690-693).  Nothing is invented for an existing number.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-012"
+   "p6_batch": "p6-batch-012",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-001295",
@@ -2633,13 +2684,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`density_lineage` is the provenance object returned by `mud_density_pcf(mud_data)` (541-542) - it is truthy exactly when the source densities were converted, and the block then appends the explanatory detail 'Density converted to PCF using the existing UnitManager' (543-544).  A dict/list provenance value, not a measurement.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-012"
+   "p6_batch": "p6-batch-012",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-001313",
@@ -2658,13 +2712,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`if not text: return None` (829) implements the function's own docstring: `'18/32\"' -> 18; '3/4\"' -> 24; None for Open/text values.` (828).  A blank cell is reported as None ('not a 32nds fraction'), never as 0/32.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-012"
+   "p6_batch": "p6-batch-012",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-001321",
@@ -2711,13 +2768,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Template scanning tolerates one bad file: an unreadable or invalid JSON template is skipped (`except (OSError, ValueError): continue`, 1201-1202) while the remaining candidates are still compared, and the method's documented outcome for 'nothing matched' is None so the import falls back to heuristic detection (1181-1182).  Skipping a broken optional file cannot invent a mapping.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-012"
+   "p6_batch": "p6-batch-012",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-001349",
@@ -2736,13 +2796,16 @@
    "missing_fact": "the intended failure semantics at this call site",
    "why_it_matters": "failures may be reported as successes",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/ddr_import_service.py:1094-1101 - the same duration handling in `_save_morning_logs`, whose review item carries the reason 'Continuation row has no independent time anchor; no time was invented' / 'Both time anchors are required for persistence' (1085-1091), already adjudicated under INV34-001350: unparseable duration -> None + REVIEW_REQUIRED",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-012"
+   "p6_batch": "p6-batch-012",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-001350",
@@ -2761,13 +2824,16 @@
    "missing_fact": "the intended failure semantics at this call site",
    "why_it_matters": "failures may be reported as successes",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "The docstring of `_save_time_logs` states the contract: 'Invalid source rows are returned as review items rather than swallowed; a caller-owned session receives exceptions so the outer import can rollback every report-scoped object.' (952-956).  A duration that cannot be parsed becomes `duration = None` (986-989) and, when the source did state something, a REVIEW_REQUIRED item is appended with the original value and the normalized None (990-995).  The failure is reported, not hidden.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-012"
+   "p6_batch": "p6-batch-012",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-001370",
@@ -18924,13 +18990,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/database.py:7390 - second rule on the same statement, already adjudicated under INV34-000497: The rule's premise (an unknown coerced to a synthetic zero) is refuted at this site: the two lines above set the closing to NULL whenever the opening is unknown - `if existing.initial_stock is None: existing.current_stock = None` with the comment 'Closing stays unknown (NULL) when the opening is unknown; never fabricated from a synthetic 0.' (7384-7387).  Inside the else arm `initial_stock` is therefore non-None, so `(existing.initial_stock or 0.0)` can only ever yield the real value; `received`/`used` are *movements*, for which the domain rule is documented in core/inventory_semantics.py: 'Absent movement means zero' (`normalize_movement`, applied to this same payload at 7354-7356).  The new-row arm below repeats the same trichotomy explicitly ('Opening trichotomy: explicit value (incl. 0.0) is a fact and is preserved; missing (None) may be carried forward from the previous closing - never the other way around', 7397-7401).",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-012"
+   "p6_batch": "p6-batch-012",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007159",
@@ -18949,13 +19018,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/database.py:7391 - second rule on the received term, already adjudicated under INV34-000497: The rule's premise (an unknown coerced to a synthetic zero) is refuted at this site: the two lines above set the closing to NULL whenever the opening is unknown - `if existing.initial_stock is None: existing.current_stock = None` with the comment 'Closing stays unknown (NULL) when the opening is unknown; never fabricated from a synthetic 0.' (7384-7387).  Inside the else arm `initial_stock` is therefore non-None, so `(existing.initial_stock or 0.0)` can only ever yield the real value; `received`/`used` are *movements*, for which the domain rule is documented in core/inventory_semantics.py: 'Absent movement means zero' (`normalize_movement`, applied to this same payload at 7354-7356).  The new-row arm below repeats the same trichotomy explicitly ('Opening trichotomy: explicit value (incl. 0.0) is a fact and is preserved; missing (None) may be carried forward from the previous closing - never the other way around', 7397-7401).",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-012"
+   "p6_batch": "p6-batch-012",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007160",
@@ -18974,13 +19046,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/database.py:7392 - second rule on the used term, already adjudicated under INV34-000497: The rule's premise (an unknown coerced to a synthetic zero) is refuted at this site: the two lines above set the closing to NULL whenever the opening is unknown - `if existing.initial_stock is None: existing.current_stock = None` with the comment 'Closing stays unknown (NULL) when the opening is unknown; never fabricated from a synthetic 0.' (7384-7387).  Inside the else arm `initial_stock` is therefore non-None, so `(existing.initial_stock or 0.0)` can only ever yield the real value; `received`/`used` are *movements*, for which the domain rule is documented in core/inventory_semantics.py: 'Absent movement means zero' (`normalize_movement`, applied to this same payload at 7354-7356).  The new-row arm below repeats the same trichotomy explicitly ('Opening trichotomy: explicit value (incl. 0.0) is a fact and is preserved; missing (None) may be carried forward from the previous closing - never the other way around', 7397-7401).",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-012"
+   "p6_batch": "p6-batch-012",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007278",
@@ -18999,13 +19074,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/database.py:9357 - the second rule on the same text guard, already adjudicated under INV34-000738: same activity-code text",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-012"
+   "p6_batch": "p6-batch-012",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007340",
@@ -19124,13 +19202,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Alias resolution over an optional mapping: `v = (well_info or {}).get(k)` walks the candidate key list and takes the first non-empty text (`if v and str(v).strip(): name = str(v).strip(); break`, 135-139); absence is handled explicitly right below - `if not name and not code: return self.well_id` (142-143) - where `well_id` is the import's already chosen well.  The `or {}` therefore only makes the traversal total.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-012"
+   "p6_batch": "p6-batch-012",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007379",
@@ -19149,13 +19230,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`scr_rows = scr_data or []` normalises an *optional* extracted table before iterating it, and the loop immediately re-checks the shape at both levels (`if isinstance(scr_rows, list):`, `if not isinstance(row, dict): continue`, 914-917) plus per-field emptiness (`if val not in (None, \"\"):`, 930).  The default therefore only makes the iteration total; no scr measurement is manufactured.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-012"
+   "p6_batch": "p6-batch-012",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007384",
@@ -19174,13 +19258,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Documented fallback: the method's docstring says 'Returns None when no template matches, so imports fall back to heuristic detection.' (1181-1182), and the missing/unreadable templates directory is exactly that case (`if not os.path.isdir(templates_dir): return None`, 1188-1189).  The return value is a template or None - a boolean filesystem question, no numeric subject.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-012"
+   "p6_batch": "p6-batch-012",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007388",
@@ -28763,13 +28850,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/database.py:7390 - third rule (numeric-coalesce) on the same statement, already adjudicated under INV34-000497: The rule's premise (an unknown coerced to a synthetic zero) is refuted at this site: the two lines above set the closing to NULL whenever the opening is unknown - `if existing.initial_stock is None: existing.current_stock = None` with the comment 'Closing stays unknown (NULL) when the opening is unknown; never fabricated from a synthetic 0.' (7384-7387).  Inside the else arm `initial_stock` is therefore non-None, so `(existing.initial_stock or 0.0)` can only ever yield the real value; `received`/`used` are *movements*, for which the domain rule is documented in core/inventory_semantics.py: 'Absent movement means zero' (`normalize_movement`, applied to this same payload at 7354-7356).  The new-row arm below repeats the same trichotomy explicitly ('Opening trichotomy: explicit value (incl. 0.0) is a fact and is preserved; missing (None) may be carried forward from the previous closing - never the other way around', 7397-7401).",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-012"
+   "p6_batch": "p6-batch-012",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-009291",
@@ -28788,13 +28878,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/database.py:7391 - third rule on the received term, already adjudicated under INV34-000497: The rule's premise (an unknown coerced to a synthetic zero) is refuted at this site: the two lines above set the closing to NULL whenever the opening is unknown - `if existing.initial_stock is None: existing.current_stock = None` with the comment 'Closing stays unknown (NULL) when the opening is unknown; never fabricated from a synthetic 0.' (7384-7387).  Inside the else arm `initial_stock` is therefore non-None, so `(existing.initial_stock or 0.0)` can only ever yield the real value; `received`/`used` are *movements*, for which the domain rule is documented in core/inventory_semantics.py: 'Absent movement means zero' (`normalize_movement`, applied to this same payload at 7354-7356).  The new-row arm below repeats the same trichotomy explicitly ('Opening trichotomy: explicit value (incl. 0.0) is a fact and is preserved; missing (None) may be carried forward from the previous closing - never the other way around', 7397-7401).",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-012"
+   "p6_batch": "p6-batch-012",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-009292",
@@ -28813,13 +28906,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/database.py:7392 - third rule on the used term, already adjudicated under INV34-000497: The rule's premise (an unknown coerced to a synthetic zero) is refuted at this site: the two lines above set the closing to NULL whenever the opening is unknown - `if existing.initial_stock is None: existing.current_stock = None` with the comment 'Closing stays unknown (NULL) when the opening is unknown; never fabricated from a synthetic 0.' (7384-7387).  Inside the else arm `initial_stock` is therefore non-None, so `(existing.initial_stock or 0.0)` can only ever yield the real value; `received`/`used` are *movements*, for which the domain rule is documented in core/inventory_semantics.py: 'Absent movement means zero' (`normalize_movement`, applied to this same payload at 7354-7356).  The new-row arm below repeats the same trichotomy explicitly ('Opening trichotomy: explicit value (incl. 0.0) is a fact and is preserved; missing (None) may be carried forward from the previous closing - never the other way around', 7397-7401).",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-012"
+   "p6_batch": "p6-batch-012",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-009310",
@@ -28838,13 +28934,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/database.py:7699-7700 - `save_safety_report`, already adjudicated under INV34-009108: Same construct as the session-ownership primary INV34-009108 (p6-batch-011): `owns_session = session is None` then `session = session or self.create_session()`, with commit/rollback/close performed only when the session is owned, so a caller-supplied session stays inside the caller's (import) transaction.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-012"
+   "p6_batch": "p6-batch-012",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-009313",
@@ -28888,13 +28987,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/database.py:8457-8458 - `save_equipment_log` (whose ambiguity path is also fail-closed: `raise ValueError(\"Equipment identity is ambiguous; select the record ID explicitly\")`, 8464-8465), already adjudicated under INV34-009108: Same construct as the session-ownership primary INV34-009108 (p6-batch-011): `owns_session = session is None` then `session = session or self.create_session()`, with commit/rollback/close performed only when the session is owned, so a caller-supplied session stays inside the caller's (import) transaction.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-012"
+   "p6_batch": "p6-batch-012",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-009367",
@@ -28913,13 +29015,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "In the lookahead update, actual execution timestamps are only written when they were supplied: `if actual_start is not None: plan.actual_start = actual_start` (8738-8739).  A save that carries no actual start therefore cannot blank an existing one, which matches the import path's stated rule that planned dates are not evidence of execution (core/database.py:5101-5102).",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-012"
+   "p6_batch": "p6-batch-012",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-009369",
@@ -28938,17 +29043,20 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "contract_quote": {
     "kind": "explicit-reporting",
     "quote": "logger.error(f\"SevenDaysLookahead id={record_id} not found\")"
    },
    "register_classification": "OPEN-CONTRACT-CANDIDATE",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/database.py:8740-8741 - the same guard for `actual_end`, already adjudicated under INV34-009367: same plan/actual separation",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-012"
+   "p6_batch": "p6-batch-012",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-009379",
@@ -28967,13 +29075,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/database.py:8831-8832 - `save_npt_report`, already adjudicated under INV34-009108: Same construct as the session-ownership primary INV34-009108 (p6-batch-011): `owns_session = session is None` then `session = session or self.create_session()`, with commit/rollback/close performed only when the session is owned, so a caller-supplied session stays inside the caller's (import) transaction.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-012"
+   "p6_batch": "p6-batch-012",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-009389",
@@ -28992,13 +29103,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/database.py:9047-9048 - `update_code_usage`, already adjudicated under INV34-009108: Same construct as the session-ownership primary INV34-009108 (p6-batch-011): `owns_session = session is None` then `session = session or self.create_session()`, with commit/rollback/close performed only when the session is owned, so a caller-supplied session stays inside the caller's (import) transaction.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-012"
+   "p6_batch": "p6-batch-012",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-009391",
@@ -29017,13 +29131,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/database.py:9076-9077 - `save_time_depth_data`, already adjudicated under INV34-009108: Same construct as the session-ownership primary INV34-009108 (p6-batch-011): `owns_session = session is None` then `session = session or self.create_session()`, with commit/rollback/close performed only when the session is owned, so a caller-supplied session stays inside the caller's (import) transaction.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-012"
+   "p6_batch": "p6-batch-012",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-009403",
@@ -29042,13 +29159,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/database.py:9306-9307 - `auto_update_from_daily_report`, already adjudicated under INV34-009108: Same construct as the session-ownership primary INV34-009108 (p6-batch-011): `owns_session = session is None` then `session = session or self.create_session()`, with commit/rollback/close performed only when the session is owned, so a caller-supplied session stays inside the caller's (import) transaction.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-012"
+   "p6_batch": "p6-batch-012",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-009493",
@@ -29092,13 +29212,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/ddr_import_service.py:145-146 - `_resolve_import_well` (a service method carrying the same ownership flag), already adjudicated under INV34-009108: Same construct as the session-ownership primary INV34-009108 (p6-batch-011): `owns_session = session is None` then `session = session or self.create_session()`, with commit/rollback/close performed only when the session is owned, so a caller-supplied session stays inside the caller's (import) transaction.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-012"
+   "p6_batch": "p6-batch-012",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-009564",
@@ -29117,13 +29240,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/ddr_import_service.py:696-697 - `_ensure_report_number`, already adjudicated under INV34-009108: Same construct as the session-ownership primary INV34-009108 (p6-batch-011): `owns_session = session is None` then `session = session or self.create_session()`, with commit/rollback/close performed only when the session is owned, so a caller-supplied session stays inside the caller's (import) transaction.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-012"
+   "p6_batch": "p6-batch-012",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-009566",
@@ -29142,13 +29268,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/ddr_import_service.py:710-711 - `_create_fallback_report`, already adjudicated under INV34-009108: Same construct as the session-ownership primary INV34-009108 (p6-batch-011): `owns_session = session is None` then `session = session or self.create_session()`, with commit/rollback/close performed only when the session is owned, so a caller-supplied session stays inside the caller's (import) transaction.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-012"
+   "p6_batch": "p6-batch-012",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-009570",
@@ -29167,13 +29296,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/ddr_import_service.py:958-959 - `_save_time_logs`, already adjudicated under INV34-009108: Same construct as the session-ownership primary INV34-009108 (p6-batch-011): `owns_session = session is None` then `session = session or self.create_session()`, with commit/rollback/close performed only when the session is owned, so a caller-supplied session stays inside the caller's (import) transaction.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-012"
+   "p6_batch": "p6-batch-012",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-009572",
@@ -29192,13 +29324,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/ddr_import_service.py:1057-1058 - `_save_morning_logs`, already adjudicated under INV34-009108: Same construct as the session-ownership primary INV34-009108 (p6-batch-011): `owns_session = session is None` then `session = session or self.create_session()`, with commit/rollback/close performed only when the session is owned, so a caller-supplied session stays inside the caller's (import) transaction.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-012"
+   "p6_batch": "p6-batch-012",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-009587",
