@@ -257,6 +257,32 @@
    "evidence_commit": "3da68f0",
    "commit": null,
    "tests": "no production file changes in this batch (all 45 records adjudicated as INTENTIONAL 15 / DUPLICATE 23 / VERIFIED-CORRECT 7; 0 defects), so the evidence is (a) the phase-1 full-suite gate on the pre-batch tree (1 834 passed / 0 failures / 0 errors / 4 skipped, 317.146 s) and (b) a fresh related run on the current tree covering every module the batch quotes: 346 passed / 0 failed / 0 errors / 0 skipped in 94.954 s (/tmp/p6-014-related.xml; includes the cement/mse/mud-volume/torque-drag/kill-sheet persistence, cross-process, history and save-widget suites, the calculation-verification core, the casing-id gate, the save-outcome consumers and the import-pipeline suites).  compileall and the phase-end full suite re-run on the final tree"
+  },
+  {
+   "batch": "p6-batch-015",
+   "class": "phase-2 mixed classes: A:45 - planning/import dialogs, main window, home tab and the w2/w10..w16 tabs",
+   "records": 45,
+   "sites": 41,
+   "by_classification": {
+    "DUPLICATE/FALSE-POSITIVE": 19,
+    "VERIFIED-CORRECT": 18,
+    "INTENTIONAL": 7,
+    "GENUINE_DEFECT": 1
+   },
+   "defects_fixed": [
+    {
+     "id": "INV34-003569",
+     "file": "dialogs/planning_dialog.py",
+     "line": 483,
+     "summary": "`PlanImportReviewDialog._parse_data` coerced an absent AND an unparseable cell into a planned 0 for every numeric plan field (interval/depth/rop/hours/days/total_days); the staged plan then showed 0.0 h / 0.0 m and `complete_total` summed the coercion as a real zero.  Now an absent/unparseable numeric cell stays None (unknown) while a typed 0 remains an explicit planned zero",
+     "commit": "fd51a54",
+     "test": "tests/test_plan_import_unknown_cells.py"
+    }
+   ],
+   "new_findings": [],
+   "evidence_commit": null,
+   "commit": null,
+   "tests": "defect fix commit fd51a54: new regression file 5 passed / 0 failed / 0 errors / 0 skipped in 0.607 s; with the bug reintroduced 3 of the 5 fail, then restored byte-identical (sha256 809186f7a5700f3d27b159f288c81fec6263a424125f3ce2ae8b67b44bf44e3a) -> 5/5; related run (7 files: the new regression, the M29 planning UI, planning context/material/presentation, M28 finance-safety and the P0 phase-1 regressions) 50 passed / 0 failed / 0 errors / 0 skipped in 9.419 s (/tmp/p6-015-related.xml); compileall OK; ruff on the changed file 151 -> 151 findings (no debt increase) and the new test file is clean.  The other 44 records change no production file; the phase-end full suite re-runs on the final tree"
   }
  ],
  "start_open": 1224,
@@ -264,22 +290,22 @@
  "arithmetic": {
   "register_open_at_p6_start": 1224,
   "defect_fixed_by_p6": 2,
-  "adjudicated_by_p6_batches": 549,
-  "current_open": 673,
+  "adjudicated_by_p6_batches": 594,
+  "current_open": 628,
   "check": true,
   "note": "every record is either OPEN or carries a terminal evidence-backed classification; the fixed sites are subtracted separately so nothing disappears"
  },
  "open_by_priority": {
-  "MEDIUM": 673
+  "MEDIUM": 628
  },
  "open_by_class": {
   "E": 241,
   "C": 159,
-  "A": 114,
   "B": 94,
+  "A": 69,
   "D": 65
  },
- "generated_utc": "2026-09-28T07:23:52+00:00",
+ "generated_utc": "2026-09-28T07:28:05+00:00",
  "recovery_bundles": [
   {
    "file": "/home/user/recovery/drillmaster-115fc09.bundle",

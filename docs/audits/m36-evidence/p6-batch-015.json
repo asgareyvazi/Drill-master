@@ -1,0 +1,569 @@
+{
+ "schema": "m36-p6-batch",
+ "batch": "p6-batch-015",
+ "class": "phase-2 mixed classes: A:45 - planning/import dialogs, main window, home tab and the w2/w10..w16 tabs",
+ "records": 45,
+ "sites": 41,
+ "by_classification": {
+  "DUPLICATE/FALSE-POSITIVE": 19,
+  "VERIFIED-CORRECT": 18,
+  "INTENTIONAL": 7,
+  "GENUINE_DEFECT": 1
+ },
+ "defects_fixed": [
+  {
+   "id": "INV34-003569",
+   "file": "dialogs/planning_dialog.py",
+   "line": 483,
+   "summary": "`PlanImportReviewDialog._parse_data` coerced an absent AND an unparseable cell into a planned 0 for every numeric plan field (interval/depth/rop/hours/days/total_days); the staged plan then showed 0.0 h / 0.0 m and `complete_total` summed the coercion as a real zero.  Now an absent/unparseable numeric cell stays None (unknown) while a typed 0 remains an explicit planned zero",
+   "commit": "fd51a54",
+   "test": "tests/test_plan_import_unknown_cells.py"
+  }
+ ],
+ "new_findings": [],
+ "sibling_search": {
+  "target": "the defect's class: a numeric literal 0 assigned inside a parse/except handler that converts text into a plan or measurement value",
+  "method": "regex scan over core/, dialogs/ and tabs/ for `except (ValueError|TypeError|...)` followed by `pass` or an `X = 0` / `return 0` coercion, then each hit read at its site",
+  "hits": 25,
+  "findings": [
+   {
+    "site": "all 25 hits",
+    "status": "swallow the parse failure with `pass` (e.g. core/validators.py:142,184,287,329; core/profile_import_engine.py:752,928; dialogs/daily_report_dialogs.py:295,304; tabs/w2_Daily_Report.py:1405) - the strict opposite of assigning a fabricated 0: the previous/derived value stays in place and the callers' own unknown handling resumes"
+   },
+   {
+    "site": "core/profile_import_engine.py:840",
+    "status": "GENUINE DEFECT of the same class, fixed in batch-013 (0699e50)"
+   },
+   {
+    "site": "dialogs/planning_dialog.py:483/485",
+    "status": "GENUINE DEFECT of the same class, fixed in this batch (fd51a54)"
+   }
+  ]
+ },
+ "tests": "defect fix commit fd51a54: new regression file 5 passed / 0 failed / 0 errors / 0 skipped in 0.607 s; with the bug reintroduced 3 of the 5 fail, then restored byte-identical (sha256 809186f7a5700f3d27b159f288c81fec6263a424125f3ce2ae8b67b44bf44e3a) -> 5/5; related run (7 files: the new regression, the M29 planning UI, planning context/material/presentation, M28 finance-safety and the P0 phase-1 regressions) 50 passed / 0 failed / 0 errors / 0 skipped in 9.419 s (/tmp/p6-015-related.xml); compileall OK; ruff on the changed file 151 -> 151 findings (no debt increase) and the new test file is clean.  The other 44 records change no production file; the phase-end full suite re-runs on the final tree",
+ "head": "fd51a54",
+ "commit": null,
+ "evidence_commit": null,
+ "evidence_files": [
+  "docs/audits/m36-evidence/p6-batch-015.json",
+  "docs/audits/m36-evidence/m36-open-item-register.json",
+  "docs/audits/m36-evidence/m36-master-ledger.json",
+  "tools/m36/p6_batch_015.py",
+  "dialogs/planning_dialog.py",
+  "tests/test_plan_import_unknown_cells.py",
+  "core/inventory_semantics.py",
+  "tabs/w10_Planning_Widget.py"
+ ],
+ "staleness": {
+  "checked": 45,
+  "stale": 0,
+  "re_anchored": 1,
+  "method": "every record's recorded text must match the line at its recorded position; the one exception is dialogs/planning_dialog.py, whose line numbers shifted by +2 in this batch's own fix (fd51a54) - there the recorded text is verified against fd51a54^ at the recorded line and re-anchored through difflib inside the symbol's AST range, which is what the staleness block reports",
+  "re_anchored_items": [
+   {
+    "id": "INV34-003569",
+    "file": "dialogs/planning_dialog.py",
+    "register_line": 483,
+    "current_line": 485
+   }
+  ]
+ },
+ "method": "each of the 45 records was read at its own site in the current tree and the flagged construct traced to its consumer before classification: the plan import through the staging consumer and the review table's display/total contracts, the material inventory through the canonical movement trichotomy (core/inventory_semantics.py) and the existing regression, the cost tabs through the module's own -1/'Not supplied' sentinel and the 'planning ASSUMPTIONS' banner, the export guards through their fail-closed OSError chain, the daily report through its atomic-save session contract, and the save coordinator through core/save_outcome.py.  The deciding contract is quoted in `evidence` for every record; no line outside the fixed defect was changed",
+ "items": [
+  {
+   "id": "INV34-003558",
+   "file": "dialogs/planning_dialog.py",
+   "line": 275,
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Rule mis-fire, not a behaviour to adjudicate: the truthiness test guards the bold *formatting* of the field label (`font.setBold(True)` behind `if required:`, dialogs/planning_dialog.py:275); `required` is the third element of PLAN_FIELDS and has no numeric subject and no persistence effect",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-003569",
+   "file": "dialogs/planning_dialog.py",
+   "line": 483,
+   "classification": "GENUINE_DEFECT",
+   "evidence": "The plan-input trichotomy is stated in this codebase and enforced at both ends of this very path: `PlanImportReviewDialog._parse_data` must not turn an absent or unparseable numeric cell into a planned 0.  The consumer `_import_from_excel` is written for None to be possible (`interval is not None and depth is not None`, `depth is not None and cum_depth is not None`, `if depth_to is not None`, 1003-1009), `core/text_utils.fmt_num` documents 'genuine unknown stays unknown' and renders these fields with `default=None` (\"—\"), the plan total is derived with `core.cost_semantics.complete_total` ('A complete amount total, never a subtotal disguised as the total' -> None unless *every* value is a number), and the same codebase states the rule for plan inputs ('empty or \"—\" = not planned (None); a typed 0 is an explicit zero', tabs/w10_Planning_Widget.py:2399-2400; `planned_days ... else None`, dialogs/hierarchy_dialogs.py:1200,1210).",
+   "remaining_question": null,
+   "defect": true,
+   "test": "tests/test_plan_import_unknown_cells.py",
+   "commit": "fd51a54"
+  },
+  {
+   "id": "INV34-003787",
+   "file": "dialogs/smart_template_dialog.py",
+   "line": 3193,
+   "classification": "INTENTIONAL",
+   "evidence": "Presence check while assembling the final payload: `if self.base_extracted.get(payload_key): result[payload_key] = self.base_extracted[payload_key]` (dialogs/smart_template_dialog.py:3187-3194) copies an extracted section only when it is non-empty, so an absent/empty section leaves the target's own (empty) value in place instead of copying an empty one over it.  Nothing is invented and no numeric default is written; the assignments the user made are applied afterwards (`for fp, assign in self.assignments.items()`, 3199-3204).",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-004027",
+   "file": "main_window.py",
+   "line": 2755,
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Second register record for main_window.py:2755 (the Save All counterpart), already adjudicated under INV34-004029: the same `.saved` gate on the aggregate outcome of `save_all`",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-004029",
+   "file": "main_window.py",
+   "line": 2744,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "`core/save_outcome.py` is the single save coordinator: `save_all` returns a SaveOutcome whose `saved` counts only sections that actually committed ('Execute independent section saves; report partial success honestly', 88-93) and whose `summary()` carries the per-section issues (77-85).  Reading `.saved` therefore tests exactly 'did anything get written' - the condition for invalidating the hierarchy cache after a save (main_window.py:2744, 2755) - and cannot treat a failed section as a success.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-004060",
+   "file": "tabs/home_tab.py",
+   "line": 598,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "The handler's scope is the database-status probe only (`hierarchy = self.db.get_hierarchy()`); a failure sets `db_status = \"❌ Disconnected\"` and the status colour (tabs/home_tab.py:594-600), i.e. the failure is reported to the user, not swallowed.  No value is substituted: the pairs shown on the panel are the real ones, and the outer handler reports the update itself (588).",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-004229",
+   "file": "tabs/w10_Planning_Widget.py",
+   "line": 1185,
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Rule mis-fire, not a behaviour to adjudicate: the test guards a table item before recolouring it (`if item: item.setForeground(QColor(color))`, tabs/w10_Planning_Widget.py:1183-1186); colour only",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-004296",
+   "file": "tabs/w10_Planning_Widget.py",
+   "line": 244,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "`first.data(Qt.UserRole) if first else None` reads the row's own stored payload; a missing cell yields None and the next line falls back to an empty dict (`plan = dict(original) if isinstance(original, dict) else {}`), so a row without a payload is rebuilt from its visible cells rather than from a stale or fabricated record (tabs/w10_Planning_Widget.py:242-248).",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-004297",
+   "file": "tabs/w10_Planning_Widget.py",
+   "line": 248,
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Second register record for tabs/w10_Planning_Widget.py:248 (`item.text().strip() if item else None` in the same loop), already adjudicated under INV34-004296: the same per-cell presence guard: a missing cell is None (unknown), never an empty string pretending to be entered text",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-004357",
+   "file": "tabs/w11_Export.py",
+   "line": 81,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "`if self.db:` guards the whole combobox population (tabs/w11_Export.py:79-90): without a database the combo simply stays empty (nothing to list) instead of raising, and the rest of the method re-selects the current well only when it exists.  No well or code is invented.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-004381",
+   "file": "tabs/w12_Analysis.py",
+   "line": 2722,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Scope-label probe: `has_bores = bool(self.db.get_wellbores_by_well(self.current_well_id))` behind a caller check; a failure sets `has_bores = False` (tabs/w12_Analysis.py:2718-2723) and the label then states the *narrower* scope (\"scoped to this wellbore only.  Records with an unknown bore are excluded.\"), i.e. the failure cannot widen a claim about the figures.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-004410",
+   "file": "tabs/w12_Analysis.py",
+   "line": 2480,
+   "classification": "INTENTIONAL",
+   "evidence": "Timer cadence, not an engineering value: `intervals = {0:5000, 1:10000, 2:30000, 3:60000, 4:300000}` maps the interval combo's index to a refresh period and `intervals.get(index, 10000)` falls back to the 10 s entry for an unforeseen index (tabs/w12_Analysis.py:2477-2481).  The default selects a UI refresh rate; it cannot change any reported number, and the combo is populated from the same five-entry contract.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-004874",
+   "file": "tabs/w13_Engineering_Calculator.py",
+   "line": 1423,
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Rule mis-fire, not a behaviour to adjudicate: the test guards a table item before reading its text for the nozzle-area label (`item = self.hy_nzl_table.item(row, 3)`, `if item:`) and the following handler skips a non-numeric cell instead of adding 0 (tabs/w13_Engineering_Calculator.py:1421-1428); a display aggregate",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-004988",
+   "file": "tabs/w14_Procedure_Widget.py",
+   "line": 1107,
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Rule mis-fire, not a behaviour to adjudicate: `is_checked = cb.isChecked() if cb else False` is an object guard that decides a row *colour* (`item.setBackground(QColor(\"#d5f5e3\") if is_checked else QColor(\"#ffffff\"))`, tabs/w14_Procedure_Widget.py:1104-1111); no value is stored or derived",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-005027",
+   "file": "tabs/w14_Procedure_Widget.py",
+   "line": 966,
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Rule mis-fire, not a behaviour to adjudicate: `if self.parent_widget:` guards a list refresh of the embedding page (`self.parent_widget.load_procedures_list()`, tabs/w14_Procedure_Widget.py:966-967); an object pointer, no value involved",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-005071",
+   "file": "tabs/w15_Reference_Tables.py",
+   "line": 127,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Export presence guard: `tables = current_tab.findChildren(QTableWidget)` then `if tables: export.export_table_with_dialog(tables[0], ...)` (tabs/w15_Reference_Tables.py:122-130).  A tab without a table simply does not export (and the empty case is also handled one step earlier by `if not current_tab: return`); no file is produced and no data invented.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-005075",
+   "file": "tabs/w16_Cost_Management.py",
+   "line": 590,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "A failed planned-days read becomes *unknown*, never zero: `try: days = self.db.get_planned_total_days(...) except Exception: days = None` followed by `self.afe_days.setValue(days if days is not None else -1)` on a spin box whose `setSpecialValueText(\"Not supplied\")` renders -1 as 'Not supplied' (tabs/w16_Cost_Management.py:584-592, `_insert_afe_row`).  A database failure therefore cannot be mistaken for a plan of 0 days, and the read-only mirror is documented as such ('Reflect the authoritative WellPlan planned days (read-only mirror)').",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-005084",
+   "file": "tabs/w16_Cost_Management.py",
+   "line": 538,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Blank-vs-supplied trichotomy for a text identifier: an empty AFE number is stored as None ('not supplied') rather than as an empty string claim (`afe_number=self.afe_number.text().strip() or None`, tabs/w16_Cost_Management.py:538), and the same call passes `currency=self._selected_currency()` which returns None for the '—/unspecified' choice.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-005101",
+   "file": "tabs/w16_Cost_Management.py",
+   "line": 494,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "`data = dict(cat_item.data(Qt.UserRole) or {}) if cat_item else {}` builds the row's base dict from the stored payload (or an empty dict for a fresh row) and the authoritative values are then read from the cells' widgets (`planned_cost`/`actual_cost` from the spin boxes, `currency` from the combo, tabs/w16_Cost_Management.py:485-500); the base payload cannot inject a stale numeric value because every key that matters is overwritten.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-005313",
+   "file": "tabs/w2_Daily_Report.py",
+   "line": 1060,
+   "classification": "INTENTIONAL",
+   "evidence": "Combo population fallback driven by a resolution object: `resolve_main` returns a REVIEW_REQUIRED resolution with `code = None` for a blank/unresolvable main code ('Blank ComboBox value; no default item selected', core/combo_identity.py:259-274), and `sub_options(None)` deliberately applies no parent filter (`if main_code and str(parent) != str(main_code): continue`), so the sub-combo is filled with the full catalogue for the reviewer to choose from (tabs/w2_Daily_Report.py:1056-1063).  The daily-report record keeps the resolution's REVIEW_REQUIRED state rather than the displayed list, so a hint list is never saved as an accepted code.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-005362",
+   "file": "tabs/w2_Daily_Report.py",
+   "line": 1280,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Atomic-save gate: a falsy `save_daily_report` result triggers `session.rollback()`, an explicit error message ('Failed to save report') and `return False` before any time log is written (tabs/w2_Daily_Report.py:1277-1288, with the module's own comment that the header and its logs commit in ONE session).  A missing id can therefore never reach the time-log writer.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-005364",
+   "file": "tabs/w2_Daily_Report.py",
+   "line": 1344,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Row-level presence check in the time-log writer: `log = self._extract_time_log_row(...)` then `if log:` before `session.add(TimeLog24H(...))` (tabs/w2_Daily_Report.py:1342-1350), so a row the extractor could not read is skipped instead of being written with fabricated zeros - and the extractor's own contract (batch-011/013 evidence) derives the duration from the from/to times and returns None when nothing usable is present.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-008069",
+   "file": "main_window.py",
+   "line": 2209,
+   "classification": "INTENTIONAL",
+   "evidence": "Dead no-op loop in an import-summary renderer: `for detail in report.get(\"details\", []) if isinstance(report, dict) else []: pass` (main_window.py:2208-2209).  The consumer's rows come from the loop immediately below (`for det in result.get(\"details\", [])[:10]`, 2211-2215), so the loop neither hides nor fabricates anything; removing it would be a cosmetic refactor and is out of scope for this phase.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-008085",
+   "file": "tabs/w10_Planning_Widget.py",
+   "line": 239,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Context gate inside the save callback: falsy `self.db` / `current_report_id` / `current_well_id` means there is nothing to save against, and the guard raises `ValueError(\"Select a well and report before saving the plan\")` (tabs/w10_Planning_Widget.py:238-240) - which `save_all` reports as an INVALID_SOURCE issue, never as a save.  The ids are primary keys, so 0 cannot be a valid record; the guard runs before any query or write.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-008089",
+   "file": "tabs/w10_Planning_Widget.py",
+   "line": 471,
+   "classification": "INTENTIONAL",
+   "evidence": "A display/derivation guard: the value fed onward is recomputed from the real sources with the unknown preserved (`if total == 0: self.<x>_progress.setValue(0)` is the definitional 0% of an empty list; `pct = checked / total * 100` otherwise), or the failure path yields an explicit 'unknown / not exported' outcome rather than a substituted number.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-008091",
+   "file": "tabs/w10_Planning_Widget.py",
+   "line": 694,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Fail-closed export guard: `if not painter.isActive(): raise OSError(\"PDF writer could not be opened\")`, then `ended = painter.end()` and `if not ended or printer.printerState() == QPrinter.Error: raise OSError(\"PDF writer failed\")` (tabs/w10_Planning_Widget.py:694-701); the outer handler logs, tells the user (\"Charts were not exported\") and returns False.  A chart file is never reported as exported unless the writer really finished.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-008092",
+   "file": "tabs/w10_Planning_Widget.py",
+   "line": 704,
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Second register record for tabs/w10_Planning_Widget.py:704 (`if not pixmap.save(filename): raise OSError(\"Image writer failed\")`), already adjudicated under INV34-008091: the raster branch of the same fail-closed export",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-008109",
+   "file": "tabs/w10_Planning_Widget.py",
+   "line": 2406,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Sanitiser inside `_plan_value`: a non-finite or negative plan quantity raises `ValueError(\"Material quantities must be finite and nonnegative\")` instead of being coerced (tabs/w10_Planning_Widget.py:2404-2407); the only None produced here is the documented 'empty or \"—\" = not planned' case on the lines above.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-008147",
+   "file": "tabs/w12_Analysis.py",
+   "line": 2722,
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Second register record for tabs/w12_Analysis.py:2722 (the same handler, second register rule), already adjudicated under INV34-004381: identical construct and contract",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-008264",
+   "file": "tabs/w16_Cost_Management.py",
+   "line": 479,
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Rule mis-fire, not a behaviour to adjudicate: the flagged line is the docstring of `_selected_currency` ('Return the chosen currency code, or None when left unspecified (§9)', tabs/w16_Cost_Management.py:478-483); the function returns the code or None and the rule matched prose, not a numeric fallback",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-008267",
+   "file": "tabs/w16_Cost_Management.py",
+   "line": 494,
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Second register record for tabs/w16_Cost_Management.py:494 (the same line, second register rule), already adjudicated under INV34-005101: identical construct and contract",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-008272",
+   "file": "tabs/w16_Cost_Management.py",
+   "line": 538,
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Second register record for tabs/w16_Cost_Management.py:538 (the same line, second register rule), already adjudicated under INV34-005084: identical construct and contract",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-008279",
+   "file": "tabs/w16_Cost_Management.py",
+   "line": 590,
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Second register record for tabs/w16_Cost_Management.py:590 (the same handler, second register rule), already adjudicated under INV34-005075: identical construct and contract",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-008816",
+   "file": "tabs/w10_Planning_Widget.py",
+   "line": 700,
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Second register record for tabs/w10_Planning_Widget.py:700 (the printer-state half of the same guard), already adjudicated under INV34-008091: the same fail-closed export chain",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-010068",
+   "file": "tabs/w10_Planning_Widget.py",
+   "line": 1728,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Plan-vs-actual comparison with the unknown preserved: the actual depth is the maximum of only the known values (`known_depths = [v for v in self.fact_depths if v is not None]`, `fact = max(known_depths) if known_depths else None`) and the planned depth is taken only when *every* activity depth is known (`planned = (max(depths) if all(v is not None for v in depths) else getattr(...)) if depths else ...`), then `compare(\"Depth\", planned, fact)` classifies the pair and both labels render through `fmt_num(..., default=None)` (tabs/w10_Planning_Widget.py:1727-1735).  An unknown side can therefore never be presented as a zero-depth plan or fact.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-010077",
+   "file": "tabs/w10_Planning_Widget.py",
+   "line": 2411,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "The canonical bulk-material contract treats received/used as *movements*, and an absent movement is zero: core/inventory_semantics.py states 'None = not reported (unknown), 0.0 = explicitly reported zero ... opening_stock follows the trichotomy; received/used absent = no movement (0.0); current_stock (closing) = opening + received - used when opening is known, else None (never a fabricated 0)' and implements it as `derive_closing(opening, received, used)` = `float(opening) + float(received or 0.0) - float(used or 0.0)` with an explicit None for an unknown opening, plus `normalize_movement`: 'Absent movement means zero'.  This site mirrors that rule exactly: `initial` keeps the trichotomy (`initial = _plan_value(2)`, then `current = initial + received - used if initial is not None else None`) while `received`/`used` default to the canonical no-movement 0.0, and the existing regression tests/test_m29_planning_ui.py pins the resulting row (`row.initial_stock is row.current_stock is None and row.received == row.used == 0`).",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-010078",
+   "file": "tabs/w10_Planning_Widget.py",
+   "line": 2412,
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Second register record for tabs/w10_Planning_Widget.py:2412 (`used = _plan_value(4) or 0.0`), already adjudicated under INV34-010077: the same movement default, symmetric with `received`",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-010084",
+   "file": "tabs/w11_Export.py",
+   "line": 392,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Documented projection-input convention on the *same* tab immediately above the site: 'Optional day-rate PROJECTION inputs.  Left at 0 (the default), the report shows stored ACTUAL cost from CostRecord.  A non-zero rate adds an explicitly-labelled projection alongside — it never replaces or is presented as actual cost (§12/§27)' with the on-screen note 'Leave rates at 0 to report stored actual cost only.' (tabs/w11_Export.py:384-405).  0 here therefore means 'no projection requested', not a measured zero rate; the engine keeps its own guard (`rate_supplied = daily_rate is not None and ... and projection_currency is not None`, core/report_engine.py:1759-1760).",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-010085",
+   "file": "tabs/w11_Export.py",
+   "line": 398,
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Second register record for tabs/w11_Export.py:398 (`self.cost_spread.setValue(0)`), already adjudicated under INV34-010084: the spread-rate half of the same documented pair",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-010135",
+   "file": "tabs/w14_Procedure_Widget.py",
+   "line": 1088,
+   "classification": "INTENTIONAL",
+   "evidence": "Definitional empty-list case of a progress percentage: with zero checklist rows, `total == 0` and the bar is set to 0 % (`pct = checked / total * 100` otherwise, tabs/w14_Procedure_Widget.py:1085-1100).  0 of 0 items is 0 %, and the same widget keeps its per-item truth from the checkboxes rather than from this value.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-010136",
+   "file": "tabs/w14_Procedure_Widget.py",
+   "line": 1209,
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Second register record for tabs/w14_Procedure_Widget.py:1209 (the steps-progress counterpart), already adjudicated under INV34-010135: the same definitional 0 % for an empty list",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-010155",
+   "file": "tabs/w16_Cost_Management.py",
+   "line": 201,
+   "classification": "INTENTIONAL",
+   "evidence": "Planning-assumption inputs on the Daily Cost tab, created as `QDoubleSpinBox` with `setRange(0, 999999)` and an explicit banner above them: '⚠️ Day-rate figures below are planning ASSUMPTIONS you enter — they are NOT actual recorded cost.  Actual cost comes from the AFE tab (persisted) and reports.' (tabs/w16_Cost_Management.py:213-224); the running total only appears after the user changes something (`valueChanged` -> `_update_daily_total`, 226-227, 249-251) and is always suffixed '(assumption)'.  The engine consuming them keeps its own unknown guard (`rate_supplied = daily_rate is not None and spread_rate is not None and projection_currency is not None` -> `total_daily = ... if rate_supplied else None`, core/report_engine.py:1759-1760).  Residual (recorded, not a defect claim): the spin box itself cannot express 'no rate' once a currency is chosen, so a projection on zero rates reads as a 0 cost — it is labelled an assumption and never presented as actual cost.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-010156",
+   "file": "tabs/w16_Cost_Management.py",
+   "line": 207,
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Second register record for tabs/w16_Cost_Management.py:207 (`spread_rate.setValue(0)`), already adjudicated under INV34-010155: the spread half of the same documented assumption pair",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-010163",
+   "file": "tabs/w16_Cost_Management.py",
+   "line": 337,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "This module encodes 'not supplied' explicitly for cost inputs: the AFE spin boxes are created with `spin.setRange(-1, 999999999)`, `spin.setSpecialValueText(\"Not supplied\")` and `spin.setValue(value if value is not None else -1)`, and the reader maps `value() >= 0` back to a value or None (tabs/w16_Cost_Management.py, `_insert_afe_row` / `_read_afe_rows`); the planned-days mirror uses the same sentinel (`self.afe_days.setValue(days if days is not None else -1)`).  A blank text field is likewise stored as None (`afe_number=...strip() or None`) and an unknown NPT cost is displayed, not invented (`money(total_npt_cost) if actual_cost is not None else \"— (incomplete cost or currency data)\"`, with the module's contract at 294-297: 'It is only known when actual cost AND total recorded time exist — otherwise \"unknown\", never a synthetic rig-rate product.').",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-010203",
+   "file": "tabs/w2_Daily_Report.py",
+   "line": 1337,
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Second register record for tabs/w2_Daily_Report.py:1337 (`session = session or self.db_manager.create_session()`), already adjudicated under INV34-009108: the optional-session ownership contract already adjudicated in batch-011: the docstring three lines above states 'When ``session`` is supplied the work joins that transaction (the caller owns commit/rollback) ... When omitted it manages its own session for backward compatibility' (1330-1334), and `owns_session` records which case applies",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  }
+ ]
+}
