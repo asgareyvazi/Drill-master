@@ -73,7 +73,9 @@ def main() -> int:
         target["p6_evidence"] = record["evidence"]
         target["p6_remaining_question"] = record.get("remaining_question")
         target["p6_defect"] = bool(record.get("defect"))
-        target["p6_commit"] = data.get("commit")
+        # A record may name its own commit (a genuine defect names the fix commit); otherwise the
+        # batch-level commit applies.  All other per-record stamps come from the batch payload.
+        target["p6_commit"] = record.get("commit") or data.get("commit")
 
     open_records = [r for r in register["records"] if r["classification"] == "OPEN"]
     register["totals"]["open"] = len(open_records)

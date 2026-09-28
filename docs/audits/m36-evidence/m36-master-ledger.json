@@ -205,6 +205,42 @@
    "evidence_commit": null,
    "commit": null,
    "tests": "no production change in this batch; the full suite evidence recorded in the final phase-1 report (1 834 / 0 failures / 0 errors / 4 skipped on the 1d44cb5 tree) stands for this batch too - this batch edits no production file"
+  },
+  {
+   "batch": "p6-batch-013",
+   "class": "phase-2 mixed classes: A:45",
+   "records": 45,
+   "sites": 45,
+   "by_classification": {
+    "DUPLICATE/FALSE-POSITIVE": 19,
+    "INTENTIONAL": 13,
+    "VERIFIED-CORRECT": 12,
+    "GENUINE_DEFECT": 1
+   },
+   "defects_fixed": [
+    {
+     "id": "INV34-002457",
+     "file": "core/profile_import_engine.py",
+     "line": 840,
+     "summary": "`except (TypeError, ValueError): hrs = 0.0` coerced a blank or non-numeric Hrs cell into a measured zero-hour duration in the legacy profile extractor; now blank -> None and a stated-but-unparseable value -> its source token for the review boundary",
+     "commit": "0699e50",
+     "test": "tests/test_profile_time_log_unknown_duration.py"
+    }
+   ],
+   "new_findings": [
+    {
+     "id": "NEW-P6-003",
+     "file": "core/engineering/extended.py",
+     "line": 424,
+     "severity": "LOW",
+     "status": "recorded, not patched (legacy helper, tests-only caller; needs a domain answer)",
+     "commit": null,
+     "test": null
+    }
+   ],
+   "evidence_commit": null,
+   "commit": null,
+   "tests": "defect fix commit 0699e50: new regression file 4 passed; related suites (12 files incl. the regression, the profile-engine and DDR forensics and the time-log/inventory semantics suites) 343 passed / 0 failed / 0 errors / 0 skipped in 49.535 s; mutation validation with `hrs = 0.0` reintroduced -> 3 of 4 new tests fail, restored byte-identical (sha256 f77253848055e1c1..58fb45f9) -> 4/4; compileall OK; ruff unchanged for the touched files (45 concise lines before and after), ratchet population 5 338 <= ceiling 5 375. The other 44 records change no production file; the phase-1 full-suite gate (1 834 / 0 failures / 0 errors / 4 skipped, 1d44cb5 tree) plus that related run cover them; the phase-end full suite will re-run on the final tree"
   }
  ],
  "start_open": 1224,
@@ -212,22 +248,22 @@
  "arithmetic": {
   "register_open_at_p6_start": 1224,
   "defect_fixed_by_p6": 2,
-  "adjudicated_by_p6_batches": 459,
-  "current_open": 763,
+  "adjudicated_by_p6_batches": 504,
+  "current_open": 718,
   "check": true,
   "note": "every record is either OPEN or carries a terminal evidence-backed classification; the fixed sites are subtracted separately so nothing disappears"
  },
  "open_by_priority": {
-  "MEDIUM": 763
+  "MEDIUM": 718
  },
  "open_by_class": {
   "E": 241,
-  "A": 204,
   "C": 159,
+  "A": 159,
   "B": 94,
   "D": 65
  },
- "generated_utc": "2026-09-28T06:34:59+00:00",
+ "generated_utc": "2026-09-28T06:42:47+00:00",
  "recovery_bundles": [
   {
    "file": "/home/user/recovery/drillmaster-2f61e6f.bundle",
