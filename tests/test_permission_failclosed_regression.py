@@ -101,8 +101,13 @@ def save_all_calls(monkeypatch):
 
 
 def _make_widget(persistence_layer):
-    """A real EquipmentWidget instance with the UI and persistence stubbed out."""
-    widget = object.__new__(EquipmentWidget)
+    """A real EquipmentWidget instance with the UI and persistence stubbed out.
+
+    ``EquipmentWidget.__new__`` (not ``object.__new__``) is required for a PySide6 class:
+    the wrapper allocates the Python object without running the C++ constructor, so the
+    real method bodies run while no real widget, layout or Qt event loop is involved.
+    """
+    widget = EquipmentWidget.__new__(EquipmentWidget)
     widget.db = persistence_layer
     widget.current_well = 1
     widget.current_report_id = None
