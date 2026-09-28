@@ -14,7 +14,8 @@
    },
    "defects_fixed": [],
    "commit": null,
-   "tests": "ledger/register validation (no production change)"
+   "tests": "ledger/register validation (no production change)",
+   "evidence_commit": "3b60dfd"
   },
   {
    "batch": "p6-batch-003",
@@ -75,7 +76,7 @@
     "INV34-001751 / INV34-007524 - core/engineering/well_control_kill_sheet.py:290 (`casing_id_in=_num(casing_id_in) or 0.0`): a required, consumed input was missing from the builder's required_raw gate, so an unfilled casing-ID field (the widget sentinel reads back as None) silently removed the annular volume - and the annular displacement strokes derived from it - from a sheet that still reported success. Fixed in ff2000a; regression tests/test_kill_sheet_casing_id_gate.py (mutation-killed: reverting the gate yields 'assert () == (\"casing_id_in\",)', a truthiness-based gate also fails). One statement, one defect, two register records."
    ],
    "new_findings": [],
-   "evidence_commit": null,
+   "evidence_commit": "e205008",
    "commit": "ff2000a",
    "tests": "focused kill-sheet suite (this file + test_well_control_kill_sheet{,_cross_process,_persistence} + test_well_control_icp_fcp_consolidation) 45 tests PASS after the fix; the new regression file is 3/3 and mutation-validated (gate removed and truthiness gate both fail, restored byte-identical 30d03000...5eb5f20fe); ruff clean on both changed files"
   },
@@ -91,7 +92,7 @@
    },
    "defects_fixed": [],
    "new_findings": [],
-   "evidence_commit": null,
+   "evidence_commit": "2c82455",
    "commit": null,
    "tests": "no production change in this batch; the full suite was re-run on the 3f0cf3e fix (1 831 tests / 0 failures / 0 errors / 4 skipped) and the focused slices before it, as recorded in P6_PROGRESS.md"
   },
@@ -115,7 +116,7 @@
      "status": "recorded, not patched"
     }
    ],
-   "evidence_commit": null,
+   "evidence_commit": "ca2bb1e",
    "commit": null,
    "tests": "no production change in this batch; the full suite evidence recorded in P6_PROGRESS.md (1 831 tests / 0 failures / 0 errors / 4 skipped on the 3f0cf3e tree) stands for this batch too - every site read here is untracked by this session's changes"
   },
@@ -131,7 +132,7 @@
    },
    "defects_fixed": [],
    "new_findings": [],
-   "evidence_commit": null,
+   "evidence_commit": "9fc5538",
    "commit": null,
    "tests": "no production change in this batch; the full suite evidence recorded in P6_PROGRESS.md (1 831 tests / 0 failures / 0 errors / 4 skipped on the 3f0cf3e tree) stands for this batch too - every site read here is untracked by this session's changes"
   },
@@ -147,7 +148,7 @@
    },
    "defects_fixed": [],
    "new_findings": [],
-   "evidence_commit": null,
+   "evidence_commit": "9655321",
    "commit": null,
    "tests": "no production change in this batch; the full suite evidence recorded in P6_PROGRESS.md (1 831 tests / 0 failures / 0 errors / 4 skipped on the 3f0cf3e tree) stands for this batch too - the only production files this session has written are core/engineering/well_control_kill_sheet.py, core/mud_ledger.py and tabs/w7_logistics_Widget.py, none of which this batch edits"
   },
@@ -163,7 +164,7 @@
    },
    "defects_fixed": [],
    "new_findings": [],
-   "evidence_commit": null,
+   "evidence_commit": "5a17ee1",
    "commit": null,
    "tests": "no production change in this batch; the full suite evidence recorded in P6_PROGRESS.md (1 831 tests / 0 failures / 0 errors / 4 skipped on the 3f0cf3e tree) stands for this batch too - this batch edits no production file at all"
   }
@@ -188,12 +189,18 @@
   "B": 94,
   "D": 65
  },
- "generated_utc": "2026-09-28T06:13:30+00:00",
+ "generated_utc": "2026-09-28T06:14:06+00:00",
  "recovery_bundles": [
   {
    "file": "/home/user/recovery/drillmaster-2f61e6f.bundle",
    "sha256": "5cb8762ae153151f61e3d29a2505b0910ecc5d2cf53f9a94ce0729f0d73032b5",
    "captured_head": "2f61e6f",
+   "verified": "clone verified in this session"
+  },
+  {
+   "file": "/home/user/recovery/drillmaster-5a17ee1.bundle",
+   "sha256": "1fe4c4fc105ed2ea9dfe7d697f12aeac26abf7a3cab21fa4a6c25b3c034a70e1",
+   "captured_head": "5a17ee1",
    "verified": "clone verified in this session"
   },
   {
