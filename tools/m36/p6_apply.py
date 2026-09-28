@@ -170,6 +170,8 @@ def main() -> int:
     nxt = remaining_ids[0] if remaining_ids else None
     code_commits = " · ".join(f"{b['batch']} {b.get('commit') or 'audit-only'}"
                              for b in ledger["batches"])
+    live_head = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT,
+                               capture_output=True, text=True).stdout.strip()
     status = subprocess.run(["git", "status", "--porcelain", "-uall"], cwd=ROOT,
                             capture_output=True, text=True).stdout.splitlines()
     staged = sum(1 for line in status if line[:2].strip() and line[0] != "?")
@@ -179,7 +181,8 @@ def main() -> int:
     (EVIDENCE / "P6_PROGRESS.md").write_text(f"""# P6 PROGRESS — authoritative resume point
 
 ```text
-actual HEAD:            {data.get('head') or 'see `git log -1`'}
+HEAD at generation:     {live_head}   (snapshot - this file is written before its own commit;
+                        check `git log -1` for the real HEAD)
 branch:                 arena/01a0c945-drill-master (local only — never pushed)
 last completed batch:   {batch}  ({len(records)} records, {sites} sites, commit {data.get('commit')})
 HIGH remain:            {high_open}

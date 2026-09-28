@@ -1,7 +1,8 @@
 # P6 PROGRESS — authoritative resume point
 
 ```text
-actual HEAD:            3f0cf3e
+HEAD at generation:     f65f811   (snapshot - this file is written before its own commit;
+                        check `git log -1` for the real HEAD)
 branch:                 arena/01a0c945-drill-master (local only — never pushed)
 last completed batch:   p6-batch-004  (45 records, 36 sites, commit 3f0cf3e)
 HIGH remain:            234
@@ -15,7 +16,7 @@ code commits by batch:  p6-batch-002 audit-only · p6-batch-003 c2e0016 · p6-ba
 last validation:        ledger check True; register 1224 -
                         2 fixed - 135 adjudicated = 1087 open
 tests (this batch):     focused ledger/inventory/bulk/mud slice: 163 tests, 0 failures, 0 errors, 0 skipped (24.795 s, JUnit /tmp/mudslice.xml); the new regression file is 5/5 and mutation-validated (pre-fix code -> TypeError; unknown->0.0 -> 'assert [0.0, -30.0] == [None, -30.0]'; reverted continuity guard -> TypeError at core/mud_ledger.py:267 - each mutation fails, restored byte-identical 183a6cf5...6de828f); ruff clean on core/mud_ledger.py and the new test file
-worktree at generation: 4 modified/staged, 9 untracked - this batch's evidence is committed next
+worktree at generation: 3 modified/staged, 6 untracked - this batch's evidence is committed next
 recovery bundle:        /home/user/recovery/drillmaster-<sha>.bundle (clone-verified; sha256 in the register)
 ```
 
