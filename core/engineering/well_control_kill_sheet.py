@@ -261,6 +261,11 @@ def build_canonical_kill_sheet_inputs(
         "md_m": md_m,
         "shoe_tvd_m": shoe_tvd_m,
         "hole_size_in": hole_size_in,
+        # Consumed as the annulus in compute_kill_sheet (``csg_id =
+        # inp.casing_id_in``, annular loop below): an unfilled casing-ID
+        # field reaches this builder as None (the widget sentinel reads
+        # back as None) and must refuse, not drop the annular volume.
+        "casing_id_in": casing_id_in,
         "mw_pcf": mw_pcf,
         "frac_gradient_psi_ft": frac_gradient_psi_ft,
         "sidpp_psi": sidpp_psi,
