@@ -174,12 +174,10 @@ def main() -> int:
                              for b in ledger["batches"])
     live_head = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT,
                                capture_output=True, text=True).stdout.strip()
-    status = subprocess.run(["git", "status", "--porcelain", "-uall"], cwd=ROOT,
-                            capture_output=True, text=True).stdout.splitlines()
-    staged = sum(1 for line in status if line[:2].strip() and line[0] != "?")
-    untracked = sum(1 for line in status if line.startswith("??"))
-    worktree = (f"{staged} modified/staged, {untracked} untracked "
-                f"- this batch's evidence is committed next")
+    worktree = ("see `git status --porcelain -uall` at any time - this file is written BEFORE its "
+                "own commit, so the batch's evidence files are still untracked at this moment "
+                "(they are committed immediately after; the six permanent review-required evidence "
+                "files stay untracked by design)")
     if nxt:
         next_block = f"""next batch:   {nxt['p6_batch']}
 next item:    {nxt['id']}
@@ -229,7 +227,8 @@ last validation:        ledger check {ledger['arithmetic']['check']}; register {
                         {register['totals']['defect_fixed']} fixed - {resolved_total} adjudicated = {len(open_records)} open
 tests (this batch):     {data.get('tests')}
 worktree at generation: {worktree}
-recovery bundle:        /home/user/recovery/drillmaster-<sha>.bundle (clone-verified; sha256 in the register)
+recovery bundles:       /home/user/recovery/drillmaster-*.bundle - catalog + sha256 in
+                        /home/user/recovery/MANIFEST.txt and in the master ledger
 ```
 
 ## Next exact actions
