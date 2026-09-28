@@ -205,13 +205,29 @@ class MudChemicalLedger:
         for material, mats in history.items():
             mats_sorted = sorted(mats, key=lambda x: x.date)
             usages = [float(m.used or 0) for m in mats_sorted]
-            stocks = [float(m.closing_stock) for m in mats_sorted]
+            # Unknown closing stays unknown (None) — never 0.0 and never a
+            # crash: the trichotomy above says an unreported opening yields an
+            # unknown closing, and validate() says no stock judgment is then
+            # possible. The series stays aligned with `dates` (one sample per
+            # reported day) so the chart can break the line, not shift it.
+            stocks = [
+                float(m.closing_stock) if m.closing_stock is not None else None
+                for m in mats_sorted
+            ]
             received = [float(m.received or 0) for m in mats_sorted]
             dates = [m.date.isoformat() if hasattr(m.date, "isoformat") else str(m.date) for m in mats_sorted]
 
             avg_consumption = sum(usages) / len(usages) if usages else 0
             last_stock = stocks[-1] if stocks else 0
-            days_remaining = last_stock / avg_consumption if avg_consumption > 0 else 0
+            # Unknown last stock -> unknown runway. Reporting 0.0 here would
+            # read as "stock exhausted today", which is exactly the fabricated
+            # judgment the trichotomy forbids.
+            if last_stock is None:
+                days_remaining = None
+            elif avg_consumption > 0:
+                days_remaining = last_stock / avg_consumption
+            else:
+                days_remaining = 0
 
             result[material] = {
                 "dates": dates,
@@ -219,7 +235,8 @@ class MudChemicalLedger:
                 "stock_trend": stocks,
                 "received_trend": received,
                 "consumption_rate": round(avg_consumption, 2),
-                "days_remaining": round(days_remaining, 2),
+                "days_remaining": (round(days_remaining, 2)
+                                   if days_remaining is not None else None),
                 "received_vs_used": {
                     "total_received": round(sum(received), 2),
                     "total_used": round(sum(usages), 2),
@@ -245,6 +262,10 @@ class MudChemicalLedger:
                 prev = mats_sorted[i - 1]
                 curr = mats_sorted[i]
                 expected_opening = prev.closing_stock
+                # Unknown opening or closing -> no stock judgment is possible
+                # (same rule as validate()); comparing None would raise.
+                if expected_opening is None or curr.opening_stock is None:
+                    continue
                 if abs(curr.opening_stock - expected_opening) > 0.01 and curr.opening_stock != 0:
                     issues.append(
                         {
