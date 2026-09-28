@@ -1,0 +1,471 @@
+{
+ "schema": "m34-fix-reverification",
+ "generated_utc": "2026-09-27T11:53:15+00:00",
+ "method": "source contract probes (regex derived from each fix's own after-state) + targeted regression run in the pinned environment; every probe that fails is named, no fix is accepted from an earlier report",
+ "environment": {
+  "python": "3.11.2",
+  "pytest_platform": "offscreen",
+  "LD_LIBRARY_PATH": "/tmp/qtstub",
+  "DRILLMASTER_AI_IMPORT": "0",
+  "note": "Qt is the headless stub set; native-GUI acceptance is NOT claimed"
+ },
+ "head": "c28bbef37cbac9de7abcfa693e7e21f678fa74ab",
+ "fixes": [
+  {
+   "fix_id": "M32-FIX-001",
+   "mission": "M32",
+   "kind": "fabricated-measurement",
+   "path": "dialogs/drilling_report_dialogs.py",
+   "claim": "unrecorded measurements stay blank: sentinel minimum, 'Not recorded' text, empty-string persistence, em dash for an uncomputed rate",
+   "current_sha256": "4c296617482bc11721365e6b0a4389a293d1904272f0b849c55943f0b4a373c0",
+   "recorded_sha256": "4c296617482bc11721365e6b0a4389a293d1904272f0b849c55943f0b4a373c0",
+   "hash_state": "SAME-AS-RECORDED",
+   "probes": [
+    {
+     "check": "sentinel minimum keeps a real 0 distinguishable",
+     "present": true
+    },
+    {
+     "check": "the blank state is labelled",
+     "present": true
+    },
+    {
+     "check": "persistence helper exists",
+     "present": true
+    },
+    {
+     "check": "absent values survive a reload",
+     "present": true
+    }
+   ],
+   "missing_probes": [],
+   "test_run": {
+    "exit_code": 0,
+    "outcome": "PASS",
+    "last_line": "..                                                                       [100%]",
+    "selectors": [
+     "tests/test_m31_scenarios.py::test_bit_record_dialog_keeps_unrecorded_measurements_blank",
+     "tests/test_m31_scenarios.py::test_bha_component_dialog_keeps_unrecorded_dimensions_blank"
+    ],
+    "stdout_tail": "..                                                                       [100%]"
+   },
+   "verdict": "VERIFIED",
+   "note": null
+  },
+  {
+   "fix_id": "M32-FIX-002",
+   "mission": "M32",
+   "kind": "fabricated-measurement",
+   "path": "core/professional_export.py",
+   "claim": "an unrecorded duration exports as an empty cell, never 0 hours",
+   "current_sha256": "96878cf690f49d01c29a0b38323a761e275c9cddec9ff2d98d387a060dd73727",
+   "recorded_sha256": "96878cf690f49d01c29a0b38323a761e275c9cddec9ff2d98d387a060dd73727",
+   "hash_state": "SAME-AS-RECORDED",
+   "probes": [
+    {
+     "check": "the raw value (None included) is written",
+     "present": true
+    },
+    {
+     "check": "the intent is documented",
+     "present": true
+    }
+   ],
+   "missing_probes": [],
+   "test_run": {
+    "exit_code": 0,
+    "outcome": "PASS",
+    "last_line": "..                                                                       [100%]",
+    "selectors": [
+     "tests/test_m31_scenarios.py::test_professional_export_leaves_unrecorded_duration_blank",
+     "tests/test_m31_scenarios.py::test_ddr_excel_leaves_unrecorded_measurements_empty"
+    ],
+    "stdout_tail": "..                                                                       [100%]"
+   },
+   "verdict": "VERIFIED",
+   "note": null
+  },
+  {
+   "fix_id": "M32-FIX-003",
+   "mission": "M32",
+   "kind": "ordering-unknown-last",
+   "path": "core/database.py",
+   "claim": "an unknown section depth sorts last instead of as 0",
+   "current_sha256": "578d6a9c3eb83c405d7c3fb5d532416c2612137117a7bfa6d8d32b83562e54c2",
+   "recorded_sha256": "578d6a9c3eb83c405d7c3fb5d532416c2612137117a7bfa6d8d32b83562e54c2",
+   "hash_state": "SAME-AS-RECORDED",
+   "probes": [
+    {
+     "check": "the sort key puts the unknown-depth flag before the value",
+     "present": true
+    }
+   ],
+   "missing_probes": [],
+   "test_run": {
+    "exit_code": 0,
+    "outcome": "PASS",
+    "last_line": ".                                                                        [100%]",
+    "selectors": [
+     "tests/test_m31_scenarios.py::test_full_hierarchy_orders_unknown_section_depth_last"
+    ],
+    "stdout_tail": ".                                                                        [100%]"
+   },
+   "verdict": "VERIFIED",
+   "note": null
+  },
+  {
+   "fix_id": "M32-FIX-004",
+   "mission": "M32",
+   "kind": "failure-as-zero",
+   "path": "core/database.py",
+   "claim": "derived NPT skips logs without a recorded duration and warns",
+   "current_sha256": "578d6a9c3eb83c405d7c3fb5d532416c2612137117a7bfa6d8d32b83562e54c2",
+   "recorded_sha256": null,
+   "hash_state": "NO-RECORDED-HASH",
+   "probes": [
+    {
+     "check": "the unrecorded count is tracked",
+     "present": true
+    },
+    {
+     "check": "the skip is reported",
+     "present": true
+    }
+   ],
+   "missing_probes": [],
+   "test_run": {
+    "exit_code": 0,
+    "outcome": "PASS",
+    "last_line": ".                                                                        [100%]",
+    "selectors": [
+     "tests/test_m31_scenarios.py::test_derived_npt_skips_logs_without_a_recorded_duration"
+    ],
+    "stdout_tail": ".                                                                        [100%]"
+   },
+   "verdict": "VERIFIED",
+   "note": null
+  },
+  {
+   "fix_id": "M32-FIX-005",
+   "mission": "M32",
+   "kind": "failure-as-zero",
+   "path": "core/database.py",
+   "claim": "activity-code usage hours are unknown when a duration is missing",
+   "current_sha256": "578d6a9c3eb83c405d7c3fb5d532416c2612137117a7bfa6d8d32b83562e54c2",
+   "recorded_sha256": "578d6a9c3eb83c405d7c3fb5d532416c2612137117a7bfa6d8d32b83562e54c2",
+   "hash_state": "SAME-AS-RECORDED",
+   "probes": [
+    {
+     "check": "unrecorded hours are carried separately",
+     "present": true
+    },
+    {
+     "check": "the missing duration is counted",
+     "present": true
+    }
+   ],
+   "missing_probes": [],
+   "test_run": {
+    "exit_code": 0,
+    "outcome": "PASS",
+    "last_line": ".                                                                        [100%]",
+    "selectors": [
+     "tests/test_m31_scenarios.py::test_activity_code_usage_hours_are_unknown_when_a_duration_is_missing"
+    ],
+    "stdout_tail": ".                                                                        [100%]"
+   },
+   "verdict": "VERIFIED",
+   "note": null
+  },
+  {
+   "fix_id": "M32-FIX-006",
+   "mission": "M32",
+   "kind": "failure-as-zero",
+   "path": "core/validators.py",
+   "claim": "the legacy time-log validator reports an unrecorded duration instead of 0 h",
+   "current_sha256": "ae1f69d157a55d3691df42b71379973150b4d57cd56e1ea8178b5cb60152ad0c",
+   "recorded_sha256": "ae1f69d157a55d3691df42b71379973150b4d57cd56e1ea8178b5cb60152ad0c",
+   "hash_state": "SAME-AS-RECORDED",
+   "probes": [
+    {
+     "check": "unrecorded entries are counted, not read as zero",
+     "present": true
+    },
+    {
+     "check": "the report states it",
+     "present": true
+    }
+   ],
+   "missing_probes": [],
+   "test_run": {
+    "exit_code": 0,
+    "outcome": "PASS",
+    "last_line": ".                                                                        [100%]",
+    "selectors": [
+     "tests/test_m31_scenarios.py::test_legacy_time_log_validator_reports_unrecorded_duration"
+    ],
+    "stdout_tail": ".                                                                        [100%]"
+   },
+   "verdict": "VERIFIED",
+   "note": null
+  },
+  {
+   "fix_id": "M32-FIX-007",
+   "mission": "M32",
+   "kind": "failure-as-zero",
+   "path": "core/managers.py",
+   "claim": "a failed engine calculation is not reported as 0 ROP/TFA/HSI",
+   "current_sha256": "1c0f33c4ca47170a995b35d8b33126fb48b473f0c0dfb4dd1597ce8c36d2609b",
+   "recorded_sha256": "1c0f33c4ca47170a995b35d8b33126fb48b473f0c0dfb4dd1597ce8c36d2609b",
+   "hash_state": "SAME-AS-RECORDED",
+   "probes": [
+    {
+     "check": "failure returns None, not a number",
+     "present": true
+    },
+    {
+     "check": "a missing ROP stays missing",
+     "present": true
+    }
+   ],
+   "missing_probes": [],
+   "test_run": {
+    "exit_code": 0,
+    "outcome": "PASS",
+    "last_line": ".                                                                        [100%]",
+    "selectors": [
+     "tests/test_m31_scenarios.py::test_engine_result_without_a_rop_value_is_unknown"
+    ],
+    "stdout_tail": ".                                                                        [100%]"
+   },
+   "verdict": "VERIFIED",
+   "note": null
+  },
+  {
+   "fix_id": "M32-FIX-008",
+   "mission": "M32",
+   "kind": "failure-as-zero",
+   "path": "tabs/w3_drilling_report.py",
+   "claim": "the drilling tab persists 'unknown' for uncomputed derived values",
+   "current_sha256": "e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0",
+   "recorded_sha256": "fd6eca6ceac069775a800a52b89cd267c91f729f1847d54d96c74c00ac4a40c0",
+   "hash_state": "DIFFERS-FROM-RECORDED",
+   "probes": [
+    {
+     "check": "the reader helper exists",
+     "present": true
+    },
+    {
+     "check": "an untouched field reads as None",
+     "present": true
+    },
+    {
+     "check": "collect_data uses the unknown-aware reader",
+     "present": true
+    }
+   ],
+   "missing_probes": [],
+   "test_run": {
+    "exit_code": 0,
+    "outcome": "PASS",
+    "last_line": ".                                                                        [100%]",
+    "selectors": [
+     "tests/test_m31_scenarios.py::test_drilling_tab_persists_unknown_for_uncomputed_values"
+    ],
+    "stdout_tail": ".                                                                        [100%]"
+   },
+   "verdict": "VERIFIED",
+   "note": "M33 later changed this file (Qt clamp fix); a hash mismatch against the M32 record is expected and the contract probes above are the operative check"
+  },
+  {
+   "fix_id": "M32-FIX-009",
+   "mission": "M32",
+   "kind": "test-infrastructure",
+   "path": "tests/test_autosave_manager_regression.py",
+   "claim": "the suite runs on a widget-capable QApplication instead of a bare QCoreApplication",
+   "current_sha256": "f07170668dbaf302ea6b3f0d633dd9686bfc6e1547f4d05253d03819cc642860",
+   "recorded_sha256": "f07170668dbaf302ea6b3f0d633dd9686bfc6e1547f4d05253d03819cc642860",
+   "hash_state": "SAME-AS-RECORDED",
+   "probes": [
+    {
+     "check": "the helper exists",
+     "present": true
+    },
+    {
+     "check": "a widget-capable application is built",
+     "present": true
+    },
+    {
+     "check": "an existing application is reused",
+     "present": true
+    }
+   ],
+   "missing_probes": [],
+   "test_run": {
+    "exit_code": 0,
+    "outcome": "PASS",
+    "last_line": ".                                                                        [100%]",
+    "selectors": [
+     "tests/test_autosave_manager_regression.py"
+    ],
+    "stdout_tail": ".                                                                        [100%]"
+   },
+   "verdict": "VERIFIED",
+   "note": null
+  },
+  {
+   "fix_id": "M32-FIX-010",
+   "mission": "M32",
+   "kind": "test-infrastructure",
+   "path": "tests/test_m31_scenarios.py",
+   "claim": "widget scenarios fail loudly on a bare QCoreApplication instead of aborting the session",
+   "current_sha256": "47b63b5c15e0d6be47106379ee69403b0307f0e38fed230cd4674a3b23190808",
+   "recorded_sha256": "8e5b977431518f52d2d0256a11c070cb9abaa7a191ce67c4f8699402d22a60b8",
+   "hash_state": "DIFFERS-FROM-RECORDED",
+   "probes": [
+    {
+     "check": "the helper exists",
+     "present": true
+    },
+    {
+     "check": "a bare application is rejected loudly",
+     "present": true
+    }
+   ],
+   "missing_probes": [],
+   "test_run": {
+    "exit_code": 0,
+    "outcome": "PASS",
+    "last_line": ".                                                                        [100%]",
+    "selectors": [
+     "tests/test_m31_scenarios.py::test_drilling_tab_persists_unknown_for_uncomputed_values"
+    ],
+    "stdout_tail": ".                                                                        [100%]"
+   },
+   "verdict": "VERIFIED",
+   "note": null
+  },
+  {
+   "fix_id": "M33-FIX-CASING",
+   "mission": "M33",
+   "kind": "missing-vs-zero",
+   "path": "core/engineering/engines/casing.py",
+   "claim": "an absent biaxial/internal-pressure load is reported as not recorded, while an explicit zero load stays a measured zero, with explicit warnings",
+   "current_sha256": "17eb484b1a0957129ea7e45b7101702b9c9d09b99f9263c6cb7a8c097a30e545",
+   "recorded_sha256": "17eb484b1a095712",
+   "hash_state": "SAME-AS-RECORDED",
+   "probes": [
+    {
+     "check": "suppliedness is tracked separately from the value",
+     "present": true
+    },
+    {
+     "check": "an absent load yields None, not a fabricated stress",
+     "present": true
+    },
+    {
+     "check": "the absence is warned about",
+     "present": true
+    },
+    {
+     "check": "suppliedness is part of the reported values",
+     "present": true
+    }
+   ],
+   "missing_probes": [],
+   "test_run": {
+    "exit_code": 0,
+    "outcome": "PASS",
+    "last_line": ".....                                                                    [100%]",
+    "selectors": [
+     "tests/test_casing_absent_load_semantics.py"
+    ],
+    "stdout_tail": ".....                                                                    [100%]"
+   },
+   "verdict": "VERIFIED",
+   "note": null
+  },
+  {
+   "fix_id": "M33-FIX-DATAQUALITY",
+   "mission": "M33",
+   "kind": "failure-as-zero",
+   "path": "core/data_quality.py",
+   "claim": "24h time coverage reports 'unknown' when an entry has no recorded duration",
+   "current_sha256": "0151a92768ec15d1d26c3e81890c5cd2aad2479b12b97b3c00d2eff92a7ba9cc",
+   "recorded_sha256": "0151a92768ec15d1",
+   "hash_state": "SAME-AS-RECORDED",
+   "probes": [
+    {
+     "check": "unrecorded entries are counted before the sum",
+     "present": true
+    },
+    {
+     "check": "the metric explains why it is unknown",
+     "present": true
+    },
+    {
+     "check": "the metric value is None, not 0",
+     "present": true
+    }
+   ],
+   "missing_probes": [],
+   "test_run": {
+    "exit_code": 0,
+    "outcome": "PASS",
+    "last_line": "..                                                                       [100%]",
+    "selectors": [
+     "tests/test_m31_scenarios.py::test_time_coverage_is_unknown_when_a_duration_is_missing",
+     "tests/test_m31_scenarios.py::test_time_coverage_is_computed_when_every_duration_is_recorded"
+    ],
+    "stdout_tail": "..                                                                       [100%]"
+   },
+   "verdict": "VERIFIED",
+   "note": null
+  },
+  {
+   "fix_id": "M33-FIX-QTCLAMP",
+   "mission": "M33",
+   "kind": "ui-truncation",
+   "path": "tabs/w3_drilling_report.py",
+   "claim": "derived-value displays carry an explicit domain maximum and never silently clamp",
+   "current_sha256": "e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0",
+   "recorded_sha256": "e2764c18e9756705",
+   "hash_state": "SAME-AS-RECORDED",
+   "probes": [
+    {
+     "check": "the domain bound is an explicit parameter",
+     "present": true
+    },
+    {
+     "check": "the 'not computed' sentinel is the minimum",
+     "present": true
+    },
+    {
+     "check": "a real value above the current maximum raises it instead of being truncated",
+     "present": true
+    },
+    {
+     "check": "avg_rop carries the documented 0-500 m/hr bound",
+     "present": true
+    }
+   ],
+   "missing_probes": [],
+   "test_run": {
+    "exit_code": 0,
+    "outcome": "PASS",
+    "last_line": ".                                                                        [100%]",
+    "selectors": [
+     "tests/test_m31_scenarios.py::test_derived_avg_rop_display_is_not_silently_clamped"
+    ],
+    "stdout_tail": ".                                                                        [100%]"
+   },
+   "verdict": "VERIFIED",
+   "note": null
+  }
+ ],
+ "counts": {
+  "VERIFIED": 13
+ },
+ "verified": 13,
+ "total": 13
+}

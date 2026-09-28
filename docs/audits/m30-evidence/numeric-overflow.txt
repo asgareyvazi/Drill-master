@@ -1,0 +1,12 @@
+F.                                                                       [100%]
+=================================== FAILURES ===================================
+_ test_unrepresentable_integer_uses_engineering_error_contract[require_number] _
+tests/test_m30_semantic_regressions.py:287: in test_unrepresentable_integer_uses_engineering_error_contract
+    getattr(result, parser)(10 ** 500, "measurement")
+core/engineering/result.py:111: in require_number
+    number = float(value)
+             ^^^^^^^^^^^^
+E   OverflowError: int too large to convert to float
+=========================== short test summary info ============================
+FAILED tests/test_m30_semantic_regressions.py::test_unrepresentable_integer_uses_engineering_error_contract[require_number]
+1 failed, 1 passed in 0.30s

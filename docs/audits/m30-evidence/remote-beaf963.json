@@ -1,0 +1,5 @@
+{
+  "exit": 1,
+  "stdout": "{\"message\":\"No commit found for SHA: beaf9635ffb7bcecf16b3320b138077c7ef8e6c8\",\"documentation_url\":\"https://docs.github.com/rest/commits/commits#get-a-commit\",\"status\":\"422\"}",
+  "stderr": "gh: No commit found for SHA: beaf9635ffb7bcecf16b3320b138077c7ef8e6c8 (HTTP 422)\n"
+}

@@ -1,0 +1,27 @@
+import hashlib, json, os, subprocess
+from pathlib import Path
+cases = [
+ ('unknown-currency', 'core/cost_semantics.py', 'if text in {"UNKNOWN", "UNSPECIFIED", "N/A", "NOT RECORDED", "NOT ASSESSED", "NONE", "NULL", "—"}:', 'if False:', 'test_explicit_unknown_currency_markers_do_not_authorize_money_totals'),
+ ('numeric-overflow', 'core/engineering/result.py', 'except (TypeError, ValueError, OverflowError) as exc:', 'except (TypeError, ValueError) as exc:', 'test_unrepresentable_integer_uses_engineering_error_contract'),
+ ('scope-coverage', 'core/scope_attribution.py', 'covered = counter.get(ALREADY, 0)', 'covered = counter.get(ALREADY, 0) + counter.get(RESOLVED, 0)', 'test_scope_coverage_distinguishes_persisted_from_possible'),
+ ('scope-candidate', 'core/scope_attribution.py', 'or (rep.section_id is None and rep.well_id in invalid_candidate_wells)', 'or False', 'test_scope_rejects_invalid_unassigned_candidates_without_mutation'),
+ ('snapshot-alias', 'core/scope_attribution.py', '[asdict(o) for o in self.outcomes]', '[vars(o) for o in self.outcomes]', 'test_attribution_serialization_does_not_alias_outcomes'),
+ ('search-failure', 'core/database.py', 'raise  # a failed search must not become an empty or partial success', 'return []  # injected false no-matches', 'test_search_database_exception_reaches_ui_failed_state'),
+ ('stock-unit', 'core/database.py', 'InventoryItem.unit == norm["unit"],', 'True,', 'test_carry_forward_requires_same_unit_and_unique_latest_date'),
+ ('mse-nonfinite', 'core/engineering/engines/mse.py', 'if not all(math.isfinite(v) for v in (axial, rotary, mse)):', 'if False:', 'test_mse_never_reports_nonfinite_or_underflowed_calculation_as_success'),
+ ('money-overflow', 'core/cost_semantics.py', 'require_number(sum(values), "amount total")', 'sum(values)', 'test_finite_financial_inputs_must_not_emit_infinite_facts'),
+ ('backup-source', 'core/database.py', 'sqlite3.connect(\n                Path(self.db_path).resolve().as_uri() + "?mode=ro", uri=True\n            )', 'sqlite3.connect(self.db_path)', 'test_backup_source_disappearing_does_not_create_empty_success'),
+]
+root=Path('/home/user/m30-controls'); results=[]
+for label, file, before, after, test in cases:
+ p=Path(file); old=p.read_bytes(); assert before in old.decode(),label
+ try:
+  p.write_text(old.decode().replace(before,after,1))
+  r=subprocess.run(['.venv/bin/python','-m','pytest','tests/test_m30_semantic_regressions.py::'+test,'-ra','--tb=short'],capture_output=True,text=True,timeout=120,env=dict(os.environ,QT_QPA_PLATFORM='offscreen',QT_STUB_DIR='/home/user/qt-libs',LD_LIBRARY_PATH='/home/user/qt-libs'))
+  (root/(label+'.txt')).write_text(r.stdout+r.stderr)
+ finally:p.write_bytes(old)
+ restored=hashlib.sha256(p.read_bytes()).hexdigest()==hashlib.sha256(old).hexdigest()
+ results.append(dict(control=label,file=file,test=test,exit_code=r.returncode,source_restored=restored,source_sha256=hashlib.sha256(old).hexdigest(),before=before,after=after))
+ print(label,r.returncode,restored,flush=True)
+ (root/'new-controls.json').write_text(json.dumps(results,indent=2)+'\n')
+ assert r.returncode==1 and restored

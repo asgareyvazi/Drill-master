@@ -1,0 +1,109 @@
+{
+ "schema": "m35-clean-env-install",
+ "generated_utc": "2026-09-27T12:59:26+00:00",
+ "environment": {
+  "isolation": "env -i PATH=/usr/bin:/bin HOME=<tmp> LD_LIBRARY_PATH=/tmp/qtstub QT_QPA_PLATFORM=offscreen DRILLMASTER_AI_IMPORT=0",
+  "cwd": "/tmp/m35/run (contains no repository files; checkout absent from sys.path)"
+ },
+ "artifact": {
+  "wheel": {
+   "sha256": "3046bf4c321a9741638f6d49d85b8a2a271e9b85ff8301577e76679f9229bc17",
+   "bytes": 1037281
+  },
+  "sdist": {
+   "sha256": "034ab17525f10c986582576f18b3cc9f5ac62eaba50c856f980145a04e236b0d",
+   "bytes": 1198622
+  },
+  "wheel_modules_of_interest": {
+   "core/operational_time.py": true,
+   "core/safety_semantics.py": true
+  }
+ },
+ "venvs": {
+  "venv-tracked": {
+   "python": "3.11",
+   "lock_pins_installed": 26,
+   "wheel_installed": true
+  },
+  "venv-sdist": {
+   "python": "3.11",
+   "lock_pins_installed": 26,
+   "sdist_installed": true
+  }
+ },
+ "tests": [
+  {
+   "id": "A",
+   "name": "source checkout starts",
+   "command": "cd /home/user/Drill-master && python app.py --package-smoke",
+   "exit": 0
+  },
+  {
+   "id": "B",
+   "name": "installed wheel starts (console entry point)",
+   "command": "cd /tmp/m35/run && env -i ... /tmp/m35/venv-tracked/bin/drillmaster --package-smoke",
+   "exit": 0
+  },
+  {
+   "id": "C",
+   "name": "installed sdist starts",
+   "command": "cd /tmp/m35/run && env -i ... /tmp/m35/venv-sdist/bin/drillmaster --package-smoke",
+   "exit": 0
+  },
+  {
+   "id": "D",
+   "name": "import smoke of every previously broken consumer",
+   "modules": [
+    "core.report_engine",
+    "core.ddr_pdf_export",
+    "core.operations_intelligence",
+    "core.actual_vs_plan",
+    "core.database",
+    "tabs.w10_Planning_Widget",
+    "tabs.w12_Analysis",
+    "core.operational_time",
+    "core.safety_semantics"
+   ],
+   "loaded_from": "site-packages of the clean venv",
+   "exit": 0
+  },
+  {
+   "id": "E",
+   "name": "every declared console entry point",
+   "entry_points": [
+    "drillmaster = app:main"
+   ],
+   "exit": 0,
+   "module_forms": {
+    "python -m app (checkout)": 0,
+    "python -m app (installed)": 0
+   }
+  },
+  {
+   "id": "F",
+   "name": "no runtime module loads from repository-relative paths",
+   "check": "any('Drill-master' in p for p in sys.path) -> False; app.__file__ under installed target",
+   "exit": 0
+  }
+ ],
+ "release_gate": {
+  "verify_release.verify_wheel()": {
+   "before_fix": false,
+   "after_fix": true,
+   "detail": "package-smoke OK"
+  }
+ },
+ "semantics_through_artifact": {
+  "summarize_time_logs([4.0h, None-npt])": {
+   "total_hours": null,
+   "known_hours": 4.0,
+   "unknown_duration_count": 1
+  },
+  "safety_kpis([1 report])": {
+   "days_without_lti": null,
+   "total_lti": 0.0,
+   "total_near_miss": 1.0
+  },
+  "note": "absence-is-not-safe preserved through installed artifact"
+ }
+}

@@ -1,0 +1,20 @@
+{
+  "count": 5547,
+  "codes": {
+    "F841": 43,
+    "F403": 94,
+    "F405": 4610,
+    "E741": 20,
+    "E712": 8,
+    "E701": 142,
+    "F401": 40,
+    "F402": 1,
+    "F541": 16,
+    "E401": 3,
+    "E702": 567,
+    "F811": 1,
+    "E711": 1,
+    "E703": 1
+  },
+  "note": "Diagnostic categories only; not individual semantic lint closure"
+}

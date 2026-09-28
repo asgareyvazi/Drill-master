@@ -1,0 +1,5 @@
+Unique remote PDF retained; extracted without checking out or merging another branch.
+12 - DDR OEOC-201 AZNS-166 2025-Nov-07 (1404.08.16).pdf bytes 740510 sha256 6ce9b37e4e30c7800191598d9f9febebc12d4cf0ab5932c5d7f6ad1b789a226c
+PyMuPDF inspection ONLY: pages 4 text characters 10230
+NOT MinerU normalization/review/persistence acceptance.
+MinerU health: {"available": false, "enabled": false, "executable": null, "python_executable": null, "version": null, "backend": "pipeline", "method": "auto", "error": "MinerU is disabled or not detected"}

@@ -1,0 +1,47 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+________________ test_chart_export_false_result_is_not_success _________________
+tests/test_m29_release_closure.py:560: in test_chart_export_false_result_is_not_success
+    assert cls.export_charts_to_file(stub, "failed.png") is False
+E   AssertionError: assert True is False
+E    +  where True = <function NPTReportTab.export_charts_to_file at 0x7f6c36ba4900>(namespace(grab=<function test_chart_export_false_result_is_not_success.<locals>.<lambda> at 0x7f6c446060c0>), 'failed.png')
+E    +    where <function NPTReportTab.export_charts_to_file at 0x7f6c36ba4900> = <class 'tabs.w10_Planning_Widget.NPTReportTab'>.export_charts_to_file
+------------------------------ Captured log call -------------------------------
+WARNING  matplotlib.style.core:core.py:213 In /home/user/Drill-master/.venv/lib/python3.11/site-packages/matplotlib/mpl-data/stylelib/classic.mplstyle: 'parseString' deprecated - use 'parse_string'
+WARNING  matplotlib.style.core:core.py:213 In /home/user/Drill-master/.venv/lib/python3.11/site-packages/matplotlib/mpl-data/stylelib/classic.mplstyle: 'resetCache' deprecated - use 'reset_cache'
+WARNING  matplotlib.style.core:core.py:213 In /home/user/Drill-master/.venv/lib/python3.11/site-packages/matplotlib/mpl-data/stylelib/classic.mplstyle: 'parseString' deprecated - use 'parse_string'
+WARNING  matplotlib.style.core:core.py:213 In /home/user/Drill-master/.venv/lib/python3.11/site-packages/matplotlib/mpl-data/stylelib/classic.mplstyle: 'resetCache' deprecated - use 'reset_cache'
+WARNING  matplotlib.style.core:core.py:213 In /home/user/Drill-master/.venv/lib/python3.11/site-packages/matplotlib/mpl-data/stylelib/classic.mplstyle: 'parseString' deprecated - use 'parse_string'
+WARNING  matplotlib.style.core:core.py:213 In /home/user/Drill-master/.venv/lib/python3.11/site-packages/matplotlib/mpl-data/stylelib/classic.mplstyle: 'resetCache' deprecated - use 'reset_cache'
+WARNING  matplotlib.style.core:core.py:213 In /home/user/Drill-master/.venv/lib/python3.11/site-packages/matplotlib/mpl-data/stylelib/classic.mplstyle: 'parseString' deprecated - use 'parse_string'
+WARNING  matplotlib.style.core:core.py:213 In /home/user/Drill-master/.venv/lib/python3.11/site-packages/matplotlib/mpl-data/stylelib/classic.mplstyle: 'resetCache' deprecated - use 'reset_cache'
+=============================== warnings summary ===============================
+tests/test_m29_release_closure.py::test_chart_export_false_result_is_not_success
+  /home/user/Drill-master/.venv/lib/python3.11/site-packages/matplotlib/_fontconfig_pattern.py:64: PyparsingDeprecationWarning: 'oneOf' deprecated - use 'one_of'
+    prop = Group((name + Suppress("=") + comma_separated(value)) | oneOf(_CONSTANTS))
+
+tests/test_m29_release_closure.py::test_chart_export_false_result_is_not_success
+tests/test_m29_release_closure.py::test_chart_export_false_result_is_not_success
+tests/test_m29_release_closure.py::test_chart_export_false_result_is_not_success
+tests/test_m29_release_closure.py::test_chart_export_false_result_is_not_success
+tests/test_m29_release_closure.py::test_chart_export_false_result_is_not_success
+tests/test_m29_release_closure.py::test_chart_export_false_result_is_not_success
+  /home/user/Drill-master/.venv/lib/python3.11/site-packages/matplotlib/_fontconfig_pattern.py:85: PyparsingDeprecationWarning: 'parseString' deprecated - use 'parse_string'
+    parse = parser.parseString(pattern)
+
+tests/test_m29_release_closure.py::test_chart_export_false_result_is_not_success
+tests/test_m29_release_closure.py::test_chart_export_false_result_is_not_success
+tests/test_m29_release_closure.py::test_chart_export_false_result_is_not_success
+tests/test_m29_release_closure.py::test_chart_export_false_result_is_not_success
+tests/test_m29_release_closure.py::test_chart_export_false_result_is_not_success
+tests/test_m29_release_closure.py::test_chart_export_false_result_is_not_success
+  /home/user/Drill-master/.venv/lib/python3.11/site-packages/matplotlib/_fontconfig_pattern.py:89: PyparsingDeprecationWarning: 'resetCache' deprecated - use 'reset_cache'
+    parser.resetCache()
+
+tests/test_m29_release_closure.py::test_chart_export_false_result_is_not_success
+  /home/user/Drill-master/.venv/lib/python3.11/site-packages/matplotlib/_mathtext.py:45: PyparsingDeprecationWarning: 'enablePackrat' deprecated - use 'enable_packrat'
+    ParserElement.enablePackrat()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_m29_release_closure.py::test_chart_export_false_result_is_not_success

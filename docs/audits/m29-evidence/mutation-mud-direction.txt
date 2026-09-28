@@ -1,0 +1,8 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___________ test_w12_mud_sample_is_not_two_directional_measurements ____________
+tests/test_m29_release_closure.py:513: in test_w12_mud_sample_is_not_two_directional_measurements
+    assert data["mw_in"] is None and data["mw_out"] is None
+E   assert (None is None and 1.2 is None)
+=========================== short test summary info ============================
+FAILED tests/test_m29_release_closure.py::test_w12_mud_sample_is_not_two_directional_measurements

@@ -1,0 +1,500 @@
+[
+  {
+    "file": ".github/workflows/ci.yml",
+    "category": "config/build",
+    "recovered_sha256": "ad142cf6676d06debd2be48da01ca7e440dee85886802cd9e0839b9a90ee0175",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "DEPLOYMENT.md",
+    "category": "historical-evidence/docs",
+    "recovered_sha256": "7146472cd2804be4c77a4ada06d91d1bc700811fa4fe752545571cefb09b8f1d",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "ENGINEERING_ARCHITECTURE.md",
+    "category": "historical-evidence/docs",
+    "recovered_sha256": "44500f916c190a984bb4f0d56d6805b3c88b06e3675fcb8d0fc30a13d98d07f5",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "ENGINEERING_CAPABILITY_STATUS.md",
+    "category": "historical-evidence/docs",
+    "recovered_sha256": "7d1f85c16e86be35e66a1afae1f4bf10f7985b4b8ab9097f59e37aa959df9ef7",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "PRODUCTION_READINESS.md",
+    "category": "historical-evidence/docs",
+    "recovered_sha256": "8c7e21d9bbd1103320b4e46cdd94a11d42f5f0dc183c5d4a65af1cbfb05f850c",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "README.md",
+    "category": "historical-evidence/docs",
+    "recovered_sha256": "6f4fb451a306acfad05a322f4c0bc0efc32817768d56c02eda5976c806225205",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "TESTING.md",
+    "category": "historical-evidence/docs",
+    "recovered_sha256": "a2c061d932dfe40ab835128962760c86a6c8b82bdfc021acc80f0a54435d58a4",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "core/actual_vs_plan.py",
+    "category": "source",
+    "recovered_sha256": "e70e9acca24d2f252fd16ccf9d0bd31f4ce5c39a79510c3574f916cdb1505eb5",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "core/base_tab.py",
+    "category": "source",
+    "recovered_sha256": "2e45ad138245d11b83f90943ceb2305e6fc900a0ad693486b70d37bbb72fce39",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "core/cost_semantics.py",
+    "category": "source",
+    "recovered_sha256": "d9e9128bfa8b7554abc6eeb9887669767f0304a19c7a17b10996f82da2361423",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "core/database.py",
+    "category": "source",
+    "recovered_sha256": "1f24bb63cee95a86cdd1079a9560512e78e45b40171d60665898839cd0eba8d5",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "core/engineering/bridge.py",
+    "category": "source",
+    "recovered_sha256": "304daca18a9ee3bcff6169a11101988fbced7ec9e3b94aac2176c518e7b95ee0",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "core/hierarchy_operations.py",
+    "category": "source",
+    "recovered_sha256": "5b530e63103eae9bf84b27ed056f96efa436183316a0759cea91d47277a807da",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "core/operational_time.py",
+    "category": "source",
+    "recovered_sha256": "57fc6a3cb528ef1909b8a139a15ab3c376923ed7efc51c160ece4b9d4d81ea0f",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "core/operations_intelligence.py",
+    "category": "source",
+    "recovered_sha256": "18757402ea4eaff329eda3f107fbe0374d7dce7ed040f475a697ade102b65011",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "core/report_engine.py",
+    "category": "source",
+    "recovered_sha256": "319c07074cccb74672cda7ff5c7e2645318b99966a6f36cbaf2fa490e02fbbe5",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "core/report_snapshot.py",
+    "category": "source",
+    "recovered_sha256": "7cd4a9a014f583816eec5b67e4824a9d7a45e4f2aafdd6478d6efa919b6f2b11",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "core/safety_semantics.py",
+    "category": "source",
+    "recovered_sha256": "19ae3cc15bc00ba9547c013f52e927a8f9cfcb5761c01e3bbf131212971b0a15",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "core/scope_attribution.py",
+    "category": "source",
+    "recovered_sha256": "d417bdca1e70b221f901e5b5e98b602b13d29893e05a80a12a6bbc30bbba21a2",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "core/selection_manager.py",
+    "category": "source",
+    "recovered_sha256": "f0ef3ab19398fb0f43b8f1268b08b6f00c67e89c28fe9010fbf7824841ffee22",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "core/unit_manager.py",
+    "category": "source",
+    "recovered_sha256": "2c8f6605e261b25c3c89bdb2ad96bd0ed3bc5abbdad782ed87c062c55a6ef2e5",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "docs/WINDOWS_ACCEPTANCE.md",
+    "category": "historical-evidence/docs",
+    "recovered_sha256": "cf56e50bdc27fda01ff7200ded438f59544bfe563d92c84e1577f6644e22b71d",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "docs/audits/2026-09-22_M27_INDEPENDENT_REAUDIT.md",
+    "category": "historical-evidence/docs",
+    "recovered_sha256": "626a316b30ddfdbfe7b54ed915df0f830d89a0a883c69fa06ccbdc132ac2542d",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "docs/audits/2026-09-22_M28_FORENSIC_RELEASE_GATE.md",
+    "category": "historical-evidence/docs",
+    "recovered_sha256": "3d3aca38f51e94fc614c524930c2aa2f57f5ce77711515ab5d177539df8050b4",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "docs/audits/2026-09-22_RELEASE_CANDIDATE_INTEGRITY_CERTIFICATION.md",
+    "category": "historical-evidence/docs",
+    "recovered_sha256": "4e77e778faf58c760e15b513f12e4b3643e874537c5e16ccdaee2d8e4198ca13",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "docs/audits/m27-independent-evidence/clean-worktree-refusal.txt",
+    "category": "historical-evidence/docs",
+    "recovered_sha256": "02b6b876b6f68c2473ad35de7d5071976a47834a7073742a42d0f428e1170ca4",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "docs/audits/m27-independent-evidence/environment.json",
+    "category": "historical-evidence/docs",
+    "recovered_sha256": "dc29d524429f0e81a3e1a4b7daf0fdc9e2e8947a480ccde7a07c866700314d76",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "docs/audits/m27-independent-evidence/final-worktree.txt",
+    "category": "historical-evidence/docs",
+    "recovered_sha256": "6305d506d8dea2a4f7ccba3be33770416222b9dd01b2527891ef261ee27e116c",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "docs/audits/m27-independent-evidence/python310-lock-resolution.txt",
+    "category": "historical-evidence/docs",
+    "recovered_sha256": "06de0f169b6b1b538ff0dfa516b1c9f40e6f0cee438064f055335fd75a20b6a6",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "docs/audits/m27-independent-evidence/remote-heads.txt",
+    "category": "historical-evidence/docs",
+    "recovered_sha256": "54b1ea1530f32bf9e427a4284e2c07252f74ac218c4413f409f03411fb06bce7",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "docs/audits/m27-independent-evidence/repository-workbook.txt",
+    "category": "historical-evidence/docs",
+    "recovered_sha256": "0a89d294a6806b9cb70d2dea7ed4c874876cda0832353305d9fef41c9158ff13",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "docs/audits/m27-independent-evidence/residual-probes.json",
+    "category": "historical-evidence/docs",
+    "recovered_sha256": "02a972e82a56d69bf17caaa88a1ec90154301b26a7a8047cac7048d0e1d3f45d",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "docs/audits/m27-independent-evidence/source-gate.txt",
+    "category": "historical-evidence/docs",
+    "recovered_sha256": "384aabf7afea4e2d3654d1d9e293d7f30464d8c70f434ce50b474d01acf24a4f",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "docs/audits/m27-independent-evidence/source-sha256.json",
+    "category": "historical-evidence/docs",
+    "recovered_sha256": "88e49de800158764bb866d53081cf3d51d38fbc3670316f3bacb00e86ee9c237",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "docs/audits/m27-independent-evidence/time-negative-control.txt",
+    "category": "historical-evidence/docs",
+    "recovered_sha256": "767bc52311335c1211d136c4c8beca649fb12dd820546b0904dd5678af15c415",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "docs/audits/m28-evidence/c28bbef-check-runs.json",
+    "category": "historical-evidence/docs",
+    "recovered_sha256": "e83cfac35507982a40cfeb776ce85aa0367e7646f81fe857df4a6c841ea8a170",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "docs/audits/m28-evidence/environment.json",
+    "category": "historical-evidence/docs",
+    "recovered_sha256": "0775ca9f3667551e121ae0db32cbedebe4a5b1bc388f9a8f2d7ead6f864bca09",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "docs/audits/m28-evidence/execution-ledger.txt",
+    "category": "historical-evidence/docs",
+    "recovered_sha256": "8cab5ca237d8ddb8841a139738d152c8514621ec63395497975ad5c10a910144",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "docs/audits/m28-evidence/git-reality.txt",
+    "category": "historical-evidence/docs",
+    "recovered_sha256": "277dae69f1833adf51bbaf890a72b4525e3dc5c7bc5e84e0ae169579e9afc124",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "docs/audits/m28-evidence/import-removals.json",
+    "category": "historical-evidence/docs",
+    "recovered_sha256": "d1ccf8c03b672ee5a8f835290e1eae2ab3c248e0f8d1b2fb82b33bca6d881185",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "docs/audits/m28-evidence/import-summary.txt",
+    "category": "historical-evidence/docs",
+    "recovered_sha256": "783c69c9fa03a7100d77baae3203a5c5009eeb5e80e633b3d96aec697ae9c23d",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "docs/audits/m28-evidence/isolated-imports.json",
+    "category": "historical-evidence/docs",
+    "recovered_sha256": "a2da91e34734bcf3c66259aff3a45e38875e7531730561d0b0325a22648c1484",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "docs/audits/m28-evidence/lock-resolution-310.txt",
+    "category": "historical-evidence/docs",
+    "recovered_sha256": "06de0f169b6b1b538ff0dfa516b1c9f40e6f0cee438064f055335fd75a20b6a6",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "docs/audits/m28-evidence/lock-resolution-312.txt",
+    "category": "historical-evidence/docs",
+    "recovered_sha256": "13fdb7e744ac25a8592c5c6de7e95f6094fb990f73c6187a15a15d2b92378528",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "docs/audits/m28-evidence/lock-resolution-313.txt",
+    "category": "historical-evidence/docs",
+    "recovered_sha256": "e3dd6b44a12a3d2a45eba79e02e65e8e389ac44178e3cf0924baaa54b42e737d",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "docs/audits/m28-evidence/negative-controls.txt",
+    "category": "historical-evidence/docs",
+    "recovered_sha256": "217ff6cb0a7c74b26a4bb68ede37b18afd054074c382bbb3e9a97c8f8544bd64",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "docs/audits/m28-evidence/pdf-acceptance-environment-blocked.txt",
+    "category": "historical-evidence/docs",
+    "recovered_sha256": "e21dd10d9fe77431004d5d73c7eb8f616808671a71c50aab63c9bb50052f2122",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "docs/audits/m28-evidence/publication-permission.txt",
+    "category": "historical-evidence/docs",
+    "recovered_sha256": "a147c9bf48922abbe7055525f383c6116d519c0c54991483099a4b227d0aab38",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "docs/audits/m28-evidence/real-asset-boundaries.txt",
+    "category": "historical-evidence/docs",
+    "recovered_sha256": "445983c81f62644208c9ef10837bf4850914958179dc5a699e8c3bd44c3a57cb",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "docs/audits/m28-evidence/remote-actions.json",
+    "category": "historical-evidence/docs",
+    "recovered_sha256": "54ec9a380a651a86766d309c0f19ea1ca2b8d48ef6e9739ce62c8f563fd9781b",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "docs/audits/m28-evidence/remote-heads.txt",
+    "category": "historical-evidence/docs",
+    "recovered_sha256": "54b1ea1530f32bf9e427a4284e2c07252f74ac218c4413f409f03411fb06bce7",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "docs/audits/m28-evidence/repository-workbook.txt",
+    "category": "historical-evidence/docs",
+    "recovered_sha256": "232fe14be4e8473353967fc773b15eae065218b4b487a9ddb009b3cf835f5d67",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "docs/audits/m28-evidence/risky-site-inventory.json",
+    "category": "historical-evidence/docs",
+    "recovered_sha256": "33ee5fff8d766f95559983be4608d82f27ee277ceff11727c340683c86d76f39",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "docs/audits/m28-evidence/source-gate.txt",
+    "category": "historical-evidence/docs",
+    "recovered_sha256": "8ad7ffa1dd5aedc1b5a31920c64ac92893bdde7321e830dcc30f84bbd548ddfb",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "docs/audits/m28-evidence/source-manifest.json",
+    "category": "historical-evidence/docs",
+    "recovered_sha256": "f18ffccdd67eedcaf6eb372d29d979ed9b26f626d2ff6b6ab7dab782bc9ad4ab",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "docs/audits/m28-evidence/source-package-smoke-initial-failure.txt",
+    "category": "historical-evidence/docs",
+    "recovered_sha256": "ab9d6f10d77177f498ee9da7c1d8a437d9942957912c08d1bcdc077d30a04004",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "docs/audits/m28-evidence/source-package-smoke.txt",
+    "category": "historical-evidence/docs",
+    "recovered_sha256": "cc9cf0c34fc86a31f4f47037fa6ef08d3cede51e2f6c779e8b4276006fe635e0",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "packaging/build_windows.ps1",
+    "category": "config/build",
+    "recovered_sha256": "f57e55a10d36a2bdc88b7dda17b43c69117d1970443c70186ca0c897a1dca6bf",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "requirements-lock.txt",
+    "category": "config/build",
+    "recovered_sha256": "31cfba3e98edba2161b7b7018049c74d0c6b5993ce16609fa2019776e1f82e99",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "category": "source",
+    "recovered_sha256": "b018c40b3fca817730bfc5e046b3f19384f57a052c1eed54d4c817cf6b5ec248",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "tabs/w16_Cost_Management.py",
+    "category": "source",
+    "recovered_sha256": "695e77a84d917ffcc0d03b2a0c0b67fec872682b5aa61ad9fac04ff125fede7c",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "tabs/w8_Safety_Widget.py",
+    "category": "source",
+    "recovered_sha256": "32405f6fc7f6b9bb5398d5f36b3e051346f6cb9f41384e3e6193249f70d25faa",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "tests/conftest.py",
+    "category": "test",
+    "recovered_sha256": "a69c613d04f2e3d21f7101f829d2bc27eed1c62ade69d851a42d0fd878202b80",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "tests/test_cost_management_widget_smoke.py",
+    "category": "test",
+    "recovered_sha256": "c8eec7ef914d484864ba893590fcbdeafd286c810c439219a9858e875349b374",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "tests/test_cost_truth_boundary.py",
+    "category": "test",
+    "recovered_sha256": "c7a46412853f79ebee861469ec1e4e576b326763b594c012411fbb5c9fb17d0f",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "tests/test_ddr_acceptance.py",
+    "category": "test",
+    "recovered_sha256": "525a263277a4527fa701347ecd5eae4c7516ea8dcc484740fc6865ff73585a85",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "tests/test_engineering_completion.py",
+    "category": "test",
+    "recovered_sha256": "b253da9da7e4bf6c01a04bcf7551db7b8f1f1a792fc17f31b02cb1ed1f900ad4",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "tests/test_integration.py",
+    "category": "test",
+    "recovered_sha256": "c11b4fb6334bc29473c2cd62d7a3dc686cde7e2025a504bb68849cb2c6455e36",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "tests/test_m28_finance_safety_plan.py",
+    "category": "test",
+    "recovered_sha256": "fe80e2fe8197f186a9908af0ef55f19c35874e0aa00e0ebbbb64d5a383fcd922",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "tests/test_operational_time_integrity.py",
+    "category": "test",
+    "recovered_sha256": "bd58405f92642d8e8394b34f47ced5ff3523c27bd13fab4b2a0e222e3d5ec4db",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "tests/test_operations_intelligence_regressions.py",
+    "category": "test",
+    "recovered_sha256": "0c51918c9e04cf9fd098fdfb879118b589841e675a053caeb32ddd570b972ec5",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "tests/test_ownership_parent_edits.py",
+    "category": "test",
+    "recovered_sha256": "3452e6ef9ed34788ec6755abf5f5a0027aebc1230c684de8136d18f5124d8c0c",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "tests/test_packaging_smoke.py",
+    "category": "test",
+    "recovered_sha256": "1b70a2091be13b08fc08e7e10e92db6240ad4d012770e198c24d733b0c054d8a",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "tests/test_release.py",
+    "category": "test",
+    "recovered_sha256": "c9b0a189cd609a69a11d13525e7145f757cf702c61f93d832e0e755aa0d97adb",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "tests/test_release_gate_and_w13.py",
+    "category": "test",
+    "recovered_sha256": "48eddd194dd4ab2df5f43f4b4fba3b8d275644c740e5fc5ed970ad80cc4cc3cb",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "tests/test_release_gate_integrity.py",
+    "category": "test",
+    "recovered_sha256": "f3f7c5113a0b30ccd1e92b4d09e51557eb41ad7d69e364764a071ad787ac1429",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "tests/test_report_scope_metadata_m25.py",
+    "category": "test",
+    "recovered_sha256": "745da3a47914f812030d6240260c4d200a5c45303602824ab1a852af36cf1868",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "tests/test_report_snapshot.py",
+    "category": "test",
+    "recovered_sha256": "d7717787d2ec006e2e2c24e958e96d268287920bc19daf2c04642a9125839ddf",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "tests/test_scope_attribution.py",
+    "category": "test",
+    "recovered_sha256": "a41fe5bcd4ba84455a49259ae2fed4d6f42c2efc2da8a3291ac7123d8f47947e",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "tests/test_selection_manager_context.py",
+    "category": "test",
+    "recovered_sha256": "850a150b1ebdf2122ebfa993979e42a46bf9be93cc59c52645ad03fec2732aac",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "tests/test_test_process_isolation.py",
+    "category": "test",
+    "recovered_sha256": "e67d9fe7541f352aafbd8c0447e0bf6c36e688797078a8c07251c15ae2309938",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "tests/test_w12_scope_leakage_m25.py",
+    "category": "test",
+    "recovered_sha256": "6636fd2daa9b701dd9b5be5ecf077369eab54329915235072f2a7838750bad8e",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  },
+  {
+    "file": "verify_release.py",
+    "category": "source",
+    "recovered_sha256": "180d688cfd5e68c532cbef086380959437dcf5a8df7ff39cef96b3bac51af468",
+    "verification": "348-entry historical source manifest independently matched at recovery; cumulative patch applicability verified. Correctness is NOT implied by either check."
+  }
+]

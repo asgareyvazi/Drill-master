@@ -1,0 +1,154 @@
+NEGATIVE CONTROL: HEAD service, only total_hours output alias added; numerical behavior unchanged.
+FFFF.                                                                    [100%]
+=================================== FAILURES ===================================
+________ test_time_summary_and_all_service_scopes[durations0-expected0] ________
+
+durations = [], expected = (None, None, None, None)
+
+    @pytest.mark.parametrize("durations, expected", [
+        ([], (None, None, None, None)),
+        ([None], (None, None, None, None)),
+        ([0], (0, 0, 0, None)),
+        ([2, None], (None, None, None, None)),
+        ([2, 0], (2, 2, 0, 100)),
+    ])
+    def test_time_summary_and_all_service_scopes(durations, expected):
+        rows = [SimpleNamespace(duration=d, is_npt=True) for d in durations]
+        fields = ("total_hours", "npt_hours", "productive_hours", "npt_percent")
+        assert tuple(summarize_time_logs(rows)[f] for f in fields) == expected
+        m = _mgr()
+        w = _well(m, _base(m), "A")
+        b = _wellbore(m, w, "A")
+        sec = _section(m, w, "S", wellbore_id=b)
+        r = _report(m, w, 1, wellbore_id=b, section_id=sec)
+        with m.create_session() as s:
+            for duration in durations:
+                s.add(TimeLog24H(report_id=r, time_from=time(0), time_to=time(1),
+                                duration=duration, is_npt=True))
+            s.commit()
+        service = OperationsIntelligenceService(m)
+        for method, key in [(service.analyze_well, w), (service.analyze_wellbore, b),
+                            (service.analyze_section, sec)]:
+            kpis = method(key)["kpis"]
+>           assert tuple(kpis[f] for f in fields) == expected
+E           assert (None, 0, None, None) == (None, None, None, None)
+E             
+E             At index 1 diff: 0 != None
+E             Use -v to get more diff
+
+tests/test_operational_time_integrity.py:38: AssertionError
+________ test_time_summary_and_all_service_scopes[durations1-expected1] ________
+
+durations = [None], expected = (None, None, None, None)
+
+    @pytest.mark.parametrize("durations, expected", [
+        ([], (None, None, None, None)),
+        ([None], (None, None, None, None)),
+        ([0], (0, 0, 0, None)),
+        ([2, None], (None, None, None, None)),
+        ([2, 0], (2, 2, 0, 100)),
+    ])
+    def test_time_summary_and_all_service_scopes(durations, expected):
+        rows = [SimpleNamespace(duration=d, is_npt=True) for d in durations]
+        fields = ("total_hours", "npt_hours", "productive_hours", "npt_percent")
+        assert tuple(summarize_time_logs(rows)[f] for f in fields) == expected
+        m = _mgr()
+        w = _well(m, _base(m), "A")
+        b = _wellbore(m, w, "A")
+        sec = _section(m, w, "S", wellbore_id=b)
+        r = _report(m, w, 1, wellbore_id=b, section_id=sec)
+        with m.create_session() as s:
+            for duration in durations:
+                s.add(TimeLog24H(report_id=r, time_from=time(0), time_to=time(1),
+                                duration=duration, is_npt=True))
+            s.commit()
+        service = OperationsIntelligenceService(m)
+        for method, key in [(service.analyze_well, w), (service.analyze_wellbore, b),
+                            (service.analyze_section, sec)]:
+            kpis = method(key)["kpis"]
+>           assert tuple(kpis[f] for f in fields) == expected
+E           assert (None, 0.0, None, None) == (None, None, None, None)
+E             
+E             At index 1 diff: 0.0 != None
+E             Use -v to get more diff
+
+tests/test_operational_time_integrity.py:38: AssertionError
+________ test_time_summary_and_all_service_scopes[durations2-expected2] ________
+
+durations = [0], expected = (0, 0, 0, None)
+
+    @pytest.mark.parametrize("durations, expected", [
+        ([], (None, None, None, None)),
+        ([None], (None, None, None, None)),
+        ([0], (0, 0, 0, None)),
+        ([2, None], (None, None, None, None)),
+        ([2, 0], (2, 2, 0, 100)),
+    ])
+    def test_time_summary_and_all_service_scopes(durations, expected):
+        rows = [SimpleNamespace(duration=d, is_npt=True) for d in durations]
+        fields = ("total_hours", "npt_hours", "productive_hours", "npt_percent")
+        assert tuple(summarize_time_logs(rows)[f] for f in fields) == expected
+        m = _mgr()
+        w = _well(m, _base(m), "A")
+        b = _wellbore(m, w, "A")
+        sec = _section(m, w, "S", wellbore_id=b)
+        r = _report(m, w, 1, wellbore_id=b, section_id=sec)
+        with m.create_session() as s:
+            for duration in durations:
+                s.add(TimeLog24H(report_id=r, time_from=time(0), time_to=time(1),
+                                duration=duration, is_npt=True))
+            s.commit()
+        service = OperationsIntelligenceService(m)
+        for method, key in [(service.analyze_well, w), (service.analyze_wellbore, b),
+                            (service.analyze_section, sec)]:
+            kpis = method(key)["kpis"]
+>           assert tuple(kpis[f] for f in fields) == expected
+E           assert (None, 0.0, None, None) == (0, 0, 0, None)
+E             
+E             At index 0 diff: None != 0
+E             Use -v to get more diff
+
+tests/test_operational_time_integrity.py:38: AssertionError
+________ test_time_summary_and_all_service_scopes[durations3-expected3] ________
+
+durations = [2, None], expected = (None, None, None, None)
+
+    @pytest.mark.parametrize("durations, expected", [
+        ([], (None, None, None, None)),
+        ([None], (None, None, None, None)),
+        ([0], (0, 0, 0, None)),
+        ([2, None], (None, None, None, None)),
+        ([2, 0], (2, 2, 0, 100)),
+    ])
+    def test_time_summary_and_all_service_scopes(durations, expected):
+        rows = [SimpleNamespace(duration=d, is_npt=True) for d in durations]
+        fields = ("total_hours", "npt_hours", "productive_hours", "npt_percent")
+        assert tuple(summarize_time_logs(rows)[f] for f in fields) == expected
+        m = _mgr()
+        w = _well(m, _base(m), "A")
+        b = _wellbore(m, w, "A")
+        sec = _section(m, w, "S", wellbore_id=b)
+        r = _report(m, w, 1, wellbore_id=b, section_id=sec)
+        with m.create_session() as s:
+            for duration in durations:
+                s.add(TimeLog24H(report_id=r, time_from=time(0), time_to=time(1),
+                                duration=duration, is_npt=True))
+            s.commit()
+        service = OperationsIntelligenceService(m)
+        for method, key in [(service.analyze_well, w), (service.analyze_wellbore, b),
+                            (service.analyze_section, sec)]:
+            kpis = method(key)["kpis"]
+>           assert tuple(kpis[f] for f in fields) == expected
+E           assert (2.0, 2.0, 0.0, 100.0) == (None, None, None, None)
+E             
+E             At index 0 diff: 2.0 != None
+E             Use -v to get more diff
+
+tests/test_operational_time_integrity.py:38: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_operational_time_integrity.py::test_time_summary_and_all_service_scopes[durations0-expected0]
+FAILED tests/test_operational_time_integrity.py::test_time_summary_and_all_service_scopes[durations1-expected1]
+FAILED tests/test_operational_time_integrity.py::test_time_summary_and_all_service_scopes[durations2-expected2]
+FAILED tests/test_operational_time_integrity.py::test_time_summary_and_all_service_scopes[durations3-expected3]
+4 failed, 1 passed, 7 deselected in 0.88s
+EXPECTED NEGATIVE CONTROL EXIT: 1

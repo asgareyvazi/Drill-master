@@ -1,0 +1,24 @@
+FFFF                                                                     [100%]
+=================================== FAILURES ===================================
+_______ test_finite_financial_inputs_must_not_emit_infinite_facts[total] _______
+tests/test_m30_semantic_regressions.py:260: in test_finite_financial_inputs_must_not_emit_infinite_facts
+    with pytest.raises(EngineeringError):
+E   Failed: DID NOT RAISE EngineeringError
+_____ test_finite_financial_inputs_must_not_emit_infinite_facts[variance] ______
+tests/test_m30_semantic_regressions.py:260: in test_finite_financial_inputs_must_not_emit_infinite_facts
+    with pytest.raises(EngineeringError):
+E   Failed: DID NOT RAISE EngineeringError
+____ test_finite_financial_inputs_must_not_emit_infinite_facts[percentage] _____
+tests/test_m30_semantic_regressions.py:260: in test_finite_financial_inputs_must_not_emit_infinite_facts
+    with pytest.raises(EngineeringError):
+E   Failed: DID NOT RAISE EngineeringError
+_______ test_finite_financial_inputs_must_not_emit_infinite_facts[plan] ________
+tests/test_m30_semantic_regressions.py:260: in test_finite_financial_inputs_must_not_emit_infinite_facts
+    with pytest.raises(EngineeringError):
+E   Failed: DID NOT RAISE EngineeringError
+=========================== short test summary info ============================
+FAILED tests/test_m30_semantic_regressions.py::test_finite_financial_inputs_must_not_emit_infinite_facts[total]
+FAILED tests/test_m30_semantic_regressions.py::test_finite_financial_inputs_must_not_emit_infinite_facts[variance]
+FAILED tests/test_m30_semantic_regressions.py::test_finite_financial_inputs_must_not_emit_infinite_facts[percentage]
+FAILED tests/test_m30_semantic_regressions.py::test_finite_financial_inputs_must_not_emit_infinite_facts[plan]
+4 failed in 0.34s

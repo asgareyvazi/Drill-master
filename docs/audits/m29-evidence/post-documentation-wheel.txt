@@ -1,0 +1,623 @@
+$ git ls-files -z
+$ /home/user/Drill-master/.venv/bin/python -m build --wheel --outdir /tmp/drillmaster-wheel-uzmuvhsc
+running egg_info
+creating drillmaster.egg-info
+writing drillmaster.egg-info/PKG-INFO
+writing dependency_links to drillmaster.egg-info/dependency_links.txt
+writing entry points to drillmaster.egg-info/entry_points.txt
+writing requirements to drillmaster.egg-info/requires.txt
+writing top-level names to drillmaster.egg-info/top_level.txt
+writing manifest file 'drillmaster.egg-info/SOURCES.txt'
+reading manifest file 'drillmaster.egg-info/SOURCES.txt'
+writing manifest file 'drillmaster.egg-info/SOURCES.txt'
+running bdist_wheel
+running build
+running build_py
+creating build/lib
+copying app.py -> build/lib
+copying main_window.py -> build/lib
+copying run.py -> build/lib
+creating build/lib/config
+copying config/__init__.py -> build/lib/config
+creating build/lib/core
+copying core/activity_mapper.py -> build/lib/core
+copying core/actual_vs_plan.py -> build/lib/core
+copying core/ai_import_mapper.py -> build/lib/core
+copying core/ai_tools.py -> build/lib/core
+copying core/async_workers.py -> build/lib/core
+copying core/base_tab.py -> build/lib/core
+copying core/cache_manager.py -> build/lib/core
+copying core/canonical_mapper.py -> build/lib/core
+copying core/canonical_schema.py -> build/lib/core
+copying core/combo_identity.py -> build/lib/core
+copying core/common_widgets.py -> build/lib/core
+copying core/company_mapping.py -> build/lib/core
+copying core/cost_semantics.py -> build/lib/core
+copying core/credential_policy.py -> build/lib/core
+copying core/data_quality.py -> build/lib/core
+copying core/database.py -> build/lib/core
+copying core/database_reset.py -> build/lib/core
+copying core/db_models.py -> build/lib/core
+copying core/db_services.py -> build/lib/core
+copying core/ddr_import_service.py -> build/lib/core
+copying core/ddr_pdf_export.py -> build/lib/core
+copying core/document_import.py -> build/lib/core
+copying core/domain_records.py -> build/lib/core
+copying core/editor_bindings.py -> build/lib/core
+copying core/editor_state.py -> build/lib/core
+copying core/error_handler.py -> build/lib/core
+copying core/excel_intelligence.py -> build/lib/core
+copying core/excel_normalizer.py -> build/lib/core
+copying core/fuel_water_semantics.py -> build/lib/core
+copying core/functions.py -> build/lib/core
+copying core/health_check.py -> build/lib/core
+copying core/hierarchy_operations.py -> build/lib/core
+copying core/hydraulics_engine.py -> build/lib/core
+copying core/import_diagnostics.py -> build/lib/core
+copying core/import_ir.py -> build/lib/core
+copying core/import_profiler.py -> build/lib/core
+copying core/import_quality.py -> build/lib/core
+copying core/import_router.py -> build/lib/core
+copying core/inventory_semantics.py -> build/lib/core
+copying core/legacy_bha.py -> build/lib/core
+copying core/lineage.py -> build/lib/core
+copying core/managers.py -> build/lib/core
+copying core/mapping_store.py -> build/lib/core
+copying core/mineru_engine.py -> build/lib/core
+copying core/mud_ledger.py -> build/lib/core
+copying core/mud_records.py -> build/lib/core
+copying core/npt_catalog.py -> build/lib/core
+copying core/operational_time.py -> build/lib/core
+copying core/operations_intelligence.py -> build/lib/core
+copying core/optional_capabilities.py -> build/lib/core
+copying core/performance.py -> build/lib/core
+copying core/permissions.py -> build/lib/core
+copying core/professional_export.py -> build/lib/core
+copying core/profile_import_engine.py -> build/lib/core
+copying core/rag_search.py -> build/lib/core
+copying core/report_engine.py -> build/lib/core
+copying core/report_lifecycle.py -> build/lib/core
+copying core/report_snapshot.py -> build/lib/core
+copying core/runtime_config.py -> build/lib/core
+copying core/safety_semantics.py -> build/lib/core
+copying core/save_outcome.py -> build/lib/core
+copying core/scope_attribution.py -> build/lib/core
+copying core/selection_manager.py -> build/lib/core
+copying core/semantic_tables.py -> build/lib/core
+copying core/standards.py -> build/lib/core
+copying core/survey_records.py -> build/lib/core
+copying core/table_record_mapper.py -> build/lib/core
+copying core/text_utils.py -> build/lib/core
+copying core/time_utils.py -> build/lib/core
+copying core/toolbar_manager.py -> build/lib/core
+copying core/trajectory_plot.py -> build/lib/core
+copying core/unit_manager.py -> build/lib/core
+copying core/universal_import.py -> build/lib/core
+copying core/validators.py -> build/lib/core
+copying core/value_normalizer.py -> build/lib/core
+copying core/version.py -> build/lib/core
+copying core/wellbore_schematic_engine.py -> build/lib/core
+copying core/witsml_import.py -> build/lib/core
+creating build/lib/dialogs
+copying dialogs/bootstrap_dialog.py -> build/lib/dialogs
+copying dialogs/calculator_dialog.py -> build/lib/dialogs
+copying dialogs/casing_history_dialog.py -> build/lib/dialogs
+copying dialogs/cement_history_dialog.py -> build/lib/dialogs
+copying dialogs/daily_report_dialogs.py -> build/lib/dialogs
+copying dialogs/drilling_report_dialogs.py -> build/lib/dialogs
+copying dialogs/engineering_dialogs.py -> build/lib/dialogs
+copying dialogs/excel_import_dialog.py -> build/lib/dialogs
+copying dialogs/hierarchy_dialogs.py -> build/lib/dialogs
+copying dialogs/history_well_filter.py -> build/lib/dialogs
+copying dialogs/login_dialog.py -> build/lib/dialogs
+copying dialogs/mse_history_dialog.py -> build/lib/dialogs
+copying dialogs/mud_volume_history_dialog.py -> build/lib/dialogs
+copying dialogs/planning_dialog.py -> build/lib/dialogs
+copying dialogs/report_history_dialog.py -> build/lib/dialogs
+copying dialogs/settings_dialog.py -> build/lib/dialogs
+copying dialogs/smart_template_dialog.py -> build/lib/dialogs
+copying dialogs/startup_dialog.py -> build/lib/dialogs
+copying dialogs/torque_drag_history_dialog.py -> build/lib/dialogs
+copying dialogs/well_control_kill_sheet_history_dialog.py -> build/lib/dialogs
+creating build/lib/tabs
+copying tabs/home_tab.py -> build/lib/tabs
+copying tabs/w10_Planning_Widget.py -> build/lib/tabs
+copying tabs/w11_Export.py -> build/lib/tabs
+copying tabs/w12_Analysis.py -> build/lib/tabs
+copying tabs/w13_Engineering_Calculator.py -> build/lib/tabs
+copying tabs/w14_Procedure_Widget.py -> build/lib/tabs
+copying tabs/w15_Reference_Tables.py -> build/lib/tabs
+copying tabs/w16_Cost_Management.py -> build/lib/tabs
+copying tabs/w1_well_info.py -> build/lib/tabs
+copying tabs/w2_Daily_Report.py -> build/lib/tabs
+copying tabs/w3_drilling_report.py -> build/lib/tabs
+copying tabs/w3b_wellbore_schematic_tab.py -> build/lib/tabs
+copying tabs/w3c_section_data.py -> build/lib/tabs
+copying tabs/w4_Downhole_Widget.py -> build/lib/tabs
+copying tabs/w5_Equipment_Widget.py -> build/lib/tabs
+copying tabs/w6_Trajectory_Widget.py -> build/lib/tabs
+copying tabs/w7_logistics_Widget.py -> build/lib/tabs
+copying tabs/w8_Safety_Widget.py -> build/lib/tabs
+copying tabs/w9_Services_Widget.py -> build/lib/tabs
+creating build/lib/ui
+copying ui/helper.py -> build/lib/ui
+copying ui/utils.py -> build/lib/ui
+creating build/lib/config/company_templates
+copying config/company_templates/__init__.py -> build/lib/config/company_templates
+creating build/lib/core/api
+copying core/api/__init__.py -> build/lib/core/api
+copying core/api/rest_api.py -> build/lib/core/api
+creating build/lib/core/engineering
+copying core/engineering/__init__.py -> build/lib/core/engineering
+copying core/engineering/bridge.py -> build/lib/core/engineering
+copying core/engineering/calculation_verification.py -> build/lib/core/engineering
+copying core/engineering/casing_persistence.py -> build/lib/core/engineering
+copying core/engineering/cement_persistence.py -> build/lib/core/engineering
+copying core/engineering/core.py -> build/lib/core/engineering
+copying core/engineering/drill_pipe.py -> build/lib/core/engineering
+copying core/engineering/drill_pipe_catalog_view.py -> build/lib/core/engineering
+copying core/engineering/drill_pipe_import.py -> build/lib/core/engineering
+copying core/engineering/extended.py -> build/lib/core/engineering
+copying core/engineering/mse_persistence.py -> build/lib/core/engineering
+copying core/engineering/mud_volume_persistence.py -> build/lib/core/engineering
+copying core/engineering/registry.py -> build/lib/core/engineering
+copying core/engineering/result.py -> build/lib/core/engineering
+copying core/engineering/torque_drag_persistence.py -> build/lib/core/engineering
+copying core/engineering/well_control_kill_sheet.py -> build/lib/core/engineering
+copying core/engineering/well_control_kill_sheet_persistence.py -> build/lib/core/engineering
+creating build/lib/core/import_adapters
+copying core/import_adapters/__init__.py -> build/lib/core/import_adapters
+copying core/import_adapters/pdf_tables.py -> build/lib/core/import_adapters
+creating build/lib/core/repositories
+copying core/repositories/__init__.py -> build/lib/core/repositories
+copying core/repositories/audit_repository.py -> build/lib/core/repositories
+copying core/repositories/base.py -> build/lib/core/repositories
+copying core/repositories/casing_repository.py -> build/lib/core/repositories
+copying core/repositories/cement_repository.py -> build/lib/core/repositories
+copying core/repositories/cost_repository.py -> build/lib/core/repositories
+copying core/repositories/drill_pipe_reference_repository.py -> build/lib/core/repositories
+copying core/repositories/logistics_repository.py -> build/lib/core/repositories
+copying core/repositories/mse_repository.py -> build/lib/core/repositories
+copying core/repositories/mud_volume_repository.py -> build/lib/core/repositories
+copying core/repositories/report_repository.py -> build/lib/core/repositories
+copying core/repositories/safety_repository.py -> build/lib/core/repositories
+copying core/repositories/service_repository.py -> build/lib/core/repositories
+copying core/repositories/torque_drag_repository.py -> build/lib/core/repositories
+copying core/repositories/well_control_kill_sheet_repository.py -> build/lib/core/repositories
+copying core/repositories/well_repository.py -> build/lib/core/repositories
+creating build/lib/core/engineering/adapters
+copying core/engineering/adapters/__init__.py -> build/lib/core/engineering/adapters
+copying core/engineering/adapters/torque_drag_adapter.py -> build/lib/core/engineering/adapters
+copying core/engineering/adapters/welleng_adapter.py -> build/lib/core/engineering/adapters
+creating build/lib/core/engineering/engines
+copying core/engineering/engines/__init__.py -> build/lib/core/engineering/engines
+copying core/engineering/engines/anti_collision.py -> build/lib/core/engineering/engines
+copying core/engineering/engines/bit_performance.py -> build/lib/core/engineering/engines
+copying core/engineering/engines/casing.py -> build/lib/core/engineering/engines
+copying core/engineering/engines/cement.py -> build/lib/core/engineering/engines
+copying core/engineering/engines/fishing.py -> build/lib/core/engineering/engines
+copying core/engineering/engines/mse.py -> build/lib/core/engineering/engines
+copying core/engineering/engines/mud_volume.py -> build/lib/core/engineering/engines
+copying core/engineering/engines/torque_drag.py -> build/lib/core/engineering/engines
+copying core/engineering/engines/trajectory.py -> build/lib/core/engineering/engines
+copying core/engineering/engines/well_control.py -> build/lib/core/engineering/engines
+running egg_info
+writing drillmaster.egg-info/PKG-INFO
+writing dependency_links to drillmaster.egg-info/dependency_links.txt
+writing entry points to drillmaster.egg-info/entry_points.txt
+writing requirements to drillmaster.egg-info/requires.txt
+writing top-level names to drillmaster.egg-info/top_level.txt
+reading manifest file 'drillmaster.egg-info/SOURCES.txt'
+writing manifest file 'drillmaster.egg-info/SOURCES.txt'
+copying config/ai_models.json -> build/lib/config
+copying config/company_templates/example_company.json -> build/lib/config/company_templates
+copying config/company_templates/oeoc.json -> build/lib/config/company_templates
+creating build/lib/templates
+copying templates/OEOC_DDR_General.json -> build/lib/templates
+copying templates/OEOC_DDR_full_extraction.json -> build/lib/templates
+copying templates/OEOC_DDR_v3.json -> build/lib/templates
+installing to build/bdist.linux-x86_64/wheel
+running install
+running install_lib
+creating build/bdist.linux-x86_64/wheel
+copying build/lib/app.py -> build/bdist.linux-x86_64/wheel/.
+copying build/lib/main_window.py -> build/bdist.linux-x86_64/wheel/.
+copying build/lib/run.py -> build/bdist.linux-x86_64/wheel/.
+creating build/bdist.linux-x86_64/wheel/config
+copying build/lib/config/__init__.py -> build/bdist.linux-x86_64/wheel/./config
+creating build/bdist.linux-x86_64/wheel/config/company_templates
+copying build/lib/config/company_templates/__init__.py -> build/bdist.linux-x86_64/wheel/./config/company_templates
+copying build/lib/config/company_templates/example_company.json -> build/bdist.linux-x86_64/wheel/./config/company_templates
+copying build/lib/config/company_templates/oeoc.json -> build/bdist.linux-x86_64/wheel/./config/company_templates
+copying build/lib/config/ai_models.json -> build/bdist.linux-x86_64/wheel/./config
+creating build/bdist.linux-x86_64/wheel/core
+copying build/lib/core/activity_mapper.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/actual_vs_plan.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/ai_import_mapper.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/ai_tools.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/async_workers.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/base_tab.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/cache_manager.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/canonical_mapper.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/canonical_schema.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/combo_identity.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/common_widgets.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/company_mapping.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/cost_semantics.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/credential_policy.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/data_quality.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/database.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/database_reset.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/db_models.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/db_services.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/ddr_import_service.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/ddr_pdf_export.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/document_import.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/domain_records.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/editor_bindings.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/editor_state.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/error_handler.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/excel_intelligence.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/excel_normalizer.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/fuel_water_semantics.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/functions.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/health_check.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/hierarchy_operations.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/hydraulics_engine.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/import_diagnostics.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/import_ir.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/import_profiler.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/import_quality.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/import_router.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/inventory_semantics.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/legacy_bha.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/lineage.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/managers.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/mapping_store.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/mineru_engine.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/mud_ledger.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/mud_records.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/npt_catalog.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/operational_time.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/operations_intelligence.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/optional_capabilities.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/performance.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/permissions.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/professional_export.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/profile_import_engine.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/rag_search.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/report_engine.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/report_lifecycle.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/report_snapshot.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/runtime_config.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/safety_semantics.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/save_outcome.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/scope_attribution.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/selection_manager.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/semantic_tables.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/standards.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/survey_records.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/table_record_mapper.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/text_utils.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/time_utils.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/toolbar_manager.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/trajectory_plot.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/unit_manager.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/universal_import.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/validators.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/value_normalizer.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/version.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/wellbore_schematic_engine.py -> build/bdist.linux-x86_64/wheel/./core
+copying build/lib/core/witsml_import.py -> build/bdist.linux-x86_64/wheel/./core
+creating build/bdist.linux-x86_64/wheel/core/api
+copying build/lib/core/api/__init__.py -> build/bdist.linux-x86_64/wheel/./core/api
+copying build/lib/core/api/rest_api.py -> build/bdist.linux-x86_64/wheel/./core/api
+creating build/bdist.linux-x86_64/wheel/core/engineering
+copying build/lib/core/engineering/__init__.py -> build/bdist.linux-x86_64/wheel/./core/engineering
+copying build/lib/core/engineering/bridge.py -> build/bdist.linux-x86_64/wheel/./core/engineering
+copying build/lib/core/engineering/core.py -> build/bdist.linux-x86_64/wheel/./core/engineering
+copying build/lib/core/engineering/calculation_verification.py -> build/bdist.linux-x86_64/wheel/./core/engineering
+copying build/lib/core/engineering/casing_persistence.py -> build/bdist.linux-x86_64/wheel/./core/engineering
+copying build/lib/core/engineering/cement_persistence.py -> build/bdist.linux-x86_64/wheel/./core/engineering
+copying build/lib/core/engineering/drill_pipe.py -> build/bdist.linux-x86_64/wheel/./core/engineering
+copying build/lib/core/engineering/drill_pipe_catalog_view.py -> build/bdist.linux-x86_64/wheel/./core/engineering
+copying build/lib/core/engineering/drill_pipe_import.py -> build/bdist.linux-x86_64/wheel/./core/engineering
+copying build/lib/core/engineering/extended.py -> build/bdist.linux-x86_64/wheel/./core/engineering
+copying build/lib/core/engineering/mse_persistence.py -> build/bdist.linux-x86_64/wheel/./core/engineering
+copying build/lib/core/engineering/mud_volume_persistence.py -> build/bdist.linux-x86_64/wheel/./core/engineering
+copying build/lib/core/engineering/registry.py -> build/bdist.linux-x86_64/wheel/./core/engineering
+copying build/lib/core/engineering/result.py -> build/bdist.linux-x86_64/wheel/./core/engineering
+copying build/lib/core/engineering/torque_drag_persistence.py -> build/bdist.linux-x86_64/wheel/./core/engineering
+copying build/lib/core/engineering/well_control_kill_sheet.py -> build/bdist.linux-x86_64/wheel/./core/engineering
+copying build/lib/core/engineering/well_control_kill_sheet_persistence.py -> build/bdist.linux-x86_64/wheel/./core/engineering
+creating build/bdist.linux-x86_64/wheel/core/engineering/adapters
+copying build/lib/core/engineering/adapters/__init__.py -> build/bdist.linux-x86_64/wheel/./core/engineering/adapters
+copying build/lib/core/engineering/adapters/torque_drag_adapter.py -> build/bdist.linux-x86_64/wheel/./core/engineering/adapters
+copying build/lib/core/engineering/adapters/welleng_adapter.py -> build/bdist.linux-x86_64/wheel/./core/engineering/adapters
+creating build/bdist.linux-x86_64/wheel/core/engineering/engines
+copying build/lib/core/engineering/engines/__init__.py -> build/bdist.linux-x86_64/wheel/./core/engineering/engines
+copying build/lib/core/engineering/engines/anti_collision.py -> build/bdist.linux-x86_64/wheel/./core/engineering/engines
+copying build/lib/core/engineering/engines/bit_performance.py -> build/bdist.linux-x86_64/wheel/./core/engineering/engines
+copying build/lib/core/engineering/engines/casing.py -> build/bdist.linux-x86_64/wheel/./core/engineering/engines
+copying build/lib/core/engineering/engines/cement.py -> build/bdist.linux-x86_64/wheel/./core/engineering/engines
+copying build/lib/core/engineering/engines/fishing.py -> build/bdist.linux-x86_64/wheel/./core/engineering/engines
+copying build/lib/core/engineering/engines/mse.py -> build/bdist.linux-x86_64/wheel/./core/engineering/engines
+copying build/lib/core/engineering/engines/mud_volume.py -> build/bdist.linux-x86_64/wheel/./core/engineering/engines
+copying build/lib/core/engineering/engines/torque_drag.py -> build/bdist.linux-x86_64/wheel/./core/engineering/engines
+copying build/lib/core/engineering/engines/trajectory.py -> build/bdist.linux-x86_64/wheel/./core/engineering/engines
+copying build/lib/core/engineering/engines/well_control.py -> build/bdist.linux-x86_64/wheel/./core/engineering/engines
+creating build/bdist.linux-x86_64/wheel/core/import_adapters
+copying build/lib/core/import_adapters/__init__.py -> build/bdist.linux-x86_64/wheel/./core/import_adapters
+copying build/lib/core/import_adapters/pdf_tables.py -> build/bdist.linux-x86_64/wheel/./core/import_adapters
+creating build/bdist.linux-x86_64/wheel/core/repositories
+copying build/lib/core/repositories/__init__.py -> build/bdist.linux-x86_64/wheel/./core/repositories
+copying build/lib/core/repositories/audit_repository.py -> build/bdist.linux-x86_64/wheel/./core/repositories
+copying build/lib/core/repositories/base.py -> build/bdist.linux-x86_64/wheel/./core/repositories
+copying build/lib/core/repositories/casing_repository.py -> build/bdist.linux-x86_64/wheel/./core/repositories
+copying build/lib/core/repositories/cement_repository.py -> build/bdist.linux-x86_64/wheel/./core/repositories
+copying build/lib/core/repositories/cost_repository.py -> build/bdist.linux-x86_64/wheel/./core/repositories
+copying build/lib/core/repositories/drill_pipe_reference_repository.py -> build/bdist.linux-x86_64/wheel/./core/repositories
+copying build/lib/core/repositories/logistics_repository.py -> build/bdist.linux-x86_64/wheel/./core/repositories
+copying build/lib/core/repositories/mse_repository.py -> build/bdist.linux-x86_64/wheel/./core/repositories
+copying build/lib/core/repositories/mud_volume_repository.py -> build/bdist.linux-x86_64/wheel/./core/repositories
+copying build/lib/core/repositories/report_repository.py -> build/bdist.linux-x86_64/wheel/./core/repositories
+copying build/lib/core/repositories/safety_repository.py -> build/bdist.linux-x86_64/wheel/./core/repositories
+copying build/lib/core/repositories/service_repository.py -> build/bdist.linux-x86_64/wheel/./core/repositories
+copying build/lib/core/repositories/torque_drag_repository.py -> build/bdist.linux-x86_64/wheel/./core/repositories
+copying build/lib/core/repositories/well_control_kill_sheet_repository.py -> build/bdist.linux-x86_64/wheel/./core/repositories
+copying build/lib/core/repositories/well_repository.py -> build/bdist.linux-x86_64/wheel/./core/repositories
+creating build/bdist.linux-x86_64/wheel/dialogs
+copying build/lib/dialogs/bootstrap_dialog.py -> build/bdist.linux-x86_64/wheel/./dialogs
+copying build/lib/dialogs/calculator_dialog.py -> build/bdist.linux-x86_64/wheel/./dialogs
+copying build/lib/dialogs/casing_history_dialog.py -> build/bdist.linux-x86_64/wheel/./dialogs
+copying build/lib/dialogs/cement_history_dialog.py -> build/bdist.linux-x86_64/wheel/./dialogs
+copying build/lib/dialogs/daily_report_dialogs.py -> build/bdist.linux-x86_64/wheel/./dialogs
+copying build/lib/dialogs/drilling_report_dialogs.py -> build/bdist.linux-x86_64/wheel/./dialogs
+copying build/lib/dialogs/engineering_dialogs.py -> build/bdist.linux-x86_64/wheel/./dialogs
+copying build/lib/dialogs/excel_import_dialog.py -> build/bdist.linux-x86_64/wheel/./dialogs
+copying build/lib/dialogs/hierarchy_dialogs.py -> build/bdist.linux-x86_64/wheel/./dialogs
+copying build/lib/dialogs/history_well_filter.py -> build/bdist.linux-x86_64/wheel/./dialogs
+copying build/lib/dialogs/login_dialog.py -> build/bdist.linux-x86_64/wheel/./dialogs
+copying build/lib/dialogs/mse_history_dialog.py -> build/bdist.linux-x86_64/wheel/./dialogs
+copying build/lib/dialogs/mud_volume_history_dialog.py -> build/bdist.linux-x86_64/wheel/./dialogs
+copying build/lib/dialogs/planning_dialog.py -> build/bdist.linux-x86_64/wheel/./dialogs
+copying build/lib/dialogs/report_history_dialog.py -> build/bdist.linux-x86_64/wheel/./dialogs
+copying build/lib/dialogs/settings_dialog.py -> build/bdist.linux-x86_64/wheel/./dialogs
+copying build/lib/dialogs/smart_template_dialog.py -> build/bdist.linux-x86_64/wheel/./dialogs
+copying build/lib/dialogs/startup_dialog.py -> build/bdist.linux-x86_64/wheel/./dialogs
+copying build/lib/dialogs/torque_drag_history_dialog.py -> build/bdist.linux-x86_64/wheel/./dialogs
+copying build/lib/dialogs/well_control_kill_sheet_history_dialog.py -> build/bdist.linux-x86_64/wheel/./dialogs
+creating build/bdist.linux-x86_64/wheel/tabs
+copying build/lib/tabs/home_tab.py -> build/bdist.linux-x86_64/wheel/./tabs
+copying build/lib/tabs/w10_Planning_Widget.py -> build/bdist.linux-x86_64/wheel/./tabs
+copying build/lib/tabs/w11_Export.py -> build/bdist.linux-x86_64/wheel/./tabs
+copying build/lib/tabs/w12_Analysis.py -> build/bdist.linux-x86_64/wheel/./tabs
+copying build/lib/tabs/w13_Engineering_Calculator.py -> build/bdist.linux-x86_64/wheel/./tabs
+copying build/lib/tabs/w14_Procedure_Widget.py -> build/bdist.linux-x86_64/wheel/./tabs
+copying build/lib/tabs/w15_Reference_Tables.py -> build/bdist.linux-x86_64/wheel/./tabs
+copying build/lib/tabs/w16_Cost_Management.py -> build/bdist.linux-x86_64/wheel/./tabs
+copying build/lib/tabs/w1_well_info.py -> build/bdist.linux-x86_64/wheel/./tabs
+copying build/lib/tabs/w2_Daily_Report.py -> build/bdist.linux-x86_64/wheel/./tabs
+copying build/lib/tabs/w3_drilling_report.py -> build/bdist.linux-x86_64/wheel/./tabs
+copying build/lib/tabs/w3b_wellbore_schematic_tab.py -> build/bdist.linux-x86_64/wheel/./tabs
+copying build/lib/tabs/w3c_section_data.py -> build/bdist.linux-x86_64/wheel/./tabs
+copying build/lib/tabs/w4_Downhole_Widget.py -> build/bdist.linux-x86_64/wheel/./tabs
+copying build/lib/tabs/w5_Equipment_Widget.py -> build/bdist.linux-x86_64/wheel/./tabs
+copying build/lib/tabs/w6_Trajectory_Widget.py -> build/bdist.linux-x86_64/wheel/./tabs
+copying build/lib/tabs/w7_logistics_Widget.py -> build/bdist.linux-x86_64/wheel/./tabs
+copying build/lib/tabs/w8_Safety_Widget.py -> build/bdist.linux-x86_64/wheel/./tabs
+copying build/lib/tabs/w9_Services_Widget.py -> build/bdist.linux-x86_64/wheel/./tabs
+creating build/bdist.linux-x86_64/wheel/ui
+copying build/lib/ui/helper.py -> build/bdist.linux-x86_64/wheel/./ui
+copying build/lib/ui/utils.py -> build/bdist.linux-x86_64/wheel/./ui
+creating build/bdist.linux-x86_64/wheel/templates
+copying build/lib/templates/OEOC_DDR_General.json -> build/bdist.linux-x86_64/wheel/./templates
+copying build/lib/templates/OEOC_DDR_v3.json -> build/bdist.linux-x86_64/wheel/./templates
+copying build/lib/templates/OEOC_DDR_full_extraction.json -> build/bdist.linux-x86_64/wheel/./templates
+running install_egg_info
+Copying drillmaster.egg-info to build/bdist.linux-x86_64/wheel/./drillmaster-1.0.0-py3.11.egg-info
+running install_scripts
+creating build/bdist.linux-x86_64/wheel/drillmaster-1.0.0.dist-info/WHEEL
+creating '/tmp/drillmaster-wheel-uzmuvhsc/.tmp-7lf8dpqd/drillmaster-1.0.0-py3-none-any.whl' and adding 'build/bdist.linux-x86_64/wheel' to it
+adding 'app.py'
+adding 'main_window.py'
+adding 'run.py'
+adding 'config/__init__.py'
+adding 'config/ai_models.json'
+adding 'config/company_templates/__init__.py'
+adding 'config/company_templates/example_company.json'
+adding 'config/company_templates/oeoc.json'
+adding 'core/activity_mapper.py'
+adding 'core/actual_vs_plan.py'
+adding 'core/ai_import_mapper.py'
+adding 'core/ai_tools.py'
+adding 'core/async_workers.py'
+adding 'core/base_tab.py'
+adding 'core/cache_manager.py'
+adding 'core/canonical_mapper.py'
+adding 'core/canonical_schema.py'
+adding 'core/combo_identity.py'
+adding 'core/common_widgets.py'
+adding 'core/company_mapping.py'
+adding 'core/cost_semantics.py'
+adding 'core/credential_policy.py'
+adding 'core/data_quality.py'
+adding 'core/database.py'
+adding 'core/database_reset.py'
+adding 'core/db_models.py'
+adding 'core/db_services.py'
+adding 'core/ddr_import_service.py'
+adding 'core/ddr_pdf_export.py'
+adding 'core/document_import.py'
+adding 'core/domain_records.py'
+adding 'core/editor_bindings.py'
+adding 'core/editor_state.py'
+adding 'core/error_handler.py'
+adding 'core/excel_intelligence.py'
+adding 'core/excel_normalizer.py'
+adding 'core/fuel_water_semantics.py'
+adding 'core/functions.py'
+adding 'core/health_check.py'
+adding 'core/hierarchy_operations.py'
+adding 'core/hydraulics_engine.py'
+adding 'core/import_diagnostics.py'
+adding 'core/import_ir.py'
+adding 'core/import_profiler.py'
+adding 'core/import_quality.py'
+adding 'core/import_router.py'
+adding 'core/inventory_semantics.py'
+adding 'core/legacy_bha.py'
+adding 'core/lineage.py'
+adding 'core/managers.py'
+adding 'core/mapping_store.py'
+adding 'core/mineru_engine.py'
+adding 'core/mud_ledger.py'
+adding 'core/mud_records.py'
+adding 'core/npt_catalog.py'
+adding 'core/operational_time.py'
+adding 'core/operations_intelligence.py'
+adding 'core/optional_capabilities.py'
+adding 'core/performance.py'
+adding 'core/permissions.py'
+adding 'core/professional_export.py'
+adding 'core/profile_import_engine.py'
+adding 'core/rag_search.py'
+adding 'core/report_engine.py'
+adding 'core/report_lifecycle.py'
+adding 'core/report_snapshot.py'
+adding 'core/runtime_config.py'
+adding 'core/safety_semantics.py'
+adding 'core/save_outcome.py'
+adding 'core/scope_attribution.py'
+adding 'core/selection_manager.py'
+adding 'core/semantic_tables.py'
+adding 'core/standards.py'
+adding 'core/survey_records.py'
+adding 'core/table_record_mapper.py'
+adding 'core/text_utils.py'
+adding 'core/time_utils.py'
+adding 'core/toolbar_manager.py'
+adding 'core/trajectory_plot.py'
+adding 'core/unit_manager.py'
+adding 'core/universal_import.py'
+adding 'core/validators.py'
+adding 'core/value_normalizer.py'
+adding 'core/version.py'
+adding 'core/wellbore_schematic_engine.py'
+adding 'core/witsml_import.py'
+adding 'core/api/__init__.py'
+adding 'core/api/rest_api.py'
+adding 'core/engineering/__init__.py'
+adding 'core/engineering/bridge.py'
+adding 'core/engineering/calculation_verification.py'
+adding 'core/engineering/casing_persistence.py'
+adding 'core/engineering/cement_persistence.py'
+adding 'core/engineering/core.py'
+adding 'core/engineering/drill_pipe.py'
+adding 'core/engineering/drill_pipe_catalog_view.py'
+adding 'core/engineering/drill_pipe_import.py'
+adding 'core/engineering/extended.py'
+adding 'core/engineering/mse_persistence.py'
+adding 'core/engineering/mud_volume_persistence.py'
+adding 'core/engineering/registry.py'
+adding 'core/engineering/result.py'
+adding 'core/engineering/torque_drag_persistence.py'
+adding 'core/engineering/well_control_kill_sheet.py'
+adding 'core/engineering/well_control_kill_sheet_persistence.py'
+adding 'core/engineering/adapters/__init__.py'
+adding 'core/engineering/adapters/torque_drag_adapter.py'
+adding 'core/engineering/adapters/welleng_adapter.py'
+adding 'core/engineering/engines/__init__.py'
+adding 'core/engineering/engines/anti_collision.py'
+adding 'core/engineering/engines/bit_performance.py'
+adding 'core/engineering/engines/casing.py'
+adding 'core/engineering/engines/cement.py'
+adding 'core/engineering/engines/fishing.py'
+adding 'core/engineering/engines/mse.py'
+adding 'core/engineering/engines/mud_volume.py'
+adding 'core/engineering/engines/torque_drag.py'
+adding 'core/engineering/engines/trajectory.py'
+adding 'core/engineering/engines/well_control.py'
+adding 'core/import_adapters/__init__.py'
+adding 'core/import_adapters/pdf_tables.py'
+adding 'core/repositories/__init__.py'
+adding 'core/repositories/audit_repository.py'
+adding 'core/repositories/base.py'
+adding 'core/repositories/casing_repository.py'
+adding 'core/repositories/cement_repository.py'
+adding 'core/repositories/cost_repository.py'
+adding 'core/repositories/drill_pipe_reference_repository.py'
+adding 'core/repositories/logistics_repository.py'
+adding 'core/repositories/mse_repository.py'
+adding 'core/repositories/mud_volume_repository.py'
+adding 'core/repositories/report_repository.py'
+adding 'core/repositories/safety_repository.py'
+adding 'core/repositories/service_repository.py'
+adding 'core/repositories/torque_drag_repository.py'
+adding 'core/repositories/well_control_kill_sheet_repository.py'
+adding 'core/repositories/well_repository.py'
+adding 'dialogs/bootstrap_dialog.py'
+adding 'dialogs/calculator_dialog.py'
+adding 'dialogs/casing_history_dialog.py'
+adding 'dialogs/cement_history_dialog.py'
+adding 'dialogs/daily_report_dialogs.py'
+adding 'dialogs/drilling_report_dialogs.py'
+adding 'dialogs/engineering_dialogs.py'
+adding 'dialogs/excel_import_dialog.py'
+adding 'dialogs/hierarchy_dialogs.py'
+adding 'dialogs/history_well_filter.py'
+adding 'dialogs/login_dialog.py'
+adding 'dialogs/mse_history_dialog.py'
+adding 'dialogs/mud_volume_history_dialog.py'
+adding 'dialogs/planning_dialog.py'
+adding 'dialogs/report_history_dialog.py'
+adding 'dialogs/settings_dialog.py'
+adding 'dialogs/smart_template_dialog.py'
+adding 'dialogs/startup_dialog.py'
+adding 'dialogs/torque_drag_history_dialog.py'
+adding 'dialogs/well_control_kill_sheet_history_dialog.py'
+adding 'tabs/home_tab.py'
+adding 'tabs/w10_Planning_Widget.py'
+adding 'tabs/w11_Export.py'
+adding 'tabs/w12_Analysis.py'
+adding 'tabs/w13_Engineering_Calculator.py'
+adding 'tabs/w14_Procedure_Widget.py'
+adding 'tabs/w15_Reference_Tables.py'
+adding 'tabs/w16_Cost_Management.py'
+adding 'tabs/w1_well_info.py'
+adding 'tabs/w2_Daily_Report.py'
+adding 'tabs/w3_drilling_report.py'
+adding 'tabs/w3b_wellbore_schematic_tab.py'
+adding 'tabs/w3c_section_data.py'
+adding 'tabs/w4_Downhole_Widget.py'
+adding 'tabs/w5_Equipment_Widget.py'
+adding 'tabs/w6_Trajectory_Widget.py'
+adding 'tabs/w7_logistics_Widget.py'
+adding 'tabs/w8_Safety_Widget.py'
+adding 'tabs/w9_Services_Widget.py'
+adding 'templates/OEOC_DDR_General.json'
+adding 'templates/OEOC_DDR_full_extraction.json'
+adding 'templates/OEOC_DDR_v3.json'
+adding 'ui/helper.py'
+adding 'ui/utils.py'
+adding 'drillmaster-1.0.0.dist-info/METADATA'
+adding 'drillmaster-1.0.0.dist-info/WHEEL'
+adding 'drillmaster-1.0.0.dist-info/entry_points.txt'
+adding 'drillmaster-1.0.0.dist-info/top_level.txt'
+adding 'drillmaster-1.0.0.dist-info/RECORD'
+removing build/bdist.linux-x86_64/wheel
+Successfully built drillmaster-1.0.0-py3-none-any.whl
+* Creating isolated environment: venv+pip...
+* Installing packages in isolated environment:
+  - setuptools>=68
+  - wheel
+* Getting build dependencies for wheel...
+* Installed build dependency versions:
+  - setuptools==84.0.0
+  - wheel==0.48.0
+* Building wheel...
+$ /home/user/Drill-master/.venv/bin/python -m pip install --no-deps --no-index --target /tmp/drillmaster-wheel-uzmuvhsc/installed /tmp/drillmaster-wheel-uzmuvhsc/drillmaster-1.0.0-py3-none-any.whl
+Processing /tmp/drillmaster-wheel-uzmuvhsc/drillmaster-1.0.0-py3-none-any.whl
+Installing collected packages: drillmaster
+Successfully installed drillmaster-1.0.0
+$ /home/user/Drill-master/.venv/bin/python /tmp/drillmaster-wheel-uzmuvhsc/installed/app.py --package-smoke

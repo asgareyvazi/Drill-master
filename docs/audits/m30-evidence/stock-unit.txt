@@ -1,0 +1,9 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_________ test_carry_forward_requires_same_unit_and_unique_latest_date _________
+tests/test_m30_semantic_regressions.py:118: in test_carry_forward_requires_same_unit_and_unique_latest_date
+    assert db.get_inventory_items(report_id=next_report)[0]["opening_stock"] is None
+E   assert 100.0 is None
+=========================== short test summary info ============================
+FAILED tests/test_m30_semantic_regressions.py::test_carry_forward_requires_same_unit_and_unique_latest_date
+1 failed in 0.56s

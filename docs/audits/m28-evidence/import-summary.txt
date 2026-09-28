@@ -1,0 +1,4 @@
+3f52e2e..95dd631: unique per-file removed import aliases=425; removed occurrences=479; diff files=107.
+All 168 core/dialogs/tabs modules imported in isolated processes: see isolated-imports.json.
+No package __init__.py imports removed. Dynamic strings / optional behavior remain covered only by applicable tests and manual inspection, not proven by AST absence.
+All tracked Python consumers, including root entrypoints and tools, were checked. app.py required the removed core.database.bootstrap_password_for_role re-export. The credential-policy function and compatibility constant are now explicitly re-exported. Core-only import tests missed this defect; the release suite now executes app.py --package-smoke in a fresh process.

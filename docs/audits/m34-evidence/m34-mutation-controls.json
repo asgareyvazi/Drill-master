@@ -1,0 +1,404 @@
+{
+ "schema": "m34-mutation-controls",
+ "generated_utc": "2026-09-27T11:53:56+00:00",
+ "method": "one regex substitution per mutant (exactly-once match required), the fix's own regression test as the oracle, byte-identical restore verified by sha256",
+ "total": 16,
+ "counts": {
+  "KILLED": 15,
+  "SURVIVED-AS-EXPECTED": 1
+ },
+ "killed": 15,
+ "survivors": [],
+ "skipped": [],
+ "restore_failures": [],
+ "harness_self_check": {
+  "files": {
+   "dialogs/drilling_report_dialogs.py": {
+    "before": "4c296617482bc11721365e6b0a4389a293d1904272f0b849c55943f0b4a373c0",
+    "after": "4c296617482bc11721365e6b0a4389a293d1904272f0b849c55943f0b4a373c0",
+    "restored_byte_identical": true
+   },
+   "core/professional_export.py": {
+    "before": "96878cf690f49d01c29a0b38323a761e275c9cddec9ff2d98d387a060dd73727",
+    "after": "96878cf690f49d01c29a0b38323a761e275c9cddec9ff2d98d387a060dd73727",
+    "restored_byte_identical": true
+   },
+   "core/database.py": {
+    "before": "578d6a9c3eb83c405d7c3fb5d532416c2612137117a7bfa6d8d32b83562e54c2",
+    "after": "578d6a9c3eb83c405d7c3fb5d532416c2612137117a7bfa6d8d32b83562e54c2",
+    "restored_byte_identical": true
+   },
+   "core/validators.py": {
+    "before": "ae1f69d157a55d3691df42b71379973150b4d57cd56e1ea8178b5cb60152ad0c",
+    "after": "ae1f69d157a55d3691df42b71379973150b4d57cd56e1ea8178b5cb60152ad0c",
+    "restored_byte_identical": true
+   },
+   "core/managers.py": {
+    "before": "1c0f33c4ca47170a995b35d8b33126fb48b473f0c0dfb4dd1597ce8c36d2609b",
+    "after": "1c0f33c4ca47170a995b35d8b33126fb48b473f0c0dfb4dd1597ce8c36d2609b",
+    "restored_byte_identical": true
+   },
+   "tabs/w3_drilling_report.py": {
+    "before": "e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0",
+    "after": "e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0",
+    "restored_byte_identical": true
+   },
+   "core/engineering/engines/casing.py": {
+    "before": "17eb484b1a0957129ea7e45b7101702b9c9d09b99f9263c6cb7a8c097a30e545",
+    "after": "17eb484b1a0957129ea7e45b7101702b9c9d09b99f9263c6cb7a8c097a30e545",
+    "restored_byte_identical": true
+   },
+   "core/data_quality.py": {
+    "before": "0151a92768ec15d1d26c3e81890c5cd2aad2479b12b97b3c00d2eff92a7ba9cc",
+    "after": "0151a92768ec15d1d26c3e81890c5cd2aad2479b12b97b3c00d2eff92a7ba9cc",
+    "restored_byte_identical": true
+   },
+   "tests/test_autosave_manager_regression.py": {
+    "before": "f07170668dbaf302ea6b3f0d633dd9686bfc6e1547f4d05253d03819cc642860",
+    "after": "f07170668dbaf302ea6b3f0d633dd9686bfc6e1547f4d05253d03819cc642860",
+    "restored_byte_identical": true
+   }
+  },
+  "all_restored": true
+ },
+ "results": [
+  {
+   "id": "M34-M-DIALOG",
+   "path": "dialogs/drilling_report_dialogs.py",
+   "expectation": "killed",
+   "defect": "a real 0 and an unrecorded measurement become indistinguishable",
+   "fixes": [
+    "M32-FIX-001"
+   ],
+   "selector": [
+    "tests/test_m31_scenarios.py::test_bit_record_dialog_keeps_unrecorded_measurements_blank"
+   ],
+   "outcome": "KILLED",
+   "pytest": {
+    "exit_code": 1,
+    "outcome": "FAIL",
+    "last_line": "FAILED tests/test_m31_scenarios.py::test_bit_record_dialog_keeps_unrecorded_measurements_blank"
+   },
+   "restored_byte_identical": true,
+   "sha256_before": "4c296617482bc11721365e6b0a4389a293d1904272f0b849c55943f0b4a373c0",
+   "sha256_after": "4c296617482bc11721365e6b0a4389a293d1904272f0b849c55943f0b4a373c0"
+  },
+  {
+   "id": "M34-M-EXPORT",
+   "path": "core/professional_export.py",
+   "expectation": "killed",
+   "defect": "unrecorded duration exports as a measured 0 h",
+   "fixes": [
+    "M32-FIX-002"
+   ],
+   "selector": [
+    "tests/test_m31_scenarios.py::test_professional_export_leaves_unrecorded_duration_blank"
+   ],
+   "outcome": "KILLED",
+   "pytest": {
+    "exit_code": 1,
+    "outcome": "FAIL",
+    "last_line": "FAILED tests/test_m31_scenarios.py::test_professional_export_leaves_unrecorded_duration_blank"
+   },
+   "restored_byte_identical": true,
+   "sha256_before": "96878cf690f49d01c29a0b38323a761e275c9cddec9ff2d98d387a060dd73727",
+   "sha256_after": "96878cf690f49d01c29a0b38323a761e275c9cddec9ff2d98d387a060dd73727"
+  },
+  {
+   "id": "M34-M-HIERARCHY",
+   "path": "core/database.py",
+   "expectation": "killed",
+   "defect": "an unknown depth sorts as 0 (first) again",
+   "fixes": [
+    "M32-FIX-003"
+   ],
+   "selector": [
+    "tests/test_m31_scenarios.py::test_full_hierarchy_orders_unknown_section_depth_last"
+   ],
+   "outcome": "KILLED",
+   "pytest": {
+    "exit_code": 1,
+    "outcome": "FAIL",
+    "last_line": "FAILED tests/test_m31_scenarios.py::test_full_hierarchy_orders_unknown_section_depth_last"
+   },
+   "restored_byte_identical": true,
+   "sha256_before": "578d6a9c3eb83c405d7c3fb5d532416c2612137117a7bfa6d8d32b83562e54c2",
+   "sha256_after": "578d6a9c3eb83c405d7c3fb5d532416c2612137117a7bfa6d8d32b83562e54c2"
+  },
+  {
+   "id": "M34-M-NPT",
+   "path": "core/database.py",
+   "expectation": "killed",
+   "defect": "derived NPT is written from a missing duration again",
+   "fixes": [
+    "M32-FIX-004"
+   ],
+   "selector": [
+    "tests/test_m31_scenarios.py::test_derived_npt_skips_logs_without_a_recorded_duration"
+   ],
+   "outcome": "KILLED",
+   "pytest": {
+    "exit_code": 1,
+    "outcome": "FAIL",
+    "last_line": "FAILED tests/test_m31_scenarios.py::test_derived_npt_skips_logs_without_a_recorded_duration"
+   },
+   "restored_byte_identical": true,
+   "sha256_before": "578d6a9c3eb83c405d7c3fb5d532416c2612137117a7bfa6d8d32b83562e54c2",
+   "sha256_after": "578d6a9c3eb83c405d7c3fb5d532416c2612137117a7bfa6d8d32b83562e54c2"
+  },
+  {
+   "id": "M34-M-CODEHOURS",
+   "path": "core/database.py",
+   "expectation": "killed",
+   "defect": "an unrecorded duration is folded into the usage hours",
+   "fixes": [
+    "M32-FIX-005"
+   ],
+   "selector": [
+    "tests/test_m31_scenarios.py::test_activity_code_usage_hours_are_unknown_when_a_duration_is_missing"
+   ],
+   "outcome": "KILLED",
+   "pytest": {
+    "exit_code": 1,
+    "outcome": "FAIL",
+    "last_line": "FAILED tests/test_m31_scenarios.py::test_activity_code_usage_hours_are_unknown_when_a_duration_is_missing"
+   },
+   "restored_byte_identical": true,
+   "sha256_before": "578d6a9c3eb83c405d7c3fb5d532416c2612137117a7bfa6d8d32b83562e54c2",
+   "sha256_after": "578d6a9c3eb83c405d7c3fb5d532416c2612137117a7bfa6d8d32b83562e54c2"
+  },
+  {
+   "id": "M34-M-VALIDATOR",
+   "path": "core/validators.py",
+   "expectation": "killed",
+   "defect": "the legacy validator reports a complete 24 h again",
+   "fixes": [
+    "M32-FIX-006"
+   ],
+   "selector": [
+    "tests/test_m31_scenarios.py::test_legacy_time_log_validator_reports_unrecorded_duration"
+   ],
+   "outcome": "KILLED",
+   "pytest": {
+    "exit_code": 1,
+    "outcome": "FAIL",
+    "last_line": "FAILED tests/test_m31_scenarios.py::test_legacy_time_log_validator_reports_unrecorded_duration"
+   },
+   "restored_byte_identical": true,
+   "sha256_before": "ae1f69d157a55d3691df42b71379973150b4d57cd56e1ea8178b5cb60152ad0c",
+   "sha256_after": "ae1f69d157a55d3691df42b71379973150b4d57cd56e1ea8178b5cb60152ad0c"
+  },
+  {
+   "id": "M34-M-ROP",
+   "path": "core/managers.py",
+   "expectation": "killed",
+   "defect": "a failed/absent ROP is reported as 0 m/hr",
+   "fixes": [
+    "M32-FIX-007"
+   ],
+   "selector": [
+    "tests/test_m31_scenarios.py::test_engine_result_without_a_rop_value_is_unknown"
+   ],
+   "outcome": "KILLED",
+   "pytest": {
+    "exit_code": 1,
+    "outcome": "FAIL",
+    "last_line": "FAILED tests/test_m31_scenarios.py::test_engine_result_without_a_rop_value_is_unknown"
+   },
+   "restored_byte_identical": true,
+   "sha256_before": "1c0f33c4ca47170a995b35d8b33126fb48b473f0c0dfb4dd1597ce8c36d2609b",
+   "sha256_after": "1c0f33c4ca47170a995b35d8b33126fb48b473f0c0dfb4dd1597ce8c36d2609b"
+  },
+  {
+   "id": "M34-M-TABPERSIST",
+   "path": "tabs/w3_drilling_report.py",
+   "expectation": "killed",
+   "defect": "the 'not computed' sentinel is persisted as a number",
+   "fixes": [
+    "M32-FIX-008"
+   ],
+   "selector": [
+    "tests/test_m31_scenarios.py::test_drilling_tab_persists_unknown_for_uncomputed_values"
+   ],
+   "outcome": "KILLED",
+   "pytest": {
+    "exit_code": 1,
+    "outcome": "FAIL",
+    "last_line": "FAILED tests/test_m31_scenarios.py::test_drilling_tab_persists_unknown_for_uncomputed_values"
+   },
+   "restored_byte_identical": true,
+   "sha256_before": "e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0",
+   "sha256_after": "e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0"
+  },
+  {
+   "id": "M34-M-CASING-FABRICATE",
+   "path": "core/engineering/engines/casing.py",
+   "expectation": "killed",
+   "defect": "an absent axial load is reported as a measured stress",
+   "fixes": [
+    "M33-FIX-CASING"
+   ],
+   "selector": [
+    "tests/test_casing_absent_load_semantics.py"
+   ],
+   "outcome": "KILLED",
+   "pytest": {
+    "exit_code": 1,
+    "outcome": "FAIL",
+    "last_line": "FAILED tests/test_casing_absent_load_semantics.py::test_supplied_loads_still_apply_fyax_and_pi"
+   },
+   "restored_byte_identical": true,
+   "sha256_before": "17eb484b1a0957129ea7e45b7101702b9c9d09b99f9263c6cb7a8c097a30e545",
+   "sha256_after": "17eb484b1a0957129ea7e45b7101702b9c9d09b99f9263c6cb7a8c097a30e545"
+  },
+  {
+   "id": "M34-M-CASING-ZERONONE",
+   "path": "core/engineering/engines/casing.py",
+   "expectation": "killed",
+   "defect": "a load supplied as exactly zero is misread as absent",
+   "fixes": [
+    "M33-FIX-CASING"
+   ],
+   "selector": [
+    "tests/test_casing_absent_load_semantics.py"
+   ],
+   "outcome": "KILLED",
+   "pytest": {
+    "exit_code": 1,
+    "outcome": "FAIL",
+    "last_line": "FAILED tests/test_casing_absent_load_semantics.py::test_supplied_loads_still_apply_fyax_and_pi"
+   },
+   "restored_byte_identical": true,
+   "sha256_before": "17eb484b1a0957129ea7e45b7101702b9c9d09b99f9263c6cb7a8c097a30e545",
+   "sha256_after": "17eb484b1a0957129ea7e45b7101702b9c9d09b99f9263c6cb7a8c097a30e545"
+  },
+  {
+   "id": "M34-M-NONETOZERO",
+   "path": "core/data_quality.py",
+   "expectation": "killed",
+   "defect": "24 h coverage is computed over a missing duration again",
+   "fixes": [
+    "M33-FIX-DATAQUALITY"
+   ],
+   "selector": [
+    "tests/test_m31_scenarios.py::test_time_coverage_is_unknown_when_a_duration_is_missing"
+   ],
+   "outcome": "KILLED",
+   "pytest": {
+    "exit_code": 1,
+    "outcome": "FAIL",
+    "last_line": "FAILED tests/test_m31_scenarios.py::test_time_coverage_is_unknown_when_a_duration_is_missing"
+   },
+   "restored_byte_identical": true,
+   "sha256_before": "0151a92768ec15d1d26c3e81890c5cd2aad2479b12b97b3c00d2eff92a7ba9cc",
+   "sha256_after": "0151a92768ec15d1d26c3e81890c5cd2aad2479b12b97b3c00d2eff92a7ba9cc"
+  },
+  {
+   "id": "M34-M-DURATIONORZERO",
+   "path": "core/database.py",
+   "expectation": "equivalent-survivor",
+   "defect": "inside the recorded-duration branch 'or 0' can only differ for 0.0, where x or 0 == 0",
+   "fixes": [
+    "M32-FIX-005"
+   ],
+   "selector": [
+    "tests/test_m31_scenarios.py::test_activity_code_usage_hours_are_unknown_when_a_duration_is_missing"
+   ],
+   "outcome": "SURVIVED-AS-EXPECTED",
+   "pytest": {
+    "exit_code": 0,
+    "outcome": "PASS",
+    "last_line": ".                                                                        [100%]"
+   },
+   "restored_byte_identical": true,
+   "sha256_before": "578d6a9c3eb83c405d7c3fb5d532416c2612137117a7bfa6d8d32b83562e54c2",
+   "sha256_after": "578d6a9c3eb83c405d7c3fb5d532416c2612137117a7bfa6d8d32b83562e54c2"
+  },
+  {
+   "id": "M34-M-CLAMPRESTORE",
+   "path": "tabs/w3_drilling_report.py",
+   "expectation": "killed",
+   "defect": "a computed value above the current maximum is silently truncated",
+   "fixes": [
+    "M33-FIX-QTCLAMP"
+   ],
+   "selector": [
+    "tests/test_m31_scenarios.py::test_derived_avg_rop_display_is_not_silently_clamped"
+   ],
+   "outcome": "KILLED",
+   "pytest": {
+    "exit_code": 1,
+    "outcome": "FAIL",
+    "last_line": "FAILED tests/test_m31_scenarios.py::test_derived_avg_rop_display_is_not_silently_clamped"
+   },
+   "restored_byte_identical": true,
+   "sha256_before": "e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0",
+   "sha256_after": "e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0"
+  },
+  {
+   "id": "M34-M-QT99CLAMP",
+   "path": "tabs/w3_drilling_report.py",
+   "expectation": "killed",
+   "defect": "the widget falls back to Qt's default 99.99 maximum",
+   "fixes": [
+    "M33-FIX-QTCLAMP"
+   ],
+   "selector": [
+    "tests/test_m31_scenarios.py::test_derived_avg_rop_display_is_not_silently_clamped"
+   ],
+   "outcome": "KILLED",
+   "pytest": {
+    "exit_code": 1,
+    "outcome": "FAIL",
+    "last_line": "FAILED tests/test_m31_scenarios.py::test_derived_avg_rop_display_is_not_silently_clamped"
+   },
+   "restored_byte_identical": true,
+   "sha256_before": "e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0",
+   "sha256_after": "e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0"
+  },
+  {
+   "id": "M34-M-OWNERSHIP",
+   "path": "core/database.py",
+   "expectation": "killed",
+   "defect": "a report-scoped snapshot may claim a foreign well again",
+   "fixes": [
+    "M26/M32 ownership contract"
+   ],
+   "selector": [
+    "tests/test_report_scoped_ownership_m26.py"
+   ],
+   "outcome": "KILLED",
+   "pytest": {
+    "exit_code": 1,
+    "outcome": "FAIL",
+    "last_line": "FAILED tests/test_report_scoped_ownership_m26.py::test_cross_well_report_reference_is_rejected[TimeDepthData]"
+   },
+   "restored_byte_identical": true,
+   "sha256_before": "578d6a9c3eb83c405d7c3fb5d532416c2612137117a7bfa6d8d32b83562e54c2",
+   "sha256_after": "578d6a9c3eb83c405d7c3fb5d532416c2612137117a7bfa6d8d32b83562e54c2"
+  },
+  {
+   "id": "M34-M-QTSINGLETON",
+   "path": "tests/test_autosave_manager_regression.py",
+   "expectation": "killed",
+   "defect": "a new, non-widget-capable fallback application is built per test file; the defect only manifests when another file already created the process-wide application, so the oracle runs both files in one process",
+   "fixes": [
+    "M32-FIX-009"
+   ],
+   "selector": [
+    "tests/test_m31_scenarios.py",
+    "tests/test_autosave_manager_regression.py"
+   ],
+   "outcome": "KILLED",
+   "pytest": {
+    "exit_code": 1,
+    "outcome": "FAIL",
+    "last_line": "FAILED tests/test_autosave_manager_regression.py::test_setup_widget_with_managers_uses_minute_api_and_is_idempotent"
+   },
+   "restored_byte_identical": true,
+   "sha256_before": "f07170668dbaf302ea6b3f0d633dd9686bfc6e1547f4d05253d03819cc642860",
+   "sha256_after": "f07170668dbaf302ea6b3f0d633dd9686bfc6e1547f4d05253d03819cc642860"
+  }
+ ],
+ "rule_zero_note": "no mutant remains in the worktree; the abort-on-mismatch path exists so a failed restore cannot be silently ignored"
+}

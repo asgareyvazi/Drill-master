@@ -1,0 +1,36 @@
+FFF                                                                      [100%]
+=================================== FAILURES ===================================
+_ test_mapping_write_failure_preserves_disk_memory_and_cleans_temporary[serialization] _
+tests/test_m29_release_closure.py:538: in test_mapping_write_failure_preserves_disk_memory_and_cleans_temporary
+    assert path.read_bytes() == disk and store.data == memory
+E   assert (b'{\n  "mappi...    }\n  }\n}' == b'{\n  "mappi...    }\n  }\n}'
+E
+E     Use -v to get more diff and {'mappings': ...9f268be40>}}}} == {'mappings': ...pth': 'A1'}}}}
+E
+E     Differing items:
+E     {'mappings': {'fp': {'revision': 2, 'source': 'user-confirmed', 'fields': {'depth': <object object at 0x7f69f268be40>}}}} != {'mappings': {'fp': {'revision': 1, 'source': 'user-confirmed', 'fields': {'depth': 'A1'}}}}
+E     Use -v to get more diff)
+_ test_mapping_write_failure_preserves_disk_memory_and_cleans_temporary[replace] _
+tests/test_m29_release_closure.py:538: in test_mapping_write_failure_preserves_disk_memory_and_cleans_temporary
+    assert path.read_bytes() == disk and store.data == memory
+E   assert (b'{\n  "mappi...    }\n  }\n}' == b'{\n  "mappi...    }\n  }\n}'
+E
+E     Use -v to get more diff and {'mappings': ...pth': 'B2'}}}} == {'mappings': ...pth': 'A1'}}}}
+E
+E     Differing items:
+E     {'mappings': {'fp': {'revision': 2, 'source': 'user-confirmed', 'fields': {'depth': 'B2'}}}} != {'mappings': {'fp': {'revision': 1, 'source': 'user-confirmed', 'fields': {'depth': 'A1'}}}}
+E     Use -v to get more diff)
+_ test_mapping_write_failure_preserves_disk_memory_and_cleans_temporary[fsync] _
+tests/test_m29_release_closure.py:538: in test_mapping_write_failure_preserves_disk_memory_and_cleans_temporary
+    assert path.read_bytes() == disk and store.data == memory
+E   assert (b'{\n  "mappi...    }\n  }\n}' == b'{\n  "mappi...    }\n  }\n}'
+E
+E     Use -v to get more diff and {'mappings': ...pth': 'B2'}}}} == {'mappings': ...pth': 'A1'}}}}
+E
+E     Differing items:
+E     {'mappings': {'fp': {'revision': 2, 'source': 'user-confirmed', 'fields': {'depth': 'B2'}}}} != {'mappings': {'fp': {'revision': 1, 'source': 'user-confirmed', 'fields': {'depth': 'A1'}}}}
+E     Use -v to get more diff)
+=========================== short test summary info ============================
+FAILED tests/test_m29_release_closure.py::test_mapping_write_failure_preserves_disk_memory_and_cleans_temporary[serialization]
+FAILED tests/test_m29_release_closure.py::test_mapping_write_failure_preserves_disk_memory_and_cleans_temporary[replace]
+FAILED tests/test_m29_release_closure.py::test_mapping_write_failure_preserves_disk_memory_and_cleans_temporary[fsync]

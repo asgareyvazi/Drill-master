@@ -1,0 +1,16 @@
+{
+  "gate_population": [
+    "core",
+    "dialogs",
+    "tabs",
+    "tests"
+  ],
+  "gate_count": 5334,
+  "gate_ceiling": 5375,
+  "gate_within_ceiling": true,
+  "root_count": 5545,
+  "root_exit_code": 1,
+  "lint_clean": false,
+  "note": "The established ceiling is for four directories, NOT the repository root. A preliminary comparison incorrectly applied that scoped ceiling to root output; no source or ceiling was changed to hide it.",
+  "new_audit_scripts_lint_clean": true
+}

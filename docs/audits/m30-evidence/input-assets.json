@@ -1,0 +1,15 @@
+{
+  "xlsx": {
+    "path": "08-DDR OEOC-208 AZNS-207 2024-Oct-22.xlsx",
+    "bytes": 191160,
+    "sha256": "37a6d96a6f154a9583590f52f9fb7cd92630f01d0a2abec2a9424877c1e4ef7a",
+    "used_in_final_gate": true
+  },
+  "pdf": {
+    "git_ref": "02053eb0fa351f62279e5086eedecdcc492107d4",
+    "path": "12 - DDR OEOC-201 AZNS-166 2025-Nov-07 (1404.08.16).pdf",
+    "bytes": 740510,
+    "sha256": "6ce9b37e4e30c7800191598d9f9febebc12d4cf0ab5932c5d7f6ad1b789a226c",
+    "acceptance": "EXTERNAL-BLOCKED; opt-in actually failed for absent/disabled MinerU"
+  }
+}

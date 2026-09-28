@@ -1,0 +1,13 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+_____ test_w12_calendar_rate_unique_endpoints_and_canonical_unknown[None] ______
+tests/test_m29_release_closure.py:499: in test_w12_calendar_rate_unique_endpoints_and_canonical_unknown
+    assert AnalysisWidget.calculate_kpis(stub, session)["daily_gain"] is None
+E   assert 10.0 is None
+_______ test_w12_calendar_rate_unique_endpoints_and_canonical_unknown[0] _______
+tests/test_m29_release_closure.py:499: in test_w12_calendar_rate_unique_endpoints_and_canonical_unknown
+    assert AnalysisWidget.calculate_kpis(stub, session)["daily_gain"] is None
+E   assert 10.0 is None
+=========================== short test summary info ============================
+FAILED tests/test_m29_release_closure.py::test_w12_calendar_rate_unique_endpoints_and_canonical_unknown[None]
+FAILED tests/test_m29_release_closure.py::test_w12_calendar_rate_unique_endpoints_and_canonical_unknown[0]

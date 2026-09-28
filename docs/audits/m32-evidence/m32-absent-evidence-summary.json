@@ -1,0 +1,8 @@
+{
+ "items": 116,
+ "method": "identifier-overlap replacement search against the current file; threshold 0.60 of the original expression's identifiers",
+ "verdicts": {
+  "EVIDENCE-INCOMPLETE": 4,
+  "REPLACED-EVIDENCED": 112
+ }
+}

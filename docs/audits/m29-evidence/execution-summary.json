@@ -1,0 +1,51 @@
+{
+  "implementation": "beaf9635ffb7bcecf16b3320b138077c7ef8e6c8",
+  "full_gate": {
+    "exit_code": 0,
+    "collected": 1690,
+    "passed": 1687,
+    "skipped": 3,
+    "failed": 0,
+    "errors": 0,
+    "xfailed": 0,
+    "xpassed": 0,
+    "deselected": 0,
+    "warnings": 20,
+    "pytest_seconds": 271.79,
+    "command_seconds": 284.406,
+    "clean_worktree_at_start": true,
+    "real_xlsx_enabled": true,
+    "installed_wheel_smoke": "PASS"
+  },
+  "isolated_imports": {
+    "modules": 174,
+    "failures": 0
+  },
+  "negative_controls": {
+    "focused_controls": 14,
+    "each_exit_code": 1,
+    "all_sources_restored": true,
+    "missing_ui_packaging_control": {
+      "focused_exit_code": 1,
+      "real_wheel_gate_exit_code": 1,
+      "restored": true
+    }
+  },
+  "semantic_audit": {
+    "complete": false,
+    "domain_rows": 69,
+    "canonical_models": 62,
+    "scope_consumer_locations": 118,
+    "production_python_files": 174,
+    "selected_risky_sites": 2259,
+    "individually_adjudicated": 27,
+    "not_reviewed": 2232
+  },
+  "external": {
+    "github": "ENVIRONMENT-BLOCKED: push 128 / API 401",
+    "windows": "NOT-RUN",
+    "real_mineru_pdf": "ENVIRONMENT-BLOCKED: actual pipeline attempted without available MinerU",
+    "production_data": "NOT-VERIFIED"
+  },
+  "verdict": "NOT RELEASE-CERTIFIABLE"
+}

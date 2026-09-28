@@ -1,0 +1,233 @@
+FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF                           [100%]
+=================================== FAILURES ===================================
+_ test_all_section_owned_models_reject_cross_well_relationships[False-BulkMaterials] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+_ test_all_section_owned_models_reject_cross_well_relationships[False-CasingReport] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+_ test_all_section_owned_models_reject_cross_well_relationships[False-CementReport] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+_ test_all_section_owned_models_reject_cross_well_relationships[False-EquipmentLog] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+_ test_all_section_owned_models_reject_cross_well_relationships[False-FuelWaterInventory] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+_ test_all_section_owned_models_reject_cross_well_relationships[False-InventoryItem] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+_ test_all_section_owned_models_reject_cross_well_relationships[False-LogisticsPersonnel] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+_ test_all_section_owned_models_reject_cross_well_relationships[False-MaterialRequest] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+_ test_all_section_owned_models_reject_cross_well_relationships[False-NPTReport] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+_ test_all_section_owned_models_reject_cross_well_relationships[False-OperationalProcedure] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+_ test_all_section_owned_models_reject_cross_well_relationships[False-PlannedActivity] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+_ test_all_section_owned_models_reject_cross_well_relationships[False-ROPAnalysis] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+_ test_all_section_owned_models_reject_cross_well_relationships[False-SafetyReport] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+_ test_all_section_owned_models_reject_cross_well_relationships[False-ServiceCompany] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+_ test_all_section_owned_models_reject_cross_well_relationships[False-ServiceCompanyPOB] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+_ test_all_section_owned_models_reject_cross_well_relationships[False-ServiceNote] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+_ test_all_section_owned_models_reject_cross_well_relationships[False-SevenDaysLookahead] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+_ test_all_section_owned_models_reject_cross_well_relationships[False-SurveyPoint] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+_ test_all_section_owned_models_reject_cross_well_relationships[False-TimeDepthData] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+_ test_all_section_owned_models_reject_cross_well_relationships[False-TrajectoryCalculation] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+_ test_all_section_owned_models_reject_cross_well_relationships[False-TransportLog] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+_ test_all_section_owned_models_reject_cross_well_relationships[False-TransportNotes] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+_ test_all_section_owned_models_reject_cross_well_relationships[False-TripSheetEntry] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+_ test_all_section_owned_models_reject_cross_well_relationships[True-BulkMaterials] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+_ test_all_section_owned_models_reject_cross_well_relationships[True-CasingReport] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+_ test_all_section_owned_models_reject_cross_well_relationships[True-CementReport] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+_ test_all_section_owned_models_reject_cross_well_relationships[True-EquipmentLog] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+_ test_all_section_owned_models_reject_cross_well_relationships[True-FuelWaterInventory] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+_ test_all_section_owned_models_reject_cross_well_relationships[True-InventoryItem] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+_ test_all_section_owned_models_reject_cross_well_relationships[True-LogisticsPersonnel] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+_ test_all_section_owned_models_reject_cross_well_relationships[True-MaterialRequest] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+_ test_all_section_owned_models_reject_cross_well_relationships[True-NPTReport] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+_ test_all_section_owned_models_reject_cross_well_relationships[True-OperationalProcedure] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+_ test_all_section_owned_models_reject_cross_well_relationships[True-PlannedActivity] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+_ test_all_section_owned_models_reject_cross_well_relationships[True-ROPAnalysis] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+_ test_all_section_owned_models_reject_cross_well_relationships[True-SafetyReport] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+_ test_all_section_owned_models_reject_cross_well_relationships[True-ServiceCompany] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+_ test_all_section_owned_models_reject_cross_well_relationships[True-ServiceCompanyPOB] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+_ test_all_section_owned_models_reject_cross_well_relationships[True-ServiceNote] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+_ test_all_section_owned_models_reject_cross_well_relationships[True-SevenDaysLookahead] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+_ test_all_section_owned_models_reject_cross_well_relationships[True-SurveyPoint] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+_ test_all_section_owned_models_reject_cross_well_relationships[True-TimeDepthData] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+_ test_all_section_owned_models_reject_cross_well_relationships[True-TrajectoryCalculation] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+_ test_all_section_owned_models_reject_cross_well_relationships[True-TransportLog] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+_ test_all_section_owned_models_reject_cross_well_relationships[True-TransportNotes] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+_ test_all_section_owned_models_reject_cross_well_relationships[True-TripSheetEntry] _
+tests/test_m29_release_closure.py:124: in test_all_section_owned_models_reject_cross_well_relationships
+    with pytest.raises(OwnershipIntegrityError):
+E   Failed: DID NOT RAISE OwnershipIntegrityError
+=========================== short test summary info ============================
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[False-BulkMaterials]
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[False-CasingReport]
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[False-CementReport]
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[False-EquipmentLog]
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[False-FuelWaterInventory]
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[False-InventoryItem]
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[False-LogisticsPersonnel]
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[False-MaterialRequest]
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[False-NPTReport]
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[False-OperationalProcedure]
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[False-PlannedActivity]
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[False-ROPAnalysis]
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[False-SafetyReport]
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[False-ServiceCompany]
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[False-ServiceCompanyPOB]
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[False-ServiceNote]
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[False-SevenDaysLookahead]
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[False-SurveyPoint]
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[False-TimeDepthData]
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[False-TrajectoryCalculation]
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[False-TransportLog]
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[False-TransportNotes]
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[False-TripSheetEntry]
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[True-BulkMaterials]
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[True-CasingReport]
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[True-CementReport]
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[True-EquipmentLog]
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[True-FuelWaterInventory]
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[True-InventoryItem]
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[True-LogisticsPersonnel]
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[True-MaterialRequest]
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[True-NPTReport]
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[True-OperationalProcedure]
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[True-PlannedActivity]
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[True-ROPAnalysis]
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[True-SafetyReport]
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[True-ServiceCompany]
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[True-ServiceCompanyPOB]
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[True-ServiceNote]
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[True-SevenDaysLookahead]
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[True-SurveyPoint]
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[True-TimeDepthData]
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[True-TrajectoryCalculation]
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[True-TransportLog]
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[True-TransportNotes]
+FAILED tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships[True-TripSheetEntry]

@@ -1,0 +1,14 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+______ TestReleaseVerification.test_real_entrypoint_source_package_smoke _______
+tests/test_release.py:148: in test_real_entrypoint_source_package_smoke
+    assert result.returncode == 0, result.stdout + result.stderr
+E   AssertionError: Traceback (most recent call last):
+E       File "/home/user/Drill-master/app.py", line 21, in <module>
+E         from core.database import (
+E     ImportError: cannot import name 'bootstrap_password_for_role' from 'core.database' (/home/user/Drill-master/core/database.py)
+E
+E   assert 1 == 0
+E    +  where 1 = CompletedProcess(args=['/home/user/Drill-master/.venv/bin/python', '/home/user/Drill-master/app.py', '--package-smoke'...annot import name \'bootstrap_password_for_role\' from \'core.database\' (/home/user/Drill-master/core/database.py)\n').returncode
+=========================== short test summary info ============================
+FAILED tests/test_release.py::TestReleaseVerification::test_real_entrypoint_source_package_smoke

@@ -1,0 +1,107 @@
+{
+ "schema": "m33-ledger-summary",
+ "items": 8934,
+ "dispositions": {
+  "INTENTIONAL-BY-DESIGN": 2264,
+  "VERIFIED-CORRECT": 3712,
+  "UNDER-REVIEW": 2837,
+  "DEFECT-FIXED": 51,
+  "EXTERNAL-ACCEPTANCE-ONLY": 17,
+  "EVIDENCE-INCOMPLETE": 4,
+  "REMOVED-WITH-EVIDENCE": 49
+ },
+ "by_origin": {
+  "M32-LEDGER": 8570,
+  "M32-LEDGER-ABSENT": 96,
+  "M33-NEW": 266,
+  "M33-FORENSICS": 2
+ },
+ "open_residual": 2841,
+ "by_rule": {
+  "R-TRUTH-UNKNOWN": 963,
+  "R-TRUTH-COLLECTION": 639,
+  "R-TRUTH-OPTIONAL": 598,
+  "R-EXC-LOG": 506,
+  "R-SQL-PARAM": 463,
+  "R-DEF-DISPLAY": 385,
+  "R-DEF-ARG": 378,
+  "R-DEF-UNKNOWN": 339,
+  "R-RET-BRANCH": 311,
+  "R-TRUTH-PREDICATE": 285,
+  "R-TRUTH-FLAG": 248,
+  "R-RET-CALLERS-REPO": 241,
+  "R-EXC-RAISE": 223,
+  "R-SEL-UNPROVEN": 217,
+  "R-TRUTH-NUMERIC": 215,
+  "R-RET-ANNOTATED": 194,
+  "R-RET-ONLY-SENTINEL": 189,
+  "R-SEL-GUARDED": 181,
+  "R-RED-COUNT": 179,
+  "R-RED-GUARDED": 171,
+  "R-SPIN-UI": 162,
+  "R-RET-UNPROVEN": 155,
+  "R-RED-UNPROVEN": 126,
+  "R-EXC-EXPLICIT-FAILURE": 123,
+  "R-RET-DOC": 106,
+  "R-EXC-PASS": 104,
+  "R-DEF-VALUE-PATH": 97,
+  "R-PASS-EXC": 85,
+  "R-NUM-UNKNOWN": 78,
+  "R-DEF-DELTA": 73
+ },
+ "under_review_by_kind": {
+  "truthiness-bare": 1058,
+  "return-none": 338,
+  "or-empty": 270,
+  "selection-first": 180,
+  "typed-exception": 155,
+  "reduction": 128,
+  "truthiness-selection": 120,
+  "pass-statement": 108,
+  "broad-exception": 106,
+  "or-zero": 97,
+  "numeric-get-default": 82,
+  "numeric-parameter-default": 64,
+  "numeric-default": 52,
+  "or-constant": 38,
+  "selection-one": 27,
+  "selection-one_or_none": 8,
+  "return-false": 4,
+  "none-get-default": 2
+ },
+ "under_review_by_domain": {
+  "ui": 1293,
+  "core": 628,
+  "persistence": 456,
+  "engineering": 141,
+  "test": 135,
+  "export": 86,
+  "validation": 48,
+  "ui-managers": 23,
+  "inventory": 9,
+  "cost": 8,
+  "scope": 5,
+  "operations": 2,
+  "plan-actual": 1,
+  "time": 1,
+  "ai": 1
+ },
+ "evidence_incomplete_by_rule": {
+  "R-RET-UNPROVEN": 2,
+  "R-NOLOCATE": 2
+ },
+ "fix_records": {
+  "path": "docs/audits/m33-evidence/m33-fix-records.json",
+  "fixes": [
+   "M33-FIX-01",
+   "M33-FIX-02",
+   "M33-FIX-03"
+  ],
+  "ledger_records_touched": [
+   "INV-001613",
+   "INV-001614",
+   "INV-009267",
+   "INV-009268"
+  ]
+ }
+}

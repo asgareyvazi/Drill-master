@@ -1,0 +1,984 @@
+[
+  {
+    "id": 1,
+    "domain": "Git lineage/recovery",
+    "status": "PARTIAL",
+    "sources": [
+      "core/database.py"
+    ],
+    "tests": [
+      "tests/test_release_gate_integrity.py"
+    ],
+    "fixed_verified": "Recovery manifest/patch preserved",
+    "remaining": "Original 0bbcbd4 ancestry unavailable"
+  },
+  {
+    "id": 2,
+    "domain": "Canonical model registry",
+    "status": "PARTIAL",
+    "sources": [
+      "core/database.py"
+    ],
+    "tests": [
+      "tests/test_canonical_schema.py",
+      "tests/test_canonical_schema_expanded.py"
+    ],
+    "fixed_verified": "62-model scope/FK/default inventory",
+    "remaining": "Individual default adjudication incomplete"
+  },
+  {
+    "id": 3,
+    "domain": "Wellbore ownership",
+    "status": "PARTIAL",
+    "sources": [
+      "core/database.py"
+    ],
+    "tests": [
+      "tests/test_wellbore_ownership_integrity.py"
+    ],
+    "fixed_verified": "Existing invariants re-executed",
+    "remaining": "All mutation order permutations not claimed"
+  },
+  {
+    "id": 4,
+    "domain": "Section ownership",
+    "status": "PARTIAL",
+    "sources": [
+      "core/database.py"
+    ],
+    "tests": [
+      "tests/test_m29_release_closure.py"
+    ],
+    "fixed_verified": "Cross-well FK and relationship bypass repaired",
+    "remaining": "Residual site review incomplete"
+  },
+  {
+    "id": 5,
+    "domain": "Report ownership",
+    "status": "PARTIAL",
+    "sources": [
+      "core/database.py"
+    ],
+    "tests": [
+      "tests/test_report_scoped_ownership_m26.py"
+    ],
+    "fixed_verified": "Report chain and child guards re-executed",
+    "remaining": "Direct SQL/legacy production data acceptance"
+  },
+  {
+    "id": 6,
+    "domain": "Parent reassignment",
+    "status": "PARTIAL",
+    "sources": [
+      "core/database.py"
+    ],
+    "tests": [
+      "tests/test_ownership_parent_edits.py"
+    ],
+    "fixed_verified": "Parent changes and auxiliary chain guarded",
+    "remaining": "Production migration datasets unavailable"
+  },
+  {
+    "id": 7,
+    "domain": "Startup/migration",
+    "status": "PARTIAL",
+    "sources": [
+      "core/database.py"
+    ],
+    "tests": [
+      "tests/test_wellbore_schema_v3.py"
+    ],
+    "fixed_verified": "Stored auxiliary contradictions fail without backfill",
+    "remaining": "Every possible partial schema not certified"
+  },
+  {
+    "id": 8,
+    "domain": "Scope attribution",
+    "status": "PARTIAL",
+    "sources": [
+      "core/scope_attribution.py"
+    ],
+    "tests": [
+      "tests/test_scope_attribution.py"
+    ],
+    "fixed_verified": "Unique/ambiguous/conflict regressions re-executed",
+    "remaining": "Exhaustive preview/apply case inventory incomplete"
+  },
+  {
+    "id": 9,
+    "domain": "Company/project/well hierarchy",
+    "status": "PARTIAL",
+    "sources": [
+      "core/hierarchy_operations.py",
+      "dialogs/hierarchy_dialogs.py"
+    ],
+    "tests": [
+      "tests/test_hierarchy_updated_at.py"
+    ],
+    "fixed_verified": "Entity-specific deletion and missing planning data",
+    "remaining": "All hierarchy UI failures not individually audited"
+  },
+  {
+    "id": 10,
+    "domain": "Daily report lifecycle",
+    "status": "PARTIAL",
+    "sources": [
+      "core/repositories/report_repository.py",
+      "tabs/w2_Daily_Report.py"
+    ],
+    "tests": [
+      "tests/test_report_lifecycle.py"
+    ],
+    "fixed_verified": "No fabricated depths; permission guard; truth-preserving print",
+    "remaining": "All print/export consumers not individually closed"
+  },
+  {
+    "id": 11,
+    "domain": "Revision snapshots",
+    "status": "PARTIAL",
+    "sources": [
+      "core/database.py",
+      "core/report_snapshot.py"
+    ],
+    "tests": [
+      "tests/test_report_snapshot.py"
+    ],
+    "fixed_verified": "Nested independence and absent restore target",
+    "remaining": "Production snapshot restore acceptance"
+  },
+  {
+    "id": 12,
+    "domain": "Next-day carry-forward",
+    "status": "PARTIAL",
+    "sources": [
+      "core/hierarchy_operations.py",
+      "tabs/w2_Daily_Report.py"
+    ],
+    "tests": [
+      "tests/test_m29_release_closure.py"
+    ],
+    "fixed_verified": "Date/stock-zero/safety reset semantics",
+    "remaining": "Cross-entrypoint copy parity and repeat-copy behavior incomplete"
+  },
+  {
+    "id": 13,
+    "domain": "Credentials/bootstrap",
+    "status": "PARTIAL",
+    "sources": [
+      "app.py",
+      "core/credential_policy.py",
+      "core/database.py"
+    ],
+    "tests": [
+      "tests/test_credential_lifecycle.py"
+    ],
+    "fixed_verified": "Actual entrypoint re-export mutation detects break",
+    "remaining": "Remote secrets/production policy outside sandbox"
+  },
+  {
+    "id": 14,
+    "domain": "Permissions/W8",
+    "status": "PARTIAL",
+    "sources": [
+      "core/permissions.py",
+      "tabs/w8_Safety_Widget.py"
+    ],
+    "tests": [
+      "tests/test_p0_permissions.py"
+    ],
+    "fixed_verified": "W8 recovered guards plus entity-specific fail-closed deletion",
+    "remaining": "All UI Edit/Reset/Import paths not individually closed"
+  },
+  {
+    "id": 15,
+    "domain": "Backup/restore",
+    "status": "PARTIAL",
+    "sources": [
+      "core/database.py",
+      "main_window.py"
+    ],
+    "tests": [
+      "tests/test_m28_finance_safety_plan.py"
+    ],
+    "fixed_verified": "Failed backup cannot claim success; mutation verified",
+    "remaining": "Production-sized/corrupt/partial restore matrix incomplete"
+  },
+  {
+    "id": 16,
+    "domain": "Currency/NULL reducers",
+    "status": "PARTIAL",
+    "sources": [
+      "core/cost_semantics.py"
+    ],
+    "tests": [
+      "tests/test_cost_truth_boundary.py"
+    ],
+    "fixed_verified": "No mixed/unknown total or unlabelled USD inference",
+    "remaining": "Every category consumer not individually certified"
+  },
+  {
+    "id": 17,
+    "domain": "Daily cost/OPEX",
+    "status": "PARTIAL",
+    "sources": [
+      "core/repositories/cost_repository.py",
+      "tabs/w16_Cost_Management.py"
+    ],
+    "tests": [
+      "tests/test_cost_management_widget_smoke.py"
+    ],
+    "fixed_verified": "Stored actual versus planned boundaries retained",
+    "remaining": "Complete category/time/unit trace pending"
+  },
+  {
+    "id": 18,
+    "domain": "CAPEX/revenue",
+    "status": "PARTIAL",
+    "sources": [
+      "core/cost_semantics.py",
+      "core/database.py"
+    ],
+    "tests": [
+      "tests/test_m28_finance_safety_plan.py"
+    ],
+    "fixed_verified": "No new fiscal model or FX conversion invented",
+    "remaining": "Dedicated revenue/CAPEX accounting workflow not certified"
+  },
+  {
+    "id": 19,
+    "domain": "Payroll/insurance/tax",
+    "status": "PARTIAL",
+    "sources": [
+      "core/cost_semantics.py",
+      "core/database.py"
+    ],
+    "tests": [
+      "tests/test_cost_truth_boundary.py"
+    ],
+    "fixed_verified": "Common cost-row boundary only",
+    "remaining": "Not a verified payroll/tax calculation system"
+  },
+  {
+    "id": 20,
+    "domain": "Fuel/maintenance/overhead",
+    "status": "PARTIAL",
+    "sources": [
+      "core/cost_semantics.py",
+      "tabs/w7_logistics_Widget.py"
+    ],
+    "tests": [
+      "tests/test_fuel_water_truth.py"
+    ],
+    "fixed_verified": "Movement/stock and money kept separate",
+    "remaining": "Category-specific invoice-to-export audit incomplete"
+  },
+  {
+    "id": 21,
+    "domain": "Standby/moving",
+    "status": "PARTIAL",
+    "sources": [
+      "core/cost_semantics.py",
+      "core/operational_time.py"
+    ],
+    "tests": [
+      "tests/test_operational_time_integrity.py"
+    ],
+    "fixed_verified": "Recorded hours retain unknown state",
+    "remaining": "No inferred monetary tariff; full consumer review pending"
+  },
+  {
+    "id": 22,
+    "domain": "Economic assumptions/IRR",
+    "status": "PARTIAL",
+    "sources": [
+      "core/cost_semantics.py",
+      "tabs/w12_Analysis.py"
+    ],
+    "tests": [
+      "tests/test_m28_finance_safety_plan.py"
+    ],
+    "fixed_verified": "Currency IRR is not an economic return result",
+    "remaining": "No verified IRR/NPV/revenue model asserted"
+  },
+  {
+    "id": 23,
+    "domain": "W16 cost scope",
+    "status": "PARTIAL",
+    "sources": [
+      "tabs/w16_Cost_Management.py"
+    ],
+    "tests": [
+      "tests/test_cost_management_widget_smoke.py"
+    ],
+    "fixed_verified": "Whole-well cost boundary and currency tests",
+    "remaining": "All handlers require individual scope/error adjudication"
+  },
+  {
+    "id": 24,
+    "domain": "Plan scalar/11-pair matrix",
+    "status": "PARTIAL",
+    "sources": [
+      "core/actual_vs_plan.py"
+    ],
+    "tests": [
+      "tests/test_m29_release_closure.py"
+    ],
+    "fixed_verified": "All 11 pairs, including 100/80 and 80/100, persisted/scalar parity",
+    "remaining": "No claim all consumers closed by reducer test alone"
+  },
+  {
+    "id": 25,
+    "domain": "Well plan revision/persistence",
+    "status": "PARTIAL",
+    "sources": [
+      "dialogs/planning_dialog.py",
+      "tabs/w10_Planning_Widget.py"
+    ],
+    "tests": [
+      "tests/test_planning_material_persistence.py"
+    ],
+    "fixed_verified": "No zero substitution; active revision ambiguity; schedules reviewed",
+    "remaining": "Real operational plans not accepted yet"
+  },
+  {
+    "id": 26,
+    "domain": "Material identity/W10",
+    "status": "PARTIAL",
+    "sources": [
+      "core/database.py",
+      "tabs/w10_Planning_Widget.py"
+    ],
+    "tests": [
+      "tests/test_planning_material_persistence.py"
+    ],
+    "fixed_verified": "Name/unit identity and NULL stock; committed-refresh failure distinguished",
+    "remaining": "All import aliases not exhaustively adjudicated"
+  },
+  {
+    "id": 27,
+    "domain": "NPT/W10",
+    "status": "PARTIAL",
+    "sources": [
+      "core/operational_time.py",
+      "tabs/w10_Planning_Widget.py"
+    ],
+    "tests": [
+      "tests/test_m29_release_closure.py"
+    ],
+    "fixed_verified": "Report/section filters, nullable duration and failed-state reset",
+    "remaining": "Remaining chart consumers not fully certified"
+  },
+  {
+    "id": 28,
+    "domain": "W10 code/status charts",
+    "status": "PARTIAL",
+    "sources": [
+      "tabs/w10_Planning_Widget.py"
+    ],
+    "tests": [
+      "tests/test_m29_planning_ui.py"
+    ],
+    "fixed_verified": "Unknown duration; renderer failure clears stale chart",
+    "remaining": "Full status/code domain collision audit pending"
+  },
+  {
+    "id": 29,
+    "domain": "W10 drilling/mud summaries",
+    "status": "PARTIAL",
+    "sources": [
+      "tabs/w10_Planning_Widget.py"
+    ],
+    "tests": [
+      "tests/test_m29_planning_ui.py"
+    ],
+    "fixed_verified": "Zero measurements retained; duplicate bit records rejected; stale mud cleared",
+    "remaining": "MW unit contract across all imports not individually closed"
+  },
+  {
+    "id": 30,
+    "domain": "W10 milestones",
+    "status": "PARTIAL",
+    "sources": [
+      "core/actual_vs_plan.py",
+      "tabs/w10_Planning_Widget.py"
+    ],
+    "tests": [
+      "tests/test_w12_milestones_m25.py"
+    ],
+    "fixed_verified": "Nullable duration and shared comparison; failed chart state",
+    "remaining": "Real schedule acceptance pending"
+  },
+  {
+    "id": 31,
+    "domain": "W12 shared KPI scope",
+    "status": "PARTIAL",
+    "sources": [
+      "core/operations_intelligence.py",
+      "tabs/w12_Analysis.py"
+    ],
+    "tests": [
+      "tests/test_kpi_parity.py"
+    ],
+    "fixed_verified": "Canonical well/bore parity and no report-count fallback for unknown",
+    "remaining": "All scalar assumptions not individually closed"
+  },
+  {
+    "id": 32,
+    "domain": "W12 today/unique selection",
+    "status": "PARTIAL",
+    "sources": [
+      "tabs/w12_Analysis.py"
+    ],
+    "tests": [
+      "tests/test_w12_scope_leakage_m25.py"
+    ],
+    "fixed_verified": "0/1/2+ child/report distinction; directional mud not fabricated",
+    "remaining": "All legacy date/alias permutations not closed"
+  },
+  {
+    "id": 33,
+    "domain": "W12 time-depth/calendar",
+    "status": "PARTIAL",
+    "sources": [
+      "tabs/w12_Analysis.py"
+    ],
+    "tests": [
+      "tests/test_m29_release_closure.py"
+    ],
+    "fixed_verified": "Calendar gaps and ambiguous endpoints; report-change label",
+    "remaining": "Multi-bore chart interpretation remains a review item"
+  },
+  {
+    "id": 34,
+    "domain": "W12 ROP prediction",
+    "status": "PARTIAL",
+    "sources": [
+      "tabs/w12_Analysis.py"
+    ],
+    "tests": [
+      "tests/test_m29_release_closure.py"
+    ],
+    "fixed_verified": "Calendar regression, zero observation, finite inputs, assumption label",
+    "remaining": "Not field forecasting acceptance"
+  },
+  {
+    "id": 35,
+    "domain": "W12 NPT forecast",
+    "status": "PARTIAL",
+    "sources": [
+      "tabs/w12_Analysis.py"
+    ],
+    "tests": [
+      "tests/test_w12_analytics_truth.py"
+    ],
+    "fixed_verified": "Missing date/invalid duration rejected",
+    "remaining": "Forecast model/assumptions require full consumer audit"
+  },
+  {
+    "id": 36,
+    "domain": "W12 cost analysis",
+    "status": "PARTIAL",
+    "sources": [
+      "core/cost_semantics.py",
+      "tabs/w12_Analysis.py"
+    ],
+    "tests": [
+      "tests/test_m28_finance_safety_plan.py"
+    ],
+    "fixed_verified": "Recorded reports separated from duration-derived days",
+    "remaining": "Every projection and fiscal category not certified"
+  },
+  {
+    "id": 37,
+    "domain": "W12 risk",
+    "status": "PARTIAL",
+    "sources": [
+      "core/operations_intelligence.py",
+      "tabs/w12_Analysis.py"
+    ],
+    "tests": [
+      "tests/test_w12_risk_assessment_m26.py"
+    ],
+    "fixed_verified": "No safety evidence is NOT ASSESSED",
+    "remaining": "Operational risk acceptance unavailable"
+  },
+  {
+    "id": 38,
+    "domain": "W12 plan/quality/milestones",
+    "status": "PARTIAL",
+    "sources": [
+      "core/actual_vs_plan.py",
+      "tabs/w12_Analysis.py"
+    ],
+    "tests": [
+      "tests/test_w12_milestones_m25.py"
+    ],
+    "fixed_verified": "Shared unknown/zero semantics; failed milestone state",
+    "remaining": "Complete line-by-line W12 closure still pending"
+  },
+  {
+    "id": 39,
+    "domain": "W11/export/report scope",
+    "status": "PARTIAL",
+    "sources": [
+      "core/report_engine.py",
+      "tabs/w11_Export.py"
+    ],
+    "tests": [
+      "tests/test_report_scope_metadata_m25.py"
+    ],
+    "fixed_verified": "Scope/currency/NULL regressions re-executed",
+    "remaining": "Every Excel/PDF/HTML/JSON field not individually traced"
+  },
+  {
+    "id": 40,
+    "domain": "Report history/selection",
+    "status": "PARTIAL",
+    "sources": [
+      "core/selection_manager.py",
+      "dialogs/report_history_dialog.py"
+    ],
+    "tests": [
+      "tests/test_report_history_ui.py"
+    ],
+    "fixed_verified": "Context and deletion/history regressions",
+    "remaining": "Full mutation/reset interaction matrix incomplete"
+  },
+  {
+    "id": 41,
+    "domain": "Safety",
+    "status": "PARTIAL",
+    "sources": [
+      "core/safety_semantics.py",
+      "tabs/w8_Safety_Widget.py"
+    ],
+    "tests": [
+      "tests/test_m28_finance_safety_plan.py"
+    ],
+    "fixed_verified": "Absence versus recorded zero; no copied next-day assessment",
+    "remaining": "All report/export safety consumers not individually closed"
+  },
+  {
+    "id": 42,
+    "domain": "Trip sheet/W6",
+    "status": "PARTIAL",
+    "sources": [
+      "tabs/w6_Trajectory_Widget.py"
+    ],
+    "tests": [
+      "tests/test_m29_planning_ui.py"
+    ],
+    "fixed_verified": "Missing measurements, time rejection, permission, ID alignment",
+    "remaining": "Cumulative sum is entered-depth sum, not reconstructed travel"
+  },
+  {
+    "id": 43,
+    "domain": "Logistics/personnel/transport",
+    "status": "PARTIAL",
+    "sources": [
+      "core/database.py",
+      "tabs/w7_logistics_Widget.py"
+    ],
+    "tests": [
+      "tests/test_w7_null_zero_semantics.py"
+    ],
+    "fixed_verified": "Existing NULL/zero tests re-executed",
+    "remaining": "Remaining personnel/equipment/default sites unadjudicated"
+  },
+  {
+    "id": 44,
+    "domain": "Inventory/bulk/fuel stock",
+    "status": "PARTIAL",
+    "sources": [
+      "core/database.py",
+      "tabs/w9_Services_Widget.py"
+    ],
+    "tests": [
+      "tests/test_inventory_zero_semantics.py"
+    ],
+    "fixed_verified": "Explicit no-movement convention retained",
+    "remaining": "Remaining raw import/default sites unadjudicated"
+  },
+  {
+    "id": 45,
+    "domain": "Engineering facade/result",
+    "status": "PARTIAL",
+    "sources": [
+      "core/engineering/core.py",
+      "core/engineering/registry.py",
+      "core/engineering/result.py"
+    ],
+    "tests": [
+      "tests/test_engineering_data_semantics.py"
+    ],
+    "fixed_verified": "Canonical engine boundary re-executed",
+    "remaining": "Not independent field/formula certification"
+  },
+  {
+    "id": 46,
+    "domain": "Trajectory/MCM",
+    "status": "PARTIAL",
+    "sources": [
+      "core/engineering/engines/trajectory.py",
+      "tabs/w6_Trajectory_Widget.py"
+    ],
+    "tests": [
+      "tests/test_trajectory_mcm_parity.py"
+    ],
+    "fixed_verified": "Parity regressions re-executed",
+    "remaining": "Full W6 save/chart/export review incomplete"
+  },
+  {
+    "id": 47,
+    "domain": "Anti-collision",
+    "status": "PARTIAL",
+    "sources": [
+      "core/engineering/engines/anti_collision.py",
+      "tabs/w13_Engineering_Calculator.py"
+    ],
+    "tests": [
+      "tests/test_anti_collision_engine.py"
+    ],
+    "fixed_verified": "Deterministic and isolated UI tests re-executed",
+    "remaining": "Field trajectories unavailable"
+  },
+  {
+    "id": 48,
+    "domain": "Hydraulics/nozzle/bit",
+    "status": "PARTIAL",
+    "sources": [
+      "core/engineering/engines/bit_performance.py",
+      "core/hydraulics_engine.py"
+    ],
+    "tests": [
+      "tests/test_nozzle_optimization.py"
+    ],
+    "fixed_verified": "Regression and unit behavior re-executed",
+    "remaining": "Every adapter/UI default not independently reviewed"
+  },
+  {
+    "id": 49,
+    "domain": "Casing",
+    "status": "PARTIAL",
+    "sources": [
+      "core/engineering/casing_persistence.py",
+      "core/engineering/engines/casing.py"
+    ],
+    "tests": [
+      "tests/test_casing_cross_process.py",
+      "tests/test_casing_history_viewmodel.py",
+      "tests/test_casing_persistence.py"
+    ],
+    "fixed_verified": "Persistence/cross-process/history tests re-executed",
+    "remaining": "All source calculations not independently recertified"
+  },
+  {
+    "id": 50,
+    "domain": "Cement",
+    "status": "PARTIAL",
+    "sources": [
+      "core/engineering/cement_persistence.py",
+      "core/engineering/engines/cement.py"
+    ],
+    "tests": [
+      "tests/test_cement_cross_process.py",
+      "tests/test_cement_history_viewmodel.py",
+      "tests/test_cement_persistence.py",
+      "tests/test_cement_save_widget_smoke.py"
+    ],
+    "fixed_verified": "Persistence/cross-process/UI/history tests re-executed",
+    "remaining": "Field inputs/acceptance unavailable"
+  },
+  {
+    "id": 51,
+    "domain": "MSE",
+    "status": "PARTIAL",
+    "sources": [
+      "core/engineering/engines/mse.py",
+      "core/engineering/mse_persistence.py"
+    ],
+    "tests": [
+      "tests/test_mse_cross_process.py",
+      "tests/test_mse_history_viewmodel.py",
+      "tests/test_mse_persistence.py",
+      "tests/test_mse_save_widget_smoke.py"
+    ],
+    "fixed_verified": "Persistence/cross-process/UI/history tests re-executed",
+    "remaining": "All UI numeric defaults not individually reviewed"
+  },
+  {
+    "id": 52,
+    "domain": "Mud volume",
+    "status": "PARTIAL",
+    "sources": [
+      "core/engineering/engines/mud_volume.py",
+      "core/engineering/mud_volume_persistence.py"
+    ],
+    "tests": [
+      "tests/test_mud_volume_cross_process.py",
+      "tests/test_mud_volume_history_viewmodel.py",
+      "tests/test_mud_volume_persistence.py",
+      "tests/test_mud_volume_save_widget_smoke.py"
+    ],
+    "fixed_verified": "Persistence/cross-process/UI/history tests re-executed",
+    "remaining": "Field volume data not accepted"
+  },
+  {
+    "id": 53,
+    "domain": "Torque/drag",
+    "status": "PARTIAL",
+    "sources": [
+      "core/engineering/engines/torque_drag.py",
+      "core/engineering/torque_drag_persistence.py"
+    ],
+    "tests": [
+      "tests/test_torque_drag_history.py",
+      "tests/test_torque_drag_history_widget_smoke.py",
+      "tests/test_torque_drag_persistence.py",
+      "tests/test_torque_drag_save_widget_smoke.py"
+    ],
+    "fixed_verified": "Persistence/history/UI tests re-executed",
+    "remaining": "Independent physical validation unavailable"
+  },
+  {
+    "id": 54,
+    "domain": "Well control/kill sheet",
+    "status": "PARTIAL",
+    "sources": [
+      "core/engineering/well_control_kill_sheet.py",
+      "core/engineering/well_control_kill_sheet_persistence.py"
+    ],
+    "tests": [
+      "tests/test_well_control_icp_fcp_consolidation.py",
+      "tests/test_well_control_kill_sheet.py",
+      "tests/test_well_control_kill_sheet_cross_process.py",
+      "tests/test_well_control_kill_sheet_history_viewmodel.py",
+      "tests/test_well_control_kill_sheet_persistence.py",
+      "tests/test_well_control_kill_sheet_save_widget_smoke.py"
+    ],
+    "fixed_verified": "Deterministic/cross-process/save/history tests re-executed",
+    "remaining": "Not safety-critical operational approval"
+  },
+  {
+    "id": 55,
+    "domain": "DrillPipe catalog/import",
+    "status": "PARTIAL",
+    "sources": [
+      "core/engineering/drill_pipe_import.py",
+      "core/repositories/drill_pipe_reference_repository.py"
+    ],
+    "tests": [
+      "tests/test_drill_pipe_catalog_view.py",
+      "tests/test_drill_pipe_catalog_widget_smoke.py",
+      "tests/test_drill_pipe_import.py",
+      "tests/test_drill_pipe_reference_repository.py",
+      "tests/test_drill_pipe_spec.py"
+    ],
+    "fixed_verified": "Identity/fingerprint/reference snapshots re-executed",
+    "remaining": "Every vendor alias/NFC/collision path not closed"
+  },
+  {
+    "id": 56,
+    "domain": "Schematic",
+    "status": "PARTIAL",
+    "sources": [
+      "core/wellbore_schematic_engine.py"
+    ],
+    "tests": [
+      "tests/test_schematic_no_fabrication.py"
+    ],
+    "fixed_verified": "Omitted TD stays NULL; explicit-zero test retained",
+    "remaining": "Full persistence/report visual acceptance incomplete"
+  },
+  {
+    "id": 57,
+    "domain": "Excel raw/normalization",
+    "status": "PARTIAL",
+    "sources": [
+      "core/excel_normalizer.py",
+      "core/value_normalizer.py"
+    ],
+    "tests": [
+      "tests/test_excel_intelligence.py",
+      "tests/test_excel_intelligence_regressions.py"
+    ],
+    "fixed_verified": "Real supplied XLSX and parser regressions pass",
+    "remaining": "All date/number/identity normalization paths not audited"
+  },
+  {
+    "id": 58,
+    "domain": "DDR atomic persistence",
+    "status": "PARTIAL",
+    "sources": [
+      "core/canonical_schema.py",
+      "core/ddr_import_service.py"
+    ],
+    "tests": [
+      "tests/test_ddr_save_atomicity.py"
+    ],
+    "fixed_verified": "No silent identity collision; atomic import tests re-executed",
+    "remaining": "Real PDF IR/review/persist unavailable"
+  },
+  {
+    "id": 59,
+    "domain": "Template learning/mapping",
+    "status": "PARTIAL",
+    "sources": [
+      "core/mapping_store.py",
+      "dialogs/smart_template_dialog.py"
+    ],
+    "tests": [
+      "tests/test_m29_release_closure.py"
+    ],
+    "fixed_verified": "User data paths; collisions; atomic JSON and failure rollback",
+    "remaining": "Concurrent editing/Windows replacement not accepted"
+  },
+  {
+    "id": 60,
+    "domain": "PDF/MinerU",
+    "status": "PARTIAL",
+    "sources": [
+      "core/document_import.py",
+      "core/mineru_engine.py"
+    ],
+    "tests": [
+      "tests/test_mineru_engine.py"
+    ],
+    "fixed_verified": "Subprocess/timeout structural tests only",
+    "remaining": "Actual readable PDF pipeline ENVIRONMENT-BLOCKED"
+  },
+  {
+    "id": 61,
+    "domain": "JSON/copy independence",
+    "status": "PARTIAL",
+    "sources": [
+      "core/mapping_store.py",
+      "core/report_snapshot.py"
+    ],
+    "tests": [
+      "tests/test_m29_release_closure.py"
+    ],
+    "fixed_verified": "Nested snapshot and remembered mapping ownership",
+    "remaining": "Every reference/source mutation path not individually reviewed"
+  },
+  {
+    "id": 62,
+    "domain": "Export failure semantics",
+    "status": "PARTIAL",
+    "sources": [
+      "core/ddr_pdf_export.py",
+      "core/professional_export.py",
+      "tabs/w10_Planning_Widget.py"
+    ],
+    "tests": [
+      "tests/test_m29_release_closure.py"
+    ],
+    "fixed_verified": "Image writer false cannot claim success; template failure visible",
+    "remaining": "Every export format/partial-file path not closed"
+  },
+  {
+    "id": 63,
+    "domain": "Gate/accounting",
+    "status": "PARTIAL",
+    "sources": [
+      "verify_release.py"
+    ],
+    "tests": [
+      "tests/test_release_gate_integrity.py"
+    ],
+    "fixed_verified": "Strict Git/version/lock/compile/collection/XML accounting",
+    "remaining": "Source gate is not exhaustive semantic certification"
+  },
+  {
+    "id": 64,
+    "domain": "Wheel/resources",
+    "status": "PARTIAL",
+    "sources": [
+      "packaging/DrillMaster.spec",
+      "packaging/package_smoke.py",
+      "pyproject.toml"
+    ],
+    "tests": [
+      "tests/test_packaging_smoke.py"
+    ],
+    "fixed_verified": "Clean staged installed wheel includes ui/templates; negative control",
+    "remaining": "Windows DLL/plugins/installer runtime unexecuted"
+  },
+  {
+    "id": 65,
+    "domain": "Dependency reproducibility",
+    "status": "PARTIAL",
+    "sources": [
+      "requirements-build.txt",
+      "requirements-lock.txt"
+    ],
+    "tests": [
+      "tests/test_release.py",
+      "tests/test_release_gate_and_w13.py",
+      "tests/test_release_gate_integrity.py",
+      "tests/test_release_smoke.py"
+    ],
+    "fixed_verified": "Exact installed runtime lock and pip check passed",
+    "remaining": "Build isolation tools not exact-lock reproducible"
+  },
+  {
+    "id": 66,
+    "domain": "CI/release workflow",
+    "status": "PARTIAL",
+    "sources": [
+      ".github/workflows/ci.yml"
+    ],
+    "tests": [
+      "tests/test_release_gate_integrity.py"
+    ],
+    "fixed_verified": "Static checks only",
+    "remaining": "Fresh hosted run unavailable; GitHub authentication 401"
+  },
+  {
+    "id": 67,
+    "domain": "Security/user-data paths",
+    "status": "PARTIAL",
+    "sources": [
+      "core/credential_policy.py",
+      "core/runtime_config.py"
+    ],
+    "tests": [
+      "tests/test_credential_lifecycle.py"
+    ],
+    "fixed_verified": "No app-dir template writes; bootstrap contract preserved",
+    "remaining": "Pen-test/log/backup/temp secret audit not exhaustive"
+  },
+  {
+    "id": 68,
+    "domain": "Legacy/duplicate modules",
+    "status": "PARTIAL",
+    "sources": [
+      "core/db_models.py",
+      "core/db_services.py"
+    ],
+    "tests": [
+      "tests/test_single_source_guard.py"
+    ],
+    "fixed_verified": "Independent unwired legacy Base documented; retained",
+    "remaining": "External callers/compatibility not exhaustively proven"
+  },
+  {
+    "id": 69,
+    "domain": "Documentation/certification",
+    "status": "PARTIAL",
+    "sources": [
+      "DEPLOYMENT.md",
+      "PRODUCTION_READINESS.md",
+      "README.md",
+      "TESTING.md"
+    ],
+    "tests": [
+      "tests/test_release.py",
+      "tests/test_release_gate_and_w13.py",
+      "tests/test_release_gate_integrity.py",
+      "tests/test_release_smoke.py"
+    ],
+    "fixed_verified": "Living current-status prefaces reconciled; history retained",
+    "remaining": "No exhaustive certification asserted"
+  }
+]

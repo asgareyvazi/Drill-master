@@ -1,0 +1,30 @@
+{
+ "schema": "m33-full-suite",
+ "generated_utc": "2026-09-27",
+ "junit_path": "docs/audits/m33-evidence/m33-full-suite-junit.xml",
+ "junit_sha256": "b7ec010961a0930c891b5ac346965eeaac9e78f105a7a45d7102865f51673e8f",
+ "junit_bytes": 238035,
+ "counts": {
+  "tests": 1818,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 4,
+  "time_seconds": 296.777
+ },
+ "skipped_count": 4,
+ "skipped_tests": [
+  "tests.test_ddr_acceptance::test_real_ddr_excel_canonical_ir_review_and_atomic_db",
+  "tests.test_ddr_acceptance::test_real_ddr_pdf_mineru_common_ir_review_and_atomic_db",
+  "tests.test_mineru_real_integration::test_real_mineru_parse_and_normalize",
+  "tests.test_packaging_smoke::test_real_windows_bundle_smoke_when_provided"
+ ],
+ "pytest_exit_code": 0,
+ "environment": {
+  "python": "3.11 (verify-venv /usr/bin/python3.11)",
+  "pytest": "9.1.1",
+  "qt": "PySide6 6.8.1.1 offscreen with declared fail-loud stubs (LD_LIBRARY_PATH=/tmp/qtstub)",
+  "ai_import": "DRILLMASTER_AI_IMPORT=0",
+  "platform": "Linux"
+ },
+ "scope_note": "valid only for this run and this source; Windows EXE/installer, native Qt, real MinerU and production-document acceptance remain external and are not covered by this result"
+}

@@ -1,0 +1,47 @@
+{
+ "schema": "m35-operational-time-audit",
+ "generated_utc": "2026-09-27T13:01:31+00:00",
+ "authoritative_representation": {
+  "decision": "timestamps = naive UTC; business dates = calendar `Date`; durations = hours from HH:MM rows",
+  "evidence": [
+   "core/database.py:17 `def _now_utc()` — docstring: return datetime.now(timezone.utc).replace(tzinfo=None)",
+   "core/database.py:19 body: ",
+   "52 persistence sites assign `= _now_utc()` (audit/created/updated columns)",
+   "core/database.py:106/123/136/160/226/274/312 — Column(DateTime, default=_now_utc)",
+   "core/database.py:154/181/212/337 — Column(Date) for spud/rig-move/report dates"
+  ]
+ },
+ "tz_assumptions": {
+  "tz_aware_arithmetic": "none in production paths (`astimezone` 1 site, `timezone.utc` 13 sites, all in _now_utc/packaging)",
+  "storage": "tzinfo deliberately stripped for SQLite compatibility (documented in the _now_utc docstring)",
+  "display": "49 `datetime.now()` sites, all display/filename/report-stamp only (footer text, export filenames, status bar, audit_id string); no persistence column is fed local time",
+  "dst": "not modelled: no tz-aware conversions; wall-clock HH:MM + local calendar dates. A DST transition cannot corrupt stored durations because durations are row values, not computed from timestamps"
+ },
+ "duration_semantics": {
+  "module": "core/operational_time.py",
+  "contract": "unknown/invalid duration never becomes 0 and never completes a denominator; no rows => None; recorded 0 stays 0; NULL is_npt cannot prove productive time",
+  "oracles": [
+   "tests/test_operational_time_integrity.py",
+   "tests/test_m30_semantic_regressions.py:144-152",
+   "tests/test_m31_scenarios.py:171-174"
+  ],
+  "verified_through_installed_artifact": true
+ },
+ "date_boundary_and_operational_day": {
+  "concept": "24:00 is a legal end-of-day value (operational day = 00:00..24:00)",
+  "evidence": [
+   "core/time_utils.py — TimeLineEdit/TimeValidator accept 24:00 and expose is_midnight_24",
+   "core/import_quality.py:434-447 — midnight-crossing duration (`diff += 24*60`)",
+   "core/import_quality.py:621-625 — 24h coverage check requires a midnight start and end",
+   "core/ddr_pdf_export.py:104 — DDR renders 00:00 vs 06:00 depth columns"
+  ],
+  "day_boundary": "report_date is a Date column (00:00-24:00 local day); no shift-start offset is applied"
+ },
+ "serialization": {
+  "db": "SQLAlchemy DateTime/Date -> SQLite TEXT/ISO by default",
+  "export": "isoformat()/strftime used at display boundaries only",
+  "json_payload": "core/data_quality.py:273 evidence.timestamp uses local naive isoformat in a returned payload (not persisted); a convention inconsistency with the UTC storage rule, recorded as an observation, behaviour unchanged"
+ },
+ "changes_made": [],
+ "verdict": "CONSISTENT-WITH-DOCUMENTED-CONTRACT (no semantic change warranted; no evidence of incorrect behaviour)"
+}

@@ -1,0 +1,79 @@
+{
+ "schema": "m34-git-cleanliness",
+ "generated_utc": "2026-09-27T12:28:27+00:00",
+ "modified_tracked": 89,
+ "untracked": 267,
+ "deleted": 0,
+ "staged": 0,
+ "classes": {
+  "DOCUMENTATION": 116,
+  "OTHER": 11,
+  "PRODUCTION-OR-ROOT-CODE": 47,
+  "TEST": 30,
+  "TOOLING": 1,
+  "PRIOR-MISSION-EVIDENCE": 122,
+  "M34-EVIDENCE": 16,
+  "M34-TOOLING": 13
+ },
+ "diff_check_clean": true,
+ "diff_check_output": "",
+ "cache_artifacts_present": [],
+ "mutant_markers_present": [
+  {
+   "path": "docs/audits/m34-evidence/m34-git-cleanliness.json",
+   "markers": [
+    "MUTANT",
+    "if False:  # mutant",
+    "M34-M-"
+   ]
+  },
+  {
+   "path": "docs/audits/m34-evidence/m34-mutation-controls.json",
+   "markers": [
+    "M34-M-"
+   ]
+  },
+  {
+   "path": "tools/m34/audit34.py",
+   "markers": [
+    "MUTANT",
+    "if False:  # mutant",
+    "M34-M-"
+   ]
+  },
+  {
+   "path": "tools/m34/mutate34.py",
+   "markers": [
+    "MUTANT",
+    "M34-M-"
+   ]
+  }
+ ],
+ "secret_findings": [],
+ "untracked_top_level": {
+  ".github": 1,
+  "M30_DOMAIN_MATRIX.md": 1,
+  "M30_RELEASE_CERTIFICATION.md": 1,
+  "M30_ROOT_CAUSES.md": 1,
+  "M30_SEMANTIC_AUDIT.md": 1,
+  "M33_DOMAIN_MATRIX.md": 1,
+  "M33_ENGINE_DEFAULTS.md": 1,
+  "M33_EVIDENCE_INDEX.md": 1,
+  "M33_RELEASE_CERTIFICATION.md": 1,
+  "M33_ROOT_CAUSES.md": 1,
+  "M33_SEMANTIC_AUDIT.md": 1,
+  "M34_AUDIT_ANSWERS.md": 1,
+  "M34_DOMAIN_MATRIX.md": 1,
+  "M34_EVIDENCE_INDEX.md": 1,
+  "M34_FORENSIC_RECOVERY.md": 1,
+  "M34_M33_RECOVERY.md": 1,
+  "M34_RELEASE_CERTIFICATION.md": 1,
+  "M34_ROOT_CAUSES.md": 1,
+  "M34_SEMANTIC_AUDIT.md": 1,
+  "core": 2,
+  "docs": 222,
+  "tests": 11,
+  "tools": 13
+ },
+ "note": "nothing is deleted by this stage; a cache artefact or a secret is reported for a human decision (DO NOT COMMIT \u2014 REVIEW REQUIRED), never removed"
+}

@@ -1,0 +1,28 @@
+FFFF                                                                     [100%]
+=================================== FAILURES ===================================
+_ test_explicit_unknown_currency_markers_do_not_authorize_money_totals[unknown] _
+tests/test_m30_semantic_regressions.py:301: in test_explicit_unknown_currency_markers_do_not_authorize_money_totals
+    assert normalize_currency(currency) is None
+E   AssertionError: assert 'UNKNOWN' is None
+E    +  where 'UNKNOWN' = <function normalize_currency at 0x7f2ac35e6200>('unknown')
+__ test_explicit_unknown_currency_markers_do_not_authorize_money_totals[N/A] ___
+tests/test_m30_semantic_regressions.py:301: in test_explicit_unknown_currency_markers_do_not_authorize_money_totals
+    assert normalize_currency(currency) is None
+E   AssertionError: assert 'N/A' is None
+E    +  where 'N/A' = <function normalize_currency at 0x7f2ac35e6200>('N/A')
+_ test_explicit_unknown_currency_markers_do_not_authorize_money_totals[not recorded] _
+tests/test_m30_semantic_regressions.py:301: in test_explicit_unknown_currency_markers_do_not_authorize_money_totals
+    assert normalize_currency(currency) is None
+E   AssertionError: assert 'NOT RECORDED' is None
+E    +  where 'NOT RECORDED' = <function normalize_currency at 0x7f2ac35e6200>('not recorded')
+_ test_explicit_unknown_currency_markers_do_not_authorize_money_totals[\u2014] _
+tests/test_m30_semantic_regressions.py:301: in test_explicit_unknown_currency_markers_do_not_authorize_money_totals
+    assert normalize_currency(currency) is None
+E   AssertionError: assert '—' is None
+E    +  where '—' = <function normalize_currency at 0x7f2ac35e6200>('—')
+=========================== short test summary info ============================
+FAILED tests/test_m30_semantic_regressions.py::test_explicit_unknown_currency_markers_do_not_authorize_money_totals[unknown]
+FAILED tests/test_m30_semantic_regressions.py::test_explicit_unknown_currency_markers_do_not_authorize_money_totals[N/A]
+FAILED tests/test_m30_semantic_regressions.py::test_explicit_unknown_currency_markers_do_not_authorize_money_totals[not recorded]
+FAILED tests/test_m30_semantic_regressions.py::test_explicit_unknown_currency_markers_do_not_authorize_money_totals[\u2014]
+4 failed in 0.31s

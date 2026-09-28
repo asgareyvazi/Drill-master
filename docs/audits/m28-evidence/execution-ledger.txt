@@ -1,0 +1,11 @@
+Historical M27 results are not M28 execution evidence.
+M28 first broad development run: 23 failed,1489 passed,4 skipped,19 warnings,65 errors,261.89s. Accidental audit-method removal restored; no API deletion retained.
+M28 focused corrected run:169 passed,6 warnings,47.48s.
+M28 new tests/version/permission/backup/UI run:43 passed,2.23s.
+M28 startup repair focused run:32 passed,5.24s.
+Clean gate c2fac7c:1586 collected,1581 passed,1 failed,4 skipped,19 warnings,276.66s; obsolete unknown-currency aggregate expectation corrected into None/USD/EUR parameterization with raw-value preservation.
+Clean gate 8fbf08e:1589 collected,1585 passed,4 skipped,19 warnings,301.79s;exit0.
+Final clean gate e83fc3ec85447446e50b4dd2acbc64169d07f054:1589 collected,1585 passed,4 skipped,19 warnings,300.36s; failures/errors/xfail/xpass/deselected=0;exit0.
+Final gate log:source-gate.txt. Final source fingerprint:source-manifest.json (348 files).
+Runtime exact lock was not changed. Fresh binary-only resolution: Python3.12 exit0,3.13 exit0,3.10 exit1. Resolution is not execution.
+Evidence-only/documentation certificate changes after final implementation do not constitute another full-suite run.

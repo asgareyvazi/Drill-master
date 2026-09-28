@@ -1,0 +1,15 @@
+{
+  "implementation_sha": "e83fc3ec85447446e50b4dd2acbc64169d07f054",
+  "python": "3.11.2 (main, Apr  8 2026, 01:58:00) [GCC 12.2.0]",
+  "platform": "Linux-6.1.158+-x86_64-with-glibc2.36",
+  "qt_platform": "offscreen",
+  "qt_stubs": "/home/user/qt-libs",
+  "tools": {
+    "pytest": "9.1.1",
+    "ruff": "0.16.6",
+    "build": "1.6.1",
+    "PySide6": "6.8.1.1",
+    "SQLAlchemy": "2.0.36"
+  },
+  "gate_exit": 0
+}

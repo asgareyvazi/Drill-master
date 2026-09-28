@@ -1,0 +1,80 @@
+ M DEPLOYMENT.md
+ M ENGINEERING_ARCHITECTURE.md
+ M ENGINEERING_AUDIT.md
+ M ENGINEERING_CAPABILITY_STATUS.md
+ M ENGINEERING_REFERENCE_MATRIX.md
+ M PRODUCTION_READINESS.md
+ M README.md
+ M TESTING.md
+ M app.py
+ M core/actual_vs_plan.py
+ M core/base_tab.py
+ M core/cost_semantics.py
+ M core/database.py
+ M core/db_models.py
+ M core/ddr_import_service.py
+ M core/engineering/bridge.py
+ M core/hierarchy_operations.py
+ M core/mapping_store.py
+ M core/operations_intelligence.py
+ M core/permissions.py
+ M core/report_engine.py
+ M core/report_snapshot.py
+ M core/runtime_config.py
+ M core/scope_attribution.py
+ M core/selection_manager.py
+ M core/unit_manager.py
+ M dialogs/hierarchy_dialogs.py
+ M dialogs/planning_dialog.py
+ M dialogs/smart_template_dialog.py
+ M docs/ENGINEERING_ARCHITECTURE.md
+ M docs/WINDOWS_ACCEPTANCE.md
+ M docs/audits/2026-09-22_RELEASE_CANDIDATE_INTEGRITY_CERTIFICATION.md
+ M main_window.py
+ M packaging/DrillMaster.spec
+ M packaging/build_windows.ps1
+ M packaging/package_smoke.py
+ M pyproject.toml
+ M requirements-lock.txt
+ M tabs/w10_Planning_Widget.py
+ M tabs/w12_Analysis.py
+ M tabs/w16_Cost_Management.py
+ M tabs/w2_Daily_Report.py
+ M tabs/w6_Trajectory_Widget.py
+ M tabs/w8_Safety_Widget.py
+ M tests/conftest.py
+ M tests/test_cost_management_widget_smoke.py
+ M tests/test_cost_truth_boundary.py
+ M tests/test_ddr_acceptance.py
+ M tests/test_engineering_completion.py
+ M tests/test_integration.py
+ M tests/test_operations_intelligence_regressions.py
+ M tests/test_packaging_smoke.py
+ M tests/test_planning_material_persistence.py
+ M tests/test_release.py
+ M tests/test_release_gate_and_w13.py
+ M tests/test_report_scope_metadata_m25.py
+ M tests/test_report_snapshot.py
+ M tests/test_schematic_no_fabrication.py
+ M tests/test_scope_attribution.py
+ M tests/test_selection_manager_context.py
+ M tests/test_w12_milestones_m25.py
+ M tests/test_w12_scope_leakage_m25.py
+ M verify_release.py
+?? .github/workflows/
+?? core/operational_time.py
+?? core/safety_semantics.py
+?? docs/audits/2026-09-22_M27_INDEPENDENT_REAUDIT.md
+?? docs/audits/2026-09-22_M28_FORENSIC_RELEASE_GATE.md
+?? docs/audits/2026-09-23_M29_DOMAIN_MATRIX.md
+?? docs/audits/2026-09-23_M29_RELEASE_CLOSURE.md
+?? docs/audits/m27-independent-evidence/
+?? docs/audits/m28-evidence/
+?? docs/audits/m29-evidence/
+?? tests/test_m28_finance_safety_plan.py
+?? tests/test_m29_planning_ui.py
+?? tests/test_m29_release_closure.py
+?? tests/test_operational_time_integrity.py
+?? tests/test_ownership_parent_edits.py
+?? tests/test_release_gate_integrity.py
+?? tests/test_test_process_isolation.py

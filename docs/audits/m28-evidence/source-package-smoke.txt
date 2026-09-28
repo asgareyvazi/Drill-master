@@ -1,0 +1,2 @@
+
+Source package-smoke exit=0; NOT frozen Windows/installer execution

@@ -1,0 +1,225 @@
+{
+ "schema": "m35-contract-adjudications-final",
+ "generated_utc": "2026-09-27T13:06:20+00:00",
+ "method": "individual review: the source window of every examined record was read; a record was closed only where a contract (comment, docstring, schema note, declared type/setter, caller return contract, or an in-block domain rule) governs the construct",
+ "examined": 14,
+ "ledger_items_examined": 29,
+ "ledger_items_closed": 25,
+ "ledger_items_still_open_from_batch": 4,
+ "closed": {
+  "INTENTIONAL-BY-DESIGN": 8,
+  "VERIFIED-CORRECT": 4
+ },
+ "still_open_after_review": 4,
+ "note": "each record documents one or more ledger items at the same site; closures are counted per ledger item, not per record",
+ "open_before": 1224,
+ "open_after": 1199,
+ "records": [
+  {
+   "items": "ledger items at app.py:57 (R-EXC-PASS) and app.py:60 (R-PASS-EXC)",
+   "file": "app.py",
+   "lines": [
+    57,
+    60
+   ],
+   "symbol": "_setup_logging",
+   "classification": "INTENTIONAL-BY-DESIGN",
+   "confidence": "high",
+   "evidence_kind": "inline comment stating the operational contract",
+   "evidence": "\"# A read-only profile must not prevent the UI from starting. The warning is visible on stderr, without including configuration values.\" (app.py:58-59)",
+   "reasoning": "the handler covers only file-handler construction (log file unwritable); startup proceeds and the failure remains reportable via logging's last-resort stderr handler, exactly as the comment states"
+  },
+  {
+   "items": "ledger items at core/database.py:4223 (R-EXC-PASS) and 4224 (R-PASS-EXC)",
+   "file": "core/database.py",
+   "lines": [
+    4223,
+    4224
+   ],
+   "symbol": "DatabaseManager.save_daily_report",
+   "classification": "OPEN",
+   "confidence": "none",
+   "evidence_kind": "repository contract partially present",
+   "evidence": "core/validators.py:117 requires report_date; core/validators.py:565-573 validates report_date against spud date",
+   "reasoning": "the swallowed ValueError leaves an unparseable string in data['report_date'], which is then bound to a Date column; whether this is reachable from an unvalidated import path (core/ddr_import_service.py:509) is NOT established",
+   "question": "must an unparseable report_date raise/reject at the persistence boundary instead of being passed through?",
+   "missing_fact": "proof that a malformed report_date string reaches save_daily_report on any production path (imports/dialogs), and the intended failure mode",
+   "why_it_matters": "a malformed date either persists as a wrong type or fails late with an unrelated error",
+   "possible_source": "domain owner (reporting) + the import pipeline contract"
+  },
+  {
+   "items": "ledger items at core/mud_ledger.py:98 and 99 (R-DEF-VALUE-PATH)",
+   "file": "core/mud_ledger.py",
+   "lines": [
+    98,
+    99
+   ],
+   "symbol": "MudChemicalLedger.get_ledger_for_well",
+   "classification": "INTENTIONAL-BY-DESIGN",
+   "confidence": "high",
+   "evidence_kind": "schema comment + declared field types (explicit domain rule)",
+   "evidence": "core/database.py:1277-1279 '# received/used absent = no movement (0.0) — established daily-report convention, distinct from the opening-stock trichotomy.' + Column(Float, default=0.0) + LedgerEntry.received: float = 0.0",
+   "reasoning": "the repository states, next to the opening-stock trichotomy, that absent received/used means no movement; float(r.received or 0) implements exactly that rule"
+  },
+  {
+   "items": "ledger item at core/runtime_config.py:102 (R-EXC-SILENT-RETURN)",
+   "file": "core/runtime_config.py",
+   "lines": [
+    102
+   ],
+   "symbol": "read_mineru_settings",
+   "classification": "INTENTIONAL-BY-DESIGN",
+   "confidence": "high",
+   "evidence_kind": "docstring + product decision (external engine is optional)",
+   "evidence": "docstring: \"Read optional external-engine settings without importing Qt or MinerU.\"; MinerU is an external-optional capability in this product",
+   "reasoning": "absent/unreadable settings must yield defaults for an optional engine, which is what returning {} does"
+  },
+  {
+   "items": "ledger item at dialogs/planning_dialog.py:1096 (R-EXC-PASS)",
+   "file": "dialogs/planning_dialog.py",
+   "lines": [
+    1096
+   ],
+   "symbol": "WellPlanDialog.load_well_info",
+   "classification": "INTENTIONAL-BY-DESIGN",
+   "confidence": "high",
+   "evidence_kind": "inline comment stating the UI contract",
+   "evidence": "\"pass  # spud date absent/unparseable — keep widget date\" (line 1097)",
+   "reasoning": "the failure mode is defined by the widget contract: keep the displayed date"
+  },
+  {
+   "items": "ledger items at main_window.py:1531/1532, 1577/1578, 1621/1622, 1668/1669 (R-EXC-PASS, R-PASS-EXC)",
+   "file": "main_window.py",
+   "lines": [
+    1531,
+    1532,
+    1577,
+    1578,
+    1621,
+    1622,
+    1668,
+    1669
+   ],
+   "symbol": "MainWindow._delete_company/_delete_project/_delete_well/_delete_section",
+   "classification": "INTENTIONAL-BY-DESIGN",
+   "confidence": "medium",
+   "evidence_kind": "behaviour contract of the called function",
+   "evidence": "core/database.py:10259-10277 log_audit() catches Exception, rolls back and logs ('Audit log error'), i.e. an audit-write failure is explicitly non-fatal and reported",
+   "reasoning": "the handler covers the audit write only, after the delete has already been committed; the audit failure policy is stated in log_audit and the outer handler still logs operation errors",
+   "residual": "a failure before log_audit's internal try (create_session()) would be unreported; recorded as an observation, not a proven defect"
+  },
+  {
+   "items": "ledger items at main_window.py:1198/1199 and 3057/3058 (R-EXC-PASS, R-PASS-EXC)",
+   "file": "main_window.py",
+   "lines": [
+    1198,
+    1199,
+    3057,
+    3058
+   ],
+   "symbol": "MainWindow._stop_hierarchy_worker / _cleanup_hierarchy_worker",
+   "classification": "INTENTIONAL-BY-DESIGN",
+   "confidence": "medium",
+   "evidence_kind": "framework contract + guard + sibling reporting policy",
+   "evidence": "main_window.py:3041-3046 '_is_worker_valid' guards the Qt object; the immediately following handler reports any other teardown error with logger.debug",
+   "reasoning": "Qt raises RuntimeError when the C++ object is already gone; the surrounding teardown handlers state the reporting policy (debug) and no user-visible action depends on it"
+  },
+  {
+   "items": "ledger item at tabs/w12_Analysis.py:54 (R-EXC-PASS)",
+   "file": "tabs/w12_Analysis.py",
+   "lines": [
+    54
+   ],
+   "symbol": null,
+   "classification": "INTENTIONAL-BY-DESIGN",
+   "confidence": "high",
+   "evidence_kind": "inline comment (capability is optional)",
+   "evidence": "pass  # OpenGL اختیاری است (\"OpenGL is optional\") at line 55",
+   "reasoning": "pyqtgraph OpenGL acceleration is an optional rendering path; the import branch immediately below sets PYQTGRAPH_AVAILABLE = False for a comparable capability gap"
+  },
+  {
+   "items": "ledger items at tabs/w12_Analysis.py:1500 and 1466 (R-TRUTH-NUMERIC)",
+   "file": "tabs/w12_Analysis.py",
+   "lines": [
+    1500,
+    1466
+   ],
+   "symbol": "AnalysisWidget.get_npt_data / get_time_depth_data",
+   "classification": "VERIFIED-CORRECT",
+   "confidence": "high",
+   "evidence_kind": "declared initialisation + setter contract",
+   "evidence": "tabs/w12_Analysis.py:91 'self.current_well_id = None'; setter set_current_well(self, well_id, well_name) at 2817 stores the caller's id; well ids are primary keys (>= 1)",
+   "reasoning": "the attribute is Optional[int] with a None sentinel and no legal zero, so truthiness is the presence test the contract describes"
+  },
+  {
+   "items": "ledger item at tabs/w12_Analysis.py:1523 (R-DEF-VALUE-PATH)",
+   "file": "tabs/w12_Analysis.py",
+   "lines": [
+    1523
+   ],
+   "symbol": "AnalysisWidget.get_npt_data",
+   "classification": "VERIFIED-CORRECT",
+   "confidence": "high",
+   "evidence_kind": "domain rule encoded in the same block",
+   "evidence": "lines 1518-1524: 'if h is None: unknown_count += 1 else: cats[cat] = cats.get(cat, 0) + h'",
+   "reasoning": "missing durations are counted separately as unknown; the 0 here is the identity of an accumulation over known values only, never a substitute for a missing one"
+  },
+  {
+   "items": "ledger item at tabs/w5_Equipment_Widget.py:888 (R-EXC-SILENT-RETURN)",
+   "file": "tabs/w5_Equipment_Widget.py",
+   "lines": [
+    888
+   ],
+   "symbol": "EquipmentWidget._report_date_for_current",
+   "classification": "INTENTIONAL-BY-DESIGN",
+   "confidence": "high",
+   "evidence_kind": "docstring states best-effort semantics",
+   "evidence": "docstring: \"Best-effort report_date for the current report (for carry-forward).\" and the following line returns None for an absent report",
+   "reasoning": "None is the documented outcome of this helper, and the caller branches on it"
+  },
+  {
+   "items": "ledger item at tabs/w5_Equipment_Widget.py:959 (R-TRUTH-NUMERIC)",
+   "file": "tabs/w5_Equipment_Widget.py",
+   "lines": [
+    959
+   ],
+   "symbol": "EquipmentWidget._load_inventory_rows",
+   "classification": "VERIFIED-CORRECT",
+   "confidence": "high",
+   "evidence_kind": "domain rule encoded in the same block",
+   "evidence": "the guarded value is the legacy-rows collection; the branch body says \"Loaded legacy inventory — re-save to migrate it to the structured inventory store.\"",
+   "reasoning": "truthiness of a collection means non-empty, which is exactly the migration state the message describes"
+  },
+  {
+   "items": "ledger item at tabs/w6_Trajectory_Widget.py:640 (R-TRUTH-NUMERIC)",
+   "file": "tabs/w6_Trajectory_Widget.py",
+   "lines": [
+    640
+   ],
+   "symbol": "TrajectoryPlotTab.save_plot",
+   "classification": "VERIFIED-CORRECT",
+   "confidence": "high",
+   "evidence_kind": "return contract of the called function",
+   "evidence": "core/database.py:6707-6729 save_trajectory_plot returns 'plot.id' on success and None after rollback/logging on failure",
+   "reasoning": "the only falsy success value would be an impossible row id; truthiness is the success test the return contract describes"
+  },
+  {
+   "items": "ledger items at tabs/w5_Equipment_Widget.py:771 and 772 (R-EXC-PASS, R-PASS-EXC)",
+   "file": "tabs/w5_Equipment_Widget.py",
+   "lines": [
+    771,
+    772
+   ],
+   "symbol": "EquipmentWidget.save_all_data",
+   "classification": "OPEN",
+   "confidence": "high-that-it-is-open",
+   "evidence_kind": "code comment states a security contract that the handler does not enforce",
+   "evidence": "\"Read-only roles must never mutate equipment/inventory, regardless of whether the control happens to be enabled (Gate Q). Backend persistence is the authority, not UI widget state.\" (lines 757-759) surrounding the try/except at 762-772",
+   "reasoning": "if the permission lookup itself raises, the handler passes and the function continues towards persistence — a fail-open on a gate the file calls authoritative; canonical pattern elsewhere is a direct module-level import (16 sites, only 3 inside a try), so this outlier needs the security owner's ruling",
+   "question": "on permission-control failure, must saving be denied (fail-closed) or is continuing the intended behaviour?",
+   "missing_fact": "whether the permission lookup can raise in production (core/permissions.py failure modes) and the intended fail direction",
+   "why_it_matters": "a silent control failure would let a read-only role mutate data the file says must never be mutated",
+   "possible_source": "security/permission owner; Gate Q specification"
+  }
+ ]
+}

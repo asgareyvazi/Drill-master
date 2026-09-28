@@ -1,0 +1,186 @@
+{
+ "schema": "m35-inventory-reverification",
+ "generated_utc": "2026-09-27T13:00:34+00:00",
+ "method": "independent re-implementation (tools/m35/verify_inventory.py); no M34 tool called",
+ "ledger": {
+  "sha256": "d81a77bda0330c75493f4081c4a02e4d106fe7602e49c14f0c67d12977658a6b",
+  "declared_items_field": 11554,
+  "records_found": 11554,
+  "arithmetic": {
+   "items_equals_carry_plus_new": true,
+   "carry_forward_total": 8934,
+   "new_total": 2620,
+   "by_origin": {
+    "M32-LEDGER": 8570,
+    "M32-LEDGER-ABSENT": 96,
+    "M33-NEW": 266,
+    "M33-FORENSICS": 2,
+    "M34-NEW": 2620
+   },
+   "origin_total_matches": true,
+   "dispositions": {
+    "INTENTIONAL-BY-DESIGN": 2880,
+    "VERIFIED-CORRECT": 7333,
+    "UNDER-REVIEW": 1224,
+    "DEFECT-FIXED": 51,
+    "EXTERNAL-ACCEPTANCE-ONLY": 17,
+    "REMOVED-WITH-EVIDENCE": 49
+   },
+   "disposition_total_matches": true,
+   "declared_dispositions": {
+    "INTENTIONAL-BY-DESIGN": 2880,
+    "VERIFIED-CORRECT": 7333,
+    "UNDER-REVIEW": 1224,
+    "DEFECT-FIXED": 51,
+    "EXTERNAL-ACCEPTANCE-ONLY": 17,
+    "REMOVED-WITH-EVIDENCE": 49
+   },
+   "declared_equals_recount": true,
+   "priority": {
+    "MEDIUM": 7766,
+    "HIGH": 372,
+    "LOW": 3416
+   },
+   "sweep_hits_declared": 5802,
+   "new_records_declared": null,
+   "covered_by_m33": 3182
+  },
+  "freshness": {
+   "referenced_files": 298,
+   "files_now_absent": [],
+   "stale_hash_records": 0,
+   "stale_sample": []
+  },
+  "terminality": {
+   "records": 11554,
+   "terminal": 10330,
+   "open": 1224,
+   "open_priority": {
+    "HIGH": 371,
+    "MEDIUM": 853
+   },
+   "open_states": {
+    "UNDER-REVIEW": 1224
+   },
+   "open_domains": {
+    "core": 349,
+    "plan-actual": 1,
+    "cost": 2,
+    "validation": 19,
+    "persistence": 109,
+    "export": 26,
+    "engineering": 99,
+    "inventory": 6,
+    "ui-managers": 16,
+    "time": 1,
+    "operations": 2,
+    "scope": 2,
+    "ui": 514,
+    "test": 77,
+    "ai": 1
+   }
+  }
+ },
+ "independent_resweep": {
+  "files_scanned": 340,
+  "my_hits": 5836,
+  "frozen_sweep_hits": 5802,
+  "fingerprint_keys_equal": false,
+  "only_in_mine": [
+   "tests/test_release_boundary_imports.py|if-not-falsy|if not name:",
+   "tests/test_release_boundary_imports.py|if-not-falsy|if not source.is_file():",
+   "tests/test_release_boundary_imports.py|return-none-false|return None",
+   "tests/test_release_boundary_imports.py|shell-subprocess|install = subprocess.run(",
+   "tests/test_release_boundary_imports.py|shell-subprocess|names = subprocess.run([\"git\", \"ls-files\", \"-z\"], cwd=ROOT, capture_output=True,",
+   "tests/test_release_boundary_imports.py|shell-subprocess|out = subprocess.run([\"git\", \"ls-files\", \"-z\"], cwd=ROOT, capture_output=True, check=True)",
+   "tests/test_release_boundary_imports.py|shell-subprocess|proc = subprocess.run([sys.executable, \"-c\", probe], cwd=run_dir, env=env,",
+   "tests/test_release_boundary_imports.py|shell-subprocess|proc = subprocess.run(cmd, cwd=source, capture_output=True, text=True)",
+   "tests/test_release_boundary_imports.py|shell-subprocess|proc = subprocess.run(cmd, cwd=source, capture_output=True, text=True,",
+   "tests/test_release_boundary_imports.py|shell-subprocess|return subprocess.run([\"git\", *args], cwd=ROOT, capture_output=True, text=True, check=True",
+   "tests/test_release_boundary_imports.py|snapshot-serialize|\"print(json.dumps({'app': app_module.__file__, 'exit': code}))\\n\"",
+   "tests/test_release_boundary_imports.py|temp-file|with tempfile.TemporaryDirectory(prefix=\"drillmaster-installed-target-\") as tmp:",
+   "tests/test_release_boundary_imports.py|temp-file|with tempfile.TemporaryDirectory(prefix=\"drillmaster-release-boundary-\") as tmp:",
+   "tools/m35/common_families.py|snapshot-serialize|return dict(json.loads(SWEEP.read_text())[\"families\"])",
+   "tools/m35/release_matrix.py|return-none-false|return 0",
+   "tools/m35/release_matrix.py|return-none-false|return None",
+   "tools/m35/release_matrix.py|shell-subprocess|\"import_sites\": [ln.strip() for ln in subprocess.run(",
+   "tools/m35/release_matrix.py|shell-subprocess|return subprocess.run([\"git\", *args], cwd=ROOT, capture_output=True, text=True, check=True",
+   "tools/m35/release_matrix.py|shell-subprocess|tracked = {n for n in subprocess.run([\"git\", \"ls-files\", \"-z\"], cwd=ROOT,",
+   "tools/m35/release_matrix.py|snapshot-serialize|OUT.write_text(json.dumps(payload, indent=1))",
+   "tools/m35/verify_inventory.py|get-default|(ledger.get(\"sweep_hits\", 0)",
+   "tools/m35/verify_inventory.py|get-default|+ ledger.get(\"by_origin\", {}).get(\"M34-NEW\", 0)),",
+   "tools/m35/verify_inventory.py|get-default|- ledger.get(\"by_origin\", {}).get(\"M34-NEW\", 0)),",
+   "tools/m35/verify_inventory.py|get-default|file_delta = {f: per_file_mine.get(f, 0) - per_file_theirs.get(f, 0)",
+   "tools/m35/verify_inventory.py|get-default|if per_file_mine.get(f, 0) != per_file_theirs.get(f, 0)}",
+   "tools/m35/verify_inventory.py|get-default|ordinal = seen.get(key, 0)",
+   "tools/m35/verify_inventory.py|if-not-falsy|\"files_now_absent\": [f for f in referenced_files if not current_hashes.get(f)],",
+   "tools/m35/verify_inventory.py|if-not-falsy|if not items:",
+   "tools/m35/verify_inventory.py|if-not-falsy|if not path.is_file():",
+   "tools/m35/verify_inventory.py|return-none-false|return \"\"",
+   "tools/m35/verify_inventory.py|return-none-false|return 0",
+   "tools/m35/verify_inventory.py|snapshot-serialize|OUT.write_text(json.dumps(payload, indent=1, ensure_ascii=False) + \"\\n\", encoding=\"utf-8\")",
+   "tools/m35/verify_inventory.py|snapshot-serialize|frozen = json.loads((EV34 / \"m34-fresh-sweep.json\").read_text())",
+   "tools/m35/verify_inventory.py|snapshot-serialize|ledger = json.loads((EV34 / \"m34-ledger.json\").read_text())"
+  ],
+  "only_in_frozen": [],
+  "my_family_counts": {
+   "currency-arithmetic": 206,
+   "pass-statement": 130,
+   "if-not-falsy": 1038,
+   "return-none-false": 744,
+   "broad-except": 632,
+   "session-lifecycle": 1282,
+   "temp-file": 29,
+   "raw-sql-text": 40,
+   "orm-single-fetch": 230,
+   "snapshot-serialize": 349,
+   "plan-actual": 410,
+   "get-default": 264,
+   "default-zero-param": 101,
+   "or-zero": 124,
+   "numeric-coalesce": 65,
+   "float-or-zero-strict": 29,
+   "float-int-or-zero": 9,
+   "sum-or-zero": 2,
+   "setvalue-zero": 76,
+   "shell-subprocess": 51,
+   "skip-call": 25
+  },
+  "frozen_family_counts": {
+   "currency-arithmetic": 206,
+   "pass-statement": 130,
+   "if-not-falsy": 1033,
+   "return-none-false": 739,
+   "broad-except": 632,
+   "session-lifecycle": 1282,
+   "temp-file": 27,
+   "raw-sql-text": 40,
+   "orm-single-fetch": 230,
+   "snapshot-serialize": 343,
+   "plan-actual": 410,
+   "get-default": 258,
+   "default-zero-param": 101,
+   "or-zero": 124,
+   "numeric-coalesce": 65,
+   "float-or-zero-strict": 29,
+   "float-int-or-zero": 9,
+   "sum-or-zero": 2,
+   "setvalue-zero": 76,
+   "shell-subprocess": 41,
+   "skip-call": 25
+  },
+  "per_file_delta": {
+   "tools/m35/verify_inventory.py": 14,
+   "tests/test_release_boundary_imports.py": 13,
+   "tools/m35/release_matrix.py": 6,
+   "tools/m35/common_families.py": 1
+  },
+  "files_only_in_mine": [
+   "tests/test_release_boundary_imports.py",
+   "tools/m35/common_families.py",
+   "tools/m35/release_matrix.py",
+   "tools/m35/verify_inventory.py"
+  ],
+  "files_only_in_frozen": []
+ }
+}

@@ -1,0 +1,150 @@
+{
+  "source_sha": "e2eeb3539c5d9c468e73961824e9fe5229864a59",
+  "manifest_mismatches": [],
+  "controls": [
+    {
+      "control": "currency",
+      "exit": 1,
+      "restored": true,
+      "matches_final_source": true
+    },
+    {
+      "control": "null-plan",
+      "exit": 1,
+      "restored": true,
+      "matches_final_source": true
+    },
+    {
+      "control": "safety",
+      "exit": 1,
+      "restored": true,
+      "matches_final_source": true
+    },
+    {
+      "control": "ownership",
+      "exit": 1,
+      "restored": true,
+      "matches_final_source": true
+    },
+    {
+      "control": "permission",
+      "exit": 1,
+      "restored": true,
+      "matches_final_source": true
+    },
+    {
+      "control": "backup",
+      "exit": 1,
+      "restored": true,
+      "matches_final_source": true
+    },
+    {
+      "control": "snapshot",
+      "exit": 1,
+      "restored": true,
+      "matches_final_source": true
+    },
+    {
+      "control": "gate",
+      "exit": 1,
+      "restored": true,
+      "matches_final_source": true
+    },
+    {
+      "control": "npt-scope",
+      "exit": 1,
+      "restored": true,
+      "matches_final_source": true
+    },
+    {
+      "control": "calendar-ambiguity",
+      "exit": 1,
+      "restored": true,
+      "matches_final_source": true
+    },
+    {
+      "control": "mud-direction",
+      "exit": 1,
+      "restored": true,
+      "matches_final_source": true
+    },
+    {
+      "control": "atomic-memory",
+      "exit": 1,
+      "restored": true,
+      "matches_final_source": true
+    },
+    {
+      "control": "export-return",
+      "exit": 1,
+      "restored": true,
+      "matches_final_source": true
+    },
+    {
+      "control": "re-export",
+      "exit": 1,
+      "restored": true,
+      "matches_final_source": true
+    },
+    {
+      "control": "unknown-currency",
+      "exit": 1,
+      "restored": true,
+      "matches_final_source": true
+    },
+    {
+      "control": "numeric-overflow",
+      "exit": 1,
+      "restored": true,
+      "matches_final_source": true
+    },
+    {
+      "control": "scope-coverage",
+      "exit": 1,
+      "restored": true,
+      "matches_final_source": true
+    },
+    {
+      "control": "scope-candidate",
+      "exit": 1,
+      "restored": true,
+      "matches_final_source": true
+    },
+    {
+      "control": "snapshot-alias",
+      "exit": 1,
+      "restored": true,
+      "matches_final_source": true
+    },
+    {
+      "control": "search-failure",
+      "exit": 1,
+      "restored": true,
+      "matches_final_source": true
+    },
+    {
+      "control": "stock-unit",
+      "exit": 1,
+      "restored": true,
+      "matches_final_source": true
+    },
+    {
+      "control": "mse-nonfinite",
+      "exit": 1,
+      "restored": true,
+      "matches_final_source": true
+    },
+    {
+      "control": "money-overflow",
+      "exit": 1,
+      "restored": true,
+      "matches_final_source": true
+    },
+    {
+      "control": "backup-source",
+      "exit": 1,
+      "restored": true,
+      "matches_final_source": true
+    }
+  ]
+}

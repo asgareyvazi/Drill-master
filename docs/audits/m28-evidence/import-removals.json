@@ -1,0 +1,4254 @@
+[
+  {
+    "file": "core/activity_mapper.py",
+    "module": "",
+    "symbol": "json",
+    "local": "json",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/activity_mapper.py",
+    "module": "dataclasses",
+    "symbol": "field",
+    "local": "field",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/activity_mapper.py",
+    "module": "pathlib",
+    "symbol": "Path",
+    "local": "Path",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/activity_mapper.py",
+    "module": "typing",
+    "symbol": "List",
+    "local": "List",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/base_tab.py",
+    "module": "PySide6.QtCore",
+    "symbol": "QTimer",
+    "local": "QTimer",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/canonical_schema.py",
+    "module": "dataclasses",
+    "symbol": "field",
+    "local": "field",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/combo_identity.py",
+    "module": "dataclasses",
+    "symbol": "field",
+    "local": "field",
+    "restored": false,
+    "loaded_in_current": true,
+    "consumer_files": [],
+    "classification": "REVIEWED-LOCAL-NAME-OR-STRING"
+  },
+  {
+    "file": "core/common_widgets.py",
+    "module": "core.managers",
+    "symbol": "ExportManager",
+    "local": "ExportManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/data_quality.py",
+    "module": "sqlalchemy",
+    "symbol": "text",
+    "local": "text",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/database.py",
+    "module": "",
+    "symbol": "random",
+    "local": "random",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/database.py",
+    "module": "core.credential_policy",
+    "symbol": "_BOOTSTRAP_PASSWORD_ENV",
+    "local": "_BOOTSTRAP_PASSWORD_ENV",
+    "restored": true,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "RESTORED"
+  },
+  {
+    "file": "core/database.py",
+    "module": "core.credential_policy",
+    "symbol": "bootstrap_password_for_role",
+    "local": "bootstrap_password_for_role",
+    "restored": true,
+    "loaded_in_current": false,
+    "consumer_files": [
+      "app.py"
+    ],
+    "classification": "RESTORED"
+  },
+  {
+    "file": "core/database.py",
+    "module": "datetime",
+    "symbol": "date",
+    "local": "DateType",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/database.py",
+    "module": "datetime",
+    "symbol": "timedelta",
+    "local": "timedelta",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/database.py",
+    "module": "typing",
+    "symbol": "Tuple",
+    "local": "Tuple",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/db_models.py",
+    "module": "datetime",
+    "symbol": "date",
+    "local": "date",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/db_services.py",
+    "module": "",
+    "symbol": "json",
+    "local": "json",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/db_services.py",
+    "module": "datetime",
+    "symbol": "date",
+    "local": "date",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/db_services.py",
+    "module": "datetime",
+    "symbol": "time",
+    "local": "time",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/db_services.py",
+    "module": "typing",
+    "symbol": "Any",
+    "local": "Any",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/db_services.py",
+    "module": "typing",
+    "symbol": "Dict",
+    "local": "Dict",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/db_services.py",
+    "module": "typing",
+    "symbol": "List",
+    "local": "List",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/db_services.py",
+    "module": "typing",
+    "symbol": "Optional",
+    "local": "Optional",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/engineering/adapters/welleng_adapter.py",
+    "module": "",
+    "symbol": "math",
+    "local": "math",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/engineering/adapters/welleng_adapter.py",
+    "module": "typing",
+    "symbol": "Tuple",
+    "local": "Tuple",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/engineering/bridge.py",
+    "module": "typing",
+    "symbol": "Any",
+    "local": "Any",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/engineering/bridge.py",
+    "module": "typing",
+    "symbol": "Dict",
+    "local": "Dict",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/engineering/bridge.py",
+    "module": "typing",
+    "symbol": "List",
+    "local": "List",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/engineering/bridge.py",
+    "module": "typing",
+    "symbol": "Optional",
+    "local": "Optional",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/engineering/core.py",
+    "module": "dataclasses",
+    "symbol": "field",
+    "local": "field",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/engineering/core.py",
+    "module": "result",
+    "symbol": "UnsupportedCalculationError",
+    "local": "UnsupportedCalculationError",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/engineering/engines/bit_performance.py",
+    "module": "typing",
+    "symbol": "Optional",
+    "local": "Optional",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/engineering/engines/cement.py",
+    "module": "typing",
+    "symbol": "Optional",
+    "local": "Optional",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/engineering/engines/fishing.py",
+    "module": "typing",
+    "symbol": "Dict",
+    "local": "Dict",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/engineering/engines/mud_volume.py",
+    "module": "result",
+    "symbol": "optional_number",
+    "local": "optional_number",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/engineering/engines/mud_volume.py",
+    "module": "typing",
+    "symbol": "Optional",
+    "local": "Optional",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/engineering/engines/trajectory.py",
+    "module": "core",
+    "symbol": "TrajectoryPoint",
+    "local": "TrajectoryPoint",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/engineering/engines/well_control.py",
+    "module": "typing",
+    "symbol": "Any",
+    "local": "Any",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/engineering/engines/well_control.py",
+    "module": "typing",
+    "symbol": "Optional",
+    "local": "Optional",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/engineering/extended.py",
+    "module": "dataclasses",
+    "symbol": "dataclass",
+    "local": "dataclass",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/engineering/extended.py",
+    "module": "typing",
+    "symbol": "Any",
+    "local": "Any",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/engineering/extended.py",
+    "module": "typing",
+    "symbol": "List",
+    "local": "List",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/engineering/extended.py",
+    "module": "typing",
+    "symbol": "Optional",
+    "local": "Optional",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/engineering/extended.py",
+    "module": "typing",
+    "symbol": "Tuple",
+    "local": "Tuple",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/engineering/well_control_kill_sheet.py",
+    "module": "core.engineering.result",
+    "symbol": "EngineeringResult",
+    "local": "EngineeringResult",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/engineering/well_control_kill_sheet.py",
+    "module": "dataclasses",
+    "symbol": "replace",
+    "local": "replace",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/excel_intelligence.py",
+    "module": "core.canonical_schema",
+    "symbol": "CANONICAL_FIELDS",
+    "local": "CANONICAL_FIELDS",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/excel_intelligence.py",
+    "module": "core.canonical_schema",
+    "symbol": "get_field_spec",
+    "local": "get_field_spec",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/excel_intelligence.py",
+    "module": "core.canonical_schema",
+    "symbol": "get_quantity_unit",
+    "local": "get_quantity_unit",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/excel_intelligence.py",
+    "module": "core.canonical_schema",
+    "symbol": "lookup_alias",
+    "local": "lookup_alias",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/excel_intelligence.py",
+    "module": "core.combo_identity",
+    "symbol": "ComboResolution",
+    "local": "ComboResolution",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/excel_intelligence.py",
+    "module": "core.import_ir",
+    "symbol": "SourceLocation",
+    "local": "SourceLocation",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/functions.py",
+    "module": "typing",
+    "symbol": "Optional",
+    "local": "Optional",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/hierarchy_operations.py",
+    "module": "PySide6.QtCore",
+    "symbol": "Qt",
+    "local": "Qt",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/hydraulics_engine.py",
+    "module": "typing",
+    "symbol": "Optional",
+    "local": "Optional",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/hydraulics_engine.py",
+    "module": "typing",
+    "symbol": "Tuple",
+    "local": "Tuple",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/import_adapters/pdf_tables.py",
+    "module": "pathlib",
+    "symbol": "Path",
+    "local": "Path",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/import_profiler.py",
+    "module": "dataclasses",
+    "symbol": "field",
+    "local": "field",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/import_quality.py",
+    "module": "datetime",
+    "symbol": "date",
+    "local": "date",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/import_quality.py",
+    "module": "datetime",
+    "symbol": "datetime",
+    "local": "datetime",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/lineage.py",
+    "module": "dataclasses",
+    "symbol": "field",
+    "local": "field",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/lineage.py",
+    "module": "typing",
+    "symbol": "Dict",
+    "local": "Dict",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/mineru_engine.py",
+    "module": "core.canonical_schema",
+    "symbol": "lookup_alias",
+    "local": "lookup_alias",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/mud_ledger.py",
+    "module": "dataclasses",
+    "symbol": "field",
+    "local": "field",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/mud_ledger.py",
+    "module": "datetime",
+    "symbol": "timedelta",
+    "local": "timedelta",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/operations_intelligence.py",
+    "module": "datetime",
+    "symbol": "date",
+    "local": "date",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/operations_intelligence.py",
+    "module": "datetime",
+    "symbol": "timedelta",
+    "local": "timedelta",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/operations_intelligence.py",
+    "module": "typing",
+    "symbol": "Optional",
+    "local": "Optional",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/performance.py",
+    "module": "typing",
+    "symbol": "Optional",
+    "local": "Optional",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/professional_export.py",
+    "module": "core.database",
+    "symbol": "Company",
+    "local": "Company",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/professional_export.py",
+    "module": "core.database",
+    "symbol": "FuelWaterInventory",
+    "local": "FuelWaterInventory",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/professional_export.py",
+    "module": "core.database",
+    "symbol": "Project",
+    "local": "Project",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/professional_export.py",
+    "module": "core.database",
+    "symbol": "ServiceCompanyPOB",
+    "local": "ServiceCompanyPOB",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/professional_export.py",
+    "module": "openpyxl.styles",
+    "symbol": "Alignment",
+    "local": "Alignment",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/professional_export.py",
+    "module": "pathlib",
+    "symbol": "Path",
+    "local": "Path",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/professional_export.py",
+    "module": "typing",
+    "symbol": "List",
+    "local": "List",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/professional_export.py",
+    "module": "typing",
+    "symbol": "Optional",
+    "local": "Optional",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/rag_search.py",
+    "module": "",
+    "symbol": "re",
+    "local": "re",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/rag_search.py",
+    "module": "typing",
+    "symbol": "Optional",
+    "local": "Optional",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/report_engine.py",
+    "module": "",
+    "symbol": "os",
+    "local": "os",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/report_engine.py",
+    "module": "",
+    "symbol": "textwrap",
+    "local": "textwrap",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/report_engine.py",
+    "module": "core.database",
+    "symbol": "Section",
+    "local": "Section",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/report_engine.py",
+    "module": "core.database",
+    "symbol": "Well",
+    "local": "Well",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/report_engine.py",
+    "module": "datetime",
+    "symbol": "date",
+    "local": "date",
+    "restored": false,
+    "loaded_in_current": true,
+    "consumer_files": [],
+    "classification": "REVIEWED-LOCAL-NAME-OR-STRING"
+  },
+  {
+    "file": "core/report_engine.py",
+    "module": "openpyxl.styles",
+    "symbol": "Alignment",
+    "local": "Alignment",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/report_engine.py",
+    "module": "typing",
+    "symbol": "Any",
+    "local": "Any",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/report_engine.py",
+    "module": "typing",
+    "symbol": "List",
+    "local": "List",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/repositories/audit_repository.py",
+    "module": "typing",
+    "symbol": "Dict",
+    "local": "Dict",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/repositories/audit_repository.py",
+    "module": "typing",
+    "symbol": "List",
+    "local": "List",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/repositories/base.py",
+    "module": "typing",
+    "symbol": "Any",
+    "local": "Any",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/repositories/logistics_repository.py",
+    "module": "core.database",
+    "symbol": "BulkMaterials",
+    "local": "BulkMaterials",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/repositories/logistics_repository.py",
+    "module": "core.database",
+    "symbol": "EquipmentLog",
+    "local": "EquipmentLog",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/repositories/logistics_repository.py",
+    "module": "core.database",
+    "symbol": "FuelWaterInventory",
+    "local": "FuelWaterInventory",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/repositories/logistics_repository.py",
+    "module": "core.database",
+    "symbol": "ServiceCompanyPOB",
+    "local": "ServiceCompanyPOB",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/repositories/logistics_repository.py",
+    "module": "core.database",
+    "symbol": "TransportLog",
+    "local": "TransportLog",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/repositories/safety_repository.py",
+    "module": "core.database",
+    "symbol": "SafetyReport",
+    "local": "SafetyReport",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/repositories/safety_repository.py",
+    "module": "core.database",
+    "symbol": "WasteRecord",
+    "local": "WasteRecord",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/repositories/well_control_kill_sheet_repository.py",
+    "module": "core.engineering.well_control_kill_sheet_persistence",
+    "symbol": "build_snapshot",
+    "local": "build_snapshot",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/time_utils.py",
+    "module": "PySide6.QtCore",
+    "symbol": "QTime",
+    "local": "QTime",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/time_utils.py",
+    "module": "PySide6.QtGui",
+    "symbol": "QIntValidator",
+    "local": "QIntValidator",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/time_utils.py",
+    "module": "PySide6.QtWidgets",
+    "symbol": "QHBoxLayout",
+    "local": "QHBoxLayout",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/time_utils.py",
+    "module": "PySide6.QtWidgets",
+    "symbol": "QLabel",
+    "local": "QLabel",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/time_utils.py",
+    "module": "PySide6.QtWidgets",
+    "symbol": "QStyledItemDelegate",
+    "local": "QStyledItemDelegate",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/time_utils.py",
+    "module": "PySide6.QtWidgets",
+    "symbol": "QWidget",
+    "local": "QWidget",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/toolbar_manager.py",
+    "module": "PySide6.QtCore",
+    "symbol": "Qt",
+    "local": "Qt",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/unit_manager.py",
+    "module": "",
+    "symbol": "math",
+    "local": "math",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/universal_import.py",
+    "module": "",
+    "symbol": "math",
+    "local": "math",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/universal_import.py",
+    "module": "",
+    "symbol": "re",
+    "local": "re",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/universal_import.py",
+    "module": "collections",
+    "symbol": "Counter",
+    "local": "Counter",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/universal_import.py",
+    "module": "typing",
+    "symbol": "Tuple",
+    "local": "Tuple",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/validators.py",
+    "module": "",
+    "symbol": "math",
+    "local": "math",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/validators.py",
+    "module": "",
+    "symbol": "re",
+    "local": "re",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/validators.py",
+    "module": "datetime",
+    "symbol": "datetime",
+    "local": "datetime",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/validators.py",
+    "module": "datetime",
+    "symbol": "time",
+    "local": "time",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/validators.py",
+    "module": "typing",
+    "symbol": "Optional",
+    "local": "Optional",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/validators.py",
+    "module": "typing",
+    "symbol": "Tuple",
+    "local": "Tuple",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/wellbore_schematic_engine.py",
+    "module": "",
+    "symbol": "math",
+    "local": "math",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/wellbore_schematic_engine.py",
+    "module": "PySide6.QtSvg",
+    "symbol": "QSvgGenerator",
+    "local": "QSvgGenerator",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/wellbore_schematic_engine.py",
+    "module": "typing",
+    "symbol": "Dict",
+    "local": "Dict",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/wellbore_schematic_engine.py",
+    "module": "typing",
+    "symbol": "Tuple",
+    "local": "Tuple",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/witsml_import.py",
+    "module": "typing",
+    "symbol": "List",
+    "local": "List",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "core/witsml_import.py",
+    "module": "typing",
+    "symbol": "Optional",
+    "local": "Optional",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "dialogs/calculator_dialog.py",
+    "module": "",
+    "symbol": "math",
+    "local": "math",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "dialogs/daily_report_dialogs.py",
+    "module": "",
+    "symbol": "math",
+    "local": "math",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "dialogs/daily_report_dialogs.py",
+    "module": "datetime",
+    "symbol": "time",
+    "local": "time",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "dialogs/drilling_report_dialogs.py",
+    "module": "",
+    "symbol": "math",
+    "local": "math",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "dialogs/excel_import_dialog.py",
+    "module": "",
+    "symbol": "json",
+    "local": "json",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "dialogs/excel_import_dialog.py",
+    "module": "",
+    "symbol": "re",
+    "local": "re",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "dialogs/excel_import_dialog.py",
+    "module": "PySide6.QtCore",
+    "symbol": "QTimer",
+    "local": "QTimer",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "dialogs/excel_import_dialog.py",
+    "module": "PySide6.QtWidgets",
+    "symbol": "QDialogButtonBox",
+    "local": "QDialogButtonBox",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "dialogs/excel_import_dialog.py",
+    "module": "PySide6.QtWidgets",
+    "symbol": "QHeaderView",
+    "local": "QHeaderView",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "dialogs/excel_import_dialog.py",
+    "module": "PySide6.QtWidgets",
+    "symbol": "QLineEdit",
+    "local": "QLineEdit",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "dialogs/excel_import_dialog.py",
+    "module": "PySide6.QtWidgets",
+    "symbol": "QProgressBar",
+    "local": "QProgressBar",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "dialogs/excel_import_dialog.py",
+    "module": "PySide6.QtWidgets",
+    "symbol": "QSplitter",
+    "local": "QSplitter",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "dialogs/excel_import_dialog.py",
+    "module": "PySide6.QtWidgets",
+    "symbol": "QTabWidget",
+    "local": "QTabWidget",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "dialogs/excel_import_dialog.py",
+    "module": "PySide6.QtWidgets",
+    "symbol": "QWidget",
+    "local": "QWidget",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "dialogs/excel_import_dialog.py",
+    "module": "core.ddr_import_service",
+    "symbol": "_enrich_record_reviews",
+    "local": "_enrich_record_reviews",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "dialogs/excel_import_dialog.py",
+    "module": "core.import_diagnostics",
+    "symbol": "PersistenceError",
+    "local": "PersistenceError",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "dialogs/excel_import_dialog.py",
+    "module": "core.import_diagnostics",
+    "symbol": "determine_import_status",
+    "local": "determine_import_status",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "dialogs/excel_import_dialog.py",
+    "module": "core.import_quality",
+    "symbol": "ReviewItem",
+    "local": "ReviewItem",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "dialogs/excel_import_dialog.py",
+    "module": "core.import_quality",
+    "symbol": "decision_for_confidence",
+    "local": "decision_for_confidence",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "dialogs/excel_import_dialog.py",
+    "module": "core.text_utils",
+    "symbol": "wrap_text",
+    "local": "wrap_text",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "dialogs/excel_import_dialog.py",
+    "module": "datetime",
+    "symbol": "date",
+    "local": "dt_date",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "dialogs/excel_import_dialog.py",
+    "module": "datetime",
+    "symbol": "datetime",
+    "local": "dt_datetime",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "dialogs/excel_import_dialog.py",
+    "module": "datetime",
+    "symbol": "time",
+    "local": "dt_time",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "dialogs/excel_import_dialog.py",
+    "module": "dialogs.smart_template_dialog",
+    "symbol": "ValueNormalizer",
+    "local": "ValueNormalizer",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "dialogs/excel_import_dialog.py",
+    "module": "typing",
+    "symbol": "Optional",
+    "local": "Optional",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "dialogs/hierarchy_dialogs.py",
+    "module": "",
+    "symbol": "json",
+    "local": "json",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "dialogs/hierarchy_dialogs.py",
+    "module": "core.database",
+    "symbol": "TransportNotes",
+    "local": "TransportNotes",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "dialogs/hierarchy_dialogs.py",
+    "module": "core.managers",
+    "symbol": "StatusBarManager",
+    "local": "StatusBarManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "dialogs/hierarchy_dialogs.py",
+    "module": "typing",
+    "symbol": "Optional",
+    "local": "Optional",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "dialogs/planning_dialog.py",
+    "module": "",
+    "symbol": "json",
+    "local": "json",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "dialogs/planning_dialog.py",
+    "module": "core.database",
+    "symbol": "Section",
+    "local": "Section",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "dialogs/planning_dialog.py",
+    "module": "core.database",
+    "symbol": "Well",
+    "local": "Well",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "dialogs/planning_dialog.py",
+    "module": "datetime",
+    "symbol": "date",
+    "local": "date",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "dialogs/report_history_dialog.py",
+    "module": "PySide6.QtCore",
+    "symbol": "Qt",
+    "local": "Qt",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "dialogs/smart_template_dialog.py",
+    "module": "",
+    "symbol": "math",
+    "local": "math",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "dialogs/smart_template_dialog.py",
+    "module": "collections",
+    "symbol": "defaultdict",
+    "local": "defaultdict",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "dialogs/smart_template_dialog.py",
+    "module": "datetime",
+    "symbol": "date",
+    "local": "dt_date",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "dialogs/smart_template_dialog.py",
+    "module": "datetime",
+    "symbol": "time",
+    "local": "dt_time",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "dialogs/smart_template_dialog.py",
+    "module": "datetime",
+    "symbol": "timedelta",
+    "local": "timedelta",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "dialogs/smart_template_dialog.py",
+    "module": "typing",
+    "symbol": "Set",
+    "local": "Set",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/home_tab.py",
+    "module": "PySide6.QtGui",
+    "symbol": "QPalette",
+    "local": "QPalette",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/home_tab.py",
+    "module": "core.managers",
+    "symbol": "ExportManager",
+    "local": "ExportManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/home_tab.py",
+    "module": "core.managers",
+    "symbol": "StatusBarManager",
+    "local": "StatusBarManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/home_tab.py",
+    "module": "core.managers",
+    "symbol": "TableManager",
+    "local": "TableManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/home_tab.py",
+    "module": "datetime",
+    "symbol": "timedelta",
+    "local": "timedelta",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w10_Planning_Widget.py",
+    "module": "",
+    "symbol": "os",
+    "local": "os",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w10_Planning_Widget.py",
+    "module": "",
+    "symbol": "random",
+    "local": "random",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w10_Planning_Widget.py",
+    "module": "",
+    "symbol": "sys",
+    "local": "sys",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w10_Planning_Widget.py",
+    "module": "PySide6.QtGui",
+    "symbol": "QPixmap",
+    "local": "QPixmap",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w10_Planning_Widget.py",
+    "module": "core.database",
+    "symbol": "DatabaseManager",
+    "local": "DatabaseManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w10_Planning_Widget.py",
+    "module": "core.database",
+    "symbol": "DrillingParameters",
+    "local": "DrillingParameters",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w10_Planning_Widget.py",
+    "module": "core.database",
+    "symbol": "WellPlan",
+    "local": "WellPlan",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w10_Planning_Widget.py",
+    "module": "core.managers",
+    "symbol": "AutoSaveManager",
+    "local": "AutoSaveManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w10_Planning_Widget.py",
+    "module": "core.managers",
+    "symbol": "ShortcutManager",
+    "local": "ShortcutManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w10_Planning_Widget.py",
+    "module": "core.managers",
+    "symbol": "TableButtonManager",
+    "local": "TableButtonManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w10_Planning_Widget.py",
+    "module": "core.selection_manager",
+    "symbol": "SelectionManager",
+    "local": "SelectionManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w10_Planning_Widget.py",
+    "module": "datetime",
+    "symbol": "timedelta",
+    "local": "timedelta",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "module": "",
+    "symbol": "json",
+    "local": "json",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "module": "",
+    "symbol": "matplotlib.colors",
+    "local": "mcolors",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "module": "",
+    "symbol": "sys",
+    "local": "sys",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "module": "core.database",
+    "symbol": "ActivityCode",
+    "local": "ActivityCode",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "module": "core.database",
+    "symbol": "BHAReport",
+    "local": "BHAReport",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "module": "core.database",
+    "symbol": "BOPComponent",
+    "local": "BOPComponent",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "module": "core.database",
+    "symbol": "BitReport",
+    "local": "BitReport",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "module": "core.database",
+    "symbol": "BulkMaterials",
+    "local": "BulkMaterials",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "module": "core.database",
+    "symbol": "CasingReport",
+    "local": "CasingReport",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "module": "core.database",
+    "symbol": "CementReport",
+    "local": "CementReport",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "module": "core.database",
+    "symbol": "Company",
+    "local": "Company",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "module": "core.database",
+    "symbol": "DatabaseManager",
+    "local": "DatabaseManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "module": "core.database",
+    "symbol": "DownholeEquipment",
+    "local": "DownholeEquipment",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "module": "core.database",
+    "symbol": "EquipmentLog",
+    "local": "EquipmentLog",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "module": "core.database",
+    "symbol": "ExportTemplate",
+    "local": "ExportTemplate",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "module": "core.database",
+    "symbol": "FormationReport",
+    "local": "FormationReport",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "module": "core.database",
+    "symbol": "FuelWaterInventory",
+    "local": "FuelWaterInventory",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "module": "core.database",
+    "symbol": "LogisticsPersonnel",
+    "local": "LogisticsPersonnel",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "module": "core.database",
+    "symbol": "MaterialRequest",
+    "local": "MaterialRequest",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "module": "core.database",
+    "symbol": "NPTReport",
+    "local": "NPTReport",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "module": "core.database",
+    "symbol": "Project",
+    "local": "Project",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "module": "core.database",
+    "symbol": "ROPAnalysis",
+    "local": "ROPAnalysis",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "module": "core.database",
+    "symbol": "SafetyIncident",
+    "local": "SafetyIncident",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "module": "core.database",
+    "symbol": "ServiceCompany",
+    "local": "ServiceCompany",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "module": "core.database",
+    "symbol": "ServiceCompanyPOB",
+    "local": "ServiceCompanyPOB",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "module": "core.database",
+    "symbol": "ServiceNote",
+    "local": "ServiceNote",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "module": "core.database",
+    "symbol": "SevenDaysLookahead",
+    "local": "SevenDaysLookahead",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "module": "core.database",
+    "symbol": "SurveyPoint",
+    "local": "SurveyPoint",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "module": "core.database",
+    "symbol": "TimeDepthData",
+    "local": "TimeDepthData",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "module": "core.database",
+    "symbol": "TimeLogMorning",
+    "local": "TimeLogMorning",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "module": "core.database",
+    "symbol": "TrajectoryCalculation",
+    "local": "TrajectoryCalculation",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "module": "core.database",
+    "symbol": "TrajectoryPlot",
+    "local": "TrajectoryPlot",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "module": "core.database",
+    "symbol": "TransportLog",
+    "local": "TransportLog",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "module": "core.database",
+    "symbol": "TransportNotes",
+    "local": "TransportNotes",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "module": "core.database",
+    "symbol": "TripSheetEntry",
+    "local": "TripSheetEntry",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "module": "core.database",
+    "symbol": "User",
+    "local": "User",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "module": "core.database",
+    "symbol": "WasteRecord",
+    "local": "WasteRecord",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "module": "core.database",
+    "symbol": "Well",
+    "local": "Well",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "module": "core.database",
+    "symbol": "WellboreSchematic",
+    "local": "WellboreSchematic",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "module": "core.managers",
+    "symbol": "StatusBarManager",
+    "local": "StatusBarManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "module": "core.managers",
+    "symbol": "TableManager",
+    "local": "TableManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "module": "core.managers",
+    "symbol": "setup_widget_with_managers",
+    "local": "setup_widget_with_managers",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "module": "core.selection_manager",
+    "symbol": "SelectionManager",
+    "local": "SelectionManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "module": "datetime",
+    "symbol": "timedelta",
+    "local": "timedelta",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w12_Analysis.py",
+    "module": "pathlib",
+    "symbol": "Path",
+    "local": "Path",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w13_Engineering_Calculator.py",
+    "module": "",
+    "symbol": "itertools",
+    "local": "itertools",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w13_Engineering_Calculator.py",
+    "module": "",
+    "symbol": "numpy",
+    "local": "np",
+    "restored": false,
+    "loaded_in_current": true,
+    "consumer_files": [],
+    "classification": "REVIEWED-LOCAL-NAME-OR-STRING"
+  },
+  {
+    "file": "tabs/w13_Engineering_Calculator.py",
+    "module": "core.engineering.drill_pipe_import",
+    "symbol": "read_workbook_rows",
+    "local": "read_workbook_rows",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w13_Engineering_Calculator.py",
+    "module": "core.managers",
+    "symbol": "DrillingManager",
+    "local": "DrillingManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w13_Engineering_Calculator.py",
+    "module": "core.managers",
+    "symbol": "StatusBarManager",
+    "local": "StatusBarManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w14_Procedure_Widget.py",
+    "module": "",
+    "symbol": "json",
+    "local": "json",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w14_Procedure_Widget.py",
+    "module": "PySide6.QtCore",
+    "symbol": "QUrl",
+    "local": "QUrl",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w14_Procedure_Widget.py",
+    "module": "PySide6.QtWebEngineWidgets",
+    "symbol": "QWebEngineView",
+    "local": "QWebEngineView",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w14_Procedure_Widget.py",
+    "module": "core.database",
+    "symbol": "DatabaseManager",
+    "local": "DatabaseManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w14_Procedure_Widget.py",
+    "module": "core.managers",
+    "symbol": "ExportManager",
+    "local": "ExportManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w14_Procedure_Widget.py",
+    "module": "core.managers",
+    "symbol": "StatusBarManager",
+    "local": "StatusBarManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w14_Procedure_Widget.py",
+    "module": "datetime",
+    "symbol": "date",
+    "local": "date",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w16_Cost_Management.py",
+    "module": "core.cost_semantics",
+    "symbol": "COST_TYPE_BUDGET",
+    "local": "COST_TYPE_BUDGET",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w16_Cost_Management.py",
+    "module": "core.cost_semantics",
+    "symbol": "canonical_variance",
+    "local": "canonical_variance",
+    "restored": true,
+    "loaded_in_current": true,
+    "consumer_files": [],
+    "classification": "RESTORED"
+  },
+  {
+    "file": "tabs/w16_Cost_Management.py",
+    "module": "core.cost_semantics",
+    "symbol": "summarize_afe",
+    "local": "summarize_afe",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w16_Cost_Management.py",
+    "module": "datetime",
+    "symbol": "date",
+    "local": "date",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w16_Cost_Management.py",
+    "module": "datetime",
+    "symbol": "datetime",
+    "local": "datetime",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w2_Daily_Report.py",
+    "module": "core.managers",
+    "symbol": "StatusBarManager",
+    "local": "StatusBarManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w2_Daily_Report.py",
+    "module": "core.managers",
+    "symbol": "TableButtonManager",
+    "local": "TableButtonManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w2_Daily_Report.py",
+    "module": "core.selection_manager",
+    "symbol": "SelectionManager",
+    "local": "SelectionManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w2_Daily_Report.py",
+    "module": "core.text_utils",
+    "symbol": "wrap_html",
+    "local": "wrap_html",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w2_Daily_Report.py",
+    "module": "core.text_utils",
+    "symbol": "wrap_text",
+    "local": "wrap_text",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w2_Daily_Report.py",
+    "module": "datetime",
+    "symbol": "date",
+    "local": "date",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w2_Daily_Report.py",
+    "module": "datetime",
+    "symbol": "datetime",
+    "local": "datetime",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w3_drilling_report.py",
+    "module": "",
+    "symbol": "matplotlib.pyplot",
+    "local": "plt",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w3_drilling_report.py",
+    "module": "PySide6.QtPrintSupport",
+    "symbol": "QPrintDialog",
+    "local": "QPrintDialog",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w3_drilling_report.py",
+    "module": "PySide6.QtPrintSupport",
+    "symbol": "QPrinter",
+    "local": "QPrinter",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w3_drilling_report.py",
+    "module": "PySide6.QtSvg",
+    "symbol": "QSvgGenerator",
+    "local": "QSvgGenerator",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w3_drilling_report.py",
+    "module": "core.database",
+    "symbol": "DatabaseManager",
+    "local": "DatabaseManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w3_drilling_report.py",
+    "module": "core.managers",
+    "symbol": "AutoSaveManager",
+    "local": "AutoSaveManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w3_drilling_report.py",
+    "module": "core.managers",
+    "symbol": "ExportManager",
+    "local": "ExportManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w3_drilling_report.py",
+    "module": "core.managers",
+    "symbol": "ShortcutManager",
+    "local": "ShortcutManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w3_drilling_report.py",
+    "module": "core.managers",
+    "symbol": "TableButtonManager",
+    "local": "TableButtonManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w3_drilling_report.py",
+    "module": "core.selection_manager",
+    "symbol": "SelectionManager",
+    "local": "SelectionManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w3_drilling_report.py",
+    "module": "datetime",
+    "symbol": "datetime",
+    "local": "datetime",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w3_drilling_report.py",
+    "module": "typing",
+    "symbol": "Any",
+    "local": "Any",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w3_drilling_report.py",
+    "module": "typing",
+    "symbol": "Dict",
+    "local": "Dict",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w3_drilling_report.py",
+    "module": "typing",
+    "symbol": "List",
+    "local": "List",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w3_drilling_report.py",
+    "module": "typing",
+    "symbol": "Optional",
+    "local": "Optional",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w3c_section_data.py",
+    "module": "core.database",
+    "symbol": "DatabaseManager",
+    "local": "DatabaseManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w3c_section_data.py",
+    "module": "core.database",
+    "symbol": "ServiceCompany",
+    "local": "ServiceCompany",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w3c_section_data.py",
+    "module": "core.managers",
+    "symbol": "AutoSaveManager",
+    "local": "AutoSaveManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w3c_section_data.py",
+    "module": "core.managers",
+    "symbol": "DrillingManager",
+    "local": "DrillingManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w3c_section_data.py",
+    "module": "core.managers",
+    "symbol": "TableManager",
+    "local": "TableManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w3c_section_data.py",
+    "module": "core.selection_manager",
+    "symbol": "SelectionManager",
+    "local": "SelectionManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w3c_section_data.py",
+    "module": "core.text_utils",
+    "symbol": "wrap_text",
+    "local": "wrap_text",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w3c_section_data.py",
+    "module": "dialogs.hierarchy_dialogs",
+    "symbol": "BaseHierarchyDialog",
+    "local": "BaseHierarchyDialog",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w4_Downhole_Widget.py",
+    "module": "",
+    "symbol": "csv",
+    "local": "csv",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w4_Downhole_Widget.py",
+    "module": "core.database",
+    "symbol": "DatabaseManager",
+    "local": "DatabaseManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w4_Downhole_Widget.py",
+    "module": "core.managers",
+    "symbol": "DrillingManager",
+    "local": "DrillingManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w4_Downhole_Widget.py",
+    "module": "core.managers",
+    "symbol": "StatusBarManager",
+    "local": "StatusBarManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w4_Downhole_Widget.py",
+    "module": "core.selection_manager",
+    "symbol": "SelectionManager",
+    "local": "SelectionManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w4_Downhole_Widget.py",
+    "module": "datetime",
+    "symbol": "datetime",
+    "local": "datetime",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w4_Downhole_Widget.py",
+    "module": "datetime",
+    "symbol": "timedelta",
+    "local": "timedelta",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w5_Equipment_Widget.py",
+    "module": "",
+    "symbol": "json",
+    "local": "json",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w5_Equipment_Widget.py",
+    "module": "core.database",
+    "symbol": "DailyReport",
+    "local": "DailyReport",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w5_Equipment_Widget.py",
+    "module": "core.database",
+    "symbol": "Well",
+    "local": "Well",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w5_Equipment_Widget.py",
+    "module": "core.managers",
+    "symbol": "TableButtonManager",
+    "local": "TableButtonManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w5_Equipment_Widget.py",
+    "module": "datetime",
+    "symbol": "date",
+    "local": "date",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w5_Equipment_Widget.py",
+    "module": "typing",
+    "symbol": "Any",
+    "local": "Any",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w5_Equipment_Widget.py",
+    "module": "typing",
+    "symbol": "Dict",
+    "local": "Dict",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w5_Equipment_Widget.py",
+    "module": "typing",
+    "symbol": "List",
+    "local": "List",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w5_Equipment_Widget.py",
+    "module": "typing",
+    "symbol": "Optional",
+    "local": "Optional",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w6_Trajectory_Widget.py",
+    "module": "",
+    "symbol": "math",
+    "local": "math",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w6_Trajectory_Widget.py",
+    "module": "",
+    "symbol": "os",
+    "local": "os",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w6_Trajectory_Widget.py",
+    "module": "core.database",
+    "symbol": "Section",
+    "local": "Section",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w6_Trajectory_Widget.py",
+    "module": "core.database",
+    "symbol": "SurveyPoint",
+    "local": "SurveyPoint",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w6_Trajectory_Widget.py",
+    "module": "core.database",
+    "symbol": "TrajectoryCalculation",
+    "local": "TrajectoryCalculation",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w6_Trajectory_Widget.py",
+    "module": "core.database",
+    "symbol": "TrajectoryPlot",
+    "local": "TrajectoryPlot",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w6_Trajectory_Widget.py",
+    "module": "core.database",
+    "symbol": "Well",
+    "local": "Well",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w6_Trajectory_Widget.py",
+    "module": "core.managers",
+    "symbol": "TableButtonManager",
+    "local": "TableButtonManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w6_Trajectory_Widget.py",
+    "module": "datetime",
+    "symbol": "time",
+    "local": "time",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w6_Trajectory_Widget.py",
+    "module": "datetime",
+    "symbol": "timedelta",
+    "local": "timedelta",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w6_Trajectory_Widget.py",
+    "module": "typing",
+    "symbol": "Any",
+    "local": "Any",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w6_Trajectory_Widget.py",
+    "module": "typing",
+    "symbol": "Optional",
+    "local": "Optional",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w6_Trajectory_Widget.py",
+    "module": "typing",
+    "symbol": "Tuple",
+    "local": "Tuple",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w7_logistics_Widget.py",
+    "module": "",
+    "symbol": "json",
+    "local": "json",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w7_logistics_Widget.py",
+    "module": "core.database",
+    "symbol": "DatabaseManager",
+    "local": "DatabaseManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w7_logistics_Widget.py",
+    "module": "core.database",
+    "symbol": "FuelWaterInventory",
+    "local": "FuelWaterInventory",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w7_logistics_Widget.py",
+    "module": "core.database",
+    "symbol": "LogisticsPersonnel",
+    "local": "LogisticsPersonnel",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w7_logistics_Widget.py",
+    "module": "core.database",
+    "symbol": "ServiceCompanyPOB",
+    "local": "ServiceCompanyPOB",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w7_logistics_Widget.py",
+    "module": "core.database",
+    "symbol": "TransportNotes",
+    "local": "TransportNotes",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w7_logistics_Widget.py",
+    "module": "datetime",
+    "symbol": "time",
+    "local": "time",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w7_logistics_Widget.py",
+    "module": "typing",
+    "symbol": "Dict",
+    "local": "Dict",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w7_logistics_Widget.py",
+    "module": "typing",
+    "symbol": "List",
+    "local": "List",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w7_logistics_Widget.py",
+    "module": "typing",
+    "symbol": "Optional",
+    "local": "Optional",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w8_Safety_Widget.py",
+    "module": "",
+    "symbol": "json",
+    "local": "json",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w8_Safety_Widget.py",
+    "module": "core.database",
+    "symbol": "BOPComponent",
+    "local": "BOPComponent",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w8_Safety_Widget.py",
+    "module": "core.database",
+    "symbol": "DatabaseManager",
+    "local": "DatabaseManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w8_Safety_Widget.py",
+    "module": "core.database",
+    "symbol": "SafetyIncident",
+    "local": "SafetyIncident",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w8_Safety_Widget.py",
+    "module": "core.database",
+    "symbol": "SafetyReport",
+    "local": "SafetyReport",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w8_Safety_Widget.py",
+    "module": "core.database",
+    "symbol": "WasteRecord",
+    "local": "WasteRecord",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w8_Safety_Widget.py",
+    "module": "core.managers",
+    "symbol": "StatusBarManager",
+    "local": "StatusBarManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w8_Safety_Widget.py",
+    "module": "core.managers",
+    "symbol": "TableButtonManager",
+    "local": "TableButtonManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w8_Safety_Widget.py",
+    "module": "datetime",
+    "symbol": "date",
+    "local": "date",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w8_Safety_Widget.py",
+    "module": "datetime",
+    "symbol": "datetime",
+    "local": "datetime",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w8_Safety_Widget.py",
+    "module": "datetime",
+    "symbol": "timedelta",
+    "local": "timedelta",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w8_Safety_Widget.py",
+    "module": "typing",
+    "symbol": "Any",
+    "local": "Any",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w8_Safety_Widget.py",
+    "module": "typing",
+    "symbol": "Dict",
+    "local": "Dict",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w8_Safety_Widget.py",
+    "module": "typing",
+    "symbol": "List",
+    "local": "List",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w8_Safety_Widget.py",
+    "module": "typing",
+    "symbol": "Optional",
+    "local": "Optional",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w9_Services_Widget.py",
+    "module": "",
+    "symbol": "csv",
+    "local": "csv",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w9_Services_Widget.py",
+    "module": "",
+    "symbol": "os",
+    "local": "os",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w9_Services_Widget.py",
+    "module": "core.database",
+    "symbol": "DailyReport",
+    "local": "DailyReport",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w9_Services_Widget.py",
+    "module": "core.database",
+    "symbol": "EquipmentLog",
+    "local": "EquipmentLog",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w9_Services_Widget.py",
+    "module": "core.database",
+    "symbol": "MaterialRequest",
+    "local": "MaterialRequest",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w9_Services_Widget.py",
+    "module": "core.database",
+    "symbol": "Section",
+    "local": "Section",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w9_Services_Widget.py",
+    "module": "core.database",
+    "symbol": "ServiceCompany",
+    "local": "ServiceCompany",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w9_Services_Widget.py",
+    "module": "core.database",
+    "symbol": "ServiceNote",
+    "local": "ServiceNote",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w9_Services_Widget.py",
+    "module": "core.database",
+    "symbol": "Well",
+    "local": "Well",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w9_Services_Widget.py",
+    "module": "core.managers",
+    "symbol": "TableButtonManager",
+    "local": "TableButtonManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w9_Services_Widget.py",
+    "module": "core.managers",
+    "symbol": "TableManager",
+    "local": "TableManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w9_Services_Widget.py",
+    "module": "core.selection_manager",
+    "symbol": "SelectionManager",
+    "local": "SelectionManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w9_Services_Widget.py",
+    "module": "datetime",
+    "symbol": "date",
+    "local": "date",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w9_Services_Widget.py",
+    "module": "typing",
+    "symbol": "Any",
+    "local": "Any",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w9_Services_Widget.py",
+    "module": "typing",
+    "symbol": "Dict",
+    "local": "Dict",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w9_Services_Widget.py",
+    "module": "typing",
+    "symbol": "List",
+    "local": "List",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tabs/w9_Services_Widget.py",
+    "module": "typing",
+    "symbol": "Optional",
+    "local": "Optional",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_activity_mapper.py",
+    "module": "core.activity_mapper",
+    "symbol": "ActivityMappingResult",
+    "local": "ActivityMappingResult",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_activity_mapper.py",
+    "module": "core.activity_mapper",
+    "symbol": "KNOWN_CODE_PATTERNS",
+    "local": "KNOWN_CODE_PATTERNS",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_canonical_schema_expanded.py",
+    "module": "",
+    "symbol": "pytest",
+    "local": "pytest",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_cost_truth_boundary.py",
+    "module": "core.database",
+    "symbol": "Section",
+    "local": "Section",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_cost_truth_boundary.py",
+    "module": "core.operations_intelligence",
+    "symbol": "OperationsIntelligenceService",
+    "local": "OperationsIntelligenceService",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_cost_truth_boundary.py",
+    "module": "datetime",
+    "symbol": "date",
+    "local": "date",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_ddr_regression.py",
+    "module": "",
+    "symbol": "os",
+    "local": "os",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_excel_intelligence.py",
+    "module": "",
+    "symbol": "pytest",
+    "local": "pytest",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_excel_intelligence.py",
+    "module": "core.excel_intelligence",
+    "symbol": "DynamicTableExtractor",
+    "local": "DynamicTableExtractor",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_excel_intelligence.py",
+    "module": "core.excel_intelligence",
+    "symbol": "ExcelIntelligence",
+    "local": "ExcelIntelligence",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_excel_intelligence.py",
+    "module": "core.excel_intelligence",
+    "symbol": "ExtractionResult",
+    "local": "ExtractionResult",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_excel_intelligence.py",
+    "module": "core.excel_intelligence",
+    "symbol": "ImportReport",
+    "local": "ImportReport",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_excel_intelligence.py",
+    "module": "core.excel_intelligence",
+    "symbol": "MergeCellAnalyzer",
+    "local": "MergeCellAnalyzer",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_excel_intelligence.py",
+    "module": "core.excel_intelligence",
+    "symbol": "TableExtraction",
+    "local": "TableExtraction",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_extended_engineering.py",
+    "module": "",
+    "symbol": "math",
+    "local": "math",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_golden_ddr.py",
+    "module": "core.canonical_schema",
+    "symbol": "FIELD_SPECS",
+    "local": "FIELD_SPECS",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_hierarchy_updated_at.py",
+    "module": "",
+    "symbol": "os",
+    "local": "os",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_hierarchy_updated_at.py",
+    "module": "",
+    "symbol": "pytest",
+    "local": "pytest",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_import_inventory_routing.py",
+    "module": "core.database",
+    "symbol": "FuelWaterInventory",
+    "local": "FuelWaterInventory",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_integration.py",
+    "module": "core.database",
+    "symbol": "BHAReport",
+    "local": "BHAReport",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_integration.py",
+    "module": "core.database",
+    "symbol": "BitReport",
+    "local": "BitReport",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_integration.py",
+    "module": "core.database",
+    "symbol": "DailyReport",
+    "local": "DailyReport",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_integration.py",
+    "module": "core.database",
+    "symbol": "DrillingParameters",
+    "local": "DrillingParameters",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_integration.py",
+    "module": "core.database",
+    "symbol": "EquipmentLog",
+    "local": "EquipmentLog",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_integration.py",
+    "module": "core.database",
+    "symbol": "FuelWaterInventory",
+    "local": "FuelWaterInventory",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_integration.py",
+    "module": "core.database",
+    "symbol": "SafetyReport",
+    "local": "SafetyReport",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_integration.py",
+    "module": "core.database",
+    "symbol": "ServiceCompanyPOB",
+    "local": "ServiceCompanyPOB",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_integration.py",
+    "module": "core.database",
+    "symbol": "TimeLog24H",
+    "local": "TimeLog24H",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_integration.py",
+    "module": "datetime",
+    "symbol": "datetime",
+    "local": "datetime",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_integration.py",
+    "module": "datetime",
+    "symbol": "time",
+    "local": "time",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_inventory_item_authority.py",
+    "module": "core.database",
+    "symbol": "InventoryItem",
+    "local": "InventoryItem",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_inventory_item_authority.py",
+    "module": "core.database",
+    "symbol": "Section",
+    "local": "Section",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_lineage.py",
+    "module": "",
+    "symbol": "pytest",
+    "local": "pytest",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_mse_persistence.py",
+    "module": "core.database",
+    "symbol": "MSECalculationRecord",
+    "local": "MSECalculationRecord",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_mud_volume_persistence.py",
+    "module": "core.database",
+    "symbol": "MudVolumeCalculationRecord",
+    "local": "MudVolumeCalculationRecord",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_multi_company_template.py",
+    "module": "",
+    "symbol": "json",
+    "local": "json",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_multi_company_template.py",
+    "module": "",
+    "symbol": "pytest",
+    "local": "pytest",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_nozzle_optimization.py",
+    "module": "",
+    "symbol": "re",
+    "local": "re",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_p0_atomic_import.py",
+    "module": "core.database",
+    "symbol": "Base",
+    "local": "Base",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_p0_atomic_import.py",
+    "module": "sqlalchemy",
+    "symbol": "create_engine",
+    "local": "create_engine",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_p0_atomic_import.py",
+    "module": "sqlalchemy.orm",
+    "symbol": "sessionmaker",
+    "local": "sessionmaker",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_p0_engineering_core.py",
+    "module": "",
+    "symbol": "math",
+    "local": "math",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_p0_permissions.py",
+    "module": "core.permissions",
+    "symbol": "ROLE_PERMISSIONS",
+    "local": "ROLE_PERMISSIONS",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_p0_time_log_validation.py",
+    "module": "datetime",
+    "symbol": "time",
+    "local": "time",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_real_oeoc_golden.py",
+    "module": "",
+    "symbol": "os",
+    "local": "os",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_real_oeoc_golden.py",
+    "module": "core.database",
+    "symbol": "ServiceCompanyPOB",
+    "local": "ServiceCompanyPOB",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_real_world_import.py",
+    "module": "",
+    "symbol": "os",
+    "local": "os",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_real_world_import.py",
+    "module": "core.database",
+    "symbol": "DailyReport",
+    "local": "DailyReport",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_release.py",
+    "module": "",
+    "symbol": "PySide6",
+    "local": "PySide6",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_release.py",
+    "module": "",
+    "symbol": "core.canonical_schema",
+    "local": "core",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_release.py",
+    "module": "",
+    "symbol": "core.database",
+    "local": "core",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_release.py",
+    "module": "",
+    "symbol": "core.db_models",
+    "local": "core",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_release.py",
+    "module": "",
+    "symbol": "core.engineering",
+    "local": "core",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_release.py",
+    "module": "",
+    "symbol": "core.lineage",
+    "local": "core",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_release.py",
+    "module": "",
+    "symbol": "core.managers",
+    "local": "core",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_release.py",
+    "module": "",
+    "symbol": "core.unit_manager",
+    "local": "core",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_release.py",
+    "module": "",
+    "symbol": "openpyxl",
+    "local": "openpyxl",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_release.py",
+    "module": "",
+    "symbol": "sqlalchemy",
+    "local": "sqlalchemy",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_release.py",
+    "module": "core.canonical_schema",
+    "symbol": "CANONICAL_FIELDS",
+    "local": "CANONICAL_FIELDS",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_release.py",
+    "module": "core.database",
+    "symbol": "DailyReport",
+    "local": "DailyReport",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_release.py",
+    "module": "core.database",
+    "symbol": "Well",
+    "local": "Well",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_release.py",
+    "module": "core.db_models",
+    "symbol": "Base",
+    "local": "Base",
+    "restored": false,
+    "loaded_in_current": true,
+    "consumer_files": [],
+    "classification": "REVIEWED-LOCAL-NAME-OR-STRING"
+  },
+  {
+    "file": "tests/test_release.py",
+    "module": "core.hierarchy_operations",
+    "symbol": "check_delete_permission",
+    "local": "check_delete_permission",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_release.py",
+    "module": "core.hierarchy_operations",
+    "symbol": "delete_entity",
+    "local": "delete_entity",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_release.py",
+    "module": "core.lineage",
+    "symbol": "get_import_lineage",
+    "local": "get_import_lineage",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_release.py",
+    "module": "core.managers",
+    "symbol": "DrillingManager",
+    "local": "DrillingManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_release.py",
+    "module": "core.managers",
+    "symbol": "StatusBarManager",
+    "local": "StatusBarManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_release.py",
+    "module": "core.managers",
+    "symbol": "TableManager",
+    "local": "TableManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_release.py",
+    "module": "core.selection_manager",
+    "symbol": "SelectionManager",
+    "local": "SelectionManager",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_release.py",
+    "module": "core.validators",
+    "symbol": "DailyReportValidator",
+    "local": "DailyReportValidator",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_release.py",
+    "module": "core.validators",
+    "symbol": "MudValidator",
+    "local": "MudValidator",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_release.py",
+    "module": "core.validators",
+    "symbol": "WellValidator",
+    "local": "WellValidator",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_report_lifecycle.py",
+    "module": "core.database",
+    "symbol": "ReportRevision",
+    "local": "ReportRevision",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_report_snapshot.py",
+    "module": "core.report_snapshot",
+    "symbol": "build_report_snapshot",
+    "local": "build_report_snapshot",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_single_source_guard.py",
+    "module": "",
+    "symbol": "math",
+    "local": "math",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_w12_analytics_truth.py",
+    "module": "",
+    "symbol": "pytest",
+    "local": "pytest",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_w12_analytics_truth.py",
+    "module": "core.database",
+    "symbol": "MudReport",
+    "local": "MudReport",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_w12_scope_leakage_m25.py",
+    "module": "core.database",
+    "symbol": "Section",
+    "local": "Section",
+    "restored": true,
+    "loaded_in_current": true,
+    "consumer_files": [],
+    "classification": "RESTORED"
+  },
+  {
+    "file": "tests/test_w7_null_zero_semantics.py",
+    "module": "core.database",
+    "symbol": "FuelWaterInventory",
+    "local": "FuelWaterInventory",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_well_control_kill_sheet.py",
+    "module": "",
+    "symbol": "math",
+    "local": "math",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_well_control_kill_sheet.py",
+    "module": "core.engineering.well_control_kill_sheet",
+    "symbol": "CHOKE_SCHEDULE_INTERVALS",
+    "local": "CHOKE_SCHEDULE_INTERVALS",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_well_control_kill_sheet.py",
+    "module": "core.engineering.well_control_kill_sheet",
+    "symbol": "PSI_PER_PPG_FT",
+    "local": "PSI_PER_PPG_FT",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  },
+  {
+    "file": "tests/test_well_control_kill_sheet.py",
+    "module": "core.engineering.well_control_kill_sheet",
+    "symbol": "PipeSegment",
+    "local": "PipeSegment",
+    "restored": false,
+    "loaded_in_current": false,
+    "consumer_files": [],
+    "classification": "NO-STATIC-CONSUMER"
+  }
+]

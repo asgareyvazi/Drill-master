@@ -1,0 +1,8 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_____________ test_afe_legacy_summary_uses_same_currency_contract ______________
+tests/test_m29_release_closure.py:298: in test_afe_legacy_summary_uses_same_currency_contract
+    assert (
+E   assert 200.0 is None
+=========================== short test summary info ============================
+FAILED tests/test_m29_release_closure.py::test_afe_legacy_summary_uses_same_currency_contract

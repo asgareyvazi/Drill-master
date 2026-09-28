@@ -1,0 +1,104 @@
+[
+  {
+    "command": "git status --short --branch",
+    "exit": 0,
+    "file": "git-00.txt"
+  },
+  {
+    "command": "git branch -vv",
+    "exit": 0,
+    "file": "git-01.txt"
+  },
+  {
+    "command": "git branch -a",
+    "exit": 0,
+    "file": "git-02.txt"
+  },
+  {
+    "command": "git remote -v",
+    "exit": 0,
+    "file": "git-03.txt"
+  },
+  {
+    "command": "git rev-parse HEAD",
+    "exit": 0,
+    "file": "git-04.txt"
+  },
+  {
+    "command": "git rev-parse --abbrev-ref HEAD",
+    "exit": 0,
+    "file": "git-05.txt"
+  },
+  {
+    "command": "git log --oneline --decorate -30",
+    "exit": 0,
+    "file": "git-06.txt"
+  },
+  {
+    "command": "git show --stat --oneline HEAD",
+    "exit": 0,
+    "file": "git-07.txt"
+  },
+  {
+    "command": "git diff --stat",
+    "exit": 0,
+    "file": "git-08.txt"
+  },
+  {
+    "command": "git diff",
+    "exit": 0,
+    "file": "git-09.txt"
+  },
+  {
+    "command": "git status --porcelain=v1",
+    "exit": 0,
+    "file": "git-10.txt"
+  },
+  {
+    "command": "git rev-parse --is-shallow-repository",
+    "exit": 0,
+    "file": "git-11.txt"
+  },
+  {
+    "resolve": "fb857d7",
+    "exit": 128,
+    "stdout": "",
+    "stderr": "fatal: Needed a single revision\n"
+  },
+  {
+    "resolve": "beaf963",
+    "exit": 128,
+    "stdout": "",
+    "stderr": "fatal: Needed a single revision\n"
+  },
+  {
+    "resolve": "c28bbef",
+    "exit": 0,
+    "stdout": "c28bbef37cbac9de7abcfa693e7e21f678fa74ab\n",
+    "stderr": ""
+  },
+  {
+    "resolve": "2e73747",
+    "exit": 128,
+    "stdout": "",
+    "stderr": "fatal: Needed a single revision\n"
+  },
+  {
+    "resolve": "8a20cb9",
+    "exit": 128,
+    "stdout": "",
+    "stderr": "fatal: Needed a single revision\n"
+  },
+  {
+    "resolve": "2bdc25d",
+    "exit": 128,
+    "stdout": "",
+    "stderr": "fatal: Needed a single revision\n"
+  },
+  {
+    "resolve": "0bbcbd4",
+    "exit": 128,
+    "stdout": "",
+    "stderr": "fatal: Needed a single revision\n"
+  }
+]

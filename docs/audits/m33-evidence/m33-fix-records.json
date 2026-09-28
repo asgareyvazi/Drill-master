@@ -1,0 +1,60 @@
+{
+ "schema": "m33-fix-records",
+ "fixes": [
+  {
+   "id": "M33-FIX-01",
+   "file": "core/data_quality.py",
+   "pre_fix_sha256": "9ebc926f31d99e2b161083b1e55405621cca0a9875cebe51bb142a386df8e562",
+   "post_fix_sha256": "0151a92768ec15d1d26c3e81890c5cd2aad2479b12b97b3c00d2eff92a7ba9cc",
+   "what": "24 h time coverage: any unrecorded duration makes the metric unknown instead of summing it as 0 h",
+   "tests": [
+    "tests/test_m31_scenarios.py::test_time_coverage_is_unknown_when_a_duration_is_missing",
+    "tests/test_m31_scenarios.py::test_summary_excludes_unknown_metrics_and_reports_confidence"
+   ],
+   "mutants": [
+    "R-CODEHOURS (+coverage family)"
+   ],
+   "ledger_records": []
+  },
+  {
+   "id": "M33-FIX-02",
+   "file": "core/engineering/engines/casing.py",
+   "pre_fix_sha256": "caec140b33dc648890cd79719afc19ebebb4f7817dccac110e0e6767807873b6",
+   "post_fix_sha256": "17eb484b1a0957129ea7e45b7101702b9c9d09b99f9263c6cb7a8c097a30e545",
+   "what": "an absent optional axial tension / internal pressure is reported as not recorded, not as a measured 0 / fyax",
+   "tests": [
+    "tests/test_casing_absent_load_semantics.py",
+    "tests/test_casing_absent_load_widget_smoke.py"
+   ],
+   "mutants": [
+    "E-CASING-ECHO",
+    "E-CASING-WARN",
+    "E-W13-FORMAT"
+   ],
+   "ledger_records": [
+    "INV-001613",
+    "INV-001614",
+    "INV-009267"
+   ]
+  },
+  {
+   "id": "M33-FIX-03",
+   "file": "tabs/w3_drilling_report.py",
+   "pre_fix_sha256": "fd6eca6ceac069775a800a52b89cd267c91f729f1847d54d96c74c00ac4a40c0",
+   "post_fix_sha256": "e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0",
+   "what": "a derived value is no longer silently clamped to the widget's Qt default maximum (99.99); the domain bound comes from core/validators.py",
+   "tests": [
+    "tests/test_m31_scenarios.py::test_derived_avg_rop_display_is_not_silently_clamped",
+    "tests/test_m31_scenarios.py::test_calc_spin_domain_maximum_is_explicit"
+   ],
+   "mutants": [
+    "E-W3-CLAMP-MAX",
+    "E-W3-CLAMP-GUARD",
+    "E-W3-CLAMP-BOUND"
+   ],
+   "ledger_records": [
+    "INV-009268"
+   ]
+  }
+ ]
+}

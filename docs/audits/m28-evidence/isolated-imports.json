@@ -1,0 +1,860 @@
+{
+  "implementation_sha": "e83fc3ec85447446e50b4dd2acbc64169d07f054",
+  "results": [
+    {
+      "module": "app",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.activity_mapper",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.actual_vs_plan",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.ai_import_mapper",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.ai_tools",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.api",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.api.rest_api",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.async_workers",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.base_tab",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.cache_manager",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.canonical_mapper",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.canonical_schema",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.combo_identity",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.common_widgets",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.company_mapping",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.cost_semantics",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.credential_policy",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.data_quality",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.database",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.database_reset",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.db_models",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.db_services",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.ddr_import_service",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.ddr_pdf_export",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.document_import",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.domain_records",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.editor_bindings",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.editor_state",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.adapters",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.adapters.torque_drag_adapter",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.adapters.welleng_adapter",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.bridge",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.calculation_verification",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.casing_persistence",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.cement_persistence",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.core",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.drill_pipe",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.drill_pipe_catalog_view",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.drill_pipe_import",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.engines",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.engines.anti_collision",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.engines.bit_performance",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.engines.casing",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.engines.cement",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.engines.fishing",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.engines.mse",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.engines.mud_volume",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.engines.torque_drag",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.engines.trajectory",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.engines.well_control",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.extended",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.mse_persistence",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.mud_volume_persistence",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.registry",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.result",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.torque_drag_persistence",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.well_control_kill_sheet",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.well_control_kill_sheet_persistence",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.error_handler",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.excel_intelligence",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.excel_normalizer",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.fuel_water_semantics",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.functions",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.health_check",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.hierarchy_operations",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.hydraulics_engine",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.import_adapters",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.import_adapters.pdf_tables",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.import_diagnostics",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.import_ir",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.import_profiler",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.import_quality",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.import_router",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.inventory_semantics",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.legacy_bha",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.lineage",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.managers",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.mapping_store",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.mineru_engine",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.mud_ledger",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.mud_records",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.npt_catalog",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.operational_time",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.operations_intelligence",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.optional_capabilities",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.performance",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.permissions",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.professional_export",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.profile_import_engine",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.rag_search",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.report_engine",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.report_lifecycle",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.report_snapshot",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.repositories",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.repositories.audit_repository",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.repositories.base",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.repositories.casing_repository",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.repositories.cement_repository",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.repositories.cost_repository",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.repositories.drill_pipe_reference_repository",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.repositories.logistics_repository",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.repositories.mse_repository",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.repositories.mud_volume_repository",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.repositories.report_repository",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.repositories.safety_repository",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.repositories.service_repository",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.repositories.torque_drag_repository",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.repositories.well_control_kill_sheet_repository",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.repositories.well_repository",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.runtime_config",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.safety_semantics",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.save_outcome",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.scope_attribution",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.selection_manager",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.semantic_tables",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.standards",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.survey_records",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.table_record_mapper",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.text_utils",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.time_utils",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.toolbar_manager",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.trajectory_plot",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.unit_manager",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.universal_import",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.validators",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.value_normalizer",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.version",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.wellbore_schematic_engine",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "core.witsml_import",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "dialogs.bootstrap_dialog",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "dialogs.calculator_dialog",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "dialogs.casing_history_dialog",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "dialogs.cement_history_dialog",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "dialogs.daily_report_dialogs",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "dialogs.drilling_report_dialogs",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "dialogs.engineering_dialogs",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "dialogs.excel_import_dialog",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "dialogs.hierarchy_dialogs",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "dialogs.history_well_filter",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "dialogs.login_dialog",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "dialogs.mse_history_dialog",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "dialogs.mud_volume_history_dialog",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "dialogs.planning_dialog",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "dialogs.report_history_dialog",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "dialogs.settings_dialog",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "dialogs.smart_template_dialog",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "dialogs.startup_dialog",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "dialogs.torque_drag_history_dialog",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "dialogs.well_control_kill_sheet_history_dialog",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "main_window",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "run",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "tabs.home_tab",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "tabs.w10_Planning_Widget",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "tabs.w11_Export",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "tabs.w12_Analysis",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "tabs.w13_Engineering_Calculator",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "tabs.w14_Procedure_Widget",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "tabs.w15_Reference_Tables",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "tabs.w16_Cost_Management",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "tabs.w1_well_info",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "tabs.w2_Daily_Report",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "tabs.w3_drilling_report",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "tabs.w3b_wellbore_schematic_tab",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "tabs.w3c_section_data",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "tabs.w4_Downhole_Widget",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "tabs.w5_Equipment_Widget",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "tabs.w6_Trajectory_Widget",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "tabs.w7_logistics_Widget",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "tabs.w8_Safety_Widget",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "module": "tabs.w9_Services_Widget",
+      "returncode": 0,
+      "stderr": ""
+    }
+  ]
+}

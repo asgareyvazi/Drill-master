@@ -1,0 +1,55 @@
+{
+ "schema": "m33-wheel-and-clean-env",
+ "wheel": {
+  "path": "/tmp/m33-wheel/drillmaster-1.0.0-py3-none-any.whl",
+  "name": "drillmaster-1.0.0-py3-none-any.whl",
+  "bytes": 1036779,
+  "sha256": "af999abbdc70e1d8ad4a1bec6c6bcf4e0e255f7b32ac271b0b0709c92219c26b"
+ },
+ "built_from_tree": "dc5939c80aa8a1a75e9f2a074b196fcacbf3b7f9 (commit-1 staging simulation tree, exported via git archive)",
+ "install": {
+  "command": "pip install --no-deps --target /tmp/m33-wheel-target <wheel>",
+  "isolated_target": "/tmp/m33-wheel-target"
+ },
+ "outside_checkout_run": {
+  "cwd": "/tmp",
+  "checkout_on_sys_path": false,
+  "resolved_modules": {
+   "main_window": "/tmp/m33-wheel-target/main_window.py",
+   "core.database": "/tmp/m33-wheel-target/core/database.py",
+   "core.engineering.engines.casing": "/tmp/m33-wheel-target/core/engineering/engines/casing.py"
+  },
+  "app_run_package_smoke_exit": 0
+ },
+ "runtime_semantics_probe": {
+  "casing_absent_load_echo": "None / axial_tension_supplied=False (fix present in the wheel)"
+ },
+ "lock": {
+  "requirements_lock": "requirements-lock.txt",
+  "installed_mismatches": "none",
+  "pip_check": "No broken requirements found",
+  "note": "verify-venv carries the 26 locked distributions at the exact locked versions plus 7 dev tools outside the runtime lock"
+ },
+ "tracked_only_proof": {
+  "commit1_sha": "a9d7dede612b9c5c86de8eea5555a969811cc77a",
+  "exported_tree": "/tmp/m33-commit1-tree (no .git, only tracked files)",
+  "full_suite_in_exported_tree": {
+   "tests": 1818,
+   "failures": 0,
+   "errors": 0,
+   "skipped": 4,
+   "time_seconds": 285.58,
+   "exit_code": 0
+  },
+  "untracked_modules_now_tracked": [
+   "core/operational_time.py",
+   "core/safety_semantics.py"
+  ]
+ },
+ "not_covered": [
+  "Windows EXE/installer (NOT-RUN)",
+  "native Qt without declared stubs (EXTERNAL-BLOCKED)",
+  "real MinerU/PDF acceptance (external)",
+  "production database and documents (external)"
+ ]
+}

@@ -1,0 +1,10 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_____________ test_snapshot_restore_missing_target_cannot_succeed ______________
+tests/test_m29_release_closure.py:292: in test_snapshot_restore_missing_target_cannot_succeed
+    assert db.restore_import_snapshot(snapshot) is False
+E   AssertionError: assert True is False
+E    +  where True = restore_import_snapshot({'report': {'id': 1, 'well_id': 1, 'section_id': 1, 'wellbore_id': None, ...}, 'children': []})
+E    +    where restore_import_snapshot = <core.database.DatabaseManager object at 0x7fa24eb42850>.restore_import_snapshot
+=========================== short test summary info ============================
+FAILED tests/test_m29_release_closure.py::test_snapshot_restore_missing_target_cannot_succeed

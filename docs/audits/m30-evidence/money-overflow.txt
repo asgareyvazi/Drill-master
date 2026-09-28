@@ -1,0 +1,9 @@
+F...                                                                     [100%]
+=================================== FAILURES ===================================
+_______ test_finite_financial_inputs_must_not_emit_infinite_facts[total] _______
+tests/test_m30_semantic_regressions.py:265: in test_finite_financial_inputs_must_not_emit_infinite_facts
+    with pytest.raises(EngineeringError):
+E   Failed: DID NOT RAISE EngineeringError
+=========================== short test summary info ============================
+FAILED tests/test_m30_semantic_regressions.py::test_finite_financial_inputs_must_not_emit_infinite_facts[total]
+1 failed, 3 passed in 0.30s

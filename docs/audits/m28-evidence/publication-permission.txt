@@ -1,0 +1,6 @@
+Local inherited-repair commit: b158557 (on arena/01a0c945-drill-master).
+Executed: git push origin arena/01a0c945-drill-master
+Remote rejection: refusing to allow a GitHub App to create or update workflow `.github/workflows/ci.yml` without `workflows` permission.
+No successful publication. Later repair commits retained locally. Unchanged permission was not treated as a reason to delete/rewrite the workflow or push another branch.
+Current remote-head query is in remote-heads.txt; repaired session branch is not present remotely.
+A cumulative binary-capable patch against c28bbef is supplied outside the repository at /home/user/mission28-repairs.patch.

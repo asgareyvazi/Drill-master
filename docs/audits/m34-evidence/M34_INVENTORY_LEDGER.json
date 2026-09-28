@@ -1,0 +1,98 @@
+{
+ "schema": "M34_INVENTORY_LEDGER",
+ "generated_utc": "2026-09-27T12:28:27+00:00",
+ "what_this_file_is": "Manifest and invariant projection of the Mission 34 inventory. The per-item ledger (INV-ID, path, symbol, family, line, context fingerprint, source sha256, domain, priority, disposition, rule, root cause, evidence) is m34-ledger.json in this directory; this file states its invariants and pins its hash. Any disagreement is resolved in favour of m34-ledger.json.",
+ "source_of_truth": {
+  "path": "docs/audits/m34-evidence/m34-ledger.json",
+  "sha256": "d81a77bda0330c75493f4081c4a02e4d106fe7602e49c14f0c67d12977658a6b",
+  "bytes": 11394989,
+  "item_count": 11554
+ },
+ "inventory": {
+  "total": 11554,
+  "origin": {
+   "M32-LEDGER": 8570,
+   "M32-LEDGER-ABSENT": 96,
+   "M33-NEW": 266,
+   "M33-FORENSICS": 2,
+   "M34-NEW": 2620
+  },
+  "dispositions": {
+   "INTENTIONAL-BY-DESIGN": 2880,
+   "VERIFIED-CORRECT": 7333,
+   "UNDER-REVIEW": 1224,
+   "DEFECT-FIXED": 51,
+   "EXTERNAL-ACCEPTANCE-ONLY": 17,
+   "REMOVED-WITH-EVIDENCE": 49
+  },
+  "priority": {
+   "MEDIUM": 7766,
+   "HIGH": 372,
+   "LOW": 3416
+  }
+ },
+ "reconciliation": {
+  "note": "the earlier numbers 2232 (M30) / 6860 (M31) / 3518 (M32 remaining) / 8934 (M33) are treated as claims; the comparison below de-duplicates by the M34 identity (path, family, line) and reports what is genuinely new versus carried",
+  "m33_records_ingested": null,
+  "carried_forward_same_file_hash": 8933,
+  "new_hits_after_family_correction": 2620,
+  "hits_already_held_by_m33": 3182
+ },
+ "open_residual": {
+  "under_review": 1224,
+  "evidence_incomplete": 0,
+  "critical": 0,
+  "high": 371,
+  "driven_by_rules": {
+   "R-TRUTH-UNKNOWN": 367,
+   "R-DEF-UNKNOWN": 152,
+   "R-EXC-PASS": 98,
+   "R-TRUTH-NUMERIC": 88,
+   "R-PASS-EXC": 74,
+   "R-EXC-OTHER": 60,
+   "R-EXC-SILENT-RETURN": 52,
+   "R-DEF-RETURN-NUM": 52,
+   "R-PLAN-OTHER": 48,
+   "R-NUM-UNKNOWN": 45,
+   "R-EXC-CONTINUE": 35,
+   "R-SESSION-OTHER": 26,
+   "R-SPIN-ZERO": 26,
+   "R-PASS-OTHER": 23,
+   "R-DEF-VALUE-PATH": 21,
+   "R-SEL-UNPROVEN": 20,
+   "R-SNAP-SERIAL-DEFAULT": 16,
+   "R-RED-UNPROVEN": 14,
+   "R-PARAM-ARITH": 2,
+   "R-PLAN-BASELINE": 2
+  }
+ },
+ "domain_matrix": {
+  "path": "docs/audits/m34-evidence/m34-domain-matrix.json",
+  "domains": 69,
+  "reconciles": true
+ },
+ "verification": {
+  "fix_reverification": "docs/audits/m34-evidence/m34-fix-reverification.json",
+  "mutation_controls": "docs/audits/m34-evidence/m34-mutation-controls.json"
+ },
+ "capture_context": {
+  "head": "c28bbef37cbac9de7abcfa693e7e21f678fa74ab",
+  "tree": "7e16996cdcc1bce4a79fed8823371c20c74eef15",
+  "branch": "arena/01a0c945-drill-master",
+  "python": "3.11.2"
+ },
+ "closure_gate": {
+  "inventory_total": 11554,
+  "terminal_items": 10330,
+  "unreviewed": 1224,
+  "evidence_incomplete": 0,
+  "critical_unresolved": 0,
+  "high_unresolved": 371,
+  "closure_gate_inventory_equals_terminal": false,
+  "closure_gate_unreviewed_zero": false,
+  "closure_gate_evidence_incomplete_zero": true,
+  "blocker_gate_critical_zero": true,
+  "blocker_gate_high_zero": false,
+  "statement": "Semantic closure is NOT claimed: 1224 item(s) remain UNDER-REVIEW and 0 EVIDENCE-INCOMPLETE, of which 371 are HIGH and 0 CRITICAL. Each open item names the fact that is missing; none was closed on pattern alone and none was mass-assigned a disposition."
+ }
+}

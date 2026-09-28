@@ -1,0 +1,8 @@
+{
+  "baseline_occurrences": 2259,
+  "current_occurrences": 2262,
+  "unchanged_expressions": 2249,
+  "removed_or_changed": 10,
+  "added_or_changed": 13,
+  "warning": "Same scanner; multiset comparison ignores line shifts but preserves repeated occurrences. Broad-handler body edits can create removed+added pairs. No scanner labels accepted as semantic approval."
+}

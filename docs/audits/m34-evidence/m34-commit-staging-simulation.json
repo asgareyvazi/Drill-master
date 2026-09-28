@@ -1,0 +1,2264 @@
+{
+ "schema": "m34-commit1-simulation",
+ "generated_utc": "2026-09-27T12:22:38+00:00",
+ "method": "git archive HEAD (tracked pre-image) + the Commit-1 file set copied over it, with no audit record, report or tool from this mission present",
+ "commit1_files": 86,
+ "commit1_paths": [
+  ".github/workflows/ci.yml",
+  "app.py",
+  "core/actual_vs_plan.py",
+  "core/base_tab.py",
+  "core/cost_semantics.py",
+  "core/data_quality.py",
+  "core/database.py",
+  "core/db_models.py",
+  "core/ddr_import_service.py",
+  "core/ddr_pdf_export.py",
+  "core/engineering/bridge.py",
+  "core/engineering/engines/casing.py",
+  "core/engineering/engines/mse.py",
+  "core/engineering/result.py",
+  "core/engineering/well_control_kill_sheet.py",
+  "core/hierarchy_operations.py",
+  "core/inventory_semantics.py",
+  "core/managers.py",
+  "core/mapping_store.py",
+  "core/operational_time.py",
+  "core/operations_intelligence.py",
+  "core/permissions.py",
+  "core/professional_export.py",
+  "core/rag_search.py",
+  "core/report_engine.py",
+  "core/report_snapshot.py",
+  "core/runtime_config.py",
+  "core/safety_semantics.py",
+  "core/scope_attribution.py",
+  "core/selection_manager.py",
+  "core/text_utils.py",
+  "core/unit_manager.py",
+  "core/validators.py",
+  "dialogs/drilling_report_dialogs.py",
+  "dialogs/hierarchy_dialogs.py",
+  "dialogs/planning_dialog.py",
+  "dialogs/smart_template_dialog.py",
+  "main_window.py",
+  "packaging/DrillMaster.spec",
+  "packaging/build_windows.ps1",
+  "packaging/package_smoke.py",
+  "pyproject.toml",
+  "requirements-lock.txt",
+  "tabs/w10_Planning_Widget.py",
+  "tabs/w12_Analysis.py",
+  "tabs/w13_Engineering_Calculator.py",
+  "tabs/w14_Procedure_Widget.py",
+  "tabs/w16_Cost_Management.py",
+  "tabs/w2_Daily_Report.py",
+  "tabs/w3_drilling_report.py",
+  "tabs/w3c_section_data.py",
+  "tabs/w5_Equipment_Widget.py",
+  "tabs/w6_Trajectory_Widget.py",
+  "tabs/w7_logistics_Widget.py",
+  "tabs/w8_Safety_Widget.py",
+  "tests/conftest.py",
+  "tests/test_autosave_manager_regression.py",
+  "tests/test_casing_absent_load_semantics.py",
+  "tests/test_casing_absent_load_widget_smoke.py",
+  "tests/test_cost_management_widget_smoke.py",
+  "tests/test_cost_truth_boundary.py",
+  "tests/test_ddr_acceptance.py",
+  "tests/test_engineering_completion.py",
+  "tests/test_integration.py",
+  "tests/test_m28_finance_safety_plan.py",
+  "tests/test_m29_planning_ui.py",
+  "tests/test_m29_release_closure.py",
+  "tests/test_m30_semantic_regressions.py",
+  "tests/test_m31_scenarios.py",
+  "tests/test_operational_time_integrity.py",
+  "tests/test_operations_intelligence_regressions.py",
+  "tests/test_ownership_parent_edits.py",
+  "tests/test_packaging_smoke.py",
+  "tests/test_planning_material_persistence.py",
+  "tests/test_release.py",
+  "tests/test_release_gate_and_w13.py",
+  "tests/test_release_gate_integrity.py",
+  "tests/test_report_scope_metadata_m25.py",
+  "tests/test_report_snapshot.py",
+  "tests/test_schematic_no_fabrication.py",
+  "tests/test_scope_attribution.py",
+  "tests/test_selection_manager_context.py",
+  "tests/test_test_process_isolation.py",
+  "tests/test_w12_milestones_m25.py",
+  "tests/test_w12_scope_leakage_m25.py",
+  "verify_release.py"
+ ],
+ "decisions": [
+  {
+   "path": "AI_MAPPING.md",
+   "status": "M",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "ARCHITECTURE.md",
+   "status": "M",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "DATABASE_ARCHITECTURE.md",
+   "status": "M",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "DEPLOYMENT.md",
+   "status": "M",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "ENGINEERING_ARCHITECTURE.md",
+   "status": "M",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "ENGINEERING_AUDIT.md",
+   "status": "M",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "ENGINEERING_CAPABILITY_STATUS.md",
+   "status": "M",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "ENGINEERING_REFERENCE_MATRIX.md",
+   "status": "M",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "IMPORT_PIPELINE.md",
+   "status": "M",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "PRODUCTION_READINESS.md",
+   "status": "M",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "README.md",
+   "status": "M",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "RELEASE_NOTES.md",
+   "status": "M",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "TESTING.md",
+   "status": "M",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "app.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "core/actual_vs_plan.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "core/base_tab.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "core/cost_semantics.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "core/data_quality.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "core/database.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "core/db_models.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "core/ddr_import_service.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "core/ddr_pdf_export.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "core/engineering/bridge.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "core/engineering/engines/casing.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "core/engineering/engines/mse.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "core/engineering/result.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "core/engineering/well_control_kill_sheet.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "core/hierarchy_operations.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "core/inventory_semantics.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "core/managers.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "core/mapping_store.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "core/operations_intelligence.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "core/permissions.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "core/professional_export.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "core/rag_search.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "core/report_engine.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "core/report_snapshot.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "core/runtime_config.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "core/scope_attribution.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "core/selection_manager.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "core/text_utils.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "core/unit_manager.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "core/validators.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "dialogs/drilling_report_dialogs.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "dialogs/hierarchy_dialogs.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "dialogs/planning_dialog.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "dialogs/smart_template_dialog.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "docs/ENGINEERING_ARCHITECTURE.md",
+   "status": "M",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/WINDOWS_ACCEPTANCE.md",
+   "status": "M",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/2026-09-22_RELEASE_CANDIDATE_INTEGRITY_CERTIFICATION.md",
+   "status": "M",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "main_window.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "packaging/DrillMaster.spec",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "packaging, configuration or CI"
+  },
+  {
+   "path": "packaging/build_windows.ps1",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "packaging, configuration or CI"
+  },
+  {
+   "path": "packaging/package_smoke.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "packaging, configuration or CI"
+  },
+  {
+   "path": "pyproject.toml",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "packaging, configuration or CI"
+  },
+  {
+   "path": "requirements-lock.txt",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "packaging, configuration or CI"
+  },
+  {
+   "path": "tabs/w10_Planning_Widget.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "tabs/w12_Analysis.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "tabs/w13_Engineering_Calculator.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "tabs/w14_Procedure_Widget.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "tabs/w16_Cost_Management.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "tabs/w2_Daily_Report.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "tabs/w3_drilling_report.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "tabs/w3c_section_data.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "tabs/w5_Equipment_Widget.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "tabs/w6_Trajectory_Widget.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "tabs/w7_logistics_Widget.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "tabs/w8_Safety_Widget.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "tests/conftest.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "test"
+  },
+  {
+   "path": "tests/test_autosave_manager_regression.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "test"
+  },
+  {
+   "path": "tests/test_cost_management_widget_smoke.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "test"
+  },
+  {
+   "path": "tests/test_cost_truth_boundary.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "test"
+  },
+  {
+   "path": "tests/test_ddr_acceptance.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "test"
+  },
+  {
+   "path": "tests/test_engineering_completion.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "test"
+  },
+  {
+   "path": "tests/test_integration.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "test"
+  },
+  {
+   "path": "tests/test_operations_intelligence_regressions.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "test"
+  },
+  {
+   "path": "tests/test_packaging_smoke.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "test"
+  },
+  {
+   "path": "tests/test_planning_material_persistence.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "test"
+  },
+  {
+   "path": "tests/test_release.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "test"
+  },
+  {
+   "path": "tests/test_release_gate_and_w13.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "test"
+  },
+  {
+   "path": "tests/test_report_scope_metadata_m25.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "test"
+  },
+  {
+   "path": "tests/test_report_snapshot.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "test"
+  },
+  {
+   "path": "tests/test_schematic_no_fabrication.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "test"
+  },
+  {
+   "path": "tests/test_scope_attribution.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "test"
+  },
+  {
+   "path": "tests/test_selection_manager_context.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "test"
+  },
+  {
+   "path": "tests/test_w12_milestones_m25.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "test"
+  },
+  {
+   "path": "tests/test_w12_scope_leakage_m25.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "test"
+  },
+  {
+   "path": "tools/certify_ddr.py",
+   "status": "M",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "verify_release.py",
+   "status": "M",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": ".github/workflows/ci.yml",
+   "status": "??",
+   "class": "COMMIT-1",
+   "why": "packaging, configuration or CI"
+  },
+  {
+   "path": "M30_DOMAIN_MATRIX.md",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "M30_RELEASE_CERTIFICATION.md",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "M30_ROOT_CAUSES.md",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "M30_SEMANTIC_AUDIT.md",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "M33_DOMAIN_MATRIX.md",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "M33_ENGINE_DEFAULTS.md",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "M33_EVIDENCE_INDEX.md",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "M33_RELEASE_CERTIFICATION.md",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "M33_ROOT_CAUSES.md",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "M33_SEMANTIC_AUDIT.md",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "M34_AUDIT_ANSWERS.md",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "M34_DOMAIN_MATRIX.md",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "M34_EVIDENCE_INDEX.md",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "M34_FORENSIC_RECOVERY.md",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "M34_M33_RECOVERY.md",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "M34_ROOT_CAUSES.md",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "M34_SEMANTIC_AUDIT.md",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "core/operational_time.py",
+   "status": "??",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "core/safety_semantics.py",
+   "status": "??",
+   "class": "COMMIT-1",
+   "why": "production code"
+  },
+  {
+   "path": "docs/audits/2026-09-22_M27_INDEPENDENT_REAUDIT.md",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/2026-09-22_M28_FORENSIC_RELEASE_GATE.md",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/2026-09-23_M29_DOMAIN_MATRIX.md",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/2026-09-23_M29_RELEASE_CLOSURE.md",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m27-independent-evidence/clean-worktree-refusal.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m27-independent-evidence/environment.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m27-independent-evidence/final-worktree.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m27-independent-evidence/python310-lock-resolution.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m27-independent-evidence/remote-heads.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m27-independent-evidence/repository-workbook.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m27-independent-evidence/residual-probes.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m27-independent-evidence/source-gate.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m27-independent-evidence/source-sha256.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m27-independent-evidence/time-negative-control.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m28-evidence/c28bbef-check-runs.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m28-evidence/environment.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m28-evidence/execution-ledger.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m28-evidence/git-reality.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m28-evidence/import-removals.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m28-evidence/import-summary.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m28-evidence/isolated-imports.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m28-evidence/lock-resolution-310.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m28-evidence/lock-resolution-312.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m28-evidence/lock-resolution-313.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m28-evidence/negative-controls.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m28-evidence/pdf-acceptance-environment-blocked.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m28-evidence/publication-permission.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m28-evidence/real-asset-boundaries.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m28-evidence/remote-actions.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m28-evidence/remote-heads.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m28-evidence/repository-workbook.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m28-evidence/risky-site-inventory.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m28-evidence/source-gate.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m28-evidence/source-manifest.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m28-evidence/source-package-smoke-initial-failure.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m28-evidence/source-package-smoke.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/README.md",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/branch-inventory.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/calendar-mud-tests.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/definition-review.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/domain-matrix.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/environment.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/execution-summary.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/final-source-gate.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/full-gate-first-attempt.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/github-api-response.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/inventory-runner.py",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/inventory-summary.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/isolated-imports.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/latest-focused-tests.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/model-inventory.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-atomic-memory.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-backup.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-calendar-ambiguity.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-controls.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-currency.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-export-return.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-gate.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-mud-direction.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-npt-scope.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-null-plan.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-ownership.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-permission.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-re-export.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-runner.py",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-safety.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-snapshot.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-wheel-gate.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-wheel-runner.py",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-wheel-test.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-wheel.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/post-documentation-lint.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/post-documentation-wheel.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/post-gate-source-check.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/publication-attempt.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/real-pdf-attempt.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/real-pdf-probe.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/recovery-file-inventory.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/risky-site-inventory.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/scope-consumer-index.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/site-adjudications.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/source-manifest.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/unique-branch-content.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m29-evidence/wheel-clean-staging.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/README.md",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/backup-source.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/baseline-gate.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/branches.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/compressed-logs.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/current-ci.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/documentation-claim-queue.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/evidence-manifest.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/final-focused-currency.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/final-gate-e2eeb35.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/final-source-and-controls-check.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/financial-overflow-before.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/fresh-inventory-summary.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/fresh-risky-site-inventory.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/fresh-source-manifest.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/fresh-sweep.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/git-00.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/git-01.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/git-02.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/git-03.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/git-04.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/git-05.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/git-06.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/git-07.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/git-08.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/git-09.txt.gz",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/git-10.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/git-11.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/git-initial.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/huge-integer-before.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/input-assets.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/inventory-summary.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/inventory.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/ledger-runner.py.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-manifest-recheck.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-replay-mutation-atomic-memory.txt.gz",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-replay-mutation-backup.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-replay-mutation-calendar-ambiguity.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-replay-mutation-controls.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-replay-mutation-currency.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-replay-mutation-export-return.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-replay-mutation-gate.txt.gz",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-replay-mutation-mud-direction.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-replay-mutation-npt-scope.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-replay-mutation-null-plan.txt.gz",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-replay-mutation-ownership.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-replay-mutation-permission.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-replay-mutation-re-export.txt.gz",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-replay-mutation-safety.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-replay-mutation-snapshot.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/money-overflow.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/mse-nonfinite.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/mutation-wheel-gate.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/mutation-wheel-test.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/mutation-wheel.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/native-qt.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/new-controls.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/new-regressions-before.txt.gz",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/new.py.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/numeric-overflow.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/patch-verification.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/push-source.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/real-pdf.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/remote-9d511cd.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/remote-beaf963.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/remote-fb857d7.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/remote-heads-after-push.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/replay.py.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/ruff-ratchet-summary.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/ruff-ratchet.json.gz",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/ruff-root-summary.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/ruff-root.json.gz",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/same-pattern-runner.py.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/scope-candidate.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/scope-coverage.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/search-failure.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/second-controls-before.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/snapshot-alias.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/stock-unit.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/sweep-comparison.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/tree-reconstruction.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/unknown-currency-before.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/unknown-currency.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m30-evidence/wheel-replay.py.txt",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m31-evidence/m31-adjudication-pass1.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m31-evidence/m31-adjudication-summary.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m31-evidence/m31-dispositions.jsonl",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m31-evidence/m31-inventory-summary.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m31-evidence/m31-inventory.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m31-evidence/m31-source-manifest.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m32-evidence/m32-absent-evidence-summary.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m32-evidence/m32-absent-evidence.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m32-evidence/m32-fix-batch-1.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m32-evidence/m32-fix-batch-2.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m32-evidence/m32-fix-integrity.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m32-evidence/m32-ledger-summary.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m32-evidence/m32-ledger.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m32-evidence/m32-new-sites.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m32-evidence/m32-revalidation-summary.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m32-evidence/m32-revalidation.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m32-evidence/m32-source-manifest-summary.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m32-evidence/m32-source-manifest.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m32-evidence/m32-sweep-summary.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m32-evidence/m32-sweep.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m33-evidence/M33_INVENTORY_LEDGER.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m33-evidence/M33_PREWORKSPACE_MANIFEST.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-closure-invariants.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-commit-staging-simulation.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-doc-claim-audit.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-domain-matrix.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-evidence-manifest.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-fix-records.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-fresh-sweep.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-full-suite-junit.xml",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-full-suite-summary.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-integrity-incidents.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-ledger-summary.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-ledger.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-m32-fix-reverification.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-mutation-controls.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-reconciliation.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-wheel-and-clean-env.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m34-evidence/M34_INVENTORY_LEDGER.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m34-evidence/M34_PREWORKSPACE_MANIFEST.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m34-evidence/m34-closure-invariants.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m34-evidence/m34-commit-staging-simulation.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m34-evidence/m34-commit1-overlay-junit.xml",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m34-evidence/m34-doc-claim-audit.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m34-evidence/m34-domain-matrix.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m34-evidence/m34-fix-reverification.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m34-evidence/m34-fresh-sweep.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m34-evidence/m34-full-suite-junit.xml",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m34-evidence/m34-git-cleanliness.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m34-evidence/m34-ledger-summary.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m34-evidence/m34-ledger.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m34-evidence/m34-mutation-controls.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m34-evidence/m34-reconciliation.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "docs/audits/m34-evidence/m34-wheel-and-clean-env.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "tests/test_casing_absent_load_semantics.py",
+   "status": "??",
+   "class": "COMMIT-1",
+   "why": "test"
+  },
+  {
+   "path": "tests/test_casing_absent_load_widget_smoke.py",
+   "status": "??",
+   "class": "COMMIT-1",
+   "why": "test"
+  },
+  {
+   "path": "tests/test_m28_finance_safety_plan.py",
+   "status": "??",
+   "class": "COMMIT-1",
+   "why": "test"
+  },
+  {
+   "path": "tests/test_m29_planning_ui.py",
+   "status": "??",
+   "class": "COMMIT-1",
+   "why": "test"
+  },
+  {
+   "path": "tests/test_m29_release_closure.py",
+   "status": "??",
+   "class": "COMMIT-1",
+   "why": "test"
+  },
+  {
+   "path": "tests/test_m30_semantic_regressions.py",
+   "status": "??",
+   "class": "COMMIT-1",
+   "why": "test"
+  },
+  {
+   "path": "tests/test_m31_scenarios.py",
+   "status": "??",
+   "class": "COMMIT-1",
+   "why": "test"
+  },
+  {
+   "path": "tests/test_operational_time_integrity.py",
+   "status": "??",
+   "class": "COMMIT-1",
+   "why": "test"
+  },
+  {
+   "path": "tests/test_ownership_parent_edits.py",
+   "status": "??",
+   "class": "COMMIT-1",
+   "why": "test"
+  },
+  {
+   "path": "tests/test_release_gate_integrity.py",
+   "status": "??",
+   "class": "COMMIT-1",
+   "why": "test"
+  },
+  {
+   "path": "tests/test_test_process_isolation.py",
+   "status": "??",
+   "class": "COMMIT-1",
+   "why": "test"
+  },
+  {
+   "path": "tools/m34/adjudicate34.py",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "tools/m34/audit34.py",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "tools/m34/common.py",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "tools/m34/domain_rules34.py",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "tools/m34/emit_docs34.py",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "tools/m34/kind_family_map.json",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "tools/m34/mutate34.py",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "tools/m34/release34.py",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "tools/m34/repoindex.py",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "tools/m34/reverify_fixes34.py",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "tools/m34/rules34.py",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "tools/m34/stats34.py",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  },
+  {
+   "path": "tools/m34/sweep34.py",
+   "status": "??",
+   "class": "COMMIT-2",
+   "why": "audit record / report / analysis tooling \u2192 Commit 2"
+  }
+ ],
+ "compileall": {
+  "exit_code": 0,
+  "outcome": "OK"
+ },
+ "collect_only": {
+  "exit_code": 0,
+  "collected": 1182,
+  "tail": "lbore_discriminator_import.py: 18\ntests/test_wellbore_identity_conflict_m25.py: 8\ntests/test_wellbore_ownership_integrity.py: 17\ntests/test_wellbore_schema_v3.py: 18\ntests/test_wellbore_scope_display.py: 13\ntests/test_wellbore_section_performance.py: 12\ntests/test_whole_well_scope_labels_m25.py: 1\n\n"
+ },
+ "targeted_tests": {
+  "exit_code": 0,
+  "outcome": "OK",
+  "seconds": 10.1
+ },
+ "targeted_tail": "........................................................................ [ 64%]\n.......................................                                  [100%]\n",
+ "full_suite_in_overlay": {
+  "exit_code": 0,
+  "outcome": "OK",
+  "seconds": 327.6
+ },
+ "full_suite_tail": "\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nSKIPPED [1] tests/test_ddr_acceptance.py:33: DRILLMASTER_TEST_DDR_XLSX is not set; real DDR acceptance is opt-in\nSKIPPED [1] tests/test_ddr_acceptance.py:33: DRILLMASTER_TEST_DDR_PDF is not set; real DDR acceptance is opt-in\nSKIPPED [1] tests/test_mineru_real_integration.py:26: Set MINERU_INTEGRATION_INPUT to run against a real MinerU installation\nSKIPPED [1] tests/test_packaging_smoke.py:66: Windows bundle not available in this environment\n",
+ "previously_untracked_modules_present_in_overlay": true,
+ "missing_in_overlay": [],
+ "import_smoke": {
+  "exit_code": 0,
+  "outcome": "OK",
+  "stdout": "{\n \"core.report_engine\": \"IMPORT-OK\",\n \"core.ddr_pdf_export\": \"IMPORT-OK\",\n \"core.operations_intelligence\": \"IMPORT-OK\",\n \"core.actual_vs_plan\": \"IMPORT-OK\",\n \"tabs.w10_Planning_Widget\": \"IMPORT-OK\",\n \"casing_evaluate\": \"SUCCESS\"\n}\n",
+  "stderr": "[qtstub] libdbus-1.so.3 loaded (115 symbols declared): DECLARED STUB, not native\n[qtstub] libEGL.so.1 loaded (28 symbols declared): DECLARED STUB, not native\n[qtstub] libxkbcommon.so.0 loaded (47 symbols declared): DECLARED STUB, not native\n[qtstub] libGL.so.1 loaded (44 symbols declared): DECLARED STUB, not native\n"
+ },
+ "audit_or_tooling_imports_in_commit1_code": [],
+ "documentation_citations_in_commit1_code": [
+  {
+   "path": "core/database.py",
+   "reference": "docs/audits/2026-09-12_WELLBORE_SCHEMA_V3.md"
+  }
+ ],
+ "audit_or_tooling_references_in_commit1_code": [],
+ "self_contained": true
+}

@@ -1,0 +1,24 @@
+{
+  "source": "/home/user/acceptance-assets/DDR-OEOC-201-AZNS-166.pdf",
+  "sha256": "6ce9b37e4e30c7800191598d9f9febebc12d4cf0ab5932c5d7f6ad1b789a226c",
+  "bytes": 740510,
+  "pages": 4,
+  "text_lengths": [
+    3770,
+    4258,
+    1393,
+    809
+  ],
+  "text_preview": "Latitude:\nLongitude:\nSize (in)\nTo (m)\nGrade\nThread\nNorthing (m):\n20\"\n147\nK-55\nBTC\nEasting(m):\n13-3/8\"\n1338\nN-80\nBTC\n9-5/8\"\n1765.0\nL-80\nPJE\n7\" LNR\n4193\nL-80\nTPCQ\n4-1/2\" Non-Slotted \nLNR\n4199.3\nL-80\nBTC\n4-1/2\" Slotted LNR\n4269.5\nL-80\nBTC\nMIN\nMAX\nno\nhrs\n1\n2\n3\n4\n5\n2.5\n6\n21.5\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28\n29\n24.0\nMIN\nMAX\n6\nInternet Installation – MSA\nCompletion Program\nCompletion String\nCompletion Test Tools\nNote#06 :\nNote#04 :\nReceived\nBack Load \nor \nSent\nNote#05 :\nNote#07 :\nCaCl2 & Related Additives for Completion Fluid.\nMaterial \nRequest\nOut Standing\n6\nNote#01 :\nTotal\nNote#02 :\nNote:\nTotal\nFrom\nhrs.\nREE\n20:00\nRE",
+  "mineru_health": {
+    "available": false,
+    "enabled": false,
+    "executable": null,
+    "python_executable": null,
+    "version": null,
+    "backend": "pipeline",
+    "method": "auto",
+    "error": "MinerU is disabled or not detected"
+  },
+  "acceptance": "MinerU PDF pipeline attempt ENVIRONMENT-BLOCKED; text extraction is NOT semantic import acceptance"
+}

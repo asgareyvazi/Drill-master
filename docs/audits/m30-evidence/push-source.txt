@@ -1,0 +1,3 @@
+To https://github.com/asgareyvazi/Drill-master.git
+ ! [remote rejected] arena/01a0c945-drill-master -> arena/01a0c945-drill-master (refusing to allow a GitHub App to create or update workflow `.github/workflows/ci.yml` without `workflows` permission)
+error: failed to push some refs to 'https://github.com/asgareyvazi/Drill-master.git'

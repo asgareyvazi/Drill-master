@@ -1,0 +1,19 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+______________ test_failed_backup_preserves_previous_destination _______________
+tests/test_m28_finance_safety_plan.py:210: in test_failed_backup_preserves_previous_destination
+    assert db.backup_to(destination) is None
+E   AssertionError: assert '/tmp/pytest-of-user/pytest-23/test_failed_backup_preserves_p0/prior.db' is None
+E    +  where '/tmp/pytest-of-user/pytest-23/test_failed_backup_preserves_p0/prior.db' = backup_to(PosixPath('/tmp/pytest-of-user/pytest-23/test_failed_backup_preserves_p0/prior.db'))
+E    +    where backup_to = <core.database.DatabaseManager object at 0x7f22a3838fd0>.backup_to
+------------------------------ Captured log call -------------------------------
+ERROR    core.database:database.py:10228 Database backup failed
+Traceback (most recent call last):
+  File "/home/user/Drill-master/core/database.py", line 10217, in backup_to
+    source_connection = sqlite3.connect(self.db_path)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/user/Drill-master/tests/test_m28_finance_safety_plan.py", line 207, in broken
+    raise sqlite3.OperationalError("injected backup failure")
+sqlite3.OperationalError: injected backup failure
+=========================== short test summary info ============================
+FAILED tests/test_m28_finance_safety_plan.py::test_failed_backup_preserves_previous_destination

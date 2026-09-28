@@ -1,0 +1,34 @@
+Environment: Python 3.11.2 (main, Apr  8 2026, 01:58:00) [GCC 12.2.0]; platform=linux; Qt=default; Qt stub directory=not declared
+$ git rev-parse HEAD
+c28bbef37cbac9de7abcfa693e7e21f678fa74ab
+$ git status --porcelain=v1 --untracked-files=all
+ M core/database.py
+ M core/engineering/bridge.py
+ M core/operations_intelligence.py
+ M core/report_engine.py
+ M core/report_snapshot.py
+ M core/scope_attribution.py
+ M core/selection_manager.py
+ M core/unit_manager.py
+ M packaging/build_windows.ps1
+ M requirements-lock.txt
+ M tabs/w12_Analysis.py
+ M tabs/w16_Cost_Management.py
+ M tests/conftest.py
+ M tests/test_ddr_acceptance.py
+ M tests/test_release.py
+ M tests/test_release_gate_and_w13.py
+ M tests/test_report_snapshot.py
+ M tests/test_scope_attribution.py
+ M tests/test_selection_manager_context.py
+ M tests/test_w12_scope_leakage_m25.py
+ M verify_release.py
+?? .github/workflows/ci.yml
+?? core/operational_time.py
+?? tests/test_operational_time_integrity.py
+?? tests/test_ownership_parent_edits.py
+?? tests/test_release_gate_integrity.py
+?? tests/test_test_process_isolation.py
+$ git branch --show-current
+arena/01a0c945-drill-master
+FAIL: dirty worktree; --allow-dirty identifies a development run, not a clean release

@@ -1,0 +1,1890 @@
+[
+  {
+    "file": "AI_MAPPING.md",
+    "line": 3,
+    "text": "> **Current evidence — 2026-09-23: [Mission30 checkpoint](M30_RELEASE_CERTIFICATION.md). NOT RELEASE-CERTIFIABLE — EVIDENCE INCOMPLETE.**",
+    "status": "CURRENT",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "AI_MAPPING.md",
+    "line": 4,
+    "text": "> Source `e2eeb3539c5d9c468e73961824e9fe5229864a59`: **1732 collected, 1729 passed, 3 external skips**, no failures/errors/xfail/xpass; 236.34s. Linux installed-wheel smoke passed with explicit Qt dependency stubs, not native Qt/Windows acceptance.",
+    "status": "CURRENT",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "AI_MAPPING.md",
+    "line": 5,
+    "text": "> Only **41/2232** inventory occurrences reviewed; **40 closed**, 2191 unreviewed and one reviewed item unresolved. All 69 domains remain partial. Real MinerU PDF acceptance was environment-blocked. Earlier push lacked App **workflows** permission; latest CI API request returned HTTP 401, so final-source CI is **UNAVAILABLE**.",
+    "status": "CURRENT",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "AI_MAPPING.md",
+    "line": 6,
+    "text": "> Earlier counts/acceptance statements below are historical or unverified, not current certification. Implementation/intended-capability tables and build instructions are not evidence that field/Windows acceptance ran. Claim-by-claim documentation audit remains incomplete.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "AI_MAPPING.md",
+    "line": 12,
+    "text": "`ExcelIntelligence`, does not call MinerU, and never writes SQLite.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "AI_MAPPING.md",
+    "line": 76,
+    "text": "that AI has been tested against the user's Windows runtime or Python 3.12.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ARCHITECTURE.md",
+    "line": 3,
+    "text": "> **Current evidence — 2026-09-23: [Mission30 checkpoint](M30_RELEASE_CERTIFICATION.md). NOT RELEASE-CERTIFIABLE — EVIDENCE INCOMPLETE.**",
+    "status": "CURRENT",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ARCHITECTURE.md",
+    "line": 4,
+    "text": "> Source `e2eeb3539c5d9c468e73961824e9fe5229864a59`: **1732 collected, 1729 passed, 3 external skips**, no failures/errors/xfail/xpass; 236.34s. Linux installed-wheel smoke passed with explicit Qt dependency stubs, not native Qt/Windows acceptance.",
+    "status": "CURRENT",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ARCHITECTURE.md",
+    "line": 5,
+    "text": "> Only **41/2232** inventory occurrences reviewed; **40 closed**, 2191 unreviewed and one reviewed item unresolved. All 69 domains remain partial. Real MinerU PDF acceptance was environment-blocked. Earlier push lacked App **workflows** permission; latest CI API request returned HTTP 401, so final-source CI is **UNAVAILABLE**.",
+    "status": "CURRENT",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ARCHITECTURE.md",
+    "line": 6,
+    "text": "> Earlier counts/acceptance statements below are historical or unverified, not current certification. Implementation/intended-capability tables and build instructions are not evidence that field/Windows acceptance ran. Claim-by-claim documentation audit remains incomplete.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ARCHITECTURE.md",
+    "line": 11,
+    "text": "**Status:** source-level certification checks pass; AZNS-12 production asset, real MinerU/PDF, Windows/Python 3.12/package, and production DB acceptance remain **BLOCKED** in this Linux checkout.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ARCHITECTURE.md",
+    "line": 23,
+    "text": "PDF/document/image -> MinerU adapter -> same common Import IR and downstream path",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ARCHITECTURE.md",
+    "line": 45,
+    "text": "| `core/mineru_engine.py` | external process, output parsing, IR adaptation, canonical normalization | import MinerU into DrillMaster or write SQLite |",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ARCHITECTURE.md",
+    "line": 62,
+    "text": "- MinerU pages, headings, text blocks, tables and raw output metadata.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ARCHITECTURE.md",
+    "line": 64,
+    "text": "`RawDocument.to_dict(include_cells=True)` is the complete audit form;",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ARCHITECTURE.md",
+    "line": 131,
+    "text": "MinerU is an externally managed installation. DrillMaster does not reinstall",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ARCHITECTURE.md",
+    "line": 144,
+    "text": "The application supports the repository's Windows PyInstaller/Inno Setup",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ARCHITECTURE.md",
+    "line": 145,
+    "text": "packaging scripts. This Linux checkout cannot execute the Windows executable,",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ARCHITECTURE.md",
+    "line": 146,
+    "text": "installer, clean-machine upgrade, or the user's Windows MinerU environment.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ARCHITECTURE.md",
+    "line": 147,
+    "text": "Those results must be recorded as BLOCKED/PENDING, never as automated PASS.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "DATABASE_ARCHITECTURE.md",
+    "line": 3,
+    "text": "> **Current evidence — 2026-09-23: [Mission30 checkpoint](M30_RELEASE_CERTIFICATION.md). NOT RELEASE-CERTIFIABLE — EVIDENCE INCOMPLETE.**",
+    "status": "CURRENT",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "DATABASE_ARCHITECTURE.md",
+    "line": 4,
+    "text": "> Source `e2eeb3539c5d9c468e73961824e9fe5229864a59`: **1732 collected, 1729 passed, 3 external skips**, no failures/errors/xfail/xpass; 236.34s. Linux installed-wheel smoke passed with explicit Qt dependency stubs, not native Qt/Windows acceptance.",
+    "status": "CURRENT",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "DATABASE_ARCHITECTURE.md",
+    "line": 5,
+    "text": "> Only **41/2232** inventory occurrences reviewed; **40 closed**, 2191 unreviewed and one reviewed item unresolved. All 69 domains remain partial. Real MinerU PDF acceptance was environment-blocked. Earlier push lacked App **workflows** permission; latest CI API request returned HTTP 401, so final-source CI is **UNAVAILABLE**.",
+    "status": "CURRENT",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "DATABASE_ARCHITECTURE.md",
+    "line": 6,
+    "text": "> Earlier counts/acceptance statements below are historical or unverified, not current certification. Implementation/intended-capability tables and build instructions are not evidence that field/Windows acceptance ran. Claim-by-claim documentation audit remains incomplete.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "DATABASE_ARCHITECTURE.md",
+    "line": 61,
+    "text": "| ReportRevision | report_revisions | Immutable **complete** report snapshots (header + all report-owned child records) |",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "DATABASE_ARCHITECTURE.md",
+    "line": 259,
+    "text": "| `transition_report(id, action, has_permission, user_id, comment, ...)` | **Authoritative** lifecycle path: validates transition + permission + actor + content + ownership, then writes status, a COMPLETE immutable revision snapshot, and the approval action in ONE atomic transaction |",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "DATABASE_ARCHITECTURE.md",
+    "line": 273,
+    "text": "Each domain (drilling, mud, safety, logistics, etc.) has dedicated save/get methods. See the source code for complete API.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "DATABASE_ARCHITECTURE.md",
+    "line": 343,
+    "text": "- **Recovery:** stop the application, restore a verified backup, and restart;",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "DATABASE_ARCHITECTURE.md",
+    "line": 356,
+    "text": "not commit or swallow exceptions when a caller-owned import session is passed.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "DATABASE_ARCHITECTURE.md",
+    "line": 373,
+    "text": "MinerU. PDF/MinerU and Excel both use `core/canonical_mapper.py` for canonical",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "DEPLOYMENT.md",
+    "line": 1,
+    "text": "# DrillMaster Windows deployment and release runbook",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "DEPLOYMENT.md",
+    "line": 3,
+    "text": "> **Current evidence — 2026-09-23: [Mission30 checkpoint](M30_RELEASE_CERTIFICATION.md). NOT RELEASE-CERTIFIABLE — EVIDENCE INCOMPLETE.**",
+    "status": "CURRENT",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "DEPLOYMENT.md",
+    "line": 4,
+    "text": "> Source `e2eeb3539c5d9c468e73961824e9fe5229864a59`: **1732 collected, 1729 passed, 3 external skips**, no failures/errors/xfail/xpass; 236.34s. Linux installed-wheel smoke passed with explicit Qt dependency stubs, not native Qt/Windows acceptance.",
+    "status": "CURRENT",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "DEPLOYMENT.md",
+    "line": 5,
+    "text": "> Only **41/2232** inventory occurrences reviewed; **40 closed**, 2191 unreviewed and one reviewed item unresolved. All 69 domains remain partial. Real MinerU PDF acceptance was environment-blocked. Earlier push lacked App **workflows** permission; latest CI API request returned HTTP 401, so final-source CI is **UNAVAILABLE**.",
+    "status": "CURRENT",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "DEPLOYMENT.md",
+    "line": 6,
+    "text": "> Earlier counts/acceptance statements below are historical or unverified, not current certification. Implementation/intended-capability tables and build instructions are not evidence that field/Windows acceptance ran. Claim-by-claim documentation audit remains incomplete.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "DEPLOYMENT.md",
+    "line": 8,
+    "text": "This repository builds a Windows x64 one-folder application with PyInstaller",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "DEPLOYMENT.md",
+    "line": 12,
+    "text": "> Status: Windows build/EXE/installer acceptance is **NOT VERIFIED** by this",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "DEPLOYMENT.md",
+    "line": 14,
+    "text": "> A Python wheel or fake-bundle structural test is not Windows acceptance.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "DEPLOYMENT.md",
+    "line": 18,
+    "text": "On a Windows build machine install:",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "DEPLOYMENT.md",
+    "line": 20,
+    "text": "- Python 3.12 x64 (the build default and Windows acceptance target)",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "DEPLOYMENT.md",
+    "line": 24,
+    "text": "The build script creates an isolated `.windows-build-venv` and installs the",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "DEPLOYMENT.md",
+    "line": 45,
+    "text": "2. Creates the ignored Windows build virtual environment; rejects reuse with a different Python version.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "DEPLOYMENT.md",
+    "line": 71,
+    "text": "mapping templates. It excludes tests and optional Ollama/Qwen/MinerU/Camelot/",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "DEPLOYMENT.md",
+    "line": 72,
+    "text": "OCR/welleng/torque-drag/gekko packages. Qt's Windows platform plugin is",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "DEPLOYMENT.md",
+    "line": 73,
+    "text": "verified by `package_smoke.py`.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "DEPLOYMENT.md",
+    "line": 82,
+    "text": "Run `DrillMaster-1.0.0-Setup.exe` as a normal Windows installation. The",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "DEPLOYMENT.md",
+    "line": 112,
+    "text": "| Data | Default Windows location |",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "DEPLOYMENT.md",
+    "line": 141,
+    "text": "To uninstall, use Windows Apps/Programs. Installed application files and",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "DEPLOYMENT.md",
+    "line": 145,
+    "text": "## Optional Ollama, Qwen, and MinerU",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "DEPLOYMENT.md",
+    "line": 157,
+    "text": "weight, cloud credential, MinerU/magic-pdf package, or third-party binary is",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "DEPLOYMENT.md",
+    "line": 164,
+    "text": "The following is the manual Windows acceptance checklist. It must be run on a",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "DEPLOYMENT.md",
+    "line": 165,
+    "text": "Windows x64 machine without Python, Git, the repository, or a developer",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "DEPLOYMENT.md",
+    "line": 188,
+    "text": "This Linux environment cannot execute a Windows PE executable or run Inno",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "DEPLOYMENT.md",
+    "line": 189,
+    "text": "Setup. The manual clean-machine, installer upgrade, and Windows Qt-plugin",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "DEPLOYMENT.md",
+    "line": 190,
+    "text": "checks are therefore **pending**, not claimed as passed. The repository does",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "DEPLOYMENT.md",
+    "line": 191,
+    "text": "contain a static packaging test and a frozen-bundle smoke command for Windows",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "DEPLOYMENT.md",
+    "line": 192,
+    "text": "CI/build operators.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "DEPLOYMENT.md",
+    "line": 208,
+    "text": "A green Python test suite is an automated pass only; it is not a Windows",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "DEPLOYMENT.md",
+    "line": 209,
+    "text": "clean-machine pass and does not certify the engineering limitations documented",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "DEPLOYMENT.md",
+    "line": 227,
+    "text": "bcrypt refuse reset before deletion. A complete replacement is built and checked",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "DEPLOYMENT.md",
+    "line": 239,
+    "text": "### PowerShell / Python 3.12 procedure (requires verification on Windows)",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "DEPLOYMENT.md",
+    "line": 241,
+    "text": "Use the same Windows account and `DRILLMASTER_DATA_DIR` / `DRILLMASTER_DB_PATH`",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "DEPLOYMENT.md",
+    "line": 266,
+    "text": "bootstrap environment settings. GUI-created passwords are passed in process",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_ARCHITECTURE.md",
+    "line": 3,
+    "text": "> **Current evidence — 2026-09-23: [Mission30 checkpoint](M30_RELEASE_CERTIFICATION.md). NOT RELEASE-CERTIFIABLE — EVIDENCE INCOMPLETE.**",
+    "status": "CURRENT",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_ARCHITECTURE.md",
+    "line": 4,
+    "text": "> Source `e2eeb3539c5d9c468e73961824e9fe5229864a59`: **1732 collected, 1729 passed, 3 external skips**, no failures/errors/xfail/xpass; 236.34s. Linux installed-wheel smoke passed with explicit Qt dependency stubs, not native Qt/Windows acceptance.",
+    "status": "CURRENT",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_ARCHITECTURE.md",
+    "line": 5,
+    "text": "> Only **41/2232** inventory occurrences reviewed; **40 closed**, 2191 unreviewed and one reviewed item unresolved. All 69 domains remain partial. Real MinerU PDF acceptance was environment-blocked. Earlier push lacked App **workflows** permission; latest CI API request returned HTTP 401, so final-source CI is **UNAVAILABLE**.",
+    "status": "CURRENT",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_ARCHITECTURE.md",
+    "line": 6,
+    "text": "> Earlier counts/acceptance statements below are historical or unverified, not current certification. Implementation/intended-capability tables and build instructions are not evidence that field/Windows acceptance ran. Claim-by-claim documentation audit remains incomplete.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_ARCHITECTURE.md",
+    "line": 9,
+    "text": "> (capability status originally verified on the predecessor",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_ARCHITECTURE.md",
+    "line": 28,
+    "text": "   nothing partial is labelled complete.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_ARCHITECTURE.md",
+    "line": 72,
+    "text": "| `TrajectoryEngine` (MCM, build/turn rate, project-ahead) | `core/engineering/core.py` + `engines/trajectory.py` | COMPLETE — MCM parity-tested vs independent textbook implementation (`tests/test_trajectory_mcm_parity.py`) | W13 facade, surveys |",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_ARCHITECTURE.md",
+    "line": 73,
+    "text": "| `AdvancedHydraulicsEngine` | `core/hydraulics_engine.py` | COMPLETE | W13 facade, dialogs, W15 |",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_ARCHITECTURE.md",
+    "line": 74,
+    "text": "| `WellControlEngine` | `core/engineering/core.py` + `engines/well_control.py` | COMPLETE (IWCF kit: kick tolerance, MAASP, kill MW, formation pressure, fracture gradient, kick volume) | W13 kill sheet, dialogs |",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_ARCHITECTURE.md",
+    "line": 75,
+    "text": "| `MudVolumeEngine` / `MudEngineering` | `engines/mud_volume.py` + `core/engineering/extended.py` | COMPLETE (weight-up, dilution, mixing, OWR, MBT, LSRYP, …) | W13 Mud Lab + facade |",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_ARCHITECTURE.md",
+    "line": 77,
+    "text": "| `CementEngine` | `engines/cement.py` | COMPLETE worksheet / PARTIAL design — volumes, displacement, TOC and hydrostatic; laboratory design unsupported | w13/cement UI paths |",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_ARCHITECTURE.md",
+    "line": 81,
+    "text": "| `MSEEngine` | `engines/mse.py` | COMPLETE (Teale) | analysis UI |",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_ARCHITECTURE.md",
+    "line": 82,
+    "text": "| `BitPerformanceEngine` | `engines/bit_performance.py` | COMPLETE (d-exponent, dc, cost/ft, rollup, run analysis; torque klb.ft→ft·lbf at engine boundary) | W12 Analysis |",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_ARCHITECTURE.md",
+    "line": 83,
+    "text": "| `OperationsIntelligenceEngine`, `MudLedgerEngine`, `BHAEngine` | `core/engineering/core.py` | COMPLETE | analysis tabs |",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_ARCHITECTURE.md",
+    "line": 112,
+    "text": "    scope: str = \"\"         # \"PARTIAL / SCREENING …\" when not complete",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_ARCHITECTURE.md",
+    "line": 149,
+    "text": "Full suite at HEAD: **424 passed, 2 skipped** (2026-09-05 run). Engineering",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_ARCHITECTURE.md",
+    "line": 150,
+    "text": "coverage includes `tests/test_p0_engineering_core.py`,",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_AUDIT.md",
+    "line": 3,
+    "text": "> **Current evidence — 2026-09-23: [Mission30 checkpoint](M30_RELEASE_CERTIFICATION.md). NOT RELEASE-CERTIFIABLE — EVIDENCE INCOMPLETE.**",
+    "status": "CURRENT",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_AUDIT.md",
+    "line": 4,
+    "text": "> Source `e2eeb3539c5d9c468e73961824e9fe5229864a59`: **1732 collected, 1729 passed, 3 external skips**, no failures/errors/xfail/xpass; 236.34s. Linux installed-wheel smoke passed with explicit Qt dependency stubs, not native Qt/Windows acceptance.",
+    "status": "CURRENT",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_AUDIT.md",
+    "line": 5,
+    "text": "> Only **41/2232** inventory occurrences reviewed; **40 closed**, 2191 unreviewed and one reviewed item unresolved. All 69 domains remain partial. Real MinerU PDF acceptance was environment-blocked. Earlier push lacked App **workflows** permission; latest CI API request returned HTTP 401, so final-source CI is **UNAVAILABLE**.",
+    "status": "CURRENT",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_AUDIT.md",
+    "line": 6,
+    "text": "> Earlier counts/acceptance statements below are historical or unverified, not current certification. Implementation/intended-capability tables and build instructions are not evidence that field/Windows acceptance ran. Claim-by-claim documentation audit remains incomplete.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_AUDIT.md",
+    "line": 10,
+    "text": "> **Tests:** full suite **424 passed, 2 skipped, 0 failed** (fresh run);",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_AUDIT.md",
+    "line": 24,
+    "text": "**Strengths (verified at this HEAD):**",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_AUDIT.md",
+    "line": 34,
+    "text": "  `PARTIAL / SCREENING` — nothing partial is claimed complete.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_AUDIT.md",
+    "line": 47,
+    "text": "| Daily Report | ✅ Functional | Import + DB + UI verified end-to-end (OEOC workbook) |",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_AUDIT.md",
+    "line": 57,
+    "text": "| Torque & Drag | 🟡 PARTIAL / SCREENING | soft-string axial/soft model + buoyancy; never claimed COMPLETE |",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_AUDIT.md",
+    "line": 101,
+    "text": "Passed:     424",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_AUDIT.md",
+    "line": 106,
+    "text": "OEOC import batch:    122 passed (golden DDR, multi-company, atomic import)",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_AUDIT.md",
+    "line": 109,
+    "text": "Guard coverage: stale constants (`12031`, `1086.31`, `10863.1`, `1932`)",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_AUDIT.md",
+    "line": 119,
+    "text": "- COMPLETE torque & drag — **PARTIAL / SCREENING soft-string only**",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_AUDIT.md",
+    "line": 138,
+    "text": "2. Wire T&D / anti-collision engines into a UI surface (engines ready,",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_AUDIT.md",
+    "line": 153,
+    "text": "## H. OEOC Real-Import Audit (preserved addendum, re-verified green)",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_AUDIT.md",
+    "line": 155,
+    "text": "Path verified end-to-end with the REAL workbook",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "IMPORT_PIPELINE.md",
+    "line": 3,
+    "text": "> **Current evidence — 2026-09-23: [Mission30 checkpoint](M30_RELEASE_CERTIFICATION.md). NOT RELEASE-CERTIFIABLE — EVIDENCE INCOMPLETE.**",
+    "status": "CURRENT",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "IMPORT_PIPELINE.md",
+    "line": 4,
+    "text": "> Source `e2eeb3539c5d9c468e73961824e9fe5229864a59`: **1732 collected, 1729 passed, 3 external skips**, no failures/errors/xfail/xpass; 236.34s. Linux installed-wheel smoke passed with explicit Qt dependency stubs, not native Qt/Windows acceptance.",
+    "status": "CURRENT",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "IMPORT_PIPELINE.md",
+    "line": 5,
+    "text": "> Only **41/2232** inventory occurrences reviewed; **40 closed**, 2191 unreviewed and one reviewed item unresolved. All 69 domains remain partial. Real MinerU PDF acceptance was environment-blocked. Earlier push lacked App **workflows** permission; latest CI API request returned HTTP 401, so final-source CI is **UNAVAILABLE**.",
+    "status": "CURRENT",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "IMPORT_PIPELINE.md",
+    "line": 6,
+    "text": "> Earlier counts/acceptance statements below are historical or unverified, not current certification. Implementation/intended-capability tables and build instructions are not evidence that field/Windows acceptance ran. Claim-by-claim documentation audit remains incomplete.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "IMPORT_PIPELINE.md",
+    "line": 31,
+    "text": "workbook walk. `DocumentNormalizer` consumes the MinerU-adapted IR and uses the",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "IMPORT_PIPELINE.md",
+    "line": 38,
+    "text": "| `core.import_router.route_file` | route only | no | no | known XLSX -> Excel; PDF/document/image -> MinerU; CSV -> converter; XLS -> unsupported |",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "IMPORT_PIPELINE.md",
+    "line": 42,
+    "text": "| `ExcelImportDialog._run_import_pipeline()` | yes for successful Excel/MinerU paths | yes downstream | **yes**, after preview | PDF legacy conversion can feed canonical Excel template only; no profile fallback |",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "IMPORT_PIPELINE.md",
+    "line": 71,
+    "text": "The real-workbook certification artifact is `docs/review_audit_2026-09.json`;",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "IMPORT_PIPELINE.md",
+    "line": 89,
+    "text": "MinerU is the primary parser and runs out of process using the official CLI",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "IMPORT_PIPELINE.md",
+    "line": 93,
+    "text": "mineru -p INPUT -o OUTPUT -b BACKEND -m METHOD",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "IMPORT_PIPELINE.md",
+    "line": 99,
+    "text": "DrillMaster does not install MinerU or merge environments. The adapter parses",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "IMPORT_PIPELINE.md",
+    "line": 105,
+    "text": "For PDF only, MinerU failure is wired to the existing Camelot -> PyMuPDF -> OCR",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "IMPORT_PIPELINE.md",
+    "line": 107,
+    "text": "`PDF native fallback`, not a MinerU PASS, and it carries weaker PDF-native",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_CAPABILITY_STATUS.md",
+    "line": 3,
+    "text": "> **Current evidence — 2026-09-23: [Mission30 checkpoint](M30_RELEASE_CERTIFICATION.md). NOT RELEASE-CERTIFIABLE — EVIDENCE INCOMPLETE.**",
+    "status": "CURRENT",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_CAPABILITY_STATUS.md",
+    "line": 4,
+    "text": "> Source `e2eeb3539c5d9c468e73961824e9fe5229864a59`: **1732 collected, 1729 passed, 3 external skips**, no failures/errors/xfail/xpass; 236.34s. Linux installed-wheel smoke passed with explicit Qt dependency stubs, not native Qt/Windows acceptance.",
+    "status": "CURRENT",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_CAPABILITY_STATUS.md",
+    "line": 5,
+    "text": "> Only **41/2232** inventory occurrences reviewed; **40 closed**, 2191 unreviewed and one reviewed item unresolved. All 69 domains remain partial. Real MinerU PDF acceptance was environment-blocked. Earlier push lacked App **workflows** permission; latest CI API request returned HTTP 401, so final-source CI is **UNAVAILABLE**.",
+    "status": "CURRENT",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_CAPABILITY_STATUS.md",
+    "line": 6,
+    "text": "> Earlier counts/acceptance statements below are historical or unverified, not current certification. Implementation/intended-capability tables and build instructions are not evidence that field/Windows acceptance ran. Claim-by-claim documentation audit remains incomplete.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_CAPABILITY_STATUS.md",
+    "line": 10,
+    "text": "this branch (the original Engineering Capability Completion work was verified",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_CAPABILITY_STATUS.md",
+    "line": 18,
+    "text": "| Casing | PARTIAL | `CasingEngine` | Pipe-body burst, four-regime collapse, axial tension, combined collapse, inner-wall VME and optional connection/load governing limits. Not a complete API TR 5C3/connection catalogue implementation. |",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_CAPABILITY_STATUS.md",
+    "line": 19,
+    "text": "| Cement | COMPLETE worksheet / PARTIAL design | `CementEngine` | Hole/annular volume, excess, casing capacity, lead/tail legs, spacer, displacement, TOC, hydrostatic stack and slurry balance. Laboratory slurry design, thickening time, UCA, centralization and gas migration are unsupported. |",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_CAPABILITY_STATUS.md",
+    "line": 20,
+    "text": "| Fishing / stuck pipe | PARTIAL / SCREENING | `FishingEngine` | Free point, string stretch, back-off depth with propagated modulus, jar range, adjusted weight and overshot fit. Pull limits and field-certified stuck-pipe prognosis require additional pipe/tool and operational inputs. |",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_CAPABILITY_STATUS.md",
+    "line": 21,
+    "text": "| Well control | COMPLETE calculation kit | `WellControlEngine` | Kill MW, MAASP, fracture gradient, trip margin, kick tolerance/height/volume, influx type and formation pressure. Required fracture, influx and formation inputs are explicit; no silent gradients. |",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_CAPABILITY_STATUS.md",
+    "line": 22,
+    "text": "| Trajectory / directional | COMPLETE MCM core | `TrajectoryEngine` | Minimum curvature TVD/North/East/VS/HD/DLS, build/turn, closure and project-ahead with validation and parity tests. Uncertainty is outside this engine. |",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_CAPABILITY_STATUS.md",
+    "line": 23,
+    "text": "| Mud engineering | COMPLETE for implemented deterministic kit | `MudVolumeEngine`, `MudEngineering`, `HydraulicsEngine` | PV/YP, AV, ECD, annular velocity, balance, dilution, weight-up, mixing, MBT, LSRYP, excess lime, corrosion and slug calculations where inputs support them. No invented laboratory properties. |",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_CAPABILITY_STATUS.md",
+    "line": 24,
+    "text": "| Bit / MSE / performance | COMPLETE for implemented kit | `BitPerformanceEngine`, `MSEEngine`, `AdvancedHydraulicsEngine` | ROP/run rollups, d-exponent, corrected d-exponent, MSE, cost/ft, bit hydraulics, TFA, HSI, jet velocity, impact force and pump output. Results depend on supplied field data. |",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_CAPABILITY_STATUS.md",
+    "line": 34,
+    "text": "- Screening methods are not field-certified or standards-compliant claims.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_CAPABILITY_STATUS.md",
+    "line": 39,
+    "text": "Ground-truth and integration coverage is distributed across:",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "RELEASE_NOTES.md",
+    "line": 3,
+    "text": "> **Current evidence — 2026-09-23: [Mission30 checkpoint](M30_RELEASE_CERTIFICATION.md). NOT RELEASE-CERTIFIABLE — EVIDENCE INCOMPLETE.**",
+    "status": "CURRENT",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "RELEASE_NOTES.md",
+    "line": 4,
+    "text": "> Source `e2eeb3539c5d9c468e73961824e9fe5229864a59`: **1732 collected, 1729 passed, 3 external skips**, no failures/errors/xfail/xpass; 236.34s. Linux installed-wheel smoke passed with explicit Qt dependency stubs, not native Qt/Windows acceptance.",
+    "status": "CURRENT",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "RELEASE_NOTES.md",
+    "line": 5,
+    "text": "> Only **41/2232** inventory occurrences reviewed; **40 closed**, 2191 unreviewed and one reviewed item unresolved. All 69 domains remain partial. Real MinerU PDF acceptance was environment-blocked. Earlier push lacked App **workflows** permission; latest CI API request returned HTTP 401, so final-source CI is **UNAVAILABLE**.",
+    "status": "CURRENT",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "RELEASE_NOTES.md",
+    "line": 6,
+    "text": "> Earlier counts/acceptance statements below are historical or unverified, not current certification. Implementation/intended-capability tables and build instructions are not evidence that field/Windows acceptance ran. Claim-by-claim documentation audit remains incomplete.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "RELEASE_NOTES.md",
+    "line": 21,
+    "text": "- Extended Excel extraction results and MinerU normalization to retain source",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "RELEASE_NOTES.md",
+    "line": 38,
+    "text": "  counts, semantic validation, and a complete 79-item baseline/current audit.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "RELEASE_NOTES.md",
+    "line": 40,
+    "text": "  evidence), failed MinerU output cleanup, and Windows acceptance sequencing.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "RELEASE_NOTES.md",
+    "line": 42,
+    "text": "## Certification status",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "RELEASE_NOTES.md",
+    "line": 44,
+    "text": "- Source compile and pure-Python IR/review smoke checks: **PASS** in this",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "RELEASE_NOTES.md",
+    "line": 46,
+    "text": "- Dependency-backed Python 3.11 complete suite: **530 passed, 8 skipped, 0",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "RELEASE_NOTES.md",
+    "line": 47,
+    "text": "  failed/errors** (538 collected); real repository workbook audit: **PASS for",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "RELEASE_NOTES.md",
+    "line": 48,
+    "text": "  source-level evidence**. This is not Windows/Python 3.12 acceptance.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "RELEASE_NOTES.md",
+    "line": 51,
+    "text": "- User Windows MinerU/PDF: **BLOCKED / not available**.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "RELEASE_NOTES.md",
+    "line": 53,
+    "text": "- Windows PyInstaller/Inno Setup and clean-machine checks: **BLOCKED / not",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "RELEASE_NOTES.md",
+    "line": 59,
+    "text": "PDF-native provenance and is not equivalent to a real MinerU certification.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_REFERENCE_MATRIX.md",
+    "line": 3,
+    "text": "> **Current evidence — 2026-09-23: [Mission30 checkpoint](M30_RELEASE_CERTIFICATION.md). NOT RELEASE-CERTIFIABLE — EVIDENCE INCOMPLETE.**",
+    "status": "CURRENT",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_REFERENCE_MATRIX.md",
+    "line": 4,
+    "text": "> Source `e2eeb3539c5d9c468e73961824e9fe5229864a59`: **1732 collected, 1729 passed, 3 external skips**, no failures/errors/xfail/xpass; 236.34s. Linux installed-wheel smoke passed with explicit Qt dependency stubs, not native Qt/Windows acceptance.",
+    "status": "CURRENT",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_REFERENCE_MATRIX.md",
+    "line": 5,
+    "text": "> Only **41/2232** inventory occurrences reviewed; **40 closed**, 2191 unreviewed and one reviewed item unresolved. All 69 domains remain partial. Real MinerU PDF acceptance was environment-blocked. Earlier push lacked App **workflows** permission; latest CI API request returned HTTP 401, so final-source CI is **UNAVAILABLE**.",
+    "status": "CURRENT",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_REFERENCE_MATRIX.md",
+    "line": 6,
+    "text": "> Earlier counts/acceptance statements below are historical or unverified, not current certification. Implementation/intended-capability tables and build instructions are not evidence that field/Windows acceptance ran. Claim-by-claim documentation audit remains incomplete.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_REFERENCE_MATRIX.md",
+    "line": 8,
+    "text": "> Updated: 2026-09-05 — verified against branch `arena/01a05747-drill-master`",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_REFERENCE_MATRIX.md",
+    "line": 13,
+    "text": "> - **Already implemented / equivalent** — DrillMaster has its own verified",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_REFERENCE_MATRIX.md",
+    "line": 23,
+    "text": "| 2 | `BillyFrcs/DrillingEngineeringOperations` | C# hydraulics pressure-loss modules | Inspected but rejected | DrillMaster `core/hydraulics_engine.py` (Bingham / Power-Law / Herschel-Bulkley) is more complete and already canonical; C# module adds nothing. |",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_REFERENCE_MATRIX.md",
+    "line": 24,
+    "text": "| 3 | `Kukuruza24110/well-engine` | React calc prototype, unverified formulas | Inspected but rejected | Prototype with \"never fabricate\" verification gate but no verified formulas; DrillMaster canonical engines already implement the same verification principle (`EngineeringResult` contracts). |",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "ENGINEERING_REFERENCE_MATRIX.md",
+    "line": 39,
+    "text": "equivalence exists in DrillMaster at the verified HEAD.** No repository above",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "README.md",
+    "line": 3,
+    "text": "> **Current evidence — 2026-09-23: [Mission30 checkpoint](M30_RELEASE_CERTIFICATION.md). NOT RELEASE-CERTIFIABLE — EVIDENCE INCOMPLETE.**",
+    "status": "CURRENT",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "README.md",
+    "line": 4,
+    "text": "> Source `e2eeb3539c5d9c468e73961824e9fe5229864a59`: **1732 collected, 1729 passed, 3 external skips**, no failures/errors/xfail/xpass; 236.34s. Linux installed-wheel smoke passed with explicit Qt dependency stubs, not native Qt/Windows acceptance.",
+    "status": "CURRENT",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "README.md",
+    "line": 5,
+    "text": "> Only **41/2232** inventory occurrences reviewed; **40 closed**, 2191 unreviewed and one reviewed item unresolved. All 69 domains remain partial. Real MinerU PDF acceptance was environment-blocked. Earlier push lacked App **workflows** permission; latest CI API request returned HTTP 401, so final-source CI is **UNAVAILABLE**.",
+    "status": "CURRENT",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "README.md",
+    "line": 6,
+    "text": "> Earlier counts/acceptance statements below are historical or unverified, not current certification. Implementation/intended-capability tables and build instructions are not evidence that field/Windows acceptance ran. Claim-by-claim documentation audit remains incomplete.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "README.md",
+    "line": 10,
+    "text": "DrillMaster is a Windows-oriented Qt desktop application for drilling",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "README.md",
+    "line": 22,
+    "text": "Windows build and clean-machine procedure.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "README.md",
+    "line": 25,
+    "text": "field-certification data, or optional document-processing binaries.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "README.md",
+    "line": 29,
+    "text": "On a clean Windows x64 machine, run `DrillMaster-1.0.0-Setup.exe`. The",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "README.md",
+    "line": 47,
+    "text": "- Windows x64",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "README.md",
+    "line": 59,
+    "text": "The script creates an ignored `.windows-build-venv`, installs",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "README.md",
+    "line": 89,
+    "text": "| `DRILLMASTER_DATA_DIR` | Root for mutable user data | `%LOCALAPPDATA%\\DrillMaster` on Windows |",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "README.md",
+    "line": 137,
+    "text": "preserving the failed database, replacing it with the verified backup, and",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "README.md",
+    "line": 150,
+    "text": "and MinerU package presence without network access unless an explicit probe is",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "README.md",
+    "line": 154,
+    "text": "Ollama access and data-transfer approval. MinerU, `magic-pdf`, Camelot, OCR,",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "README.md",
+    "line": 167,
+    "text": "PDF/document/image -> external MinerU adapter -> same downstream path",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "README.md",
+    "line": 174,
+    "text": "does not reread the workbook as a competing extractor. MinerU remains an",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "README.md",
+    "line": 187,
+    "text": "Real-document certification is environment-gated. Set",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "README.md",
+    "line": 189,
+    "text": "acceptance tests. They skip explicitly when paths or MinerU are unavailable.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "README.md",
+    "line": 191,
+    "text": "Windows MinerU/PDF and Python 3.12/package runtime were not available in this",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "README.md",
+    "line": 192,
+    "text": "Linux checkout, so Windows acceptance is **BLOCKED**, not PASS. See",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "README.md",
+    "line": 204,
+    "text": "- ISCWSA/API TR 5C3 compliance, field certification, pore-pressure prediction,",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "README.md",
+    "line": 219,
+    "text": "# Windows PowerShell: .\\.venv\\Scripts\\Activate.ps1",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "README.md",
+    "line": 240,
+    "text": "The source workflow `.github/workflows/ci.yml` is supplied for Python",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "README.md",
+    "line": 241,
+    "text": "3.11–3.13 with real system Qt libraries. **No GitHub Actions pass is claimed**;",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "README.md",
+    "line": 250,
+    "text": "It does **not** certify Windows, a frozen executable, or production documents.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "README.md",
+    "line": 251,
+    "text": "The Windows EXE smoke is separately invoked by `packaging/build_windows.ps1`.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "TESTING.md",
+    "line": 3,
+    "text": "> **Current evidence — 2026-09-23: [Mission30 checkpoint](M30_RELEASE_CERTIFICATION.md). NOT RELEASE-CERTIFIABLE — EVIDENCE INCOMPLETE.**",
+    "status": "CURRENT",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "TESTING.md",
+    "line": 4,
+    "text": "> Source `e2eeb3539c5d9c468e73961824e9fe5229864a59`: **1732 collected, 1729 passed, 3 external skips**, no failures/errors/xfail/xpass; 236.34s. Linux installed-wheel smoke passed with explicit Qt dependency stubs, not native Qt/Windows acceptance.",
+    "status": "CURRENT",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "TESTING.md",
+    "line": 5,
+    "text": "> Only **41/2232** inventory occurrences reviewed; **40 closed**, 2191 unreviewed and one reviewed item unresolved. All 69 domains remain partial. Real MinerU PDF acceptance was environment-blocked. Earlier push lacked App **workflows** permission; latest CI API request returned HTTP 401, so final-source CI is **UNAVAILABLE**.",
+    "status": "CURRENT",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "TESTING.md",
+    "line": 6,
+    "text": "> Earlier counts/acceptance statements below are historical or unverified, not current certification. Implementation/intended-capability tables and build instructions are not evidence that field/Windows acceptance ran. Claim-by-claim documentation audit remains incomplete.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "TESTING.md",
+    "line": 20,
+    "text": "From the repository root, in a dependency-complete environment:",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "TESTING.md",
+    "line": 35,
+    "text": "1. **Normal Linux with libGL available** (e.g. CI runners):",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "TESTING.md",
+    "line": 54,
+    "text": "Collected: 848   Passed: 844   Failed: 0   Errors: 0   Skipped: 4   XFailed: 0   XPassed: 0",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "TESTING.md",
+    "line": 58,
+    "text": "808 passed / 4 skipped — the +32 tests are the schematic no-fabrication and",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "TESTING.md",
+    "line": 61,
+    "text": "The 4 skips are legitimate opt-ins (real DDR workbook/PDF paths, MinerU",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "TESTING.md",
+    "line": 62,
+    "text": "integration input, Windows bundle). This number is evidence for that run only —",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "TESTING.md",
+    "line": 64,
+    "text": "Windows GUI/package, real MinerU/PDF, or production-DB result is claimed from",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "TESTING.md",
+    "line": 66,
+    "text": "remote execution has not been verified. The release lock does not support 3.10.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "TESTING.md",
+    "line": 90,
+    "text": "also skips when the separately managed MinerU installation is unavailable; it",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "TESTING.md",
+    "line": 91,
+    "text": "does not install MinerU. A supplied but malformed real input fails rather than",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "TESTING.md",
+    "line": 92,
+    "text": "being converted into a synthetic PASS.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "TESTING.md",
+    "line": 111,
+    "text": "- MinerU tables/text/headings adapt to the common IR;",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "TESTING.md",
+    "line": 115,
+    "text": "- canonical values pass the same atomic DB boundary.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "TESTING.md",
+    "line": 126,
+    "text": "| MinerU failures | `test_mineru_engine.py`: unavailable executable, bad input/format, process error, timeout, missing/malformed output |",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "TESTING.md",
+    "line": 146,
+    "text": "## 5. Environment and certification limits",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "TESTING.md",
+    "line": 148,
+    "text": "The repository's Windows packaging is not certified on Linux. The user's",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "TESTING.md",
+    "line": 149,
+    "text": "Windows MinerU installation and AZNS-12 files were not available here. Exact",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "TESTING.md",
+    "line": 150,
+    "text": "Windows/Python 3.12/package commands are in `docs/WINDOWS_ACCEPTANCE.md`.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "TESTING.md",
+    "line": 151,
+    "text": "Python 3.12 is not PASS unless the exact runtime executes the suite and real",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "TESTING.md",
+    "line": 152,
+    "text": "acceptance. Keep real documents, MinerU outputs, databases, and generated",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "TESTING.md",
+    "line": 171,
+    "text": "Headless protocol tests are not native Qt or Windows startup proof. Exact current",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "TESTING.md",
+    "line": 172,
+    "text": "counts and Windows limitations are in",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "TESTING.md",
+    "line": 189,
+    "text": "Table/control protocol tests are not native Qt or Windows certification.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "PRODUCTION_READINESS.md",
+    "line": 3,
+    "text": "> **Current evidence — 2026-09-23: [Mission30 checkpoint](M30_RELEASE_CERTIFICATION.md). NOT RELEASE-CERTIFIABLE — EVIDENCE INCOMPLETE.**",
+    "status": "CURRENT",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "PRODUCTION_READINESS.md",
+    "line": 4,
+    "text": "> Source `e2eeb3539c5d9c468e73961824e9fe5229864a59`: **1732 collected, 1729 passed, 3 external skips**, no failures/errors/xfail/xpass; 236.34s. Linux installed-wheel smoke passed with explicit Qt dependency stubs, not native Qt/Windows acceptance.",
+    "status": "CURRENT",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "PRODUCTION_READINESS.md",
+    "line": 5,
+    "text": "> Only **41/2232** inventory occurrences reviewed; **40 closed**, 2191 unreviewed and one reviewed item unresolved. All 69 domains remain partial. Real MinerU PDF acceptance was environment-blocked. Earlier push lacked App **workflows** permission; latest CI API request returned HTTP 401, so final-source CI is **UNAVAILABLE**.",
+    "status": "CURRENT",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "PRODUCTION_READINESS.md",
+    "line": 6,
+    "text": "> Earlier counts/acceptance statements below are historical or unverified, not current certification. Implementation/intended-capability tables and build instructions are not evidence that field/Windows acceptance ran. Claim-by-claim documentation audit remains incomplete.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "PRODUCTION_READINESS.md",
+    "line": 11,
+    "text": "“verified”, and “release posture” refer to those historical dates. The Mission 29",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "PRODUCTION_READINESS.md",
+    "line": 16,
+    "text": "**Audit date:** 2026-09-08 — **re-verified:** 2026-09-09",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "PRODUCTION_READINESS.md",
+    "line": 19,
+    "text": "**Release posture:** **NOT MERGE-READY until the required real Windows",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "PRODUCTION_READINESS.md",
+    "line": 24,
+    "text": "* Full suite, Python 3.11, headless offscreen Qt: **808 passed, 0 failed,",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "PRODUCTION_READINESS.md",
+    "line": 36,
+    "text": "* Historical CI intent was not present at audit-start HEAD. The independent",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "PRODUCTION_READINESS.md",
+    "line": 37,
+    "text": "  M27 patch supplies a workflow; remote CI remains **NOT VERIFIED**.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "PRODUCTION_READINESS.md",
+    "line": 38,
+    "text": "* Still NOT VERIFIED / BLOCKED: Windows GUI, installer, real MinerU/PDF,",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "PRODUCTION_READINESS.md",
+    "line": 39,
+    "text": "  production database, Python 3.10/3.12/3.13 outside CI.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "PRODUCTION_READINESS.md",
+    "line": 45,
+    "text": "| One canonical Excel downstream path | PASS by source audit | `ExcelIntelligence` consumes `RawDocument`; no DB write in extractor |",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "PRODUCTION_READINESS.md",
+    "line": 46,
+    "text": "| One canonical MinerU/PDF downstream path | PASS by source audit | `MinerUAdapter` -> `DocumentNormalizer` -> common IR/schema/review/save |",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "PRODUCTION_READINESS.md",
+    "line": 47,
+    "text": "| No hidden ProfileImportEngine fallback | PASS | Smart Template hook disabled; direct profile DB method disabled |",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "PRODUCTION_READINESS.md",
+    "line": 48,
+    "text": "| No DB legacy rescue after atomic failure | PASS | compatibility method delegates only to atomic saver |",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "PRODUCTION_READINESS.md",
+    "line": 49,
+    "text": "| ReviewItem complete serialization/edit/save contract | PASS by source + real-workbook audit | `to_dict/from_dict`, normalized provenance/entity/type/mapping metadata, matrix restore, preview edit propagation; 0 missing core fields in the 2026-09-08 audit |",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "PRODUCTION_READINESS.md",
+    "line": 51,
+    "text": "| Real Windows MinerU 3.4.5/PDF | **BLOCKED** | Windows executable/environment unavailable here |",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "PRODUCTION_READINESS.md",
+    "line": 56,
+    "text": "Run on the user's actual Windows installation without reinstalling MinerU or",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "PRODUCTION_READINESS.md",
+    "line": 59,
+    "text": "- exact `mineru.exe` path and output of `mineru --version`;",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "PRODUCTION_READINESS.md",
+    "line": 69,
+    "text": "The official command shape is `mineru -p INPUT -o OUTPUT -b BACKEND -m METHOD`;",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "PRODUCTION_READINESS.md",
+    "line": 76,
+    "text": "when the relevant path is not supplied or when MinerU is unavailable. The",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "PRODUCTION_READINESS.md",
+    "line": 78,
+    "text": "optional-AI, MinerU failure-mode, security, packaging, and release tests.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "PRODUCTION_READINESS.md",
+    "line": 81,
+    "text": "complete suite on 2026-09-08: 530 passed, 8 skipped, 0 failed/errors (538",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "PRODUCTION_READINESS.md",
+    "line": 84,
+    "text": "`pytest` command is not installed, and no Python 3.12 runtime, Windows",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "PRODUCTION_READINESS.md",
+    "line": 85,
+    "text": "executable, real MinerU installation, AZNS-12 asset, or production DB was",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "PRODUCTION_READINESS.md",
+    "line": 86,
+    "text": "executed. The pass count is therefore Linux/Python-3.11 evidence, not",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "PRODUCTION_READINESS.md",
+    "line": 87,
+    "text": "Windows/Python-3.12 acceptance.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "PRODUCTION_READINESS.md",
+    "line": 91,
+    "text": "MinerU is subprocess-only with `shell=False`, argument-list invocation,",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "PRODUCTION_READINESS.md",
+    "line": 94,
+    "text": "MinerU environment, AI models, or generated real-document outputs belong in",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "PRODUCTION_READINESS.md",
+    "line": 97,
+    "text": "The Windows PyInstaller/Inno Setup build remains defined by the existing",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "PRODUCTION_READINESS.md",
+    "line": 98,
+    "text": "packaging scripts. This Linux environment cannot build/run the Windows PE",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "PRODUCTION_READINESS.md",
+    "line": 100,
+    "text": "BLOCKED until executed on Windows.",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "PRODUCTION_READINESS.md",
+    "line": 105,
+    "text": "2. Real MinerU/PDF execution, Windows GUI/Python 3.12/package acceptance, and",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "PRODUCTION_READINESS.md",
+    "line": 108,
+    "text": "   carries weaker PDF-native provenance, and is not a MinerU PASS; it is allowed",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  },
+  {
+    "file": "PRODUCTION_READINESS.md",
+    "line": 121,
+    "text": "package smoke output, and the Windows acceptance record. Until then the status",
+    "status": "UNVERIFIED",
+    "individually_closed": false,
+    "note": "Current banner backed by M30 artifacts; body claims require contextual review, not automatic approval."
+  }
+]

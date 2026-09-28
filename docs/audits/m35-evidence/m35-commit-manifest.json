@@ -1,0 +1,1608 @@
+{
+ "schema": "m35-commit-manifest",
+ "generated_utc": "2026-09-27T13:22:38+00:00",
+ "head": "161e72bdcd0a498451b0c37ff4bc142b282339e8",
+ "rules": {
+  "COMMIT-A": "M35 release/package correctness only (runtime modules + release-boundary regression test); required runtime modules must be tracked for a distributable artifact to start",
+  "COMMIT-B": "behavioural production/test changes from earlier missions; must not be silently bundled with the packaging fix",
+  "COMMIT-C": "audit records, evidence and analysis tooling; behaviour-neutral",
+  "REVIEW-REQUIRED": "large/binary/generated/unclassified — explicit human decision needed"
+ },
+ "population": 253,
+ "by_class": {
+  "COMMIT-C": 248,
+  "REVIEW-REQUIRED": 5
+ },
+ "commit_a": [],
+ "commit_a_size_bytes": 0,
+ "commit_a_details": [
+  {
+   "path": "core/operational_time.py",
+   "tests_covering": [
+    "tests/test_release_boundary_imports.py",
+    "tests/test_operational_time_integrity.py",
+    "tests/test_m30_semantic_regressions.py",
+    "tests/test_m31_scenarios.py"
+   ],
+   "packaging_impact": "adds a required module to wheel/sdist (module was absent from every artifact built from the index)",
+   "runtime_impact": "fixes ModuleNotFoundError at startup (main_window -> tabs.w10)"
+  },
+  {
+   "path": "core/safety_semantics.py",
+   "tests_covering": [
+    "tests/test_release_boundary_imports.py",
+    "tests/test_m28_finance_safety_plan.py",
+    "tests/test_m31_scenarios.py"
+   ],
+   "packaging_impact": "adds a required module to wheel/sdist",
+   "runtime_impact": "fixes ModuleNotFoundError in core.operations_intelligence.safety_kpis"
+  },
+  {
+   "path": "tests/test_release_boundary_imports.py",
+   "tests_covering": [
+    "self-validating (mutation-validated: untracking either module fails 2/3 tests)"
+   ],
+   "packaging_impact": "none (tests are not packaged; the file exists to guard the boundary)",
+   "runtime_impact": "none (test-only)"
+  }
+ ],
+ "commit_a_sha256": {},
+ "review_required": [
+  {
+   "path": "docs/audits/m31-evidence/m31-adjudication-pass1.json",
+   "status": "??",
+   "class": "REVIEW-REQUIRED",
+   "why": "large file (6846300 bytes) — confirm provenance before committing"
+  },
+  {
+   "path": "docs/audits/m32-evidence/m32-ledger.json",
+   "status": "??",
+   "class": "REVIEW-REQUIRED",
+   "why": "large file (6035669 bytes) — confirm provenance before committing"
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-ledger.json",
+   "status": "??",
+   "class": "REVIEW-REQUIRED",
+   "why": "large file (7117048 bytes) — confirm provenance before committing"
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-reconciliation.json",
+   "status": "??",
+   "class": "REVIEW-REQUIRED",
+   "why": "large file (8853925 bytes) — confirm provenance before committing"
+  },
+  {
+   "path": "docs/audits/m34-evidence/m34-ledger.json",
+   "status": "??",
+   "class": "REVIEW-REQUIRED",
+   "why": "large file (11394989 bytes) — confirm provenance before committing"
+  }
+ ],
+ "cross_check_vs_m34_staging_simulation": {
+  "m34_decisions": 355,
+  "differences": [],
+  "difference_count": 0,
+  "mapping_note": "M34 split COMMIT-1/COMMIT-2 (production vs audit); M35 splits A/B/C (M35 packaging vs earlier behavioural vs audit). The comparable axis is behavioural (COMMIT-1) vs audit (COMMIT-2)."
+ },
+ "decisions": [
+  {
+   "path": "M30_DOMAIN_MATRIX.md",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "M30_RELEASE_CERTIFICATION.md",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "M30_ROOT_CAUSES.md",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "M30_SEMANTIC_AUDIT.md",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "M33_DOMAIN_MATRIX.md",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "M33_ENGINE_DEFAULTS.md",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "M33_EVIDENCE_INDEX.md",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "M33_RELEASE_CERTIFICATION.md",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "M33_ROOT_CAUSES.md",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "M33_SEMANTIC_AUDIT.md",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "M34_AUDIT_ANSWERS.md",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "M34_DOMAIN_MATRIX.md",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "M34_EVIDENCE_INDEX.md",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "M34_FORENSIC_RECOVERY.md",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "M34_M33_RECOVERY.md",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "M34_RELEASE_CERTIFICATION.md",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "M34_ROOT_CAUSES.md",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "M34_SEMANTIC_AUDIT.md",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/2026-09-22_M27_INDEPENDENT_REAUDIT.md",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/2026-09-22_M28_FORENSIC_RELEASE_GATE.md",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/2026-09-23_M29_DOMAIN_MATRIX.md",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/2026-09-23_M29_RELEASE_CLOSURE.md",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m27-independent-evidence/clean-worktree-refusal.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m27-independent-evidence/environment.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m27-independent-evidence/final-worktree.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m27-independent-evidence/python310-lock-resolution.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m27-independent-evidence/remote-heads.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m27-independent-evidence/repository-workbook.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m27-independent-evidence/residual-probes.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m27-independent-evidence/source-gate.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m27-independent-evidence/source-sha256.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m27-independent-evidence/time-negative-control.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m28-evidence/c28bbef-check-runs.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m28-evidence/environment.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m28-evidence/execution-ledger.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m28-evidence/git-reality.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m28-evidence/import-removals.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m28-evidence/import-summary.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m28-evidence/isolated-imports.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m28-evidence/lock-resolution-310.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m28-evidence/lock-resolution-312.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m28-evidence/lock-resolution-313.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m28-evidence/negative-controls.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m28-evidence/pdf-acceptance-environment-blocked.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m28-evidence/publication-permission.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m28-evidence/real-asset-boundaries.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m28-evidence/remote-actions.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m28-evidence/remote-heads.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m28-evidence/repository-workbook.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m28-evidence/risky-site-inventory.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m28-evidence/source-gate.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m28-evidence/source-manifest.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m28-evidence/source-package-smoke-initial-failure.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m28-evidence/source-package-smoke.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/README.md",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/branch-inventory.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/calendar-mud-tests.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/definition-review.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/domain-matrix.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/environment.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/execution-summary.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/final-source-gate.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/full-gate-first-attempt.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/github-api-response.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/inventory-runner.py",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/inventory-summary.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/isolated-imports.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/latest-focused-tests.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/model-inventory.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-atomic-memory.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-backup.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-calendar-ambiguity.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-controls.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-currency.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-export-return.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-gate.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-mud-direction.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-npt-scope.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-null-plan.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-ownership.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-permission.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-re-export.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-runner.py",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-safety.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-snapshot.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-wheel-gate.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-wheel-runner.py",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-wheel-test.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-wheel.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/post-documentation-lint.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/post-documentation-wheel.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/post-gate-source-check.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/publication-attempt.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/real-pdf-attempt.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/real-pdf-probe.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/recovery-file-inventory.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/risky-site-inventory.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/scope-consumer-index.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/site-adjudications.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/source-manifest.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/unique-branch-content.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m29-evidence/wheel-clean-staging.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/README.md",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/backup-source.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/baseline-gate.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/branches.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/compressed-logs.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/current-ci.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/documentation-claim-queue.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/evidence-manifest.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/final-focused-currency.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/final-gate-e2eeb35.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/final-source-and-controls-check.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/financial-overflow-before.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/fresh-inventory-summary.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/fresh-risky-site-inventory.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/fresh-source-manifest.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/fresh-sweep.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/git-00.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/git-01.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/git-02.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/git-03.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/git-04.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/git-05.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/git-06.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/git-07.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/git-08.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/git-09.txt.gz",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/git-10.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/git-11.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/git-initial.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/huge-integer-before.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/input-assets.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/inventory-summary.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/inventory.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/ledger-runner.py.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-manifest-recheck.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-replay-mutation-atomic-memory.txt.gz",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-replay-mutation-backup.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-replay-mutation-calendar-ambiguity.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-replay-mutation-controls.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-replay-mutation-currency.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-replay-mutation-export-return.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-replay-mutation-gate.txt.gz",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-replay-mutation-mud-direction.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-replay-mutation-npt-scope.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-replay-mutation-null-plan.txt.gz",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-replay-mutation-ownership.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-replay-mutation-permission.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-replay-mutation-re-export.txt.gz",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-replay-mutation-safety.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-replay-mutation-snapshot.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/money-overflow.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/mse-nonfinite.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/mutation-wheel-gate.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/mutation-wheel-test.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/mutation-wheel.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/native-qt.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/new-controls.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/new-regressions-before.txt.gz",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/new.py.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/numeric-overflow.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/patch-verification.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/push-source.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/real-pdf.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/remote-9d511cd.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/remote-beaf963.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/remote-fb857d7.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/remote-heads-after-push.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/replay.py.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/ruff-ratchet-summary.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/ruff-ratchet.json.gz",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/ruff-root-summary.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/ruff-root.json.gz",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/same-pattern-runner.py.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/scope-candidate.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/scope-coverage.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/search-failure.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/second-controls-before.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/snapshot-alias.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/stock-unit.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/sweep-comparison.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/tree-reconstruction.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/unknown-currency-before.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/unknown-currency.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m30-evidence/wheel-replay.py.txt",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m31-evidence/m31-adjudication-pass1.json",
+   "status": "??",
+   "class": "REVIEW-REQUIRED",
+   "why": "large file (6846300 bytes) — confirm provenance before committing"
+  },
+  {
+   "path": "docs/audits/m31-evidence/m31-adjudication-summary.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m31-evidence/m31-dispositions.jsonl",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m31-evidence/m31-inventory-summary.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m31-evidence/m31-inventory.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m31-evidence/m31-source-manifest.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m32-evidence/m32-absent-evidence-summary.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m32-evidence/m32-absent-evidence.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m32-evidence/m32-fix-batch-1.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m32-evidence/m32-fix-batch-2.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m32-evidence/m32-fix-integrity.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m32-evidence/m32-ledger-summary.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m32-evidence/m32-ledger.json",
+   "status": "??",
+   "class": "REVIEW-REQUIRED",
+   "why": "large file (6035669 bytes) — confirm provenance before committing"
+  },
+  {
+   "path": "docs/audits/m32-evidence/m32-new-sites.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m32-evidence/m32-revalidation-summary.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m32-evidence/m32-revalidation.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m32-evidence/m32-source-manifest-summary.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m32-evidence/m32-source-manifest.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m32-evidence/m32-sweep-summary.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m32-evidence/m32-sweep.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m33-evidence/M33_INVENTORY_LEDGER.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m33-evidence/M33_PREWORKSPACE_MANIFEST.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-closure-invariants.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-commit-staging-simulation.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-doc-claim-audit.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-domain-matrix.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-evidence-manifest.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-fix-records.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-fresh-sweep.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-full-suite-junit.xml",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-full-suite-summary.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-integrity-incidents.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-ledger-summary.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-ledger.json",
+   "status": "??",
+   "class": "REVIEW-REQUIRED",
+   "why": "large file (7117048 bytes) — confirm provenance before committing"
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-m32-fix-reverification.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-mutation-controls.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-reconciliation.json",
+   "status": "??",
+   "class": "REVIEW-REQUIRED",
+   "why": "large file (8853925 bytes) — confirm provenance before committing"
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-wheel-and-clean-env.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m34-evidence/M34_INVENTORY_LEDGER.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m34-evidence/M34_PREWORKSPACE_MANIFEST.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m34-evidence/m34-closure-invariants.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m34-evidence/m34-commit-staging-simulation.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m34-evidence/m34-commit1-overlay-junit.xml",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m34-evidence/m34-doc-claim-audit.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m34-evidence/m34-domain-matrix.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m34-evidence/m34-fix-reverification.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m34-evidence/m34-fresh-sweep.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m34-evidence/m34-full-suite-junit.xml",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m34-evidence/m34-git-cleanliness.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m34-evidence/m34-ledger-summary.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m34-evidence/m34-ledger.json",
+   "status": "??",
+   "class": "REVIEW-REQUIRED",
+   "why": "large file (11394989 bytes) — confirm provenance before committing"
+  },
+  {
+   "path": "docs/audits/m34-evidence/m34-mutation-controls.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m34-evidence/m34-reconciliation.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "docs/audits/m34-evidence/m34-wheel-and-clean-env.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "tools/m34/adjudicate34.py",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "tools/m34/audit34.py",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "tools/m34/common.py",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "tools/m34/domain_rules34.py",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "tools/m34/emit_docs34.py",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "tools/m34/kind_family_map.json",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "tools/m34/mutate34.py",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "tools/m34/release34.py",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "tools/m34/repoindex.py",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "tools/m34/reverify_fixes34.py",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "tools/m34/rules34.py",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "tools/m34/stats34.py",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  },
+  {
+   "path": "tools/m34/sweep34.py",
+   "status": "??",
+   "class": "COMMIT-C",
+   "why": "audit record / evidence / analysis tooling (behaviour-neutral); no production module imports tools/"
+  }
+ ]
+}
