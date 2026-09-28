@@ -1,17 +1,17 @@
 {
  "schema": "m36-open-item-register",
- "generated_utc": "2026-09-28T06:07:56+00:00",
+ "generated_utc": "2026-09-28T06:08:59+00:00",
  "source_register": "docs/audits/m35-evidence/m35-open-item-register.json",
  "source_sha256_declared": "d81a77bda0330c75493f4081c4a02e4d106fe7602e49c14f0c67d12977658a6b",
  "totals": {
   "records": 1224,
-  "open": 952,
+  "open": 907,
   "open_by_priority": {
    "MEDIUM": 853,
-   "HIGH": 99
+   "HIGH": 54
   },
   "open_by_class": {
-   "E": 340,
+   "E": 295,
    "A": 294,
    "C": 159,
    "B": 94,
@@ -7790,13 +7790,16 @@
    "missing_fact": "what the swallowed failure hides, and whether the caller/user must learn of it",
    "why_it_matters": "an unreported failure can leave the user believing an operation succeeded",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "A *statistic* on the sheet analysis, not a decision input: the value is assigned a safe default before the try (`hidden_rows = 0` / `has_merged = False`, 160-162, 222), computed inside it, and only ever written into the analysis dataclass (`has_merged=has_merged`, 386). Nothing branches on it (the field is declared with the same default at 44 and has no other reader - verified by grep), so a failure cannot change what is imported; it only leaves the reported statistic at its default. Site: hidden row/column counts (163).",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-008"
+   "p6_batch": "p6-batch-008",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-002894",
@@ -7815,13 +7818,16 @@
    "missing_fact": "what the swallowed failure hides, and whether the caller/user must learn of it",
    "why_it_matters": "an unreported failure can leave the user believing an operation succeeded",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "A *statistic* on the sheet analysis, not a decision input: the value is assigned a safe default before the try (`hidden_rows = 0` / `has_merged = False`, 160-162, 222), computed inside it, and only ever written into the analysis dataclass (`has_merged=has_merged`, 386). Nothing branches on it (the field is declared with the same default at 44 and has no other reader - verified by grep), so a failure cannot change what is imported; it only leaves the reported statistic at its default. Site: `has_merged` (225).",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-008"
+   "p6_batch": "p6-batch-008",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-002895",
@@ -7892,13 +7898,16 @@
    "missing_fact": "whether a legitimate zero must be distinguished from a missing value",
    "why_it_matters": "zero treated as absent (or vice versa) changes reported quantities",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Rule mis-fire, not a behaviour to adjudicate: the subject is a *list*, not a number: `return [band[0]] if band else []` (408) is the empty-collection guard of a short band, which is the correct way to avoid an IndexError; no numeric value is tested.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-008"
+   "p6_batch": "p6-batch-008",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-002947",
@@ -7917,13 +7926,16 @@
    "missing_fact": "whether a legitimate zero must be distinguished from a missing value",
    "why_it_matters": "zero treated as absent (or vice versa) changes reported quantities",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Rule mis-fire, not a behaviour to adjudicate: the subject is a *list*: `min_val = min(numeric) if numeric else None` (545) is the empty-list guard that avoids `min()`'s ValueError, and the enclosing branch already established that the list is non-empty statistically - the ternary keeps the value None when there is nothing to measure.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-008"
+   "p6_batch": "p6-batch-008",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-002948",
@@ -7942,13 +7954,16 @@
    "missing_fact": "whether a legitimate zero must be distinguished from a missing value",
    "why_it_matters": "zero treated as absent (or vice versa) changes reported quantities",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/universal_import.py:546 - the same empty-list guard for `max()`, already adjudicated under INV34-002947: same construct, one line below",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-008"
+   "p6_batch": "p6-batch-008",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-002961",
@@ -8015,13 +8030,16 @@
    "missing_fact": "what the swallowed failure hides, and whether the caller/user must learn of it",
    "why_it_matters": "an unreported failure can leave the user believing an operation succeeded",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Column-type inference: a cell that does not parse as a number is simply not added to the numeric *sample* (`numeric.append(...)` inside the try), and the type decision afterwards is a ratio test with an explicit floor (`if numeric and len(numeric) >= max(1, len(values) * 0.6)`, 543). Excluding an unparseable cell is the correct behaviour for a 'is this column numeric?' heuristic - the alternative would be inventing a number for it. Site: building the numeric sample (537-539).",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-008"
+   "p6_batch": "p6-batch-008",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-002964",
@@ -8040,13 +8058,16 @@
    "missing_fact": "what the swallowed failure hides, and whether the caller/user must learn of it",
    "why_it_matters": "an unreported failure can leave the user believing an operation succeeded",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Inside a validator whose whole purpose is to *report* problems, and the guarded block only adds a comparison-based message (warning/error) that cannot be evaluated without parseable operands. The parse failures that matter are reported by the numeric loops immediately above (e.g. 'Depth must be numeric', 135-136; 'Length must be numeric', 320-321), so the swallow cannot hide an unreported problem - it avoids a *second*, misleading message for a value that is already flagged. Residual (recorded, not a defect claim): for the fields whose only check is the comparison (dls/od/id/date ordering/overdue dates) a non-numeric value produces no message at all; the engine boundary still refuses such values loudly when they are computed with (e.g. `optional_number` raises for non-numeric geometry), so no wrong result is produced. Site: the logistics Date Out >= Date In check (445-455) on optional date fields.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-008"
+   "p6_batch": "p6-batch-008",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-002965",
@@ -8065,13 +8086,16 @@
    "missing_fact": "what the swallowed failure hides, and whether the caller/user must learn of it",
    "why_it_matters": "an unreported failure can leave the user believing an operation succeeded",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/validators.py:454 - the second rule on the same handler, already adjudicated under INV34-002964: optional date ordering check",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-008"
+   "p6_batch": "p6-batch-008",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-002984",
@@ -8162,13 +8186,16 @@
    "missing_fact": "what the swallowed failure hides, and whether the caller/user must learn of it",
    "why_it_matters": "an unreported failure can leave the user believing an operation succeeded",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Inside a validator whose whole purpose is to *report* problems, and the guarded block only adds a comparison-based message (warning/error) that cannot be evaluated without parseable operands. The parse failures that matter are reported by the numeric loops immediately above (e.g. 'Depth must be numeric', 135-136; 'Length must be numeric', 320-321), so the swallow cannot hide an unreported problem - it avoids a *second*, misleading message for a value that is already flagged. Residual (recorded, not a defect claim): for the fields whose only check is the comparison (dls/od/id/date ordering/overdue dates) a non-numeric value produces no message at all; the engine boundary still refuses such values loudly when they are computed with (e.g. `optional_number` raises for non-numeric geometry), so no wrong result is produced. Site: the DLS warning in the survey loop (283-288). DLS is optional there (`if dls not in (None, \"\")`) and the block's only action is a >15 deg/30m warning.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-008"
+   "p6_batch": "p6-batch-008",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-003004",
@@ -8187,13 +8214,16 @@
    "missing_fact": "what the swallowed failure hides, and whether the caller/user must learn of it",
    "why_it_matters": "an unreported failure can leave the user believing an operation succeeded",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Inside a validator whose whole purpose is to *report* problems, and the guarded block only adds a comparison-based message (warning/error) that cannot be evaluated without parseable operands. The parse failures that matter are reported by the numeric loops immediately above (e.g. 'Depth must be numeric', 135-136; 'Length must be numeric', 320-321), so the swallow cannot hide an unreported problem - it avoids a *second*, misleading message for a value that is already flagged. Residual (recorded, not a defect claim): for the fields whose only check is the comparison (dls/od/id/date ordering/overdue dates) a non-numeric value produces no message at all; the engine boundary still refuses such values loudly when they are computed with (e.g. `optional_number` raises for non-numeric geometry), so no wrong result is produced. Site: the depth@00:00 / depth@24:00 ordering warning, whose operands were already validated at 129-136.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-008"
+   "p6_batch": "p6-batch-008",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-003009",
@@ -8212,13 +8242,16 @@
    "missing_fact": "what the swallowed failure hides, and whether the caller/user must learn of it",
    "why_it_matters": "an unreported failure can leave the user believing an operation succeeded",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/validators.py:142 - the second rule on the same handler, already adjudicated under INV34-003004: the depth operands are already reported",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-008"
+   "p6_batch": "p6-batch-008",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-003012",
@@ -8237,13 +8270,16 @@
    "missing_fact": "what the swallowed failure hides, and whether the caller/user must learn of it",
    "why_it_matters": "an unreported failure can leave the user believing an operation succeeded",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/validators.py:287 - the second rule on the same handler, already adjudicated under INV34-002998: DLS is an optional warning threshold",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-008"
+   "p6_batch": "p6-batch-008",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-003022",
@@ -8754,13 +8790,16 @@
    "missing_fact": "whether the caller can distinguish 'no data' from 'failure'",
    "why_it_matters": "a swallowed failure surfaces as an empty/neutral result in a report",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "A *display* formatter: it renders the number when it parses (`f\"{float(value):,.{digits}f}{suffix}\"`) and otherwise returns the value's own string form (`return str(value)`) - it can never invent a number, and the raw text stays visible in the table/export. This is the family's primary instance (dialogs/casing_history_dialog.py:52-55); the three sibling history dialogs carry the identical helper.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-008"
+   "p6_batch": "p6-batch-008",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-003162",
@@ -8803,13 +8842,16 @@
    "missing_fact": "whether the caller can distinguish 'no data' from 'failure'",
    "why_it_matters": "a swallowed failure surfaces as an empty/neutral result in a report",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for dialogs/cement_history_dialog.py:53-56 - the identical formatter helper, already adjudicated under INV34-003153: A *display* formatter: it renders the number when it parses (`f\"{float(value):,.{digits}f}{suffix}\"`) and otherwise returns the value's own string form (`return str(value)`) - it can never invent a number, and the raw text stays visible in the table/export.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-008"
+   "p6_batch": "p6-batch-008",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-003177",
@@ -8828,13 +8870,16 @@
    "missing_fact": "what the swallowed failure hides, and whether the caller/user must learn of it",
    "why_it_matters": "an unreported failure can leave the user believing an operation succeeded",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Legacy text is parsed back into the dialog's spin boxes and on failure the widgets keep their current (default) contents - the same 'keep widget defaults' contract stated in the sibling branch's comment ('prev_time absent or not HH:MM - keep widget defaults', 152). No time is invented for a malformed legacy value. Site: the from-time branch at 295.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-008"
+   "p6_batch": "p6-batch-008",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-003178",
@@ -8853,13 +8898,16 @@
    "missing_fact": "what the swallowed failure hides, and whether the caller/user must learn of it",
    "why_it_matters": "an unreported failure can leave the user believing an operation succeeded",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for dialogs/daily_report_dialogs.py:304 - the same parse for the to-time branch, same contract, already adjudicated under INV34-003177: the widgets keep their defaults",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-008"
+   "p6_batch": "p6-batch-008",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-003179",
@@ -8878,13 +8926,16 @@
    "missing_fact": "what the swallowed failure hides, and whether the caller/user must learn of it",
    "why_it_matters": "an unreported failure can leave the user believing an operation succeeded",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Legacy text is parsed back into the dialog's spin boxes and on failure the widgets keep their current (default) contents - the same 'keep widget defaults' contract stated in the sibling branch's comment ('prev_time absent or not HH:MM - keep widget defaults', 152). No time is invented for a malformed legacy value. Site: 149-152, with that comment.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-008"
+   "p6_batch": "p6-batch-008",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-003237",
@@ -9403,13 +9454,16 @@
    "missing_fact": "whether a legitimate zero must be distinguished from a missing value",
    "why_it_matters": "zero treated as absent (or vice versa) changes reported quantities",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`estimated_rop = (depth_to - depth_from) / planned_days if planned_days else None` (1210) - the divisor guard returns None ('no estimate') instead of dividing by zero or inventing a rate; planned_days is an operator entry that is legitimately absent.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-008"
+   "p6_batch": "p6-batch-008",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-003467",
@@ -9476,13 +9530,16 @@
    "missing_fact": "whether a legitimate zero must be distinguished from a missing value",
    "why_it_matters": "zero treated as absent (or vice versa) changes reported quantities",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`if self.project_id: self.select_project_by_id(self.project_id)` (855): the subject is a Project primary key and the dialog's constructor argument is optional ('set the initial project if one was given', 854) - a falsy id means 'no initial project', so nothing is selected.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-008"
+   "p6_batch": "p6-batch-008",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-003491",
@@ -9525,13 +9582,16 @@
    "missing_fact": "whether the caller can distinguish 'no data' from 'failure'",
    "why_it_matters": "a swallowed failure surfaces as an empty/neutral result in a report",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for dialogs/mse_history_dialog.py:53-56 - the identical formatter helper, already adjudicated under INV34-003153: A *display* formatter: it renders the number when it parses (`f\"{float(value):,.{digits}f}{suffix}\"`) and otherwise returns the value's own string form (`return str(value)`) - it can never invent a number, and the raw text stays visible in the table/export.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-008"
+   "p6_batch": "p6-batch-008",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-003502",
@@ -9574,13 +9634,16 @@
    "missing_fact": "whether the caller can distinguish 'no data' from 'failure'",
    "why_it_matters": "a swallowed failure surfaces as an empty/neutral result in a report",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for dialogs/mud_volume_history_dialog.py:54-57 - the identical formatter helper, already adjudicated under INV34-003153: A *display* formatter: it renders the number when it parses (`f\"{float(value):,.{digits}f}{suffix}\"`) and otherwise returns the value's own string form (`return str(value)`) - it can never invent a number, and the raw text stays visible in the table/export.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-008"
+   "p6_batch": "p6-batch-008",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-003558",
@@ -9671,17 +9734,20 @@
    "missing_fact": "what the swallowed failure hides, and whether the caller/user must learn of it",
    "why_it_matters": "an unreported failure can leave the user believing an operation succeeded",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "contract_quote": {
     "kind": "explicit-reporting",
     "quote": "logger.error(f\"Load well info error: {e}\")"
    },
    "register_classification": "OPEN-CONTRACT-CANDIDATE",
-   "p6_evidence": null,
+   "p6_evidence": "Stored spud date parsed into the planning dialog's date widget; the handler's own comment states the contract - 'spud date absent/unparseable - keep widget date' (1097) - so a bad stored value cannot fabricate a date, and the widget keeps the operator's current entry.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-008"
+   "p6_batch": "p6-batch-008",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-003572",
@@ -9772,13 +9838,16 @@
    "missing_fact": "whether the caller can distinguish 'no data' from 'failure'",
    "why_it_matters": "a swallowed failure surfaces as an empty/neutral result in a report",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for dialogs/report_history_dialog.py:40-43 - the same display-fallback contract for a date value (`strftime` -> `str(value)`), already adjudicated under INV34-003153: A *display* formatter: it renders the number when it parses (`f\"{float(value):,.{digits}f}{suffix}\"`) and otherwise returns the value's own string form (`return str(value)`) - it can never invent a number, and the raw text stays visible in the table/export.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-008"
+   "p6_batch": "p6-batch-008",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-003603",
@@ -9821,13 +9890,16 @@
    "missing_fact": "what the swallowed failure hides, and whether the caller/user must learn of it",
    "why_it_matters": "an unreported failure can leave the user believing an operation succeeded",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Template-layout analysis: merged-cell bookkeeping over the worksheet (`merged_slaves.add((r, c))`) whose failure leaves the collected set incomplete - it feeds the template analysis only, and the scan continues with its own bounds checks (`range(1, min(ws.max_row + 1, MAX_SCAN_ROWS))`, 2102). No extracted value is changed.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-008"
+   "p6_batch": "p6-batch-008",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-003642",
@@ -9870,13 +9942,16 @@
    "missing_fact": "whether a legitimate zero must be distinguished from a missing value",
    "why_it_matters": "zero treated as absent (or vice versa) changes reported quantities",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`if best_match:` (1411) guards the fuzzy-match result of a name -> code search where `best_match` is initialised to None and can only be set to a key of `MAIN_CODE_MAP` (1405-1410). Those keys are non-empty strings ('1'..'12'+), so no legitimate code is falsy and the test is exactly 'did the fuzzy search find anything?'.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-008"
+   "p6_batch": "p6-batch-008",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-003707",
@@ -9895,13 +9970,16 @@
    "missing_fact": "whether a legitimate zero must be distinguished from a missing value",
    "why_it_matters": "zero treated as absent (or vice versa) changes reported quantities",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for dialogs/smart_template_dialog.py:1485 - the identical guard for the sub-code fuzzy search (`SUB_CODE_MAP` keys are '1.1'-style non-empty strings), already adjudicated under INV34-003705: same 'did the search find anything?' test",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-008"
+   "p6_batch": "p6-batch-008",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-003751",
@@ -9972,13 +10050,16 @@
    "missing_fact": "what the swallowed failure hides, and whether the caller/user must learn of it",
    "why_it_matters": "an unreported failure can leave the user believing an operation succeeded",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "A *probe* in the code-resolution helper: an integer main code is tried first and a non-integer value falls through to the reverse (name -> code) lookup at 1398-1402. The swallow implements 'not an integer code', after which the helper still resolves the value by name.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-008"
+   "p6_batch": "p6-batch-008",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-003800",
@@ -9997,13 +10078,16 @@
    "missing_fact": "what the swallowed failure hides, and whether the caller/user must learn of it",
    "why_it_matters": "an unreported failure can leave the user believing an operation succeeded",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "A *probe* in the sub-code helper: a numeric sub-code is tried first and a non-numeric value falls through to the sub-code's own reverse lookup ('try sub code number', 1451). Same shape as INV34-003799.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-008"
+   "p6_batch": "p6-batch-008",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-003801",
@@ -10046,13 +10130,16 @@
    "missing_fact": "what the swallowed failure hides, and whether the caller/user must learn of it",
    "why_it_matters": "an unreported failure can leave the user believing an operation succeeded",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "A *probe* inside the label heuristic: `float(...)` is attempted only to decide 'this is a number, hence not a label' (`return False` on success) and the swallow means 'not a number - continue with the date-like and text checks that follow' (1261+). The failure is the branch's expected outcome, not a hidden error.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-008"
+   "p6_batch": "p6-batch-008",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-003810",
@@ -10071,13 +10158,16 @@
    "missing_fact": "what the swallowed failure hides, and whether the caller/user must learn of it",
    "why_it_matters": "an unreported failure can leave the user believing an operation succeeded",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Best-effort session close in the startup dialog's cleanup path: the same contract already adjudicated for `core/database.py release_session` (p6-batch-004 INV34-000284) - a failure to close must not mask the operation's outcome, and the session object is discarded immediately afterwards.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-008"
+   "p6_batch": "p6-batch-008",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-003844",
@@ -21669,13 +21759,16 @@
    "missing_fact": "same as R-EXC-PASS: the observable consequence of the swallowed failure",
    "why_it_matters": "silent failure during save/export/calculation is indistinguishable from success",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/universal_import.py:163/164 - the `pass` line of INV34-002893's handler, already adjudicated under INV34-002893: sheet statistics only; no import decision reads them",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-008"
+   "p6_batch": "p6-batch-008",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007855",
@@ -21694,13 +21787,16 @@
    "missing_fact": "same as R-EXC-PASS: the observable consequence of the swallowed failure",
    "why_it_matters": "silent failure during save/export/calculation is indistinguishable from success",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/universal_import.py:225/226 - the `pass` line of INV34-002894's handler, already adjudicated under INV34-002894: `has_merged` is written into the analysis result and never branched on",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-008"
+   "p6_batch": "p6-batch-008",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007856",
@@ -21743,13 +21839,16 @@
    "missing_fact": "same as R-EXC-PASS: the observable consequence of the swallowed failure",
    "why_it_matters": "silent failure during save/export/calculation is indistinguishable from success",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/universal_import.py:538/539 - the `pass` line of INV34-002963's handler, already adjudicated under INV34-002963: non-numeric cells are excluded from the numeric sample by design",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-008"
+   "p6_batch": "p6-batch-008",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007863",
@@ -21768,13 +21867,16 @@
    "missing_fact": "same as R-EXC-PASS: the observable consequence of the swallowed failure",
    "why_it_matters": "silent failure during save/export/calculation is indistinguishable from success",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/validators.py:142/143 - the `pass` line of INV34-003004's handler, already adjudicated under INV34-003004: the depth ordering warning is best-effort on already-validated operands",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-008"
+   "p6_batch": "p6-batch-008",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007864",
@@ -21793,13 +21895,16 @@
    "missing_fact": "same as R-EXC-PASS: the observable consequence of the swallowed failure",
    "why_it_matters": "silent failure during save/export/calculation is indistinguishable from success",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/validators.py:287/288 - the `pass` line of INV34-002998's handler, already adjudicated under INV34-002998: no fabricated DLS warning for an unparseable value",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-008"
+   "p6_batch": "p6-batch-008",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007865",
@@ -21818,13 +21923,16 @@
    "missing_fact": "same as R-EXC-PASS: the observable consequence of the swallowed failure",
    "why_it_matters": "silent failure during save/export/calculation is indistinguishable from success",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Inside a validator whose whole purpose is to *report* problems, and the guarded block only adds a comparison-based message (warning/error) that cannot be evaluated without parseable operands. The parse failures that matter are reported by the numeric loops immediately above (e.g. 'Depth must be numeric', 135-136; 'Length must be numeric', 320-321), so the swallow cannot hide an unreported problem - it avoids a *second*, misleading message for a value that is already flagged. Residual (recorded, not a defect claim): for the fields whose only check is the comparison (dls/od/id/date ordering/overdue dates) a non-numeric value produces no message at all; the engine boundary still refuses such values loudly when they are computed with (e.g. `optional_number` raises for non-numeric geometry), so no wrong result is produced. Site: the BHA `id < od` check (325-330); the same loop reports 'Length must be numeric' for its own length field (320-321).",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-008"
+   "p6_batch": "p6-batch-008",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007873",
@@ -21843,13 +21951,16 @@
    "missing_fact": "same as R-EXC-PASS: the observable consequence of the swallowed failure",
    "why_it_matters": "silent failure during save/export/calculation is indistinguishable from success",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/validators.py:454/455 - the `pass` line of INV34-002964's handler, already adjudicated under INV34-002964: no false 'Date Out must be >= Date In' for unparseable dates",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-008"
+   "p6_batch": "p6-batch-008",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007874",
@@ -21892,13 +22003,16 @@
    "missing_fact": "same as R-EXC-PASS: the observable consequence of the swallowed failure",
    "why_it_matters": "silent failure during save/export/calculation is indistinguishable from success",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/validators.py:512/513 - the `pass` line of INV34-008774's handler, already adjudicated under INV34-008774: the overdue warning is skipped rather than emitted on unparseable dates",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-008"
+   "p6_batch": "p6-batch-008",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007888",
@@ -21941,13 +22055,16 @@
    "missing_fact": "same as R-EXC-PASS: the observable consequence of the swallowed failure",
    "why_it_matters": "silent failure during save/export/calculation is indistinguishable from success",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for dialogs/daily_report_dialogs.py:295/296 - the `pass` line of INV34-003177's handler, already adjudicated under INV34-003177: the widgets keep their defaults",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-008"
+   "p6_batch": "p6-batch-008",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007929",
@@ -21966,13 +22083,16 @@
    "missing_fact": "same as R-EXC-PASS: the observable consequence of the swallowed failure",
    "why_it_matters": "silent failure during save/export/calculation is indistinguishable from success",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for dialogs/daily_report_dialogs.py:304/305 - the `pass` line of INV34-003178's handler, already adjudicated under INV34-003177: the widgets keep their defaults",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-008"
+   "p6_batch": "p6-batch-008",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007934",
@@ -22271,13 +22391,16 @@
    "missing_fact": "same as R-EXC-PASS: the observable consequence of the swallowed failure",
    "why_it_matters": "silent failure during save/export/calculation is indistinguishable from success",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for dialogs/smart_template_dialog.py:1258/1259 - the `pass` line of INV34-003802's probe, already adjudicated under INV34-003802: the probe's miss is a normal outcome of the heuristic",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-008"
+   "p6_batch": "p6-batch-008",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007988",
@@ -22296,13 +22419,16 @@
    "missing_fact": "same as R-EXC-PASS: the observable consequence of the swallowed failure",
    "why_it_matters": "silent failure during save/export/calculation is indistinguishable from success",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for dialogs/smart_template_dialog.py:1395/1396 - the `pass` line of INV34-003799's probe, already adjudicated under INV34-003799: the reverse lookup follows",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-008"
+   "p6_batch": "p6-batch-008",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007989",
@@ -22321,13 +22447,16 @@
    "missing_fact": "same as R-EXC-PASS: the observable consequence of the swallowed failure",
    "why_it_matters": "silent failure during save/export/calculation is indistinguishable from success",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for dialogs/smart_template_dialog.py:1448/1449 - the `pass` line of INV34-003800's probe, already adjudicated under INV34-003800: the sub-code reverse lookup follows",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-008"
+   "p6_batch": "p6-batch-008",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007990",
@@ -22394,13 +22523,16 @@
    "missing_fact": "same as R-EXC-PASS: the observable consequence of the swallowed failure",
    "why_it_matters": "silent failure during save/export/calculation is indistinguishable from success",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for dialogs/smart_template_dialog.py:2099/2100 - the `pass` line of INV34-003608's handler, already adjudicated under INV34-003608: template-layout analysis only",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-008"
+   "p6_batch": "p6-batch-008",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-008011",
@@ -26748,13 +26880,16 @@
    "missing_fact": "what the swallowed failure hides, and whether the caller/user must learn of it",
    "why_it_matters": "an unreported failure can leave the user believing an operation succeeded",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Inside a validator whose whole purpose is to *report* problems, and the guarded block only adds a comparison-based message (warning/error) that cannot be evaluated without parseable operands. The parse failures that matter are reported by the numeric loops immediately above (e.g. 'Depth must be numeric', 135-136; 'Length must be numeric', 320-321), so the swallow cannot hide an unreported problem - it avoids a *second*, misleading message for a value that is already flagged. Residual (recorded, not a defect claim): for the fields whose only check is the comparison (dls/od/id/date ordering/overdue dates) a non-numeric value produces no message at all; the engine boundary still refuses such values loudly when they are computed with (e.g. `optional_number` raises for non-numeric geometry), so no wrong result is produced. Site: the BOP test-overdue warning (504-512).",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-008"
+   "p6_batch": "p6-batch-008",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-008783",
