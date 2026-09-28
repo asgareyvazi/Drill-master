@@ -56,7 +56,7 @@
      "status": "recorded, not patched"
     }
    ],
-   "evidence_commit": null,
+   "evidence_commit": "a375b06",
    "commit": "3f0cf3e",
    "tests": "focused ledger/inventory/bulk/mud slice: 163 tests, 0 failures, 0 errors, 0 skipped (24.795 s, JUnit /tmp/mudslice.xml); the new regression file is 5/5 and mutation-validated (pre-fix code -> TypeError; unknown->0.0 -> 'assert [0.0, -30.0] == [None, -30.0]'; reverted continuity guard -> TypeError at core/mud_ledger.py:267 - each mutation fails, restored byte-identical 183a6cf5...6de828f); ruff clean on core/mud_ledger.py and the new test file"
   }
@@ -82,12 +82,18 @@
   "D": 126,
   "B": 94
  },
- "generated_utc": "2026-09-28T05:54:41+00:00",
+ "generated_utc": "2026-09-28T06:00:04+00:00",
  "recovery_bundles": [
   {
    "file": "/home/user/recovery/drillmaster-2f61e6f.bundle",
    "sha256": "5cb8762ae153151f61e3d29a2505b0910ecc5d2cf53f9a94ce0729f0d73032b5",
    "captured_head": "2f61e6f",
+   "verified": "clone verified in this session"
+  },
+  {
+   "file": "/home/user/recovery/drillmaster-a375b06.bundle",
+   "sha256": "22dc2b89aa6d5915d233d1890fd325ec1df65cae2c6c3a6849e1dce322a8b17b",
+   "captured_head": "a375b06",
    "verified": "clone verified in this session"
   }
  ]

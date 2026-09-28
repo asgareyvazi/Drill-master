@@ -97,59 +97,58 @@ QT_QPA_PLATFORM=offscreen DRILLMASTER_AI_IMPORT=0 python -m pytest -q \
 
 ## 4. P6 status (honest arithmetic)
 
-The P6 batches 002–004 requested for this mission were **not executed**. The reason is not a blocker in
-the repository: it is that this session had to spend its budget (a) proving the loss of the prior Git
-history, (b) re-persisting the surviving tree and corpus before they could be lost a third time, and
-(c) rebuilding the Python/Qt toolchain that the re-provision destroyed. The adjudications that the lost
-session had produced (batch 001, the `tools/m36` pipeline, `docs/audits/m36-evidence/`) no longer
-exist; they are not silently presented as done.
-
-Authoritative counts, recomputed from the surviving register
-(`docs/audits/m35-evidence/m35-open-item-register.json`, committed in `1f6ae56`):
+The register this mission works from is the surviving M35 register, rebuilt into
+`docs/audits/m36-evidence/m36-open-item-register.json` (1 224 records, input never edited).
 
 ```text
-register records ............... 1 224 open of 11 554 ledger records
-open by priority ............... HIGH 371   MEDIUM 853   CRITICAL 0
-open by rule (top) ............. R-TRUTH-UNKNOWN 367, R-DEF-UNKNOWN 152, R-EXC-PASS 98,
-                                 R-TRUTH-NUMERIC 88, R-PASS-EXC 74, R-EXC-OTHER 60,
-                                 R-EXC-SILENT-RETURN 52, R-DEF-RETURN-NUM 52
-records with a stated contract .. 73
-stale source records ............ 0
+register ....................... 1 224 records = 1 222 open + 2 DEFECT-FIXED (W5 fail-open gate 9f45cc4,
+                                 W7 bulk-stock three-state c2e0016)
+adjudicated in batches 002-004 .. 135 records (45 + 45 + 45)
+open ........................... 1 087 = HIGH 234 / MEDIUM 853 / CRITICAL 0
+arithmetic ..................... 1224 - 2 - 135 = 1087   (ledger check: true)
+batch 002 (audit-only) .......... 45 records / 36 sites -> VERIFIED-CORRECT 24, INTENTIONAL 16,
+                                 DOMAIN_DECISION_REQUIRED 3, DUPLICATE/FALSE-POSITIVE 2
+batch 003 (code c2e0016) ........ 45 records / 43 sites -> INTENTIONAL 16, DUPLICATE/FALSE-POSITIVE 15,
+                                 VERIFIED-CORRECT 13, GENUINE_DEFECT 1 (w7:825)
+batch 004 (code 3f0cf3e) ........ 45 records / 36 sites -> VERIFIED-CORRECT 24, DUPLICATE/FALSE-POSITIVE 14,
+                                 INTENTIONAL 7; 1 new defect found and fixed (NEW-P6-001)
 ```
+
+Staleness is proven per record, never assumed: the register's recorded text must equal the current
+line, records pointing at a fixed block are verified against the fix's parent revision, and lines the
+fix merely shifted are re-anchored through the line map derived from the real diff (batch 004:
+3 re-anchored, 0 stale).
 
 ## 5. Exact resume point (for the next agent, without chat history)
 
 ```text
-current HEAD ...... 9f45cc44  (see `git log -1 --format=%H`; branch arena/01a0c945-drill-master)
-worktree .......... 0 modified, 0 staged, 5 untracked (the review-required evidence files)
-register .......... docs/audits/m35-evidence/m35-open-item-register.json  (1 224 open, 371 HIGH)
-adjudications ..... docs/audits/m35-evidence/m35-contract-adjudications{,-final}.json (25 closures)
-tooling ........... tools/m34/ and tools/m35/ are committed; tools/m36/ does NOT exist and must be
-                    rebuilt before new batches (the lost session's pipeline is gone)
+current HEAD ...... 3f0cf3e (code) -> a375b06 (batch-004 evidence)  [git log --oneline -5]
+branch ............ arena/01a0c945-drill-master  LOCAL-ONLY — NOT SYNCHRONIZED TO GITHUB
+worktree .......... see `git status --porcelain -uall`; the only untracked entries are the five
+                    review-required M31-M34 ledgers and the full-suite JUnit copy (kept out of the
+                    wheel on purpose: tests/test_release_boundary_imports.py forbids docs/audits)
+recovery bundle ... /home/user/recovery/drillmaster-a375b06.bundle
+                    sha256 22dc2b89aa6d5915d233d1890fd325ec1df65cae2c6c3a6849e1dce322a8b17b
+                    (clone-verified, 809 tracked files; earlier bundles 2f61e6f, acb6279, ...)
+tooling ........... tools/m36/p6_{plan,dump,apply,stamp}.py + p6_batch_00{2,3,4}.py (committed)
+progress file ..... docs/audits/m36-evidence/P6_PROGRESS.md (authoritative resume point)
 
-first actions of the next session (in order):
- 1. verify: git status --short && git log --oneline -5 && git cat-file -t 9f45cc44
- 2. rebuild the environment (the image has no Qt system libs):
-      python3 -m venv /home/user/verify-venv
-      /home/user/verify-venv/bin/pip install -r requirements-lock.txt pytest
-      # fail-loud stubs for libGL/libEGL/libxkbcommon/libdbus are required for any Qt import;
-      # the previous session's generator is gone - regenerate from PySide6's undefined symbols
- 3. run the pending regression (it is the acceptance test of 9f45cc4):
-      QT_QPA_PLATFORM=offscreen DRILLMASTER_AI_IMPORT=0 python -m pytest -q \
-          tests/test_permission_failclosed_regression.py
-    - if it passes, mutation-check it: restore `except Exception: pass`, expect failure, restore
- 4. rebuild tools/m36/ (adjudicate_batch.py, verify_fingerprints.py, p6_batches.py, p6_dump.py,
-    apply_p6.py, open_register.py, finalize_ledger.py) from the committed register + M35
-    adjudications; keep the proven discipline: read each site, quote the deciding contract,
-    withdraw any predicate that closes a record on evidence belonging to another subject
- 5. start P6 batch 002 at the first open HIGH record of the register, class A first
+environment:
+  python ........ /home/user/verify-venv/bin/python  (pytest 9.1.1, PySide6 6.8.1.1, sqlalchemy 2.0.36,
+                   ruff 0.16.9, build) - the system python has no pytest/ruff
+  Qt tests ...... LD_LIBRARY_PATH=/tmp/qtstub QT_QPA_PLATFORM=offscreen DRILLMASTER_AI_IMPORT=0
+  ruff gate ..... /home/user/verify-venv/bin/ruff check core dialogs tabs tests
+                  baseline: 5 338 findings - byte-identical before and after the mud_ledger fix
+                  ("no debt increase"), and 0 findings in every file this session added
 
-next file/line: first open HIGH record in the committed register (regenerate the ordered list with
-                tools/m34 tooling or by sorting register records by priority then file/line)
+next batch:   p6-batch-005, first item INV34-001765
+next site:    core/engineering/well_control_kill_sheet.py:288  (R-DEF-RETURN-NUM / or-zero)  [class C]
+command:      /home/user/verify-venv/bin/python tools/m36/p6_dump.py p6-batch-005 45
+              # then write the adjudication (tools/m36/p6_batch_005.py, modelled on p6_batch_004.py)
+              # and run /home/user/verify-venv/bin/python tools/m36/p6_apply.py p6-batch-005
 NOTE: no push is permitted; every commit is local-only, and this environment has demonstrably
-      discarded the object store twice - treat the remote as the only durable destination, and tell
-      the user when a push would be required to make the work permanently safe.
-```
+      discarded the object store twice - the bundle is the continuity artifact, take a new one and
+      clone-verify it after every checkpoint.
 
 ## 6. Untracked corpus status
 
@@ -157,3 +156,53 @@ NOTE: no push is permitted; every commit is local-only, and this environment has
 all Review-Required oversized evidence files, untouched. No production source is untracked: the only
 non-corpus untracked entries that existed (`.github/workflows/ci.yml`, the two recovered modules, the
 M-era test files) are all committed now.
+
+## 7. P6 batch log and validation evidence (as executed, this session)
+
+```text
+batch 002  commit 3b60dfd   evidence: p6-batch-002.{json,md}      45 records / 36 sites
+batch 003  commit 2f61e6f   code c2e0016 (w7 fix)                45 records / 43 sites
+batch 004  commit a375b06   code 3f0cf3e (mud-ledger fix)        45 records / 36 sites
+```
+
+Defects found and fixed by P6 (each with its own killing regression, mutation-validated, and its own
+code commit — never mixed into an audit commit):
+
+```text
+1. tabs/w7_logistics_Widget.py:825  (INV34-006021 / INV34-008432, batch 003)
+   `float(cell.text() or 0)` turned an unreported opening stock into 0 and displayed a fabricated
+   "Current Stock" (observed '5.0'), while the loader's own em dash for unknown ("Unknown stock
+   displays as an em dash, never as 0.0", 1217) raised through the handler.  Fix c2e0016.
+   Regression: tests/test_bulk_stock_three_state_smoke.py (subprocess-isolated, offscreen Qt).
+2. core/mud_ledger.py:208  (NEW-P6-001, batch 004)
+   `float(m.closing_stock)` raised TypeError on the documented unknown closing (None), so one
+   unreported opening broke the whole history call and with it the check_mud_ledger AI tool
+   (observed: {'success': False, 'error': "float() ... 'NoneType'"}).  The same class in
+   check_continuity (:247-248) raised too.  Fix 3f0cf3e.  Regression:
+   tests/test_mud_ledger_unknown_stock_history.py (5 tests, facade + AI-tool path).
+```
+
+Validation evidence on the fixed tree (`3f0cf3e` / `a375b06`):
+
+```text
+full suite ....... 1 831 tests, 0 failures, 0 errors, 4 skipped, 297.773 s
+                   skips are all opt-in/external: DDR xlsx + DDR pdf acceptance,
+                   MinerU real integration, Windows bundle smoke
+                   (JUnit: /home/user/recovery/p6-full-suite-batch-004.xml,
+                    sha256 09316734954cafd11052c7198668f106a9a30752cc08e971816aea4c0c72a604)
+focused slice .... 163 tests (ledger/inventory/bulk/mud), 0 failures, 0 errors, 0 skipped, 24.795 s
+mutation checks .. each fix re-broken: pre-fix text -> TypeError / fabricated 5.0 / 0.0 != None,
+                   then restored byte-identical (sha256 verified)
+ruff ............. no debt increase (5 338 == 5 338)
+```
+
+## 8. What is still NOT done (no green-washing)
+
+* HIGH 234 remain open: P6 covered batches 002-004 (135 of 1 222 open records). Mission condition A
+  (all HIGH adjudicated) is **not** met; the mission stops at a clean, resumable checkpoint
+  (condition B) with the exact next item recorded above.
+* Packaging was not re-run in this session: no check in P6 has shown breakage, and the release
+  boundary test (wheel from `git ls-files`, no `docs/audits`, no `__pycache__`) passes in the full
+  suite. Windows runtime remains WINDOWS-RUNTIME-NOT-RUN.
+* The five M31-M34 ledgers stay untracked and review-required; nothing was deleted.
+* The M36 P6 work is local-only: no push, so the remote copy does not contain it.
