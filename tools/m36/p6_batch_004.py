@@ -423,26 +423,6 @@ def symbol_body(lines: list[str], symbol: str) -> tuple[int, int]:
     return start, len(lines)
 
 
-def offset_proof(path: str) -> int:
-    """Prove from the real diff that one hunk covers the reported region, and return its delta.
-
-    The delta is only applied to records *after* the hunk; anything inside it is a text change, not
-    a shift, and is handled by the exact-text branches instead.
-    """
-    commit, old_start, old_count, new_start, new_count = OFFSET_REANCHOR[path]
-    diff = subprocess.run(["git", "diff", "-U1", f"{commit}^", commit, "--", path],
-                          cwd=ROOT, capture_output=True, check=True).stdout.decode()
-    hunks = re.findall(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@", diff, re.M)
-    if len(hunks) != 1:
-        raise SystemExit(f"expected exactly one hunk for {path}, found {len(hunks)}: {hunks}")
-    got = hunks[0]
-    got = (int(got[0]), int(got[1] or 1), int(got[2]), int(got[3] or 1))
-    if got != (old_start, old_count, new_start, new_count):
-        raise SystemExit(f"unexpected hunk for {path}: {got} (expected "
-                         f"{(old_start, old_count, new_start, new_count)})")
-    return new_count - old_count
-
-
 def line_map(commit: str, path: str, current: list[str]) -> dict[int, int]:
     """Map pre-fix line numbers to current ones for lines the fix left untouched."""
     previous = git_show(f"{commit}^", path)
