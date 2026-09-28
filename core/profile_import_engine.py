@@ -837,7 +837,7 @@ class ProfileImportEngine:
             try:
                 hrs = float(hrs_raw)
             except (TypeError, ValueError):
-                hrs = 0.0
+                hrs = None if hrs_raw in (None, "") else hrs_raw  # unknown stays unknown, never 0.0
             
             npt_val = str(cache[r].get(c_npt, "")).strip()
             is_npt = bool(npt_val and npt_val not in ("-", "---", "None"))
