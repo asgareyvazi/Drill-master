@@ -822,12 +822,30 @@ class FuelWaterTab(QWidget):
             if initial_item is None or received_item is None or used_item is None:
                 return
             
-            initial = float(initial_item.text() or 0)
-            received = float(received_item.text() or 0)
-            used = float(used_item.text() or 0)
-            stock = initial + received - used
+            # Three-state contract, identical to the persistence boundary
+            # (`_cell_float` in save_bulk_materials_to_db) and to the loader
+            # (`_fmt_stock` in load_bulk_materials_from_db): a BLANK cell and the
+            # em dash written for an unreported value are UNKNOWN, not 0; a
+            # typed 0 is an explicit zero and is preserved exactly. An unknown
+            # component makes the computed stock unknown, which is shown as the
+            # em dash — never as a fabricated 0-based balance, and never by
+            # silently swallowing the em dash through float("—").
+            def _known(item):
+                text = item.text().strip()
+                if not text or text == "—":
+                    return None
+                return float(text)
             
-            item = QTableWidgetItem(f"{stock:.1f}")
+            initial = _known(initial_item)
+            received = _known(received_item)
+            used = _known(used_item)
+            
+            if initial is None or received is None or used is None:
+                stock_text = "—"
+            else:
+                stock_text = f"{initial + received - used:.1f}"
+            
+            item = QTableWidgetItem(stock_text)
             item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
             self.bulk_table.setItem(row, 6, item)
         except Exception as e:
