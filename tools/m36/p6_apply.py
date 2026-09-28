@@ -17,6 +17,7 @@ usage: python tools/m36/p6_apply.py p6-batch-002
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from collections import Counter
 from datetime import datetime, timezone
@@ -96,6 +97,10 @@ def main() -> int:
     ledger["batches"].append({
         "batch": batch, "class": data.get("class"), "records": len(records), "sites": sites,
         "by_classification": counts, "defects_fixed": data.get("defects_fixed", []),
+        "new_findings": [{"id": f["id"], "file": f["file"], "line": f["line"],
+                          "severity": f["severity"], "status": "recorded, not patched"}
+                         for f in data.get("new_findings", [])],
+        "evidence_commit": data.get("evidence_commit"),
         "commit": data.get("commit"), "tests": data.get("tests"),
     })
     ledger["batches"].sort(key=lambda b: b["batch"])
@@ -121,6 +126,19 @@ def main() -> int:
              + " · ".join(f"{k}: {v}" for k, v in counts.items()), ""]
     if data.get("defects_fixed"):
         lines += ["## Defects fixed", ""] + [f"- {d}" for d in data["defects_fixed"]] + [""]
+    if data.get("new_findings"):
+        lines += ["## New findings (found while adjudicating this batch)", ""]
+        labels = [("trigger", "Trigger"), ("observed", "Observed"),
+                  ("deciding_contract", "Deciding contract"), ("reachable", "Reachable"),
+                  ("status", "Status"), ("fix", "Fix"), ("commit", "Commit"), ("test", "Test"),
+                  ("validation", "Validation"), ("not_patched_because", "Why not patched here"),
+                  ("next_action", "Next action")]
+        for finding in data["new_findings"]:
+            lines += [f"### {finding['id']} — `{finding['file']}:{finding['line']}` "
+                      f"({finding['severity']}, class {finding['class']})", ""]
+            lines += [f"- **{label}:** {finding[key]}"
+                      for key, label in labels if finding.get(key)]
+            lines += [""]
     def _commit_text(record) -> str:
         """Per-item commit: the code commit if the item carries one, else the audit-only form."""
         if record.get("commit"):
@@ -150,6 +168,14 @@ def main() -> int:
     remaining_ids.sort(key=lambda r: ({"A": 0, "B": 1, "C": 2, "D": 3, "E": 4}[r["p6_class"]],
                                       r["file"], r["line"]))
     nxt = remaining_ids[0] if remaining_ids else None
+    code_commits = " · ".join(f"{b['batch']} {b.get('commit') or 'audit-only'}"
+                             for b in ledger["batches"])
+    status = subprocess.run(["git", "status", "--porcelain", "-uall"], cwd=ROOT,
+                            capture_output=True, text=True).stdout.splitlines()
+    staged = sum(1 for line in status if line[:2].strip() and line[0] != "?")
+    untracked = sum(1 for line in status if line.startswith("??"))
+    worktree = (f"{staged} modified/staged, {untracked} untracked "
+                f"- this batch's evidence is committed next")
     (EVIDENCE / "P6_PROGRESS.md").write_text(f"""# P6 PROGRESS — authoritative resume point
 
 ```text
@@ -160,13 +186,15 @@ HIGH remain:            {high_open}
 MEDIUM remain:          {medium_open}
 OPEN remain:            {len(open_records)}   (of {register['totals']['records']} register records)
 CRITICAL:               0
-defect-fixed:           {register['totals']['defect_fixed']} (W5 fail-open gate, commit 9f45cc4)
-genuine defects (P6):   {ledger['batches'] and sum(1 for b in ledger['batches'] for _ in b['defects_fixed'])}
+register defect-fixed:  {register['totals']['defect_fixed']} (pre-P6 records: W5 fail-open gate 9f45cc4, W7 bulk-stock three-state c2e0016)
+defects fixed by P6 batches: {sum(len(b['defects_fixed']) for b in ledger['batches'])}  (one entry per fixed defect; commits in the batch reports)
+new findings recorded:  {sum(len(b.get('new_findings', [])) for b in ledger['batches'])}
+code commits by batch:  {code_commits}
 last validation:        ledger check {ledger['arithmetic']['check']}; register {register['totals']['records']} -
                         {register['totals']['defect_fixed']} fixed - {resolved_total} adjudicated = {len(open_records)} open
-tests:                  tests/test_permission_failclosed_regression.py PASS (4/4, mutation-killed)
-worktree:               0 modified / 0 staged (verified after commit)
-recovery bundle:        /home/user/recovery/drillmaster-<sha>.bundle (verified by clone)
+tests (this batch):     {data.get('tests')}
+worktree at generation: {worktree}
+recovery bundle:        /home/user/recovery/drillmaster-<sha>.bundle (clone-verified; sha256 in the register)
 ```
 
 ## Next exact actions

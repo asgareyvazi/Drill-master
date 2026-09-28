@@ -33,6 +33,32 @@
    "commit": "c2e0016",
    "tests": "tests/test_bulk_stock_three_state_smoke.py PASS; tests/test_inventory_live_calc_smoke.py PASS; tests/test_permission_failclosed_regression.py PASS; full suite 1828 results, 0 failures, 6 documented skips (post-fix, this worktree)",
    "evidence_commit": "2f61e6f"
+  },
+  {
+   "batch": "p6-batch-004",
+   "class": "mixed HIGH (A safety/authorization/mutation, B data integrity, C engineering) - A:17, B:20, C:8",
+   "records": 45,
+   "sites": 36,
+   "by_classification": {
+    "VERIFIED-CORRECT": 24,
+    "DUPLICATE/FALSE-POSITIVE": 14,
+    "INTENTIONAL": 7
+   },
+   "defects_fixed": [
+    "NEW-P6-001 core/mud_ledger.py:208 — `float(None)` on a documented unknown closing broke `get_history` and the `check_mud_ledger` AI tool; fixed in 3f0cf3e with tests/test_mud_ledger_unknown_stock_history.py (mutation-validated), plus the same-class `check_continuity` None crash (core/mud_ledger.py:247-248)."
+   ],
+   "new_findings": [
+    {
+     "id": "NEW-P6-001",
+     "file": "core/mud_ledger.py",
+     "line": 208,
+     "severity": "HIGH",
+     "status": "recorded, not patched"
+    }
+   ],
+   "evidence_commit": null,
+   "commit": "3f0cf3e",
+   "tests": "focused ledger/inventory/bulk/mud slice: 163 tests, 0 failures, 0 errors, 0 skipped (24.795 s, JUnit /tmp/mudslice.xml); the new regression file is 5/5 and mutation-validated (pre-fix code -> TypeError; unknown->0.0 -> 'assert [0.0, -30.0] == [None, -30.0]'; reverted continuity guard -> TypeError at core/mud_ledger.py:267 - each mutation fails, restored byte-identical 183a6cf5...6de828f); ruff clean on core/mud_ledger.py and the new test file"
   }
  ],
  "start_open": 1224,
@@ -40,23 +66,23 @@
  "arithmetic": {
   "register_open_at_p6_start": 1224,
   "defect_fixed_by_p6": 2,
-  "adjudicated_by_p6_batches": 90,
-  "current_open": 1132,
+  "adjudicated_by_p6_batches": 135,
+  "current_open": 1087,
   "check": true,
   "note": "every record is either OPEN or carries a terminal evidence-backed classification; the fixed sites are subtracted separately so nothing disappears"
  },
  "open_by_priority": {
   "MEDIUM": 853,
-  "HIGH": 279
+  "HIGH": 234
  },
  "open_by_class": {
   "E": 377,
-  "A": 311,
-  "C": 204,
+  "A": 294,
+  "C": 196,
   "D": 126,
-  "B": 114
+  "B": 94
  },
- "generated_utc": "2026-09-28T05:42:53+00:00",
+ "generated_utc": "2026-09-28T05:54:41+00:00",
  "recovery_bundles": [
   {
    "file": "/home/user/recovery/drillmaster-2f61e6f.bundle",
