@@ -16,6 +16,7 @@ Wellbore Schematic Engine - موتور رندر حرفه‌ای
 """
 
 import logging
+import math
 from dataclasses import dataclass, field
 from typing import List, Optional
 from enum import Enum
@@ -1467,26 +1468,33 @@ def _to_float(value):
     """Strict numeric coercion for source values.
 
     None stays None (missing), explicit 0 stays 0.0, numeric strings are
-    parsed. Unparseable values are missing, never zero.
+    parsed. Unparseable values are missing, never zero. A non-finite parse
+    (``nan``/``inf`` spellings, ``1e400`` overflow) is also missing: the
+    depth/size guards below test ``is None`` and sign, and a nan passes both,
+    which would fabricate geometry from a meaningless number.
     """
     if value is None:
         return None
     try:
-        return float(value)
+        number = float(value)
     except (TypeError, ValueError):
         return None
+    return number if math.isfinite(number) else None
 
 
 def _size_inches(value):
     """Parse a casing size into inches.
 
     Accepts numbers and the string forms the importers actually store:
-    ``13.375``, ``13 3/8"``, ``9-5/8"``. Unparseable/missing -> None.
+    ``13.375``, ``13 3/8"``, ``9-5/8"``. Unparseable/missing -> None, and a
+    non-finite parse (``nan``/``inf`` spellings, ``1e400`` overflow) -> None:
+    the od guard tests ``is None`` and sign, and a nan passes both, which
+    would fabricate casing geometry from a meaningless number.
     """
     if value is None:
         return None
     if isinstance(value, (int, float)):
-        return float(value)
+        return float(value) if math.isfinite(value) else None
     text = str(value).strip().replace('"', "").replace("''", "").strip()
     if not text:
         return None
@@ -1498,14 +1506,16 @@ def _size_inches(value):
             den = float(den)
             if den == 0:
                 return None
-            return whole + float(num) / den
+            number = whole + float(num) / den
+            return number if math.isfinite(number) else None
         if len(parts) == 1 and "/" in parts[0]:
             num, den = parts[0].split("/", 1)
             den = float(den)
             if den == 0:
                 return None
-            return float(num) / den
-        return float(text)
+            number = float(num) / den
+            return number if math.isfinite(number) else None
+        return float(text) if math.isfinite(float(text)) else None
     except (TypeError, ValueError):
         return None
 

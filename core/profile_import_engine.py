@@ -4,6 +4,7 @@ Profile-Based Excel Import Engine
 موتور قدرتمند و دقیق برای ایمپورت فایل‌های اکسل بر اساس پروفایل (قالب) از پیش تعریف شده.
 """
 
+import math
 import re
 import json
 import logging
@@ -580,11 +581,20 @@ class ProfileImportEngine:
                     result["safety_report"]["days_without_lti"] = int(value)
 
     def _to_float(self, val) -> Optional[float]:
+        """Parse one numeric cell; missing and non-finite values are unknown.
+
+        A spreadsheet cell can carry ``nan``/``inf`` spellings or overflow the
+        float range (``1e400``); like the persistence boundary
+        (``DatabaseManager.coerce_model_values``) and ``ValueNormalizer``, such
+        a value is unknown — never a fabricated measurement.
+        """
         try:
-            if val is None: return None
-            return float(val)
+            if val is None:
+                return None
+            number = float(val)
         except (TypeError, ValueError):
             return None
+        return number if math.isfinite(number) else None
 
     @staticmethod
     def _sheet_cell(cells, row, col, default=None):
