@@ -59,6 +59,25 @@
    "evidence_commit": "a375b06",
    "commit": "3f0cf3e",
    "tests": "focused ledger/inventory/bulk/mud slice: 163 tests, 0 failures, 0 errors, 0 skipped (24.795 s, JUnit /tmp/mudslice.xml); the new regression file is 5/5 and mutation-validated (pre-fix code -> TypeError; unknown->0.0 -> 'assert [0.0, -30.0] == [None, -30.0]'; reverted continuity guard -> TypeError at core/mud_ledger.py:267 - each mutation fails, restored byte-identical 183a6cf5...6de828f); ruff clean on core/mud_ledger.py and the new test file"
+  },
+  {
+   "batch": "p6-batch-005",
+   "class": "mixed HIGH - C:37, D:8 (kill-sheet canonical inputs 26 records / 13 statements, time parsing 6, calculator wrappers 6, hydraulics 2, inventory semantics 2, report loaders 2, one test oracle)",
+   "records": 45,
+   "sites": 29,
+   "by_classification": {
+    "DUPLICATE/FALSE-POSITIVE": 21,
+    "VERIFIED-CORRECT": 15,
+    "INTENTIONAL": 8,
+    "GENUINE_DEFECT": 1
+   },
+   "defects_fixed": [
+    "INV34-001751 / INV34-007524 - core/engineering/well_control_kill_sheet.py:290 (`casing_id_in=_num(casing_id_in) or 0.0`): a required, consumed input was missing from the builder's required_raw gate, so an unfilled casing-ID field (the widget sentinel reads back as None) silently removed the annular volume - and the annular displacement strokes derived from it - from a sheet that still reported success. Fixed in ff2000a; regression tests/test_kill_sheet_casing_id_gate.py (mutation-killed: reverting the gate yields 'assert () == (\"casing_id_in\",)', a truthiness-based gate also fails). One statement, one defect, two register records."
+   ],
+   "new_findings": [],
+   "evidence_commit": null,
+   "commit": "ff2000a",
+   "tests": "focused kill-sheet suite (this file + test_well_control_kill_sheet{,_cross_process,_persistence} + test_well_control_icp_fcp_consolidation) 45 tests PASS after the fix; the new regression file is 3/3 and mutation-validated (gate removed and truthiness gate both fail, restored byte-identical 30d03000...5eb5f20fe); ruff clean on both changed files"
   }
  ],
  "start_open": 1224,
@@ -66,23 +85,23 @@
  "arithmetic": {
   "register_open_at_p6_start": 1224,
   "defect_fixed_by_p6": 2,
-  "adjudicated_by_p6_batches": 135,
-  "current_open": 1087,
+  "adjudicated_by_p6_batches": 180,
+  "current_open": 1042,
   "check": true,
   "note": "every record is either OPEN or carries a terminal evidence-backed classification; the fixed sites are subtracted separately so nothing disappears"
  },
  "open_by_priority": {
   "MEDIUM": 853,
-  "HIGH": 234
+  "HIGH": 189
  },
  "open_by_class": {
   "E": 377,
   "A": 294,
-  "C": 196,
-  "D": 126,
+  "C": 159,
+  "D": 118,
   "B": 94
  },
- "generated_utc": "2026-09-28T06:00:50+00:00",
+ "generated_utc": "2026-09-28T06:05:18+00:00",
  "recovery_bundles": [
   {
    "file": "/home/user/recovery/drillmaster-2f61e6f.bundle",
