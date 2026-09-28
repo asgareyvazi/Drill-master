@@ -178,18 +178,48 @@ def main() -> int:
     untracked = sum(1 for line in status if line.startswith("??"))
     worktree = (f"{staged} modified/staged, {untracked} untracked "
                 f"- this batch's evidence is committed next")
-    (EVIDENCE / "P6_PROGRESS.md").write_text(f"""# P6 PROGRESS — authoritative resume point
+    if nxt:
+        next_block = f"""next batch:   {nxt['p6_batch']}
+next item:    {nxt['id']}
+next site:    {nxt['file']}:{nxt['line']}  ({nxt['rule']} / {nxt['kind']})  [class {nxt['p6_class']}]
+command:      python tools/m36/p6_dump.py {nxt['p6_batch']} 45
+              # then write docs/audits/m36-evidence/{nxt['p6_batch']}.json and run:
+              python tools/m36/p6_apply.py {nxt['p6_batch']}
+blockers:     none in the repository; environment needs LD_LIBRARY_PATH=/tmp/qtstub for Qt tests"""
+    else:
+        waiting = sorted((r for r in register["records"] if r["classification"] == "OPEN"),
+                         key=lambda r: ({'A': 0, 'B': 1, 'C': 2, 'D': 3, 'E': 4}[r["p6_class"]],
+                                        r["file"], r["line"]))
+        first_waiting = waiting[0] if waiting else None
+        if first_waiting:
+            next_block = (
+                "HIGH priority is closed - every HIGH record carries a terminal classification.\n"
+                f"remaining:    {len(waiting)} records, all "
+                f"{first_waiting['priority']} and none planned into a batch yet\n"
+                "              (classes: "
+                + ", ".join(f"{k} {v}" for k, v in sorted(Counter(r['p6_class'] for r in waiting).items()))
+                + ")\n"
+                f"next item:    {first_waiting['id']}  {first_waiting['file']}:{first_waiting['line']}"
+                f"  ({first_waiting['rule']} / {first_waiting['kind']})  [class {first_waiting['p6_class']}]\n"
+                "plan step:    python tools/m36/p6_plan.py --priority "
+                f"{first_waiting['priority']}   # appends batch numbers, touches no stamp\n"
+                "              then adjudicate batch-by-batch exactly as in phase 1\n"
+                "blockers:     none in the repository; environment needs LD_LIBRARY_PATH=/tmp/qtstub for Qt tests")
+        else:
+            next_block = "every register record carries a terminal classification - nothing open"
+
+    (EVIDENCE / "P6_PROGRESS.md").write_text(f"""# P6 PROGRESS - authoritative resume point
 
 ```text
 HEAD at generation:     {live_head}   (snapshot - this file is written before its own commit;
                         check `git log -1` for the real HEAD)
-branch:                 arena/01a0c945-drill-master (local only — never pushed)
-last completed batch:   {batch}  ({len(records)} records, {sites} sites, commit {data.get('commit')})
+branch:                 arena/01a0c945-drill-master (local only - never pushed)
+last completed batch:   {batch}  ({len(records)} records, {sites} sites, code commit {data.get('commit')})
 HIGH remain:            {high_open}
 MEDIUM remain:          {medium_open}
 OPEN remain:            {len(open_records)}   (of {register['totals']['records']} register records)
 CRITICAL:               0
-register defect-fixed:  {register['totals']['defect_fixed']} (pre-P6 records: W5 fail-open gate 9f45cc4, W7 bulk-stock three-state c2e0016)
+register defect-fixed:  {register['totals']['defect_fixed']}
 defects fixed by P6 batches: {sum(len(b['defects_fixed']) for b in ledger['batches'])}  (one entry per fixed defect; commits in the batch reports)
 new findings recorded:  {sum(len(b.get('new_findings', [])) for b in ledger['batches'])}
 code commits by batch:  {code_commits}
@@ -203,15 +233,9 @@ recovery bundle:        /home/user/recovery/drillmaster-<sha>.bundle (clone-veri
 ## Next exact actions
 
 ```text
-next batch:   {nxt['p6_batch'] if nxt else 'all HIGH adjudicated'}
-next item:    {nxt['id'] if nxt else '-'}
-next site:    {nxt['file']}:{nxt['line']}  ({nxt['rule']} / {nxt['kind']})  [class {nxt['p6_class']}]
-command:      python tools/m36/p6_dump.py {nxt['p6_batch']} 45
-              # then write docs/audits/m36-evidence/{nxt['p6_batch']}.json and run:
-              python tools/m36/p6_apply.py {nxt['p6_batch']}
-blockers:     none in the repository; environment needs LD_LIBRARY_PATH=/tmp/qtstub for Qt tests
+{next_block}
 ```
-""" if nxt else "all HIGH records adjudicated\n", encoding="utf-8")
+""", encoding="utf-8")
 
     print(f"{batch}: {len(records)} records over {sites} sites -> {counts}")
     print(f"open {len(open_records)} = HIGH {high_open} / MEDIUM {medium_open} | "

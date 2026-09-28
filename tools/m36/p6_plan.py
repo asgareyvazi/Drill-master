@@ -22,6 +22,7 @@ evidence window, which over-matched ("session", "user", "update" appear in most 
 """
 from __future__ import annotations
 
+import argparse
 import json
 import re
 import sys
@@ -74,7 +75,79 @@ def classify(record: dict) -> str:
     return "E"
 
 
-def main() -> int:
+ORDER = {"A": 0, "B": 1, "C": 2, "D": 3, "E": 4}
+
+
+def _parse_args(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--rebuild-register", action="store_true",
+                        help="rebuild the working register and the HIGH plan from the M35 source; "
+                             "this RESETS every P6 stamp (classification / evidence / p6_commit), so "
+                             "it is only for a fresh P6 rebuild")
+    parser.add_argument("--priority", default="",
+                        help="plan the OPEN records of this priority (e.g. MEDIUM) into new batches "
+                             "without touching any classification; default: every unplanned OPEN "
+                             "record")
+    parser.add_argument("--batch-size", type=int, default=BATCH_SIZE)
+    return parser.parse_args(argv)
+
+
+def plan_open_records(register_path: Path, priority: str, batch_size: int) -> int:
+    """Phase-2 planning: give every unplanned OPEN record a batch number, change nothing else."""
+    register = json.loads(register_path.read_text(encoding="utf-8"))
+    selected = [r for r in register["records"] if r["classification"] == "OPEN"
+                and (not priority or r["priority"] == priority)]
+    unplanned = [r for r in selected if not r.get("p6_batch")]
+    unplanned.sort(key=lambda r: (ORDER[r["p6_class"]], r["file"], r["line"]))
+    if not unplanned:
+        print(f"nothing to plan: {len(selected)} OPEN {priority or ''} records, all already batched")
+        return 0
+    used = {int(r["p6_batch"].rsplit("-", 1)[1]) for r in register["records"] if r.get("p6_batch")}
+    first = (max(used) + 1) if used else 2
+    for index, record in enumerate(unplanned):
+        record["p6_batch"] = f"p6-batch-{first + index // batch_size:03d}"
+    batches = []
+    for batch in sorted({r["p6_batch"] for r in unplanned}):
+        chunk = [r for r in unplanned if r["p6_batch"] == batch]
+        batches.append({
+            "batch": batch, "priority": chunk[0]["priority"],
+            "class": chunk[0]["p6_class"], "records": len(chunk),
+            "first_id": chunk[0]["id"], "last_id": chunk[-1]["id"],
+            "first_site": f"{chunk[0]['file']}:{chunk[0]['line']}",
+            "files": sorted({r["file"] for r in chunk}),
+            "sites": len({(r["file"], r["line"]) for r in chunk}),
+        })
+    register["generated_utc"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    register["phase2_plan"] = {
+        "priority": priority or "all", "batch_size": batch_size,
+        "planned": len(unplanned), "batches": len(batches),
+        "note": ("batch numbers are appended after the highest existing p6_batch; classifications, "
+                 "evidence and commit stamps are untouched by this planner"),
+    }
+    register_path.write_text(json.dumps(register, indent=1, ensure_ascii=False) + "\n",
+                             encoding="utf-8")
+    plan_name = f"p6-plan{('-' + priority.lower()) if priority else '-phase2'}.json"
+    plan = {"schema": "m36-p6-plan", "phase": "phase-2 (open records)",
+            "priority": priority or "all", "batch_size": batch_size,
+            "by_class": dict(Counter(r["p6_class"] for r in unplanned).most_common()),
+            "batches": batches}
+    (EVIDENCE / plan_name).write_text(json.dumps(plan, indent=1, ensure_ascii=False) + "\n",
+                                      encoding="utf-8")
+    print(f"planned {len(unplanned)} OPEN {priority or ''} records into {len(batches)} batches "
+          f"x <= {batch_size} -> {plan_name}")
+    for batch in batches[:4]:
+        print(f"  {batch['batch']} class {batch['class']} records {batch['records']} "
+              f"sites {batch['sites']} first {batch['first_id']} {batch['first_site']}")
+    if len(batches) > 4:
+        print(f"  ... {len(batches) - 4} more")
+    return 0
+
+
+def main(argv=None) -> int:
+    args = _parse_args(argv)
+    register_path = EVIDENCE / "m36-open-item-register.json"
+    if register_path.is_file() and not args.rebuild_register:
+        return plan_open_records(register_path, args.priority.upper(), args.batch_size)
     source = json.loads(SOURCE_REGISTER.read_text(encoding="utf-8"))
     records = source["records"]
 
