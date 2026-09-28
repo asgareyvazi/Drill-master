@@ -1,0 +1,37 @@
+ M DEPLOYMENT.md
+ M ENGINEERING_ARCHITECTURE.md
+ M ENGINEERING_CAPABILITY_STATUS.md
+ M PRODUCTION_READINESS.md
+ M README.md
+ M TESTING.md
+ M core/database.py
+ M core/engineering/bridge.py
+ M core/operations_intelligence.py
+ M core/report_engine.py
+ M core/report_snapshot.py
+ M core/scope_attribution.py
+ M core/selection_manager.py
+ M core/unit_manager.py
+ M docs/WINDOWS_ACCEPTANCE.md
+ M docs/audits/2026-09-22_RELEASE_CANDIDATE_INTEGRITY_CERTIFICATION.md
+ M packaging/build_windows.ps1
+ M requirements-lock.txt
+ M tabs/w12_Analysis.py
+ M tabs/w16_Cost_Management.py
+ M tests/conftest.py
+ M tests/test_ddr_acceptance.py
+ M tests/test_release.py
+ M tests/test_release_gate_and_w13.py
+ M tests/test_report_snapshot.py
+ M tests/test_scope_attribution.py
+ M tests/test_selection_manager_context.py
+ M tests/test_w12_scope_leakage_m25.py
+ M verify_release.py
+?? .github/workflows/
+?? core/operational_time.py
+?? docs/audits/2026-09-22_M27_INDEPENDENT_REAUDIT.md
+?? docs/audits/m27-independent-evidence/
+?? tests/test_operational_time_integrity.py
+?? tests/test_ownership_parent_edits.py
+?? tests/test_release_gate_integrity.py
+?? tests/test_test_process_isolation.py

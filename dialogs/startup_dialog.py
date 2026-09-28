@@ -696,7 +696,7 @@ class StartupDialog(QDialog):
             finally:
                 try:
                     session.close()
-                except:
+                except Exception:
                     pass
                     
     def status_message(self, message):

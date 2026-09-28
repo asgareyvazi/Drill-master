@@ -16,11 +16,12 @@ Design:
 - Integrates with existing TimeLogValidator (does NOT replace it)
 """
 
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from dataclasses import dataclass
+from typing import Dict, Optional, Tuple
 import logging
-import json
-from pathlib import Path
+import re
+
+from core.combo_identity import DEFAULT_ACTIVITY_CATALOG
 
 logger = logging.getLogger(__name__)
 
@@ -334,7 +335,18 @@ class ActivityMapper:
         """
         code = str(code).strip()
         description = str(description).strip()
-        
+        source_code = code
+        # Use the same DDR/application catalogue as import and ComboBoxes.
+        # This normalizes labels and composite identities for the canonical
+        # activity registry without changing the lossless source_code field.
+        is_composite = bool(re.match(r"^\s*\d+\s*[./-]\s*\d+", code))
+        combo_main = DEFAULT_ACTIVITY_CATALOG.resolve_main(code, ordinal_mode="ddr") if code and not is_composite else None
+        combo_sub = DEFAULT_ACTIVITY_CATALOG.resolve_sub(code, None, ordinal_mode="application") if is_composite else None
+        if combo_main and combo_main.accepted:
+            code = combo_main.code
+        elif combo_sub and combo_sub.accepted:
+            code = combo_sub.code.replace(".", "-")
+
         if not code and not description:
             return ActivityMappingResult(
                 source_code="", source_description="",
@@ -351,7 +363,7 @@ class ActivityMapper:
             activity = CANONICAL_ACTIVITIES.get(canonical_id)
             if activity:
                 return ActivityMappingResult(
-                    source_code=code, source_description=description,
+                    source_code=source_code, source_description=description,
                     canonical_id=canonical_id, canonical_name=activity.name,
                     category=activity.category, is_npt=activity.is_npt,
                     npt_category=activity.npt_category,
@@ -373,7 +385,7 @@ class ActivityMapper:
                             desc_boost = 0.05
                     
                     return ActivityMappingResult(
-                        source_code=code, source_description=description,
+                        source_code=source_code, source_description=description,
                         canonical_id=canonical_id, canonical_name=activity.name,
                         category=activity.category, is_npt=activity.is_npt,
                         npt_category=activity.npt_category,
@@ -386,7 +398,7 @@ class ActivityMapper:
             result = self._match_by_description(description)
             if result:
                 return ActivityMappingResult(
-                    source_code=code, source_description=description,
+                    source_code=source_code, source_description=description,
                     canonical_id=result.canonical_id, canonical_name=result.name,
                     category=result.category, is_npt=result.is_npt,
                     npt_category=result.npt_category,
@@ -402,7 +414,7 @@ class ActivityMapper:
                 activity = CANONICAL_ACTIVITIES.get(canonical_id)
                 if activity:
                     return ActivityMappingResult(
-                        source_code=code, source_description=description,
+                        source_code=source_code, source_description=description,
                         canonical_id=canonical_id, canonical_name=activity.name,
                         category=activity.category, is_npt=activity.is_npt,
                         npt_category=activity.npt_category,
@@ -412,7 +424,7 @@ class ActivityMapper:
 
         # Strategy 5: UNRESOLVED
         return ActivityMappingResult(
-            source_code=code, source_description=description,
+            source_code=source_code, source_description=description,
             canonical_id="OTHER", canonical_name="Other",
             category="Other", is_npt=False, npt_category="",
             confidence=0.0, method="unresolved",

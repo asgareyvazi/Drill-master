@@ -15,34 +15,84 @@ Excel → structural analysis → merged-cell detection → region detection →
 """
 
 import os
-import re
-import json
 import logging
-from datetime import date as dt_date, time as dt_time, datetime as dt_datetime
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict
 
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel,
-    QPushButton, QFileDialog, QComboBox, QLineEdit, QMessageBox,
-    QTextEdit, QTableWidget, QTableWidgetItem, QHeaderView,
-    QTabWidget, QWidget, QSplitter, QProgressBar, QApplication,
-    QInputDialog, QDialogButtonBox,
+    QPushButton, QFileDialog, QComboBox, QMessageBox,
+    QTextEdit, QTableWidget, QTableWidgetItem, QApplication,
+    QInputDialog,
 )
-from PySide6.QtCore import Signal, Qt, QTimer, QDir
+from PySide6.QtCore import Signal, Qt, QDir
 from PySide6.QtGui import QColor
 
-from core.text_utils import wrap_text
-from core.import_quality import ImportValidator, find_duplicates, TimeLogValidator, decision_for_confidence
-from core.ai_import_mapper import AIImportMapper, model_catalog, get_selected_model, set_selected_model
-from core.unit_manager import UnitManager
-from dialogs.smart_template_dialog import (
-    SmartTemplateDialog, ValueNormalizer, FIELD_LABELS,
+from core.import_quality import ImportValidator, find_duplicates, TimeLogValidator
+from core.import_diagnostics import (
+    PersistenceIssue, ImportStatus,
 )
+from core.ai_import_mapper import AIImportMapper, model_catalog, get_selected_model, set_selected_model
+from core.async_workers import FunctionWorker
+from core.import_router import route_file
+from core.mineru_engine import (
+    DocumentNormalizer,
+    MinerUAdapter,
+    MinerUError,
+    MinerUNormalizationError,
+    MinerUParseResult,
+    parse_pdf_native_fallback,
+)
+from core.unit_manager import UnitManager
+from dialogs.smart_template_dialog import FIELD_LABELS
+
+from core.ddr_import_service import DDRImportService, _canonical_review_row
 
 logger = logging.getLogger(__name__)
 
 ALL_EXPECTED_FIELDS = list(FIELD_LABELS.keys())
+
+
+def has_meaningful_canonical_data(extracted: dict) -> bool:
+    """Return true only for semantic canonical values, not provenance metadata."""
+    ignored = {"metadata", "provenance", "review_matrix", "raw_document"}
+
+    def business_key(key: object) -> bool:
+        key = str(key or "")
+        return not (
+            key.startswith("_")
+            or key.endswith("_source")
+            or key in {"source_row", "source_cells", "report_date_source"}
+        )
+
+    def meaningful(value, *, key: object = ""):
+        if not business_key(key):
+            return False
+        if value is None or value is False:
+            return False
+        if isinstance(value, str):
+            return bool(value.strip())
+        if isinstance(value, (int, float)):
+            return True
+        if isinstance(value, dict):
+            return any(
+                meaningful(item, key=item_key)
+                for item_key, item in value.items()
+                if item_key not in ignored
+            )
+        if isinstance(value, (list, tuple, set)):
+            return any(meaningful(item) for item in value)
+        return True
+
+    return isinstance(extracted, dict) and any(
+        meaningful(value, key=key)
+        for key, value in extracted.items()
+        if key not in ignored
+    )
+
+
+
+
 
 # Universal aliases as per spec
 UNIVERSAL_ALIASES = {
@@ -82,10 +132,18 @@ class ImportPreviewDialog(QDialog):
 
         # Summary
         report = self.import_report or {}
+        source_summary = ""
+        if report.get("source_engine") == "MinerU":
+            source_summary = (
+                f" | Source: MinerU | Backend: {report.get('backend', '')}"
+                f" | Method: {report.get('method', '')} | Pages: {report.get('pages', 0)}"
+                f" | Tables: {report.get('tables', 0)} | Fields: {report.get('fields_extracted', 0)}"
+            )
         summary = QLabel(
             f"Total: {report.get('total',0)} | Errors: {report.get('errors',0)} | Warnings: {report.get('warnings',0)} | "
             f"Review items: {len(report.get('review',[]))} | "
             f"TimeLogs: {len(self.extracted.get('time_logs_24h',[]))} | Surveys: {len(self.extracted.get('surveys',[]))}"
+            f"{source_summary}"
         )
         summary.setStyleSheet("color: #555; padding: 4px;")
         layout.addWidget(summary)
@@ -99,7 +157,9 @@ class ImportPreviewDialog(QDialog):
         self.table.setSortingEnabled(True)
         self.table.horizontalHeader().setStretchLastSection(True)
 
-        # Populate from review matrix
+        # Keep the serialized rows tied to their UI rows so edits and
+        # decisions reach the canonical payload, not just the visual table.
+        self._row_payloads = []
         for item in report.get("review", []):
             row = self.table.rowCount()
             self.table.insertRow(row)
@@ -131,6 +191,9 @@ class ImportPreviewDialog(QDialog):
                 except Exception:
                     pass
                 self.table.setItem(row, col, it)
+            if self.table.item(row, 0) is not None:
+                self.table.item(row, 0).setData(Qt.UserRole, item)
+            self._row_payloads.append(item)
 
         # Add issues as rows too
         for issue in report.get("issues", [])[:30]:
@@ -152,6 +215,7 @@ class ImportPreviewDialog(QDialog):
                 it = QTableWidgetItem(str(val))
                 it.setBackground(QColor("#fadbd8"))
                 self.table.setItem(row, col, it)
+            self._row_payloads.append(None)
 
         self.table.resizeColumnsToContents()
         layout.addWidget(self.table, 1)
@@ -217,9 +281,28 @@ class ImportPreviewDialog(QDialog):
                 conf_str = conf_item.text().replace("%", "")
                 conf = float(conf_str) / 100 if conf_str else 0
                 if conf >= 0.95:
-                    self.table.setItem(row, 9, QTableWidgetItem("ACCEPT"))
+                    self._set_decision(row, "ACCEPT")
             except Exception:
                 pass
+
+    def _payload_for_row(self, row: int):
+        item = self.table.item(row, 0)
+        payload = item.data(Qt.UserRole) if item is not None else None
+        if isinstance(payload, dict):
+            return payload
+        return self._row_payloads[row] if 0 <= row < len(self._row_payloads) else None
+
+    def _set_decision(self, row: int, decision: str) -> None:
+        self.table.setItem(row, 9, QTableWidgetItem(decision))
+        payload = self._payload_for_row(row)
+        if payload is not None:
+
+            payload["decision"] = decision
+            payload["review_state"] = (
+                "accepted" if decision in {"ACCEPT", "CONFIRMED"}
+                else "rejected" if decision in {"REJECT", "IGNORED"}
+                else "unreviewed"
+            )
 
     def _filter_medium(self):
         for row in range(self.table.rowCount()):
@@ -243,7 +326,7 @@ class ImportPreviewDialog(QDialog):
                 conf_str = conf_item.text().replace("%", "")
                 conf = float(conf_str) / 100 if conf_str else 0
                 if conf < 0.70:
-                    self.table.setItem(row, 9, QTableWidgetItem("REJECT"))
+                    self._set_decision(row, "REJECT")
             except Exception:
                 pass
 
@@ -256,9 +339,11 @@ class ImportPreviewDialog(QDialog):
         new_field, ok = QInputDialog.getText(self, "Edit Mapping", f"Target field (current: {current}):", text=current)
         if ok and new_field:
             self.table.setItem(row, 7, QTableWidgetItem(new_field))
-            self.table.setItem(row, 9, QTableWidgetItem("CONFIRMED"))
-            # Update extracted if possible
-            # For simplicity, we store edit in table only; _do_import will read decision
+            payload = self._payload_for_row(row)
+            if payload is not None:
+                payload["target_field"] = new_field
+                payload["canonical_field"] = new_field
+            self._set_decision(row, "CONFIRMED")
 
     def _edit_value(self):
         row = self.table.currentRow()
@@ -269,7 +354,12 @@ class ImportPreviewDialog(QDialog):
         new_val, ok = QInputDialog.getText(self, "Edit Value", "Normalized value:", text=current)
         if ok:
             self.table.setItem(row, 5, QTableWidgetItem(new_val))
-            self.table.setItem(row, 9, QTableWidgetItem("CONFIRMED"))
+            payload = self._payload_for_row(row)
+            if payload is not None:
+                payload["normalized_value"] = new_val
+                payload["value"] = new_val
+                payload["proposed_value"] = new_val
+            self._set_decision(row, "CONFIRMED")
 
     def _edit_unit(self):
         row = self.table.currentRow()
@@ -280,7 +370,10 @@ class ImportPreviewDialog(QDialog):
         new_unit, ok = QInputDialog.getText(self, "Edit Unit", "Unit:", text=current)
         if ok:
             self.table.setItem(row, 6, QTableWidgetItem(new_unit))
-            self.table.setItem(row, 9, QTableWidgetItem("CONFIRMED"))
+            payload = self._payload_for_row(row)
+            if payload is not None:
+                payload["unit"] = new_unit
+            self._set_decision(row, "CONFIRMED")
             # Try to re-normalize with UnitManager
             try:
                 orig_item = self.table.item(row, 4)
@@ -306,6 +399,11 @@ class ImportPreviewDialog(QDialog):
                     converted = UnitManager.convert(num_val, quantity, src_unit or current, new_unit)
                     if converted is not None:
                         self.table.setItem(row, 5, QTableWidgetItem(str(converted)))
+                        payload = self._payload_for_row(row)
+                        if payload is not None:
+                            payload["normalized_value"] = converted
+                            payload["value"] = converted
+                            payload["proposed_value"] = converted
             except Exception as exc:
                 logger.debug(f"Unit re-normalize failed: {exc}")
 
@@ -314,7 +412,7 @@ class ImportPreviewDialog(QDialog):
         if row < 0:
             QMessageBox.warning(self, "No selection", "Select a row first")
             return
-        self.table.setItem(row, 9, QTableWidgetItem("IGNORED"))
+        self._set_decision(row, "IGNORED")
 
     def _confirm(self):
         # Check if any critical errors remain
@@ -333,15 +431,61 @@ class ImportPreviewDialog(QDialog):
         self.accept()
 
     def get_decisions(self) -> Dict[int, str]:
-        """Return row index -> decision mapping."""
+        """Return decisions and synchronize every edited ReviewItem row."""
         decisions = {}
         for row in range(self.table.rowCount()):
             dec_item = self.table.item(row, 9)
-            decisions[row] = dec_item.text() if dec_item else "REVIEW"
+            decision = dec_item.text() if dec_item else "REVIEW"
+            decisions[row] = decision
+            payload = self._payload_for_row(row)
+            if payload is None:
+                continue
+            payload["decision"] = decision
+            payload["target_field"] = self.table.item(row, 7).text() if self.table.item(row, 7) else payload.get("target_field", "")
+            payload["canonical_field"] = payload.get("target_field", payload.get("canonical_field", ""))
+            payload["unit"] = self.table.item(row, 6).text() if self.table.item(row, 6) else payload.get("unit", "")
+            normalized = self.table.item(row, 5).text() if self.table.item(row, 5) else ""
+            payload["normalized_value"] = normalized
+            payload["value"] = normalized
+            payload["proposed_value"] = normalized
+            payload["review_state"] = (
+                "accepted" if decision in {"ACCEPT", "CONFIRMED"}
+                else "rejected" if decision in {"REJECT", "IGNORED"}
+                else "unreviewed"
+            )
         return decisions
 
+    def apply_review_changes(self, extracted: dict) -> dict:
+        """Apply confirmed scalar edits/rejections to the canonical payload.
 
-class ExcelImportDialog(QDialog):
+        Row-oriented edits remain in the review export for manual handling;
+        scalar canonical fields can be safely applied by their dotted path.
+        """
+        self.get_decisions()
+        for payload in self._row_payloads:
+            if not payload:
+                continue
+            field_path = payload.get("target_field") or payload.get("canonical_field") or ""
+            if "." not in field_path:
+                continue
+            section, key = field_path.split(".", 1)
+            section_data = extracted.setdefault(section, {})
+            decision = str(payload.get("decision", "REVIEW")).upper()
+            if decision in {"REJECT", "IGNORED"}:
+                section_data.pop(key, None)
+                section_data.pop(f"{key}_source", None)
+                continue
+            if decision not in {"ACCEPT", "CONFIRMED"}:
+                continue
+            normalized = payload.get("normalized_value", payload.get("value"))
+            # Empty UI text is not a value.  Keep the original canonical state
+            # rather than inventing an empty string.
+            if normalized not in (None, ""):
+                section_data[key] = normalized
+        return extracted
+
+
+class ExcelImportDialog(QDialog, DDRImportService):
     """
     Main entry point for Excel Import - Professional version
     """
@@ -352,7 +496,10 @@ class ExcelImportDialog(QDialog):
         super().__init__(parent)
         self.db = db_manager
         self.well_id = well_id
-        self.setWindowTitle("📊 Excel Import System v2.1 - Intelligence Platform")
+        self._mineru_worker = None
+        self._pending_import_files = []
+        self._mineru_results = {}
+        self.setWindowTitle("📊 Universal Import - Intelligence Platform")
         self.setMinimumSize(600, 500)
         self.setModal(True)
         self._init_ui()
@@ -361,7 +508,7 @@ class ExcelImportDialog(QDialog):
         layout = QVBoxLayout(self)
         layout.setSpacing(15)
 
-        header = QLabel("📊 Excel Import System v2.1 - Intelligence Platform")
+        header = QLabel("📊 Universal Import - Excel Intelligence + MinerU")
         header.setStyleSheet(
             "font-size: 16px; font-weight: bold; color: #2c3e50; "
             "padding: 10px; background: #ecf0f1; border-radius: 5px;"
@@ -433,126 +580,284 @@ class ExcelImportDialog(QDialog):
             set_selected_model(model)
 
     def _unified_import(self):
-        """Universal import with professional preview before save."""
+        """Route imports without running MinerU in the Qt UI thread."""
         files, _ = QFileDialog.getOpenFileNames(
-            self, "Import Report(s)", "", "Reports (*.xlsx *.xls *.xlsm *.csv *.pdf)"
+            self,
+            "Import Report(s)",
+            "",
+            "Reports (*.xlsx *.xls *.xlsm *.csv *.pdf *.docx *.pptx *.png *.jpg *.jpeg *.webp *.tif *.tiff)",
         )
         if not files:
             return
 
+        self._pending_import_files = list(files)
+        self._mineru_results = {}
+        mineru_sources = []
+        for source in files:
+            route = route_file(source, template_matcher=self._auto_match_template)
+            if route.engine == "mineru":
+                mineru_sources.append(source)
+
+        if mineru_sources:
+            self.import_status.setText(
+                f"Detecting document engine... Using MinerU for {len(mineru_sources)} file(s): "
+                "parsing layout, text, and tables..."
+            )
+            QApplication.processEvents()
+            self._mineru_worker = FunctionWorker(
+                self._parse_mineru_batch,
+                mineru_sources,
+                parent=self,
+            )
+            self._mineru_worker.result_ready.connect(self._on_mineru_batch_ready)
+            self._mineru_worker.failed.connect(self._on_mineru_batch_failed)
+            self._mineru_worker.start()
+            return
+
+        self._run_import_pipeline(files, {})
+
+    @staticmethod
+    def _parse_mineru_batch(sources):
+        """Worker entry point; no Qt or database objects are used here."""
+        return MinerUAdapter().parse_batch(sources)
+
+    @staticmethod
+    def _result_key(source):
+        try:
+            return str(Path(source).expanduser().resolve())
+        except OSError:
+            return str(source)
+
+    def _on_mineru_batch_ready(self, parse_results):
+        self._mineru_results = {
+            self._result_key(result.source_file): result
+            for result in parse_results
+            if isinstance(result, MinerUParseResult)
+        }
+        if self._mineru_worker is not None:
+            self._mineru_worker.deleteLater()
+            self._mineru_worker = None
+        self._run_import_pipeline(self._pending_import_files, self._mineru_results)
+
+    def _on_mineru_batch_failed(self, error):
+        logger.error("MinerU worker failed: %s", error)
+        if self._mineru_worker is not None:
+            self._mineru_worker.deleteLater()
+            self._mineru_worker = None
+        # PDF still has the existing explicit fallback. XLSX still has the
+        # existing smart/template path. Other MinerU-only formats receive an
+        # actionable per-file failure in _run_import_pipeline.
+        self._run_import_pipeline(self._pending_import_files, {})
+
+    def _mineru_extracted(self, source, parse_result, *, source_label="MinerU", fallback_diagnostics=None):
+        """Return canonical data and review metadata for a successful parse."""
+        if not parse_result or not parse_result.success or parse_result.document is None:
+            raise MinerUError(parse_result.error if parse_result else "MinerU produced no result")
+        normalized = DocumentNormalizer().normalize(parse_result.document)
+        if not normalized.validation.valid:
+            raise MinerUNormalizationError(
+                "MinerU output failed canonical schema validation: "
+                + "; ".join(item.get("message", "invalid value") for item in normalized.validation.errors)
+            )
+        extracted = dict(normalized.canonical_data)
+        review_rows = []
+        for warning in normalized.warnings:
+            source_details = warning.get("source") if isinstance(warning.get("source"), dict) else {}
+            location = " ".join(
+                part for part in (
+                    f"page {source_details.get('source_page')}" if source_details.get("source_page") is not None else "",
+                    f"row {source_details.get('source_row')}" if source_details.get("source_row") is not None else "",
+                    f"column {source_details.get('source_column')}" if source_details.get("source_column") is not None else "",
+                ) if part
+            )
+            review_rows.append(
+                {
+                    "file": Path(source).name,
+                    "sheet": source_details.get("source_sheet", ""),
+                    "page": source_details.get("source_page"),
+                    "row": source_details.get("source_row", 0) or 0,
+                    "column": source_details.get("source_column", ""),
+                    "detected_table": "MinerU document",
+                    "source_table": source_details.get("source_table", ""),
+                    "source_cell": location,
+                    "coordinates": source_details.get("bounding_box"),
+                    "extraction_method": source_details.get("extraction_method", ""),
+                    "original_value": warning.get("value", ""),
+                    "normalized_value": warning.get("normalized_value"),
+                    "value": warning.get("normalized_value"),
+                    "target_field": warning.get("field", ""),
+                    "canonical_field": warning.get("field", ""),
+                    "expected_type": warning.get("expected_type", ""),
+                    "confidence": source_details.get("confidence"),
+                    "decision": "REVIEW",
+                    "status": "REVIEW_REQUIRED",
+                    "validation_state": "needs_review",
+                    "review_state": "unreviewed",
+                    "reason": warning.get("message", "Review required"),
+                    "mapping_method": "MinerU document normalization",
+                }
+            )
+        review_rows = [_canonical_review_row(item) for item in review_rows]
+        extracted["metadata"] = {
+            "source": source_label,
+            "source_engine": source_label,
+            "backend": parse_result.document.backend,
+            "method": parse_result.document.method,
+            "pages": parse_result.document.page_count,
+            "tables": parse_result.document.table_count,
+            "fields_extracted": normalized.fields_extracted,
+            "warnings": normalized.warnings,
+            "review_matrix": review_rows,
+            "mineru_provenance": normalized.provenance,
+            "raw_ir": normalized.raw_document.to_dict(include_cells=True) if normalized.raw_document is not None else None,
+            "output_dir": parse_result.document.output_dir,
+            "output_files": parse_result.document.raw_files,
+            "assets": list(parse_result.document.images),
+            "diagnostics": dict(
+                getattr(parse_result, "diagnostics", {})
+                or parse_result.document.metadata.get("diagnostics", {})
+                or {}
+            ),
+            "fallback_diagnostics": fallback_diagnostics or {},
+        }
+        logger.info(
+            "MinerU normalized: file=%s pages=%d tables=%d fields=%d warnings=%d",
+            Path(source).name,
+            parse_result.document.page_count,
+            parse_result.document.table_count,
+            normalized.fields_extracted,
+            len(normalized.warnings),
+        )
+        return extracted
+
+    def _run_import_pipeline(self, files, mineru_results):
+        """Run the existing preview/atomic DB path after optional MinerU work."""
         results = []
         successful_files = []
         failed_files = []
 
         for number, source in enumerate(files, 1):
-            self.import_status.setText(f"Processing {number}/{len(files)}: {os.path.basename(source)} - Scanning...")
+            self.import_status.setText(
+                f"Processing {number}/{len(files)}: {os.path.basename(source)} - Scanning..."
+            )
             QApplication.processEvents()
+            dialog = None
+            parse_result = None
+            error_status = ImportStatus.PERSISTENCE_ERROR.value
+            pipeline_stage = "route"
             try:
+                route = route_file(source, template_matcher=self._auto_match_template)
+                parse_result = mineru_results.get(self._result_key(source))
                 path = source
-                if source.lower().endswith(".pdf"):
-                    from pathlib import Path
-                    from core.document_import import pdf_to_xlsx
-                    clean = Path(os.path.join(QDir.tempPath(), Path(source).stem + "_pdf_import.xlsx"))
-                    pdf_to_xlsx(source, clean)
-                    path = str(clean)
-                elif source.lower().endswith(".csv"):
-                    from pathlib import Path
-                    from core.document_import import csv_to_xlsx
-                    clean = Path(os.path.join(QDir.tempPath(), Path(source).stem + "_csv_import.xlsx"))
-                    csv_to_xlsx(source, clean)
-                    path = str(clean)
-                elif source.lower().endswith(".xls"):
-                    raise ValueError("Legacy .xls requires conversion to .xlsx before import")
+                extracted = None
+                pipeline_stage = "open"
 
-                # Step 1: Structural analysis without saving
-                dialog = SmartTemplateDialog(self.db, self.well_id, None, preload_file=path)
-                QApplication.processEvents()
-                dialog._smart_auto_detect()
-                extracted = dialog._build_final_data_from_assignments()
-
-                # Template-first: if a company template under templates/
-                # matches this workbook's sheet layout, run the canonical
-                # template engine (Company Source -> Template -> Canonical
-                # Model), which uses the anchored template contract instead
-                # of heuristic-only parsing. Generic sheet-name matching —
-                # no company-specific branching.
-                if dialog.wb is not None:
-                    template = self._auto_match_template(
-                        [ws.title for ws in dialog.wb.worksheets]
+                if route.engine == "mineru" and parse_result and parse_result.success:
+                    self.import_status.setText(
+                        f"{os.path.basename(source)} - Normalizing MinerU document and validating schema..."
                     )
-                    if template:
-                        try:
-                            from core.excel_intelligence import ExcelIntelligence
-                            rep = ExcelIntelligence(dialog.wb, template).extract()
-                            extracted = dict(rep.canonical_json)
-                            review_rows = [
-                                {
-                                    "sheet": r.sheet,
-                                    "row": r.row,
-                                    "column": r.col,
-                                    "detected_table": "scalar",
-                                    "source_cell": r.cell,
-                                    "original_value": r.value if r.status in (
-                                        "REVIEW_REQUIRED", "CONFLICT", "INVALID",
-                                    ) else r.original_label,
-                                    "normalized_value": r.value,
-                                    "value": r.value,
-                                    "unit": r.canonical_unit,
-                                    "target_field": r.canonical_field,
-                                    "canonical_field": r.canonical_field,
-                                    "confidence": r.confidence,
-                                    "certainty": r.certainty,
-                                    "status": r.status,
-                                    "decision": (
-                                        "REVIEW"
-                                        if r.status in (
-                                            "REVIEW_REQUIRED", "CONFLICT",
-                                        ) else "ACCEPT"
-                                    ),
-                                    "reason": r.reason,
-                                }
-                                for r in rep.field_results
-                                if r.status != "OK"
-                                or r.certainty == "LOW"
-                            ]
-                            extracted["metadata"] = {
-                                "template": template.get("name", ""),
-                                "template_version": rep.template_version,
-                                "review_matrix": review_rows,
-                                "source_tokens": rep.source_tokens,
-                            }
-                            dialog.deleteLater()
-                        except Exception as tmpl_exc:
-                            logger.error(
-                                f"Template engine failed for {os.path.basename(path)}: "
-                                f"{tmpl_exc}; falling back to smart detection",
-                                exc_info=True,
-                            )
-                            extracted = dialog._build_final_data_from_assignments()
+                    QApplication.processEvents()
+                    extracted = self._mineru_extracted(source, parse_result)
+                elif route.engine == "mineru" and route.fallback_engine == "pdf_fallback":
+                    # PDF fallback remains PDF-native and is adapted directly
+                    # into the same common document IR.  It must never create
+                    # or parse an intermediate workbook.
+                    primary_reason = parse_result.error if parse_result else "MinerU was unavailable"
+                    logger.warning("MinerU PDF fallback: file=%s reason=%s", Path(source).name, primary_reason)
+                    self.import_status.setText(
+                        f"{os.path.basename(source)} - MinerU unavailable; using PDF-native fallback..."
+                    )
+                    try:
+                        fallback_document = parse_pdf_native_fallback(source)
+                        fallback_result = MinerUParseResult(
+                            source_file=str(source),
+                            success=True,
+                            document=fallback_document,
+                        )
+                        extracted = self._mineru_extracted(
+                            source,
+                            fallback_result,
+                            source_label="PDF native fallback",
+                            fallback_diagnostics={
+                                "primary": {
+                                    "error_type": parse_result.error_type if parse_result else "not-run",
+                                    "error": primary_reason,
+                                },
+                                "fallback": {
+                                    "engine": fallback_document.method,
+                                    "pages": fallback_document.page_count,
+                                    "tables": fallback_document.table_count,
+                                },
+                            },
+                        )
+                    except Exception as fallback_exc:
+                        raise MinerUError(
+                            "PDF_IMPORT_FAILED: MinerU cause: "
+                            f"{primary_reason}; PDF fallback cause: {fallback_exc}"
+                        ) from fallback_exc
+                elif route.engine == "mineru" and route.fallback_engine == "excel_intelligence":
+                    # Unknown XLSX can still use the established smart importer
+                    # if MinerU is unavailable or fails.
+                    reason = parse_result.error if parse_result else "MinerU was unavailable"
+                    logger.warning("MinerU XLSX fallback to existing importer: file=%s reason=%s", Path(source).name, reason)
+                elif route.engine == "mineru":
+                    reason = parse_result.error if parse_result else "MinerU worker did not return a result"
+                    raise MinerUError(
+                        f"MinerU could not parse {Path(source).name}: {reason}. "
+                        "Configure MINERU_EXECUTABLE or MINERU_PYTHON in Settings/environment."
+                    )
 
-                # Step 2: Validation with professional TimeLog validator
+                # Known structured workbooks have exactly one canonical path:
+                # openpyxl -> ExcelIntelligence -> canonical JSON.  The legacy
+                # SmartTemplate dialog is not run first and cannot overwrite
+                # or compete with this result.
+                if extracted is None and route.engine == "excel_intelligence":
+                    pipeline_stage = "mapping"
+                    rep, extracted = self.extract_file(path)
+
+                if extracted is None:
+                    if route.engine == "csv":
+                        from core.document_import import csv_to_xlsx
+                        clean = Path(os.path.join(QDir.tempPath(), Path(source).stem + "_csv_import.xlsx"))
+                        csv_to_xlsx(source, clean)
+                        path = str(clean)
+                    elif route.engine == "unsupported":
+                        raise ValueError(route.reason)
+                    elif path.lower().endswith(".xls"):
+                        raise ValueError("Legacy .xls requires conversion to .xlsx before import")
+
+                    # A converter or a MinerU failure is not permission to
+                    # enter the retired heuristic/profile importer.  Without
+                    # a canonical template there is no safe mapping contract.
+                    if route.engine in {"csv", "mineru"}:
+                        raise ValueError(
+                            "No canonical template was available after the "
+                            f"{route.engine} fallback; import stopped before persistence"
+                        )
+
+                    # No heuristic/profile importer is reachable from the
+                    # universal route.  Every successful branch above has
+                    # already produced the canonical payload.
+
+                # Existing quality and time-log validation remains the source
+                # of truth for the database import boundary.
+                pipeline_stage = "validation"
                 report_data = extracted.get("daily_report", {})
                 quality = ImportValidator.validate_rows([report_data], "daily_report", "Daily Report")
-
                 time_logs = extracted.get("time_logs_24h", []) or []
-                # Professional 24h validation
                 time_report = TimeLogValidator.validate_logs(time_logs, sheet="Time Logs 24H")
                 quality.total += time_report.total
                 quality.issues.extend(time_report.issues)
-                # Merge review
                 for item in time_report.review.items:
                     quality.review.items.append(item)
 
-                # Duplicate detection
                 duplicate_indexes = set(find_duplicates(time_logs, "time_log"))
                 if duplicate_indexes:
                     quality.warning("Time Logs", 0, f"Skipped {len(duplicate_indexes)} duplicate time-log rows")
 
-                # Build review matrix with file info
                 review_with_file = []
                 for item in quality.review.as_rows():
                     item["file"] = os.path.basename(source)
-                    # Ensure new fields exist
                     item.setdefault("detected_table", item.get("record_type", ""))
                     item.setdefault("source_cell", f"{item.get('column','')}{item.get('row','')}")
                     item.setdefault("original_value", item.get("source_value"))
@@ -560,805 +865,133 @@ class ExcelImportDialog(QDialog):
                     item.setdefault("unit", item.get("unit", ""))
                     item.setdefault("target_field", item.get("canonical_field", ""))
                     review_with_file.append(item)
-                quality.review.items = []  # reset
-                for it in review_with_file:
-                    quality.review.add(**it)
+                quality.review.items = []
+                for item in review_with_file:
+                    quality.review.add(**item)
 
-                # Add review from extracted metadata
-                for item in (extracted.get("metadata") or {}).get("review_matrix", []):
+                metadata = extracted.get("metadata") or {}
+                for item in metadata.get("review_matrix", []):
                     item["file"] = os.path.basename(source)
                     quality.review.add(**item)
 
                 import_report_dict = quality.as_dict()
+                if metadata.get("source") in {"MinerU", "PDF native fallback"}:
+                    import_report_dict.update(
+                        {
+                            "source_engine": "MinerU",
+                            "backend": metadata.get("backend", ""),
+                            "method": metadata.get("method", ""),
+                            "pages": metadata.get("pages", 0),
+                            "tables": metadata.get("tables", 0),
+                            "fields_extracted": metadata.get("fields_extracted", 0),
+                            "warnings": len(metadata.get("warnings", [])),
+                        }
+                    )
 
-                if not any(extracted.get(key) for key in ("well_info", "daily_report", "mud_report", "drilling_params", "time_logs_24h")):
-                    raise ValueError("No report data was detected")
+                if not has_meaningful_canonical_data(extracted):
+                    error_status = ImportStatus.VALIDATION_ERROR.value
+                    pipeline_stage = "meaningful_data"
+                    raise ValueError("No meaningful canonical report data was detected")
 
-                # Step 3: Professional Preview - No data saved yet!
-                self.import_status.setText(f"Preview for {os.path.basename(source)} - Waiting for user confirmation...")
+                pipeline_stage = "ui_preview"
+                self.import_status.setText(
+                    f"Preview for {os.path.basename(source)} - Waiting for user confirmation..."
+                )
                 preview = ImportPreviewDialog(source, extracted, import_report_dict, self)
                 preview_result = preview.exec()
 
                 if not preview.confirmed or preview_result != QDialog.Accepted:
-                    results.append({"file": source, "skipped": 1, "imported": 0, "failed": 0, "details": [f"⏭️ {os.path.basename(source)}: Cancelled by user in preview"]})
+                    results.append(
+                        {
+                            "file": source,
+                            "skipped": 1,
+                            "imported": 0,
+                            "failed": 0,
+                            "details": [f"⏭️ {os.path.basename(source)}: Cancelled by user in preview"],
+                        }
+                    )
                     failed_files.append(f"{os.path.basename(source)}: Cancelled")
-                    dialog.deleteLater()
+                    if dialog is not None:
+                        dialog.deleteLater()
                     continue
 
-                # Apply decisions from preview (filter REJECTED/IGNORED)
-                # For simplicity, if decision is REJECT/IGNORED, we remove from extracted
-                decisions = preview.get_decisions()
-                # In this version, we honor only ACCEPT/CONFIRMED, but keep all for audit
-                # Future: filter extracted based on decisions
-
-                # Step 4: Now save with atomic transaction - only after Confirm
+                preview.apply_review_changes(extracted)
+                # Decisions and edits are now part of the audit payload and
+                # the exact canonical object sent to the atomic save boundary.
+                pipeline_stage = "persistence"
                 self.import_status.setText(f"Importing {os.path.basename(source)} - Atomic transaction...")
                 result = self._do_import(extracted, refresh_ui=False)
                 result["file"] = source
                 result["import_report"] = import_report_dict
                 results.append(result)
 
-                if result.get("failed", 0) == 0 and result.get("imported", 0) > 0:
-                    successful_files.append(os.path.basename(source))
+                result_status = result.get("status", ImportStatus.PERSISTENCE_ERROR.value)
+                if result_status in {ImportStatus.ACCEPT.value, ImportStatus.REVIEW_REQUIRED.value}:
+                    successful_files.append(
+                        f"{os.path.basename(source)} [{result_status}]"
+                    )
                 else:
-                    failed_files.append(f"{os.path.basename(source)}: {result.get('details', [])[-1] if result.get('details') else 'Failed'}")
-
-                dialog.deleteLater()
+                    failed_files.append(
+                        f"{os.path.basename(source)} [{result_status}]: "
+                        f"{result.get('details', [])[-1] if result.get('details') else 'Failed'}"
+                    )
+                if dialog is not None:
+                    dialog.deleteLater()
 
             except Exception as exc:
-                logger.error("Universal import failed for %s: %s", source, exc, exc_info=True)
-                err_result = {"file": source, "failed": 1, "imported": 0, "details": [f"❌ {os.path.basename(source)}: {exc}"], "error": str(exc)}
+                logger.error("Universal import failed for %s at %s: %s", source, pipeline_stage, exc, exc_info=True)
+                # A source/open/mapping/validation failure is not a database
+                # failure.  Preserve the four public statuses, but identify
+                # the first failed stage explicitly so an empty workbook,
+                # corrupt ZIP, mapping error, preview/UI error, and DB error
+                # cannot collapse into one generic "routing" diagnostic.
+                diagnostic_stage = {
+                    "route": "import.routing",
+                    "open": "import.open",
+                    "mapping": "import.mapping",
+                    "validation": "import.validation",
+                    "meaningful_data": "validation.meaningful_data",
+                    "ui_preview": "ui.preview",
+                    "persistence": "import.persistence",
+                }.get(pipeline_stage, "import.unknown")
+                if pipeline_stage != "persistence" and pipeline_stage != "ui_preview":
+                    error_status = ImportStatus.VALIDATION_ERROR.value
+                diagnostic_status = error_status
+                err_result = {
+                    "file": source,
+                    "failed": 1,
+                    "imported": 0,
+                    "status": diagnostic_status,
+                    "diagnostics": [PersistenceIssue.from_exception(
+                        exc, stage=diagnostic_stage, entity="source_document",
+                        operation=("open_workbook" if pipeline_stage == "open" else pipeline_stage),
+                        status=diagnostic_status,
+                    ).to_dict()],
+                    "details": [f"❌ {os.path.basename(source)}: {exc}"],
+                    "error": str(exc),
+                }
                 results.append(err_result)
                 failed_files.append(f"{os.path.basename(source)}: {exc}")
+                if dialog is not None:
+                    dialog.deleteLater()
+            finally:
+                # The adapter keeps the stable result directory alive through
+                # normalization and review.  Once this file's consumer has
+                # finished, release only the isolated temporary result.
+                if parse_result is not None and parse_result.success:
+                    parse_result.cleanup()
 
-        # Batch summary: successful vs failed
-        summary_text = f"Batch completed: {len(files)} files\n✅ Successful: {len(successful_files)} - {', '.join(successful_files[:5])}\n❌ Failed: {len(failed_files)} - {'; '.join(failed_files[:5])}"
+        summary_text = (
+            f"Batch completed: {len(files)} files\n"
+            f"✅ Successful: {len(successful_files)} - {', '.join(successful_files[:5])}\n"
+            f"❌ Failed: {len(failed_files)} - {'; '.join(failed_files[:5])}"
+        )
         self.batch_summary.setPlainText(summary_text)
-        self.import_status.setText(f"Batch done: {len(successful_files)} success, {len(failed_files)} failed - See preview summary")
-
+        self.import_status.setText(
+            f"Batch done: {len(successful_files)} success, {len(failed_files)} failed - See preview summary"
+        )
         self.import_completed.emit(results)
         if failed_files and not successful_files:
-            # Don't auto-close if all failed, let user see summary
             QMessageBox.warning(self, "Batch Import", summary_text)
         else:
             self.accept()
-
-    def _resolve_import_well(self, well_info):
-        """Resolve workbook well with universal aliases."""
-        from core.database import Well, Project
-        # Universal alias handling
-        name_candidates = ["name", "well_name", "well", "well_number", "well_id", "well_number_text", "نام چاه", "well designation", "wellname"]
-        name = ""
-        for k in name_candidates:
-            v = (well_info or {}).get(k)
-            if v and str(v).strip():
-                name = str(v).strip()
-                break
-        code = self._safe_text((well_info or {}).get("code"), "") or self._safe_text((well_info or {}).get("well_code"), "")
-
-        if not name and not code:
-            return self.well_id
-
-        session = self.db.create_session()
-        try:
-            query = session.query(Well)
-            existing = query.filter(Well.code == code).first() if code else None
-            if not existing:
-                existing = query.filter(Well.name == name).first() if name else None
-            if existing:
-                self.well_id = existing.id
-                return existing.id
-            fallback = session.get(Well, self.well_id) if self.well_id else None
-            project_id = fallback.project_id if fallback else session.query(Project.id).order_by(Project.id).scalar()
-            if not project_id:
-                raise ValueError("Cannot create imported well: no project exists")
-            valid_keys = {c.name for c in Well.__table__.columns}
-            values = {k: v for k, v in (well_info or {}).items() if k in valid_keys and k != "id"}
-            values.update({"project_id": project_id, "name": name or code})
-            if code:
-                values["code"] = code
-            values = self.db.coerce_model_values(Well, values)
-            well = Well(**values)
-            session.add(well)
-            session.commit()
-            self.well_id = well.id
-            return well.id
-        finally:
-            session.close()
-
-    @staticmethod
-    def _auto_match_template(sheet_names: list) -> dict:
-        """Find a company template whose sheet sections fit this workbook.
-
-        Generic rule: a template matches when every template sheet section
-        name (the part after 'sheet_<n>_') exists among the workbook's
-        sheet titles. Returns None when no template matches, so imports
-        fall back to heuristic detection.
-        """
-        templates_dir = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "templates",
-        )
-        if not os.path.isdir(templates_dir):
-            return None
-        available = set(sheet_names)
-        best = None
-        best_count = -1
-        for filename in sorted(os.listdir(templates_dir)):
-            if not filename.endswith(".json") or filename.startswith("_"):
-                continue
-            path = os.path.join(templates_dir, filename)
-            try:
-                with open(path, encoding="utf-8") as fh:
-                    tmpl = json.load(fh)
-            except (OSError, ValueError):
-                continue
-            if not isinstance(tmpl, dict):
-                continue
-            sheet_keys = [k for k in tmpl if k.startswith("sheet_")]
-            if not sheet_keys:
-                continue
-            ok = True
-            for key in sheet_keys:
-                parts = key.split("_", 2)
-                name = parts[2] if len(parts) > 2 else parts[1]
-                # Template keys use underscores where workbook sheets use
-                # spaces (e.g. sheet_2_DDR_Data <-> "DDR Data").
-                normalized = name.replace("_", " ").lower()
-                if normalized not in {s.lower() for s in available}:
-                    ok = False
-                    break
-            if ok and len(sheet_keys) > best_count:
-                best_count = len(sheet_keys)
-                best = tmpl
-        return best
-
-    def _do_import(self, extracted: dict, refresh_ui: bool = True) -> dict:
-        """Core import logic with atomic transaction and no fake defaults."""
-        results = {
-            "imported": 0,
-            "failed": 0,
-            "details": [],
-            "well_id": self.well_id,
-            "report_id": None,
-            "section_id": None,
-            "import_report": None,
-        }
-        session = None
-        report_id = None
-        created_new_report = False
-        import_snapshot = None
-
-        try:
-            from core.database import Section, DailyReport
-
-            report_data = extracted.get("daily_report", {})
-            quality = ImportValidator.validate_rows([report_data], "daily_report", "Daily Report")
-            time_logs = extracted.get("time_logs_24h", []) or []
-
-            # Professional time log validation
-            time_validation = TimeLogValidator.validate_logs(time_logs, sheet="Time Logs 24H")
-            quality.issues.extend(time_validation.issues)
-
-            # Filter time logs: keep only valid with time_from/to
-            valid_time_logs = [
-                row for row in time_logs
-                if isinstance(row, dict) and row.get("time_from") not in (None, "") and row.get("time_to") not in (None, "")
-            ]
-            extracted["time_logs_24h"] = valid_time_logs
-
-            duplicate_indexes = set(find_duplicates(time_logs, "time_log"))
-            for index in sorted(duplicate_indexes, reverse=True):
-                if index < len(time_logs):
-                    del time_logs[index]
-                    quality.skipped += 1
-            quality.total += time_validation.total
-            quality.failed += time_validation.failed
-            results["import_report"] = quality.as_dict()
-            results["import_report"]["review"].extend((extracted.get("metadata") or {}).get("review_matrix", []))
-
-            if quality.errors and not report_data.get("report_date"):
-                results["failed"] += 1
-                results["details"].append("❌ Import stopped: invalid Daily Report - MISSING_INPUT report_date")
-                return results
-
-            if duplicate_indexes:
-                results["details"].append(f"⚠️ Skipped {len(duplicate_indexes)} duplicate time-log rows")
-
-            # Well
-            wi = extracted.get("well_info", {})
-            # Well-level header attributes that live in the report header
-            # (LTA days, actual rig days) belong on the Well record too —
-            # generic copy, not company-specific.
-            _dr_header = extracted.get("daily_report", {}) or {}
-            for _wkey in ("lta_day", "actual_rig_days"):
-                if (
-                    _wkey in _dr_header
-                    and _dr_header.get(_wkey) not in (None, "")
-                    and _wkey not in wi
-                ):
-                    wi[_wkey] = _dr_header[_wkey]
-            if not self.well_id or wi.get("name") or wi.get("code"):
-                self._resolve_import_well(wi)
-                results["well_id"] = self.well_id
-            if wi:
-                wi_save = dict(wi)
-                wi_save["id"] = self.well_id
-                if self.db.save_well(wi_save):
-                    results["details"].append(f"✅ Well Info: {len(wi)} fields (identity resolved via universal aliases)")
-
-            # Section
-            section_name = self._safe_text(wi.get("section_name"), "Imported Section")
-            section_id = None
-
-            session = self.db.create_session()
-            try:
-                existing = session.query(Section).filter(
-                    Section.well_id == self.well_id,
-                    Section.name == section_name,
-                ).first()
-
-                if existing:
-                    section_id = existing.id
-                else:
-                    dr_data = extracted.get("daily_report", {})
-                    depth_from = ValueNormalizer.to_float(dr_data.get("depth_0000"))
-                    depth_to = ValueNormalizer.to_float(dr_data.get("depth_2400"))
-                    # No fake defaults: preserve None as 0 only for DB constraints but flag as review
-                    new_section = Section(
-                        well_id=self.well_id,
-                        name=section_name,
-                        code=self._safe_text(wi.get("section_code"), ""),
-                        depth_from=depth_from if depth_from is not None else 0.0,
-                        depth_to=depth_to if depth_to is not None else 0.0,
-                    )
-                    session.add(new_section)
-                    session.flush()
-                    section_id = new_section.id
-                    results["details"].append(f"✅ Section '{section_name}' created (identity: name + depth range)")
-
-                session.commit()
-            finally:
-                session.close()
-                session = None
-
-            if not section_id:
-                results["failed"] += 1
-                results["details"].append("❌ No valid section - MISSING_INPUT")
-                return results
-
-            results["section_id"] = section_id
-
-            # Daily Report - no fake defaults
-            dr = dict(extracted.get("daily_report", {}))
-            dr["well_id"] = self.well_id
-            dr["section_id"] = section_id
-            raw_report_date = dr.get("report_date") or wi.get("report_date")
-            if raw_report_date in (None, ""):
-                results["failed"] += 1
-                results["details"].append("❌ Import stopped: report date is missing - MISSING_INPUT")
-                return results
-            dr["report_date"] = self._normalize_date(raw_report_date)
-            dr.setdefault("status", "Draft")
-
-            supplied_report_number = ValueNormalizer.to_int(dr.get("report_number"))
-            report_num = self._ensure_report_number(dr, section_id)
-            dr["report_number"] = report_num
-            dr["report_number_source"] = "imported" if supplied_report_number else "generated"
-
-            if not dr.get("rig_day"):
-                dr["rig_day"] = report_num
-            else:
-                dr["rig_day"] = ValueNormalizer.to_int(dr["rig_day"]) or report_num
-
-            # Depth fields - preserve None, no fake 0
-            for depth_field in ["depth_0000", "depth_0600", "depth_2400"]:
-                parsed_depth = ValueNormalizer.to_float(dr.get(depth_field))
-                dr[depth_field] = parsed_depth  # None if missing, not 0
-
-            # Notes (Note#01/Note#02 ...) -> report summary, deduplicated
-            # and stripped of stray label cells; the note_* keys themselves
-            # are not DailyReport columns and are dropped by the saver.
-            note_values = []
-            for key in sorted(k for k in dr if k.startswith("note_")):
-                val = dr.get(key)
-                if isinstance(val, str) and val.strip() and val.strip().lower().startswith("note#"):
-                    if val not in note_values:
-                        note_values.append(val.strip())
-            if note_values:
-                existing_summary = (dr.get("summary") or "").strip()
-                if existing_summary:
-                    dr["summary"] = existing_summary + "\n\n" + "\n".join(note_values)
-                else:
-                    dr["summary"] = "\n".join(note_values)
-
-            # Operation forecast (next-day plan) from the report header
-            # -> DailyReport.forecast (nullable; absent stays absent).
-            if dr.get("forecast") in (None, ""):
-                forecast_val = extracted.get("daily_report", {}).get("forecast")
-                if isinstance(forecast_val, str) and forecast_val.strip():
-                    dr["forecast"] = forecast_val.strip()
-
-            created_new_report = not bool(dr.get("id"))
-            if not created_new_report or hasattr(self.db, "snapshot_import_target"):
-                import_snapshot = self.db.snapshot_import_target(self.well_id, section_id, dr["report_date"])
-            saved = self.db.save_daily_report(dr)
-            report_id = None
-
-            if saved and saved.get("id"):
-                report_id = saved["id"]
-                results["report_id"] = report_id
-                results["imported"] += 1
-                results["details"].append(f"✅ Report #{saved.get('report_number', '?')} - Atomic transaction started")
-            else:
-                report_id = self._create_fallback_report(dr, section_id, report_num, results)
-
-            if not report_id:
-                results["details"].append("❌ Could not create Daily Report")
-                results["failed"] += 1
-                return results
-
-            results["report_id"] = report_id
-
-            # Mud with unit preservation
-            mud_data = extracted.get("mud_report", {}) or {}
-            if not mud_data.get("chemicals_json") and extracted.get("bulk_materials"):
-                mud_data["chemicals_json"] = json.dumps([
-                    {"product": item.get("material_name", ""), "product_type": "", "received": item.get("received", 0), "used": item.get("used", 0), "stock": item.get("current_stock", item.get("initial_stock", 0)), "unit": item.get("unit", "")}
-                    for item in extracted.get("bulk_materials", []) if item.get("material_name")
-                ], ensure_ascii=False)
-
-            # Unit preservation for MW: detect SG vs ppg / explicit PCF unit
-            if mud_data.get("mw") and isinstance(mud_data.get("mw"), str):
-                val, unit = UnitManager.detect_unit(mud_data["mw"])
-                if val is not None and unit:
-                    record = UnitManager.create_record("mud_report.mw", "density", unit, val, "ppg")
-                    mud_data["mw"] = record.normalized_value
-                    mud_data["mw_original"] = record.original_value
-                    mud_data["mw_unit"] = record.source_unit
-                    results["details"].append(f"📏 Unit preserved: {record.conversion_rule}")
-            elif mud_data.get("mw") not in (None, "") and mud_data.get("mw_unit"):
-                # Numeric value with an explicit source unit anchor (PCF).
-                # The Mud UI is PCF-native ("MW (pcf)", range 0-200), so
-                # PCF is kept as-is; any other unit (SG, ppg, ...) is
-                # converted to canonical ppg with provenance preserved.
-                unit_norm = UnitManager.normalize(mud_data["mw_unit"])
-                if unit_norm == "pcf":
-                    mud_data["mw_original"] = mud_data["mw"]
-                    mud_data["mw_unit"] = "PCF"
-                    results["details"].append(
-                        "📏 Unit preserved: PCF (native UI unit)"
-                    )
-                else:
-                    record = UnitManager.create_record(
-                        "mud_report.mw", "density",
-                        mud_data["mw_unit"], mud_data["mw"], "ppg"
-                    )
-                    if record.normalized_value is not None:
-                        mud_data["mw"] = record.normalized_value
-                        mud_data["mw_original"] = record.original_value
-                        mud_data["mw_unit"] = record.source_unit
-                        results["details"].append(
-                            f"📏 Unit preserved: {record.conversion_rule}"
-                        )
-
-            self._save_mud_report(mud_data, report_id, dr["report_date"],
-                                  daily_report=dr)
-
-            # Drilling params with universal aliases
-            drilling_extracted = extracted.get("drilling_params", {})
-            # Map WOB aliases
-            wob_aliases = ["wob", "wt. on bit", "bit load", "weight on bit", "w.o.b", "wob_max"]
-            for alias in wob_aliases:
-                if alias in drilling_extracted and "wob_max" not in drilling_extracted:
-                    drilling_extracted["wob_max"] = drilling_extracted[alias]
-
-            self._save_drilling_params(
-                drilling_extracted, report_id, dr["report_date"],
-                param_table=extracted.get("drilling_params_table") or [],
-                scr_data=extracted.get("scr_data") or [],
-            )
-
-            if extracted.get("time_logs_24h"):
-                self._save_time_logs(report_id, extracted["time_logs_24h"])
-                results["details"].append(f"✅ Time logs: {len(extracted['time_logs_24h'])} entries - Validated: 24h total, overlap/gap checked")
-
-            if extracted.get("time_logs_morning"):
-                self._save_morning_logs(report_id, extracted["time_logs_morning"])
-                results["details"].append(f"✅ Morning logs: {len(extracted['time_logs_morning'])} entries")
-
-            # Atomic multi-tab import
-            if hasattr(self.db, 'save_imported_multi_tab_data_atomic'):
-                try:
-                    multi_res = self.db.save_imported_multi_tab_data_atomic(self.well_id, report_id, extracted)
-                    for k, count in multi_res.items():
-                        if k in ("failed", "error"):
-                            if k == "failed":
-                                results["failed"] += int(count or 0)
-                        elif k == "imported":
-                            continue
-                        elif count and count > 0:
-                            results["details"].append(f"✅ {k}: {count} records imported (atomic)")
-                    results["imported"] += multi_res.get("imported", 0)
-                except Exception as atomic_exc:
-                    logger.error(f"Atomic multi-tab import failed: {atomic_exc}", exc_info=True)
-                    # Rollback handled inside atomic method via session_scope
-                    if import_snapshot:
-                        self.db.restore_import_snapshot(import_snapshot)
-                    elif created_new_report:
-                        self.db.delete_daily_report(report_id)
-                    results["failed"] += 1
-                    results["details"].append(f"↩️ Atomic rollback: {atomic_exc} - No partial data kept")
-                    results["imported"] = 0
-                    return results
-
-            if results["failed"] and report_id:
-                if import_snapshot:
-                    self.db.restore_import_snapshot(import_snapshot)
-                elif created_new_report:
-                    self.db.delete_daily_report(report_id)
-                results["details"].append("↩️ Import rolled back: no partial report was kept - Transaction integrity preserved")
-                results["imported"] = 0
-                return results
-
-            results["details"].append("✅ Atomic transaction committed - All 15 tables saved or none")
-            return results
-
-        except Exception as e:
-            results["failed"] = 1
-            results["details"].append(f"❌ Error: {str(e)}")
-            logger.error(f"Import error: {e}", exc_info=True)
-            if session:
-                try:
-                    session.rollback()
-                except Exception:
-                    pass
-            if report_id:
-                try:
-                    if import_snapshot:
-                        self.db.restore_import_snapshot(import_snapshot)
-                    elif created_new_report:
-                        self.db.delete_daily_report(report_id)
-                    results["details"].append("↩️ Import rolled back after failure - No orphan data")
-                except Exception:
-                    logger.error("Import rollback cleanup failed", exc_info=True)
-            return results
-        finally:
-            if session:
-                try:
-                    session.close()
-                except Exception:
-                    pass
-
-    def _ensure_report_number(self, dr: dict, section_id: int) -> int:
-        if dr.get("report_number"):
-            num = ValueNormalizer.to_int(dr["report_number"])
-            if num and num > 0:
-                return num
-
-        from core.database import DailyReport
-        session = self.db.create_session()
-        try:
-            last = session.query(DailyReport).filter(
-                DailyReport.section_id == section_id,
-            ).order_by(DailyReport.report_number.desc()).first()
-            return (last.report_number + 1) if last else 1
-        finally:
-            session.close()
-
-    def _create_fallback_report(self, dr: dict, section_id: int, report_num: int, results: dict) -> int:
-        from core.database import DailyReport
-        session = self.db.create_session()
-        try:
-            existing = session.query(DailyReport).filter(
-                DailyReport.well_id == self.well_id,
-                DailyReport.section_id == section_id,
-                DailyReport.report_number == report_num,
-            ).first()
-
-            if not existing:
-                existing = DailyReport(
-                    well_id=self.well_id,
-                    section_id=section_id,
-                    report_number=report_num,
-                    report_date=dr["report_date"],
-                    status="Draft",
-                    rig_day=report_num,
-                    depth_0000=dr.get("depth_0000"),
-                    depth_0600=dr.get("depth_0600"),
-                    depth_2400=dr.get("depth_2400"),
-                    summary=dr.get("summary", ""),
-                )
-                session.add(existing)
-                session.commit()
-                results["details"].append(f"⚠️ Fallback report #{report_num} - No fake defaults, depth preserved as NULL if missing")
-
-            report_id = existing.id
-            results["report_id"] = report_id
-            return report_id
-
-        except Exception as e:
-            logger.error(f"Fallback report error: {e}")
-            return None
-        finally:
-            session.close()
-
-    def _save_mud_report(self, mr: dict, report_id: int, report_date, daily_report=None):
-        if not mr:
-            return
-        mr_save = dict(mr)
-        mr_save.update({
-            "well_id": self.well_id,
-            "report_id": report_id,
-            "report_date": report_date,
-        })
-        float_fields = [
-            'mw', 'pv', 'yp', 'funnel_vis', 'gel_10s',
-            'gel_10m', 'fl', 'cake_thickness', 'ph',
-            'temperature', 'solid_percent', 'oil_percent',
-            'water_percent', 'chloride', 'volume_hole',
-            'loss_surface', 'loss_downhole',
-            'calcium', 'kcl', 'mbt', 'pf_mf',
-            'total_hardness', 'flowline_temp',
-        ]
-        for field in float_fields:
-            if field in mr_save and mr_save[field] not in (None, ""):
-                # Preserve None, don't convert empty to 0
-                converted = ValueNormalizer.to_float(mr_save[field])
-                mr_save[field] = converted  # None if missing
-
-        # Report-header mud volume block (pit readings) -> MudReport.
-        # Values only; header labels are never stored.
-        if daily_report:
-            pit_block = {}
-            pit_labels = {
-                "suction1_mw": "suction1_mw", "suction1_vol": "suction1_vol",
-                "suction2_mw": "suction2_mw", "suction2_vol": "suction2_vol",
-                "degasser_mw": "degasser_mw", "degasser_vol": "degasser_vol",
-                "desander_mw": "desander_mw", "desander_vol": "desander_vol",
-                "desilter_vol": "desilter_vol",
-                "middle_mw": "middle_mw", "middle_vol": "middle_vol",
-                "reserve1_mw": "reserve1_mw", "reserve1_vol": "reserve1_vol",
-                "reserve2_mw": "reserve2_mw", "reserve2_vol": "reserve2_vol",
-                "reserve3_mw": "reserve3_mw", "reserve3_vol": "reserve3_vol",
-                "sand_trap_mw": "sand_trap_mw", "sand_trap_vol": "sand_trap_vol",
-            }
-            for src_key, dst_key in pit_labels.items():
-                val = daily_report.get(src_key)
-                if val not in (None, ""):
-                    pit_block[dst_key] = val
-            if pit_block:
-                mr_save["pit_volumes_json"] = json.dumps(pit_block, ensure_ascii=False)
-            # Scalar mud-volume fields from the report header when the mud
-            # table itself did not supply them.
-            if mr_save.get("volume_hole") in (None, "") and daily_report.get("vol_in_hole") not in (None, ""):
-                mr_save["volume_hole"] = ValueNormalizer.to_float(daily_report["vol_in_hole"])
-            if mr_save.get("total_circulated") in (None, "") and daily_report.get("total_circ_vol") not in (None, ""):
-                mr_save["total_circulated"] = ValueNormalizer.to_float(daily_report["total_circ_vol"])
-            if mr_save.get("loss_downhole") in (None, "") and daily_report.get("mud_lost_downhole") not in (None, ""):
-                mr_save["loss_downhole"] = ValueNormalizer.to_float(daily_report["mud_lost_downhole"])
-            if mr_save.get("loss_surface") in (None, "") and daily_report.get("mud_lost_surface") not in (None, ""):
-                mr_save["loss_surface"] = ValueNormalizer.to_float(daily_report["mud_lost_surface"])
-
-        # Preserve original source tokens for non-numeric properties
-        # (e.g. 'N.C' -> NULL + provenance) instead of dropping them.
-        provenance = []
-        for key in list(mr_save.keys()):
-            if not key.endswith("_source"):
-                continue
-            field = key[:-len("_source")]
-            token = mr_save.pop(key)
-            if token in (None, ""):
-                continue
-            token_s = str(token).strip()
-            if token_s and mr_save.get(field) in (None, ""):
-                provenance.append(f"{field} (original): {token_s}")
-        if provenance:
-            summary = str(mr_save.get("summary") or "").strip()
-            mr_save["summary"] = (summary + "\n" if summary else "") + "\n".join(provenance)
-
-        try:
-            self.db.save_mud_report(mr_save)
-        except Exception as e:
-            logger.error(f"Mud report save error: {e}")
-
-    @staticmethod
-    def _fraction_to_32nds(text) -> Optional[float]:
-        """'18/32"' -> 18; '3/4"' -> 24; None for Open/text values."""
-        if not text:
-            return None
-        s = str(text).strip().replace('"', '').replace('"', '')
-        parts = s.split("/")
-        try:
-            if len(parts) == 1:
-                return float(parts[0]) * 32.0
-            return float(parts[0]) / float(parts[1]) * 32.0
-        except (ValueError, ZeroDivisionError):
-            return None
-
-    def _save_drilling_params(self, dp: dict, report_id: int, report_date, param_table=None, scr_data=None):
-        if not dp:
-            return
-        dp_save = dict(dp)
-        dp_save.update({
-            "well_id": self.well_id,
-            "report_id": report_id,
-            "report_date": report_date,
-        })
-
-        # Pack nozzle anchors (nozzle1_no/1_size, nozzle2_no/2_size) into
-        # the nozzles_json column, preserving the original text tokens
-        # (e.g. '18/32"', 'Open') so no size is invented.
-        nozzles = []
-        for idx in (1, 2):
-            qty = ValueNormalizer.to_int(dp_save.get(f"nozzle{idx}_no"))
-            size_text = dp_save.get(f"nozzle{idx}_size")
-            if qty is None and not size_text:
-                continue
-            size_32 = self._fraction_to_32nds(size_text)
-            nozzles.append({
-                "row": idx,
-                "size_32nd": size_32,
-                "quantity": qty if qty is not None else 0,
-                "diameter_inch": round(size_32 / 32.0, 4) if size_32 is not None else None,
-                "text": str(size_text).strip() if size_text is not None else "",
-            })
-        if nozzles:
-            dp_save["nozzles_json"] = json.dumps(nozzles, ensure_ascii=False)
-
-        # Merge the Drilling Parameters table rows (W.O.B / RPM / Torque /
-        # Pump Pressure min-max) into the scalar record — generic keyword
-        # matching on the parameter name, not company-specific.
-        if param_table:
-            param_keywords = {
-                "w.o.b": "wob", "wt. on bit": "wob", "weight on bit": "wob",
-                "bit load": "wob", "wob": "wob",
-                "surf. rpm": "rpm", "rotary speed": "rpm", "rotary": "rpm",
-                "rpm": "rpm",
-                "torque": "torque",
-                "pump pressure": "pump_pressure",
-                "pump output": "pump_output",
-            }
-            for row in param_table:
-                if not isinstance(row, dict):
-                    continue
-                name = str(row.get("name", "")).lower().strip()
-                for keyword, field in param_keywords.items():
-                    if keyword in name:
-                        if row.get("min") not in (None, "") and f"{field}_min" not in dp_save:
-                            dp_save[f"{field}_min"] = ValueNormalizer.to_float(row["min"])
-                        if row.get("max") not in (None, "") and f"{field}_max" not in dp_save:
-                            dp_save[f"{field}_max"] = ValueNormalizer.to_float(row["max"])
-                        break
-
-        # Bit run summary keys map onto the DrillingParameters bit columns;
-        # canonical aliases (bit_cum_drilled, bit_hours_on_bottom, ...) are
-        # normalized here — never dropped.
-        bit_key_map = {
-            "bit_cum_drilled": "cum_drilled",
-            "bit_hours_on_bottom": "hours_on_bottom",
-            "bit_cum_hrs_on_bottom": "cum_hours",
-            "cum_bit_avg_rop": "avg_rop",
-        }
-        for src_key, dst_key in bit_key_map.items():
-            if src_key in dp_save and dp_save[src_key] not in (None, ""):
-                if dst_key not in dp_save or dp_save[dst_key] in (None, ""):
-                    dp_save[dst_key] = dp_save[src_key]
-            dp_save.pop(src_key, None)
-
-        # SCR table rows (pump/SPM/FR/SPP) -> pumpN_spm / pumpN_spp columns.
-        # Generic pump-number extraction from the pump name ('Pump No. #1').
-        scr_rows = scr_data or []
-        if isinstance(scr_rows, list):
-            for row in scr_rows:
-                if not isinstance(row, dict):
-                    continue
-                pump_name = str(row.get("pump", "")).strip()
-                if not pump_name:
-                    continue
-                digits = [ch for ch in pump_name if ch.isdigit()]
-                if not digits:
-                    continue
-                pump_no = int(digits[0])
-                if pump_no not in (1, 2, 3):
-                    continue
-                for key, col in (("spm", f"pump{pump_no}_spm"),
-                                 ("spp", f"pump{pump_no}_spp")):
-                    val = row.get(key)
-                    if val not in (None, "") and col not in dp_save:
-                        dp_save[col] = ValueNormalizer.to_float(val)
-
-        float_fields = [
-            'bit_size', 'depth_in', 'depth_out', 'avg_rop',
-            'wob_min', 'wob_max', 'rpm_min', 'rpm_max',
-            'torque_min', 'torque_max',
-            'pump_pressure_min', 'pump_pressure_max',
-            'pump_output_min', 'pump_output_max',
-            'tfa', 'hours_on_bottom',
-        ]
-        for field in float_fields:
-            if field in dp_save and dp_save[field] not in (None, ""):
-                dp_save[field] = ValueNormalizer.to_float(dp_save[field])
-
-        try:
-            self.db.save_drilling_parameters(dp_save)
-        except Exception as e:
-            logger.error(f"Drilling params save error: {e}")
-
-    def _save_time_logs(self, report_id: int, logs: list):
-        session = self.db.create_session()
-        try:
-            from core.database import TimeLog24H
-            session.query(TimeLog24H).filter(TimeLog24H.report_id == report_id).delete()
-            saved = 0
-            for log in logs:
-                time_from = ValueNormalizer.to_time(log.get("time_from"))
-                if time_from is None:
-                    continue
-                tlog = TimeLog24H(
-                    report_id=report_id,
-                    time_from=time_from,
-                    time_to=ValueNormalizer.to_time(log.get("time_to")) or dt_time(0, 0),
-                    duration=float(log.get("duration", 0) or 0),
-                    main_phase=str(log.get("main_phase", ""))[:100],
-                    main_code=str(log.get("main_code", ""))[:100],
-                    sub_code=str(log.get("sub_code", ""))[:100],
-                    status=str(log.get("status", ""))[:50],
-                    is_npt=bool(log.get("is_npt", False)),
-                    npt_category=str(log.get("npt_category", ""))[:100],
-                    activity_description=wrap_text(str(log.get("activity_description", ""))),
-                    contractor=str(log.get("contractor", ""))[:100],
-                )
-                session.add(tlog)
-                saved += 1
-            session.commit()
-            logger.info(f"Saved {saved} time logs (no fake defaults, duration validated)")
-        except Exception as e:
-            session.rollback()
-            logger.error(f"Time log save error: {e}")
-        finally:
-            session.close()
-
-    def _save_morning_logs(self, report_id: int, logs: list):
-        session = self.db.create_session()
-        try:
-            from core.database import TimeLogMorning
-            session.query(TimeLogMorning).filter(TimeLogMorning.report_id == report_id).delete()
-            saved = 0
-            for log in logs:
-                time_from = ValueNormalizer.to_time(log.get("time_from"))
-                if time_from is None:
-                    continue
-                tlog = TimeLogMorning(
-                    report_id=report_id,
-                    time_from=time_from,
-                    time_to=ValueNormalizer.to_time(log.get("time_to")) or dt_time(0, 0),
-                    duration=float(log.get("duration", 0) or 0),
-                    main_phase=str(log.get("main_phase", ""))[:100],
-                    main_code=str(log.get("main_code", ""))[:100],
-                    sub_code=str(log.get("sub_code", ""))[:100],
-                    status=str(log.get("status", ""))[:50],
-                    is_npt=bool(log.get("is_npt", False)),
-                    npt_category=str(log.get("npt_category", ""))[:100],
-                    activity_description=wrap_text(str(log.get("activity_description", ""))),
-                    contractor=str(log.get("contractor", ""))[:100],
-                )
-                session.add(tlog)
-                saved += 1
-            session.commit()
-            logger.info(f"Saved {saved} morning logs")
-        except Exception as e:
-            session.rollback()
-            logger.error(f"Morning log save error: {e}")
-        finally:
-            session.close()
-
-    def _normalize_date(self, value) -> dt_date:
-        result = ValueNormalizer.to_date(value)
-        return result
-
-    def _safe_text(self, value, default="") -> str:
-        result = ValueNormalizer.to_str(value)
-        if not result or result.endswith(":"):
-            return default
-        return result

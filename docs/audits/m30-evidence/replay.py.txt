@@ -1,0 +1,160 @@
+import hashlib
+import json
+import os
+import subprocess
+import time
+from pathlib import Path
+
+cases = [
+    (
+        "currency",
+        "core/cost_semantics.py",
+        'actual = complete_total(read(r, "actual_cost") for r in records) if currency else None',
+        'actual = complete_total(read(r, "actual_cost") for r in records)',
+        "tests/test_m29_release_closure.py::test_afe_legacy_summary_uses_same_currency_contract",
+    ),
+    (
+        "null-plan",
+        "core/actual_vs_plan.py",
+        'planned = optional_number(planned, "planned")',
+        'planned = optional_number(planned, "planned") or 0.0',
+        "tests/test_m29_release_closure.py::test_required_eleven_pair_plan_matrix",
+    ),
+    (
+        "safety",
+        "core/safety_semantics.py",
+        "current[0].days_without_lti if len(current) == 1 else None",
+        "current[0].days_without_lti if len(current) == 1 else 0",
+        "tests/test_m28_finance_safety_plan.py::test_safety_absence_zero_incomplete_and_latest_not_maximum",
+    ),
+    (
+        "ownership",
+        "core/database.py",
+        "        _check_auxiliary_ownership(session, obj)",
+        "        pass # deliberately disabled ownership guard",
+        "tests/test_m29_release_closure.py::test_all_section_owned_models_reject_cross_well_relationships",
+    ),
+    (
+        "permission",
+        "main_window.py",
+        "        return check_delete_permission(self.status_manager, entity_type)",
+        "        return True",
+        "tests/test_m29_release_closure.py::test_permission_is_entity_specific_and_main_window_fails_closed",
+    ),
+    (
+        "backup",
+        "core/database.py",
+        'logger.exception("Database backup failed")\n            return None',
+        'logger.exception("Database backup failed")\n            return str(destination)',
+        "tests/test_m28_finance_safety_plan.py::test_failed_backup_preserves_previous_destination",
+    ),
+    (
+        "snapshot",
+        "core/database.py",
+        "if report is None:\n                return False\n            for mapper",
+        "if report is None:\n                return True\n            for mapper",
+        "tests/test_m29_release_closure.py::test_snapshot_restore_missing_target_cannot_succeed",
+    ),
+    (
+        "gate",
+        "verify_release.py",
+        '    seen, actual = set(), {"passed": 0, "skipped": 0}',
+        '    return True\n    seen, actual = set(), {"passed": 0, "skipped": 0}',
+        "tests/test_release_gate_integrity.py::test_junit_accounting_and_optional_skip_policy",
+    ),
+    (
+        "npt-scope",
+        "tabs/w10_Planning_Widget.py",
+        "query = query.filter(DailyReport.id == report_id)",
+        "query = query.filter(DailyReport.well_id == well_id)",
+        "tests/test_m29_release_closure.py::test_npt_report_scope_and_unknown_duration",
+    ),
+]
+cases.extend(
+    [
+        (
+            "calendar-ambiguity",
+            "tabs/w12_Analysis.py",
+            "if len(first_rows) == len(last_rows) == 1:",
+            "if first_rows and last_rows:",
+            "tests/test_m29_release_closure.py::test_w12_calendar_rate_unique_endpoints_and_canonical_unknown",
+        ),
+        (
+            "mud-direction",
+            "tabs/w12_Analysis.py",
+            "'mw_out': report.mud_weight_out,",
+            "'mw_out': mud.mw if mud else None,",
+            "tests/test_m29_release_closure.py::test_w12_mud_sample_is_not_two_directional_measurements",
+        ),
+        (
+            "atomic-memory",
+            "core/mapping_store.py",
+            "        atomic_write_json(self.path, candidate, ensure_ascii=False, indent=2)",
+            "        self.data = candidate\n        atomic_write_json(self.path, candidate, ensure_ascii=False, indent=2)",
+            "tests/test_m29_release_closure.py::test_mapping_write_failure_preserves_disk_memory_and_cleans_temporary",
+        ),
+        (
+            "export-return",
+            "tabs/w10_Planning_Widget.py",
+            "if not pixmap.save(filename):",
+            "if False:",
+            "tests/test_m29_release_closure.py::test_chart_export_false_result_is_not_success",
+        ),
+    ]
+)
+# Include the real bootstrap consumer, not a core-only import surrogate.
+cases.append(
+    (
+        "re-export",
+        "core/database.py",
+        "    bootstrap_password_for_role as bootstrap_password_for_role,",
+        "    bootstrap_password_for_role as _removed_reexport,",
+        "tests/test_release.py::TestReleaseVerification::test_real_entrypoint_source_package_smoke",
+    )
+)
+out = Path("/home/user/m30-controls/m29-replayed")
+out.mkdir(parents=True, exist_ok=True)
+ledger = []
+for name, file, before, after, test in cases:
+    path = Path(file)
+    original = path.read_bytes()
+    source = original.decode()
+    assert before in source, (name, "mutation no longer applicable")
+    digest = hashlib.sha256(original).hexdigest()
+    start = time.monotonic()
+    try:
+        path.write_text(source.replace(before, after, 1))
+        result = subprocess.run(
+            [".venv/bin/python", "-m", "pytest", "-q", test, "--tb=short"],
+            capture_output=True,
+            text=True,
+            env=dict(
+                os.environ,
+                QT_QPA_PLATFORM="offscreen",
+                QT_STUB_DIR="/home/user/qt-libs",
+                LD_LIBRARY_PATH="/home/user/qt-libs",
+            ),
+            timeout=180,
+        )
+        (out / f"mutation-{name}.txt").write_text(result.stdout + result.stderr)
+    finally:
+        path.write_bytes(original)
+    restored = hashlib.sha256(path.read_bytes()).hexdigest() == digest
+    ledger.append(
+        dict(
+            control=name,
+            file=file,
+            test=test,
+            mutation_before=before,
+            mutation_after=after,
+            returncode=result.returncode,
+            expected_failure=result.returncode == 1,
+            source_restored=restored,
+            seconds=round(time.monotonic() - start, 2),
+            source_sha256=digest,
+        )
+    )
+    print(name, result.returncode, restored, flush=True)
+    (out / "mutation-controls.json").write_text(json.dumps(ledger, indent=2) + "\n")
+    assert restored
+assert all(row["expected_failure"] for row in ledger)

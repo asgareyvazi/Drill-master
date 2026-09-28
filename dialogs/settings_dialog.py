@@ -7,6 +7,9 @@ from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
 
+from core.mineru_engine import MinerUConfig, discover_mineru_executable
+from core.runtime_config import write_mineru_settings
+
 logger = logging.getLogger(__name__)
 
 
@@ -44,6 +47,8 @@ class SettingsDialog(QDialog):
         self.tabs.addTab(self._create_units_tab(), "📏 Units")
         # Database Tab
         self.tabs.addTab(self._create_database_tab(), "🗃️ Database")
+        # External document intelligence
+        self.tabs.addTab(self._create_mineru_tab(), "📄 MinerU")
 
         layout.addWidget(self.tabs)
 
@@ -157,6 +162,97 @@ class SettingsDialog(QDialog):
 
         return tab
 
+    def _create_mineru_tab(self):
+        tab = QWidget()
+        layout = QFormLayout(tab)
+        layout.setSpacing(10)
+
+        self.mineru_enabled = QCheckBox("Use MinerU when detected")
+        layout.addRow("Enabled:", self.mineru_enabled)
+
+        self.mineru_executable = QLineEdit()
+        self.mineru_executable.setPlaceholderText("Auto-discover mineru.exe or configure a path")
+        executable_browse = QPushButton("Browse...")
+        executable_browse.clicked.connect(self._browse_mineru_executable)
+        executable_layout = QHBoxLayout()
+        executable_layout.addWidget(self.mineru_executable)
+        executable_layout.addWidget(executable_browse)
+        layout.addRow("Executable:", executable_layout)
+
+        self.mineru_python = QLineEdit()
+        self.mineru_python.setPlaceholderText("Optional Python executable for python -m mineru")
+        python_browse = QPushButton("Browse...")
+        python_browse.clicked.connect(self._browse_mineru_python)
+        python_layout = QHBoxLayout()
+        python_layout.addWidget(self.mineru_python)
+        python_layout.addWidget(python_browse)
+        layout.addRow("Python:", python_layout)
+
+        self.mineru_backend = QComboBox()
+        self.mineru_backend.addItems([
+            "hybrid-engine",
+            "pipeline",
+            "vlm-engine",
+            "hybrid-http-client",
+            "vlm-http-client",
+        ])
+        layout.addRow("Backend:", self.mineru_backend)
+
+        self.mineru_method = QComboBox()
+        self.mineru_method.addItems(["auto", "txt", "ocr"])
+        layout.addRow("Method:", self.mineru_method)
+
+        self.mineru_timeout = QSpinBox()
+        self.mineru_timeout.setRange(1, 86400)
+        self.mineru_timeout.setSuffix(" seconds")
+        layout.addRow("Timeout:", self.mineru_timeout)
+
+        self.mineru_output_dir = QLineEdit()
+        self.mineru_output_dir.setPlaceholderText("Temporary isolated output by default")
+        output_browse = QPushButton("Browse...")
+        output_browse.clicked.connect(self._browse_mineru_output_dir)
+        output_layout = QHBoxLayout()
+        output_layout.addWidget(self.mineru_output_dir)
+        output_layout.addWidget(output_browse)
+        layout.addRow("Output Directory:", output_layout)
+
+        self.mineru_keep_output = QCheckBox("Keep generated MinerU output")
+        layout.addRow("Debug Output:", self.mineru_keep_output)
+
+        note = QLabel(
+            "MinerU remains an external installation. DrillMaster never copies "
+            "or installs MinerU in its own environment."
+        )
+        note.setWordWrap(True)
+        note.setStyleSheet("color: #7f8c8d; padding: 8px;")
+        layout.addRow("Note:", note)
+        return tab
+
+    def _browse_mineru_executable(self):
+        path = QFileDialog.getOpenFileName(
+            self,
+            "Select MinerU executable",
+            "",
+            "Executables (*.exe);;All files (*)",
+        )[0]
+        if path:
+            self.mineru_executable.setText(path)
+
+    def _browse_mineru_python(self):
+        path = QFileDialog.getOpenFileName(
+            self,
+            "Select MinerU Python executable",
+            "",
+            "Python executable (python*);;All files (*)",
+        )[0]
+        if path:
+            self.mineru_python.setText(path)
+
+    def _browse_mineru_output_dir(self):
+        path = QFileDialog.getExistingDirectory(self, "Select MinerU output directory")
+        if path:
+            self.mineru_output_dir.setText(path)
+
     def _create_units_tab(self):
         tab = QWidget()
         layout = QFormLayout(tab)
@@ -190,7 +286,8 @@ class SettingsDialog(QDialog):
         layout.setSpacing(15)
 
         self.db_path = QLineEdit()
-        self.db_path.setText("drillmaster.db")
+        manager = getattr(self.parent(), "db_manager", None)
+        self.db_path.setText(getattr(manager, "db_path", "Unavailable"))
         self.db_path.setReadOnly(True)
         layout.addRow("Database File:", self.db_path)
 
@@ -220,19 +317,25 @@ class SettingsDialog(QDialog):
             self.backup_path.setText(folder)
 
     def _backup_database(self):
-        import shutil
-        import os
         try:
-            src = "drillmaster.db"
-            if os.path.exists(src):
-                timestamp = QDateTime.currentDateTime().toString("yyyyMMdd_HHmmss")
-                dst = f"drillmaster_backup_{timestamp}.db"
-                shutil.copy2(src, dst)
+            manager = getattr(self.parent(), "db_manager", None)
+            if not manager or manager.db_path == ":memory:":
+                QMessageBox.warning(self, "Backup", "A file-backed database is required.")
+                return
+            timestamp = QDateTime.currentDateTime().toString("yyyyMMdd_HHmmss")
+            dst = QFileDialog.getSaveFileName(
+                self,
+                "Save Database Backup",
+                f"drillmaster_backup_{timestamp}.db",
+                "Database Files (*.db)",
+            )[0]
+            if dst and manager.backup_to(dst):
                 QMessageBox.information(self, "Backup", f"Database backed up to:\n{dst}")
-            else:
-                QMessageBox.warning(self, "Backup", "Database file not found!")
-        except Exception as e:
-            QMessageBox.critical(self, "Backup Error", f"Failed to backup: {str(e)}")
+            elif dst:
+                QMessageBox.warning(self, "Backup", "The database backup could not be created.")
+        except Exception:
+            logger.exception("Settings database backup failed")
+            QMessageBox.critical(self, "Backup Error", "The database backup could not be created.")
 
     def _reset_database(self):
         reply = QMessageBox.warning(
@@ -249,7 +352,14 @@ class SettingsDialog(QDialog):
             if reply2 == QMessageBox.Ok:
                 text, ok = QInputDialog.getText(self, "Confirm Reset", "Type RESET to confirm:")
                 if ok and text == "RESET":
-                    QMessageBox.information(self, "Reset", "Please close the app and run reset_db.py")
+                    QMessageBox.information(self, "Offline reset required",
+                        "No data has been changed. Close all DrillMaster instances and back up the database.\n"
+                        "From the source checkout run: python reset_database.py\n"
+                        "Production reset requires a secure DRILLMASTER_ADMIN_PASSWORD in that shell; "
+                        "engineer/viewer passwords are optional. Missing or invalid settings refuse reset before deletion.\n"
+                        "Reset erases database users and operational data, but keeps external settings/backups. "
+                        "Use the same environment and database-path settings when restarting. "
+                        "Packaged installations require the administrator's source reset utility.")
 
     def save_settings(self):
         """Save settings - نسخه اصلاح شده"""
@@ -271,6 +381,18 @@ class SettingsDialog(QDialog):
         # ✅ backup settings که قبلاً ذخیره نمی‌شد
         self.settings.setValue("backup/enabled", self.backup_enabled.isChecked())
         self.settings.setValue("backup/path", self.backup_path.text())
+
+        mineru_settings = {
+            "enabled": self.mineru_enabled.isChecked(),
+            "executable": self.mineru_executable.text().strip(),
+            "python": self.mineru_python.text().strip(),
+            "backend": self.mineru_backend.currentText(),
+            "method": self.mineru_method.currentText(),
+            "timeout": self.mineru_timeout.value(),
+            "output_dir": self.mineru_output_dir.text().strip(),
+            "keep_output": self.mineru_keep_output.isChecked(),
+        }
+        write_mineru_settings(mineru_settings)
 
         self.settings.setValue("units/depth", self.depth_unit.currentText())
         self.settings.setValue("units/weight", self.weight_unit.currentText())
@@ -327,6 +449,16 @@ class SettingsDialog(QDialog):
             self.settings.value("backup/path", "")
         )
 
+        mineru = MinerUConfig.from_environment()
+        self.mineru_enabled.setChecked(mineru.enabled)
+        self.mineru_executable.setText(mineru.executable or discover_mineru_executable() or "")
+        self.mineru_python.setText(mineru.python_executable or "")
+        self.mineru_backend.setCurrentText(mineru.backend)
+        self.mineru_method.setCurrentText(mineru.method)
+        self.mineru_timeout.setValue(mineru.timeout_seconds)
+        self.mineru_output_dir.setText(str(mineru.output_dir) if mineru.output_dir else "")
+        self.mineru_keep_output.setChecked(mineru.keep_output)
+
         self.depth_unit.setCurrentText(
             self.settings.value("units/depth", "meters (m)")
         )
@@ -357,6 +489,14 @@ class SettingsDialog(QDialog):
             self.font_size.setValue(10)
             self.autosave_enabled.setChecked(True)
             self.autosave_interval.setValue(5)
+            self.mineru_enabled.setChecked(bool(discover_mineru_executable()))
+            self.mineru_executable.setText(discover_mineru_executable() or "")
+            self.mineru_python.clear()
+            self.mineru_backend.setCurrentText("hybrid-engine")
+            self.mineru_method.setCurrentText("auto")
+            self.mineru_timeout.setValue(600)
+            self.mineru_output_dir.clear()
+            self.mineru_keep_output.setChecked(False)
             self.depth_unit.setCurrentText("meters (m)")
             self.weight_unit.setCurrentText("pcf")
             self.pressure_unit.setCurrentText("psi")

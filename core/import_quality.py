@@ -15,9 +15,11 @@ P0 Requirements Implemented:
 - Professional Review Matrix: File, Sheet/Page, Detected Table, Source Cell, Original Value, Normalized Value, Unit, Target Field, Confidence, Decision
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields as dataclass_fields
 from typing import Any, Iterable, List, Dict, Tuple, Optional
-from datetime import time, datetime, date, timedelta
+from collections.abc import Mapping
+from datetime import time, timedelta
+import math
 import re
 
 
@@ -33,26 +35,150 @@ class ImportIssue:
 
 @dataclass
 class ReviewItem:
-    """Professional Review Matrix item as per spec."""
-    file: str = ""  # File Name
-    sheet: str = ""  # Sheet/Page
-    detected_table: str = ""  # Detected Table
-    source_cell: str = ""  # Source Cell (e.g. B12)
-    original_value: Any = None  # Original Value
-    normalized_value: Any = None  # Normalized Value
-    unit: str = ""  # Unit
-    target_field: str = ""  # Target Field
-    canonical_field: str = ""  # alias for backward compat
-    confidence: float = 0.0  # Confidence
-    decision: str = "REVIEW"  # Decision: ACCEPT / REVIEW / REJECT / CONFIRMED
-    transform: str = ""  # Edit Mapping / Edit Value / Edit Unit etc.
-    # backward compat fields
+    """The one review/lineage contract shared by every import route.
+
+    ``value`` is intentionally part of the public contract.  Older Excel
+    producers called it ``value`` while newer producers used
+    ``normalized_value``; keeping the alias here prevents a producer from
+    losing the original token or crashing the review boundary.  The canonical
+    fields are ``original_value`` and ``normalized_value`` and are synchronized
+    in ``__post_init__``.
+    """
+    file: str = ""  # File name
+    sheet: str = ""  # Sheet/page
+    detected_table: str = ""  # Detected table/section
+    source_cell: str = ""  # Excel cell or PDF coordinate token
+    original_value: Any = None
+    normalized_value: Any = None
+    value: Any = None  # producer-compatible proposed/normalized value alias
+    proposed_value: Any = None
+    unit: str = ""
+    original_unit: str = ""
+    normalized_unit: str = ""
+    target_field: str = ""
+    canonical_field: str = ""  # backward-compatible alias
+    expected_type: str = ""
+    confidence: Optional[float] = None
+    certainty: str = ""
+    decision: str = "REVIEW"  # ACCEPT / REVIEW / REJECT / CONFIRMED
+    status: str = ""
+    severity: str = "warning"
+    validation_state: str = ""
+    mapping_method: str = ""
+    transform: str = ""
+    reason: str = ""
+    resolution: str = ""
+    user_correction: Any = None
+    # Backward-compatible row/column fields used by legacy Excel records.
     row: int = 0
     column: str = ""
     source_value: Any = None
+    # Extended provenance/state fields are appended to preserve the legacy
+    # positional constructor order.
+    page: Optional[int] = None
+    source_table: str = ""
+    section_title: str = ""
+    coordinates: Any = None
+    extraction_method: str = ""
+    validation_message: str = ""
+    review_state: str = "unreviewed"
+    # Canonical cross-format provenance/entity fields.  These are appended to
+    # preserve compatibility with older positional ReviewItem constructors.
+    source_document: str = ""
+    source_location: Any = None
+    entity: str = ""
+    field: str = ""
+    message: str = ""
+    classification: str = ""
+    outcome_status: str = ""
 
     def __post_init__(self):
-        # Sync legacy fields
+        # Normalize provenance at the contract boundary.  Producers are
+        # intentionally allowed to submit legacy ``source_cells`` dictionaries
+        # or only row/column fields, but no ReviewItem leaves this boundary
+        # without a structured source location.
+        if isinstance(self.source_cell, Mapping):
+            location = dict(self.source_cell)
+            if self.source_location is None:
+                self.source_location = location
+            self.source_cell = (
+                location.get("cell")
+                or location.get("source_cell")
+                or location.get("address")
+                or ""
+            )
+        if self.source_document == "" and self.file:
+            self.source_document = self.file
+        if self.file == "" and isinstance(self.source_location, Mapping):
+            self.file = str(
+                self.source_location.get("file")
+                or self.source_location.get("source_file")
+                or self.source_document
+                or ""
+            )
+        if self.sheet == "" and isinstance(self.source_location, Mapping):
+            self.sheet = str(
+                self.source_location.get("sheet")
+                or self.source_location.get("source_sheet")
+                or ""
+            )
+        if self.source_location is None:
+            self.source_location = {}
+        if isinstance(self.source_location, Mapping):
+            location = dict(self.source_location)
+            if self.file:
+                location.setdefault("file", self.file)
+            if self.sheet:
+                location.setdefault("sheet", self.sheet)
+            if self.page is not None:
+                location.setdefault("page", self.page)
+            if self.row:
+                location.setdefault("row", self.row)
+            if self.column not in (None, ""):
+                location.setdefault("column", self.column)
+            if self.source_cell:
+                location.setdefault("cell", self.source_cell)
+            self.source_location = location
+        if not self.source_cell and isinstance(self.source_location, Mapping):
+            self.source_cell = str(
+                self.source_location.get("cell")
+                or self.source_location.get("address")
+                or ""
+            )
+            if not self.source_cell and isinstance(self.source_location.get("cells"), Mapping):
+                self.source_cell = "; ".join(
+                    str(value) for value in self.source_location["cells"].values()
+                    if value not in (None, "")
+                )
+            if not self.source_cell:
+                self.source_cell = "; ".join(
+                    str(value) for key, value in self.source_location.items()
+                    if key not in {"file", "sheet", "row", "column", "table"}
+                    and value not in (None, "")
+                    and not isinstance(value, (Mapping, list))
+                )
+        if self.field == "" and self.target_field:
+            self.field = self.target_field
+        if self.target_field == "" and self.field:
+            self.target_field = self.field
+        # A historical default used ``time_log`` for every row.  Preserve an
+        # explicit non-scalar entity, but derive the entity from a canonical
+        # field when the producer omitted it or supplied that default.
+        if self.field and (not self.entity or (self.entity == "time_log" and "." in self.field)):
+            self.entity = self.field.split(".", 1)[0]
+        if not self.detected_table:
+            self.detected_table = self.entity
+        if not self.expected_type:
+            self.expected_type = "canonical value"
+        if not self.mapping_method:
+            self.mapping_method = (
+                "mineru-ir" if self.page is not None or (
+                    isinstance(self.source_location, Mapping)
+                    and self.source_location.get("page") is not None
+                ) else "source-validation"
+            )
+        if not self.classification:
+            self.classification = "review-required"
         if self.canonical_field and not self.target_field:
             self.target_field = self.canonical_field
         if not self.canonical_field and self.target_field:
@@ -61,6 +187,53 @@ class ReviewItem:
             self.source_value = self.original_value
         if self.original_value is None and self.source_value is not None:
             self.original_value = self.source_value
+        # ``value`` and ``proposed_value`` are aliases accepted at the
+        # boundary; normalized_value remains the canonical serialized value.
+        if self.proposed_value is None and self.value is not None:
+            self.proposed_value = self.value
+        if self.value is None and self.proposed_value is not None:
+            self.value = self.proposed_value
+        if self.normalized_value is None and self.proposed_value is not None:
+            self.normalized_value = self.proposed_value
+        if self.proposed_value is None and self.normalized_value is not None:
+            self.proposed_value = self.normalized_value
+        if self.value is None and self.normalized_value is not None:
+            self.value = self.normalized_value
+        if not self.validation_state and self.status:
+            self.validation_state = self.status
+        if self.decision in {"ACCEPT", "CONFIRMED"}:
+            self.review_state = "accepted"
+        elif self.decision in {"REJECT", "IGNORED"}:
+            self.review_state = "rejected"
+
+    def to_dict(self) -> dict:
+        """Stable serialization contract for UI, exports, and persistence."""
+        from core.save_outcome import public_status
+        payload = {field.name: getattr(self, field.name) for field in dataclass_fields(self)}
+        payload["outcome_status"] = public_status(self.status)
+        return payload
+
+    def as_dict(self) -> dict:
+        return self.to_dict()
+
+    @classmethod
+    def from_dict(cls, payload: Optional[dict]) -> "ReviewItem":
+        """Deserialize old and new review rows without dropping provenance."""
+        payload = dict(payload or {})
+        aliases = {
+            "table": "detected_table",
+            "source_page": "page",
+            "validation_status": "validation_state",
+            "review_status": "review_state",
+            "source_row": "row",
+            "source_column": "column",
+            "source_cells": "source_location",
+        }
+        for old_key, new_key in aliases.items():
+            if new_key not in payload and old_key in payload:
+                payload[new_key] = payload[old_key]
+        allowed = {field.name for field in dataclass_fields(cls)}
+        return cls(**{key: value for key, value in payload.items() if key in allowed})
 
 
 class ImportReviewMatrix:
@@ -69,22 +242,44 @@ class ImportReviewMatrix:
     def __init__(self):
         self.items: List[ReviewItem] = []
 
+    @classmethod
+    def from_rows(cls, rows: Iterable[dict]) -> "ImportReviewMatrix":
+        matrix = cls()
+        for row in rows or []:
+            matrix.items.append(ReviewItem.from_dict(row))
+        return matrix
+
     def add(self, **kwargs):
-        # Handle legacy calls: canonical_field, source_value, etc.
+        # Handle legacy calls: canonical_field, source_value, and value are
+        # all normalized into the explicit ReviewItem contract.
         if "canonical_field" in kwargs and "target_field" not in kwargs:
             kwargs["target_field"] = kwargs["canonical_field"]
         if "source_value" in kwargs and "original_value" not in kwargs:
             kwargs["original_value"] = kwargs["source_value"]
-        # Build source_cell from row/column if not provided
+        if "source_page" in kwargs and "page" not in kwargs:
+            kwargs["page"] = kwargs["source_page"]
+        if "table" in kwargs and "detected_table" not in kwargs:
+            kwargs["detected_table"] = kwargs["table"]
+        if "validation_status" in kwargs and "validation_state" not in kwargs:
+            kwargs["validation_state"] = kwargs["validation_status"]
+        if "normalized_value" not in kwargs and "proposed_value" not in kwargs and "value" in kwargs:
+            kwargs["normalized_value"] = kwargs["value"]
+        # Build source_cell from row/column if not provided.
         if not kwargs.get("source_cell") and kwargs.get("row"):
             col = kwargs.get("column", "")
             if isinstance(col, int):
-                # Convert to letter
                 try:
                     from openpyxl.utils import get_column_letter
                     col_letter = get_column_letter(col)
                 except Exception:
-                    col_letter = str(col)
+                    # Review generation must remain usable in the minimal
+                    # backend/test environment without openpyxl.
+                    number = col
+                    letters = ""
+                    while number > 0:
+                        number, remainder = divmod(number - 1, 26)
+                        letters = chr(65 + remainder) + letters
+                    col_letter = letters or str(col)
             else:
                 col_letter = str(col) if col else ""
             kwargs["source_cell"] = f"{col_letter}{kwargs.get('row','')}"
@@ -93,19 +288,31 @@ class ImportReviewMatrix:
         return item
 
     def as_rows(self):
-        return [item.__dict__.copy() for item in self.items]
+        return [item.to_dict() for item in self.items]
+
+    def update_from_rows(self, rows: Iterable[dict]) -> None:
+        """Replace decisions/edits while retaining typed ReviewItem objects."""
+        self.items = [ReviewItem.from_dict(row) for row in rows or []]
 
     def filter_by_decision(self, decision: str):
         return [i for i in self.items if i.decision == decision]
 
     def high_confidence(self):
-        return [i for i in self.items if i.confidence >= 0.95]
+        return [i for i in self.items if isinstance(i.confidence, (int, float)) and i.confidence >= 0.95]
 
     def medium_confidence(self):
-        return [i for i in self.items if 0.70 <= i.confidence < 0.95]
+        return [
+            i for i in self.items
+            if isinstance(i.confidence, (int, float)) and 0.70 <= i.confidence < 0.95
+        ]
 
     def low_confidence(self):
-        return [i for i in self.items if i.confidence < 0.70]
+        return [
+            i for i in self.items
+            if i.confidence is None
+            or not isinstance(i.confidence, (int, float))
+            or i.confidence < 0.70
+        ]
 
     def accept_all_high(self):
         for item in self.high_confidence():
@@ -194,13 +401,16 @@ class TimeLogValidator:
             return None
         if isinstance(t, str):
             s = t.strip()
-            if s == "24:00":
+            # Excel/DDRs use 24:00 as the inclusive end of the reporting day.
+            # Require a complete, valid wall-clock token: accepting 24:01,
+            # 25:00, or a valid prefix would corrupt interval arithmetic.
+            m = re.fullmatch(r"(\d{1,2}):(\d{2})", s)
+            if not m:
+                return None
+            h, mi = int(m.group(1)), int(m.group(2))
+            if h == 24 and mi == 0:
                 return 24 * 60
-            m = re.match(r"^(\d{1,2}):(\d{2})", s)
-            if m:
-                h, mi = int(m.group(1)), int(m.group(2))
-                if h == 24:
-                    return 24 * 60
+            if 0 <= h < 24 and 0 <= mi < 60:
                 return h * 60 + mi
             return None
         if isinstance(t, time):
@@ -208,8 +418,15 @@ class TimeLogValidator:
             return t.hour * 60 + t.minute
         if isinstance(t, timedelta):
             # Excel wall-clock times arrive as timedelta; 24:00 is
-            # timedelta(days=1) -> 1440 minutes.
-            return t.days * 1440 + t.seconds // 60
+            # timedelta(days=1) -> 1440 minutes. Reject negative,
+            # fractional-minute, and >24-hour values rather than silently
+            # turning them into a different time.
+            if t.total_seconds() < 0 or t.total_seconds() > 24 * 3600:
+                return None
+            total_seconds = t.total_seconds()
+            if total_seconds % 60:
+                return None
+            return int(total_seconds // 60)
         if hasattr(t, "hour") and hasattr(t, "minute"):
             # DrillTime or similar
             h = getattr(t, "hour", 0)
@@ -268,10 +485,16 @@ class TimeLogValidator:
             if from_m is not None and to_m is not None:
                 computed_dur = cls._duration_from_times(from_m, to_m)
 
-            # Duration validation
-            if dur is not None:
+            # Duration validation. Keep the normalized value separate from
+            # the source token: an invalid duration must not be parsed again
+            # while building ``parsed`` below.
+            duration_value = computed_dur if dur in (None, "") else None
+            if dur is not None and dur != "":
                 try:
                     dur_f = float(dur)
+                    if not math.isfinite(dur_f):
+                        raise ValueError
+                    duration_value = dur_f
                     if dur_f < 0:
                         report.error(sheet, idx + 2, "Duration cannot be negative", "duration", dur)
                     if dur_f > 24:
@@ -285,8 +508,9 @@ class TimeLogValidator:
                             "duration",
                             dur,
                         )
-                except (TypeError, ValueError):
+                except (TypeError, ValueError, OverflowError):
                     report.error(sheet, idx + 2, "Duration must be numeric", "duration", dur)
+                    duration_value = None
 
             # Code validation
             if not log.get("main_code") and not log.get("activity_description"):
@@ -301,49 +525,71 @@ class TimeLogValidator:
                     "index": idx,
                     "from_m": from_m,
                     "to_m": to_m,
-                    "duration": float(dur) if dur not in (None, "") else computed_dur,
+                    "duration": duration_value,
                     "computed_duration": computed_dur,
                     "log": log,
                 }
             )
 
-        # Sort by from time for overlap/gap detection
+        # Sort by from time for deterministic diagnostics. Intervals are
+        # expanded on a 24-hour circle so a row such as 22:00–02:00 is
+        # checked against both the end and start of the reporting day.
         valid_parsed = [p for p in parsed if p["from_m"] is not None and p["to_m"] is not None]
         valid_parsed.sort(key=lambda x: x["from_m"])
+        day_minutes = 24 * 60
 
-        # Overlap detection
-        for i in range(1, len(valid_parsed)):
-            prev = valid_parsed[i - 1]
-            curr = valid_parsed[i]
-            # If prev ends after curr starts -> overlap
-            # Handle midnight crossing: if prev to_m < from_m, it crossed midnight
-            prev_to = prev["to_m"]
-            curr_from = curr["from_m"]
+        def _segments(item):
+            start_m, end_m = item["from_m"], item["to_m"]
+            if end_m < start_m:
+                return [(start_m, day_minutes), (0, end_m)]
+            return [(start_m, end_m)]
 
-            # Simple overlap check (without crossing)
-            if prev_to > curr_from and not (prev["from_m"] > prev["to_m"]):
-                report.error(
-                    sheet,
-                    curr["index"] + 2,
-                    f"Time overlap with previous: {prev['log'].get('time_from')}–{prev['log'].get('time_to')} overlaps {curr['log'].get('time_from')}–{curr['log'].get('time_to')}",
-                    "time_range",
+        # Pairwise overlap detection handles wrapping rows without relying on
+        # sort order. Report each pair once, including a wrap/non-wrap overlap.
+        for left_index, left in enumerate(valid_parsed):
+            for right in valid_parsed[left_index + 1:]:
+                overlap = any(
+                    min(left_end, right_end) - max(left_start, right_start) > 0
+                    for left_start, left_end in _segments(left)
+                    for right_start, right_end in _segments(right)
                 )
+                if overlap:
+                    report.error(
+                        sheet,
+                        right["index"] + 2,
+                        f"Time overlap with previous: {left['log'].get('time_from')}–{left['log'].get('time_to')} overlaps {right['log'].get('time_from')}–{right['log'].get('time_to')}",
+                        "time_range",
+                    )
 
-        # Gap detection
-        for i in range(1, len(valid_parsed)):
-            prev = valid_parsed[i - 1]
-            curr = valid_parsed[i]
-            gap_minutes = curr["from_m"] - prev["to_m"]
-            if gap_minutes > 5:  # more than 5 minutes gap
+        # Merge all occupied segments and report uncovered portions. This
+        # catches gaps immediately before/after a midnight-crossing row while
+        # retaining the existing five-minute tolerance.
+        segments = [segment for item in valid_parsed for segment in _segments(item)
+                    if segment[1] > segment[0]]
+        segments.sort()
+        merged = []
+        for start_m, end_m in segments:
+            if merged and start_m <= merged[-1][1]:
+                merged[-1] = (merged[-1][0], max(merged[-1][1], end_m))
+            else:
+                merged.append((start_m, end_m))
+        cursor = 0
+        for start_m, end_m in merged:
+            if start_m - cursor > 5:
                 report.warning(
                     sheet,
-                    curr["index"] + 2,
-                    f"Gap detected: {gap_minutes} minutes between {prev['log'].get('time_to')} and {curr['log'].get('time_from')}",
+                    0,
+                    f"Gap detected: {start_m - cursor} minutes in the 24-hour time log",
                     "time_range",
                 )
-            if gap_minutes < -5 and gap_minutes > -24 * 60 + 5:
-                # Negative gap already reported as overlap
-                pass
+            cursor = max(cursor, end_m)
+        if day_minutes - cursor > 5:
+            report.warning(
+                sheet,
+                0,
+                f"Gap detected: {day_minutes - cursor} minutes in the 24-hour time log",
+                "time_range",
+            )
 
         # Total must equal 24 hours
         total_hours = sum(p["duration"] or 0 for p in parsed if p["duration"] is not None)

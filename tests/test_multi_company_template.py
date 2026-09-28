@@ -8,9 +8,7 @@ both must resolve to the same canonical keys/values through the generic
 ExcelIntelligence pipeline. No company-specific Python branches exist.
 """
 
-import json
 
-import pytest
 
 from openpyxl import Workbook
 

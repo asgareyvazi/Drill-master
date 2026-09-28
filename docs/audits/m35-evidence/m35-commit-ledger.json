@@ -1,0 +1,88 @@
+{
+ "schema": "m35-commit-ledger",
+ "generated_utc": "2026-09-27T13:22:18+00:00",
+ "repository": "/home/user/Drill-master",
+ "branch": "arena/01a0c945-drill-master",
+ "head_before_mission": "c28bbef37cbac9de7abcfa693e7e21f678fa74ab",
+ "commits": [
+  {
+   "id": "A",
+   "sha": "02dfc5c5b8f7dade0a592ea182b250ed32da0419",
+   "subject": "fix(packaging): make required runtime modules part of the distributable artifact",
+   "exists": true,
+   "files": [
+    "core/operational_time.py",
+    "core/safety_semantics.py",
+    "tests/test_release_boundary_imports.py"
+   ],
+   "stat": " 3 files changed, 292 insertions(+)"
+  },
+  {
+   "id": "B",
+   "sha": "09b5b5b47c6a81e0c4fc7e46400159e83d5fdcf8",
+   "subject": "chore(release): bring the committed tree in line with the tested release population",
+   "exists": true,
+   "files": [
+    "89 modified tracked files",
+    "11 tests/*.py",
+    ".github/workflows/ci.yml"
+   ],
+   "stat": " 101 files changed, 6544 insertions(+), 1910 deletions(-)"
+  },
+  {
+   "id": "C",
+   "sha": "42b8503c8e7d1541557ac2550d7e5ade5aaf5d9f",
+   "subject": "docs(audit): M35 release-certification recovery record, evidence and tooling",
+   "exists": true,
+   "files": [
+    "M35_FINAL_REPORT.md",
+    "M35_RELEASE_CERTIFICATION_RECOVERY.md",
+    "docs/audits/m35-evidence/ (10 files)",
+    "tools/m35/ (5 files)"
+   ],
+   "stat": "17 files changed, 31290 insertions(+)"
+  }
+ ],
+ "verification": {
+  "tracked_now": {
+   "core/operational_time.py": true,
+   "core/safety_semantics.py": true,
+   "tests/test_release_boundary_imports.py": true
+  },
+  "artifact_from_committed_tree": {
+   "source": "git archive HEAD (at 09b5b5b) -> python -m build --wheel",
+   "core_modules_in_wheel": 129,
+   "required_modules_present": true,
+   "clean_venv_install": true,
+   "startup": "drillmaster --package-smoke exit 0",
+   "failure_lines": 0
+  },
+  "full_suite_after_commits": {
+   "tests": 1821,
+   "passed": 1817,
+   "skipped": 4,
+   "failed": 0,
+   "errors": 0,
+   "seconds": 347.5,
+   "junit": "docs/audits/m35-evidence/m35-postcommit-full-suite-junit.xml"
+  },
+  "packaging_regression": "tests/test_release_boundary_imports.py 3/3 on the committed tree",
+  "remote": "NOT PUSHED - branch is local-only (target branch 404 on the remote)"
+ },
+ "notes": [
+  "commit B was required because an artifact built from the pre-B committed tree failed with ImportError: cannot import name 'bootstrap_password_for_role' from 'core.database'",
+  "the M27-M34 audit corpus remains untracked by design (pre-existing, not this mission's work)"
+ ],
+ "post_commit_refresh": {
+  "note": "the commit manifest was regenerated after commits A-C; its earlier copy describes the pre-commit population, this refresh describes the post-commit one",
+  "modified_tracked_after_commits": 0,
+  "untracked_after_commits": 253,
+  "untracked_breakdown": {
+   "docs/": 222,
+   "root audit reports": 18,
+   "tools/": 13
+  },
+  "reason_untracked": "pre-existing M27-M34 audit corpus (not this mission's work); enumerated per file in the regenerated m35-commit-manifest.json",
+  "reported_in_chat_and_git_log": "the SHA of the commit carrying this refresh is the HEAD shown by `git log -1` (a commit cannot contain its own hash)"
+ }
+}

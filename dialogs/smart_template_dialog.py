@@ -15,14 +15,12 @@ Features:
 import os
 import re
 import json
-import math
 import logging
 import tempfile
 from pathlib import Path
-from datetime import datetime, date as dt_date, time as dt_time, timedelta
-from typing import Dict, List, Any, Optional, Tuple, Set
+from datetime import datetime
+from typing import Dict, List, Any, Optional, Tuple
 from difflib import SequenceMatcher
-from collections import defaultdict
 
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
@@ -30,12 +28,15 @@ from PySide6.QtGui import *
 from openpyxl import load_workbook
 from openpyxl.utils import get_column_letter
 from core.import_quality import decision_for_confidence
+from core.value_normalizer import ValueNormalizer
 from core.ai_import_mapper import AIImportMapper, model_catalog, get_selected_model, set_selected_model
 from core.universal_import import WorkbookScanner
 from core.table_record_mapper import extract_records
 from core.import_profiler import ImportProfiler
 from core.async_workers import FunctionWorker
 from core.mapping_store import MappingStore
+from core.runtime_config import atomic_write_json, user_templates_dir
+from core.combo_identity import ComboCatalog
 
 logger = logging.getLogger(__name__)
 
@@ -878,199 +879,6 @@ FIELD_GROUPS = {
 
 
 # =====================================================
-# Value Normalizer - centralized parsing
-# =====================================================
-class ValueNormalizer:
-    """Central utility for parsing and normalizing values"""
-
-    MONTH_MAP = {
-        "jan": 1, "january": 1, "feb": 2, "february": 2,
-        "mar": 3, "march": 3, "apr": 4, "april": 4,
-        "may": 5, "jun": 6, "june": 6, "jul": 7, "july": 7,
-        "aug": 8, "august": 8, "sep": 9, "september": 9,
-        "oct": 10, "october": 10, "nov": 11, "november": 11,
-        "dec": 12, "december": 12,
-    }
-
-    EMPTY_MARKERS = {"", "-", "--", "---", "n/a", "na", "none",
-                     "null", "nan", "nil", "tbd", "tba"}
-
-    @classmethod
-    def is_empty(cls, value) -> bool:
-        if value is None:
-            return True
-        s = str(value).strip().lower()
-        return s in cls.EMPTY_MARKERS
-
-    @classmethod
-    def to_float(cls, value, valid_range=None) -> Optional[float]:
-        if cls.is_empty(value):
-            return None
-        try:
-            if isinstance(value, (int, float)):
-                result = float(value)
-            else:
-                s = str(value).strip()
-                s = re.sub(r'[,\s]', '', s)
-                s = re.sub(r'[^\d\.\-eE]', '', s)
-                if not s or s in ("-", ".", "-."):
-                    return None
-                result = float(s)
-            if valid_range:
-                lo, hi = valid_range
-                if not (lo <= result <= hi):
-                    return None
-            if math.isnan(result) or math.isinf(result):
-                return None
-            return result
-        except (ValueError, TypeError):
-            return None
-
-    @classmethod
-    def to_int(cls, value) -> Optional[int]:
-        if cls.is_empty(value):
-            return None
-        try:
-            if isinstance(value, (int, float)):
-                return int(value)
-            s = re.sub(r'[^\d\-]', '', str(value).strip())
-            if not s or s == "-":
-                return None
-            return int(float(s))
-        except (ValueError, TypeError):
-            return None
-
-    @classmethod
-    def to_date(cls, value) -> Optional[dt_date]:
-        if cls.is_empty(value):
-            return None
-        if isinstance(value, dt_date):
-            return value
-        if isinstance(value, datetime):
-            return value.date()
-        s = str(value).strip()
-        for fmt in (
-            "%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y", "%Y/%m/%d",
-            "%d-%m-%Y", "%m-%d-%Y", "%d.%m.%Y", "%Y.%m.%d",
-            "%d %b %Y", "%d %B %Y", "%b %d %Y", "%B %d %Y",
-            "%b %d, %Y", "%B %d, %Y",
-        ):
-            try:
-                return datetime.strptime(s, fmt).date()
-            except ValueError:
-                continue
-        try:
-            num = float(s)
-            if 1900 <= num <= 2100:
-                return dt_date(int(num), 1, 1)
-        except (ValueError, TypeError):
-            pass
-        return None
-
-    @classmethod
-    def to_time(cls, value) -> Optional[dt_time]:
-        if value is None:
-            return None
-        if isinstance(value, dt_time):
-            return value
-        if isinstance(value, datetime):
-            return value.time()
-        if isinstance(value, timedelta):
-            # Excel stores wall-clock times as timedelta in openpyxl
-            # (e.g. 14:00 -> timedelta(seconds=50400), 24:00 ->
-            # timedelta(days=1)). Convert to hh:mm:ss with the 24:00 ->
-            # 00:00 convention used for '24:00' strings.
-            total = int(value.total_seconds())
-            total %= 86400
-            return dt_time(total // 3600, (total % 3600) // 60, total % 60)
-        s = str(value).strip()
-        m = re.match(r'^(\d{1,2}):(\d{2})(?::(\d{2}))?', s)
-        if m:
-            h = int(m.group(1))
-            mi = int(m.group(2))
-            if h == 24:
-                h = 0
-            if 0 <= h <= 23 and 0 <= mi <= 59:
-                return dt_time(h, mi)
-        try:
-            f = float(value)
-            if 0 <= f < 1:
-                total_sec = int(f * 86400)
-                return dt_time(total_sec // 3600, (total_sec % 3600) // 60)
-            elif 0 <= f <= 24:
-                h = int(f)
-                mi = int((f - h) * 60)
-                if h == 24:
-                    h = 0
-                return dt_time(h, mi)
-        except (ValueError, TypeError):
-            pass
-        return None
-
-    @classmethod
-    def to_str(cls, value) -> Optional[str]:
-        if cls.is_empty(value):
-            return None
-        s = str(value).strip()
-        return s if s else None
-
-    @classmethod
-    def convert(cls, value, data_type: str, valid_range=None):
-        if data_type == "float":
-            return cls.to_float(value, valid_range)
-        elif data_type == "int":
-            return cls.to_int(value)
-        elif data_type == "date":
-            return cls.to_date(value)
-        elif data_type == "time":
-            return cls.to_time(value)
-        elif data_type == "text":
-            return cls.to_str(value)
-        else:
-            return cls.to_str(value)
-
-    @classmethod
-    def combine_date_parts(cls, parts: list) -> Optional[dt_date]:
-        cleaned = [str(v).strip() for v in parts
-                   if v is not None and str(v).strip()]
-        if not cleaned:
-            return None
-        if len(cleaned) == 1:
-            return cls.to_date(cleaned[0])
-        year = month = day = None
-        for val in cleaned:
-            vl = val.lower().strip(".")
-            if vl in cls.MONTH_MAP or vl[:3] in cls.MONTH_MAP:
-                month = cls.MONTH_MAP.get(vl, cls.MONTH_MAP.get(vl[:3]))
-            else:
-                try:
-                    num = int(float(val))
-                    if num > 1900:
-                        year = num
-                    elif month is not None and day is None:
-                        day = num
-                    elif month is None and 1 <= num <= 12:
-                        month = num
-                    elif day is None:
-                        day = num
-                    else:
-                        year = num
-                except (ValueError, TypeError):
-                    continue
-        if year and month and day:
-            try:
-                return dt_date(year, month, day)
-            except ValueError:
-                pass
-        if year and month:
-            try:
-                return dt_date(year, month, 1)
-            except ValueError:
-                pass
-        return None
-
-
-# =====================================================
 # Advanced Sheet Router
 # =====================================================
 class SheetRouter:
@@ -1564,6 +1372,9 @@ class CodeResolver:
     def resolve_main_code(raw_code) -> str:
         if raw_code is None:
             return ""
+        shared = ComboCatalog(MAIN_CODE_MAP, SUB_CODE_MAP).resolve_main(raw_code)
+        if shared.accepted:
+            return shared.identity
         code_str = CodeResolver._clean_code(raw_code)
         composite = CodeResolver._composite_number(code_str)
         clean = CodeResolver._main_number(composite or code_str)
@@ -1604,6 +1415,9 @@ class CodeResolver:
 
     @staticmethod
     def resolve_sub_code(raw_sub, raw_main="") -> str:
+        shared = ComboCatalog(MAIN_CODE_MAP, SUB_CODE_MAP).resolve_sub(raw_sub, raw_main)
+        if shared.accepted:
+            return shared.identity
         # A surprising number of DDR sheets put the composite code (2.3) in
         # either the main or sub column. Prefer the explicit composite.
         composite_from_sub = CodeResolver._composite_number(raw_sub)
@@ -1712,15 +1526,15 @@ class LearningManager:
         self._load()
 
     def _get_path(self) -> str:
-        d = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "templates",
-        )
-        os.makedirs(d, exist_ok=True)
-        return os.path.join(d, "_learning_data.json")
+        directory = user_templates_dir()
+        directory.mkdir(parents=True, exist_ok=True)
+        return str(directory / "_learning_data.json")
 
     def _load(self):
         path = self._get_path()
+        if not os.path.exists(path):
+            # Read legacy learning without changing application resources.
+            path = str(Path(__file__).resolve().parent.parent / "templates" / "_learning_data.json")
         if os.path.exists(path):
             try:
                 with open(path, "r", encoding="utf-8") as f:
@@ -1730,13 +1544,12 @@ class LearningManager:
 
     def save(self):
         try:
-            with open(self._get_path(), "w", encoding="utf-8") as f:
-                json.dump(
-                    self.corrections, f, indent=2,
-                    ensure_ascii=False, default=str,
-                )
+            atomic_write_json(self._get_path(), self.corrections, indent=2,
+                              ensure_ascii=False, default=str)
+            return True
         except Exception as e:
             logger.error(f"Learning save error: {e}")
+            return False
 
     def record_correction(
         self,
@@ -2441,10 +2254,9 @@ class SmartTemplateDialog(QDialog):
             # Phase 3: Time logs
             self._detect_time_logs()
 
-            # Phase 4: optional strict profile fallback. This is internal;
-            # users only see one Auto-Detect button. Profile values fill only
-            # gaps and never overwrite a high-confidence smart detection.
-            self._merge_profile_fallback()
+            # Phase 4: the private profile extractor is not part of the
+            # canonical runtime architecture. Smart Template output remains
+            # reviewable manual mapping data and uses the shared save boundary.
             self._merge_table_records()
             self._merge_ai_fallback()
 
@@ -2557,40 +2369,16 @@ class SmartTemplateDialog(QDialog):
             }
 
     def _merge_profile_fallback(self):
-        """Use a matching company profile as a silent fallback for Auto-Detect."""
-        if not self.filepath:
-            return
-        try:
-            from core.profile_import_engine import ProfileImportEngine
-            extracted = ProfileImportEngine(self.db).analyze_and_extract(self.filepath)
-        except Exception as exc:
-            logger.debug("Profile fallback not applicable: %s", exc)
-            return
-        for section in ("well_info", "daily_report", "mud_report", "drilling_params"):
-            for key, value in (extracted.get(section) or {}).items():
-                if value in (None, "", []):
-                    continue
-                field_path = f"{section}.{key}"
-                current = self.base_extracted.get(section, {}).get(key)
-                if current not in (None, "", []):
-                    continue
-                self.base_extracted.setdefault(section, {})[key] = value
-                self.assignments[field_path] = {"sheet": "Profile fallback", "row": 0, "col": 0, "value": str(value)[:100], "confidence": 0.92, "decision": "REVIEW", "auto": True}
-        if not self.base_extracted.get("time_logs_24h") and extracted.get("time_logs_24h"):
-            self.base_extracted["time_logs_24h"] = extracted["time_logs_24h"]
-        if not self.base_extracted.get("time_logs_morning") and extracted.get("time_logs_morning"):
-            self.base_extracted["time_logs_morning"] = extracted["time_logs_morning"]
-        # Carry all profile-specific multi-tab payloads into the same generic
-        # save pipeline (services, POB, casing, safety, cost, etc.).
-        for key in (
-            "service_companies", "surveys", "pob_records", "casing_report",
-            "cement_report", "bit_report", "bha_report", "bulk_materials",
-            "fuel_water", "safety_report", "bop_components", "waste_records",
-            "cost_records", "equipment_logs", "downhole_equipment",
-        ):
-            value = extracted.get(key)
-            if value and not self.base_extracted.get(key):
-                self.base_extracted[key] = value
+        """Retired compatibility hook; never run a parallel extractor.
+
+        Older callers may still invoke this method, so it remains a no-op
+        rather than importing ``ProfileImportEngine`` and creating invented
+        defaults outside the common IR/review path.
+        """
+        self.detect_status.setText(
+            "Legacy profile fallback disabled; use canonical Excel mapping"
+        )
+        return None
 
     def _source_header(self, sheet, row, col):
         cells = self.cell_cache.get(sheet, {})
@@ -2941,16 +2729,25 @@ class SmartTemplateDialog(QDialog):
             hrs_raw = row_cells.get(col_map.get("hrs"))
 
             if not time_from_raw and not hrs_raw:
-                # continuation row
-                if logs and col_map.get("desc"):
+                # Preserve continuation rows as reviewable source records.  Do
+                # not merge text or invent a time anchor: the reviewer needs
+                # the original cell and the exact continuation text.
+                if col_map.get("desc"):
                     desc_val = row_cells.get(col_map["desc"])
                     if desc_val:
-                        logs[-1]["activity_description"] += (
-                            " " + str(desc_val)
-                        )
+                        logs.append({
+                            "time_from": None,
+                            "time_to": None,
+                            "duration": None,
+                            "activity_description": str(desc_val).strip(),
+                            "source_cell": f"R{r}:C{col_map['desc']}",
+                            "source_row": r,
+                            "classification": "continuation",
+                            "review_reason": "Continuation text has no independent time anchor",
+                        })
                 continue
 
-            hrs = ValueNormalizer.to_float(hrs_raw) or 0.0
+            hrs = ValueNormalizer.to_float(hrs_raw)
 
             # Main/sub code.  Some DDR exports leave the dedicated code
             # cells empty and put 2.3 in the phase or description column.
@@ -3505,20 +3302,26 @@ class SmartTemplateDialog(QDialog):
 
             template["assignments"][fp] = entry
 
-        # Save
-        td = os.path.join(
-            os.path.dirname(os.path.dirname(__file__)),
-            "templates",
-        )
-        os.makedirs(td, exist_ok=True)
-        safe_name = re.sub(r'[^\w\-]', '_', name)
-        filepath = os.path.join(td, f"{safe_name}.json")
+        try:
+            # Save
+            td = str(user_templates_dir())
+            os.makedirs(td, exist_ok=True)
+            safe_name = re.sub(r'[^\w\-]', '_', name)
+            filepath = os.path.join(td, f"{safe_name}.json")
 
-        with open(filepath, 'w', encoding='utf-8') as f:
-            json.dump(
-                template, f, indent=2,
-                ensure_ascii=False, default=str,
-            )
+            if os.path.exists(filepath):
+                with open(filepath, encoding='utf-8') as existing:
+                    previous = json.load(existing)
+                if previous.get('name') != name:
+                    QMessageBox.warning(self, "Name collision", "This name normalizes to an existing template filename. Choose a distinct name.")
+                    return False
+                if QMessageBox.question(self, "Replace template", f"Replace '{name}'?", QMessageBox.Yes | QMessageBox.No) != QMessageBox.Yes:
+                    return False
+            atomic_write_json(filepath, template, indent=2, ensure_ascii=False, default=str)
+        except (OSError, ValueError, TypeError) as exc:
+            logger.exception("Template save failed")
+            QMessageBox.critical(self, "Not saved", f"Template was not saved: {exc}")
+            return False
 
         QMessageBox.information(
             self, "✅ Saved",
@@ -3570,10 +3373,9 @@ class SmartTemplateDialog(QDialog):
         return best_anchor
 
     def _load_template_file(self):
-        td = os.path.join(
-            os.path.dirname(os.path.dirname(__file__)),
-            "templates",
-        )
+        td = str(user_templates_dir())
+        if not os.path.isdir(td):
+            td = str(Path(__file__).resolve().parent.parent / "templates")
         if not os.path.exists(td):
             return
         fp, _ = QFileDialog.getOpenFileName(

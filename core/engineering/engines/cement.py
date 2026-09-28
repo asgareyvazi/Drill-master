@@ -6,7 +6,7 @@ centralization FEM, or gas-migration modelling).
 """
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import List
 
 from ..result import (
     EngineeringResult,
@@ -19,16 +19,22 @@ from ..result import (
     optional_number,
 )
 
+from core.hydraulics_engine import AdvancedHydraulicsEngine  # noqa: E402  (canonical capacity)
+
 BBL_PER_CUFT = 5.6146
 PSI_PER_PPG_FT = 0.052
 
 
 def _ann_cap_bbl_ft(hole_in: float, pipe_od_in: float) -> float:
-    return (hole_in**2 - pipe_od_in**2) / 1029.4
+    """Canonical annular capacity — AdvancedHydraulicsEngine (single source)."""
+    from core.hydraulics_engine import AdvancedHydraulicsEngine
+    return AdvancedHydraulicsEngine.calc_annular_capacity_bbl_ft(hole_in, pipe_od_in)
 
 
 def _pipe_cap_bbl_ft(id_in: float) -> float:
-    return id_in**2 / 1029.4
+    """Canonical pipe capacity — AdvancedHydraulicsEngine (single source)."""
+    from core.hydraulics_engine import AdvancedHydraulicsEngine
+    return AdvancedHydraulicsEngine.calc_pipe_capacity_bbl_ft(id_in)
 
 
 class CementEngine:
@@ -84,6 +90,10 @@ class CementEngine:
             vol = require_number(slurry_bbl, "slurry_bbl")
             excess = require_number(excess_pct, "excess_pct")
             shoe = require_number(shoe_md_ft, "shoe_md_ft")
+            if hole <= 0 or od <= 0 or hole <= od:
+                raise EngineeringError("Hole size must be > casing OD and both must be > 0")
+            if vol < 0 or excess < 0 or shoe < 0:
+                raise EngineeringError("Slurry volume, excess and shoe MD cannot be negative")
             cap = _ann_cap_bbl_ft(hole, od) * (1.0 + excess / 100.0)
             if cap <= 0:
                 raise EngineeringError("Annular capacity must be > 0")
@@ -141,9 +151,11 @@ class CementEngine:
             pore = optional_number(pore_emw_ppg, "pore_emw_ppg")
             shoe_tvd = optional_number(shoe_tvd_ft, "shoe_tvd_ft")
             warnings: List[str] = []
+            if pore is not None and pore <= 0:
+                raise EngineeringError("pore_emw_ppg must be > 0")
+            if shoe_tvd is not None and shoe_tvd <= 0:
+                raise EngineeringError("shoe_tvd_ft must be > 0")
             if pore is not None and shoe_tvd is not None:
-                if shoe_tvd <= 0:
-                    raise EngineeringError("shoe_tvd_ft must be > 0")
                 pp = PSI_PER_PPG_FT * pore * shoe_tvd
                 overbalance = total - pp
                 if overbalance < 0:
@@ -221,7 +233,7 @@ class CementEngine:
             shoe_track = optional_number(shoe_track_ft, "shoe_track_ft") or 0.0
             warnings: List[str] = []
 
-            hole_vol_bbl = (hole**2 / 1029.4) * length
+            hole_vol_bbl = AdvancedHydraulicsEngine.calc_pipe_capacity_bbl(hole, length)
             annular_bbl = _ann_cap_bbl_ft(hole, csg_od) * length
             annular_cuft = annular_bbl * BBL_PER_CUFT
             annular_with_excess_bbl = annular_bbl * (1.0 + excess / 100.0)
@@ -232,7 +244,9 @@ class CementEngine:
                 if csg_id <= 0 or csg_id >= csg_od:
                     raise EngineeringError("Casing ID must be > 0 and < OD")
                 casing_cap_bbl = _pipe_cap_bbl_ft(csg_id) * length
-                steel_disp_bbl = ((csg_od**2 - csg_id**2) / 1029.4) * length
+                steel_disp_bbl = (
+                    AdvancedHydraulicsEngine.calc_pipe_displacement_bbl_ft(
+                        csg_od, csg_id) * length)
 
             shoe_track_bbl = 0.0
             if shoe_track > 0:

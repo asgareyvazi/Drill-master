@@ -5,7 +5,7 @@ UI and other tabs must call this module — they must not re-implement formulas.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Dict, List
 
 from ..result import (
     EngineeringResult,
@@ -46,21 +46,34 @@ class WellControlEngine:
         frac_gradient_psi_ft=None,
     ) -> float:
         if frac_mw_ppg not in (None, ""):
-            return require_number(frac_mw_ppg, "frac_mw_ppg")
+            value = require_number(frac_mw_ppg, "frac_mw_ppg")
+            if value <= 0:
+                raise EngineeringError("frac_mw_ppg must be > 0")
+            return value
         if lot_pressure_psi not in (None, "") and shoe_tvd_ft > 0:
-            return require_number(lot_pressure_psi, "lot_pressure_psi") / (
-                PSI_PER_PPG_FT * shoe_tvd_ft
-            )
+            pressure = require_number(lot_pressure_psi, "lot_pressure_psi")
+            if pressure <= 0:
+                raise EngineeringError("lot_pressure_psi must be > 0")
+            return pressure / (PSI_PER_PPG_FT * shoe_tvd_ft)
         if frac_gradient_psi_ft not in (None, ""):
-            return require_number(frac_gradient_psi_ft, "frac_gradient_psi_ft") / PSI_PER_PPG_FT
+            gradient = require_number(frac_gradient_psi_ft, "frac_gradient_psi_ft")
+            if gradient <= 0:
+                raise EngineeringError("frac_gradient_psi_ft must be > 0")
+            return gradient / PSI_PER_PPG_FT
         raise MissingInputError("frac_mw_ppg or lot_pressure_psi or frac_gradient_psi_ft")
 
     @staticmethod
     def _influx_gradient_psi_ft(influx_gradient_psi_ft=None, influx_emw_ppg=None) -> float:
         if influx_gradient_psi_ft not in (None, ""):
-            return require_number(influx_gradient_psi_ft, "influx_gradient_psi_ft")
+            value = require_number(influx_gradient_psi_ft, "influx_gradient_psi_ft")
+            if value < 0:
+                raise EngineeringError("influx_gradient_psi_ft cannot be negative")
+            return value
         if influx_emw_ppg not in (None, ""):
-            return require_number(influx_emw_ppg, "influx_emw_ppg") * PSI_PER_PPG_FT
+            emw = require_number(influx_emw_ppg, "influx_emw_ppg")
+            if emw < 0:
+                raise EngineeringError("influx_emw_ppg cannot be negative")
+            return emw * PSI_PER_PPG_FT
         raise MissingInputError("influx_gradient_psi_ft or influx_emw_ppg")
 
     @staticmethod
@@ -68,6 +81,10 @@ class WellControlEngine:
         mw = require_number(original_mw_ppg, "original_mw_ppg")
         sidpp = require_number(sidpp_psi, "sidpp_psi")
         tvd = require_number(tvd_ft, "tvd_ft")
+        if mw <= 0:
+            raise EngineeringError("original_mw_ppg must be > 0")
+        if sidpp < 0:
+            raise EngineeringError("sidpp_psi cannot be negative")
         if tvd <= 0:
             raise EngineeringError("TVD must be > 0")
         return mw + sidpp / (PSI_PER_PPG_FT * tvd)
@@ -89,6 +106,10 @@ class WellControlEngine:
             frac = require_number(leak_off_psi, "leak_off_psi") / (PSI_PER_PPG_FT * shoe)
         else:
             raise MissingInputError("max_allowable_mw_ppg or leak_off_psi")
+        if mw <= 0 or frac <= 0:
+            raise EngineeringError("Mud and fracture equivalent weights must be > 0")
+        if frac < mw:
+            raise EngineeringError("Fracture MW must be ≥ current MW (MAASP would be negative)")
         return (frac - mw) * PSI_PER_PPG_FT * shoe
 
     @classmethod
@@ -133,6 +154,69 @@ class WellControlEngine:
             assumptions=["Weakest point is the casing shoe", "Frac MW from LOT or given equivalent MW"],
         )
 
+    @staticmethod
+    def calculate_icp(slow_pump_rate_psi, sidpp_psi) -> float:
+        """Initial Circulating Pressure = slow-pump-rate pressure + SIDPP."""
+        spr = require_number(slow_pump_rate_psi, "slow_pump_rate_psi")
+        sidpp = require_number(sidpp_psi, "sidpp_psi")
+        if spr < 0:
+            raise EngineeringError("slow_pump_rate_psi cannot be negative")
+        if sidpp < 0:
+            raise EngineeringError("sidpp_psi cannot be negative")
+        return spr + sidpp
+
+    @staticmethod
+    def calculate_fcp(slow_pump_rate_psi, kill_mw_ppg, original_mw_ppg) -> float:
+        """Final Circulating Pressure = SPR × (kill MW / original MW)."""
+        spr = require_number(slow_pump_rate_psi, "slow_pump_rate_psi")
+        kmw = require_number(kill_mw_ppg, "kill_mw_ppg")
+        mw = require_number(original_mw_ppg, "original_mw_ppg")
+        if spr < 0:
+            raise EngineeringError("slow_pump_rate_psi cannot be negative")
+        if mw <= 0:
+            raise EngineeringError("original_mw_ppg must be > 0")
+        if kmw <= 0:
+            raise EngineeringError("kill_mw_ppg must be > 0")
+        return spr * (kmw / mw)
+
+    @classmethod
+    def initial_circulating_pressure(cls, slow_pump_rate_psi, sidpp_psi) -> EngineeringResult:
+        """ICP as an EngineeringResult (single owner of the ICP formula)."""
+        try:
+            value = cls.calculate_icp(slow_pump_rate_psi, sidpp_psi)
+        except MissingInputError as exc:
+            return missing(exc.field)
+        except EngineeringError as exc:
+            return failed(str(exc))
+        return ok(
+            value,
+            values={"icp_psi": round(value, 2)},
+            unit="psi",
+            formula="ICP = Slow Pump Rate pressure + SIDPP",
+            method=cls.METHOD,
+            assumptions=["Slow pump rate (SCR) pressure measured at kill rate"],
+        )
+
+    @classmethod
+    def final_circulating_pressure(
+        cls, slow_pump_rate_psi, kill_mw_ppg, original_mw_ppg
+    ) -> EngineeringResult:
+        """FCP as an EngineeringResult (single owner of the FCP formula)."""
+        try:
+            value = cls.calculate_fcp(slow_pump_rate_psi, kill_mw_ppg, original_mw_ppg)
+        except MissingInputError as exc:
+            return missing(exc.field)
+        except EngineeringError as exc:
+            return failed(str(exc))
+        return ok(
+            value,
+            values={"fcp_psi": round(value, 2)},
+            unit="psi",
+            formula="FCP = Slow Pump Rate pressure × (Kill MW / Original MW)",
+            method=cls.METHOD,
+            assumptions=["Friction scales linearly with mud weight ratio"],
+        )
+
     @classmethod
     def kick_tolerance(
         cls,
@@ -149,8 +233,16 @@ class WellControlEngine:
         bha_length_ft=None,
         formation_emw_ppg=None,
         formation_pressure_psi=None,
+        annular_vol_bbl=None,
     ) -> EngineeringResult:
         """IWCF kick-tolerance (volume) with explicit inputs.
+
+        ``annular_vol_bbl`` is retained as a compatibility parameter only.
+        A total annular volume cannot be converted to the depth-dependent
+        capacity required by this calculation without an additional geometry
+        assumption, so supplying it is explicitly unsupported. Use
+        ``annular_capacity_bbl_ft`` (and the optional BHA capacity/length)
+        instead.
 
         Steps (IWCF / drillingformulas methodology):
         1. Kick intensity = formation EMW − current MW (if formation given)
@@ -168,9 +260,17 @@ class WellControlEngine:
         """
         warnings: List[str] = []
         try:
+            legacy_volume = optional_number(annular_vol_bbl, "annular_vol_bbl")
+            if legacy_volume is not None:
+                return unsupported(
+                    "annular_vol_bbl is deprecated; supply annular_capacity_bbl_ft "
+                    "because total volume cannot define a depth-dependent capacity"
+                )
             mw = require_number(mw_ppg, "mw_ppg")
             shoe = require_number(shoe_tvd_ft, "shoe_tvd_ft")
             tvd = require_number(current_tvd_ft, "current_tvd_ft")
+            if mw <= 0:
+                raise EngineeringError("mw_ppg must be > 0")
             if shoe <= 0:
                 raise EngineeringError("shoe_tvd_ft must be > 0")
             if tvd <= 0:
@@ -332,9 +432,15 @@ class WellControlEngine:
         """
         try:
             mw = require_number(mw_ppg, "mw_ppg")
+            if mw <= 0:
+                raise EngineeringError("mw_ppg must be > 0")
             tvd = optional_number(tvd_ft, "tvd_ft")
             form_emw = optional_number(formation_emw_ppg, "formation_emw_ppg")
             form_psi = optional_number(formation_pressure_psi, "formation_pressure_psi")
+            if form_emw is not None and form_emw < 0:
+                raise EngineeringError("formation_emw_ppg cannot be negative")
+            if form_psi is not None and form_psi < 0:
+                raise EngineeringError("formation_pressure_psi cannot be negative")
             if form_emw is None:
                 if form_psi is None or tvd is None:
                     raise MissingInputError("formation_emw_ppg or (formation_pressure_psi and tvd_ft)")
@@ -385,6 +491,63 @@ class WellControlEngine:
                 ],
                 warnings=warnings,
                 metadata={"units": {"mw": "ppg", "tvd": "ft", "pressure": "psi"}},
+            )
+        except MissingInputError as exc:
+            return missing(exc.field)
+        except EngineeringError as exc:
+            return failed(str(exc))
+
+    @classmethod
+    def formation_pressure(
+        cls,
+        mw_ppg,
+        tvd_ft,
+        sidpp_psi=0.0,
+    ) -> EngineeringResult:
+        """Formation pressure from mud hydrostatics + shut-in drill-pipe pressure.
+
+            P_hyd = 0.052 × MW × TVD
+            P_form = P_hyd + SIDPP
+            gradient = P_form / TVD
+            EMW_form = P_form / (0.052 × TVD)
+
+        SIDPP = 0 (balanced well) is allowed; negative SIDPP is rejected.
+        TVD must be > 0 — no invented depth.
+        """
+        try:
+            mw = require_number(mw_ppg, "mw_ppg")
+            tvd = require_number(tvd_ft, "tvd_ft")
+            sidpp = require_number(sidpp_psi, "sidpp_psi")
+            if mw <= 0:
+                raise EngineeringError("mw_ppg must be > 0")
+            if tvd <= 0:
+                raise EngineeringError("tvd_ft must be > 0")
+            if sidpp < 0:
+                raise EngineeringError("sidpp_psi cannot be negative")
+            hyd = PSI_PER_PPG_FT * mw * tvd
+            fp = hyd + sidpp
+            gradient = fp / tvd
+            emw = fp / (PSI_PER_PPG_FT * tvd)
+            values = {
+                "hydrostatic_psi": round(hyd, 2),
+                "formation_pressure_psi": round(fp, 2),
+                "pressure_gradient_psi_ft": round(gradient, 4),
+                "equivalent_mw_ppg": round(emw, 4),
+                "mw_ppg": mw,
+                "tvd_ft": tvd,
+                "sidpp_psi": sidpp,
+            }
+            return ok(
+                round(fp, 2),
+                values=values,
+                unit="psi",
+                formula="P_form = 0.052×MW×TVD + SIDPP; EMW = P_form/(0.052×TVD)",
+                method=cls.METHOD,
+                assumptions=[
+                    "SIDPP is measured with the well shut in and the bit on bottom",
+                    "Gradient and EMW are averages over the full TVD",
+                ],
+                metadata={"units": {"pressure": "psi", "mw": "ppg", "tvd": "ft"}},
             )
         except MissingInputError as exc:
             return missing(exc.field)

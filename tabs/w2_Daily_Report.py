@@ -3,7 +3,7 @@ Daily Report Tab - گزارش روزانه با استفاده از توابع �
 """
 
 import logging
-from datetime import datetime, date, time, timedelta
+from datetime import time, timedelta
 import os
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
@@ -12,26 +12,23 @@ from PySide6.QtPrintSupport import QPrinter, QPrintDialog
 
 from PySide6.QtGui import QTextOption
 
+from core.editor_state import editor_loaded, editor_saved
 from core.base_tab import DrillTabBase
-from core.permissions import require_permission
-from dialogs.hierarchy_dialogs import NewDailyReportDialog
+from core.permissions import require_permission, permissions
+from core.text_utils import fmt_num
 
-import textwrap
 
 from core.managers import (
-    StatusBarManager,
     AutoSaveManager,
-    TableButtonManager,
     ExportManager,
 )
 from core.database import DatabaseManager, Well, DailyReport, TimeLog24H, TimeLogMorning
-from core.selection_manager import SelectionManager
 
-from core.text_utils import wrap_text, wrap_html
 
 logger = logging.getLogger(__name__)
 
 from core.time_utils import TimeLineEdit, DrillTime
+from core.combo_identity import DEFAULT_ACTIVITY_CATALOG
 
 class DailyReportWidget(DrillTabBase):
     """تب گزارش روزانه با استفاده از توابع مرکزی"""
@@ -182,72 +179,13 @@ class DailyReportWidget(DrillTabBase):
             "Subsea Operation": ["Run/ Retrieve Riser Equip.", "Subsea Installation"],
         }
         
-        self.NPT_CODES = {
-            # T = Trouble
-            "T-FISH": "Fishing Operations",
-            "T-STUCK": "Stuck Pipe",
-            "T-KICK": "Kick / Well Control",
-            "T-LOST-CIRC": "Lost Circulation",
-            "T-TIGHT-HOLE": "Tight Hole / Pack-off",
-            "T-FLOW CASE": "Flow Case / Well Control",
-            "T-HOLE CONDITION": "Hole Condition",
-            "T-BOP": "BOP Equipment Problem",
-            "T-SHALLOW-GAS": "Shallow Gas",
-            "T-H2S": "H2S Encounter",
-            "T-CASING": "Casing/Cementing Problem",
-            "T-SLOUGHING": "Sloughing/Caving",
-            "T-WELL CONTROL": "Well Control (General)",
-            "T-JUNK": "Junk in Hole",
-            "T-SIDETRACK": "Sidetrack Required",
-
-            # F = Failure
-            "F-BIT": "Bit Failure",
-            "F-BHA": "BHA Component Failure",
-            "F-DRILL STRING": "Drill String Failure",
-            "F-TDS": "Top Drive Failure",
-            "F-PUMP": "Mud Pump Failure",
-            "F-POWER": "Power System Failure",
-            "F-HOIST": "Hoisting System Failure",
-            "F-ROT": "Rotating System Failure",
-            "F-CIRC": "Circulating System Failure",
-            "F-MWD": "MWD/LWD Tool Failure",
-            "F-MOTOR": "Downhole Motor Failure",
-            "F-CASING": "Casing Running Equipment",
-            "F-EVALUATION": "Evaluation Failure",
-            "F-HOLE CONDITION": "Hole Condition Failure",
-            "F-SOLID-CTRL": "Solid Control Equipment",
-            "F-IBOP": "IBOP/Float Failure",
-
-            # W = Waiting
-            "W-CLIENT": "Waiting on Client Decision",
-            "W-MATERIAL": "Waiting on Material/Parts",
-            "W-SERVICE EQUIPMENT": "Waiting for Service Equipment",
-            "W-SERVICE QUALITY": "Service Quality Issue",
-            "W-WEATHER": "Waiting on Weather",
-            "W-PERMIT": "Waiting on Permit",
-            "W-LOGISTICS": "Waiting on Logistics",
-            "W-FUEL": "Waiting on Fuel",
-            "W-STOP OPERATION": "Stop Operation",
-            "W-FORCE MAJOR": "Force Majeure (General)",
-            "W-FORCE MAJEURE- 2ND WAR": "Force Majeure - War",
-            "W-CREW": "Waiting on Crew/Personnel",
-
-            # RR = Rig Repair
-            "RR-TDS": "Top Drive Repair",
-            "RR-PUMP": "Mud Pump Repair",
-            "RR-SHAKER": "Shaker/Solid Control Repair",
-            "RR-EAZY TORQUE": "Easy Torque Repair",
-            "RR-KELLY HOSE": "Kelly Hose/Swivel Repair",
-            "RR-POWER TONG": "Power Tong Repair",
-            "RR-IBOP": "IBOP Repair",
-            "RR-CRANE": "Crane/Lifting Equipment",
-            "RR-GENERATOR": "Generator/Power Repair",
-            "RR-OTHER": "Other Rig Repair",
-        }
+        from core.npt_catalog import NPT_CODES
+        self.NPT_CODES = NPT_CODES
         
         self.init_ui()
         self.setup_connections()
         self.setup_managers()
+        self.configure_save_tracking()
   
     # -------- رابط کاربری (بدون تغییر) --------
     def init_ui(self):
@@ -288,20 +226,28 @@ class DailyReportWidget(DrillTabBase):
 
         header_layout.addWidget(QLabel("📊 Status:"), 1, 2)
         self.status_combo = QComboBox()
-        self.status_combo.addItems(["Draft", "Submitted", "Approved"])
+        self.status_combo.addItems(["Draft", "Submitted", "Under Review", "Rejected", "Approved", "Final"])
+        # Status is workflow-controlled: it is set by Submit/Approve/Reject
+        # actions, never by casually picking a value here. Display-only.
+        self.status_combo.setEnabled(False)
+        self.status_combo.setToolTip("Status is controlled by the workflow actions (Submit / Approve / Reject).")
         header_layout.addWidget(self.status_combo, 1, 3)
 
         # ردیف 2 - Depth measurements
         header_layout.addWidget(QLabel("📏 Depth @ 00:00 (m):"), 2, 0)
         self.depth_0000 = QDoubleSpinBox()
-        self.depth_0000.setRange(0, 20000)
+        self.depth_0000.setRange(-1, 20000)
+        self.depth_0000.setSpecialValueText("Not recorded")
+        self.depth_0000.setValue(-1)
         self.depth_0000.setDecimals(2)
         self.depth_0000.setSuffix(" m")
         header_layout.addWidget(self.depth_0000, 2, 1)
 
         header_layout.addWidget(QLabel("📏 Depth @ 06:00 (m):"), 2, 2)
         self.depth_0600 = QDoubleSpinBox()
-        self.depth_0600.setRange(0, 20000)
+        self.depth_0600.setRange(-1, 20000)
+        self.depth_0600.setSpecialValueText("Not recorded")
+        self.depth_0600.setValue(-1)
         self.depth_0600.setDecimals(2)
         self.depth_0600.setSuffix(" m")
         header_layout.addWidget(self.depth_0600, 2, 3)
@@ -309,7 +255,9 @@ class DailyReportWidget(DrillTabBase):
         # ردیف 3 - Depth at 24:00
         header_layout.addWidget(QLabel("📏 Depth @ 24:00 (m):"), 3, 0)
         self.depth_2400 = QDoubleSpinBox()
-        self.depth_2400.setRange(0, 20000)
+        self.depth_2400.setRange(-1, 20000)
+        self.depth_2400.setSpecialValueText("Not recorded")
+        self.depth_2400.setValue(-1)
         self.depth_2400.setDecimals(2)
         self.depth_2400.setSuffix(" m")
         header_layout.addWidget(self.depth_2400, 3, 1)
@@ -491,7 +439,10 @@ class DailyReportWidget(DrillTabBase):
         self.approve_btn.clicked.connect(self.approve_report)
         self.reject_btn = QPushButton("⛔ Reject")
         self.reject_btn.clicked.connect(self._reject_with_comment)
-        
+        self.history_btn = QPushButton("🕑 History")
+        self.history_btn.setToolTip("Show revision and approval history for this report.")
+        self.history_btn.clicked.connect(self._show_report_history)
+
         button_layout.addWidget(self.save_btn)
         button_layout.addWidget(self.load_btn)
         button_layout.addWidget(self.new_btn)
@@ -500,6 +451,7 @@ class DailyReportWidget(DrillTabBase):
         button_layout.addWidget(self.submit_btn)
         button_layout.addWidget(self.approve_btn)
         button_layout.addWidget(self.reject_btn)
+        button_layout.addWidget(self.history_btn)
         button_layout.addStretch()
         
 
@@ -576,11 +528,15 @@ class DailyReportWidget(DrillTabBase):
             # ========== انتخاب خودکار اولین سکشن ==========
             if self.db_manager and well_id:
                 sections = self.db_manager.get_sections_by_well(well_id)
-                if sections:
+                if len(sections) == 1:
                     first_section = sections[0]
                     # انتخاب سکشن از طریق SelectionManager (این باعث فراخوانی on_section_changed می‌شود)
                     self.sel_manager.select_section(first_section['id'], first_section)
                     self.create_report_btn.setEnabled(True)
+                elif sections:
+                    self.sel_manager.select_section(None, {})
+                    self.create_report_btn.setEnabled(False)
+                    self.status_manager.show_warning("DailyReport", "Select a section explicitly; this well has multiple sections.")
                 else:
                     # اگر هیچ سکشنی وجود ندارد، از کاربر بپرسیم که آیا می‌خواهد یکی ایجاد کند
                     reply = QMessageBox.question(
@@ -594,7 +550,7 @@ class DailyReportWidget(DrillTabBase):
                         if dialog.exec():
                             # بارگذاری مجدد سکشن‌ها و انتخاب اولین
                             sections = self.db_manager.get_sections_by_well(well_id)
-                            if sections:
+                            if len(sections) == 1:
                                 self.sel_manager.select_section(sections[0]['id'], sections[0])
                                 self.create_report_btn.setEnabled(True)
                             else:
@@ -611,7 +567,7 @@ class DailyReportWidget(DrillTabBase):
         
     def on_section_changed(self, section_id, section_data):
         """وقتی سکشنی انتخاب می‌شود."""
-        if not section_id or section_id == self.current_section_id:
+        if not section_id:
             return  # اگه تغییر نکرده، کاری نکن
         
         self.current_section_id = section_id
@@ -633,8 +589,8 @@ class DailyReportWidget(DrillTabBase):
 
     def on_report_changed(self, report_id, report_info):
         """بارگذاری گزارش مشخص از SelectionManager."""
-        if report_id and report_id != self.current_report_id:
-            self.load_report_by_id(report_id)
+        if report_id:
+            return self.load_report_by_id(report_id)
 
     def calculate_report_number_from_spud_date(self):
         if not self.current_well_id:
@@ -732,6 +688,7 @@ class DailyReportWidget(DrillTabBase):
                 self.load_report_by_id(latest_report["id"])
         except Exception as e:
             logger.error(f"Error loading reports: {e}")
+            raise
 
     def on_date_changed(self):
         """هنگام تغییر تاریخ، شماره گزارش و روز ریگ را به‌روز می‌کنیم"""
@@ -799,7 +756,7 @@ class DailyReportWidget(DrillTabBase):
                         hour = int(parts[0])
                         minute = int(parts[1]) if len(parts) > 1 else 0
                         from_time.set_time(hour, minute)
-                    except:
+                    except (AttributeError, IndexError, ValueError):
                         from_time.set_time(8, 0)
         else:
             from_time.set_time(8, 0)
@@ -824,7 +781,7 @@ class DailyReportWidget(DrillTabBase):
                         hour = int(parts[0])
                         minute = int(parts[1]) if len(parts) > 1 else 0
                         to_time.set_time(hour, minute)
-                    except:
+                    except (AttributeError, IndexError, ValueError):
                         to_time.set_time(16, 0)
         else:
             to_time.set_time(16, 0)
@@ -840,24 +797,31 @@ class DailyReportWidget(DrillTabBase):
         # ستون 3: فاز اصلی
         main_phase_combo = QComboBox()
         phases = [
-            "MOV - Moving", "DRL - Drilling", "LOG - Logging", 
-            "CSG - Casing/Liner", "COM - Completion", "FTS - Formation Testing",
-            "PIH - Pilot Hole", "COR - Coring", "REE - Re-Entry", "ABD - Abandonment"
+            ("MOV - Moving", "MOV"), ("DRL - Drilling", "DRL"), ("LOG - Logging", "LOG"),
+            ("CSG - Casing/Liner", "CSG"), ("COM - Completion", "COM"), ("FTS - Formation Testing", "FTS"),
+            ("PIH - Pilot Hole", "PIH"), ("COR - Coring", "COR"), ("REE - Re-Entry", "REE"), ("ABD - Abandonment", "ABD")
         ]
-        main_phase_combo.addItems(phases)
+        for label, identity in phases:
+            main_phase_combo.addItem(label, identity)
         if log_data and hasattr(log_data, 'main_phase'):
-            index = main_phase_combo.findText(log_data.main_phase, Qt.MatchContains)
+            index = self._find_code_index(main_phase_combo, log_data.main_phase)
             if index >= 0:
                 main_phase_combo.setCurrentIndex(index)
+            elif str(log_data.main_phase or "").strip():
+                self._set_unresolved_combo_value(main_phase_combo, log_data.main_phase)
         table.setCellWidget(row, 3, main_phase_combo)
 
         # ستون 4: QStackedWidget برای دو کامبو (عادی و NPT)
         stacked = QStackedWidget()
         normal_code_combo = QComboBox()
-        normal_code_combo.addItems(list(self.main_codes_dict.keys()))
+        for option in DEFAULT_ACTIVITY_CATALOG.main_options():
+            normal_code_combo.addItem(option.label, option.identity)
         npt_code_combo = QComboBox()
-        npt_code_combo.addItems(list(self.NPT_CODES.keys()))
+        for code in self.NPT_CODES:
+            npt_code_combo.addItem(code, code)
 
+        normal_code_combo.setCurrentIndex(-1)
+        npt_code_combo.setCurrentIndex(-1)
         is_npt = False
         if log_data and hasattr(log_data, 'is_npt'):
             is_npt = log_data.is_npt
@@ -868,6 +832,8 @@ class DailyReportWidget(DrillTabBase):
             idx = self._find_code_index(target_combo, stored_main_code)
             if idx >= 0:
                 target_combo.setCurrentIndex(idx)
+            elif stored_main_code:
+                self._set_unresolved_combo_value(target_combo, stored_main_code)
 
         stacked.addWidget(normal_code_combo)
         stacked.addWidget(npt_code_combo)
@@ -897,6 +863,8 @@ class DailyReportWidget(DrillTabBase):
             index = status_combo.findText(log_data.status)
             if index >= 0:
                 status_combo.setCurrentIndex(index)
+            elif str(log_data.status or "").strip():
+                self._set_unresolved_combo_value(status_combo, log_data.status)
         table.setCellWidget(row, 6, status_combo)
 
         # ستون 7: چک‌باکس NPT
@@ -1058,10 +1026,18 @@ class DailyReportWidget(DrillTabBase):
     def _find_code_index(self, combo, stored_value):
         wanted = self._code_variants(stored_value)
         for index in range(combo.count()):
-            candidate = self._code_variants(combo.itemText(index))
-            if any(a == b or a in b or b in a for a in wanted for b in candidate):
+            data = combo.itemData(index)
+            candidates = self._code_variants(data) + self._code_variants(combo.itemText(index))
+            if any(a == b or a in b or b in a for a in wanted for b in candidates):
                 return index
         return -1
+
+    @staticmethod
+    def _set_unresolved_combo_value(combo, value):
+        """Show an unresolved source token without selecting item zero."""
+        combo.setEditable(True)
+        combo.setCurrentIndex(-1)
+        combo.setCurrentText(str(value))
 
     def _select_code_value(self, combo, stored_value):
         index = self._find_code_index(combo, stored_value)
@@ -1070,14 +1046,20 @@ class DailyReportWidget(DrillTabBase):
         elif stored_value:
             # Preserve an imported code not present in the local catalogue;
             # silently replacing it with the first item is data corruption.
-            combo.setEditable(True)
-            combo.setCurrentText(str(stored_value))
+            self._set_unresolved_combo_value(combo, stored_value)
+
+    def _combo_value(self, combo):
+        """Stable itemData identity, never the visible label or index."""
+        data = combo.currentData()
+        return data if data not in (None, "") else combo.currentText()
 
     def _update_sub_codes_normal(self, sub_combo, main_code):
-        """به‌روزرسانی زیرکدها برای فعالیت عادی"""
+        """به‌روزرسانی زیرکدها برای فعالیت عادی using the shared catalogue."""
         sub_combo.clear()
-        if main_code in self.main_codes_dict:
-            sub_combo.addItems(self.main_codes_dict[main_code])
+        main_resolution = DEFAULT_ACTIVITY_CATALOG.resolve_main(main_code)
+        options = DEFAULT_ACTIVITY_CATALOG.sub_options(main_resolution.code if main_resolution.accepted else None)
+        for option in options:
+            sub_combo.addItem(option.label, option.identity)
         sub_combo.setEditable(True)
 
     def _update_sub_codes_for_npt(self, sub_combo, npt_code):
@@ -1172,9 +1154,9 @@ class DailyReportWidget(DrillTabBase):
             "report_date": self.report_date.date().toPython(),
             "report_number": self.report_number.value(),
             "rig_day": self.rig_day.value(),
-            "depth_0000": self.depth_0000.value(),
-            "depth_0600": self.depth_0600.value(),
-            "depth_2400": self.depth_2400.value(),
+            "depth_0000": self._depth_value("depth_0000"),
+            "depth_0600": self._depth_value("depth_0600"),
+            "depth_2400": self._depth_value("depth_2400"),
             "summary": self.summary_text.toPlainText(),
             "status": self.status_combo.currentText(),
             "created_by": (
@@ -1187,7 +1169,9 @@ class DailyReportWidget(DrillTabBase):
         if self.current_report and self.current_report.get("id"):
             report_data["id"] = self.current_report["id"]
 
-        return report_data
+        from core.mud_records import preserve_widget_values
+        return preserve_widget_values(self.current_report or {}, getattr(self, "_loaded_report_display", {}),
+                                      report_data, getattr(self, "_form_touched", ()))
 
     def _build_header_snapshot(self, well_id: int) -> dict:
         """ساخت snapshot از اطلاعات چاه"""
@@ -1230,9 +1214,7 @@ class DailyReportWidget(DrillTabBase):
         valid_ids = [s['id'] for s in sections]
 
         if section_id not in valid_ids:
-            if valid_ids:
-                return True, f"Section corrected to {valid_ids[0]}"
-            return False, "No sections exist. Create a section first."
+            return False, "Selected section does not belong to this well. Select a valid section explicitly."
 
         return True, ""
 
@@ -1250,9 +1232,12 @@ class DailyReportWidget(DrillTabBase):
                     )
                 )
 
+    @require_permission("can_edit_reports")
+    @editor_saved()
     def save_report(self) -> bool:
         """ذخیره گزارش روزانه - نسخه refactor شده"""
         try:
+            creating_report = not (self.current_report and self.current_report.get("id"))
             well_id = self.current_well_id
             section_id = self.current_section_id
 
@@ -1270,12 +1255,6 @@ class DailyReportWidget(DrillTabBase):
                 self.status_manager.show_error("DailyReport", message)
                 return False
 
-            # اگر section_id نیاز به تصحیح داشت
-            if "corrected" in message:
-                sections = self.db_manager.get_sections_by_well(well_id)
-                section_id = sections[0]['id']
-                self.current_section_id = section_id
-
             # جمع‌آوری داده
             report_data = self._collect_report_data(well_id, section_id)
             report_data["header_snapshot"] = self._build_header_snapshot(
@@ -1286,37 +1265,53 @@ class DailyReportWidget(DrillTabBase):
             from core.validators import DailyReportValidator
             validation = DailyReportValidator.validate(report_data)
             if not validation.is_valid:
-                reply = QMessageBox.warning(
-                    self, "⚠️ Validation Issues",
-                    f"Issues:\n\n{validation.summary()}\n\nSave anyway?",
-                    QMessageBox.Yes | QMessageBox.No,
-                    QMessageBox.No
-                )
-                if reply != QMessageBox.Yes:
-                    return False
-
-            # ذخیره
-            result = self.db_manager.save_daily_report(report_data)
-            if not result:
-                self.status_manager.show_error(
-                    "DailyReport", "Failed to save report"
-                )
+                from core.save_outcome import validation_outcome
+                self.last_save_outcome = validation_outcome("Daily report", validation)
+                self.status_manager.show_error("DailyReport", self.last_save_outcome.summary())
                 return False
 
+            # Atomic logical DDR save: the report header and its time logs
+            # (plus the derived NPT synchronization) commit together in ONE
+            # session, so a time-log failure can never leave a committed header
+            # with stale/absent time logs (mission §21/§22/§42).
+            session = self.db_manager.create_session()
+            try:
+                result = self.db_manager.save_daily_report(report_data, session=session)
+                if not result:
+                    session.rollback()
+                    self.status_manager.show_error(
+                        "DailyReport", "Failed to save report"
+                    )
+                    return False
+                report_id = result["id"]
+                self.save_time_logs_to_db(report_id, session=session)
+                session.commit()
+            except Exception:
+                session.rollback()
+                raise
+            finally:
+                session.close()
+
+            # Audit the save outside the data transaction (its own boundary).
+            from core.permissions import permissions as _perms
+            self.db_manager.log_audit(
+                action="update" if not creating_report else "create",
+                entity_type="daily_report", entity_id=report_id,
+                entity_name=f"Report #{result.get('report_number')}",
+                user_id=_perms.user_id, username=_perms.username,
+            )
+
             # به‌روزرسانی state
-            report_id = result["id"]
             self.current_report_id = report_id
             self.current_report = result
             self.current_daily_report_id = report_id
 
-            # ذخیره time logs
-            self.save_time_logs_to_db(report_id)
-
             # ذخیره تب‌های دیگر
-            self._save_related_tabs()
+            # Global saves are coordinated by MainWindow, never cascaded here.
 
             # refresh UI
-            self._refresh_after_save(result)
+            if creating_report:
+                self._refresh_after_save(result)
 
             self.status_manager.show_success(
                 "DailyReport",
@@ -1331,33 +1326,15 @@ class DailyReportWidget(DrillTabBase):
             )
             return False
 
-    def _save_related_tabs(self) -> None:
-        """ذخیره داده‌های تب‌های مرتبط"""
-        if not self.parent_window:
-            return
+    def save_time_logs_to_db(self, report_id, session=None):
+        """Persist the 24h/morning time logs and refresh derived NPT.
 
-        tab_saves = [
-            ('drilling_report_tab', 'save_all_tabs'),
-            ('downhole_tab', 'save_all_data_to_db'),
-            ('equipment_widget', 'save_all_data'),
-            ('logistics_widget', 'save_all_data'),
-            ('safety_widget', 'save_data'),
-            ('services_widget', 'save_data'),
-            ('trajectory_widget', 'save_data'),
-        ]
-
-        for attr_name, method_name in tab_saves:
-            tab = getattr(self.parent_window, attr_name, None)
-            if tab and hasattr(tab, method_name):
-                try:
-                    getattr(tab, method_name)()
-                except Exception as e:
-                    logger.error(
-                        f"Error saving {attr_name}.{method_name}: {e}"
-                    )
-                    
-    def save_time_logs_to_db(self, report_id):
-        session = self.db_manager.create_session()
+        When ``session`` is supplied the work joins that transaction (the
+        caller owns commit/rollback), keeping the logical DDR save atomic.
+        When omitted it manages its own session for backward compatibility.
+        """
+        owns_session = session is None
+        session = session or self.db_manager.create_session()
         try:
             session.query(TimeLog24H).filter_by(report_id=report_id).delete()
             session.query(TimeLogMorning).filter_by(report_id=report_id).delete()
@@ -1396,12 +1373,18 @@ class DailyReportWidget(DrillTabBase):
                         contractor=log.get("contractor", "")
                     ))
             
-            session.commit()
+            session.flush()
+            self.db_manager.auto_update_from_daily_report(report_id, session=session)
+            if owns_session:
+                session.commit()
         except Exception as e:
-            session.rollback()
+            if owns_session:
+                session.rollback()
             logger.error(f"Time log save error: {e}")
+            raise
         finally:
-            session.close()
+            if owns_session:
+                session.close()
 
     def _extract_time_log_row(self, table, row):
         try:
@@ -1464,7 +1447,7 @@ class DailyReportWidget(DrillTabBase):
             if stacked and isinstance(stacked, QStackedWidget):
                 current = stacked.currentWidget()
                 if isinstance(current, QComboBox):
-                    main_code = current.currentText()
+                    main_code = self._combo_value(current)
 
             npt_checkbox = table.cellWidget(row, 7)
             is_npt = (
@@ -1493,12 +1476,12 @@ class DailyReportWidget(DrillTabBase):
                 "time_to": to_python_time,
                 "duration": duration,
                 "main_phase": (
-                    table.cellWidget(row, 3).currentText()
+                    self._combo_value(table.cellWidget(row, 3))
                     if table.cellWidget(row, 3) else ""
                 ),
                 "main_code": main_code,
                 "sub_code": (
-                    table.cellWidget(row, 5).currentText()
+                    self._combo_value(table.cellWidget(row, 5))
                     if table.cellWidget(row, 5) else ""
                 ),
                 "status": (
@@ -1575,6 +1558,7 @@ class DailyReportWidget(DrillTabBase):
         except Exception as e:
             logger.error(f"Error loading reports dialog: {e}")
             self.status_manager.show_error("DailyReport", f"Error: {str(e)[:100]}")
+            raise
 
     def _load_selected_report_from_dialog(self, dialog, table):
         selected_items = table.selectedItems()
@@ -1587,6 +1571,7 @@ class DailyReportWidget(DrillTabBase):
             dialog.accept()
             self.status_manager.show_success("DailyReport", "Report loaded")
 
+    @editor_loaded()
     def load_report_by_id(self, report_id):
         self.current_report_id = report_id
         self.current_daily_report_id = report_id
@@ -1595,18 +1580,19 @@ class DailyReportWidget(DrillTabBase):
             report_data = self.db_manager.get_daily_report_by_id(report_id)
             if not report_data:
                 self.status_manager.show_error("DailyReport", "Report not found")
-                return
+                return False
 
             self.current_report = report_data
+            self._loaded_report_display = {}
             self.current_well_id = report_data.get("well_id")
             self.current_section_id = report_data.get("section_id")
 
             self.report_date.setDate(report_data["report_date"])
-            self.report_number.setValue(report_data.get("report_number", 1))
-            self.rig_day.setValue(report_data.get("rig_day", 1))
-            self.depth_0000.setValue(report_data.get("depth_0000", 0))
-            self.depth_0600.setValue(report_data.get("depth_0600", 0))
-            self.depth_2400.setValue(report_data.get("depth_2400", 0))
+            self.report_number.setValue(report_data.get("report_number") if report_data.get("report_number") is not None else 0)
+            self.rig_day.setValue(report_data.get("rig_day") if report_data.get("rig_day") is not None else 0)
+            self.depth_0000.setValue(report_data.get("depth_0000") if report_data.get("depth_0000") is not None else -1)
+            self.depth_0600.setValue(report_data.get("depth_0600") if report_data.get("depth_0600") is not None else -1)
+            self.depth_2400.setValue(report_data.get("depth_2400") if report_data.get("depth_2400") is not None else -1)
             import textwrap
             raw_summary = report_data.get("summary", "") or ""
             if len(raw_summary) > 150:
@@ -1614,9 +1600,13 @@ class DailyReportWidget(DrillTabBase):
                 self.summary_text.setPlainText("\n".join(lines))
             else:
                 self.summary_text.setPlainText(report_data.get("summary", "") or "")
-            idx = self.status_combo.findText(report_data.get("status", "Draft"))
-            if idx >= 0:
-                self.status_combo.setCurrentIndex(idx)
+            status_value = str(report_data.get("status", "") or "")
+            if status_value:
+                idx = self.status_combo.findText(status_value)
+                if idx >= 0:
+                    self.status_combo.setCurrentIndex(idx)
+                else:
+                    self._set_unresolved_combo_value(self.status_combo, status_value)
 
             well_id = report_data.get("well_id")
             section_id = report_data.get("section_id")
@@ -1625,10 +1615,16 @@ class DailyReportWidget(DrillTabBase):
             self.load_time_logs(report_id, self.time_24_table, is_morning=False)
             self.load_time_logs(report_id, self.morning_table, is_morning=True)
 
+            self._loaded_report_display = self._collect_report_data(well_id, section_id)
+            from core.editor_state import reset_form_edit_tracking
+            reset_form_edit_tracking(self,
+                          [(key, getattr(self, key)) for key in ("report_date", "report_number", "rig_day", "depth_0000", "depth_0600", "depth_2400")])
+            self._update_workflow_controls()
             self.status_manager.show_success("DailyReport", f"Report #{report_data.get('report_number', '')} loaded")
         except Exception as e:
             logger.error(f"Load report error: {e}")
             self.status_manager.show_error("DailyReport", f"Error loading report: {str(e)[:100]}")
+            raise
 
     def load_time_logs(self, report_id, table, is_morning=False):
         table.setRowCount(0)
@@ -1643,10 +1639,12 @@ class DailyReportWidget(DrillTabBase):
             QTimer.singleShot(100, lambda: self._adjust_all_row_heights(table))
         except Exception as e:
             logger.error(f"Error loading time logs: {e}")
+            raise
         finally:
             session.close()
 
 
+    @require_permission("can_edit_reports")
     def create_daily_report_for_current_section(self):
         section_id = self.current_section_id
         if not section_id or section_id == -1:
@@ -1665,10 +1663,11 @@ class DailyReportWidget(DrillTabBase):
                         if previous_id:
                             try:
                                 session = self.db_manager.create_session()
-                                dialog._copy_all_report_data(
-                                    session, previous_id, created_id
-                                )
-                                session.close()
+                                try:
+                                    if not dialog._copy_all_report_data(session, previous_id, created_id):
+                                        raise PermissionError("Copy denied")
+                                finally:
+                                    session.close()
                                 self.status_manager.show_success(
                                     "DailyReport", "Data copied from previous report"
                                 )
@@ -1716,9 +1715,9 @@ class DailyReportWidget(DrillTabBase):
                 return False
             
             # پر کردن فیلدهای هدر (عمق‌ها، خلاصه، روز ریگ)
-            self.depth_0000.setValue(source.depth_2400 or 0)
-            self.depth_0600.setValue(source.depth_2400 or 0)
-            self.depth_2400.setValue(source.depth_2400 or 0)  # اختیاری
+            self.depth_0000.setValue(source.depth_2400 if source.depth_2400 is not None else -1)
+            self.depth_0600.setValue(source.depth_2400 if source.depth_2400 is not None else -1)
+            self.depth_2400.setValue(source.depth_2400 if source.depth_2400 is not None else -1)  # اختیاری
             self.summary_text.setPlainText(source.summary or "")
             # روز ریگ را یک روز افزایش می‌دهیم (چون روز جدید است)
             self.rig_day.setValue((source.rig_day or 0) + 1)
@@ -1742,6 +1741,7 @@ class DailyReportWidget(DrillTabBase):
         finally:
             session.close()
 
+    @require_permission("can_edit_reports")
     def copy_data_from_report(self, source_report_id: int, target_report_id: int) -> bool:
         """
         کپی تمام داده‌های مرتبط با یک گزارش روزانه به گزارش دیگر.
@@ -1751,6 +1751,14 @@ class DailyReportWidget(DrillTabBase):
         """
         session = self.db.create_session()
         try:
+            from copy import deepcopy
+            from core.report_lifecycle import is_editable
+            source = session.get(DailyReport, source_report_id)
+            target = session.get(DailyReport, target_report_id)
+            if source is None or target is None or source.id == target.id or source.well_id != target.well_id:
+                raise ValueError("Copy requires distinct source/target reports in the same well")
+            if not is_editable(target.status):
+                raise ValueError("Target report is not editable")
             from core.database import (
                 TimeLog24H, TimeLogMorning, DrillingParameters, MudReport,
                 CementReport, CasingReport, BitReport, BHAReport, DownholeEquipment,
@@ -1773,7 +1781,7 @@ class DailyReportWidget(DrillTabBase):
                 (BHAReport, 'report_id'),
                 (DownholeEquipment, 'report_id'),
                 (FormationReport, 'report_id'),
-                (SafetyReport, 'report_id'),
+                # A previous safety observation is not a new assessment.
                 (WellboreSchematic, 'report_id'),
                 (TripSheetEntry, 'report_id'),
                 (SurveyPoint, 'report_id'),
@@ -1824,8 +1832,12 @@ class DailyReportWidget(DrillTabBase):
                     data = {}
                     for column in model.__table__.columns:
                         if column.name not in ('id', fk_field):
-                            data[column.name] = getattr(rec, column.name)
+                            data[column.name] = deepcopy(getattr(rec, column.name))
                     data[fk_field] = target_report_id
+                    if 'section_id' in data:
+                        data['section_id'] = target.section_id
+                    if 'report_date' in data:
+                        data['report_date'] = target.report_date
                     # ایجاد نمونه جدید
                     new_rec = model(**data)
                     session.add(new_rec)
@@ -1884,8 +1896,8 @@ class DailyReportWidget(DrillTabBase):
                         total_time += duration
                         if npt_widget.isChecked():
                             total_npt += duration
-                    except:
-                        pass
+                    except (AttributeError, TypeError, ValueError):
+                        pass  # incomplete row — excluded from totals
             self.total_time_label.setText(f"Total Time: {total_time:.1f}h")
             self.total_npt_label.setText(f"NPT Time: {total_npt:.1f}h")
             if total_time > 0:
@@ -1921,15 +1933,27 @@ class DailyReportWidget(DrillTabBase):
         else:
             self.char_counter.setStyleSheet("color: #7f8c8d; font-size: 10px;")
 
+    def _depth_value(self, name):
+        value = getattr(self, name).value()
+        return value if value >= 0 else None
+
+    def _depth_gain(self):
+        start, end = self._depth_value("depth_0000"), self._depth_value("depth_2400")
+        return end - start if start is not None and end is not None else None
+
     def calculate_depth_gained(self):
-        depth_start = self.depth_0000.value()
-        depth_end = self.depth_2400.value()
+        depth_start = self._depth_value("depth_0000")
+        depth_end = self._depth_value("depth_2400")
+        if depth_start is None or depth_end is None:
+            self.status_manager.show_error("DailyReport", "Depth gain: NOT ASSESSED (missing depth)")
+            return
         if depth_end >= depth_start:
             gained = depth_end - depth_start
             self.status_manager.show_message("DailyReport", f"📈 Depth gained today: {gained:.2f} meters", 3000)
         else:
             self.status_manager.show_error("DailyReport", "End depth must be greater than start depth")
 
+    @require_permission("can_edit_reports")
     def copy_previous_day(self, source_report_id=None):
         well_id = self.current_well_id
         section_id = self.current_section_id
@@ -1948,11 +1972,11 @@ class DailyReportWidget(DrillTabBase):
                     DailyReport.well_id == well_id,
                     DailyReport.section_id == section_id,
                     DailyReport.report_date == previous_date
-                ).first()
+                ).one_or_none()
             else:
                 prev_report = session.query(DailyReport).filter(
                     DailyReport.id == source_report_id
-                ).first()
+                ).one_or_none()
 
             if not prev_report:
                 self.show_message("No previous report found", 3000)
@@ -1968,7 +1992,9 @@ class DailyReportWidget(DrillTabBase):
             new_report_id = self.current_report_id
 
             # 2. داده‌های گزارش قبلی را مستقیماً در session کپی کن (بدون load)
-            self.copy_data_from_report(prev_report.id, new_report_id)
+            if not self.copy_data_from_report(prev_report.id, new_report_id):
+                self.show_error("Copy failed; existing target data was not replaced")
+                return False
 
             # 3. مجدداً گزارش جدید را از دیتابیس بارگذاری کن تا داده‌های کپی شده نمایش داده شوند
             self.load_report_by_id(new_report_id)
@@ -1990,9 +2016,9 @@ class DailyReportWidget(DrillTabBase):
         self.report_date.setDate(QDate.currentDate())
         self.report_number.setValue(1)
         self.rig_day.setValue(1)
-        self.depth_0000.setValue(0)
-        self.depth_0600.setValue(0)
-        self.depth_2400.setValue(0)
+        self.depth_0000.setValue(-1)
+        self.depth_0600.setValue(-1)
+        self.depth_2400.setValue(-1)
         self.summary_text.clear()
         self.status_combo.setCurrentText("Draft")
         self.time_24_table.setRowCount(0)
@@ -2002,6 +2028,7 @@ class DailyReportWidget(DrillTabBase):
         self.add_time_log_row(self.morning_table)
         self.status_manager.show_success("DailyReport", "📝 New report ready")
 
+    @require_permission("can_export")
     def print_report(self):
         if not self.current_report:
             self.status_manager.show_error("DailyReport", "No report to print")
@@ -2045,9 +2072,9 @@ class DailyReportWidget(DrillTabBase):
             <p><strong>Date:</strong> {self.report_date.date().toString('yyyy-MM-dd')}</p>
             <p><strong>Report #:</strong> {self.report_number.value()}</p>
             <p><strong>Rig Day:</strong> {self.rig_day.value()}</p>
-            <p><strong>Depth @ 00:00:</strong> {self.depth_0000.value()} m</p>
-            <p><strong>Depth @ 06:00:</strong> {self.depth_0600.value()} m</p>
-            <p><strong>Depth @ 24:00:</strong> {self.depth_2400.value()} m</p>
+            <p><strong>Depth @ 00:00:</strong> {fmt_num(self._depth_value("depth_0000"), 1, default=None)} m</p>
+            <p><strong>Depth @ 06:00:</strong> {fmt_num(self._depth_value("depth_0600"), 1, default=None)} m</p>
+            <p><strong>Depth @ 24:00:</strong> {fmt_num(self._depth_value("depth_2400"), 1, default=None)} m</p>
             <h2>Summary</h2>
             <p>{self.summary_text.toPlainText()}</p>
         </body>
@@ -2066,22 +2093,85 @@ class DailyReportWidget(DrillTabBase):
             return False
         return self.save_report()
 
-    @require_permission("can_edit_reports")
-    def submit_report(self):
+    def _update_workflow_controls(self):
+        """Reflect the real workflow state + permissions in the UI controls.
+
+        Buttons are enabled only when the transition is structurally valid AND
+        the current user is authorized. Body widgets are locked when the report
+        state is not editable. This mirrors the backend rules; the backend
+        remains the authority that actually rejects illegitimate calls.
+        """
+        from core.report_lifecycle import allowed_actions, is_editable, ACTION_PERMISSION
+        status = (self.current_report or {}).get("status") if self.current_report else None
+        has_report = bool(self.current_report_id)
+        actions = set(allowed_actions(status)) if has_report else set()
+
+        def gate(action):
+            return (action in actions
+                    and permissions.has_permission(ACTION_PERMISSION[action]))
+
+        if hasattr(self, "submit_btn"):
+            self.submit_btn.setEnabled(gate("submit"))
+        if hasattr(self, "approve_btn"):
+            self.approve_btn.setEnabled(gate("approve"))
+        if hasattr(self, "reject_btn"):
+            self.reject_btn.setEnabled(gate("reject"))
+        if hasattr(self, "history_btn"):
+            self.history_btn.setEnabled(has_report)
+
+        editable = has_report and is_editable(status) and permissions.has_permission("can_edit_reports")
+        if hasattr(self, "save_btn"):
+            self.save_btn.setEnabled(editable or not has_report)
+
+    def _show_report_history(self):
+        if not self.current_report_id:
+            self.show_warning("Select a report first")
+            return
+        try:
+            from dialogs.report_history_dialog import ReportHistoryDialog
+            dialog = ReportHistoryDialog(self.db_manager, self.current_report_id, self)
+            dialog.exec()
+        except Exception as exc:
+            logger.error("Show report history failed: %s", exc, exc_info=True)
+            self.show_error(str(exc))
+
+    def _run_transition(self, action, comment="", success_message=""):
+        """Drive one lifecycle action through the atomic backend boundary.
+
+        The backend is authoritative: it validates the transition, permission,
+        comment, and well/section ownership, then writes status + revision +
+        approval action in one transaction. The UI only reflects the outcome.
+        """
         if not self.current_report_id:
             self.show_warning("Select a report first")
             return False
-        try:
-            ok = self.db_manager.set_report_status(self.current_report_id, "Submitted")
-            if ok:
-                self.db_manager.create_report_revision(self.current_report_id, "Submitted")
-                self.load_report_by_id(self.current_report_id)
-                self.show_success("Report submitted for review")
-            return bool(ok)
-        except Exception as exc:
-            logger.error("Submit report failed: %s", exc, exc_info=True)
-            self.show_error(str(exc))
-            return False
+        result = self.db_manager.transition_report(
+            self.current_report_id, action,
+            has_permission=permissions.has_permission,
+            user_id=permissions.user_id, comment=comment,
+            expected_well_id=self.current_well_id,
+            expected_section_id=self.current_section_id,
+        )
+        if result.ok:
+            self.load_report_by_id(self.current_report_id)
+            self.show_success(success_message or f"Report {action} succeeded")
+            return True
+        # Explicit, non-coercing feedback per outcome.
+        from core.report_lifecycle import LifecycleOutcome
+        if result.outcome == LifecycleOutcome.PERMISSION_DENIED:
+            self.show_warning(result.message)
+        elif result.outcome in (LifecycleOutcome.VALIDATION_ERROR,
+                                LifecycleOutcome.INVALID_TRANSITION,
+                                LifecycleOutcome.CONTEXT_ERROR,
+                                LifecycleOutcome.NOT_FOUND):
+            self.show_warning(result.message)
+        else:
+            self.show_error(result.message)
+        return False
+
+    @require_permission("can_edit_reports")
+    def submit_report(self):
+        return self._run_transition("submit", success_message="Report submitted for review")
 
     def _reject_with_comment(self):
         comment, ok = QInputDialog.getMultiLineText(self, "Reject Report", "Reason:")
@@ -2090,40 +2180,20 @@ class DailyReportWidget(DrillTabBase):
 
     @require_permission("can_approve_reports")
     def approve_report(self, comment=""):
-        if not self.current_report_id:
-            self.show_warning("Select a report first")
-            return False
-        try:
-            ok = self.db_manager.set_report_status(self.current_report_id, "Approved", comment=comment)
-            if ok:
-                self.db_manager.create_report_revision(self.current_report_id, "Approved", comment)
-                self.load_report_by_id(self.current_report_id)
-                self.show_success("Report approved")
-            return bool(ok)
-        except Exception as exc:
-            logger.error("Approve report failed: %s", exc, exc_info=True)
-            self.show_error(str(exc))
-            return False
+        return self._run_transition("approve", comment=comment,
+                                    success_message="Report approved")
+
+    def finalize_report(self, comment=""):
+        return self._run_transition("finalize", comment=comment,
+                                    success_message="Report finalized")
 
     @require_permission("can_approve_reports")
     def reject_report(self, comment=""):
-        if not self.current_report_id:
-            self.show_warning("Select a report first")
-            return False
-        if not comment.strip():
+        if not (comment or "").strip():
             self.show_warning("A rejection comment is required")
             return False
-        try:
-            ok = self.db_manager.set_report_status(self.current_report_id, "Rejected", comment=comment)
-            if ok:
-                self.db_manager.create_report_revision(self.current_report_id, "Rejected", comment)
-                self.load_report_by_id(self.current_report_id)
-                self.show_warning("Report rejected")
-            return bool(ok)
-        except Exception as exc:
-            logger.error("Reject report failed: %s", exc, exc_info=True)
-            self.show_error(str(exc))
-            return False
+        return self._run_transition("reject", comment=comment,
+                                    success_message="Report rejected")
 
     def refresh(self):
         if self.current_report_id:
@@ -2173,6 +2243,7 @@ class DailyReportWidget(DrillTabBase):
                 self.update_statistics()
                 self.show_message(f"Activity added: {data['main_code'][:30]}")
 
+    @require_permission("can_export")
     def _export_ddr_pdf(self):
         """اکسپورت DDR حرفه‌ای"""
         if not self.current_report_id:
@@ -2225,6 +2296,7 @@ class DailyReportWidget(DrillTabBase):
             self.status_manager.show_error(
                 "DailyReport", f"Export error: {str(e)}"
             )
+    @require_permission("can_export")
     def _export_ddr_html(self, filename):
         """Fallback: اکسپورت HTML"""
         try:
@@ -2241,10 +2313,11 @@ class DailyReportWidget(DrillTabBase):
             </style></head><body>
             <h1>Daily Drilling Report</h1>
             <p>Well: {well_name} | Date: {self.report_date.date().toString('yyyy-MM-dd')} | 
-            Report #: {self.report_number.value()} | Rig Day: {self.rig_day.value()}</p>
+            Report #: {self.report_number.value()} | Rig Day: {self.rig_day.value()} | 
+            Status: {(self.current_report or {}).get('status', 'Draft')}</p>
             <h2>Depth Summary</h2>
-            <p>00:00: {self.depth_0000.value():.1f}m | 06:00: {self.depth_0600.value():.1f}m | 
-            24:00: {self.depth_2400.value():.1f}m | Progress: {self.depth_2400.value() - self.depth_0000.value():.1f}m</p>
+            <p>00:00: {fmt_num(self._depth_value("depth_0000"), 1, default=None)}m | 06:00: {fmt_num(self._depth_value("depth_0600"), 1, default=None)}m |
+            24:00: {fmt_num(self._depth_value("depth_2400"), 1, default=None)}m | Progress: {fmt_num(self._depth_gain(), 1, default=None)}m</p>
             <h2>Operations</h2>
             <table><tr><th>From</th><th>To</th><th>Hrs</th><th>Phase</th><th>Code</th><th>NPT</th><th>Description</th></tr>
             """

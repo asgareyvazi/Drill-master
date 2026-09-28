@@ -5,40 +5,38 @@ Engineering Calculator - ادغام شده از نرم‌افزار قبلی
 تمام محاسبات حفاری در یک تب مستقل
 """
 import math
-import itertools
 import logging
 import os
 
 import pandas as pd
-import numpy as np
 
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
 
 from core.base_tab import DrillTabBase
-from core.managers import StatusBarManager, DrillingManager
 from core.common_widgets import safe_replace_chart
 
 logger = logging.getLogger(__name__)
 
 
-# ==================== ENGINE: محاسبات خالص (بدون UI) ====================
 class DrillingCalculationEngine:
     """
-    موتور محاسبات - مستقیماً از نرم‌افزار قبلی
-    هیچ وابستگی به UI ندارد
+    Legacy calculation facade for the Engineering Calculator tab (W13).
+
+    No engineering formula lives here any more: every method delegates to
+    the canonical engines under core/ (single source of truth) and only
+    converts units / maps result shapes. See ENGINEERING_ARCHITECTURE.md.
     """
-    
-    # -------- Volume & Capacity --------
+
+    # -------- Bit hydraulics (canonical: core/hydraulics_engine.py) --------
     @staticmethod
     def calc_pump_output(liner_size: float, stroke_len: float, efficiency: float) -> float:
-        """خروجی پمپ — delegates to canonical AdvancedHydraulicsEngine."""
+        """Pump output — delegates to canonical AdvancedHydraulicsEngine."""
         from core.hydraulics_engine import AdvancedHydraulicsEngine
         return AdvancedHydraulicsEngine.calc_pump_output(
             liner_size, stroke_len, efficiency)
-    
-    @staticmethod
+
     @staticmethod
     def calc_tfa_from_pressure(gpm: float, mw: float, delta_p: float) -> float:
         """TFA from ΔP — canonical AdvancedHydraulicsEngine.calc_tfa_from_pressure_drop."""
@@ -46,31 +44,35 @@ class DrillingCalculationEngine:
         if delta_p <= 0:
             return 0
         return round(AdvancedHydraulicsEngine.calc_tfa_from_pressure_drop(gpm, mw, delta_p), 4)
-    
+
     @staticmethod
     def calc_bit_hhp(gpm: float, delta_p: float) -> float:
+        """Bit HHP — canonical AdvancedHydraulicsEngine.calc_bit_hhp."""
         from core.hydraulics_engine import AdvancedHydraulicsEngine
         return round(AdvancedHydraulicsEngine.calc_bit_hhp(gpm, delta_p), 2)
-    
+
     @staticmethod
     def calc_jet_velocity(gpm: float, nozzle_sizes: list) -> float:
         """Jet velocity — canonical AdvancedHydraulicsEngine.calc_jet_velocity.
 
-        Nozzle sizes in 1/32 inch; TFA = Σ π/4·(s/32)².
+        TFA is computed by the canonical BitEngine.calculate_tfa
+        (Σ π/4·(size/32)²) — never re-implemented here.
         """
         from core.hydraulics_engine import AdvancedHydraulicsEngine
-        total_area = sum(
-            math.pi / 4 * (s / 32.0) ** 2 for s in nozzle_sizes if s > 0)
-        if total_area <= 0:
-            return 0
-        return round(AdvancedHydraulicsEngine.calc_jet_velocity(gpm, total_area), 2)
-    
+        from core.engineering.core import BitEngine
+        sizes = [s for s in nozzle_sizes if s > 0]
+        if not sizes or gpm <= 0:
+            return 0.0
+        tfa = BitEngine.calculate_tfa(sizes)
+        return round(AdvancedHydraulicsEngine.calc_jet_velocity(gpm, tfa), 2)
+
     @staticmethod
     def calc_impact_force(gpm: float, mw: float, jet_velocity: float) -> float:
+        """Impact force — canonical AdvancedHydraulicsEngine.calc_impact_force."""
         from core.hydraulics_engine import AdvancedHydraulicsEngine
         return round(AdvancedHydraulicsEngine.calc_impact_force(mw, gpm, jet_velocity), 2)
 
-    # -------- Nozzle Optimization --------
+    # -------- Nozzle Optimization (canonical: AdvancedHydraulicsEngine) --------
     @staticmethod
     def optimize_nozzles(
         hhp: float, max_press: float,
@@ -78,79 +80,194 @@ class DrillingCalculationEngine:
         prev_tfa: float, mw: float, n_nozzles: int,
         model: str = "HP"
     ) -> dict:
-        """بهینه‌سازی نازل‌ها"""
-        NZL_SIZES = [6,7,8,9,10,11,12,13,14,15,16,18,20,22,24,26,28,30]
-        
-        def nozzle_area(size32):
-            d = size32 / 32.0
-            return math.pi * (d / 2)**2
-        
-        Q_opt_max = hhp * 1714 / max_press if max_press > 0 else 0
-        
-        if fr2 > 0 and fr1/fr2 > 0:
-            n = math.log10(spp1 / spp2) / math.log10(fr1 / fr2)
-        else:
-            n = 1.0
-        
-        if model == "HP":
-            DPf_max = max_press / (n + 1)
-        else:
-            DPf_max = 2 * max_press / (n + 2)
-        
-        DPf_1 = spp1 - ((mw * fr1**2) / (12031 * 0.95**2 * prev_tfa**2)) if prev_tfa > 0 else 0
-        a = DPf_1 / (fr1**n) if fr1 > 0 else 0
-        
-        if a > 0:
-            Q_opt = (DPf_max / a) ** (1.0 / n) if n != 0 else 0
-        else:
-            Q_opt = Q_opt_max
-        
-        DP_bit = max_press - DPf_max
-        Opt_TFA = math.sqrt(mw * Q_opt**2 / (12031 * 0.95**2 * DP_bit)) if DP_bit > 0 else 0
-        
-        # بهترین ترکیب نازل
-        best_combo = None
-        best_error = 1e9
-        
-        for combo in itertools.combinations_with_replacement(NZL_SIZES, n_nozzles):
-            total_area = sum(nozzle_area(s) for s in combo)
-            error = abs(Opt_TFA - total_area)
-            if error < best_error:
-                best_error = error
-                best_combo = combo
-        
-        return {
-            "max_flow_rate_gpm": round(Q_opt_max, 1),
-            "optimal_flow_rate_gpm": round(Q_opt, 1),
-            "optimal_tfa_in2": round(Opt_TFA, 4),
-            "selected_nozzles": list(best_combo) if best_combo else [],
-            "actual_tfa_in2": round(sum(nozzle_area(s) for s in best_combo), 4) if best_combo else 0,
-            "tfa_error": round(best_error, 4),
-        }
+        """Legacy wrapper — delegates to canonical
+        AdvancedHydraulicsEngine.optimize_nozzles()."""
+        from core.hydraulics_engine import AdvancedHydraulicsEngine
+        return AdvancedHydraulicsEngine.optimize_nozzles(
+            hhp=hhp, max_press=max_press, fr1=fr1, spp1=spp1, fr2=fr2,
+            spp2=spp2, prev_tfa=prev_tfa, mw_ppg=mw, n_nozzles=n_nozzles,
+            model=model)
 
-    # -------- Slug --------
+    # -------- Fishing / Stuck-pipe (canonical: FishingEngine) --------
     @staticmethod
     def calc_free_point(diff_stretch: float, pipe_wt: float, pull_force: float) -> float:
-        if pull_force <= 0:
-            return 0
-        return round(735294 * diff_stretch * pipe_wt / pull_force, 1)
-    
+        """Free point (ft) — canonical FishingEngine.free_point."""
+        from core.engineering.engines.fishing import calculate_free_point
+        return calculate_free_point(diff_stretch, pipe_wt, pull_force)
+
     @staticmethod
     def calc_string_stretch(length: float, mw: float) -> float:
-        return round(length / 96250000 * (65.44 - (1.44 * mw)), 2)
+        """String stretch (in) — canonical FishingEngine.string_stretch."""
+        from core.engineering.engines.fishing import calculate_string_stretch
+        return calculate_string_stretch(length, mw)
 
-    # -------- Pressure Drop (Bingham) --------
-    @staticmethod
     @staticmethod
     def calc_adjusted_weight(od: float, id_: float) -> float:
-        return round(2.67 * (od**2 - id_**2), 2)
+        """Adjusted pipe weight (lb/ft) — canonical FishingEngine.adjusted_weight."""
+        from core.engineering.engines.fishing import FishingEngine
+        r = FishingEngine.adjusted_weight(od, id_)
+        return r.value if r.success else 0.0
 
-# ==================== MUD CALCULATIONS ====================
-    
     @staticmethod
-    def calc_mud_weight_increase(current_mw, target_mw, system_vol, 
+    def calc_buoyancy_factor(mud_weight_pcf, steel_density=490) -> float:
+        """Buoyancy factor — canonical TorqueDragEngine.buoyancy_factor.
+
+        Input is pcf; converted to ppg at this boundary (unit conversion
+        only — the formula lives in the engine).
+        """
+        from core.engineering.engines.torque_drag import TorqueDragEngine
+        if not mud_weight_pcf or mud_weight_pcf <= 0:
+            return 0.0
+        mw_ppg = mud_weight_pcf / 7.48
+        steel_ppg = steel_density / 7.48
+        try:
+            return round(TorqueDragEngine.buoyancy_factor(mw_ppg, steel_ppg), 4)
+        except Exception:
+            return 0.0
+
+    @staticmethod
+    def calc_casing_landing_load(casing_weight_ppf, length_ft,
+                                   buoyancy_factor, friction_factor=0) -> dict:
+        """Casing landing-load card — canonical TorqueDragEngine delegate."""
+        from core.engineering.engines.torque_drag import TorqueDragEngine
+        result = TorqueDragEngine.casing_landing_load(
+            casing_weight_ppf,
+            length_ft,
+            buoyancy_factor,
+            friction_factor,
+        )
+        if not result.success:
+            return {"error": result.error}
+        values = result.values
+        return {
+            "air_weight_lbs": round(values["total_air_weight_lbs"], 0),
+            "buoyant_weight_lbs": round(values["buoyed_weight_lbs"], 0),
+            "friction_load_lbs": round(values["friction_load_lbs"], 0),
+            "hook_load_lbs": round(values["hook_load_lbs"], 0),
+        }
+
+    # -------- Well Control (canonical: WellControlEngine) --------
+    @staticmethod
+    def calc_kick_tolerance(frac_mw_ppg, current_mw_ppg, tvd_ft,
+                             shoe_tvd_ft, annular_vol_bbl,
+                             influx_gradient_psi_ft=None,
+                             annular_capacity_bbl_ft=None,
+                             formation_emw_ppg=None) -> dict:
+        """Kick tolerance — canonical WellControlEngine.kick_tolerance.
+
+        ``annular_vol_bbl`` is retained for compatibility but is explicitly
+        rejected when supplied: a total volume cannot define depth-dependent
+        capacity. Use ``annular_capacity_bbl_ft`` instead. No invented influx
+        gradient or annular capacity: missing inputs produce an error dict.
+        """
+        from core.engineering.engines.well_control import WellControlEngine
+        r = WellControlEngine.kick_tolerance(
+            mw_ppg=current_mw_ppg,
+            shoe_tvd_ft=shoe_tvd_ft,
+            current_tvd_ft=tvd_ft,
+            frac_mw_ppg=frac_mw_ppg,
+            influx_gradient_psi_ft=influx_gradient_psi_ft,
+            annular_vol_bbl=annular_vol_bbl,
+            annular_capacity_bbl_ft=annular_capacity_bbl_ft,
+            formation_emw_ppg=formation_emw_ppg,
+        )
+        if not r.success:
+            return {"error": r.error}
+        return r.values
+
+    @staticmethod
+    def calc_formation_pressure(mw_pcf, tvd_ft, sidpp) -> dict:
+        """Formation pressure card — canonical
+        WellControlEngine.formation_pressure (pcf → ppg conversion here).
+
+        Legacy output keys/shapes preserved. When TVD is missing the card
+        returns zeroed fields (legacy behaviour) instead of guessing.
+        """
+        from core.engineering.engines.well_control import WellControlEngine
+        mw_ppg = mw_pcf / 7.48
+        r = WellControlEngine.formation_pressure(
+            mw_ppg=mw_ppg, tvd_ft=tvd_ft, sidpp_psi=sidpp)
+        if not r.success:
+            # Keep legacy dictionary keys for callers, but mark the result as
+            # failed so zero placeholders can never be mistaken for a
+            # pressure calculation.
+            return {
+                "error": r.error,
+                "hydrostatic_psi": 0.0,
+                "formation_pressure_psi": round(float(sidpp or 0), 0),
+                "pressure_gradient_psi_ft": 0.0,
+                "equivalent_mw_ppg": 0.0,
+                "equivalent_mw_pcf": 0.0,
+            }
+        v = r.values
+        return {
+            "hydrostatic_psi": round(v["hydrostatic_psi"], 0),
+            "formation_pressure_psi": round(v["formation_pressure_psi"], 0),
+            "pressure_gradient_psi_ft": round(v["pressure_gradient_psi_ft"], 4),
+            "equivalent_mw_ppg": round(v["equivalent_mw_ppg"], 2),
+            "equivalent_mw_pcf": round(v["equivalent_mw_ppg"] * 7.48, 2),
+        }
+
+    # -------- Directional (canonical: TrajectoryEngine) --------
+    @staticmethod
+    def calc_build_rate(initial_inc, final_inc, md_interval) -> float:
+        """Build rate (°/30 m) — canonical TrajectoryEngine.calculate_build_rate."""
+        from core.engineering.core import TrajectoryEngine
+        if md_interval <= 0:
+            return 0.0
+        return round(TrajectoryEngine.calculate_build_rate(
+            initial_inc, final_inc, md_interval), 2)
+
+    @staticmethod
+    def calc_turn_rate(initial_azi, final_azi, md_interval) -> float:
+        """Turn rate (°/30 m) — canonical TrajectoryEngine.calculate_turn_rate
+        (shortest azimuth change, same wrap as the survey engine)."""
+        from core.engineering.core import TrajectoryEngine
+        if md_interval <= 0:
+            return 0.0
+        return round(TrajectoryEngine.calculate_turn_rate(
+            initial_azi, final_azi, md_interval), 2)
+
+    # -------- Fishing sizing rules (canonical: FishingEngine) --------
+    @staticmethod
+    def calc_fish_neck_ot(fish_od, overshot_id) -> dict:
+        """Overshot sizing — canonical FishingEngine.overshot_fit."""
+        from core.engineering.engines.fishing import FishingEngine
+        r = FishingEngine.overshot_fit(fish_od, overshot_id)
+        if not r.success:
+            return {"clearance_in": 0.0, "compatible": False, "recommendation": "Check sizing"}
+        return {
+            "clearance_in": r.values["clearance_in"],
+            "compatible": r.values["compatible"],
+            "recommendation": r.values["recommendation"],
+        }
+
+    @staticmethod
+    def calc_jar_operating_range(string_weight_lbs, buoyancy_factor,
+                                  overpull_lbs) -> dict:
+        """Jar range — canonical FishingEngine.jar_operating_range."""
+        from core.engineering.engines.fishing import FishingEngine
+        r = FishingEngine.jar_operating_range(
+            string_weight_lbs, buoyancy_factor, overpull_lbs)
+        if not r.success:
+            return {"error": r.error}
+        return r.values
+
+    @staticmethod
+    def calc_backoff_depth(stretch_in, pipe_weight_ppf,
+                            modulus=30e6) -> float:
+        """Back-off free point (ft) — canonical FishingEngine.backoff_depth."""
+        from core.engineering.engines.fishing import calculate_backoff_depth
+        if pipe_weight_ppf <= 0:
+            return 0.0
+        r = calculate_backoff_depth(stretch_in, pipe_weight_ppf, modulus_psi=modulus)
+        return round(r, 1)
+
+    # -------- Mud (canonical: MudVolumeEngine / MudEngineering) --------
+    @staticmethod
+    def calc_mud_weight_increase(current_mw, target_mw, system_vol,
                                  additive_density=None) -> dict:
-        """Canonical MudVolumeEngine.weight_up. additive_density is required."""
+        """Weight-up — canonical MudVolumeEngine.weight_up (additive required)."""
         from core.engineering.engines.mud_volume import MudVolumeEngine
         r = MudVolumeEngine.weight_up(current_mw, target_mw, system_vol, additive_density)
         if not r.success:
@@ -160,11 +277,11 @@ class DrillingCalculationEngine:
             "volume_increase_bbl": r.values["volume_increase_bbl"],
             "final_volume_bbl": r.values["final_volume_bbl"],
         }
-    
+
     @staticmethod
-    def calc_mud_dilution(current_mw, target_mw, system_vol, 
+    def calc_mud_dilution(current_mw, target_mw, system_vol,
                           dilutant_mw=None) -> dict:
-        """Canonical MudVolumeEngine.dilution. dilutant_mw is required."""
+        """Dilution — canonical MudVolumeEngine.dilution (dilutant required)."""
         from core.engineering.engines.mud_volume import MudVolumeEngine
         r = MudVolumeEngine.dilution(current_mw, target_mw, system_vol, dilutant_mw)
         if not r.success:
@@ -173,10 +290,10 @@ class DrillingCalculationEngine:
             "water_required_bbl": r.values["water_required_bbl"],
             "final_volume_bbl": r.values["final_volume_bbl"],
         }
-    
+
     @staticmethod
     def calc_mud_mixing(mw1, vol1, mw2, vol2) -> dict:
-        """Canonical MudVolumeEngine.mix."""
+        """Mixing — canonical MudVolumeEngine.mix."""
         from core.engineering.engines.mud_volume import MudVolumeEngine
         r = MudVolumeEngine.mix(mw1, vol1, mw2, vol2)
         if not r.success:
@@ -185,7 +302,7 @@ class DrillingCalculationEngine:
             "final_mw_pcf": r.values["final_mw"],
             "total_volume_bbl": r.values["total_volume"],
         }
-    
+
     @staticmethod
     def calc_oil_water_ratio(oil_percent, water_percent) -> dict:
         """OWR — canonical MudEngineering.oil_water_ratio."""
@@ -200,142 +317,6 @@ class DrillingCalculationEngine:
             "OWR": r["owr"].replace(":", "/"),
         }
 
-    @staticmethod
-    # ==================== CASING/CEMENT CALCULATIONS ====================
-    
-    @staticmethod
-    def calc_buoyancy_factor(mud_weight_pcf, steel_density=490) -> float:
-        """محاسبه ضریب شناوری"""
-        return round(1 - (mud_weight_pcf / steel_density), 4)
-    
-    @staticmethod
-    def calc_casing_landing_load(casing_weight_ppf, length_ft, 
-                                   buoyancy_factor, friction_factor=0) -> dict:
-        """محاسبه بار فرود کیسینگ"""
-        air_weight = casing_weight_ppf * length_ft
-        buoyant_weight = air_weight * buoyancy_factor
-        friction_load = buoyant_weight * friction_factor
-        hook_load = buoyant_weight - friction_load
-        
-        return {
-            "air_weight_lbs": round(air_weight, 0),
-            "buoyant_weight_lbs": round(buoyant_weight, 0),
-            "friction_load_lbs": round(friction_load, 0),
-            "hook_load_lbs": round(hook_load, 0),
-        }
-
-    # ==================== WELL CONTROL ====================
-    
-    @staticmethod
-    @staticmethod
-    @staticmethod
-    @staticmethod
-    @staticmethod
-    def calc_kick_tolerance(frac_mw_ppg, current_mw_ppg, tvd_ft,
-                             shoe_tvd_ft, annular_vol_bbl,
-                             influx_gradient_psi_ft=None,
-                             annular_capacity_bbl_ft=None,
-                             formation_emw_ppg=None) -> dict:
-        """Canonical IWCF kick tolerance. No invented influx gradient."""
-        from core.engineering.engines.well_control import WellControlEngine
-        cap = annular_capacity_bbl_ft
-        if cap is None and annular_vol_bbl not in (None, "", 0) and tvd_ft:
-            # Do not invent capacity from a dummy volume.
-            cap = None
-        r = WellControlEngine.kick_tolerance(
-            mw_ppg=current_mw_ppg,
-            shoe_tvd_ft=shoe_tvd_ft,
-            current_tvd_ft=tvd_ft,
-            frac_mw_ppg=frac_mw_ppg,
-            influx_gradient_psi_ft=influx_gradient_psi_ft,
-            annular_capacity_bbl_ft=cap,
-            formation_emw_ppg=formation_emw_ppg,
-        )
-        if not r.success:
-            return {"error": r.error}
-        return r.values
-    
-    @staticmethod
-    @staticmethod
-    @staticmethod
-    def calc_formation_pressure(mw_pcf, tvd_ft, sidpp) -> dict:
-        """محاسبه فشار سازند"""
-        hp = 0.052 * (mw_pcf / 7.48) * tvd_ft
-        fp = hp + sidpp
-        fp_gradient = fp / tvd_ft if tvd_ft > 0 else 0
-        emw = fp / (0.052 * tvd_ft) if tvd_ft > 0 else 0
-        
-        return {
-            "hydrostatic_psi": round(hp, 0),
-            "formation_pressure_psi": round(fp, 0),
-            "pressure_gradient_psi_ft": round(fp_gradient, 4),
-            "equivalent_mw_ppg": round(emw, 2),
-            "equivalent_mw_pcf": round(emw * 7.48, 2),
-        }
-    
-    @staticmethod
-    # ==================== DIRECTIONAL DRILLING ====================
-    
-    @staticmethod
-    @staticmethod
-    def calc_build_rate(initial_inc, final_inc, md_interval) -> float:
-        """محاسبه Build Rate"""
-        if md_interval <= 0:
-            return 0
-        return round((final_inc - initial_inc) / md_interval * 30, 2)
-    
-    @staticmethod
-    def calc_turn_rate(initial_azi, final_azi, md_interval) -> float:
-        """محاسبه Turn Rate"""
-        if md_interval <= 0:
-            return 0
-        delta_azi = final_azi - initial_azi
-        if delta_azi > 180:
-            delta_azi -= 360
-        elif delta_azi < -180:
-            delta_azi += 360
-        return round(delta_azi / md_interval * 30, 2)
-    
-    @staticmethod
-    # ==================== FISHING ====================
-    
-    @staticmethod
-    def calc_fish_neck_ot(fish_od, overshot_id) -> dict:
-        """محاسبه OT برای فیشینگ"""
-        clearance = overshot_id - fish_od
-        is_compatible = clearance > 0 and clearance < 0.5
-        
-        return {
-            "clearance_in": round(clearance, 3),
-            "compatible": is_compatible,
-            "recommendation": "OK" if is_compatible else "Check sizing",
-        }
-    
-    @staticmethod
-    def calc_jar_operating_range(string_weight_lbs, buoyancy_factor,
-                                  overpull_lbs) -> dict:
-        """محاسبه محدوده عملکرد جار"""
-        buoyant_weight = string_weight_lbs * buoyancy_factor
-        jar_force_up = buoyant_weight + overpull_lbs
-        jar_force_down = buoyant_weight
-        
-        return {
-            "buoyant_weight_lbs": round(buoyant_weight, 0),
-            "upward_force_lbs": round(jar_force_up, 0),
-            "downward_force_lbs": round(jar_force_down, 0),
-            "recommended_jar_setting_lbs": round(jar_force_up * 0.8, 0),
-        }
-    
-    @staticmethod
-    def calc_backoff_depth(stretch_in, pipe_weight_ppf, 
-                            modulus=30e6) -> float:
-        """محاسبه عمق باکاف"""
-        if pipe_weight_ppf <= 0:
-            return 0
-        import math
-        area = pipe_weight_ppf / 3.4  # approximate cross section
-        free_point = stretch_in * modulus * area / (pipe_weight_ppf * 12)
-        return round(free_point, 1)
 
 # ==================== UI TAB ====================
 class EngineeringCalculatorTab(DrillTabBase):
@@ -346,19 +327,19 @@ class EngineeringCalculatorTab(DrillTabBase):
     def __init__(self, db_manager=None, parent=None):
         super().__init__("EngineeringCalculatorTab", db_manager, parent)
         self.engine = DrillingCalculationEngine()
-        self.current_well_id = None
+        # Do NOT reset current_well_id here: DrillTabBase.__init__ already
+        # seeded it (and current_well_data) from the SelectionManager. Forcing
+        # None dropped a well that was selected before this tab was first
+        # opened, so saved calculations could be attributed to no well even
+        # though the app had an active selection.
         self._drill_pipe_df = None
         self.init_ui()
         self._load_drill_pipe_db()
 
     def _load_drill_pipe_db(self):
         """بارگذاری دیتابیس DrillPipe از فایل Excel"""
-        possible_paths = [
-            "DrillPipe.xlsx",
-            "data/DrillPipe.xlsx",
-            "resources/DrillPipe.xlsx",
-            os.path.join(os.path.dirname(__file__), "DrillPipe.xlsx"),
-        ]
+        from core.runtime_config import drill_pipe_reference_paths
+        possible_paths = drill_pipe_reference_paths()
         for path in possible_paths:
             if os.path.exists(path):
                 try:
@@ -367,7 +348,7 @@ class EngineeringCalculatorTab(DrillTabBase):
                     return
                 except Exception as e:
                     logger.warning(f"Could not load DrillPipe.xlsx: {e}")
-        logger.warning("DrillPipe.xlsx not found - table will be empty")
+        logger.warning("Optional DrillPipe vendor reference unavailable. Set DRILLMASTER_DRILLPIPE_PATH or place DrillPipe.xlsx in the application data directory. Other calculations remain available. Searched: %s", possible_paths)
 
     def init_ui(self):
         main_layout = QVBoxLayout(self)
@@ -386,6 +367,19 @@ class EngineeringCalculatorTab(DrillTabBase):
             }
         """)
         main_layout.addWidget(header)
+
+        # Well-context banner. Saved calculations are attributed to the current
+        # well, so the engineer must always see which well is active before
+        # calculating/saving (avoids silently saving to the wrong well or to no
+        # well). Reflects the SelectionManager context propagated via
+        # DrillTabBase.on_well_changed.
+        self.well_context_label = QLabel()
+        self.well_context_label.setStyleSheet(
+            "QLabel { font-size: 12px; font-weight: bold; padding: 4px 8px;"
+            " border-radius: 4px; }"
+        )
+        main_layout.addWidget(self.well_context_label)
+        self._update_well_context_label()
 
         # Tabs
         self.tabs = QTabWidget()
@@ -669,13 +663,15 @@ class EngineeringCalculatorTab(DrillTabBase):
         od = self.v_od.value()
         id_ = self.v_id.value()
         L = self.v_length.value()
-        f = 3.281 / 1029.4
+        from core.hydraulics_engine import AdvancedHydraulicsEngine as A
 
         if od > id_ > 0:
-            cap = id_**2 * f
-            dis = (od**2 - id_**2) * f
-            self.v_cap.setText(f"{cap:.5f} bbl/m  |  {cap/3.281*1029.4:.5f} bbl/ft")
-            self.v_dis.setText(f"{dis:.5f} bbl/m  |  {dis/3.281*1029.4:.5f} bbl/ft")
+            cap_ft = A.calc_pipe_capacity_bbl_ft(id_)
+            dis_ft = A.calc_pipe_displacement_bbl_ft(od, id_)
+            cap = cap_ft * 3.28084      # bbl/m  (unit conversion of canonical bbl/ft)
+            dis = dis_ft * 3.28084      # bbl/m
+            self.v_cap.setText(f"{cap:.5f} bbl/m  |  {cap_ft:.5f} bbl/ft")
+            self.v_dis.setText(f"{dis:.5f} bbl/m  |  {dis_ft:.5f} bbl/ft")
             if L > 0:
                 vol = cap * L
                 metal = dis * L
@@ -693,11 +689,12 @@ class EngineeringCalculatorTab(DrillTabBase):
         hole = self.v_hole.value()
         pipe = self.v_pipe_od.value()
         L = self.v_ann_len.value()
-        f = 3.281 / 1029.4
+        from core.hydraulics_engine import AdvancedHydraulicsEngine as A
 
         if hole > pipe > 0:
-            ann_cap = (hole**2 - pipe**2) * f
-            self.v_ann_cap.setText(f"{ann_cap:.5f} bbl/m  |  {ann_cap/3.281*1029.4:.5f} bbl/ft")
+            ann_cap_ft = A.calc_annular_capacity_bbl_ft(hole, pipe)
+            ann_cap = ann_cap_ft * 3.28084   # bbl/m
+            self.v_ann_cap.setText(f"{ann_cap:.5f} bbl/m  |  {ann_cap_ft:.5f} bbl/ft")
             if L > 0:
                 ann_vol = ann_cap * L
                 self.v_ann_vol.setText(f"{ann_vol:.2f} bbl  (for {L:.0f} m)")
@@ -785,13 +782,14 @@ class EngineeringCalculatorTab(DrillTabBase):
 
     def _vol_refresh_pipe_table(self):
         self.vol_pipe_table.setRowCount(0)
-        f = 3.281 / 1029.4
+        from core.hydraulics_engine import AdvancedHydraulicsEngine as A
         for p in self.vol_pipes:
             row = self.vol_pipe_table.rowCount()
             self.vol_pipe_table.insertRow(row)
             id_ = p.get('id', 0)
             L = p.get('length', 0)
-            cap_bbl = id_**2 * f * L if id_ > 0 and L > 0 else 0
+            cap_bbl = (A.calc_pipe_capacity_bbl_ft(id_) * (L * 3.28084)
+                       if id_ > 0 and L > 0 else 0)
 
             self.vol_pipe_table.setItem(row, 0, QTableWidgetItem(p.get('type', '')))
             self.vol_pipe_table.setItem(row, 1, QTableWidgetItem(f"{p.get('od', 0):.3f}\""))
@@ -844,7 +842,7 @@ class EngineeringCalculatorTab(DrillTabBase):
 
     def _vol_calculate(self):
         """محاسبه حجم‌های چاه"""
-        f = 3.281 / 1029.4
+        from core.hydraulics_engine import AdvancedHydraulicsEngine as A
         bit_depth = self.vol_depth.value()
         loss_rate = self.vol_loss.value()
 
@@ -860,7 +858,8 @@ class EngineeringCalculatorTab(DrillTabBase):
         for p in self.vol_pipes:
             id_ = p.get('id', 0)
             L = p.get('length', 0)
-            vol = id_**2 * f * L if id_ > 0 and L > 0 else 0
+            vol = (A.calc_pipe_capacity_bbl_ft(id_) * (L * 3.28084)
+                   if id_ > 0 and L > 0 else 0)
             total_string += vol
             string_details.append((p.get('type', ''), vol))
 
@@ -885,7 +884,8 @@ class EngineeringCalculatorTab(DrillTabBase):
                 if overlap_len <= 0:
                     continue
 
-                ann_vol = (csg_id**2 - pipe_od**2) * f * overlap_len
+                ann_vol = (A.calc_annular_capacity_bbl_ft(csg_id, pipe_od)
+                           * (overlap_len * 3.28084))
                 total_annular += ann_vol
                 annular_details.append((
                     f"{p.get('type', '')} in {c.get('type', '')}",
@@ -894,13 +894,11 @@ class EngineeringCalculatorTab(DrillTabBase):
 
         total_vol = total_string + total_annular
 
-        # Lag time
-        flow_bbl_min = total_gpm / 42 if total_gpm > 0 else 1
-        lag_time = total_annular / flow_bbl_min if flow_bbl_min > 0 else 0
+        # Lag time + bottoms-up strokes — canonical (AdvancedHydraulicsEngine)
+        lag_time = A.calc_lag_time(total_annular, total_gpm)
 
-        # Bottoms up strokes
         total_output = sum(p.get('output_bbl_stk', 0) for p in self.vol_pumps)
-        bu_strokes = total_annular / total_output if total_output > 0 else 0
+        bu_strokes = A.calc_bottoms_up_strokes(total_annular, total_output)
 
         # Cards
         self._update_card(self.vol_card_string, f"{total_string:.1f}", "bbl")
@@ -950,8 +948,7 @@ class EngineeringCalculatorTab(DrillTabBase):
     def _create_hydraulics_tab(self) -> QWidget:
         """تب هیدرولیک پیشرفته با دیالوگ‌ها"""
         from core.hydraulics_engine import (
-            AdvancedHydraulicsEngine, PipeSegment, CasingSection,
-            BitNozzle, MudProperties, SurfaceEquipment, WellProfile
+            AdvancedHydraulicsEngine
         )
 
         self.adv_engine = AdvancedHydraulicsEngine()
@@ -1426,8 +1423,8 @@ class EngineeringCalculatorTab(DrillTabBase):
             if item:
                 try:
                     total += float(item.text())
-                except:
-                    pass
+                except (TypeError, ValueError):
+                    pass  # non-numeric nozzle cell
         self.hy_tfa_label.setText(f"TFA: {total:.4f} in²")
   
     # ========== Collect & Calculate ==========
@@ -1483,7 +1480,7 @@ class EngineeringCalculatorTab(DrillTabBase):
                         name=f"{ptype} ({od:.3f}\")", pipe_type=ptype,
                         od=od, id=id_, length=length, weight_ppf=wt
                     ))
-            except:
+            except (AttributeError, TypeError, ValueError):
                 continue
 
         # Casings from table
@@ -1501,7 +1498,7 @@ class EngineeringCalculatorTab(DrillTabBase):
                         name=ctype, section_type=st, od=od, id=id_,
                         top_md=fr, bottom_md=to
                     ))
-            except:
+            except (AttributeError, TypeError, ValueError):
                 continue
 
         # Nozzles from table
@@ -1512,7 +1509,7 @@ class EngineeringCalculatorTab(DrillTabBase):
                 size = int(size_text.split('/')[0])
                 qty = int(self.hy_nzl_table.item(row, 2).text())
                 e.nozzles.append(BitNozzle(size_32nds=size, quantity=qty))
-            except:
+            except (AttributeError, TypeError, ValueError, IndexError):
                 continue
 
         # Well Profile
@@ -1893,6 +1890,26 @@ class EngineeringCalculatorTab(DrillTabBase):
         res_layout.addWidget(QLabel("MSE (Teale):"), 3, 0)
         res_layout.addWidget(self.bit_res_mse, 3, 1)
 
+        mse_calc = QPushButton("🔄 Calculate MSE")
+        mse_calc.setToolTip(
+            "Compute MSE (Teale) from WOB/RPM/torque/ROP/bit-size only. "
+            "Independent of nozzles and bit hydraulics.")
+        mse_calc.clicked.connect(self._mse_calculate)
+        res_layout.addWidget(mse_calc, 4, 0)
+
+        mse_save = QPushButton("💾 Save MSE")
+        mse_save.setToolTip(
+            "Persist this MSE (Teale) run as a reproducible historical record "
+            "(inputs snapshot + full result).")
+        mse_save.clicked.connect(self._mse_save_calculation)
+        res_layout.addWidget(mse_save, 4, 1)
+
+        mse_history = QPushButton("📜 MSE History")
+        mse_history.setToolTip(
+            "Browse, inspect and verify previously saved MSE (Teale) runs.")
+        mse_history.clicked.connect(self._mse_open_history)
+        res_layout.addWidget(mse_history, 4, 2)
+
         bh_layout.addWidget(g_results)
 
         self.bit_reco = QLabel("")
@@ -2023,6 +2040,115 @@ class EngineeringCalculatorTab(DrillTabBase):
         else:
             self.bit_econ_res.setText(f"⚠️ {r.error}")
 
+    def _mse_repo(self):
+        """Lazily build the MSE calculation-history repository (or None)."""
+        if getattr(self, "db", None) is None:
+            return None
+        repo = getattr(self, "_mse_calc_repo", None)
+        if repo is None:
+            try:
+                from core.repositories.mse_repository import (
+                    MSECalculationRepository,
+                )
+                repo = MSECalculationRepository(self.db)
+            except Exception:
+                logger.exception("Could not build MSE calculation repository")
+                repo = None
+            self._mse_calc_repo = repo
+        return repo
+
+    def _mse_calculate(self):
+        """Compute MSE (Teale) from its OWN inputs and cache the run.
+
+        MSE depends only on WOB/RPM/torque/ROP/bit-diameter — none of the bit
+        hydraulics or nozzle state. It is therefore computed independently of
+        ``_bit_calculate``'s nozzle gate so it (and Save) work with or without a
+        nozzle program. The single WOB klbf→lbf conversion is owned here and
+        applied once, before the engine call and before the snapshot.
+        """
+        from core.engineering.engines.mse import MSEEngine
+        mse_inputs = dict(
+            wob_lbf=self.bit_wob.value() * 1000.0,
+            rpm=self.bit_rpm.value(),
+            torque_ft_lbf=self.bit_tq.value(),
+            rop_ft_hr=self.bit_rop.value(),
+            bit_diameter_in=self.bit_od.value(),
+        )
+        mse = MSEEngine.calculate(**mse_inputs)
+        if mse.success:
+            self.bit_res_mse.setText(f"{mse.value:,.0f} psi")
+            # Cache the exact canonical inputs + full result of this successful
+            # run so it can be persisted verbatim (the snapshot is built from
+            # these, not re-read from widgets, so a later widget edit cannot
+            # alter a saved run).
+            self._mse_last_run = {
+                "inputs": mse_inputs,
+                "result_values": mse.values,
+                "method": MSEEngine.METHOD,
+            }
+        else:
+            self.bit_res_mse.setText(f"❌ {mse.error}")
+            self._mse_last_run = None
+
+    def _mse_save_calculation(self):
+        """Persist the last successful MSE run as a reproducible record."""
+        run = getattr(self, "_mse_last_run", None)
+        if not run:
+            QMessageBox.information(
+                self, "Save Calculation",
+                "Run a Bit Hydraulics calculation first so an MSE value is "
+                "available to save (Calculate Bit Hydraulics).")
+            return
+        repo = self._mse_repo()
+        if repo is None:
+            QMessageBox.warning(
+                self, "Save Calculation",
+                "No database is available, so calculations cannot be saved.")
+            return
+        try:
+            calc_id = repo.save_run(
+                inputs=run["inputs"],
+                result_values=run["result_values"],
+                method=run["method"],
+                label="MSE (Teale)",
+                well_id=getattr(self, "current_well_id", None),
+            )
+        except Exception as exc:
+            logger.exception("Failed to save MSE calculation")
+            QMessageBox.critical(self, "Save Calculation",
+                                 f"Could not save calculation:\n{exc}")
+            return
+        v = run["result_values"]
+        QMessageBox.information(
+            self, "Calculation saved",
+            f"Saved MSE (Teale) run #{calc_id}.\n"
+            f"MSE {v.get('mse_psi')} psi "
+            f"(axial {v.get('axial_term_psi')} + rotary {v.get('rotary_term_psi')}).\n"
+            f"{self._save_attribution_line()}"
+            "Inputs and full result were stored for reproducibility.")
+
+    def _mse_open_history(self):
+        """Open the read-only MSE calculation-history browser."""
+        repo = self._mse_repo()
+        if repo is None:
+            QMessageBox.warning(
+                self, "Calculation History",
+                "No database is available, so calculation history cannot be "
+                "opened.")
+            return
+        try:
+            from dialogs.mse_history_dialog import MSEHistoryDialog
+            from core.engineering.engines.mse import MSEEngine
+            dlg = MSEHistoryDialog(
+                repo, current_method=MSEEngine.METHOD, parent=self,
+                well_id=self.current_well_id,
+                well_label=self._current_well_label_text() or None)
+            dlg.exec()
+        except Exception as exc:
+            logger.exception("Failed to open MSE calculation history")
+            QMessageBox.critical(self, "Calculation History",
+                                 f"Could not open history:\n{exc}")
+
     def _bit_add_nozzle(self):
         from dialogs.engineering_dialogs import AddNozzleDialog
         dlg = AddNozzleDialog(self)
@@ -2106,18 +2232,12 @@ class EngineeringCalculatorTab(DrillTabBase):
         self.bit_res_pct.setText(
             f"{bh['jet_velocity_fps']:.0f} ft/s ({total_nzl_count} nozzles)")
 
-        from core.engineering.engines.mse import MSEEngine
-        mse = MSEEngine.calculate(
-            wob_lbf=self.bit_wob.value() * 1000.0,
-            rpm=self.bit_rpm.value(),
-            torque_ft_lbf=self.bit_tq.value(),
-            rop_ft_hr=self.bit_rop.value(),
-            bit_diameter_in=bit_od,
-        )
-        if mse.success:
-            self.bit_res_mse.setText(f"{mse.value:,.0f} psi")
-        else:
-            self.bit_res_mse.setText(f"❌ {mse.error}")
+        # MSE is INDEPENDENT of bit hydraulics/nozzles (it consumes only
+        # WOB/RPM/torque/ROP/bit-diameter). Compute it via the standalone helper
+        # so the same code path serves both the full bit-hydraulics flow and the
+        # dedicated "Calculate MSE" button — the MSE result must never be gated
+        # behind nozzle presence.
+        self._mse_calculate()
 
         # Engineering recommendation (grounded field ranges; no invented inputs)
         reco = []
@@ -2207,9 +2327,17 @@ class EngineeringCalculatorTab(DrillTabBase):
         rem_btn = QPushButton("🗑️")
         rem_btn.setFixedWidth(30)
         rem_btn.clicked.connect(self._wt_rem_pipe)
+        import_btn = QPushButton("📥 Import Reference Catalog…")
+        import_btn.setToolTip(
+            "Import a vendor drill-pipe workbook (.xlsx) into the persisted "
+            "reference catalog. Imported specs then appear (marked ◆) in Quick "
+            "Select when adding a component."
+        )
+        import_btn.clicked.connect(self._wt_import_reference_catalog)
         ds_btns.addWidget(add_btn)
         ds_btns.addWidget(edit_btn)
         ds_btns.addWidget(rem_btn)
+        ds_btns.addWidget(import_btn)
         ds_btns.addStretch()
         ds_lay.addLayout(ds_btns)
 
@@ -2243,6 +2371,21 @@ class EngineeringCalculatorTab(DrillTabBase):
         calc_btn.setStyleSheet("background: #3498db; color: white; font-weight: bold; padding: 8px; border-radius: 4px; border: none;")
         calc_btn.clicked.connect(self._wt_calculate)
         pf.addRow(calc_btn)
+
+        save_calc_btn = QPushButton("💾 Save Calculation")
+        save_calc_btn.setToolTip(
+            "Persist this Torque & Drag run as a reproducible historical record "
+            "(inputs snapshot + result + reference traceability)."
+        )
+        save_calc_btn.clicked.connect(self._wt_save_calculation)
+        pf.addRow(save_calc_btn)
+
+        history_btn = QPushButton("📜 Calculation History")
+        history_btn.setToolTip(
+            "Browse, inspect and verify previously saved Torque & Drag runs."
+        )
+        history_btn.clicked.connect(self._wt_open_history)
+        pf.addRow(history_btn)
         layout.addWidget(g_params)
 
         # Results
@@ -2278,20 +2421,142 @@ class EngineeringCalculatorTab(DrillTabBase):
 
     # ========== Weight Methods ==========
 
+    def _drill_pipe_reference_repo(self):
+        """Lazily build the persisted drill-pipe reference repository.
+
+        Returns ``None`` when no database is available (e.g. isolated tabs), so
+        the component dialog degrades to manual entry + built-in presets.
+        """
+        if getattr(self, "db", None) is None:
+            return None
+        repo = getattr(self, "_dp_ref_repo", None)
+        if repo is None:
+            try:
+                from core.repositories.drill_pipe_reference_repository import (
+                    DrillPipeReferenceRepository,
+                )
+                repo = DrillPipeReferenceRepository(self.db)
+            except Exception:
+                repo = None
+            self._dp_ref_repo = repo
+        return repo
+
     def _wt_add_pipe(self):
         from dialogs.engineering_dialogs import AddPipeDialog
-        dlg = AddPipeDialog(self)
+        dlg = AddPipeDialog(self, reference_repo=self._drill_pipe_reference_repo())
         if dlg.exec():
             data = dlg.get_result()
             if data:
                 self.wt_pipes.append(data)
                 self._wt_refresh_table()
 
+    def _wt_import_reference_catalog(self):
+        """Import a vendor drill-pipe workbook into the persisted catalog.
+
+        The whole batch is imported through the canonical, transaction-safe
+        pipeline (``import_workbook`` → ``DrillPipeSpec.from_vendor_row`` →
+        ``DrillPipeReferenceRepository.import_specs``). The user is shown ONE
+        summary dialog for the entire import — never a per-row prompt — that
+        distinguishes NEW / UNCHANGED / ENRICHED / CONFLICT / INVALID so a bad
+        or conflicting row can never silently overwrite trusted data.
+        """
+        repo = self._drill_pipe_reference_repo()
+        if repo is None:
+            QMessageBox.warning(
+                self, "No Catalog",
+                "No database is available, so the reference catalog cannot be "
+                "imported into. Manual entry and built-in presets still work.",
+            )
+            return
+
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Select vendor drill-pipe workbook", "",
+            "Excel workbooks (*.xlsx *.xlsm)",
+        )
+        if not path:
+            return
+
+        from core.engineering.drill_pipe_import import (
+            import_workbook,
+            DrillPipeImportError,
+        )
+
+        # Let the user pick the sheet when the workbook has more than one, so we
+        # never guess wrong on a multi-tab vendor file. Single-sheet files skip
+        # the prompt entirely.
+        sheet = None
+        try:
+            from openpyxl import load_workbook
+            wb = load_workbook(path, read_only=True)
+            names = wb.sheetnames
+            wb.close()
+            if len(names) > 1:
+                from PyQt5.QtWidgets import QInputDialog
+                preferred = "Aa" if "Aa" in names else names[0]
+                sheet, ok = QInputDialog.getItem(
+                    self, "Select sheet", "Worksheet:", names,
+                    names.index(preferred), False,
+                )
+                if not ok:
+                    return
+        except Exception:
+            sheet = None  # fall back to the active sheet
+
+        try:
+            result = import_workbook(repo, path, sheet=sheet)
+        except DrillPipeImportError as exc:
+            QMessageBox.critical(self, "Import failed", str(exc))
+            return
+        except Exception as exc:  # unexpected — never crash the tab
+            QMessageBox.critical(self, "Import failed", f"Unexpected error:\n{exc}")
+            return
+
+        d = result.as_dict()
+        parse = d["parse"]
+        lines = [
+            f"Workbook: {parse['source']}  (sheet '{parse['sheet']}')",
+            f"Data rows read: {parse['data_rows']}  |  blank rows skipped: {d['blank_rows']}",
+            "",
+            f"✅ New specs added:      {d['inserted']}",
+            f"➖ Already present:       {d['unchanged']}",
+            f"➕ Enriched (filled in):  {d['enriched']}",
+            f"⚠️ Conflicts (skipped):   {d['conflicting']}",
+            f"⛔ Invalid rows (skipped): {d['invalid']}",
+        ]
+        if d["conflicting"] or d["invalid"]:
+            lines.append("")
+            lines.append(
+                "Conflicting and invalid rows were NOT written — existing "
+                "catalog values are untouched. Review the workbook to resolve."
+            )
+        QMessageBox.information(self, "Reference catalog import", "\n".join(lines))
+
+        # Best-effort: refresh the sibling Reference-Tables catalog view so newly
+        # imported specs appear immediately, without coupling the tabs tightly.
+        if d["inserted"] or d["enriched"]:
+            self._refresh_reference_catalog_view()
+
+    def _refresh_reference_catalog_view(self):
+        """Ask a sibling Reference-Tables tab to reload its catalog, if present.
+
+        Loosely coupled and never fatal: if the main window or the reference tab
+        is absent (e.g. W13 used in isolation), this is a no-op.
+        """
+        try:
+            win = self.window()
+            ref_tab = getattr(win, "reference_tab", None)
+            reload_fn = getattr(ref_tab, "_dp_catalog_reload", None)
+            if callable(reload_fn):
+                reload_fn()
+        except Exception:
+            pass
+
     def _wt_edit_pipe(self):
         row = self.wt_pipe_table.currentRow()
         if 0 <= row < len(self.wt_pipes):
             from dialogs.engineering_dialogs import AddPipeDialog
-            dlg = AddPipeDialog(self, edit_data=self.wt_pipes[row])
+            dlg = AddPipeDialog(self, edit_data=self.wt_pipes[row],
+                                reference_repo=self._drill_pipe_reference_repo())
             if dlg.exec():
                 data = dlg.get_result()
                 if data:
@@ -2305,100 +2570,129 @@ class EngineeringCalculatorTab(DrillTabBase):
             self._wt_refresh_table()
 
     def _wt_refresh_table(self):
+        from core.engineering.engines.torque_drag import TorqueDragEngine
+
         self.wt_pipe_table.setRowCount(0)
         for p in self.wt_pipes:
             row = self.wt_pipe_table.rowCount()
             self.wt_pipe_table.insertRow(row)
             wt_ppf = p.get('weight', 0)
-            L_ft = p.get('length', 0) * 3.28084
-            total_lbs = wt_ppf * L_ft
+            weight_result = TorqueDragEngine.component_air_weight(
+                p.get('length'),
+                wt_ppf,
+            )
+            total_text = (
+                f"{weight_result.value:,.0f}"
+                if weight_result.success
+                else "--"
+            )
 
             self.wt_pipe_table.setItem(row, 0, QTableWidgetItem(p.get('type', '')))
             self.wt_pipe_table.setItem(row, 1, QTableWidgetItem(f"{p.get('od', 0):.3f}\""))
             self.wt_pipe_table.setItem(row, 2, QTableWidgetItem(f"{p.get('id', 0):.3f}\""))
             self.wt_pipe_table.setItem(row, 3, QTableWidgetItem(f"{p.get('length', 0):.1f}"))
             self.wt_pipe_table.setItem(row, 4, QTableWidgetItem(f"{wt_ppf:.1f}"))
-            ti = QTableWidgetItem(f"{total_lbs:,.0f}")
+            ti = QTableWidgetItem(total_text)
             ti.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
             self.wt_pipe_table.setItem(row, 5, ti)
 
     def _wt_calculate(self):
-        mw = self.wt_mw.value()
-        inc = self.wt_inc.value()
-        tds = self.wt_tds.value()
-        ff = self.wt_friction.value()
-        inc_rad = math.radians(inc)
+        from core.engineering.engines.torque_drag import TorqueDragEngine
 
-        # Total weight in air
-        total_lbs = 0
-        for p in self.wt_pipes:
-            wt = p.get('weight', 0)
-            L_ft = p.get('length', 0) * 3.28084
-            total_lbs += wt * L_ft
+        result = TorqueDragEngine.calculate_weight_card(
+            components=self.wt_pipes,
+            mud_density_pcf=self.wt_mw.value(),
+            inclination_deg=self.wt_inc.value(),
+            top_drive_weight_klbf=self.wt_tds.value(),
+            friction_factor=self.wt_friction.value(),
+        )
+        if not result.success:
+            message = f"❌ {result.error}"
+            for label in (
+                self.wt_air,
+                self.wt_mud,
+                self.wt_hl,
+                self.wt_buoy,
+                self.wt_pickup,
+                self.wt_slackoff,
+            ):
+                label.setText(message)
+            self.wt_td.setText(message)
+            return
 
-        # Buoyancy factor
-        bf = 1 - (mw / 489.5)
+        values = result.values
+        self.wt_air.setText(
+            f"{values['axial_air_weight_klbf']:.1f} Klbs "
+            f"({values['total_air_weight_lbs']:,.0f} lbs)"
+        )
+        self.wt_mud.setText(f"{values['buoyed_weight_klbf']:.1f} Klbs")
+        self.wt_hl.setText(f"{values['hook_load_lbs'] / 1000.0:.1f} Klbs")
+        self.wt_buoy.setText(f"{values['buoyancy_factor']:.4f}")
+        self.wt_pickup.setText(
+            f"{values['pickup_lbs'] / 1000.0:.1f} Klbs (w/ friction)"
+        )
+        self.wt_slackoff.setText(
+            f"{values['slackoff_lbs'] / 1000.0:.1f} Klbs (w/ friction)"
+        )
 
-        # String weight
-        wt_air_klbs = total_lbs * math.cos(inc_rad) / 1000
-        wt_mud_klbs = wt_air_klbs * bf
+        self._wt_run_td(values["mud_density_ppg"])
 
-        # Hook load
-        hook_load = wt_mud_klbs + tds
-
-        # Pick-up & Slack-off (with friction)
-        drag = wt_mud_klbs * ff * math.sin(inc_rad)
-        pickup = hook_load + drag
-        slackoff = hook_load - drag
-
-        self.wt_air.setText(f"{wt_air_klbs:.1f} Klbs ({total_lbs:,.0f} lbs)")
-        self.wt_mud.setText(f"{wt_mud_klbs:.1f} Klbs")
-        self.wt_hl.setText(f"{hook_load:.1f} Klbs")
-        self.wt_buoy.setText(f"{bf:.4f}")
-        self.wt_pickup.setText(f"{pickup:.1f} Klbs (w/ friction)")
-        self.wt_slackoff.setText(f"{slackoff:.1f} Klbs (w/ friction)")
-
-        # Canonical T&D screening (Johancsik). Vertical if no surveys.
-        self._wt_run_td()
-
-    def _wt_run_td(self):
+    def _wt_run_td(self, mud_density_ppg):
         from core.engineering.engines.torque_drag import TorqueDragEngine
         if not self.wt_pipes:
             self.wt_td.setText("--")
             return
         string = []
         for p in self.wt_pipes:
-            string.append({
+            comp = {
                 "name": p.get("type") or "pipe",
+                "type": p.get("type"),
                 "od": p.get("od"),
                 "id": p.get("id"),
                 "length": p.get("length"),
                 "weight": p.get("weight"),
-            })
+                "grade": p.get("grade"),
+                "connection": p.get("connection"),
+            }
+            # Carry durable catalog reference traceability when the component was
+            # seeded from a persisted reference (stamped by AddPipeDialog).
+            if p.get("reference_fingerprint"):
+                comp["reference_fingerprint"] = p["reference_fingerprint"]
+            string.append(comp)
         surveys = []
         if getattr(self, "dd_surveys", None):
             surveys = [
-                {"md": s.get("md", 0), "inc": s.get("inc", 0), "azi": s.get("azi", 0)}
+                {"md": s.get("md"), "inc": s.get("inc"), "azi": s.get("azi")}
                 for s in self.dd_surveys
             ]
         else:
-            total_m = sum(p.get("length", 0) or 0 for p in self.wt_pipes)
-            inc = self.wt_inc.value()
-            surveys = [
-                {"md": 0.0, "inc": inc, "azi": 0.0},
-                {"md": max(total_m, 1.0), "inc": inc, "azi": 0.0},
-            ]
+            self.wt_td.setText("❌ MISSING_INPUT: directional survey required for torque/drag")
+            return
         r = TorqueDragEngine.calculate(
             surveys,
             string,
-            mud_density_ppg=self.wt_mw.value() / 7.48,
+            mud_density_ppg=mud_density_ppg,
             friction_factor=self.wt_friction.value(),
             wob_klbf=self.wt_wob.value(),
             wellbore_id_in=self.wt_hole.value() or None,
         )
         if not r.success:
             self.wt_td.setText(f"❌ {r.error}")
+            self._wt_last_td_run = None
             return
+        # Cache the exact inputs + result of this successful T&D run so it can be
+        # persisted verbatim (the snapshot is built from these, not re-read from
+        # widgets, so a later widget edit cannot alter a saved run).
+        self._wt_last_td_run = {
+            "survey": surveys,
+            "components": string,
+            "mud_density_ppg": mud_density_ppg,
+            "friction_factor": self.wt_friction.value(),
+            "wob_klbf": self.wt_wob.value(),
+            "wellbore_id_in": self.wt_hole.value() or None,
+            "result_values": r.values,
+            "method": TorqueDragEngine.METHOD,
+        }
         v = r.values
         buck = "buckling" if v.get("buckling", {}).get("any") else "no buckling flag"
         np = v.get("neutral_point_md_m")
@@ -2411,6 +2705,93 @@ class EngineeringCalculatorTab(DrillTabBase):
             f"twist {v.get('twist_rotating_deg')}° | NP {np_s} | {buck}  [SCREENING]"
         )
         
+    def _torque_drag_repo(self):
+        """Lazily build the T&D calculation-history repository (or None)."""
+        if getattr(self, "db", None) is None:
+            return None
+        repo = getattr(self, "_td_calc_repo", None)
+        if repo is None:
+            try:
+                from core.repositories.torque_drag_repository import (
+                    TorqueDragCalculationRepository,
+                )
+                repo = TorqueDragCalculationRepository(self.db)
+            except Exception:
+                logger.exception("Could not build T&D calculation repository")
+                repo = None
+            self._td_calc_repo = repo
+        return repo
+
+    def _wt_save_calculation(self):
+        """Persist the last successful T&D run as a reproducible history record.
+
+        Uses the cached inputs+result from the most recent successful
+        ``_wt_run_td`` (never re-read from widgets), so what is saved is exactly
+        what was computed. One dialog, no per-row prompts; DB internals are not
+        surfaced to the user.
+        """
+        run = getattr(self, "_wt_last_td_run", None)
+        if not run:
+            QMessageBox.information(
+                self, "Save Calculation",
+                "Run a Torque & Drag calculation first (Calculate Hook Load with "
+                "a directional survey and drill string).")
+            return
+        repo = self._torque_drag_repo()
+        if repo is None:
+            QMessageBox.warning(
+                self, "Save Calculation",
+                "No database is available, so calculations cannot be saved.")
+            return
+        try:
+            calc_id = repo.save_run(
+                survey=run["survey"],
+                components=run["components"],
+                mud_density_ppg=run["mud_density_ppg"],
+                friction_factor=run["friction_factor"],
+                wob_klbf=run["wob_klbf"],
+                wellbore_id_in=run["wellbore_id_in"],
+                result_values=run["result_values"],
+                method=run["method"],
+                label="Torque & Drag",
+                well_id=getattr(self, "current_well_id", None),
+            )
+        except Exception as exc:
+            logger.exception("Failed to save T&D calculation")
+            QMessageBox.critical(self, "Save Calculation",
+                                 f"Could not save calculation:\n{exc}")
+            return
+        refs = run["result_values"]
+        QMessageBox.information(
+            self, "Calculation saved",
+            f"Saved Torque & Drag run #{calc_id}.\n"
+            f"Pickup {refs.get('hookload_pickup')} klbf | "
+            f"buoyed {refs.get('total_buoyed_weight')} klbf.\n"
+            f"{self._save_attribution_line()}"
+            "Inputs and reference traceability were stored for reproducibility.")
+
+    def _wt_open_history(self):
+        """Open the read-only Torque & Drag calculation-history browser."""
+        repo = self._torque_drag_repo()
+        if repo is None:
+            QMessageBox.warning(
+                self, "Calculation History",
+                "No database is available, so calculation history cannot be "
+                "opened.")
+            return
+        try:
+            from dialogs.torque_drag_history_dialog import TorqueDragHistoryDialog
+            from core.engineering.engines.torque_drag import TorqueDragEngine
+            dlg = TorqueDragHistoryDialog(
+                repo, current_method=TorqueDragEngine.METHOD, parent=self,
+                well_id=self.current_well_id,
+                well_label=self._current_well_label_text() or None)
+            dlg.exec()
+        except Exception as exc:
+            logger.exception("Failed to open T&D calculation history")
+            QMessageBox.critical(self, "Calculation History",
+                                 f"Could not open history:\n{exc}")
+
     def _create_stuck_tab(self) -> QWidget:
         tab, container, layout = self._make_scroll_tab()
 
@@ -2496,9 +2877,13 @@ class EngineeringCalculatorTab(DrillTabBase):
         self.mud_dil_cur = self._make_dspin(90, 0, 200, 1, " pcf")
         self.mud_dil_tar = self._make_dspin(80, 0, 200, 1, " pcf")
         self.mud_dil_vol = self._make_dspin(500, 0, 10000, 0, " bbl")
+        # Dilutant density is an engineering input, not an implicit water
+        # constant. Zero is an intentional required-input state.
+        self.mud_dilant_mw = self._make_dspin(0, 0, 200, 1, " pcf")
         f2.addRow("Current MW:", self.mud_dil_cur)
         f2.addRow("Target MW:", self.mud_dil_tar)
         f2.addRow("System Volume:", self.mud_dil_vol)
+        f2.addRow("Dilutant MW (required):", self.mud_dilant_mw)
         b2 = QPushButton("🔄 Calculate")
         b2.setStyleSheet("background: #3498db; color: white; padding: 6px; border-radius: 3px; border: none;")
         b2.clicked.connect(self._mud_dil)
@@ -2527,6 +2912,50 @@ class EngineeringCalculatorTab(DrillTabBase):
 
         wdm_layout.addStretch()
         inner_tabs.addTab(wdm_tab, "⬆️⬇️ Weight/Dilution/Mix")
+
+        # ===== Mud Volume Balance (persistent calculation #6) =====
+        bal_tab = QWidget()
+        bal_layout = QVBoxLayout(bal_tab)
+        gb = QGroupBox("⚖️ Mud Volume Balance")
+        fb = QFormLayout(gb)
+        self.mud_bal_active = self._make_dspin(800, 0, 100000, 1, " bbl")
+        self.mud_bal_add = self._make_dspin(0, 0, 100000, 1, " bbl")
+        self.mud_bal_loss = self._make_dspin(0, 0, 100000, 1, " bbl")
+        self.mud_bal_tin = self._make_dspin(0, 0, 100000, 1, " bbl")
+        self.mud_bal_tout = self._make_dspin(0, 0, 100000, 1, " bbl")
+        self.mud_bal_ret = self._make_dspin(0, 0, 100000, 1, " bbl")
+        self.mud_bal_dil = self._make_dspin(0, 0, 100000, 1, " bbl")
+        self.mud_bal_dump = self._make_dspin(0, 0, 100000, 1, " bbl")
+        fb.addRow("Active volume:", self.mud_bal_active)
+        fb.addRow("Additions:", self.mud_bal_add)
+        fb.addRow("Losses:", self.mud_bal_loss)
+        fb.addRow("Transfers in:", self.mud_bal_tin)
+        fb.addRow("Transfers out:", self.mud_bal_tout)
+        fb.addRow("Returns:", self.mud_bal_ret)
+        fb.addRow("Dilution (water):", self.mud_bal_dil)
+        fb.addRow("Dumped:", self.mud_bal_dump)
+        bb = QPushButton("🔄 Calculate Volume Balance")
+        bb.setStyleSheet("background: #16a085; color: white; font-weight: bold; padding: 8px; border-radius: 4px; border: none;")
+        bb.clicked.connect(self._mud_balance)
+        fb.addRow(bb)
+        bal_save = QPushButton("💾 Save Calculation")
+        bal_save.setToolTip(
+            "Persist this mud volume balance run as a reproducible historical "
+            "record (inputs snapshot + full result).")
+        bal_save.clicked.connect(self._mud_bal_save_calculation)
+        fb.addRow(bal_save)
+        bal_hist = QPushButton("📜 Calculation History")
+        bal_hist.setToolTip(
+            "Browse, inspect and verify previously saved mud volume balance runs.")
+        bal_hist.clicked.connect(self._mud_bal_open_history)
+        fb.addRow(bal_hist)
+        self.mud_bal_res = QTextEdit()
+        self.mud_bal_res.setReadOnly(True)
+        self.mud_bal_res.setMinimumHeight(140)
+        fb.addRow(self.mud_bal_res)
+        bal_layout.addWidget(gb)
+        bal_layout.addStretch()
+        inner_tabs.addTab(bal_tab, "⚖️ Volume Balance")
 
         # ===== Rheology =====
         rh_tab = QWidget()
@@ -2693,9 +3122,10 @@ class EngineeringCalculatorTab(DrillTabBase):
             )
 
     def _mud_dil(self):
+        dilutant_mw = self.mud_dilant_mw.value()
         r = self.engine.calc_mud_dilution(
             self.mud_dil_cur.value(), self.mud_dil_tar.value(), self.mud_dil_vol.value(),
-            62.4,
+            dilutant_mw if dilutant_mw > 0 else None,
         )
         if "error" in r:
             self.mud_dil_res.setText(f"❌ {r['error']}")
@@ -2718,6 +3148,119 @@ class EngineeringCalculatorTab(DrillTabBase):
                 f"Final MW: {r['final_mw_pcf']:.1f} pcf ({ppg:.2f} ppg)\n"
                 f"Total Volume: {r['total_volume_bbl']:.1f} bbl"
             )
+
+    # ========== Mud Volume Balance (persistent calculation #6) ==========
+
+    def _mud_balance(self):
+        """Compute a mud volume balance and cache the exact run for saving."""
+        from core.engineering.engines.mud_volume import MudVolumeEngine
+        inputs = dict(
+            active_volume_bbl=self.mud_bal_active.value(),
+            additions_bbl=self.mud_bal_add.value(),
+            losses_bbl=self.mud_bal_loss.value(),
+            transfers_in_bbl=self.mud_bal_tin.value(),
+            transfers_out_bbl=self.mud_bal_tout.value(),
+            returns_bbl=self.mud_bal_ret.value(),
+            dilution_bbl=self.mud_bal_dil.value(),
+            dumped_bbl=self.mud_bal_dump.value(),
+        )
+        r = MudVolumeEngine.balance(**inputs)
+        if not r.success:
+            self.mud_bal_res.setText(f"❌ {r.error}")
+            self._mud_bal_last_run = None
+            return
+        # Cache the exact inputs + result of this successful run so it can be
+        # persisted verbatim (the snapshot is built from these, not re-read from
+        # widgets, so a later widget edit cannot alter a saved run).
+        self._mud_bal_last_run = {
+            "inputs": inputs,
+            "result_values": r.values,
+            "method": MudVolumeEngine.METHOD,
+        }
+        v = r.values
+        warn = ("\n⚠️ " + "; ".join(r.warnings)) if r.warnings else ""
+        self.mud_bal_res.setText(
+            "MUD VOLUME BALANCE\n"
+            f"Final volume: {v['final_volume_bbl']:.1f} bbl\n"
+            f"Net change:   {v['net_change_bbl']:+.1f} bbl\n"
+            "final = active + additions + transfers_in + returns + dilution "
+            "− losses − transfers_out − dumped" + warn)
+
+    def _mud_volume_repo(self):
+        """Lazily build the mud volume calculation-history repository (or None)."""
+        if getattr(self, "db", None) is None:
+            return None
+        repo = getattr(self, "_mud_bal_calc_repo", None)
+        if repo is None:
+            try:
+                from core.repositories.mud_volume_repository import (
+                    MudVolumeCalculationRepository,
+                )
+                repo = MudVolumeCalculationRepository(self.db)
+            except Exception:
+                logger.exception("Could not build mud volume calculation repository")
+                repo = None
+            self._mud_bal_calc_repo = repo
+        return repo
+
+    def _mud_bal_save_calculation(self):
+        """Persist the last successful mud volume balance run."""
+        run = getattr(self, "_mud_bal_last_run", None)
+        if not run:
+            QMessageBox.information(
+                self, "Save Calculation",
+                "Run a Mud Volume Balance calculation first (Calculate Volume "
+                "Balance).")
+            return
+        repo = self._mud_volume_repo()
+        if repo is None:
+            QMessageBox.warning(
+                self, "Save Calculation",
+                "No database is available, so calculations cannot be saved.")
+            return
+        try:
+            calc_id = repo.save_run(
+                inputs=run["inputs"],
+                result_values=run["result_values"],
+                method=run["method"],
+                label="Mud Volume Balance",
+                well_id=getattr(self, "current_well_id", None),
+            )
+        except Exception as exc:
+            logger.exception("Failed to save mud volume calculation")
+            QMessageBox.critical(self, "Save Calculation",
+                                 f"Could not save calculation:\n{exc}")
+            return
+        v = run["result_values"]
+        QMessageBox.information(
+            self, "Calculation saved",
+            f"Saved Mud Volume Balance run #{calc_id}.\n"
+            f"Final {v.get('final_volume_bbl')} bbl "
+            f"(net {v.get('net_change_bbl'):+} bbl).\n"
+            f"{self._save_attribution_line()}"
+            "Inputs and full result were stored for reproducibility.")
+
+    def _mud_bal_open_history(self):
+        """Open the read-only mud volume calculation-history browser."""
+        repo = self._mud_volume_repo()
+        if repo is None:
+            QMessageBox.warning(
+                self, "Calculation History",
+                "No database is available, so calculation history cannot be "
+                "opened.")
+            return
+        try:
+            from dialogs.mud_volume_history_dialog import MudVolumeHistoryDialog
+            from core.engineering.engines.mud_volume import MudVolumeEngine
+            dlg = MudVolumeHistoryDialog(
+                repo, current_method=MudVolumeEngine.METHOD, parent=self,
+                well_id=self.current_well_id,
+                well_label=self._current_well_label_text() or None)
+            dlg.exec()
+        except Exception as exc:
+            logger.exception("Failed to open mud volume calculation history")
+            QMessageBox.critical(self, "Calculation History",
+                                 f"Could not open history:\n{exc}")
 
     def _mud_rheo(self):
         t600 = self.rh_t600.value()
@@ -2849,10 +3392,16 @@ class EngineeringCalculatorTab(DrillTabBase):
         cs_tab = QWidget()
         cs_layout = QVBoxLayout(cs_tab)
 
-        g1 = QGroupBox("💪 Casing Strength (select from database)")
+        g1 = QGroupBox("💪 Casing Strength (select a preset or enter values)")
         g1_lay = QVBoxLayout(g1)
 
-        select_btn = QPushButton("📋 Select Casing from API 5CT Database")
+        select_btn = QPushButton("📋 Select Casing Preset")
+        select_btn.setToolTip(
+            "Fill OD / ID / weight from a built-in casing preset table. "
+            "The presets are convenience values, not an authoritative catalog; "
+            "the strength engine computes ratings from the entered geometry and "
+            "yield."
+        )
         select_btn.setStyleSheet("background: #3498db; color: white; font-weight: bold; padding: 8px; border-radius: 4px; border: none;")
         select_btn.clicked.connect(self._csg_select_from_db)
         g1_lay.addWidget(select_btn)
@@ -2886,6 +3435,21 @@ class EngineeringCalculatorTab(DrillTabBase):
         calc_csg.setStyleSheet("background: #e74c3c; color: white; font-weight: bold; padding: 8px; border-radius: 4px; border: none;")
         calc_csg.clicked.connect(self._csg_calc_strength)
         csg_form.addRow(calc_csg)
+
+        save_csg = QPushButton("💾 Save Calculation")
+        save_csg.setToolTip(
+            "Persist this casing-strength run as a reproducible historical "
+            "record (inputs snapshot + full result)."
+        )
+        save_csg.clicked.connect(self._csg_save_calculation)
+        csg_form.addRow(save_csg)
+
+        history_csg = QPushButton("📜 Calculation History")
+        history_csg.setToolTip(
+            "Browse, inspect and verify previously saved casing-strength runs."
+        )
+        history_csg.clicked.connect(self._csg_open_history)
+        csg_form.addRow(history_csg)
 
         g1_lay.addLayout(csg_form)
 
@@ -2956,6 +3520,21 @@ class EngineeringCalculatorTab(DrillTabBase):
         cmt_calc.clicked.connect(self._csg_calc_cement)
         f2.addRow(cmt_calc)
 
+        cmt_save = QPushButton("💾 Save Calculation")
+        cmt_save.setToolTip(
+            "Persist this cement job-volume run as a reproducible historical "
+            "record (inputs snapshot + full result)."
+        )
+        cmt_save.clicked.connect(self._cmt_save_calculation)
+        f2.addRow(cmt_save)
+
+        cmt_history = QPushButton("📜 Calculation History")
+        cmt_history.setToolTip(
+            "Browse, inspect and verify previously saved cement job-volume runs."
+        )
+        cmt_history.clicked.connect(self._cmt_open_history)
+        f2.addRow(cmt_history)
+
         self.cmt_result = QTextEdit()
         self.cmt_result.setReadOnly(True)
         self.cmt_result.setMinimumHeight(200)
@@ -3010,16 +3589,16 @@ class EngineeringCalculatorTab(DrillTabBase):
                 if od > 0 and id_ > 0:
                     self.csg_wall.setValue((od - id_) / 2)
                 if data.get('burst'):
-                    self.csg_burst_res.setText(f"{data['burst']:.0f} psi (from API)")
+                    self.csg_burst_res.setText(f"{data['burst']:.0f} psi (preset ref)")
                 if data.get('collapse'):
-                    self.csg_collapse_res.setText(f"{data['collapse']:.0f} psi (from API)")
+                    self.csg_collapse_res.setText(f"{data['collapse']:.0f} psi (preset ref)")
 
     def _csg_calc_strength(self):
         from core.engineering.engines.casing import CasingEngine
         axial = self.csg_axial.value() or None
         pi = self.csg_pi.value() or None
         pe = self.csg_pe.value() or None
-        r = CasingEngine.evaluate(
+        inputs = dict(
             od_in=self.csg_od.value(),
             id_in=self.csg_id_calc.value(),
             wall_in=self.csg_wall.value(),
@@ -3031,13 +3610,23 @@ class EngineeringCalculatorTab(DrillTabBase):
             connection_collapse_psi=self.csg_conn_coll.value() or None,
             connection_tension_lbf=self.csg_conn_tens.value() or None,
         )
+        r = CasingEngine.evaluate(**inputs)
         if not r.success:
             self.csg_burst_res.setText(f"❌ {r.error}")
             self.csg_collapse_res.setText("")
             self.csg_tensile_res.setText("")
             self.csg_combined_res.setText("")
             self.csg_vme_res.setText("")
+            self._csg_last_run = None
             return
+        # Cache the exact inputs + result of this successful run so it can be
+        # persisted verbatim (the snapshot is built from these, not re-read from
+        # widgets, so a later widget edit cannot alter a saved run).
+        self._csg_last_run = {
+            "inputs": inputs,
+            "result_values": r.values,
+            "method": CasingEngine.METHOD,
+        }
         v = r.values
         self.csg_burst_res.setText(
             f"{v['burst_rating_psi']:,.0f} psi  (govern {v['governing_burst_psi']:,.0f})"
@@ -3050,9 +3639,14 @@ class EngineeringCalculatorTab(DrillTabBase):
         )
         fy = v.get("fyax_psi")
         comb = v.get("collapse_combined_psi")
-        self.csg_combined_res.setText(
-            f"{comb:,.0f} psi  fyax={fy:,.0f} psi" if comb is not None else "--"
-        )
+        if comb is None:
+            self.csg_combined_res.setText("--")
+        elif fy is None:
+            self.csg_combined_res.setText(
+                f"{comb:,.0f} psi  fyax=n/a (no axial load supplied)"
+            )
+        else:
+            self.csg_combined_res.setText(f"{comb:,.0f} psi  fyax={fy:,.0f} psi")
         bits = []
         if v.get("vme_psi") is not None:
             bits.append(f"VME {v['vme_psi']:,.0f} psi (u={v.get('vme_utilization', 0):.3f})")
@@ -3064,6 +3658,82 @@ class EngineeringCalculatorTab(DrillTabBase):
             bits.append(f"tension SF {v['tension_sf']}")
         warn = "; ".join(r.warnings[:2]) if r.warnings else "PARTIAL pipe-body"
         self.csg_vme_res.setText((" | ".join(bits) + "\n" + warn) if bits else warn)
+
+    def _casing_repo(self):
+        """Lazily build the casing calculation-history repository (or None)."""
+        if getattr(self, "db", None) is None:
+            return None
+        repo = getattr(self, "_csg_calc_repo", None)
+        if repo is None:
+            try:
+                from core.repositories.casing_repository import (
+                    CasingCalculationRepository,
+                )
+                repo = CasingCalculationRepository(self.db)
+            except Exception:
+                logger.exception("Could not build casing calculation repository")
+                repo = None
+            self._csg_calc_repo = repo
+        return repo
+
+    def _csg_save_calculation(self):
+        """Persist the last successful casing run as a reproducible record."""
+        run = getattr(self, "_csg_last_run", None)
+        if not run:
+            QMessageBox.information(
+                self, "Save Calculation",
+                "Run a Casing Strength calculation first (Calculate Casing "
+                "Strength).")
+            return
+        repo = self._casing_repo()
+        if repo is None:
+            QMessageBox.warning(
+                self, "Save Calculation",
+                "No database is available, so calculations cannot be saved.")
+            return
+        try:
+            calc_id = repo.save_run(
+                inputs=run["inputs"],
+                result_values=run["result_values"],
+                method=run["method"],
+                label="Casing Strength",
+                well_id=getattr(self, "current_well_id", None),
+            )
+        except Exception as exc:
+            logger.exception("Failed to save casing calculation")
+            QMessageBox.critical(self, "Save Calculation",
+                                 f"Could not save calculation:\n{exc}")
+            return
+        v = run["result_values"]
+        QMessageBox.information(
+            self, "Calculation saved",
+            f"Saved Casing Strength run #{calc_id}.\n"
+            f"Burst {v.get('burst_rating_psi')} psi | "
+            f"collapse {v.get('collapse_rating_psi')} psi.\n"
+            f"{self._save_attribution_line()}"
+            "Inputs and full result were stored for reproducibility.")
+
+    def _csg_open_history(self):
+        """Open the read-only casing calculation-history browser."""
+        repo = self._casing_repo()
+        if repo is None:
+            QMessageBox.warning(
+                self, "Calculation History",
+                "No database is available, so calculation history cannot be "
+                "opened.")
+            return
+        try:
+            from dialogs.casing_history_dialog import CasingHistoryDialog
+            from core.engineering.engines.casing import CasingEngine
+            dlg = CasingHistoryDialog(
+                repo, current_method=CasingEngine.METHOD, parent=self,
+                well_id=self.current_well_id,
+                well_label=self._current_well_label_text() or None)
+            dlg.exec()
+        except Exception as exc:
+            logger.exception("Failed to open casing calculation history")
+            QMessageBox.critical(self, "Calculation History",
+                                 f"Could not open history:\n{exc}")
 
     def _csg_calc_cement(self):
         from core.engineering.engines.cement import CementEngine
@@ -3078,7 +3748,7 @@ class EngineeringCalculatorTab(DrillTabBase):
         shoe_tvd = self.cmt_shoe_tvd.value() or None
         pump = self.cmt_pump.value() or None
         pore = self.cmt_pore.value() or None
-        r = CementEngine.job_volumes(
+        inputs = dict(
             hole_size_in=self.cmt_hole.value(),
             casing_od_in=self.cmt_csg.value(),
             open_hole_length_ft=self.cmt_len.value(),
@@ -3099,9 +3769,19 @@ class EngineeringCalculatorTab(DrillTabBase):
             pump_rate_bbl_min=pump,
             pore_emw_ppg=pore,
         )
+        r = CementEngine.job_volumes(**inputs)
         if not r.success:
             self.cmt_result.setText(f"❌ {r.error}")
+            self._cmt_last_run = None
             return
+        # Cache the exact inputs + result of this successful run so it can be
+        # persisted verbatim (the snapshot is built from these, not re-read from
+        # widgets, so a later widget edit cannot alter a saved run).
+        self._cmt_last_run = {
+            "inputs": inputs,
+            "result_values": r.values,
+            "method": CementEngine.METHOD,
+        }
         v = r.values
         sacks = v.get("sacks")
         sacks_s = f"{sacks:.0f}" if sacks is not None else "n/a (need yield)"
@@ -3126,12 +3806,92 @@ class EngineeringCalculatorTab(DrillTabBase):
         )
         self.cmt_result.setText(text)
 
+    def _cement_repo(self):
+        """Lazily build the cement calculation-history repository (or None)."""
+        if getattr(self, "db", None) is None:
+            return None
+        repo = getattr(self, "_cmt_calc_repo", None)
+        if repo is None:
+            try:
+                from core.repositories.cement_repository import (
+                    CementCalculationRepository,
+                )
+                repo = CementCalculationRepository(self.db)
+            except Exception:
+                logger.exception("Could not build cement calculation repository")
+                repo = None
+            self._cmt_calc_repo = repo
+        return repo
+
+    def _cmt_save_calculation(self):
+        """Persist the last successful cement run as a reproducible record."""
+        run = getattr(self, "_cmt_last_run", None)
+        if not run:
+            QMessageBox.information(
+                self, "Save Calculation",
+                "Run a Cement Volume calculation first (Calculate Cement "
+                "Volumes).")
+            return
+        repo = self._cement_repo()
+        if repo is None:
+            QMessageBox.warning(
+                self, "Save Calculation",
+                "No database is available, so calculations cannot be saved.")
+            return
+        try:
+            calc_id = repo.save_run(
+                inputs=run["inputs"],
+                result_values=run["result_values"],
+                method=run["method"],
+                label="Cement Job Volume",
+                well_id=getattr(self, "current_well_id", None),
+            )
+        except Exception as exc:
+            logger.exception("Failed to save cement calculation")
+            QMessageBox.critical(self, "Save Calculation",
+                                 f"Could not save calculation:\n{exc}")
+            return
+        v = run["result_values"]
+        sacks = v.get("sacks")
+        sacks_s = f"{sacks:.0f}" if sacks is not None else "n/a"
+        QMessageBox.information(
+            self, "Calculation saved",
+            f"Saved Cement Job Volume run #{calc_id}.\n"
+            f"Slurry {v.get('slurry_volume_bbl')} bbl | sacks {sacks_s}.\n"
+            f"{self._save_attribution_line()}"
+            "Inputs and full result were stored for reproducibility.")
+
+    def _cmt_open_history(self):
+        """Open the read-only cement calculation-history browser."""
+        repo = self._cement_repo()
+        if repo is None:
+            QMessageBox.warning(
+                self, "Calculation History",
+                "No database is available, so calculation history cannot be "
+                "opened.")
+            return
+        try:
+            from dialogs.cement_history_dialog import CementHistoryDialog
+            from core.engineering.engines.cement import CementEngine
+            dlg = CementHistoryDialog(
+                repo, current_method=CementEngine.METHOD, parent=self,
+                well_id=self.current_well_id,
+                well_label=self._current_well_label_text() or None)
+            dlg.exec()
+        except Exception as exc:
+            logger.exception("Failed to open cement calculation history")
+            QMessageBox.critical(self, "Calculation History",
+                                 f"Could not open history:\n{exc}")
+
     def _csg_calc_landing(self):
         bf = self.engine.calc_buoyancy_factor(self.bf_mw.value())
         r = self.engine.calc_casing_landing_load(
             self.bf_csg_wt.value(), self.bf_csg_len.value(),
             bf, self.bf_friction.value()
         )
+        if "error" in r:
+            self.bf_result.setText(f"❌ {r['error']}")
+            return
         self.bf_result.setText(
             f"Buoyancy Factor: {bf:.4f}\n"
             f"Air Weight: {r['air_weight_lbs']:,.0f} lbs\n"
@@ -3160,13 +3920,13 @@ class EngineeringCalculatorTab(DrillTabBase):
         wf = QFormLayout(g_well)
         self.wc_well_type = QComboBox()
         self.wc_well_type.addItems(["Vertical", "Directional", "Horizontal"])
-        self.wc_tvd = self._make_dspin(3000, 0, 20000, 0, " m")
-        self.wc_md = self._make_dspin(3200, 0, 20000, 0, " m")
-        self.wc_shoe_tvd = self._make_dspin(2000, 0, 20000, 0, " m")
-        self.wc_shoe_md = self._make_dspin(2050, 0, 20000, 0, " m")
-        self.wc_hole_size = self._make_dspin(8.5, 0, 50, 3, " in")
-        self.wc_last_csg = self._make_dspin(9.625, 0, 50, 3, " in OD")
-        self.wc_last_csg_id = self._make_dspin(8.835, 0, 50, 3, " in ID")
+        self.wc_tvd = self._make_wc_spin(20000, 0, " m")
+        self.wc_md = self._make_wc_spin(20000, 0, " m")
+        self.wc_shoe_tvd = self._make_wc_spin(20000, 0, " m")
+        self.wc_shoe_md = self._make_wc_spin(20000, 0, " m")
+        self.wc_hole_size = self._make_wc_spin(50, 3, " in")
+        self.wc_last_csg = self._make_wc_spin(50, 3, " in OD")
+        self.wc_last_csg_id = self._make_wc_spin(50, 3, " in ID")
         wf.addRow("Well Type:", self.wc_well_type)
         wf.addRow("TVD:", self.wc_tvd)
         wf.addRow("MD (Bit Depth):", self.wc_md)
@@ -3213,11 +3973,11 @@ class EngineeringCalculatorTab(DrillTabBase):
         # Mud & Kick Data
         g_mud = QGroupBox("🧪 Mud & Kick Data")
         mf = QFormLayout(g_mud)
-        self.wc_mw = self._make_dspin(90, 0, 200, 1, " pcf")
-        self.wc_frac = self._make_dspin(0.8, 0, 2, 3, " psi/ft")
-        self.wc_sidpp = self._make_dspin(500, 0, 10000, 0, " psi")
-        self.wc_sicp = self._make_dspin(700, 0, 10000, 0, " psi")
-        self.wc_pit_gain = self._make_dspin(10, 0, 500, 0, " bbl")
+        self.wc_mw = self._make_wc_spin(200, 1, " pcf")
+        self.wc_frac = self._make_wc_spin(2, 3, " psi/ft")
+        self.wc_sidpp = self._make_wc_spin(10000, 0, " psi")
+        self.wc_sicp = self._make_wc_spin(10000, 0, " psi")
+        self.wc_pit_gain = self._make_wc_spin(500, 0, " bbl")
         mf.addRow("Current MW:", self.wc_mw)
         mf.addRow("Frac Gradient:", self.wc_frac)
         mf.addRow("SIDPP:", self.wc_sidpp)
@@ -3228,11 +3988,11 @@ class EngineeringCalculatorTab(DrillTabBase):
         # Pump Data
         g_pump = QGroupBox("💧 Pump & SCR Data")
         pf = QFormLayout(g_pump)
-        self.wc_scr1 = self._make_dspin(800, 0, 5000, 0, " psi @ SCR")
-        self.wc_scr1_spm = self._make_dspin(30, 0, 200, 0, " spm")
-        self.wc_scr2 = self._make_dspin(600, 0, 5000, 0, " psi @ SCR")
-        self.wc_scr2_spm = self._make_dspin(25, 0, 200, 0, " spm")
-        self.wc_pump_output = self._make_dspin(0.09, 0, 1, 5, " bbl/stk")
+        self.wc_scr1 = self._make_wc_spin(5000, 0, " psi @ SCR")
+        self.wc_scr1_spm = self._make_wc_spin(200, 0, " spm")
+        self.wc_scr2 = self._make_wc_spin(5000, 0, " psi @ SCR")
+        self.wc_scr2_spm = self._make_wc_spin(200, 0, " spm")
+        self.wc_pump_output = self._make_wc_spin(1, 5, " bbl/stk")
         pf.addRow("SCR #1 Pressure:", self.wc_scr1)
         pf.addRow("SCR #1 SPM:", self.wc_scr1_spm)
         pf.addRow("SCR #2 Pressure:", self.wc_scr2)
@@ -3255,6 +4015,16 @@ class EngineeringCalculatorTab(DrillTabBase):
         calc_btn.setStyleSheet("background: #e74c3c; color: white; font-weight: bold; padding: 12px; border-radius: 5px; border: none; font-size: 14px;")
         calc_btn.clicked.connect(self._wc_calc_kill)
         ks_layout.addWidget(calc_btn)
+
+        # Save / History (calculation #4 persistence)
+        wc_persist_row = QHBoxLayout()
+        wc_save = QPushButton("💾 Save Calculation")
+        wc_save.clicked.connect(self._wc_save_calculation)
+        wc_persist_row.addWidget(wc_save)
+        wc_history = QPushButton("📜 Calculation History")
+        wc_history.clicked.connect(self._wc_open_history)
+        wc_persist_row.addWidget(wc_history)
+        ks_layout.addLayout(wc_persist_row)
 
         # Results
         self.wc_result = QTextEdit()
@@ -3468,12 +4238,14 @@ class EngineeringCalculatorTab(DrillTabBase):
             self._wc_refresh_pipe_table()
 
     def _wc_refresh_pipe_table(self):
-        f = 3.281 / 1029.4
+        from core.hydraulics_engine import AdvancedHydraulicsEngine as A
         self.wc_pipe_table.setRowCount(0)
         total_string = 0
         total_ann = 0
-        csg_id = self.wc_last_csg_id.value()
-        hole = self.wc_hole_size.value()
+        csg_id = self._wc_value(self.wc_last_csg_id)
+        hole = self._wc_value(self.wc_hole_size)
+        shoe_md = self._wc_value(self.wc_shoe_md)
+        ann_known = csg_id is not None and hole is not None and shoe_md is not None
 
         for p in self.wc_pipes:
             row = self.wc_pipe_table.rowCount()
@@ -3481,7 +4253,7 @@ class EngineeringCalculatorTab(DrillTabBase):
             od = p.get('od', 0)
             id_ = p.get('id', 0)
             L = p.get('length', 0)
-            cap = id_**2 * f
+            cap = A.calc_pipe_capacity_bbl_ft(id_) * 3.28084   # bbl/m
             vol = cap * L
 
             total_string += vol
@@ -3496,109 +4268,101 @@ class EngineeringCalculatorTab(DrillTabBase):
             self.wc_pipe_table.setItem(row, 5, vi)
 
             # Annular volume (simplified)
-            ann_id = csg_id if L < self.wc_shoe_md.value() else hole
-            if ann_id > od:
-                ann_vol = (ann_id**2 - od**2) * f * L
+            ann_id = csg_id if (shoe_md is not None and L < shoe_md) else hole
+            if ann_known and ann_id > od:
+                ann_vol = (A.calc_annular_capacity_bbl_ft(ann_id, od)
+                           * 3.28084 * L)
                 total_ann += ann_vol
 
-        self.wc_string_summary.setText(
-            f"String: {total_string:.2f} bbl | Annular: {total_ann:.2f} bbl | "
-            f"Total: {total_string + total_ann:.2f} bbl"
-        )
+        if ann_known:
+            self.wc_string_summary.setText(
+                f"String: {total_string:.2f} bbl | Annular: {total_ann:.2f} bbl | "
+                f"Total: {total_string + total_ann:.2f} bbl"
+            )
+        else:
+            self.wc_string_summary.setText(
+                f"String: {total_string:.2f} bbl | Annular: — "
+                "(hole size / casing / shoe depth not recorded)"
+            )
     
     # ========== Well Control Methods ==========
 
     def _wc_calc_kill(self):
-        f = 3.281 / 1029.4
-        tvd_ft = self.wc_tvd.value() * 3.28084
-        md_ft = self.wc_md.value() * 3.28084
-        shoe_tvd_ft = self.wc_shoe_tvd.value() * 3.28084
-        mw_pcf = self.wc_mw.value()
-        mw_ppg = mw_pcf / 7.48
-        sidpp = self.wc_sidpp.value()
-        sicp = self.wc_sicp.value()
-        frac_grad = self.wc_frac.value()
-        pit_gain = self.wc_pit_gain.value()
-        scr1 = self.wc_scr1.value()
-        scr1_spm = self.wc_scr1_spm.value()
-        scr2 = self.wc_scr2.value()
-        scr2_spm = self.wc_scr2_spm.value()
-        pump_output = self.wc_pump_output.value()
-        hole = self.wc_hole_size.value()
-        csg_id = self.wc_last_csg_id.value()
-        method = "Driller's" if self.wc_driller.isChecked() else "Wait & Weight"
-
-        # String volumes
-        total_string_vol = 0
-        total_ann_vol = 0
-        string_detail = []
-        ann_detail = []
-
-        for p in self.wc_pipes:
-            od = p.get('od', 0)
-            id_ = p.get('id', 0)
-            L = p.get('length', 0)
-            ptype = p.get('type', '')
-
-            cap = id_**2 * f * L
-            total_string_vol += cap
-            string_detail.append((ptype, L, cap))
-
-            # Annular (simplified: assume in csg if above shoe, OH if below)
-            shoe_m = self.wc_shoe_md.value()
-            if L > 0:
-                ann_id_val = csg_id  # simplified
-                if ann_id_val > od:
-                    ann = (ann_id_val**2 - od**2) * f * L
-                    total_ann_vol += ann
-                    ann_detail.append((f"{ptype} in CSG", L, ann))
-
-        # Kill calculations — canonical WellControlEngine
-        from core.engineering.engines.well_control import WellControlEngine as WC
-        kmw_r = WC.kill_mw(mw_ppg, sidpp, tvd_ft)
-        kmw_ppg = kmw_r.value if kmw_r.success else mw_ppg
-        kmw_pcf = kmw_ppg * 7.48
-        icp = scr1 + sidpp
-        fcp = scr1 * (kmw_ppg / mw_ppg) if mw_ppg > 0 else scr1
-        maasp_r = WC.maasp(
-            max_allowable_mw_ppg=frac_grad / 0.052 if frac_grad else None,
-            current_mw_ppg=mw_ppg,
-            shoe_tvd_ft=shoe_tvd_ft,
+        # Canonical, Qt-free input boundary + composite computation (mission 7).
+        # The handler now ONLY reads widgets and renders text; every unit
+        # conversion, volume/stroke/ICP/FCP/schedule computation and engine call
+        # lives in core.engineering.well_control_kill_sheet (single owner of unit
+        # conversion, deterministic, snapshot-ready). No formula changed.
+        from core.engineering.well_control_kill_sheet import (
+            build_canonical_kill_sheet_inputs,
+            compute_kill_sheet,
         )
-        maasp = maasp_r.value if maasp_r.success else 0
+        from core.text_utils import fmt_num
 
-        # Strokes
-        stk_to_bit = total_string_vol / pump_output if pump_output > 0 else 0
-        stk_annular = total_ann_vol / pump_output if pump_output > 0 else 0
-        stk_total = stk_to_bit + stk_annular
+        method = "Driller's" if self.wc_driller.isChecked() else "Wait & Weight"
+        inp = build_canonical_kill_sheet_inputs(
+            tvd_m=self._wc_value(self.wc_tvd),
+            md_m=self._wc_value(self.wc_md),
+            shoe_tvd_m=self._wc_value(self.wc_shoe_tvd),
+            hole_size_in=self._wc_value(self.wc_hole_size),
+            casing_id_in=self._wc_value(self.wc_last_csg_id),
+            casing_od_in=self._wc_value(self.wc_last_csg),
+            mw_pcf=self._wc_value(self.wc_mw),
+            frac_gradient_psi_ft=self._wc_value(self.wc_frac),
+            sidpp_psi=self._wc_value(self.wc_sidpp),
+            sicp_psi=self._wc_value(self.wc_sicp),
+            pit_gain_bbl=self._wc_value(self.wc_pit_gain),
+            scr1_psi=self._wc_value(self.wc_scr1),
+            scr1_spm=self._wc_value(self.wc_scr1_spm),
+            scr2_psi=self._wc_value(self.wc_scr2),
+            scr2_spm=self._wc_value(self.wc_scr2_spm),
+            pump_output_bbl_stk=self._wc_value(self.wc_pump_output),
+            method=method,
+            well_type=self.wc_well_type.currentText(),
+            pipes_m=self.wc_pipes,
+        )
+        self._wc_last_kill_inputs = inp
 
-        # Kick type
-        kick_grad = (sicp - sidpp) / tvd_ft if tvd_ft > 0 else 0
-        if kick_grad < 0.1:
-            kick_type = "Gas Kick"
-        elif kick_grad < 0.35:
-            kick_type = "Oil Kick"
-        else:
-            kick_type = "Salt Water Kick"
+        res = compute_kill_sheet(inp)
+        if not res.success:
+            self.wc_result.setText(f"❌ {res.error}")
+            return
 
-        # Kick height
-        if total_ann_vol > 0:
-            last_pipe_od = self.wc_pipes[-1].get('od', 5) if self.wc_pipes else 5
-            ann_cap_ft = (hole**2 - last_pipe_od**2) / 1029.4
-            kick_height = pit_gain / ann_cap_ft if ann_cap_ft > 0 else 0
-        else:
-            kick_height = 0
+        # Unpack canonical results for the (unchanged) ASCII rendering below.
+        tvd_ft = inp.tvd_ft
+        md_ft = inp.md_ft
+        shoe_tvd_ft = inp.shoe_tvd_ft
+        mw_pcf = res.mw_pcf
+        mw_ppg = res.mw_ppg
+        sidpp = inp.sidpp_psi
+        sicp = inp.sicp_psi
+        frac_grad = inp.frac_gradient_psi_ft
+        pit_gain = inp.pit_gain_bbl
+        scr1 = inp.scr1_psi
+        scr1_spm = inp.scr1_spm
+        scr2 = inp.scr2_psi
+        scr2_spm = inp.scr2_spm
+        pump_output = inp.pump_output_bbl_stk
+        hole = inp.hole_size_in
+        csg_id = inp.casing_id_in
+        total_string_vol = res.total_string_vol_bbl
+        total_ann_vol = res.total_ann_vol_bbl
+        string_detail = res.string_detail
+        ann_detail = res.ann_detail
+        kmw_ppg = res.kill_mw_ppg
+        kmw_pcf = res.kill_mw_pcf
+        icp = res.icp_psi
+        fcp = res.fcp_psi
+        maasp = res.maasp_psi
+        stk_to_bit = res.stk_to_bit
+        stk_annular = res.stk_annular
+        stk_total = res.stk_total
+        kick_type = res.kick_type
+        kick_height = res.kick_height_ft
+        kick_note = res.kick_note
+        schedule = res.choke_schedule
 
-        # Choke schedule
-        schedule = []
-        intervals = 10
-        if stk_to_bit > 0:
-            step = stk_to_bit / intervals
-            dp = (icp - fcp) / intervals
-            for i in range(intervals + 1):
-                strokes = round(i * step)
-                pressure = round(icp - i * dp, 1)
-                schedule.append((strokes, pressure, round(i / intervals * 100)))
+        self._wc_last_kill_result = res
 
         # Build report
         text = f"""╔═════════════════════════════════════════════════════════╗
@@ -3607,11 +4371,11 @@ class EngineeringCalculatorTab(DrillTabBase):
     ╠═════════════════════════════════════════════════════════╣
     ║ WELL DATA:
     ║   Well Type:      {self.wc_well_type.currentText()}
-    ║   TVD:            {self.wc_tvd.value():.0f} m ({tvd_ft:.0f} ft)
-    ║   MD:             {self.wc_md.value():.0f} m ({md_ft:.0f} ft)
-    ║   Shoe TVD:       {self.wc_shoe_tvd.value():.0f} m ({shoe_tvd_ft:.0f} ft)
-    ║   Hole Size:      {hole:.3f}" 
-    ║   Last CSG:       {self.wc_last_csg.value():.3f}" OD / {csg_id:.3f}" ID
+    ║   TVD:            {fmt_num(inp.display.get('tvd_m'), 0)} m ({tvd_ft:.0f} ft)
+    ║   MD:             {fmt_num(inp.display.get('md_m'), 0)} m ({md_ft:.0f} ft)
+    ║   Shoe TVD:       {fmt_num(inp.display.get('shoe_tvd_m'), 0)} m ({shoe_tvd_ft:.0f} ft)
+    ║   Hole Size:      {fmt_num(hole, 3)}"
+    ║   Last CSG:       {fmt_num(inp.display.get('casing_od_in'), 3)}" OD / {fmt_num(inp.display.get('casing_id_in'), 3)}" ID
     ╠═════════════════════════════════════════════════════════╣
     ║ DRILL STRING VOLUMES:"""
 
@@ -3638,7 +4402,7 @@ class EngineeringCalculatorTab(DrillTabBase):
     ║   SICP:           {sicp:.0f} psi
     ║   Pit Gain:       {pit_gain:.0f} bbl
     ║   Kick Type:      {kick_type}
-    ║   Kick Height:    {kick_height:.0f} ft (estimated)
+    ║   Kick Height:    {kick_height:.0f} ft (estimated){kick_note}
     ║   Frac Gradient:  {frac_grad:.4f} psi/ft
     ╠═════════════════════════════════════════════════════════╣
     ║ PUMP DATA:
@@ -3714,6 +4478,90 @@ class EngineeringCalculatorTab(DrillTabBase):
     ╚═════════════════════════════════════════════════════════╝"""
 
         self.wc_result.setText(text)
+
+    # ---- Well Control Kill Sheet persistence (calculation #4) ----------
+    def _wc_kill_sheet_repo(self):
+        """Lazily build the kill-sheet calculation-history repository (or None)."""
+        if getattr(self, "db", None) is None:
+            return None
+        repo = getattr(self, "_wc_calc_repo", None)
+        if repo is None:
+            try:
+                from core.repositories.well_control_kill_sheet_repository import (
+                    WellControlKillSheetRepository,
+                )
+                repo = WellControlKillSheetRepository(self.db)
+            except Exception:
+                logger.exception("Could not build kill-sheet calculation repository")
+                repo = None
+            self._wc_calc_repo = repo
+        return repo
+
+    def _wc_save_calculation(self):
+        """Persist the last successful kill-sheet run as a reproducible record."""
+        inp = getattr(self, "_wc_last_kill_inputs", None)
+        res = getattr(self, "_wc_last_kill_result", None)
+        if inp is None or res is None or not getattr(res, "success", False):
+            QMessageBox.information(
+                self, "Save Calculation",
+                "Run a successful kill sheet first (Calculate Complete Kill "
+                "Sheet).")
+            return
+        repo = self._wc_kill_sheet_repo()
+        if repo is None:
+            QMessageBox.warning(
+                self, "Save Calculation",
+                "No database is available, so calculations cannot be saved.")
+            return
+        try:
+            from core.engineering.well_control_kill_sheet_persistence import (
+                build_snapshot,
+            )
+            from core.engineering.engines.well_control import WellControlEngine
+            snapshot = build_snapshot(inputs=inp, method=WellControlEngine.METHOD)
+            calc_id = repo.save_run(
+                snapshot=snapshot,
+                result=res.values,
+                method=WellControlEngine.METHOD,
+                label="Well Control Kill Sheet",
+                well_id=getattr(self, "current_well_id", None),
+            )
+        except Exception as exc:
+            logger.exception("Failed to save kill-sheet calculation")
+            QMessageBox.critical(self, "Save Calculation",
+                                 f"Could not save calculation:\n{exc}")
+            return
+        QMessageBox.information(
+            self, "Calculation saved",
+            f"Saved Well Control Kill Sheet run #{calc_id}.\n"
+            f"Kill MW {res.kill_mw_ppg:.2f} ppg | MAASP {res.maasp_psi:.0f} psi "
+            f"| {res.stk_total:.0f} strokes.\n"
+            f"{self._save_attribution_line()}"
+            "Inputs and full composite result were stored for reproducibility.")
+
+    def _wc_open_history(self):
+        """Open the read-only kill-sheet calculation-history browser."""
+        repo = self._wc_kill_sheet_repo()
+        if repo is None:
+            QMessageBox.warning(
+                self, "Calculation History",
+                "No database is available, so calculation history cannot be "
+                "opened.")
+            return
+        try:
+            from dialogs.well_control_kill_sheet_history_dialog import (
+                WellControlKillSheetHistoryDialog,
+            )
+            from core.engineering.engines.well_control import WellControlEngine
+            dlg = WellControlKillSheetHistoryDialog(
+                repo, current_method=WellControlEngine.METHOD, parent=self,
+                well_id=self.current_well_id,
+                well_label=self._current_well_label_text() or None)
+            dlg.exec()
+        except Exception as exc:
+            logger.exception("Failed to open kill-sheet calculation history")
+            QMessageBox.critical(self, "Calculation History",
+                                 f"Could not open history:\n{exc}")
 
     def _wc_calc_choke(self):
         icp = self.cs_icp.value()
@@ -3797,6 +4645,9 @@ class EngineeringCalculatorTab(DrillTabBase):
         tvd_ft = self.hp_tvd.value() * 3.28084
         sidpp = self.hp_sidpp.value()
         r = self.engine.calc_formation_pressure(mw_pcf, tvd_ft, sidpp)
+        if "error" in r:
+            self.hp_result.setText(f"⚠️ {r['error']}")
+            return
 
         text = f"Hydrostatic Pressure: {r['hydrostatic_psi']:.0f} psi\n"
         text += f"Formation Pressure:   {r['formation_pressure_psi']:.0f} psi\n"
@@ -3930,7 +4781,264 @@ class EngineeringCalculatorTab(DrillTabBase):
         br_layout.addStretch()
         inner_tabs.addTab(br_tab, "📈 Build/Turn Rate")
 
+        # ===== Anti-Collision (screening) =====
+        inner_tabs.addTab(self._create_anti_collision_tab(), "🚧 Anti-Collision")
+
         return tab
+
+    # ========== Anti-Collision (canonical: AntiCollisionEngine) ==========
+
+    def _create_anti_collision_tab(self) -> QWidget:
+        """Well-to-well separation screening.
+
+        The reference well is the trajectory entered on the "Multi-Survey"
+        tab above (self.dd_surveys). The offset well is entered here. Both
+        use minimum-curvature positions in metres and are screened by the
+        canonical AntiCollisionEngine via CalculatorBridge — no engineering
+        logic lives in the UI. This is a SCREENING tool (no ISCWSA error
+        model); results are transient by design and not persisted.
+        """
+        self.ac_offset_surveys = []
+
+        tab, container, layout = self._make_scroll_tab()
+
+        banner = QLabel(
+            "🚧 SCREENING ONLY — linear-interpolated 3D centreline separation. "
+            "No ISCWSA error model, covariance or tool-error model is applied. "
+            "Reference well = the Multi-Survey trajectory above (metres)."
+        )
+        banner.setWordWrap(True)
+        banner.setStyleSheet(
+            "color: #7f4f00; background: #fff3cd; border: 1px solid #e0a800; "
+            "border-radius: 3px; padding: 6px; font-size: 11px;"
+        )
+        layout.addWidget(banner)
+
+        # ----- Offset well survey -----
+        g1 = QGroupBox("🛢️ Offset Well Survey (Minimum Curvature, metres)")
+        g1_lay = QVBoxLayout(g1)
+        ac_btns = QHBoxLayout()
+        add_off = QPushButton("➕ Add Offset Point")
+        add_off.setStyleSheet(
+            "background: #27ae60; color: white; padding: 4px 10px; "
+            "border-radius: 3px; border: none;"
+        )
+        add_off.clicked.connect(self._ac_add_survey)
+        edit_off = QPushButton("✏️ Edit")
+        edit_off.clicked.connect(self._ac_edit_survey)
+        rem_off = QPushButton("🗑️")
+        rem_off.setFixedWidth(30)
+        rem_off.clicked.connect(self._ac_rem_survey)
+        clear_off = QPushButton("🧹 Clear")
+        clear_off.clicked.connect(self._ac_clear_surveys)
+        for b in (add_off, edit_off, rem_off, clear_off):
+            ac_btns.addWidget(b)
+        ac_btns.addStretch()
+        g1_lay.addLayout(ac_btns)
+
+        self.ac_table = QTableWidget(0, 5)
+        self.ac_table.setHorizontalHeaderLabels(
+            ["#", "MD (m)", "TVD (m)", "North (m)", "East (m)"]
+        )
+        self.ac_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.ac_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.ac_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.ac_table.doubleClicked.connect(self._ac_edit_survey)
+        g1_lay.addWidget(self.ac_table)
+        layout.addWidget(g1)
+
+        # ----- Screening parameters -----
+        g2 = QGroupBox("⚙️ Screening Parameters")
+        f2 = QFormLayout(g2)
+        self.ac_ref_radius = self._make_dspin(0.0, 0, 100, 3, " m")
+        self.ac_off_radius = self._make_dspin(0.0, 0, 100, 3, " m")
+        self.ac_threshold = self._make_dspin(0.0, 0, 100000, 3, " m")
+        f2.addRow("Reference wellbore radius (0 = omit):", self.ac_ref_radius)
+        f2.addRow("Offset wellbore radius (0 = omit):", self.ac_off_radius)
+        f2.addRow("Collision threshold (0 = no scan):", self.ac_threshold)
+        run_btn = QPushButton("🚦 Screen Clearance")
+        run_btn.setStyleSheet(
+            "background: #c0392b; color: white; padding: 6px 14px; "
+            "border-radius: 3px; border: none; font-weight: bold;"
+        )
+        run_btn.clicked.connect(self._ac_screen)
+        f2.addRow(run_btn)
+        layout.addWidget(g2)
+
+        # ----- Results -----
+        g3 = QGroupBox("📋 Screening Result")
+        g3_lay = QVBoxLayout(g3)
+        self.ac_summary = self._result_label("#c0392b")
+        self.ac_summary.setWordWrap(True)
+        g3_lay.addWidget(self.ac_summary)
+        self.ac_result_table = QTableWidget(0, 5)
+        self.ac_result_table.setHorizontalHeaderLabels(
+            ["MD (m)", "Distance (m)", "Clearance (m)", "Sep. Factor", "Trend"]
+        )
+        self.ac_result_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.ac_result_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        g3_lay.addWidget(self.ac_result_table)
+        layout.addWidget(g3)
+        layout.addStretch()
+
+        return tab
+
+    def _ac_add_survey(self):
+        from dialogs.engineering_dialogs import AddSurveyDialog
+        prev = self.ac_offset_surveys[-1] if self.ac_offset_surveys else None
+        dlg = AddSurveyDialog(self, prev_survey=prev)
+        if dlg.exec():
+            data = dlg.get_result()
+            if data:
+                self.ac_offset_surveys.append(data)
+                self._ac_recalculate()
+                self._ac_refresh_table()
+
+    def _ac_edit_survey(self):
+        row = self.ac_table.currentRow()
+        if 0 <= row < len(self.ac_offset_surveys):
+            from dialogs.engineering_dialogs import AddSurveyDialog
+            prev = self.ac_offset_surveys[row - 1] if row > 0 else None
+            dlg = AddSurveyDialog(
+                self, edit_data=self.ac_offset_surveys[row], prev_survey=prev
+            )
+            if dlg.exec():
+                data = dlg.get_result()
+                if data:
+                    self.ac_offset_surveys[row] = data
+                    self._ac_recalculate()
+                    self._ac_refresh_table()
+
+    def _ac_rem_survey(self):
+        row = self.ac_table.currentRow()
+        if 0 <= row < len(self.ac_offset_surveys):
+            self.ac_offset_surveys.pop(row)
+            self._ac_recalculate()
+            self._ac_refresh_table()
+
+    def _ac_clear_surveys(self):
+        self.ac_offset_surveys.clear()
+        self._ac_refresh_table()
+
+    def _ac_recalculate(self):
+        """Recompute offset-well positions with canonical Minimum Curvature."""
+        from core.engineering.core import TrajectoryEngine
+        surveys = [
+            {"md": s.get("md"), "inc": s.get("inc"), "azi": s.get("azi")}
+            for s in self.ac_offset_surveys
+        ]
+        if not surveys:
+            return
+        try:
+            pts = TrajectoryEngine.calculate(surveys)
+        except Exception:
+            return
+        for i, p in enumerate(pts):
+            if i < len(self.ac_offset_surveys):
+                self.ac_offset_surveys[i]["tvd"] = p.tvd
+                self.ac_offset_surveys[i]["north"] = p.north
+                self.ac_offset_surveys[i]["east"] = p.east
+
+    def _ac_refresh_table(self):
+        self.ac_table.setRowCount(0)
+        for i, s in enumerate(self.ac_offset_surveys):
+            row = self.ac_table.rowCount()
+            self.ac_table.insertRow(row)
+            self.ac_table.setItem(row, 0, QTableWidgetItem(str(i + 1)))
+            for col, key in [(1, "md"), (2, "tvd"), (3, "north"), (4, "east")]:
+                self.ac_table.setItem(
+                    row, col, QTableWidgetItem(f"{s.get(key, 0):.2f}")
+                )
+
+    def _ac_screen(self):
+        """Screen reference (Multi-Survey) vs offset well via canonical engine."""
+        ref_pts = [
+            {"md": s.get("md"), "tvd": s.get("tvd"),
+             "north": s.get("north"), "east": s.get("east")}
+            for s in getattr(self, "dd_surveys", [])
+            if s.get("tvd") is not None
+        ]
+        off_pts = [
+            {"md": s.get("md"), "tvd": s.get("tvd"),
+             "north": s.get("north"), "east": s.get("east")}
+            for s in self.ac_offset_surveys
+            if s.get("tvd") is not None
+        ]
+        if len(ref_pts) < 2:
+            self.ac_summary.setText(
+                "❌ MISSING_INPUT: reference well needs ≥2 survey points "
+                "(enter them on the Multi-Survey tab)."
+            )
+            self.ac_result_table.setRowCount(0)
+            return
+        if len(off_pts) < 2:
+            self.ac_summary.setText(
+                "❌ MISSING_INPUT: offset well needs ≥2 survey points."
+            )
+            self.ac_result_table.setRowCount(0)
+            return
+
+        ref_r = self.ac_ref_radius.value()
+        off_r = self.ac_off_radius.value()
+        if ref_r > 0 and off_r > 0:
+            for p in ref_pts:
+                p["wellbore_radius"] = ref_r
+            for p in off_pts:
+                p["wellbore_radius"] = off_r
+
+        threshold = self.ac_threshold.value() or None
+
+        from core.engineering.bridge import CalculatorBridge
+        res = CalculatorBridge.anti_collision(
+            ref_pts, off_pts,
+            collision_threshold=threshold,
+            coordinates_unit="m",
+        )
+        if not res.success:
+            self.ac_summary.setText(f"❌ ENGINE_FAILED: {res.error}")
+            self.ac_result_table.setRowCount(0)
+            return
+
+        v = res.values
+        closest = v.get("closest_approach", {})
+        lines = [
+            f"✅ Closest approach: {closest.get('distance', 0):.2f} m "
+            f"@ MD ref {closest.get('ref_md', 0):.1f} m / "
+            f"offset {closest.get('offset_md', 0):.1f} m"
+        ]
+        if closest.get("clearance") is not None:
+            lines.append(f"   Clearance (centre − radii): {closest['clearance']:.2f} m")
+        if closest.get("separation_factor") is not None:
+            lines.append(f"   Separation factor (supplied σ RSS): {closest['separation_factor']:.2f}")
+        scan = v.get("collision_scan", {})
+        if scan.get("performed"):
+            status = scan.get("status", "?")
+            icon = "🔴" if status == "alert" else "🟢"
+            lines.append(
+                f"{icon} Collision scan @ {scan.get('threshold')} m: {status.upper()} "
+                f"({len(scan.get('events', []))} point(s) below threshold, "
+                f"min margin {scan.get('minimum_margin')})"
+            )
+        for w in res.warnings:
+            lines.append(f"⚠️ {w}")
+        self.ac_summary.setText("\n".join(lines))
+
+        rows = v.get("separation_vs_md", [])
+        self.ac_result_table.setRowCount(0)
+        for r in rows:
+            i = self.ac_result_table.rowCount()
+            self.ac_result_table.insertRow(i)
+            clr = r.get("clearance")
+            sf = r.get("separation_factor")
+            cells = [
+                f"{r.get('md', 0):.1f}",
+                f"{r.get('distance', 0):.2f}",
+                "--" if clr is None else f"{clr:.2f}",
+                "--" if sf is None else f"{sf:.2f}",
+                r.get("convergence", ""),
+            ]
+            for col, text in enumerate(cells):
+                self.ac_result_table.setItem(i, col, QTableWidgetItem(text))
 
     # ========== Directional Methods ==========
 
@@ -3980,7 +5088,7 @@ class EngineeringCalculatorTab(DrillTabBase):
         """Recompute the whole survey with canonical Minimum Curvature."""
         from core.engineering.core import TrajectoryEngine
         surveys = [
-            {"md": s.get("md", 0), "inc": s.get("inc", 0), "azi": s.get("azi", 0)}
+            {"md": s.get("md"), "inc": s.get("inc"), "azi": s.get("azi")}
             for s in self.dd_surveys
         ]
         if not surveys:
@@ -4102,6 +5210,26 @@ class EngineeringCalculatorTab(DrillTabBase):
             sp.setSuffix(suffix)
         return sp
 
+    def _make_wc_spin(self, max_v, dec, suffix="") -> QDoubleSpinBox:
+        """Kill-sheet input that can express "not recorded".
+
+        ``QDoubleSpinBox`` has no NULL, so the minimum value renders an explicit
+        marker and reads back as ``None`` (the same idiom the daily report uses
+        for its depth readings). The kill sheet is a safety document: a pre-filled
+        SIDPP/SICP/TVD would be submitted as a measured fact the user never
+        entered, so every consumed input starts "not recorded".
+        """
+        sp = self._make_dspin(-1, -1, max_v, dec, suffix)
+        sp.setSpecialValueText("Not recorded")
+        return sp
+
+    @staticmethod
+    def _wc_value(spin):
+        """Read a kill-sheet input; the sentinel reads back as ``None``."""
+        if spin.specialValueText() and spin.value() <= spin.minimum():
+            return None
+        return spin.value()
+
     def _update_stuck(self):
         fp = self.engine.calc_free_point(
             self.stk_diff.value(), self.stk_wt.value(), self.stk_pull.value()
@@ -4152,6 +5280,53 @@ class EngineeringCalculatorTab(DrillTabBase):
     # ==================== DrillTabBase Overrides ====================
     def on_well_changed(self, well_id, well_data):
         self.current_well_id = well_id
+        self.current_well_data = well_data or {}
+        self._update_well_context_label()
+
+    def _current_well_label_text(self) -> str:
+        """Human-readable name for the well saved calculations attribute to."""
+        data = getattr(self, "current_well_data", None) or {}
+        name = data.get("name") if isinstance(data, dict) else None
+        if self.current_well_id and name:
+            return f"{name} (#{self.current_well_id})"
+        if self.current_well_id:
+            return f"Well #{self.current_well_id}"
+        return ""
+
+    def _save_attribution_line(self) -> str:
+        """One line naming the well a saved run was attributed to.
+
+        Makes the persisted well context explicit at save time so a run is
+        never silently attributed to the wrong well (or to none).
+        """
+        if self.current_well_id:
+            return f"Attributed to well: {self._current_well_label_text()}.\n"
+        return (
+            "Not attributed to any well (no well was selected).\n"
+        )
+
+    def _update_well_context_label(self):
+        """Keep the well-context banner in sync with the active selection."""
+        label = getattr(self, "well_context_label", None)
+        if label is None:
+            return
+        if self.current_well_id:
+            label.setText(
+                f"\U0001f6e2\ufe0f Saving calculations to: {self._current_well_label_text()}"
+            )
+            label.setStyleSheet(
+                "QLabel { font-size: 12px; font-weight: bold; padding: 4px 8px;"
+                " border-radius: 4px; color: #ecf0f1; background: #2d6a4f; }"
+            )
+        else:
+            label.setText(
+                "\u26a0\ufe0f No well selected \u2014 calculations can be run but "
+                "saved runs will not be attributed to any well."
+            )
+            label.setStyleSheet(
+                "QLabel { font-size: 12px; font-weight: bold; padding: 4px 8px;"
+                " border-radius: 4px; color: #4a3b00; background: #f0d264; }"
+            )
 
     def save_data(self) -> bool:
         return True
@@ -4195,8 +5370,15 @@ class EngineeringCalculatorTab(DrillTabBase):
         tab = QWidget()
         layout = QVBoxLayout(tab)
 
-        header = QLabel("📋 Drill Pipe Specifications Database")
+        header = QLabel(
+            "📋 Drill Pipe Vendor Sheet Viewer (read-only \u2014 not the calculation catalog)"
+        )
         header.setStyleSheet("font-weight: bold; color: #ecf0f1; padding: 5px;")
+        header.setToolTip(
+            "Read-only preview of an external DrillPipe.xlsx vendor sheet. "
+            "This is NOT the calculation reference catalog and is not used by any "
+            "calculation; select pipes for calculations via a component's Quick Select."
+        )
         layout.addWidget(header)
 
         if self._drill_pipe_df is not None:
@@ -4207,14 +5389,13 @@ class EngineeringCalculatorTab(DrillTabBase):
             layout.addWidget(table)
         else:
             msg = QLabel(
-                "⚠️ DrillPipe.xlsx not found!\n\n"
-                "Place DrillPipe.xlsx in one of these locations:\n"
-                "• DrillPipe.xlsx (root)\n"
-                "• data/DrillPipe.xlsx\n"
-                "• resources/DrillPipe.xlsx"
+                "Optional vendor DrillPipe reference is unavailable.\n\n"
+                "Set DRILLMASTER_DRILLPIPE_PATH, place DrillPipe.xlsx in the application data directory, "
+                "or use Browse below. Expected vendor sheet: Aa.\n"
+                "Only vendor-reference lookup is unavailable; independent calculations remain usable."
             )
             msg.setAlignment(Qt.AlignCenter)
-            msg.setStyleSheet("color: #e74c3c; font-size: 13px; padding: 30px;")
+            msg.setStyleSheet("color: #c9a65a; font-size: 13px; padding: 30px;")
             layout.addWidget(msg)
 
             load_btn = QPushButton("📂 Browse for DrillPipe.xlsx")

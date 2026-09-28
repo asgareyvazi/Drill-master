@@ -1,5 +1,4 @@
 """Tests for the expanded canonical schema."""
-import pytest
 from core.canonical_schema import (
     FIELD_SPECS, CANONICAL_FIELDS,
     get_critical_fields, get_fields_by_quantity, get_field_spec,

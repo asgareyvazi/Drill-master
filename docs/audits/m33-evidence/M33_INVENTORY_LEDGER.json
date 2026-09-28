@@ -1,0 +1,392 @@
+{
+ "schema": "M33_INVENTORY_LEDGER",
+ "what_this_file_is": "Manifest and invariant projection of the Mission 33 inventory ledger. The per-item ledger (one record per occurrence, with path/symbol/pattern/context fingerprint/source sha256/domain/priority/disposition/rule/evidence/root cause) is the file `m33-ledger.json` in this same directory, hash-pinned below; this file summarises it and states its invariants so the deliverable can be read without loading ~30 MB of JSON. It is not a substitute and it is not a second source of truth: any disagreement is resolved in favour of m33-ledger.json.",
+ "source_of_truth": {
+  "path": "docs/audits/m33-evidence/m33-ledger.json",
+  "sha256": "d4f8616bdc6c994a105d79345a607a0b05195257f85cb36ba0871fd93281d60d",
+  "bytes": 7117048,
+  "records": 8934,
+  "source_sha256_field": "per-record source_sha256 (sha256 of the file at adjudication time)",
+  "context_fingerprint_field": "per-record context_fingerprint (path|kind|symbol|expression|ordinal)"
+ },
+ "inventory": {
+  "items": 8934,
+  "by_origin": {
+   "M32-LEDGER": 8570,
+   "M32-LEDGER-ABSENT": 96,
+   "M33-NEW": 266,
+   "M33-FORENSICS": 2
+  },
+  "by_kind": {
+   "broad-exception": 863,
+   "raw-sql": 463,
+   "reduction": 512,
+   "return-false": 302,
+   "return-none": 911,
+   "selection-scalar": 15,
+   "truthiness-bare": 2850,
+   "truthiness-selection": 228,
+   "typed-exception": 371,
+   "numeric-parameter-default": 150,
+   "numeric-get-default": 424,
+   "numeric-default": 200,
+   "or-empty": 667,
+   "or-zero": 236,
+   "selection-first": 278,
+   "selection-one_or_none": 31,
+   "or-constant": 110,
+   "none-get-default": 129,
+   "test-skip": 17,
+   "selection-one": 46,
+   "pass-statement": 130,
+   "setvalue-zero": 1
+  },
+  "dispositions": {
+   "INTENTIONAL-BY-DESIGN": 2264,
+   "VERIFIED-CORRECT": 3712,
+   "UNDER-REVIEW": 2837,
+   "DEFECT-FIXED": 51,
+   "EXTERNAL-ACCEPTANCE-ONLY": 17,
+   "EVIDENCE-INCOMPLETE": 4,
+   "REMOVED-WITH-EVIDENCE": 49
+  }
+ },
+ "reconciliation": {
+  "m32_ledger_items": 8666,
+  "carried_forward": 8570,
+  "absent": 96,
+  "absent_by_reason": {
+   "ABSENT-REMOVED": 96
+  },
+  "sweep_source_hits": 3403,
+  "sweep_hits_matched_to_carried_items": 3137,
+  "new_sweep_hits": 266,
+  "carried_by_revalidation": {
+   "SAME": 6886,
+   "MATCHED-TAIL": 377,
+   "MOVED": 1277,
+   "MOVED-IN-FUNCTION": 21,
+   "MOVED-IN-FUNCTION-AMBIGUOUS": 9
+  },
+  "sweep_files_scanned": 341
+ },
+ "open_residual": {
+  "UNDER-REVIEW": 2837,
+  "EVIDENCE-INCOMPLETE": 4,
+  "under_review_by_kind": {
+   "return-false": 4,
+   "typed-exception": 155,
+   "numeric-parameter-default": 64,
+   "numeric-get-default": 82,
+   "truthiness-bare": 1058,
+   "broad-exception": 106,
+   "reduction": 128,
+   "numeric-default": 52,
+   "or-empty": 270,
+   "or-zero": 97,
+   "return-none": 338,
+   "truthiness-selection": 120,
+   "selection-first": 180,
+   "selection-one_or_none": 8,
+   "or-constant": 38,
+   "none-get-default": 2,
+   "selection-one": 27,
+   "pass-statement": 108
+  },
+  "under_review_by_rule": {
+   "R-RET-ONLY-SENTINEL": 189,
+   "R-EXC-PASS": 104,
+   "R-NUM-UNKNOWN": 78,
+   "R-DEF-VALUE-PATH": 97,
+   "R-TRUTH-UNKNOWN": 963,
+   "R-EXC-OTHER": 64,
+   "R-EXC-SILENT-RETURN": 53,
+   "R-RED-UNPROVEN": 126,
+   "R-TRUTH-NUMERIC": 215,
+   "R-PARAM-ARITH": 38,
+   "R-DEF-UNKNOWN": 339,
+   "R-DEF-RETURN-NUM": 51,
+   "R-EXC-CONTINUE": 40,
+   "R-SEL-UNPROVEN": 217,
+   "R-RET-UNPROVEN": 153,
+   "R-RED-ZERO": 2,
+   "R-PASS-EXC": 85,
+   "R-PASS-OTHER": 23
+  },
+  "top_files": [
+   [
+    "core/database.py",
+    418
+   ],
+   [
+    "tabs/w7_logistics_Widget.py",
+    127
+   ],
+   [
+    "tabs/w13_Engineering_Calculator.py",
+    120
+   ],
+   [
+    "main_window.py",
+    98
+   ],
+   [
+    "tabs/w12_Analysis.py",
+    90
+   ],
+   [
+    "tabs/w2_Daily_Report.py",
+    86
+   ],
+   [
+    "tabs/w3c_section_data.py",
+    74
+   ],
+   [
+    "tabs/w10_Planning_Widget.py",
+    72
+   ],
+   [
+    "dialogs/smart_template_dialog.py",
+    66
+   ],
+   [
+    "tabs/w14_Procedure_Widget.py",
+    58
+   ],
+   [
+    "core/ddr_import_service.py",
+    56
+   ],
+   [
+    "core/report_engine.py",
+    56
+   ],
+   [
+    "tabs/w3_drilling_report.py",
+    52
+   ],
+   [
+    "core/excel_intelligence.py",
+    46
+   ],
+   [
+    "dialogs/hierarchy_dialogs.py",
+    46
+   ]
+  ],
+  "evidence_incomplete_records": [
+   {
+    "id": "M32-b3f7430419",
+    "file": "tests/test_cost_management_widget_smoke.py",
+    "line": 10,
+    "rule": "R-RET-UNPROVEN",
+    "evidence": "sentinel return with no documented contract (callers found: 0)"
+   },
+   {
+    "id": "M32-decc7c3cd9",
+    "file": "tests/test_ddr_save_atomicity.py",
+    "line": 78,
+    "rule": "R-NOLOCATE: broad-exception",
+    "evidence": "rule could not read its subject at the current line"
+   },
+   {
+    "id": "M32-6fb88c9839",
+    "file": "tests/test_inventory_live_calc_smoke.py",
+    "line": 59,
+    "rule": "R-RET-UNPROVEN",
+    "evidence": "sentinel return with no documented contract (callers found: 0)"
+   },
+   {
+    "id": "M32-580fa98cd1",
+    "file": "tests/test_p0_phase1_regressions.py",
+    "line": 7,
+    "rule": "R-NOLOCATE: broad-exception",
+    "evidence": "rule could not read its subject at the current line"
+   }
+  ]
+ },
+ "domain_matrix": {
+  "taxonomy": "docs/audits/m29-evidence/domain-matrix.json (69 domains)",
+  "ledger_items": 8932,
+  "in_taxonomy_items": 2832,
+  "shared_core_source_items": 6100,
+  "coarse_domain_view": {
+   "ui": {
+    "total": 3952,
+    "dispositions": {
+     "VERIFIED-CORRECT": 1577,
+     "INTENTIONAL-BY-DESIGN": 1058,
+     "UNDER-REVIEW": 1293,
+     "REMOVED-WITH-EVIDENCE": 13,
+     "DEFECT-FIXED": 11
+    }
+   },
+   "core": {
+    "total": 1823,
+    "dispositions": {
+     "INTENTIONAL-BY-DESIGN": 359,
+     "VERIFIED-CORRECT": 836,
+     "UNDER-REVIEW": 628
+    }
+   },
+   "persistence": {
+    "total": 1531,
+    "dispositions": {
+     "VERIFIED-CORRECT": 649,
+     "UNDER-REVIEW": 456,
+     "INTENTIONAL-BY-DESIGN": 390,
+     "REMOVED-WITH-EVIDENCE": 12,
+     "DEFECT-FIXED": 24
+    }
+   },
+   "engineering": {
+    "total": 482,
+    "dispositions": {
+     "VERIFIED-CORRECT": 168,
+     "UNDER-REVIEW": 141,
+     "INTENTIONAL-BY-DESIGN": 173
+    }
+   },
+   "export": {
+    "total": 443,
+    "dispositions": {
+     "INTENTIONAL-BY-DESIGN": 171,
+     "UNDER-REVIEW": 86,
+     "VERIFIED-CORRECT": 156,
+     "DEFECT-FIXED": 8,
+     "REMOVED-WITH-EVIDENCE": 22
+    }
+   },
+   "test": {
+    "total": 420,
+    "dispositions": {
+     "UNDER-REVIEW": 135,
+     "VERIFIED-CORRECT": 219,
+     "INTENTIONAL-BY-DESIGN": 45,
+     "EXTERNAL-ACCEPTANCE-ONLY": 17,
+     "EVIDENCE-INCOMPLETE": 4
+    }
+   },
+   "validation": {
+    "total": 118,
+    "dispositions": {
+     "INTENTIONAL-BY-DESIGN": 32,
+     "VERIFIED-CORRECT": 33,
+     "UNDER-REVIEW": 48,
+     "DEFECT-FIXED": 3,
+     "REMOVED-WITH-EVIDENCE": 2
+    }
+   },
+   "ui-managers": {
+    "total": 53,
+    "dispositions": {
+     "UNDER-REVIEW": 23,
+     "VERIFIED-CORRECT": 16,
+     "INTENTIONAL-BY-DESIGN": 13,
+     "DEFECT-FIXED": 1
+    }
+   },
+   "operations": {
+    "total": 30,
+    "dispositions": {
+     "INTENTIONAL-BY-DESIGN": 7,
+     "UNDER-REVIEW": 2,
+     "VERIFIED-CORRECT": 21
+    }
+   },
+   "cost": {
+    "total": 24,
+    "dispositions": {
+     "INTENTIONAL-BY-DESIGN": 7,
+     "UNDER-REVIEW": 8,
+     "VERIFIED-CORRECT": 9
+    }
+   },
+   "inventory": {
+    "total": 17,
+    "dispositions": {
+     "UNDER-REVIEW": 9,
+     "VERIFIED-CORRECT": 8
+    }
+   },
+   "ai": {
+    "total": 15,
+    "dispositions": {
+     "INTENTIONAL-BY-DESIGN": 8,
+     "VERIFIED-CORRECT": 6,
+     "UNDER-REVIEW": 1
+    }
+   },
+   "plan-actual": {
+    "total": 11,
+    "dispositions": {
+     "INTENTIONAL-BY-DESIGN": 2,
+     "UNDER-REVIEW": 1,
+     "VERIFIED-CORRECT": 8
+    }
+   },
+   "scope": {
+    "total": 8,
+    "dispositions": {
+     "VERIFIED-CORRECT": 2,
+     "INTENTIONAL-BY-DESIGN": 1,
+     "UNDER-REVIEW": 5
+    }
+   },
+   "time": {
+    "total": 3,
+    "dispositions": {
+     "VERIFIED-CORRECT": 2,
+     "UNDER-REVIEW": 1
+    }
+   },
+   "safety": {
+    "total": 2,
+    "dispositions": {
+     "VERIFIED-CORRECT": 2
+    }
+   }
+  },
+  "invariant_sum_equals_ledger": true
+ },
+ "mutation_controls": {
+  "total": 24,
+  "killed": 24,
+  "survivors": [],
+  "restore_failures": [],
+  "path": "docs/audits/m33-evidence/m33-mutation-controls.json"
+ },
+ "verification": {
+  "full_suite": {
+   "tests": 1818,
+   "failures": 0,
+   "errors": 0,
+   "skipped": 4,
+   "time_seconds": 296.777
+  },
+  "skipped": 4,
+  "junit_sha256": "b7ec010961a0930c891b5ac346965eeaac9e78f105a7a45d7102865f51673e8f",
+  "staging_simulation": {
+   "commit1_sha": "bdae4616078f040da8d89445f6fc43be130777cc",
+   "commit2_sha": "b1fca5dac4181f16e0aa9c52de6c6b96369a7178",
+   "commit1_files": 87,
+   "commit2_files": 222
+  }
+ },
+ "documentation": {
+  "documents_audited": 84,
+  "actions": {
+   "FIX": 18,
+   "HOLD": 61,
+   "HISTORICAL-BANNER": 5
+  }
+ },
+ "capture_context": {
+  "head": "c28bbef37cbac9de7abcfa693e7e21f678fa74ab",
+  "branch": "arena/01a0c945-drill-master",
+  "worktree_modified": 89,
+  "worktree_untracked": 230,
+  "worktree_diff_sha256": "7acf216888f4741a05cc975057b24e81f5babc9a10259ed591bcf5b6286778ba"
+ }
+}

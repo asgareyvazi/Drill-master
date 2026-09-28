@@ -1,7 +1,7 @@
 """Safety, BOP, Waste repositories."""
 
 from .base import BaseRepository
-from core.database import SafetyReport, BOPComponent, WasteRecord
+from core.database import BOPComponent
 from typing import Dict, List
 import logging
 

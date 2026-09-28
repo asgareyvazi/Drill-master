@@ -1,12 +1,13 @@
 """
-Database ORM Models — extracted from database.py for maintainability.
-
-All SQLAlchemy model classes are defined here. database.py imports them
-for backward compatibility:
-    from core.database import Well, DailyReport, ...
+Legacy, separately mapped model declarations retained for the unwired
+core.db_services extraction experiment. NOT the application's authoritative
+schema: production services and migrations use core.database.Base/models.
+Do not use these declarations to create or migrate application databases.
+Internal callers: core.db_services only; its functions are not wired into
+DatabaseManager. Retained pending compatibility/caller adjudication, not deleted.
 """
 import logging
-from datetime import datetime, date, timezone
+from datetime import datetime, timezone
 
 from sqlalchemy import (
     Column, Integer, String, Float, Date, DateTime,
@@ -552,8 +553,10 @@ class SurveyPoint(Base):
         Integer, ForeignKey("daily_reports.id", ondelete="CASCADE"), nullable=True
     )
     md = Column(Float, nullable=False)
-    inc = Column(Float, nullable=False)
-    azi = Column(Float, nullable=False)
+    # Preserve missing directional source values as NULL; the canonical
+    # trajectory engine rejects incomplete stations rather than assuming zero.
+    inc = Column(Float, nullable=True)
+    azi = Column(Float, nullable=True)
     tvd = Column(Float)
     north = Column(Float)
     east = Column(Float)

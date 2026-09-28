@@ -1,0 +1,12 @@
+{
+  "local_cached_ref": "drill-Master",
+  "remote_freshness": "UNKNOWN: authentication blocked",
+  "outside_ancestry": [
+    "02053eb0fa351f62279e5086eedecdcc492107d4",
+    "1e4b92041e243276f0be37a4b542d15f2721778c",
+    "dad3adc3c69b9d6ef7de86695b92a8d62400131a"
+  ],
+  "three_dot_diff": "A\t12 - DDR OEOC-201 AZNS-166 2025-Nov-07 (1404.08.16).pdf\n",
+  "classification": "UNMERGED-REVIEW-REQUIRED",
+  "action": "RETAINED; unique real PDF is useful acceptance input"
+}

@@ -10,7 +10,7 @@ Advanced Drilling Hydraulics Engine
 """
 import math
 import logging
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict
 from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)
@@ -864,6 +864,10 @@ class AdvancedHydraulicsEngine:
 
             ΔP = Q² × MW / (10858 × TFA²)      (Q in gpm, MW in ppg, TFA in in²)
         """
+        if gpm < 0:
+            raise ValueError("gpm cannot be negative")
+        if mw_ppg <= 0:
+            raise ValueError("mw_ppg must be > 0")
         if tfa_in2 <= 0:
             raise ValueError("TFA must be > 0")
         return gpm**2 * mw_ppg / (10858.0 * tfa_in2**2)
@@ -875,6 +879,10 @@ class AdvancedHydraulicsEngine:
 
             TFA = √(Q² × MW / (10858 × ΔP))
         """
+        if gpm < 0:
+            raise ValueError("gpm cannot be negative")
+        if mw_ppg <= 0:
+            raise ValueError("mw_ppg must be > 0")
         if delta_p_psi <= 0:
             raise ValueError("delta_p_psi must be > 0")
         return math.sqrt(gpm**2 * mw_ppg / (10858.0 * delta_p_psi))
@@ -885,13 +893,19 @@ class AdvancedHydraulicsEngine:
 
             HHP = Q × ΔP / 1714
         """
+        if gpm < 0 or pressure_drop_psi < 0:
+            raise ValueError("Flow and pressure drop cannot be negative")
         return gpm * pressure_drop_psi / 1714.0
 
     @staticmethod
     def calc_hsi(bit_hhp: float, bit_od_in: float) -> float:
         """Hydraulic horsepower per square inch of bit area."""
+        if bit_hhp < 0:
+            raise ValueError("bit_hhp cannot be negative")
+        if bit_od_in <= 0:
+            raise ValueError("bit_od_in must be > 0")
         area = math.pi / 4.0 * bit_od_in**2
-        return bit_hhp / area if area > 0 else 0.0
+        return bit_hhp / area
 
     @staticmethod
     def calc_jet_velocity(gpm: float, tfa_in2: float) -> float:
@@ -907,6 +921,8 @@ class AdvancedHydraulicsEngine:
 
             F = MW × Q × v / 1930
         """
+        if mw_ppg <= 0 or gpm < 0 or jet_velocity_fps < 0:
+            raise ValueError("MW must be > 0; flow and jet velocity cannot be negative")
         return mw_ppg * gpm * jet_velocity_fps / 1930.0
 
     @staticmethod
@@ -926,6 +942,107 @@ class AdvancedHydraulicsEngine:
         }
 
     @staticmethod
+    def optimize_nozzles(
+        hhp: float,
+        max_press: float,
+        fr1: float,
+        spp1: float,
+        fr2: float,
+        spp2: float,
+        prev_tfa: float,
+        mw_ppg: float,
+        n_nozzles: int,
+        model: str = "HP",
+    ) -> dict:
+        """Canonical bit-nozzle optimization (max-HHP or max-impact criterion).
+
+        Single authoritative implementation. All bit pressure-drop / TFA
+        values come from calc_bit_pressure_drop() and
+        calc_tfa_from_pressure_drop() (ΔP = Q²·MW/(10858·TFA²)) so the
+        optimizer can never disagree with the canonical bit hydraulics.
+
+        Method (Bourgoyne et al., Applied Drilling Engineering):
+        1. Parasitic-loss exponent n from a two-point pump test:
+               n = log10(SPP₁/SPP₂) / log10(Q₁/Q₂)
+        2. Optimum parasitic-loss split:
+               max HHP:      ΔP_par = P_max / (n + 1)
+               max impact:   ΔP_par = 2·P_max / (n + 2)
+        3. Optimum flow Q_opt from the two-point friction law
+           ΔP_par = a·Q^n, then required TFA from the canonical formula.
+
+        When the two-point test is invalid (missing/zero readings, or a
+        non-positive exponent) n = 1.0 is used as the documented fallback.
+        Nozzle combination search is over standard 1/32-inch sizes.
+        """
+        import itertools
+
+        nzl_sizes = (6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20,
+                     22, 24, 26, 28, 30)
+
+        def nozzle_area(size32: float) -> float:
+            d = size32 / 32.0
+            return math.pi * (d / 2) ** 2
+
+        # Maximum pump-limited flow: HHP = Q·ΔP/1714  →  Q = HHP·1714/ΔP
+        q_max = hhp * 1714.0 / max_press if max_press > 0 else 0.0
+
+        # Parasitic-loss exponent from a two-point pump test.
+        n = 1.0  # documented fallback
+        if (fr2 > 0 and fr1 > 0 and spp1 > 0 and spp2 > 0
+                and abs(fr1 - fr2) > 1e-9 and spp1 != spp2):
+            try:
+                cand = (math.log10(spp1 / spp2) / math.log10(fr1 / fr2))
+                if cand > 0:
+                    n = cand
+            except (ValueError, ZeroDivisionError):
+                n = 1.0
+
+        if model == "HP":
+            dpf_max = max_press / (n + 1.0) if n != -1.0 else 0.0
+        else:
+            dpf_max = 2.0 * max_press / (n + 2.0)
+
+        # Parasitic friction at the pump-test point (SPP minus bit loss).
+        dpf_1 = 0.0
+        if prev_tfa > 0:
+            dpf_1 = spp1 - AdvancedHydraulicsEngine.calc_bit_pressure_drop(
+                fr1, mw_ppg, prev_tfa)
+        a = dpf_1 / (fr1 ** n) if fr1 > 0 else 0.0
+
+        if a > 0 and n != 0:
+            q_opt = (dpf_max / a) ** (1.0 / n)
+        else:
+            q_opt = q_max
+
+        dp_bit = max_press - dpf_max
+        if dp_bit > 0 and q_opt > 0 and mw_ppg > 0:
+            opt_tfa = AdvancedHydraulicsEngine.calc_tfa_from_pressure_drop(
+                q_opt, mw_ppg, dp_bit)
+        else:
+            opt_tfa = 0.0
+
+        # Best real nozzle combination (1/32-in sizes).
+        best_combo = None
+        best_error = 1e9
+        for combo in itertools.combinations_with_replacement(
+                nzl_sizes, max(0, int(n_nozzles))):
+            total_area = sum(nozzle_area(s) for s in combo)
+            error = abs(opt_tfa - total_area)
+            if error < best_error:
+                best_error = error
+                best_combo = combo
+
+        return {
+            "max_flow_rate_gpm": round(q_max, 1),
+            "optimal_flow_rate_gpm": round(q_opt, 1),
+            "optimal_tfa_in2": round(opt_tfa, 4),
+            "selected_nozzles": list(best_combo) if best_combo else [],
+            "actual_tfa_in2": round(
+                sum(nozzle_area(s) for s in best_combo), 4) if best_combo else 0,
+            "tfa_error": round(best_error, 4),
+        }
+
+    @staticmethod
     def calc_pump_output(liner_size_inch: float, stroke_length_inch: float,
                           efficiency: float = 0.95) -> float:
         """Triplex pump output (bbl/stroke).
@@ -934,6 +1051,10 @@ class AdvancedHydraulicsEngine:
             output = 0.000243 × liner² × stroke × efficiency
         (0.000243 = π/4 ÷ 231 in³/gal ÷ 42 gal/bbl × 12³ in³/ft³.)
         """
+        if liner_size_inch <= 0 or stroke_length_inch <= 0:
+            raise ValueError("Liner size and stroke length must be > 0")
+        if not 0 < efficiency <= 1:
+            raise ValueError("Pump efficiency must be in (0, 1]")
         return 0.000243 * liner_size_inch**2 * stroke_length_inch * efficiency
 
     @staticmethod
@@ -949,6 +1070,12 @@ class AdvancedHydraulicsEngine:
         diameter reduces displacement on one side (hence − rod²).
         0.000162 is the duplex geometry constant (bbl/stroke for inches).
         """
+        if liner_size_inch <= 0 or stroke_length_inch <= 0:
+            raise ValueError("Liner size and stroke length must be > 0")
+        if rod_size_inch < 0 or rod_size_inch >= liner_size_inch:
+            raise ValueError("Rod size must be ≥ 0 and smaller than liner size")
+        if not 0 < efficiency <= 1:
+            raise ValueError("Pump efficiency must be in (0, 1]")
         return 0.000162 * stroke_length_inch * (
             2.0 * liner_size_inch**2 - rod_size_inch**2
         ) * efficiency
@@ -969,10 +1096,14 @@ class AdvancedHydraulicsEngine:
         turbulent (better hole cleaning, higher ECD).
         """
         gap = hole_size_in - pipe_od_in
+        if hole_size_in <= 0 or pipe_od_in <= 0:
+            raise ValueError("Hole size and pipe OD must be > 0")
         if gap <= 0:
             raise ValueError("Hole size must be > pipe OD")
         if mw_ppg <= 0 or pv_cp <= 0:
             raise ValueError("MW and PV must be > 0")
+        if yp_lbf100ft2 < 0:
+            raise ValueError("Yield point cannot be negative")
         vc_fps = (1.08 * pv_cp + 1.08 * math.sqrt(
             pv_cp**2 + 9.26 * gap**2 * yp_lbf100ft2 * mw_ppg
         )) / (mw_ppg * gap)
@@ -995,6 +1126,29 @@ class AdvancedHydraulicsEngine:
     def calc_pipe_capacity_bbl(pipe_id: float, length_ft: float) -> float:
         """ظرفیت لوله (bbl)"""
         return pipe_id**2 / 1029.4 * length_ft
+
+    @staticmethod
+    def calc_annular_capacity_bbl_ft(hole_id: float, pipe_od: float) -> float:
+        """Annular capacity (bbl/ft) — canonical (Dh² − Dp²)/1029.4."""
+        return (hole_id**2 - pipe_od**2) / 1029.4
+
+    @staticmethod
+    def calc_pipe_capacity_bbl_ft(pipe_id: float) -> float:
+        """Pipe capacity (bbl/ft) — canonical ID²/1029.4."""
+        return pipe_id**2 / 1029.4
+
+    @staticmethod
+    def calc_pipe_displacement_bbl_ft(pipe_od: float, pipe_id: float) -> float:
+        """Pipe metal displacement (bbl/ft) — canonical (OD² − ID²)/1029.4."""
+        return (pipe_od**2 - pipe_id**2) / 1029.4
+
+    @staticmethod
+    def calc_bottoms_up_strokes(annular_volume_bbl: float,
+                                pump_output_bbl_stroke: float) -> float:
+        """Strokes of pump output needed to pump the annulus around (stk)."""
+        if pump_output_bbl_stroke <= 0:
+            return 0.0
+        return annular_volume_bbl / pump_output_bbl_stroke
 
     @staticmethod
     def calc_bottoms_up_time(annular_volume_bbl: float, pump_output_bbl_stroke: float,

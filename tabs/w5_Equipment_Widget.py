@@ -4,16 +4,14 @@ Equipment Widget - ویجت تجهیزات با قابلیت‌های کامل (
 """
 
 import logging
-import json
-from datetime import datetime, date
-from typing import Dict, Any, List, Optional
+from datetime import datetime
 
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
 
-from core.managers import StatusBarManager, TableManager, ExportManager, TableButtonManager
-from core.database import DailyReport, Well
+from core.managers import StatusBarManager, TableManager, ExportManager
+from core.editor_state import editor_loaded, editor_saved
 from core.base_tab import DrillTabBase
 
 logger = logging.getLogger(__name__)
@@ -114,13 +112,14 @@ class RigEquipmentTab(QWidget):
     def remove_row(self):
         self.table_manager.delete_row()
         
+    @editor_saved()
     def save_data(self):
         try:
             data = self.get_table_data()
             if self.parent_widget and hasattr(self.parent_widget, 'save_rig_equipment'):
                 return self.parent_widget.save_rig_equipment(data)
-            QMessageBox.information(self, "Success", "Rig equipment data saved")
-            return True
+            QMessageBox.warning(self, "Not saved", "No persistence provider is attached")
+            return False
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Failed to save: {str(e)}")
             return False
@@ -154,6 +153,7 @@ class RigEquipmentTab(QWidget):
             data.append(row_data)
         return data
         
+    @editor_loaded()
     def load_table_data(self, data):
         self.table.setRowCount(0)
         for row_data in data:
@@ -236,8 +236,12 @@ class InventoryTab(QWidget):
                       
     def add_row(self, data=None):
         if data is None:
-            data = ["New Item", "Category", 0, 0, 0, 0, "pcs", 10, 100]
-        
+            # A NEW blank editor row must not assert reported zero quantities or
+            # fabricated thresholds. Quantity/threshold cells start EMPTY
+            # (unknown); the user enters real values. Only the unit keeps a
+            # harmless placeholder. Blank-named rows are dropped on save.
+            data = ["New Item", "Category", "", "", "", "", "pcs", "", ""]
+
         self.table_manager.add_row(data)
         
     def remove_row(self):
@@ -245,63 +249,71 @@ class InventoryTab(QWidget):
         
 
     def calculate_inventory(self):
+        # The live Remaining cell must obey the SAME three-state contract as
+        # persistence (core/inventory_semantics): a MISSING opening yields an
+        # UNKNOWN remaining (blank), never a fabricated 0-based number. An
+        # explicit 0 opening is a real fact and does produce a computed value.
+        from core.inventory_semantics import (
+            normalize_item_row, derive_closing,
+        )
         try:
             for row in range(self.table.rowCount()):
-                try:
-                    opening_item = self.table.item(row, 2)
-                    received_item = self.table.item(row, 3)
-                    used_item = self.table.item(row, 4)
+                numeric_cells = {}
+                for field, column in (("opening_stock", 2), ("received", 3), ("used", 4),
+                                      ("min_level", 7), ("max_level", 8)):
+                    item = self.table.item(row, column)
+                    numeric_cells[field] = item.text() if item else None
+                normalized = normalize_item_row(numeric_cells)
+                opening = normalized["opening_stock"]
+                received, used = normalized["received"], normalized["used"]
+                # None when opening is unknown — never opening-as-zero.
+                remaining = derive_closing(opening, received, used)
 
-                    if opening_item and received_item and used_item:
-                        opening = float(opening_item.text() or 0)
-                        received = float(received_item.text() or 0)
-                        used = float(used_item.text() or 0)
-                        remaining = opening + received - used
+                remaining_item = self.table.item(row, 5)
+                if not remaining_item:
+                    remaining_item = QTableWidgetItem()
+                    self.table.setItem(row, 5, remaining_item)
 
-                        remaining_item = self.table.item(row, 5)
-                        if not remaining_item:
-                            remaining_item = QTableWidgetItem()
-                            self.table.setItem(row, 5, remaining_item)
+                # Unknown remaining shows as an empty cell (not "0.00"), keeping
+                # the UI honest with what will be persisted.
+                remaining_item.setText("" if remaining is None else f"{remaining:.2f}")
+                remaining_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
-                        remaining_item.setText(f"{remaining:.2f}")
-                        remaining_item.setTextAlignment(
-                            Qt.AlignRight | Qt.AlignVCenter
-                        )
-
-                        min_item = self.table.item(row, 7)
-                        max_item = self.table.item(row, 8)
-
-                        if min_item and max_item:
-                            try:
-                                min_level = float(min_item.text() or 0)
-                                max_level = float(max_item.text() or 0)
-                                if remaining < min_level:
-                                    remaining_item.setBackground(
-                                        QColor(255, 200, 200)
-                                    )
-                                elif remaining > max_level:
-                                    remaining_item.setBackground(
-                                        QColor(255, 255, 200)
-                                    )
-                                else:
-                                    remaining_item.setBackground(
-                                        QColor(200, 255, 200)
-                                    )
-                            except ValueError:
-                                pass
-                except ValueError:
-                    continue
-
+                # Threshold status is only meaningful when the remaining value
+                # AND the threshold being compared are both known. Missing
+                # min/max are NOT treated as 0.
+                min_level, max_level = normalized["min_level"], normalized["max_level"]
+                if remaining is None:
+                    # No known remaining -> no threshold verdict; clear any tint.
+                    remaining_item.setData(Qt.BackgroundRole, None)
+                elif min_level is not None and remaining < min_level:
+                    remaining_item.setBackground(QColor(255, 200, 200))
+                elif max_level is not None and remaining > max_level:
+                    remaining_item.setBackground(QColor(255, 255, 200))
+                elif min_level is not None or max_level is not None:
+                    remaining_item.setBackground(QColor(200, 255, 200))
+                else:
+                    remaining_item.setData(Qt.BackgroundRole, None)
         except Exception as e:
             logger.error(f"Calculation failed: {str(e)}")
+            for row in range(self.table.rowCount()):
+                item = self.table.item(row, 5)
+                if item is None:
+                    item = QTableWidgetItem()
+                    self.table.setItem(row, 5, item)
+                item.setText("INVALID")
+                item.setToolTip("Calculation failed: invalid worksheet numeric input")
+                item.setData(Qt.BackgroundRole, None)
+            return False
             
+    @editor_saved()
     def save_data(self):
         try:
             data = self.get_table_data()
             if self.parent_widget and hasattr(self.parent_widget, 'save_inventory'):
                 return self.parent_widget.save_inventory(data)
-            QMessageBox.information(self, "Success", "Inventory data saved")
-            return True
+            QMessageBox.warning(self, "Not saved", "No persistence provider is attached")
+            return False
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Failed to save: {str(e)}")
             return False
@@ -335,6 +347,7 @@ class InventoryTab(QWidget):
             data.append(row_data)
         return data
         
+    @editor_loaded()
     def load_table_data(self, data):
         self.table.setRowCount(0)
         for row_data in data:
@@ -420,13 +433,14 @@ class DrillPipeTab(QWidget):
     def remove_row(self):
         self.table_manager.delete_row()
         
+    @editor_saved()
     def save_data(self):
         try:
             data = self.get_table_data()
             if self.parent_widget and hasattr(self.parent_widget, 'save_drill_pipe'):
                 return self.parent_widget.save_drill_pipe(data)
-            QMessageBox.information(self, "Success", "Drill pipe data saved")
-            return True
+            QMessageBox.warning(self, "Not saved", "No persistence provider is attached")
+            return False
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Failed to save: {str(e)}")
             return False
@@ -460,6 +474,7 @@ class DrillPipeTab(QWidget):
             data.append(row_data)
         return data
         
+    @editor_loaded()
     def load_table_data(self, data):
         self.table.setRowCount(0)
         for row_data in data:
@@ -544,13 +559,14 @@ class SolidControlTab(QWidget):
     def remove_row(self):
         self.table_manager.delete_row()
         
+    @editor_saved()
     def save_data(self):
         try:
             data = self.get_table_data()
             if self.parent_widget and hasattr(self.parent_widget, 'save_solid_control'):
                 return self.parent_widget.save_solid_control(data)
-            QMessageBox.information(self, "Success", "Solid control data saved")
-            return True
+            QMessageBox.warning(self, "Not saved", "No persistence provider is attached")
+            return False
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Failed to save: {str(e)}")
             return False
@@ -584,6 +600,7 @@ class SolidControlTab(QWidget):
             data.append(row_data)
         return data
         
+    @editor_loaded()
     def load_table_data(self, data):
         self.table.setRowCount(0)
         for row_data in data:
@@ -609,6 +626,7 @@ class EquipmentWidget(DrillTabBase):
         self.init_ui()
         self.setup_shortcuts()
         self.load_data()
+        self.configure_save_tracking()
 
     def init_ui(self):
         main_layout = QVBoxLayout(self)
@@ -710,35 +728,59 @@ class EquipmentWidget(DrillTabBase):
 
     # ==================== Save/Load Methods ====================
     def save_rig_equipment(self, data):
-        self.equipment_data['rig_equipment'] = data
-        return True
+        return self.save_all_data(section_filter={"Rig Equipment"})
 
     def load_rig_equipment(self):
-        return self.equipment_data.get('rig_equipment', None)
+        self.load_all_data()
+        return self.rig_tab.get_table_data()
 
     def save_inventory(self, data):
-        self.equipment_data['inventory'] = data
-        return True
+        return self.save_all_data(section_filter={"Inventory"})
 
     def load_inventory(self):
-        return self.equipment_data.get('inventory', None)
+        self.load_all_data()
+        return self.inventory_tab.get_table_data()
 
     def save_drill_pipe(self, data):
-        self.equipment_data['drill_pipe'] = data
-        return True
+        return self.save_all_data(section_filter={"Drill Pipe"})
 
     def load_drill_pipe(self):
-        return self.equipment_data.get('drill_pipe', None)
+        self.load_all_data()
+        return self.pipe_tab.get_table_data()
 
     def save_solid_control(self, data):
-        self.equipment_data['solid_control'] = data
-        return True
+        return self.save_all_data(section_filter={"Solid Control"})
 
     def load_solid_control(self):
-        return self.equipment_data.get('solid_control', None)
+        self.load_all_data()
+        return self.solid_tab.get_table_data()
 
-    def save_all_data(self):
+    def save_all_data(self, section_filter=None):
         """ذخیره تمام تب‌ها در equipment_logs"""
+        # Read-only roles must never mutate equipment/inventory, regardless of
+        # whether the control happens to be enabled (Gate Q). Backend
+        # persistence is the authority, not UI widget state.
+        try:
+            from core.permissions import permissions
+            if permissions.is_viewer():
+                self.show_message("Viewer role is read-only: No Save allowed", 3000)
+                return False
+            if not permissions.has_permission("can_edit_reports"):
+                self.show_message("You do not have permission to edit reports", 3000)
+                return False
+        except Exception:
+            # Fail closed, exactly like core.permissions.require_permission (which logs
+            # the failure and sets allowed = False) and W16's save_data (which returns a
+            # SYSTEM_ERROR outcome). An access control that cannot be evaluated must never
+            # authorise the mutation the comment above this block forbids.
+            logger.exception("Permission check failed; equipment save blocked")
+            self.show_message(
+                "Permission check failed: nothing was saved. "
+                "Try again or contact an administrator.",
+                5000,
+            )
+            return False
+
         if not self.current_well:
             self.show_message("No well selected", 3000)
             return False
@@ -746,11 +788,16 @@ class EquipmentWidget(DrillTabBase):
         if not self.db:
             return False
 
-        saved_total = 0
+        from core.save_outcome import save_all
+        if not isinstance(section_filter, (set, tuple, list)):
+            section_filter = None  # QAction/PushButton may pass its checked boolean
+        # "Inventory" is no longer an EquipmentLog notes group: it persists to
+        # the authoritative InventoryItem model via a dedicated step below.
+        groups = {name: [] for name in ("Rig Equipment", "Drill Pipe", "Solid Control")}
 
         # ===== 1. Rig Equipment =====
         rig_data = self.rig_tab.get_table_data()
-        for row_data in rig_data:
+        for row_index, row_data in enumerate(rig_data, 1):
             if not row_data or not row_data[0].strip():
                 continue
             log_data = {
@@ -765,41 +812,31 @@ class EquipmentWidget(DrillTabBase):
                 "service_date": row_data[5] if len(row_data) > 5 else None,
                 "notes": row_data[7] if len(row_data) > 7 else "",
             }
-            try:
-                if self.db.save_equipment_log(log_data):
-                    saved_total += 1
-            except Exception as e:
-                logger.error(f"Save rig equipment error: {e}")
+            groups[log_data["equipment_type"]].append(log_data)
 
-        # ===== 2. Inventory =====
-        inv_data = self.inventory_tab.get_table_data()
-        for row_data in inv_data:
+        # ===== 2. Inventory (authoritative InventoryItem model) =====
+        # W5 general inventory persists to InventoryItem — NOT to an encoded
+        # EquipmentLog.notes string. Rows are mapped to the model's field names;
+        # blank numeric cells stay unknown (None), not a fabricated 0.
+        inv_rows = []
+        for row_data in self.inventory_tab.get_table_data():
             if not row_data or not row_data[0].strip():
                 continue
-            log_data = {
-                "well_id": self.current_well,
-                "report_id": self.current_report_id,
-                "equipment_type": "Inventory",
-                "equipment_name": row_data[0] if len(row_data) > 0 else "",
-                "equipment_id": row_data[1] if len(row_data) > 1 else "",
-                "status": "Active",
-                "hours_worked": 0,
-                "notes": (
-                    f"Stock:{row_data[2]}|Recv:{row_data[3]}|"
-                    f"Used:{row_data[4]}|Rem:{row_data[5]}|"
-                    f"Unit:{row_data[6]}"
-                    if len(row_data) > 6 else ""
-                ),
-            }
-            try:
-                if self.db.save_equipment_log(log_data):
-                    saved_total += 1
-            except Exception as e:
-                logger.error(f"Save inventory error: {e}")
+            inv_rows.append({
+                "item_name": row_data[0] if len(row_data) > 0 else "",
+                "category": row_data[1] if len(row_data) > 1 else "",
+                "opening_stock": row_data[2] if len(row_data) > 2 else "",
+                "received": row_data[3] if len(row_data) > 3 else "",
+                "used": row_data[4] if len(row_data) > 4 else "",
+                # column 5 (Remaining) is DERIVED — never persisted from the UI.
+                "unit": row_data[6] if len(row_data) > 6 else "",
+                "min_level": row_data[7] if len(row_data) > 7 else "",
+                "max_level": row_data[8] if len(row_data) > 8 else "",
+            })
 
         # ===== 3. Drill Pipe =====
         pipe_data = self.pipe_tab.get_table_data()
-        for row_data in pipe_data:
+        for row_index, row_data in enumerate(pipe_data, 1):
             if not row_data or not row_data[0].strip():
                 continue
             log_data = {
@@ -818,15 +855,11 @@ class EquipmentWidget(DrillTabBase):
                     if len(row_data) > 6 else ""
                 ),
             }
-            try:
-                if self.db.save_equipment_log(log_data):
-                    saved_total += 1
-            except Exception as e:
-                logger.error(f"Save drill pipe error: {e}")
+            groups[log_data["equipment_type"]].append(log_data)
 
         # ===== 4. Solid Control =====
         solid_data = self.solid_tab.get_table_data()
-        for row_data in solid_data:
+        for row_index, row_data in enumerate(solid_data, 1):
             if not row_data or not row_data[0].strip():
                 continue
             log_data = {
@@ -836,8 +869,7 @@ class EquipmentWidget(DrillTabBase):
                 "equipment_name": row_data[0] if len(row_data) > 0 else "",
                 "equipment_id": row_data[1] if len(row_data) > 1 else "",
                 "hours_worked": (
-                    float(row_data[3]) if len(row_data) > 3
-                    and row_data[3] else 0
+                    row_data[3] if len(row_data) > 3 and row_data[3] else None
                 ),
                 "status": "Operational",
                 "notes": (
@@ -847,19 +879,99 @@ class EquipmentWidget(DrillTabBase):
                     if len(row_data) > 7 else ""
                 ),
             }
+            groups[log_data["equipment_type"]].append(log_data)
+
+        steps = [(name, lambda name=name, rows=rows: self.db.save_equipment_records(self.current_well, self.current_report_id, name, rows))
+                 for name, rows in groups.items() if not section_filter or name in section_filter]
+        if not section_filter or "Inventory" in section_filter:
+            steps.append(("Inventory", lambda rows=inv_rows: self._save_inventory_rows(rows)))
+        self.last_save_outcome = save_all(steps)
+        (self.show_success if self.last_save_outcome else self.show_error)(self.last_save_outcome.summary())
+        return bool(self.last_save_outcome)
+
+    def _report_date_for_current(self):
+        """Best-effort report_date for the current report (for carry-forward)."""
+        if not self.current_report_id or not self.db:
+            return None
+        try:
+            report = self.db.get_daily_report_by_id(self.current_report_id)
+        except Exception:
+            return None
+        if not report:
+            return None
+        if isinstance(report, dict):
+            return report.get("report_date")
+        return getattr(report, "report_date", None)
+
+    def _save_inventory_rows(self, rows):
+        """Persist the W5 inventory worksheet to the InventoryItem model."""
+        user_id = None
+        try:
+            from core.permissions import permissions
+            user_id = getattr(permissions, "user_id", None)
+        except Exception:
+            user_id = None
+        return self.db.save_inventory_items(
+            self.current_well,
+            self.current_report_id,
+            rows,
+            report_date=self._report_date_for_current(),
+            user_id=user_id,
+        )
+
+    @staticmethod
+    def _inv_cell(value):
+        """Render a stored inventory value for the table.
+
+        Unknown (None) shows as an empty cell — never a fabricated "0" — so the
+        three-state distinction survives the round-trip on screen.
+        """
+        if value is None:
+            return ""
+        if isinstance(value, float) and value.is_integer():
+            return str(int(value))
+        return str(value)
+
+    def _load_inventory_rows(self):
+        """Load inventory from InventoryItem; fall back to legacy notes once."""
+        try:
+            items = self.db.get_inventory_items(
+                well_id=self.current_well, report_id=self.current_report_id)
+        except Exception as e:
+            logger.error(f"Inventory load failed: {e}")
+            items = []
+        legacy = False
+        if not items:
+            # One-time compatibility: surface legacy EquipmentLog notes rows so
+            # they can be migrated by re-saving. Read-only, unknown preserved.
             try:
-                if self.db.save_equipment_log(log_data):
-                    saved_total += 1
-            except Exception as e:
-                logger.error(f"Save solid control error: {e}")
+                items = self.db.get_legacy_inventory_notes(
+                    self.current_well, report_id=self.current_report_id)
+                legacy = bool(items)
+            except Exception:
+                items = []
+        if not items:
+            return
+        data = []
+        for it in items:
+            data.append([
+                it.get("item_name", "") or "",
+                it.get("category", "") or "",
+                self._inv_cell(it.get("opening_stock")),
+                self._inv_cell(it.get("received")),
+                self._inv_cell(it.get("used")),
+                self._inv_cell(it.get("current_stock")),
+                it.get("unit", "") or "",
+                self._inv_cell(it.get("min_level")),
+                self._inv_cell(it.get("max_level")),
+            ])
+        self.inventory_tab.load_table_data(data)
+        if legacy:
+            self.show_message(
+                "Loaded legacy inventory — re-save to migrate it to the "
+                "structured inventory store.", 5000)
 
-        if saved_total > 0:
-            self.show_success(f"Saved {saved_total} equipment records")
-            return True
-        else:
-            self.show_message("No data to save", 3000)
-            return False
-
+    @editor_loaded()
     def load_all_data(self):
         """بارگذاری از equipment_logs"""
         if not self.current_well or not self.db:
@@ -874,8 +986,8 @@ class EquipmentWidget(DrillTabBase):
             # ===== Rig Equipment =====
             rig_logs = self.db.get_equipment_logs(
                 well_id=self.current_well,
+                report_id=self.current_report_id,
                 equipment_type="Rig Equipment",
-                report_id=self.current_report_id if self.current_report_id else None,
             )
             if rig_logs:
                 data = []
@@ -892,37 +1004,13 @@ class EquipmentWidget(DrillTabBase):
                     ])
                 self.rig_tab.load_table_data(data)
 
-            # ===== Inventory =====
-            inv_logs = self.db.get_equipment_logs(
-                well_id=self.current_well,
-                equipment_type="Inventory",
-            )
-            if inv_logs:
-                data = []
-                for log in inv_logs:
-                    notes = log.get("notes", "")
-                    parts = {}
-                    if notes:
-                        for part in notes.split("|"):
-                            if ":" in part:
-                                k, v = part.split(":", 1)
-                                parts[k.strip()] = v.strip()
-                    data.append([
-                        log.get("equipment_name", ""),
-                        log.get("equipment_id", ""),
-                        parts.get("Stock", "0"),
-                        parts.get("Recv", "0"),
-                        parts.get("Used", "0"),
-                        parts.get("Rem", "0"),
-                        parts.get("Unit", "pcs"),
-                        "0",
-                        "100",
-                    ])
-                self.inventory_tab.load_table_data(data)
+            # ===== Inventory (authoritative InventoryItem model) =====
+            self._load_inventory_rows()
 
             # ===== Drill Pipe =====
             pipe_logs = self.db.get_equipment_logs(
                 well_id=self.current_well,
+                report_id=self.current_report_id,
                 equipment_type="Drill Pipe",
             )
             if pipe_logs:
@@ -952,6 +1040,7 @@ class EquipmentWidget(DrillTabBase):
             # ===== Solid Control =====
             solid_logs = self.db.get_equipment_logs(
                 well_id=self.current_well,
+                report_id=self.current_report_id,
                 equipment_type="Solid Control",
             )
             if solid_logs:
@@ -980,6 +1069,7 @@ class EquipmentWidget(DrillTabBase):
 
         except Exception as e:
             logger.error(f"Load equipment data error: {e}")
+            raise
             
 
     def refresh_data(self):

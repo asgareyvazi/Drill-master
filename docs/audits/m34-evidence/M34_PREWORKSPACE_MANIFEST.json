@@ -1,0 +1,2296 @@
+{
+ "schema": "M34_PREWORKSPACE_MANIFEST",
+ "captured_utc": "2026-09-27T11:35:45Z",
+ "repository": {
+  "path": "/home/user/Drill-master",
+  "remote": [
+   "origin\thttps://github.com/asgareyvazi/Drill-master.git (fetch)",
+   "origin\thttps://github.com/asgareyvazi/Drill-master.git (push)"
+  ]
+ },
+ "head": "c28bbef37cbac9de7abcfa693e7e21f678fa74ab",
+ "head_tree": "7e16996cdcc1bce4a79fed8823371c20c74eef15",
+ "branch": "arena/01a0c945-drill-master",
+ "head_commit_meta": [
+  "c28bbef37cbac9de7abcfa693e7e21f678fa74ab",
+  "asgareyvazi",
+  "68778680+asgareyvazi@users.noreply.github.com",
+  "2026-09-22 11:39:11 +0000",
+  "M27: release-candidate integrity certification",
+  ""
+ ],
+ "branches": [
+  "* arena/01a0c945-drill-master c28bbef M27: release-candidate integrity certification",
+  "  drill-Master                02053eb [origin/drill-Master] Add files via upload",
+  "  remotes/origin/HEAD         -> origin/drill-Master",
+  "  remotes/origin/drill-Master 02053eb Add files via upload"
+ ],
+ "porcelain_lines": 124,
+ "counts": {
+  "modified_tracked": 89,
+  "untracked": 230,
+  "deleted": 0,
+  "staged": 0
+ },
+ "diff": {
+  "stat_tail": " 89 files changed, 3332 insertions(+), 1910 deletions(-)",
+  "sha256_of_git_diff_bytes": "79c05d864f8b900e07b613544cb8e037ed6ddb42ee3117962b5f953dd9293c7c",
+  "bytes": 540741,
+  "cached_bytes": 0,
+  "check": "clean"
+ },
+ "shallow": {
+  "file_exists": true,
+  "refs": [
+   "02053eb0fa351f62279e5086eedecdcc492107d4",
+   "c28bbef37cbac9de7abcfa693e7e21f678fa74ab"
+  ]
+ },
+ "stash": "(none)",
+ "modified_tracked_files": [
+  "AI_MAPPING.md",
+  "ARCHITECTURE.md",
+  "DATABASE_ARCHITECTURE.md",
+  "DEPLOYMENT.md",
+  "ENGINEERING_ARCHITECTURE.md",
+  "ENGINEERING_AUDIT.md",
+  "ENGINEERING_CAPABILITY_STATUS.md",
+  "ENGINEERING_REFERENCE_MATRIX.md",
+  "IMPORT_PIPELINE.md",
+  "PRODUCTION_READINESS.md",
+  "README.md",
+  "RELEASE_NOTES.md",
+  "TESTING.md",
+  "app.py",
+  "core/actual_vs_plan.py",
+  "core/base_tab.py",
+  "core/cost_semantics.py",
+  "core/data_quality.py",
+  "core/database.py",
+  "core/db_models.py",
+  "core/ddr_import_service.py",
+  "core/ddr_pdf_export.py",
+  "core/engineering/bridge.py",
+  "core/engineering/engines/casing.py",
+  "core/engineering/engines/mse.py",
+  "core/engineering/result.py",
+  "core/engineering/well_control_kill_sheet.py",
+  "core/hierarchy_operations.py",
+  "core/inventory_semantics.py",
+  "core/managers.py",
+  "core/mapping_store.py",
+  "core/operations_intelligence.py",
+  "core/permissions.py",
+  "core/professional_export.py",
+  "core/rag_search.py",
+  "core/report_engine.py",
+  "core/report_snapshot.py",
+  "core/runtime_config.py",
+  "core/scope_attribution.py",
+  "core/selection_manager.py",
+  "core/text_utils.py",
+  "core/unit_manager.py",
+  "core/validators.py",
+  "dialogs/drilling_report_dialogs.py",
+  "dialogs/hierarchy_dialogs.py",
+  "dialogs/planning_dialog.py",
+  "dialogs/smart_template_dialog.py",
+  "docs/ENGINEERING_ARCHITECTURE.md",
+  "docs/WINDOWS_ACCEPTANCE.md",
+  "docs/audits/2026-09-22_RELEASE_CANDIDATE_INTEGRITY_CERTIFICATION.md",
+  "main_window.py",
+  "packaging/DrillMaster.spec",
+  "packaging/build_windows.ps1",
+  "packaging/package_smoke.py",
+  "pyproject.toml",
+  "requirements-lock.txt",
+  "tabs/w10_Planning_Widget.py",
+  "tabs/w12_Analysis.py",
+  "tabs/w13_Engineering_Calculator.py",
+  "tabs/w14_Procedure_Widget.py",
+  "tabs/w16_Cost_Management.py",
+  "tabs/w2_Daily_Report.py",
+  "tabs/w3_drilling_report.py",
+  "tabs/w3c_section_data.py",
+  "tabs/w5_Equipment_Widget.py",
+  "tabs/w6_Trajectory_Widget.py",
+  "tabs/w7_logistics_Widget.py",
+  "tabs/w8_Safety_Widget.py",
+  "tests/conftest.py",
+  "tests/test_autosave_manager_regression.py",
+  "tests/test_cost_management_widget_smoke.py",
+  "tests/test_cost_truth_boundary.py",
+  "tests/test_ddr_acceptance.py",
+  "tests/test_engineering_completion.py",
+  "tests/test_integration.py",
+  "tests/test_operations_intelligence_regressions.py",
+  "tests/test_packaging_smoke.py",
+  "tests/test_planning_material_persistence.py",
+  "tests/test_release.py",
+  "tests/test_release_gate_and_w13.py",
+  "tests/test_report_scope_metadata_m25.py",
+  "tests/test_report_snapshot.py",
+  "tests/test_schematic_no_fabrication.py",
+  "tests/test_scope_attribution.py",
+  "tests/test_selection_manager_context.py",
+  "tests/test_w12_milestones_m25.py",
+  "tests/test_w12_scope_leakage_m25.py",
+  "tools/certify_ddr.py",
+  "verify_release.py"
+ ],
+ "untracked_files": [
+  ".github/workflows/ci.yml",
+  "M30_DOMAIN_MATRIX.md",
+  "M30_RELEASE_CERTIFICATION.md",
+  "M30_ROOT_CAUSES.md",
+  "M30_SEMANTIC_AUDIT.md",
+  "M33_DOMAIN_MATRIX.md",
+  "M33_ENGINE_DEFAULTS.md",
+  "M33_EVIDENCE_INDEX.md",
+  "M33_RELEASE_CERTIFICATION.md",
+  "M33_ROOT_CAUSES.md",
+  "M33_SEMANTIC_AUDIT.md",
+  "core/operational_time.py",
+  "core/safety_semantics.py",
+  "docs/audits/2026-09-22_M27_INDEPENDENT_REAUDIT.md",
+  "docs/audits/2026-09-22_M28_FORENSIC_RELEASE_GATE.md",
+  "docs/audits/2026-09-23_M29_DOMAIN_MATRIX.md",
+  "docs/audits/2026-09-23_M29_RELEASE_CLOSURE.md",
+  "docs/audits/m27-independent-evidence/clean-worktree-refusal.txt",
+  "docs/audits/m27-independent-evidence/environment.json",
+  "docs/audits/m27-independent-evidence/final-worktree.txt",
+  "docs/audits/m27-independent-evidence/python310-lock-resolution.txt",
+  "docs/audits/m27-independent-evidence/remote-heads.txt",
+  "docs/audits/m27-independent-evidence/repository-workbook.txt",
+  "docs/audits/m27-independent-evidence/residual-probes.json",
+  "docs/audits/m27-independent-evidence/source-gate.txt",
+  "docs/audits/m27-independent-evidence/source-sha256.json",
+  "docs/audits/m27-independent-evidence/time-negative-control.txt",
+  "docs/audits/m28-evidence/c28bbef-check-runs.json",
+  "docs/audits/m28-evidence/environment.json",
+  "docs/audits/m28-evidence/execution-ledger.txt",
+  "docs/audits/m28-evidence/git-reality.txt",
+  "docs/audits/m28-evidence/import-removals.json",
+  "docs/audits/m28-evidence/import-summary.txt",
+  "docs/audits/m28-evidence/isolated-imports.json",
+  "docs/audits/m28-evidence/lock-resolution-310.txt",
+  "docs/audits/m28-evidence/lock-resolution-312.txt",
+  "docs/audits/m28-evidence/lock-resolution-313.txt",
+  "docs/audits/m28-evidence/negative-controls.txt",
+  "docs/audits/m28-evidence/pdf-acceptance-environment-blocked.txt",
+  "docs/audits/m28-evidence/publication-permission.txt",
+  "docs/audits/m28-evidence/real-asset-boundaries.txt",
+  "docs/audits/m28-evidence/remote-actions.json",
+  "docs/audits/m28-evidence/remote-heads.txt",
+  "docs/audits/m28-evidence/repository-workbook.txt",
+  "docs/audits/m28-evidence/risky-site-inventory.json",
+  "docs/audits/m28-evidence/source-gate.txt",
+  "docs/audits/m28-evidence/source-manifest.json",
+  "docs/audits/m28-evidence/source-package-smoke-initial-failure.txt",
+  "docs/audits/m28-evidence/source-package-smoke.txt",
+  "docs/audits/m29-evidence/README.md",
+  "docs/audits/m29-evidence/branch-inventory.json",
+  "docs/audits/m29-evidence/calendar-mud-tests.txt",
+  "docs/audits/m29-evidence/definition-review.json",
+  "docs/audits/m29-evidence/domain-matrix.json",
+  "docs/audits/m29-evidence/environment.json",
+  "docs/audits/m29-evidence/execution-summary.json",
+  "docs/audits/m29-evidence/final-source-gate.txt",
+  "docs/audits/m29-evidence/full-gate-first-attempt.txt",
+  "docs/audits/m29-evidence/github-api-response.json",
+  "docs/audits/m29-evidence/inventory-runner.py",
+  "docs/audits/m29-evidence/inventory-summary.json",
+  "docs/audits/m29-evidence/isolated-imports.json",
+  "docs/audits/m29-evidence/latest-focused-tests.txt",
+  "docs/audits/m29-evidence/model-inventory.json",
+  "docs/audits/m29-evidence/mutation-atomic-memory.txt",
+  "docs/audits/m29-evidence/mutation-backup.txt",
+  "docs/audits/m29-evidence/mutation-calendar-ambiguity.txt",
+  "docs/audits/m29-evidence/mutation-controls.json",
+  "docs/audits/m29-evidence/mutation-currency.txt",
+  "docs/audits/m29-evidence/mutation-export-return.txt",
+  "docs/audits/m29-evidence/mutation-gate.txt",
+  "docs/audits/m29-evidence/mutation-mud-direction.txt",
+  "docs/audits/m29-evidence/mutation-npt-scope.txt",
+  "docs/audits/m29-evidence/mutation-null-plan.txt",
+  "docs/audits/m29-evidence/mutation-ownership.txt",
+  "docs/audits/m29-evidence/mutation-permission.txt",
+  "docs/audits/m29-evidence/mutation-re-export.txt",
+  "docs/audits/m29-evidence/mutation-runner.py",
+  "docs/audits/m29-evidence/mutation-safety.txt",
+  "docs/audits/m29-evidence/mutation-snapshot.txt",
+  "docs/audits/m29-evidence/mutation-wheel-gate.txt",
+  "docs/audits/m29-evidence/mutation-wheel-runner.py",
+  "docs/audits/m29-evidence/mutation-wheel-test.txt",
+  "docs/audits/m29-evidence/mutation-wheel.json",
+  "docs/audits/m29-evidence/post-documentation-lint.json",
+  "docs/audits/m29-evidence/post-documentation-wheel.txt",
+  "docs/audits/m29-evidence/post-gate-source-check.json",
+  "docs/audits/m29-evidence/publication-attempt.txt",
+  "docs/audits/m29-evidence/real-pdf-attempt.txt",
+  "docs/audits/m29-evidence/real-pdf-probe.json",
+  "docs/audits/m29-evidence/recovery-file-inventory.json",
+  "docs/audits/m29-evidence/risky-site-inventory.json",
+  "docs/audits/m29-evidence/scope-consumer-index.json",
+  "docs/audits/m29-evidence/site-adjudications.json",
+  "docs/audits/m29-evidence/source-manifest.json",
+  "docs/audits/m29-evidence/unique-branch-content.json",
+  "docs/audits/m29-evidence/wheel-clean-staging.txt",
+  "docs/audits/m30-evidence/README.md",
+  "docs/audits/m30-evidence/backup-source.txt",
+  "docs/audits/m30-evidence/baseline-gate.txt",
+  "docs/audits/m30-evidence/branches.json",
+  "docs/audits/m30-evidence/compressed-logs.json",
+  "docs/audits/m30-evidence/current-ci.json",
+  "docs/audits/m30-evidence/documentation-claim-queue.json",
+  "docs/audits/m30-evidence/evidence-manifest.json",
+  "docs/audits/m30-evidence/final-focused-currency.txt",
+  "docs/audits/m30-evidence/final-gate-e2eeb35.txt",
+  "docs/audits/m30-evidence/final-source-and-controls-check.json",
+  "docs/audits/m30-evidence/financial-overflow-before.txt",
+  "docs/audits/m30-evidence/fresh-inventory-summary.json",
+  "docs/audits/m30-evidence/fresh-risky-site-inventory.json",
+  "docs/audits/m30-evidence/fresh-source-manifest.json",
+  "docs/audits/m30-evidence/fresh-sweep.json",
+  "docs/audits/m30-evidence/git-00.txt",
+  "docs/audits/m30-evidence/git-01.txt",
+  "docs/audits/m30-evidence/git-02.txt",
+  "docs/audits/m30-evidence/git-03.txt",
+  "docs/audits/m30-evidence/git-04.txt",
+  "docs/audits/m30-evidence/git-05.txt",
+  "docs/audits/m30-evidence/git-06.txt",
+  "docs/audits/m30-evidence/git-07.txt",
+  "docs/audits/m30-evidence/git-08.txt",
+  "docs/audits/m30-evidence/git-09.txt.gz",
+  "docs/audits/m30-evidence/git-10.txt",
+  "docs/audits/m30-evidence/git-11.txt",
+  "docs/audits/m30-evidence/git-initial.json",
+  "docs/audits/m30-evidence/huge-integer-before.txt",
+  "docs/audits/m30-evidence/input-assets.json",
+  "docs/audits/m30-evidence/inventory-summary.json",
+  "docs/audits/m30-evidence/inventory.json",
+  "docs/audits/m30-evidence/ledger-runner.py.txt",
+  "docs/audits/m30-evidence/m29-manifest-recheck.json",
+  "docs/audits/m30-evidence/m29-replay-mutation-atomic-memory.txt.gz",
+  "docs/audits/m30-evidence/m29-replay-mutation-backup.txt",
+  "docs/audits/m30-evidence/m29-replay-mutation-calendar-ambiguity.txt",
+  "docs/audits/m30-evidence/m29-replay-mutation-controls.json",
+  "docs/audits/m30-evidence/m29-replay-mutation-currency.txt",
+  "docs/audits/m30-evidence/m29-replay-mutation-export-return.txt",
+  "docs/audits/m30-evidence/m29-replay-mutation-gate.txt.gz",
+  "docs/audits/m30-evidence/m29-replay-mutation-mud-direction.txt",
+  "docs/audits/m30-evidence/m29-replay-mutation-npt-scope.txt",
+  "docs/audits/m30-evidence/m29-replay-mutation-null-plan.txt.gz",
+  "docs/audits/m30-evidence/m29-replay-mutation-ownership.txt",
+  "docs/audits/m30-evidence/m29-replay-mutation-permission.txt",
+  "docs/audits/m30-evidence/m29-replay-mutation-re-export.txt.gz",
+  "docs/audits/m30-evidence/m29-replay-mutation-safety.txt",
+  "docs/audits/m30-evidence/m29-replay-mutation-snapshot.txt",
+  "docs/audits/m30-evidence/money-overflow.txt",
+  "docs/audits/m30-evidence/mse-nonfinite.txt",
+  "docs/audits/m30-evidence/mutation-wheel-gate.txt",
+  "docs/audits/m30-evidence/mutation-wheel-test.txt",
+  "docs/audits/m30-evidence/mutation-wheel.json",
+  "docs/audits/m30-evidence/native-qt.txt",
+  "docs/audits/m30-evidence/new-controls.json",
+  "docs/audits/m30-evidence/new-regressions-before.txt.gz",
+  "docs/audits/m30-evidence/new.py.txt",
+  "docs/audits/m30-evidence/numeric-overflow.txt",
+  "docs/audits/m30-evidence/patch-verification.json",
+  "docs/audits/m30-evidence/push-source.txt",
+  "docs/audits/m30-evidence/real-pdf.txt",
+  "docs/audits/m30-evidence/remote-9d511cd.json",
+  "docs/audits/m30-evidence/remote-beaf963.json",
+  "docs/audits/m30-evidence/remote-fb857d7.json",
+  "docs/audits/m30-evidence/remote-heads-after-push.txt",
+  "docs/audits/m30-evidence/replay.py.txt",
+  "docs/audits/m30-evidence/ruff-ratchet-summary.json",
+  "docs/audits/m30-evidence/ruff-ratchet.json.gz",
+  "docs/audits/m30-evidence/ruff-root-summary.json",
+  "docs/audits/m30-evidence/ruff-root.json.gz",
+  "docs/audits/m30-evidence/same-pattern-runner.py.txt",
+  "docs/audits/m30-evidence/scope-candidate.txt",
+  "docs/audits/m30-evidence/scope-coverage.txt",
+  "docs/audits/m30-evidence/search-failure.txt",
+  "docs/audits/m30-evidence/second-controls-before.txt",
+  "docs/audits/m30-evidence/snapshot-alias.txt",
+  "docs/audits/m30-evidence/stock-unit.txt",
+  "docs/audits/m30-evidence/sweep-comparison.json",
+  "docs/audits/m30-evidence/tree-reconstruction.json",
+  "docs/audits/m30-evidence/unknown-currency-before.txt",
+  "docs/audits/m30-evidence/unknown-currency.txt",
+  "docs/audits/m30-evidence/wheel-replay.py.txt",
+  "docs/audits/m31-evidence/m31-adjudication-pass1.json",
+  "docs/audits/m31-evidence/m31-adjudication-summary.json",
+  "docs/audits/m31-evidence/m31-dispositions.jsonl",
+  "docs/audits/m31-evidence/m31-inventory-summary.json",
+  "docs/audits/m31-evidence/m31-inventory.json",
+  "docs/audits/m31-evidence/m31-source-manifest.json",
+  "docs/audits/m32-evidence/m32-absent-evidence-summary.json",
+  "docs/audits/m32-evidence/m32-absent-evidence.json",
+  "docs/audits/m32-evidence/m32-fix-batch-1.json",
+  "docs/audits/m32-evidence/m32-fix-batch-2.json",
+  "docs/audits/m32-evidence/m32-fix-integrity.json",
+  "docs/audits/m32-evidence/m32-ledger-summary.json",
+  "docs/audits/m32-evidence/m32-ledger.json",
+  "docs/audits/m32-evidence/m32-new-sites.json",
+  "docs/audits/m32-evidence/m32-revalidation-summary.json",
+  "docs/audits/m32-evidence/m32-revalidation.json",
+  "docs/audits/m32-evidence/m32-source-manifest-summary.json",
+  "docs/audits/m32-evidence/m32-source-manifest.json",
+  "docs/audits/m32-evidence/m32-sweep-summary.json",
+  "docs/audits/m32-evidence/m32-sweep.json",
+  "docs/audits/m33-evidence/M33_INVENTORY_LEDGER.json",
+  "docs/audits/m33-evidence/M33_PREWORKSPACE_MANIFEST.json",
+  "docs/audits/m33-evidence/m33-closure-invariants.json",
+  "docs/audits/m33-evidence/m33-commit-staging-simulation.json",
+  "docs/audits/m33-evidence/m33-doc-claim-audit.json",
+  "docs/audits/m33-evidence/m33-domain-matrix.json",
+  "docs/audits/m33-evidence/m33-evidence-manifest.json",
+  "docs/audits/m33-evidence/m33-fix-records.json",
+  "docs/audits/m33-evidence/m33-fresh-sweep.json",
+  "docs/audits/m33-evidence/m33-full-suite-junit.xml",
+  "docs/audits/m33-evidence/m33-full-suite-summary.json",
+  "docs/audits/m33-evidence/m33-integrity-incidents.json",
+  "docs/audits/m33-evidence/m33-ledger-summary.json",
+  "docs/audits/m33-evidence/m33-ledger.json",
+  "docs/audits/m33-evidence/m33-m32-fix-reverification.json",
+  "docs/audits/m33-evidence/m33-mutation-controls.json",
+  "docs/audits/m33-evidence/m33-reconciliation.json",
+  "docs/audits/m33-evidence/m33-wheel-and-clean-env.json",
+  "tests/test_casing_absent_load_semantics.py",
+  "tests/test_casing_absent_load_widget_smoke.py",
+  "tests/test_m28_finance_safety_plan.py",
+  "tests/test_m29_planning_ui.py",
+  "tests/test_m29_release_closure.py",
+  "tests/test_m30_semantic_regressions.py",
+  "tests/test_m31_scenarios.py",
+  "tests/test_operational_time_integrity.py",
+  "tests/test_ownership_parent_edits.py",
+  "tests/test_release_gate_integrity.py",
+  "tests/test_test_process_isolation.py"
+ ],
+ "sha256_modified_and_untracked": {
+  "AI_MAPPING.md": {
+   "sha256": "a4e4d8a0252a6143cecae838b1e3dafffa23d2639611f8f470d956b1461df690",
+   "size": 3777,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "ARCHITECTURE.md": {
+   "sha256": "c8502ec64a270959bacb7bb7c32b0f2427c90853a8eb585044fb2c8c28529229",
+   "size": 8634,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "DATABASE_ARCHITECTURE.md": {
+   "sha256": "ae0ae0b660d50e6b3f6c507947a69576df723d1ac118ae3c3bdb819bdc33ccbc",
+   "size": 18742,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "DEPLOYMENT.md": {
+   "sha256": "8d001a5dbb3781bea58107f1bb351914e334fb0fcbea9e74c09e4a6fc46b6849",
+   "size": 12214,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "ENGINEERING_ARCHITECTURE.md": {
+   "sha256": "6f6d39a5d3808bf9cee5ec1a68e728a424a51722d7178f0de295f58569b0c18a",
+   "size": 7700,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "ENGINEERING_AUDIT.md": {
+   "sha256": "94bbcb0416905fe40a118cd3cd1940abb1a5fe2c6f4011fb1baa8c0c7b8fd377",
+   "size": 10693,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "ENGINEERING_CAPABILITY_STATUS.md": {
+   "sha256": "9ed2757fa4c6fe0de5273dff4ef1e63ed2475be5fcd1181ee1119e226ead2826",
+   "size": 5137,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "ENGINEERING_REFERENCE_MATRIX.md": {
+   "sha256": "717186065085da7db4071314a64942112d98a6559a59c7bec304e71a47f368e4",
+   "size": 5965,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "IMPORT_PIPELINE.md": {
+   "sha256": "ed4317fb57d00ea18386d2f0479a566884e2de3bb33f0efa7a44c4640574582a",
+   "size": 9198,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "PRODUCTION_READINESS.md": {
+   "sha256": "6b5bdaa846631fab50e9b3a320d0350f2dedf580bb1a44c14f8399812581ded2",
+   "size": 7289,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "README.md": {
+   "sha256": "6138db15eb7a08e7840c4d3bd4b291105d7a7ee71ced3f3ea5bcc300146c23ea",
+   "size": 13115,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "RELEASE_NOTES.md": {
+   "sha256": "5e7487a2c1d1fe328235bedee0fdcef81a182f37bcd8e9911eece8353eea0ab6",
+   "size": 3566,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "TESTING.md": {
+   "sha256": "d1ff3195c382d0c222c35f1aba21faac07c17ababc2b4b87ce55f4659e07826e",
+   "size": 10357,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "app.py": {
+   "sha256": "8755845b24b901dbaf460472797375ab49002a78d230e8b9131f3d6792abbde7",
+   "size": 25237,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "core/actual_vs_plan.py": {
+   "sha256": "f87488ffd7d7abc2d47411f6643963165c8875fa1077e22571cbe283a6f644d1",
+   "size": 6421,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "core/base_tab.py": {
+   "sha256": "2e45ad138245d11b83f90943ceb2305e6fc900a0ad693486b70d37bbb72fce39",
+   "size": 15689,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "core/cost_semantics.py": {
+   "sha256": "8cce6d2bd53dfd6416f517fe7032cfc97676f12c801eae28aa1a33743f8f28f8",
+   "size": 9442,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "core/data_quality.py": {
+   "sha256": "0151a92768ec15d1d26c3e81890c5cd2aad2479b12b97b3c00d2eff92a7ba9cc",
+   "size": 13637,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "core/database.py": {
+   "sha256": "578d6a9c3eb83c405d7c3fb5d532416c2612137117a7bfa6d8d32b83562e54c2",
+   "size": 486374,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "core/db_models.py": {
+   "sha256": "e81c82bbdb1f2d0743f1d394e09379d4fdef59e0c3bc9d23dcc1b5f9fced459d",
+   "size": 61660,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "core/ddr_import_service.py": {
+   "sha256": "ee069e9e1adf74a59f52dbf8efc560bd7995426ecf1cd5bd3dea21aa40d44f3d",
+   "size": 65158,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "core/ddr_pdf_export.py": {
+   "sha256": "88f88b72f9d169328fe60f5cee07c7b8c41707563cd9ec155b5b6097505f9b46",
+   "size": 7213,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "core/engineering/bridge.py": {
+   "sha256": "304daca18a9ee3bcff6169a11101988fbced7ec9e3b94aac2176c518e7b95ee0",
+   "size": 3876,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "core/engineering/engines/casing.py": {
+   "sha256": "17eb484b1a0957129ea7e45b7101702b9c9d09b99f9263c6cb7a8c097a30e545",
+   "size": 23316,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "core/engineering/engines/mse.py": {
+   "sha256": "10568a2c447b9e6c9066e1666925f7d2af89e522b7b7b3947df039231cd6598a",
+   "size": 3378,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "core/engineering/result.py": {
+   "sha256": "ae3b319c79b09c64a36c46ec77e6c2ffe850ee19b5a051f3986a47bbe071ac33",
+   "size": 3946,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "core/engineering/well_control_kill_sheet.py": {
+   "sha256": "08e2d7ec1e0d6b1fa067779d41b1039c976c02b8ab76099c3e69cdcf38335eaa",
+   "size": 22649,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "core/hierarchy_operations.py": {
+   "sha256": "fa677f3050d288cf7635b8f6677ef2463b6bfaa073077e0e343028c891ca42ca",
+   "size": 7192,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "core/inventory_semantics.py": {
+   "sha256": "b1e7ff9017ed0f06bdfc71336135bfd8364eaeaa71bd5d938689171920319c5c",
+   "size": 3607,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "core/managers.py": {
+   "sha256": "1c0f33c4ca47170a995b35d8b33126fb48b473f0c0dfb4dd1597ce8c36d2609b",
+   "size": 16553,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "core/mapping_store.py": {
+   "sha256": "172ccd7f6b97185718011855b0c3eeb7e5b8d865748f0b6c626a2a9e6d90c8df",
+   "size": 1506,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "core/operations_intelligence.py": {
+   "sha256": "aeb313cd7d99e6b169076fdace72c6bc650547235faab9cc1ae2fdc0c700b0ad",
+   "size": 25675,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "core/permissions.py": {
+   "sha256": "40b44321de6804c9037958d34533c02423a263a5d49abf81823f221162065f3b",
+   "size": 4005,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "core/professional_export.py": {
+   "sha256": "96878cf690f49d01c29a0b38323a761e275c9cddec9ff2d98d387a060dd73727",
+   "size": 28023,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "core/rag_search.py": {
+   "sha256": "2217ee7ad0a06a71f5d9d80152c95145e8708bcc423841b1df4e15831ae2f4eb",
+   "size": 5108,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "core/report_engine.py": {
+   "sha256": "b14943e80b71c7d29d3e5c43f7a5fbcf150c6854bd68bb8f5c4dcf90bdf88b0c",
+   "size": 90652,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "core/report_snapshot.py": {
+   "sha256": "65a9054e4685eed0166a6235c0ba0b4763bb5f9a0ea668da7c7908a6c642961f",
+   "size": 7070,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "core/runtime_config.py": {
+   "sha256": "edbde20cc8291b775a38545d6d7617e6c5c1dfd57309fba952bbc28911baf4d5",
+   "size": 6079,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "core/scope_attribution.py": {
+   "sha256": "7de589e5a975941bc0618b1afbdc585b40562d9fff60f5b6d4735e4006e41611",
+   "size": 15797,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "core/selection_manager.py": {
+   "sha256": "f0ef3ab19398fb0f43b8f1268b08b6f00c67e89c28fe9010fbf7824841ffee22",
+   "size": 12759,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "core/text_utils.py": {
+   "sha256": "4b4bfecff79b17a0153e7d57d73f95fffb3e861bf4e0e5e4704b45e4a4d2e656",
+   "size": 2254,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "core/unit_manager.py": {
+   "sha256": "2c8f6605e261b25c3c89bdb2ad96bd0ed3bc5abbdad782ed87c062c55a6ef2e5",
+   "size": 16172,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "core/validators.py": {
+   "sha256": "ae1f69d157a55d3691df42b71379973150b4d57cd56e1ea8178b5cb60152ad0c",
+   "size": 23860,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "dialogs/drilling_report_dialogs.py": {
+   "sha256": "4c296617482bc11721365e6b0a4389a293d1904272f0b849c55943f0b4a373c0",
+   "size": 21327,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "dialogs/hierarchy_dialogs.py": {
+   "sha256": "ae4cafcb940cc4938ec8514f56b7a60744acddde6366298290a7a1103c2c3737",
+   "size": 61063,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "dialogs/planning_dialog.py": {
+   "sha256": "adb5875bb751af734d517e688649453953304d0ec5d4bc27b87a4b21024221c4",
+   "size": 49814,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "dialogs/smart_template_dialog.py": {
+   "sha256": "c913e2b2c955001959d33730fc6d1ed94e0fab3140837bfdc739622228edf093",
+   "size": 131454,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "docs/ENGINEERING_ARCHITECTURE.md": {
+   "sha256": "2ad1839ec3908b5b2777dd8073b20863edac9896bcd2fecb11e1f4abca852a84",
+   "size": 7258,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "docs/WINDOWS_ACCEPTANCE.md": {
+   "sha256": "6842a50a0b7c3bf42b521f6e85751da56aec781f56a96338d934dd4573b3e1cc",
+   "size": 5984,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "docs/audits/2026-09-22_RELEASE_CANDIDATE_INTEGRITY_CERTIFICATION.md": {
+   "sha256": "4e77e778faf58c760e15b513f12e4b3643e874537c5e16ccdaee2d8e4198ca13",
+   "size": 19365,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "main_window.py": {
+   "sha256": "b2db27d79a7d237acbf2688e29a71cf0f9fbee1c78318124f8026fc2df80ca75",
+   "size": 118960,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "packaging/DrillMaster.spec": {
+   "sha256": "2727473c5e5efe98f4e4c85caf59847070b44bae7fcaeab04e2469cde5999978",
+   "size": 4320,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "packaging/build_windows.ps1": {
+   "sha256": "f57e55a10d36a2bdc88b7dda17b43c69117d1970443c70186ca0c897a1dca6bf",
+   "size": 3387,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "packaging/package_smoke.py": {
+   "sha256": "6bc03c135253e1c95effe2ce4d355565c67ba1d6088db6c1b705c3face9fadeb",
+   "size": 2665,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "pyproject.toml": {
+   "sha256": "232631c9bee100f9d5ab88c42162115c89657720116a91e1c1e37bf0a70a4360",
+   "size": 1312,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "requirements-lock.txt": {
+   "sha256": "31cfba3e98edba2161b7b7018049c74d0c6b5993ce16609fa2019776e1f82e99",
+   "size": 821,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "tabs/w10_Planning_Widget.py": {
+   "sha256": "924ad3e30d57d7cffa2868aa7dcb9595455c56d0ac052f4362c1575b2fe807c3",
+   "size": 131479,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "tabs/w12_Analysis.py": {
+   "sha256": "4935eb8b49d13bf8aa39851cfdfa3ee58561a37a5514ba3e50d52ec28517bbbe",
+   "size": 139609,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "tabs/w13_Engineering_Calculator.py": {
+   "sha256": "4fd94858f423a09793e7afaf0f40e346c9bab046d39bfe49faab4aad340f4bee",
+   "size": 238447,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "tabs/w14_Procedure_Widget.py": {
+   "sha256": "c9f3a11e00d06f2e97a4649276e0bcff86c7a2d63fb77c832da2db1443e0473a",
+   "size": 70742,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "tabs/w16_Cost_Management.py": {
+   "sha256": "e0368c4c4bce678695b45cb21bfcdd8eb823ea03a77732315b46f244611cd22d",
+   "size": 27605,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "tabs/w2_Daily_Report.py": {
+   "sha256": "c5740755f05519d83336777520ee3406b8d60b8a90af77633a9223daa2fb89ae",
+   "size": 103510,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "tabs/w3_drilling_report.py": {
+   "sha256": "e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0",
+   "size": 74937,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "tabs/w3c_section_data.py": {
+   "sha256": "5038a740761be06f65b9c81076482aff3f58e2e85b737d600e4f3fda5b8eaf27",
+   "size": 92229,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "tabs/w5_Equipment_Widget.py": {
+   "sha256": "7cbe07214dbeb8cd3b8bb4668ec54040eec4e2e740e4e2188d24fd8c73758359",
+   "size": 42667,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "tabs/w6_Trajectory_Widget.py": {
+   "sha256": "068546ebd1fffde7dd1def78366cff89969d6d1a9531b852a42b432150623327",
+   "size": 39639,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "tabs/w7_logistics_Widget.py": {
+   "sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+   "size": 94200,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "tabs/w8_Safety_Widget.py": {
+   "sha256": "32405f6fc7f6b9bb5398d5f36b3e051346f6cb9f41384e3e6193249f70d25faa",
+   "size": 35570,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "tests/conftest.py": {
+   "sha256": "a69c613d04f2e3d21f7101f829d2bc27eed1c62ade69d851a42d0fd878202b80",
+   "size": 1931,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "tests/test_autosave_manager_regression.py": {
+   "sha256": "f07170668dbaf302ea6b3f0d633dd9686bfc6e1547f4d05253d03819cc642860",
+   "size": 3626,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "tests/test_cost_management_widget_smoke.py": {
+   "sha256": "c8eec7ef914d484864ba893590fcbdeafd286c810c439219a9858e875349b374",
+   "size": 4520,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "tests/test_cost_truth_boundary.py": {
+   "sha256": "c7a46412853f79ebee861469ec1e4e576b326763b594c012411fbb5c9fb17d0f",
+   "size": 9076,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "tests/test_ddr_acceptance.py": {
+   "sha256": "525a263277a4527fa701347ecd5eae4c7516ea8dcc484740fc6865ff73585a85",
+   "size": 11390,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "tests/test_engineering_completion.py": {
+   "sha256": "b253da9da7e4bf6c01a04bcf7551db7b8f1f1a792fc17f31b02cb1ed1f900ad4",
+   "size": 9108,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "tests/test_integration.py": {
+   "sha256": "c11b4fb6334bc29473c2cd62d7a3dc686cde7e2025a504bb68849cb2c6455e36",
+   "size": 16015,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "tests/test_operations_intelligence_regressions.py": {
+   "sha256": "0c51918c9e04cf9fd098fdfb879118b589841e675a053caeb32ddd570b972ec5",
+   "size": 14099,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "tests/test_packaging_smoke.py": {
+   "sha256": "b9c4474fdcfcfc53bcc831d25b5a984a7bfdea4ba5d6bf850b4028d6aa542a88",
+   "size": 3237,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "tests/test_planning_material_persistence.py": {
+   "sha256": "aed0031dd450ecfafc4280d5d5410e85ea8db7b19a0f00d1a8414a234e4aa82b",
+   "size": 3484,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "tests/test_release.py": {
+   "sha256": "c9b0a189cd609a69a11d13525e7145f757cf702c61f93d832e0e755aa0d97adb",
+   "size": 7378,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "tests/test_release_gate_and_w13.py": {
+   "sha256": "f66add7e77e582e0cc9e4b4edc8f7fd52bf12be0bbe9565e34f27a4657c5134d",
+   "size": 10882,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "tests/test_report_scope_metadata_m25.py": {
+   "sha256": "745da3a47914f812030d6240260c4d200a5c45303602824ab1a852af36cf1868",
+   "size": 8554,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "tests/test_report_snapshot.py": {
+   "sha256": "d7717787d2ec006e2e2c24e958e96d268287920bc19daf2c04642a9125839ddf",
+   "size": 16363,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "tests/test_schematic_no_fabrication.py": {
+   "sha256": "7b00a02db6c1ec92a605e26d2a7d8fc5bdb2e2527e4dcf5f3f8a2cd680833306",
+   "size": 18597,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "tests/test_scope_attribution.py": {
+   "sha256": "67f56423a2020778501af3932b87cda140112d344d4e8e11a17030d8cc96fd9c",
+   "size": 17093,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "tests/test_selection_manager_context.py": {
+   "sha256": "850a150b1ebdf2122ebfa993979e42a46bf9be93cc59c52645ad03fec2732aac",
+   "size": 7027,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "tests/test_w12_milestones_m25.py": {
+   "sha256": "5bf1f4574da84ae559803f66da3f873abc7c39e71515e0a5e100cd9e5e9df6a0",
+   "size": 6675,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "tests/test_w12_scope_leakage_m25.py": {
+   "sha256": "8aa6d9a80ee5f47ba978caeab0a9695f3f249e7c4292a589f38636f89b699a58",
+   "size": 11723,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "tools/certify_ddr.py": {
+   "sha256": "7150fe1247fb04387af02fc837b14d1db179955c875addb14df25c3eb90ebc57",
+   "size": 7354,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  "verify_release.py": {
+   "sha256": "175c7c4c4e5caedb568e9d7adbbb3ec563c2de43f42f05b70e91b8f7fd33a4f8",
+   "size": 15056,
+   "mtime": 1790508879,
+   "state": "modified-tracked"
+  },
+  ".github/workflows/ci.yml": {
+   "sha256": "ad142cf6676d06debd2be48da01ca7e440dee85886802cd9e0839b9a90ee0175",
+   "size": 1129,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "M30_DOMAIN_MATRIX.md": {
+   "sha256": "9e26072fec2bd26ddcfd1b14bf52fd707e427bc943ff26262d0950e978de2491",
+   "size": 25417,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "M30_RELEASE_CERTIFICATION.md": {
+   "sha256": "1d88fe70a969b22d2c172b064d379cba060abda5165627b33d3f69506f0c8240",
+   "size": 21260,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "M30_ROOT_CAUSES.md": {
+   "sha256": "06722d245873bcea1b4526081016ae9dcdf144e6fc5b7a1c8b2531bfc6cfa8b8",
+   "size": 10066,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "M30_SEMANTIC_AUDIT.md": {
+   "sha256": "29763c7f8aa022932408a7add20cf1b01b5a592583f8cb189a1786b9e06e935d",
+   "size": 11794,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "M33_DOMAIN_MATRIX.md": {
+   "sha256": "d56b630c148097c954af666c2525a4a179a4e3f3bb964a3872c90b9f6442f547",
+   "size": 9053,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "M33_ENGINE_DEFAULTS.md": {
+   "sha256": "70dc8721b70db8c3f99031e85213e71fe55545609f190c1680b0c984e3db5c12",
+   "size": 15362,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "M33_EVIDENCE_INDEX.md": {
+   "sha256": "8bc8df38d979acfda6ac71111d7bcf3110a7963b44af4e65c3ada6557c8c4e0e",
+   "size": 5876,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "M33_RELEASE_CERTIFICATION.md": {
+   "sha256": "40b5cb437f078b92668bbb78b092f6c96021bc9726416e0715b8d1527b167bda",
+   "size": 14903,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "M33_ROOT_CAUSES.md": {
+   "sha256": "bee37c52e760b9c7bc757143f63a7ce2d45015ccfe2440be9cb8c408fa8ec412",
+   "size": 7178,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "M33_SEMANTIC_AUDIT.md": {
+   "sha256": "aec81f28b88f1ebe355b819afa7cfbd4f74fd93f01da82784087f0457798891c",
+   "size": 9650,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "core/operational_time.py": {
+   "sha256": "8e12b6bb8f0f88e2060f37cd6e617ca754086cfa28aeb29ec6a0c1093b1ef4c6",
+   "size": 1651,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "core/safety_semantics.py": {
+   "sha256": "19ae3cc15bc00ba9547c013f52e927a8f9cfcb5761c01e3bbf131212971b0a15",
+   "size": 624,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/2026-09-22_M27_INDEPENDENT_REAUDIT.md": {
+   "sha256": "b292d1a3690e39551ef8b4ba3b4a8b8a9da3daf9d7ca9d89a30424e4c1b42c4a",
+   "size": 43540,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/2026-09-22_M28_FORENSIC_RELEASE_GATE.md": {
+   "sha256": "1a118a923ec33c7d24cef28c56e4f0f4a2bdaaf3b03341641bd0469cf9f91b60",
+   "size": 31224,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/2026-09-23_M29_DOMAIN_MATRIX.md": {
+   "sha256": "a73b27511bca17b224832984a4cdf211346d5182203a5a8fc6b6749ad08319de",
+   "size": 17159,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/2026-09-23_M29_RELEASE_CLOSURE.md": {
+   "sha256": "baeb561c4ee3b7c3d76b5e0486ef36864dcac5be53b1ef32e06d0b35a7c5ace2",
+   "size": 27781,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m27-independent-evidence/clean-worktree-refusal.txt": {
+   "sha256": "02b6b876b6f68c2473ad35de7d5071976a47834a7073742a42d0f428e1170ca4",
+   "size": 1221,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m27-independent-evidence/environment.json": {
+   "sha256": "dc29d524429f0e81a3e1a4b7daf0fdc9e2e8947a480ccde7a07c866700314d76",
+   "size": 1166,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m27-independent-evidence/final-worktree.txt": {
+   "sha256": "6305d506d8dea2a4f7ccba3be33770416222b9dd01b2527891ef261ee27e116c",
+   "size": 1164,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m27-independent-evidence/python310-lock-resolution.txt": {
+   "sha256": "06de0f169b6b1b538ff0dfa516b1c9f40e6f0cee438064f055335fd75a20b6a6",
+   "size": 392,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m27-independent-evidence/remote-heads.txt": {
+   "sha256": "54b1ea1530f32bf9e427a4284e2c07252f74ac218c4413f409f03411fb06bce7",
+   "size": 465,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m27-independent-evidence/repository-workbook.txt": {
+   "sha256": "0a89d294a6806b9cb70d2dea7ed4c874876cda0832353305d9fef41c9158ff13",
+   "size": 737,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m27-independent-evidence/residual-probes.json": {
+   "sha256": "02a972e82a56d69bf17caaa88a1ec90154301b26a7a8047cac7048d0e1d3f45d",
+   "size": 390,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m27-independent-evidence/source-gate.txt": {
+   "sha256": "384aabf7afea4e2d3654d1d9e293d7f30464d8c70f434ce50b474d01acf24a4f",
+   "size": 38910,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m27-independent-evidence/source-sha256.json": {
+   "sha256": "88e49de800158764bb866d53081cf3d51d38fbc3670316f3bacb00e86ee9c237",
+   "size": 35745,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m27-independent-evidence/time-negative-control.txt": {
+   "sha256": "767bc52311335c1211d136c4c8beca649fb12dd820546b0904dd5678af15c415",
+   "size": 7540,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m28-evidence/c28bbef-check-runs.json": {
+   "sha256": "e83cfac35507982a40cfeb776ce85aa0367e7646f81fe857df4a6c841ea8a170",
+   "size": 33,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m28-evidence/environment.json": {
+   "sha256": "0775ca9f3667551e121ae0db32cbedebe4a5b1bc388f9a8f2d7ead6f864bca09",
+   "size": 412,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m28-evidence/execution-ledger.txt": {
+   "sha256": "8cab5ca237d8ddb8841a139738d152c8514621ec63395497975ad5c10a910144",
+   "size": 1185,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m28-evidence/git-reality.txt": {
+   "sha256": "277dae69f1833adf51bbaf890a72b4525e3dc5c7bc5e84e0ae169579e9afc124",
+   "size": 855,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m28-evidence/import-removals.json": {
+   "sha256": "d1ccf8c03b672ee5a8f835290e1eae2ab3c248e0f8d1b2fb82b33bca6d881185",
+   "size": 109859,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m28-evidence/import-summary.txt": {
+   "sha256": "783c69c9fa03a7100d77baae3203a5c5009eeb5e80e633b3d96aec697ae9c23d",
+   "size": 732,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m28-evidence/isolated-imports.json": {
+   "sha256": "a2da91e34734bcf3c66259aff3a45e38875e7531730561d0b0325a22648c1484",
+   "size": 17062,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m28-evidence/lock-resolution-310.txt": {
+   "sha256": "06de0f169b6b1b538ff0dfa516b1c9f40e6f0cee438064f055335fd75a20b6a6",
+   "size": 392,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m28-evidence/lock-resolution-312.txt": {
+   "sha256": "13fdb7e744ac25a8592c5c6de7e95f6094fb990f73c6187a15a15d2b92378528",
+   "size": 3257,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m28-evidence/lock-resolution-313.txt": {
+   "sha256": "e3dd6b44a12a3d2a45eba79e02e65e8e389ac44178e3cf0924baaa54b42e737d",
+   "size": 3257,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m28-evidence/negative-controls.txt": {
+   "sha256": "217ff6cb0a7c74b26a4bb68ede37b18afd054074c382bbb3e9a97c8f8544bd64",
+   "size": 3710,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m28-evidence/pdf-acceptance-environment-blocked.txt": {
+   "sha256": "e21dd10d9fe77431004d5d73c7eb8f616808671a71c50aab63c9bb50052f2122",
+   "size": 886,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m28-evidence/publication-permission.txt": {
+   "sha256": "a147c9bf48922abbe7055525f383c6116d519c0c54991483099a4b227d0aab38",
+   "size": 657,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m28-evidence/real-asset-boundaries.txt": {
+   "sha256": "445983c81f62644208c9ef10837bf4850914958179dc5a699e8c3bd44c3a57cb",
+   "size": 544,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m28-evidence/remote-actions.json": {
+   "sha256": "54ec9a380a651a86766d309c0f19ea1ca2b8d48ef6e9739ce62c8f563fd9781b",
+   "size": 350,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m28-evidence/remote-heads.txt": {
+   "sha256": "54b1ea1530f32bf9e427a4284e2c07252f74ac218c4413f409f03411fb06bce7",
+   "size": 465,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m28-evidence/repository-workbook.txt": {
+   "sha256": "232fe14be4e8473353967fc773b15eae065218b4b487a9ddb009b3cf835f5d67",
+   "size": 533,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m28-evidence/risky-site-inventory.json": {
+   "sha256": "33ee5fff8d766f95559983be4608d82f27ee277ceff11727c340683c86d76f39",
+   "size": 258602,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m28-evidence/source-gate.txt": {
+   "sha256": "8ad7ffa1dd5aedc1b5a31920c64ac92893bdde7321e830dcc30f84bbd548ddfb",
+   "size": 38127,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m28-evidence/source-manifest.json": {
+   "sha256": "f18ffccdd67eedcaf6eb372d29d979ed9b26f626d2ff6b6ab7dab782bc9ad4ab",
+   "size": 37283,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m28-evidence/source-package-smoke-initial-failure.txt": {
+   "sha256": "ab9d6f10d77177f498ee9da7c1d8a437d9942957912c08d1bcdc077d30a04004",
+   "size": 324,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m28-evidence/source-package-smoke.txt": {
+   "sha256": "cc9cf0c34fc86a31f4f47037fa6ef08d3cede51e2f6c779e8b4276006fe635e0",
+   "size": 69,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/README.md": {
+   "sha256": "7a7ebb6525d36d777992439a4eb877728a94befa057fb3f7b289c831a4b09dc7",
+   "size": 2850,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/branch-inventory.json": {
+   "sha256": "e98fddc849a3068bd90dd497d975994b490f8fe56e065b309cb795653d86ed35",
+   "size": 2365,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/calendar-mud-tests.txt": {
+   "sha256": "a0a35f207e26fc90931a1b58ab03484c6e32715069a5ecfc1d630ec05fb0360d",
+   "size": 180,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/definition-review.json": {
+   "sha256": "cbbb7f8f6a7bcab1e87b359ef78ef0ece3071401cda51ee59f683c8d5f40f17d",
+   "size": 139,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/domain-matrix.json": {
+   "sha256": "90dd0ea8e463c5650692407a36b1b69bd054b69ede1a70344d7f0a39a10d7ba7",
+   "size": 27622,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/environment.json": {
+   "sha256": "741a0f22007bcef927284c6deee89ad1505db983b9dbfdd6009cdd842dd64cea",
+   "size": 1130,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/execution-summary.json": {
+   "sha256": "96949c1e0c87edcb7d257f1016f035b814b35368a42da3e52c680ebd21efb2f5",
+   "size": 1315,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/final-source-gate.txt": {
+   "sha256": "e38107bbbced78f26c3108e48655656455ab06403fa6213b52faf90b5b7dcdaa",
+   "size": 51084,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/full-gate-first-attempt.txt": {
+   "sha256": "20ab6775f5b839e7b7b85b52eed129f1795e0f5b9e1322dd742588734263fc38",
+   "size": 15194,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/github-api-response.json": {
+   "sha256": "96fb2fba25bc8cc7e29d4d56d485b1f5e82594aea51c122aa2d5f13b5ada9daa",
+   "size": 109,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/inventory-runner.py": {
+   "sha256": "824f5c08d1c1b3d3ea85a45701368c116320b061466fa9d12ce14a63ff636016",
+   "size": 7545,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/inventory-summary.json": {
+   "sha256": "2bc7778cdb32b87e574ec16e548d91e5865a9803d8effb2e121be078cf547d70",
+   "size": 491,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/isolated-imports.json": {
+   "sha256": "4ec3b14a06ee577a9aeddae6ba53c1e766396d6414b120afdb7cb390259a6fae",
+   "size": 24781,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/latest-focused-tests.txt": {
+   "sha256": "22a5c6405d42203be9ea0ba14c69df297e7c70ea749835d8d9006d8ede9a61f1",
+   "size": 2301,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/model-inventory.json": {
+   "sha256": "c519adb38f0f657597b2cae7af640b54335727c29eb376a48c6b764d0012a70a",
+   "size": 35927,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/mutation-atomic-memory.txt": {
+   "sha256": "c25edca6dc198b7e8ba04af3f7c7fcbd066bf0ad79acc0a1daeaac143c17ade4",
+   "size": 2700,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/mutation-backup.txt": {
+   "sha256": "63f757f089b5ce5a2b98418056d682c98b72a6ca091c6646592c8dcbee29584c",
+   "size": 1515,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/mutation-calendar-ambiguity.txt": {
+   "sha256": "eea0fcb760e272916fce63c49bb614bf2299208ea1cce5bee7c1183b6371b53c",
+   "size": 1033,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/mutation-controls.json": {
+   "sha256": "0ed7ca43018b50226ccec8bbef2fb3fc088c98e5fe548f84ddf9885e63b5adbf",
+   "size": 7445,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/mutation-currency.txt": {
+   "sha256": "309ec99b5b4039a15b6acea879e70671ae5d47a15e12e5f2dd17348db614e49d",
+   "size": 549,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/mutation-export-return.txt": {
+   "sha256": "2a22da4d3b39fb46a9acbee77d3a6af3008bac2d60271be5e43a11519e1b1753",
+   "size": 4775,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/mutation-gate.txt": {
+   "sha256": "e373809a8fc727ee566c2d9406511f0c1cb86ae9f3ca4585a00629c6bcfb6a70",
+   "size": 2621,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/mutation-mud-direction.txt": {
+   "sha256": "8b671bb456d71c53a30b289f37f5b284f46f18a89ad691e7ee82ca7482356064",
+   "size": 621,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/mutation-npt-scope.txt": {
+   "sha256": "060172f0bd8087876339c65a98e81ffcf847a2433a67f98a03093388cd64aed6",
+   "size": 4340,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/mutation-null-plan.txt": {
+   "sha256": "b65702e504832e04f5e1d6c7d82eb0878e5187cce8cc5ab6eb304f54bdaa88cc",
+   "size": 1464,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/mutation-ownership.txt": {
+   "sha256": "46e91741eaf5f4bf005a8e79db69a0ebfd9b1d9ae1c594f3ec6cd27d851e8399",
+   "size": 19390,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/mutation-permission.txt": {
+   "sha256": "cca6112e608e0329e303168c01434ef21434b129a03fb79f7f119fcfef42d049",
+   "size": 5091,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/mutation-re-export.txt": {
+   "sha256": "8e9f46b87d178f8b1ab6eff3d6c65048f210c8aa0bc02332c9c39b420fa80d2e",
+   "size": 1140,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/mutation-runner.py": {
+   "sha256": "6a9c424dbd6ba6f0c7dc00d7d50b6c26b64f73001ca4521db82eedabd066fb3b",
+   "size": 6231,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/mutation-safety.txt": {
+   "sha256": "7bb17f9cdcf3d0d528acc133c148b09c2e6637f5b19787eeff0c9cbc43741c3a",
+   "size": 759,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/mutation-snapshot.txt": {
+   "sha256": "436ce7d4e16e99b2495f9c0a42884aae193a3c321993e54ed49ce20422f09000",
+   "size": 873,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/mutation-wheel-gate.txt": {
+   "sha256": "a585972061be83105524f71557689fd835a80bdea327b014229c90f5792c7c42",
+   "size": 37231,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/mutation-wheel-runner.py": {
+   "sha256": "27324a301e386ae6bf7695c1b6c009a0572aca36556092484787cbca3d229533",
+   "size": 1796,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/mutation-wheel-test.txt": {
+   "sha256": "3e4589ef1ea643dc958cd38ddf3750ceb270fc578ec20c8bab33b077f5a3cea5",
+   "size": 802,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/mutation-wheel.json": {
+   "sha256": "5a5e0335a718e2dc4a5242a7f53d438bd71e437d77408c0eb1d21b41901d3ba3",
+   "size": 311,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/post-documentation-lint.json": {
+   "sha256": "3e922d71cbe4bf28205337aa81672550006215e5d88d736427efca4a8db12334",
+   "size": 480,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/post-documentation-wheel.txt": {
+   "sha256": "81715b19bed4e0b9856b3eb7c014c4088d0111b97f1156ae51cad6579045a78e",
+   "size": 38018,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/post-gate-source-check.json": {
+   "sha256": "032c2d462d225ef4da55313b0e2e9fcde02f76399b05acb8f2dba48b9927e63c",
+   "size": 45839,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/publication-attempt.txt": {
+   "sha256": "7efd2d8a835bdef11f3d4bb8220f3b941c5641958c333c254593f588b4f14360",
+   "size": 97,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/real-pdf-attempt.txt": {
+   "sha256": "f65f5409621d134a01182db9ab0762177977117a442fe693e30dd6ee512bb124",
+   "size": 810,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/real-pdf-probe.json": {
+   "sha256": "2dafa77622b1d83595c6053d002c36f1685bad2d90244d41595fa803d0abedab",
+   "size": 1392,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/recovery-file-inventory.json": {
+   "sha256": "d9485118bff610fb1d3c79c2af73122855b08c4e8b2163b53ed85d5466485e4b",
+   "size": 30545,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/risky-site-inventory.json": {
+   "sha256": "406ed4c0c8eac65476431e37a9f99b14a64e4a7ba9e7fcc5fc351a622c53197a",
+   "size": 839091,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/scope-consumer-index.json": {
+   "sha256": "80b31ac1b7cd0bceb85238aa2ed9910d04ad1454e91f7091cb4c9757d829ef09",
+   "size": 45625,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/site-adjudications.json": {
+   "sha256": "4012f1a7f04acb5e6c537ca683b79e7c58fd9291660484a3c97b0245e9f8ace9",
+   "size": 18527,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/source-manifest.json": {
+   "sha256": "7f1cb5198f9da0e0cf778e8c3cfa90837197df2e7c03f0b69d44faabfd36bb0e",
+   "size": 51264,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/unique-branch-content.json": {
+   "sha256": "0405a49e805bda47acb066724f9a378f78fe906c4906d703749d1c5103ad60b4",
+   "size": 470,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m29-evidence/wheel-clean-staging.txt": {
+   "sha256": "b32bfa7da39f32909792c4ee00e15b34b554bab0f73502d0b0a734096f7b26e0",
+   "size": 38018,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/README.md": {
+   "sha256": "4cbe0b435c2fd6c404cd28a7b390f30ce62570fb6125c1a4379189f04e3e6350",
+   "size": 4933,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/backup-source.txt": {
+   "sha256": "8386d7a77bc58cb6e224d2e511b706da74d721e4231b383dd2b56023bbf01aa7",
+   "size": 1000,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/baseline-gate.txt": {
+   "sha256": "f369df932e6649aa9369cbe107d7c781e3f94e3c6682eb04165b5723efdede22",
+   "size": 51084,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/branches.json": {
+   "sha256": "e80ac5918899ed52b5f0b4dffe737fd0183d5985350da68944a900456ba6b5e3",
+   "size": 3893,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/compressed-logs.json": {
+   "sha256": "2a9ba240eb1f53bfbfbd6e44fe6dae16431bb7a0dd798a53475dbed090904956",
+   "size": 1261,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/current-ci.json": {
+   "sha256": "bd034c804863c259576187c573e899a4383512e8d95ddf0240dfe36f3e430f20",
+   "size": 455,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/documentation-claim-queue.json": {
+   "sha256": "2616b014a275e8e1b1c66214366e0752147bed56adcfd143c723d089b0f9935b",
+   "size": 89221,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/evidence-manifest.json": {
+   "sha256": "f42ac178e46e1e047d2720f6ede15ccba3cdc1ee634a3e971db460d9301c6b8c",
+   "size": 12135,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/final-focused-currency.txt": {
+   "sha256": "bd2c2c6952147b47157b91f4dac8da44c2181613ee33b15d8338d6eea9388d38",
+   "size": 2539,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/final-gate-e2eeb35.txt": {
+   "sha256": "cd393eb2c62f1e92dee93a039bbde6486c8abf542c76c23b9609d592f416267e",
+   "size": 51207,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/final-source-and-controls-check.json": {
+   "sha256": "eb06c220d1cd7ec0d8533be07fb0e91094e09fc63a52891c51dc727575d836ad",
+   "size": 3026,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/financial-overflow-before.txt": {
+   "sha256": "6e578e808a16838f9571a81676ddaf86da30431e04817846edb995e340fc8ca8",
+   "size": 1799,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/fresh-inventory-summary.json": {
+   "sha256": "8be42045f9e98bb191113b32e551719d882c7ef9bfb4a877c16453f6a228d86d",
+   "size": 471,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/fresh-risky-site-inventory.json": {
+   "sha256": "294420d6a0246bf7857af38b2fcb381c804667bb429a91e55ede60729c243890",
+   "size": 831207,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/fresh-source-manifest.json": {
+   "sha256": "c4806b8497c7b81b7ef3427e48709740cdd1f30e1ed021ad0dc5902f070e89e3",
+   "size": 51408,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/fresh-sweep.json": {
+   "sha256": "0c7e80ab21d0af7223d3fa537e9c65112b261c7bbc27ec4b46cb280e61d0f4fb",
+   "size": 459126,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/git-00.txt": {
+   "sha256": "6cff0f5d25b3f190c717c59d5c03ad3ec63f7c7505ed700dc0ab22e1b7f4bfcb",
+   "size": 2595,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/git-01.txt": {
+   "sha256": "38a7706af88dcb167e8431a7f9fa777968e38dfb5b2eaf528a8bbdec173dd65a",
+   "size": 166,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/git-02.txt": {
+   "sha256": "5775232042df002a5075ff5a61e29d4b30d25d0eca4a067b71309deca1ed5bd5",
+   "size": 120,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/git-03.txt": {
+   "sha256": "e282a1d6481e712222f4d7ca841961ed1a63c0670777379c9baf8e600689d034",
+   "size": 125,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/git-04.txt": {
+   "sha256": "2ca0a0ecad72f04b92b56fdf915a3535c2292ee53fc81c60507e00c79354277b",
+   "size": 41,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/git-05.txt": {
+   "sha256": "92a64c7de2a0e7eabe3405663564da80de0dab3259d8f8aa261ce89215575851",
+   "size": 28,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/git-06.txt": {
+   "sha256": "ee448d1644865b74e2377517f7b6d72735b3a164e58c49b1bcaff41f1839b16b",
+   "size": 102,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/git-07.txt": {
+   "sha256": "19527aa7c3a64a573020a248c9bf3bfcc2281e192be0c46196ad53bae97d8b92",
+   "size": 31804,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/git-08.txt": {
+   "sha256": "2dbd1547b18c2fa62196a9b2f39059672b25011e0b0f1b96398fc46f410a0bd3",
+   "size": 3964,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/git-09.txt.gz": {
+   "sha256": "1a41443506057ebdae16453c33931412471c72273f7b75541d64a0ffa4bc788a",
+   "size": 95166,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/git-10.txt": {
+   "sha256": "5705c2204047de3a310c94474da846f3d921e870bc458838a1a5ece3bb8efe5a",
+   "size": 2564,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/git-11.txt": {
+   "sha256": "a17fcf0a2f50e2d495e4f90ce263410edc183add6c62699a2facbccf60410f74",
+   "size": 5,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/git-initial.json": {
+   "sha256": "eaa9479c3455ec973a40021610be8dd6019fc64aa9f8b0bc9a2d7afe3124bc04",
+   "size": 1929,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/huge-integer-before.txt": {
+   "sha256": "eee51e09b595af9cc1a189964df02dfc4401591b538ce09d1bd2775867d77168",
+   "size": 1307,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/input-assets.json": {
+   "sha256": "bdadd394c402e268b3ac7c7f2c7a0dc43bb5df7eb82a4d56f67cdf5173577b05",
+   "size": 548,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/inventory-summary.json": {
+   "sha256": "0ca626cd4104bca5cbd91682bf6a9eb902548b3297bdfcd685ed66acc5fb6c31",
+   "size": 470,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/inventory.json": {
+   "sha256": "e28271bd442263625f628e4c30ad21f47cfbaff5b4ed36213e40da0391f4f55f",
+   "size": 2010204,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/ledger-runner.py.txt": {
+   "sha256": "3fe8ce5cbe30cd74cb27192125511c5dcbc0920628ae3ec15c2002fe7d3603be",
+   "size": 20329,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/m29-manifest-recheck.json": {
+   "sha256": "54e076298b6cae8da31d5ec30bdd91d43f0de5615b67d158364e0583e7868bd7",
+   "size": 39,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/m29-replay-mutation-atomic-memory.txt.gz": {
+   "sha256": "e580cbf05dccebc910a755a69506a323761e9bffe70869bbe1b1c5eb0043ab31",
+   "size": 472,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/m29-replay-mutation-backup.txt": {
+   "sha256": "e91d1b3779881e4f6622991df73d01cd8a0a42be84cbde3a39129d0c42461ab5",
+   "size": 1489,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/m29-replay-mutation-calendar-ambiguity.txt": {
+   "sha256": "eea0fcb760e272916fce63c49bb614bf2299208ea1cce5bee7c1183b6371b53c",
+   "size": 1033,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/m29-replay-mutation-controls.json": {
+   "sha256": "ef96ab8dc5c31876831eb97a4eef0a90a2fa9bd6e2a6cd78c62e8a60a3499915",
+   "size": 7444,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/m29-replay-mutation-currency.txt": {
+   "sha256": "309ec99b5b4039a15b6acea879e70671ae5d47a15e12e5f2dd17348db614e49d",
+   "size": 549,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/m29-replay-mutation-export-return.txt": {
+   "sha256": "12bc07bb9096b257c688ec7efabfd7161dc69bffc442c1d15fdaca3f5b7411d7",
+   "size": 4775,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/m29-replay-mutation-gate.txt.gz": {
+   "sha256": "df552d08f41a6593deaab9b7d650f9e7f5c6b437ab6fd24e7f01f9aa579c20fe",
+   "size": 479,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/m29-replay-mutation-mud-direction.txt": {
+   "sha256": "8b671bb456d71c53a30b289f37f5b284f46f18a89ad691e7ee82ca7482356064",
+   "size": 621,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/m29-replay-mutation-npt-scope.txt": {
+   "sha256": "060172f0bd8087876339c65a98e81ffcf847a2433a67f98a03093388cd64aed6",
+   "size": 4340,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/m29-replay-mutation-null-plan.txt.gz": {
+   "sha256": "cefa31c8e38c92fe3e54ff64002d870302c767103fc214fd8d161c3ca0afb371",
+   "size": 322,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/m29-replay-mutation-ownership.txt": {
+   "sha256": "46e91741eaf5f4bf005a8e79db69a0ebfd9b1d9ae1c594f3ec6cd27d851e8399",
+   "size": 19390,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/m29-replay-mutation-permission.txt": {
+   "sha256": "ee6bede49db26600e74f17c7105ec9fccd5b1ef04f54b48754e63a38928bd3b3",
+   "size": 5091,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/m29-replay-mutation-re-export.txt.gz": {
+   "sha256": "eac0fb1193f7bf3dcaf0d6e40c798545b1b7a5d2c1e490eed946fda543844a49",
+   "size": 466,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/m29-replay-mutation-safety.txt": {
+   "sha256": "26011f0666f1a65713fa96a14e87140ba310e9f02868582b2c07056ee4d50fea",
+   "size": 759,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/m29-replay-mutation-snapshot.txt": {
+   "sha256": "7638f60290341788002641fabd01092c5f886e6bb2cd8ff350650e8ec00e4745",
+   "size": 873,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/money-overflow.txt": {
+   "sha256": "7ef67983fd3cf5f83f7768b8dee4eaa76733dd46c8cbe5ef72860b591c69d3b9",
+   "size": 653,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/mse-nonfinite.txt": {
+   "sha256": "063a8f3a09464ef2034aa102c57fc15e70332c9d85e492bcddf1b65edd09d0b5",
+   "size": 987,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/mutation-wheel-gate.txt": {
+   "sha256": "3629b246599fbf5943bc4f81a12074051869936b7268bae6cd512e614e0c8eb6",
+   "size": 37231,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/mutation-wheel-test.txt": {
+   "sha256": "3e4589ef1ea643dc958cd38ddf3750ceb270fc578ec20c8bab33b077f5a3cea5",
+   "size": 802,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/mutation-wheel.json": {
+   "sha256": "8fe9121206502e489efb673012ee1bc7e40548c6f0571332e03d5cde8ac87698",
+   "size": 311,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/native-qt.txt": {
+   "sha256": "f6416d156b933a1ecee26841d1442a7589fe874086e227cfd238b172c969efc2",
+   "size": 157,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/new-controls.json": {
+   "sha256": "e04da22320005fc67b0c98377aebe5854c81a7f995ca7b0189270ef2b90f6bae",
+   "size": 4160,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/new-regressions-before.txt.gz": {
+   "sha256": "781e0773fd6af7fc268d907fbc759935654997db3e82269aef6ed44d08e32b2f",
+   "size": 2087,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/new.py.txt": {
+   "sha256": "e281ec681b5240fa7dfe795014d0faaf822550e0fc520573441dc8b9c0ec5312",
+   "size": 3128,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/numeric-overflow.txt": {
+   "sha256": "16aeaac64ff92b5b11bfef56b37feb5df73b0cb5f45d89140ef01650f597be37",
+   "size": 792,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/patch-verification.json": {
+   "sha256": "283e16e15986b211a4ca5a12e3ca6900e60640745a78d1a7d018b3653e9d6995",
+   "size": 333,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/push-source.txt": {
+   "sha256": "568a88575f992c78b54098c0d7e31c62ac55c9e42d48ac64cc7cc413665693b7",
+   "size": 336,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/real-pdf.txt": {
+   "sha256": "0ef402d813ffa31cdf69875f498f7eb32ddc64d397c1ec7ca0eaf991032331d7",
+   "size": 810,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/remote-9d511cd.json": {
+   "sha256": "ae6a40e40a6d2565317160de20ec24d8ea726dea4c400d8077cde1dac93d8c85",
+   "size": 64475,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/remote-beaf963.json": {
+   "sha256": "ae13b61ed7afd2a085c4443ac59692962dfd4b22346263ab445ec512b2a6645a",
+   "size": 316,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/remote-fb857d7.json": {
+   "sha256": "58f620f11c9e3acb839d5fb6ca806c8437e88d725f9e33c30069e15a2045388f",
+   "size": 316,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/remote-heads-after-push.txt": {
+   "sha256": "54b1ea1530f32bf9e427a4284e2c07252f74ac218c4413f409f03411fb06bce7",
+   "size": 465,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/replay.py.txt": {
+   "sha256": "6eeda3a37f0626c8ffae915f0e5bffcf8c14bffa8146e478a0773e9e18eb2890",
+   "size": 6243,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/ruff-ratchet-summary.json": {
+   "sha256": "3e57acec087127ac54d5f22ff70257dfcd7b19241501aeb181aefd88bfd90d7e",
+   "size": 307,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/ruff-ratchet.json.gz": {
+   "sha256": "e23ca4af673c58cebd36ec5ad24a8dc1cb86f32f2333935f4317f451006d4d62",
+   "size": 95476,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/ruff-root-summary.json": {
+   "sha256": "efeefef55aabd334f010e7260bc94dbd6e0844f3799d73bc02e156c2c04505a3",
+   "size": 337,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/ruff-root.json.gz": {
+   "sha256": "7c494daff493c5a3e07a59ff44db2ca0e8d670684ff2ce8ed66c19a99982595f",
+   "size": 100274,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/same-pattern-runner.py.txt": {
+   "sha256": "7723bb0ebef8943edb8d5d2b1344f15302c13bad4a71e8a44d745b61718c03a0",
+   "size": 7550,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/scope-candidate.txt": {
+   "sha256": "3bfd9633878102ee8ec8fccd26d35328acdce93410016e2b4ddeadf2aa2a1509",
+   "size": 1102,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/scope-coverage.txt": {
+   "sha256": "62b5ee84ce2f686fb3854a2bf257532ad2af2981371f1df03028dffebcbfff34",
+   "size": 622,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/search-failure.txt": {
+   "sha256": "f841699bd3429e4ee9bf49653203698d2490a5831e382323a7a3f2a8aa9708a6",
+   "size": 5159,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/second-controls-before.txt": {
+   "sha256": "d99fe5b5b7c9f34e8a542323d42a70f8f229d76aecbbfc366c67b123670a76b5",
+   "size": 5356,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/snapshot-alias.txt": {
+   "sha256": "71f05695d14b478ca09a37efa6a93861b84958d99ccc014d52a76b7295db2f54",
+   "size": 769,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/stock-unit.txt": {
+   "sha256": "004838e7d5d8b234f6238fdb6d6bf3f5e65d6c6d4148a068d4cb440db9cec9fd",
+   "size": 667,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/sweep-comparison.json": {
+   "sha256": "cad08f9c829f410710844c1a966a58c82309a8e4aa912374963e48c5bbef9020",
+   "size": 365,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/tree-reconstruction.json": {
+   "sha256": "11d68f3b4296952c52f408b1072fd5610bd548fdc54038e281417d6593fddac7",
+   "size": 141,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/unknown-currency-before.txt": {
+   "sha256": "c43e2ef8e19788402f915ff892c5e8851a974d9c00b6d9925b28a5c8febf0353",
+   "size": 2258,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/unknown-currency.txt": {
+   "sha256": "7d6b368f9a69a00661bb98187ed73cdbff0f06905e82a591dcd1c25888f4b69b",
+   "size": 2258,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m30-evidence/wheel-replay.py.txt": {
+   "sha256": "f9af6798e4e5135f7c28509a7531ece1ba6fc405829f85f73a7639a59b4bbbc8",
+   "size": 1795,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m31-evidence/m31-adjudication-pass1.json": {
+   "sha256": "cb5089ce1b635275ffa50478aed1832fbc3d11ee5a2543bf766054197d4644e6",
+   "size": 6846300,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m31-evidence/m31-adjudication-summary.json": {
+   "sha256": "2fc1e2ca6c5ac23afb50bd22b3df50fc0a1aa53f13587b0c12756d672fca0d62",
+   "size": 1823,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m31-evidence/m31-dispositions.jsonl": {
+   "sha256": "38ba8f780e219dd062e4a4789c5b300bd9e7ed0590e0a723bbf75b2f47d31462",
+   "size": 96494,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m31-evidence/m31-inventory-summary.json": {
+   "sha256": "54f88f79db3ba5ad126ddadc5f84e6db7944ada67f8bb5dc8910aa766b487f34",
+   "size": 1306,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m31-evidence/m31-inventory.json": {
+   "sha256": "2d4112f68d28f561fef48adb61e7237a0db83b80880702c269be08e8f2c0c6e4",
+   "size": 4680238,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m31-evidence/m31-source-manifest.json": {
+   "sha256": "d6da8e4517e3d3db7497b06f7a4f4fda4d6dbdb6f04d119cd4473640f7644fa3",
+   "size": 47471,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m32-evidence/m32-absent-evidence-summary.json": {
+   "sha256": "01cc789d8986eef9d59972d3ad9e1293617fd8c4878a0522b8eee923d94d9ac8",
+   "size": 226,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m32-evidence/m32-absent-evidence.json": {
+   "sha256": "5709a1e8115ea8f37e2e00ff6e379267e8516481cf8c95121c73b44ae6cd7e13",
+   "size": 52084,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m32-evidence/m32-fix-batch-1.json": {
+   "sha256": "1a474a7e831b451d67e934e2685dfec0498d3ccfac140ae14fcba9d04457bc57",
+   "size": 7724,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m32-evidence/m32-fix-batch-2.json": {
+   "sha256": "8d161219ed964017fcb8704e145b148306dd6da9bdc9268793fb1116baeec7de",
+   "size": 5604,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m32-evidence/m32-fix-integrity.json": {
+   "sha256": "3d00e305fc960fcddca5366efcbcad84e6588bb728b6582ed3174ad1c4b03e77",
+   "size": 1444,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m32-evidence/m32-ledger-summary.json": {
+   "sha256": "5187bc20b7695e7500e11e2f8cccbc905b2fff78b8708c97359157911629ff28",
+   "size": 1256,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m32-evidence/m32-ledger.json": {
+   "sha256": "13aaddc5c86f89f5dcc5121823788410c0c44ade5b0dfeb99466fe7493bb0a31",
+   "size": 6035669,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m32-evidence/m32-new-sites.json": {
+   "sha256": "8e75631939ad8ae67b761057033048ccc008783d71128b69834e2bbf21132a87",
+   "size": 800944,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m32-evidence/m32-revalidation-summary.json": {
+   "sha256": "f2f944e95ded7ab6d3a8ba8c5e63417b4fca0f4dee4435d86a699723b1276f50",
+   "size": 327,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m32-evidence/m32-revalidation.json": {
+   "sha256": "46734e88e4dca97ad1794f0f0b8ad2f1a9ba2333c73e6c3d08900d5ecf91835a",
+   "size": 3824238,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m32-evidence/m32-source-manifest-summary.json": {
+   "sha256": "2c384244cc2b9b46a02a3d0eff81eab05214f082f3e50dca0e598032e1379e01",
+   "size": 141,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m32-evidence/m32-source-manifest.json": {
+   "sha256": "9e2abf58a1bc11dba00a35ab8f02b8d756de4ec8e9bdae201422317c81f64919",
+   "size": 82548,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m32-evidence/m32-sweep-summary.json": {
+   "sha256": "61f8c2b774b5a90b66598ffa7918d258241978d4040aa46c06931d594cedd930",
+   "size": 750,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m32-evidence/m32-sweep.json": {
+   "sha256": "2f0817c9cfee4dc4ce97541cb9a9bdc1484ce3ea94c2107f9140f5fce6504224",
+   "size": 1779767,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m33-evidence/M33_INVENTORY_LEDGER.json": {
+   "sha256": "8a4b3fa5255270beaa1513e14eec3df14c60698fa386396fcb65b031e5a9ec7e",
+   "size": 9096,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m33-evidence/M33_PREWORKSPACE_MANIFEST.json": {
+   "sha256": "6297ad5b977b34e952f0f9063a032de5bbf0a04424b9de4f208f02683eb5a1cb",
+   "size": 74757,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m33-evidence/m33-closure-invariants.json": {
+   "sha256": "08c320712fa316d2f81edb4953b32341c29d4f5e472f9194ed372bfe7b98c0b4",
+   "size": 1987,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m33-evidence/m33-commit-staging-simulation.json": {
+   "sha256": "427cccaea5278b3e34cbaca4d37d8f9ff02e260d1e09dcf7d984d6dc1e1bb404",
+   "size": 16617,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m33-evidence/m33-doc-claim-audit.json": {
+   "sha256": "c2243e2f0188a7ce8661f3babe17374fd64c336b62f773f5740bf1319ba15791",
+   "size": 35797,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m33-evidence/m33-domain-matrix.json": {
+   "sha256": "7d47aaa81e8ec8de99ad78db86a7297be3b72950bd211b0ac5825602700bdc86",
+   "size": 31172,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m33-evidence/m33-evidence-manifest.json": {
+   "sha256": "aa4aea6b837ba1ca9b909ac40b12798388551ed1992ecbe2644ccf167bd0660d",
+   "size": 99853,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m33-evidence/m33-fix-records.json": {
+   "sha256": "8794442bb65d71c7d0e6f87b80ebef9df3c2d76e092663014e608335abf83b75",
+   "size": 2092,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m33-evidence/m33-fresh-sweep.json": {
+   "sha256": "4a1ae1e69a3179a4044aed6f4c1d724b4071e3e93cfd6314eab7a9815fb8f990",
+   "size": 829911,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m33-evidence/m33-full-suite-junit.xml": {
+   "sha256": "b7ec010961a0930c891b5ac346965eeaac9e78f105a7a45d7102865f51673e8f",
+   "size": 238035,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m33-evidence/m33-full-suite-summary.json": {
+   "sha256": "2db8ef3cb63116e5fb4e672627fa52757f991273673961e8323adbd978f39c1f",
+   "size": 1196,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m33-evidence/m33-integrity-incidents.json": {
+   "sha256": "5cdf0a1bb5655a662700244be8e965bcb84bd3d45ca75eb7c613263593c066df",
+   "size": 1888,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m33-evidence/m33-ledger-summary.json": {
+   "sha256": "0e2575f6f067425609fa303c47b9d2d133ede351166d74738dda9d0bb1e69551",
+   "size": 2243,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m33-evidence/m33-ledger.json": {
+   "sha256": "d4f8616bdc6c994a105d79345a607a0b05195257f85cb36ba0871fd93281d60d",
+   "size": 7117048,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m33-evidence/m33-m32-fix-reverification.json": {
+   "sha256": "1bcb43293ee78184a42c6599959b3cd8e14aac05b87d6fe8cf06994677d8f9dc",
+   "size": 3448,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m33-evidence/m33-mutation-controls.json": {
+   "sha256": "60955c10b8597dce5a4e6b0f890c43281eb99385056ca8fb683e0a402aa4fd97",
+   "size": 10476,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m33-evidence/m33-reconciliation.json": {
+   "sha256": "793a8924ef6685d2d834512c6fe6aaed5f002b08b07208468bcdb774db43a266",
+   "size": 8853925,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "docs/audits/m33-evidence/m33-wheel-and-clean-env.json": {
+   "sha256": "c2245686df1b5727009dc89e310b52cecf77d20087318d165a772f86bc7ab671",
+   "size": 1924,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "tests/test_casing_absent_load_semantics.py": {
+   "sha256": "d2c2e7646b194096fe8f21e9881e387f2bbd52c46ef0cc98a5e4b3f7277b2351",
+   "size": 5076,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "tests/test_casing_absent_load_widget_smoke.py": {
+   "sha256": "3db1e140eafc7db33e9968ad4313a3c1bd355ef7b008026341afb0c2e2c84de7",
+   "size": 3470,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "tests/test_m28_finance_safety_plan.py": {
+   "sha256": "fe80e2fe8197f186a9908af0ef55f19c35874e0aa00e0ebbbb64d5a383fcd922",
+   "size": 14054,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "tests/test_m29_planning_ui.py": {
+   "sha256": "70ae1fc4aae1972def56b3f748d9424a69b6bd24c9e5ad2c86cd31b31dcd50ed",
+   "size": 9389,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "tests/test_m29_release_closure.py": {
+   "sha256": "3bab76112cba7d7e28f5f0e9555cccfbade06294d4f0ab87acf21ed10f9200aa",
+   "size": 23671,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "tests/test_m30_semantic_regressions.py": {
+   "sha256": "98180b5855924b28f0c2ca2c2530274b15b8ea6e981ea9d3f2d499d04fdbb100",
+   "size": 14070,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "tests/test_m31_scenarios.py": {
+   "sha256": "47b63b5c15e0d6be47106379ee69403b0307f0e38fed230cd4674a3b23190808",
+   "size": 56432,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "tests/test_operational_time_integrity.py": {
+   "sha256": "bd58405f92642d8e8394b34f47ced5ff3523c27bd13fab4b2a0e222e3d5ec4db",
+   "size": 5045,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "tests/test_ownership_parent_edits.py": {
+   "sha256": "3452e6ef9ed34788ec6755abf5f5a0027aebc1230c684de8136d18f5124d8c0c",
+   "size": 4043,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "tests/test_release_gate_integrity.py": {
+   "sha256": "e033f0edca136c8efee2deaaef5788391bbcd8da0760441e8552cf53c289084a",
+   "size": 4333,
+   "mtime": 1790508879,
+   "state": "untracked"
+  },
+  "tests/test_test_process_isolation.py": {
+   "sha256": "e67d9fe7541f352aafbd8c0447e0bf6c36e688797078a8c07251c15ae2309938",
+   "size": 1108,
+   "mtime": 1790508879,
+   "state": "untracked"
+  }
+ },
+ "environment": {
+  "python": "Python 3.11.2",
+  "cwd": "/home/user/Drill-master",
+  "verify_venv_present": false,
+  "qtstub_present": false,
+  "m33_tools_present": false
+ }
+}

@@ -6,10 +6,8 @@ They can be called from DatabaseManager methods or directly.
 This enables incremental extraction without breaking the existing API.
 """
 
-import json
 import logging
-from datetime import datetime, date, time, timezone
-from typing import Optional, Dict, Any, List
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +68,7 @@ def get_procedures_by_well(db, well_id: int) -> list:
         } for p in procs]
     except Exception as e:
         logger.error(f"Error getting procedures: {e}")
-        return []
+        raise  # system failure must not look like no records
     finally:
         session.close()
 
@@ -168,7 +166,7 @@ def get_procedure_steps(db, proc_id: int) -> list:
         } for s in steps]
     except Exception as e:
         logger.error(f"Error getting steps: {e}")
-        return []
+        raise  # system failure must not look like no records
     finally:
         session.close()
 
@@ -217,7 +215,7 @@ def get_checklist_items(db, proc_id: int) -> list:
         } for i in items]
     except Exception as e:
         logger.error(f"Error getting checklist: {e}")
-        return []
+        raise  # system failure must not look like no records
     finally:
         session.close()
 
@@ -266,7 +264,7 @@ def get_logistics_personnel(db, well_id=None, section_id=None, report_id=None):
         return [{col.name: getattr(r, col.name) for col in LogisticsPersonnel.__table__.columns} for r in q.all()]
     except Exception as e:
         logger.error(f"Error getting logistics personnel: {e}")
-        return []
+        raise  # system failure must not look like no records
     finally:
         session.close()
 
@@ -331,7 +329,7 @@ def get_service_company_pob(db, well_id=None, section_id=None, report_id=None):
         return [{col.name: getattr(r, col.name) for col in ServiceCompanyPOB.__table__.columns} for r in q.all()]
     except Exception as e:
         logger.error(f"Error getting POB: {e}")
-        return []
+        raise  # system failure must not look like no records
     finally:
         session.close()
 

@@ -1,0 +1,51 @@
+FFF.FF...FFF.F                                                           [100%]
+=================================== FAILURES ===================================
+____________ test_scalar_and_canonical_null_zero_matrix[None-None] _____________
+tests/test_m28_finance_safety_plan.py:22: in test_scalar_and_canonical_null_zero_matrix
+    assert scalar.planned == metric["planned"] == planned
+E   assert 0.0 == None
+______________ test_scalar_and_canonical_null_zero_matrix[None-0] ______________
+tests/test_m28_finance_safety_plan.py:22: in test_scalar_and_canonical_null_zero_matrix
+    assert scalar.planned == metric["planned"] == planned
+E   assert 0.0 == None
+______________ test_scalar_and_canonical_null_zero_matrix[0-None] ______________
+tests/test_m28_finance_safety_plan.py:23: in test_scalar_and_canonical_null_zero_matrix
+    assert scalar.actual == metric["actual"] == actual
+E   assert 0.0 == None
+_____________ test_scalar_and_canonical_null_zero_matrix[100-None] _____________
+tests/test_m28_finance_safety_plan.py:23: in test_scalar_and_canonical_null_zero_matrix
+    assert scalar.actual == metric["actual"] == actual
+E   assert 0.0 == None
+_____________ test_scalar_and_canonical_null_zero_matrix[None-100] _____________
+tests/test_m28_finance_safety_plan.py:22: in test_scalar_and_canonical_null_zero_matrix
+    assert scalar.planned == metric["planned"] == planned
+E   assert 0.0 == None
+_ test_currency_grouping_never_uses_project_default[currencies0-multi-currency-None] _
+tests/test_m28_finance_safety_plan.py:66: in test_currency_grouping_never_uses_project_default
+    assert costs["total_actual"] == total
+E   assert 200 == None
+_ test_currency_grouping_never_uses_project_default[currencies1-unknown-currency-None] _
+tests/test_m28_finance_safety_plan.py:66: in test_currency_grouping_never_uses_project_default
+    assert costs["total_actual"] == total
+E   assert 200 == None
+_ test_currency_grouping_never_uses_project_default[currencies2-unknown-currency-None] _
+tests/test_m28_finance_safety_plan.py:66: in test_currency_grouping_never_uses_project_default
+    assert costs["total_actual"] == total
+E   assert 200 == None
+__________ test_safety_absence_zero_incomplete_and_latest_not_maximum __________
+tests/test_m28_finance_safety_plan.py:82: in test_safety_absence_zero_incomplete_and_latest_not_maximum
+    assert all(value is None for value in safety_kpis([]).values())
+E   assert False
+E    +  where False = all(<generator object test_safety_absence_zero_incomplete_and_latest_not_maximum.<locals>.<genexpr> at 0x7febdfe47850>)
+=========================== short test summary info ============================
+FAILED tests/test_m28_finance_safety_plan.py::test_scalar_and_canonical_null_zero_matrix[None-None]
+FAILED tests/test_m28_finance_safety_plan.py::test_scalar_and_canonical_null_zero_matrix[None-0]
+FAILED tests/test_m28_finance_safety_plan.py::test_scalar_and_canonical_null_zero_matrix[0-None]
+FAILED tests/test_m28_finance_safety_plan.py::test_scalar_and_canonical_null_zero_matrix[100-None]
+FAILED tests/test_m28_finance_safety_plan.py::test_scalar_and_canonical_null_zero_matrix[None-100]
+FAILED tests/test_m28_finance_safety_plan.py::test_currency_grouping_never_uses_project_default[currencies0-multi-currency-None]
+FAILED tests/test_m28_finance_safety_plan.py::test_currency_grouping_never_uses_project_default[currencies1-unknown-currency-None]
+FAILED tests/test_m28_finance_safety_plan.py::test_currency_grouping_never_uses_project_default[currencies2-unknown-currency-None]
+FAILED tests/test_m28_finance_safety_plan.py::test_safety_absence_zero_incomplete_and_latest_not_maximum
+9 failed, 5 passed, 17 deselected in 0.40s
+EXPECTED MUTATION EXIT=1; ACTUAL= 1

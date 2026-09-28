@@ -8,8 +8,8 @@ This is critical for professional engineering software where an engineer
 may ask: "Where did this MW value come from?"
 """
 
-from dataclasses import dataclass, field, asdict
-from typing import Optional, Any, Dict, List
+from dataclasses import dataclass, asdict
+from typing import Optional, Any, List
 from datetime import datetime, timezone
 import json
 import logging

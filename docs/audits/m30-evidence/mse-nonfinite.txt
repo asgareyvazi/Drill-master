@@ -1,0 +1,10 @@
+..F                                                                      [100%]
+=================================== FAILURES ===================================
+_ test_mse_never_reports_nonfinite_or_underflowed_calculation_as_success[inputs2] _
+tests/test_m30_semantic_regressions.py:193: in test_mse_never_reports_nonfinite_or_underflowed_calculation_as_success
+    assert result.success is False and result.validation_status == "error"
+E   AssertionError: assert (True is False)
+E    +  where True = EngineeringResult(success=True, value=inf, values={'mse_psi': inf, 'axial_term_psi': 0.0, 'rotary_term_psi': inf, 'bit...or'], warnings=[], validation_status='ok', metadata={'constant_120pi': 376.99111843077515}, error='', scope='COMPLETE').success
+=========================== short test summary info ============================
+FAILED tests/test_m30_semantic_regressions.py::test_mse_never_reports_nonfinite_or_underflowed_calculation_as_success[inputs2]
+1 failed, 2 passed in 0.32s

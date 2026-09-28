@@ -1,0 +1,17 @@
+[
+  {
+    "schema": "m33-integrity-incident",
+    "id": "M33-INC-001",
+    "detected_utc": "2026-09-27T08:07:33Z",
+    "finding": "at M33 Part B verification time, core/professional_export.py contained the M32 explanatory comment but NOT the code change: line 189 still read 'value=log.duration or 0'. The M32 evidence (docs/audits/m32-evidence/m32-fix-batch-1.json) records post-fix sha256 96878cf690f49d01c29a0b38323a761e275c9cddec9ff2d98d387a060dd73727, which does not match the file found (4a3d5b44b455b3d60496a27e4e5ada23fe81fa0a7e3ed544631924e47d1f7412).",
+    "impact": "M32-FIX-002 was not in effect in the worktree, so the recorded M32 full-suite result for that scenario could not be reproduced from the tree as found: with 'or 0' in place, test_professional_export_leaves_unrecorded_duration_blank fails.",
+    "mechanism": "UNATTRIBUTED - the mutation harness that wrote the M32 mutants had a recognised killing-criterion defect in its first run; the exact step that left the mutated line in place could not be reconstructed because /tmp (harness, backups) and /home/user/m32-snapshot were removed by sandbox re-provisioning between missions",
+    "action_taken": "fix re-applied from the M32 evidence and this mission's own re-derivation; the scenario test is re-run; the mutation harness now verifies a whole-file sha256 equality after every restore and aborts on mismatch (M33 harness self-check)",
+    "lesson_applied": "no M32 claim is accepted from report: this incident is exactly why Part B re-verifies every fix against the tree",
+    "hashes": {
+      "file_sha256_when_found": "4a3d5b44b455b3d60496a27e4e5ada23fe81fa0a7e3ed544631924e47d1f7412",
+      "m32_evidence_recorded_sha256": "96878cf690f49d01c29a0b38323a761e275c9cddec9ff2d98d387a060dd73727",
+      "file_sha256_after_reapply": "96878cf690f49d01c29a0b38323a761e275c9cddec9ff2d98d387a060dd73727"
+    }
+  }
+]

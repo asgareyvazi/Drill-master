@@ -7,7 +7,7 @@ Professional Features:
 """
 
 from dataclasses import dataclass, asdict
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import logging
 
 logger = logging.getLogger(__name__)
@@ -16,8 +16,8 @@ logger = logging.getLogger(__name__)
 @dataclass
 class QualityMetric:
     name: str
-    value: float
-    status: str  # good, warning, critical
+    value: Optional[float]   # None when the metric cannot be computed from the data
+    status: str              # good, warning, critical, unknown
     detail: str = ""
     confidence: float = 1.0
     evidence: dict = None
@@ -82,17 +82,36 @@ class DataQualityService:
             finally:
                 session.close()
 
-        hours = sum(float(log.duration or 0) for log in logs)
-        coverage = min(100.0, hours / 24.0 * 100) if hours else 0.0
-        metrics.append(
-            QualityMetric(
-                name="24h time coverage",
-                value=round(coverage, 1),
-                status="good" if coverage >= 95 else "warning" if coverage >= 70 else "critical",
-                detail=f"{hours:.2f} hours, {len(logs)} entries, overlaps: {overlap_count}, gaps: {gap_count}",
-                evidence={"total_hours": hours, "entries": len(logs), "overlaps": overlap_count, "gaps": gap_count},
+        # 24h coverage is a claim about recorded time. An entry with no recorded
+        # duration makes the total unknown: the missing hours are neither zero nor
+        # a subtotal, so the metric reports "unknown" instead of a fabricated 0 h.
+        unrecorded = sum(1 for log in logs if log.duration is None)
+        if unrecorded:
+            metrics.append(
+                QualityMetric(
+                    name="24h time coverage",
+                    value=None,
+                    status="unknown",
+                    confidence=0.0,
+                    detail=(f"{unrecorded} of {len(logs)} entries have no recorded duration; "
+                            f"coverage cannot be computed, overlaps: {overlap_count}, gaps: {gap_count}"),
+                    evidence={"total_hours": None, "unrecorded_entries": unrecorded,
+                              "recorded_entries": len(logs) - unrecorded, "entries": len(logs),
+                              "overlaps": overlap_count, "gaps": gap_count},
+                )
             )
-        )
+        else:
+            hours = sum(float(log.duration) for log in logs)   # durations are all recorded
+            coverage = min(100.0, hours / 24.0 * 100) if hours else 0.0
+            metrics.append(
+                QualityMetric(
+                    name="24h time coverage",
+                    value=round(coverage, 1),
+                    status="good" if coverage >= 95 else "warning" if coverage >= 70 else "critical",
+                    detail=f"{hours:.2f} hours, {len(logs)} entries, overlaps: {overlap_count}, gaps: {gap_count}",
+                    evidence={"total_hours": hours, "entries": len(logs), "overlaps": overlap_count, "gaps": gap_count},
+                )
+            )
 
         # Unit consistency
         if report:
@@ -133,7 +152,6 @@ class DataQualityService:
                     if model.__name__ == "DailyReport" or not hasattr(model, "report_id"):
                         continue
                     # Count if report_id not in daily_reports
-                    from sqlalchemy import text
                     # Simplified: just check if any child has report_id that doesn't exist (should be 0 due to FK)
                     pass
 
@@ -189,27 +207,75 @@ class DataQualityService:
                 )
             )
 
+            # Scope-attribution coverage: what fraction of this well's reports
+            # carry a genuine (non-NULL, provably-owned) wellbore / section
+            # scope. NULL/ambiguous/unresolved rows are never counted as
+            # covered — this metric describes real data quality, it does not
+            # manufacture coverage.
+            try:
+                from core.scope_attribution import ScopeAttributionService
+
+                cov = ScopeAttributionService(self.db).coverage(well_id)
+                wb_pct = cov.get("wellbore_coverage_pct")
+                sec_pct = cov.get("section_coverage_pct")
+                if wb_pct is not None:
+                    metrics.append(
+                        QualityMetric(
+                            name="Wellbore attribution",
+                            value=wb_pct,
+                            status="good" if wb_pct >= 90 else "warning" if wb_pct >= 50 else "critical",
+                            detail=(
+                                f"{wb_pct}% of {cov.get('total_reports')} reports "
+                                f"have a resolved wellbore ({dict(cov.get('wellbore', {}))})"
+                            ),
+                            evidence=cov.get("wellbore"),
+                        )
+                    )
+                if sec_pct is not None:
+                    metrics.append(
+                        QualityMetric(
+                            name="Section attribution",
+                            value=sec_pct,
+                            status="good" if sec_pct >= 90 else "warning" if sec_pct >= 50 else "critical",
+                            detail=(
+                                f"{sec_pct}% of {cov.get('total_reports')} reports "
+                                f"have a resolved section ({dict(cov.get('section', {}))})"
+                            ),
+                            evidence=cov.get("section"),
+                        )
+                    )
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.error("Scope-attribution coverage failed: %s", exc)
+
             return metrics
         finally:
             session.close()
 
     def summary(self, report_id: int) -> Dict[str, Any]:
         metrics = self.for_report(report_id)
-        score = round(sum(m.value for m in metrics) / len(metrics), 1) if metrics else 0.0
+        # A metric whose input data is incomplete is excluded from the average and
+        # reported as unknown; it is never scored as if it had passed or failed.
+        known = [m for m in metrics if m.value is not None]
+        unknown = [m.name for m in metrics if m.value is None]
+        score = round(sum(m.value for m in known) / len(known), 1) if known else None
         return {
             "score": score,
-            "status": "good" if score >= 90 else "warning" if score >= 60 else "critical",
+            "status": ("unknown" if score is None else
+                       "good" if score >= 90 else "warning" if score >= 60 else "critical"),
+            "unknown_metrics": unknown,
+            "confidence": round(len(known) / len(metrics), 3) if metrics else 0.0,
             "metrics": [asdict(m) for m in metrics],
             "evidence": {
                 "report_id": report_id,
                 "metric_count": len(metrics),
+                "known_metric_count": len(known),
+                "unknown_metric_count": len(unknown),
                 "timestamp": __import__("datetime").datetime.now().isoformat(),
             },
         }
 
     def dashboard_kpis(self, well_id: int) -> Dict[str, Any]:
         """Professional dashboard KPIs as per spec for Analysis tab."""
-        from core.database import DailyReport, TimeLog24H, DrillingParameters, MudReport
         from core.operations_intelligence import OperationsIntelligenceService
 
         # Get operations intelligence
@@ -220,7 +286,8 @@ class DataQualityService:
 
         # Add data quality
         quality_metrics = self.for_well(well_id)
-        avg_quality = round(sum(m.value for m in quality_metrics) / len(quality_metrics), 1) if quality_metrics else 0
+        known_quality = [m for m in quality_metrics if m.value is not None]
+        avg_quality = round(sum(m.value for m in known_quality) / len(known_quality), 1) if known_quality else None
 
         kpis.update(
             {

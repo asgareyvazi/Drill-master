@@ -1,0 +1,10 @@
+{
+  "base": "c28bbef",
+  "recovery": "964e922",
+  "bytes": 2610017,
+  "sha256": "f0ce2d925c995218069e1534d5ceeeec861b020ae7bbe5b573bb185183a06a54",
+  "applied_tree": "23805f4689b43e5efd6c54e30bf09aeb829df952",
+  "expected_tree": "23805f4689b43e5efd6c54e30bf09aeb829df952",
+  "equal": true,
+  "original_patch_file_available": false
+}

@@ -10,7 +10,7 @@ Provides:
 import logging
 import os
 from pathlib import Path
-from typing import Generator, List, Dict, Any, Optional
+from typing import Generator, List, Dict, Any
 
 logger = logging.getLogger(__name__)
 

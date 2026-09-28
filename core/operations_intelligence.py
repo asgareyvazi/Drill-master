@@ -7,9 +7,10 @@ Professional Intelligence Platform:
 """
 
 from dataclasses import dataclass, asdict
-from typing import List, Dict, Optional
-from datetime import date, timedelta
+from typing import List, Dict
 import logging
+
+from core.operational_time import summarize_time_logs
 
 logger = logging.getLogger(__name__)
 
@@ -37,59 +38,95 @@ class OperationsIntelligenceService:
         session = self.db.create_session()
         try:
             reports = session.query(DailyReport).filter_by(well_id=well_id).order_by(DailyReport.report_date).all()
-            if not reports:
-                return {"insights": [], "kpis": {"reports": 0}}
 
             logs = session.query(TimeLog24H).join(DailyReport, TimeLog24H.report_id == DailyReport.id).filter(DailyReport.well_id == well_id).all()
             params = session.query(DrillingParameters).filter_by(well_id=well_id).order_by(DrillingParameters.report_date).all()
             mud_reports = session.query(MudReport).filter_by(well_id=well_id).order_by(MudReport.report_date).all()
             safety_reports = session.query(SafetyReport).filter_by(well_id=well_id).order_by(SafetyReport.report_date).all()
 
-            total_hours = sum(float(item.duration or 0) for item in logs)
-            npt_hours = sum(float(item.duration or 0) for item in logs if item.is_npt)
+            time_metrics = summarize_time_logs(logs)
+            total_hours = time_metrics["total_hours"]
+            npt_hours = time_metrics["npt_hours"]
             depths = [float(item.depth_2400 or 0) for item in reports if item.depth_2400 is not None]
-            rops = [float(item.avg_rop or 0) for item in params if item.avg_rop]
-            wobs = [float(item.wob_max or item.wob or 0) for item in params if (item.wob_max or item.wob)]
-            torques = [float(item.torque_max or item.torque or 0) for item in params if (item.torque_max or item.torque)]
-            rpms = [float(item.rpm_max or item.rpm or 0) for item in params if (item.rpm_max or item.rpm)]
+            rops = [float(item.avg_rop) for item in params if item.avg_rop is not None]
 
-            # KPIs professional
-            current_depth = max(depths, default=0.0)
-            daily_progress = depths[-1] - depths[-2] if len(depths) >= 2 else 0
-            avg_rop = round(sum(rops) / len(rops), 2) if rops else 0.0
-            npt_percent = round(npt_hours / total_hours * 100, 2) if total_hours else 0.0
-            productive_hours = round(total_hours - npt_hours, 2)
-            rig_days = len(reports)
+            def _range_series(items, minimum_name: str, maximum_name: str) -> list[float]:
+                """Read only the min/max fields defined by DrillingParameters.
 
-            # Cost per meter
-            cost_per_meter = 0.0
-            try:
-                from core.database import CostRecord
-                cost_records = session.query(CostRecord).filter(CostRecord.well_id == well_id).all()
-                total_cost = sum(float(c.actual_cost or 0) for c in cost_records)
-                if current_depth > 0 and total_cost > 0:
-                    cost_per_meter = total_cost / current_depth
-                else:
-                    # Fallback estimate: 60k per day
-                    total_cost = rig_days * 60000
-                    cost_per_meter = total_cost / current_depth if current_depth > 0 else 0
-            except Exception:
-                total_cost = rig_days * 60000
-                cost_per_meter = total_cost / current_depth if current_depth > 0 else 0
+                The model has no scalar ``wob``, ``torque``, or ``rpm``
+                attributes.  When both bounds exist, use their midpoint;
+                otherwise preserve the one known bound and omit missing data.
+                """
+                values = []
+                for item in items:
+                    minimum = getattr(item, minimum_name)
+                    maximum = getattr(item, maximum_name)
+                    if minimum is not None and maximum is not None:
+                        values.append((float(minimum) + float(maximum)) / 2.0)
+                    elif maximum is not None:
+                        values.append(float(maximum))
+                    elif minimum is not None:
+                        values.append(float(minimum))
+                return values
+
+            wobs = _range_series(params, "wob_min", "wob_max")
+            torques = _range_series(params, "torque_min", "torque_max")
+            rpms = _range_series(params, "rpm_min", "rpm_max")
+
+            # KPIs professional. Rate/percentage metrics are reported as
+            # ``None`` ("unknown") when their source data is absent, never as a
+            # fabricated 0.0: a well with no drilling-parameter ROP has an
+            # unknown average ROP, and a well with no recorded time has an
+            # unknown NPT percentage and unknown productive time. Reporting 0.0
+            # would assert a false fact (0 m/hr ROP, 0% NPT) — the same
+            # no-fabrication contract already applied to cost below.
+            # No known depth is UNKNOWN, not a fabricated 0.0 m (reporting 0.0
+            # would assert the hole has zero depth). This mirrors the ROP/NPT
+            # no-fabrication contract in this same method.
+            current_depth = max(depths) if depths else None
+            daily_progress = None
+            if (len(reports) >= 2 and reports[-1].depth_2400 is not None
+                    and reports[-2].depth_2400 is not None
+                    and reports[-1].wellbore_id == reports[-2].wellbore_id
+                    and len({r.wellbore_id for r in reports}) == 1
+                    and len({r.report_date for r in reports}) == len(reports)
+                    and (reports[-1].report_date - reports[-2].report_date).days == 1):
+                daily_progress = reports[-1].depth_2400 - reports[-2].depth_2400
+            avg_rop = round(sum(rops) / len(rops), 2) if rops else None
+
+            # Footage-weighted ROP over the well: Σ(valid-pair footage) /
+            # Σ(valid-pair hours), paired per DrillingParameters row. This is
+            # DISTINCT from ``average_rop`` above (a mean of per-day rates) and
+            # from a naive Σ(footage)/Σ(hours) across independently nullable
+            # columns. Rows lacking a complete valid pair contribute nothing;
+            # with no valid pairs the value is None (unknown), never 0.
+            from core.engineering.engines.bit_performance import BitPerformanceEngine
+            weighted_rop_result = BitPerformanceEngine.weighted_rop(params)
+            weighted_rop = weighted_rop_result.value
+            npt_percent = (round(time_metrics["npt_percent"], 2)
+                           if time_metrics["npt_percent"] is not None else None)
+            productive_hours = time_metrics["productive_hours"]
+            rig_days = len({r.report_date for r in reports})
+
+            # Cost per meter is reported only from stored cost records.
+            # No rig-rate estimate is fabricated when actual cost data is absent.
+            from core.database import CostRecord
+            from core.cost_semantics import summarize_costs
+            cost_records = session.query(CostRecord).filter(CostRecord.well_id == well_id).all()
+            cost_summary = summarize_costs(cost_records)
+            total_cost = cost_summary["total_actual"]
+            cost_per_meter = total_cost / current_depth if total_cost is not None and current_depth else None
 
             # Plan variance
             plan_variance = self.db.get_actual_vs_plan(well_id)
 
             # Mud trends
-            mw_trend = [float(m.mw or 0) for m in mud_reports if m.mw]
-            pv_trend = [float(m.pv or 0) for m in mud_reports if m.pv]
+            mw_trend = [float(m.mw) for m in mud_reports if m.mw is not None]
+            pv_trend = [float(m.pv) for m in mud_reports if m.pv is not None]
 
             # Safety KPI
-            safety_kpi = {
-                "days_without_lti": max([s.days_without_lti or 0 for s in safety_reports], default=0),
-                "total_lti": sum(s.lti_count or 0 for s in safety_reports),
-                "total_near_miss": sum(s.near_miss_count or 0 for s in safety_reports),
-            }
+            from core.safety_semantics import safety_kpis
+            safety_kpi = safety_kpis(safety_reports)
 
             # Data Quality Score (based on missing depths, time log coverage, etc.)
             quality_score = 100
@@ -98,19 +135,27 @@ class OperationsIntelligenceService:
                 quality_score -= missing_depths * 5
             if total_hours and abs(total_hours / max(len(reports), 1) - 24) > 1:
                 quality_score -= 10
-            quality_score = max(0, min(100, quality_score))
+            quality_score = max(0, min(100, quality_score)) if reports and total_hours is not None else None
 
             kpis = {
                 "reports": len(reports),
                 "current_depth": current_depth,
-                "daily_progress": round(daily_progress, 2),
+                "daily_progress": round(daily_progress, 2) if daily_progress is not None else None,
                 "average_rop": avg_rop,
-                "npt_hours": round(npt_hours, 2),
+                "weighted_rop": weighted_rop,
+                "weighted_rop_footage": weighted_rop_result.values.get("total_footage"),
+                "weighted_rop_hours": weighted_rop_result.values.get("total_hours"),
+                "weighted_rop_valid_pairs": weighted_rop_result.values.get("valid_pairs"),
+                "npt_hours": npt_hours,
+                "total_hours": total_hours,
                 "npt_percent": npt_percent,
                 "productive_hours": productive_hours,
                 "rig_days": rig_days,
-                "cost_per_meter": round(cost_per_meter, 2),
-                "total_cost": round(total_cost, 2),
+                "cost_per_meter": None if cost_per_meter is None else round(cost_per_meter, 2),
+                "total_cost": None if total_cost is None else round(total_cost, 2),
+                "cost_currency": cost_summary["currency"],
+                "cost_currency_status": cost_summary["status"],
+                "cost_groups": cost_summary["groups"],
                 "plan_variance": plan_variance,
                 "mud_trend": {"mw": mw_trend[-5:], "pv": pv_trend[-5:]},
                 "torque_trend": torques[-5:],
@@ -141,7 +186,10 @@ class OperationsIntelligenceService:
                 )
 
             # NPT
-            npt_insight = OperationsIntelligenceEngine.analyze_npt_trend(npt_percent, threshold=20.0)
+            npt_insight = (
+                OperationsIntelligenceEngine.analyze_npt_trend(npt_percent, threshold=20.0)
+                if npt_percent is not None else None
+            )
             if npt_insight:
                 insights.append(
                     Insight(
@@ -169,8 +217,8 @@ class OperationsIntelligenceService:
                         severity=rop_insight["severity"],
                         message=rop_insight["message"],
                         evidence={
-                            "source_reports": [p.report_id for p in params[-7:] if p.report_id],
-                            "date_range": f"Last {min(7, len(params))} reports",
+                            "source_reports": [p.report_id for p in params if p.report_id and p.avg_rop is not None],
+                            "date_range": "All recorded ROP observations in well",
                             "metrics": rop_insight["evidence"],
                             "confidence": rop_insight["confidence"],
                             "reason": "ROP decline may indicate bit wear, formation change, or hydraulics issues",
@@ -201,18 +249,18 @@ class OperationsIntelligenceService:
                     )
 
             # Torque increase
-            if len(torques) >= 3 and torques[-1] > torques[0] * 1.3:
+            if len(torques) >= 3 and torques[0] > 0 and torques[-1] > torques[0] * 1.3:
                 insights.append(
                     Insight(
                         kind="torque_increase",
                         severity="warning",
                         message=f"Torque increased {((torques[-1]/torques[0]-1)*100):.1f}% - may indicate hole condition issues",
                         evidence={
-                            "source_reports": [p.report_id for p in params[-5:] if p.report_id],
-                            "date_range": f"Last {min(5, len(params))} reports",
+                            "source_reports": [p.report_id for p in params if p.report_id and (p.torque_min is not None or p.torque_max is not None)],
+                            "date_range": "All recorded torque observations in well",
                             "metrics": {"first_torque": torques[0], "latest_torque": torques[-1]},
                             "confidence": 0.75,
-                            "reason": "Torque increase + PV increase + NPT Hole Condition pattern",
+                            "reason": "Observed torque increase; PV and NPT cause not established",
                         },
                         recommendation="Check hole condition, BHA, and consider wiper trip",
                     )
@@ -220,12 +268,16 @@ class OperationsIntelligenceService:
 
             # Plan delay
             depth_var = plan_variance.get("depth", {})
-            if depth_var.get("delta", 0) < -100:  # 100m behind
+            if depth_var.get("delta") is not None and depth_var["delta"] < -100:  # 100m behind
                 insights.append(
                     Insight(
                         kind="plan_delay",
                         severity="warning",
-                        message=f"Behind plan by {abs(depth_var['delta']):.0f}m ({depth_var.get('pct',0):.1f}%)",
+                        # A missing variance percentage is UNKNOWN, never "0.0%".
+                        message=("Behind plan by {:.0f}m{}".format(
+                            abs(depth_var['delta']),
+                            f" ({depth_var['pct']:.1f}%)" if depth_var.get('pct') is not None
+                            else " (percent unavailable)")),
                         evidence={
                             "source_reports": [r.id for r in reports],
                             "date_range": f"{reports[0].report_date} to {reports[-1].report_date}" if reports else "",
@@ -239,7 +291,7 @@ class OperationsIntelligenceService:
 
             # Cost overrun
             hours_var = plan_variance.get("hours", {})
-            if hours_var.get("delta", 0) > 24:  # 1 day over
+            if hours_var.get("delta") is not None and hours_var["delta"] > 24:  # 1 day over
                 insights.append(
                     Insight(
                         kind="cost_overrun",
@@ -257,11 +309,12 @@ class OperationsIntelligenceService:
                 )
 
             # Safety pattern
-            if safety_kpi["total_lti"] > 0 or safety_kpi["total_near_miss"] > 2:
+            if ((safety_kpi["total_lti"] is not None and safety_kpi["total_lti"] > 0)
+                    or (safety_kpi["total_near_miss"] is not None and safety_kpi["total_near_miss"] > 2)):
                 insights.append(
                     Insight(
                         kind="safety_pattern",
-                        severity="critical" if safety_kpi["total_lti"] > 0 else "warning",
+                        severity="critical" if safety_kpi["total_lti"] is not None and safety_kpi["total_lti"] > 0 else "warning",
                         message=f"Safety: LTI {safety_kpi['total_lti']}, Near Miss {safety_kpi['total_near_miss']}",
                         evidence={
                             "source_reports": [s.report_id for s in safety_reports if s.report_id],
@@ -275,21 +328,22 @@ class OperationsIntelligenceService:
                 )
 
             # Combined pattern example from spec
-            if len(rops) >= 7 and len(torques) >= 7:
-                rop_decline = (rops[0] - rops[-1]) / rops[0] * 100 if rops[0] else 0
-                torque_inc = (torques[-1] - torques[0]) / torques[0] * 100 if torques[0] else 0
-                if rop_decline >= 18 and torque_inc > 10 and npt_percent > 15:
+            paired = [p for p in params if p.avg_rop is not None and p.torque_min is not None and p.torque_max is not None][-7:]
+            if len(paired) == 7 and paired[0].avg_rop > 0 and paired[0].torque_min + paired[0].torque_max > 0:
+                rop_decline = (paired[0].avg_rop - paired[-1].avg_rop) / paired[0].avg_rop * 100
+                torque_inc = ((paired[-1].torque_min + paired[-1].torque_max) / (paired[0].torque_min + paired[0].torque_max) - 1) * 100
+                if rop_decline >= 18 and torque_inc > 10 and npt_percent is not None and npt_percent > 15:
                     insights.append(
                         Insight(
                             kind="hole_condition_pattern",
                             severity="critical",
-                            message=f"در ۷ روز اخیر ROP حدود {rop_decline:.0f}٪ کاهش یافته، همزمان Torque و PV افزایش داشته‌اند و NPT مرتبط با Hole Condition بیشتر شده است.",
+                            message=f"Across 7 paired observations, ROP declined {rop_decline:.0f}% and torque increased {torque_inc:.0f}%; whole-well NPT exceeds 15%. Cause not established.",
                             evidence={
-                                "source_reports": [r.id for r in reports[-7:]],
-                                "date_range": f"Last 7 reports",
+                                "source_reports": [p.report_id for p in paired if p.report_id],
+                                "date_range": "Last 7 paired parameter observations (not calendar days)",
                                 "metrics": {"rop_decline_pct": round(rop_decline, 1), "torque_increase_pct": round(torque_inc, 1), "npt_percent": npt_percent},
                                 "confidence": 0.82,
-                                "reason": "Combined ROP degradation + Torque increase + NPT Hole Condition",
+                                "reason": "Concurrent ROP/torque observations and whole-well NPT; no PV or causal evidence",
                             },
                             recommendation="Consider bit change, hole cleaning, and hydraulics review",
                         )
@@ -300,5 +354,137 @@ class OperationsIntelligenceService:
         except Exception as exc:
             logger.error(f"Operations intelligence failed: {exc}", exc_info=True)
             return {"kpis": {"reports": 0, "error": str(exc)}, "insights": []}
+        finally:
+            session.close()
+
+    # ------------------------------------------------------------------
+    # Wellbore- and Section-scoped performance rollups
+    # ------------------------------------------------------------------
+    def analyze_wellbore(self, wellbore_id: int) -> Dict:
+        """Performance KPIs for ONE wellbore (canonical ``wellbore_id``).
+
+        Scope is resolved through the report ownership chain
+        (``DrillingParameters.report_id`` / ``TimeLog24H.report_id`` →
+        ``DailyReport.wellbore_id``), never by rig or free-text name. Reports
+        whose ``wellbore_id`` is NULL ("unknown") are not attributed to any
+        wellbore. Cross-well / cross-wellbore leakage is impossible because the
+        persistence layer already enforces ownership integrity on write.
+        """
+        return self._analyze_scope("wellbore_id", wellbore_id)
+
+    def analyze_section(self, section_id: int) -> Dict:
+        """Performance KPIs for ONE hole section (canonical ``section_id``).
+
+        Same ownership-chain scoping as :meth:`analyze_wellbore` but keyed on
+        ``DailyReport.section_id``; reports with a NULL ``section_id`` are not
+        attributed to any section.
+        """
+        return self._analyze_scope("section_id", section_id)
+
+    def _analyze_scope(self, scope_field: str, scope_id: int) -> Dict:
+        """Shared engine for wellbore/section performance rollups.
+
+        ``scope_field`` is the canonical ``DailyReport`` FK column name
+        (``"wellbore_id"`` or ``"section_id"``). Footage/hours use the canonical
+        paired-observation weighted ROP; time/NPT are aggregated from time logs
+        independently of drilling parameters (no multiplying join). Every rate
+        or percentage is ``None`` ("unknown") when its source data is absent,
+        never a fabricated 0.
+        """
+        from core.database import DailyReport, TimeLog24H, DrillingParameters
+        from core.engineering.engines.bit_performance import BitPerformanceEngine
+
+        if scope_field not in ("wellbore_id", "section_id"):
+            raise ValueError(f"unsupported scope field: {scope_field!r}")
+        scope_col = getattr(DailyReport, scope_field)
+
+        session = self.db.create_session()
+        try:
+            reports = (
+                session.query(DailyReport)
+                .filter(scope_col == scope_id)
+                .order_by(DailyReport.report_date)
+                .all()
+            )
+            if not reports:
+                return {
+                    "scope": scope_field.replace("_id", ""),
+                    "scope_id": scope_id,
+                    "kpis": {"reports": 0},
+                    "insights": [],
+                }
+
+            # Drilling parameters for this scope, via the report ownership chain.
+            params = (
+                session.query(DrillingParameters)
+                .join(DailyReport, DrillingParameters.report_id == DailyReport.id)
+                .filter(scope_col == scope_id)
+                .order_by(DrillingParameters.report_date)
+                .all()
+            )
+            # Time logs for this scope — aggregated separately so BHA/Bit/cost
+            # multiplicity can never inflate hours (no cross join).
+            logs = (
+                session.query(TimeLog24H)
+                .join(DailyReport, TimeLog24H.report_id == DailyReport.id)
+                .filter(scope_col == scope_id)
+                .all()
+            )
+
+            time_metrics = summarize_time_logs(logs)
+            total_hours = time_metrics["total_hours"]
+            npt_hours = time_metrics["npt_hours"]
+            depths = [
+                float(r.depth_2400)
+                for r in reports
+                if r.depth_2400 is not None
+            ]
+            # No known depth is UNKNOWN, not a fabricated 0.0 m.
+            current_depth = max(depths) if depths else None
+
+            weighted = BitPerformanceEngine.weighted_rop(params)
+
+            # avg_rop here is the mean of stored per-DDR avg_rop within scope —
+            # the same daily-average semantic used at Well level, kept DISTINCT
+            # from footage-weighted ROP.
+            rops = [
+                float(p.avg_rop) for p in params if p.avg_rop is not None
+            ]
+            avg_rop = round(sum(rops) / len(rops), 2) if rops else None
+
+            npt_percent = (round(time_metrics["npt_percent"], 2)
+                           if time_metrics["npt_percent"] is not None else None)
+            productive_hours = time_metrics["productive_hours"]
+
+            kpis = {
+                "reports": len(reports),
+                "current_depth": current_depth,
+                "average_rop": avg_rop,
+                "weighted_rop": weighted.value,
+                "weighted_rop_footage": weighted.values.get("total_footage"),
+                "weighted_rop_hours": weighted.values.get("total_hours"),
+                "weighted_rop_valid_pairs": weighted.values.get("valid_pairs"),
+                "total_hours": total_hours,
+                "npt_hours": npt_hours,
+                "npt_percent": npt_percent,
+                "productive_hours": productive_hours,
+            }
+            return {
+                "scope": scope_field.replace("_id", ""),
+                "scope_id": scope_id,
+                "kpis": kpis,
+                "insights": [],
+            }
+        except Exception as exc:
+            logger.error(
+                f"Scope intelligence failed ({scope_field}={scope_id}): {exc}",
+                exc_info=True,
+            )
+            return {
+                "scope": scope_field.replace("_id", ""),
+                "scope_id": scope_id,
+                "kpis": {"reports": 0, "error": str(exc)},
+                "insights": [],
+            }
         finally:
             session.close()

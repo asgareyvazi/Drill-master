@@ -1,5 +1,4 @@
 """Tests for data lineage tracking."""
-import pytest
 from core.lineage import LineageRecord, LineageTracker, get_import_lineage, reset_import_lineage
 
 

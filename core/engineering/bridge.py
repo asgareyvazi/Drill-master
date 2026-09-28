@@ -5,7 +5,6 @@ All engineering formulas live in core/engineering.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
 
 from .result import EngineeringResult, missing
 from .core import (
@@ -21,6 +20,7 @@ from .engines.mse import MSEEngine
 from .engines.mud_volume import MudVolumeEngine
 from .engines.torque_drag import TorqueDragEngine
 from .engines.bit_performance import BitPerformanceEngine
+from .engines.anti_collision import AntiCollisionEngine
 
 
 class CalculatorBridge:
@@ -33,10 +33,10 @@ class CalculatorBridge:
     well_control = WellControlEngine
     casing = CasingEngine
     cement = CementEngine
-    mse = MSEEngine
     mud_volume = MudVolumeEngine
     torque_drag = TorqueDragEngine
     bit_performance = BitPerformanceEngine
+    anti_collision_engine = AntiCollisionEngine
 
     @classmethod
     def kick_tolerance(cls, **kwargs) -> EngineeringResult:
@@ -65,6 +65,10 @@ class CalculatorBridge:
     @classmethod
     def mud_balance(cls, **kwargs) -> EngineeringResult:
         return MudVolumeEngine.balance(**kwargs)
+
+    @classmethod
+    def anti_collision(cls, reference, offset, **kwargs) -> EngineeringResult:
+        return AntiCollisionEngine.screen_clearance(reference, offset, **kwargs)
 
     @classmethod
     def min_curvature_pair(cls, md1, inc1, azi1, md2, inc2, azi2) -> EngineeringResult:

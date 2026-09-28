@@ -3,7 +3,7 @@ Home Tab - Dashboard and Overview with Real Data
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -19,9 +19,8 @@ from PySide6.QtWidgets import (
     QFrame,
     QScrollArea,
 )
-from PySide6.QtGui import QFont, QColor, QPalette
+from PySide6.QtGui import QFont, QColor
 from PySide6.QtCore import Qt, QTimer, QDate
-from core.managers import StatusBarManager, TableManager, ExportManager
 from core.database import DailyReport
 from core.base_tab import DrillTabBase
 
@@ -344,7 +343,7 @@ class HomeTab(DrillTabBase):
             rgb = tuple(int(color[i : i + 2], 16) for i in (0, 2, 4))
             darkened = tuple(max(0, c - 30) for c in rgb)
             return f"#{darkened[0]:02x}{darkened[1]:02x}{darkened[2]:02x}"
-        except:
+        except (AttributeError, ValueError, IndexError):
             return color
 
     def setup_connections(self):
@@ -457,8 +456,14 @@ class HomeTab(DrillTabBase):
                 type_item = QTableWidgetItem(well_type)
                 self.wells_table.setItem(row, 3, type_item)
 
-                # Last Update (simulated - in real app would be from updated_at)
-                last_update = "Today"  # Placeholder
+                # Last Update — real persisted timestamp (no fabricated value).
+                updated_at = well.get("updated_at")
+                if updated_at is not None and hasattr(updated_at, "strftime"):
+                    last_update = updated_at.strftime("%Y-%m-%d")
+                elif updated_at:
+                    last_update = str(updated_at)
+                else:
+                    last_update = "—"
                 update_item = QTableWidgetItem(last_update)
                 self.wells_table.setItem(row, 4, update_item)
 
@@ -590,7 +595,7 @@ class HomeTab(DrillTabBase):
                 hierarchy = self.db.get_hierarchy()
                 db_status = "✅ Connected"
                 db_color = "#27ae60"
-            except:
+            except Exception:
                 db_status = "❌ Disconnected"
                 db_color = "#e74c3c"
 
@@ -634,11 +639,12 @@ class HomeTab(DrillTabBase):
                 self.status_widgets["reports"].setText("📋 0 today")
                 self.status_widgets["reports"].setStyleSheet("color: #f39c12;")
 
-            # Storage (simulated)
-            import os
+            # Storage for the configured database file.
+            from pathlib import Path
 
-            if os.path.exists("drillmaster.db"):
-                size = os.path.getsize("drillmaster.db") / (1024 * 1024)  # MB
+            db_path = getattr(self.db, "db_path", "")
+            if db_path and db_path != ":memory:" and Path(db_path).exists():
+                size = Path(db_path).stat().st_size / (1024 * 1024)  # MB
                 self.status_widgets["storage"].setText(f"💾 {size:.1f} MB")
                 self.status_widgets["storage"].setStyleSheet(
                     "color: #2ecc71;" if size < 100 else "color: #e74c3c;"

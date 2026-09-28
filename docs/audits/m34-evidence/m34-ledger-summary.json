@@ -1,0 +1,58 @@
+{
+ "schema": "m34-ledger-summary",
+ "generated_utc": "2026-09-27T12:28:27+00:00",
+ "source_of_truth": {
+  "path": "docs/audits/m34-evidence/m34-ledger.json",
+  "sha256": "d81a77bda0330c75493f4081c4a02e4d106fe7602e49c14f0c67d12977658a6b",
+  "bytes": 11394989
+ },
+ "items": 11554,
+ "dispositions": {
+  "INTENTIONAL-BY-DESIGN": 2880,
+  "VERIFIED-CORRECT": 7333,
+  "UNDER-REVIEW": 1224,
+  "DEFECT-FIXED": 51,
+  "EXTERNAL-ACCEPTANCE-ONLY": 17,
+  "REMOVED-WITH-EVIDENCE": 49
+ },
+ "origin": {
+  "M32-LEDGER": 8570,
+  "M32-LEDGER-ABSENT": 96,
+  "M33-NEW": 266,
+  "M33-FORENSICS": 2,
+  "M34-NEW": 2620
+ },
+ "priority": {
+  "MEDIUM": 7766,
+  "HIGH": 372,
+  "LOW": 3416
+ },
+ "carry_forward": {
+  "SAME-FILE-HASH": 8933,
+  "M33-NO-LINE": 1
+ },
+ "readjudication_of_inherited_under_review": {
+  "VERIFIED-CORRECT": 1252,
+  "UNDER-REVIEW": 877,
+  "INTENTIONAL-BY-DESIGN": 519
+ },
+ "sweep": {
+  "hits": 5802,
+  "new_hits": 2620,
+  "already_covered_by_m33": 3182
+ },
+ "comparison_with_earlier_inventories": {
+  "note": "the earlier numbers 2232 (M30) / 6860 (M31) / 3518 (M32 remaining) / 8934 (M33) are treated as claims; the comparison below de-duplicates by the M34 identity (path, family, line) and reports what is genuinely new versus carried",
+  "m33_records_ingested": null,
+  "carried_forward_same_file_hash": 8933,
+  "new_hits_after_family_correction": 2620,
+  "hits_already_held_by_m33": 3182
+ },
+ "open_state_priority_breakdown": {
+  "UNDER-REVIEW": {
+   "HIGH": 371,
+   "MEDIUM": 853
+  },
+  "EVIDENCE-INCOMPLETE": {}
+ }
+}

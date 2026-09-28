@@ -9,9 +9,9 @@ P0/P1 Requirements:
 - History: Daily Usage Chart, Stock Trend, Consumption Rate, Days Remaining, Received vs Used
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import List, Dict, Optional
-from datetime import date, timedelta
+from datetime import date
 import logging
 
 logger = logging.getLogger(__name__)
@@ -19,9 +19,16 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class LedgerEntry:
+    """One material row for one report date.
+
+    opening_stock trichotomy: None = opening not reported (missing),
+    0.0 = explicitly reported zero stock, value = reported stock.
+    An unknown opening propagates to an unknown closing (None) —
+    it is never silently replaced by 0.
+    """
     date: date
     material_name: str
-    opening_stock: float = 0.0
+    opening_stock: Optional[float] = None
     received: float = 0.0
     used: float = 0.0
     returned: float = 0.0
@@ -31,7 +38,9 @@ class LedgerEntry:
     report_id: Optional[int] = None
 
     @property
-    def closing_stock(self) -> float:
+    def closing_stock(self) -> Optional[float]:
+        if self.opening_stock is None:
+            return None
         return self.opening_stock + self.received + self.adjusted - self.used - self.returned
 
     def to_dict(self):
@@ -71,18 +80,21 @@ class MudChemicalLedger:
 
             for r in rows:
                 mat = r.material_name
-                # Opening should be previous closing if not explicitly stored
+                # Opening trichotomy: the stored value is authoritative.
+                # None = not reported; 0.0 = explicit zero stock (a real
+                # fact that must NOT be "carried forward" away).
                 opening = r.initial_stock
-                if mat in last_closing_by_material and opening == 0:
-                    # If opening is 0 but previous closing exists, use it (carry_forward)
-                    # But only if no received/used - indicates missing opening
-                    if r.received == 0 and r.used == 0:
-                        opening = last_closing_by_material[mat]
+                # Carry-forward is a fallback for MISSING opening data
+                # only — never a replacement for an explicit value.
+                if opening is None:
+                    previous_closing = last_closing_by_material.get(mat)
+                    if previous_closing is not None:
+                        opening = previous_closing
 
                 entry = LedgerEntry(
                     date=r.report_date,
                     material_name=mat,
-                    opening_stock=float(opening or 0),
+                    opening_stock=opening,
                     received=float(r.received or 0),
                     used=float(r.used or 0),
                     returned=0.0,  # Not yet in BulkMaterials model, future
@@ -124,6 +136,10 @@ class MudChemicalLedger:
 
             for entry in mats_sorted:
                 closing = entry.closing_stock
+
+                # Unknown opening/closing: no stock judgment is possible.
+                if closing is None or entry.opening_stock is None:
+                    continue
 
                 # Negative Stock
                 if closing < 0:
@@ -189,13 +205,29 @@ class MudChemicalLedger:
         for material, mats in history.items():
             mats_sorted = sorted(mats, key=lambda x: x.date)
             usages = [float(m.used or 0) for m in mats_sorted]
-            stocks = [float(m.closing_stock) for m in mats_sorted]
+            # Unknown closing stays unknown (None) — never 0.0 and never a
+            # crash: the trichotomy above says an unreported opening yields an
+            # unknown closing, and validate() says no stock judgment is then
+            # possible. The series stays aligned with `dates` (one sample per
+            # reported day) so the chart can break the line, not shift it.
+            stocks = [
+                float(m.closing_stock) if m.closing_stock is not None else None
+                for m in mats_sorted
+            ]
             received = [float(m.received or 0) for m in mats_sorted]
             dates = [m.date.isoformat() if hasattr(m.date, "isoformat") else str(m.date) for m in mats_sorted]
 
             avg_consumption = sum(usages) / len(usages) if usages else 0
             last_stock = stocks[-1] if stocks else 0
-            days_remaining = last_stock / avg_consumption if avg_consumption > 0 else 0
+            # Unknown last stock -> unknown runway. Reporting 0.0 here would
+            # read as "stock exhausted today", which is exactly the fabricated
+            # judgment the trichotomy forbids.
+            if last_stock is None:
+                days_remaining = None
+            elif avg_consumption > 0:
+                days_remaining = last_stock / avg_consumption
+            else:
+                days_remaining = 0
 
             result[material] = {
                 "dates": dates,
@@ -203,7 +235,8 @@ class MudChemicalLedger:
                 "stock_trend": stocks,
                 "received_trend": received,
                 "consumption_rate": round(avg_consumption, 2),
-                "days_remaining": round(days_remaining, 2),
+                "days_remaining": (round(days_remaining, 2)
+                                   if days_remaining is not None else None),
                 "received_vs_used": {
                     "total_received": round(sum(received), 2),
                     "total_used": round(sum(usages), 2),
@@ -229,6 +262,10 @@ class MudChemicalLedger:
                 prev = mats_sorted[i - 1]
                 curr = mats_sorted[i]
                 expected_opening = prev.closing_stock
+                # Unknown opening or closing -> no stock judgment is possible
+                # (same rule as validate()); comparing None would raise.
+                if expected_opening is None or curr.opening_stock is None:
+                    continue
                 if abs(curr.opening_stock - expected_opening) > 0.01 and curr.opening_stock != 0:
                     issues.append(
                         {

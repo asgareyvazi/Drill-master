@@ -1,0 +1,71 @@
+{
+ "schema": "m33-closure-invariants",
+ "ledger_file": {
+  "path": "docs/audits/m33-evidence/m33-ledger.json",
+  "sha256": "d4f8616bdc6c994a105d79345a607a0b05195257f85cb36ba0871fd93281d60d",
+  "records": 8934
+ },
+ "inventory_n": 8934,
+ "terminally_dispositioned": 6093,
+ "unreviewed": 0,
+ "invariants": {
+  "inventory_equals_sum_of_dispositions": true,
+  "every_record_has_an_id": true,
+  "every_record_has_a_context_fingerprint": true,
+  "every_record_has_a_source_sha": true,
+  "unreviewed_zero": true,
+  "under_review_zero": false,
+  "evidence_incomplete_zero_for_repo_verifiable": false,
+  "critical_unresolved_zero": true,
+  "high_unresolved_zero": false
+ },
+ "open_work": {
+  "under_review": 2837,
+  "evidence_incomplete": 4,
+  "open_by_priority": {
+   "CRITICAL": 0,
+   "CRIT": 0,
+   "HIGH": 834,
+   "MEDIUM": 2007,
+   "LOW": 0
+  },
+  "evidence_incomplete_records": [
+   {
+    "id": "M32-b3f7430419",
+    "file": "tests/test_cost_management_widget_smoke.py",
+    "line": 10,
+    "rule": "R-RET-UNPROVEN"
+   },
+   {
+    "id": "M32-decc7c3cd9",
+    "file": "tests/test_ddr_save_atomicity.py",
+    "line": 78,
+    "rule": "R-NOLOCATE: broad-exception"
+   },
+   {
+    "id": "M32-6fb88c9839",
+    "file": "tests/test_inventory_live_calc_smoke.py",
+    "line": 59,
+    "rule": "R-RET-UNPROVEN"
+   },
+   {
+    "id": "M32-580fa98cd1",
+    "file": "tests/test_p0_phase1_regressions.py",
+    "line": 7,
+    "rule": "R-NOLOCATE: broad-exception"
+   }
+  ]
+ },
+ "certification_gate": {
+  "semantic_closure_complete": false,
+  "repo_critical_zero": true,
+  "repo_high_zero": false,
+  "only_external_acceptance_remaining": false,
+  "blocking_reasons": [
+   "2837 occurrences are UNDER-REVIEW (repo-verifiable, no terminal evidence yet)",
+   "4 records are EVIDENCE-INCOMPLETE",
+   "Windows EXE/installer, native Qt, real MinerU/PDF and production-document acceptance are not executable here",
+   "the session branch does not exist on the remote, so no CI run can exist for this source"
+  ]
+ }
+}

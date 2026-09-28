@@ -1,0 +1,7 @@
+# Optional integrations. DrillMaster remains fully usable without these.
+# They are not bundled into the application and are not required for the
+# deterministic canonical import/engineering paths.
+camelot-py[cv]==0.11.0
+pytesseract==0.3.13
+# welleng, torque-drag, and gekko are third-party adapters; install and review
+# their licenses separately before enabling them in a controlled environment.

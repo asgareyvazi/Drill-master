@@ -2,13 +2,13 @@
 Trajectory Widget - ابزار مدیریت تراژکتوری چاه با قابلیت‌های پیشرفته (بازنویسی کامل)
 """
 
-import os
 import csv
-import math
 import json
 import logging
-from datetime import datetime, date, time, timedelta
-from typing import Dict, List, Any, Optional, Tuple
+from core.permissions import require_permission
+from core.text_utils import fmt_num
+from datetime import datetime, date
+from typing import Dict, List
 
 try:
     import pyqtgraph as pg
@@ -26,13 +26,13 @@ from PySide6.QtWidgets import *
 from PySide6.QtGui import *
 
 from core.database import (
-    Well, Section, TripSheetEntry, SurveyPoint, 
-    TrajectoryCalculation, TrajectoryPlot, DatabaseManager
+    TripSheetEntry, DatabaseManager
 )
 from core.managers import (
     StatusBarManager, TableManager, ExportManager,
-    TableButtonManager, setup_widget_with_managers
+    setup_widget_with_managers
 )
+from core.editor_state import editor_loaded, editor_saved
 from core.base_tab import DrillTabBase
 
 logger = logging.getLogger(__name__)
@@ -105,24 +105,17 @@ class TripSheetTab(QWidget):
             data = None
         
         if data is None:
-            data = [
-                datetime.now().strftime("%H:%M"),
-                "New Activity",
-                "0.0",
-                "0.0",
-                "0.0",
-                "",
-                "",
-                False
-            ]
-        
+            data = ["", datetime.now().strftime("%H:%M"), "", "", "", "", "", "", False]
+        elif isinstance(data, (list, tuple)) and len(data) == 8:
+            data = [""] + list(data)  # legacy caller payload omitted the hidden ID
+
         row = self.table_manager.add_row(data)
         if row >= 0:
             checkbox = QCheckBox()
-            if len(data) > 7:
+            if len(data) > 8:
                 # در صورت وجود مقدار verified در داده (index 7)
-                if isinstance(data, (list, tuple)) and len(data) > 7:
-                    verified_value = data[7]
+                if isinstance(data, (list, tuple)) and len(data) > 8:
+                    verified_value = data[8]
                     if isinstance(verified_value, bool):
                         checkbox.setChecked(verified_value)
                     elif isinstance(verified_value, str):
@@ -147,20 +140,27 @@ class TripSheetTab(QWidget):
             self.table_manager.delete_row()
     
     def calculate_cumulative(self):
+        """Sum entered operation depths; missing terms make the total unknown."""
         try:
+            import math
             cumulative = 0.0
+            values = []
             for row in range(self.trip_table.rowCount()):
-                depth_item = self.trip_table.item(row, 3)
-                if depth_item and depth_item.text():
-                    depth = float(depth_item.text())
-                    cumulative += depth
-                    cum_item = QTableWidgetItem(f"{cumulative:.2f}")
-                    cum_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
-                    self.trip_table.setItem(row, 4, cum_item)
-            QMessageBox.information(self, "Success", f"Cumulative calculation completed\nTotal: {cumulative:.2f} m")
+                item = self.trip_table.item(row, 3)
+                text = item.text().strip() if item is not None else ""
+                depth = None if text in ("", "—") else float(text)
+                if depth is not None and (not math.isfinite(depth) or depth < 0):
+                    raise ValueError("Invalid depth")
+                cumulative = cumulative + depth if cumulative is not None and depth is not None else None
+                values.append(cumulative)
+            for row, value in enumerate(values):
+                self.trip_table.setItem(row, 4, QTableWidgetItem(fmt_num(value, 2, default=None)))
+            QMessageBox.information(self, "Calculation", "Sum of entered operation depths: " + fmt_num(cumulative if values else None, 2, default=None) + " m")
         except ValueError as e:
             QMessageBox.warning(self, "Error", f"Invalid depth values: {str(e)}")
-    
+
+    @editor_saved()
+    @require_permission("can_edit_reports")
     def save_data(self):
         if not self.current_well_id or not self.current_report_id:
             self.status_manager.show_error("TripSheet", "Well or report not selected")
@@ -191,9 +191,18 @@ class TripSheetTab(QWidget):
                 
                 time_str = time_item.text().strip()
                 activity = activity_item.text().strip()
-                depth = float(depth_item.text() or 0) if depth_item else 0.0
-                cum_trip = float(cum_item.text() or 0) if cum_item else 0.0
-                duration = float(duration_item.text() or 0) if duration_item else 0.0
+                def optional_measurement(item):
+                    import math
+                    value = item.text().strip() if item is not None else ""
+                    if value in ("", "—"):
+                        return None
+                    number = float(value)
+                    if not math.isfinite(number) or number < 0:
+                        raise ValueError("Trip measurements must be finite and nonnegative")
+                    return number
+                depth = optional_measurement(depth_item)
+                cum_trip = optional_measurement(cum_item)
+                duration = optional_measurement(duration_item)
                 remarks = remarks_item.text().strip() if remarks_item else ""
                 supervisor = supervisor_item.text().strip() if supervisor_item else ""
                 
@@ -207,8 +216,8 @@ class TripSheetTab(QWidget):
                 
                 try:
                     time_obj = datetime.strptime(time_str, "%H:%M").time()
-                except:
-                    time_obj = datetime.now().time()
+                except (TypeError, ValueError) as exc:
+                    raise ValueError(f"Invalid trip time in row {row + 1}: {time_str}") from exc
                 
                 entry = TripSheetEntry(
                     well_id=self.current_well_id,
@@ -236,6 +245,7 @@ class TripSheetTab(QWidget):
         finally:
             session.close()
         
+    @editor_loaded()
     def load_data(self):
         if not self.current_well_id:
             return
@@ -251,9 +261,9 @@ class TripSheetTab(QWidget):
                 self.trip_table.setItem(row, 0, QTableWidgetItem(str(entry['id'])))
                 self.trip_table.setItem(row, 1, QTableWidgetItem(entry['time']))
                 self.trip_table.setItem(row, 2, QTableWidgetItem(entry['activity']))
-                self.trip_table.setItem(row, 3, QTableWidgetItem(str(entry['depth'])))
-                self.trip_table.setItem(row, 4, QTableWidgetItem(str(entry['cum_trip'])))
-                self.trip_table.setItem(row, 5, QTableWidgetItem(str(entry['duration'])))
+                self.trip_table.setItem(row, 3, QTableWidgetItem(fmt_num(entry['depth'], 1, default=None)))
+                self.trip_table.setItem(row, 4, QTableWidgetItem(fmt_num(entry['cum_trip'], 1, default=None)))
+                self.trip_table.setItem(row, 5, QTableWidgetItem(fmt_num(entry['duration'], 1, default=None)))
                 self.trip_table.setItem(row, 6, QTableWidgetItem(entry['remarks']))
                 self.trip_table.setItem(row, 7, QTableWidgetItem(entry['supervisor']))
                 checkbox = QCheckBox()
@@ -341,7 +351,7 @@ class SurveyDataTab(QWidget):
     
     def add_row(self, data=None):
         if data is None:
-            data = ["0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "MWD", ""]
+            data = [""] * self.survey_table.columnCount()
         return self.table_manager.add_row(data)
     
     def delete_row(self):
@@ -354,51 +364,31 @@ class SurveyDataTab(QWidget):
             self.table_manager.import_from_csv(filename)
     
     def calculate_trajectory(self):
-        if self.survey_table.rowCount() < 1:
-            QMessageBox.warning(self, "Error", "At least 1 survey point is required")
-            return
-        from core.engineering.core import TrajectoryEngine
-        surveys = []
+        from core.survey_records import prepare_surveys, DERIVED_FIELDS
         rows = []
-        for row in range(self.survey_table.rowCount()):
-            md_item = self.survey_table.item(row, 1)
-            inc_item = self.survey_table.item(row, 2)
-            azi_item = self.survey_table.item(row, 3)
-            if md_item and inc_item and azi_item:
-                try:
-                    surveys.append({
-                        "md": float(md_item.text()),
-                        "inc": float(inc_item.text()),
-                        "azi": float(azi_item.text()),
-                    })
-                    rows.append(row)
-                except ValueError:
-                    QMessageBox.warning(self, "Error", f"Invalid data in row {row+1}")
-                    return
-        if not surveys:
-            QMessageBox.warning(self, "Error", "No valid survey points")
-            return
+        for index in range(self.survey_table.rowCount()):
+            record = {key: self.survey_table.item(index, column).text() if self.survey_table.item(index, column) else None
+                      for column, key in enumerate(("md", "inc", "azi"), 1)}
+            record["_ui_row"] = index
+            rows.append(record)
         try:
-            pts = TrajectoryEngine.calculate(surveys)
+            records, issues, rejected = prepare_surveys(rows)
+            for index in range(self.survey_table.rowCount()):
+                for column in range(4, 10):
+                    self.survey_table.setItem(index, column, QTableWidgetItem(""))
+            for record in records:
+                if record["tvd"] is not None:
+                    self.update_row_calculations(record["_ui_row"], *(record[k] for k in DERIVED_FIELDS))
+            self.highlight_calculated_cells()
+            if issues:
+                QMessageBox.warning(self, "Survey review", "\n".join(f"Row {r['row']}: {r['reason']}" for r in issues))
+            elif not records:
+                QMessageBox.warning(self, "Survey review", "No measured survey stations supplied")
+            return records
         except Exception as exc:
-            QMessageBox.warning(self, "Error", str(exc))
-            return
-        last = pts[-1]
-        for row, pt in zip(rows, pts):
-            self.update_row_calculations(row, pt.tvd, pt.north, pt.east, pt.vs, pt.hd, pt.dls)
-            if pt.dls > 8:
-                item = self.survey_table.item(row, 9)
-                if item:
-                    item.setBackground(QColor(255, 200, 200))
-                    item.setToolTip(f"High DLS {pt.dls:.2f}°/30m")
-        self.highlight_calculated_cells()
-        QMessageBox.information(self, "Success",
-            f"Trajectory calculation completed (Minimum Curvature)\n\n"
-            f"Final Results:\n"
-            f"• TVD: {last.tvd:.2f} m\n"
-            f"• North: {last.north:.2f} m\n"
-            f"• East: {last.east:.2f} m\n"
-            f"• HD: {last.hd:.2f} m")
+            logger.exception("Trajectory calculation failed")
+            QMessageBox.critical(self, "Survey SYSTEM_ERROR", str(exc))
+            return []
 
     def update_row_calculations(self, row, tvd, north, east, vs, hd, dls):
         self.survey_table.setItem(row, 4, QTableWidgetItem(f"{tvd:.2f}"))
@@ -436,78 +426,51 @@ class SurveyDataTab(QWidget):
         except (TypeError, ValueError):
             return None
     
+    @editor_saved()
     def save_data(self):
         if not self.current_well_id:
-            QMessageBox.warning(self, "Warning", "Please select a well first")
+            QMessageBox.warning(self, "Survey", "Select a well before saving surveys")
             return False
-        
-        session = self.db_manager.create_session()
+        rows = []
+        keys = ("md", "inc", "azi", "tvd", "north", "east", "vs", "hd", "dls", "tool", "remarks")
+        for row in range(self.survey_table.rowCount()):
+            record = {key: self.survey_table.item(row, col).text() if self.survey_table.item(row, col) else None
+                      for col, key in enumerate(keys, 1)}
+            if not any(record.values()):
+                continue
+            record.update(well_id=self.current_well_id, report_id=self.current_report_id,
+                          section_id=getattr(self, "current_section_id", None), _source_location={"row": row + 1, "table": "Survey UI"})
+            id_item = self.survey_table.item(row, 0)
+            if id_item and id_item.text().strip():
+                record["id"] = int(id_item.text())
+            rows.append(record)
         try:
-            session.query(SurveyPoint).filter(
-                SurveyPoint.well_id == self.current_well_id,
-                SurveyPoint.report_id == self.current_report_id
-            ).delete()
-            
-            saved_count = 0
-            for row in range(self.survey_table.rowCount()):
-                md_item = self.survey_table.item(row, 1)
-                inc_item = self.survey_table.item(row, 2)
-                azi_item = self.survey_table.item(row, 3)
-                
-                if not all([md_item, inc_item, azi_item]):
-                    continue
-                
-                try:
-                    md = float(md_item.text() or 0)
-                    inc = float(inc_item.text() or 0)
-                    azi = float(azi_item.text() or 0)
-                except ValueError:
-                    continue
-                
-                tvd_item = self.survey_table.item(row, 4)
-                north_item = self.survey_table.item(row, 5)
-                east_item = self.survey_table.item(row, 6)
-                vs_item = self.survey_table.item(row, 7)
-                hd_item = self.survey_table.item(row, 8)
-                dls_item = self.survey_table.item(row, 9)
-                tool_item = self.survey_table.item(row, 10)
-                remarks_item = self.survey_table.item(row, 11)
-                
-                # inc/azi are NOT NULL columns -> 0 fallback; all derived
-                # columns stay None when the cell is blank/"None" so NULLs
-                # round-trip instead of crashing on float("None").
-                tvd = self._optional_float(tvd_item.text()) if tvd_item else None
-                north = self._optional_float(north_item.text()) if north_item else None
-                east = self._optional_float(east_item.text()) if east_item else None
-                vs = self._optional_float(vs_item.text()) if vs_item else None
-                hd = self._optional_float(hd_item.text()) if hd_item else None
-                dls = self._optional_float(dls_item.text()) if dls_item else None
-                tool = tool_item.text().strip() if tool_item else "MWD"
-                remarks = remarks_item.text().strip() if remarks_item else ""
-                
-                point = SurveyPoint(
-                    well_id=self.current_well_id,
-                    report_id=self.current_report_id,
-                    md=md, inc=inc, azi=azi,
-                    tvd=tvd, north=north, east=east,
-                    vs=vs, hd=hd, dls=dls,
-                    tool=tool, remarks=remarks,
-                    measured_at=datetime.now()
-                )
-                session.add(point)
-                saved_count += 1
-            
-            session.commit()
-            logger.info(f"Saved {saved_count} survey points")
-            return True
-        
-        except Exception as e:
-            session.rollback()
-            logger.error(f"Survey save error: {e}")
+            result = self.db_manager.save_survey_records(rows, replace_scope=(self.current_well_id, self.current_report_id))
+            self.last_save_result = result
+            from core.save_outcome import SaveOutcome, SaveIssue
+            self.last_save_outcome = SaveOutcome(saved=result["accepted"], issues=[
+                SaveIssue("Survey", r["reason"], status=r.get("status", "REVIEW_REQUIRED"), row=r.get("row"), field=r.get("field", ""))
+                for r in result["review_items"]])
+            if result["review_items"]:
+                QMessageBox.warning(self, "Survey review", f"Saved {result['accepted']}; rejected {result['rejected']}; calculated {result['calculated']}.\n" +
+                                    "\n".join(f"Row {r['row']}: {r['reason']}" for r in result["review_items"]))
+            if not result["rejected"]:
+                self.load_data()
+                parent = self.parentWidget()
+                # The owner also refreshes plots on report selection; an
+                # explicit save must refresh the sibling plot tab as well.
+                while parent is not None:
+                    if hasattr(parent, "plot_tab"):
+                        parent.plot_tab.load_for_report(self.current_report_id)
+                        break
+                    parent = parent.parentWidget()
+            return result["rejected"] == 0
+        except Exception as exc:
+            logger.exception("Survey persistence/calculation failure")
+            QMessageBox.critical(self, "Survey system error", str(exc))
             return False
-        finally:
-            session.close()
-        
+
+    @editor_loaded()
     def load_data(self):
         if not self.current_well_id:
             return
@@ -523,16 +486,16 @@ class SurveyDataTab(QWidget):
                 # NULL derived values display as blank, never as "None"
                 self.survey_table.setItem(row, 0, QTableWidgetItem(str(point['id'])))
                 self.survey_table.setItem(row, 1, QTableWidgetItem(str(point['md'])))
-                self.survey_table.setItem(row, 2, QTableWidgetItem(str(point['inc'])))
-                self.survey_table.setItem(row, 3, QTableWidgetItem(str(point['azi'])))
+                self.survey_table.setItem(row, 2, QTableWidgetItem('' if point['inc'] is None else str(point['inc'])))
+                self.survey_table.setItem(row, 3, QTableWidgetItem('' if point['azi'] is None else str(point['azi'])))
                 self.survey_table.setItem(row, 4, QTableWidgetItem("" if point['tvd'] is None else str(point['tvd'])))
                 self.survey_table.setItem(row, 5, QTableWidgetItem("" if point['north'] is None else str(point['north'])))
                 self.survey_table.setItem(row, 6, QTableWidgetItem("" if point['east'] is None else str(point['east'])))
                 self.survey_table.setItem(row, 7, QTableWidgetItem("" if point['vs'] is None else str(point['vs'])))
                 self.survey_table.setItem(row, 8, QTableWidgetItem("" if point['hd'] is None else str(point['hd'])))
                 self.survey_table.setItem(row, 9, QTableWidgetItem("" if point['dls'] is None else str(point['dls'])))
-                self.survey_table.setItem(row, 10, QTableWidgetItem(point['tool']))
-                self.survey_table.setItem(row, 11, QTableWidgetItem(point['remarks']))
+                self.survey_table.setItem(row, 10, QTableWidgetItem(point['tool'] or ''))
+                self.survey_table.setItem(row, 11, QTableWidgetItem(point['remarks'] or ''))
     
     def clear_table(self):
         self.survey_table.setRowCount(0)
@@ -603,6 +566,12 @@ class TrajectoryPlotTab(QWidget):
         self.plot_3d_label = QLabel("3D Plot (requires additional 3D plotting library)")
         self.plot_3d_label.setAlignment(Qt.AlignCenter)
         self.plot_3d_layout.addWidget(self.plot_3d_label)
+        from matplotlib.figure import Figure
+        from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
+        self.figure_3d = Figure()
+        self.canvas_3d = FigureCanvasQTAgg(self.figure_3d)
+        self.axes_3d = self.figure_3d.add_subplot(111, projection="3d")
+        self.plot_3d_layout.addWidget(self.canvas_3d)
         self.plot_tabs.addTab(self.plot_3d_container, "3D View")
         
         layout.addWidget(self.plot_tabs)
@@ -633,32 +602,30 @@ class TrajectoryPlotTab(QWidget):
             self.load_plots()
     
     def plot_trajectory(self, survey_data: List[Dict] = None):
-        if not survey_data:
-            parent = self.parent()
-            if parent and hasattr(parent, 'get_survey_data'):
-                survey_data = parent.get_survey_data()
-        if not survey_data or len(survey_data) < 2:
-            QMessageBox.warning(self, "Warning", "No survey data available")
-            return
-        mds = [point.get('md', 0) for point in survey_data]
-        tvd = [point.get('tvd', 0) for point in survey_data]
-        north = [point.get('north', 0) for point in survey_data]
-        east = [point.get('east', 0) for point in survey_data]
-        hd = [point.get('hd', 0) for point in survey_data]
-        
+        from core.survey_records import plot_series
+        if survey_data is None and self.db_manager and self.current_report_id:
+            survey_data = self.db_manager.load_survey_points(report_id=self.current_report_id)
+        series = plot_series(survey_data or [])
         self.clear_plots()
-        self.plot_2d_plan.plot(east, north, pen=pg.mkPen('b', width=2), symbol='o', symbolSize=5)
-        self.plot_2d_side.plot(hd, tvd, pen=pg.mkPen('r', width=2), symbol='s', symbolSize=5)
-        self.plot_3d_label.setText(f"3D Trajectory Plot\nPoints: {len(survey_data)}\nMax TVD: {max(tvd):.1f} m")
-        self.plots = {
-            '2d_plan': {'east': east, 'north': north},
-            '2d_side': {'hd': hd, 'tvd': tvd},
-            '3d': {'md': mds, 'north': north, 'east': east, 'tvd': tvd}
-        }
-    
+        if not series["md"]:
+            self.plot_3d_label.setText("No complete calculated survey stations. Supply missing MD/inclination/azimuth.")
+            return
+        east, north, tvd, hd = (series[k] for k in ("east", "north", "tvd", "hd"))
+        if self.plot_2d_plan is not None:
+            self.plot_2d_plan.plot(east, north, pen=pg.mkPen('b', width=2), symbol='o')
+            self.plot_2d_side.plot(hd, tvd, pen=pg.mkPen('r', width=2), symbol='s')
+            self.plot_2d_side.invertY(True)
+        if hasattr(self, "axes_3d"):
+            from core.trajectory_plot import draw_trajectory_3d
+            draw_trajectory_3d(self.axes_3d, survey_data or [])
+            self.canvas_3d.draw_idle()
+        self.plot_3d_label.setText(f"Measured survey stations: {len(tvd)}")
+        self.plots = {"2d_plan": {"east": east, "north": north},
+                      "2d_side": {"hd": hd, "tvd": tvd}, "3d": series}
+
     def save_plot(self):
         if not self.current_report_id:
-            QMessageBox.warning(self, "Warning", "No calculation selected")
+            QMessageBox.warning(self, "Trajectory plot", "Select a daily report before saving a plot")
             return False
         plot_data = {
             'report_id': self.current_report_id,
@@ -676,32 +643,19 @@ class TrajectoryPlotTab(QWidget):
         return False
     
     def load_plots(self):
-        if not self.current_report_id:
-            return
-        if self.db_manager:
-            plots = self.db_manager.load_trajectory_plots(report_id=self.current_report_id)
-            for plot in plots:
-                try:
-                    plot_data = json.loads(plot.get('plot_data', '{}'))
-                    if plot['plot_type'] == '2d_plan':
-                        east = plot_data.get('east', [])
-                        north = plot_data.get('north', [])
-                        if east and north:
-                            self.plot_2d_plan.plot(east, north, pen=pg.mkPen('g', width=2, style=Qt.DashLine), name=f"Saved: {plot['title']}")
-                    elif plot['plot_type'] == '2d_side':
-                        hd = plot_data.get('hd', [])
-                        tvd = plot_data.get('tvd', [])
-                        if hd and tvd:
-                            self.plot_2d_side.plot(hd, tvd, pen=pg.mkPen('orange', width=2, style=Qt.DashLine), name=f"Saved: {plot['title']}")
-                except Exception as e:
-                    logger.error(f"Error loading plot {plot['id']}: {e}")
-    
+        # Rebuild from persisted surveys; saved presentation snapshots are not
+        # an authoritative second trajectory and may be stale after edits.
+        self.plot_trajectory()
+
     def clear_plots(self):
-        self.plot_2d_plan.clear()
-        self.plot_2d_side.clear()
-        self.plot_3d_label.setText("3D Plot (requires additional 3D plotting library)")
+        for plot in (self.plot_2d_plan, self.plot_2d_side):
+            if plot is not None:
+                plot.clear()
+        if hasattr(self, "axes_3d"):
+            self.axes_3d.clear()
+            self.canvas_3d.draw_idle()
         self.plots.clear()
-    
+
     def export_plot_data(self):
         if not self.plots:
             QMessageBox.warning(self, "Warning", "No plot data to export")
@@ -767,6 +721,7 @@ class TrajectoryWidget(DrillTabBase):
         
         self.init_ui()
         setup_widget_with_managers(self, "TrajectoryWidget", enable_autosave=True, autosave_interval=5, setup_shortcuts=True)
+        self.configure_save_tracking()
     
     def init_ui(self):
         main_layout = QVBoxLayout(self)
@@ -906,22 +861,18 @@ class TrajectoryWidget(DrillTabBase):
         return data
     
     def save_data(self):
-        success = True
+        from core.save_outcome import save_all
+        steps = []
         if self.trip_sheet_tab:
-            if not self.trip_sheet_tab.save_data():
-                success = False
+            steps.append(("Trip Sheet", self.trip_sheet_tab.save_data))
         if self.survey_data_tab:
-            if not self.survey_data_tab.save_data():
-                success = False
-        if self.plot_tab:
-            if not self.plot_tab.save_plot():
-                pass  # optional
-        if success:
-            self.show_success("Trajectory data saved")
-        else:
-            self.show_error("Some data could not be saved")
-        return success
-    
+            steps.append(("Survey", self.survey_data_tab.save_data))
+        self.last_save_outcome = save_all(steps)
+        if self.plot_tab and self.current_report_id:
+            self.plot_tab.load_for_report(self.current_report_id)
+        (self.show_success if self.last_save_outcome else self.show_error)(self.last_save_outcome.summary())
+        return bool(self.last_save_outcome)
+
     def refresh_data(self):
         self.load_wells()
         self.update_tabs()

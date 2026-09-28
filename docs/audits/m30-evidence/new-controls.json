@@ -1,0 +1,102 @@
+[
+  {
+    "control": "unknown-currency",
+    "file": "core/cost_semantics.py",
+    "test": "test_explicit_unknown_currency_markers_do_not_authorize_money_totals",
+    "exit_code": 1,
+    "source_restored": true,
+    "source_sha256": "8cce6d2bd53dfd6416f517fe7032cfc97676f12c801eae28aa1a33743f8f28f8",
+    "before": "if text in {\"UNKNOWN\", \"UNSPECIFIED\", \"N/A\", \"NOT RECORDED\", \"NOT ASSESSED\", \"NONE\", \"NULL\", \"\u2014\"}:",
+    "after": "if False:"
+  },
+  {
+    "control": "numeric-overflow",
+    "file": "core/engineering/result.py",
+    "test": "test_unrepresentable_integer_uses_engineering_error_contract",
+    "exit_code": 1,
+    "source_restored": true,
+    "source_sha256": "ae3b319c79b09c64a36c46ec77e6c2ffe850ee19b5a051f3986a47bbe071ac33",
+    "before": "except (TypeError, ValueError, OverflowError) as exc:",
+    "after": "except (TypeError, ValueError) as exc:"
+  },
+  {
+    "control": "scope-coverage",
+    "file": "core/scope_attribution.py",
+    "test": "test_scope_coverage_distinguishes_persisted_from_possible",
+    "exit_code": 1,
+    "source_restored": true,
+    "source_sha256": "7de589e5a975941bc0618b1afbdc585b40562d9fff60f5b6d4735e4006e41611",
+    "before": "covered = counter.get(ALREADY, 0)",
+    "after": "covered = counter.get(ALREADY, 0) + counter.get(RESOLVED, 0)"
+  },
+  {
+    "control": "scope-candidate",
+    "file": "core/scope_attribution.py",
+    "test": "test_scope_rejects_invalid_unassigned_candidates_without_mutation",
+    "exit_code": 1,
+    "source_restored": true,
+    "source_sha256": "7de589e5a975941bc0618b1afbdc585b40562d9fff60f5b6d4735e4006e41611",
+    "before": "or (rep.section_id is None and rep.well_id in invalid_candidate_wells)",
+    "after": "or False"
+  },
+  {
+    "control": "snapshot-alias",
+    "file": "core/scope_attribution.py",
+    "test": "test_attribution_serialization_does_not_alias_outcomes",
+    "exit_code": 1,
+    "source_restored": true,
+    "source_sha256": "7de589e5a975941bc0618b1afbdc585b40562d9fff60f5b6d4735e4006e41611",
+    "before": "[asdict(o) for o in self.outcomes]",
+    "after": "[vars(o) for o in self.outcomes]"
+  },
+  {
+    "control": "search-failure",
+    "file": "core/database.py",
+    "test": "test_search_database_exception_reaches_ui_failed_state",
+    "exit_code": 1,
+    "source_restored": true,
+    "source_sha256": "53d114f893024d70ab5a55af6fd2e581a4b5557b7231f9487e86c1aa0781a551",
+    "before": "raise  # a failed search must not become an empty or partial success",
+    "after": "return []  # injected false no-matches"
+  },
+  {
+    "control": "stock-unit",
+    "file": "core/database.py",
+    "test": "test_carry_forward_requires_same_unit_and_unique_latest_date",
+    "exit_code": 1,
+    "source_restored": true,
+    "source_sha256": "53d114f893024d70ab5a55af6fd2e581a4b5557b7231f9487e86c1aa0781a551",
+    "before": "InventoryItem.unit == norm[\"unit\"],",
+    "after": "True,"
+  },
+  {
+    "control": "mse-nonfinite",
+    "file": "core/engineering/engines/mse.py",
+    "test": "test_mse_never_reports_nonfinite_or_underflowed_calculation_as_success",
+    "exit_code": 1,
+    "source_restored": true,
+    "source_sha256": "10568a2c447b9e6c9066e1666925f7d2af89e522b7b7b3947df039231cd6598a",
+    "before": "if not all(math.isfinite(v) for v in (axial, rotary, mse)):",
+    "after": "if False:"
+  },
+  {
+    "control": "money-overflow",
+    "file": "core/cost_semantics.py",
+    "test": "test_finite_financial_inputs_must_not_emit_infinite_facts",
+    "exit_code": 1,
+    "source_restored": true,
+    "source_sha256": "8cce6d2bd53dfd6416f517fe7032cfc97676f12c801eae28aa1a33743f8f28f8",
+    "before": "require_number(sum(values), \"amount total\")",
+    "after": "sum(values)"
+  },
+  {
+    "control": "backup-source",
+    "file": "core/database.py",
+    "test": "test_backup_source_disappearing_does_not_create_empty_success",
+    "exit_code": 1,
+    "source_restored": true,
+    "source_sha256": "53d114f893024d70ab5a55af6fd2e581a4b5557b7231f9487e86c1aa0781a551",
+    "before": "sqlite3.connect(\n                Path(self.db_path).resolve().as_uri() + \"?mode=ro\", uri=True\n            )",
+    "after": "sqlite3.connect(self.db_path)"
+  }
+]

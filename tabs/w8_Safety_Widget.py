@@ -4,24 +4,87 @@ Comprehensive Safety Management Module with Database Integration
 """
 
 import logging
-import json
-from datetime import datetime, date, timedelta
-from typing import Dict, Any, List, Optional
 
 from PySide6.QtCore import *
 from PySide6.QtWidgets import *
 from PySide6.QtGui import *
 
 from core.managers import (
-    TableManager, TableButtonManager, ExportManager,
-    setup_widget_with_managers, StatusBarManager
+    TableManager, ExportManager,
+    setup_widget_with_managers
 )
-from core.database import DatabaseManager, WasteRecord, BOPComponent, SafetyIncident, SafetyReport
+from core.editor_state import editor_loaded, editor_saved
 from core.base_tab import DrillTabBase
 from core.standards import bop_test_interval_days
 
 logger = logging.getLogger(__name__)
 
+
+def _load_nullable_safety_fields(owner, data, mapping):
+    """Keep source NULL distinct from a widget's minimum display value."""
+    from core.domain_records import optional_date
+    owner._missing_safety_fields = set()
+    owner._loaded_report_date = data.get("report_date")
+    for field, attribute in mapping.items():
+        widget = getattr(owner, attribute)
+        blocker = QSignalBlocker(widget)
+        value = data.get(field)
+        missing = value is None
+        if missing:
+            owner._missing_safety_fields.add(field)
+        widget.setSpecialValueText("Not supplied")
+        if not isinstance(widget, QDateEdit):
+            widget.setMinimum(-1)
+        if isinstance(widget, QDateEdit):
+            parsed = optional_date(value)
+            widget.setDate(QDate(parsed.year, parsed.month, parsed.day) if parsed else widget.minimumDate())
+            signal = widget.dateChanged
+        else:
+            widget.setValue(value if value is not None else widget.minimum())
+            signal = widget.valueChanged
+        del blocker
+        if not getattr(widget, "_nullable_safety_connected", False):
+            def edited(_value, field=field, widget=widget):
+                if ((isinstance(widget, QDateEdit) and widget.date() == widget.minimumDate())
+                        or (not isinstance(widget, QDateEdit) and widget.value() == -1)):
+                    owner._missing_safety_fields.add(field)
+                else:
+                    owner._missing_safety_fields.discard(field)
+            signal.connect(edited)
+            widget._nullable_safety_connected = True
+
+
+def _preserve_nullable_safety_fields(owner, data):
+    # Child buttons can save without passing through DrillTabBase.save_data.
+    # Enforce the same fail-closed permission at the actual write boundary.
+    from core.permissions import permissions
+    if permissions.is_viewer() or not permissions.has_permission("can_edit_reports"):
+        raise PermissionError("Safety records are read-only for this user")
+    for field in getattr(owner, "_missing_safety_fields", set()):
+        if field in data:
+            data[field] = None
+    if data.get("report_id"):
+        report = owner.db.get_daily_report_by_id(data["report_id"])
+        if not report or not report.get("report_date"):
+            raise ValueError("Safety save requires a valid dated report")
+        data["report_date"] = report["report_date"]
+    else:
+        data["report_date"] = getattr(owner, "_loaded_report_date", None)
+        if not data["report_date"]:
+            raise ValueError("Select a dated report before saving safety data")
+
+
+WASTE_FIELDS = {
+                    "recycled_volume": "recycled_volume", "waste_ph": "waste_ph",
+                    "cutting_volume": "cutting_volume", "oil_content": "oil_content",
+                }
+
+BOP_FIELDS = {
+                    "last_fire_drill": "last_fire_drill", "last_bop_drill": "last_bop_drill",
+                    "last_h2s_drill": "last_h2s_drill", "days_without_lti": "days_no_lti",
+                    "last_rams_test": "last_rams_test", "test_pressure": "test_pressure",
+                    "last_koomey_test": "last_koomey_test", "days_since_last_test": "days_since_last_test",
+                }
 
 # ==================== Safety & BOP Tab ====================
 class SafetyBOPTab(QWidget):
@@ -35,6 +98,9 @@ class SafetyBOPTab(QWidget):
         self.current_report_id = parent_widget.current_report_id
         self.table_managers = {}
         self.init_ui()
+        _load_nullable_safety_fields(self, {}, BOP_FIELDS)
+        self.bop_test_report.setCurrentIndex(-1)
+        self.test_status.setCurrentIndex(-1)
         self.setup_connections()
 
     def init_ui(self):
@@ -46,26 +112,22 @@ class SafetyBOPTab(QWidget):
 
         drills_layout.addWidget(QLabel("Last Fire Drill:"), 0, 0)
         self.last_fire_drill = QDateEdit()
-        self.last_fire_drill.setDate(QDate.currentDate().addDays(-7))
         self.last_fire_drill.setCalendarPopup(True)
         drills_layout.addWidget(self.last_fire_drill, 0, 1)
 
         drills_layout.addWidget(QLabel("Last BOP Drill:"), 0, 2)
         self.last_bop_drill = QDateEdit()
-        self.last_bop_drill.setDate(QDate.currentDate().addDays(-14))
         self.last_bop_drill.setCalendarPopup(True)
         drills_layout.addWidget(self.last_bop_drill, 0, 3)
 
         drills_layout.addWidget(QLabel("Last H2S Drill:"), 1, 0)
         self.last_h2s_drill = QDateEdit()
-        self.last_h2s_drill.setDate(QDate.currentDate().addDays(-21))
         self.last_h2s_drill.setCalendarPopup(True)
         drills_layout.addWidget(self.last_h2s_drill, 1, 1)
 
         drills_layout.addWidget(QLabel("Days without LTI:"), 1, 2)
         self.days_no_lti = QSpinBox()
         self.days_no_lti.setRange(0, 10000)
-        self.days_no_lti.setValue(120)
         drills_layout.addWidget(self.days_no_lti, 1, 3)
 
         update_lti_btn = QPushButton("🔄 Update LTI Days")
@@ -81,27 +143,23 @@ class SafetyBOPTab(QWidget):
 
         bop_layout.addWidget(QLabel("Last Rams Test:"), 0, 0)
         self.last_rams_test = QDateEdit()
-        self.last_rams_test.setDate(QDate.currentDate().addDays(-10))
         self.last_rams_test.setCalendarPopup(True)
         bop_layout.addWidget(self.last_rams_test, 0, 1)
 
         bop_layout.addWidget(QLabel("Test Pressure (psi):"), 0, 2)
         self.test_pressure = QDoubleSpinBox()
         self.test_pressure.setRange(0, 20000)
-        self.test_pressure.setValue(5000)
         self.test_pressure.setSuffix(" psi")
         bop_layout.addWidget(self.test_pressure, 0, 3)
 
         bop_layout.addWidget(QLabel("Last Koomey Test:"), 1, 0)
         self.last_koomey_test = QDateEdit()
-        self.last_koomey_test.setDate(QDate.currentDate().addDays(-5))
         self.last_koomey_test.setCalendarPopup(True)
         bop_layout.addWidget(self.last_koomey_test, 1, 1)
 
         bop_layout.addWidget(QLabel("Days Since Last Test:"), 1, 2)
         self.days_since_last_test = QSpinBox()
         self.days_since_last_test.setRange(0, 365)
-        self.days_since_last_test.setValue(5)
         bop_layout.addWidget(self.days_since_last_test, 1, 3)
 
         calculate_days_btn = QPushButton("🔄 Calculate Days Since Test")
@@ -200,13 +258,7 @@ class SafetyBOPTab(QWidget):
             self.setup_bop_row_with_defaults(row)
 
     def setup_bop_row_with_defaults(self, row):
-        today = QDate.currentDate()
-        defaults = [
-            "New Component", "Type", "5000", "13-5/8", "N/A",
-            today.toString("yyyy-MM-dd"),
-            today.addDays(bop_test_interval_days()).toString("yyyy-MM-dd"),
-            "In Service"
-        ]
+        defaults = [""] * 8
         for col, value in enumerate(defaults):
             item = QTableWidgetItem(value)
             if col in [2]:
@@ -225,15 +277,16 @@ class SafetyBOPTab(QWidget):
         today = QDate.currentDate()
         overdue_count = 0
         warning_count = 0
+        assessed_count = 0
         for row in range(self.bop_stack_table.rowCount()):
             last_test_item = self.bop_stack_table.item(row, 5)
             if last_test_item and last_test_item.text():
                 try:
                     last_test_date = QDate.fromString(last_test_item.text(), "yyyy-MM-dd")
                     if last_test_date.isValid():
+                        assessed_count += 1
                         next_due = last_test_date.addDays(bop_test_interval_days())
                         if next_due < today:
-                            next_due = today.addDays(7)
                             overdue_count += 1
                             self.highlight_bop_row(row, QColor(255, 220, 220))
                         elif next_due <= today.addDays(7):
@@ -243,15 +296,17 @@ class SafetyBOPTab(QWidget):
                             self.clear_bop_row_highlight(row)
                         next_due_item = QTableWidgetItem(next_due.toString("yyyy-MM-dd"))
                         self.bop_stack_table.setItem(row, 6, next_due_item)
-                except:
-                    pass
+                except (AttributeError, TypeError, ValueError):
+                    pass  # row without parseable last-test date
         message = "✅ BOP Test Schedule Updated\n\n"
         if overdue_count > 0:
             message += f"⚠️ {overdue_count} components are OVERDUE for testing\n"
         if warning_count > 0:
             message += f"⚠️ {warning_count} components need testing within 7 days\n"
-        if overdue_count == 0 and warning_count == 0:
-            message += "✅ All BOP components are up to date"
+        if assessed_count == 0 or assessed_count != self.bop_stack_table.rowCount():
+            message += "NOT ASSESSED: missing last-test dates for some/all components"
+        elif overdue_count == 0 and warning_count == 0:
+            message += "All recorded BOP test dates are within the configured interval"
         QMessageBox.information(self, "BOP Schedule Update", message)
 
     def highlight_bop_row(self, row, color):
@@ -271,10 +326,12 @@ class SafetyBOPTab(QWidget):
         export_manager.export_table_with_dialog(self.bop_stack_table, "bop_data")
 
     def calculate_days_since_test(self):
+        if {"last_rams_test", "last_koomey_test"} & self._missing_safety_fields:
+            QMessageBox.warning(self, "BOP Test Information", "NOT ASSESSED: supply both test dates first")
+            return
         today = QDate.currentDate()
         days_since_rams = self.last_rams_test.date().daysTo(today)
         days_since_koomey = self.last_koomey_test.date().daysTo(today)
-        self.days_since_last_test.setValue(max(days_since_rams, days_since_koomey))
         test_report = self.bop_test_report.currentText()
         test_status = self.test_status.currentText()
         QMessageBox.information(self, "BOP Test Information",
@@ -288,9 +345,13 @@ class SafetyBOPTab(QWidget):
 
     def update_lti_days(self):
         current_days = self.days_no_lti.value()
+        if current_days < 0:
+            QMessageBox.warning(self, "Unknown LTI days", "Enter an observed value before incrementing.")
+            return
         self.days_no_lti.setValue(current_days + 1)
         QMessageBox.information(self, "LTI Days Updated", f"Days without LTI: {current_days + 1}")
 
+    @editor_saved()
     def save_to_database(self, well_id, report_id=None):
         if not self.db:
             return False
@@ -306,7 +367,7 @@ class SafetyBOPTab(QWidget):
             report_data = {
                 'well_id': well_id,
                 'report_id': report_id,
-                'report_date': date.today(),
+                'report_date': None,  # resolved from the selected report before save
                 'report_type': 'Daily',
                 'last_fire_drill': self.last_fire_drill.date().toPython(),
                 'last_bop_drill': self.last_bop_drill.date().toPython(),
@@ -318,75 +379,42 @@ class SafetyBOPTab(QWidget):
                 'days_since_last_test': self.days_since_last_test.value(),
                 'bop_stack_json': bop_stack_data
             }
+            _preserve_nullable_safety_fields(self, report_data)
             record_id = self.db.save_safety_report(report_data)
             if record_id:
-                for component_data in bop_stack_data:
-                    comp = {
-                        'well_id': well_id,
-                        'safety_report_id': record_id,
-                        'component_name': component_data.get('Name', ''),
-                        'component_type': component_data.get('Type', ''),
-                        'working_pressure': float(component_data.get('WP (psi)', 0)),
-                        'size': component_data.get('Size (in)', ''),
-                        'ram_type': component_data.get('RAMs', ''),
-                        'last_test_date': QDate.fromString(component_data['Last Test'], "yyyy-MM-dd").toPython() if component_data.get('Last Test') else None,
-                        'next_test_due': QDate.fromString(component_data['Next Due'], "yyyy-MM-dd").toPython() if component_data.get('Next Due') else None,
-                        'remarks': component_data.get('Remarks', '')
-                    }
-                    self.db.save_bop_component(comp)
-                return True
+                reviews = getattr(self.db, "last_safety_review", [])
+                if reviews:
+                    QMessageBox.warning(self, "Safety review", "\n".join(f"Row {r.get('row')}: {r.get('reason')}" for r in reviews))
+                from core.save_outcome import SaveOutcome, SaveIssue
+                self.last_save_outcome = SaveOutcome(saved=1, issues=[SaveIssue("BOP", r.get("reason", "Review required"), status="REVIEW_REQUIRED", row=r.get("row"), field=r.get("field", "")) for r in reviews])
+                return bool(self.last_save_outcome)
         except Exception as e:
             logger.error(f"Error saving BOP data: {e}")
         return False
 
+    @editor_loaded()
     def load_from_database(self, well_id, report_id=None):
         if not self.db:
             return False
         try:
-            report_data = self.db.get_safety_report(well_id, report_id=report_id)
-            if report_data:
-
-                def safe_set_date(widget, value, default_days_ago=7):
-                    if value is None:
-                        widget.setDate(QDate.currentDate().addDays(-default_days_ago))
-                    elif isinstance(value, date):
-                        widget.setDate(QDate(value.year, value.month, value.day))
-                    elif isinstance(value, QDate):
-                        widget.setDate(value)
-                    else:
-                        try:
-                            from datetime import datetime
-                            dt = datetime.strptime(str(value), "%Y-%m-%d").date()
-                            widget.setDate(QDate(dt.year, dt.month, dt.day))
-                        except:
-                            widget.setDate(QDate.currentDate().addDays(-default_days_ago))
-                            
-                safe_set_date(self.last_fire_drill, report_data.get('last_fire_drill'), 7)
-                safe_set_date(self.last_bop_drill, report_data.get('last_bop_drill'), 14)
-                safe_set_date(self.last_h2s_drill, report_data.get('last_h2s_drill'), 21)
-                self.days_no_lti.setValue(report_data.get('days_without_lti', 0) or 0)
-                safe_set_date(self.last_rams_test, report_data.get('last_rams_test'), 10)
-                self.test_pressure.setValue(report_data.get('test_pressure', 0) or 0)
-                safe_set_date(self.last_koomey_test, report_data.get('last_koomey_test'), 5)
-                self.days_since_last_test.setValue(report_data.get('days_since_last_test', 0) or 0)
-                if report_data.get('bop_test_report'):
-                    idx = self.bop_test_report.findText(report_data['bop_test_report'])
-                    if idx >= 0: self.bop_test_report.setCurrentIndex(idx)
-                if report_data.get('test_status'):
-                    idx = self.test_status.findText(report_data['test_status'])
-                    if idx >= 0: self.test_status.setCurrentIndex(idx)
-
-                bop_stack = report_data.get('bop_stack_json', [])
-                self.bop_stack_table.setRowCount(0)
-                for comp in bop_stack:
-                    self.add_bop_row()
-                    row = self.bop_stack_table.rowCount() - 1
-                    for col, key in enumerate(['Name', 'Type', 'WP (psi)', 'Size (in)', 'RAMs', 'Last Test', 'Next Due', 'Remarks']):
-                        self.bop_stack_table.setItem(row, col, QTableWidgetItem(str(comp.get(key, ''))))
-                return True
-        except Exception as e:
-            logger.error(f"Error loading BOP data: {e}")
-        return False
+            self.bop_stack_table.setRowCount(0)
+            data = (self.db.get_safety_report(well_id, report_id=report_id) or {}) if well_id else {}
+            _load_nullable_safety_fields(self, data, BOP_FIELDS)
+            for combo, key in ((self.bop_test_report, "bop_test_report"), (self.test_status, "test_status")):
+                value = data.get(key)
+                combo.setCurrentIndex(-1)
+                if value:
+                    combo.setEditable(True)
+                    combo.setCurrentText(str(value))
+            for comp in data.get("bop_stack_json", []):
+                self.add_bop_row()
+                row = self.bop_stack_table.rowCount() - 1
+                for col, key in enumerate(['Name', 'Type', 'WP (psi)', 'Size (in)', 'RAMs', 'Last Test', 'Next Due', 'Remarks']):
+                    self.bop_stack_table.setItem(row, col, QTableWidgetItem('' if comp.get(key) is None else str(comp[key])))
+            return True
+        except Exception:
+            logger.exception("Error loading BOP data")
+            raise
 
 
 # ==================== Waste Management Tab ====================
@@ -401,6 +429,9 @@ class WasteManagementTab(QWidget):
         self.current_report_id = parent_widget.current_report_id
         self.table_managers = {}
         self.init_ui()
+        _load_nullable_safety_fields(self, {}, WASTE_FIELDS)
+        self.waste_type.setCurrentIndex(-1)
+        self.disposal_method.setCurrentIndex(-1)
         self.setup_connections()
 
     def init_ui(self):
@@ -412,37 +443,33 @@ class WasteManagementTab(QWidget):
         waste_form.addWidget(QLabel("Recycled (BBL):"), 0, 0)
         self.recycled_volume = QDoubleSpinBox()
         self.recycled_volume.setRange(0, 10000)
-        self.recycled_volume.setValue(150.5)
         self.recycled_volume.setSuffix(" BBL")
         waste_form.addWidget(self.recycled_volume, 0, 1)
 
         waste_form.addWidget(QLabel("pH:"), 0, 2)
         self.waste_ph = QDoubleSpinBox()
         self.waste_ph.setRange(0, 14)
-        self.waste_ph.setValue(7.2)
         waste_form.addWidget(self.waste_ph, 0, 3)
 
         waste_form.addWidget(QLabel("Turbidity/TSS:"), 1, 0)
         self.turbidity = QLineEdit()
-        self.turbidity.setText("15 NTU")
+        self.turbidity.setPlaceholderText("Not supplied")
         waste_form.addWidget(self.turbidity, 1, 1)
 
         waste_form.addWidget(QLabel("Hardness/Ca++:"), 1, 2)
         self.hardness = QLineEdit()
-        self.hardness.setText("250 mg/L")
+        self.hardness.setPlaceholderText("Not supplied")
         waste_form.addWidget(self.hardness, 1, 3)
 
         waste_form.addWidget(QLabel("Cutting Trans. (m³):"), 2, 0)
         self.cutting_volume = QDoubleSpinBox()
         self.cutting_volume.setRange(0, 1000)
-        self.cutting_volume.setValue(25.3)
         self.cutting_volume.setSuffix(" m³")
         waste_form.addWidget(self.cutting_volume, 2, 1)
 
         waste_form.addWidget(QLabel("Oil Content (ppm):"), 2, 2)
         self.oil_content = QDoubleSpinBox()
         self.oil_content.setRange(0, 10000)
-        self.oil_content.setValue(45.2)
         self.oil_content.setSuffix(" ppm")
         waste_form.addWidget(self.oil_content, 2, 3)
 
@@ -518,18 +545,20 @@ class WasteManagementTab(QWidget):
         self.setup_waste_row_with_defaults(row)
 
     def setup_waste_row_with_defaults(self, row):
-        today = QDate.currentDate()
+        report_id = getattr(self.parent, "current_report_id", None)
+        report = self.db.get_daily_report_by_id(report_id) if self.db and report_id else None
+        report_date = report.get("report_date") if report else None
         waste_type = self.waste_type.currentText()
         volume = self.cutting_volume.value()
         ph = self.waste_ph.value()
         disposal_method = self.disposal_method.currentText()
-        remarks = self.waste_remarks.toPlainText() or "Daily record"
-        full_remarks = f"{remarks} | TSS: {self.turbidity.text()} | Hardness: {self.hardness.text()} | Oil: {self.oil_content.value()}ppm"
+        remarks = self.waste_remarks.toPlainText()
+        full_remarks = f"{remarks} | TSS: {self.turbidity.text()} | Hardness: {self.hardness.text()} | Oil: {self.oil_content.value() if self.oil_content.value() >= 0 else 'Not supplied'} ppm"
         values = [
-            today.toString("yyyy-MM-dd"),
+            str(report_date) if report_date else "",
             waste_type,
-            f"{volume:.1f}",
-            f"{ph:.1f}",
+            f"{volume:.1f}" if volume >= 0 else "",
+            f"{ph:.1f}" if ph >= 0 else "",
             disposal_method,
             full_remarks
         ]
@@ -544,6 +573,7 @@ class WasteManagementTab(QWidget):
 
     def calculate_waste_totals(self):
         total_volume = 0
+        valid_volumes = 0
         volume_by_type = {}
         volume_by_method = {}
         ph_values = []
@@ -555,16 +585,22 @@ class WasteManagementTab(QWidget):
             if volume_item:
                 try:
                     vol = float(volume_item.text())
+                    from math import isfinite
+                    if not isfinite(vol) or vol < 0:
+                        raise ValueError("Invalid waste volume")
                     total_volume += vol
+                    valid_volumes += 1
                     wt = type_item.text() if type_item else ""
                     wm = method_item.text() if method_item else ""
                     volume_by_type[wt] = volume_by_type.get(wt,0) + vol
                     volume_by_method[wm] = volume_by_method.get(wm,0) + vol
                     if ph_item:
                         ph_values.append(float(ph_item.text()))
-                except: pass
-        avg_ph = sum(ph_values)/len(ph_values) if ph_values else 7.0
-        report = f"📊 Waste Management Report\n\nTotal Volume: {total_volume:.1f} BBL\nAvg pH: {avg_ph:.1f}\nRecords: {self.waste_table.rowCount()}\n"
+                except (AttributeError, TypeError, ValueError):
+                    pass  # incomplete waste row
+        avg_ph = sum(ph_values)/len(ph_values) if ph_values else None
+        volume_text = f"{total_volume:.1f}" if valid_volumes and valid_volumes == self.waste_table.rowCount() else "Unknown (incomplete records)"
+        report = f"Waste Management Report\nTotal Volume: {volume_text} BBL\nAverage of supplied pH: {avg_ph if avg_ph is not None else 'Unknown'}\nRecords: {self.waste_table.rowCount()}\n"
         if volume_by_type:
             report += "\nBy Type:\n" + "\n".join(f"  {k}: {v:.1f} BBL" for k,v in volume_by_type.items())
         if volume_by_method:
@@ -574,23 +610,22 @@ class WasteManagementTab(QWidget):
     def save_current_waste_data(self):
         self.add_waste_row()
         self.clear_waste_form()
-        self.parent.show_success("Current waste data saved to history")
+        self.parent.show_message("Added draft history row; save Safety to persist it")
 
     def clear_waste_form(self):
-        self.recycled_volume.setValue(0)
-        self.waste_ph.setValue(7.0)
+        report_date = getattr(self, "_loaded_report_date", None)
+        _load_nullable_safety_fields(self, {"report_date": report_date}, WASTE_FIELDS)
         self.turbidity.clear()
         self.hardness.clear()
-        self.cutting_volume.setValue(0)
-        self.oil_content.setValue(0)
-        self.waste_type.setCurrentIndex(0)
-        self.disposal_method.setCurrentIndex(0)
+        self.waste_type.setCurrentIndex(-1)
+        self.disposal_method.setCurrentIndex(-1)
         self.waste_remarks.clear()
 
     def export_waste_data(self):
         export_manager = ExportManager(self)
         export_manager.export_table_with_dialog(self.waste_table, "waste_data")
 
+    @editor_saved()
     def save_to_database(self, well_id, report_id=None):
         if not self.db:
             return False
@@ -607,7 +642,7 @@ class WasteManagementTab(QWidget):
             report_data = {
                 'well_id': well_id,
                 'report_id': report_id,
-                'report_date': date.today(),
+                'report_date': None,  # resolved from the selected report before save
                 'report_type': 'Daily',
                 'recycled_volume': self.recycled_volume.value(),
                 'waste_ph': self.waste_ph.value(),
@@ -619,44 +654,42 @@ class WasteManagementTab(QWidget):
                 'disposal_method': self.disposal_method.currentText(),
                 'waste_history_json': waste_history
             }
+            _preserve_nullable_safety_fields(self, report_data)
             record_id = self.db.save_safety_report(report_data)
             if record_id:
-                for waste in waste_history:
-                    try:
-                        vol = float(waste.get('Volume (BBL)', '0'))
-                        ph = float(waste.get('pH', '7.0'))
-                    except: vol, ph = 0, 7.0
-                    self.db.save_waste_record({
-                        'well_id': well_id,
-                        'safety_report_id': record_id,
-                        'record_date': date.today(),
-                        'waste_type': waste.get('Type', ''),
-                        'volume': vol,
-                        'ph': ph,
-                        'disposal_method': waste.get('Disposal Method', ''),
-                        'remarks': waste.get('Remarks', '')
-                    })
-                return True
+                reviews = getattr(self.db, "last_safety_review", [])
+                if reviews:
+                    QMessageBox.warning(self, "Safety review", "\n".join(f"Row {r.get('row')}: {r.get('reason')}" for r in reviews))
+                from core.save_outcome import SaveOutcome, SaveIssue
+                self.last_save_outcome = SaveOutcome(saved=1, issues=[SaveIssue("Waste", r.get("reason", "Review required"), status="REVIEW_REQUIRED", row=r.get("row"), field=r.get("field", "")) for r in reviews])
+                return bool(self.last_save_outcome)
         except Exception as e:
             logger.error(f"Error saving waste data: {e}")
         return False
 
+    @editor_loaded()
     def load_from_database(self, well_id, report_id=None):
         if not self.db:
             return False
         try:
-            report_data = self.db.get_safety_report(well_id, report_id=report_id)
-            if report_data:
-                self.recycled_volume.setValue(report_data.get('recycled_volume', 0))
-                self.waste_ph.setValue(report_data.get('waste_ph', 7.0))
-                self.turbidity.setText(report_data.get('turbidity', ''))
-                self.hardness.setText(report_data.get('hardness', ''))
-                self.cutting_volume.setValue(report_data.get('cutting_volume', 0))
-                self.oil_content.setValue(report_data.get('oil_content', 0))
-                idx = self.waste_type.findText(report_data.get('waste_type', ''))
-                if idx >= 0: self.waste_type.setCurrentIndex(idx)
-                idx = self.disposal_method.findText(report_data.get('disposal_method', ''))
-                if idx >= 0: self.disposal_method.setCurrentIndex(idx)
+            self.waste_table.setRowCount(0)
+            report_data = (self.db.get_safety_report(well_id, report_id=report_id) or {}) if well_id else {}
+            if report_data is not None:
+                _load_nullable_safety_fields(self, report_data, WASTE_FIELDS)
+                self.turbidity.setText(str(report_data.get('turbidity') or ''))
+                self.hardness.setText(str(report_data.get('hardness') or ''))
+                for combo, key in ((self.waste_type, 'waste_type'), (self.disposal_method, 'disposal_method')):
+                    value = str(report_data.get(key, '') or '')
+                    if not value:
+                        combo.setCurrentIndex(-1)
+                        continue
+                    idx = combo.findText(value)
+                    if idx >= 0:
+                        combo.setCurrentIndex(idx)
+                    else:
+                        combo.setEditable(True)
+                        combo.setCurrentIndex(-1)
+                        combo.setCurrentText(value)
                 waste_history = report_data.get('waste_history_json', [])
                 self.waste_table.setRowCount(0)
                 for w in waste_history:
@@ -665,11 +698,12 @@ class WasteManagementTab(QWidget):
                     # اصلاح این بخش:
                     for col in range(self.waste_table.columnCount()):
                         key = self.waste_table.horizontalHeaderItem(col).text()
-                        self.waste_table.setItem(row, col, QTableWidgetItem(str(w.get(key, ''))))
+                        self.waste_table.setItem(row, col, QTableWidgetItem('' if w.get(key) is None else str(w[key])))
                     # end for
                 return True
         except Exception as e:
             logger.error(f"Error loading waste data: {e}")
+            raise
         return False
 
 
@@ -690,6 +724,7 @@ class SafetyWidget(DrillTabBase):
             autosave_interval=5,
             setup_shortcuts=True
         )
+        self.configure_save_tracking()
 
     def init_ui(self):
         main_layout = QVBoxLayout(self)
@@ -708,6 +743,9 @@ class SafetyWidget(DrillTabBase):
 
     def on_well_changed(self, well_id, well_data):
         self.current_well_id = well_id
+        self.current_report_id = None
+        self.safety_bop_tab.current_report_id = None
+        self.waste_tab.current_report_id = None
         self.safety_bop_tab.current_well_id = well_id
         self.waste_tab.current_well_id = well_id
         self.load_data()
@@ -719,8 +757,6 @@ class SafetyWidget(DrillTabBase):
         self.load_data()
 
     def load_data(self):
-        if not self.current_well_id:
-            return
         self.safety_bop_tab.load_from_database(self.current_well_id, self.current_report_id)
         self.waste_tab.load_from_database(self.current_well_id, self.current_report_id)
 
@@ -728,13 +764,17 @@ class SafetyWidget(DrillTabBase):
         if not self.current_well_id:
             self.show_error("No well selected")
             return False
-        success_safety = self.safety_bop_tab.save_to_database(self.current_well_id, self.current_report_id)
-        success_waste = self.waste_tab.save_to_database(self.current_well_id, self.current_report_id)
-        if success_safety or success_waste:
-            self.show_success("Safety data saved")
-            return True
-        self.show_error("Failed to save safety data")
-        return False
+        from core.save_outcome import save_all
+        def save_tab(tab):
+            tab.last_save_outcome = None
+            saved = tab.save_to_database(self.current_well_id, self.current_report_id)
+            return tab.last_save_outcome if tab.last_save_outcome is not None else saved
+        self.last_save_outcome = save_all([
+            ("BOP", lambda: save_tab(self.safety_bop_tab)),
+            ("Waste", lambda: save_tab(self.waste_tab)),
+        ])
+        (self.show_success if self.last_save_outcome else self.show_error)(self.last_save_outcome.summary())
+        return bool(self.last_save_outcome)
 
     def refresh(self):
         self.load_data()

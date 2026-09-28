@@ -18,8 +18,7 @@ Every calculation has:
 
 import math
 import logging
-from dataclasses import dataclass
-from typing import List, Dict, Optional, Tuple, Any
+from typing import Dict
 
 logger = logging.getLogger(__name__)
 
@@ -442,10 +441,15 @@ class WellControlExtended:
         ICP = SIDPP + Circ Pressure (slow pump rate)
         FCP = Circ Pressure × (Kill MW / Original MW)
         """
-        kill_mw = original_mw_ppg + sidpp_psi / (0.052 * tvd_ft)
-        icp = sidpp_psi + circ_pressure_psi
-        fcp = circ_pressure_psi * (kill_mw / original_mw_ppg)
-        
+        # Delegate to the canonical WellControlEngine (single owner of the kill
+        # MW / ICP / FCP formulas) instead of re-implementing them here.
+        from core.engineering.engines.well_control import WellControlEngine
+        kill_mw = WellControlEngine.calculate_kill_mw(
+            original_mw_ppg, sidpp_psi, tvd_ft)
+        icp = WellControlEngine.calculate_icp(circ_pressure_psi, sidpp_psi)
+        fcp = WellControlEngine.calculate_fcp(
+            circ_pressure_psi, kill_mw, original_mw_ppg)
+
         return {
             "kill_mud_weight_ppg": round(kill_mw, 2),
             "initial_circulating_pressure_psi": round(icp, 1),

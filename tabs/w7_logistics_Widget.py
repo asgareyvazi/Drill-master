@@ -5,18 +5,17 @@ with full database integration and SelectionManager support
 """
 
 import os
-import json
 import logging
-from datetime import datetime, date, time
-from typing import Dict, List, Optional
+from datetime import datetime, date
 
 from PySide6.QtCore import *
 from PySide6.QtWidgets import *
 from PySide6.QtGui import *
 
 from core.managers import StatusBarManager, TableManager, ExportManager, setup_widget_with_managers
-from core.database import DatabaseManager, LogisticsPersonnel, ServiceCompanyPOB, FuelWaterInventory
-from core.database import BulkMaterials, TransportLog, TransportNotes
+from core.domain_records import optional_date
+from core.database import BulkMaterials, TransportLog
+from core.editor_state import editor_loaded, editor_saved
 from core.base_tab import DrillTabBase
 
 logger = logging.getLogger(__name__)
@@ -213,14 +212,9 @@ class PersonnelLogisticsTab(QWidget):
     def add_pob_row(self):
         row = self.pob_table.rowCount()
         self.pob_table.insertRow(row)
-        today = QDate.currentDate()
-        default_values = [
-            "", "New Company", "Service", "0",
-            today.toString("yyyy-MM-dd"),
-            today.addDays(30).toString("yyyy-MM-dd")
-        ]
+        default_values = ["", "", "", "", "", ""]
         for col, value in enumerate(default_values):
-            item = QTableWidgetItem(str(value))
+            item = QTableWidgetItem("" if value is None else str(value))
             if col in [3]:
                 item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
             self.pob_table.setItem(row, col, item)
@@ -238,15 +232,27 @@ class PersonnelLogisticsTab(QWidget):
             
     def calculate_total_pob(self):
         total = 0
+        unknown_rows = 0
         for row in range(self.pob_table.rowCount()):
-            try:
-                count_item = self.pob_table.item(row, 3)
-                if count_item and count_item.text():
-                    total += int(count_item.text())
-            except ValueError:
+            count_item = self.pob_table.item(row, 3)
+            text = count_item.text().strip() if count_item and count_item.text() else ""
+            if not text:
+                unknown_rows += 1
                 continue
-        QMessageBox.information(self, "Total POB", f"Total Personnel On Board: {total}")
+            try:
+                total += int(text)
+            except ValueError:
+                unknown_rows += 1
+        if unknown_rows:
+            # An incomplete roster is UNKNOWN, never a smaller "safe" number.
+            QMessageBox.information(
+                self, "Total POB",
+                f"Total Personnel On Board: {total} + unknown for {unknown_rows} row(s) "
+                "— an incomplete roster cannot be reported as a total")
+        else:
+            QMessageBox.information(self, "Total POB", f"Total Personnel On Board: {total}")
         
+    @editor_saved('POB')
     def save_pob_to_db(self):
         if not self.current_well_id:
             QMessageBox.warning(self, "Warning", "Please select a well first.")
@@ -255,6 +261,7 @@ class PersonnelLogisticsTab(QWidget):
             return False
         try:
             saved_count = 0
+            rejected = []
             for row in range(self.pob_table.rowCount()):
                 id_item = self.pob_table.item(row, 0)
                 company_item = self.pob_table.item(row, 1)
@@ -264,15 +271,22 @@ class PersonnelLogisticsTab(QWidget):
                 date_out_item = self.pob_table.item(row, 5)
                 if not company_item or not company_item.text():
                     continue
+                try:
+                    date_in = optional_date(date_in_item.text() if date_in_item else None)
+                    date_out = optional_date(date_out_item.text() if date_out_item else None)
+                    count = int(count_item.text()) if count_item and count_item.text() else None
+                except ValueError as exc:
+                    rejected.append(f"POB row {row + 1}, company {company_item.text()}: {exc}")
+                    continue
                 pob_data = {
                     "well_id": self.current_well_id,
                     "section_id": self.current_section_id,
                     "report_id": self.current_report_id,
                     "company_name": company_item.text(),
                     "service_type": service_item.text() if service_item else "",
-                    "personnel_count": int(count_item.text()) if count_item and count_item.text() else 0,
-                    "date_in": datetime.strptime(date_in_item.text(), "%Y-%m-%d").date() if date_in_item and date_in_item.text() else None,
-                    "date_out": datetime.strptime(date_out_item.text(), "%Y-%m-%d").date() if date_out_item and date_out_item.text() else None,
+                    "personnel_count": count,
+                    "date_in": date_in,
+                    "date_out": date_out,
                     "remarks": ""
                 }
                 if id_item and id_item.text():
@@ -282,13 +296,21 @@ class PersonnelLogisticsTab(QWidget):
                     saved_count += 1
                     if not id_item or not id_item.text():
                         self.pob_table.setItem(row, 0, QTableWidgetItem(str(result)))
-            self.status_manager.show_success("PersonnelTab", f"Saved {saved_count} POB records")
-            return True
+                else:
+                    rejected.append(f"POB row {row + 1}: persistence failed for {company_item.text()}; see database log")
+            from core.save_outcome import SaveOutcome, SaveIssue
+            self.last_save_outcome = SaveOutcome(saved=saved_count, issues=[
+                SaveIssue("POB", reason, status="SYSTEM_ERROR" if "persistence failed" in reason else "INVALID_SOURCE",
+                          corrective_action="Correct the indicated row/date/count, then retry.") for reason in rejected])
+            notifier = self.status_manager.show_error if rejected else self.status_manager.show_success
+            notifier("PersonnelTab", self.last_save_outcome.summary())
+            return not rejected
         except Exception as e:
             logger.error(f"Error saving POB data: {e}")
             self.status_manager.show_error("PersonnelTab", f"Save failed: {e}")
             return False
             
+    @editor_loaded('POB')
     def load_pob_data(self):
         if not self.current_well_id:
             return
@@ -308,18 +330,19 @@ class PersonnelLogisticsTab(QWidget):
                     str(item["id"]),
                     item.get("company_name", ""),
                     item.get("service_type", ""),
-                    str(item.get("personnel_count", 0)),
+                    item.get("personnel_count"),
                     item.get("date_in", ""),
                     item.get("date_out", "")
                 ]
                 for col, value in enumerate(values):
-                    table_item = QTableWidgetItem(str(value))
+                    table_item = QTableWidgetItem("" if value is None else str(value))
                     if col in [3]:
                         table_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
                     self.pob_table.setItem(row, col, table_item)
             self.status_manager.show_success("PersonnelTab", f"Loaded {len(pob_data)} POB records")
         except Exception as e:
             logger.error(f"Error loading POB data: {e}")
+            raise
             
     def export_pob_data(self):
         export_manager = ExportManager(self)
@@ -337,7 +360,7 @@ class PersonnelLogisticsTab(QWidget):
             datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         ]
         for col, value in enumerate(default_values):
-            self.crew_table.setItem(row, col, QTableWidgetItem(str(value)))
+            self.crew_table.setItem(row, col, QTableWidgetItem("" if value is None else str(value)))
             
     def remove_crew_row(self):
         current_row = self.crew_table.currentRow()
@@ -350,6 +373,7 @@ class PersonnelLogisticsTab(QWidget):
             self.crew_table.removeRow(current_row)
             self.status_manager.show_success("PersonnelTab", "Crew row removed")
             
+    @editor_saved('Crew')
     def save_crew_to_db(self):
         if not self.current_well_id:
             QMessageBox.warning(self, "Warning", "Please select a well first.")
@@ -376,8 +400,8 @@ class PersonnelLogisticsTab(QWidget):
                     "name": name_item.text(),
                     "position": position_item.text() if position_item else "",
                     "company": company_item.text() if company_item else "",
-                    "arrival_date": datetime.strptime(arrival_item.text(), "%Y-%m-%d").date() if arrival_item and arrival_item.text() else None,
-                    "departure_date": datetime.strptime(departure_item.text(), "%Y-%m-%d").date() if departure_item and departure_item.text() else None,
+                    "arrival_date": optional_date(arrival_item.text() if arrival_item else None),
+                    "departure_date": optional_date(departure_item.text() if departure_item else None),
                     "contact_info": contact_item.text() if contact_item else "",
                     "remarks": remarks_item.text() if remarks_item else ""
                 }
@@ -396,6 +420,7 @@ class PersonnelLogisticsTab(QWidget):
             self.status_manager.show_error("PersonnelTab", f"Save failed: {e}")
             return False
             
+    @editor_loaded('Crew')
     def load_crew_data(self):
         if not self.current_well_id:
             return
@@ -423,10 +448,11 @@ class PersonnelLogisticsTab(QWidget):
                     item.get("created_at", "").strftime("%Y-%m-%d %H:%M:%S") if item.get("created_at") else ""
                 ]
                 for col, value in enumerate(values):
-                    self.crew_table.setItem(row, col, QTableWidgetItem(str(value)))
+                    self.crew_table.setItem(row, col, QTableWidgetItem("" if value is None else str(value)))
             self.status_manager.show_success("PersonnelTab", f"Loaded {len(crew_data)} crew records")
         except Exception as e:
             logger.error(f"Error loading crew data: {e}")
+            raise
             
     def import_crew_data(self):
         filename, _ = QFileDialog.getOpenFileName(self, "Import Crew Data", "", "CSV Files (*.csv);;All Files (*.*)")
@@ -450,6 +476,7 @@ class PersonnelLogisticsTab(QWidget):
         export_manager = ExportManager(self)
         export_manager.export_table_with_dialog(self.crew_table, "crew_data")
         
+    @editor_saved("Transport note")
     def save_transport_note(self):
         if not self.current_well_id:
             QMessageBox.warning(self, "Warning", "Please select a well first.")
@@ -458,6 +485,7 @@ class PersonnelLogisticsTab(QWidget):
             return
         try:
             note_data = {
+                "id": getattr(self, "_loaded_note_id", None),
                 "well_id": self.current_well_id,
                 "section_id": self.current_section_id,
                 "report_id": self.current_report_id,
@@ -471,10 +499,14 @@ class PersonnelLogisticsTab(QWidget):
             if result:
                 self.status_manager.show_success("PersonnelTab", "Transport note saved")
                 self.clear_transport_notes()
+                self._loaded_note_id = None
+                return True
         except Exception as e:
             logger.error(f"Error saving transport note: {e}")
             self.status_manager.show_error("PersonnelTab", f"Save failed: {e}")
+            raise
             
+    @editor_loaded("Transport note")
     def load_notes_data(self):
         if not self.current_well_id:
             return
@@ -483,19 +515,24 @@ class PersonnelLogisticsTab(QWidget):
         try:
             notes = self.db.get_transport_notes(
                 well_id=self.current_well_id,
-                note_date=self.note_date.date().toPython()
+                note_date=self.note_date.date().toPython(),
+                report_id=self.current_report_id
             )
             if notes:
                 note = notes[0]
+                self._loaded_note_id = note["id"]
                 self.note_title.setText(note.get("title", ""))
                 self.transport_notes.setPlainText(note.get("content", ""))
                 self.note_category.setCurrentText(note.get("category", "General"))
                 self.note_priority.setCurrentText(note.get("priority", "Normal"))
                 self.status_manager.show_success("PersonnelTab", f"Loaded note from {note['note_date']}")
             else:
+                self._loaded_note_id = None
+                self.clear_transport_notes()
                 self.status_manager.show_message("PersonnelTab", "No notes found for selected date")
         except Exception as e:
             logger.error(f"Error loading notes: {e}")
+            raise
             
     def clear_transport_notes(self):
         self.note_title.clear()
@@ -529,6 +566,42 @@ class PersonnelLogisticsTab(QWidget):
             self.load_notes_data()
 
 
+# --- Three-state physical-stock spinbox helpers (Track J) ---------------------
+# A physical stock can be UNKNOWN (never reported / imported as NULL), an
+# explicit reported 0.0, or a positive number. A bare QDoubleSpinBox cannot
+# express "blank", so a genuinely-unknown stock loaded from the DB used to be
+# shown (and re-saved) as a fabricated 0.0. The concrete, local fix is the
+# standard Qt special-value idiom: the spinbox minimum is a sentinel one step
+# below 0.0 that renders as "—" (unknown); any value from 0.0 upward is a real
+# number. This is NOT a generic nullable-widget framework — it is applied only
+# to the fixed set of fuel/water STOCK fields whose schema is nullable.
+_STOCK_UNKNOWN_SENTINEL = -1.0
+
+
+def _make_stock_spinbox(suffix=" L"):
+    """A stock QDoubleSpinBox whose minimum position means UNKNOWN ("—")."""
+    box = QDoubleSpinBox()
+    box.setRange(_STOCK_UNKNOWN_SENTINEL, 1000000)
+    box.setSpecialValueText("—")   # shown when value == minimum (unknown)
+    box.setSuffix(suffix)
+    box.setValue(_STOCK_UNKNOWN_SENTINEL)  # default: unknown, not 0
+    return box
+
+
+def _stock_value(box):
+    """Return the stock as float, or None when the box is at the unknown mark."""
+    v = box.value()
+    return None if v <= _STOCK_UNKNOWN_SENTINEL else float(v)
+
+
+def _set_stock_value(box, value):
+    """Show ``value`` (float) or the unknown mark when ``value`` is None."""
+    if value is None:
+        box.setValue(_STOCK_UNKNOWN_SENTINEL)
+    else:
+        box.setValue(float(value))
+
+
 class FuelWaterTab(QWidget):
     """Tab for managing fuel, water, and bulk materials"""
     
@@ -542,6 +615,10 @@ class FuelWaterTab(QWidget):
         self.status_manager = StatusBarManager()
         self._fuel_remaining = 0.0
         self._water_remaining = 0.0
+        # Carry-forward provenance state: a projection displayed for a day that
+        # has no persisted row yet. Distinct from real saved data.
+        self._is_carry_forward_preview = False
+        self._carry_forward_source_date = None
 
         self.init_ui()
 
@@ -567,7 +644,17 @@ class FuelWaterTab(QWidget):
         date_layout.addWidget(self.report_date)
         date_layout.addStretch()
         main_layout.addLayout(date_layout)
-        
+
+        # Carry-forward preview banner — hidden until a projected (not persisted)
+        # day is loaded, so a projection is never mistaken for saved fact.
+        self.preview_banner = QLabel("")
+        self.preview_banner.setWordWrap(True)
+        self.preview_banner.setStyleSheet(
+            "color: #8a6d00; background: #fff8e1; border: 1px solid #ffc107; "
+            "border-radius: 4px; padding: 6px; font-weight: bold;")
+        self.preview_banner.setVisible(False)
+        main_layout.addWidget(self.preview_banner)
+
         # Daily Consumption Section
         consumption_group = QGroupBox("Daily Consumption & Stock")
         consumption_layout = QFormLayout()
@@ -584,10 +671,7 @@ class FuelWaterTab(QWidget):
         self.fuel_consumed.valueChanged.connect(self.calculate_remaining)
         consumption_layout.addRow("Daily Consumption:", self.fuel_consumed)
         
-        self.fuel_stock = QDoubleSpinBox()
-        self.fuel_stock.setRange(0, 1000000)
-        self.fuel_stock.setSuffix(" L")
-        self.fuel_stock.setValue(0)
+        self.fuel_stock = _make_stock_spinbox()
         self.fuel_stock.valueChanged.connect(self.calculate_remaining)
         consumption_layout.addRow("Current Stock:", self.fuel_stock)
         
@@ -605,10 +689,7 @@ class FuelWaterTab(QWidget):
         self.water_consumed.valueChanged.connect(self.calculate_remaining)
         consumption_layout.addRow("Daily Consumption:", self.water_consumed)
         
-        self.water_stock = QDoubleSpinBox()
-        self.water_stock.setRange(0, 1000000)
-        self.water_stock.setSuffix(" L")
-        self.water_stock.setValue(0)
+        self.water_stock = _make_stock_spinbox()
         self.water_stock.valueChanged.connect(self.calculate_remaining)
         consumption_layout.addRow("Current Stock:", self.water_stock)
         
@@ -624,10 +705,7 @@ class FuelWaterTab(QWidget):
         self.dw_consumed.setSuffix(" L")
         self.dw_consumed.setValue(0)
         consumption_layout.addRow("Daily Consumption:", self.dw_consumed)
-        self.dw_stock = QDoubleSpinBox()
-        self.dw_stock.setRange(0, 1000000)
-        self.dw_stock.setSuffix(" L")
-        self.dw_stock.setValue(0)
+        self.dw_stock = _make_stock_spinbox()
         consumption_layout.addRow("Current Stock:", self.dw_stock)
         self.dw_received = QDoubleSpinBox()
         self.dw_received.setRange(0, 1000000)
@@ -641,10 +719,7 @@ class FuelWaterTab(QWidget):
         self.fuel_camp_consumed.setSuffix(" L")
         self.fuel_camp_consumed.setValue(0)
         consumption_layout.addRow("Daily Consumption:", self.fuel_camp_consumed)
-        self.fuel_camp_stock = QDoubleSpinBox()
-        self.fuel_camp_stock.setRange(0, 1000000)
-        self.fuel_camp_stock.setSuffix(" L")
-        self.fuel_camp_stock.setValue(0)
+        self.fuel_camp_stock = _make_stock_spinbox()
         consumption_layout.addRow("Current Stock:", self.fuel_camp_stock)
         self.fuel_camp_received = QDoubleSpinBox()
         self.fuel_camp_received.setRange(0, 1000000)
@@ -747,12 +822,30 @@ class FuelWaterTab(QWidget):
             if initial_item is None or received_item is None or used_item is None:
                 return
             
-            initial = float(initial_item.text() or 0)
-            received = float(received_item.text() or 0)
-            used = float(used_item.text() or 0)
-            stock = initial + received - used
+            # Three-state contract, identical to the persistence boundary
+            # (`_cell_float` in save_bulk_materials_to_db) and to the loader
+            # (`_fmt_stock` in load_bulk_materials_from_db): a BLANK cell and the
+            # em dash written for an unreported value are UNKNOWN, not 0; a
+            # typed 0 is an explicit zero and is preserved exactly. An unknown
+            # component makes the computed stock unknown, which is shown as the
+            # em dash — never as a fabricated 0-based balance, and never by
+            # silently swallowing the em dash through float("—").
+            def _known(item):
+                text = item.text().strip()
+                if not text or text == "—":
+                    return None
+                return float(text)
             
-            item = QTableWidgetItem(f"{stock:.1f}")
+            initial = _known(initial_item)
+            received = _known(received_item)
+            used = _known(used_item)
+            
+            if initial is None or received is None or used is None:
+                stock_text = "—"
+            else:
+                stock_text = f"{initial + received - used:.1f}"
+            
+            item = QTableWidgetItem(stock_text)
             item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
             self.bulk_table.setItem(row, 6, item)
         except Exception as e:
@@ -766,41 +859,62 @@ class FuelWaterTab(QWidget):
         self.load_bulk_btn.clicked.connect(self.load_bulk_materials_from_db)
         self.export_bulk_btn.clicked.connect(self.export_bulk_data)
         
+    @staticmethod
+    def _days_text(remaining, consumed):
+        """Render runway; 'N/A' when there is no known positive burn rate."""
+        from core.fuel_water_semantics import days_remaining
+        days = days_remaining(remaining, consumed)
+        return "N/A" if days is None else f"{days:.1f} days"
+
     def calculate_remaining(self):
         try:
             fuel_consumed = self.fuel_consumed.value()
-            fuel_stock = self.fuel_stock.value()
+            fuel_stock = _stock_value(self.fuel_stock)
             water_consumed = self.water_consumed.value()
-            water_stock = self.water_stock.value()
-            
-            fuel_remaining = max(0, fuel_stock - fuel_consumed)
-            water_remaining = max(0, water_stock - water_consumed)
-            
-            fuel_days = fuel_remaining / fuel_consumed if fuel_consumed > 0 else 0
-            water_days = water_remaining / water_consumed if water_consumed > 0 else 0
-            
+            water_stock = _stock_value(self.water_stock)
+
+            def _line(label, stock, consumed):
+                # An unknown stock cannot yield a known remaining/runway.
+                if stock is None:
+                    return f"<b>{label}:</b> stock unknown (—)"
+                remaining = max(0, stock - consumed)
+                return (
+                    f"<b>{label}:</b> {remaining:,.1f} L remaining "
+                    f"({self._days_text(remaining, consumed)})"
+                )
+
             result_text = (
-                f"<b>Fuel:</b> {fuel_remaining:,.1f} L remaining ({fuel_days:.1f} days)<br>"
-                f"<b>Water:</b> {water_remaining:,.1f} L remaining ({water_days:.1f} days)"
+                _line("Fuel", fuel_stock, fuel_consumed)
+                + "<br>"
+                + _line("Water", water_stock, water_consumed)
             )
             self.results_label.setText(result_text)
         except Exception as e:
             self.results_label.setText(f"Error: {str(e)}")
-            
+
     def calculate_fuel_water(self):
         self.calculate_remaining()
+        from core.fuel_water_semantics import is_low_stock
         fuel_consumed = self.fuel_consumed.value()
-        fuel_stock = self.fuel_stock.value()
+        fuel_stock = _stock_value(self.fuel_stock)
         water_consumed = self.water_consumed.value()
-        water_stock = self.water_stock.value()
-        fuel_days = (fuel_stock - fuel_consumed) / fuel_consumed if fuel_consumed > 0 else 0
-        water_days = (water_stock - water_consumed) / water_consumed if water_consumed > 0 else 0
-        if fuel_days < 3:
-            self.status_manager.show_warning("FuelWaterTab", f"Low fuel stock: {fuel_days:.1f} days remaining")
-        if water_days < 3:
-            self.status_manager.show_warning("FuelWaterTab", f"Low water stock: {water_days:.1f} days remaining")
+        water_stock = _stock_value(self.water_stock)
+        # An unknown stock cannot produce a runway, so it cannot trigger a
+        # low-stock alarm. Only warn on a KNOWN runway below threshold — a
+        # zero/unknown burn rate must not fire a false "low stock" alarm.
+        fuel_remaining = None if fuel_stock is None else fuel_stock - fuel_consumed
+        water_remaining = None if water_stock is None else water_stock - water_consumed
+        if fuel_remaining is not None and is_low_stock(fuel_remaining, fuel_consumed):
+            self.status_manager.show_warning(
+                "FuelWaterTab",
+                f"Low fuel stock: {self._days_text(fuel_remaining, fuel_consumed)} remaining")
+        if water_remaining is not None and is_low_stock(water_remaining, water_consumed):
+            self.status_manager.show_warning(
+                "FuelWaterTab",
+                f"Low water stock: {self._days_text(water_remaining, water_consumed)} remaining")
         self.status_manager.show_success("FuelWaterTab", "Calculation completed")
         
+    @editor_saved('Fuel / Water')
     def save_fuel_water_to_db(self):
         if not self.current_well_id:
             QMessageBox.warning(self, "Warning", "Please select a well first.")
@@ -810,12 +924,20 @@ class FuelWaterTab(QWidget):
 
         try:
             fuel_consumed = self.fuel_consumed.value()
-            fuel_stock = self.fuel_stock.value()
+            # A stock at the "—" mark is UNKNOWN, not 0: persist NULL and do not
+            # derive a remaining/runway figure from a value we do not have.
+            fuel_stock = _stock_value(self.fuel_stock)
             water_consumed = self.water_consumed.value()
-            water_stock = self.water_stock.value()
+            water_stock = _stock_value(self.water_stock)
 
-            fuel_remaining = fuel_stock + self.fuel_received.value() - fuel_consumed
-            water_remaining = water_stock + self.water_received.value() - water_consumed
+            fuel_remaining = (
+                None if fuel_stock is None
+                else fuel_stock + self.fuel_received.value() - fuel_consumed
+            )
+            water_remaining = (
+                None if water_stock is None
+                else water_stock + self.water_received.value() - water_consumed
+            )
 
             inventory_data = {
                 "well_id": self.current_well_id,
@@ -832,22 +954,30 @@ class FuelWaterTab(QWidget):
                 "water_received": self.water_received.value(),
                 "water_remaining": water_remaining,
                 "dw_consumed": self.dw_consumed.value(),
-                "dw_stock": self.dw_stock.value(),
+                "dw_stock": _stock_value(self.dw_stock),
                 "dw_received": self.dw_received.value(),
                 "fuel_camp_consumed": self.fuel_camp_consumed.value(),
-                "fuel_camp_stock": self.fuel_camp_stock.value(),
+                "fuel_camp_stock": _stock_value(self.fuel_camp_stock),
                 "fuel_camp_received": self.fuel_camp_received.value(),
             }
 
-            if fuel_consumed > 0:
-                inventory_data["days_remaining_fuel"] = fuel_remaining / fuel_consumed
-            if water_consumed > 0:
-                inventory_data["days_remaining_water"] = (
-                    water_remaining / water_consumed
-                )
+            # Only supply a runway when it is truthfully computable (known stock
+            # AND known positive burn rate). Otherwise leave it unset so
+            # persistence stores NULL (unknown), never a fabricated 0-days value.
+            from core.fuel_water_semantics import days_remaining as _days_remaining
+            if fuel_remaining is not None:
+                _drf = _days_remaining(fuel_remaining, fuel_consumed)
+                if _drf is not None:
+                    inventory_data["days_remaining_fuel"] = _drf
+            if water_remaining is not None:
+                _drw = _days_remaining(water_remaining, water_consumed)
+                if _drw is not None:
+                    inventory_data["days_remaining_water"] = _drw
 
             result = self.db.save_fuel_water_inventory(inventory_data)
             if result:
+                # Saving turns a projection into a recorded fact for this day.
+                self._clear_carry_forward_preview()
                 self.status_manager.show_success("FuelWaterTab", "Fuel/water data saved")
                 return True
             else:
@@ -860,6 +990,7 @@ class FuelWaterTab(QWidget):
             self.status_manager.show_error("FuelWaterTab", f"Save failed: {str(e)}")
             return False
             
+    @editor_loaded('Fuel / Water')
     def load_fuel_water_from_db(self):
         if not self.current_well_id:
             return
@@ -886,27 +1017,75 @@ class FuelWaterTab(QWidget):
                     except (TypeError, ValueError):
                         return default
 
+                def _stock(key):
+                    """Preserve NULL as UNKNOWN; only real numbers become values."""
+                    v = data.get(key)
+                    if v in (None, ""):
+                        return None
+                    try:
+                        return float(v)
+                    except (TypeError, ValueError):
+                        return None
+
                 self.fuel_type.setCurrentText(data.get("fuel_type", "Diesel"))
                 self.fuel_consumed.setValue(_val("fuel_consumed"))
-                self.fuel_stock.setValue(_val("fuel_stock"))
+                _set_stock_value(self.fuel_stock, _stock("fuel_stock"))
                 self.fuel_received.setValue(_val("fuel_received"))
                 self.water_consumed.setValue(_val("water_consumed"))
-                self.water_stock.setValue(_val("water_stock"))
+                _set_stock_value(self.water_stock, _stock("water_stock"))
                 self.water_received.setValue(_val("water_received"))
                 self.dw_consumed.setValue(_val("dw_consumed"))
-                self.dw_stock.setValue(_val("dw_stock"))
+                _set_stock_value(self.dw_stock, _stock("dw_stock"))
                 self.dw_received.setValue(_val("dw_received"))
                 self.fuel_camp_consumed.setValue(_val("fuel_camp_consumed"))
-                self.fuel_camp_stock.setValue(_val("fuel_camp_stock"))
+                _set_stock_value(self.fuel_camp_stock, _stock("fuel_camp_stock"))
                 self.fuel_camp_received.setValue(_val("fuel_camp_received"))
                 self.update_fuel_remaining()
                 self.update_water_remaining()
-                self.status_manager.show_success("FuelWaterTab", "Fuel/water data loaded")
+                # A carry-forward projection is NOT a persisted fact for this
+                # day: it is the previous day's closing balance shown so the
+                # user can confirm/adjust it. It must be visibly distinguishable
+                # from real saved data, never presented as authoritative.
+                if data.get("is_carry_forward_preview"):
+                    src = data.get("source_report_date")
+                    self._show_carry_forward_preview(src)
+                    self.status_manager.show_message(
+                        "FuelWaterTab",
+                        "Carry-forward preview shown (not yet saved for this day)")
+                else:
+                    self._clear_carry_forward_preview()
+                    self.status_manager.show_success(
+                        "FuelWaterTab", "Fuel/water data loaded")
             else:
+                self._clear_carry_forward_preview()
                 self.status_manager.show_message("FuelWaterTab", "No data found for selected date")
         except Exception as e:
             logger.error(f"Error loading fuel/water data: {e}")
             self.status_manager.show_error("FuelWaterTab", f"Load failed: {str(e)}")
+            raise
+
+    def _show_carry_forward_preview(self, source_date):
+        """Mark the currently displayed fuel/water values as a projection.
+
+        A banner above the results makes the provenance explicit and the state
+        is tracked (``self._is_carry_forward_preview``) so it can be cleared as
+        soon as real data is loaded or saved. No values are altered — only their
+        presentation, so an actual 0.0 is never disguised.
+        """
+        self._is_carry_forward_preview = True
+        self._carry_forward_source_date = source_date
+        src_txt = f" from {source_date}" if source_date else ""
+        self.preview_banner.setText(
+            f"⚠ PREVIEW — carried forward{src_txt}; not yet saved for this day. "
+            f"Confirm and Save to record it.")
+        self.preview_banner.setVisible(True)
+
+    def _clear_carry_forward_preview(self):
+        self._is_carry_forward_preview = False
+        self._carry_forward_source_date = None
+        if hasattr(self, "preview_banner"):
+            self.preview_banner.clear()
+            self.preview_banner.setVisible(False)
         
     def clear_fields(self):
         self.fuel_consumed.setValue(0)
@@ -922,6 +1101,7 @@ class FuelWaterTab(QWidget):
         self.fuel_camp_stock.setValue(0)
         self.fuel_camp_received.setValue(0)
         self.results_label.clear()
+        self._clear_carry_forward_preview()
         self.status_manager.show_success("FuelWaterTab", "Fields cleared")
         
     def add_bulk_row(self):
@@ -929,7 +1109,7 @@ class FuelWaterTab(QWidget):
         self.bulk_table.insertRow(row)
         default_values = ["", "New Material", "kg", "0.0", "0.0", "0.0", "0.0", ""]
         for col, value in enumerate(default_values):
-            item = QTableWidgetItem(str(value))
+            item = QTableWidgetItem("" if value is None else str(value))
             if col in [3, 4, 5, 6]:
                 item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
             self.bulk_table.setItem(row, col, item)
@@ -943,7 +1123,7 @@ class FuelWaterTab(QWidget):
                 try:
                     session.query(BulkMaterials).filter(BulkMaterials.id == int(id_item.text())).delete()
                     session.commit()
-                except:
+                except Exception:
                     session.rollback()
                 finally:
                     session.close()
@@ -968,6 +1148,7 @@ class FuelWaterTab(QWidget):
         QMessageBox.information(self, "Summary", msg)
         
         
+    @editor_saved('Bulk inventory')
     def save_bulk_materials_to_db(self):
         if not self.current_well_id:
             QMessageBox.warning(self, "Warning", "Please select a well first.")
@@ -990,6 +1171,17 @@ class FuelWaterTab(QWidget):
                 # خواندن id اگر موجود باشد
                 id_item = self.bulk_table.item(row, 0)
                 
+                # Opening trichotomy at the UI boundary: an EMPTY cell is
+                # "not reported" (None) — carry-forward/unknown downstream.
+                # A typed 0 is an explicit zero and is preserved exactly.
+                def _cell_float(item, default=0.0):
+                    if item is None:
+                        return default
+                    text = item.text().strip()
+                    if not text:
+                        return default
+                    return float(text)
+
                 material_data = {
                     "well_id": self.current_well_id,
                     "section_id": self.current_section_id,
@@ -997,9 +1189,9 @@ class FuelWaterTab(QWidget):
                     "report_date": self.report_date.date().toPython(),
                     "material_name": material_item.text().strip(),
                     "unit": unit_item.text().strip() if unit_item else "kg",
-                    "initial_stock": float(initial_item.text() or 0) if initial_item else 0.0,
-                    "received": float(received_item.text() or 0) if received_item else 0.0,
-                    "used": float(used_item.text() or 0) if used_item else 0.0,
+                    "initial_stock": _cell_float(initial_item, default=None),
+                    "received": _cell_float(received_item),
+                    "used": _cell_float(used_item),
                 }
                 
                 if id_item and id_item.text().strip():
@@ -1023,6 +1215,7 @@ class FuelWaterTab(QWidget):
             self.status_manager.show_error("FuelWaterTab", f"Save failed: {str(e)}")
             return False
         
+    @editor_loaded('Bulk inventory')
     def load_bulk_materials_from_db(self):
         if not self.current_well_id:
             return
@@ -1038,18 +1231,22 @@ class FuelWaterTab(QWidget):
             for item in materials_data:
                 row = self.bulk_table.rowCount()
                 self.bulk_table.insertRow(row)
+                def _fmt_stock(value):
+                    # Unknown stock displays as an em dash, never as 0.0.
+                    return "—" if value is None else f"{value:.1f}"
+
                 values = [
                     str(item["id"]),
                     item.get("material_name", ""),
                     item.get("unit", "kg"),
-                    f"{item.get('initial_stock', 0):.1f}",
-                    f"{item.get('received', 0):.1f}",
-                    f"{item.get('used', 0):.1f}",
-                    f"{item.get('current_stock', 0):.1f}",
+                    _fmt_stock(item.get("initial_stock")),
+                    _fmt_stock(item.get("received", 0)),
+                    _fmt_stock(item.get("used", 0)),
+                    _fmt_stock(item.get("current_stock")),
                     ""
                 ]
                 for col, value in enumerate(values):
-                    table_item = QTableWidgetItem(str(value))
+                    table_item = QTableWidgetItem("" if value is None else str(value))
                     if col in [3, 4, 5, 6]:
                         table_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
                     self.bulk_table.setItem(row, col, table_item)
@@ -1057,6 +1254,7 @@ class FuelWaterTab(QWidget):
                 
         except Exception as e:
             logger.error(f"Error loading bulk materials: {e}")
+            raise
             
     def export_bulk_data(self):
         export_manager = ExportManager(self)
@@ -1080,30 +1278,35 @@ class FuelWaterTab(QWidget):
 
     def update_fuel_remaining(self):
         """محاسبه خودکار موجودی نهایی سوخت"""
-        stock = self.fuel_stock.value()
+        stock = _stock_value(self.fuel_stock)
         received = self.fuel_received.value()
         consumed = self.fuel_consumed.value()
-        remaining = stock + received - consumed
-        # ذخیره در دیتابیس بعداً
-        self._fuel_remaining = remaining
+        # Unknown opening stock -> unknown remaining (never a fabricated figure).
+        self._fuel_remaining = None if stock is None else stock + received - consumed
         # به‌روزرسانی نمایش
         self.update_results_display()
 
     def update_water_remaining(self):
         """محاسبه خودکار موجودی نهایی آب"""
-        stock = self.water_stock.value()
+        stock = _stock_value(self.water_stock)
         received = self.water_received.value()
         consumed = self.water_consumed.value()
-        remaining = stock + received - consumed
-        self._water_remaining = remaining
+        self._water_remaining = None if stock is None else stock + received - consumed
         self.update_results_display()
 
     def update_results_display(self):
-        fuel_days = self._fuel_remaining / self.fuel_consumed.value() if self.fuel_consumed.value() > 0 else 0
-        water_days = self._water_remaining / self.water_consumed.value() if self.water_consumed.value() > 0 else 0
+        def _line(label, remaining, consumed):
+            if remaining is None:
+                return f"<b>{label}:</b> stock unknown (—)"
+            return (
+                f"<b>{label}:</b> {remaining:,.1f} L remaining "
+                f"({self._days_text(remaining, consumed)})"
+            )
+
         self.results_label.setText(
-            f"<b>Fuel:</b> {self._fuel_remaining:,.1f} L remaining ({fuel_days:.1f} days)<br>"
-            f"<b>Water:</b> {self._water_remaining:,.1f} L remaining ({water_days:.1f} days)"
+            _line("Fuel", getattr(self, "_fuel_remaining", None), self.fuel_consumed.value())
+            + "<br>"
+            + _line("Water", getattr(self, "_water_remaining", None), self.water_consumed.value())
         )
 
 
@@ -1354,7 +1557,7 @@ class TransportLogTab(QWidget):
                 purpose.text(), status.currentText(), remarks.toPlainText()
             ]
             for col, value in enumerate(values):
-                item = QTableWidgetItem(str(value))
+                item = QTableWidgetItem("" if value is None else str(value))
                 if col in [7, 8, 9]:
                     item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
                 self.transport_table.setItem(row, col, item)
@@ -1370,7 +1573,7 @@ class TransportLogTab(QWidget):
                 try:
                     session.query(TransportLog).filter(TransportLog.id == int(id_item.text())).delete()
                     session.commit()
-                except:
+                except Exception:
                     session.rollback()
                 finally:
                     session.close()
@@ -1392,6 +1595,7 @@ class TransportLogTab(QWidget):
             self.update_stats()
             self.status_manager.show_success("TransportTab", "Log marked as completed")
             
+    @editor_saved()
     def save_transport_logs_to_db(self):
         if not self.current_well_id:
             QMessageBox.warning(self, "Warning", "Please select a well first.")
@@ -1461,6 +1665,7 @@ class TransportLogTab(QWidget):
         finally:
             session.close()
             
+    @editor_loaded()
     def load_transport_logs(self):
         if not self.current_well_id:
             return
@@ -1487,6 +1692,7 @@ class TransportLogTab(QWidget):
             self.status_manager.show_success("TransportTab", f"Loaded {len(logs)} logs")
         except Exception as e:
             logger.error(f"Error loading transport logs: {e}")
+            raise
             
     def export_transport_data(self):
         export_manager = ExportManager(self)
@@ -1556,6 +1762,7 @@ class LogisticsWidget(DrillTabBase):
         
         self.init_ui()
         self.setup_managers()
+        self.configure_save_tracking()
         
     def init_ui(self):
         scroll_area = QScrollArea()
@@ -1687,6 +1894,7 @@ class LogisticsWidget(DrillTabBase):
             self.personnel_tab.current_report_id = self.current_report_id
             self.personnel_tab.load_pob_data()
             self.personnel_tab.load_crew_data()
+            self.personnel_tab.load_notes_data()
         
         if self.fuel_water_tab:
             self.fuel_water_tab.current_well_id = self.current_well_id
@@ -1702,21 +1910,18 @@ class LogisticsWidget(DrillTabBase):
             self.transport_tab.load_transport_logs()
         
     def save_all_data(self):
-        success = True
+        from core.save_outcome import save_all
+        steps = []
         if self.personnel_tab:
-            if not self.personnel_tab.save_pob_to_db(): success = False
-            if not self.personnel_tab.save_crew_to_db(): success = False
+            steps.extend([("POB", self.personnel_tab.save_pob_to_db), ("Crew", self.personnel_tab.save_crew_to_db)])
         if self.fuel_water_tab:
-            if not self.fuel_water_tab.save_fuel_water_to_db(): success = False
-            if not self.fuel_water_tab.save_bulk_materials_to_db(): success = False
+            steps.extend([("Fuel / Water", self.fuel_water_tab.save_fuel_water_to_db), ("Bulk inventory", self.fuel_water_tab.save_bulk_materials_to_db)])
         if self.transport_tab:
-            if not self.transport_tab.save_transport_logs_to_db(): success = False
-        if success:
-            self.show_success("All logistics data saved")
-        else:
-            self.show_error("Some data failed to save")
-        return success
-    
+            steps.append(("Transport", self.transport_tab.save_transport_logs_to_db))
+        self.last_save_outcome = save_all(steps)
+        (self.show_success if self.last_save_outcome else self.show_error)(self.last_save_outcome.summary())
+        return bool(self.last_save_outcome)
+
     def load_all_data(self):
         if not self.current_well_id:
             QMessageBox.warning(self, "Warning", "Please select a well first")
@@ -1724,6 +1929,7 @@ class LogisticsWidget(DrillTabBase):
         if self.personnel_tab:
             self.personnel_tab.load_pob_data()
             self.personnel_tab.load_crew_data()
+            self.personnel_tab.load_notes_data()
             self.personnel_tab.load_notes_data()
         if self.fuel_water_tab:
             self.fuel_water_tab.load_fuel_water_from_db()

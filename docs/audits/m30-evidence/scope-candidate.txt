@@ -1,0 +1,11 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+______ test_scope_rejects_invalid_unassigned_candidates_without_mutation _______
+tests/test_m30_semantic_regressions.py:87: in test_scope_rejects_invalid_unassigned_candidates_without_mutation
+    assert len(outcomes) == 2 and all(o.status == INVALID for o in outcomes)
+E   AssertionError: assert (2 == 2 and False)
+E    +  where 2 = len([ReportOutcome(report_id=3, dimension='wellbore', status='ambiguous', target_id=None, method='', detail='well 1 has 2 ...ection', status='resolved', target_id=1, method='via_unique_section_in_well', detail='well 1 has exactly one section')])
+E    +  and   False = all(<generator object test_scope_rejects_invalid_unassigned_candidates_without_mutation.<locals>.<genexpr> at 0x7f2ed46c4380>)
+=========================== short test summary info ============================
+FAILED tests/test_m30_semantic_regressions.py::test_scope_rejects_invalid_unassigned_candidates_without_mutation
+1 failed in 0.48s

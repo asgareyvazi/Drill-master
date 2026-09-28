@@ -15,17 +15,14 @@ Wellbore Schematic Engine - موتور رندر حرفه‌ای
 - Export به SVG/PNG/PDF
 """
 
-import math
-import json
 import logging
 from dataclasses import dataclass, field
-from typing import List, Dict, Optional, Tuple
+from typing import List, Optional
 from enum import Enum
 
 from PySide6.QtCore import *
 from PySide6.QtGui import *
 from PySide6.QtWidgets import *
-from PySide6.QtSvg import QSvgGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +38,9 @@ class ElementType(Enum):
     INTERMEDIATE_CASING = "intermediate_casing"
     PRODUCTION_CASING = "production_casing"
     LINER = "liner"
+    # Source row with real casing geometry but an unclassifiable string
+    # label — generic casing, never silently re-classified as Surface.
+    CASING = "casing"
     TUBING = "tubing"
     PACKER = "packer"
     PERFORATIONS = "perforations"
@@ -68,15 +68,17 @@ class CasingData:
     name: str
     element_type: ElementType
     od_inch: float
-    id_inch: float
+    # None = wall thickness unknown (drawn solid); 0.0 stays 0.0.
+    id_inch: Optional[float]
     top_depth_m: float
     bottom_depth_m: float
-    grade: str = "L-80"
-    connection: str = "BTC"
+    # Unknown metallurgy stays "" — never a fabricated grade/connection.
+    grade: str = ""
+    connection: str = ""
     weight_ppf: float = 0.0
     cement_top_m: float = 0.0
     cement_bottom_m: float = 0.0
-    show_cement: bool = True
+    show_cement: bool = False
     color: str = ""
 
 
@@ -86,7 +88,8 @@ class FormationLayer:
     name: str
     top_depth_m: float
     bottom_depth_m: float
-    lithology: str = "Shale"
+    # Unknown lithology stays "" — never a fabricated "Shale".
+    lithology: str = ""
     color: str = "#808080"
     hatch_pattern: str = "shale"
 
@@ -142,13 +145,21 @@ class SchematicConfig:
     
 @dataclass
 class WellboreSchematic:
-    """مدل کامل شماتیک چاه."""
+    """مدل کامل شماتیک چاه.
+
+    None = engineering fact absent from source data. An explicit 0.0 is a
+    real reported value and MUST survive generation and persistence intact
+    (GL/KB of 0 m MSL is a valid fact). No synthetic defaults here.
+    """
     well_name: str = ""
+    # Bore identity when the schematic is scoped to a single wellbore. Empty for
+    # the whole-well (single-bore or explicit aggregate) view — never fabricated.
+    wellbore_name: str = ""
     rig_name: str = ""
-    total_depth_m: float = 3000.0
-    water_depth_m: float = 0.0
-    gle_msl_m: float = 10.0
-    kb_msl_m: float = 15.0
+    total_depth_m: Optional[float] = None
+    water_depth_m: Optional[float] = None
+    gle_msl_m: Optional[float] = None
+    kb_msl_m: Optional[float] = None
 
     casings: List[CasingData] = field(default_factory=list)
     formations: List[FormationLayer] = field(default_factory=list)
@@ -157,8 +168,8 @@ class WellboreSchematic:
     show_xmas_tree: bool = True
     show_wellhead: bool = True
     show_tubing: bool = True
-    tubing_od_inch: float = 3.5
-    tubing_bottom_m: float = 2800.0
+    tubing_od_inch: Optional[float] = None
+    tubing_bottom_m: Optional[float] = None
 
 
 # ==================== Colors & Patterns ====================
@@ -227,8 +238,11 @@ class WellboreSchematicRenderer:
             - self.config.margin_top
             - self.config.margin_bottom
         )
-        if self.schematic.total_depth_m > 0:
-            self.config.depth_scale = drawable_height / self.schematic.total_depth_m
+        td = self.schematic.total_depth_m
+        # None (TD unknown) or 0 -> neutral canvas scale. This is view
+        # geometry only — no fabricated depth is introduced anywhere.
+        if td is not None and td > 0:
+            self.config.depth_scale = drawable_height / td
         else:
             self.config.depth_scale = 0.3
 
@@ -487,7 +501,13 @@ class WellboreSchematicRenderer:
         """رندر یک رشته کیسینگ."""
         cx = self.get_center_x()
         od_px = self.od_to_pixels(casing.od_inch) / 2
-        id_px = self.od_to_pixels(casing.id_inch) / 2
+        # Unknown ID (None) -> draw solid: wall thickness stays unknown
+        # instead of being invented.
+        id_px = (
+            self.od_to_pixels(casing.id_inch) / 2
+            if casing.id_inch is not None
+            else 0.0
+        )
         wall_px = od_px - id_px
 
         y_top = self.depth_to_y(casing.top_depth_m)
@@ -504,6 +524,7 @@ class WellboreSchematicRenderer:
             ElementType.INTERMEDIATE_CASING: SchematicColors.INTERMEDIATE_CASING,
             ElementType.PRODUCTION_CASING: SchematicColors.PRODUCTION_CASING,
             ElementType.LINER: SchematicColors.LINER,
+            ElementType.CASING: "#7f8c8d",
         }
         color = QColor(
             casing.color or color_map.get(casing.element_type, "#4682B4")
@@ -627,7 +648,9 @@ class WellboreSchematicRenderer:
         oh_top = deepest.bottom_depth_m
         oh_bottom = self.schematic.total_depth_m
 
-        if oh_bottom <= oh_top:
+        # TD unknown -> the open-hole extent is unknown; drawing it would
+        # assert a depth fact the source does not contain.
+        if oh_bottom is None or oh_bottom <= oh_top:
             return
 
         # قطر حفره باز (کمی بزرگتر از کوچک‌ترین کیسینگ)
@@ -683,6 +706,13 @@ class WellboreSchematicRenderer:
 
     def _draw_tubing(self, painter: QPainter):
         """رندر رشته تیوبینگ."""
+        # Tubing geometry unknown -> no tubing string is drawn.
+        if (
+            self.schematic.tubing_od_inch is None
+            or self.schematic.tubing_bottom_m is None
+        ):
+            return
+
         cx = self.get_center_x()
         od_px = self.od_to_pixels(self.schematic.tubing_od_inch) / 2
         wall_px = max(2, od_px * 0.15)
@@ -878,6 +908,8 @@ class WellboreSchematicRenderer:
 
     def _draw_safety_valve(self, painter: QPainter, item: CompletionItem):
         """رندر Surface Safety Valve."""
+        if self.schematic.tubing_od_inch is None:
+            return
         cx = self.get_center_x()
         y = self.depth_to_y(item.depth_m)
         tubing_od_px = self.od_to_pixels(
@@ -953,6 +985,8 @@ class WellboreSchematicRenderer:
 
     def _draw_gas_lift_valve(self, painter: QPainter, item: CompletionItem):
         """رندر Gas Lift Valve."""
+        if self.schematic.tubing_od_inch is None:
+            return
         cx = self.get_center_x()
         y = self.depth_to_y(item.depth_m)
         tubing_od_px = self.od_to_pixels(self.schematic.tubing_od_inch) / 2
@@ -1053,6 +1087,8 @@ class WellboreSchematicRenderer:
 
     def _draw_xmas_tree(self, painter: QPainter):
         """رندر Christmas Tree (Xmas Tree) کامل."""
+        if self.schematic.tubing_od_inch is None:
+            return
         cx = self.get_center_x()
         y_wellhead = self.depth_to_y(0)
 
@@ -1219,8 +1255,13 @@ class WellboreSchematicRenderer:
 
     def _draw_bit(self, painter: QPainter):
         """رندر Bit."""
+        td = self.schematic.total_depth_m
+        # Bit position IS total depth; unknown or non-positive TD -> no bit.
+        if td is None or td <= 0:
+            return
+
         cx = self.get_center_x()
-        y_bottom = self.depth_to_y(self.schematic.total_depth_m)
+        y_bottom = self.depth_to_y(td)
         bit_width = 20
         bit_height = 18
 
@@ -1254,6 +1295,17 @@ class WellboreSchematicRenderer:
 
         # تعیین فواصل مقیاس
         total_depth = self.schematic.total_depth_m
+        if total_depth is None:
+            # TD absent: the ruler only spans data that actually exists.
+            # This is a view extent, not a fabricated well depth.
+            element_bottoms = [
+                c.bottom_depth_m for c in self.schematic.casings
+            ] + [
+                f.bottom_depth_m for f in self.schematic.formations
+            ] + [
+                i.depth_m for i in self.schematic.completion
+            ]
+            total_depth = max(element_bottoms, default=0.0)
         if total_depth <= 500:
             interval = 50
         elif total_depth <= 1000:
@@ -1411,50 +1463,249 @@ class WellboreSchematicRenderer:
 
 # ==================== Auto Builder ====================
 
+def _to_float(value):
+    """Strict numeric coercion for source values.
+
+    None stays None (missing), explicit 0 stays 0.0, numeric strings are
+    parsed. Unparseable values are missing, never zero.
+    """
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _size_inches(value):
+    """Parse a casing size into inches.
+
+    Accepts numbers and the string forms the importers actually store:
+    ``13.375``, ``13 3/8"``, ``9-5/8"``. Unparseable/missing -> None.
+    """
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    text = str(value).strip().replace('"', "").replace("''", "").strip()
+    if not text:
+        return None
+    parts = text.replace("-", " ").split()
+    try:
+        if len(parts) == 2 and "/" in parts[1]:
+            whole = float(parts[0])
+            num, den = parts[1].split("/", 1)
+            den = float(den)
+            if den == 0:
+                return None
+            return whole + float(num) / den
+        if len(parts) == 1 and "/" in parts[0]:
+            num, den = parts[0].split("/", 1)
+            den = float(den)
+            if den == 0:
+                return None
+            return float(num) / den
+        return float(text)
+    except (TypeError, ValueError):
+        return None
+
+
 class SchematicAutoBuilder:
     """
     ساخت خودکار شماتیک از داده‌های دیتابیس.
+
+    Non-fabrication contract: an engineering fact absent from the
+    authoritative source stays absent (None). An explicit zero is a real
+    reported value and is preserved exactly. No default casing program,
+    no synthetic TD/GL/KB, no invented shoe depths, grades or cement.
     """
 
     def __init__(self, db_manager):
         self.db = db_manager
 
-    def build_from_well(self, well_id: int) -> WellboreSchematic:
-        """ساخت شماتیک از داده‌های چاه."""
+    def build_from_well(
+        self, well_id: int, wellbore_id: Optional[int] = None
+    ) -> WellboreSchematic:
+        """Build a schematic for a well, optionally scoped to one wellbore.
+
+        A well may contain more than one wellbore (an original hole plus one or
+        more sidetracks). Their casing programs, penetrated formations and
+        completions are physically distinct — combining them produces a
+        schematic that describes no real bore.
+
+        * ``wellbore_id is None`` → the legacy well-level view: every record for
+          the well is considered. This is only meaningful for a single-bore
+          well; for a multi-bore well it is an explicit, caller-chosen
+          aggregate, not a silent one.
+        * ``wellbore_id`` given → only records attributable to that bore are
+          used. Attribution follows the ownership chain, never a column added
+          for symmetry: casing by ``section.wellbore_id`` (falling back to its
+          report's bore), formation and completion by ``report.wellbore_id``.
+          Records with an unknown bore (legacy NULL) are excluded from a
+          bore-scoped view rather than being fabricated onto it.
+        """
         well = self.db.get_well_by_id(well_id)
         if not well:
             return WellboreSchematic()
 
+        wellbore_name = ""
+        if wellbore_id is not None:
+            wellbore_name = self._resolve_wellbore_name(well_id, wellbore_id)
+
         schematic = WellboreSchematic(
-            well_name=well.get("name", ""),
-            rig_name=well.get("rig_name", ""),
-            total_depth_m=well.get("target_depth", 3000) or 3000,
-            water_depth_m=well.get("water_depth", 0) or 0,
-            gle_msl_m=well.get("gle_msl", 10) or 10,
-            kb_msl_m=well.get("rte_msl", 15) or 15,
+            well_name=well.get("name") or "",
+            rig_name=well.get("rig_name") or "",
+            # Values are taken exactly as the source reports them:
+            # None (absent), 0.0 (explicit zero) or the real number.
+            total_depth_m=_to_float(well.get("target_depth")),
+            water_depth_m=_to_float(well.get("water_depth")),
+            gle_msl_m=_to_float(well.get("gle_msl")),
+            kb_msl_m=_to_float(well.get("rte_msl")),
         )
+        # Preserve bore identity on the schematic when scoped, without
+        # fabricating one for the whole-well view.
+        if wellbore_name:
+            schematic.wellbore_name = wellbore_name
+
+        scope = None
+        if wellbore_id is not None:
+            scope = self._bore_scope(well_id, wellbore_id)
 
         # کیسینگ‌ها از DB
-        self._add_casings_from_db(schematic, well_id)
+        self._add_casings_from_db(schematic, well_id, scope)
 
         # سازندها از DB
-        self._add_formations_from_db(schematic, well_id)
+        self._add_formations_from_db(schematic, well_id, scope)
 
         # Completion از DB
-        self._add_completion_from_db(schematic, well_id)
+        self._add_completion_from_db(schematic, well_id, scope)
 
-        # اگر کیسینگ نداشت، داده‌های پیش‌فرض
-        if not schematic.casings:
-            self._add_default_casings(schematic)
+        # NOTE: no default casing program. A well without casing data
+        # yields a schematic without casings — unknown stays unknown.
 
         return schematic
 
+    def _resolve_wellbore_name(self, well_id, wellbore_id):
+        try:
+            for wb in self.db.get_wellbores_by_well(well_id):
+                if wb.get("id") == wellbore_id:
+                    return wb.get("name") or ""
+        except Exception as e:
+            logger.error(f"Error resolving wellbore name: {e}")
+        return ""
+
+    def _bore_scope(self, well_id, wellbore_id):
+        """Resolve the section_ids and report_ids that belong to one bore.
+
+        Returns a dict with ``section_ids`` and ``report_ids`` frozensets used
+        to filter well-level record collections down to a single wellbore. A
+        section or report whose bore is NULL (unknown) is deliberately NOT
+        included — an unknown bore is never claimed by a specific one.
+        """
+        from core.database import Section, DailyReport
+        section_ids = set()
+        report_ids = set()
+        session = self.db.create_session()
+        try:
+            section_ids = {
+                sid for (sid,) in session.query(Section.id).filter(
+                    Section.well_id == well_id,
+                    Section.wellbore_id == wellbore_id,
+                ).all()
+            }
+            report_ids = {
+                rid for (rid,) in session.query(DailyReport.id).filter(
+                    DailyReport.well_id == well_id,
+                    DailyReport.wellbore_id == wellbore_id,
+                ).all()
+            }
+        except Exception as e:
+            logger.error(f"Error resolving bore scope: {e}")
+        finally:
+            session.close()
+        return {
+            "wellbore_id": wellbore_id,
+            "section_ids": frozenset(section_ids),
+            "report_ids": frozenset(report_ids),
+        }
+
+    def _latest_casing_for_bore(self, well_id, scope):
+        """Latest casing report owned by one bore, as a dict like the reader.
+
+        Ownership is by ``section_id`` (a section belongs to exactly one bore),
+        falling back to ``report_id`` when the casing row is attributed to a
+        report rather than a section. A row whose bore cannot be resolved is
+        skipped — it is never claimed by this bore.
+        """
+        from core.database import CasingReport
+        from sqlalchemy import or_
+        session = self.db.create_session()
+        try:
+            sec_ids = scope["section_ids"]
+            rep_ids = scope["report_ids"]
+            if not sec_ids and not rep_ids:
+                return None
+            clauses = []
+            if sec_ids:
+                clauses.append(CasingReport.section_id.in_(sec_ids))
+            if rep_ids:
+                clauses.append(CasingReport.report_id.in_(rep_ids))
+            report = (
+                session.query(CasingReport)
+                .filter(
+                    CasingReport.well_id == well_id,
+                    or_(*clauses),
+                )
+                .order_by(CasingReport.report_date.desc())
+                .first()
+            )
+            if not report:
+                return None
+            return {"casing_json": report.casing_json}
+        except Exception as e:
+            logger.error(f"Error loading bore casing: {e}")
+            return None
+        finally:
+            session.close()
+
+    def _latest_formation_for_bore(self, well_id, scope):
+        """Latest formation report owned by one bore, as a dict like the reader."""
+        from core.database import FormationReport
+        session = self.db.create_session()
+        try:
+            rep_ids = scope["report_ids"]
+            if not rep_ids:
+                return None
+            report = (
+                session.query(FormationReport)
+                .filter(
+                    FormationReport.well_id == well_id,
+                    FormationReport.report_id.in_(rep_ids),
+                )
+                .order_by(FormationReport.updated_at.desc())
+                .first()
+            )
+            if not report:
+                return None
+            return {"formations": report.formations_json or []}
+        except Exception as e:
+            logger.error(f"Error loading bore formation: {e}")
+            return None
+        finally:
+            session.close()
+
     def _add_casings_from_db(
-        self, schematic: WellboreSchematic, well_id: int
+        self, schematic: WellboreSchematic, well_id: int, scope=None
     ):
         """اضافه کردن کیسینگ‌ها از دیتابیس."""
         try:
-            casing_report = self.db.get_casing_report(well_id=well_id)
+            if scope is not None:
+                # Bore-scoped: pick the latest casing report OWNED by this bore
+                # (by section, else by report). Never the well-wide latest,
+                # which could belong to a different bore.
+                casing_report = self._latest_casing_for_bore(well_id, scope)
+            else:
+                casing_report = self.db.get_casing_report(well_id=well_id)
             if not casing_report:
                 return
 
@@ -1480,42 +1731,71 @@ class SchematicAutoBuilder:
             }
 
             for i, c in enumerate(casings_data):
-                od = float(c.get("od", c.get("size", 0)) or 0)
-                id_ = float(c.get("id", 0) or 0)
-                from_d = float(c.get("from", c.get("depth_in", 0)) or 0)
-                to_d = float(c.get("to", c.get("depth_out", 500)) or 500)
-                ctype = c.get("type", "")
-
-                if od <= 0:
+                od = _size_inches(
+                    c["od"] if c.get("od") is not None else c.get("size")
+                )
+                if od is None or od <= 0:
                     continue
 
-                element_type = type_map.get(
-                    ctype, ElementType.SURFACE_CASING
+                from_d = _to_float(
+                    c["from"] if c.get("from") is not None else c.get("depth_in")
                 )
+                to_d = _to_float(
+                    c["to"] if c.get("to") is not None else c.get("depth_out")
+                )
+                # A casing row without top or shoe depth is incomplete:
+                # it is skipped, never completed with invented depths.
+                if from_d is None or to_d is None:
+                    continue
+                if to_d < from_d:
+                    continue
+
+                ctype = str(c.get("type") or c.get("casing_type") or "").strip()
+
+                element_type = type_map.get(ctype, ElementType.CASING)
+
+                # Wall thickness: only what the source reports. None ->
+                # unknown (rendered solid), never od*0.9.
+                id_ = _to_float(c.get("id"))
+                if id_ is not None and id_ <= 0:
+                    id_ = None
+
+                # Metallurgy: only what the source reports, never
+                # "L-80"/"BTC" defaults.
+                grade = str(c.get("grade") or "").strip()
+                connection = str(
+                    c.get("connection") or c.get("thread") or ""
+                ).strip()
 
                 schematic.casings.append(CasingData(
                     name=ctype,
                     element_type=element_type,
                     od_inch=od,
-                    id_inch=id_ if id_ > 0 else od * 0.9,
+                    id_inch=id_,
                     top_depth_m=from_d,
                     bottom_depth_m=to_d,
-                    grade=c.get("grade", "L-80"),
-                    connection=c.get("connection", "BTC"),
-                    cement_top_m=0,
-                    cement_bottom_m=to_d,
-                    show_cement=True,
+                    grade=grade,
+                    connection=connection,
+                    # Cement: the casing source carries no cement data,
+                    # so none is drawn or persisted.
+                    cement_top_m=0.0,
+                    cement_bottom_m=0.0,
+                    show_cement=False,
                 ))
 
         except Exception as e:
             logger.error(f"Error loading casings: {e}")
 
     def _add_formations_from_db(
-        self, schematic: WellboreSchematic, well_id: int
+        self, schematic: WellboreSchematic, well_id: int, scope=None
     ):
         """اضافه کردن سازندها از دیتابیس."""
         try:
-            formation_report = self.db.get_formation_report(well_id)
+            if scope is not None:
+                formation_report = self._latest_formation_for_bore(
+                    well_id, scope)
+            else:
+                formation_report = self.db.get_formation_report(well_id)
             if not formation_report:
                 return
 
@@ -1525,14 +1805,34 @@ class SchematicAutoBuilder:
                 formations = json.loads(formations)
 
             for f in formations:
-                top = float(f.get("top", f.get("Top MD (m)", 0)) or 0)
-                base = float(f.get("base", f.get("Base MD (m)", 100)) or 100)
-                litho = f.get("lithology", f.get("Lithology", "Shale"))
-                color = f.get("color", f.get("Color", ""))
-                name = f.get("name", f.get("Formation Name", f.get("name", "")))
-
+                top = _to_float(
+                    f["top"] if f.get("top") is not None
+                    else f["Top MD (m)"] if f.get("Top MD (m)") is not None
+                    else f.get("top_md")
+                )
+                base = _to_float(
+                    f["base"] if f.get("base") is not None
+                    else f["Base MD (m)"] if f.get("Base MD (m)") is not None
+                    else f.get("base_md")
+                )
+                # A layer without top/base depth is incomplete: skipped,
+                # never completed with an invented base of 100 m.
+                if top is None or base is None:
+                    continue
                 if base <= top:
                     continue
+
+                # Unknown lithology stays "" — never a fabricated "Shale".
+                litho = str(
+                    f.get("lithology") or f.get("Lithology") or ""
+                ).strip()
+                color = str(f.get("color") or f.get("Color") or "").strip()
+                name = str(
+                    f.get("name")
+                    or f.get("Formation Name")
+                    or f.get("formation_name")
+                    or ""
+                ).strip()
 
                 schematic.formations.append(FormationLayer(
                     name=name,
@@ -1546,70 +1846,54 @@ class SchematicAutoBuilder:
             logger.error(f"Error loading formations: {e}")
 
     def _add_completion_from_db(
-        self, schematic: WellboreSchematic, well_id: int
+        self, schematic: WellboreSchematic, well_id: int, scope=None
     ):
         """اضافه کردن Completion از دیتابیس."""
         try:
             session = self.db.create_session()
             from core.database import DownholeEquipment
-            eq_records = session.query(DownholeEquipment).filter(
+            eq_query = session.query(DownholeEquipment).filter(
                 DownholeEquipment.well_id == well_id
-            ).all()
+            )
+            if scope is not None:
+                # Bore-scoped: only equipment attributed to this bore's reports.
+                # Unknown-bore (NULL report) equipment is excluded, never
+                # attributed to a specific bore.
+                eq_query = eq_query.filter(
+                    DownholeEquipment.report_id.in_(scope["report_ids"])
+                )
+            eq_records = eq_query.all()
             for eq in eq_records:
                 if eq.equipment_data_json:
                     items = eq.equipment_data_json if isinstance(eq.equipment_data_json, list) else [eq.equipment_data_json]
                     for it in items:
                         if isinstance(it, dict):
-                            depth = float(it.get("depth", 0) or it.get("depth_m", 0) or 0)
-                            if depth > 0:
-                                elem_type = ElementType.PACKER if "packer" in str(it.get("type", "")).lower() else ElementType.TUBING
-                                schematic.completions.append(
-                                    CompletionItem(
-                                        element_type=elem_type,
-                                        depth_m=depth,
-                                        od_inch=float(it.get("od_inch", 4.5) or 4.5),
-                                        length_m=float(it.get("length_m", 2.0) or 2.0),
-                                        label=str(it.get("name", "") or it.get("type", "Tubing")),
-                                        color=str(it.get("color", "") or "#27ae60")
-                                    )
+                            depth = _to_float(it.get("depth"))
+                            if depth is None:
+                                depth = _to_float(it.get("depth_m"))
+                            # No install depth in the source -> the item's
+                            # position is unknown; nothing is invented.
+                            if depth is None or depth <= 0:
+                                continue
+                            # Geometry/metadata: only what the source
+                            # reports — no 4.5"/2.0m/"Tubing" defaults.
+                            od = _to_float(it.get("od_inch"))
+                            length = _to_float(it.get("length_m"))
+                            label = str(
+                                it.get("name") or it.get("type") or ""
+                            ).strip()
+                            elem_type = ElementType.PACKER if "packer" in str(it.get("type", "")).lower() else ElementType.TUBING
+                            schematic.completion.append(
+                                CompletionItem(
+                                    element_type=elem_type,
+                                    depth_m=depth,
+                                    od_inch=od if od is not None else 0.0,
+                                    length_m=length if length is not None else 0.0,
+                                    label=label,
+                                    color=str(it.get("color") or "")
                                 )
+                            )
 
             session.close()
         except Exception as e:
             logger.error(f"Error loading completion: {e}")
-
-    def _add_default_casings(self, schematic: WellboreSchematic):
-        """اضافه کردن کیسینگ‌های پیش‌فرض."""
-        td = schematic.total_depth_m
-        schematic.casings = [
-            CasingData(
-                name="Conductor",
-                element_type=ElementType.CONDUCTOR,
-                od_inch=20.0, id_inch=18.73,
-                top_depth_m=0, bottom_depth_m=min(80, td * 0.05),
-                cement_top_m=0, cement_bottom_m=min(80, td * 0.05),
-            ),
-            CasingData(
-                name="Surface Casing",
-                element_type=ElementType.SURFACE_CASING,
-                od_inch=13.375, id_inch=12.415,
-                top_depth_m=0, bottom_depth_m=min(500, td * 0.2),
-                cement_top_m=0, cement_bottom_m=min(500, td * 0.2),
-            ),
-            CasingData(
-                name="Intermediate Casing",
-                element_type=ElementType.INTERMEDIATE_CASING,
-                od_inch=9.625, id_inch=8.835,
-                top_depth_m=0, bottom_depth_m=min(2000, td * 0.65),
-                cement_top_m=min(200, td * 0.1),
-                cement_bottom_m=min(2000, td * 0.65),
-            ),
-            CasingData(
-                name="Production Casing",
-                element_type=ElementType.PRODUCTION_CASING,
-                od_inch=7.0, id_inch=6.276,
-                top_depth_m=0, bottom_depth_m=td,
-                cement_top_m=min(1500, td * 0.5),
-                cement_bottom_m=td,
-            ),
-        ]

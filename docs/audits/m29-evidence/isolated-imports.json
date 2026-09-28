@@ -1,0 +1,1224 @@
+{
+  "head": "beaf9635ffb7bcecf16b3320b138077c7ef8e6c8",
+  "seconds": 18.22,
+  "results": [
+    {
+      "module": "app",
+      "exit_code": 0,
+      "seconds": 3.515,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.activity_mapper",
+      "exit_code": 0,
+      "seconds": 0.077,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.actual_vs_plan",
+      "exit_code": 0,
+      "seconds": 0.127,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.ai_import_mapper",
+      "exit_code": 0,
+      "seconds": 0.148,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.ai_tools",
+      "exit_code": 0,
+      "seconds": 0.077,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.api",
+      "exit_code": 0,
+      "seconds": 0.069,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.api.rest_api",
+      "exit_code": 0,
+      "seconds": 0.063,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.async_workers",
+      "exit_code": 0,
+      "seconds": 0.186,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.base_tab",
+      "exit_code": 0,
+      "seconds": 0.224,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.cache_manager",
+      "exit_code": 0,
+      "seconds": 0.068,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.canonical_mapper",
+      "exit_code": 0,
+      "seconds": 0.094,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.canonical_schema",
+      "exit_code": 0,
+      "seconds": 0.072,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.combo_identity",
+      "exit_code": 0,
+      "seconds": 0.078,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.common_widgets",
+      "exit_code": 0,
+      "seconds": 0.405,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.company_mapping",
+      "exit_code": 0,
+      "seconds": 0.094,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.cost_semantics",
+      "exit_code": 0,
+      "seconds": 0.052,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.credential_policy",
+      "exit_code": 0,
+      "seconds": 0.036,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.data_quality",
+      "exit_code": 0,
+      "seconds": 0.072,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.database",
+      "exit_code": 0,
+      "seconds": 0.826,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.database_reset",
+      "exit_code": 0,
+      "seconds": 0.87,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.db_models",
+      "exit_code": 0,
+      "seconds": 0.79,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.db_services",
+      "exit_code": 0,
+      "seconds": 0.066,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.ddr_import_service",
+      "exit_code": 0,
+      "seconds": 0.116,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.ddr_pdf_export",
+      "exit_code": 0,
+      "seconds": 0.066,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.document_import",
+      "exit_code": 0,
+      "seconds": 0.073,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.domain_records",
+      "exit_code": 0,
+      "seconds": 0.088,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.editor_bindings",
+      "exit_code": 0,
+      "seconds": 0.064,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.editor_state",
+      "exit_code": 0,
+      "seconds": 0.064,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering",
+      "exit_code": 0,
+      "seconds": 0.104,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.adapters",
+      "exit_code": 0,
+      "seconds": 0.099,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.adapters.torque_drag_adapter",
+      "exit_code": 0,
+      "seconds": 0.102,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.adapters.welleng_adapter",
+      "exit_code": 0,
+      "seconds": 0.104,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.bridge",
+      "exit_code": 0,
+      "seconds": 0.108,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.calculation_verification",
+      "exit_code": 0,
+      "seconds": 0.102,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.casing_persistence",
+      "exit_code": 0,
+      "seconds": 0.1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.cement_persistence",
+      "exit_code": 0,
+      "seconds": 0.098,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.core",
+      "exit_code": 0,
+      "seconds": 0.101,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.drill_pipe",
+      "exit_code": 0,
+      "seconds": 0.114,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.drill_pipe_catalog_view",
+      "exit_code": 0,
+      "seconds": 0.123,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.drill_pipe_import",
+      "exit_code": 0,
+      "seconds": 0.146,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.engines",
+      "exit_code": 0,
+      "seconds": 0.103,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.engines.anti_collision",
+      "exit_code": 0,
+      "seconds": 0.115,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.engines.bit_performance",
+      "exit_code": 0,
+      "seconds": 0.108,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.engines.casing",
+      "exit_code": 0,
+      "seconds": 0.107,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.engines.cement",
+      "exit_code": 0,
+      "seconds": 0.091,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.engines.fishing",
+      "exit_code": 0,
+      "seconds": 0.096,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.engines.mse",
+      "exit_code": 0,
+      "seconds": 0.104,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.engines.mud_volume",
+      "exit_code": 0,
+      "seconds": 0.097,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.engines.torque_drag",
+      "exit_code": 0,
+      "seconds": 0.104,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.engines.trajectory",
+      "exit_code": 0,
+      "seconds": 0.105,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.engines.well_control",
+      "exit_code": 0,
+      "seconds": 0.113,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.extended",
+      "exit_code": 0,
+      "seconds": 0.112,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.mse_persistence",
+      "exit_code": 0,
+      "seconds": 0.108,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.mud_volume_persistence",
+      "exit_code": 0,
+      "seconds": 0.099,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.registry",
+      "exit_code": 0,
+      "seconds": 0.092,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.result",
+      "exit_code": 0,
+      "seconds": 0.104,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.torque_drag_persistence",
+      "exit_code": 0,
+      "seconds": 0.101,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.well_control_kill_sheet",
+      "exit_code": 0,
+      "seconds": 0.101,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.engineering.well_control_kill_sheet_persistence",
+      "exit_code": 0,
+      "seconds": 0.115,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.error_handler",
+      "exit_code": 0,
+      "seconds": 0.079,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.excel_intelligence",
+      "exit_code": 0,
+      "seconds": 0.129,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.excel_normalizer",
+      "exit_code": 0,
+      "seconds": 0.384,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.fuel_water_semantics",
+      "exit_code": 0,
+      "seconds": 0.053,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.functions",
+      "exit_code": 0,
+      "seconds": 0.07,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.health_check",
+      "exit_code": 0,
+      "seconds": 0.039,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.hierarchy_operations",
+      "exit_code": 0,
+      "seconds": 0.163,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.hydraulics_engine",
+      "exit_code": 0,
+      "seconds": 0.103,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.import_adapters",
+      "exit_code": 0,
+      "seconds": 0.03,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.import_adapters.pdf_tables",
+      "exit_code": 0,
+      "seconds": 0.052,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.import_diagnostics",
+      "exit_code": 0,
+      "seconds": 0.07,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.import_ir",
+      "exit_code": 0,
+      "seconds": 0.062,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.import_profiler",
+      "exit_code": 0,
+      "seconds": 0.067,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.import_quality",
+      "exit_code": 0,
+      "seconds": 0.074,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.import_router",
+      "exit_code": 0,
+      "seconds": 0.16,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.inventory_semantics",
+      "exit_code": 0,
+      "seconds": 0.049,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.legacy_bha",
+      "exit_code": 0,
+      "seconds": 0.05,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.lineage",
+      "exit_code": 0,
+      "seconds": 0.089,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.managers",
+      "exit_code": 0,
+      "seconds": 0.162,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.mapping_store",
+      "exit_code": 0,
+      "seconds": 0.072,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.mineru_engine",
+      "exit_code": 0,
+      "seconds": 0.162,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.mud_ledger",
+      "exit_code": 0,
+      "seconds": 0.083,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.mud_records",
+      "exit_code": 0,
+      "seconds": 0.067,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.npt_catalog",
+      "exit_code": 0,
+      "seconds": 0.02,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.operational_time",
+      "exit_code": 0,
+      "seconds": 0.02,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.operations_intelligence",
+      "exit_code": 0,
+      "seconds": 0.077,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.optional_capabilities",
+      "exit_code": 0,
+      "seconds": 0.168,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.performance",
+      "exit_code": 0,
+      "seconds": 0.062,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.permissions",
+      "exit_code": 0,
+      "seconds": 0.055,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.professional_export",
+      "exit_code": 0,
+      "seconds": 0.059,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.profile_import_engine",
+      "exit_code": 0,
+      "seconds": 0.406,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.rag_search",
+      "exit_code": 0,
+      "seconds": 0.06,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.report_engine",
+      "exit_code": 0,
+      "seconds": 0.445,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.report_lifecycle",
+      "exit_code": 0,
+      "seconds": 0.081,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.report_snapshot",
+      "exit_code": 0,
+      "seconds": 0.068,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.repositories",
+      "exit_code": 0,
+      "seconds": 0.843,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.repositories.audit_repository",
+      "exit_code": 0,
+      "seconds": 0.946,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.repositories.base",
+      "exit_code": 0,
+      "seconds": 0.874,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.repositories.casing_repository",
+      "exit_code": 0,
+      "seconds": 0.928,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.repositories.cement_repository",
+      "exit_code": 0,
+      "seconds": 0.891,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.repositories.cost_repository",
+      "exit_code": 0,
+      "seconds": 0.901,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.repositories.drill_pipe_reference_repository",
+      "exit_code": 0,
+      "seconds": 0.892,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.repositories.logistics_repository",
+      "exit_code": 0,
+      "seconds": 0.9,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.repositories.mse_repository",
+      "exit_code": 0,
+      "seconds": 0.871,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.repositories.mud_volume_repository",
+      "exit_code": 0,
+      "seconds": 0.909,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.repositories.report_repository",
+      "exit_code": 0,
+      "seconds": 0.884,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.repositories.safety_repository",
+      "exit_code": 0,
+      "seconds": 0.905,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.repositories.service_repository",
+      "exit_code": 0,
+      "seconds": 0.941,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.repositories.torque_drag_repository",
+      "exit_code": 0,
+      "seconds": 0.944,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.repositories.well_control_kill_sheet_repository",
+      "exit_code": 0,
+      "seconds": 0.921,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.repositories.well_repository",
+      "exit_code": 0,
+      "seconds": 0.915,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.runtime_config",
+      "exit_code": 0,
+      "seconds": 0.075,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.safety_semantics",
+      "exit_code": 0,
+      "seconds": 0.057,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.save_outcome",
+      "exit_code": 0,
+      "seconds": 0.075,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.scope_attribution",
+      "exit_code": 0,
+      "seconds": 0.072,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.selection_manager",
+      "exit_code": 0,
+      "seconds": 0.174,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.semantic_tables",
+      "exit_code": 0,
+      "seconds": 0.076,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.standards",
+      "exit_code": 0,
+      "seconds": 0.075,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.survey_records",
+      "exit_code": 0,
+      "seconds": 0.116,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.table_record_mapper",
+      "exit_code": 0,
+      "seconds": 0.049,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.text_utils",
+      "exit_code": 0,
+      "seconds": 0.033,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.time_utils",
+      "exit_code": 0,
+      "seconds": 0.23,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.toolbar_manager",
+      "exit_code": 0,
+      "seconds": 0.213,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.trajectory_plot",
+      "exit_code": 0,
+      "seconds": 0.139,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.unit_manager",
+      "exit_code": 0,
+      "seconds": 0.072,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.universal_import",
+      "exit_code": 0,
+      "seconds": 0.081,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.validators",
+      "exit_code": 0,
+      "seconds": 0.084,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.value_normalizer",
+      "exit_code": 0,
+      "seconds": 0.062,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.version",
+      "exit_code": 0,
+      "seconds": 0.03,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.wellbore_schematic_engine",
+      "exit_code": 0,
+      "seconds": 0.498,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "core.witsml_import",
+      "exit_code": 0,
+      "seconds": 0.067,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "dialogs.bootstrap_dialog",
+      "exit_code": 0,
+      "seconds": 0.325,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "dialogs.calculator_dialog",
+      "exit_code": 0,
+      "seconds": 0.485,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "dialogs.casing_history_dialog",
+      "exit_code": 0,
+      "seconds": 0.352,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "dialogs.cement_history_dialog",
+      "exit_code": 0,
+      "seconds": 0.303,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "dialogs.daily_report_dialogs",
+      "exit_code": 0,
+      "seconds": 0.448,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "dialogs.drilling_report_dialogs",
+      "exit_code": 0,
+      "seconds": 0.441,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "dialogs.engineering_dialogs",
+      "exit_code": 0,
+      "seconds": 0.5,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "dialogs.excel_import_dialog",
+      "exit_code": 0,
+      "seconds": 0.969,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "dialogs.hierarchy_dialogs",
+      "exit_code": 0,
+      "seconds": 1.679,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "dialogs.history_well_filter",
+      "exit_code": 0,
+      "seconds": 0.213,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "dialogs.login_dialog",
+      "exit_code": 0,
+      "seconds": 0.644,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "dialogs.mse_history_dialog",
+      "exit_code": 0,
+      "seconds": 0.34,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "dialogs.mud_volume_history_dialog",
+      "exit_code": 0,
+      "seconds": 0.296,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "dialogs.planning_dialog",
+      "exit_code": 0,
+      "seconds": 1.403,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "dialogs.report_history_dialog",
+      "exit_code": 0,
+      "seconds": 0.236,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "dialogs.settings_dialog",
+      "exit_code": 0,
+      "seconds": 0.547,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "dialogs.smart_template_dialog",
+      "exit_code": 0,
+      "seconds": 0.887,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "dialogs.startup_dialog",
+      "exit_code": 0,
+      "seconds": 1.441,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "dialogs.torque_drag_history_dialog",
+      "exit_code": 0,
+      "seconds": 0.309,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "dialogs.well_control_kill_sheet_history_dialog",
+      "exit_code": 0,
+      "seconds": 0.31,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "main_window",
+      "exit_code": 0,
+      "seconds": 4.056,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "run",
+      "exit_code": 0,
+      "seconds": 4.305,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "tabs.home_tab",
+      "exit_code": 0,
+      "seconds": 1.487,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "tabs.w10_Planning_Widget",
+      "exit_code": 0,
+      "seconds": 2.485,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "tabs.w11_Export",
+      "exit_code": 0,
+      "seconds": 0.45,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "tabs.w12_Analysis",
+      "exit_code": 0,
+      "seconds": 2.592,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "tabs.w13_Engineering_Calculator",
+      "exit_code": 0,
+      "seconds": 1.047,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "tabs.w14_Procedure_Widget",
+      "exit_code": 0,
+      "seconds": 0.476,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "tabs.w15_Reference_Tables",
+      "exit_code": 0,
+      "seconds": 0.472,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "tabs.w16_Cost_Management",
+      "exit_code": 0,
+      "seconds": 0.48,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "tabs.w1_well_info",
+      "exit_code": 0,
+      "seconds": 0.493,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "tabs.w2_Daily_Report",
+      "exit_code": 0,
+      "seconds": 1.431,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "tabs.w3_drilling_report",
+      "exit_code": 0,
+      "seconds": 1.547,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "tabs.w3b_wellbore_schematic_tab",
+      "exit_code": 0,
+      "seconds": 0.469,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "tabs.w3c_section_data",
+      "exit_code": 0,
+      "seconds": 0.51,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "tabs.w4_Downhole_Widget",
+      "exit_code": 0,
+      "seconds": 1.11,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "tabs.w5_Equipment_Widget",
+      "exit_code": 0,
+      "seconds": 0.483,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "tabs.w6_Trajectory_Widget",
+      "exit_code": 0,
+      "seconds": 1.406,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "tabs.w7_logistics_Widget",
+      "exit_code": 0,
+      "seconds": 1.219,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "tabs.w8_Safety_Widget",
+      "exit_code": 0,
+      "seconds": 0.473,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "tabs.w9_Services_Widget",
+      "exit_code": 0,
+      "seconds": 0.481,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "ui.helper",
+      "exit_code": 0,
+      "seconds": 0.254,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "ui.utils",
+      "exit_code": 0,
+      "seconds": 0.25,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "module": "verify_release",
+      "exit_code": 0,
+      "seconds": 0.114,
+      "stdout": "",
+      "stderr": ""
+    }
+  ]
+}

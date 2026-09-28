@@ -1,20 +1,27 @@
 """
 Database - SQLAlchemy ORM setup and DatabaseManager class
 """
-import random
+import math
+from core.legacy_bha import protect_bha_insert, protect_bha_record, require_editable_bha
 import logging
-from datetime import datetime, date, timedelta, timezone, time as datetime_time
-from typing import Optional, Dict, Any, List, Tuple
-from datetime import date as DateType
+import re
+from datetime import datetime, date, timezone, time as datetime_time
+from typing import Optional, Dict, Any, List
 
 from pathlib import Path
+
+from core.runtime_config import backup_dir as configured_backup_dir
+from core.runtime_config import database_path as configured_database_path
+
 
 def _now_utc() -> datetime:
     """برگرداندن زمان UTC بدون tzinfo (برای SQLite سازگاری)"""
     return datetime.now(timezone.utc).replace(tzinfo=None)
     
 from sqlalchemy import (
+    func,
     create_engine,
+    event,
     Column,
     Integer,
     String,
@@ -46,8 +53,20 @@ except ImportError:
         "Install with: pip install bcrypt"
     )
 
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
+from core.import_diagnostics import (
+    OwnershipIntegrityError,
+    PersistenceError, PersistenceIssue, SchemaMigrationError, ImportStatus, determine_import_status,
+)
 logger = logging.getLogger(__name__)
+
+# Re-export the shared policy for existing application callers.
+from core.credential_policy import (
+    bootstrap_password_for_role as bootstrap_password_for_role,
+    _BOOTSTRAP_PASSWORD_ENV as _BOOTSTRAP_PASSWORD_ENV,
+    _DEVELOPMENT_FIXTURE_PASSWORDS, runtime_environment, is_production_environment, resolve_bootstrap_passwords, validate_production_password, is_development_password,
+    CredentialLifecycleError,
+)
 
 Base = declarative_base()
 # ==================== Constants ====================
@@ -160,7 +179,7 @@ class Well(Base):
     elevation = Column(Float, default=0.0)
     water_depth = Column(Float, default=0.0)
     spud_date = Column(Date)
-    target_depth = Column(Float, default=0.0)
+    target_depth = Column(Float)
     status = Column(String(50), default="Planning")
     well_type = Column(String(50))
     purpose = Column(String(100))
@@ -208,6 +227,9 @@ class Well(Base):
     updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc)
 
     project = relationship("Project", back_populates="wells")
+    wellbores = relationship(
+        "Wellbore", back_populates="well", cascade="all, delete-orphan"
+    )
     sections = relationship(
         "Section", back_populates="well", cascade="all, delete-orphan"
     )
@@ -216,11 +238,67 @@ class Well(Base):
     )
 
 
+class Wellbore(Base):
+    """A physical drilling path within a Well (Schema v3 foundation).
+
+    Identity rules (see docs/audits/2026-09-12_WELLBORE_SCHEMA_V3.md):
+
+    * A Wellbore has an immutable integer primary key and a stable ``well_id``
+      foreign key. It never changes identity because the rig, the display
+      name, or the daily-report source name changes.
+    * ``wellbore_type`` is structural, not an engineering measurement: an
+      ``"original"`` hole is the default single bore; a ``"sidetrack"`` is a
+      distinct bore that preserves lineage to its parent via
+      ``parent_wellbore_id``. A sidetrack is NOT a new Well.
+    * Physical facts remain honest: ``kickoff_md`` is nullable — unknown stays
+      unknown, and an explicit 0 is a real value, never invented.
+    """
+
+    __tablename__ = "wellbores"
+
+    id = Column(Integer, primary_key=True)
+    well_id = Column(
+        Integer, ForeignKey("wells.id", ondelete="CASCADE"), nullable=False
+    )
+    name = Column(String(100), nullable=False)
+    code = Column(String(50))
+    # "original" (default single bore) or "sidetrack" (branch with lineage).
+    wellbore_type = Column(String(30), nullable=False, default="original")
+    # Sidetrack lineage: the wellbore this one branched from (NULL = root).
+    parent_wellbore_id = Column(
+        Integer, ForeignKey("wellbores.id", ondelete="SET NULL"), nullable=True
+    )
+    # Kick-off measured depth for a sidetrack; NULL when unknown, never 0-by-default.
+    kickoff_md = Column(Float)
+    status = Column(String(50), default="Active")
+    created_at = Column(DateTime, default=_now_utc)
+    updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc)
+
+    well = relationship("Well", back_populates="wellbores")
+    parent = relationship(
+        "Wellbore", remote_side=[id], backref="sidetracks"
+    )
+    sections = relationship(
+        "Section", back_populates="wellbore", foreign_keys="Section.wellbore_id"
+    )
+    daily_reports = relationship(
+        "DailyReport",
+        back_populates="wellbore",
+        foreign_keys="DailyReport.wellbore_id",
+    )
+
+
 class Section(Base):
     __tablename__ = "sections"
 
     id = Column(Integer, primary_key=True)
     well_id = Column(Integer, ForeignKey("wells.id", ondelete="CASCADE"), nullable=False)
+    # Schema v3: a section belongs to a specific wellbore. Nullable for
+    # backward compatibility — historical rows and rows whose wellbore cannot
+    # be deterministically attributed stay NULL ("unknown"), never fabricated.
+    wellbore_id = Column(
+        Integer, ForeignKey("wellbores.id", ondelete="SET NULL"), nullable=True
+    )
     name = Column(String(100), nullable=False)
     code = Column(String(50))
     depth_from = Column(Float, default=0.0)
@@ -229,12 +307,15 @@ class Section(Base):
     hole_size = Column(Float)
     purpose = Column(String(100))
     description = Column(Text)
-    planned_days = Column(Float, default=0.0)  
-    planned_rop = Column(Float, default=50.0)  
+    planned_days = Column(Float)
+    planned_rop = Column(Float)
     created_at = Column(DateTime, default=_now_utc)
     updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc)
 
     well = relationship("Well", back_populates="sections")
+    wellbore = relationship(
+        "Wellbore", back_populates="sections", foreign_keys=[wellbore_id]
+    )
     daily_reports = relationship("DailyReport", back_populates="section", cascade="all, delete-orphan")
 
 class DailyReport(Base):
@@ -247,23 +328,36 @@ class DailyReport(Base):
     section_id = Column(
         Integer, ForeignKey("sections.id", ondelete="CASCADE"), nullable=True
     )
+    # Schema v3: the wellbore this report was recorded against. Nullable for
+    # backward compatibility — a report whose wellbore cannot be deterministically
+    # resolved stays NULL ("unknown"), never guessed from rig or free text.
+    wellbore_id = Column(
+        Integer, ForeignKey("wellbores.id", ondelete="SET NULL"), nullable=True
+    )
     report_date = Column(Date, nullable=False)
     report_number = Column(Integer, default=1)
     rig_day = Column(Integer, default=1)
     report_title = Column(String(200))
-    depth_0000 = Column(Float, default=0.0)
-    depth_0600 = Column(Float, default=0.0)
-    depth_2400 = Column(Float, default=0.0)
+    # Depth trichotomy: NULL = depth not reported (missing), 0.0 = an explicitly
+    # reported zero depth, value = reported depth. NO client-side default — a
+    # `default=0.0` fired for explicit None at INSERT, collapsing an unknown
+    # imported depth into a fabricated 0 and defeating the None-aware missing-
+    # depth logic used across data_quality, operations_intelligence, report_engine
+    # and the W12 time/depth chart. (No DDL change: the emitted column stays
+    # FLOAT nullable; only the Python-side default is removed.)
+    depth_0000 = Column(Float)
+    depth_0600 = Column(Float)
+    depth_2400 = Column(Float)
     summary = Column(Text)
     forecast = Column(Text)
     status = Column(String(50), default="Draft")
-    rop_meter = Column(Float, default=0.0)
-    wob = Column(Float, default=0.0)
-    rpm = Column(Float, default=0.0)
-    torque = Column(Float, default=0.0)
-    pressure = Column(Float, default=0.0)
-    mud_weight_in = Column(Float, default=0.0)
-    mud_weight_out = Column(Float, default=0.0)
+    rop_meter = Column(Float)
+    wob = Column(Float)
+    rpm = Column(Float)
+    torque = Column(Float)
+    pressure = Column(Float)
+    mud_weight_in = Column(Float)
+    mud_weight_out = Column(Float)
     bit_number = Column(String(50))
     equipment_data = Column(JSON, nullable=True)
     header_snapshot = Column(JSON, nullable=True)
@@ -274,6 +368,9 @@ class DailyReport(Base):
 
     well = relationship("Well", back_populates="daily_reports")
     section = relationship("Section", back_populates="daily_reports")
+    wellbore = relationship(
+        "Wellbore", back_populates="daily_reports", foreign_keys=[wellbore_id]
+    )
     creator = relationship("User", foreign_keys=[created_by])
     time_logs_24h = relationship(
         "TimeLog24H", back_populates="report", cascade="all, delete-orphan"
@@ -281,6 +378,313 @@ class DailyReport(Base):
     time_logs_morning = relationship(
         "TimeLogMorning", back_populates="report", cascade="all, delete-orphan"
     )
+
+
+# --------------------------------------------------------------------------
+# Ownership-integrity invariants (forensic audit 2026-09-12)
+# --------------------------------------------------------------------------
+# A foreign key only proves the referenced row exists; it does NOT prove the
+# referenced row belongs to the same Well/Wellbore. The Well → Wellbore →
+# Section → DailyReport chain is kept internally consistent here, at the
+# persistence boundary, so contradictory states can never be committed no
+# matter which save path is used (ORM helpers, import service, direct session).
+#
+# NULL is always allowed: a legacy/ambiguous row whose wellbore is unknown
+# keeps wellbore_id = NULL. This enforces coherence WITHOUT fabricating
+# identity — the two rules are complementary.
+
+VALID_WELLBORE_TYPES = frozenset({"original", "sidetrack"})
+
+
+def _resolve_wellbore(session, wellbore_id):
+    """Return the Wellbore for an id using pending + persisted state."""
+    if wellbore_id is None:
+        return None
+    obj = session.get(Wellbore, wellbore_id)
+    if obj is not None:
+        return obj
+    for pending in session.new:
+        if isinstance(pending, Wellbore) and pending.id == wellbore_id:
+            return pending
+    return None
+
+
+def _resolve_section(session, section_id):
+    if section_id is None:
+        return None
+    obj = session.get(Section, section_id)
+    if obj is not None:
+        return obj
+    for pending in session.new:
+        if isinstance(pending, Section) and pending.id == section_id:
+            return pending
+    return None
+
+
+def _check_wellbore_invariants(session, wb):
+    # Structural type must be one of the known values.
+    wb_type = wb.wellbore_type if wb.wellbore_type is not None else "original"
+    if wb_type not in VALID_WELLBORE_TYPES:
+        raise OwnershipIntegrityError(
+            f"Invalid wellbore_type {wb.wellbore_type!r}; "
+            f"expected one of {sorted(VALID_WELLBORE_TYPES)}"
+        )
+    if wb.parent_wellbore_id is not None:
+        # A bore cannot be its own parent.
+        if wb.id is not None and wb.parent_wellbore_id == wb.id:
+            raise OwnershipIntegrityError(
+                f"Wellbore {wb.id} cannot be its own parent"
+            )
+        # Only a sidetrack may carry lineage.
+        if wb_type != "sidetrack":
+            raise OwnershipIntegrityError(
+                "Only a sidetrack wellbore may have a parent_wellbore_id; "
+                f"wellbore_type={wb_type!r}"
+            )
+        parent = _resolve_wellbore(session, wb.parent_wellbore_id)
+        if parent is not None and parent.well_id != wb.well_id:
+            raise OwnershipIntegrityError(
+                f"Sidetrack lineage crosses wells: wellbore well_id={wb.well_id} "
+                f"but parent {wb.parent_wellbore_id} belongs to well "
+                f"{parent.well_id}"
+            )
+
+
+def _check_section_invariants(session, sec):
+    if sec.wellbore_id is None:
+        return  # unknown ownership is allowed (no fabrication)
+    bore = _resolve_wellbore(session, sec.wellbore_id)
+    if bore is not None and bore.well_id != sec.well_id:
+        raise OwnershipIntegrityError(
+            f"Section ownership conflict: section well_id={sec.well_id} but "
+            f"wellbore {sec.wellbore_id} belongs to well {bore.well_id}"
+        )
+
+
+def _check_daily_report_invariants(session, dr):
+    section = _resolve_section(session, dr.section_id)
+    if section is not None and section.well_id != dr.well_id:
+        raise OwnershipIntegrityError(
+            f"DailyReport ownership conflict: report well_id={dr.well_id} but "
+            f"section {dr.section_id} belongs to well {section.well_id}"
+        )
+    if dr.wellbore_id is None:
+        return  # unknown ownership is allowed (no fabrication)
+    bore = _resolve_wellbore(session, dr.wellbore_id)
+    if bore is not None and bore.well_id != dr.well_id:
+        raise OwnershipIntegrityError(
+            f"DailyReport ownership conflict: report well_id={dr.well_id} but "
+            f"wellbore {dr.wellbore_id} belongs to well {bore.well_id}"
+        )
+    # If the report is also tied to a section, the section's (non-NULL) wellbore
+    # must be the same bore — a report cannot claim a different bore than its
+    # own section.
+    if section is not None and section.wellbore_id is not None:
+        if section.wellbore_id != dr.wellbore_id:
+            raise OwnershipIntegrityError(
+                f"DailyReport ownership conflict: report wellbore_id="
+                f"{dr.wellbore_id} contradicts section {dr.section_id} wellbore "
+                f"{section.wellbore_id}"
+            )
+
+
+def _resolve_daily_report(session, report_id):
+    if report_id is None:
+        return None
+    obj = session.get(DailyReport, report_id)
+    if obj is not None:
+        return obj
+    for pending in session.new:
+        if isinstance(pending, DailyReport) and pending.id == report_id:
+            return pending
+    return None
+
+
+def _check_report_scoped_well_ownership(session, obj):
+    """A report-scoped snapshot (BHA / Bit / Downhole …) that names a
+    ``report_id`` must belong to the same well as that report.
+
+    A foreign key only proves the report row exists; it does not prove the
+    snapshot's ``well_id`` agrees with the report's well. A NULL ``report_id``
+    is a valid well-level snapshot and is left untouched — unknown ownership is
+    never fabricated.
+    """
+    report_id = getattr(obj, "report_id", None)
+    if report_id is None:
+        return
+    well_id = getattr(obj, "well_id", None)
+    if well_id is None:
+        return
+    report = _resolve_daily_report(session, report_id)
+    if report is not None and report.well_id != well_id:
+        raise OwnershipIntegrityError(
+            f"{type(obj).__name__} ownership conflict: record well_id={well_id} "
+            f"but report {report_id} belongs to well {report.well_id}"
+        )
+
+
+def _check_auxiliary_ownership(session, obj):
+    """Explicit section/plan references must agree with their well/report."""
+    well_id = getattr(obj, "well_id", None)
+    if well_id is None:
+        return
+    for field, model in (("section_id", Section), ("plan_id", WellPlan)):
+        identity = getattr(obj, field, None)
+        if identity is None:
+            continue
+        parent = session.get(model, identity)
+        if parent is None or parent.well_id != well_id:
+            raise OwnershipIntegrityError(f"{type(obj).__name__} ownership conflict: {field}={identity} is not owned by well {well_id}")
+    report_id = getattr(obj, "report_id", None)
+    section_id = getattr(obj, "section_id", None)
+    if report_id is not None and section_id is not None:
+        report = _resolve_daily_report(session, report_id)
+        if report is not None and report.section_id is not None and report.section_id != section_id:
+            raise OwnershipIntegrityError(f"{type(obj).__name__} ownership conflict: section {section_id} contradicts report {report_id}")
+
+
+def _discover_report_scoped_well_models():
+    """Every mapped model that carries a NOT-NULL ``well_id`` AND a nullable
+    ``report_id`` foreign key onto ``daily_reports.id``.
+
+    ``_check_report_scoped_well_ownership`` is a pure NON-CONTRADICTION check:
+    it fires only when ``report_id`` is set and rejects only when the record's
+    ``well_id`` disagrees with that report's ``well_id``. A NULL ``report_id``
+    (a legitimate well-level record) always passes — the check never fabricates
+    ownership, it only forbids a record in well A from naming well B's report.
+
+    That contradiction is invalid for EVERY model of this shape, whatever its
+    semantic role (daily snapshot, longitudinal record, or audit row): a
+    ``report_id`` FK onto ``daily_reports`` cannot legitimately point at another
+    well's report. So the guarded set is derived structurally from the schema,
+    not hand-maintained — no identically-shaped model can silently escape it
+    (the M25 tree guarded only BHA/Bit/Downhole while 27 peers were unprotected).
+    """
+    models = set()
+    for mapper in Base.registry.mappers:
+        cls = mapper.class_
+        table = cls.__table__
+        cols = table.columns
+        if "well_id" not in cols or "report_id" not in cols:
+            continue
+        if cols["well_id"].nullable:
+            continue
+        fks = list(cols["report_id"].foreign_keys)
+        if fks and fks[0].target_fullname == "daily_reports.id":
+            models.add(cls.__name__)
+    return frozenset(models)
+
+
+# Report-linked tables whose (well_id, report_id) pair must stay coherent —
+# discovered from the schema so the guard cannot drift behind new models.
+# Populated lazily on first flush (all models are mapped by then); computing it
+# at module-import time would miss the models defined later in this file.
+_REPORT_SCOPED_WELL_MODELS = None
+
+
+def _report_scoped_well_models():
+    global _REPORT_SCOPED_WELL_MODELS
+    if _REPORT_SCOPED_WELL_MODELS is None:
+        _REPORT_SCOPED_WELL_MODELS = _discover_report_scoped_well_models()
+    return _REPORT_SCOPED_WELL_MODELS
+
+
+def _ownership_dependents(session, obj):
+    """Revalidate unchanged children when a persisted parent's scope changes.
+
+    Ordinary FK constraints cannot enforce agreement of redundant owner IDs.
+    Query only on ownership edits; identity-map values include simultaneous
+    child edits, so coherent moves remain valid. Bulk/raw SQL is not an ORM
+    flush and remains outside this guard (migrations must validate separately).
+    """
+    from sqlalchemy import inspect
+
+    fields = {
+        Wellbore: ("well_id",),
+        Section: ("well_id", "wellbore_id"),
+        DailyReport: ("well_id", "section_id", "wellbore_id"),
+        WellPlan: ("well_id",),
+    }.get(type(obj), ())
+    state = inspect(obj)
+    relationship_edit = any(
+        any(column.key in fields for column in rel.local_columns)
+        and state.attrs[rel.key].history.has_changes()
+        for rel in state.mapper.relationships
+    )
+    if not state.persistent or not (relationship_edit or any(
+            state.attrs[f].history.has_changes() for f in fields)):
+        return []
+    references = []
+    if isinstance(obj, Wellbore):
+        references = [(Section, Section.wellbore_id),
+                      (DailyReport, DailyReport.wellbore_id),
+                      (Wellbore, Wellbore.parent_wellbore_id)]
+    elif isinstance(obj, Section):
+        references = [(m.class_, m.class_.section_id) for m in Base.registry.mappers
+                      if hasattr(m.class_, "section_id") and hasattr(m.class_, "well_id")]
+    elif isinstance(obj, WellPlan):
+        references = [(PlannedActivity, PlannedActivity.plan_id)]
+    elif isinstance(obj, DailyReport):
+        references = [(mapper.class_, mapper.class_.report_id)
+                      for mapper in Base.registry.mappers
+                      if mapper.class_.__name__ in _report_scoped_well_models()]
+    children = []
+    for model, fk in references:
+        children.extend(session.query(model).filter(fk == obj.id).all())
+    return [child for child in children if child not in session.deleted]
+
+
+@event.listens_for(Session, "before_flush")
+def _enforce_ownership_integrity(session, flush_context, instances):
+    """Reject contradictory ownership before it can be committed. Runs for every
+    ordinary ORM session flush. Raw SQL/bulk writes do not fire this hook.
+    Parent scope edits also revalidate their unchanged dependents.
+    """
+    from sqlalchemy import inspect
+
+    changed = list(session.new) + list(session.dirty)
+    affected = set(changed)
+    for obj in changed:
+        affected.update(_ownership_dependents(session, obj))
+    affected.difference_update(session.deleted)
+    # Relationship assignments synchronize FK columns during the flush, after
+    # before_flush. Keep strong references and validate the synchronized state
+    # too; otherwise e.g. SafetyReport(report=foreign_report) bypasses the guard.
+    session.info["_ownership_pending"] = affected
+    relationship_edit = any(
+        state.attrs[rel.key].history.has_changes()
+        and any(c.key in {"well_id", "wellbore_id", "section_id", "report_id", "plan_id"}
+                for c in rel.local_columns)
+        for obj in changed for state in [inspect(obj)]
+        for rel in state.mapper.relationships
+    )
+    if not relationship_edit:
+        _validate_ownership_objects(session, affected)
+
+
+def _validate_ownership_objects(session, objects):
+    guarded = _report_scoped_well_models()
+    for obj in objects:
+        _check_auxiliary_ownership(session, obj)
+        if isinstance(obj, Wellbore):
+            _check_wellbore_invariants(session, obj)
+        elif isinstance(obj, Section):
+            _check_section_invariants(session, obj)
+        elif isinstance(obj, DailyReport):
+            _check_daily_report_invariants(session, obj)
+        elif type(obj).__name__ in guarded:
+            _check_report_scoped_well_ownership(session, obj)
+
+
+@event.listens_for(Session, "after_flush_postexec")
+def _validate_synchronized_ownership(session, flush_context):
+    _validate_ownership_objects(session, session.info.pop("_ownership_pending", ()))
+
+
+@event.listens_for(Session, "after_rollback")
+def _clear_pending_ownership(session):
+    session.info.pop("_ownership_pending", None)
+
 
 class ReportRevision(Base):
     """Immutable snapshot of a daily report for audit/version history."""
@@ -570,9 +974,9 @@ class TripSheetEntry(Base):
     )
     time = Column(Time, nullable=False)
     activity = Column(String(200), nullable=False)
-    depth = Column(Float, default=0.0)
-    cum_trip = Column(Float, default=0.0)
-    duration = Column(Float, default=0.0)
+    depth = Column(Float)
+    cum_trip = Column(Float)
+    duration = Column(Float)
     remarks = Column(Text)
     supervisor = Column(String(100))
     verified = Column(Boolean, default=False)
@@ -602,8 +1006,11 @@ class SurveyPoint(Base):
         Integer, ForeignKey("daily_reports.id", ondelete="CASCADE"), nullable=True
     )
     md = Column(Float, nullable=False)
-    inc = Column(Float, nullable=False)
-    azi = Column(Float, nullable=False)
+    # Missing source angles remain NULL and are surfaced for review; the
+    # trajectory engine refuses incomplete stations. Older databases may
+    # still have NOT NULL columns and will reject such rows before execution.
+    inc = Column(Float, nullable=True)
+    azi = Column(Float, nullable=True)
     tvd = Column(Float)
     north = Column(Float)
     east = Column(Float)
@@ -790,7 +1197,9 @@ class ServiceCompanyPOB(Base):
     )
     company_name = Column(String(100), nullable=False)
     service_type = Column(String(100))
-    personnel_count = Column(Integer, default=0)
+    # No default: an unknown headcount must persist NULL. A fabricated 0/1 is a
+    # safety-relevant claim ("nobody on board") that nobody entered.
+    personnel_count = Column(Integer)
     date_in = Column(Date)
     date_out = Column(Date)
     remarks = Column(Text)
@@ -859,10 +1268,19 @@ class BulkMaterials(Base):
     report_date = Column(Date, nullable=False)
     material_name = Column(String(100), nullable=False)
     unit = Column(String(50), default="kg")
-    initial_stock = Column(Float, default=0.0)
+    # Trichotomy by design: NULL = opening not reported (missing),
+    # 0.0 = explicitly reported zero stock, value = reported stock.
+    # No client-side default: it coerced explicit None to 0.0 at INSERT,
+    # collapsing missing into zero. (No DDL change: `default` here is
+    # client-side only; the emitted schema stays `FLOAT` nullable.)
+    initial_stock = Column(Float)
+    # received/used absent = no movement (0.0) — established daily-report
+    # convention, distinct from the opening-stock trichotomy.
     received = Column(Float, default=0.0)
     used = Column(Float, default=0.0)
-    current_stock = Column(Float, default=0.0)
+    # NULL = closing unknown (opening was missing and could not be
+    # carried forward); otherwise derived opening + received - used.
+    current_stock = Column(Float)
     created_at = Column(DateTime, default=_now_utc)
     updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc)
     created_by = Column(Integer, ForeignKey("users.id"))
@@ -873,6 +1291,66 @@ class BulkMaterials(Base):
     )
     section = relationship("Section", backref="bulk_materials")
     report = relationship("DailyReport", backref="bulk_materials")
+    creator = relationship("User", foreign_keys=[created_by])
+
+
+class InventoryItem(Base):
+    """General consumable/materials inventory (the W5 "Inventory" tab).
+
+    This is a DISTINCT domain from ``BulkMaterials`` (the mud/drilling bulk
+    ledger consumed wholesale by ``MudChemicalLedger``) and from
+    ``FuelWaterInventory`` (a fixed fuel/water schema). General inventory
+    carries an item ``category`` and reorder ``min_level``/``max_level``
+    thresholds that neither of those models represents, and it must never be
+    merged into the mud chemical ledger.
+
+    Identity is (well_id, report_id, item_name): the same item in the same
+    report is one upsert; the same item in a different report is a distinct
+    daily record; the same item in a different well is never merged.
+
+    Three-state numeric semantics (matching BulkMaterials):
+        NULL  = not reported (unknown)
+        0.0   = explicitly reported zero
+        value = reported quantity
+    ``opening_stock`` uses this trichotomy (no client default). ``received``
+    and ``used`` default 0.0 (absence = no movement, the daily-report
+    convention). ``current_stock`` (closing) is derived opening + received -
+    used when opening is known, else NULL (never a fabricated 0).
+    ``min_level``/``max_level`` are reorder thresholds, not daily movements.
+    """
+    __tablename__ = "inventory_items"
+
+    id = Column(Integer, primary_key=True)
+    well_id = Column(Integer, ForeignKey("wells.id", ondelete="CASCADE"), nullable=False)
+    section_id = Column(Integer, ForeignKey("sections.id"), nullable=True)
+    report_id = Column(
+        Integer, ForeignKey("daily_reports.id", ondelete="CASCADE"), nullable=True
+    )
+    report_date = Column(Date)
+    item_name = Column(String(150), nullable=False)
+    category = Column(String(100))
+    unit = Column(String(50))
+    # Trichotomy by design (see class docstring): no client-side default so an
+    # explicit None stays NULL (unknown) instead of being coerced to 0.0.
+    opening_stock = Column(Float)
+    received = Column(Float, default=0.0)
+    used = Column(Float, default=0.0)
+    # NULL = closing unknown (opening missing); else opening + received - used.
+    current_stock = Column(Float)
+    # Reorder thresholds (reference settings, not daily transactions). NULL =
+    # not set.
+    min_level = Column(Float)
+    max_level = Column(Float)
+    created_at = Column(DateTime, default=_now_utc)
+    updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc)
+    created_by = Column(Integer, ForeignKey("users.id"))
+
+    well = relationship(
+        "Well",
+        backref=backref("inventory_items", cascade="all, delete-orphan")
+    )
+    section = relationship("Section", backref="inventory_items")
+    report = relationship("DailyReport", backref="inventory_items")
     creator = relationship("User", foreign_keys=[created_by])
 
 
@@ -892,8 +1370,9 @@ class TransportLog(Base):
     arrival_time = Column(Time)
     departure_time = Column(Time)
     duration = Column(Float)
-    passengers_in = Column(Integer, default=0)
-    passengers_out = Column(Integer, default=0)
+    # No defaults: an unrecorded passenger count must persist NULL (it feeds POB).
+    passengers_in = Column(Integer)
+    passengers_out = Column(Integer)
     cargo_description = Column(Text)
     status = Column(String(50), default="Scheduled")
     purpose = Column(String(200))
@@ -953,20 +1432,20 @@ class SafetyReport(Base):
     last_fire_drill = Column(Date)
     last_bop_drill = Column(Date)
     last_h2s_drill = Column(Date)
-    days_without_lti = Column(Integer, default=0)
-    lti_count = Column(Integer, default=0)
-    near_miss_count = Column(Integer, default=0)
+    days_without_lti = Column(Integer)
+    lti_count = Column(Integer)
+    near_miss_count = Column(Integer)
     last_rams_test = Column(Date)
-    test_pressure = Column(Float, default=0.0)
+    test_pressure = Column(Float)
     last_koomey_test = Column(Date)
-    days_since_last_test = Column(Integer, default=0)
+    days_since_last_test = Column(Integer)
     bop_stack_json = Column(JSON)
-    recycled_volume = Column(Float, default=0.0)
-    waste_ph = Column(Float, default=7.0)
+    recycled_volume = Column(Float)
+    waste_ph = Column(Float)
     turbidity = Column(String(100))
     hardness = Column(String(100))
-    cutting_volume = Column(Float, default=0.0)
-    oil_content = Column(Float, default=0.0)
+    cutting_volume = Column(Float)
+    oil_content = Column(Float)
     waste_type = Column(String(100))
     disposal_method = Column(String(100))
     waste_history_json = Column(JSON)
@@ -1103,7 +1582,8 @@ class ServiceCompany(Base):
     contact_phone = Column(String(50))
     contact_email = Column(String(100))
     equipment_used = Column(Text)
-    personnel_count = Column(Integer, default=1)
+    # No default: see ServiceCompanyPOB.personnel_count.
+    personnel_count = Column(Integer)
     status = Column(String(50), default="Active")
     description = Column(Text)
     npt_hours = Column(Float, nullable=True)
@@ -1162,15 +1642,16 @@ class MaterialRequest(Base):
     )
     request_date = Column(Date, nullable=False)
     requested_items = Column(Text)
-    requested_quantity = Column(Float, default=0.0)
+    # No default: an unrecorded quantity must persist NULL, not a measured 0.0.
+    requested_quantity = Column(Float)
     requested_unit = Column(String(50), default="units")
     outstanding_items = Column(Text)
-    outstanding_quantity = Column(Float, default=0.0)
+    outstanding_quantity = Column(Float)
     received_items = Column(Text)
-    received_quantity = Column(Float, default=0.0)
+    received_quantity = Column(Float)
     received_date = Column(Date)
     backload_items = Column(Text)
-    backload_quantity = Column(Float, default=0.0)
+    backload_quantity = Column(Float)
     backload_date = Column(Date)
     remarks = Column(Text)
     status = Column(String(50), default="Pending")
@@ -1204,7 +1685,9 @@ class EquipmentLog(Base):
     service_date = Column(Date)
     service_type = Column(String(100))
     service_provider = Column(String(200))
-    hours_worked = Column(Float, default=0.0)
+    # No ORM default: an omitted/unknown hours_worked must persist NULL. A
+    # fabricated 0.0 is an explicit "worked zero hours" claim (mission §NULL/ZERO).
+    hours_worked = Column(Float)
     status = Column(String(50), default="Operational")
     notes = Column(Text)
     created_at = Column(DateTime, default=_now_utc)
@@ -1237,7 +1720,8 @@ class SevenDaysLookahead(Base):
     remarks = Column(Text)
     status = Column(String(50), default="Planned")
     priority = Column(String(20), default="Normal")
-    progress_percentage = Column(Integer, default=0)
+    # No default: unreported progress is unknown, not 0%.
+    progress_percentage = Column(Integer)
     actual_start = Column(DateTime)
     actual_end = Column(DateTime)
     created_at = Column(DateTime, default=_now_utc)
@@ -1271,8 +1755,8 @@ class NPTReport(Base):
     npt_description = Column(Text, nullable=False)
     responsible_party = Column(String(200))
     department = Column(String(100))
-    cost_impact = Column(Float, default=0.0)
-    delay_days = Column(Float, default=0.0)
+    cost_impact = Column(Float)
+    delay_days = Column(Float)
     safety_incident = Column(Boolean, default=False)
     root_cause = Column(Text)
     corrective_action = Column(Text)
@@ -1425,16 +1909,16 @@ class PlannedActivity(Base):
     # زمان‌بندی برنامه
     planned_start = Column(DateTime, nullable=False)
     planned_end = Column(DateTime, nullable=False)
-    planned_duration_hours = Column(Float, default=0.0)
+    planned_duration_hours = Column(Float)
     
     # اطلاعات عمق
-    planned_depth_from = Column(Float, default=0.0)
-    planned_depth_to = Column(Float, default=0.0)
+    planned_depth_from = Column(Float)
+    planned_depth_to = Column(Float)
     
     # پیشرفت
     progress_percent = Column(Float, default=0.0)
     is_completed = Column(Boolean, default=False)
-    actual_duration_hours = Column(Float, default=0.0)
+    actual_duration_hours = Column(Float)
     
     # ارتباطات
     well = relationship(
@@ -1461,8 +1945,8 @@ class WellPlan(Base):
     # اطلاعات کلی برنامه
     planned_spud_date = Column(Date)
     planned_finish_date = Column(Date)
-    planned_total_days = Column(Float, default=0.0)
-    planned_final_depth = Column(Float, default=0.0)
+    planned_total_days = Column(Float)
+    planned_final_depth = Column(Float)
     
     # وضعیت
     is_active = Column(Boolean, default=True)
@@ -1633,6 +2117,391 @@ class PJSMRecord(Base):
     procedure = relationship("OperationalProcedure", back_populates="pjsm_meetings")
 
 
+class DrillPipeSpecRecord(Base):
+    """Canonical drill-pipe *reference* specification (global master data).
+
+    This is reference/master data, NOT operational data: it is deliberately
+    global-scoped (no well/report/project FK), mirroring the existing
+    ``procedure_templates`` / ``export_templates`` reusable-reference precedent.
+    It must never be confused with operational drill-pipe *inventory*
+    (``equipment_logs``, well/report-scoped) or a drill-string *run*.
+
+    The row is written and read only through
+    ``core.engineering.drill_pipe.DrillPipeSpec`` via the reference repository;
+    ``payload_json`` holds the full spec (provenance, issues, unmapped extra) so
+    a record round-trips losslessly. ``identity_fingerprint`` is the deterministic
+    natural key (UNIQUE) derived from the spec's domain identity — never a row
+    index.
+    """
+    __tablename__ = "drill_pipe_specs"
+
+    id = Column(Integer, primary_key=True)
+    identity_fingerprint = Column(String(400), nullable=False, unique=True)
+
+    # Denormalized canonical columns (queryable); canonical units are
+    # inches for diameters, ppf for weight, klbf for tensile.
+    manufacturer = Column(String(200))
+    model = Column(String(200))
+    nominal_od_in = Column(Float)
+    nominal_weight_ppf = Column(Float)
+    grade = Column(String(100))
+    connection = Column(String(100))
+    nominal_id_in = Column(Float)
+    tool_joint_od_in = Column(Float)
+    tool_joint_id_in = Column(Float)
+    drift_in = Column(Float)
+    tensile_rating_klbf = Column(Float)
+
+    # Provenance (reuses the spec's Provenance fields, flattened for queries).
+    source = Column(String(200))
+    source_revision = Column(String(100))
+    status = Column(String(50), default="unverified")
+
+    # Lossless full spec for round-trip reconstruction.
+    payload_json = Column(Text)
+
+    created_at = Column(DateTime, default=_now_utc)
+    updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc)
+    created_by = Column(Integer, ForeignKey("users.id"))
+
+    creator = relationship("User", foreign_keys=[created_by])
+
+
+class TorqueDragCalculationRecord(Base):
+    """A persisted, reproducible Torque & Drag calculation run (history).
+
+    This mirrors the existing ``trajectory_calculations`` convention (a
+    ``*_json`` input snapshot + result blob + promoted summary columns +
+    timestamps), but is **global-scoped**: ``well_id`` is optional because the
+    Engineering Calculator (W13) is a standalone tool that is frequently used
+    without a well context. When a well IS selected it is recorded for context,
+    but it is never required and never part of the engineering identity.
+
+    Reproducibility contract (see docs audit):
+
+    * ``input_snapshot_json`` is the *complete* canonical historical input
+      (survey + component specs + scalar parameters + engine method + snapshot
+      schema version), built by
+      ``core.engineering.torque_drag_persistence.build_snapshot``. It is
+      self-contained: reconstruction never reads the mutable master catalog, so
+      later catalog mutation cannot rewrite this run's history (§5/§7/§9).
+    * ``result_json`` is the derived engine result at execution time.
+    * ``method`` records the engine algorithm identity so a future numerical
+      change is detectable rather than silent (§13).
+    * ``reference_fingerprints_json`` lists the catalog reference identities the
+      run used (engineering fingerprints, NOT database primary keys) for
+      traceability (§8).
+
+    Each save is a distinct historical *run* (an execution event); runs are not
+    deduplicated (§14).
+    """
+    __tablename__ = "torque_drag_calculations"
+
+    id = Column(Integer, primary_key=True)
+
+    # Optional context (never required; not part of engineering identity).
+    well_id = Column(Integer, ForeignKey("wells.id"), nullable=True)
+    label = Column(String(200))
+
+    # Algorithm + snapshot identity for reproducibility.
+    method = Column(String(200), nullable=False)
+    snapshot_schema_version = Column(Integer, nullable=False, default=1)
+
+    # Self-contained historical input snapshot and derived result.
+    input_snapshot_json = Column(JSON, nullable=False)
+    result_json = Column(JSON, nullable=True)
+
+    # Reference traceability (engineering fingerprints, not DB ids).
+    reference_fingerprints_json = Column(JSON, nullable=True)
+
+    # Promoted headline claims (queryable; canonical klbf / ft-lbf).
+    hookload_pickup_klbf = Column(Float)
+    hookload_slackoff_klbf = Column(Float)
+    hookload_rotating_klbf = Column(Float)
+    surface_torque_rotating_ft_lbf = Column(Float)
+    total_buoyed_weight_klbf = Column(Float)
+
+    created_at = Column(DateTime, default=_now_utc)
+    updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc)
+    created_by = Column(Integer, ForeignKey("users.id"))
+
+    well = relationship("Well", foreign_keys=[well_id])
+    creator = relationship("User", foreign_keys=[created_by])
+
+
+class CasingCalculationRecord(Base):
+    """A persisted, reproducible Casing-strength calculation run (history).
+
+    This is DrillMaster's SECOND persistent engineering calculation. It follows
+    the same historical-integrity principles proven for Torque & Drag (frozen
+    self-contained input snapshot + full derived result + engine method +
+    snapshot schema version + promoted summary columns + timestamps), but it is
+    an INDEPENDENT concrete model — casing has a different input class (no
+    survey; pipe geometry + pressures/loads/design factors) and a different
+    result (flat scalar ratings), so it is not forced into a shared ORM base
+    (mission §18/§19: keep implementations concrete unless the ORM shape is
+    genuinely shared, which it is not).
+
+    Global-scoped: ``well_id`` is optional because the Engineering Calculator
+    (W13) casing-strength tool is frequently used without a well context.
+
+    IMPORTANT honesty note (mission §13): unlike drill pipe, the casing "Select
+    from API 5CT database" dialog is backed by a HARD-CODED preset table with no
+    durable persisted identity/provenance. This record therefore does NOT store
+    a reference fingerprint — the frozen numeric snapshot fully reconstructs the
+    calculation on its own, and claiming catalog traceability would be
+    misleading. If an authoritative casing catalog is built later, a fingerprint
+    column can be added then.
+    """
+    __tablename__ = "casing_calculations"
+
+    id = Column(Integer, primary_key=True)
+
+    # Optional context (never required; not part of engineering identity).
+    well_id = Column(Integer, ForeignKey("wells.id"), nullable=True)
+    label = Column(String(200))
+
+    # Algorithm + snapshot identity for reproducibility.
+    method = Column(String(200), nullable=False)
+    snapshot_schema_version = Column(Integer, nullable=False, default=1)
+
+    # Self-contained historical input snapshot and derived result.
+    input_snapshot_json = Column(JSON, nullable=False)
+    result_json = Column(JSON, nullable=True)
+
+    # Promoted headline claims (queryable; canonical psi / lbf).
+    burst_rating_psi = Column(Float)
+    collapse_rating_psi = Column(Float)
+    pipe_body_yield_lbf = Column(Float)
+    governing_burst_psi = Column(Float)
+    governing_collapse_psi = Column(Float)
+    governing_tension_lbf = Column(Float)
+
+    created_at = Column(DateTime, default=_now_utc)
+    updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc)
+    created_by = Column(Integer, ForeignKey("users.id"))
+
+    well = relationship("Well", foreign_keys=[well_id])
+    creator = relationship("User", foreign_keys=[created_by])
+
+
+class CementCalculationRecord(Base):
+    """A persisted, reproducible Cement job-volume calculation run (history).
+
+    This is DrillMaster's THIRD persistent engineering calculation. It follows
+    the same historical-integrity principles proven for Torque & Drag and Casing
+    (frozen self-contained input snapshot + full derived result + engine method
+    + snapshot schema version + promoted summary columns + timestamps), but it is
+    again an INDEPENDENT concrete model. Cement's input class (hole/casing
+    geometry + multi-leg slurry program + hydrostatic column) and its result
+    (mixed scalars PLUS nested ``lead``/``tail`` legs and a ``stacked_hydrostatic``
+    layer list) differ from both prior calculations, so it is deliberately not
+    forced into a shared ORM base (mission §28/§33/§34: keep implementations
+    concrete unless the ORM shape is genuinely shared, which it is not).
+
+    Global-scoped: ``well_id`` is optional because the Engineering Calculator
+    (W13) cement worksheet is frequently used without a well context.
+
+    Reference note (mission §23): cement job-volume inputs are direct engineering
+    values (geometry, lengths, densities, yields) with NO catalog/preset behind
+    them, so — like casing — this record stores NO reference fingerprint. The
+    frozen numeric snapshot alone fully reconstructs the run.
+    """
+    __tablename__ = "cement_calculations"
+
+    id = Column(Integer, primary_key=True)
+
+    # Optional context (never required; not part of engineering identity).
+    well_id = Column(Integer, ForeignKey("wells.id"), nullable=True)
+    label = Column(String(200))
+
+    # Algorithm + snapshot identity for reproducibility.
+    method = Column(String(200), nullable=False)
+    snapshot_schema_version = Column(Integer, nullable=False, default=1)
+
+    # Self-contained historical input snapshot and derived result.
+    input_snapshot_json = Column(JSON, nullable=False)
+    result_json = Column(JSON, nullable=True)
+
+    # Promoted headline claims (queryable; canonical bbl / sacks / psi).
+    slurry_volume_bbl = Column(Float)
+    annular_with_excess_bbl = Column(Float)
+    displacement_volume_bbl = Column(Float)
+    total_pump_bbl = Column(Float)
+    sacks = Column(Float)
+    hydrostatic_psi = Column(Float)
+
+    created_at = Column(DateTime, default=_now_utc)
+    updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc)
+    created_by = Column(Integer, ForeignKey("users.id"))
+
+    well = relationship("Well", foreign_keys=[well_id])
+    creator = relationship("User", foreign_keys=[created_by])
+
+
+class WellControlKillSheetCalculationRecord(Base):
+    """A persisted, reproducible Well Control **kill sheet** run (history).
+
+    DrillMaster's FOURTH persistent engineering calculation — and its first
+    *composite* one. Unlike Torque & Drag, Casing and Cement (each a single
+    engine call), a kill sheet runs three ``WellControlEngine`` calls plus
+    domain-level derived arithmetic and a choke schedule, producing a bespoke
+    ``KillSheetResult``. The historical claim is owned by the COMPOSITE, so this
+    record stores the composite's frozen canonical input snapshot and its whole
+    correctness-relevant result — NOT three separate sub-engine records (mission
+    §51/§70). It is again an INDEPENDENT concrete model: the kill sheet's input
+    (well geometry + mud/kick state + pump program + immutable pipe program) and
+    result (scalars PLUS nested string/annular detail lists PLUS a choke
+    schedule) differ from all three prior calculations, so it is deliberately not
+    forced into a shared ORM base (mission §49: keep implementations concrete
+    unless the ORM shape is genuinely shared, which it is not).
+
+    Global-scoped: ``well_id`` is optional because the W13 Well Control worksheet
+    is frequently used without a well context.
+
+    Reference note (mission §35/§36): the kill-sheet pipe program is a MIXED
+    reference (built-in presets / optional DrillPipe catalog / manual entry), but
+    the calculation consumes only each segment's numeric od/id/length/type, which
+    are frozen into the snapshot. Reconstruction needs no live catalog, so this
+    record stores NO reference fingerprint — the frozen numeric snapshot alone
+    reproduces the run.
+    """
+    __tablename__ = "well_control_kill_sheet_calculations"
+
+    id = Column(Integer, primary_key=True)
+
+    # Optional context (never required; not part of engineering identity).
+    well_id = Column(Integer, ForeignKey("wells.id"), nullable=True)
+    label = Column(String(200))
+
+    # Algorithm + snapshot identity for reproducibility.
+    method = Column(String(200), nullable=False)
+    snapshot_schema_version = Column(Integer, nullable=False, default=1)
+
+    # Self-contained historical input snapshot and whole derived result.
+    input_snapshot_json = Column(JSON, nullable=False)
+    result_json = Column(JSON, nullable=True)
+
+    # Promoted headline claims (queryable; safety-critical figures).
+    kill_mw_ppg = Column(Float)
+    icp_psi = Column(Float)
+    fcp_psi = Column(Float)
+    maasp_psi = Column(Float)
+    total_well_vol_bbl = Column(Float)
+    stk_total = Column(Float)
+    kick_height_ft = Column(Float)
+
+    created_at = Column(DateTime, default=_now_utc)
+    updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc)
+    created_by = Column(Integer, ForeignKey("users.id"))
+
+    well = relationship("Well", foreign_keys=[well_id])
+    creator = relationship("User", foreign_keys=[created_by])
+
+
+class MSECalculationRecord(Base):
+    """A persisted, reproducible MSE (Teale) calculation run (history).
+
+    DrillMaster's FIFTH persistent engineering calculation. It follows the same
+    historical-integrity principles proven for the four prior calculations
+    (frozen self-contained input snapshot + full derived result + engine method
+    + snapshot schema version + promoted summary columns + timestamps), but it is
+    again an INDEPENDENT concrete model. MSE's input set (five drilling
+    parameters — WOB, RPM, torque, ROP, bit diameter) and its flat scalar result
+    (mse_psi decomposed into axial/rotary terms + derived bit area) differ from
+    all four prior calculations, so it is deliberately not forced into a shared
+    ORM base (mission §42/§43/§45: keep implementations concrete unless the ORM
+    shape is genuinely shared, which it is not).
+
+    Global-scoped: ``well_id`` is optional because the Engineering Calculator
+    (W13) Bit Hydraulics worksheet is frequently used without a well context.
+
+    Reference note (mission §24/§25): every MSE input is a direct drilling
+    parameter (WOB/RPM/torque/ROP/bit diameter) with NO catalog/preset behind it
+    — the W13 bit diameter is a direct user value, not a Bit-catalog lookup — so
+    this record stores NO reference fingerprint. The frozen numeric snapshot
+    alone fully reconstructs the run.
+    """
+    __tablename__ = "mse_calculations"
+
+    id = Column(Integer, primary_key=True)
+
+    # Optional context (never required; not part of engineering identity).
+    well_id = Column(Integer, ForeignKey("wells.id"), nullable=True)
+    label = Column(String(200))
+
+    # Algorithm + snapshot identity for reproducibility.
+    method = Column(String(200), nullable=False)
+    snapshot_schema_version = Column(Integer, nullable=False, default=1)
+
+    # Self-contained historical input snapshot and derived result.
+    input_snapshot_json = Column(JSON, nullable=False)
+    result_json = Column(JSON, nullable=True)
+
+    # Promoted headline claims (queryable; canonical psi / in²).
+    mse_psi = Column(Float)
+    axial_term_psi = Column(Float)
+    rotary_term_psi = Column(Float)
+    bit_area_in2 = Column(Float)
+
+    created_at = Column(DateTime, default=_now_utc)
+    updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc)
+    created_by = Column(Integer, ForeignKey("users.id"))
+
+    well = relationship("Well", foreign_keys=[well_id])
+    creator = relationship("User", foreign_keys=[created_by])
+
+
+class MudVolumeCalculationRecord(Base):
+    """A persisted, reproducible Mud Volume balance calculation run (history).
+
+    DrillMaster's SIXTH persistent engineering calculation. It follows the same
+    historical-integrity principles proven for the five prior calculations
+    (frozen self-contained input snapshot + full derived result + engine method
+    + snapshot schema version + promoted summary columns + timestamps), but it is
+    again an INDEPENDENT concrete model. The mud volume balance input set (eight
+    bbl volume terms) and its flat scalar result (input echo + final_volume_bbl
+    + net_change_bbl) differ from all five prior calculations, so it is
+    deliberately not forced into a shared ORM base (mission §36/§39/§41: keep
+    implementations concrete unless the ORM shape is genuinely shared, which it
+    is not).
+
+    Global-scoped: ``well_id`` is optional because the Engineering Calculator
+    (W13) mud worksheet is frequently used without a well context.
+
+    Reference note (mission §22): every input is a direct engineering volume in
+    bbl with NO catalog/preset behind it, so this record stores NO reference
+    fingerprint. The frozen numeric snapshot alone fully reconstructs the run.
+    """
+    __tablename__ = "mud_volume_calculations"
+
+    id = Column(Integer, primary_key=True)
+
+    # Optional context (never required; not part of engineering identity).
+    well_id = Column(Integer, ForeignKey("wells.id"), nullable=True)
+    label = Column(String(200))
+
+    # Algorithm + snapshot identity for reproducibility.
+    method = Column(String(200), nullable=False)
+    snapshot_schema_version = Column(Integer, nullable=False, default=1)
+
+    # Self-contained historical input snapshot and derived result.
+    input_snapshot_json = Column(JSON, nullable=False)
+    result_json = Column(JSON, nullable=True)
+
+    # Promoted headline claims (queryable; canonical bbl).
+    active_volume_bbl = Column(Float)
+    final_volume_bbl = Column(Float)
+    net_change_bbl = Column(Float)
+
+    created_at = Column(DateTime, default=_now_utc)
+    updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc)
+    created_by = Column(Integer, ForeignKey("users.id"))
+
+    well = relationship("Well", foreign_keys=[well_id])
+    creator = relationship("User", foreign_keys=[created_by])
+
+
 class ProcedureTemplate(Base):
     """قالب‌های آماده پروسیجر"""
     __tablename__ = "procedure_templates"
@@ -1660,10 +2529,13 @@ class CostRecord(Base):
     
     category = Column(String(100), nullable=False)
     description = Column(Text)
-    planned_cost = Column(Float, default=0.0)
-    actual_cost = Column(Float, default=0.0)
-    variance = Column(Float, default=0.0)
-    currency = Column(String(10), default="USD")
+    planned_cost = Column(Float)
+    actual_cost = Column(Float)
+    variance = Column(Float)
+    # No currency default: an unspecified currency stays NULL (unknown) rather
+    # than being silently asserted as USD (§9 no-fabrication). Callers set it
+    # explicitly when the source provides a code.
+    currency = Column(String(10))
     
     cost_date = Column(Date)
     afe_number = Column(String(50))
@@ -1681,16 +2553,37 @@ class CostRecord(Base):
         "Well",
         backref=backref("cost_records", cascade="all, delete-orphan")
     )    
+@event.listens_for(CostRecord, "before_insert")
+@event.listens_for(CostRecord, "before_update")
+def _canonicalize_cost_record(_mapper, _connection, record):
+    """All ORM writers, including atomic import, share derived cost semantics."""
+    from core.cost_semantics import canonical_variance, normalize_currency
+    from core.engineering.result import optional_number
+    record.planned_cost = optional_number(record.planned_cost, "planned_cost")
+    record.actual_cost = optional_number(record.actual_cost, "actual_cost")
+    record.currency = normalize_currency(record.currency)
+    record.variance = canonical_variance(record.planned_cost, record.actual_cost)
+
+
 # ----------------------------------------------------------------------
 # DatabaseManager class with updated save/get methods for key tables
 # ----------------------------------------------------------------------
 class DatabaseManager:
-    def __init__(self):
+    def __init__(self, bootstrap_passwords=None):
+        self._bootstrap_override = dict(bootstrap_passwords) if bootstrap_passwords is not None else None
         self.engine = None
         self.Session = None
+        self.last_diagnostic = None
+        # v3 adds the Wellbore entity plus nullable sections.wellbore_id and
+        # daily_reports.wellbore_id. The wellbores table is created by the
+        # generic "missing table" step; the two columns are added by the
+        # explicit v2->v3 upgrade block in _apply_safe_schema_upgrades.
+        self.schema_version = 3
 
-        base_dir = Path(__file__).resolve().parent.parent
-        self.db_path = str(base_dir / "drillmaster.db")
+        # Mutable database state belongs in the OS user-data directory, not
+        # beside the installed package. Tests and operators can override this
+        # with DRILLMASTER_DB_PATH or by assigning db_path before initialize().
+        self.db_path = configured_database_path()
 
     @property
     def _get_current_user_info(self):
@@ -1705,19 +2598,22 @@ class DatabaseManager:
             return {'user_id': None, 'username': 'system'}
             
     def initialize(self):
+        """Open the database, validate its version, and apply one atomic migration."""
         try:
+            runtime_environment()  # reject ambiguous/unknown modes before touching disk
+            self.last_diagnostic = None
+            if self.db_path != ":memory:":
+                Path(self.db_path).expanduser().parent.mkdir(parents=True, exist_ok=True)
             self.engine = create_engine(
                 f"sqlite:///{self.db_path}",
-                connect_args={
-                    "check_same_thread": False,
-                    "timeout": 30,
-                },
+                connect_args={"check_same_thread": False, "timeout": 30},
                 poolclass=StaticPool,
                 echo=False,
+                hide_parameters=True,  # account hashes must not appear in SQL exception parameters
                 pool_pre_ping=True,
             )
 
-            from sqlalchemy import event, text
+            from sqlalchemy import event
 
             @event.listens_for(self.engine, "connect")
             def set_sqlite_pragma(dbapi_connection, connection_record):
@@ -1728,97 +2624,730 @@ class DatabaseManager:
                 cursor.execute("PRAGMA foreign_keys=ON")
                 cursor.close()
 
-            self.Session = sessionmaker(
-                bind=self.engine,
-                autoflush=False, 
-                autocommit=False,
-            )
-            Base.metadata.create_all(self.engine)
+            self.Session = sessionmaker(bind=self.engine, autoflush=False, autocommit=False)
+            # Reject a future schema before create_all can create any new
+            # application tables around it.
+            self._reject_future_schema()
             self._apply_safe_schema_upgrades()
+            self._verify_import_schema()
             self.create_default_data()
             return True
-
-        except Exception as e:
-            logger.error(f"Database initialization failed: {str(e)}")
+        except CredentialLifecycleError as exc:
+            self.last_diagnostic = {"credential_error": True, "code": exc.code,
+                                    "message": str(exc), "stage": "authentication.bootstrap"}
+            logger.error("Database credential initialization blocked: %s", exc)
+            return False
+        except SchemaMigrationError as exc:
+            self.last_diagnostic = exc.issue.to_dict()
+            logger.error("Database schema migration failed: %s", exc.issue.message, exc_info=True)
+            return False
+        except Exception as exc:
+            issue = PersistenceIssue.from_exception(
+                exc,
+                stage="schema.initialization",
+                entity="database",
+                operation="initialize",
+            )
+            self.last_diagnostic = issue.to_dict()
+            logger.error("Database initialization failed: %s", exc, exc_info=True)
             return False
 
-    def _apply_safe_schema_upgrades(self):
-        """Additive, non-destructive schema migrations for existing databases.
+        finally:
+            self._bootstrap_override = None  # first-run UI secrets are not retained on the manager
 
-        Only ADDs new nullable columns/tables via SQLite's ALTER TABLE;
-        never drops or recreates anything. Idempotent: checks the live
-        PRAGMA table_info before each ALTER.
-        """
+    @staticmethod
+    def _quote_sqlite_identifier(value: str) -> str:
+        return '"' + str(value).replace('"', '""') + '"'
+
+    def _raw_table_exists(self, connection, table_name: str) -> bool:
+        row = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
+            (table_name,),
+        ).fetchone()
+        return row is not None
+
+    def _raw_schema_version(self, connection) -> Optional[int]:
+        if not self._raw_table_exists(connection, "schema_version"):
+            return None
+        rows = connection.execute("SELECT version FROM schema_version ORDER BY version").fetchall()
+        if not rows:
+            return None
+        versions = [int(row[0]) for row in rows if row[0] is not None]
+        if not versions:
+            return None
+        return max(versions)
+
+    def _reject_future_schema(self):
+        raw = self.engine.raw_connection()
         try:
-            from sqlalchemy import inspect, text
+            version = self._raw_schema_version(raw)
+            if version is not None and version > self.schema_version:
+                issue = PersistenceIssue(
+                    stage="schema.compatibility",
+                    entity="schema_version",
+                    field="version",
+                    original_value=version,
+                    normalized_value=version,
+                    expected_type=f"supported schema <= {self.schema_version}",
+                    operation="verify",
+                    message=(
+                        f"Unsupported future database schema version {version}; "
+                        f"this application supports version {self.schema_version}"
+                    ),
+                    status=ImportStatus.PERSISTENCE_ERROR.value,
+                )
+                raise SchemaMigrationError(issue)
+        finally:
+            raw.close()
 
-            inspector = inspect(self.engine)
-            upgrades = [
-                ("drilling_parameters", "pump_liner_size", "VARCHAR(200)"),
-                ("service_companies", "npt_hours", "FLOAT"),
-                ("service_companies", "hole_section", "VARCHAR(100)"),
-                ("service_companies", "duration_day", "FLOAT"),
-                ("service_companies", "condition", "VARCHAR(50)"),
-                ("service_companies", "issue", "TEXT"),
-                ("mud_reports", "calcium", "FLOAT"),
-                ("mud_reports", "kcl", "FLOAT"),
-                ("mud_reports", "mbt", "FLOAT"),
-                ("mud_reports", "pf_mf", "FLOAT"),
-                ("mud_reports", "total_hardness", "FLOAT"),
-                ("mud_reports", "flowline_temp", "FLOAT"),
-                ("mud_reports", "pit_volumes_json", "TEXT"),
-                ("fuel_water_inventory", "fuel_camp_consumed", "FLOAT"),
-                ("fuel_water_inventory", "fuel_camp_stock", "FLOAT"),
-                ("fuel_water_inventory", "fuel_camp_received", "FLOAT"),
-                ("fuel_water_inventory", "dw_consumed", "FLOAT"),
-                ("fuel_water_inventory", "dw_stock", "FLOAT"),
-                ("fuel_water_inventory", "dw_received", "FLOAT"),
-                ("daily_reports", "forecast", "TEXT"),
-                ("wells", "drilling_engineer", "VARCHAR(100)"),
-            ]
-            for table, column, ddl_type in upgrades:
-                if table not in inspector.get_table_names():
-                    continue
-                existing = {col["name"] for col in inspector.get_columns(table)}
-                if column in existing:
-                    continue
-                with self.engine.begin() as conn:
-                    conn.execute(
-                        text(
-                            f"ALTER TABLE {table} ADD COLUMN {column} {ddl_type}"
-                        )
-                    )
-        except Exception as e:
-            logger.error(
-                f"Safe schema upgrade step failed "
-                f"(non-fatal, retried next start): {str(e)}"
+    @staticmethod
+    def _split_sql_definitions(body: str) -> list[str]:
+        """Split a CREATE TABLE body on top-level commas only."""
+        pieces, start, depth = [], 0, 0
+        quote = None
+        i = 0
+        while i < len(body):
+            char = body[i]
+            if quote:
+                if char == quote:
+                    if i + 1 < len(body) and body[i + 1] == quote:
+                        i += 1
+                    else:
+                        quote = None
+            elif char in "'\"`":
+                quote = char
+            elif char == "[":
+                quote = "]"
+            elif char == "(":
+                depth += 1
+            elif char == ")":
+                depth = max(0, depth - 1)
+            elif char == "," and depth == 0:
+                pieces.append(body[start:i])
+                start = i + 1
+            i += 1
+        pieces.append(body[start:])
+        return pieces
+
+    @staticmethod
+    def _definition_name(definition: str) -> Optional[str]:
+        match = re.match(r"\s*(?:\"([^\"]+)\"|`([^`]+)`|\[([^\]]+)\]|([^\s]+))", definition)
+        if not match:
+            return None
+        return next((item for item in match.groups() if item is not None), None)
+
+    def _rewrite_live_create_sql(self, create_sql: str, table_name: str,
+                                 temporary_name: str, relaxed_columns: set[str]) -> str:
+        """Rewrite only the table name and targeted NOT NULL tokens.
+
+        The original SQLite CREATE TABLE statement remains authoritative for
+        every other column, default, constraint, and foreign-key clause.
+        """
+        if not create_sql:
+            raise RuntimeError(f"Missing sqlite_master CREATE SQL for {table_name}")
+        open_index = create_sql.find("(")
+        if open_index < 0:
+            raise RuntimeError(f"Invalid CREATE SQL for {table_name}")
+        depth, quote, close_index = 0, None, None
+        i = open_index
+        while i < len(create_sql):
+            char = create_sql[i]
+            if quote:
+                if char == quote:
+                    if i + 1 < len(create_sql) and create_sql[i + 1] == quote:
+                        i += 1
+                    else:
+                        quote = None
+            elif char in "'\"`":
+                quote = char
+            elif char == "[":
+                quote = "]"
+            elif char == "(":
+                depth += 1
+            elif char == ")":
+                depth -= 1
+                if depth == 0:
+                    close_index = i
+                    break
+            i += 1
+        if close_index is None:
+            raise RuntimeError(f"Unbalanced CREATE SQL for {table_name}")
+        header = create_sql[:open_index]
+        header = re.sub(
+            r"(?is)(CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?)"
+            r"(?:\"[^\"]+\"|`[^`]+`|\[[^\]]+\]|[^\s(]+)\s*$",
+            lambda match: match.group(1) + self._quote_sqlite_identifier(temporary_name),
+            header,
+        )
+        if self._quote_sqlite_identifier(temporary_name) not in header:
+            raise RuntimeError(f"Could not rename live CREATE SQL for {table_name}")
+        definitions = []
+        for definition in self._split_sql_definitions(create_sql[open_index + 1:close_index]):
+            name = self._definition_name(definition)
+            if name in relaxed_columns and not re.match(r"\s*(?:PRIMARY|UNIQUE|CONSTRAINT|FOREIGN|CHECK)\b", definition, re.I):
+                definition = re.sub(r"\s+NOT\s+NULL\b", "", definition, count=1, flags=re.I)
+            definitions.append(definition)
+        return header + "(" + ",".join(definitions) + ")" + create_sql[close_index + 1:]
+
+    def _live_table_contract(self, connection, table_name: str) -> dict:
+        q = self._quote_sqlite_identifier(table_name)
+        columns = connection.execute(f"PRAGMA table_info({q})").fetchall()
+        indexes = connection.execute(f"PRAGMA index_list({q})").fetchall()
+        foreign_keys = connection.execute(f"PRAGMA foreign_key_list({q})").fetchall()
+        objects = connection.execute(
+            "SELECT type, name, sql FROM sqlite_master "
+            "WHERE tbl_name=? AND type IN ('index','trigger') AND sql IS NOT NULL "
+            "ORDER BY type,name",
+            (table_name,),
+        ).fetchall()
+        return {
+            "columns": [row[1] for row in columns],
+            "indexes": [row[1] for row in indexes if row[1]],
+            "foreign_keys": [tuple(row) for row in foreign_keys],
+            "objects": [(row[0], row[1]) for row in objects],
+        }
+
+    def _rebuild_live_table(self, connection, table_name: str, relaxed_columns: set[str]):
+        q = self._quote_sqlite_identifier(table_name)
+        row = connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name=?",
+            (table_name,),
+        ).fetchone()
+        if not row or not row[0]:
+            raise RuntimeError(f"Cannot rebuild {table_name}: live CREATE SQL is unavailable")
+        contract = self._live_table_contract(connection, table_name)
+        columns = connection.execute(f"PRAGMA table_info({q})").fetchall()
+        names = [row[1] for row in columns]
+        temporary_name = f"__drillmaster_migrate_{table_name}"
+        create_sql = self._rewrite_live_create_sql(row[0], table_name, temporary_name, relaxed_columns)
+        connection.execute(create_sql)
+        quoted_columns = ", ".join(self._quote_sqlite_identifier(name) for name in names)
+        qt = self._quote_sqlite_identifier(temporary_name)
+        connection.execute(
+            f"INSERT INTO {qt} ({quoted_columns}) SELECT {quoted_columns} FROM {q}"
+        )
+        connection.execute(f"DROP TABLE {q}")
+        connection.execute(
+            f"ALTER TABLE {qt} RENAME TO {self._quote_sqlite_identifier(table_name)}"
+        )
+        # External indexes and triggers are not part of CREATE TABLE. Recreate
+        # their original SQL after the old table has been removed.
+        for object_type, object_name in contract["objects"]:
+            object_sql = connection.execute(
+                "SELECT sql FROM sqlite_master WHERE type=? AND name=?",
+                (object_type, object_name),
+            ).fetchone()
+            # The query above cannot see the dropped object's SQL, so the SQL
+            # is captured before the rebuild below in _capture_live_objects.
+        return contract
+
+    def _capture_live_objects(self, connection, table_name: str) -> list[tuple[str, str, str]]:
+        return [
+            tuple(row)
+            for row in connection.execute(
+                "SELECT type, name, sql FROM sqlite_master "
+                "WHERE tbl_name=? AND type IN ('index','trigger') AND sql IS NOT NULL",
+                (table_name,),
+            ).fetchall()
+        ]
+
+    def _rebuild_live_table_preserving_objects(self, connection, table_name: str, relaxed_columns: set[str]):
+        q = self._quote_sqlite_identifier(table_name)
+        table_row = connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name=?", (table_name,)
+        ).fetchone()
+        if not table_row or not table_row[0]:
+            raise RuntimeError(f"Cannot rebuild {table_name}: live CREATE SQL is unavailable")
+        objects = self._capture_live_objects(connection, table_name)
+        foreign_keys_before = [tuple(row) for row in connection.execute(
+            f"PRAGMA foreign_key_list({q})"
+        ).fetchall()]
+        columns = connection.execute(f"PRAGMA table_info({q})").fetchall()
+        names = [row[1] for row in columns]
+        temporary_name = f"__drillmaster_migrate_{table_name}"
+        connection.execute(
+            self._rewrite_live_create_sql(table_row[0], table_name, temporary_name, relaxed_columns)
+        )
+        quoted_columns = ", ".join(self._quote_sqlite_identifier(name) for name in names)
+        qt = self._quote_sqlite_identifier(temporary_name)
+        connection.execute(f"INSERT INTO {qt} ({quoted_columns}) SELECT {quoted_columns} FROM {q}")
+        connection.execute(f"DROP TABLE {q}")
+        connection.execute(f"ALTER TABLE {qt} RENAME TO {q}")
+        for object_type, object_name, object_sql in objects:
+            if object_sql:
+                connection.execute(object_sql)
+        after = self._live_table_contract(connection, table_name)
+        if after["columns"] != names:
+            raise RuntimeError(f"Column preservation check failed for {table_name}")
+        after_objects = self._capture_live_objects(connection, table_name)
+        if {name for typ, name, _ in after_objects if typ == "index"} != {name for typ, name, _ in objects if typ == "index"}:
+            raise RuntimeError(f"Index preservation check failed for {table_name}")
+        if sorted(after["foreign_keys"]) != sorted(foreign_keys_before):
+            raise RuntimeError(f"Foreign-key preservation check failed for {table_name}")
+
+    def _install_wellbore_foreign_key(self, connection, table_name: str):
+        """Rebuild ``table_name`` so its ``wellbore_id`` column carries a real
+        physical SQLite foreign key to ``wellbores(id)``.
+
+        SQLite's ``ALTER TABLE ... ADD COLUMN`` cannot attach an inline FK, so a
+        freshly created v3 database (built from ORM DDL) physically enforces the
+        wellbore FK while a v2→v3 *upgraded* database would not. That asymmetry
+        is closed here by rebuilding the table from its own live CREATE SQL with
+        the FK clause injected, preserving every column, index, trigger, and row.
+        Runs inside the FK-off migration transaction; the caller's
+        ``foreign_key_check`` validates the result.
+        """
+        q = self._quote_sqlite_identifier(table_name)
+        table_row = connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name=?",
+            (table_name,),
+        ).fetchone()
+        if not table_row or not table_row[0]:
+            return
+        # Already has a wellbore FK? Nothing to do (fresh DBs, re-runs).
+        existing_fks = connection.execute(
+            f"PRAGMA foreign_key_list({q})"
+        ).fetchall()
+        if any(row[2] == "wellbores" for row in existing_fks):
+            return
+        columns = {
+            row[1] for row in connection.execute(f"PRAGMA table_info({q})").fetchall()
+        }
+        if "wellbore_id" not in columns:
+            return
+
+        create_sql = table_row[0]
+        # Find the closing paren of the column/constraint list (quote-aware).
+        open_index = create_sql.find("(")
+        depth, quote, close_index, i = 0, None, None, open_index
+        while i < len(create_sql):
+            char = create_sql[i]
+            if quote:
+                if char == quote:
+                    if i + 1 < len(create_sql) and create_sql[i + 1] == quote:
+                        i += 1
+                    else:
+                        quote = None
+            elif char in "'\"`":
+                quote = char
+            elif char == "[":
+                quote = "]"
+            elif char == "(":
+                depth += 1
+            elif char == ")":
+                depth -= 1
+                if depth == 0:
+                    close_index = i
+                    break
+            i += 1
+        if close_index is None:
+            raise RuntimeError(f"Unbalanced CREATE SQL for {table_name}")
+
+        fk_clause = (
+            ', FOREIGN KEY(wellbore_id) REFERENCES wellbores (id) '
+            'ON DELETE SET NULL'
+        )
+        temporary_name = f"__drillmaster_fk_{table_name}"
+        qt = self._quote_sqlite_identifier(temporary_name)
+        header = create_sql[:open_index]
+        header = re.sub(
+            r"(?is)(CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?)"
+            r"(?:\"[^\"]+\"|`[^`]+`|\[[^\]]+\]|[^\s(]+)\s*$",
+            lambda match: match.group(1) + qt,
+            header,
+        )
+        if qt not in header:
+            raise RuntimeError(f"Could not rename live CREATE SQL for {table_name}")
+        new_sql = (
+            header
+            + create_sql[open_index:close_index]
+            + fk_clause
+            + create_sql[close_index:]
+        )
+
+        objects = self._capture_live_objects(connection, table_name)
+        names = [
+            row[1] for row in connection.execute(f"PRAGMA table_info({q})").fetchall()
+        ]
+        quoted_columns = ", ".join(
+            self._quote_sqlite_identifier(name) for name in names
+        )
+        connection.execute(new_sql)
+        connection.execute(
+            f"INSERT INTO {qt} ({quoted_columns}) SELECT {quoted_columns} FROM {q}"
+        )
+        connection.execute(f"DROP TABLE {q}")
+        connection.execute(f"ALTER TABLE {qt} RENAME TO {q}")
+        for _type, _name, object_sql in objects:
+            if object_sql:
+                connection.execute(object_sql)
+        after = self._live_table_contract(connection, table_name)
+        if after["columns"] != names:
+            raise RuntimeError(
+                f"Column preservation check failed installing wellbore FK on {table_name}"
             )
+        if not any(row[2] == "wellbores" for row in after["foreign_keys"]):
+            raise RuntimeError(
+                f"Wellbore foreign key was not installed on {table_name}"
+            )
+
+    def _migrate_nullable_contracts(self, inspector=None, *, connection=None) -> list[dict]:
+        """Relax only ORM-nullability mismatches using the live SQLite schema."""
+        owns_connection = connection is None
+        raw = connection or self.engine.raw_connection()
+        try:
+            table_names = {
+                row[0] for row in raw.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                ).fetchall()
+            }
+            mismatches = []
+            for table_name, model_table in Base.metadata.tables.items():
+                if table_name not in table_names:
+                    continue
+                installed = {
+                    row[1]: row for row in raw.execute(
+                        f"PRAGMA table_info({self._quote_sqlite_identifier(table_name)})"
+                    ).fetchall()
+                }
+                relaxed = set()
+                for column in model_table.columns:
+                    item = installed.get(column.name)
+                    if item is not None and column.nullable and bool(item[3]):
+                        relaxed.add(column.name)
+                        mismatches.append({
+                            "table": table_name,
+                            "column": column.name,
+                            "orm_nullable": True,
+                            "database_nullable": False,
+                        })
+                if relaxed:
+                    self._rebuild_live_table_preserving_objects(raw, table_name, relaxed)
+            if owns_connection:
+                raw.commit()
+            return mismatches
+        finally:
+            if owns_connection:
+                raw.close()
+
+    def _verify_import_schema(self):
+        """Verify the schema contract required by the import boundary."""
+        raw = self.engine.raw_connection()
+        try:
+            version = self._raw_schema_version(raw)
+            if version != self.schema_version:
+                raise RuntimeError(f"Unsupported schema version {version!r}; expected {self.schema_version}")
+            missing_tables = [
+                name for name in Base.metadata.tables
+                if not self._raw_table_exists(raw, name)
+            ]
+            if missing_tables:
+                raise RuntimeError(f"Missing required tables: {', '.join(missing_tables)}")
+            fk = raw.execute("PRAGMA foreign_keys").fetchone()
+            if not fk or int(fk[0]) != 1:
+                raise RuntimeError("SQLite foreign-key enforcement is disabled")
+            for table_name, model_table in Base.metadata.tables.items():
+                installed = {
+                    row[1]: row for row in raw.execute(
+                        f"PRAGMA table_info({self._quote_sqlite_identifier(table_name)})"
+                    ).fetchall()
+                }
+                missing = [col.name for col in model_table.columns if col.name not in installed]
+                if missing:
+                    raise RuntimeError(f"Missing columns in {table_name}: {', '.join(missing)}")
+                for col in model_table.columns:
+                    if col.nullable and installed[col.name][3]:
+                        raise RuntimeError(f"Nullable contract not migrated: {table_name}.{col.name}")
+        finally:
+            raw.close()
+
+    def assert_import_schema_supported(self):
+        """Fail closed before any report-scoped import write.
+
+        Isolated in-memory test engines historically build ``Base.metadata``
+        directly.  They receive an explicit current-``schema_version`` marker
+        here, while file-backed databases without a migrated marker fail closed
+        and must go through ``initialize()``.
+        """
+        self._reject_future_schema()
+        raw = self.engine.raw_connection()
+        try:
+            url = str(getattr(self.engine, "url", ""))
+            if ":memory:" in url:
+                # Legacy isolated test engines do not install the initialize()
+                # connect listener. Enable the same invariant before verify;
+                # file-backed production databases fail closed instead.
+                raw.execute("PRAGMA foreign_keys=ON")
+            if self._raw_schema_version(raw) is None:
+                url = str(getattr(self.engine, "url", ""))
+                if ":memory:" not in url:
+                    raise RuntimeError("Database schema is not initialized; call DatabaseManager.initialize()")
+                raw.execute(
+                    "CREATE TABLE IF NOT EXISTS schema_version "
+                    "(version INTEGER NOT NULL, applied_at DATETIME NOT NULL)"
+                )
+                raw.execute("DELETE FROM schema_version")
+                raw.execute(
+                    "INSERT INTO schema_version(version, applied_at) VALUES (?, ?)",
+                    (self.schema_version, _now_utc()),
+                )
+                raw.commit()
+        finally:
+            raw.close()
+        try:
+            self._verify_import_schema()
+        except Exception as exc:
+            issue = exc.issue if isinstance(exc, SchemaMigrationError) else PersistenceIssue.from_exception(
+                exc,
+                stage="schema.compatibility",
+                entity="database",
+                operation="verify-before-import",
+                status=ImportStatus.PERSISTENCE_ERROR.value,
+            )
+            raise PersistenceError(issue, result={"diagnostics": [issue.to_dict()]}) from exc
+
+    def _verify_stored_ownership(self, connection):
+        """Reject contradictory legacy/external rows; never backfill ownership.
+
+        Single-column SQLite FKs prove existence, not redundant owner agreement.
+        Run inside the migration transaction before marking the schema current.
+        """
+        checks = [
+            ("sections", "wellbores", "wellbore_id", "child.well_id != parent.well_id"),
+            ("daily_reports", "wellbores", "wellbore_id", "child.well_id != parent.well_id"),
+            ("daily_reports", "sections", "section_id",
+             "child.well_id != parent.well_id OR "
+             "(child.wellbore_id IS NOT NULL AND parent.wellbore_id IS NOT NULL "
+             "AND child.wellbore_id != parent.wellbore_id)"),
+            ("wellbores", "wellbores", "parent_wellbore_id", "child.well_id != parent.well_id"),
+        ]
+        checks.extend(
+            (mapper.class_.__tablename__, "daily_reports", "report_id", "child.well_id != parent.well_id")
+            for mapper in Base.registry.mappers
+            if mapper.class_.__name__ in _report_scoped_well_models()
+        )
+        checks.extend((m.class_.__tablename__, "sections", "section_id", "child.well_id != parent.well_id")
+                      for m in Base.registry.mappers
+                      if hasattr(m.class_, "well_id") and hasattr(m.class_, "section_id"))
+        checks.extend((m.class_.__tablename__, "daily_reports", "report_id",
+                       "child.section_id IS NOT NULL AND parent.section_id IS NOT NULL AND child.section_id != parent.section_id")
+                      for m in Base.registry.mappers
+                      if hasattr(m.class_, "report_id") and hasattr(m.class_, "section_id"))
+        checks.append(("planned_activities", "well_plans", "plan_id", "child.well_id != parent.well_id"))
+        for child, parent, fk, conflict in checks:
+            # Identifiers come only from the mapped schema, never user input.
+            quote = self._quote_sqlite_identifier
+            invalid = connection.execute(
+                f"SELECT child.id FROM {quote(child)} AS child "
+                f"JOIN {quote(parent)} AS parent ON child.{quote(fk)} = parent.id "
+                f"WHERE {conflict} LIMIT 1"
+            ).fetchone()
+            if invalid:
+                raise OwnershipIntegrityError(
+                    f"Stored ownership conflict: {child} id={invalid[0]} contradicts {parent}; "
+                    "restore or explicitly review the source database (no automatic repair)"
+                )
+
+    def _apply_safe_schema_upgrades(self):
+        """Apply supported legacy-to-v3 upgrades in one SQLite transaction.
+
+        The live SQLite schema is the source of truth during rebuilds. ORM
+        metadata is used only to identify which nullable contracts the current
+        application requires; it never supplies the replacement table.
+        """
+        raw = self.engine.raw_connection()
+        migration_started = False
+        try:
+            version = self._raw_schema_version(raw)
+            if version is not None and version > self.schema_version:
+                self._reject_future_schema()
+            # SQLite only permits toggling foreign_keys outside a transaction.
+            raw.commit()
+            raw.execute("PRAGMA foreign_keys=OFF")
+            if int(raw.execute("PRAGMA foreign_keys").fetchone()[0]) != 0:
+                raise RuntimeError("SQLite refused to disable foreign-key checks before migration")
+            raw.execute("BEGIN")
+            migration_started = True
+            raw.execute(
+                "CREATE TABLE IF NOT EXISTS schema_version "
+                "(version INTEGER NOT NULL, applied_at DATETIME NOT NULL)"
+            )
+            # Create missing application tables inside the same transaction;
+            # do not use metadata.create_all before migration because that
+            # would leave new tables behind after a failed legacy rebuild.
+            from sqlalchemy.schema import CreateIndex, CreateTable
+            for model_table in Base.metadata.sorted_tables:
+                if not self._raw_table_exists(raw, model_table.name):
+                    raw.execute(str(CreateTable(model_table).compile(dialect=self.engine.dialect)))
+            for model_table in Base.metadata.sorted_tables:
+                for index in model_table.indexes:
+                    if index.name and not raw.execute(
+                        "SELECT 1 FROM sqlite_master WHERE type='index' AND name=?", (index.name,)
+                    ).fetchone():
+                        raw.execute(str(CreateIndex(index).compile(dialect=self.engine.dialect)))
+            version = self._raw_schema_version(raw)
+            if version is not None and version > self.schema_version:
+                raise RuntimeError(f"Unsupported future schema version {version}")
+            if version in (None, 1):
+                upgrades = [
+                    ("drilling_parameters", "pump_liner_size", "VARCHAR(200)"),
+                    ("service_companies", "npt_hours", "FLOAT"),
+                    ("service_companies", "hole_section", "VARCHAR(100)"),
+                    ("service_companies", "duration_day", "FLOAT"),
+                    ("service_companies", "condition", "VARCHAR(50)"),
+                    ("service_companies", "issue", "TEXT"),
+                    ("mud_reports", "calcium", "FLOAT"),
+                    ("mud_reports", "kcl", "FLOAT"),
+                    ("mud_reports", "mbt", "FLOAT"),
+                    ("mud_reports", "pf_mf", "FLOAT"),
+                    ("mud_reports", "total_hardness", "FLOAT"),
+                    ("mud_reports", "flowline_temp", "FLOAT"),
+                    ("mud_reports", "pit_volumes_json", "TEXT"),
+                    ("fuel_water_inventory", "fuel_camp_consumed", "FLOAT"),
+                    ("fuel_water_inventory", "fuel_camp_stock", "FLOAT"),
+                    ("fuel_water_inventory", "fuel_camp_received", "FLOAT"),
+                    ("fuel_water_inventory", "dw_consumed", "FLOAT"),
+                    ("fuel_water_inventory", "dw_stock", "FLOAT"),
+                    ("fuel_water_inventory", "dw_received", "FLOAT"),
+                    ("daily_reports", "forecast", "TEXT"),
+                    ("wells", "drilling_engineer", "VARCHAR(100)"),
+                ]
+                for table_name, column_name, ddl_type in upgrades:
+                    if not self._raw_table_exists(raw, table_name):
+                        continue
+                    columns = {
+                        row[1] for row in raw.execute(
+                            f"PRAGMA table_info({self._quote_sqlite_identifier(table_name)})"
+                        ).fetchall()
+                    }
+                    if column_name not in columns:
+                        raw.execute(
+                            f"ALTER TABLE {self._quote_sqlite_identifier(table_name)} "
+                            f"ADD COLUMN {self._quote_sqlite_identifier(column_name)} {ddl_type}"
+                        )
+            if version in (None, 1, 2):
+                # Schema v3: add the nullable wellbore foreign keys to the two
+                # longitudinal tables. The wellbores table itself was created
+                # above by the generic "missing table" step. Columns are added
+                # as plain nullable INTEGER (no fabricated backfill): existing
+                # rows keep wellbore_id = NULL ("unknown") until a deterministic
+                # attribution assigns them. ADD COLUMN cannot express an inline
+                # REFERENCES clause portably; the table rebuild below installs
+                # the physical FK on upgraded databases as well.
+                v3_upgrades = [
+                    ("sections", "wellbore_id", "INTEGER"),
+                    ("daily_reports", "wellbore_id", "INTEGER"),
+                ]
+                for table_name, column_name, ddl_type in v3_upgrades:
+                    if not self._raw_table_exists(raw, table_name):
+                        continue
+                    columns = {
+                        row[1] for row in raw.execute(
+                            f"PRAGMA table_info({self._quote_sqlite_identifier(table_name)})"
+                        ).fetchall()
+                    }
+                    if column_name not in columns:
+                        raw.execute(
+                            f"ALTER TABLE {self._quote_sqlite_identifier(table_name)} "
+                            f"ADD COLUMN {self._quote_sqlite_identifier(column_name)} {ddl_type}"
+                        )
+                # Close the physical-FK asymmetry: a v2->v3 upgraded database
+                # must enforce the wellbore FK exactly like a freshly created v3
+                # database, so a dangling wellbore_id can never be inserted and
+                # ON DELETE SET NULL is honoured at the storage layer too.
+                for table_name in ("sections", "daily_reports"):
+                    if self._raw_table_exists(raw, table_name):
+                        self._install_wellbore_foreign_key(raw, table_name)
+            # Verify and repair nullable contracts on every startup, including
+            # v2 databases whose live schema was changed by an old installer.
+            self._migrate_nullable_contracts(connection=raw)
+            raw.execute("DELETE FROM schema_version")
+            raw.execute(
+                "INSERT INTO schema_version(version, applied_at) VALUES (?, ?)",
+                (self.schema_version, _now_utc()),
+            )
+            foreign_key_errors = raw.execute("PRAGMA foreign_key_check").fetchall()
+            if foreign_key_errors:
+                raise RuntimeError(f"Foreign-key integrity check failed: {foreign_key_errors[:3]}")
+            self._verify_stored_ownership(raw)
+            raw.commit()
+            migration_started = False
+        except SchemaMigrationError:
+            if migration_started:
+                raw.rollback()
+            raise
+        except Exception as exc:
+            if migration_started:
+                raw.rollback()
+            issue = PersistenceIssue.from_exception(
+                exc,
+                stage="schema.migration",
+                entity="database",
+                operation="atomic-migrate",
+                status=ImportStatus.PERSISTENCE_ERROR.value,
+            )
+            raise SchemaMigrationError(issue) from exc
+        finally:
+            try:
+                raw.execute("PRAGMA foreign_keys=ON")
+                raw.commit()
+            finally:
+                raw.close()
+        self._verify_import_schema()
+
+    def audit_orm_schema_nullable_contract(self) -> list[dict]:
+        """Return installed ORM-nullability mismatches without modifying data."""
+        from sqlalchemy import inspect
+        inspector = inspect(self.engine)
+        mismatches = []
+        for table_name, model_table in Base.metadata.tables.items():
+            if table_name not in inspector.get_table_names():
+                continue
+            installed = {item["name"]: item for item in inspector.get_columns(table_name)}
+            for column in model_table.columns:
+                item = installed.get(column.name)
+                if item is not None and column.nullable and not item.get("nullable", True):
+                    mismatches.append({
+                        "table": table_name,
+                        "column": column.name,
+                        "orm_nullable": True,
+                        "database_nullable": False,
+                    })
+        return mismatches
+
+    def _bootstrap_passwords(self) -> Dict[str, str]:
+        """Resolve the same secure policy used by desktop setup and reset."""
+        if is_production_environment() and not _BCRYPT_AVAILABLE:
+            raise CredentialLifecycleError("BCRYPT_REQUIRED", "bcrypt is required for production authentication; install the application dependencies.")
+        return resolve_bootstrap_passwords(self._bootstrap_override)
+
+    def _reject_unsafe_existing_credentials(self, session) -> None:
+        """Reject development secrets for EVERY account, including renamed users."""
+        if not is_production_environment():
+            return
+        if not _BCRYPT_AVAILABLE:
+            raise CredentialLifecycleError("BCRYPT_REQUIRED", "bcrypt is required for production authentication; install the application dependencies.")
+        recovery = (" Close DrillMaster and back up the database. Configure secure bootstrap credentials, "
+                    "then run python reset_database.py to erase/recreate the entire database. "
+                    "Environment passwords do not overwrite existing accounts.")
+        for user in session.query(User).all():
+            if not re.fullmatch(r"\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}", str(user.password_hash)):
+                raise CredentialLifecycleError("UNSAFE_EXISTING_CREDENTIAL",
+                    "Production database contains a non-bcrypt or malformed credential." + recovery)
+            if any(self._verify_password(password, user.password_hash)
+                   for password in _DEVELOPMENT_FIXTURE_PASSWORDS.values()):
+                raise CredentialLifecycleError("UNSAFE_EXISTING_CREDENTIAL",
+                    "Production database contains an unsafe development credential." + recovery)
 
     def create_default_data(self):
         session = self.create_session()
         try:
             if session.query(User).count() == 0:
-                import os
-
-                admin_password = os.environ.get(
-                    "DRILLMASTER_ADMIN_PASSWORD",
-                    "admin123"
-                )
-                user_password = os.environ.get(
-                    "DRILLMASTER_USER_PASSWORD",
-                    "user123"
-                )
-
-                if admin_password == "admin123":
-                    logger.warning(
-                        "⚠️ Using default admin password. "
-                        "Set DRILLMASTER_ADMIN_PASSWORD env var for production."
-                    )
+                passwords = self._bootstrap_passwords()
 
                 users = [
-                    User(
+                    dict(
                         username="admin",
-                        password_hash=self._hash_password(admin_password),
                         full_name="Administrator",
                         email="admin@drillmaster.com",
                         role="admin",
@@ -1833,9 +3362,8 @@ class DatabaseManager:
                             "can_import": True,
                         }
                     ),
-                    User(
+                    dict(
                         username="engineer",
-                        password_hash=self._hash_password(user_password),
                         full_name="Drilling Engineer",
                         email="engineer@drillmaster.com",
                         role="engineer",
@@ -1850,9 +3378,8 @@ class DatabaseManager:
                             "can_import": True,
                         }
                     ),
-                    User(
+                    dict(
                         username="viewer",
-                        password_hash=self._hash_password("viewer123"),
                         full_name="Report Viewer",
                         email="viewer@drillmaster.com",
                         role="viewer",
@@ -1869,49 +3396,55 @@ class DatabaseManager:
                     ),
                 ]
                 for user in users:
-                    session.add(user)
+                    if user["username"] in passwords:
+                        session.add(User(**user, password_hash=self._hash_password(passwords[user["username"]])))
 
-                company = Company(
-                    name="Default Company",
-                    code="DC001",
-                    address="123 Industry St, Houston, TX",
-                    contact_person="John Smith",
-                    contact_email="info@company.com",
-                    contact_phone="+1-234-567-8900",
-                )
-                session.add(company)
-                project = Project(
-                    company=company,
-                    name="Default Project",
-                    code="DP001",
-                    location="Gulf of Mexico",
-                    start_date=datetime(2024, 1, 1).date(),
-                    status="Active",
-                    manager="Jane Doe",
-                    budget=5000000.00,
-                    currency="USD",
-                )
-                session.add(project)
-                well = Well(
-                    project=project,
-                    name="Default Well",
-                    code="DW001",
-                    field_name="Default Field",
-                    location="Block A-12",
-                    coordinates="28.5, -88.5",
-                    elevation=10.5,
-                    water_depth=1500.0,
-                    spud_date=datetime(2024, 3, 1).date(),
-                    target_depth=3500.0,
-                    status="Planning",
-                    well_type="Exploration",
-                    purpose="Oil Production",
-                    well_type_field="Offshore",
-                )
-                session.add(well)
+                if not is_production_environment():
+                    company = Company(
+                        name="Default Company",
+                        code="DC001",
+                        address="123 Industry St, Houston, TX",
+                        contact_person="John Smith",
+                        contact_email="info@company.com",
+                        contact_phone="+1-234-567-8900",
+                    )
+                    session.add(company)
+                    project = Project(
+                        company=company,
+                        name="Default Project",
+                        code="DP001",
+                        location="Gulf of Mexico",
+                        start_date=datetime(2024, 1, 1).date(),
+                        status="Active",
+                        manager="Jane Doe",
+                        budget=5000000.00,
+                        currency="USD",
+                    )
+                    session.add(project)
+                    well = Well(
+                        project=project,
+                        name="Default Well",
+                        code="DW001",
+                        field_name="Default Field",
+                        location="Block A-12",
+                        coordinates="28.5, -88.5",
+                        elevation=10.5,
+                        water_depth=1500.0,
+                        spud_date=datetime(2024, 3, 1).date(),
+                        target_depth=3500.0,
+                        status="Planning",
+                        well_type="Exploration",
+                        purpose="Oil Production",
+                        well_type_field="Offshore",
+                    )
+                    session.add(well)
                 session.commit()
+            else:
+                self._reject_unsafe_existing_credentials(session)
         except Exception as e:
             session.rollback()
+            if is_production_environment():
+                raise
             logger.error(f"Error creating default data: {str(e)}")
         finally:
             session.close()
@@ -1947,9 +3480,12 @@ class DatabaseManager:
             session.close()
             
     def _hash_password(self, password: str) -> str:
-        """Hash password - bcrypt اگر موجود باشد، وگرنه SHA-256"""
+        """Hash a password with bcrypt; weak fallback is development-only."""
+        if is_production_environment():
+            if not _BCRYPT_AVAILABLE:
+                raise CredentialLifecycleError("BCRYPT_REQUIRED", "bcrypt is required for production authentication.")
+            validate_production_password(password)
         if _BCRYPT_AVAILABLE:
-            # ✅ bcrypt با per-password salt
             salt = bcrypt.gensalt(rounds=12)
             return bcrypt.hashpw(
                 password.encode('utf-8'), salt
@@ -1991,6 +3527,9 @@ class DatabaseManager:
         return secrets.compare_digest(old_hash, stored_hash)
 
     def authenticate_user(self, username: str, password: str)-> Optional[Any]:
+        if is_production_environment() and is_development_password(password):
+            return None
+
         session = self.create_session()
         try:
             user = (
@@ -2002,6 +3541,8 @@ class DatabaseManager:
                 .first()
             )
 
+            if user and is_production_environment() and not str(user.password_hash).startswith(("$2a$", "$2b$", "$2y$")):
+                return None  # legacy SHA verification remains development-only
             if user and self._verify_password(
                 password, user.password_hash
             ):
@@ -2025,23 +3566,27 @@ class DatabaseManager:
                     session.rollback()
                 return type("UserObject", (), user_data)()
             return None
-        except Exception as e:
-            logger.error(f"Authentication error: {str(e)}")
+        except Exception:
+            logger.exception("Authentication error")
             return None
         finally:
             session.close()
-            
+
     def generic_save(self, model, data: dict):
         """Persist a mapped model using only columns declared by its table."""
         valid = {column.name for column in model.__table__.columns}
         values = {k: v for k, v in (data or {}).items() if k in valid and k != "id"}
         with self.session_scope() as session:
             obj = session.get(model, data.get("id")) if data and data.get("id") else None
+            if data and data.get("id") and obj is None:
+                raise ValueError(f"{model.__name__} no longer exists; reload before saving")
             if obj is None:
+                protect_bha_insert(session, model, values)
                 obj = model(**values)
                 session.add(obj)
                 session.flush()
             else:
+                protect_bha_record(obj)
                 for key, value in values.items():
                     setattr(obj, key, value)
                 session.flush()
@@ -2062,6 +3607,7 @@ class DatabaseManager:
             obj = session.get(model, object_id)
             if obj is None:
                 return False
+            protect_bha_record(obj)
             session.delete(obj)
             return True
 
@@ -2091,13 +3637,14 @@ class DatabaseManager:
                                 "name": well.name,
                                 "code": well.code,
                                 "status": well.status,
+                                "updated_at": well.updated_at,
                             })
                         company_data["projects"].append(project_data)
                     hierarchy.append(company_data)
                 return hierarchy
         except Exception as e:
             logger.error(f"Error getting hierarchy: {str(e)}")
-            return []
+            raise  # collection query failure is not an empty dataset
             
     def get_full_hierarchy(self):
         """
@@ -2113,8 +3660,35 @@ class DatabaseManager:
                 .joinedload(Project.wells)
                 .joinedload(Well.sections)
                 .joinedload(Section.daily_reports)
+            ).options(
+                joinedload(Company.projects)
+                .joinedload(Project.wells)
+                .joinedload(Well.wellbores)
             ).all()
             
+            def _section_data(section, well):
+                return {
+                    "id": section.id,
+                    "name": section.name,
+                    "well_id": well.id,
+                    "wellbore_id": section.wellbore_id,
+                    "reports": [
+                        {
+                            "id": r.id,
+                            "report_date": r.report_date,
+                            "report_number": r.report_number,
+                            "section_id": section.id,
+                            "well_id": well.id,
+                            "wellbore_id": section.wellbore_id,
+                        }
+                        for r in sorted(
+                            section.daily_reports,
+                            key=lambda r: r.report_date or date.min,
+                            reverse=True
+                        )[:50]
+                    ],
+                }
+
             hierarchy = []
             for company in companies:
                 company_data = {
@@ -2131,41 +3705,57 @@ class DatabaseManager:
                         "wells": [],
                     }
                     for well in project.wells:
+                        # Unknown depth sorts last; it is never ordered as 0 m.
+                        sorted_sections = sorted(
+                            well.sections,
+                            key=lambda s: (s.depth_from is None, s.depth_from or 0))
                         well_data = {
                             "id": well.id,
                             "name": well.name,
                             "code": well.code,
                             "status": well.status,
-                            "sections": [],
+                            # Flat section list preserved for backward
+                            # compatibility (legacy consumers / NULL-bore wells).
+                            "sections": [
+                                _section_data(s, well) for s in sorted_sections],
+                            # Bore-aware grouping: sections nested under their
+                            # owning wellbore so the UI can distinguish an
+                            # original hole from a sidetrack that reuses a
+                            # section name. Only populated when wellbores exist;
+                            # sections with an unknown bore appear under
+                            # ``unassigned_sections`` (never fabricated onto the
+                            # original bore).
+                            "wellbores": [],
+                            "unassigned_sections": [],
                         }
-                        for section in sorted(well.sections, key=lambda s: s.depth_from or 0):
-                            section_data = {
-                                "id": section.id,
-                                "name": section.name,
+                        sections_by_bore = {}
+                        for section in sorted_sections:
+                            sections_by_bore.setdefault(
+                                section.wellbore_id, []).append(
+                                    _section_data(section, well))
+                        for wb in sorted(well.wellbores, key=lambda w: w.id):
+                            well_data["wellbores"].append({
+                                "id": wb.id,
                                 "well_id": well.id,
-                                "reports": [
-                                    {
-                                        "id": r.id,
-                                        "report_date": r.report_date,
-                                        "report_number": r.report_number,
-                                        "section_id": section.id,
-                                        "well_id": well.id,
-                                    }
-                                    for r in sorted(
-                                        section.daily_reports,
-                                        key=lambda r: r.report_date or date.min,
-                                        reverse=True
-                                    )[:50]
-                                ],
-                            }
-                            well_data["sections"].append(section_data)
+                                "name": wb.name,
+                                "code": wb.code,
+                                "wellbore_type": wb.wellbore_type,
+                                "parent_wellbore_id": wb.parent_wellbore_id,
+                                "kickoff_md": wb.kickoff_md,
+                                "status": wb.status,
+                                "sections": sections_by_bore.get(wb.id, []),
+                            })
+                        # Sections whose bore is unknown (legacy NULL) — kept
+                        # visible and honestly labelled, not hidden or reattached.
+                        well_data["unassigned_sections"] = sections_by_bore.get(
+                            None, [])
                         project_data["wells"].append(well_data)
                     company_data["projects"].append(project_data)
                 hierarchy.append(company_data)
             return hierarchy
         except Exception as e:
             logger.error(f"Error getting full hierarchy: {e}")
-            return []
+            raise  # collection query failure is not an empty dataset
         finally:
             session.close()
             
@@ -2176,7 +3766,7 @@ class DatabaseManager:
             return [{"id": p.id, "name": p.name, "code": p.code} for p in projects]
         except Exception as e:
             logger.error(f"Error getting projects: {str(e)}")
-            return []
+            raise  # collection query failure is not an empty dataset
         finally:
             session.close()
 
@@ -2206,6 +3796,10 @@ class DatabaseManager:
                     "id": s.id,
                     "name": s.name,
                     "code": s.code,
+                    # Bore scope preserved: a section belongs to a specific
+                    # wellbore. NULL = legacy/un-attributed (unknown bore), never
+                    # silently reassigned to the original bore.
+                    "wellbore_id": s.wellbore_id,
                     "depth_from": s.depth_from,
                     "depth_to": s.depth_to,
                     "diameter": s.diameter,
@@ -2219,13 +3813,14 @@ class DatabaseManager:
             ]
         except Exception as e:
             logger.error(f"Error getting sections for well {well_id}: {str(e)}")
-            return []
+            raise  # collection query failure is not an empty dataset
         finally:
             session.close()
     
-    def save_section(self, section_data: dict):
-        """Save or update a section"""
-        session = self.create_session()
+    def save_section(self, section_data: dict, session: Optional[Session] = None):
+        """Save/update a section, optionally inside an import transaction."""
+        owns_session = session is None
+        session = session or self.create_session()
         try:
             if section_data.get("id"):
                 section = session.query(Section).filter(Section.id == section_data["id"]).first()
@@ -2239,15 +3834,220 @@ class DatabaseManager:
                 section = Section(**{k: v for k, v in section_data.items() if k in valid_keys and k != "id"})
                 session.add(section)
                 session.flush()
-            session.commit()
+            if owns_session:
+                session.commit()
             return section.id
         except Exception as e:
-            session.rollback()
-            logger.error(f"Error saving section: {e}")
+            if owns_session:
+                session.rollback()
+                logger.error(f"Error saving section: {e}")
+                return None
+            raise
+        finally:
+            if owns_session:
+                session.close()
+        
+    def save_wellbore(self, wellbore_data: dict, session: Optional[Session] = None):
+        """Save/update a Wellbore, optionally inside an import transaction.
+
+        Mirrors :meth:`save_section`: only real model columns are persisted,
+        and no values are fabricated. Sidetrack lineage (``parent_wellbore_id``,
+        ``kickoff_md``) is stored exactly as supplied — unknown stays NULL.
+        """
+        owns_session = session is None
+        session = session or self.create_session()
+        try:
+            if wellbore_data.get("id"):
+                wellbore = (
+                    session.query(Wellbore)
+                    .filter(Wellbore.id == wellbore_data["id"])
+                    .first()
+                )
+                if wellbore:
+                    # well_id is an identity field: a wellbore never migrates to
+                    # a different well (that would orphan its sections/reports).
+                    new_well_id = wellbore_data.get("well_id")
+                    if new_well_id is not None and new_well_id != wellbore.well_id:
+                        raise OwnershipIntegrityError(
+                            f"Cannot move wellbore {wellbore.id} from well "
+                            f"{wellbore.well_id} to well {new_well_id}: "
+                            "well_id is immutable"
+                        )
+                    for key, value in wellbore_data.items():
+                        if key not in ("id", "well_id") and hasattr(wellbore, key):
+                            setattr(wellbore, key, value)
+                    wellbore.updated_at = _now_utc()
+            else:
+                valid_keys = {column.name for column in Wellbore.__table__.columns}
+                wellbore = Wellbore(
+                    **{
+                        k: v
+                        for k, v in wellbore_data.items()
+                        if k in valid_keys and k != "id"
+                    }
+                )
+                session.add(wellbore)
+                session.flush()
+            if owns_session:
+                session.commit()
+            return wellbore.id
+        except OwnershipIntegrityError:
+            # Contradictory ownership is never silently swallowed.
+            if owns_session:
+                session.rollback()
+            raise
+        except Exception as e:
+            if owns_session:
+                session.rollback()
+                logger.error(f"Error saving wellbore: {e}")
+                return None
+            raise
+        finally:
+            if owns_session:
+                session.close()
+
+    def get_or_create_wellbore(
+        self,
+        well_id: int,
+        name: str,
+        session: Optional[Session] = None,
+        wellbore_type: str = "original",
+        parent_wellbore_id: Optional[int] = None,
+        kickoff_md: Optional[float] = None,
+    ) -> Optional[int]:
+        """Return the id of the wellbore ``name`` under ``well_id``, creating it
+        if absent.
+
+        Identity is ``(well_id, name)`` — a wellbore is never merged across
+        wells, and a sidetrack (a distinct name such as ``"ST #1"``) is never
+        collapsed into its parent. Nothing is fabricated: unknown lineage stays
+        NULL.
+
+        When a wellbore with this ``(well_id, name)`` already exists, its
+        authoritative identity metadata is reconciled against the incoming
+        values (import-identity safety, §23):
+
+        * ``wellbore_type`` or ``parent_wellbore_id`` that CONTRADICT the stored
+          non-null values (e.g. ``original`` vs ``sidetrack``, or a different
+          parent bore) are a conflict and raise ``OwnershipIntegrityError`` —
+          authoritative lineage is never silently mutated.
+        * A stored value that is NULL/unknown is safely ENRICHED from an explicit
+          incoming value (e.g. first-known kickoff_md or parent). Enrichment
+          never overwrites a known value.
+        * Everything matching (or incoming values omitted) is IDEMPOTENT.
+        """
+        if well_id is None or not name:
             return None
+        owns_session = session is None
+        session = session or self.create_session()
+        try:
+            existing = (
+                session.query(Wellbore)
+                .filter(Wellbore.well_id == well_id, Wellbore.name == name)
+                .first()
+            )
+            if existing:
+                self._reconcile_wellbore_identity(
+                    existing, wellbore_type, parent_wellbore_id, kickoff_md)
+                if owns_session:
+                    session.commit()
+                return existing.id
+            wellbore = Wellbore(
+                well_id=well_id,
+                name=name,
+                wellbore_type=wellbore_type,
+                parent_wellbore_id=parent_wellbore_id,
+                kickoff_md=kickoff_md,
+            )
+            session.add(wellbore)
+            session.flush()
+            if owns_session:
+                session.commit()
+            return wellbore.id
+        except OwnershipIntegrityError:
+            # Contradictory ownership is never silently swallowed.
+            if owns_session:
+                session.rollback()
+            raise
+        except Exception as e:
+            if owns_session:
+                session.rollback()
+                logger.error(f"Error resolving wellbore: {e}")
+                return None
+            raise
+        finally:
+            if owns_session:
+                session.close()
+
+    @staticmethod
+    def _reconcile_wellbore_identity(
+        existing, wellbore_type, parent_wellbore_id, kickoff_md
+    ):
+        """Reconcile an incoming wellbore identity against the stored row.
+
+        Raises ``OwnershipIntegrityError`` on a genuine contradiction (two
+        known-but-different values for type or parent). Safely enriches a stored
+        NULL from an explicit incoming value. Never overwrites a known value.
+        """
+        # wellbore_type: this column is NOT NULL (create default "original"), so
+        # a stored "original" cannot be distinguished from an explicitly-asserted
+        # "original". Flipping a bore's fundamental type is high-risk, so a plain
+        # "original" incoming value (the caller's non-asserted fallback) is
+        # treated as "no assertion" and ignored, while an EXPLICIT incoming type
+        # that differs from the stored type is a CONFLICT — never a silent flip.
+        incoming_type_asserted = bool(wellbore_type) and wellbore_type != "original"
+        if incoming_type_asserted and wellbore_type != existing.wellbore_type:
+            raise OwnershipIntegrityError(
+                f"Wellbore '{existing.name}' type conflict: stored "
+                f"'{existing.wellbore_type}' vs incoming '{wellbore_type}'. "
+                f"Authoritative identity is not silently mutated (review needed).")
+
+        # parent_wellbore_id: a different KNOWN parent is a lineage conflict; a
+        # stored NULL is enriched from an explicit incoming parent.
+        if parent_wellbore_id is not None:
+            if existing.parent_wellbore_id is None:
+                existing.parent_wellbore_id = parent_wellbore_id
+            elif existing.parent_wellbore_id != parent_wellbore_id:
+                raise OwnershipIntegrityError(
+                    f"Wellbore '{existing.name}' parent conflict: stored "
+                    f"parent {existing.parent_wellbore_id} vs incoming "
+                    f"{parent_wellbore_id}. Lineage is not silently changed.")
+
+        # kickoff_md: safe enrichment of an unknown depth; a different known
+        # value is left as-is (no silent overwrite) — a measured-depth revision
+        # is an explicit edit, not an import side effect.
+        if kickoff_md is not None and existing.kickoff_md is None:
+            existing.kickoff_md = kickoff_md
+
+    def get_wellbores_by_well(self, well_id: int) -> List[Dict[str, Any]]:
+        """Return all wellbores for a well as plain dicts (ordered by id)."""
+        session = self.create_session()
+        try:
+            wellbores = (
+                session.query(Wellbore)
+                .filter(Wellbore.well_id == well_id)
+                .order_by(Wellbore.id)
+                .all()
+            )
+            return [
+                {
+                    "id": wb.id,
+                    "well_id": wb.well_id,
+                    "name": wb.name,
+                    "code": wb.code,
+                    "wellbore_type": wb.wellbore_type,
+                    "parent_wellbore_id": wb.parent_wellbore_id,
+                    "kickoff_md": wb.kickoff_md,
+                    "status": wb.status,
+                }
+                for wb in wellbores
+            ]
+        except Exception as e:
+            logger.error(f"Error getting wellbores for well {well_id}: {str(e)}")
+            raise  # collection query failure is not an empty dataset
         finally:
             session.close()
-        
+
     def get_daily_reports_by_section(self, section_id: int)-> List[Dict[str, Any]]:
         session = self.create_session()
         try:
@@ -2268,13 +4068,18 @@ class DatabaseManager:
                     "summary": r.summary,
                     "status": r.status,
                     "well_id": r.well_id,
+                    # Bore scope preserved in the selection/display payload: a
+                    # report belongs to a specific wellbore. NULL = unknown bore,
+                    # never silently reassigned. Consumers that build a selection
+                    # context (main_window, w2, w10) rely on this dimension.
+                    "wellbore_id": r.wellbore_id,
                     "section_id": r.section_id,
                 }
                 for r in reports
             ]
         except Exception as e:
             logger.error(f"Error getting daily reports for section {section_id}: {str(e)}")
-            return []
+            raise  # collection query failure is not an empty dataset
         finally:
             session.close()
             
@@ -2285,7 +4090,12 @@ class DatabaseManager:
 
         Workbook placeholders ('-', '--', 'N.C', 'n/a', ...) must never
         crash numeric columns — they become NULL, never 0. Non-numeric
-        strings on numeric columns are dropped to NULL as well.
+        strings on numeric columns are dropped to NULL as well, and so is
+        any value that is not a finite number ('nan', 'inf', '-inf',
+        '1e400', ``float('inf')``): a non-finite float is not a measurement,
+        it is unknown, so it becomes NULL exactly like the engineering
+        persistence helpers (``core/engineering/*_persistence.py``:
+        ``number if math.isfinite(number) else None``).
         """
         _PLACEHOLDERS = {"-", "--", "n/a", "na", "n.c", "not available", "none", ""}
         numeric_types = (Integer, Float, Numeric)
@@ -2302,47 +4112,36 @@ class DatabaseManager:
                         out[k] = None
                         continue
                     try:
-                        out[k] = float(v.replace(",", "").strip())
+                        number = float(v.replace(",", "").strip())
                     except (ValueError, TypeError):
                         out[k] = None
+                    else:
+                        out[k] = number if math.isfinite(number) else None
                 elif isinstance(v, bool):
                     out[k] = int(v)
+                elif isinstance(v, float) and not math.isfinite(v):
+                    # 'nan'/'inf' are accepted by float() but are not measurements;
+                    # never write one into an authoritative numeric column.
+                    out[k] = None
                 else:
                     out[k] = v
             else:
                 out[k] = v
         return out
 
-    def save_well(self, well_data: dict) -> bool:
-        date_fields = ['spud_date', 'start_hole_date', 'rig_move_date', 'report_date']
-        for field in date_fields:
+    def save_well(self, well_data: dict, session: Optional[Session] = None) -> bool:
+        from core.domain_records import optional_date
+        well_data = dict(well_data)
+        for field in ('spud_date', 'start_hole_date', 'rig_move_date', 'report_date'):
             if field in well_data:
-                val = well_data[field]
-                if isinstance(val, str):
-                    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y"):
-                        try:
-                            well_data[field] = datetime.strptime(val, fmt).date()
-                            break
-                        except ValueError:
-                            continue
-                    else:
-                        well_data[field] = None
-                elif isinstance(val, datetime):
-                    well_data[field] = val.date()
-                elif isinstance(val, date):
-                    pass
-                elif val is None:
-                    pass
-                else:
-                    well_data[field] = None
+                well_data[field] = optional_date(well_data[field])
 
-        # فیلتر فیلدهای نامعتبر
         valid_keys = {c.name for c in Well.__table__.columns}
-        filtered_data = {k: v for k, v in well_data.items() if k in valid_keys}
-
-        filtered_data = self.coerce_model_values(Well, filtered_data)
-
-        session = self.create_session()
+        filtered_data = self.coerce_model_values(
+            Well, {k: v for k, v in well_data.items() if k in valid_keys}
+        )
+        owns_session = session is None
+        session = session or self.create_session()
         try:
             well_id = filtered_data.get("id")
             if well_id:
@@ -2356,25 +4155,28 @@ class DatabaseManager:
             else:
                 well = Well(**filtered_data)
                 session.add(well)
-            session.commit()
-            
-            user_info = self._get_current_user_info
-            self.log_audit(
-                action="update" if well_id else "create",
-                entity_type="well",
-                entity_id=well.id if hasattr(well, 'id') else well_id,
-                entity_name=filtered_data.get("name", ""),
-                user_id=user_info['user_id'],
-                username=user_info['username'],
-            )
-
+            session.flush()
+            if owns_session:
+                session.commit()
+                user_info = self._get_current_user_info
+                self.log_audit(
+                    action="update" if well_id else "create",
+                    entity_type="well",
+                    entity_id=well.id,
+                    entity_name=filtered_data.get("name", ""),
+                    user_id=user_info['user_id'],
+                    username=user_info['username'],
+                )
             return True
         except Exception as e:
-            session.rollback()
-            logger.error(f"Error saving well: {e}")
-            return False
+            if owns_session:
+                session.rollback()
+                logger.error(f"Error saving well: {e}")
+                return False
+            raise
         finally:
-            session.close()
+            if owns_session:
+                session.close()
     
     def delete_well(self, well_id: int) -> bool:
         try:
@@ -2418,78 +4220,89 @@ class DatabaseManager:
             ]
         except Exception as e:
             logger.error(f"Error getting daily reports for well {well_id}: {str(e)}")
-            return []
+            raise  # collection query failure is not an empty dataset
         finally:
             session.close()
 
-    def save_daily_report(self, data: dict):
-        session = self.create_session()
+    def save_daily_report(self, data: dict, session: Optional[Session] = None):
+        owns_session = session is None
+        session = session or self.create_session()
         try:
             if "report_date" in data and isinstance(data["report_date"], str):
                 try:
-                    data["report_date"] = datetime.strptime(
-                        data["report_date"], "%Y-%m-%d"
-                    ).date()
+                    data["report_date"] = datetime.strptime(data["report_date"], "%Y-%m-%d").date()
                 except ValueError:
                     pass
-
             report_id = data.get("id")
             if report_id:
-                report = session.query(DailyReport).filter(
-                    DailyReport.id == report_id
-                ).first()
+                report = session.query(DailyReport).filter(DailyReport.id == report_id).first()
                 if not report:
                     return None
+                # Edit-lock: on the interactive edit path, a report whose
+                # workflow state is not editable (Submitted/Under Review/
+                # Approved/Final) must not be mutated. Status itself is
+                # workflow-controlled and never changed through a plain save.
+                if owns_session:
+                    from core.report_lifecycle import is_editable
+                    if not is_editable(report.status):
+                        raise ValueError(
+                            f"Report is {report.status or 'locked'} and cannot be edited. "
+                            "Use the workflow actions to change its state.")
                 valid_keys = {c.name for c in DailyReport.__table__.columns}
                 for k, v in data.items():
-                    if k != 'id' and k in valid_keys and hasattr(report, k):
-                        setattr(report, k, v)
+                    if k == 'id' or k not in valid_keys or not hasattr(report, k):
+                        continue
+                    if k == 'status' and owns_session:
+                        continue  # status is workflow-controlled, not editable via save
+                    setattr(report, k, v)
                 report.updated_at = _now_utc()
             else:
                 valid_keys = {c.name for c in DailyReport.__table__.columns}
-                filtered_data = {
-                    k: v for k, v in data.items() if k in valid_keys
-                }
-                report = DailyReport(**filtered_data)
+                report = DailyReport(**{k: v for k, v in data.items() if k in valid_keys})
                 session.add(report)
-                session.flush()
-
-            session.commit()
-            
-            from core.permissions import permissions
-            self.log_audit(
-                action="update" if report_id else "create",
-                entity_type="daily_report",
-                entity_id=report.id,
-                entity_name=f"Report #{report.report_number}",
-                user_id=permissions.user_id,
-                username=permissions.username,
-            )
-            
+            session.flush()
+            if owns_session:
+                session.commit()
+                from core.permissions import permissions
+                self.log_audit(
+                    action="update" if report_id else "create",
+                    entity_type="daily_report",
+                    entity_id=report.id,
+                    entity_name=f"Report #{report.report_number}",
+                    user_id=permissions.user_id,
+                    username=permissions.username,
+                )
             return {
                 "id": report.id,
                 "report_number": report.report_number,
                 "report_date": report.report_date,
                 "rig_day": report.rig_day,
-                "depth_0000": report.depth_0000 or 0,
-                "depth_0600": report.depth_0600 or 0,
-                "depth_2400": report.depth_2400 or 0,
+                "depth_0000": report.depth_0000,
+                "depth_0600": report.depth_0600,
+                "depth_2400": report.depth_2400,
                 "summary": report.summary or "",
                 "status": report.status or "Draft",
                 "well_id": report.well_id,
+                # Bore dimension in the save return payload so any caller that
+                # builds a selection/context from it keeps the wellbore scope
+                # (§46). Mirrors the persisted row; NULL = unknown bore.
+                "wellbore_id": report.wellbore_id,
                 "section_id": report.section_id,
             }
         except Exception as e:
-            session.rollback()
-            logger.error(f"Error saving daily report: {e}")
-            return None
+            if owns_session:
+                session.rollback()
+                logger.error(f"Error saving daily report: {e}")
+                return None
+            raise
         finally:
-            session.close()
+            if owns_session:
+                session.close()
             
     def snapshot_import_target(self, well_id, section_id, report_date):
         session = self.create_session()
         try:
-            report = session.query(DailyReport).filter_by(well_id=well_id, section_id=section_id, report_date=report_date).first()
+            report = session.query(DailyReport).filter_by(well_id=well_id, section_id=section_id, report_date=report_date).one_or_none()
             return self.create_import_snapshot(report.id) if report else None
         finally:
             session.close()
@@ -2509,7 +4322,8 @@ class DatabaseManager:
                     continue
                 for row in session.query(model).filter(getattr(model, "report_id") == report_id).all():
                     snapshot["children"].append((model, {column.name: getattr(row, column.name) for column in model.__table__.columns}))
-            return snapshot
+            from copy import deepcopy
+            return deepcopy(snapshot)
         finally:
             session.close()
 
@@ -2519,7 +4333,12 @@ class DatabaseManager:
             return False
         session = self.create_session()
         try:
+            from copy import deepcopy
+            snapshot = deepcopy(snapshot)
             report_id = snapshot["report"]["id"]
+            report = session.get(DailyReport, report_id)
+            if report is None:
+                return False
             for mapper in list(Base.registry.mappers):
                 model = mapper.class_
                 if model is not DailyReport and hasattr(model, "report_id"):
@@ -2556,26 +4375,143 @@ class DatabaseManager:
             session.delete(report)
             return True
 
-    def get_actual_vs_plan(self, well_id: int):
-        """Return plan-vs-actual metrics for monitoring dashboards."""
+    def get_planned_total_days(self, well_id: int):
+        """Return the active WellPlan's planned total days, or None if unknown.
+
+        Read-only helper so consumers (e.g. the W16 AFE header) can *mirror* the
+        authoritative planned-days value that the Planning tab owns, without
+        introducing a second persistence path for it.
+        """
         session = self.create_session()
         try:
-            plan = session.query(WellPlan).filter(WellPlan.well_id == well_id).order_by(WellPlan.created_at.desc()).first()
+            plan = session.query(WellPlan).filter(
+                WellPlan.well_id == well_id
+                , WellPlan.is_active == True
+            ).one_or_none()
+            if not plan or plan.planned_total_days is None:
+                return None
+            return float(plan.planned_total_days)
+        finally:
+            session.close()
+
+    def get_actual_vs_plan(self, well_id: int):
+        """Return data-backed plan-vs-actual metrics for monitoring dashboards.
+
+        Time, ROP and cost values are taken from persisted records only. In
+        particular, a report count is not treated as 24 hours and a rig-day
+        price is never invented here.
+        """
+        session = self.create_session()
+        try:
+            from core.actual_vs_plan import ActualVsPlanEngine
+
+            plan = session.query(WellPlan).filter(
+                WellPlan.well_id == well_id
+                , WellPlan.is_active == True
+            ).one_or_none()
             activities = []
             if plan:
-                activities = session.query(PlannedActivity).filter(PlannedActivity.plan_id == plan.id).all()
-            reports = session.query(DailyReport).filter(DailyReport.well_id == well_id).order_by(DailyReport.report_date).all()
-            planned_hours = sum(float(a.planned_duration_hours or 0) for a in activities)
-            planned_depth = max((float(a.planned_depth_to or 0) for a in activities), default=0.0)
-            actual_depth = max((float(r.depth_2400 or 0) for r in reports), default=0.0)
-            actual_hours = len(reports) * 24.0
-            def variance(planned, actual):
-                return {"planned": planned, "actual": actual, "delta": actual - planned, "pct": ((actual - planned) / planned * 100) if planned else 0.0}
-            return {"depth": variance(planned_depth, actual_depth), "hours": variance(planned_hours, actual_hours), "plan_id": plan.id if plan else None, "reports": len(reports)}
+                activities = session.query(PlannedActivity).filter(
+                    PlannedActivity.plan_id == plan.id
+                ).all()
+            reports = session.query(DailyReport).filter(
+                DailyReport.well_id == well_id
+            ).order_by(DailyReport.report_date).all()
+            time_logs = session.query(TimeLog24H).join(
+                DailyReport, TimeLog24H.report_id == DailyReport.id
+            ).filter(DailyReport.well_id == well_id).all()
+            drilling_params = session.query(DrillingParameters).filter(
+                DrillingParameters.well_id == well_id
+            ).all()
+            cost_records = session.query(CostRecord).filter(
+                CostRecord.well_id == well_id
+            ).all()
+
+            from core.actual_vs_plan import activity_plan_totals
+            from core.operational_time import summarize_time_logs
+            from core.cost_semantics import summarize_costs
+            totals = activity_plan_totals(activities)
+            planned_hours = totals["hours"] if activities else (
+                plan.planned_total_days * 24 if plan and plan.planned_total_days is not None else None)
+            planned_depth = totals["depth"] if activities else (plan.planned_final_depth if plan else None)
+
+            depths = [float(r.depth_2400) for r in reports if r.depth_2400 is not None]
+            actual_depth = max(depths) if depths else None
+            time_metrics = summarize_time_logs(time_logs)
+            actual_hours = time_metrics["total_hours"]
+            actual_npt_hours = time_metrics["npt_hours"]
+
+            actual_rops = [
+                float(r.rop_meter) for r in reports
+                if r.rop_meter is not None and float(r.rop_meter) >= 0
+            ]
+            if not actual_rops:
+                actual_rops = [
+                    float(p.avg_rop) for p in drilling_params
+                    if p.avg_rop is not None and float(p.avg_rop) >= 0
+                ]
+            planned_rop = (
+                planned_depth / planned_hours
+                if planned_depth is not None and planned_hours else None
+            )
+            actual_rop = (
+                sum(actual_rops) / len(actual_rops) if actual_rops else None
+            )
+            costs = summarize_costs(cost_records)
+            planned_cost, actual_cost = costs["total_planned"], costs["total_actual"]
+
+            comparison = ActualVsPlanEngine.compare_metrics(
+                {
+                    "depth_m": planned_depth,
+                    "hours": planned_hours,
+                    "rop_m_per_hr": planned_rop,
+                    "cost": planned_cost,
+                },
+                {
+                    "depth_m": actual_depth,
+                    "hours": actual_hours,
+                    "rop_m_per_hr": actual_rop,
+                    "cost": actual_cost,
+                },
+            )
+
+            def legacy_metric(key):
+                item = comparison.values.get(key) or comparison.metadata.get("unavailable_metrics", {}).get(key)
+                if item:
+                    return {
+                        "planned": item["planned"],
+                        "actual": item["actual"],
+                        "delta": item["variance"],
+                        "pct": item["variance_pct"],
+                        "status": item["status"],
+                    }
+                return {
+                    "planned": None,
+                    "actual": None,
+                    "delta": None,
+                    "pct": None,
+                    "status": "unavailable",
+                }
+
+            return {
+                "depth": legacy_metric("depth_m"),
+                "hours": legacy_metric("hours"),
+                "rop": legacy_metric("rop_m_per_hr"),
+                "cost": dict(legacy_metric("cost"), currency=costs["currency"], currency_status=costs["status"]),
+                "npt_hours": actual_npt_hours,
+                "plan_id": plan.id if plan else None,
+                "reports": len(reports),
+                "warnings": comparison.warnings,
+                "scope": comparison.scope,
+            }
         except Exception as exc:
             logger.error("Actual vs plan failed: %s", exc, exc_info=True)
-            empty = {"planned": 0.0, "actual": 0.0, "delta": 0.0, "pct": 0.0}
-            return {"depth": empty.copy(), "hours": empty.copy(), "plan_id": None, "reports": 0}
+            empty = {"planned": None, "actual": None, "delta": None, "pct": None, "status": "unavailable"}
+            return {
+                "depth": empty.copy(), "hours": empty.copy(), "rop": empty.copy(),
+                "cost": empty.copy(), "npt_hours": None, "plan_id": None,
+                "reports": 0, "warnings": [str(exc)], "scope": "PARTIAL / DATA-DEPENDENT",
+            }
         finally:
             session.close()
 
@@ -2596,7 +4532,13 @@ class DatabaseManager:
  
 
     def create_report_revision(self, report_id: int, status="Draft", comment=""):
-        """Store an immutable report snapshot and return its revision id."""
+        """Header-only revision writer — COMPATIBILITY/TEST ONLY.
+
+        Production revisions are created atomically inside :meth:`transition_report`
+        with a COMPLETE snapshot (report + all report-owned child records). This
+        legacy helper snapshots only the DailyReport header and has no production
+        callers. Do not use it for new work.
+        """
         with self.session_scope() as session:
             report = session.get(DailyReport, report_id)
             if report is None:
@@ -2613,7 +4555,14 @@ class DatabaseManager:
             return revision.id
 
     def set_report_status(self, report_id: int, status: str, user_id=None, comment=""):
-        """Change workflow state and persist an approval action."""
+        """Low-level status writer — COMPATIBILITY/TEST ONLY, not a production path.
+
+        This does NOT enforce the lifecycle state machine, permissions, actor
+        identity, content validation, or complete snapshots. The single
+        authoritative production mutation path is :meth:`transition_report`.
+        Retained only because existing tests exercise the raw status field; it
+        has no production callers. Do not wire UI or services to it.
+        """
         allowed = {"Draft", "Submitted", "Under Review", "Rejected", "Approved", "Final"}
         if status not in allowed:
             raise ValueError(f"Unsupported report status: {status}")
@@ -2628,15 +4577,167 @@ class DatabaseManager:
             session.add(ApprovalAction(report_id=report_id, action=action, status=status, user_id=user_id, comment=comment))
             return True
 
+    # ORM classes that make up the complete, report-owned DDR snapshot. Named
+    # here so core.report_snapshot stays Qt/ORM-agnostic and free of import
+    # cycles. Implements report_snapshot.CHILD_COLLECTIONS; this is deliberately
+    # distinct from next-day copying. Derived analytics are excluded.
+    _SNAPSHOT_MODELS = {
+        "TimeLog24H": TimeLog24H, "TimeLogMorning": TimeLogMorning,
+        "DrillingParameters": DrillingParameters, "MudReport": MudReport,
+        "CementReport": CementReport, "CasingReport": CasingReport,
+        "BitReport": BitReport, "BHAReport": BHAReport,
+        "DownholeEquipment": DownholeEquipment, "FormationReport": FormationReport,
+        "SafetyReport": SafetyReport, "WellboreSchematic": WellboreSchematic,
+        "TripSheetEntry": TripSheetEntry, "SurveyPoint": SurveyPoint,
+        "LogisticsPersonnel": LogisticsPersonnel, "ServiceCompanyPOB": ServiceCompanyPOB,
+        "FuelWaterInventory": FuelWaterInventory, "BulkMaterials": BulkMaterials,
+        "TransportLog": TransportLog, "TransportNotes": TransportNotes,
+        "ServiceCompany": ServiceCompany, "ServiceNote": ServiceNote,
+        "MaterialRequest": MaterialRequest, "EquipmentLog": EquipmentLog,
+        "SevenDaysLookahead": SevenDaysLookahead, "NPTReport": NPTReport,
+    }
+
+    def transition_report(self, report_id, action, has_permission=None, user_id=None,
+                          comment="", expected_well_id=None, expected_section_id=None):
+        """Atomically drive one Daily Report lifecycle transition.
+
+        Backend-authoritative: verifies an authenticated actor and permission,
+        validates the transition against the domain state machine, enforces
+        required comments, validates operational content for irreversible
+        actions, checks well/section ownership, then writes status change, a
+        COMPLETE immutable revision snapshot, and the approval action inside ONE
+        transaction. Any failure rolls the whole thing back — no partial
+        lifecycle state. Returns a ``core.report_lifecycle.LifecycleResult``.
+        """
+        from core.report_lifecycle import (
+            decide_transition, LifecycleOutcome, LifecycleResult,
+            ACTION_CREATES_REVISION, ACTION_REQUIRES_VALIDATION,
+        )
+        from core.report_snapshot import build_report_snapshot
+
+        # SECURITY: no unconditional authorization fallback. A caller with no
+        # permission resolver cannot authorize a lifecycle action (§14/§16/§53).
+        if has_permission is None:
+            return LifecycleResult(False, LifecycleOutcome.PERMISSION_DENIED,
+                                   "No authorization context supplied for lifecycle action.",
+                                   report_id=report_id)
+        # SECURITY: an authenticated actor is mandatory for lifecycle writes
+        # (§15/§40). We never persist a NULL actor onto a revision/action.
+        if user_id is None:
+            return LifecycleResult(False, LifecycleOutcome.PERMISSION_DENIED,
+                                   "An authenticated user is required for this action.",
+                                   report_id=report_id)
+        try:
+            with self.session_scope() as session:
+                report = session.get(DailyReport, report_id)
+                if report is None:
+                    return LifecycleResult(False, LifecycleOutcome.NOT_FOUND,
+                                           "Report not found.", report_id=report_id)
+
+                # Ownership / context integrity: a report must belong to the
+                # well and section the caller believes it does.
+                if expected_well_id is not None and report.well_id != expected_well_id:
+                    return LifecycleResult(
+                        False, LifecycleOutcome.CONTEXT_ERROR,
+                        "Report does not belong to the selected well.",
+                        report_id=report_id)
+                if expected_section_id is not None and report.section_id != expected_section_id:
+                    return LifecycleResult(
+                        False, LifecycleOutcome.CONTEXT_ERROR,
+                        "Report does not belong to the selected section.",
+                        report_id=report_id)
+
+                current_status = report.status or "Draft"
+                decision = decide_transition(current_status, action, has_permission, comment)
+                if not decision.ok:
+                    return LifecycleResult(False, decision.outcome, decision.message,
+                                           report_id=report_id, new_status=current_status)
+
+                # Server-side content validation for irreversible actions. A
+                # button being enabled is not validation (§18/§19/§20).
+                if action in ACTION_REQUIRES_VALIDATION:
+                    from core.validators import DailyReportValidator
+                    report_data = {c.name: getattr(report, c.name)
+                                   for c in DailyReport.__table__.columns}
+                    validation = DailyReportValidator.validate(report_data)
+                    if not validation.is_valid:
+                        reasons = "; ".join(e["message"] for e in validation.errors)
+                        return LifecycleResult(
+                            False, LifecycleOutcome.VALIDATION_ERROR,
+                            f"Report cannot be {action}ed: {reasons}",
+                            report_id=report_id, new_status=current_status)
+
+                next_status = decision.next_status
+                report.status = next_status
+                report.updated_at = _now_utc()
+                session.flush()  # ensure snapshot captures the new status/updated_at
+
+                revision_id = None
+                if action in ACTION_CREATES_REVISION:
+                    # COMPLETE self-contained snapshot of the persisted report
+                    # and all its report-owned operational child records (§4-§12).
+                    snapshot = build_report_snapshot(session, report, self._SNAPSHOT_MODELS)
+                    latest = session.query(ReportRevision).filter_by(report_id=report_id).order_by(ReportRevision.revision_no.desc()).first()
+                    revision = ReportRevision(
+                        report_id=report_id,
+                        revision_no=(latest.revision_no + 1 if latest else 1),
+                        status=next_status, snapshot=snapshot, created_by=user_id,
+                        comment=comment or "")
+                    session.add(revision)
+                    session.flush()
+                    revision_id = revision.id
+
+                approval = ApprovalAction(report_id=report_id, action=action,
+                                          status=next_status, user_id=user_id,
+                                          comment=comment or "")
+                session.add(approval)
+                session.flush()
+                action_id = approval.id
+
+                return LifecycleResult(True, LifecycleOutcome.SUCCESS, "",
+                                       report_id=report_id, new_status=next_status,
+                                       revision_id=revision_id, action_id=action_id)
+        except Exception as exc:  # persistence failure -> full rollback happened
+            logger.error("Report transition failed: %s", exc, exc_info=True)
+            return LifecycleResult(False, LifecycleOutcome.PERSISTENCE_ERROR,
+                                   str(exc), report_id=report_id)
+
+    def get_usernames_by_id(self, user_ids):
+        """Map a set of user ids to display names for audit/history views."""
+        ids = {uid for uid in (user_ids or []) if uid is not None}
+        if not ids:
+            return {}
+        with self.session_scope() as session:
+            rows = session.query(User).filter(User.id.in_(ids)).all()
+            return {u.id: (u.full_name or u.username) for u in rows}
+
     def get_report_revisions(self, report_id: int):
         with self.session_scope() as session:
             rows = session.query(ReportRevision).filter_by(report_id=report_id).order_by(ReportRevision.revision_no.desc()).all()
-            return [{"id": r.id, "revision_no": r.revision_no, "status": r.status, "snapshot": r.snapshot, "created_at": r.created_at, "comment": r.comment} for r in rows]
+            return [{"id": r.id, "revision_no": r.revision_no, "status": r.status, "snapshot": r.snapshot, "created_by": r.created_by, "created_at": r.created_at, "comment": r.comment} for r in rows]
 
     def get_approval_history(self, report_id: int):
         with self.session_scope() as session:
             rows = session.query(ApprovalAction).filter_by(report_id=report_id).order_by(ApprovalAction.created_at.desc()).all()
             return [{"id": a.id, "action": a.action, "status": a.status, "user_id": a.user_id, "comment": a.comment, "created_at": a.created_at} for a in rows]
+
+    def find_import_audit(self, fingerprint, session=None, well_id=None):
+        with (self.session_scope() if session is None else nullcontext(session)) as active:
+            rows = active.query(AuditLog).filter_by(action="ddr_import", entity_type="daily_report").all()
+            for row in rows:
+                data = json.loads(row.details)
+                target = active.get(DailyReport, row.entity_id)
+                if data.get("fingerprint") == fingerprint and target and (well_id is None or target.well_id == well_id):
+                    return data
+        return None
+
+    def save_import_audit(self, report_id, fingerprint, source, result, session=None):
+        """Immutable import lineage in the existing audit store, not UI fields."""
+        with (self.session_scope() if session is None else nullcontext(session)) as active:
+            active.add(AuditLog(action="ddr_import", entity_type="daily_report", entity_id=report_id,
+                                details=json.dumps({"fingerprint": fingerprint, "source": source, "result": result},
+                                                   ensure_ascii=False, default=str)))
+            active.flush()
 
     def _save_atomic(self, session, model, data: dict):
         """Internal atomic save using provided session."""
@@ -2654,7 +4755,7 @@ class DatabaseManager:
             session.flush()
         return obj.id
 
-    def save_imported_multi_tab_data_atomic(self, well_id: int, report_id: int, extracted: dict) -> dict:
+    def save_imported_multi_tab_data_atomic(self, well_id: int, report_id: int, extracted: dict, session: Optional[Session] = None) -> dict:
         """Atomic transaction for all import tables.
 
         Implements:
@@ -2681,71 +4782,219 @@ class DatabaseManager:
         - No orphan child data
         - Previous report not corrupted (via snapshot)
         """
-        results = {"failed": 0, "imported": 0}
+        from core.domain_records import isolate_import_rows
+        extracted, isolated_reviews = isolate_import_rows(extracted)
+        if session is None:
+            # The orchestration boundary verifies once before opening its
+            # caller-owned session. Reusing a session must not open a second
+            # raw connection or transaction underneath it.
+            self.assert_import_schema_supported()
+        results = {
+            "failed": 0,
+            "imported": 0,
+            "review": 0,
+            "validation_errors": 0,
+            "status": ImportStatus.ACCEPT.value,
+            "diagnostics": [],
+            "review_rows": isolated_reviews,
+        }
+        results["review"] = len(isolated_reviews)
         try:
-            with self.session_scope() as session:
+            with (self.session_scope() if session is None else nullcontext(session)) as session:
                 report_obj = session.get(DailyReport, report_id)
                 if report_obj is None:
-                    results["failed"] += 1
                     raise ValueError(f"Report {report_id} not found for atomic import")
                 imported_report_date = report_obj.report_date
+                # Existing installations may still have the historical
+                # NOT NULL survey-angle columns. Do not attempt a destructive
+                # schema rewrite; reject incomplete rows there and preserve
+                # NULLs on newly created schemas.
+                from sqlalchemy import inspect
+                survey_columns = {
+                    column["name"]: column.get("nullable", True)
+                    for column in inspect(session.connection()).get_columns("survey_points")
+                }
+                survey_angles_nullable = (
+                    survey_columns.get("inc", False)
+                    and survey_columns.get("azi", False)
+                )
 
                 # Helper to count
-                def count(key, ok):
-                    if ok:
-                        results[key] = results.get(key, 0) + (1 if not isinstance(ok, int) else ok)
-                        results["imported"] += (1 if not isinstance(ok, int) else ok)
-                    else:
-                        results["failed"] += 1
+                def count(key, ok, *, review=False, reason=""):
+                    amount = 1 if not isinstance(ok, int) else ok
+                    if amount:
+                        results[key] = results.get(key, 0) + amount
+                        results["imported"] += amount
+                    elif review:
+                        results["review"] += 1
+                        results.setdefault("review_rows", []).append({
+                            "entity": key,
+                            "field": "",
+                            "source_location": {},
+                            "source_cell": "",
+                            "reason": reason or "Source row requires review and was not persisted",
+                            "classification": "persistence-review",
+                            "mapping_method": "persistence-validation",
+                            "expected_type": "canonical value",
+                            "status": "REVIEW_REQUIRED",
+                            "decision": "REVIEW",
+                        })
 
-                # 1. Surveys
-                surveys = extracted.get("surveys", [])
-                if surveys:
-                    valid = []
-                    for s in surveys:
-                        if not isinstance(s, dict):
-                            continue
-                        s = dict(s)
-                        s["well_id"] = well_id
-                        s["report_id"] = report_id
-                        if s.get("md") in (None, ""):
-                            results["failed"] += 1
-                            continue
-                        valid.append(s)
-                    # Bulk delete previous survey points for this report? Keep existing, add new
-                    def _sfloat(val):
-                        # Missing/blank source values stay NULL — never
-                        # invent 0 for azi/tvd/north/east/vs/hd/dls.
-                        if val in (None, ""):
-                            return None
-                        try:
-                            return float(val)
-                        except (TypeError, ValueError):
-                            return None
-                    for s in valid:
-                        # inc/azi are NOT NULL in the model (engineering
-                        # consumers assume floats) -> keep the 0 fallback
-                        # there; all other derived columns stay NULL when
-                        # the source omits them (no invented values).
-                        sp = SurveyPoint(
-                            well_id=s.get("well_id"),
-                            report_id=s.get("report_id"),
-                            md=float(s.get("md", 0)),
-                            inc=_sfloat(s.get("inc")) or 0.0,
-                            azi=_sfloat(s.get("azi")) or 0.0,
-                            tvd=_sfloat(s.get("tvd")),
-                            north=_sfloat(s.get("north")),
-                            east=_sfloat(s.get("east")),
-                            vs=_sfloat(s.get("vs")),
-                            hd=_sfloat(s.get("hd")),
-                            dls=_sfloat(s.get("dls")),
-                            tool=str(s.get("tool", "MWD")),
-                            remarks=s.get("remarks"),
-                            measured_at=s.get("measured_at"),
+                def validation_issue(*, entity, field="", row=None, source=None, original=None, normalized=None, message=""):
+                    results["validation_errors"] = results.get("validation_errors", 0) + 1
+                    results.setdefault("diagnostics", []).append(PersistenceIssue(
+                        stage="persistence.validation",
+                        entity=entity,
+                        field=field,
+                        source=source,
+                        row=row,
+                        original_value=original,
+                        normalized_value=normalized,
+                        expected_type="canonical value",
+                        operation="validate",
+                        message=message,
+                        status="VALIDATION_ERROR",
+                    ).to_dict())
+
+                def review_issue(*, entity, field="", row=None, source=None, original=None, message=""):
+                    results["review"] = results.get("review", 0) + 1
+                    location = dict(source) if isinstance(source, dict) else {}
+                    location.setdefault("row", row)
+                    results.setdefault("review_rows", []).append({
+                        "entity": entity,
+                        "field": field,
+                        "row": row,
+                        "source_location": location,
+                        "source_cell": location.get("cell") or location.get("address") or "",
+                        "original_value": original,
+                        "normalized_value": None,
+                        "classification": _review_classification(entity, field, message),
+                        "reason": message,
+                        "status": ImportStatus.REVIEW_REQUIRED.value,
+                        "decision": "REVIEW",
+                        "mapping_method": "persistence-validation",
+                        "expected_type": "canonical value",
+                    })
+
+                def _source_for_row(row):
+                    if not isinstance(row, dict):
+                        return {}
+                    location = dict(row.get("_source_location") or {})
+                    cells = row.get("_source_cells")
+                    if cells is not None:
+                        location.setdefault("cells", cells)
+                    location.setdefault("file", row.get("_source_file", ""))
+                    location.setdefault("sheet", row.get("_source_sheet", ""))
+                    location.setdefault("row", row.get("_source_row"))
+                    location.setdefault("table", "")
+                    return location
+
+                def _review_classification(entity, field, message):
+                    text = str(message or "").lower()
+                    if "continuation" in text:
+                        return "continuation-row"
+                    if "angle" in text or "survey" in str(entity).lower():
+                        return "survey-ambiguity"
+                    if "bop" in str(entity).lower() or "component type" in text:
+                        return "bop-ambiguity"
+                    if "missing" in text or "required" in text:
+                        return "missing-required-value"
+                    return "persistence-review"
+
+                def _required_text(row, names):
+                    return any(str(row.get(name, "") or "").strip() for name in names)
+
+                def _number_value(value):
+                    if value in (None, ""):
+                        return None
+                    try:
+                        number = float(value)
+                    except (TypeError, ValueError):
+                        return None
+                    return number if math.isfinite(number) else None
+
+                # Validate every row that would otherwise be discarded by a
+                # report-scoped phase. The old ``continue`` branches remain
+                # defensive guards, but no malformed source row is silent.
+                required_rows = (
+                    ("pob_records", ("company_name",)),
+                    ("service_companies", ("company_name",)),
+                    ("lookahead", ("activity",)),
+                    ("casing_data", ("size",)),
+                    ("cement_additives", ("material_type",)),
+                    ("bha_components", ("component_name", "name")),
+                    ("downhole_equipment", ("equipment_name", "name")),
+                    ("formation_data", ("formation_name", "name")),
+                    ("bulk_materials", ("material_name",)),
+                    ("bop_components", ("component_name", "name")),
+                    ("waste_records", ("waste_type",)),
+                    ("cost_records", ("category", "cost_category")),
+                    ("equipment_logs", ("equipment_name",)),
+                )
+                for collection, names in required_rows:
+                    collection_rows = extracted.get(collection) or []
+                    if not isinstance(collection_rows, list):
+                        continue
+                    for row_number, row in enumerate(collection_rows, 1):
+                        if not isinstance(row, dict):
+                            review_issue(
+                                entity=collection, row=row_number, source=None,
+                                original=row, message="Source row is not a mapping; row retained for review"
+                            )
+                        elif not _required_text(row, names):
+                            review_issue(
+                                entity=collection, field="/".join(names), row=row_number,
+                                source=_source_for_row(row), original=row,
+                                message=f"Required source field missing: {' or '.join(names)}; row retained for review"
+                            )
+
+                for key, value in (extracted.get("logistics") or {}).items() if isinstance(extracted.get("logistics"), dict) else []:
+                    if value not in (None, "") and _number_value(value) is None and str(key).startswith("pob_"):
+                        validation_issue(
+                            entity="logistics", field=str(key), original=value,
+                            message="Personnel count must be numeric when supplied"
                         )
-                        session.add(sp)
-                    count("surveys", len(valid))
-                    session.flush()
+
+                for collection, field_name in (("waste_records", "volume"),):
+                    for row_number, row in enumerate(extracted.get(collection) or [], 1):
+                        if isinstance(row, dict) and row.get(field_name) in (None, ""):
+                            review_issue(
+                                entity=collection, field=field_name, row=row_number,
+                                source=_source_for_row(row), original=row,
+                                message=f"Required source field missing: {field_name}; row retained for review"
+                            )
+
+                for row_number, row in enumerate(extracted.get("bop_components") or [], 1):
+                    if isinstance(row, dict):
+                        if not _required_text(row, ("component_type", "type")):
+                            review_issue(entity="bop_components", field="component_type", row=row_number, source=_source_for_row(row), original=row, message="BOP component type is required; no type was invented")
+                        if row.get("working_pressure") in (None, ""):
+                            review_issue(entity="bop_components", field="working_pressure", row=row_number, source=_source_for_row(row), original=row.get("working_pressure"), message="Working pressure is required; row retained for review")
+                        elif _number_value(row.get("working_pressure")) is None:
+                            validation_issue(entity="bop_components", field="working_pressure", row=row_number, source=_source_for_row(row), original=row.get("working_pressure"), message="Working pressure must be numeric")
+
+                for collection, field_name in (("waste_records", "volume"), ("equipment_logs", "hours_worked")):
+                    for row_number, row in enumerate(extracted.get(collection) or [], 1):
+                        if isinstance(row, dict) and row.get(field_name) not in (None, "") and _number_value(row.get(field_name)) is None:
+                            validation_issue(entity=collection, field=field_name, row=row_number, source=_source_for_row(row), original=row.get(field_name), message=f"{field_name} must be numeric when supplied")
+
+                if results.get("validation_errors"):
+                    results["status"] = ImportStatus.VALIDATION_ERROR.value
+                    return results
+
+                # 1. Surveys: same domain service used by manual Save.
+                surveys = extracted.get("surveys") or []
+                if surveys:
+                    result = self.save_survey_records([
+                        dict(row, well_id=well_id, report_id=report_id, section_id=report_obj.section_id)
+                        if isinstance(row, dict) else row for row in surveys
+                    ], session=session)
+                    count("surveys", result["accepted"])
+                    results["review"] += len(result["review_items"])
+                    results["survey_review"] = len(result["review_items"])
+                    results["review_rows"].extend(result["review_items"])
+                    results["survey_rejected"] = result["rejected"]
+                    results["survey_calculated"] = result["calculated"]
 
                 # 2. POB
                 pobs = extracted.get("pob_records") or []
@@ -2844,7 +5093,8 @@ class DatabaseManager:
                             return None
 
                         day_val = la.get("day") or la.get("date_start")
-                        plan_date = day_val.date() if isinstance(day_val, datetime) else imported_report_date
+                        parsed_day = _to_dt(day_val)
+                        plan_date = day_val if isinstance(day_val, date) and not isinstance(day_val, datetime) else (parsed_day.date() if parsed_day else imported_report_date)
                         session.add(SevenDaysLookahead(
                             well_id=well_id,
                             section_id=report_obj.section_id,
@@ -2857,9 +5107,12 @@ class DatabaseManager:
                             remarks=remarks,
                             status="Planned",
                             priority="Normal",
-                            progress_percentage=0,
-                            actual_start=_to_dt(la.get("date_start")),
-                            actual_end=_to_dt(la.get("date_end")),
+                            # No progress column exists in the source: unknown, not 0%.
+                            progress_percentage=None,
+                            # Planned dates are not evidence of actual execution.
+                            # Original scheduled start/end remain in import audit.
+                            actual_start=_to_dt(la.get("actual_start")),
+                            actual_end=_to_dt(la.get("actual_end")),
                         ))
                         saved += 1
                     count("lookahead", saved)
@@ -2987,6 +5240,7 @@ class DatabaseManager:
                     bha["report_id"] = report_id
                     existing = session.query(BHAReport).filter(BHAReport.report_id == report_id).first()
                     if existing:
+                        require_editable_bha(existing.bha_data_json)
                         existing.bha_name = bha.get("bha_name", existing.bha_name)
                         existing.bha_data_json = bha.get("bha_data", existing.bha_data_json)
                         existing.updated_at = _now_utc()
@@ -2997,8 +5251,19 @@ class DatabaseManager:
                     # Row-oriented BHA table (component_name/od/length/...)
                     # -> BHAReport.bha_data_json, consumed by the BHA tab.
                     existing = session.query(BHAReport).filter(BHAReport.report_id == report_id).first()
-                    rows = [dict(r) for r in bha_components if isinstance(r, dict) and str(r.get("component_name", "")).strip()]
+                    from core.domain_records import bha_record
+                    rows = [bha_record(r) for r in bha_components if isinstance(r, dict) and str(r.get("component_name") or r.get("Component Name") or "").strip()]
+                    from core.domain_records import BHA_FIELDS, is_metadata_value
+                    for source_row, mapped in zip(bha_components, rows):
+                        if not mapped.get("Tool Type"):
+                            review_issue(entity="bha", field="tool_type", source=_source_for_row(source_row), original=source_row.get("component_name"), message="BHA tool type requires catalogue review")
+                        for target, aliases in BHA_FIELDS.items():
+                            raw = next((source_row[k] for k in (target, *aliases) if source_row.get(k) is not None), None)
+                            if raw is not None and mapped.get(target) is None:
+                                review_issue(entity="bha", field=target, source=_source_for_row(source_row), original=raw,
+                                             message="Metadata is not domain data" if is_metadata_value(raw) else "Invalid or unresolved BHA field")
                     if existing:
+                        require_editable_bha(existing.bha_data_json)
                         existing.bha_name = existing.bha_name or "Imported BHA"
                         existing.bha_data_json = rows or existing.bha_data_json
                         existing.updated_at = _now_utc()
@@ -3010,7 +5275,8 @@ class DatabaseManager:
                 # 6b. Downhole equipment (row-oriented table)
                 downhole_rows = extracted.get("downhole_equipment") or []
                 if isinstance(downhole_rows, list) and downhole_rows:
-                    rows = [dict(r) for r in downhole_rows if isinstance(r, dict) and str(r.get("equipment_name", "")).strip()]
+                    from core.domain_records import named_record, DOWNHOLE_FIELDS
+                    rows = [named_record(r, DOWNHOLE_FIELDS) for r in downhole_rows if isinstance(r, dict) and str(r.get("equipment_name", "")).strip()]
                     if rows:
                         existing = session.query(DownholeEquipment).filter(DownholeEquipment.report_id == report_id).first()
                         if existing:
@@ -3023,7 +5289,8 @@ class DatabaseManager:
                 # 6c. Formation tops (row-oriented table)
                 formation_rows = extracted.get("formation_data") or []
                 if isinstance(formation_rows, list) and formation_rows:
-                    rows = [dict(r) for r in formation_rows if isinstance(r, dict) and str(r.get("name", "")).strip()]
+                    from core.domain_records import named_record, FORMATION_FIELDS
+                    rows = [named_record(r, FORMATION_FIELDS) for r in formation_rows if isinstance(r, dict) and str(r.get("name", "")).strip()]
                     if rows:
                         existing = session.query(FormationReport).filter(FormationReport.report_id == report_id).first()
                         if existing:
@@ -3034,8 +5301,31 @@ class DatabaseManager:
                                                         report_name="Imported Formations", formations_json=rows))
                         count("formation_data", len(rows))
 
-                # 7. Bulk Materials - Ledger aware
-                bulks = extracted.get("bulk_materials", [])
+                # Mud consumables and fuel/water inventory have distinct destinations.
+                # Use the manual MudReport service in the caller's transaction.
+                from core.domain_records import material_route, chemical_record
+                chemicals, bulks = [], []
+                for material in extracted.get("bulk_materials") or []:
+                    route = material_route(material)
+                    if route == "mud":
+                        chemical, resolution = chemical_record(material)
+                        chemicals.append(chemical)
+                        if not resolution.accepted:
+                            review_issue(entity="mud_chemical", field="type", source=_source_for_row(material),
+                                         original=chemical["product"], message=resolution.reason)
+                    elif route == "fuel_water":
+                        bulks.append(material)
+                    else:
+                        review_issue(entity="bulk_materials", field="material_name", source=_source_for_row(material),
+                                     original=material, message="Unsupported or ambiguous inventory destination; not routed to Fuel/Water")
+                if chemicals:
+                    self.save_mud_report({"well_id": well_id, "report_id": report_id,
+                                          "report_date": imported_report_date,
+                                          "chemicals_json": json.dumps(chemicals, ensure_ascii=False, default=str)}, session=session)
+                    count("mud_chemicals", len(chemicals))
+
+                # 7. Bulk Materials - only confirmed fuel/water materials
+
                 if bulks:
                     saved = 0
                     for b in bulks:
@@ -3048,8 +5338,10 @@ class DatabaseManager:
                         b["report_id"] = report_id
                         b.setdefault("report_date", imported_report_date)
                         # Calculate current_stock with ledger formula if not provided
-                        if b.get("current_stock") is None:
-                            init = float(b.get("initial_stock", 0) or 0)
+                        if b.get("on_hand") is not None:
+                            b["current_stock"] = b["on_hand"]
+                        if b.get("current_stock") is None and b.get("initial_stock") is not None:
+                            init = float(b["initial_stock"])
                             recv = float(b.get("received", 0) or 0)
                             used = float(b.get("used", 0) or 0)
                             ret = float(b.get("returned", 0) or 0)
@@ -3057,8 +5349,19 @@ class DatabaseManager:
                             b["current_stock"] = init + recv + adj - used - ret
                         valid_keys = {c.name for c in BulkMaterials.__table__.columns}
                         filtered = {k: v for k, v in b.items() if k in valid_keys and k != "id"}
-                        # Prevent negative stock - will be flagged but allow save, then warning
-                        session.add(BulkMaterials(**filtered))
+                        # Re-import of the same report must upsert, never
+                        # duplicate, the material rows it owns.
+                        existing_bulk = session.query(BulkMaterials).filter(
+                            BulkMaterials.report_id == report_id,
+                            BulkMaterials.material_name == b["material_name"],
+                        ).first()
+                        if existing_bulk:
+                            for key, value in filtered.items():
+                                if key not in ("id", "well_id", "report_id"):
+                                    setattr(existing_bulk, key, value)
+                            existing_bulk.updated_at = _now_utc()
+                        else:
+                            session.add(BulkMaterials(**filtered))
                         saved += 1
                     count("bulk_materials", saved)
 
@@ -3114,6 +5417,16 @@ class DatabaseManager:
                         )
                     valid_keys = {c.name for c in FuelWaterInventory.__table__.columns}
                     filtered = {k: v for k, v in fw.items() if k in valid_keys and k != "id"}
+                    # SQLAlchemy Python defaults also fire for omitted source
+                    # values. Explicit SQL NULL prevents fabricated quantities
+                    # (and a guessed diesel identity) in imported inventories.
+                    from sqlalchemy import null
+                    for column in FuelWaterInventory.__table__.columns:
+                        if column.nullable and column.default is not None and isinstance(column.type, (Float, Integer)) and not column.foreign_keys:
+                            if filtered.get(column.name) is None:
+                                filtered[column.name] = null()
+                    if not fw.get("fuel_type"):
+                        filtered["fuel_type"] = null()
                     existing = session.query(FuelWaterInventory).filter(FuelWaterInventory.report_id == report_id).first()
                     if existing:
                         for k, v in filtered.items():
@@ -3131,52 +5444,35 @@ class DatabaseManager:
                     safety["report_id"] = report_id
                     safety.setdefault("report_date", imported_report_date)
                     safety.setdefault("report_type", "Daily")
-                    # Drill-test dates: keep Gregorian dates only; other
-                    # tokens (e.g. Jalali '1403-07-30') are preserved as
-                    # provenance text — never stored as a wrong-calendar
-                    # date, never converted to 0.
-                    provenance = []
-                    for fld in ("last_fire_drill", "last_bop_drill",
-                                "last_h2s_drill", "last_bop_test"):
+                    # Unsupported calendars and unmapped fields remain audit
+                    # metadata. Never contaminate safety observations with lineage.
+                    date_source = {}
+                    from core.domain_records import optional_date
+                    for fld in ("last_fire_drill", "last_bop_drill", "last_h2s_drill", "last_bop_test"):
                         raw = safety.get(fld)
                         if raw in (None, ""):
                             continue
-                        parsed = None
-                        if isinstance(raw, datetime):
-                            parsed = raw.date()
-                        elif isinstance(raw, date):
-                            parsed = raw
-                        elif isinstance(raw, str):
-                            try:
-                                d = datetime.strptime(raw.strip(), "%Y-%m-%d").date()
-                                if 1990 <= d.year <= 2100:
-                                    parsed = d
-                            except ValueError:
-                                parsed = None
                         if fld == "last_bop_test":
-                            safety.pop("last_bop_test", None)
-                            provenance.append(
-                                f"Last BOP Test (original): {raw}"
-                            )
+                            safety.pop(fld, None)  # no matching SafetyReport column
+                            date_source[fld] = raw
                             continue
-                        safety[fld] = parsed
-                        if parsed is None:
-                            provenance.append(f"{fld} (original): {raw}")
-                    if provenance:
-                        obs = str(safety.get("safety_observations") or "").strip()
-                        safety["safety_observations"] = (
-                            (obs + "\n" if obs else "") + "\n".join(provenance)
-                        )
+                        try:
+                            safety[fld] = optional_date(raw)
+                        except ValueError:
+                            date_source[fld] = raw
+                            safety[fld] = None
+                    if date_source:
+                        session.add(AuditLog(action="import_source_metadata", entity_type="safety",
+                                             entity_id=report_id, details=json.dumps(date_source, default=str)))
                     valid_keys = {c.name for c in SafetyReport.__table__.columns}
                     filtered = {k: v for k, v in safety.items() if k in valid_keys and k != "id"}
                     filtered = self.coerce_model_values(SafetyReport, filtered)
-                    existing = session.query(SafetyReport).filter(SafetyReport.report_id == report_id).first()
-                    if existing:
-                        for k, v in filtered.items():
-                            setattr(existing, k, v)
-                        existing.updated_at = _now_utc()
-                    else:
-                        session.add(SafetyReport(**filtered))
+                    from sqlalchemy import null
+                    for column in SafetyReport.__table__.columns:
+                        if column.nullable and column.default is not None and isinstance(column.type, (Float, Integer)) and not column.foreign_keys:
+                            if filtered.get(column.name) is None:
+                                filtered[column.name] = null()
+                    self.save_safety_report(filtered, session=session)
                     count("safety_report", 1)
 
                 bops = extracted.get("bop_components", [])
@@ -3195,23 +5491,6 @@ class DatabaseManager:
                         # Canonical 'type' -> model component_type
                         if bp.get("type") and not bp.get("component_type"):
                             bp["component_type"] = bp["type"]
-                        # component_type is NOT NULL: infer a generic type
-                        # from the component name when the workbook omits it
-                        # (name-based classification, not company-specific).
-                        if not str(bp.get("component_type") or "").strip():
-                            comp_name = str(bp.get("component_name") or "").lower()
-                            if "annular" in comp_name:
-                                bp["component_type"] = "Annular"
-                            elif "ram" in comp_name or "blind" in comp_name or "shear" in comp_name:
-                                bp["component_type"] = "Ram"
-                            elif "spool" in comp_name:
-                                bp["component_type"] = "Spool"
-                            elif "choke" in comp_name or "kill" in comp_name:
-                                bp["component_type"] = "Choke/Kill"
-                            elif "hanger" in comp_name:
-                                bp["component_type"] = "Hanger"
-                            else:
-                                bp["component_type"] = "Other"
                         # 'rams' placeholder -> None (no invented values)
                         if str(bp.get("rams", "")).strip() in ("-", "--", "n/a"):
                             bp["rams"] = None
@@ -3237,9 +5516,10 @@ class DatabaseManager:
                                     f"{bp.get('remarks') or ''} "
                                     f"last_test original: {lt}"
                                 ).strip()
+                        if not str(bp.get("component_type") or "").strip():
+                            continue
                         bp["well_id"] = well_id
                         bp["report_id"] = report_id
-                        bp.setdefault("last_test_date", imported_report_date)
                         valid_keys = {c.name for c in BOPComponent.__table__.columns}
                         filtered = {k: v for k, v in bp.items() if k in valid_keys and k != "id"}
                         filtered = self.coerce_model_values(BOPComponent, filtered)
@@ -3282,10 +5562,21 @@ class DatabaseManager:
                             continue
                         c = dict(c)
                         c["well_id"] = well_id
+                        # Resolve the ``cost_category`` alias BEFORE filtering to
+                        # the physical columns. Reading it from the post-filter
+                        # dict never worked (``cost_category`` is not a column),
+                        # so a source row that carried its category only under
+                        # the alias was silently dropped together with its
+                        # amounts. Resolve against the raw row instead. A row
+                        # with neither ``category`` nor ``cost_category`` is
+                        # already routed to review by the required-field loop
+                        # above, so the bare ``continue`` never loses money.
+                        if not c.get("category") and c.get("cost_category"):
+                            c["category"] = c["cost_category"]
                         valid_keys = {cname.name for cname in CostRecord.__table__.columns}
                         filtered = {k: v for k, v in c.items() if k in valid_keys and k != "id"}
                         if not filtered.get("category"):
-                            filtered["category"] = filtered.get("cost_category", "Operational")
+                            continue
                         session.add(CostRecord(**filtered))
                         saved += 1
                     count("cost_records", saved)
@@ -3302,10 +5593,8 @@ class DatabaseManager:
                             continue
                         item["well_id"] = well_id
                         item["report_id"] = report_id
-                        try:
-                            item["hours_worked"] = float(item.get("hours_worked", 0) or 0)
-                        except (TypeError, ValueError):
-                            continue
+                        if item.get("hours_worked") not in (None, ""):
+                            item["hours_worked"] = float(item["hours_worked"])
                         valid_keys = {c.name for c in EquipmentLog.__table__.columns}
                         filtered = {k: v for k, v in item.items() if k in valid_keys and k != "id"}
                         session.add(EquipmentLog(**filtered))
@@ -3327,10 +5616,22 @@ class DatabaseManager:
                             notes_parts.append(f"cones: {sc['size_cones']}")
                         if sc.get("cum_hrs") not in (None, ""):
                             notes_parts.append(f"cum hrs: {sc['cum_hrs']}")
-                        try:
-                            hours = float(sc.get("daily_hrs", 0) or 0)
-                        except (TypeError, ValueError):
-                            hours = 0
+                        hours = None
+                        raw_hours = sc.get("daily_hrs")
+                        if raw_hours not in (None, ""):
+                            try:
+                                candidate = float(raw_hours)
+                            except (TypeError, ValueError):
+                                candidate = None
+                            if candidate is not None and math.isfinite(candidate) and candidate >= 0:
+                                hours = candidate
+                            else:
+                                review_issue(
+                                    entity="solid_control", field="daily_hrs",
+                                    source=_source_for_row(sc), original=raw_hours,
+                                    message="daily hours must be a finite non-negative "
+                                            "number; kept as unknown, never 0",
+                                )
                         session.add(EquipmentLog(
                             well_id=well_id, report_id=report_id,
                             equipment_name=name,
@@ -3348,12 +5649,15 @@ class DatabaseManager:
                     # Skip pure section-header labels (e.g. 'Material
                     # Request') — keep only genuine requested items.
                     if detail.lower() != "material request":
+                        from sqlalchemy import null
                         session.add(MaterialRequest(
                             well_id=well_id,
                             section_id=report_obj.section_id,
                             report_id=report_id,
                             request_date=imported_report_date,
                             requested_items=detail,
+                            requested_quantity=null(), requested_unit=null(),
+                            outstanding_quantity=null(), received_quantity=null(), backload_quantity=null(),
                         ))
                         count("material_requests", 1)
 
@@ -3373,199 +5677,43 @@ class DatabaseManager:
                     count("downhole_equipment", 1)
 
                 session.flush()
+                if results.get("validation_errors"):
+                    session.rollback()
+            results["status"] = determine_import_status(
+                validation_error=bool(results.get("validation_errors")),
+                review_required=bool(results.get("review")),
+            )
             return results
+        except PersistenceError:
+            raise
         except Exception as exc:
             logger.error(f"Atomic import failed, rollback: {exc}", exc_info=True)
             results["failed"] += 1
+            results["status"] = ImportStatus.PERSISTENCE_ERROR.value
             results["error"] = str(exc)
-            raise
+            issue = PersistenceIssue.from_exception(
+                exc,
+                stage="persistence.atomic_import",
+                entity="import_report",
+                operation="flush/commit",
+            )
+            results["diagnostics"].append(issue.to_dict())
+            raise PersistenceError(issue, result=results) from exc
 
     def save_imported_multi_tab_data(self, well_id: int, report_id: int, extracted: dict) -> dict:
+        """Persist imported sections through one atomic transaction only.
+
+        This compatibility name is still used by older callers, but the old
+        per-table rescue loop was unsafe: after an atomic failure it could
+        leave a partially written import.  There is intentionally no legacy
+        fallback here.
         """
-        ذخیره‌سازی یکپارچه داده‌های واردشده از اکسل برای تمامی تب‌های برنامه
-        (Surveys, POB, Casing, Cement, Bit, BHA, Bulk, Fuel/Water, Safety, BOP, Cost, Services)
+        return self.save_imported_multi_tab_data_atomic(well_id, report_id, extracted)
 
-        P0: Now uses atomic transaction internally. Falls back to legacy if needed.
-        """
-        try:
-            return self.save_imported_multi_tab_data_atomic(well_id, report_id, extracted)
-        except Exception as exc:
-            logger.warning(f"Atomic import failed, attempting legacy path: {exc}")
-            # Legacy path kept for backward compat but should not be used
-            results = {"failed": 0}
-            try:
-                report_record = self.get_daily_report_by_id(report_id) or {}
-                imported_report_date = report_record.get("report_date")
-
-                def count_result(key, value):
-                    if value:
-                        results[key] = results.get(key, 0) + 1
-                    else:
-                        results["failed"] += 1
-
-                def save_single(key, value):
-                    result = value()
-                    count_result(key, result)
-                    return result
-
-                # 1. Trajectory / Surveys -> SurveyPoint
-                surveys = extracted.get("surveys", [])
-                if surveys:
-                    for s in surveys:
-                        if isinstance(s, dict):
-                            s["well_id"] = well_id
-                            s["report_id"] = report_id
-                    if self.save_survey_points(surveys):
-                        results["surveys"] = len(surveys)
-                    else:
-                        results["failed"] += len(surveys)
-
-                # 2. Logistics / POB -> ServiceCompanyPOB
-                pobs = extracted.get("pob_records", [])
-                if pobs:
-                    saved_pobs = 0
-                    for p in pobs:
-                        if isinstance(p, dict):
-                            p["well_id"] = well_id
-                            p["report_id"] = report_id
-                            saved_pobs += bool(self.save_service_company_pob(p))
-                    results["pob_records"] = saved_pobs
-                    results["failed"] += len(pobs) - saved_pobs
-
-                # 2b. Services -> ServiceCompany
-                service_companies = extracted.get("service_companies", [])
-                if service_companies:
-                    saved_services = 0
-                    for company_data in service_companies:
-                        if not isinstance(company_data, dict):
-                            continue
-                        item = dict(company_data)
-                        if not str(item.get("company_name", "")).strip():
-                            continue
-                        item["well_id"] = well_id
-                        item["report_id"] = report_id
-                        if self.save_service_company(item):
-                            saved_services += 1
-                    results["service_companies"] = saved_services
-
-                # 3. Casing Report -> CasingReport
-                casing = extracted.get("casing_report")
-                if casing and isinstance(casing, dict):
-                    casing["well_id"] = well_id
-                    casing["report_id"] = report_id
-                    casing.setdefault("report_date", imported_report_date)
-                    save_single("casing_report", lambda: self.save_casing_report(casing))
-
-                # 4. Cement Report -> CementReport
-                cement = extracted.get("cement_report")
-                if cement and isinstance(cement, dict):
-                    cement["well_id"] = well_id
-                    cement["report_id"] = report_id
-                    cement.setdefault("report_date", imported_report_date)
-                    save_single("cement_report", lambda: self.save_cement_report(cement))
-
-                # 5. Bit Report -> BitReport
-                bit = extracted.get("bit_report")
-                if bit and isinstance(bit, dict):
-                    bit["report_id"] = report_id
-                    if "bit_records_json" not in bit:
-                        bit["bit_records_json"] = [dict(bit)]
-                    save_single("bit_report", lambda: self.save_bit_report(well_id, bit))
-
-                # 6. BHA Report -> BHAReport
-                bha = extracted.get("bha_report")
-                if bha and isinstance(bha, dict):
-                    bha["report_id"] = report_id
-                    save_single("bha_report", lambda: self.save_bha_report(well_id, bha))
-
-                # 7. Logistics Bulk Materials -> BulkMaterials
-                bulks = extracted.get("bulk_materials", [])
-                if bulks:
-                    saved_bulks = 0
-                    for b in bulks:
-                        if isinstance(b, dict):
-                            b["well_id"] = well_id
-                            b["report_id"] = report_id
-                            b.setdefault("report_date", imported_report_date)
-                            saved_bulks += bool(self.save_bulk_material(b))
-                    results["bulk_materials"] = saved_bulks
-                    results["failed"] += len(bulks) - saved_bulks
-
-                # 8. Fuel & Water Inventory -> FuelWaterInventory
-                fw = extracted.get("fuel_water")
-                if fw and isinstance(fw, dict):
-                    fw["well_id"] = well_id
-                    fw["report_id"] = report_id
-                    fw.setdefault("report_date", imported_report_date)
-                    save_single("fuel_water", lambda: self.save_fuel_water_inventory(fw))
-
-                # 9. Safety Report & BOP -> SafetyReport, BOPComponent, WasteRecord
-                safety = extracted.get("safety_report")
-                if safety and isinstance(safety, dict):
-                    safety["well_id"] = well_id
-                    safety["report_id"] = report_id
-                    safety.setdefault("report_date", imported_report_date)
-                    save_single("safety_report", lambda: self.save_safety_report(safety))
-
-                bops = extracted.get("bop_components", [])
-                if bops:
-                    saved_bops = 0
-                    for bp in bops:
-                        if isinstance(bp, dict):
-                            bp["well_id"] = well_id
-                            bp["report_id"] = report_id
-                            bp.setdefault("last_test_date", imported_report_date)
-                            saved_bops += bool(self.save_bop_component(bp))
-                    results["bop_components"] = saved_bops
-                    results["failed"] += len(bops) - saved_bops
-
-                wastes = extracted.get("waste_records", [])
-                if wastes:
-                    saved_waste = 0
-                    for w in wastes:
-                        if isinstance(w, dict):
-                            w["well_id"] = well_id
-                            w["report_id"] = report_id
-                            w.setdefault("record_date", imported_report_date)
-                            saved_waste += bool(self.save_waste_record(w))
-                    results["waste_records"] = saved_waste
-                    results["failed"] += len(wastes) - saved_waste
-
-                # 10. Cost Records -> CostRecord
-                costs = extracted.get("cost_records", [])
-                if costs:
-                    for c in costs:
-                        if isinstance(c, dict):
-                            c["well_id"] = well_id
-                            self.save_cost_record(c)
-                    results["cost_records"] = len(costs)
-
-                # 11. Equipment module records -> EquipmentLog
-                equipment_logs = extracted.get("equipment_logs", [])
-                if equipment_logs:
-                    saved_equipment = 0
-                    for log_data in equipment_logs:
-                        if not isinstance(log_data, dict):
-                            continue
-                        item = dict(log_data)
-                        item["well_id"] = well_id
-                        item["report_id"] = report_id
-                        if self.save_equipment_log(item):
-                            saved_equipment += 1
-                    results["equipment_logs"] = saved_equipment
-
-                # 12. Downhole Equipment -> DownholeEquipment
-                downhole = extracted.get("downhole_equipment")
-                if downhole and isinstance(downhole, dict):
-                    save_single("downhole_equipment", lambda: self.save_downhole_equipment(well_id, downhole))
-
-            except Exception as e:
-                logger.error(f"Error saving imported multi-tab data (legacy): {e}")
-            return results
-        
     # ---------- Drilling Parameters ----------
-    def save_drilling_parameters(self, data: dict):
-        session = self.create_session()
+    def save_drilling_parameters(self, data: dict, session: Optional[Session] = None):
+        owns_session = session is None
+        session = session or self.create_session()
         try:
             if data.get('report_id'):
                 existing = session.query(DrillingParameters).filter(
@@ -3578,31 +5726,33 @@ class DatabaseManager:
                 ).first()
             else:
                 existing = None
-
+            columns = set(DrillingParameters.__table__.columns.keys())
+            clean = self.coerce_model_values(
+                DrillingParameters, {k: v for k, v in data.items() if k in columns}
+            )
             if existing:
-                for key, value in data.items():
+                for key, value in clean.items():
                     if hasattr(existing, key) and key not in ['id', 'well_id', 'report_date', 'report_id']:
                         setattr(existing, key, value)
                 existing.updated_at = _now_utc()
                 record_id = existing.id
             else:
-                # Keep only columns the model knows (provenance-only keys
-                # like mw_unit/mw_original are ignored for storage).
-                columns = set(DrillingParameters.__table__.columns.keys())
-                clean = {k: v for k, v in data.items() if k in columns}
                 new_record = DrillingParameters(**clean)
                 session.add(new_record)
                 session.flush()
                 record_id = new_record.id
-
-            session.commit()
+            if owns_session:
+                session.commit()
             return record_id
         except Exception as e:
-            session.rollback()
-            logger.error(f"Error saving drilling parameters: {e}")
-            return None
+            if owns_session:
+                session.rollback()
+                logger.error(f"Error saving drilling parameters: {e}")
+                return None
+            raise
         finally:
-            session.close()
+            if owns_session:
+                session.close()
 
     def get_drilling_parameters(
         self,
@@ -3642,21 +5792,18 @@ class DatabaseManager:
             session.close()
 
     # ---------- Mud Report ----------
-    def save_mud_report(self, data: dict):
-        session = self.create_session()
+    def save_mud_report(self, data: dict, session: Optional[Session] = None):
+        owns_session = session is None
+        session = session or self.create_session()
         try:
             if data.get('report_id'):
-                existing = session.query(MudReport).filter(
-                    MudReport.report_id == data['report_id']
-                ).first()
+                existing = session.query(MudReport).filter(MudReport.report_id == data['report_id']).first()
             elif data.get('well_id') and data.get('report_date'):
                 existing = session.query(MudReport).filter(
-                    MudReport.well_id == data['well_id'],
-                    MudReport.report_date == data['report_date'],
+                    MudReport.well_id == data['well_id'], MudReport.report_date == data['report_date']
                 ).first()
             else:
                 existing = None
-
             if existing:
                 for key, value in data.items():
                     if hasattr(existing, key) and key not in ['id', 'well_id', 'report_date', 'report_id']:
@@ -3664,23 +5811,23 @@ class DatabaseManager:
                 existing.updated_at = _now_utc()
                 record_id = existing.id
             else:
-                # Keep only columns the model knows (provenance-only keys
-                # like mw_unit/mw_original are ignored for storage).
                 columns = set(MudReport.__table__.columns.keys())
-                clean = {k: v for k, v in data.items() if k in columns}
-                new_record = MudReport(**clean)
+                new_record = MudReport(**{k: v for k, v in data.items() if k in columns})
                 session.add(new_record)
                 session.flush()
                 record_id = new_record.id
-
-            session.commit()
+            if owns_session:
+                session.commit()
             return record_id
         except Exception as e:
-            session.rollback()
-            logger.error(f"Error saving mud report: {e}")
-            return None
+            if owns_session:
+                session.rollback()
+                logger.error(f"Error saving mud report: {e}")
+                return None
+            raise
         finally:
-            session.close()
+            if owns_session:
+                session.close()
 
     def get_mud_report(self, well_id: int = None, report_id: int = None, report_date=None):
         session = self.create_session()
@@ -3947,6 +6094,9 @@ class DatabaseManager:
     def save_bit_report(self, well_id: int, report_data: dict):
         session = self.create_session()
         try:
+            # A bit snapshot must belong to the same well as its report — the
+            # same guard already applied to BHA / Downhole / Formation saves.
+            self._require_report_well(session, well_id, report_data.get('report_id'))
             existing = None
             if report_data.get('report_id'):
                 existing = session.query(BitReport).filter(
@@ -3974,10 +6124,14 @@ class DatabaseManager:
                 existing.updated_at = _now_utc()
                 record_id = existing.id
             else:
+                report_date = report_data.get("report_date")
+                if report_date is None:
+                    logger.error("report_date is required for a new BitReport")
+                    return None
                 new_report = BitReport(
                     well_id=well_id,
                     report_id=report_data.get('report_id'),
-                    report_date=report_data.get('report_date', date.today()),
+                    report_date=report_date,
                     report_name=report_data.get('report_name', f"Bit_Report_{datetime.now().strftime('%Y%m%d_%H%M%S')}"),
                     bit_records_json=bit_records_json,
                     created_at=_now_utc()
@@ -3989,6 +6143,10 @@ class DatabaseManager:
             session.commit()
             logger.debug(f"Bit report saved with ID: {record_id}")
             return record_id
+        except (OwnershipIntegrityError, ValueError):
+            # Contradictory ownership is a caller error, never silently swallowed.
+            session.rollback()
+            raise
         except Exception as e:
             session.rollback()
             logger.error(f"Error saving bit report: {e}")
@@ -3996,9 +6154,24 @@ class DatabaseManager:
         finally:
             session.close()
     # ========== BHA Report ==========
+    @staticmethod
+    def _require_report_well(session, well_id, report_id):
+        """FK existence alone does not enforce the report/well pair."""
+        if report_id is not None:
+            report = session.get(DailyReport, report_id)
+            if report is None or report.well_id != well_id:
+                raise ValueError("Report does not belong to the selected well")
+
     def save_bha_report(self, well_id: int, bha_data: dict):
+        from core.domain_records import bha_records
+        bha_data = dict(bha_data)
+        if "bha_data_json" in bha_data and "bha_data" not in bha_data:
+            bha_data["bha_data"] = bha_data["bha_data_json"]
+        if "bha_data" in bha_data:
+            bha_data["bha_data"] = bha_records(bha_data["bha_data"])
         session = self.create_session()
         try:
+            self._require_report_well(session, well_id, bha_data.get("report_id"))
             if bha_data.get('report_id'):
                 existing = session.query(BHAReport).filter(
                     BHAReport.report_id == bha_data['report_id']
@@ -4012,6 +6185,7 @@ class DatabaseManager:
                 existing = None
 
             if existing:
+                require_editable_bha(existing.bha_data_json)
                 existing.bha_name = bha_data.get('bha_name', existing.bha_name)
                 existing.bha_data_json = bha_data.get('bha_data', existing.bha_data_json)
                 existing.updated_at = _now_utc()
@@ -4032,7 +6206,7 @@ class DatabaseManager:
         except Exception as e:
             session.rollback()
             logger.error(f"Error saving BHA report: {e}")
-            return None
+            raise
         finally:
             session.close()
 
@@ -4058,14 +6232,19 @@ class DatabaseManager:
             return None
         except Exception as e:
             logger.error(f"Error getting BHA report: {e}")
-            return None
+            raise
         finally:
             session.close()
             
     # ========== Downhole Equipment ==========
     def save_downhole_equipment(self, well_id: int, equipment_data: dict):
+        from core.domain_records import named_record, collection_value, DOWNHOLE_FIELDS
+        equipment_data = dict(equipment_data)
+        if "equipment_data_json" in equipment_data:
+            equipment_data["equipment_data_json"] = [named_record(row, DOWNHOLE_FIELDS) for row in collection_value(equipment_data["equipment_data_json"], "equipment_data_json")]
         session = self.create_session()
         try:
+            self._require_report_well(session, well_id, equipment_data.get("report_id"))
             if equipment_data.get('report_id'):
                 existing = session.query(DownholeEquipment).filter(
                     DownholeEquipment.report_id == equipment_data['report_id']
@@ -4085,7 +6264,7 @@ class DatabaseManager:
                 equip = DownholeEquipment(
                     well_id=well_id,
                     report_id=equipment_data.get('report_id'),
-                    equipment_data_json=equipment_data.get('equipment_data_json', {}),
+                    equipment_data_json=equipment_data.get('equipment_data_json', []),
                     created_at=_now_utc()
                 )
                 session.add(equip)
@@ -4096,7 +6275,7 @@ class DatabaseManager:
         except Exception as e:
             session.rollback()
             logger.error(f"Error saving downhole equipment: {e}")
-            return None
+            raise
         finally:
             session.close()
 
@@ -4125,15 +6304,20 @@ class DatabaseManager:
             return None
         except Exception as e:
             logger.error(f"Error getting downhole equipment: {e}")
-            return None
+            raise
         finally:
             session.close()
 
  
     # ========== Formation Report ==========
     def save_formation_report(self, well_id: int, formation_data: dict):
+        from core.domain_records import named_record, collection_value, FORMATION_FIELDS
+        formation_data = dict(formation_data)
+        if "formations" in formation_data:
+            formation_data["formations"] = [named_record(row, FORMATION_FIELDS) for row in collection_value(formation_data["formations"], "formations")]
         session = self.create_session()
         try:
+            self._require_report_well(session, well_id, formation_data.get("report_id"))
             if formation_data.get('report_id'):
                 existing = session.query(FormationReport).filter(
                     FormationReport.report_id == formation_data['report_id']
@@ -4167,16 +6351,17 @@ class DatabaseManager:
         except Exception as e:
             session.rollback()
             logger.error(f"Error saving formation report: {e}")
-            return None
+            raise
         finally:
             session.close()
 
-    def get_formation_report(self, well_id: int):
+    def get_formation_report(self, well_id: int, report_id: int = None):
         session = self.create_session()
         try:
-            report = session.query(FormationReport).filter(
-                FormationReport.well_id == well_id
-            ).first()
+            query = session.query(FormationReport).filter(FormationReport.well_id == well_id)
+            if report_id is not None:
+                query = query.filter(FormationReport.report_id == report_id)
+            report = query.order_by(FormationReport.updated_at.desc()).first()
             if report:
                 return {
                     "id": report.id,
@@ -4189,7 +6374,7 @@ class DatabaseManager:
             return None
         except Exception as e:
             logger.error(f"Error getting formation report: {e}")
-            return None
+            raise
         finally:
             session.close()
         
@@ -4208,9 +6393,9 @@ class DatabaseManager:
                     from datetime import datetime
                     time_val = datetime.strptime(time_val, "%H:%M").time()
 
-                depth = entry_data.get('depth', 0) if isinstance(entry_data, dict) else getattr(entry_data, 'depth', 0)
-                cum_trip = entry_data.get('cum_trip', 0) if isinstance(entry_data, dict) else getattr(entry_data, 'cum_trip', 0)
-                duration = entry_data.get('duration', 0) if isinstance(entry_data, dict) else getattr(entry_data, 'duration', 0)
+                depth = entry_data.get('depth') if isinstance(entry_data, dict) else getattr(entry_data, 'depth', None)
+                cum_trip = entry_data.get('cum_trip') if isinstance(entry_data, dict) else getattr(entry_data, 'cum_trip', None)
+                duration = entry_data.get('duration') if isinstance(entry_data, dict) else getattr(entry_data, 'duration', None)
                 remarks = entry_data.get('remarks', '') if isinstance(entry_data, dict) else getattr(entry_data, 'remarks', '')
                 supervisor = entry_data.get('supervisor', '') if isinstance(entry_data, dict) else getattr(entry_data, 'supervisor', '')
                 verified = entry_data.get('verified', False) if isinstance(entry_data, dict) else getattr(entry_data, 'verified', False)
@@ -4274,89 +6459,98 @@ class DatabaseManager:
             ]
         except Exception as e:
             logger.error(f"Error loading trip sheet entries: {e}")
-            return []
+            raise  # collection query failure is not an empty dataset
         finally:
             session.close()
 
     # ========== Survey Points ==========
-    def save_survey_points(self, points: list):
-        session = self.create_session()
-        try:
-            for point_data in points:
-                # اصلاح: پشتیبانی از dict و object
-                def get_val(key, default=None):
-                    if isinstance(point_data, dict):
-                        return point_data.get(key, default)
-                    return getattr(point_data, key, default)
+    def save_survey_records(self, points: list, session: Optional[Session] = None, *, replace_scope=None):
+        """Shared Add/Edit/Delete-snapshot persistence with stable row identity.
 
-                well_id = get_val('well_id')
-                md = get_val('md')
-                report_id = get_val('report_id')
-
-                existing = None
+        replace_scope=(well_id, report_id) explicitly declares a complete UI
+        snapshot. Missing rows are deleted ONLY when that snapshot is valid.
+        An invalid row never turns into a deletion; accepted edits still save.
+        """
+        from core.survey_records import prepare_surveys, DERIVED_FIELDS
+        from core.domain_records import collection_value
+        points = collection_value(points, "surveys")
+        groups = {}
+        for row in points:
+            context = (row.get("well_id"), row.get("report_id"))
+            if replace_scope is not None and context != tuple(replace_scope):
+                raise ValueError("Survey snapshot contains a different well/report context")
+            groups.setdefault(context, []).append(row)
+        records, reviews, rejected = [], [], 0
+        for rows in groups.values():
+            accepted, issues, bad = prepare_surveys(rows)
+            records.extend(accepted)
+            reviews.extend(issues)
+            rejected += bad
+        contexts = set(groups)
+        if replace_scope is not None:
+            contexts.add(tuple(replace_scope))
+        calculated = 0
+        with (self.session_scope() if session is None else nullcontext(session)) as active:
+            for well_id, report_id in contexts:
+                if not well_id or active.get(Well, well_id) is None:
+                    raise ValueError("Survey requires an existing well")
                 if report_id:
-                    existing = session.query(SurveyPoint).filter(
-                        SurveyPoint.well_id == well_id,
-                        SurveyPoint.report_id == report_id,
-                        SurveyPoint.md == md
-                    ).first()
+                    report = active.get(DailyReport, report_id)
+                    if report is None or report.well_id != well_id:
+                        raise ValueError("Survey report does not belong to the selected well")
+            retained = set()
+            used_ids = set()
+            for row in records:
+                well_id, report_id = row.get("well_id"), row.get("report_id")
+                row_id = row.get("id")
+                if row_id is not None:
+                    if row_id in used_ids:
+                        raise ValueError("Duplicate survey record ID in edit batch")
+                    used_ids.add(row_id)
+                    existing = active.get(SurveyPoint, row_id)
+                    if existing is None or (existing.well_id, existing.report_id) != (well_id, report_id):
+                        raise ValueError("Survey ID does not belong to this well/report")
+                    collision = active.query(SurveyPoint).filter_by(well_id=well_id, report_id=report_id, md=row["md"]).first()
+                    if collision is not None and collision.id != row_id:
+                        raise ValueError("Edited measured depth collides with another station")
                 else:
-                    existing = session.query(SurveyPoint).filter(
-                        SurveyPoint.well_id == well_id,
-                        SurveyPoint.md == md
-                    ).first()
+                    existing = active.query(SurveyPoint).filter_by(well_id=well_id, report_id=report_id, md=row["md"]).first()
+                if existing is None:
+                    existing = SurveyPoint(well_id=well_id, report_id=report_id)
+                    active.add(existing)
+                for key in ("md", "inc", "azi", *DERIVED_FIELDS):
+                    setattr(existing, key, row.get(key))
+                for key in ("tool", "remarks", "section_id", "calculation_id", "measured_at"):
+                    if key in row:
+                        setattr(existing, key, row[key])
+                active.flush()
+                retained.add(existing.id)
+            if replace_scope is not None and not rejected:
+                query = active.query(SurveyPoint).filter_by(well_id=replace_scope[0], report_id=replace_scope[1])
+                if retained:
+                    query = query.filter(~SurveyPoint.id.in_(retained))
+                query.delete(synchronize_session=False)
+            active.flush()
+            for well_id, report_id in contexts:
+                stations = active.query(SurveyPoint).filter_by(well_id=well_id, report_id=report_id).order_by(SurveyPoint.md).all()
+                derived, _, _ = prepare_surveys([{k: getattr(p, k) for k in ("md", "inc", "azi")} for p in stations])
+                by_md = {p["md"]: p for p in derived}
+                for station in stations:
+                    for key in DERIVED_FIELDS:
+                        setattr(station, key, by_md[station.md][key])
+                    calculated += station.tvd is not None
+            audit_report_id = next(iter(contexts))[1] if len(contexts) == 1 else None
+            active.add(AuditLog(action="survey_edit", entity_type="daily_report" if audit_report_id else "survey_batch", entity_id=audit_report_id, details=json.dumps({
+                "source": points, "replace_scope": replace_scope, "review_items": reviews,
+            }, default=str)))
+            active.flush()
+        return {"accepted": len(records), "rejected": rejected, "review_items": reviews,
+                "calculated": calculated, "status": "INVALID_SOURCE" if rejected else "REVIEW_REQUIRED" if reviews else "SUCCESS"}
 
-                # inc/azi are NOT NULL columns -> 0 fallback; all other
-                # derived columns stay NULL when the source omits them.
-                def _f(key, default=None):
-                    val = get_val(key)
-                    if val in (None, ""):
-                        return default
-                    try:
-                        return float(val)
-                    except (TypeError, ValueError):
-                        return default
-
-                if existing:
-                    existing.azi = _f('azi', 0)
-                    existing.tvd = _f('tvd')
-                    existing.north = _f('north')
-                    existing.east = _f('east')
-                    existing.vs = _f('vs')
-                    existing.hd = _f('hd')
-                    existing.dls = _f('dls')
-                    existing.tool = get_val('tool', 'MWD')
-                    existing.remarks = get_val('remarks', '')
-                    existing.updated_at = _now_utc()
-                else:
-                    new_point = SurveyPoint(
-                        well_id=well_id,
-                        section_id=get_val('section_id'),
-                        calculation_id=get_val('calculation_id'),
-                        report_id=report_id,
-                        md=md,
-                        inc=_f('inc', 0),
-                        azi=_f('azi', 0),
-                        tvd=_f('tvd'),
-                        north=_f('north'),
-                        east=_f('east'),
-                        vs=_f('vs'),
-                        hd=_f('hd'),
-                        dls=_f('dls'),
-                        tool=get_val('tool', 'MWD'),
-                        remarks=get_val('remarks', ''),
-                        measured_at=get_val('measured_at', _now_utc()),
-                        created_by=get_val('created_by')
-                    )
-                    session.add(new_point)
-            session.commit()
-            return True
-        except Exception as e:
-            session.rollback()
-            logger.error(f"Error saving survey points: {e}")
-            return False
-        finally:
-            session.close()
+    def save_survey_points(self, points: list):
+        """Compatibility boolean API; manual and import use save_survey_records."""
+        result = self.save_survey_records(points)
+        return result["rejected"] == 0
 
     def load_survey_points(self, well_id: int = None, calculation_id: int = None, report_id: int = None):
         session = self.create_session()
@@ -4395,7 +6589,7 @@ class DatabaseManager:
             ]
         except Exception as e:
             logger.error(f"Error loading survey points: {e}")
-            return []
+            raise  # collection query failure is not an empty dataset
         finally:
             session.close()
 
@@ -4516,7 +6710,7 @@ class DatabaseManager:
             ]
         except Exception as e:
             logger.error(f"Error loading trajectory calculations: {e}")
-            return []
+            raise  # collection query failure is not an empty dataset
         finally:
             session.close()
 
@@ -4569,7 +6763,7 @@ class DatabaseManager:
             ]
         except Exception as e:
             logger.error(f"Error loading trajectory plots: {e}")
-            return []
+            raise  # collection query failure is not an empty dataset
         finally:
             session.close()
 
@@ -4646,7 +6840,7 @@ class DatabaseManager:
             ]
         except Exception as e:
             logger.error(f"Error getting logistics personnel: {e}")
-            return []
+            raise  # collection query failure is not an empty dataset
         finally:
             session.close()
 
@@ -4670,6 +6864,17 @@ class DatabaseManager:
 
     # ========== Service Company POB ==========
     def save_service_company_pob(self, pob_data: dict):
+        from core.domain_records import optional_date
+        pob_data = dict(pob_data)
+        for field in ("date_in", "date_out"):
+            if field in pob_data:
+                pob_data[field] = optional_date(pob_data[field])
+        if "personnel_count" in pob_data:
+            from core.value_normalizer import ValueNormalizer
+            count = ValueNormalizer.normalize(pob_data["personnel_count"], "integer")
+            if not count.ok or count.value is None or count.value < 0:
+                raise ValueError("POB personnel_count requires a non-negative integer")
+            pob_data["personnel_count"] = count.value
         session = self.create_session()
         try:
             if pob_data.get("id"):
@@ -4689,7 +6894,7 @@ class DatabaseManager:
                     report_id=pob_data.get("report_id"),
                     company_name=pob_data["company_name"],
                     service_type=pob_data.get("service_type", ""),
-                    personnel_count=pob_data.get("personnel_count", 0),
+                    personnel_count=pob_data.get("personnel_count"),
                     date_in=pob_data.get("date_in"),
                     date_out=pob_data.get("date_out"),
                     remarks=pob_data.get("remarks", ""),
@@ -4703,7 +6908,7 @@ class DatabaseManager:
         except Exception as e:
             session.rollback()
             logger.error(f"Error saving service company POB: {e}")
-            return None
+            raise
         finally:
             session.close()
 
@@ -4737,7 +6942,7 @@ class DatabaseManager:
             ]
         except Exception as e:
             logger.error(f"Error getting service company POB: {e}")
-            return []
+            raise  # collection query failure is not an empty dataset
         finally:
             session.close()
 
@@ -4752,10 +6957,15 @@ class DatabaseManager:
             if section_id:
                 query = query.filter(ServiceCompanyPOB.section_id == section_id)
             pobs = query.all()
-            return sum(p.personnel_count for p in pobs)
+            counts = [p.personnel_count for p in pobs]
+            # An incomplete roster is UNKNOWN: it must never read as "0 on board"
+            # (that is the safety-critical zero), and neither is a query failure.
+            if any(count is None for count in counts):
+                return None
+            return sum(counts)
         except Exception as e:
             logger.error(f"Error calculating total POB: {e}")
-            return 0
+            return None
         finally:
             session.close()
     
@@ -4793,33 +7003,64 @@ class DatabaseManager:
             else:
                 existing = None
 
+            def _stock_in(key):
+                """Read an opening stock preserving the three states:
+                an explicit number (incl. 0.0) is a fact; a missing key or a
+                NULL/blank value is UNKNOWN (None) — never silently 0.0."""
+                if key not in inventory_data:
+                    return None
+                v = inventory_data[key]
+                if v is None or v == "":
+                    return None
+                try:
+                    return float(v)
+                except (TypeError, ValueError):
+                    return None
+
             fuel_consumed = float(inventory_data.get("fuel_consumed", 0.0) or 0.0)
-            fuel_stock = float(inventory_data.get("fuel_stock", 0.0) or 0.0)
+            fuel_stock = _stock_in("fuel_stock")
             water_consumed = float(inventory_data.get("water_consumed", 0.0) or 0.0)
-            water_stock = float(inventory_data.get("water_stock", 0.0) or 0.0)
-            # Carry the previous day's closing balance forward. A new day
-            # with no movement must not reset stock to zero.
+            water_stock = _stock_in("water_stock")
+            # Carry the previous day's closing balance forward, but ONLY to fill
+            # a MISSING opening (None). A new day with no movement must not reset
+            # stock to zero; an explicitly-reported opening (incl. 0.0) is a fact
+            # and is never overwritten by carry-forward.
             if not existing and inventory_data.get("carry_forward", True) and inventory_data.get("well_id") and inventory_data.get("report_date"):
                 previous = session.query(FuelWaterInventory).filter(
                     FuelWaterInventory.well_id == inventory_data["well_id"],
                     FuelWaterInventory.report_date < inventory_data["report_date"],
                 ).order_by(FuelWaterInventory.report_date.desc()).first()
                 if previous:
-                    fuel_stock = (
-                        previous.fuel_remaining
-                        if previous.fuel_remaining is not None
-                        else (previous.fuel_stock or 0.0)
-                    )
-                    water_stock = (
-                        previous.water_remaining
-                        if previous.water_remaining is not None
-                        else (previous.water_stock or 0.0)
-                    )
-            fuel_remaining = fuel_stock + float(inventory_data.get("fuel_received", 0.0) or 0.0) - fuel_consumed
-            water_remaining = water_stock + float(inventory_data.get("water_received", 0.0) or 0.0) - water_consumed
+                    if fuel_stock is None:
+                        fuel_stock = (
+                            previous.fuel_remaining
+                            if previous.fuel_remaining is not None
+                            else previous.fuel_stock
+                        )
+                    if water_stock is None:
+                        water_stock = (
+                            previous.water_remaining
+                            if previous.water_remaining is not None
+                            else previous.water_stock
+                        )
+            # An unknown opening yields an unknown remaining — never a value
+            # derived from a fabricated 0 stock.
+            fuel_remaining = (
+                None if fuel_stock is None
+                else fuel_stock + float(inventory_data.get("fuel_received", 0.0) or 0.0) - fuel_consumed
+            )
+            water_remaining = (
+                None if water_stock is None
+                else water_stock + float(inventory_data.get("water_received", 0.0) or 0.0) - water_consumed
+            )
 
-            days_remaining_fuel = fuel_remaining / fuel_consumed if fuel_consumed > 0 else 0
-            days_remaining_water = water_remaining / water_consumed if water_consumed > 0 else 0
+            # Runway is UNKNOWN (None -> "N/A"), never a fabricated 0, when
+            # daily consumption is not a known positive rate. A 0-day value
+            # would read as an imminent-stockout alarm; that is a truth
+            # corruption when there is simply no burn to divide by.
+            from core.fuel_water_semantics import days_remaining as _days_remaining
+            days_remaining_fuel = _days_remaining(fuel_remaining, fuel_consumed)
+            days_remaining_water = _days_remaining(water_remaining, water_consumed)
 
             if existing:
                 for key, value in inventory_data.items():
@@ -4832,6 +7073,10 @@ class DatabaseManager:
                 existing.updated_at = _now_utc()
                 record_id = existing.id
             else:
+                # fuel_stock / water_stock carry a column default of 0.0, so an
+                # UNKNOWN (None) opening must be inserted as an explicit SQL NULL
+                # to stop the default from fabricating a 0.0 stock fact.
+                from sqlalchemy import null as _sql_null
                 inventory = FuelWaterInventory(
                     well_id=inventory_data["well_id"],
                     section_id=inventory_data.get("section_id"),
@@ -4839,7 +7084,7 @@ class DatabaseManager:
                     report_date=inventory_data["report_date"],
                     fuel_type=inventory_data.get("fuel_type", "Diesel"),
                     fuel_consumed=fuel_consumed,
-                    fuel_stock=fuel_stock,
+                    fuel_stock=(_sql_null() if fuel_stock is None else fuel_stock),
                     fuel_received=inventory_data.get("fuel_received", 0.0),
                     fuel_camp_consumed=inventory_data.get("fuel_camp_consumed"),
                     fuel_camp_stock=inventory_data.get("fuel_camp_stock"),
@@ -4848,7 +7093,7 @@ class DatabaseManager:
                     dw_stock=inventory_data.get("dw_stock"),
                     dw_received=inventory_data.get("dw_received"),
                     water_consumed=water_consumed,
-                    water_stock=water_stock,
+                    water_stock=(_sql_null() if water_stock is None else water_stock),
                     water_received=inventory_data.get("water_received", 0.0),
                     fuel_remaining=fuel_remaining,
                     water_remaining=water_remaining,
@@ -4899,6 +7144,12 @@ class DatabaseManager:
                         "days_remaining_fuel": previous.days_remaining_fuel,
                         "days_remaining_water": previous.days_remaining_water,
                         "created_at": None, "updated_at": None,
+                        # Explicit marker: this row is a carry-forward PREVIEW
+                        # projected from the previous report's closing balance,
+                        # not a persisted record for the requested date. Readers
+                        # must not mistake it for actual saved data.
+                        "is_carry_forward_preview": True,
+                        "source_report_date": previous.report_date,
                     })
                 if carry:
                     return carry
@@ -4927,31 +7178,213 @@ class DatabaseManager:
                     "days_remaining_fuel": i.days_remaining_fuel,
                     "days_remaining_water": i.days_remaining_water,
                     "created_at": i.created_at,
-                    "updated_at": i.updated_at
+                    "updated_at": i.updated_at,
+                    "is_carry_forward_preview": False,
                 }
                 for i in inventories
             ]
         except Exception as e:
             logger.error(f"Error getting fuel/water inventory: {e}")
-            return []
+            raise  # collection query failure is not an empty dataset
         finally:
             session.close()
+
+    # ========== General Inventory (W5 InventoryTab) ==========
+    def save_inventory_items(self, well_id: int, report_id, rows: list,
+                             report_date=None, section_id=None, user_id=None):
+        """Persist a W5 inventory worksheet to InventoryItem atomically.
+
+        The whole worksheet for (well_id, report_id) is one logical save: its
+        current rows are replaced together in ONE transaction, so a failure on
+        any row rolls the entire save back (no partial worksheet), and clearing
+        the UI then saving yields an empty persisted collection for that report
+        (older reports are untouched). Identity is (well_id, report_id,
+        item_name).
+
+        Three-state semantics are enforced through ``core.inventory_semantics``:
+        a blank opening stays NULL (unknown), an explicit 0 stays 0.0, closing
+        is derived only when opening is known. Carry-forward fills a MISSING
+        opening from the previous report's closing; it never overwrites a
+        supplied opening.
+
+        Legacy migration: saving the worksheet for a (well_id, report_id) is the
+        explicit act that makes ``InventoryItem`` authoritative for that scope,
+        so any legacy ``EquipmentLog`` "Inventory" notes rows for the SAME
+        (well_id, report_id) are retired in the same transaction. This makes
+        migration deterministic and, crucially, prevents a cleared worksheet
+        from being re-populated by stale legacy rows on the next load.
+        """
+        from core.inventory_semantics import normalize_item_row, derive_closing
+        with self.session_scope() as session:
+            # Replace this report's inventory rows only.
+            q = session.query(InventoryItem).filter(InventoryItem.well_id == well_id)
+            if report_id is not None:
+                q = q.filter(InventoryItem.report_id == report_id)
+            else:
+                q = q.filter(InventoryItem.report_id.is_(None))
+                if report_date is not None:
+                    q = q.filter(InventoryItem.report_date == report_date)
+            q.delete(synchronize_session=False)
+
+            # Retire legacy notes-encoded inventory for the SAME scope so it can
+            # neither shadow nor resurrect the authoritative store. Scoped to
+            # equipment_type="Inventory" only; other EquipmentLog rows untouched.
+            legacy_q = session.query(EquipmentLog).filter(
+                EquipmentLog.well_id == well_id,
+                EquipmentLog.equipment_type == "Inventory",
+            )
+            if report_id is not None:
+                legacy_q = legacy_q.filter(EquipmentLog.report_id == report_id)
+            else:
+                legacy_q = legacy_q.filter(EquipmentLog.report_id.is_(None))
+            legacy_q.delete(synchronize_session=False)
+
+            # Enforce item-name identity within THIS worksheet: two rows whose
+            # names normalize identically (whitespace-trimmed, case-sensitive —
+            # matching normalize_item_row) are a duplicate-identity error, not a
+            # silent merge/overwrite. Reject the WHOLE save so the previously
+            # persisted worksheet is preserved (session_scope rolls back the
+            # delete above). Detection precedes any insert -> no partial save.
+            seen_names = set()
+            normalized_rows = []
+            for raw in rows:
+                if not isinstance(raw, dict):
+                    continue
+                norm = normalize_item_row(raw)
+                if not norm["item_name"]:
+                    continue  # a blank item name is not an inventory line
+                if norm["item_name"] in seen_names:
+                    raise ValueError(
+                        "Duplicate inventory item name in worksheet: "
+                        f"{norm['item_name']!r}. Each item must be unique per "
+                        "report; merge the rows or rename before saving.")
+                seen_names.add(norm["item_name"])
+                normalized_rows.append(norm)
+
+            saved = 0
+            for norm in normalized_rows:
+                opening = norm["opening_stock"]
+                # Carry-forward only a genuinely MISSING opening.
+                if opening is None and report_date is not None:
+                    previous = session.query(InventoryItem).filter(
+                        InventoryItem.well_id == well_id,
+                        InventoryItem.item_name == norm["item_name"],
+                        InventoryItem.unit == norm["unit"],
+                        InventoryItem.report_date < report_date,
+                    )
+                    latest_date = previous.with_entities(func.max(InventoryItem.report_date)).scalar()
+                    candidates = previous.filter(InventoryItem.report_date == latest_date).limit(2).all()
+                    if len(candidates) == 1:
+                        opening = candidates[0].current_stock
+                closing = derive_closing(opening, norm["received"], norm["used"])
+                session.add(InventoryItem(
+                    well_id=well_id,
+                    section_id=section_id,
+                    report_id=report_id,
+                    report_date=report_date,
+                    item_name=norm["item_name"],
+                    category=norm["category"],
+                    unit=norm["unit"],
+                    opening_stock=opening,
+                    received=norm["received"],
+                    used=norm["used"],
+                    current_stock=closing,
+                    min_level=norm["min_level"],
+                    max_level=norm["max_level"],
+                    created_by=user_id,
+                ))
+                saved += 1
+            return saved
+
+    def get_inventory_items(self, well_id: int = None, report_id=None,
+                            report_date=None):
+        """Return persisted InventoryItem rows (as dicts), unknown preserved."""
+        session = self.create_session()
+        try:
+            query = session.query(InventoryItem)
+            if well_id is not None:
+                query = query.filter(InventoryItem.well_id == well_id)
+            if report_id is not None:
+                query = query.filter(InventoryItem.report_id == report_id)
+            if report_date is not None:
+                query = query.filter(InventoryItem.report_date == report_date)
+            rows = query.order_by(InventoryItem.item_name).all()
+            return [
+                {col.name: getattr(r, col.name)
+                 for col in InventoryItem.__table__.columns}
+                for r in rows
+            ]
+        except Exception as e:
+            logger.error(f"Error getting inventory items: {e}")
+            raise  # collection query failure is not an empty dataset
+        finally:
+            session.close()
+
+    def get_legacy_inventory_notes(self, well_id: int, report_id=None):
+        """Read-only compatibility: decode legacy EquipmentLog "Inventory" rows.
+
+        Older data stored W5 inventory as an encoded ``notes`` string on
+        ``EquipmentLog`` (equipment_type="Inventory",
+        notes="Stock:..|Recv:..|Used:..|Rem:..|Unit:.."). This deterministic
+        reader lets the UI surface that legacy data once so it can be migrated
+        by re-saving; it never writes and never reinterprets ambiguous notes.
+        Returns a list of dicts using the InventoryItem field names; values it
+        cannot parse remain None (unknown), never a fabricated 0.
+        """
+        from core.inventory_semantics import to_float_or_none
+        logs = self.get_equipment_logs(
+            well_id=well_id, report_id=report_id, equipment_type="Inventory")
+        out = []
+        for log in logs or []:
+            notes = log.get("notes", "") or ""
+            parts = {}
+            for part in notes.split("|"):
+                if ":" in part:
+                    k, v = part.split(":", 1)
+                    parts[k.strip()] = v.strip()
+            out.append({
+                "item_name": log.get("equipment_name", "") or "",
+                "category": log.get("equipment_id", "") or "",
+                "opening_stock": to_float_or_none(parts.get("Stock")),
+                "received": to_float_or_none(parts.get("Recv")),
+                "used": to_float_or_none(parts.get("Used")),
+                "current_stock": to_float_or_none(parts.get("Rem")),
+                "unit": parts.get("Unit") or None,
+                "min_level": None,
+                "max_level": None,
+            })
+        return out
 
     # ========== Bulk Materials ==========
     def save_bulk_material(self, material_data: dict):
         session = self.create_session()
         try:
+            from core.inventory_semantics import normalize_movement
+            from core.engineering.result import optional_number
+            material_data = dict(material_data)
+            for field in ("received", "used"):
+                if field in material_data:
+                    material_data[field] = normalize_movement(material_data[field])
+            if "initial_stock" in material_data:
+                value = material_data["initial_stock"]
+                material_data["initial_stock"] = optional_number(
+                    value.strip() if isinstance(value, str) else value, "initial stock"
+                )
             if material_data.get('report_id'):
                 existing = session.query(BulkMaterials).filter(
+                    BulkMaterials.well_id == material_data['well_id'],
                     BulkMaterials.report_id == material_data['report_id'],
+                    BulkMaterials.unit == material_data.get('unit', 'kg'),
                     BulkMaterials.material_name == material_data['material_name']
-                ).first()
+                ).one_or_none()
             elif material_data.get('well_id') and material_data.get('report_date'):
                 existing = session.query(BulkMaterials).filter(
                     BulkMaterials.well_id == material_data['well_id'],
                     BulkMaterials.report_date == material_data['report_date'],
+                    BulkMaterials.report_id.is_(None),
+                    BulkMaterials.unit == material_data.get('unit', 'kg'),
                     BulkMaterials.material_name == material_data['material_name']
-                ).first()
+                ).one_or_none()
             else:
                 existing = None
 
@@ -4959,22 +7392,51 @@ class DatabaseManager:
                 for key, value in material_data.items():
                     if hasattr(existing, key) and key not in ['id', 'well_id', 'report_date', 'report_id']:
                         setattr(existing, key, value)
-                existing.current_stock = existing.initial_stock + existing.received - existing.used
+                # Closing stays unknown (NULL) when the opening is
+                # unknown; never fabricated from a synthetic 0.
+                if existing.initial_stock is None:
+                    existing.current_stock = None
+                else:
+                    existing.current_stock = (
+                        (existing.initial_stock or 0.0)
+                        + (existing.received or 0.0)
+                        - (existing.used or 0.0)
+                    )
                 existing.updated_at = _now_utc()
                 record_id = existing.id
             else:
-                initial_stock = float(material_data.get("initial_stock", 0.0) or 0.0)
+                # Opening trichotomy: explicit value (incl. 0.0) is a
+                # fact and is preserved; missing (None) may be carried
+                # forward from the previous closing — never the other
+                # way around. Carry-forward NEVER overwrites a supplied
+                # opening, whatever its value.
+                initial_raw = material_data.get("initial_stock")
+                initial_stock = (
+                    float(initial_raw) if initial_raw is not None else None
+                )
                 received = float(material_data.get("received", 0.0) or 0.0)
                 used = float(material_data.get("used", 0.0) or 0.0)
-                if material_data.get("carry_forward", True) and material_data.get("well_id") and material_data.get("report_date"):
-                    previous = session.query(BulkMaterials).filter(
+                if (
+                    initial_stock is None
+                    and material_data.get("carry_forward", True)
+                    and material_data.get("well_id")
+                    and material_data.get("report_date")
+                ):
+                    previous_query = session.query(BulkMaterials).filter(
                         BulkMaterials.well_id == material_data["well_id"],
                         BulkMaterials.material_name == material_data["material_name"],
+                        BulkMaterials.unit == material_data.get("unit", "kg"),
                         BulkMaterials.report_date < material_data["report_date"],
-                    ).order_by(BulkMaterials.report_date.desc()).first()
-                    if previous:
-                        initial_stock = previous.current_stock
-                current_stock = initial_stock + received - used
+                    )
+                    latest_date = previous_query.with_entities(func.max(BulkMaterials.report_date)).scalar()
+                    candidates = previous_query.filter(BulkMaterials.report_date == latest_date).limit(2).all()
+                    if len(candidates) == 1:
+                        initial_stock = candidates[0].current_stock
+                current_stock = (
+                    initial_stock + received - used
+                    if initial_stock is not None
+                    else None
+                )
                 material = BulkMaterials(
                     well_id=material_data["well_id"],
                     section_id=material_data.get("section_id"),
@@ -5045,7 +7507,7 @@ class DatabaseManager:
             ]
         except Exception as e:
             logger.error(f"Error getting bulk materials: {e}")
-            return []
+            raise  # collection query failure is not an empty dataset
         finally:
             session.close()
 
@@ -5060,19 +7522,21 @@ class DatabaseManager:
                 if report_date:
                     query = query.filter(BulkMaterials.report_date == report_date)
             materials = query.all()
-            totals = {
-                "total_initial_stock": 0.0,
-                "total_received": 0.0,
-                "total_used": 0.0,
-                "total_current_stock": 0.0,
-                "material_count": len(materials)
+            # A total containing an unrecorded quantity is UNKNOWN, never a
+            # smaller number (canonical complete-total contract).
+            from core.cost_semantics import complete_total
+
+            def _total(values):
+                values = list(values)
+                return complete_total(values) if values else 0.0
+
+            return {
+                "total_initial_stock": _total(m.initial_stock for m in materials),
+                "total_received": _total(m.received for m in materials),
+                "total_used": _total(m.used for m in materials),
+                "total_current_stock": _total(m.current_stock for m in materials),
+                "material_count": len(materials),
             }
-            for m in materials:
-                totals["total_initial_stock"] += m.initial_stock or 0
-                totals["total_received"] += m.received or 0
-                totals["total_used"] += m.used or 0
-                totals["total_current_stock"] += m.current_stock or 0
-            return totals
         except Exception as e:
             logger.error(f"Error calculating bulk totals: {e}")
             return {}
@@ -5105,8 +7569,8 @@ class DatabaseManager:
                     arrival_time=log_data.get("arrival_time"),
                     departure_time=log_data.get("departure_time"),
                     duration=log_data.get("duration"),
-                    passengers_in=log_data.get("passengers_in", 0),
-                    passengers_out=log_data.get("passengers_out", 0),
+                    passengers_in=log_data.get("passengers_in"),
+                    passengers_out=log_data.get("passengers_out"),
                     cargo_description=log_data.get("cargo_description", ""),
                     status=log_data.get("status", "Scheduled"),
                     purpose=log_data.get("purpose", ""),
@@ -5164,7 +7628,7 @@ class DatabaseManager:
             ]
         except Exception as e:
             logger.error(f"Error getting transport logs: {e}")
-            return []
+            raise  # collection query failure is not an empty dataset
         finally:
             session.close()
 
@@ -5237,27 +7701,30 @@ class DatabaseManager:
             ]
         except Exception as e:
             logger.error(f"Error getting transport notes: {e}")
-            return []
+            raise  # collection query failure is not an empty dataset
         finally:
             session.close()
 
     # ========== Safety Report ==========
-    def save_safety_report(self, report_data: dict):
-        session = self.create_session()
+    def save_safety_report(self, report_data: dict, session: Optional[Session] = None):
+        owns_session = session is None
+        session = session or self.create_session()
         try:
             if report_data.get('report_id'):
                 existing = session.query(SafetyReport).filter(
-                    SafetyReport.report_id == report_data['report_id']
-                ).first()
+                    SafetyReport.report_id == report_data['report_id'],
+                    SafetyReport.report_type == report_data.get("report_type", "Daily")
+                ).one_or_none()
             elif report_data.get('well_id') and report_data.get('report_date'):
                 existing = session.query(SafetyReport).filter(
                     SafetyReport.well_id == report_data['well_id'],
                     SafetyReport.report_date == report_data['report_date'],
                     SafetyReport.report_type == report_data.get('report_type', 'Daily')
-                ).first()
+                ).one_or_none()
             else:
                 existing = None
 
+            old_collections = {key: getattr(existing, key) if existing is not None else [] for key in ("bop_stack_json", "waste_history_json")}
             if existing:
                 for key, value in report_data.items():
                     if hasattr(existing, key) and key not in ['id', 'well_id', 'report_date', 'report_id']:
@@ -5269,26 +7736,111 @@ class DatabaseManager:
                 session.add(report)
                 session.flush()
                 record_id = report.id
-            session.commit()
+            self.last_safety_review = self._sync_safety_children(session, record_id, report_data)
+            target = session.get(SafetyReport, record_id)
+            for key, entity in (("bop_stack_json", "bop_components"), ("waste_history_json", "waste_records")):
+                if key in report_data:
+                    rejected = any(r.get("entity") == entity for r in self.last_safety_review)
+                    setattr(target, key, old_collections[key] if rejected else [])
+            session.flush()
+            if owns_session:
+                session.commit()
             return record_id
         except Exception as e:
+            if not owns_session:
+                raise
             session.rollback()
             logger.error(f"Error saving safety report: {e}")
             return None
         finally:
-            session.close()
+            if owns_session:
+                session.close()
+
+    def _sync_safety_children(self, session, safety_id, data):
+        """Manual Safety Save uses the same child models as import, atomically.
+
+        Replace only the explicitly edited collection. No repeated-save
+        duplicates, and source-invalid rows remain in the audit for correction.
+        """
+        from core.domain_records import collection_value, isolate_import_rows, optional_date
+        mappings = (
+            ("bop_stack_json", "bop_components", BOPComponent, {
+                "Name": "component_name", "Type": "component_type", "WP (psi)": "working_pressure",
+                "Size (in)": "size", "RAMs": "ram_type", "Last Test": "last_test_date", "Next Due": "next_test_due", "Remarks": "remarks"}),
+            ("waste_history_json", "waste_records", WasteRecord, {
+                "Date": "record_date", "Type": "waste_type", "Volume (BBL)": "volume", "pH": "ph",
+                "Disposal Method": "disposal_method", "Remarks": "remarks"}),
+        )
+        reviews = []
+        for key, collection, model, mapping in mappings:
+            if key not in data:
+                continue
+            rows = []
+            for index, source in enumerate(collection_value(data[key], key), 1):
+                row = {target: source.get(label) for label, target in mapping.items()}
+                row["_source_location"] = {"table": key, "row": index}
+                rows.append(row)
+            normalized, issues = isolate_import_rows({collection: rows})
+            accepted = []
+            for row in normalized[collection]:
+                try:
+                    for field in ("last_test_date", "next_test_due", "record_date"):
+                        if field in row:
+                            row[field] = optional_date(row[field])
+                    if model is WasteRecord and row.get("record_date") is None:
+                        raise ValueError("Waste record date is required; no report/today date invented")
+                    accepted.append(row)
+                except ValueError as exc:
+                    from core.canonical_mapper import review_item
+                    issues.append(review_item(field=collection + ".date", entity=collection, original_value=row,
+                                              location=row["_source_location"], reason=str(exc), status="INVALID_SOURCE").to_dict())
+            if issues:
+                reviews.extend(issues)
+                # Keep the stored collection intact. Other independent safety
+                # collections may still save. Preserve attempted edits in audit.
+                continue
+            query = session.query(model).filter(model.well_id == data["well_id"])
+            if data.get("report_id"):
+                query = query.filter(model.report_id == data["report_id"])
+            else:
+                query = query.filter(model.safety_report_id == safety_id)
+            query.delete(synchronize_session=False)
+            for row in accepted:
+                values = {key: value for key, value in row.items() if not key.startswith("_")}
+                values.update(well_id=data["well_id"], report_id=data.get("report_id"), safety_report_id=safety_id)
+                self._save_atomic(session, model, values)
+            reviews.extend(issues)
+        if reviews:
+            session.add(AuditLog(action="safety_review", entity_type="safety_report", entity_id=safety_id,
+                                 details=json.dumps(reviews, default=str)))
+        return reviews
 
     def get_safety_report(self, well_id: int = None, report_id: int = None, report_date: date = None, report_type: str = 'Daily'):
         session = self.create_session()
         try:
             query = session.query(SafetyReport)
             if report_id:
-                query = query.filter(SafetyReport.report_id == report_id)
+                query = query.filter(SafetyReport.report_id == report_id, SafetyReport.report_type == report_type)
             elif well_id:
                 query = query.filter(SafetyReport.well_id == well_id, SafetyReport.report_type == report_type)
                 if report_date:
                     query = query.filter(SafetyReport.report_date == report_date)
-            report = query.order_by(SafetyReport.report_date.desc()).first()
+            candidates = query.order_by(SafetyReport.report_date.desc()).limit(2).all()
+            if len(candidates) > 1 and candidates[0].report_date == candidates[1].report_date:
+                raise ValueError("Ambiguous safety reports for the selected date/context")
+            report = candidates[0] if candidates else None
+            from core.domain_records import collection_value
+            child_report_id = report.report_id if report is not None else report_id
+            child_well_id = report.well_id if report is not None else well_id
+            bops = self.get_bop_components(well_id=child_well_id, report_id=child_report_id)
+            wastes = self.get_waste_records(well_id=child_well_id, report_id=child_report_id)
+            bop_view = [{target: row.get(source) for target, source in {
+                "Name": "component_name", "Type": "component_type", "WP (psi)": "working_pressure",
+                "Size (in)": "size", "RAMs": "ram_type", "Last Test": "last_test_date",
+                "Next Due": "next_test_due", "Remarks": "remarks"}.items()} for row in bops]
+            waste_view = [{target: row.get(source) for target, source in {
+                "Date": "record_date", "Type": "waste_type", "Volume (BBL)": "volume", "pH": "ph",
+                "Disposal Method": "disposal_method", "Remarks": "remarks"}.items()} for row in wastes]
             if report:
                 return {
                     'id': report.id,
@@ -5308,7 +7860,7 @@ class DatabaseManager:
                     'test_pressure': report.test_pressure,
                     'last_koomey_test': report.last_koomey_test,
                     'days_since_last_test': report.days_since_last_test,
-                    'bop_stack_json': report.bop_stack_json,
+                    'bop_stack_json': bop_view or collection_value(report.bop_stack_json, 'bop_stack_json'),
                     'recycled_volume': report.recycled_volume,
                     'waste_ph': report.waste_ph,
                     'turbidity': report.turbidity,
@@ -5317,7 +7869,7 @@ class DatabaseManager:
                     'oil_content': report.oil_content,
                     'waste_type': report.waste_type,
                     'disposal_method': report.disposal_method,
-                    'waste_history_json': report.waste_history_json,
+                    'waste_history_json': waste_view or collection_value(report.waste_history_json, 'waste_history_json'),
                     'safety_observations': report.safety_observations,
                     'incidents_json': report.incidents_json,
                     'equipment_checks': report.equipment_checks,
@@ -5326,10 +7878,12 @@ class DatabaseManager:
                     'updated_at': report.updated_at,
                     'created_by': report.created_by
                 }
+            if bops or wastes:
+                return {"bop_stack_json": bop_view, "waste_history_json": waste_view}
             return None
-        except Exception as e:
-            logger.error(f"Error getting safety report: {e}")
-            return None
+        except Exception:
+            logger.exception("Error getting safety report")
+            raise
         finally:
             session.close()
 
@@ -5396,7 +7950,7 @@ class DatabaseManager:
             ]
         except Exception as e:
             logger.error(f"Error getting BOP components: {e}")
-            return []
+            raise  # collection query failure is not an empty dataset
         finally:
             session.close()
 
@@ -5456,7 +8010,7 @@ class DatabaseManager:
             ]
         except Exception as e:
             logger.error(f"Error getting waste records: {e}")
-            return []
+            raise  # collection query failure is not an empty dataset
         finally:
             session.close()
 
@@ -5513,7 +8067,7 @@ class DatabaseManager:
             ]
         except Exception as e:
             logger.error(f"Error getting safety incidents: {e}")
-            return []
+            raise  # collection query failure is not an empty dataset
         finally:
             session.close()
 
@@ -5549,7 +8103,7 @@ class DatabaseManager:
                     contact_phone=company_data.get("contact_phone", ""),
                     contact_email=company_data.get("contact_email", ""),
                     equipment_used=company_data.get("equipment_used", ""),
-                    personnel_count=company_data.get("personnel_count", 1),
+                    personnel_count=company_data.get("personnel_count"),
                     status=company_data.get("status", "Active"),
                     description=company_data.get("description", ""),
                     npt_hours=company_data.get("npt_hours"),
@@ -5613,7 +8167,7 @@ class DatabaseManager:
             ]
         except Exception as e:
             logger.error(f"Error getting service companies: {e}")
-            return []
+            raise  # collection query failure is not an empty dataset
         finally:
             session.close()
 
@@ -5702,7 +8256,7 @@ class DatabaseManager:
             ]
         except Exception as e:
             logger.error(f"Error getting service notes: {e}")
-            return []
+            raise  # collection query failure is not an empty dataset
         finally:
             session.close()
 
@@ -5743,15 +8297,15 @@ class DatabaseManager:
                     report_id=request_data.get("report_id"),
                     request_date=request_data["request_date"],
                     requested_items=request_data.get("requested_items", ""),
-                    requested_quantity=request_data.get("requested_quantity", 0.0),
+                    requested_quantity=request_data.get("requested_quantity"),
                     requested_unit=request_data.get("requested_unit", "units"),
                     outstanding_items=request_data.get("outstanding_items", ""),
-                    outstanding_quantity=request_data.get("outstanding_quantity", 0.0),
+                    outstanding_quantity=request_data.get("outstanding_quantity"),
                     received_items=request_data.get("received_items", ""),
-                    received_quantity=request_data.get("received_quantity", 0.0),
+                    received_quantity=request_data.get("received_quantity"),
                     received_date=request_data.get("received_date"),
                     backload_items=request_data.get("backload_items", ""),
-                    backload_quantity=request_data.get("backload_quantity", 0.0),
+                    backload_quantity=request_data.get("backload_quantity"),
                     backload_date=request_data.get("backload_date"),
                     remarks=request_data.get("remarks", ""),
                     status=request_data.get("status", "Pending"),
@@ -5813,7 +8367,7 @@ class DatabaseManager:
             ]
         except Exception as e:
             logger.error(f"Error getting material requests: {e}")
-            return []
+            raise  # collection query failure is not an empty dataset
         finally:
             session.close()
 
@@ -5828,10 +8382,18 @@ class DatabaseManager:
             if section_id:
                 query = query.filter(MaterialRequest.section_id == section_id)
             requests = query.all()
-            total_requested = sum(r.requested_quantity or 0 for r in requests)
-            total_received = sum(r.received_quantity or 0 for r in requests)
-            total_backload = sum(r.backload_quantity or 0 for r in requests)
-            balance = total_requested - total_received + total_backload
+            from core.cost_semantics import complete_total
+
+            def _total(values):
+                values = list(values)
+                return complete_total(values) if values else 0.0
+
+            total_requested = _total(r.requested_quantity for r in requests)
+            total_received = _total(r.received_quantity for r in requests)
+            total_backload = _total(r.backload_quantity for r in requests)
+            # An unknown component makes the balance unknown (no partial arithmetic).
+            balance = (total_requested - total_received + total_backload
+                       if None not in (total_requested, total_received, total_backload) else None)
             return {
                 "total_requested": total_requested,
                 "total_received": total_received,
@@ -5862,31 +8424,70 @@ class DatabaseManager:
             session.close()
 
     # ========== Equipment Log ==========
-    def save_equipment_log(self, log_data: dict):
-        # Generic table detection can produce false positives. Enforce the
-        # model contract before SQLAlchemy gets a chance to emit noisy errors.
-        if not str((log_data or {}).get("equipment_name", "")).strip():
-            logger.warning("Skipping equipment row without equipment_name")
-            return None
-        try:
-            hours = float((log_data or {}).get("hours_worked", 0) or 0)
-        except (TypeError, ValueError):
-            logger.warning("Skipping equipment row with non-numeric hours_worked: %r", log_data.get("hours_worked"))
-            return None
+    def save_equipment_records(self, well_id, report_id, equipment_type, records):
+        """Atomic editor snapshot for one report/type, including explicit clear."""
+        from core.domain_records import collection_value
+        from core.save_outcome import SaveOutcome
+        rows = collection_value(records, "equipment")
+        with self.session_scope() as session:
+            report = session.get(DailyReport, report_id)
+            if report is None or report.well_id != well_id:
+                raise ValueError("Select an equipment report belonging to this well")
+            ids = []
+            for row in rows:
+                data = dict(row, well_id=well_id, report_id=report_id, equipment_type=equipment_type)
+                if data.get("id"):
+                    previous = session.get(EquipmentLog, data["id"])
+                    if previous is None or (previous.well_id, previous.report_id, previous.equipment_type) != (well_id, report_id, equipment_type):
+                        raise ValueError("Equipment ID does not belong to this report/type")
+                identity = self.save_equipment_log(data, session=session)
+                if identity in ids:
+                    raise ValueError("Duplicate equipment identity in editor snapshot")
+                ids.append(identity)
+            query = session.query(EquipmentLog).filter_by(well_id=well_id, report_id=report_id, equipment_type=equipment_type)
+            if ids:
+                query = query.filter(~EquipmentLog.id.in_(ids))
+            query.delete(synchronize_session=False)
+            session.add(AuditLog(action="equipment_edit", entity_type="daily_report", entity_id=report_id,
+                                 details=json.dumps({"type": equipment_type, "source": records}, default=str)))
+        return SaveOutcome(saved=len(ids))
+
+    def save_equipment_log(self, log_data: dict, session: Optional[Session] = None):
+        from core.value_normalizer import ValueNormalizer
+        from core.domain_records import optional_date
+        if not str((log_data or {}).get("equipment_name") or "").strip():
+            raise ValueError("Equipment equipment_name is required")
         log_data = dict(log_data)
-        log_data["hours_worked"] = hours
-        session = self.create_session()
+        if "hours_worked" in log_data:
+            hours = ValueNormalizer.normalize(log_data["hours_worked"], "number")
+            if not hours.ok or (hours.value is None and log_data["hours_worked"] not in (None, "")) or (hours.value is not None and hours.value < 0):
+                raise ValueError("Equipment hours_worked must be finite and non-negative")
+            log_data["hours_worked"] = hours.value
+        if "service_date" in log_data:
+            log_data["service_date"] = optional_date(log_data["service_date"])
+        owns_session = session is None
+        session = session or self.create_session()
         try:
+            if not log_data.get("id") and log_data.get("report_id"):
+                matches = session.query(EquipmentLog).filter_by(well_id=log_data["well_id"], report_id=log_data["report_id"],
+                    equipment_type=log_data.get("equipment_type", ""), equipment_name=log_data["equipment_name"],
+                    equipment_id=log_data.get("equipment_id", "")).all()
+                if len(matches) > 1:
+                    raise ValueError("Equipment identity is ambiguous; select the record ID explicitly")
+                if matches:
+                    log_data["id"] = matches[0].id
             if log_data.get("id"):
                 log = session.query(EquipmentLog).filter(EquipmentLog.id == log_data["id"]).first()
                 if log:
+                    if "well_id" in log_data and log.well_id != log_data["well_id"]:
+                        raise ValueError("Equipment ID belongs to another well")
                     for key, value in log_data.items():
                         if hasattr(log, key) and key != 'id':
                             setattr(log, key, value)
                     log.updated_at = _now_utc()
                     record_id = log.id
                 else:
-                    return None
+                    raise ValueError("Equipment ID does not exist")
             else:
                 log = EquipmentLog(
                     well_id=log_data["well_id"],
@@ -5900,7 +8501,7 @@ class DatabaseManager:
                     service_date=log_data.get("service_date"),
                     service_type=log_data.get("service_type", ""),
                     service_provider=log_data.get("service_provider", ""),
-                    hours_worked=log_data.get("hours_worked", 0.0),
+                    hours_worked=log_data.get("hours_worked"),
                     status=log_data.get("status", "Operational"),
                     notes=log_data.get("notes", ""),
                     created_by=log_data.get("created_by")
@@ -5908,14 +8509,17 @@ class DatabaseManager:
                 session.add(log)
                 session.flush()
                 record_id = log.id
-            session.commit()
+            if owns_session:
+                session.commit()
             return record_id
         except Exception as e:
-            session.rollback()
+            if owns_session:
+                session.rollback()
             logger.error(f"Error saving equipment log: {e}")
-            return None
+            raise
         finally:
-            session.close()
+            if owns_session:
+                session.close()
 
     def get_equipment_logs(self, well_id: int = None, section_id: int = None, report_id: int = None, equipment_type: str = None, status: str = None):
         session = self.create_session()
@@ -5956,7 +8560,7 @@ class DatabaseManager:
             ]
         except Exception as e:
             logger.error(f"Error getting equipment logs: {e}")
-            return []
+            raise  # collection query failure is not an empty dataset
         finally:
             session.close()
 
@@ -5977,6 +8581,7 @@ class DatabaseManager:
                 "under_maintenance": 0,
                 "out_of_service": 0,
                 "total_hours": 0.0,
+                "hours_not_recorded": 0,
                 "by_type": {}
             }
             for l in logs:
@@ -5986,14 +8591,26 @@ class DatabaseManager:
                     summary["under_maintenance"] += 1
                 elif l.status == "Out of Service":
                     summary["out_of_service"] += 1
-                summary["total_hours"] += l.hours_worked or 0
+                # An unknown duration makes the aggregate unknown: it must never
+                # read as if that equipment contributed zero hours.
+                if l.hours_worked is None:
+                    summary["hours_not_recorded"] += 1
+                    summary["total_hours"] = None
+                elif summary["total_hours"] is not None:
+                    summary["total_hours"] += l.hours_worked
                 eq_type = l.equipment_type or "Unknown"
                 if eq_type not in summary["by_type"]:
-                    summary["by_type"][eq_type] = {"count": 0, "operational": 0, "total_hours": 0.0}
+                    summary["by_type"][eq_type] = {"count": 0, "operational": 0,
+                                                   "total_hours": 0.0,
+                                                   "hours_not_recorded": 0}
                 summary["by_type"][eq_type]["count"] += 1
                 if l.status == "Operational":
                     summary["by_type"][eq_type]["operational"] += 1
-                summary["by_type"][eq_type]["total_hours"] += l.hours_worked or 0
+                if l.hours_worked is None:
+                    summary["by_type"][eq_type]["hours_not_recorded"] += 1
+                    summary["by_type"][eq_type]["total_hours"] = None
+                elif summary["by_type"][eq_type]["total_hours"] is not None:
+                    summary["by_type"][eq_type]["total_hours"] += l.hours_worked
             return summary
         except Exception as e:
             logger.error(f"Error getting equipment summary: {e}")
@@ -6018,6 +8635,51 @@ class DatabaseManager:
             session.close()
 
     # ========== Seven Days Lookahead ==========
+    def save_lookahead_records(self, well_id, report_id, records):
+        """Persist an explicit planning editor snapshot, never guessed dates.
+
+        Stable IDs preserve rows/dates/actuals; invalid rows inhibit deletion.
+        Valid rows save independently, unexpected failures roll back the batch.
+        """
+        from core.domain_records import collection_value, optional_date
+        from core.save_outcome import SaveOutcome, SaveIssue
+        result, accepted = SaveOutcome(), []
+        for index, source in enumerate(collection_value(records, "lookahead"), 1):
+            row = dict(source)
+            try:
+                row["plan_date"] = optional_date(row.get("plan_date"))
+                if row["plan_date"] is None:
+                    raise ValueError("plan_date is required; supply the planned date")
+                if not str(row.get("activity") or "").strip():
+                    raise ValueError("activity is required")
+                if row.get("day_number") is not None:
+                    row["day_number"] = int(row["day_number"])
+                accepted.append(row)
+            except (ValueError, TypeError) as exc:
+                result.issues.append(SaveIssue("Lookahead", str(exc), status="INVALID_SOURCE", row=index,
+                                              corrective_action="Correct this plan row and save again; no existing rows were deleted."))
+        with self.session_scope() as session:
+            report = session.get(DailyReport, report_id)
+            if report is None or report.well_id != well_id:
+                raise ValueError("Planning report does not belong to the selected well")
+            ids = []
+            for row in accepted:
+                if row.get("id"):
+                    previous = session.get(SevenDaysLookahead, row["id"])
+                    if previous is None or previous.report_id != report_id or previous.well_id != well_id:
+                        raise ValueError("Lookahead ID does not belong to this report")
+                row.update(well_id=well_id, report_id=report_id)
+                ids.append(self._save_atomic(session, SevenDaysLookahead, row))
+                result.saved += 1
+            if not result.issues:
+                query = session.query(SevenDaysLookahead).filter_by(well_id=well_id, report_id=report_id)
+                if ids:
+                    query = query.filter(~SevenDaysLookahead.id.in_(ids))
+                query.delete(synchronize_session=False)
+            session.add(AuditLog(action="lookahead_edit", entity_type="daily_report", entity_id=report_id,
+                                 details=json.dumps({"source": records, "result": result.to_dict()}, default=str)))
+        return result
+
     def save_seven_days_lookahead(self, lookahead_data: dict):
         """
         ✅ FIX: حذف import PySide از داخل تابع دیتابیس
@@ -6030,7 +8692,7 @@ class DatabaseManager:
             def _to_python_date(val):
                 """تبدیل ایمن به Python date"""
                 if val is None:
-                    return date.today()
+                    return None
                 if isinstance(val, date):
                     return val
                 if isinstance(val, str):
@@ -6039,7 +8701,7 @@ class DatabaseManager:
                             return datetime.strptime(val, fmt).date()
                         except ValueError:
                             continue
-                return date.today()
+                return None
 
             def _to_python_datetime(val):
                 """تبدیل ایمن به Python datetime"""
@@ -6055,7 +8717,11 @@ class DatabaseManager:
                             continue
                 return None
 
-            plan_date = _to_python_date(lookahead_data.get("plan_date"))
+            raw_plan_date = lookahead_data.get("plan_date")
+            plan_date = _to_python_date(raw_plan_date)
+            if raw_plan_date not in (None, "") and plan_date is None:
+                logger.error("Invalid plan_date for SevenDaysLookahead")
+                return None
             actual_start = _to_python_datetime(lookahead_data.get("actual_start"))
             actual_end = _to_python_datetime(lookahead_data.get("actual_end"))
 
@@ -6068,7 +8734,8 @@ class DatabaseManager:
                     plan.well_id = lookahead_data.get("well_id", plan.well_id)
                     plan.section_id = lookahead_data.get("section_id", plan.section_id)
                     plan.report_id = lookahead_data.get("report_id", plan.report_id)
-                    plan.plan_date = plan_date
+                    if plan_date is not None:
+                        plan.plan_date = plan_date
                     plan.day_number = lookahead_data.get("day_number", plan.day_number)
                     plan.activity = lookahead_data.get("activity", plan.activity)
                     plan.tools = lookahead_data.get("tools", plan.tools)
@@ -6094,6 +8761,9 @@ class DatabaseManager:
             if not well_id:
                 logger.error("well_id is required for SevenDaysLookahead")
                 return None
+            if plan_date is None:
+                logger.error("plan_date is required for a new SevenDaysLookahead")
+                return None
 
             new_plan = SevenDaysLookahead(
                 well_id=well_id,
@@ -6107,7 +8777,7 @@ class DatabaseManager:
                 remarks=lookahead_data.get("remarks", ""),
                 status=lookahead_data.get("status", "Planned"),
                 priority=lookahead_data.get("priority", "Normal"),
-                progress_percentage=lookahead_data.get("progress_percentage", 0),
+                progress_percentage=lookahead_data.get("progress_percentage"),
                 actual_start=actual_start,
                 actual_end=actual_end,
                 created_by=lookahead_data.get("created_by"),
@@ -6154,6 +8824,8 @@ class DatabaseManager:
                     "remarks": p.remarks,
                     "status": p.status,
                     "progress_percentage": p.progress_percentage,
+                    "actual_start": p.actual_start,
+                    "actual_end": p.actual_end,
                     "created_at": p.created_at,
                     "updated_at": p.updated_at
                 }
@@ -6161,14 +8833,20 @@ class DatabaseManager:
             ]
         except Exception as e:
             logger.error(f"Error getting seven days lookahead: {e}")
-            return []
+            raise  # collection query failure is not an empty dataset
         finally:
             session.close()
 
     # ========== NPT Report ==========
-    def save_npt_report(self, npt_data: dict):
-        session = self.create_session()
+    def save_npt_report(self, npt_data: dict, session: Optional[Session] = None):
+        owns_session = session is None
+        session = session or self.create_session()
         try:
+            npt_data = dict(npt_data)
+            if not npt_data.get("id") and npt_data.get("report_id"):
+                existing = session.query(NPTReport).filter_by(report_id=npt_data["report_id"], start_time=npt_data["start_time"], end_time=npt_data["end_time"]).first()
+                if existing:
+                    npt_data["id"] = existing.id
             if npt_data.get("id"):
                 report = session.query(NPTReport).filter(NPTReport.id == npt_data["id"]).first()
                 if report:
@@ -6192,21 +8870,26 @@ class DatabaseManager:
                     npt_code=npt_data["npt_code"],
                     npt_description=npt_data["npt_description"],
                     responsible_party=npt_data.get("responsible_party", ""),
-                    cost_impact=npt_data.get("cost_impact", 0.0),
+                    cost_impact=npt_data.get("cost_impact"),
                     status=npt_data.get("status", "Active"),
                     created_by=npt_data.get("created_by")
                 )
                 session.add(report)
                 session.flush()
                 record_id = report.id
-            session.commit()
+            session.flush()
+            if owns_session:
+                session.commit()
             return record_id
         except Exception as e:
+            if not owns_session:
+                raise
             session.rollback()
             logger.error(f"Error saving NPT report: {e}")
             return None
         finally:
-            session.close()
+            if owns_session:
+                session.close()
 
     def get_npt_reports(self, well_id: int = None, start_date: date = None, end_date: date = None, npt_code: str = None, report_id: int = None):
         session = self.create_session()
@@ -6246,7 +8929,7 @@ class DatabaseManager:
             ]
         except Exception as e:
             logger.error(f"Error getting NPT reports: {e}")
-            return []
+            raise  # collection query failure is not an empty dataset
         finally:
             session.close()
 
@@ -6263,20 +8946,28 @@ class DatabaseManager:
             if end_date:
                 query = query.filter(NPTReport.npt_date <= end_date)
             reports = query.all()
-            total_npt_hours = sum(r.duration_hours or 0 for r in reports)
+            from core.cost_semantics import complete_total
+
+            def _total(values):
+                values = list(values)
+                return complete_total(values) if values else 0.0
+
+            total_npt_hours = _total(r.duration_hours for r in reports)
             total_npt_events = len(reports)
-            category_stats = {}
+            grouped_cat, grouped_code = {}, {}
             for r in reports:
-                cat = r.npt_category or "Unknown"
-                category_stats[cat] = category_stats.get(cat, 0) + (r.duration_hours or 0)
-            code_stats = {}
-            for r in reports:
-                code = r.npt_code or "Unknown"
-                code_stats[code] = code_stats.get(code, 0) + (r.duration_hours or 0)
+                grouped_cat.setdefault(r.npt_category or "Unknown", []).append(r.duration_hours)
+                grouped_code.setdefault(r.npt_code or "Unknown", []).append(r.duration_hours)
+            # A category/code total with an unrecorded duration is unknown, and so is
+            # an average over an incomplete set (never a lower number).
+            category_stats = {cat: _total(values) for cat, values in grouped_cat.items()}
+            code_stats = {code: _total(values) for code, values in grouped_code.items()}
             return {
                 "total_npt_hours": total_npt_hours,
                 "total_npt_events": total_npt_events,
-                "average_npt_per_event": total_npt_hours / total_npt_events if total_npt_events > 0 else 0,
+                "average_npt_per_event": (0 if total_npt_events == 0 else
+                                          (None if total_npt_hours is None
+                                           else total_npt_hours / total_npt_events)),
                 "category_stats": category_stats,
                 "code_stats": code_stats,
                 "reports": len(reports)
@@ -6359,12 +9050,13 @@ class DatabaseManager:
             ]
         except Exception as e:
             logger.error(f"Error getting activity codes: {e}")
-            return []
+            raise  # collection query failure is not an empty dataset
         finally:
             session.close()
 
-    def update_code_usage(self, well_id: int, code_data: list):
-        session = self.create_session()
+    def update_code_usage(self, well_id: int, code_data: list, session: Optional[Session] = None):
+        owns_session = session is None
+        session = session or self.create_session()
         try:
             for usage in code_data:
                 code = session.query(ActivityCode).filter(
@@ -6372,22 +9064,28 @@ class DatabaseManager:
                     ActivityCode.sub_code == usage["sub_code"]
                 ).first()
                 if code:
-                    code.usage_count += usage.get("count", 0)
-                    code.total_hours += usage.get("hours", 0.0)
-                    code.last_used = datetime.now().date()
+                    code.usage_count = usage.get("count", 0)
+                    code.total_hours = usage.get("hours", 0.0)
+                    code.last_used = usage.get("last_used", code.last_used)
                     code.updated_at = _now_utc()
-            session.commit()
+            session.flush()
+            if owns_session:
+                session.commit()
             return True
         except Exception as e:
+            if not owns_session:
+                raise
             session.rollback()
             logger.error(f"Error updating code usage: {e}")
             return False
         finally:
-            session.close()
+            if owns_session:
+                session.close()
 
     # ========== Time Depth Data ==========
-    def save_time_depth_data(self, data: dict):
-        session = self.create_session()
+    def save_time_depth_data(self, data: dict, session: Optional[Session] = None):
+        owns_session = session is None
+        session = session or self.create_session()
         try:
             point = TimeDepthData(
                 well_id=data["well_id"],
@@ -6404,15 +9102,27 @@ class DatabaseManager:
                 daily_progress=data.get("daily_progress"),
                 created_by=data.get("created_by")
             )
-            session.add(point)
-            session.commit()
+            existing = session.query(TimeDepthData).filter_by(report_id=data.get("report_id"), well_id=data["well_id"], timestamp=data["timestamp"]).first()
+            if existing:
+                for key in data:
+                    if key not in {"id", "well_id", "report_id"} and hasattr(existing, key):
+                        setattr(existing, key, data[key])
+                point = existing
+            else:
+                session.add(point)
+            session.flush()
+            if owns_session:
+                session.commit()
             return point.id
         except Exception as e:
+            if not owns_session:
+                raise
             session.rollback()
             logger.error(f"Error saving time depth data: {e}")
             return None
         finally:
-            session.close()
+            if owns_session:
+                session.close()
 
     def get_time_depth_data(self, well_id: int = None, report_id: int = None, start_date=None, end_date=None, min_depth=None, max_depth=None):
         session = self.create_session()
@@ -6448,7 +9158,7 @@ class DatabaseManager:
             ]
         except Exception as e:
             logger.error(f"Error getting time depth data: {e}")
-            return []
+            raise  # collection query failure is not an empty dataset
         finally:
             session.close()
 
@@ -6526,7 +9236,7 @@ class DatabaseManager:
             ]
         except Exception as e:
             logger.error(f"Error getting ROP analysis: {e}")
-            return []
+            raise  # collection query failure is not an empty dataset
         finally:
             session.close()
 
@@ -6543,12 +9253,14 @@ class DatabaseManager:
                 "data_points": 0
             }
             for r in reports:
-                if r.report_date:
+                # A missing depth/ROP is not a zero data point: skip the pair so the
+                # chart shows a gap instead of an invented value (arrays stay aligned).
+                if r.report_date and r.depth_2400 is not None and r.rop_meter is not None:
                     data["timestamps"].append(
                         datetime.combine(r.report_date, datetime.min.time())
                     )
-                    data["depths"].append(r.depth_2400 or 0)
-                    data["rop"].append(r.rop_meter or 0)
+                    data["depths"].append(r.depth_2400)
+                    data["rop"].append(r.rop_meter)
             data["data_points"] = len(data["timestamps"])
             return data if data["data_points"] > 0 else None
         except Exception as e:
@@ -6579,12 +9291,18 @@ class DatabaseManager:
                 "data_points": 0
             }
             for p in params:
-                if p.report_date:
+                # Unrecorded parameters are gaps, never 0 data points (a 0 WOB point
+                # would read as a real slack-off). None keeps the arrays aligned.
+                if p.report_date and p.avg_rop is not None and p.depth_out is not None:
+                    mid_wob = ((p.wob_min + p.wob_max) / 2
+                               if p.wob_min is not None and p.wob_max is not None else None)
+                    mid_rpm = ((p.rpm_min + p.rpm_max) / 2
+                               if p.rpm_min is not None and p.rpm_max is not None else None)
                     data["timestamps"].append(datetime.combine(p.report_date, datetime.min.time()))
-                    data["rop"].append(p.avg_rop or 0)
-                    data["wob"].append((p.wob_min + p.wob_max) / 2 if p.wob_min and p.wob_max else 0)
-                    data["rpm"].append((p.rpm_min + p.rpm_max) / 2 if p.rpm_min and p.rpm_max else 0)
-                    data["depths"].append(p.depth_out or 0)
+                    data["rop"].append(p.avg_rop)
+                    data["wob"].append(mid_wob)
+                    data["rpm"].append(mid_rpm)
+                    data["depths"].append(p.depth_out)
             data["data_points"] = len(data["timestamps"])
             return data if data["data_points"] > 0 else None
         except Exception as e:
@@ -6595,23 +9313,37 @@ class DatabaseManager:
 
 
 
-    def auto_update_from_daily_report(self, report_id: int):
-        session = self.create_session()
+    def auto_update_from_daily_report(self, report_id: int, session: Optional[Session] = None):
+        owns_session = session is None
+        session = session or self.create_session()
         try:
             report = session.query(DailyReport).filter(DailyReport.id == report_id).first()
             if not report:
                 return False
+
+            # Track only our own derived records. Never delete manual rows
+            # based merely on matching timestamps or an empty source report.
+            prior = session.query(AuditLog).filter_by(action="daily_derived", entity_type="daily_report", entity_id=report_id).order_by(AuditLog.id.desc()).first()
+            previous = json.loads(prior.details) if prior else {}
+            generated = {"npt_ids": [], "time_depth_ids": []}
 
             # NPT from time logs
             npt_logs = session.query(TimeLog24H).filter(
                 TimeLog24H.report_id == report_id,
                 TimeLog24H.is_npt == True
             ).all()
+            unrecorded_npt = 0
             for log in npt_logs:
+                if log.duration is None:
+                    # NPTReport.duration_hours is NOT NULL, so a row cannot carry
+                    # "unknown". Deriving one with 0 h would state a duration the
+                    # operator never recorded, so the source log is left underived.
+                    unrecorded_npt += 1
+                    continue
                 # Preserve the source attribution: when the NPT row names a
                 # company (contractor column), keep it as responsible party
                 # instead of a generic placeholder.
-                responsible = (log.contractor or "").strip() or "System"
+                responsible = (log.contractor or "").strip() or None
                 npt_data = {
                     "well_id": report.well_id,
                     "section_id": report.section_id,
@@ -6619,45 +9351,77 @@ class DatabaseManager:
                     "npt_date": report.report_date,
                     "start_time": log.time_from,
                     "end_time": log.time_to,
-                    "duration_hours": log.duration or 0,
+                    "duration_hours": log.duration,
                     "npt_category": "Daily Report",
                     "npt_code": log.main_code or "NPT",
                     "npt_description": log.activity_description or "NPT from daily report",
                     "responsible_party": responsible,
                     "status": "Active"
                 }
-                self.save_npt_report(npt_data)
+                generated["npt_ids"].append(self.save_npt_report(npt_data, session=session))
 
             # Update activity code usage
-            all_logs = session.query(TimeLog24H).filter(TimeLog24H.report_id == report_id).all()
+            all_logs = session.query(TimeLog24H).join(DailyReport).filter(DailyReport.well_id == report.well_id).all()
             code_usage = {}
             for log in all_logs:
-                code = log.main_code or "Unknown"
-                code_usage.setdefault(code, {"count": 0, "hours": 0})
+                code = log.main_code
+                if not code:
+                    continue
+                code_usage.setdefault(code, {"count": 0, "hours": 0, "last_used": None,
+                                             "unrecorded_hours": 0})
+                used_on = session.get(DailyReport, log.report_id).report_date
+                if used_on and (code_usage[code]["last_used"] is None or used_on > code_usage[code]["last_used"]):
+                    code_usage[code]["last_used"] = used_on
                 code_usage[code]["count"] += 1
-                code_usage[code]["hours"] += log.duration or 0
-            usage_list = [{"sub_code": code, "count": data["count"], "hours": data["hours"]} for code, data in code_usage.items()]
+                if log.duration is None:
+                    code_usage[code]["unrecorded_hours"] += 1
+                else:
+                    code_usage[code]["hours"] += log.duration
+            # These are aggregates, not additive counters. Reset disappeared
+            # codes as well, including when the final source row is removed.
+            session.query(ActivityCode).filter_by(well_id=report.well_id).update({"usage_count": 0, "total_hours": 0.0, "last_used": None}, synchronize_session=False)
+            if unrecorded_npt:
+                logger.warning("Derived NPT skipped for %s log(s) with no recorded duration "
+                               "in report %s (unknown duration cannot be stored)",
+                               unrecorded_npt, report_id)
+            # A code whose hours are incomplete reports unknown (NULL), never a subtotal.
+            usage_list = [
+                {"sub_code": code,
+                 **{**data, "hours": None if data["unrecorded_hours"] else data["hours"]}}
+                for code, data in code_usage.items()
+            ]
             if usage_list:
-                self.update_code_usage(report.well_id, usage_list)
+                self.update_code_usage(report.well_id, usage_list, session=session)
 
             # Time vs Depth
-            if report.depth_2400:
-                self.save_time_depth_data({
+            if report.depth_2400 is not None and report.report_date:
+                generated["time_depth_ids"].append(self.save_time_depth_data({
                     "well_id": report.well_id,
                     "section_id": report.section_id,
                     "report_id": report_id,
                     "timestamp": datetime.combine(report.report_date, datetime.min.time()),
                     "depth": report.depth_2400,
-                    "daily_progress": report.depth_2400 - (report.depth_0000 or 0),
-                })
+                    "daily_progress": report.depth_2400 - report.depth_0000 if report.depth_0000 is not None else None,
+                }, session=session))
 
+            for key, model in (("npt_ids", NPTReport), ("time_depth_ids", TimeDepthData)):
+                stale = set(previous.get(key, [])) - set(generated[key])
+                if stale:
+                    session.query(model).filter(model.report_id == report_id, model.id.in_(stale)).delete(synchronize_session=False)
+            session.add(AuditLog(action="daily_derived", entity_type="daily_report", entity_id=report_id, details=json.dumps(generated)))
+            session.flush()
+            if owns_session:
+                session.commit()
             return True
         except Exception as e:
+            if not owns_session:
+                raise
             session.rollback()
             logger.error(f"Error auto-updating from daily report: {e}")
             return False
         finally:
-            session.close()
+            if owns_session:
+                session.close()
 
     # ========== Export Templates ==========
     def save_export_template(self, template_data: dict):
@@ -6724,7 +9488,7 @@ class DatabaseManager:
             ]
         except Exception as e:
             logger.error(f"Error getting export templates: {e}")
-            return []
+            raise  # collection query failure is not an empty dataset
         finally:
             session.close()
 
@@ -6871,7 +9635,7 @@ class DatabaseManager:
             } for p in procs]
         except Exception as e:
             logger.error(f"Error getting procedures: {e}")
-            return []
+            raise  # collection query failure is not an empty dataset
         finally:
             session.close()
 
@@ -6980,7 +9744,7 @@ class DatabaseManager:
             } for s in steps]
         except Exception as e:
             logger.error(f"Error getting steps: {e}")
-            return []
+            raise  # collection query failure is not an empty dataset
         finally:
             session.close()
 
@@ -7056,7 +9820,7 @@ class DatabaseManager:
             } for i in items]
         except Exception as e:
             logger.error(f"Error getting checklist: {e}")
-            return []
+            raise  # collection query failure is not an empty dataset
         finally:
             session.close()
 
@@ -7101,7 +9865,7 @@ class DatabaseManager:
             } for t in templates]
         except Exception as e:
             logger.error(f"Error getting templates: {e}")
-            return []
+            raise  # collection query failure is not an empty dataset
         finally:
             session.close()
 
@@ -7433,6 +10197,9 @@ class DatabaseManager:
                 session.add(record)
                 session.flush()
                 record_id = record.id
+            from core.cost_semantics import canonical_variance, normalize_currency
+            record.currency = normalize_currency(record.currency)
+            record.variance = canonical_variance(record.planned_cost, record.actual_cost)
             session.commit()
             return record_id
         except Exception as e:
@@ -7441,6 +10208,40 @@ class DatabaseManager:
             return None
         finally:
             session.close()
+
+    def save_afe_worksheet(self, well_id: int, rows: list, afe_number=None,
+                           currency=None, user_id=None):
+        """Persist a W16 AFE budget worksheet to CostRecord atomically.
+
+        The AFE worksheet is a single logical user operation: all of its budget
+        (``cost_type=AFE``) lines for the well are replaced together in ONE
+        transaction. A failure on any row rolls the whole save back — no partial
+        worksheet (§34). Non-AFE OPEX cost lines for the well are untouched.
+        Variance and currency are normalized through the canonical cost helper
+        so the persisted values can never contradict the summary.
+        """
+        from core.cost_semantics import afe_row_to_cost_record, COST_TYPE_BUDGET
+        with self.session_scope() as session:
+            # Replace only this well's AFE-budget lines; leave OPEX lines alone.
+            session.query(CostRecord).filter(
+                CostRecord.well_id == well_id,
+                CostRecord.cost_type == COST_TYPE_BUDGET,
+            ).delete(synchronize_session=False)
+            saved = 0
+            for row in rows:
+                if not isinstance(row, dict):
+                    continue
+                if not (row.get("category") or "").strip():
+                    continue  # a blank category is not a cost line
+                data = afe_row_to_cost_record(
+                    dict(row, id=None), well_id, afe_number=afe_number,
+                    currency=currency)
+                if user_id is not None:
+                    data["created_by"] = user_id
+                valid = {c.name for c in CostRecord.__table__.columns}
+                session.add(CostRecord(**{k: v for k, v in data.items() if k in valid}))
+                saved += 1
+            return saved
 
     def get_cost_records(self, well_id: int, category: str = None):
         session = self.create_session()
@@ -7454,33 +10255,18 @@ class DatabaseManager:
             return [{col.name: getattr(r, col.name) for col in CostRecord.__table__.columns} for r in records]
         except Exception as e:
             logger.error(f"Error getting costs: {e}")
-            return []
+            raise  # collection query failure is not an empty dataset
         finally:
             session.close()
 
     def get_cost_summary(self, well_id: int):
-        session = self.create_session()
-        try:
-            from sqlalchemy import func
-            records = session.query(
-                CostRecord.category,
-                func.sum(CostRecord.planned_cost).label('planned'),
-                func.sum(CostRecord.actual_cost).label('actual'),
-            ).filter(
-                CostRecord.well_id == well_id
-            ).group_by(CostRecord.category).all()
-            return [{
-                "category": r.category,
-                "planned": r.planned or 0,
-                "actual": r.actual or 0,
-                "variance": (r.planned or 0) - (r.actual or 0),
-            } for r in records]
-        except Exception as e:
-            logger.error(f"Cost summary error: {e}")
-            return []
-        finally:
-            session.close()
-            
+        """Category AND currency groups; no implicit conversion or NULL-to-zero."""
+        return self.get_cost_totals(well_id)["groups"]
+
+    def get_cost_totals(self, well_id: int):
+        from core.cost_semantics import summarize_costs
+        return summarize_costs(self.get_cost_records(well_id))
+
     def log_audit(self, action, entity_type="", entity_id=None,
                   entity_name="", details="", user_id=None, username=""):
         session = self.create_session()
@@ -7518,46 +10304,87 @@ class DatabaseManager:
             return [{col.name: getattr(l, col.name) for col in AuditLog.__table__.columns} for l in logs]
         except Exception as e:
             logger.error(f"Get audit logs error: {e}")
-            return []
+            raise  # collection query failure is not an empty dataset
         finally:
             session.close()
 
+    def backup_to(self, destination) -> Optional[str]:
+        """Create a consistent SQLite backup at ``destination``.
+
+        SQLite's backup API includes WAL state and is safer than copying the
+        main file while the application is running. The destination path is
+        returned only after the backup completes successfully.
+        """
+        import sqlite3
+        import tempfile
+
+        if self.db_path == ":memory:" or not os.path.exists(self.db_path):
+            return None
+        destination = Path(destination).expanduser()
+        try:
+            if destination.resolve() == Path(self.db_path).expanduser().resolve():
+                logger.warning("Refusing to overwrite the live database with its own backup")
+                return None
+        except OSError:
+            return None
+        temporary = None
+        source_connection = None
+        destination_connection = None
+        try:
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            with tempfile.NamedTemporaryFile(prefix=".drillmaster-backup-", suffix=".db", dir=destination.parent, delete=False) as handle:
+                temporary = Path(handle.name)
+            # Fail if the source disappears after the existence check; plain
+            # connect() would create an empty DB and publish a false backup.
+            source_connection = sqlite3.connect(
+                Path(self.db_path).resolve().as_uri() + "?mode=ro", uri=True
+            )
+            destination_connection = sqlite3.connect(str(temporary))
+            with destination_connection:
+                source_connection.backup(destination_connection)
+            destination_connection.close()
+            destination_connection = None
+            os.replace(temporary, destination)
+            temporary = None
+            logger.info("Database backup created: %s", destination)
+            return str(destination)
+        except (OSError, sqlite3.Error):
+            logger.exception("Database backup failed")
+            return None
+        finally:
+            if source_connection is not None:
+                source_connection.close()
+            if destination_connection is not None:
+                destination_connection.close()
+            if temporary is not None:
+                try:
+                    temporary.unlink(missing_ok=True)
+                except OSError:
+                    logger.warning("Could not remove incomplete temporary backup: %s", temporary)
+
     def auto_backup(self, backup_dir=None):
-        """Backup خودکار دیتابیس"""
-        import shutil
-        import os
-
-        if backup_dir is None:
-            base_dir = Path(__file__).resolve().parent.parent
-            backup_dir = str(base_dir / "backups")
-
-        os.makedirs(backup_dir, exist_ok=True)
-
-        if not os.path.exists(self.db_path):
+        """Create a rotating automatic backup in the configured data area."""
+        target_dir = Path(backup_dir) if backup_dir else configured_backup_dir()
+        target_dir.mkdir(parents=True, exist_ok=True)
+        if self.db_path == ":memory:" or not os.path.exists(self.db_path):
             return None
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup_path = os.path.join(
-            backup_dir, f"drillmaster_backup_{timestamp}.db"
-        )
-
-        try:
-            shutil.copy2(self.db_path, backup_path)
-            logger.info(f"Auto-backup created: {backup_path}")
-
-            backups = sorted([
-                f for f in os.listdir(backup_dir)
-                if f.startswith("drillmaster_backup_") and f.endswith(".db")
-            ])
-            while len(backups) > 10:
-                old = os.path.join(backup_dir, backups.pop(0))
-                os.remove(old)
-                logger.info(f"Old backup removed: {old}")
-
-            return backup_path
-        except Exception as e:
-            logger.error(f"Auto-backup error: {e}")
+        backup_path = target_dir / f"drillmaster_backup_{timestamp}.db"
+        result = self.backup_to(backup_path)
+        if not result:
             return None
+
+        backups = sorted(
+            path for path in target_dir.glob("drillmaster_backup_*.db")
+        )
+        while len(backups) > DBConstants.MAX_BACKUP_FILES:
+            old = backups.pop(0)
+            try:
+                old.unlink()
+            except OSError:
+                logger.warning("Could not remove old database backup: %s", old)
+        return result
             
     def search_all(self, query_text: str, well_id: int = None, limit: int = 50) -> list:
         if not query_text or len(query_text) < 2:
@@ -7579,17 +10406,22 @@ class DatabaseManager:
 
         try:
             # Wells
-            wells = session.query(Well).filter(
-                (Well.name.ilike(q)) |
-                (Well.code.ilike(q)) |
-                (Well.field_name.ilike(q)) |
-                (Well.rig_name.ilike(q)) |
-                (Well.operator.ilike(q))
+            well_query = session.query(Well)
+            if well_id is not None:
+                well_query = well_query.filter(Well.id == well_id)
+            wells = well_query.filter(
+                (Well.name.ilike(q, escape='\\')) |
+                (Well.code.ilike(q, escape='\\')) |
+                (Well.field_name.ilike(q, escape='\\')) |
+                (Well.rig_name.ilike(q, escape='\\')) |
+                (Well.operator.ilike(q, escape='\\'))
             ).limit(10).all()
             
             for w in wells:
                 results.append({
                     "type": "well",
+                    "well_id": w.id,
+                    "report_id": None,
                     "id": w.id,
                     "title": w.name,
                     "subtitle": f"Code: {w.code} | Field: {w.field_name}",
@@ -7597,14 +10429,16 @@ class DatabaseManager:
                 })
 
             dr_query = session.query(DailyReport).filter(
-                DailyReport.summary.ilike(q)
+                DailyReport.summary.ilike(q, escape='\\')
             )
-            if well_id:
+            if well_id is not None:
                 dr_query = dr_query.filter(DailyReport.well_id == well_id)
             reports = dr_query.limit(10).all() 
             for r in reports:
                 results.append({
                     "type": "report",
+                    "well_id": r.well_id,
+                    "report_id": r.id,
                     "id": r.id,
                     "title": f"Report #{r.report_number} - {r.report_date}",
                     "subtitle": (r.summary or "")[:100],
@@ -7612,12 +10446,17 @@ class DatabaseManager:
                 })
 
             # Time Logs
-            logs = session.query(TimeLog24H).filter(
-                TimeLog24H.activity_description.ilike(q)
+            log_query = session.query(TimeLog24H, DailyReport.well_id).join(DailyReport, TimeLog24H.report_id == DailyReport.id)
+            if well_id is not None:
+                log_query = log_query.filter(DailyReport.well_id == well_id)
+            logs = log_query.filter(
+                TimeLog24H.activity_description.ilike(q, escape='\\')
             ).limit(10).all()
-            for l in logs:
+            for l, owner_well_id in logs:
                 results.append({
                     "type": "timelog",
+                    "well_id": owner_well_id,
+                    "report_id": l.report_id,
                     "id": l.id,
                     "title": f"{l.main_code or ''} - {l.time_from}",
                     "subtitle": (l.activity_description or "")[:100],
@@ -7626,8 +10465,8 @@ class DatabaseManager:
 
         except Exception as e:
             logger.error(f"Search error: {e}")
+            raise  # a failed search must not become an empty or partial success
         finally:
             session.close()
 
         return results[:limit]
-        

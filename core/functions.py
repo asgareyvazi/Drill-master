@@ -4,7 +4,7 @@ Core Functions - Centralized helper functions
 بازنویسی شده: حذف متدهای بلااستفاده، نگه‌داشتن فقط موارد لازم
 """
 import logging
-from typing import Dict, Optional
+from typing import Dict
 
 logger = logging.getLogger(__name__)
 

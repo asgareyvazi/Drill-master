@@ -1,0 +1,107 @@
+{
+  "schema": "m32-fix-batch-2",
+  "generated_utc": "2026-09-27T06:05:00Z",
+  "fixes": [
+    {
+      "fix_id": "M32-FIX-007",
+      "path": "core/managers.py",
+      "symbol": "DrillingManager.calculate_rop / calculate_tfa / calculate_hsi",
+      "kind": "failure-reported-as-zero",
+      "before": "a failed engine run (or an engine result without 'rop') returned 0.0, and an empty nozzle list returned 0.0 in2; the drilling tab displayed and then PERSISTED those zeros (payload keys avg_rop/hsi/tfa)",
+      "after": "no value is invented: failure/absence returns None, a successful engine value is passed through verbatim (no 'or 0.0')",
+      "consumers_traced": "tabs/w3_drilling_report.py (display + payload), core/database.py DrillingParameters.avg_rop is a nullable Float, canonical schema daily_report.avg_rop, kpi aggregation already guards 'is not None'",
+      "test": "test_failed_engine_calculations_are_not_reported_as_zero, test_engine_result_without_a_rop_value_is_unknown",
+      "mutants": [
+        "M2-ROP-FAILURE",
+        "M2-ROP-VALUE",
+        "M2-HSI",
+        "M2-TFA"
+      ]
+    },
+    {
+      "fix_id": "M32-FIX-008",
+      "path": "tabs/w3_drilling_report.py",
+      "symbol": "DrillingParametersTab (avg_rop/hsi/tfa_value + collect_data/load_from_dict/clear_form)",
+      "kind": "fabricated-measurement",
+      "before": "derived read-only spin boxes defaulted to 0.0 and the payload stored .value(), so an uncomputed ROP/HSI/TFA was persisted as a measured 0; loading a stored NULL restored a displayed 0",
+      "after": "sentinel minimum + 'Not computed' display, payload stores None for an uncomputed value, a stored NULL reloads as unknown, a genuine 0.0 result is still stored as 0.0",
+      "test": "test_drilling_tab_persists_unknown_for_uncomputed_values (real tab, real widgets, no mocks)",
+      "mutants": [
+        "M2-PAYLOAD",
+        "M2-SENTINEL",
+        "M2-LOAD-NULL"
+      ]
+    },
+    {
+      "fix_id": "M32-FIX-009",
+      "path": "tests/test_autosave_manager_regression.py",
+      "symbol": "_widget_capable_application (test infrastructure)",
+      "kind": "order-dependence/abort",
+      "before": "the test created a bare QCoreApplication singleton; it stays alive for the whole pytest process, so every later widget test aborted (SIGABRT) with 'QWidget: Cannot create a QWidget without QApplication' - reproduced by running that file together with tests/test_m31_scenarios.py",
+      "after": "the test bootstraps a widget-capable QApplication (reusing any live instance, falling back to QCoreApplication only where no GUI platform exists, with a loud message)",
+      "evidence": "the repository already documents this hazard (tests/test_schematic_no_fabrication.py:416-424) and isolates its renderer test in a subprocess; this fix removes the cause for every test instead",
+      "test": "tests/test_autosave_manager_regression.py + tests/test_m31_scenarios.py now exit 0 in the same process; full suite exits 0",
+      "mutants": [
+        "covered by the reproduction: before the fix the pair aborted with exit code 134"
+      ]
+    },
+    {
+      "fix_id": "M32-FIX-010",
+      "path": "tests/test_m31_scenarios.py",
+      "symbol": "_qt_app",
+      "kind": "silent-abort-guard",
+      "before": "QApplication.instance() or QApplication([]) silently accepted a bare QCoreApplication and the next widget construction aborted the interpreter",
+      "after": "a non-QApplication session fails the test loudly instead of killing pytest",
+      "test": "same file, used by every widget scenario"
+    }
+  ],
+  "post_fix_hashes": {
+    "core/managers.py": "1c0f33c4ca47170a995b35d8b33126fb48b473f0c0dfb4dd1597ce8c36d2609b",
+    "tests/test_autosave_manager_regression.py": "f07170668dbaf302ea6b3f0d633dd9686bfc6e1547f4d05253d03819cc642860",
+    "tests/test_m31_scenarios.py": "8e5b977431518f52d2d0256a11c070cb9abaa7a191ce67c4f8699402d22a60b8",
+    "tabs/w3_drilling_report.py": "fd6eca6ceac069775a800a52b89cd267c91f729f1847d54d96c74c00ac4a40c0"
+  },
+  "mutation_controls": {
+    "harness": "/tmp/mutate2.py",
+    "killed": [
+      "M2-ROP-FAILURE",
+      "M2-ROP-VALUE",
+      "M2-HSI",
+      "M2-TFA",
+      "M2-PAYLOAD",
+      "M2-SENTINEL",
+      "M2-LOAD-NULL"
+    ],
+    "survivors": [],
+    "restore": "every mutated file restored byte-identically (sha256 before == after)"
+  },
+  "full_suite_after_fixes": {
+    "command": "pytest -p no:cacheprovider -q --junitxml=/tmp/m32-full-1.xml",
+    "exit_code": 0,
+    "junit": {
+      "tests": 1800,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 4,
+      "time_s": 324.9
+    },
+    "skips_are_external_only": [
+      "test_ddr_acceptance (DRILLMASTER_TEST_DDR_XLSX not set)",
+      "test_ddr_acceptance pdf (DRILLMASTER_TEST_DDR_PDF not set)",
+      "test_mineru_real_integration (MINERU_INTEGRATION_INPUT not set)",
+      "test_packaging_smoke windows bundle (Windows bundle not available)"
+    ],
+    "environment": "Linux headless source verification, offscreen Qt with fail-loud /tmp/qtstub shims; native Qt / Windows runtime remain NOT-RUN"
+  },
+  "lint": {
+    "gate": "E722/F821 clean over '.'",
+    "debt": 5338,
+    "ceiling": 5375
+  },
+  "open_items_recorded_not_fixed": [
+    {
+      "item": "w3 derived spin boxes keep Qt's default maximum (99.99) for avg_rop/hsi and the TFA field has no explicit maximum, so a legitimate value above the bound is silently clamped",
+      "why_not_fixed_now": "choosing a bound is a product decision (no canonical limit exists in the repository); recorded as UNDER-REVIEW with root cause instead of inventing a magic number"
+    }
+  ]
+}

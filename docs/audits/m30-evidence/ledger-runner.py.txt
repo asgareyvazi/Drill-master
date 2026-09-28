@@ -1,0 +1,120 @@
+from pathlib import Path
+import ast, collections, hashlib, json, subprocess
+root=Path('/home/user/Drill-master'); out=Path('/home/user/m30-audit');out.mkdir(exist_ok=True)
+base=json.loads((root/'docs/audits/m29-evidence/risky-site-inventory.json').read_text())
+# Explicit occurrence decisions, not pattern-based approvals. A verdict here
+# certifies only the described occurrence/precondition, never its whole module.
+reviews={
+2:('D','Reporting tolerance 10% is an explicit policy parameter, not observed plan/actual data. compare_metrics validates it and both quantities; scalar/persisted eleven-pair tests cover consumers.'),
+3:('A','MissingInputError maps to structured missing_input, retaining unavailable operands in metadata. ActualVsPlanEngine consumers and M29 eleven-pair regressions inspected; not a manufactured zero.'),
+4:('A','EngineeringError maps to failed result, not success or absent record. New overflow checks now enter this existing correct handler; invalid-input behavior tested.'),
+288:('B','Carry-forward chose arbitrary latest same-name stock without matching unit/cardinality. Fixed: same unit and exactly one latest-date candidate; ambiguity stays unknown. New real-DB regression.'),
+290:('B','Report-only/name lookup could overwrite a different unit and ignore contradictory input well_id. Fixed qualified well/report/name/unit identity; duplicate identity raises, entire transaction fails.'),
+291:('B','Date/name fallback could select report-linked or differently-unit stock. Fixed well/date/unlinked-report/unit identity, one_or_none instead of arbitrary first.'),
+292:('D','initial_stock or zero occurs only under the preceding initial_stock-is-not-None guard. Explicit zero survives; no missing opening is substituted here. Incoming values now strictly parsed.'),
+293:('B','Unvalidated existing received assignment could accept bool/malformed movement as arithmetic. The enclosing save now validates incoming movement before mutation; NULL absence retains the documented no-movement convention.'),
+294:('B','Unvalidated existing used assignment had the same input-contract bypass. Strict incoming movement normalization precedes mutation; documented absent movement remains zero.'),
+295:('B','Raw received False/NaN could collapse/coerce to a factual movement. Input now validated before this fallback; invalid input preserves the previous row, tested for false/true/NaN/infinity/text.'),
+296:('D','The get default is the documented absent received=no movement convention, not opening stock. Strict normalization handles supplied invalid values before this site.'),
+297:('B','Raw used movement could collapse/coerce invalid input. Same canonical movement validation is applied to both movement fields before mutation; no new inventory framework.'),
+298:('D','The get default is the documented absent used=no movement convention. It is not an unknown-stock reducer; supplied values are now validated.'),
+299:('B','Bulk carry-forward first() ignored unit and equal-latest-date ambiguity. Fixed same-unit latest-date candidate cardinality; unknown remains unknown instead of borrowing a quantity.'),
+300:('A','Bulk save failure rolls back and returns None. W7 save consumer checks the result; duplicate/wrong-owner/malformed input regressions verify unchanged durable rows. No durable rendering operation occurs after commit in this service.'),
+440:('A','Failure to resolve backup source/destination aborts with None before creation/replacement. Refuses live-source overwrite; caller must inspect return, not a success signal.'),
+441:('A','OSError/sqlite failure returns None and preserves destination via temporary replacement. New disappeared-source case and M28 existing-destination fault tests verify this outcome.'),
+442:('E','If the OS refuses temporary-backup unlink, cleanup can only warn. Save remains failed and old destination preserved; tempfile is owner-private. Operator cleanup may be necessary; no override of filesystem permissions.'),
+444:('D','50 is a result budget, not evidence/confidence. Search queries are bounded, caller receives at most the requested result slice; current scoped UI/RAG consumers inspected.'),
+445:('B','Caught database search failure returned empty/partial results, causing no-matches success. Now rethrows; MainWindow reports FAILED and retrieval reports failed. Actual DB method failure regression closes session.'),
+741:('A','MSE missing numeric inputs return missing_input, distinct from invalid numeric errors. Canonical facade/UI persistence paths use success gate; existing engine/persistence tests rerun.'),
+742:('A','MSE EngineeringError returns structured error; new representability guards use this handler instead of yielding infinity or ZeroDivisionError. Domain tests and persisted engine tests rerun.'),
+824:('B','Canonical required-number conversion omitted OverflowError for huge Python integers. It now translates that failure to EngineeringError; callers can return failed rather than crash. Negative-before and positive-after tests recorded.'),
+825:('B','Optional-number conversion had the same OverflowError gap. Missing remains None; impossible known numeric input is error, not fabricated missing/zero. Regression proves type/behavior.'),
+901:('D','Three days is the explicit low-stock warning policy threshold, not inferred fuel consumption. Missing runway produces no alarm, not a safety assessment; fuel-water domain tests distinguish zero and missing.'),
+965:('G','Read-only legacy decoding intentionally returns None on malformed values and now handles nonfinite/huge numbers. Complete legacy-note provenance and re-save migration consequences have NOT been closed; no end-to-end SAFE verdict.'),
+966:('D','Received absence means no movement under the established inventory contract. Opening None exits before arithmetic; supported W5 and persistence callers normalize movement first. Explicit zero preserved.'),
+967:('D','Used absence means no movement, not missing physical stock. Live and save paths share strict row normalization; unknown opening cannot produce a closing value.'),
+1125:('D','10 is a bounded keyword-retrieval result limit, not a relevance probability. It is forwarded to scoped database search.'),
+1126:('B','Retrieval exception became [] and then a no-match answer. Now raises to rag_query, which returns explicit failed state; no-matches is separate.'),
+1127:('B','0.75 was unsupported numeric confidence. No probabilistic retrieval model runs. Replaced by None and typed source evidence; report IDs no longer inferred from unrelated entity IDs.'),
+1128:('C','Unwired formation-similarity prototype: no tracked production caller, canonical report dictionary has no formation field. Retained, not declared a working similarity feature or proven removable external API.'),
+1129:('C','Same unwired prototype error handler; retained, explicitly not accepted as a production similarity/search API. This is not an external-only acceptance item and not permission to delete it.'),
+1237:('A','resolve rolls back and rethrows on failure, closes its session, never silently repairs invalid owners. Production caller is coverage/analyze; no automatic apply found. Existing tests establish monotonic two-pass convergence, not one-pass fixed-point idempotence.'),
+1238:('B','Coverage combined existing and merely proposed ownership, displayed as already-resolved by DataQualityService. Now persisted ALREADY only; separate attributable percentage includes proposals. Read-only DB-state test proves distinction.'),
+1239:('B','RESOLVED counter default is a structural zero, but adding this count to actual coverage was semantically wrong. Separate potential-attribution metric fixes the consumer contract without applying ownership.'),
+2078:('A','Editor failure handler shows warning and returns False; editor_saved does not mark successful save. Additionally fixed normal no-provider path outside this exception, verified with isolated real widgets.'),
+2080:('B','Inventory calculation exception merely logged and left a prior derived value visible. Now clears derived results to INVALID; live and persisted inputs share normalization. Subprocess regression starts from valid 100 then injects malformed input.'),
+2081:('A','Save handler returns False and warning on delegate exception. No-provider normal path separately repaired, does not claim Saved. Real isolated widget test checks no success messages.'),
+2083:('A','DrillPipe editor save exception is explicit failure. No-provider path separately repaired while retaining the class and persistence callback contract; isolated test executed.'),
+2085:('A','Solid-control save exception returns False and warning, not silent success. No-provider path separately repaired; isolated widget regression.'),
+}
+# Evidence references are per concrete reviewed context; G is never counted as closed.
+caller_profiles={
+ 'core/scope_attribution.py':('DataQualityService.for_well -> coverage -> analyze/_compute; resolve has no automatic production caller','Canonical Well/Wellbore/Section/DailyReport ownership; candidate validation; no mutation in preview','DataQuality metrics serialize to W12/report quality; proposed versus persisted percentage separated','tests/test_scope_attribution.py; tests/test_m30_semantic_regressions.py'),
+ 'core/database.py':('MainWindow._global_search, HistoricalDDRSearch.search; W5/W7 inventory saves; backup caller checks path result','Real SQLite/SQLAlchemy ownership, exact identity and unit; transactional rollback/atomic replacement','Scoped typed search results; W5 remaining stock; explicit save/backup failures','tests/test_m30_semantic_regressions.py; tests/test_inventory_zero_semantics.py; tests/test_inventory_item_authority.py; tests/test_m28_finance_safety_plan.py'),
+ 'core/rag_search.py':('Public prototype API; no tracked application wiring found; explicitly not an LLM/vector implementation','DatabaseManager.search_all supplies qualified typed owners; canonical header has no formation field','Typed evidence, no fabricated probability, failure not no-matches; formation prototype retained','tests/test_m30_semantic_regressions.py'),
+ 'core/inventory_semantics.py':('W5 calculate_inventory/save_inventory_items; get_legacy_inventory_notes read-only decoding','Opening nullable; absence of movement is explicit no-movement convention; writers reject malformed values','Unknown opening -> unknown closing; invalid writes fail/rollback; legacy migration remains open','tests/test_inventory_item_authority.py; tests/test_inventory_live_calc_smoke.py; tests/test_m30_semantic_regressions.py'),
+ 'core/engineering/result.py':('Canonical engines and amount/plan parsers','Finite numerical inputs; bool rejected; missing distinct from invalid','EngineeringResult missing_input/error; numerical overflow never raw conversion exception','tests/test_m30_semantic_regressions.py; tests/test_engineering_data_semantics.py'),
+ 'core/actual_vs_plan.py':('Operations intelligence, W10/W12 plan comparison and engineering facade','Explicit plan/actual operands; zero preserved; variance actual minus planned','Missing operands retained in metadata; percentage uses abs(planned); errors structured','tests/test_m29_release_closure.py; tests/test_m30_semantic_regressions.py'),
+ 'core/engineering/engines/mse.py':('Engineering facade/W13 -> canonical MSEEngine; mse_persistence snapshots and recalculation','lbf, rpm, ft-lbf, ft/hour, inches; positive geometry/rate; finite representability','Structured missing/error versus computed MSE; no save on failed result','tests/test_mse_persistence.py; tests/test_mse_cross_process.py; tests/test_m30_semantic_regressions.py'),
+ 'core/fuel_water_semantics.py':('W7/database fuel-water consumers, domain tests','Known stock and positive consumption required for runway','Unknown runway does not mean safe stock or known zero days; threshold is a warning policy','tests/test_fuel_water_truth.py; tests/test_w7_null_zero_semantics.py'),
+ 'tabs/w5_Equipment_Widget.py':('Editor save button -> parent persistence callback; live inventory cell recalculation','Normalized row values; provider absence is not durable persistence','False/no success message for unavailable save; INVALID instead of stale numeric result','tests/test_m30_semantic_regressions.py; tests/test_inventory_live_calc_smoke.py'),
+}
+domains=json.loads((root/'docs/audits/m29-evidence/domain-matrix.json').read_text()); names=[d['domain'] for d in domains]
+def priority(r):
+ if any(t in (r['file']+' '+r['context']).lower() for t in ('database','ownership','scope','cost','financial','safety','engineering','snapshot','credential','import','export','permission','backup','restore','security')):return 'CRITICAL'
+ return 'HIGH'  # conservative queue priority, NOT a discovered defect severity
+
+def domain_for(r):
+ f,c=r['file'].lower(),r['context'].lower()
+ if 'database.py' in f:
+  for token,domain in [('inventory','Inventory/bulk/fuel stock'),('bulk_material','Inventory/bulk/fuel stock'),('backup','Backup/restore'),('search_all','Report history/selection'),('safety','Safety'),('cost','Currency/NULL reducers'),('wellbore','Wellbore ownership'),('snapshot','Revision snapshots'),('planned','Well plan revision/persistence'),('wellplan','Well plan revision/persistence'),('dailyreport','Daily report lifecycle'),('time_log','NPT/W10')]:
+   if token in c:return domain
+  return 'Canonical model registry'
+ if 'w10_' in f:
+  for token,domain in [('material','Material identity/W10'),('npt','NPT/W10'),('code','W10 code/status charts'),('milestone','W10 milestones'),('mud','W10 drilling/mud summaries'),('drilling','W10 drilling/mud summaries')]:
+   if token in c:return domain
+  return 'Well plan revision/persistence'
+ if 'w12_' in f:
+  for token,domain in [('today','W12 today/unique selection'),('rop_prediction','W12 ROP prediction'),('npt_forecast','W12 NPT forecast'),('cost','W12 cost analysis'),('risk','W12 risk'),('time_depth','W12 time-depth/calendar'),('milestone','W12 plan/quality/milestones'),('plan','W12 plan/quality/milestones')]:
+   if token in c:return domain
+  return 'W12 shared KPI scope'
+ routes=[('scope_attribution','Scope attribution'),('inventory_semantics','Inventory/bulk/fuel stock'),('w5_','Inventory/bulk/fuel stock'),('fuel_water','Fuel/maintenance/overhead'),('operational_time','Standby/moving'),('actual_vs_plan','Plan scalar/11-pair matrix'),('rag_search','Report history/selection'),('cost_semantics','Currency/NULL reducers'),('mse','MSE'),('casing','Casing'),('cement','Cement'),('torque_drag','Torque/drag'),('mud_volume','Mud volume'),('well_control','Well control/kill sheet'),('trajectory','Trajectory/MCM'),('anti_collision','Anti-collision'),('drill_pipe','DrillPipe catalog/import'),('hydraulics','Hydraulics/nozzle/bit'),('bit_performance','Hydraulics/nozzle/bit'),('engineering','Engineering facade/result'),('snapshot','Revision snapshots'),('safety','Safety'),('db_models','Legacy/duplicate modules'),('db_services','Legacy/duplicate modules'),('ai_','Security/user-data paths'),('mineru','PDF/MinerU'),('w11','W11/export/report scope'),('w16','W16 cost scope'),('w7','Logistics/personnel/transport'),('w8','Safety'),('w6','Trip sheet/W6'),('w2_','Daily report lifecycle'),('template','Template learning/mapping'),('import','DDR atomic persistence'),('export','Export failure semantics'),('main_window','Report history/selection')]
+ for token,domain in routes:
+  if token in f:return domain
+ matches=[d['domain'] for d in domains if r['file'] in d['sources']]
+ return matches[0] if matches else 'Canonical model registry'
+ledger=[]
+for idx,r in enumerate(base):
+ if r['audit_status']!='NOT-REVIEWED':continue
+ reviewed=idx in reviews; verdict,reason=reviews.get(idx,('G','No complete M30 source/caller/persistence/output judgment yet. This is an open queue record, NOT a semantic review or PASS.'))
+ record=dict(inventory_id=f'M30-{idx+1:05}',baseline_row=idx+1,legacy_id=r['id'],file=r['file'],baseline_line=r['line'],context=r['context'],kind=r['kind'],baseline_expression=r['expression'],primary_domain=domain_for(r),priority=priority(r),disposition=verdict,reviewed=reviewed,closed=reviewed and verdict!='G',reason=reason,source_sha256=hashlib.sha256((root/r['file']).read_bytes()).hexdigest())
+ if reviewed:
+  caller,db,output,tests=caller_profiles[r['file']];record.update(callers=caller,input_database_contract=db,downstream=output,tests=tests,fix_state='FIXED' if verdict=='B' else 'NOT APPLICABLE')
+ else:record.update(callers=None,input_database_contract=None,downstream=None,tests=None,fix_state='NOT ASSESSED')
+ ledger.append(record)
+assert len(ledger)==2232 and len({r['inventory_id'] for r in ledger})==2232
+summary=dict(total=len(ledger),reviewed=sum(r['reviewed'] for r in ledger),closed=sum(r['closed'] for r in ledger),unreviewed=sum(not r['reviewed'] for r in ledger),dispositions=dict(collections.Counter(r['disposition'] for r in ledger)),priority=dict(collections.Counter(r['priority'] for r in ledger)),legacy_id_collisions_all_2259=len(base)-len({r['id'] for r in base}),complete=False,warning='G assigned to unreviewed items is queue transparency, not 2232/2232 semantic disposition completion. Prior M29 approvals are not inherited as M30 approval.')
+(out/'inventory.json').write_text(json.dumps(ledger,indent=2,ensure_ascii=False)+'\n');(out/'inventory-summary.json').write_text(json.dumps(summary,indent=2)+'\n');print(json.dumps(summary,indent=2))
+lines=['# M30 domain evidence matrix','', 'Primary-domain routing below is an explicit triage mapping, not semantic proof. All 2232 baseline queue records are assigned once so totals are not inflated across domains. Shared modules may support other domains too. Zero selected-pattern items does NOT mean a domain has no code or is verified. All domains remain PARTIAL; 69/69 closure is not achieved.','', '| Domain | Inventory | Reviewed/Total | A Correct | B Defect/fixed | C Legacy | D Intentional | E Limitation | F External | G Evidence lacking | Tests/Fixes | Residual / Status |','|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---|---|']
+for d in domains:
+ rows=[r for r in ledger if r['primary_domain']==d['domain']];counts=collections.Counter(r['disposition'] for r in rows);reviewed=sum(r['reviewed'] for r in rows)
+ lines.append('| '+d['domain']+' | '+str(len(rows))+' | '+f'{reviewed}/{len(rows)}'+' | '+' | '.join(str(counts[k]) for k in 'ABCDEFG')+' | '+('M30 regressions + existing domain modules; see item evidence' if reviewed else 'Existing suite executed; no full semantic claim')+' | '+d['remaining']+'; PARTIAL |')
+(out/'M30_DOMAIN_MATRIX.md').write_text('\n'.join(lines)+'\n')
+# Fresh broadened sweep, with line/function/column identities. Detection is NOT approval.
+patterns={'or-zero':[], 'or-empty':[], 'falsey-if':[], 'single-row-or-scalar':[], 'broad-except':[], 'pass':[], 'return-none-false':[]}
+for folder in ('core','dialogs','tabs','ui'):
+ for p in (root/folder).rglob('*.py'):
+  tree=ast.parse(p.read_text()); rel=str(p.relative_to(root))
+  for n in ast.walk(tree):
+   kind=None
+   if isinstance(n,ast.BoolOp) and isinstance(n.op,ast.Or):
+    if any(isinstance(v,ast.Constant) and type(v.value) in (int,float) and v.value==0 for v in n.values):kind='or-zero'
+    elif any(isinstance(v,ast.Constant) and v.value=='' or isinstance(v,(ast.List,ast.Dict,ast.Tuple)) and not getattr(v,'elts',getattr(v,'keys',[1])) for v in n.values):kind='or-empty'
+   elif isinstance(n,ast.If) and isinstance(n.test,ast.UnaryOp) and isinstance(n.test.op,ast.Not):kind='falsey-if'
+   elif isinstance(n,ast.Call) and isinstance(n.func,ast.Attribute) and n.func.attr in ('first','one','one_or_none','scalar'):kind='single-row-or-scalar'
+   elif isinstance(n,ast.ExceptHandler) and (n.type is None or any(isinstance(x,ast.Name) and x.id in ('Exception','BaseException') for x in ast.walk(n.type))):kind='broad-except'
+   elif isinstance(n,ast.Pass):kind='pass'
+   elif isinstance(n,ast.Return) and (n.value is None or isinstance(n.value,ast.Constant) and (n.value.value is None or n.value.value is False)):kind='return-none-false'
+   if kind:patterns[kind].append(dict(file=rel,line=n.lineno,column=n.col_offset,status='DETECTED; NOT AUTO-APPROVED'))
+(out/'fresh-sweep.json').write_text(json.dumps(patterns,indent=2)+'\n')
+print('Fresh broader sweep:',{k:len(v) for k,v in patterns.items()})

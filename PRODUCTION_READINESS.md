@@ -1,55 +1,119 @@
-# DrillMaster — Production Readiness Checklist
+# Production readiness and final import consistency gate
 
-> **Version:** 1.0 — Audit Baseline (2026-08-24)
-> **Branch:** `arena/01a032f0-drill-master`
+> **Current evidence — 2026-09-27: [Mission 33 semantic audit](M33_SEMANTIC_AUDIT.md).** Inventory **8934** occurrences adjudicated from the current source: **3712 verified-correct**, **2264 intentional-by-design**, **51 defect-fixed**, **49 removed-with-evidence**, **17 external-acceptance-only**, **2837 under-review** and **4 evidence-incomplete** (the last two stop release certification for repository-verifiable items). This tree is **NOT RELEASE-CERTIFIABLE** — see [M33_RELEASE_CERTIFICATION.md](M33_RELEASE_CERTIFICATION.md). Earlier counts, SHAs and acceptance statements anywhere below are historical or unverified, not current certification.
 
----
+## Historical readiness records
 
-## Acceptance Criteria Status
+The dated material below is retained for provenance. Its uses of “current”,
+“verified”, and “release posture” refer to those historical dates. The Mission 29
+boundary above is the current status. In particular, the supported exact runtime
+lock requires Python 3.11–3.13; broad package metadata is not proof that this lock
+installs on Python 3.10. No hosted Actions success is claimed.
 
-| # | Criterion | Status | Notes |
-|---|-----------|--------|-------|
-| 1 | Application starts reliably | ✅ | Verified via test suite + import error fix |
-| 2 | Existing functionality works | ✅ | 101 tests passing |
-| 3 | Existing tests pass | ✅ | 101/101 passed |
-| 4 | Database operations are safe | ✅ | Atomic transactions, WAL mode, FK enforcement |
-| 5 | No data is lost during import | ✅ | Atomic import with snapshot/rollback |
-| 6 | Real-world Excel structures can be imported | 🟡 | Table detection supports merged cells, multi-row headers, side-by-side tables. Needs real-world fixture testing. |
-| 7 | Uncertain AI mappings can be reviewed | 🟡 | ImportPreviewDialog has Accept/Review/Reject buttons. Lineage tracks low-confidence items. |
-| 8 | Units are preserved and normalized correctly | ✅ | UnitManager with 20+ quantity types, original value preservation |
-| 9 | Every important imported value has traceability | ✅ | `core/lineage.py` with LineageTracker integrated into import pipeline |
-| 10 | Engineering calculations are deterministic | ✅ | All engines use published formulas, no LLM guessing |
-| 11 | UI remains responsive | ✅ | Background workers for hierarchy loading, auto-save |
-| 12 | Imports are atomic | ✅ | `save_imported_multi_tab_data_atomic()` with full rollback |
-| 13 | Errors are logged and actionable | ✅ | Structured logging, audit trail, import report with issues |
-| 14 | MainWindow and database responsibilities are maintainable | 🟡 | database.py 7,094→5,561 (models extracted). main_window.py still 2,958 lines. |
-| 15 | Integration tests cover the complete import workflow | ✅ | 9 integration tests covering full pipeline |
-| 16 | Documentation describes the architecture | ✅ | 7 architecture docs covering all subsystems |
+**Audit date:** 2026-09-08 — **re-verified:** 2026-09-09
+(`docs/audits/2026-09-09/` holds the current forensic evidence and acceptance
+table; the sections below retain the 2026-09-08 import-gate results).
+**Release posture:** **NOT MERGE-READY until the required real Windows
+acceptance is recorded.**
 
----
+## Re-verification 2026-09-09 (summary)
 
-## Summary
+* Full suite, Python 3.11, headless offscreen Qt: **808 passed, 0 failed,
+  4 skipped (opt-in only)** — supersedes the 2026-09-08 count below.
+* P0 defects fixed this session: undefined `CodeResolver` NameError silently
+  dropped NPT contractors; dead tuple-key cache readers in
+  `core/profile_import_engine.py` (workbook code catalog, embedded mud
+  chemicals); two incompatible `ImportValidator` classes; broken `QAction`
+  imports in `core/hierarchy_operations.py` and `core/toolbar_manager.py`
+  (hidden for every recorded headless run by a DISPLAY-based skip); unsafe
+  `object.__new__(QtDialog)` test construction.
+* Well-centric acceptance scenario (one rig, three wells, sidetrack
+  non-merge, DDR continuity, section/well consistency): automated in
+  `tests/test_well_centric_acceptance.py`.
+* Historical CI intent was not present at audit-start HEAD. The independent
+  M27 patch supplies a workflow; remote CI remains **NOT VERIFIED**.
+* Still NOT VERIFIED / BLOCKED: Windows GUI, installer, real MinerU/PDF,
+  production database, Python 3.10/3.12/3.13 outside CI.
 
-- **✅ Met:** 13/16 criteria (was 11)
-- **🟡 Partial:** 3/16 criteria (was 3)
-- **🔴 Not Met:** 0/16 criteria (was 2)
+## Architecture gate
 
----
+| Requirement | Status | Evidence |
+| --- | --- | --- |
+| One canonical Excel downstream path | PASS by source audit | `ExcelIntelligence` consumes `RawDocument`; no DB write in extractor |
+| One canonical MinerU/PDF downstream path | PASS by source audit | `MinerUAdapter` -> `DocumentNormalizer` -> common IR/schema/review/save |
+| No hidden ProfileImportEngine fallback | PASS | Smart Template hook disabled; direct profile DB method disabled |
+| No DB legacy rescue after atomic failure | PASS | compatibility method delegates only to atomic saver |
+| ReviewItem complete serialization/edit/save contract | PASS by source + real-workbook audit | `to_dict/from_dict`, normalized provenance/entity/type/mapping metadata, matrix restore, preview edit propagation; 0 missing core fields in the 2026-09-08 audit |
+| AZNS-12 production Excel/PDF | **BLOCKED** | AZNS-12 production asset not present in repository/workspace. |
+| Real Windows MinerU 3.4.5/PDF | **BLOCKED** | Windows executable/environment unavailable here |
+| Python 3.12 acceptance | **BLOCKED** | Python 3.12 runtime not executed |
 
-## Priority Actions
+## Required real acceptance
 
-### ✅ Completed
-- Data Lineage: `core/lineage.py` with LineageTracker integrated into import pipeline
-- Import Error Fix: `TableManager`, `DrillingManager`, `setup_widget_with_managers` added to `core/managers.py`
-- Canonical Schema Expansion: 50 → 110+ fields covering all drilling domains
-- Test Suite Expansion: 64 → 101 tests (37 new)
-- `.gitignore` added
-- Database Model Extraction: `core/db_models.py` (53 models, 1,615 lines)
-- Hierarchy Operations Extraction: `core/hierarchy_operations.py` (177 lines)
-- Integration Tests: 9 end-to-end tests covering full pipeline
-- Import Pipeline Lineage: Tracks MW, drilling params with provenance
+Run on the user's actual Windows installation without reinstalling MinerU or
+merging Python environments. Record:
 
-### 🟡 Remaining
-- MainWindow further refactor (extract more managers)
-- Real-world Excel fixture testing
-- Performance optimization for large files
+- exact `mineru.exe` path and output of `mineru --version`;
+- the separately managed Python executable and version;
+- the exact command generated by `MinerUAdapter`;
+- generated Markdown/JSON/assets and tables;
+- canonical values, original/normalized units, review items, coordinates and
+  source provenance;
+- atomic database counts and UI-visible values;
+- confirmation that a `Drilling Data` title cannot reach numeric conversion;
+- explicit result for Python 3.12 only if that runtime was actually used.
+
+The official command shape is `mineru -p INPUT -o OUTPUT -b BACKEND -m METHOD`;
+the configured installation, not this document, is authoritative for paths.
+
+## Test gate
+
+The new `tests/test_ddr_acceptance.py` tests are marked `integration` and use
+`DRILLMASTER_TEST_DDR_XLSX` and `DRILLMASTER_TEST_DDR_PDF`. They skip explicitly
+when the relevant path is not supplied or when MinerU is unavailable. The
+repository also contains atomicity, schema/alias/bounds, normalizer, unit,
+optional-AI, MinerU failure-mode, security, packaging, and release tests.
+
+A dependency-backed Python 3.11 environment at `/tmp/drill-venv` executed the
+complete suite on 2026-09-08: 530 passed, 8 skipped, 0 failed/errors (538
+collected), plus the real repository workbook audit. **Superseded on
+2026-09-09 by the run recorded at the top of this file.** The base shell's
+`pytest` command is not installed, and no Python 3.12 runtime, Windows
+executable, real MinerU installation, AZNS-12 asset, or production DB was
+executed. The pass count is therefore Linux/Python-3.11 evidence, not
+Windows/Python-3.12 acceptance.
+
+## Security and packaging
+
+MinerU is subprocess-only with `shell=False`, argument-list invocation,
+input/format checks, isolated output, timeout, captured output, and separate
+process/output errors; failed/partial output is removed unless explicitly retained. PDF density units are not assumed. AI is disabled by default and advisory. No passwords,
+MinerU environment, AI models, or generated real-document outputs belong in
+Git.
+
+The Windows PyInstaller/Inno Setup build remains defined by the existing
+packaging scripts. This Linux environment cannot build/run the Windows PE
+installer or perform clean-machine upgrade/uninstall checks; those are
+BLOCKED until executed on Windows.
+
+## Remaining defects/limitations
+
+1. AZNS-12 production asset is unavailable: **AZNS-12 production asset not present in repository/workspace.**
+2. Real MinerU/PDF execution, Windows GUI/Python 3.12/package acceptance, and
+   production DB acceptance are not demonstrated here.
+3. PDF native fallback (Camelot/PyMuPDF/OCR) is wired for PDF-only failure,
+   carries weaker PDF-native provenance, and is not a MinerU PASS; it is allowed
+   only when canonical template mapping can continue.
+4. Smart Template and `ProfileImportEngine.analyze_and_extract()` remain
+   compatibility code and should not be described as canonical importers.
+5. Review items are exported in the import report but are not a dedicated ORM
+   table; long-term audit retention depends on the report/export mechanism.
+6. Existing informational legacy/static-audit findings remain outside this
+   targeted fix.
+
+## Merge gate
+
+Merge readiness requires a clean working tree after commit, exact SHA, pushed
+release branch (record its exact name and SHA), fresh dependency-backed test output,
+package smoke output, and the Windows acceptance record. Until then the status
+is **BLOCKED**.

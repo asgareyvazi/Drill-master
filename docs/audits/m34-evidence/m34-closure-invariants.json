@@ -1,0 +1,126 @@
+{
+ "schema": "m34-closure-invariants",
+ "generated_utc": "2026-09-27T12:28:27+00:00",
+ "inventory_total": 11554,
+ "terminal_items": 10330,
+ "unreviewed": 1224,
+ "evidence_incomplete": 0,
+ "critical_unresolved": 0,
+ "high_unresolved": 371,
+ "external_acceptance_only": 17,
+ "closure_gate_inventory_equals_terminal": false,
+ "closure_gate_unreviewed_zero": false,
+ "closure_gate_evidence_incomplete_zero": true,
+ "blocker_gate_critical_zero": true,
+ "blocker_gate_high_zero": false,
+ "open_items_driven_by_rules": {
+  "R-TRUTH-UNKNOWN": 367,
+  "R-DEF-UNKNOWN": 152,
+  "R-EXC-PASS": 98,
+  "R-TRUTH-NUMERIC": 88,
+  "R-PASS-EXC": 74,
+  "R-EXC-OTHER": 60,
+  "R-EXC-SILENT-RETURN": 52,
+  "R-DEF-RETURN-NUM": 52,
+  "R-PLAN-OTHER": 48,
+  "R-NUM-UNKNOWN": 45,
+  "R-EXC-CONTINUE": 35,
+  "R-SESSION-OTHER": 26,
+  "R-SPIN-ZERO": 26,
+  "R-PASS-OTHER": 23,
+  "R-DEF-VALUE-PATH": 21,
+  "R-SEL-UNPROVEN": 20,
+  "R-SNAP-SERIAL-DEFAULT": 16,
+  "R-RED-UNPROVEN": 14,
+  "R-PARAM-ARITH": 2,
+  "R-PLAN-BASELINE": 2
+ },
+ "open_items_driven_by_rule_families": {
+  "R-TRUTH-UNKNOWN": 367,
+  "R-DEF-UNKNOWN": 152,
+  "R-EXC-PASS": 98,
+  "R-TRUTH-NUMERIC": 88,
+  "R-PASS-EXC": 74,
+  "R-EXC-OTHER": 60,
+  "R-EXC-SILENT-RETURN": 52,
+  "R-DEF-RETURN-NUM": 52,
+  "R-PLAN-OTHER": 48,
+  "R-NUM-UNKNOWN": 45,
+  "R-EXC-CONTINUE": 35,
+  "R-SESSION-OTHER": 26,
+  "R-SPIN-ZERO": 26,
+  "R-PASS-OTHER": 23,
+  "R-DEF-VALUE-PATH": 21,
+  "R-SEL-UNPROVEN": 20,
+  "R-SNAP-SERIAL-DEFAULT": 16,
+  "R-RED-UNPROVEN": 14,
+  "R-PARAM-ARITH": 2,
+  "R-PLAN-BASELINE": 2,
+  "R-SEC-TEMP": 2,
+  "R-RED-ZERO": 1
+ },
+ "statement": "Semantic closure is NOT claimed: 1224 item(s) remain UNDER-REVIEW and 0 EVIDENCE-INCOMPLETE, of which 371 are HIGH and 0 CRITICAL. Each open item names the fact that is missing; none was closed on pattern alone and none was mass-assigned a disposition.",
+ "per_open_rule_priority": {
+  "R-TRUTH-UNKNOWN": {
+   "MEDIUM": 367
+  },
+  "R-DEF-UNKNOWN": {
+   "MEDIUM": 152
+  },
+  "R-EXC-PASS": {
+   "HIGH": 98
+  },
+  "R-TRUTH-NUMERIC": {
+   "HIGH": 88
+  },
+  "R-PASS-EXC": {
+   "HIGH": 74
+  },
+  "R-EXC-OTHER": {
+   "MEDIUM": 60
+  },
+  "R-EXC-SILENT-RETURN": {
+   "HIGH": 52
+  },
+  "R-DEF-RETURN-NUM": {
+   "HIGH": 35,
+   "MEDIUM": 17
+  },
+  "R-PLAN-OTHER": {
+   "MEDIUM": 48
+  },
+  "R-NUM-UNKNOWN": {
+   "MEDIUM": 45
+  },
+  "R-EXC-CONTINUE": {
+   "MEDIUM": 35
+  },
+  "R-SESSION-OTHER": {
+   "MEDIUM": 26
+  },
+  "R-SPIN-ZERO": {
+   "MEDIUM": 26
+  },
+  "R-PASS-OTHER": {
+   "MEDIUM": 23
+  },
+  "R-DEF-VALUE-PATH": {
+   "HIGH": 21
+  },
+  "R-SEL-UNPROVEN": {
+   "MEDIUM": 20
+  },
+  "R-SNAP-SERIAL-DEFAULT": {
+   "MEDIUM": 16
+  },
+  "R-RED-UNPROVEN": {
+   "MEDIUM": 14
+  },
+  "R-PARAM-ARITH": {
+   "HIGH": 2
+  },
+  "R-PLAN-BASELINE": {
+   "MEDIUM": 2
+  }
+ }
+}

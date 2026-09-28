@@ -4,7 +4,7 @@ Downhole Widget - ابزار مدیریت تجهیزات زیر سطحی (باز
 
 import logging
 import json
-from datetime import datetime, date, timedelta
+from datetime import date
 # Try to import pandas (optional)
 try:
     import pandas as pd
@@ -12,15 +12,15 @@ try:
 except ImportError:
     PANDAS_AVAILABLE = False
     
-import csv
 
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
-from core.database import DatabaseManager
-from core.managers import StatusBarManager, TableManager, ExportManager, DrillingManager
+from core.managers import TableManager, ExportManager
+from core.editor_state import editor_loaded, editor_saved
 from core.base_tab import DrillTabBase
-from core.selection_manager import SelectionManager
+from core.text_utils import safe_str, fmt_num
+from core.domain_records import collection_value, restore_named_text
 
 logger = logging.getLogger(__name__)
 
@@ -41,11 +41,15 @@ class DownholeWidget(DrillTabBase):
 
         self.bha_data = {}
         self.saved_formations = {}
+        self._downhole_loaded_context = None
+        self._bha_requires_selection = False
+        self._bha_legacy_read_only = False
 
         self.init_ui()
         self.setup_managers()
         self.setup_connections()
         logger.info("DownholeWidget initialized")
+        self.configure_save_tracking()
 
     # --------------------------------------------------------------
     # رابط کاربری
@@ -77,7 +81,7 @@ class DownholeWidget(DrillTabBase):
         self.well_label.setStyleSheet("font-weight: bold; color: #2c3e50;")
         status_layout.addWidget(self.well_label)
         status_layout.addStretch()
-        self.save_status_label = QLabel("💾 Auto-save: ON")
+        self.save_status_label = QLabel("💾 Save here or use the application auto-save setting")
         status_layout.addWidget(self.save_status_label)
         save_all_btn = QPushButton("💾 Save All Downhole Data")
         save_all_btn.clicked.connect(self.save_all_data_to_db)
@@ -101,7 +105,7 @@ class DownholeWidget(DrillTabBase):
         bha_select_layout.addWidget(self.bha_name_input)
         bha_select_layout.addWidget(QLabel("Saved BHAs:"))
         self.bha_selector = QComboBox()
-        self.bha_selector.addItem("-- Select BHA --")
+        self.bha_selector.addItem("-- Select BHA --", None)
         bha_select_layout.addWidget(self.bha_selector)
         bha_select_layout.addStretch()
         layout.addLayout(bha_select_layout)
@@ -283,149 +287,99 @@ class DownholeWidget(DrillTabBase):
     # --------------------------------------------------------------
     def on_well_changed(self, well_id, well_data):
         self.current_well = well_id
-        self.well_label.setText(f"Well: {well_data.get('name', 'Unknown')}" if well_data else f"Well ID: {well_id}")
+        self.current_report_id = None
+        self.well_label.setText(f"Well: {well_data.get('name', 'Unknown')}" if well_data else "Well: Not Selected")
+        self.load_all_data_from_db()
+
+    def on_section_changed(self, section_id, section_data):
+        self.current_section = section_id
+        self.current_report_id = None
         self.load_all_data_from_db()
 
     def on_report_changed(self, report_id, report_info):
         self.current_report_id = report_id
         self.load_all_data_from_db()
 
-    # --------------------------------------------------------------
-    # بارگذاری / ذخیره‌سازی متمرکز
-    # --------------------------------------------------------------
+    def on_selection_cleared(self):
+        self.current_well = None
+        self.current_report_id = None
+        self.current_section = None
+        self.well_label.setText("Well: Not Selected")
+        self.load_all_data_from_db()
 
+    @editor_loaded()
     def load_all_data_from_db(self):
-        """بارگذاری تمام داده‌ها - نسخه اصلاح شده (بدون double load)"""
-        if not self.current_well or not self.db:
+        """Load the selected report only; no fallback to another report's data."""
+        self._downhole_loaded_context = None
+        self.bha_data = {}
+        self._bha_requires_selection = False
+        self._set_bha_read_only(False)
+        for table in (self.bha_table, self.equipment_table, self.formation_table):
+            table.setRowCount(0)
+        self.bha_name_input.clear()
+        self.update_bha_selector()
+        if not self.current_well or not self.current_report_id or not self.db:
             return
-
-        # ========== BHA (report-level) ==========
-        bha_info = self.db.get_bha_report(
-            self.current_well,
-            report_id=self.current_report_id
-        )
+        report = self.db.get_daily_report_by_id(self.current_report_id)
+        if not report or report.get("well_id") != self.current_well:
+            raise ValueError("Selected Downhole report does not belong to the current well")
+        bha_info = self.db.get_bha_report(self.current_well, report_id=self.current_report_id)
+        self._bha_original_record = bha_info
         if bha_info:
-            bha_data = bha_info.get('bha_configs') or bha_info.get('bha_data_json')
-            if isinstance(bha_data, str):
-                try:
-                    bha_data = json.loads(bha_data)
-                except Exception:
-                    bha_data = {}
-            if isinstance(bha_data, dict):
-                self.bha_data = bha_data
-                # لود اولین BHA در جدول
-                if self.bha_data:
-                    first_key = next(iter(self.bha_data))
-                    self.bha_manager.load_data(self.bha_data[first_key])
-            elif isinstance(bha_data, list):
-                self.bha_data = {"default": bha_data}
-                self.bha_manager.load_data(bha_data)
-            self.update_bha_selector()
-        else:
-            self.bha_data = {}
-            self.bha_table.setRowCount(0)
-
-        # ========== Downhole Equipment (report-level) ==========
-        equip_info = self.db.get_downhole_equipment(
-            self.current_well,
-            report_id=self.current_report_id
-        )
-        if equip_info:
-            eq_data = equip_info.get('equipment_data', {})
-            if isinstance(eq_data, str):
-                try:
-                    eq_data = json.loads(eq_data)
-                except Exception:
-                    eq_data = {}
-            if isinstance(eq_data, (list, dict)):
-                self.equipment_manager.load_data(eq_data)
-        else:
-            self.equipment_table.setRowCount(0)
-
-        # ========== Formation (well-level) ==========
-        form_info = self.db.get_formation_report(self.current_well)
-        if form_info:
-            formations = form_info.get('formations', [])
-            if isinstance(formations, str):
-                try:
-                    formations = json.loads(formations)
-                except Exception:
-                    formations = []
-            self.formation_manager.load_data(formations)
-        else:
-            self.formation_table.setRowCount(0)
-
-        logger.info(
-            f"Downhole data loaded for well {self.current_well}, "
-            f"report {self.current_report_id}"
-        )
-        
-    def save_all_data_to_db(self):
-        if not self.current_well:
-            self.show_error("No well selected. Please select a well first.")
-            return False
-
-        success = True
-
-        try:
-            # ========== 1. BHA ==========
-            if hasattr(self, 'bha_manager'):
-                bha_data = self.bha_manager.get_all_data()
-                if bha_data:
-                    bha_name = self.bha_name_input.text().strip() if hasattr(self, 'bha_name_input') else "Unnamed BHA"
-                    bha_report_data = {
-                        "well_id": self.current_well,
-                        "report_id": self.current_report_id,
-                        "bha_name": bha_name,
-                        "bha_data_json": bha_data
-                    }
-                    result = self.db.save_bha_report(self.current_well, bha_report_data)
-                    if not result:
-                        success = False
-
-
-            # ========== 2. Downhole Equipment ==========
-            if hasattr(self, 'equipment_manager'):
-                equipment_data = self.equipment_manager.get_all_data()
-                if equipment_data:
-                    equip_data = {
-                        "well_id": self.current_well,
-                        "report_id": self.current_report_id,
-                        "equipment_data_json": equipment_data
-                    }
-                    result = self.db.save_downhole_equipment(self.current_well, equip_data)
-                    if not result:
-                        success = False
-
-
-            # ========== 3. Formation Evaluation ==========
-            if hasattr(self, 'formation_manager'):
-                formation_data = self.formation_manager.get_all_data()
-                if formation_data:
-                    form_data = {
-                        "well_id": self.current_well,
-                        "report_id": self.current_report_id,
-                        "report_name": f"Formation Report {date.today()}",
-                        "formations": formation_data
-                    }
-                    result = self.db.save_formation_report(self.current_well, form_data)
-                    if not result:
-                        success = False
-
-            if success:
-                self.show_success("All downhole data saved successfully")
+            data = bha_info.get("bha_configs")
+            if isinstance(data, str):
+                data = json.loads(data)
+            if isinstance(data, dict):  # documented legacy named BHA configurations
+                self._set_bha_read_only(bool(data))
+                self._bha_requires_selection = bool(data)
+                self.bha_data = {name: collection_value(rows, "BHA") for name, rows in data.items()}
             else:
-                self.show_error("Some downhole data failed to save")
+                name = bha_info.get("bha_name") or "Report BHA"
+                self.bha_data = {name: collection_value(data, "BHA")}
+            if len(self.bha_data) == 1:
+                name, records = next(iter(self.bha_data.items()))
+                self.bha_name_input.setText(name)
+                self.bha_manager.load_data(records)
+            elif self.bha_data:
+                self._bha_requires_selection = True
+                self.show_warning("Legacy multi-BHA data is retained read-only. Explicit migration is needed before replacing these configurations.")
+            self.update_bha_selector()
+        equipment = self.db.get_downhole_equipment(self.current_well, report_id=self.current_report_id)
+        self.equipment_manager.load_data(collection_value(equipment.get("equipment_data") if equipment else None, "equipment"))
+        formation = self.db.get_formation_report(self.current_well, report_id=self.current_report_id)
+        self.formation_manager.load_data(collection_value(formation.get("formations") if formation else None, "formations"))
+        self._downhole_loaded_context = (self.current_well, self.current_report_id)
 
-            return success
+    def save_context_ready(self):
+        return (super().save_context_ready()
+                and self._downhole_loaded_context == (self.current_well, self.current_report_id))
 
-        except Exception as e:
-            logger.error(f"Save error: {e}")
-            import traceback
-            traceback.print_exc()
-            self.show_error(f"Save error: {str(e)}")
+    def save_all_data_to_db(self):
+        if not self.current_well or not self.current_report_id or not self.save_context_ready():
+            self.show_error("REVIEW_REQUIRED: Open/reload the selected well/report before saving Downhole data")
             return False
-        
+        from core.save_outcome import save_all
+        steps = []
+        if self._bha_requires_selection:
+            from core.save_outcome import SaveOutcome, SaveIssue
+            steps.append(("BHA", lambda: SaveOutcome(issues=[SaveIssue("BHA",
+                "Legacy multi-BHA configurations retained unchanged", status="REVIEW_REQUIRED",
+                corrective_action="Migrate the configurations explicitly before replacing this record.")])))
+        elif self.bha_manager is not None:
+            bha_data = self.bha_manager.get_all_data()
+            steps.append(("BHA", lambda: self.db.save_bha_report(self.current_well, {
+                "report_id": self.current_report_id, "bha_name": self.bha_name_input.text().strip(),
+                "bha_data": bha_data})))
+        if self.equipment_manager is not None:
+            steps.append(("Downhole Equipment", lambda: self.db.save_downhole_equipment(self.current_well, {
+                "report_id": self.current_report_id, "equipment_data_json": self.equipment_manager.get_all_data()})))
+        if self.formation_manager is not None:
+            steps.append(("Formation", lambda: self.db.save_formation_report(self.current_well, {
+                "report_id": self.current_report_id, "formations": self.formation_manager.get_all_data()})))
+        self.last_save_outcome = save_all(steps)
+        (self.show_success if self.last_save_outcome else self.show_error)(self.last_save_outcome.summary())
+        return bool(self.last_save_outcome)
+
     def save_data(self):
         """For AutoSaveManager"""
         return self.save_all_data_to_db()
@@ -437,7 +391,21 @@ class DownholeWidget(DrillTabBase):
     # --------------------------------------------------------------
     # BHA Operations
     # --------------------------------------------------------------
+    def _set_bha_read_only(self, read_only):
+        self._bha_legacy_read_only = read_only
+        self.bha_name_input.setReadOnly(read_only)
+        self.bha_table.setEditTriggers(QAbstractItemView.NoEditTriggers if read_only else
+                                      QAbstractItemView.DoubleClicked | QAbstractItemView.EditKeyPressed)
+        for button in (self.add_bha_tool_btn, self.remove_bha_tool_btn, self.save_bha_btn, self.delete_bha_btn):
+            button.setEnabled(not read_only)
+        self.export_bha_btn.setText("Export all legacy BHAs (JSON archive)" if read_only else "Export BHA")
+        if read_only:
+            self.show_warning("Legacy named BHA configurations are read-only. Select each name to inspect; editing, replacement and deletion require a lossless migration.")
+
     def add_bha_tool(self):
+        if self._bha_legacy_read_only:
+            self.show_error("Legacy BHA is read-only; no components were added.")
+            return False
         """اضافه کردن کامپوننت BHA با دیالوگ"""
         from dialogs.drilling_report_dialogs import AddBHAComponentDialog
         
@@ -450,51 +418,95 @@ class DownholeWidget(DrillTabBase):
                 headers = [self.bha_table.horizontalHeaderItem(c).text()
                           for c in range(self.bha_table.columnCount())]
                 for col, header in enumerate(headers):
-                    val = data.get(header, "")
+                    val = data.get(header, data.get("Description", "") if header == "Component Name" else "")
                     item = QTableWidgetItem(str(val))
                     self.bha_table.setItem(row, col, item)
                 self.show_message(f"{data.get('Tool Type', 'Component')} added to BHA")
 
     def remove_bha_tool(self):
+        if self._bha_legacy_read_only:
+            self.show_error("Legacy BHA is read-only; no components were removed.")
+            return False
         self.bha_manager.delete_row()
 
+    @editor_saved('BHA')
     def save_bha_config(self):
         name = self.bha_name_input.text().strip()
         if not name:
             self.show_error("Enter BHA name")
-            return
-        data = self.bha_manager.get_all_data()
-        self.bha_data[name] = data
-        self.update_bha_selector()
-        self.show_success(f"BHA '{name}' saved")
+            return False
+        if not self.current_report_id or not self.save_context_ready() or self._bha_requires_selection:
+            self.show_error("Legacy BHA is read-only; migration is required" if self._bha_requires_selection else "Open/reload the selected report before saving BHA")
+            return False
+        from core.save_outcome import save_all
+        records = self.bha_manager.get_all_data()
+        self.last_save_outcome = save_all([("BHA", lambda: self.db.save_bha_report(self.current_well,
+            {"report_id": self.current_report_id, "bha_name": name, "bha_data": records}))])
+        if self.last_save_outcome:
+            self.bha_data = {name: records}
+            self.update_bha_selector()
+        (self.show_success if self.last_save_outcome else self.show_error)(self.last_save_outcome.summary())
+        return bool(self.last_save_outcome)
 
     def load_bha_config(self):
-        name = self.bha_selector.currentText()
+        name = self.bha_selector.currentData()
         if name in self.bha_data:
             self.bha_manager.load_data(self.bha_data[name])
             self.bha_name_input.setText(name)
-            self.show_success(f"BHA '{name}' loaded")
+            self._bha_requires_selection = self._bha_legacy_read_only
+            # Multiple named configurations need an explicit migration, not
+            # silently replacing all of them with the selected one.
+            self.show_message(f"BHA '{name}' loaded")
 
     def delete_bha_config(self):
-        name = self.bha_selector.currentText()
-        if name in self.bha_data:
-            del self.bha_data[name]
-            self.update_bha_selector()
-            self.bha_name_input.clear()
+        if not self.current_report_id or not self.save_context_ready() or self._bha_requires_selection:
+            self.show_error("Legacy BHA is read-only; deletion is blocked" if self._bha_requires_selection else "Open/reload a single report BHA before deleting")
+            return False
+        if QMessageBox.question(self, "Delete BHA", "Delete the selected report's BHA components?", QMessageBox.Yes | QMessageBox.No) != QMessageBox.Yes:
+            return False
+        from core.save_outcome import save_all
+        from core.database import BHAReport
+        record = self.db.get_bha_report(self.current_well, self.current_report_id)
+        self.last_save_outcome = save_all([("BHA delete", lambda: self.db.generic_delete(BHAReport, record["id"]))] if record else [])
+        if self.last_save_outcome:
+            self.bha_data = {}
             self.bha_table.setRowCount(0)
-            self.show_success(f"BHA '{name}' deleted")
+            self.bha_name_input.clear()
+            self.update_bha_selector()
+        (self.show_success if self.last_save_outcome else self.show_error)(self.last_save_outcome.summary())
+        return bool(self.last_save_outcome)
 
     def calculate_bha_totals(self):
-        length, weight = self.bha_manager.calculate_totals()
-        QMessageBox.information(self, "Totals", f"Total Length: {length:.2f} m\nTotal Weight: {weight:.0f} kg")
+        from core.engineering.result import EngineeringError, MissingInputError
+        try:
+            length, weight = self.bha_manager.calculate_totals()
+            QMessageBox.information(self, "Totals", f"Total Length: {fmt_num(length, 2, None)} m\nTotal Weight: {fmt_num(weight, 0, None)} kg\n— means insufficient source measurements.")
+        except MissingInputError as exc:
+            self.show_warning(f"REVIEW_REQUIRED: {exc}")
+        except (ValueError, EngineeringError) as exc:
+            self.show_error(f"Cannot calculate BHA totals: {exc}")
 
     def export_bha_data(self):
+        if self._bha_legacy_read_only:
+            filename, _ = QFileDialog.getSaveFileName(self, "Archive all legacy BHA configurations", "legacy_bha.json", "JSON (*.json)")
+            if not filename:
+                return False
+            from pathlib import Path
+            Path(filename).write_text(json.dumps(self._bha_original_record, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
+            self.show_success("All original BHA alternatives and provenance archived; editing remains unsupported.")
+            return True
         ExportManager(self).export_table_with_dialog(self.bha_table, "bha_data")
 
     def update_bha_selector(self):
+        self.bha_selector.blockSignals(True)
         self.bha_selector.clear()
-        self.bha_selector.addItem("-- Select BHA --")
-        self.bha_selector.addItems(list(self.bha_data.keys()))
+        self.bha_selector.addItem("-- Select BHA --", None)
+        for name in self.bha_data:
+            self.bha_selector.addItem(name, name)
+        name = self.bha_name_input.text()
+        if name in self.bha_data:
+            self.bha_selector.setCurrentText(name)
+        self.bha_selector.blockSignals(False)
 
     def on_bha_selected(self, name):
         if name != "-- Select BHA --":
@@ -519,15 +531,20 @@ class DownholeWidget(DrillTabBase):
             self.show_error("Please select a row to remove")
             
     def calculate_equipment_hours(self):
-        totals = self.equipment_manager.calculate_hours()
-        QMessageBox.information(self, "Hours", f"Sliding: {totals['sliding']:.1f} h\nRotation: {totals['rotation']:.1f} h\nPumping: {totals['pumping']:.1f} h")
+        try:
+            totals = self.equipment_manager.calculate_hours()
+            QMessageBox.information(self, "Hours", "\n".join(f"{key.title()}: {fmt_num(value, 1, None)} h" for key, value in totals.items()) + "\n— means insufficient source measurements.")
+        except ValueError as exc:
+            self.show_error(f"Cannot calculate equipment hours: {exc}")
 
     def check_service_due(self):
         due = self.equipment_manager.check_service_due()
         if due:
             msg = "Equipment due for service:\n" + "\n".join(f"• {d['name']}" for d in due)
         else:
-            msg = "All equipment up to date."
+            msg = "No overdue equipment among records with valid service dates."
+        if self.equipment_manager.service_review:
+            msg += "\nREVIEW_REQUIRED: missing/invalid service dates for " + ", ".join(self.equipment_manager.service_review)
         QMessageBox.information(self, "Service Status", msg)
 
     def export_equipment_data(self):
@@ -575,7 +592,7 @@ class DownholeWidget(DrillTabBase):
             "Top MD (m)": str(top),
             "Base MD (m)": str(base),
             "Thickness (m)": str(base - top),
-            "Top TVD (m)": str(top),
+            "Top TVD (m)": None,  # MD is not TVD without trajectory evidence
             "Color": getattr(self.formation_manager, 'current_color', '#8B4513'),
             "Description": self.description_input.text().strip(),
             "Properties": ""
@@ -639,7 +656,7 @@ class BHAManager:
 
     def setup_table(self):
         headers = ["Tool Type", "OD (in)", "ID (in)", "Length (m)", "Serial No",
-                   "Weight (kg)", "Connection Type", "Make-up Torque (ft-lb)", "Remarks"]
+                   "Weight (kg)", "Connection Type", "Make-up Torque (ft-lb)", "Remarks", "Component Name", "Cumulative Length (m)"]
         self.table.setColumnCount(len(headers))
         self.table.setHorizontalHeaderLabels(headers)
         widths = [150, 80, 80, 100, 120, 100, 120, 120, 200]
@@ -665,35 +682,42 @@ class BHAManager:
         return row
 
     def calculate_totals(self):
-        total_length = total_weight = 0.0
-        for row in range(self.table.rowCount()):
-            try:
-                total_length += float(self.table.item(row, 3).text() or 0)
-                total_weight += float(self.table.item(row, 5).text() or 0)
-            except: pass
-        return total_length, total_weight
+        from core.domain_records import bha_record
+        from core.engineering.core import BHAEngine
+        records = [bha_record(row) for row in self.get_all_data()]
+        if not records:
+            return 0.0, 0.0  # structural empty sum, never written into source cells
+        if any(row["Weight (kg)"] is not None and row["Weight (kg)"] < 0 for row in records):
+            raise ValueError("BHA weight cannot be negative")
+        length, weight, _ = BHAEngine.calculate_cumulative([
+            {"component_name": row["Component Name"], "length": row["Length (m)"], "weight": row["Weight (kg)"]}
+            for row in records])
+        return length, (weight if all(row["Weight (kg)"] is not None for row in records) else None)
 
     def get_all_data(self):
-        return [ { self.table.horizontalHeaderItem(col).text(): (self.table.item(row, col).text() if self.table.item(row, col) else "")
-                  for col in range(self.table.columnCount()) } for row in range(self.table.rowCount()) ]
+        records = []
+        for row in range(self.table.rowCount()):
+            record = {self.table.horizontalHeaderItem(col).text(): (self.table.item(row, col).text() if self.table.item(row, col) else "") for col in range(self.table.columnCount())}
+            item = self.table.item(row, 0)
+            record = restore_named_text((item.data(Qt.UserRole + 1) or {}) if item else {}, record)
+            if item and item.data(Qt.UserRole):
+                record["_provenance"] = item.data(Qt.UserRole)
+            records.append(record)
+        return records
 
     def load_data(self, data):
-        """بارگذاری داده‌ها در جدول - نسخه خوانا"""
+        from core.domain_records import bha_record
         self.table.setRowCount(0)
-        if not data:
-            return
-        for row_data in data:
+        for source in collection_value(data, "BHA"):
+            record = bha_record(source)
             row = self.table.rowCount()
             self.table.insertRow(row)
-            if isinstance(row_data, dict):
-                for col, key in enumerate(row_data.keys()):
-                    if col < self.table.columnCount():
-                        self.table.setItem(row, col, QTableWidgetItem(str(row_data[key])))
-            elif isinstance(row_data, (list, tuple)):
-                for col, val in enumerate(row_data):
-                    if col < self.table.columnCount():
-                        self.table.setItem(row, col, QTableWidgetItem(str(val)))
-                        
+            for col in range(self.table.columnCount()):
+                value = record.get(self.table.horizontalHeaderItem(col).text())
+                self.table.setItem(row, col, QTableWidgetItem("" if value is None else str(value)))
+            self.table.item(row, 0).setData(Qt.UserRole, record["_provenance"])
+            self.table.item(row, 0).setData(Qt.UserRole + 1, record)
+
     def delete_row(self):
         r = self.table.currentRow()
         if r >= 0: self.table.removeRow(r)
@@ -716,8 +740,7 @@ class DownholeEquipmentManager:
     def add_default_row(self):
         row = self.table.rowCount()
         self.table.insertRow(row)
-        today = date.today().strftime("%Y-%m-%d")
-        default = ["", "", f"SN{row+1:03d}", f"EQ{row+1:03d}", "", today, "0.0", "0.0", "0.0", "0.0", "0", today, (date.today() + timedelta(days=30)).strftime("%Y-%m-%d"), "Active", ""]
+        default = [""] * self.table.columnCount()  # user supplies identity, dates and measured hours
         for col, val in enumerate(default):
             item = QTableWidgetItem(val)
             if col in [6,7,8,9,10]: item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
@@ -725,35 +748,55 @@ class DownholeEquipmentManager:
         return row
 
     def calculate_hours(self):
-        sums = {"sliding":0.0, "rotation":0.0, "pumping":0.0}
-        for row in range(self.table.rowCount()):
-            for i, key in enumerate(["sliding","rotation","pumping"]):
-                try: sums[key] += float(self.table.item(row, 6+i).text() or 0)
-                except: pass
-        return {**sums, "total": sum(sums.values())}
+        from core.value_normalizer import ValueNormalizer
+        records = self.get_all_data()
+        totals = {}
+        for key, field in (("sliding", "Sliding Hours"), ("rotation", "Rotation Hours"), ("pumping", "Pumping Hours")):
+            values = [ValueNormalizer.normalize(row.get(field), "float") for row in records]
+            if any(not value.ok or (value.value is not None and value.value < 0) for value in values):
+                raise ValueError(f"{field} must be a nonnegative number or explicitly missing")
+            totals[key] = sum(value.value for value in values) if all(value.value is not None for value in values) else None
+        return {**totals, "total": sum(totals.values()) if all(value is not None for value in totals.values()) else None}
 
     def check_service_due(self):
+        from core.domain_records import optional_date
         due = []
+        self.service_review = []
         today = date.today()
-        for row in range(self.table.rowCount()):
+        for index, row in enumerate(self.get_all_data()):
+            name = row.get("Equipment Name") or f"Row {index + 1}"
             try:
-                next_date = datetime.strptime(self.table.item(row, 12).text(), "%Y-%m-%d").date()
-                if next_date <= today:
-                    due.append({"name": self.table.item(row, 0).text(), "row": row})
-            except: pass
+                next_date = optional_date(row.get("Next Service"))
+            except ValueError:
+                next_date = None
+            if next_date is None:
+                self.service_review.append(name)
+            elif next_date <= today:
+                due.append({"name": name, "row": index})
         return due
 
     def get_all_data(self):
-        return [ { self.table.horizontalHeaderItem(col).text(): (self.table.item(row, col).text() if self.table.item(row, col) else "")
-                  for col in range(self.table.columnCount()) } for row in range(self.table.rowCount()) ]
+        records = []
+        for row in range(self.table.rowCount()):
+            record = {self.table.horizontalHeaderItem(col).text(): (self.table.item(row, col).text() if self.table.item(row, col) else "") for col in range(self.table.columnCount())}
+            item = self.table.item(row, 0)
+            record = restore_named_text((item.data(Qt.UserRole + 1) or {}) if item else {}, record)
+            if item and item.data(Qt.UserRole):
+                record["_provenance"] = item.data(Qt.UserRole)
+            records.append(record)
+        return records
 
     def load_data(self, data):
         self.table.setRowCount(0)
-        for row_data in data:
+        from core.domain_records import named_record, DOWNHOLE_FIELDS
+        for row_data in collection_value(data, "downhole equipment"):
+            row_data = named_record(row_data, DOWNHOLE_FIELDS)
             row = self.table.rowCount()
             self.table.insertRow(row)
             for col, header in enumerate([self.table.horizontalHeaderItem(c).text() for c in range(self.table.columnCount())]):
-                self.table.setItem(row, col, QTableWidgetItem(str(row_data.get(header, ""))))
+                self.table.setItem(row, col, QTableWidgetItem(safe_str(row_data.get(header))))
+            self.table.item(row, 0).setData(Qt.UserRole, row_data.get("_provenance", {}))
+            self.table.item(row, 0).setData(Qt.UserRole + 1, row_data)
 
     def delete_row(self):
         r = self.table.currentRow()
@@ -775,24 +818,41 @@ class FormationManager:
             self.table.setColumnWidth(col, w)
 
     def add_formation_row(self, data=None):
-        if not data:
-            data = {"Formation Name": f"Formation {self.table.rowCount()+1}", "Lithology": "Shale", "Age": "", "Top MD (m)": "0", "Base MD (m)": "100", "Thickness (m)": "100", "Top TVD (m)": "0", "Color": self.current_color, "Description": "", "Properties": ""}
+        if data is None:
+            data = {}  # empty editor, not a fabricated Shale interval/TVD
         row = self.table.rowCount()
         self.table.insertRow(row)
         for col, header in enumerate([self.table.horizontalHeaderItem(c).text() for c in range(self.table.columnCount())]):
-            item = QTableWidgetItem(str(data.get(header, "")))
+            item = QTableWidgetItem("" if data.get(header) is None else str(data[header]))
             if col in [3,4,5,6]: item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
-            if col == 7 and data.get("Color", "").startswith("#"):
-                item.setBackground(QColor(data["Color"]))
+            if col == 7:
+                # Color is optional presentation metadata in formations_json.
+                # A missing/unsupported color uses the neutral widget palette;
+                # no geological value or DB default is invented.
+                raw_color = data.get("Color")
+                color = QColor(raw_color) if isinstance(raw_color, str) and raw_color else QColor()
+                if color.isValid():
+                    item.setBackground(color)
             self.table.setItem(row, col, item)
+        self.table.item(row, 0).setData(Qt.UserRole, data.get("_provenance", {}))
+        self.table.item(row, 0).setData(Qt.UserRole + 1, data)
 
     def get_all_data(self):
-        return [ { self.table.horizontalHeaderItem(col).text(): (self.table.item(row, col).text() if self.table.item(row, col) else "")
-                  for col in range(self.table.columnCount()) } for row in range(self.table.rowCount()) ]
+        records = []
+        for row in range(self.table.rowCount()):
+            record = {self.table.horizontalHeaderItem(col).text(): (self.table.item(row, col).text() if self.table.item(row, col) else "") for col in range(self.table.columnCount())}
+            item = self.table.item(row, 0)
+            record = restore_named_text((item.data(Qt.UserRole + 1) or {}) if item else {}, record)
+            if item and item.data(Qt.UserRole):
+                record["_provenance"] = item.data(Qt.UserRole)
+            records.append(record)
+        return records
 
     def load_data(self, data):
         self.table.setRowCount(0)
-        for d in data: self.add_formation_row(d)
+        from core.domain_records import named_record, FORMATION_FIELDS
+        for d in collection_value(data, "formations"):
+            self.add_formation_row(named_record(d, FORMATION_FIELDS))
 
     def import_from_las(self, filepath):
         try:
@@ -825,7 +885,8 @@ class FormationManager:
                     name = self.table.item(row, 0).text()
                     depths.append((top+base)/2)
                     formations.append(name)
-                except: pass
+                except (AttributeError, TypeError, ValueError):
+                    pass  # incomplete formation row stays out of the LAS export
             if depths:
                 las.add_curve("DEPT", depths, unit="m")
                 las.add_curve("FORMATION", formations)

@@ -4,17 +4,15 @@ DWI / Operational Procedure Module
 ماژول پروسیجرهای عملیاتی - فاز B
 """
 import logging
-import json
-from datetime import datetime, date
+from datetime import datetime
 
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
 from PySide6.QtPrintSupport import QPrinter, QPrintDialog
 
+from core.editor_state import editor_loaded, editor_saved
 from core.base_tab import DrillTabBase
-from core.database import DatabaseManager
-from core.managers import StatusBarManager, ExportManager
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +56,7 @@ class ProcedureWidget(DrillTabBase):
         # ایجاد قالب‌های پیش‌فرض
         if self.db:
             self.db.create_default_procedure_templates()
+        self.configure_save_tracking()
 
     def init_ui(self):
         main_layout = QHBoxLayout(self)
@@ -792,7 +791,12 @@ class ProcedureEditorPage(QWidget):
                 self.well_name_edit.setText(well.get('name', ''))
                 self.rig_name_edit.setText(well.get('rig_name', ''))
                 self.field_edit.setText(well.get('field_name', ''))
-                self.mud_weight.setValue(float(well.get('gle_msl', 0) or 0))
+                # GLE-MSL is a ground-level *elevation* (m), not a mud weight:
+                # it used to be written into the "Mud Weight (pcf)" box, showing a
+                # length as a mud weight. The well record carries no mud weight, so
+                # the field stays for the user to enter (these status fields are
+                # procedure context only and are not persisted by save_procedure).
+                self.mud_weight.setValue(0)
         
         self.title_label.setText("📋 New Procedure")
         self.status_label.setText("")
@@ -840,6 +844,7 @@ class ProcedureEditorPage(QWidget):
         self._update_checklist_progress()
         self._update_steps_progress()
 
+    @editor_loaded()
     def load_procedure(self, proc_id: int):
         self.current_proc_id = proc_id
         proc = self.db.get_procedure_by_id(proc_id)
@@ -904,6 +909,7 @@ class ProcedureEditorPage(QWidget):
         self._update_checklist_progress()
         self._update_steps_progress()
 
+    @editor_saved("Procedure")
     def save_procedure(self) -> bool:
         title = self.title_edit.text().strip()
         if not title:
@@ -1608,8 +1614,6 @@ class ProcedurePDFExporter:
             
             # تبدیل به PDF
             try:
-                from PySide6.QtWebEngineWidgets import QWebEngineView
-                from PySide6.QtCore import QUrl
                 
                 # روش 1: از QTextDocument
                 from PySide6.QtGui import QTextDocument

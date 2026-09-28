@@ -1,0 +1,10 @@
+{
+  "requested_sha": "e2eeb3539c5d9c468e73961824e9fe5229864a59",
+  "status": "UNAVAILABLE",
+  "http_status": 401,
+  "exit_code": 1,
+  "response": "{\n  \"message\": \"Bad credentials\",\n  \"documentation_url\": \"https://docs.github.com/rest\",\n  \"status\": \"401\"\n}",
+  "stderr": "gh: Bad credentials (HTTP 401)",
+  "last_successful_query_sha": "9d511cdfaa35e448e2672ae7a724778c4920b49b",
+  "last_successful_query_result": "NO RUN; total_count=0"
+}

@@ -58,9 +58,14 @@ class MSEEngine:
                 raise EngineeringError("rop_ft_hr must be > 0 (zero ROP makes MSE undefined)")
 
             area = math.pi / 4.0 * d * d
+            denominator = area * rop
+            if not math.isfinite(area) or not math.isfinite(denominator) or area <= 0 or denominator <= 0:
+                raise EngineeringError("MSE geometry/rate exceeds finite numerical range")
             axial = wob / area
-            rotary = (TEALE_120_PI * n * tq) / (area * rop)
+            rotary = (TEALE_120_PI * n * tq) / denominator
             mse = axial + rotary
+            if not all(math.isfinite(v) for v in (axial, rotary, mse)):
+                raise EngineeringError("MSE result exceeds finite numerical range")
             values = {
                 "mse_psi": round(mse, 1),
                 "axial_term_psi": round(axial, 1),

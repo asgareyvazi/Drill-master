@@ -10,7 +10,7 @@ This is the ONE canonical schema of the application:
   templates/company mapping, not in this registry.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple, FrozenSet
 
 
@@ -59,10 +59,19 @@ _DEFAULT_BOUNDS: Dict[str, Tuple[Optional[float], Optional[float]]] = {
 
 
 def _F(path, quantity="text", unit="", critical=False, aliases=(), bounds=None):
-    """Compact FieldSpec constructor."""
+    """Compact FieldSpec constructor.
+
+    Density bounds are expressed in the declared source/canonical unit.  The
+    historical default of 25 is appropriate for ppg/SG-like densities but is
+    invalid for pcf (the real workbook legitimately contains values around
+    70).  Keep this correction in the single registry rather than adding an
+    importer-specific exception.
+    """
     min_val = max_val = None
     if bounds:
         min_val, max_val = bounds
+    elif str(unit).lower() == "pcf":
+        min_val, max_val = 0.0, 200.0
     return FieldSpec(path, quantity, unit, critical, tuple(aliases), min_val, max_val)
 
 
@@ -70,6 +79,15 @@ FIELD_SPECS: Dict[str, FieldSpec] = {
     spec.path: spec for spec in [
         # ---------------- Well Info ----------------
         _F("well_info.name", "text", "", True, ["well name", "well", "well number", "well id", "well designation", "well_name"]),
+        # Canonical Wellbore discriminator. Distinct from the Well: a well may
+        # contain an original bore plus one or more sidetracks. This field is
+        # populated ONLY when the source explicitly names a wellbore/bore — it is
+        # never derived from the well name, rig, date, or report sequence. When a
+        # source format does not carry it, it stays absent and Wellbore
+        # attribution correctly remains unresolved (no fabrication).
+        _F("well_info.wellbore_name", "text", "", False, ["wellbore name", "wellbore", "well bore", "bore name", "borehole name", "hole name", "wellbore_name"]),
+        _F("well_info.wellbore_type", "text", "", False, ["wellbore type", "bore type", "wellbore_type"]),
+
         _F("well_info.field_name", "text", "", False, ["field", "field name"]),
         _F("well_info.project_name", "text", "", False, ["project"]),
         _F("well_info.rig_name", "text", "", False, ["rig name", "rig"]),
@@ -269,7 +287,14 @@ FIELD_SPECS: Dict[str, FieldSpec] = {
         _F("survey.tool", "text", "", False, ["tool"]),
 
         # ---------------- BHA ----------------
-        _F("bha.component_name", "text", "", False, ["item", "component name"]),
+        _F("bha.component_name", "text", "", False, ["item", "component name", "component", "description"]),
+        _F("bha.tool_type", "text", "", False, ["tool type"]),
+        _F("bha.id", "length", "in", False, ["id", "i.d.", "inner diameter"]),
+        _F("bha.weight", "number", "kg", False, ["weight", "weight (kg)"]),
+        _F("bha.serial", "text", "", False, ["serial", "serial no", "serial number"]),
+        _F("bha.connection_type", "text", "", False, ["connection", "connection type"]),
+        _F("bha.make_up_torque", "torque", "ft-lb", False, ["make-up torque", "mu torque"]),
+        _F("bha.remarks", "text", "", False, ["remarks", "bha remarks"]),
         _F("bha.od", "length", "in", False, ["od (in)", "od"]),
         _F("bha.length", "length", "m", False, ["length (m)", "length"]),
         _F("bha.cum_length", "length", "m", False, ["cum. len", "cum length"]),

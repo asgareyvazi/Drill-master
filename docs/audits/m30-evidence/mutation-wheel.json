@@ -1,0 +1,8 @@
+{
+  "test_returncode": 1,
+  "gate_returncode": 1,
+  "source_restored": true,
+  "source_sha256": "232631c9bee100f9d5ab88c42162115c89657720116a91e1c1e37bf0a70a4360",
+  "seconds": 1.9,
+  "mutation": "Remove ui* from setuptools package selection; clean staging must prevent stale build/lib from masking omission"
+}

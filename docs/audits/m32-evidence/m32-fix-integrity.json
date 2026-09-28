@@ -1,0 +1,37 @@
+{
+  "schema": "m32-fix-integrity",
+  "generated_utc": "2026-09-27T06:15:00Z",
+  "method": "per-file comparison of the current tracked diff against the M32 pre-work diff, plus sha256 of every untracked file against the pre-work hash list",
+  "tracked": {
+    "files_with_changed_diff_vs_prework": [
+      "core/database.py",
+      "core/managers.py",
+      "core/professional_export.py",
+      "core/validators.py",
+      "dialogs/drilling_report_dialogs.py",
+      "tabs/w3_drilling_report.py",
+      "tests/test_autosave_manager_regression.py"
+    ],
+    "files_newly_modified_since_prework": [
+      "core/managers.py",
+      "core/professional_export.py",
+      "core/validators.py",
+      "dialogs/drilling_report_dialogs.py",
+      "tabs/w3_drilling_report.py",
+      "tests/test_autosave_manager_regression.py"
+    ],
+    "files_no_longer_modified": [],
+    "tracked_modified_now": 87,
+    "tracked_modified_prework": 81,
+    "tracked_diff_sha256_now": "f24c99fb58820a8a77f0e8e994d1128224f174616115ec8747b7d066d21fa22f",
+    "untouched_tracked_files": 80
+  },
+  "untracked": {
+    "identical_to_prework": 189,
+    "changed_since_prework": [
+      "tests/test_m31_scenarios.py"
+    ],
+    "not_in_prework_hash_list": 14
+  },
+  "note": "every tracked file whose diff is not listed under tracked.files_with_changed_diff_vs_prework still carries exactly its pre-work diff text; no mutant, backup or scratch file was left in the repository"
+}

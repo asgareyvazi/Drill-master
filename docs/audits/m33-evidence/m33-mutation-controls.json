@@ -1,0 +1,270 @@
+{
+  "schema": "m33-mutation-controls",
+  "generated_utc": "2026-09-27T08:10:19Z",
+  "total": 24,
+  "killed": 24,
+  "survivors": [],
+  "restore_failures": [],
+  "harness": "/tmp/mutate33.py",
+  "harness_self_check": {
+    "method": "sha256 of every mutated file before and after the whole run",
+    "files_checked": [
+      "core/database.py",
+      "core/managers.py",
+      "core/professional_export.py",
+      "core/report_engine.py",
+      "core/validators.py",
+      "dialogs/drilling_report_dialogs.py",
+      "tabs/w3_drilling_report.py",
+      "tests/test_autosave_manager_regression.py"
+    ],
+    "outcome": "all byte-identical",
+    "rejected_runs": "an earlier harness run used bare 'or'-selectors that pytest reads as file paths (exit code 4 = usage error); those results were discarded and the harness now aborts on exit code 4 instead of counting it as a killed mutant"
+  },
+  "results": [
+    {
+      "mutant": "R-DIALOG",
+      "path": "dialogs/drilling_report_dialogs.py",
+      "test": "test_bit_record_dialog_keeps_unrecorded_measurements_blank or test_bha_component_dialog_keeps_unrecorded_dimensions_blank",
+      "killed": true,
+      "restored_byte_identical": true,
+      "pytest_exit": 1,
+      "last_line": "FAILED tests/test_m31_scenarios.py::test_bit_record_dialog"
+    },
+    {
+      "mutant": "R-EXPORT",
+      "path": "core/professional_export.py",
+      "test": "test_professional_export_leaves_unrecorded_duration_blank",
+      "killed": true,
+      "restored_byte_identical": true,
+      "pytest_exit": 1,
+      "last_line": "FAILED tests/test_m31_scenarios.py::test_professional_expo"
+    },
+    {
+      "mutant": "R-HIERARCHY",
+      "path": "core/database.py",
+      "test": "test_full_hierarchy_orders_unknown_section_depth_last",
+      "killed": true,
+      "restored_byte_identical": true,
+      "pytest_exit": 1,
+      "last_line": "FAILED tests/test_m31_scenarios.py::test_full_hierarchy_or"
+    },
+    {
+      "mutant": "R-CODEHOURS",
+      "path": "core/database.py",
+      "test": "test_activity_code_usage_hours_are_unknown_when_a_duration_is_missing",
+      "killed": true,
+      "restored_byte_identical": true,
+      "pytest_exit": 1,
+      "last_line": "FAILED tests/test_m31_scenarios.py::test_activity_code_usa"
+    },
+    {
+      "mutant": "R-NPT",
+      "path": "core/database.py",
+      "test": "test_derived_npt_skips_logs_without_a_recorded_duration",
+      "killed": true,
+      "restored_byte_identical": true,
+      "pytest_exit": 1,
+      "last_line": "FAILED tests/test_m31_scenarios.py::test_derived_npt_skips"
+    },
+    {
+      "mutant": "R-VALIDATOR",
+      "path": "core/validators.py",
+      "test": "test_legacy_time_log_validator_reports_unrecorded_duration",
+      "killed": true,
+      "restored_byte_identical": true,
+      "pytest_exit": 1,
+      "last_line": "FAILED tests/test_m31_scenarios.py::test_legacy_time_log_v"
+    },
+    {
+      "mutant": "R-ROP-FAIL",
+      "path": "core/managers.py",
+      "test": "test_failed_engine_calculations_are_not_reported_as_zero or test_engine_result_without_a_rop_value_is_unknown",
+      "killed": true,
+      "restored_byte_identical": true,
+      "pytest_exit": 1,
+      "last_line": "FAILED tests/test_m31_scenarios.py::test_failed_engine_cal"
+    },
+    {
+      "mutant": "R-ROP-VALUE",
+      "path": "core/managers.py",
+      "test": "test_failed_engine_calculations_are_not_reported_as_zero or test_engine_result_without_a_rop_value_is_unknown",
+      "killed": true,
+      "restored_byte_identical": true,
+      "pytest_exit": 1,
+      "last_line": "FAILED tests/test_m31_scenarios.py::test_engine_result_wit"
+    },
+    {
+      "mutant": "R-HSI",
+      "path": "core/managers.py",
+      "test": "test_failed_engine_calculations_are_not_reported_as_zero or test_engine_result_without_a_rop_value_is_unknown",
+      "killed": true,
+      "restored_byte_identical": true,
+      "pytest_exit": 1,
+      "last_line": "FAILED tests/test_m31_scenarios.py::test_failed_engine_cal"
+    },
+    {
+      "mutant": "R-TFA",
+      "path": "core/managers.py",
+      "test": "test_failed_engine_calculations_are_not_reported_as_zero or test_engine_result_without_a_rop_value_is_unknown",
+      "killed": true,
+      "restored_byte_identical": true,
+      "pytest_exit": 1,
+      "last_line": "FAILED tests/test_m31_scenarios.py::test_failed_engine_cal"
+    },
+    {
+      "mutant": "R-PAYLOAD",
+      "path": "tabs/w3_drilling_report.py",
+      "test": "test_drilling_tab_persists_unknown_for_uncomputed_values",
+      "killed": true,
+      "restored_byte_identical": true,
+      "pytest_exit": 1,
+      "last_line": "FAILED tests/test_m31_scenarios.py::test_drilling_tab_pers"
+    },
+    {
+      "mutant": "R-SENTINEL",
+      "path": "tabs/w3_drilling_report.py",
+      "test": "test_drilling_tab_persists_unknown_for_uncomputed_values",
+      "killed": true,
+      "restored_byte_identical": true,
+      "pytest_exit": 1,
+      "last_line": "FAILED tests/test_m31_scenarios.py::test_drilling_tab_pers"
+    },
+    {
+      "mutant": "R-LOAD-NULL",
+      "path": "tabs/w3_drilling_report.py",
+      "test": "test_drilling_tab_persists_unknown_for_uncomputed_values",
+      "killed": true,
+      "restored_byte_identical": true,
+      "pytest_exit": 1,
+      "last_line": "FAILED tests/test_m31_scenarios.py::test_drilling_tab_pers"
+    },
+    {
+      "mutant": "N-PLAN-EXPORT",
+      "path": "core/report_engine.py",
+      "test": "test_plan_excel_export_leaves_unplanned_fields_blank or test_plan_excel_export_keeps_a_planned_zero",
+      "killed": true,
+      "restored_byte_identical": true,
+      "pytest_exit": 1,
+      "last_line": "FAILED tests/test_m31_scenarios.py::test_plan_excel_export"
+    },
+    {
+      "mutant": "N-QT-SINGLETON",
+      "path": "tests/test_autosave_manager_regression.py",
+      "test": "tests/test_autosave_manager_regression.py tests/test_m31_scenarios.py",
+      "killed": true,
+      "restored_byte_identical": true,
+      "pytest_exit": 1,
+      "last_line": "FAILED tests/test_m31_scenarios.py::test_drilling_tab_pers"
+    },
+    {
+      "mutant": "O-OWNERSHIP-TYPE",
+      "path": "core/database.py",
+      "test": "test_invalid_wellbore_type_is_rejected or test_cross_well_sidetrack_lineage_is_rejected or test_non_sidetrack_carrying_lineage_is_rejected",
+      "killed": true,
+      "restored_byte_identical": true,
+      "pytest_exit": 1,
+      "last_line": "FAILED tests/test_m31_scenarios.py::test_invalid_wellbore_"
+    },
+    {
+      "mutant": "O-OWNERSHIP-CROSS",
+      "path": "core/database.py",
+      "test": "test_cross_well_sidetrack_lineage_is_rejected",
+      "killed": true,
+      "restored_byte_identical": true,
+      "pytest_exit": 1,
+      "last_line": "FAILED tests/test_m31_scenarios.py::test_cross_well_sidetr"
+    },
+    {
+      "mutant": "O-SCOPE",
+      "path": "core/database.py",
+      "test": "tests/test_m30_semantic_regressions.py",
+      "killed": true,
+      "restored_byte_identical": true,
+      "pytest_exit": 1,
+      "last_line": "FAILED tests/test_m30_semantic_regressions.py::test_search"
+    },
+    {
+      "mutant": "E-CASING-ECHO",
+      "path": "core/engineering/engines/casing.py",
+      "test": "tests/test_casing_absent_load_semantics.py tests/test_casing_absent_load_widget_smoke.py",
+      "killed": true,
+      "restored_byte_identical": true,
+      "pytest_exit": 1,
+      "last_line": "FAILED tests/test_casing_absent_load_widget_smoke.py::test_w13_casing_"
+    },
+    {
+      "mutant": "E-CASING-WARN",
+      "path": "core/engineering/engines/casing.py",
+      "test": "tests/test_casing_absent_load_semantics.py tests/test_casing_absent_load_widget_smoke.py",
+      "killed": true,
+      "restored_byte_identical": true,
+      "pytest_exit": 1,
+      "last_line": "FAILED tests/test_casing_absent_load_semantics.py::test_absent_loads_e"
+    },
+    {
+      "mutant": "E-W13-FORMAT",
+      "path": "tabs/w13_Engineering_Calculator.py",
+      "test": "tests/test_casing_absent_load_semantics.py tests/test_casing_absent_load_widget_smoke.py",
+      "killed": true,
+      "restored_byte_identical": true,
+      "pytest_exit": 1,
+      "last_line": "FAILED tests/test_casing_absent_load_widget_smoke.py::test_w13_casing_"
+    },
+    {
+      "mutant": "E-W3-CLAMP-MAX",
+      "path": "tabs/w3_drilling_report.py",
+      "test": "tests/test_m31_scenarios.py -k rop_display or calc_spin_domain",
+      "killed": true,
+      "restored_byte_identical": true,
+      "pytest_exit": 1,
+      "last_line": "FAILED tests/test_m31_scenarios.py::test_calc_spin_domain_maximum_is_e"
+    },
+    {
+      "mutant": "E-W3-CLAMP-GUARD",
+      "path": "tabs/w3_drilling_report.py",
+      "test": "tests/test_m31_scenarios.py -k rop_display or calc_spin_domain",
+      "killed": true,
+      "restored_byte_identical": true,
+      "pytest_exit": 1,
+      "last_line": "FAILED tests/test_m31_scenarios.py::test_derived_avg_rop_display_is_no"
+    },
+    {
+      "mutant": "E-W3-CLAMP-BOUND",
+      "path": "tabs/w3_drilling_report.py",
+      "test": "tests/test_m31_scenarios.py -k rop_display or calc_spin_domain",
+      "killed": true,
+      "restored_byte_identical": true,
+      "pytest_exit": 1,
+      "last_line": "FAILED tests/test_m31_scenarios.py::test_calc_spin_domain_maximum_is_e"
+    }
+  ],
+  "part_e_append": {
+    "generated_utc": "2026-09-27T08:53:05Z",
+    "harness": "/tmp/mutate_e.py",
+    "note": "Part-E mutants appended after the M33 casing absent-load fix; the earlier 18 mutants touch files this fix did not modify, so their results remain valid",
+    "files_checked": [
+      "core/engineering/engines/casing.py",
+      "tabs/w13_Engineering_Calculator.py"
+    ],
+    "outcome": "all byte-identical"
+  },
+  "part_e_append_w3": {
+    "generated_utc": "2026-09-27T08:54:29Z",
+    "harness": "/tmp/mutate_e2.py",
+    "note": "Part-E mutants appended after the M33 W3 derived-display clamp fix; earlier mutants touch files this fix did not modify, so their results remain valid",
+    "files_checked": [
+      "tabs/w3_drilling_report.py"
+    ],
+    "outcome": "all byte-identical"
+  },
+  "part_e_append_w3_recheck": {
+    "generated_utc": "2026-09-27T08:54:48Z",
+    "harness": "/tmp/mutate_e2.py",
+    "note": "Re-run of the E-W3-CLAMP-BOUND survivor after adding the call-site domain-bound assertion; a previous record of the same mutant is replaced rather than appended",
+    "files_checked": [
+      "tabs/w3_drilling_report.py"
+    ],
+    "outcome": "all byte-identical"
+  }
+}

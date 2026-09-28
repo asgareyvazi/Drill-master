@@ -15,7 +15,6 @@ template/canonical/DB pipeline.
 """
 
 import json
-import os
 from pathlib import Path
 
 import pytest
@@ -172,8 +171,6 @@ class TestPOBExtraction:
 # ============================================================
 class TestDatabasePath:
     def test_safety_and_pob_saved(self, db, canonical):
-        from core.database import (DailyReport, SafetyReport, ServiceCompanyPOB,
-                                   Well)
         well_id, section_id, report_id = _seed_well_report(db)
 
         # Well-level LTA: same merge the import dialog performs generically
@@ -198,7 +195,11 @@ class TestDatabasePath:
         assert safety is not None
         assert safety["days_without_lti"] == 468
         assert safety["last_fire_drill"] is None
-        assert "1403-07-30" in (safety.get("safety_observations") or "")
+        assert "1403-07-30" not in (safety.get("safety_observations") or "")
+        from core.database import AuditLog
+        with db.session_scope() as session:
+            metadata = session.query(AuditLog).filter_by(action="import_source_metadata", entity_type="safety").all()
+            assert any("1403-07-30" in row.details for row in metadata)
 
         # POB (UI tab w7 consumes get_service_company_pob)
         pobs = db.get_service_company_pob(well_id, report_id=report_id)
@@ -217,7 +218,7 @@ class TestDatabasePath:
     def test_safety_drill_dates_never_fake(self, db, canonical):
         """Drill dates missing in the workbook must stay NULL in the DB —
         never defaulted to today or 0."""
-        from core.database import DailyReport, SafetyReport
+        from core.database import SafetyReport
         well_id, section_id, report_id = _seed_well_report(db)
         db.save_imported_multi_tab_data_atomic(
             well_id, report_id, dict(canonical)
@@ -352,11 +353,11 @@ class Test24HTimeLog:
         """The day-closing row 23:30 -> 24:00 is stored (00:00 convention)
         with its 0.5 h duration — the row is not dropped. Drives the same
         production save path the import dialog uses (_save_time_logs)."""
-        from core.database import DailyReport, TimeLog24H
+        from core.database import TimeLog24H
         well_id, section_id, report_id = _seed_well_report(db)
         with _QtStubs():
             from dialogs.excel_import_dialog import ExcelImportDialog
-            dlg = object.__new__(ExcelImportDialog)
+            dlg = ExcelImportDialog.__new__(ExcelImportDialog)
             dlg.db = db
             # Same filtering the dialog applies: drop all-empty rows
             valid = [
@@ -406,7 +407,7 @@ class TestLookaheadEmptySourceRows:
             assert row.get("hours") in (None, "", 24)  # only a date/hours stub
 
     def test_only_eleven_stored(self, db, canonical):
-        from core.database import DailyReport, SevenDaysLookahead
+        from core.database import SevenDaysLookahead
         well_id, section_id, report_id = _seed_well_report(db)
         result = db.save_imported_multi_tab_data_atomic(
             well_id, report_id, dict(canonical)
@@ -443,7 +444,7 @@ class TestNPTServiceCompany:
             assert svc.get("npt_hours") in (None, "")
 
     def test_six_companies_saved_no_duplicates(self, db, canonical):
-        from core.database import (DailyReport, ServiceCompany)
+        from core.database import (ServiceCompany)
         well_id, section_id, report_id = _seed_well_report(db)
         result = db.save_imported_multi_tab_data_atomic(
             well_id, report_id, dict(canonical)
@@ -467,7 +468,6 @@ class TestNPTServiceCompany:
     def test_service_npt_hours_generic_path(self, db):
         """A service row WITH Total NPT hours keeps them on its existing
         ServiceCompany row — one row, no duplicate company."""
-        from core.database import (DailyReport, ServiceCompany)
         well_id, section_id, report_id = _seed_well_report(db)
         canonical = {
             "service_companies": [
@@ -490,7 +490,7 @@ class TestNPTServiceCompany:
     def test_npt_report_responsible_party_from_contractor(self, db):
         """An NPT time-log row attributed to a company flows into the
         existing npt_reports representation with that company preserved."""
-        from core.database import (DailyReport, TimeLog24H)
+        from core.database import (TimeLog24H)
         from datetime import time
         well_id, section_id, report_id = _seed_well_report(db)
         session = db.create_session()
@@ -523,7 +523,7 @@ class TestFuelWaterImport:
     fabricated zeros."""
 
     def test_fuel_water_canonical_values_persist(self, db, canonical):
-        from core.database import DailyReport, FuelWaterInventory
+        from core.database import FuelWaterInventory
         well_id, section_id, report_id = _seed_well_report(db)
         result = db.save_imported_multi_tab_data_atomic(
             well_id, report_id, dict(canonical)
@@ -552,7 +552,6 @@ class TestFuelWaterImport:
             session.close()
 
     def test_fuel_water_getter_exposes_extras(self, db, canonical):
-        from core.database import DailyReport
         well_id, section_id, report_id = _seed_well_report(db)
         db.save_imported_multi_tab_data_atomic(well_id, report_id, dict(canonical))
         data = db.get_fuel_water_inventory(well_id, report_id=report_id)
@@ -568,13 +567,13 @@ class TestFuelWaterImport:
 # ============================================================
 class TestMudExtrasImport:
     def test_mud_chemistry_persists(self, db, canonical):
-        from core.database import DailyReport, MudReport
+        from core.database import MudReport
         from datetime import date as _date
         well_id, section_id, report_id = _seed_well_report(db)
         report_date = _date.fromisoformat(canonical["daily_report"]["report_date"])
         with _QtStubs():
             from dialogs.excel_import_dialog import ExcelImportDialog
-            dlg = object.__new__(ExcelImportDialog)
+            dlg = ExcelImportDialog.__new__(ExcelImportDialog)
             dlg.db = db
             dlg.well_id = well_id
             dlg._save_mud_report(
@@ -585,13 +584,13 @@ class TestMudExtrasImport:
         try:
             row = session.query(MudReport).filter_by(report_id=report_id).first()
             assert row.calcium == 320
-            assert row.kcl == 12
+            assert row.kcl is None  # KCL concentration blank; 12 is inventory stock, not %
             assert row.total_hardness == 400
         finally:
             session.close()
 
     def test_report_header_volumes_map_to_mud(self, db, canonical):
-        from core.database import DailyReport, MudReport
+        from core.database import MudReport
         well_id, section_id, report_id = _seed_well_report(db)
         # The dialog path performs the daily_report -> mud mapping; the
         # atomic saver alone cannot see the dialog. Exercise the dialog
@@ -600,7 +599,7 @@ class TestMudExtrasImport:
         report_date = _date.fromisoformat(canonical["daily_report"]["report_date"])
         with _QtStubs():
             from dialogs.excel_import_dialog import ExcelImportDialog
-            dlg = object.__new__(ExcelImportDialog)
+            dlg = ExcelImportDialog.__new__(ExcelImportDialog)
             dlg.db = db
             dlg.well_id = well_id
             dlg._save_mud_report(
@@ -620,8 +619,9 @@ class TestMudExtrasImport:
             assert pits["suction1_vol"] == 270
             assert pits["degasser_mw"] == 71
             assert pits["reserve3_mw"] == 62
-            # N.C source token preserved as provenance, never 0
-            assert "fl (original): N.C" in (row.summary or "")
+            # Source stays canonical/audit metadata, not the user's summary.
+            assert canonical["mud_report"]["fl_source"] == "N.C"
+            assert "original" not in (row.summary or "")
         finally:
             session.close()
 
@@ -631,13 +631,13 @@ class TestMudExtrasImport:
 # ============================================================
 class TestBitRunImport:
     def test_bit_run_fields_map(self, db, canonical):
-        from core.database import DailyReport, DrillingParameters
+        from core.database import DrillingParameters
         well_id, section_id, report_id = _seed_well_report(db)
         from datetime import date as _date
         report_date = _date.fromisoformat(canonical["daily_report"]["report_date"])
         with _QtStubs():
             from dialogs.excel_import_dialog import ExcelImportDialog
-            dlg = object.__new__(ExcelImportDialog)
+            dlg = ExcelImportDialog.__new__(ExcelImportDialog)
             dlg.db = db
             dlg.well_id = well_id
             dlg._save_drilling_params(
@@ -668,7 +668,7 @@ class TestBitRunImport:
 # ============================================================
 class TestRowTablesPersistence:
     def test_bha_components_persist(self, db, canonical):
-        from core.database import DailyReport, BHAReport
+        from core.database import BHAReport
         well_id, section_id, report_id = _seed_well_report(db)
         db.save_imported_multi_tab_data_atomic(well_id, report_id, dict(canonical))
         session = db.create_session()
@@ -676,13 +676,13 @@ class TestRowTablesPersistence:
             row = session.query(BHAReport).filter_by(report_id=report_id).first()
             assert row is not None
             assert len(row.bha_data_json or []) == 9
-            assert row.bha_data_json[0]["component_name"] == '17-1/2" MT Bit'
+            assert row.bha_data_json[0]["Component Name"] == '17-1/2" MT Bit'
         finally:
             session.close()
 
     def test_downhole_formation_casing_cement_persist(self, db, canonical):
         import json as _json
-        from core.database import (DailyReport, DownholeEquipment,
+        from core.database import (DownholeEquipment,
                                    FormationReport, CasingReport, CementReport)
         well_id, section_id, report_id = _seed_well_report(db)
         db.save_imported_multi_tab_data_atomic(well_id, report_id, dict(canonical))
@@ -690,9 +690,9 @@ class TestRowTablesPersistence:
         try:
             de = session.query(DownholeEquipment).filter_by(report_id=report_id).first()
             assert len(de.equipment_data_json or []) == 3
-            assert de.equipment_data_json[0]["equipment_name"] == '9-1/2" Bit Sub'
+            assert de.equipment_data_json[0]["Equipment Name"] == '9-1/2" Bit Sub'
             fr = session.query(FormationReport).filter_by(report_id=report_id).first()
-            assert fr.formations_json[0]["name"] == "Aghajari"
+            assert fr.formations_json[0]["Formation Name"] == "Aghajari"
             cs = session.query(CasingReport).filter_by(report_id=report_id).first()
             casing = _json.loads(cs.casing_json)
             assert casing[0]["size"] == 20
@@ -706,7 +706,7 @@ class TestRowTablesPersistence:
             session.close()
 
     def test_solid_control_and_material_request_persist(self, db, canonical):
-        from core.database import (DailyReport, EquipmentLog, MaterialRequest)
+        from core.database import (EquipmentLog, MaterialRequest)
         well_id, section_id, report_id = _seed_well_report(db)
         db.save_imported_multi_tab_data_atomic(well_id, report_id, dict(canonical))
         session = db.create_session()
@@ -728,7 +728,7 @@ class TestRowTablesPersistence:
         well_id, section_id, report_id = _seed_well_report(db)
         with _QtStubs():
             from dialogs.excel_import_dialog import ExcelImportDialog
-            dlg = object.__new__(ExcelImportDialog)
+            dlg = ExcelImportDialog.__new__(ExcelImportDialog)
             dlg.db = db
             dlg.well_id = well_id
             dr = dict(canonical.get("daily_report", {}))
@@ -751,7 +751,7 @@ class TestRowTablesPersistence:
 # ============================================================
 class TestSurveyNoInventedZeros:
     def test_surveys_keep_nulls(self, db, canonical):
-        from core.database import DailyReport, SurveyPoint
+        from core.database import SurveyPoint
         well_id, section_id, report_id = _seed_well_report(db)
         db.save_imported_multi_tab_data_atomic(well_id, report_id, dict(canonical))
         session = db.create_session()
@@ -778,7 +778,7 @@ class TestSurveyNoInventedZeros:
 # ============================================================
 class TestServiceCompanyExtraFields:
     def test_service_extra_fields_persist(self, db, canonical):
-        from core.database import DailyReport, ServiceCompany
+        from core.database import ServiceCompany
         well_id, section_id, report_id = _seed_well_report(db)
         db.save_imported_multi_tab_data_atomic(well_id, report_id, dict(canonical))
         session = db.create_session()
@@ -850,13 +850,17 @@ class TestFullImportPipeline:
 
         with _QtStubs():
             from dialogs.excel_import_dialog import ExcelImportDialog
-            dlg = object.__new__(ExcelImportDialog)
+            dlg = ExcelImportDialog.__new__(ExcelImportDialog)
             dlg.db = manager
             dlg.well_id = None
             result = dlg._do_import(dict(oeoc_report.canonical_json))
 
-        assert result.get("imported") == 102
+        # One BOP row has no source component type. It is retained in the
+        # shared ReviewItem matrix rather than receiving an invented type.
+        assert result.get("imported") == 101
         assert result.get("failed") == 0
+        assert result.get("status") == "REVIEW_REQUIRED"
+        assert any(item.get("entity") == "bop_components" for item in result.get("review_items", []))
         session = manager.create_session()
         try:
             well = session.query(Well).first()
@@ -879,8 +883,8 @@ class TestSaveSurveyPointsNulls:
         """Regression: save_survey_points defined its float helper inside
         the update branch, so the INSERT branch raised NameError, and
         derived columns were coerced to 0.0. Insert path must work and
-        NULLs must persist for tvd/north/east/vs/hd/dls (inc/azi are
-        NOT NULL -> 0)."""
+        NULLs must persist for missing input and derived fields; angles
+        must never be replaced by zero."""
         from core.database import SurveyPoint
         well_id, section_id, report_id = _seed_well_report(db)
         ok = db.save_survey_points([
@@ -906,8 +910,8 @@ class TestSaveSurveyPointsNulls:
                 report_id=report_id, md=50.0
             ).first()
             assert row is not None
-            assert row.inc == 0      # NOT NULL column fallback
-            assert row.azi == 0
+            assert row.inc is None  # shared manual/import contract never invents an angle
+            assert row.azi is None
             assert row.tvd is None
             assert row.north is None
             assert row.east is None
@@ -935,6 +939,7 @@ class TestSaveSurveyPointsNulls:
             rows = session.query(SurveyPoint).filter_by(report_id=report_id).all()
             assert len(rows) == 1
             assert rows[0].inc == 2.0
-            assert rows[0].tvd is None
+            import math
+            assert rows[0].tvd == pytest.approx(108 * math.cos(math.radians(2)))
         finally:
             session.close()

@@ -1,0 +1,50 @@
+{
+ "files_scanned": 323,
+ "files_with_manifest": 323,
+ "parse_failures": [],
+ "sites": 6860,
+ "kinds": {
+  "truthiness-bare": 2320,
+  "broad-exception": 628,
+  "reduction": 512,
+  "raw-sql": 463,
+  "return-none": 463,
+  "numeric-get-default": 422,
+  "typed-exception": 356,
+  "or-empty": 349,
+  "return-false": 301,
+  "truthiness-selection": 228,
+  "or-zero": 177,
+  "selection-first": 156,
+  "numeric-parameter-default": 134,
+  "none-get-default": 129,
+  "numeric-default": 124,
+  "selection-one": 41,
+  "selection-one_or_none": 18,
+  "test-skip": 17,
+  "or-constant": 14,
+  "selection-scalar": 8
+ },
+ "categories": {
+  "production": 6513,
+  "tests": 347
+ },
+ "by_file_top": {
+  "core/database.py": 884,
+  "tabs/w13_Engineering_Calculator.py": 325,
+  "tabs/w10_Planning_Widget.py": 240,
+  "core/report_engine.py": 238,
+  "tabs/w12_Analysis.py": 233,
+  "tabs/w7_logistics_Widget.py": 224,
+  "tabs/w3c_section_data.py": 212,
+  "dialogs/smart_template_dialog.py": 201,
+  "tabs/w2_Daily_Report.py": 194,
+  "main_window.py": 189,
+  "tabs/w14_Procedure_Widget.py": 137,
+  "core/profile_import_engine.py": 127,
+  "core/excel_intelligence.py": 111,
+  "dialogs/hierarchy_dialogs.py": 111,
+  "tabs/w3_drilling_report.py": 110
+ },
+ "identity": "INV-###### + sha256(path|kind|symbol|normalised expression|ordinal)"
+}

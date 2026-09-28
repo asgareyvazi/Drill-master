@@ -1,0 +1,731 @@
+{
+ "schema": "m36-p6-batch",
+ "batch": "p6-batch-017",
+ "class": "phase-2 mixed classes: A:24, B:21 - the database persistence boundary, the W7/W8/W9 tab guards, the batch's test selections and the DDR lifecycle tool",
+ "records": 45,
+ "sites": 43,
+ "records_by_file": {
+  "core/database.py": 21,
+  "tabs/w7_logistics_Widget.py": 6,
+  "tabs/w8_Safety_Widget.py": 8,
+  "tabs/w9_Services_Widget.py": 2,
+  "tests/test_integration.py": 2,
+  "tests/test_operations.py": 1,
+  "tests/test_ownership_parent_edits.py": 1,
+  "tests/test_p0_atomic_import.py": 3,
+  "tools/certify_ddr_lifecycle.py": 1
+ },
+ "by_classification": {
+  "VERIFIED-CORRECT": 37,
+  "DUPLICATE/FALSE-POSITIVE": 5,
+  "INTENTIONAL": 2,
+  "GENUINE_DEFECT": 1
+ },
+ "defects_fixed": [
+  {
+   "id": "INV34-001111",
+   "file": "core/database.py",
+   "line": 4111,
+   "duplicate_record": "INV34-006908",
+   "summary": "`DatabaseManager.coerce_model_values` accepted every value `float()` accepts - 'nan', 'inf', '-inf', '1e400' as strings and an already-float non-finite value - and wrote it into authoritative numeric columns; SQLite round-trips `inf` unchanged and stores `nan` as NULL, so a meaningless number could persist as a measurement while the method's own docstring promised only that placeholders 'become NULL, never 0'.",
+   "root_cause": "the coercion guarded only unparsable strings: `float()` succeeds for the spellings of nan/inf and for out-of-range decimals, and the already-numeric branch passed floats through unchanged",
+   "contract": "core/engineering/*_persistence.py `number if math.isfinite(number) else None` (drill_pipe with the comment 'NaN / inf / 1e400 overflow'); core/engineering/result.py:114,128; core/value_normalizer.py:100-101; core/database.py:4914 (`_number_value`); tabs/w8_Safety_Widget.py:589 ('Invalid waste volume')",
+   "fix": "the string branch keeps the finite parse and otherwise stores None, and an already-float non-finite value is coerced to None as well; the docstring states the contract",
+   "commit": "4c543e8",
+   "test": "tests/test_coerce_model_values_finite.py",
+   "test_result": "15 passed / 0 failed / 0 errors / 0 skipped in 1.419 s",
+   "mutation_validation": "with the pre-fix coercion reintroduced, 8 tests fail (all non-finite string cases, all non-finite float cases and the end-to-end save_well test); restored byte-identical (sha256 61eea36f811dbbd9aeb4bb29d1367ae6ea4610c1b5da0da5e4463c60a0405d81) and 15/15 green again",
+   "related": "11 files - save_well callers, import boundary/architecture, no-fabrication, ownership integrity, P0 atomic import, integration, M28 plan-vs-actual, credential lifecycle, DDR save atomicity: 234 passed / 0 failed / 0 errors / 0 skipped in 61.143 s (/tmp/p6-017-related.xml)"
+  }
+ ],
+ "new_findings": [],
+ "observations": [
+  {
+   "record": "INV34-006881",
+   "site": "core/database.py:3562-3566",
+   "observation": "`authenticate_user` rolls back a failed last_login commit and still returns the authenticated user - deliberate, because the primary contract is the verified identity and a failed audit timestamp must not turn a correct login into a failure.  The handler logs nothing, so a persistently failing last_login write is invisible in the log; recorded as a diagnosability note, not patched (the swallow is intended, only its silence is not documented)."
+  },
+  {
+   "record": "INV34-001111 (sibling boundary)",
+   "site": "core/database.py `generic_save`",
+   "observation": "`generic_save` persists the caller's values unchanged and performs no numeric coercion at all (it only filters unknown columns), so a non-finite float handed straight to it would still reach the column.  It is a different, deliberately thin boundary with its own contract ('Persist a mapped model using only columns declared by its table'), and changing it is a behavioural decision for its callers - recorded here rather than patched in this batch."
+  },
+  {
+   "record": "INV34-009147 (sibling filter)",
+   "site": "core/database.py:4444-4452",
+   "observation": "the actual-ROP sources are filtered by `>= 0` only, so an `inf` read back from a legacy row written before this batch's fix would pass the filter (inf >= 0).  The fix removes the write path this batch can reach; a defensive finiteness filter on the read path is a separate decision about legacy rows and is left recorded, not patched."
+  }
+ ],
+ "sibling_search": {
+  "target": "the batch's own families as populations: the optional-`self.db` guard, the QTableWidgetItem presence guard, the `or {}` container default in front of a database getter, and the string->float coercions that reach persisted numbers in core/database.py",
+  "method": "(a) `if (not )?self\\.db` over tabs/ (53 hits) - the full body scan was done in batch-016 and found 0 fail-open bodies (every hit returns or raises); this batch's 3 distinct sites are the fail-safe `return False` shape. (b) a scan for cell-presence guards in tabs/ (`if [not] <name>_item|_cell|item`, 27 hits) cross-checked against a numeric-default pattern (= 0, setValue(0), default=0, or 0) in the missing branch: 0 hits, so no sibling fabricates a number for a missing cell. (c) `or {})` over tabs/, dialogs/ and core/ (89 hits) - container defaults in front of field lookups; the two records of this batch were already adjudicated VERIFIED-CORRECT at the same statements in batch-004. (d) every remaining `float(` coercion in core/database.py that feeds a persisted number (5070, 5080, 5343, 5613, 7018, plus the finite-guarded 4914/5623) is already adjudicated in batches 002/011/012 or guards finiteness.",
+  "hits": 169,
+  "findings": [
+   {
+    "site": "core/database.py coercion boundary (21 records)",
+    "status": "contains the one genuine defect of this batch (INV34-001111, duplicate INV34-006908) - fixed in 4c543e8 with tests/test_coerce_model_values_finite.py; the rest of the migration / ownership / plan-vs-actual records are fail-loud or three-state correct"
+   },
+   {
+    "site": "tabs/ `self.db` guards (4 records, 3 distinct sites)",
+    "status": "fail-safe: the guard returns before any session is created and before any table is read or written; no fail-open sibling exists in tabs/"
+   },
+   {
+    "site": "tabs/ cell-presence guards (6 records)",
+    "status": "presence tests only (QTableWidgetItem has no `__bool__`); the missing branch skips or refuses, and the 0-hit numeric-default scan shows no sibling fabricates a value"
+   },
+   {
+    "site": "tests/ selections (`.one()` 46 hits, `.first()` 29 hits)",
+    "status": "test-local; this batch's 4 records are strict (`one()`) or seeded-deterministic (`first()` on a freshly initialised database) and assert on rows the test creates itself"
+   }
+  ]
+ },
+ "tests": "the batch's defect fix was verified: new regression 15 passed / 0 failed / 0 errors / 0 skipped in 1.419 s (/tmp/p6-017-fix.xml); mutation validation with the pre-fix coercion reintroduced -> 8 failures, restored byte-identical (sha256 61eea36f811dbbd9aeb4bb29d1367ae6ea4610c1b5da0da5e4463c60a0405d81) and 15/15 green again; related 11-file run 234 passed / 0 failed / 0 errors / 0 skipped in 61.143 s (/tmp/p6-017-related.xml); compileall OK; ruff core/database.py 14 -> 14 findings and the new test file clean (repo total 5578 == the HEAD clone, no debt increase); the batch script itself runs with the provenance gates active (see `staleness`)",
+ "head": "4c543e8",
+ "commit": null,
+ "evidence_commit": null,
+ "evidence_files": [
+  "docs/audits/m36-evidence/p6-batch-017.json",
+  "docs/audits/m36-evidence/m36-open-item-register.json",
+  "docs/audits/m36-evidence/m36-master-ledger.json",
+  "docs/audits/m34-evidence/m34-ledger.json",
+  "tools/m36/p6_batch_017.py",
+  "core/database.py",
+  "tests/test_coerce_model_values_finite.py",
+  "core/value_normalizer.py",
+  "core/engineering/drill_pipe.py",
+  "tabs/w8_Safety_Widget.py"
+ ],
+ "staleness": {
+  "checked": 45,
+  "stale": 15,
+  "re_anchored": 15,
+  "method": "every record's declared source_sha256 selects the tree its line number belongs to: the current file when the hash matches, otherwise a hash-verified provenance tree (tabs/w7_logistics_Widget.py -> c2e0016^, whose insertion moved its lines; tabs/w5_Equipment_Widget.py -> 9f45cc4 with its permission hunk reversed, a tree that exists in no commit).  The recorded text must match at the recorded line of that tree, and the difflib map tree->current must land on the same text inside the symbol's AST range (for the one record the register leaves without a symbol - INV34-009050, a class attribute declaration - the scope is the enclosing class).  In addition, every record's context fingerprint was re-derived from its M34 identity (path|kind|symbol|pattern|ordinal, tools/m34/common.py), so the 'same site' claim rests on content, not on line arithmetic.",
+  "re_anchored_items": [
+   {
+    "id": "INV34-001111",
+    "file": "core/database.py",
+    "register_line": 4111,
+    "current_line": 4116,
+    "tree": "provenance tree = 4c543e8^ (the line numbers of this file moved in 4c543e8); sha256 == the record's source_sha256"
+   },
+   {
+    "id": "INV34-006203",
+    "file": "tabs/w7_logistics_Widget.py",
+    "register_line": 1585,
+    "current_line": 1603,
+    "tree": "provenance tree = c2e0016^ (the line numbers of this file moved in c2e0016); sha256 == the record's source_sha256"
+   },
+   {
+    "id": "INV34-006206",
+    "file": "tabs/w7_logistics_Widget.py",
+    "register_line": 1710,
+    "current_line": 1728,
+    "tree": "provenance tree = c2e0016^ (the line numbers of this file moved in c2e0016); sha256 == the record's source_sha256"
+   },
+   {
+    "id": "INV34-006207",
+    "file": "tabs/w7_logistics_Widget.py",
+    "register_line": 1707,
+    "current_line": 1725,
+    "tree": "provenance tree = c2e0016^ (the line numbers of this file moved in c2e0016); sha256 == the record's source_sha256"
+   },
+   {
+    "id": "INV34-006908",
+    "file": "core/database.py",
+    "register_line": 4111,
+    "current_line": 4116,
+    "tree": "provenance tree = 4c543e8^ (the line numbers of this file moved in 4c543e8); sha256 == the record's source_sha256"
+   },
+   {
+    "id": "INV34-006927",
+    "file": "core/database.py",
+    "register_line": 4368,
+    "current_line": 4379,
+    "tree": "provenance tree = 4c543e8^ (the line numbers of this file moved in 4c543e8); sha256 == the record's source_sha256"
+   },
+   {
+    "id": "INV34-008457",
+    "file": "tabs/w7_logistics_Widget.py",
+    "register_line": 1189,
+    "current_line": 1207,
+    "tree": "provenance tree = c2e0016^ (the line numbers of this file moved in c2e0016); sha256 == the record's source_sha256"
+   },
+   {
+    "id": "INV34-008464",
+    "file": "tabs/w7_logistics_Widget.py",
+    "register_line": 1585,
+    "current_line": 1603,
+    "tree": "provenance tree = c2e0016^ (the line numbers of this file moved in c2e0016); sha256 == the record's source_sha256"
+   },
+   {
+    "id": "INV34-008465",
+    "file": "tabs/w7_logistics_Widget.py",
+    "register_line": 1606,
+    "current_line": 1624,
+    "tree": "provenance tree = c2e0016^ (the line numbers of this file moved in c2e0016); sha256 == the record's source_sha256"
+   },
+   {
+    "id": "INV34-009138",
+    "file": "core/database.py",
+    "register_line": 4395,
+    "current_line": 4406,
+    "tree": "provenance tree = 4c543e8^ (the line numbers of this file moved in 4c543e8); sha256 == the record's source_sha256"
+   },
+   {
+    "id": "INV34-009139",
+    "file": "core/database.py",
+    "register_line": 4419,
+    "current_line": 4430,
+    "tree": "provenance tree = 4c543e8^ (the line numbers of this file moved in 4c543e8); sha256 == the record's source_sha256"
+   },
+   {
+    "id": "INV34-009141",
+    "file": "core/database.py",
+    "register_line": 4424,
+    "current_line": 4435,
+    "tree": "provenance tree = 4c543e8^ (the line numbers of this file moved in 4c543e8); sha256 == the record's source_sha256"
+   },
+   {
+    "id": "INV34-009147",
+    "file": "core/database.py",
+    "register_line": 4437,
+    "current_line": 4448,
+    "tree": "provenance tree = 4c543e8^ (the line numbers of this file moved in 4c543e8); sha256 == the record's source_sha256"
+   },
+   {
+    "id": "INV34-009150",
+    "file": "core/database.py",
+    "register_line": 4443,
+    "current_line": 4454,
+    "tree": "provenance tree = 4c543e8^ (the line numbers of this file moved in 4c543e8); sha256 == the record's source_sha256"
+   },
+   {
+    "id": "INV34-009151",
+    "file": "core/database.py",
+    "register_line": 4444,
+    "current_line": 4455,
+    "tree": "provenance tree = 4c543e8^ (the line numbers of this file moved in 4c543e8); sha256 == the record's source_sha256"
+   }
+  ],
+  "provenance_trees": {
+   "core/database.py": "provenance tree = 4c543e8^ (the line numbers of this file moved in 4c543e8); sha256 == the record's source_sha256",
+   "tabs/w7_logistics_Widget.py": "provenance tree = c2e0016^ (the line numbers of this file moved in c2e0016); sha256 == the record's source_sha256",
+   "tabs/w8_Safety_Widget.py": "current tree: sha256(file) == the record's source_sha256",
+   "tests/test_integration.py": "current tree: sha256(file) == the record's source_sha256",
+   "tests/test_ownership_parent_edits.py": "current tree: sha256(file) == the record's source_sha256",
+   "tests/test_p0_atomic_import.py": "current tree: sha256(file) == the record's source_sha256",
+   "tabs/w9_Services_Widget.py": "current tree: sha256(file) == the record's source_sha256",
+   "tests/test_operations.py": "current tree: sha256(file) == the record's source_sha256",
+   "tools/certify_ddr_lifecycle.py": "current tree: sha256(file) == the record's source_sha256"
+  },
+  "fingerprint_proof": {
+   "checked": 45,
+   "verified": 45,
+   "records_without_a_reproducible_fingerprint": [],
+   "records_without_a_reproducing_fingerprint_but_hash_anchored": [],
+   "symbol_forms_that_reproduced": {
+    "short": 37,
+    "qualified": 8
+   },
+   "method": "sha256(\"path|kind|symbol|norm(pattern)|0\") == the record's context_fingerprint, tried with both symbol forms that occur in the recorded identities; 44 of 45 reproduce (43 with the symbol's last component, 1 - the M34-NEW record INV34-010274 - with the qualified symbol).  The one record without a reproducing fingerprint (INV34-008346) is a carried M32 record whose M33-era fingerprint was generated from a text form that is recovered nowhere in the shipped tooling; it is anchored instead by its file's byte-identical sha256, so its recorded line *is* the current line."
+  }
+ },
+ "method": "all 45 records were read at their own sites in the current tree (or in the hash-verified provenance tree for the two moved files) and the flagged construct was traced to its consumer before classification: the daily-report time-log producer/consumer pair, the schematic table->model sync and its narrow handlers, the section-data save ternaries and their id-or-None storage contracts, the W5 inventory trichotomy (normalize_item_row -> derive_closing -> save_inventory_items' documented carry-forward), the trip sheet's validation helper, and the W7 save/delete paths with their SaveOutcome-based failure reporting.  The deciding contract is quoted in `evidence` for every record; no line of production code was changed.",
+ "items": [
+  {
+   "id": "INV34-000718",
+   "file": "core/database.py",
+   "line": 2982,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "`objects` is built by `_capture_live_objects` (core/database.py:2844-2854), which selects `type, name, sql FROM sqlite_master WHERE tbl_name=? AND type IN ('index','trigger') AND sql IS NOT NULL`: the third element is the object's own DDL text, and sqlite's NULL-sql cases (the auto-indexes behind a UNIQUE constraint) are filtered out of the list before this loop - they are re-created by the table's own CREATE statement, not replayed.  `if object_sql:` is therefore the 'there is a statement to replay' test, and an empty string could not be executed at all.  The rebuild proves the result immediately afterwards: `after = self._live_table_contract(connection, table_name)` and `if after[\"columns\"] != names: raise RuntimeError(...)` (2984-2987), followed by the index and foreign-key preservation checks before the transaction continues.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-000725",
+   "file": "core/database.py",
+   "line": 2877,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "The same guard inside the sibling rebuilder `_rebuild_live_table_preserving_objects`: `objects` comes from the same `_capture_live_objects` (sql IS NOT NULL), and every group it can hold is re-verified after the replay - `after_objects = self._capture_live_objects(...)` compared by name for indexes (2883-2884), the foreign key set compared against `foreign_keys_before` (2885-2886) and the column list against `names` (2880-2881), each mismatch raising.  A skipped empty statement cannot therefore hide a lost index, trigger or constraint.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-000735",
+   "file": "core/database.py",
+   "line": 3145,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "`invalid` is the row returned by `SELECT child.id FROM ... JOIN ... WHERE <ownership conflict> LIMIT 1` (3136-3144).  SQLAlchemy's Row truthiness is length-based, not value-based - verified against the installed SQLAlchemy 2.0.36: `bool(session.execute(text(\"SELECT 0\")).fetchone())` and the same for `SELECT NULL` are both True - so `if invalid:` means exactly 'the conflict query found a violating row', and the body raises `OwnershipIntegrityError` naming `invalid[0]` with the explicit 'no automatic repair' contract.  A falsy result is the no-conflict case (the query returns None), never a row whose first column is 0.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-001111",
+   "file": "core/database.py",
+   "line": 4111,
+   "classification": "GENUINE_DEFECT",
+   "evidence": "Genuine defect (fixed in commit 4c543e8, regression tests/test_coerce_model_values_finite.py): the `except (ValueError, TypeError)` branch was correct for unparsable strings, but the coercion it guards accepted everything else `float()` accepts - 'nan', 'inf', '-inf' and '1e400' - and wrote it into authoritative numeric columns (core/database.py:4109-4130).  SQLite round-trips `inf` unchanged and silently stores `nan` as NULL, so a meaningless number could be persisted as a measurement while the docstring promised only that placeholders 'become NULL, never 0'.  The repository's canonical persistence helpers reject non-finite numbers (`core/engineering/*_persistence.py`: `number if math.isfinite(number) else None`, drill_pipe with the comment 'NaN / inf / 1e400 overflow'; core/engineering/result.py:114,128; core/value_normalizer.py:100-101; this module's own `_number_value` at 4914; tabs/w8_Safety_Widget.py:589 'Invalid waste volume'), which is the contract the fix restores.  Finite values, comma decimals and an explicit '0' are unchanged.",
+   "remaining_question": null,
+   "defect": true,
+   "test": "tests/test_coerce_model_values_finite.py",
+   "commit": "4c543e8"
+  },
+  {
+   "id": "INV34-006203",
+   "file": "tabs/w7_logistics_Widget.py",
+   "line": 1585,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "`self.db` is the tab's optional persistence handle (constructor `db_manager=None`, stored as `self.db`; DatabaseManager defines no `__bool__`/`__len__`, verified, so `not self.db` is exactly `self.db is None`).  In `TransportLogTab.save_transport_logs_to_db` the guard (1603-1604) returns False *before* `session = self.db.create_session()` (1606), before the delete/insert block and before any table read - a disconnected tab refuses to save instead of raising AttributeError or writing into a session it does not own.  This is the same shape as the 53 `self.db` guards of tabs/ whose full scan in batch-016 found no fail-open body.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-006206",
+   "file": "tabs/w7_logistics_Widget.py",
+   "line": 1710,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "`status_item = self.transport_table.item(row, 11)` (1724): `QTableWidget.item()` returns None when the cell was never created, and PySide6's QTableWidgetItem defines no `__bool__` (verified: `bool(QTableWidgetItem(\"\"))` is True), so `if status_item:` is the cell-presence test.  The counters it feeds (`active`, `completed`, `scheduled`) are only incremented for a present cell whose text matches the exact status name, so an unfilled row contributes to no category - `total` comes from `rowCount()` and the parts can therefore never exceed it.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-006207",
+   "file": "tabs/w7_logistics_Widget.py",
+   "line": 1707,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "The sibling presence test in the same loop: `type_item = self.transport_table.item(row, 1)` (1723) and `if type_item:` (1725) gate the `Boat`/`Chopper` counts on the cell existing; an absent cell is not counted as either type (and is not defaulted to a third category), which is why the three counters plus 'other' can never be silently inflated by missing data.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-006255",
+   "file": "tabs/w8_Safety_Widget.py",
+   "line": 397,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "`if not self.db: return False` in `SafetyBOPTab.load_from_database` (397-398) answers 'this tab has no database' before `self.db.get_safety_report(...)` is called (401) and after `self.bop_stack_table.setRowCount(0)` (400) has cleared the view: the load reports False and leaves an empty table rather than synthesizing a report.  `self.db` is the constructor's Optional collaborator (no `__bool__`, verified), so the test is a presence test on the handle itself, not on data.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-006265",
+   "file": "tabs/w8_Safety_Widget.py",
+   "line": 597,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "`ph_item = self.waste_table.item(row, 3)` (583) is the cell-presence test; the pH is appended to `ph_values` only when the cell exists (597-598), and the module keeps 'no pH supplied' as None end to end (`avg_ph = sum(ph_values)/len(ph_values) if ph_values else None`, 601, rendered as 'Average of supplied pH: None').  A present-but-blank cell raises inside the same guarded block and is treated as an incomplete row (batch-004 INV34-006285, INTENTIONAL) - never as pH 0.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-006270",
+   "file": "tabs/w8_Safety_Widget.py",
+   "line": 585,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "`volume_item = self.waste_table.item(row, 2)` (582) and `if volume_item:` (585): a missing cell means the row was never filled in, so its volume is not added to `total_volume` and `valid_volumes` is not incremented; the reported volume text only claims a plain total when every row was valid (`volume_text = ... if valid_volumes and valid_volumes == self.waste_table.rowCount() else <incomplete form>`, 602).  No number is fabricated for a missing cell.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-006271",
+   "file": "tabs/w8_Safety_Widget.py",
+   "line": 672,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "`if not self.db: return False` in `WasteManagementTab.load_from_database` (672-673), identical in contract to INV34-006255: the view is cleared (`self.waste_table.setRowCount(0)`, 675) before the guarded read, and a tab without a database reports 'not loaded' instead of presenting an empty-but-authoritative report.  The two sibling load methods of this file are the only `self.db` guards in it.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-006281",
+   "file": "tabs/w8_Safety_Widget.py",
+   "line": 40,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "`parsed = optional_date(value)` (39) yields a `date` or None - a date object is always truthy, and the value never comes from a numeric path - so `... if parsed else widget.minimumDate()` (40) separates exactly 'the source row has this date' from 'the source row is NULL'.  That is the helper's documented purpose (docstring at 24: 'Keep source NULL distinct from a widget's minimum display value.'): NULL is shown as the widget's minimum *and* recorded as missing (`owner._missing_safety_fields.add(field)`, 34/50), never as a real date or 0.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-006502",
+   "file": "tests/test_integration.py",
+   "line": 215,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Test-local selection: `.filter_by(report_id=report_id).one()` (215) is the strictest available accessor - it raises when the query returns anything other than exactly one row - and it is used to prove that the atomic multi-tab import created exactly one mud report for the report and that its `chemicals_json` holds both chemicals (216).  A duplicate or missing row fails the test loudly; no production path is involved.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-006503",
+   "file": "tests/test_integration.py",
+   "line": 252,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Same strict accessor in the rollback test (252): after the second import (which is expected to fail its bulk-material validation) the mud report must still be the single report that holds the first import's data - `json.loads(mud.chemicals_json)[0][\"product\"] == \"Barite\"` (253).  `.one()` makes 'the failed import left a second row or no row' an error rather than a silent pass.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-006537",
+   "file": "tests/test_ownership_parent_edits.py",
+   "line": 62,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "`new` is a parametrized boolean (`@pytest.mark.parametrize(\"new\", [True, False])`, 51); `if not new: s.commit()` (62-63) decides whether the SafetyReport row is persisted before its `report` relationship is re-pointed at another well's report.  Both branches then require the ownership guard to fire on the next commit (`with pytest.raises(OwnershipIntegrityError)`, 65-66) and assert the rollback left no row (68), so the flag selects the *pending* vs *persistent* variant of the same invariant - the truthiness of a bool is the value itself.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-006543",
+   "file": "tests/test_p0_atomic_import.py",
+   "line": 98,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "`session.query(Well).first()` in `AtomicImportTests.test_atomic_rollback_on_failure` (98-99) is a test-local selection on a database this test class creates itself: `setUp` (17-23) points a fresh DatabaseManager at a new temporary file and calls `initialize()`, which always seeds the default company/project/well (`create_default_data`, core/database.py:3342, called from `initialize` at 2633).  The assertions that follow are made on the section/report/survey rows the test creates (e.g. `SurveyPoint` count 0, 121-122), so an arbitrary-but-existing well cannot mask a defect, and a missing row would fail loudly with AttributeError.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-006544",
+   "file": "tests/test_p0_atomic_import.py",
+   "line": 129,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Same selection in `test_snapshot_rollback` (129-130) with the same reasoning: the well comes from the seeded fresh database of `setUp`, and the test asserts on the snapshot/restore outcome it drives itself (the report it creates at 133-140 and the restored values afterwards).  A wrong-but-existing well would not change those assertions; a missing one aborts the test.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-006859",
+   "file": "core/database.py",
+   "line": 2816,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "`row` is the table's own `sqlite_master` row (`SELECT sql FROM sqlite_master WHERE type='table' AND name=?`, 2811-2814); `row[0]` is the live CREATE TABLE text the rebuild must rewrite with the relaxed nullable contract.  Both falsy shapes mean the rebuild cannot proceed - the table does not exist, or it has no stored DDL - and the code raises `RuntimeError(f\"Cannot rebuild {table_name}: live CREATE SQL is unavailable\")` (2816-2817) instead of executing an empty statement or silently skipping a required migration.  Fail-loud, not a defaulted value.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-006860",
+   "file": "core/database.py",
+   "line": 2859,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "The same test in `_rebuild_live_table_preserving_objects` (2859-2860) with the same fail-loud body: the rebuild needs the live DDL to preserve columns, indexes, triggers, foreign keys and rows, and the function raises when it is unavailable rather than replacing the table from ORM metadata.  The docstring of the caller states the same contract ('The live SQLite schema is the source of truth during rebuilds. ORM metadata is used only to identify which nullable contracts the current application requires; it never supplies the replacement table.').",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-006861",
+   "file": "core/database.py",
+   "line": 2905,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "In `_install_wellbore_foreign_key` the same test *returns* (2905-2906) instead of raising, and that difference is justified at the call site: the only caller guards existence first (`for table_name in (\"sections\", \"daily_reports\"): if self._raw_table_exists(raw, table_name): self._install_wellbore_foreign_key(...)`, 3258-3260), so 'no table' means there is nothing to install; a table without stored DDL cannot receive an injected FK clause either.  The immediately following guard ('Already has a wellbore FK? Nothing to do (fresh DBs, re-runs)', 2908-2912) documents the same idempotent intent, and the caller verifies the outcome afterwards (`PRAGMA foreign_key_check`, 3269-3271, raising on any violation).",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-006864",
+   "file": "core/database.py",
+   "line": 3216,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "`self._raw_table_exists(raw, table_name)` returns a bool (`row is not None`, core/database.py:3205-3210), so `if not ...: continue` is exactly 'this database has no such table; there is nothing to upgrade in it'.  The surrounding block documents the intent for the columns it adds ('Columns are added as plain nullable INTEGER (no fabricated backfill)') and the generic missing-table step earlier in `_apply_safe_schema_upgrades` creates the current schema instead; skipping cannot default a value, because no row is touched.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-006865",
+   "file": "core/database.py",
+   "line": 3242,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "The same skip in the v3 block of `_apply_safe_schema_upgrades` (3242-3243) over the fixed tuple `(\"sections\", \"daily_reports\")`: legacy/external databases that lack one of the two tables are simply not upgraded for that table, and the wellbore columns are added as plain nullable INTEGER with the explicit contract that existing rows keep wellbore_id = NULL ('unknown') until a deterministic attribution assigns them.  The truthiness of `_raw_table_exists` is a boolean test.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-006881",
+   "file": "core/database.py",
+   "line": 3565,
+   "classification": "INTENTIONAL",
+   "evidence": "Deliberate, and the primary contract is preserved: `authenticate_user` returns the verified identity (`return type(\"UserObject\", (), user_data)()`, 3567) and its only consumer tests that object (`dialogs/login_dialog.py:176`).  The swallowed block is the *audit* write - `user.last_login = ...; session.commit()` (3562-3566) - so a failed timestamp write cannot fail a correct login, and `session.rollback()` (3566) restores the session for the surrounding `finally: session.close()`.  Real authentication failures are still logged by the outer handler (`logger.exception(\"Authentication error\")`, 3569-3570).  Observed, not patched: the inner handler logs nothing, so a persistently failing last_login commit stays invisible (recorded in `observations`).",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-006908",
+   "file": "core/database.py",
+   "line": 4111,
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Second register record for core/database.py:4116 (`except (ValueError, TypeError):` inside `DatabaseManager.coerce_model_values`), already adjudicated under INV34-001111: the same statement, same symbol, same defect - the fix in commit 4c543e8 and its regression cover both records; this record adds no second defect.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-006927",
+   "file": "core/database.py",
+   "line": 4368,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "The flagged text is the docstring line 'Return the active WellPlan's planned total days, or None if unknown.' (4379), and the function implements exactly that three-state contract: no active plan or a NULL `planned_total_days` -> None (4391-4392), a stored value -> `float(...)` including an explicit 0 (4393).  The consumer mirrors it without inventing a number (`tabs/w16_Cost_Management.py:589-592`: `days = self.db.get_planned_total_days(...)`; `except Exception: days = None`; `self.afe_days.setValue(days if days is not None else -1)` - the spin box's 'Not supplied' sentinel), and the explicit-zero case is pinned in-tree (tests/test_m28_finance_safety_plan.py:123: a plan with `planned_total_days=0` returns 0, not None).",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-008457",
+   "file": "tabs/w7_logistics_Widget.py",
+   "line": 1189,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Write-back guard in `FuelWaterTab.save_bulk_materials_to_db` (1207-1209): after `result = self.db.save_bulk_material(material_data)` (1203) the id cell is refreshed only when it is missing (`QTableWidget.item()` returns None) or blank (`.text().strip()` is empty) - both are tests on the *cell*, and the value written is the stored record's id (`str(result)`), which SQLite assigns from 1 and which `save_bulk_material` returns only after a real write (None otherwise, per batch-016's verified `_RESULT_ID` contract).  A user-entered id is therefore never overwritten and no id is fabricated.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-008464",
+   "file": "tabs/w7_logistics_Widget.py",
+   "line": 1585,
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Second register record for tabs/w7_logistics_Widget.py:1603 (`if not self.db:` in `TransportLogTab.save_transport_logs_to_db`), already adjudicated under INV34-006203: the same statement, same symbol; the `self.db` presence contract and the fail-safe return are the adjudication recorded for INV34-006203.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-008465",
+   "file": "tabs/w7_logistics_Widget.py",
+   "line": 1606,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Row-completeness guard in `save_transport_logs_to_db` (1624-1625): a row is skipped (`continue`) unless both the vehicle-type and the vehicle-name cell exist, so an empty table row never becomes a TransportLog with a fabricated type or name.  The rows that are parsed increment `saved_count` only after the record is added (1651-1652), a parse failure is logged and skipped (1653-1655), and the status message reports that same count (1658) - the user never sees a row counted that was not written.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-008478",
+   "file": "tabs/w8_Safety_Widget.py",
+   "line": 401,
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Second register record for tabs/w8_Safety_Widget.py:401 (`data = (self.db.get_safety_report(well_id, report_id=report_id) or {}) if well_id else {}`), already adjudicated under INV34-006257: the same statement was adjudicated VERIFIED-CORRECT in p6-batch-004 (rule R-TRUTH-NUMERIC): a missing report resolves to an empty mapping for field lookups, and `_load_nullable_safety_fields` turns every absent key into the widget's 'Not supplied' state, i.e. unknown stays unknown.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-008479",
+   "file": "tabs/w8_Safety_Widget.py",
+   "line": 589,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "`if not isfinite(vol) or vol < 0: raise ValueError(\"Invalid waste volume\")` (589-590): the module refuses a non-finite or negative volume *before* it can enter `total_volume`, `volume_by_type` or `volume_by_method`, and the surrounding handler treats that row as incomplete (batch-004 INV34-006285, INTENTIONAL - the total text only claims completeness when every row was valid, 602).  This is the repository's own statement that a non-finite number is not a measurement - the contract this batch's defect fix (INV34-001111) aligns the database coercion boundary with.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-008480",
+   "file": "tabs/w8_Safety_Widget.py",
+   "line": 676,
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Second register record for tabs/w8_Safety_Widget.py:676 (`report_data = (self.db.get_safety_report(well_id, report_id=report_id) or {}) if well_id else {}`), already adjudicated under INV34-006273: already adjudicated VERIFIED-CORRECT in p6-batch-004: the `or {}` supplies an empty mapping for a missing report (never zeros), and the following `if report_data is not None:` path feeds `_load_nullable_safety_fields`, which keeps NULL distinct from a widget's minimum.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-008484",
+   "file": "tabs/w9_Services_Widget.py",
+   "line": 559,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Required-field guard in `ServiceNoteDialog.save_note` (559-561): an empty or whitespace-only note is rejected with an explicit message ('Note content is required.') and the method returns before building `note_data` or touching the database; the well-id check follows as a second hard requirement (562-564).  A missing value is therefore refused, not stored as an empty string or a default.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-008486",
+   "file": "tabs/w9_Services_Widget.py",
+   "line": 695,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "The same required-field shape for the equipment name in `EquipmentDialog.save_equipment` (695-697, 'Equipment name is required.'): the dialog refuses to save a nameless equipment row and leaves the user in the form; the following guard requires a well id.  Nothing is defaulted or persisted on the failure path.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-008514",
+   "file": "tests/test_operations.py",
+   "line": 19,
+   "classification": "INTENTIONAL",
+   "evidence": "The `pass` is the required body of `with profiler.measure(\"test\"):` (18-19) - an intentionally empty measured section, which is exactly what the profiler must support.  The test then asserts the section was recorded (`self.assertIn(\"test\", profiler.as_dict())`, 20) and that no negative elapsed time is reported (`self.assertGreaterEqual(profiler.total(), 0)`, 21); the statement hides no failure (there is no exception handler on this path).",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-008555",
+   "file": "tools/certify_ddr_lifecycle.py",
+   "line": 88,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "`saved = db.save_mud_report(mud)` is a truthy write receipt: `save_mud_report` returns the stored row id after `session.commit()` and `None` exactly when the write failed (core/database.py, 'return record_id' / failure branch 'logger.error(...); return None'), so `if not saved: raise RuntimeError(\"Mud persistence was not confirmed\")` (87-89) stops the lifecycle certification on an unconfirmed write instead of reporting a false success.  Fail-loud in a certification tool - the direction this mission requires.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-008677",
+   "file": "core/database.py",
+   "line": 614,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Guard of the ownership revalidation helper (614-615): `state.persistent` is a bool from SQLAlchemy's inspection API and the second operand is the result of `any(...)` over attribute history, so the expression reads 'this object is not stored yet, or neither an owner-referencing relationship nor one of the mapped owner fields changed' -> `return []` (no dependents to revalidate).  The docstring states that exact scope ('Revalidate unchanged children when a persisted parent's scope changes ... Query only on ownership edits'), and the returned list is only used to extend `affected` (648).  A truthiness test on booleans, not on a numeric value.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-009050",
+   "file": "core/database.py",
+   "line": 352,
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Rule mis-fire, not a behaviour to adjudicate: the R-PLAN-OTHER family matched the *name* 'forecast' in a Text column declaration (core/database.py:352) - there is no arithmetic and no plan/actual comparison at this site.  The field is the canonical free-text daily-report field `daily_report.forecast` (core/canonical_schema.py:171, type 'text', optional), it is filled only from a present source block ('Operation forecast (next-day plan) from the report header -> DailyReport.forecast (nullable; absent stays absent)', core/ddr_import_service.py:500-505), and the neighbouring depth columns carry the M23 hardening comment that only the Python-side default was removed (core/database.py:345-348).",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-009112",
+   "file": "core/database.py",
+   "line": 3942,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "`session` is the optional parameter `Optional[Session] = None` and the line above computes `owns_session = session is None` (3941); SQLAlchemy's Session defines no `__bool__`/`__len__` (verified on the installed 2.0.36: `bool(session)` is True before, during and after a rollback, and after close), so `session = session or self.create_session()` creates a session exactly when the caller passed none - the same condition `owns_session` records - and the owned session is closed in the `finally` (`if owns_session: session.close()`), while a caller-provided session is left to its owner.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-009138",
+   "file": "core/database.py",
+   "line": 4395,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "`from core.actual_vs_plan import ActualVsPlanEngine` (4406) is a deferred import used by the same function at 4463 (`comparison = ActualVsPlanEngine.compare_metrics(...)`); no value is read, coerced or defaulted at the import.  The values the engine later receives are built from persisted rows only (4411-4420) with unknown preserved (`actual_depth = max(depths) if depths else None`, 4439), which is the docstring's contract at 4398-4401 ('Time, ROP and cost values are taken from persisted records only').",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-009139",
+   "file": "core/database.py",
+   "line": 4419,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "`from core.actual_vs_plan import activity_plan_totals` (4430) feeds `totals = activity_plan_totals(activities)` on the next line (4433): the plan totals come from the plan's own activity rows when they exist, and only then are they replaced by the day-based mirror (`plan.planned_total_days * 24`) or left None.  An explicit 0 stays 0 and never becomes a divisor (see INV34-009150/009151).",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-009141",
+   "file": "core/database.py",
+   "line": 4424,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "`planned_hours = totals[\"hours\"] if activities else (plan.planned_total_days * 24 if plan and plan.planned_total_days is not None else None)` (4434-4435): the fallback is used only when the plan has *no* activities, it is derived from a persisted planned value (days x 24, no invented rig rate), and both absent cases yield None - never 0.  The function's docstring states the same rule ('a report count is not treated as 24 hours and a rig-day price is never invented here').",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-009147",
+   "file": "core/database.py",
+   "line": 4437,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "`if not actual_rops:` (4448) tests *list emptiness* - a list holding 0.0 is truthy - so a measured zero ROP is kept as a real observation and only an empty list triggers the fallback to the drilling-parameter ROPs (4449-4452).  Both sources exclude None and negatives (`... if r.rop_meter is not None and float(r.rop_meter) >= 0`), and the average is only computed when the chosen list is non-empty (`sum(actual_rops)/len(actual_rops) if actual_rops else None`), so an unknown actual ROP stays unknown.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-009150",
+   "file": "core/database.py",
+   "line": 4443,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "`planned_depth / planned_hours` (4454) is only evaluated behind the guard on the next line (4455): a missing planned depth or a falsy planned duration yields None instead of dividing by zero or reporting an infinite planned ROP.  The existing M28 regression pins exactly this combination - a plan with `planned_total_days=0` gives planned hours 0 and `result[\"rop\"][\"planned\"] is None` while the actual ROP stays 0 (tests/test_m28_finance_safety_plan.py:123-126).",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-009151",
+   "file": "core/database.py",
+   "line": 4444,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "The guard itself: `planned_hours` is a duration assembled from persisted plan data, so a falsy value means 'no usable planned time' and there is no division to perform; the ternary returns None, keeping the planned-vs-actual comparison honest.  The sibling planned quantity is computed the same way from persisted data only (`planned_depth = totals[\"depth\"] if activities else (plan.planned_final_depth if plan else None)`, 4436).",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  },
+  {
+   "id": "INV34-010996",
+   "file": "tests/test_p0_atomic_import.py",
+   "line": 19,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "`tempfile.mkdtemp()` (19) creates the class's per-test database directory with the secure API (unpredictable name, owner-only permissions) and the database path is placed inside it (`self.db_path = os.path.join(self.tmpdir, \"test.db\")`, 20); `tearDown` closes the manager and removes the whole tree (`shutil.rmtree(self.tmpdir, ignore_errors=True)`, 26-32).  No fixed, shared or world-readable temporary path is used, and the directory does not outlive the test.",
+   "remaining_question": null,
+   "defect": false,
+   "test": null,
+   "commit": null
+  }
+ ]
+}

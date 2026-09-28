@@ -1,0 +1,1767 @@
+{
+  "tested_commit": "beaf9635ffb7bcecf16b3320b138077c7ef8e6c8",
+  "files": 352,
+  "all_worktree_and_tested_commit_match": true,
+  "checks": [
+    {
+      "file": "core/activity_mapper.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/actual_vs_plan.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/ai_import_mapper.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/ai_tools.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/api/__init__.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/api/rest_api.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/async_workers.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/base_tab.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/cache_manager.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/canonical_mapper.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/canonical_schema.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/combo_identity.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/common_widgets.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/company_mapping.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/cost_semantics.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/credential_policy.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/data_quality.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/database.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/database_reset.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/db_models.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/db_services.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/ddr_import_service.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/ddr_pdf_export.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/document_import.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/domain_records.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/editor_bindings.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/editor_state.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/engineering/__init__.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/engineering/adapters/__init__.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/engineering/adapters/torque_drag_adapter.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/engineering/adapters/welleng_adapter.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/engineering/bridge.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/engineering/calculation_verification.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/engineering/casing_persistence.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/engineering/cement_persistence.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/engineering/core.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/engineering/drill_pipe.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/engineering/drill_pipe_catalog_view.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/engineering/drill_pipe_import.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/engineering/engines/__init__.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/engineering/engines/anti_collision.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/engineering/engines/bit_performance.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/engineering/engines/casing.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/engineering/engines/cement.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/engineering/engines/fishing.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/engineering/engines/mse.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/engineering/engines/mud_volume.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/engineering/engines/torque_drag.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/engineering/engines/trajectory.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/engineering/engines/well_control.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/engineering/extended.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/engineering/mse_persistence.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/engineering/mud_volume_persistence.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/engineering/registry.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/engineering/result.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/engineering/torque_drag_persistence.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/engineering/well_control_kill_sheet.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/engineering/well_control_kill_sheet_persistence.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/error_handler.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/excel_intelligence.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/excel_normalizer.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/fuel_water_semantics.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/functions.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/health_check.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/hierarchy_operations.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/hydraulics_engine.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/import_adapters/__init__.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/import_adapters/pdf_tables.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/import_diagnostics.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/import_ir.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/import_profiler.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/import_quality.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/import_router.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/inventory_semantics.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/legacy_bha.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/lineage.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/managers.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/mapping_store.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/mineru_engine.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/mud_ledger.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/mud_records.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/npt_catalog.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/operational_time.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/operations_intelligence.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/optional_capabilities.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/performance.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/permissions.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/professional_export.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/profile_import_engine.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/rag_search.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/report_engine.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/report_lifecycle.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/report_snapshot.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/repositories/__init__.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/repositories/audit_repository.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/repositories/base.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/repositories/casing_repository.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/repositories/cement_repository.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/repositories/cost_repository.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/repositories/drill_pipe_reference_repository.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/repositories/logistics_repository.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/repositories/mse_repository.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/repositories/mud_volume_repository.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/repositories/report_repository.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/repositories/safety_repository.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/repositories/service_repository.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/repositories/torque_drag_repository.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/repositories/well_control_kill_sheet_repository.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/repositories/well_repository.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/runtime_config.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/safety_semantics.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/save_outcome.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/scope_attribution.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/selection_manager.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/semantic_tables.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/standards.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/survey_records.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/table_record_mapper.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/text_utils.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/time_utils.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/toolbar_manager.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/trajectory_plot.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/unit_manager.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/universal_import.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/validators.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/value_normalizer.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/version.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/wellbore_schematic_engine.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "core/witsml_import.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "dialogs/bootstrap_dialog.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "dialogs/calculator_dialog.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "dialogs/casing_history_dialog.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "dialogs/cement_history_dialog.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "dialogs/daily_report_dialogs.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "dialogs/drilling_report_dialogs.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "dialogs/engineering_dialogs.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "dialogs/excel_import_dialog.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "dialogs/hierarchy_dialogs.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "dialogs/history_well_filter.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "dialogs/login_dialog.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "dialogs/mse_history_dialog.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "dialogs/mud_volume_history_dialog.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "dialogs/planning_dialog.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "dialogs/report_history_dialog.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "dialogs/settings_dialog.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "dialogs/smart_template_dialog.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "dialogs/startup_dialog.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "dialogs/torque_drag_history_dialog.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "dialogs/well_control_kill_sheet_history_dialog.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tabs/home_tab.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tabs/w10_Planning_Widget.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tabs/w11_Export.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tabs/w12_Analysis.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tabs/w13_Engineering_Calculator.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tabs/w14_Procedure_Widget.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tabs/w15_Reference_Tables.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tabs/w16_Cost_Management.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tabs/w1_well_info.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tabs/w2_Daily_Report.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tabs/w3_drilling_report.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tabs/w3b_wellbore_schematic_tab.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tabs/w3c_section_data.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tabs/w4_Downhole_Widget.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tabs/w5_Equipment_Widget.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tabs/w6_Trajectory_Widget.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tabs/w7_logistics_Widget.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tabs/w8_Safety_Widget.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tabs/w9_Services_Widget.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "ui/helper.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "ui/utils.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "app.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "main_window.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "run.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "verify_release.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": ".github/ruff-debt-ceiling.txt",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": ".github/workflows/ci.yml",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": ".gitignore",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "08-DDR OEOC-208 AZNS-207 2024-Oct-22.xlsx",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "config/__init__.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "config/ai_models.json",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "config/company_templates/__init__.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "config/company_templates/example_company.json",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "config/company_templates/oeoc.json",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "packaging/DrillMaster.iss",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "packaging/DrillMaster.spec",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "packaging/build_windows.ps1",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "packaging/package_smoke.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "pyproject.toml",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "requirements-build.txt",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "requirements-lock.txt",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "requirements-optional.txt",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "requirements.txt",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "reset_database.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "templates/OEOC_DDR_General.json",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "templates/OEOC_DDR_full_extraction.json",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "templates/OEOC_DDR_v3.json",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/conftest.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/create_fixtures.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/fixtures/merged_cell_ddr.xlsx",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/fixtures/multi_header_ddr.xlsx",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/fixtures/normal_ddr.xlsx",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/fixtures/unit_variant_ddr.xlsx",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_activity_mapper.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_addpipe_reference_fingerprint_smoke.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_anti_collision_engine.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_anti_collision_widget_smoke.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_autosave_manager_regression.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_bha_bit_ownership_integrity.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_calculation_verification_core.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_canonical_schema.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_canonical_schema_expanded.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_casing_cross_process.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_casing_history_viewmodel.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_casing_persistence.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_cement_cross_process.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_cement_history_viewmodel.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_cement_persistence.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_cement_save_widget_smoke.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_combo_identity.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_config_and_mapping.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_core_import.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_cost_management_widget_smoke.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_cost_truth_boundary.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_credential_lifecycle.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_ddr_acceptance.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_ddr_followup_lifecycle.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_ddr_forensic_regressions.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_ddr_regression.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_ddr_save_atomicity.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_drill_pipe_catalog_view.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_drill_pipe_catalog_widget_smoke.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_drill_pipe_import.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_drill_pipe_reference_repository.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_drill_pipe_spec.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_drilling_calculator_dialog_smoke.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_drillpipe_reference_selection.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_engineering_calculator_well_context.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_engineering_completion.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_engineering_data_semantics.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_engineering_ground_truth.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_engineering_integrations.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_excel_intelligence.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_excel_intelligence_regressions.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_extended_engineering.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_final_hardening_regressions.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_fuel_water_truth.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_golden_ddr.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_health_check.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_hierarchy_updated_at.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_history_well_scope.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_import_architecture.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_import_inventory_routing.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_import_quality_extra.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_import_repairs.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_import_router.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_import_to_selection_m25.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_import_to_selection_ui_smoke_m25.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_integration.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_inventory_item_authority.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_inventory_live_calc_smoke.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_inventory_widget_smoke.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_inventory_zero_semantics.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_kpi_parity.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_lineage.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_m28_finance_safety_plan.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_m29_planning_ui.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_m29_release_closure.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_mineru_engine.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_mineru_real_integration.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_mse_cross_process.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_mse_history_viewmodel.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_mse_persistence.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_mse_save_widget_smoke.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_mud_volume_cross_process.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_mud_volume_history_viewmodel.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_mud_volume_persistence.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_mud_volume_save_widget_smoke.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_multi_company_template.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_nozzle_optimization.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_operational_time_integrity.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_operations.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_operations_intelligence_regressions.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_ownership_parent_edits.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_p0_atomic_import.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_p0_engineering_core.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_p0_permissions.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_p0_phase1_regressions.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_p0_time_log_validation.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_p0_unit_preservation.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_p0_well_identity.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_packaging_smoke.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_pdf_structured_fallback.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_planning_context_isolation.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_planning_material_persistence.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_planning_table_presentation.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_production_import_guarantees.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_r18_r19_save_preservation.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_real_oeoc_golden.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_real_user_acceptance_regressions.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_real_world_import.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_release.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_release_gate_and_w13.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_release_gate_integrity.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_release_smoke.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_report_history_ui.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_report_lifecycle.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_report_scope_metadata_m25.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_report_scoped_ownership_m26.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_report_snapshot.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_review_contract_certification.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_schematic_no_fabrication.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_scope_attribution.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_selection_manager_context.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_single_source_guard.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_table_mapper.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_test_process_isolation.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_torque_drag_history.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_torque_drag_history_widget_smoke.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_torque_drag_persistence.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_torque_drag_save_widget_smoke.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_trajectory_mcm_parity.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_w12_analytics_truth.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_w12_milestones_m25.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_w12_recent_reports_display_m25.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_w12_risk_assessment_m26.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_w12_scope_leakage_m25.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_w12_scope_ui_smoke.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_w12_wellbore_scope.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_w7_carry_forward_preview_smoke.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_w7_null_zero_semantics.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_w7_null_zero_ui_smoke.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_weighted_rop.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_well_centric_acceptance.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_well_control_icp_fcp_consolidation.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_well_control_kill_sheet.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_well_control_kill_sheet_cross_process.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_well_control_kill_sheet_history_viewmodel.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_well_control_kill_sheet_persistence.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_well_control_kill_sheet_save_widget_smoke.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_wellbore_discriminator_import.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_wellbore_identity_conflict_m25.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_wellbore_ownership_integrity.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_wellbore_schema_v3.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_wellbore_scope_display.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_wellbore_section_performance.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tests/test_whole_well_scope_labels_m25.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tools/certify_ddr.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tools/certify_ddr_lifecycle.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tools/mineru_integration.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tools/qt_headless_env.sh",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tools/real_user_acceptance.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    },
+    {
+      "file": "tools/static_audit.py",
+      "worktree_matches": true,
+      "tested_commit_matches": true
+    }
+  ]
+}

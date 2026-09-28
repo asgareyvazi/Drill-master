@@ -10,9 +10,7 @@ import sys
 # Ensure repo root in path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from core.database import DatabaseManager, Base
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from core.database import DatabaseManager
 
 
 class AtomicImportTests(unittest.TestCase):

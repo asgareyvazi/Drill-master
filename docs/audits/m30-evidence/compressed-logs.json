@@ -1,0 +1,32 @@
+[
+  {
+    "original_file": "new-regressions-before.txt",
+    "stored_file": "new-regressions-before.txt.gz",
+    "uncompressed_sha256": "c9084dc6ddf093a3772cc650f85f2ea1667ec2a108e003116309651d6ed3b3cc"
+  },
+  {
+    "original_file": "git-09.txt",
+    "stored_file": "git-09.txt.gz",
+    "uncompressed_sha256": "ae72668ef329933e4852880b50b86fccc9d5d2d818d2035dd14bfbc1d4ff37be"
+  },
+  {
+    "original_file": "m29-replay-mutation-null-plan.txt",
+    "stored_file": "m29-replay-mutation-null-plan.txt.gz",
+    "uncompressed_sha256": "dbc09d58ad63e88cf458ef6b705ee43195f97eca217fee633963603b66c603c2"
+  },
+  {
+    "original_file": "m29-replay-mutation-gate.txt",
+    "stored_file": "m29-replay-mutation-gate.txt.gz",
+    "uncompressed_sha256": "119afd9d8dac4a220055e93314a8eee0e1165bd3ed738e824ae336ed9a177689"
+  },
+  {
+    "original_file": "m29-replay-mutation-atomic-memory.txt",
+    "stored_file": "m29-replay-mutation-atomic-memory.txt.gz",
+    "uncompressed_sha256": "61974f638e10889887fa7f12d0de4b5c489314b00832eb34aa6486a3c0729123"
+  },
+  {
+    "original_file": "m29-replay-mutation-re-export.txt",
+    "stored_file": "m29-replay-mutation-re-export.txt.gz",
+    "uncompressed_sha256": "aaf79c4a2e578b38a2ee5f27ab28002d260cfa5536809c9eb0f705f3e918a417"
+  }
+]

@@ -2,12 +2,12 @@
 """
 DrillMaster - Main Application
 """
+import os
 import sys
 import logging
 import logging.handlers
-import os
-
 from pathlib import Path
+
 from PySide6.QtWidgets import (
     QApplication, QMessageBox, QDialog, QSplashScreen
 )
@@ -16,44 +16,59 @@ from PySide6.QtGui import (
     QLinearGradient, QBrush
 )
 
-from PySide6.QtCore import Qt, QRect, QTimer, QEventLoop, QStandardPaths
+from PySide6.QtCore import Qt, QRect, QTimer, QEventLoop
 
-from core.database import DatabaseManager
+from core.database import (
+    DatabaseManager,
+    bootstrap_password_for_role,
+    is_production_environment,
+)
 from core.error_handler import GlobalErrorHandler
+from core.runtime_config import (
+    database_path,
+    ensure_writable_directories,
+    log_dir,
+)
+from core.version import __version__
+from dialogs.bootstrap_dialog import BootstrapDialog
 from dialogs.login_dialog import LoginDialog
 from dialogs.startup_dialog import StartupDialog
 from main_window import MainWindow
 
 def _setup_logging() -> None:
-    """تنظیم logging"""
-    base_dir = Path(__file__).resolve().parent
-    log_dir = base_dir / "logs"
-    log_dir.mkdir(parents=True, exist_ok=True)
-    log_file = log_dir / "drillmaster.log"
-
-    file_handler = logging.handlers.RotatingFileHandler(
-        log_file,
-        maxBytes=10 * 1024 * 1024,
-        backupCount=5,
-        encoding='utf-8'
+    """Configure a rotating user-data log with a safe stderr fallback."""
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
     )
-    file_handler.setLevel(logging.INFO)
+    handlers = []
+    try:
+        target_dir = log_dir()
+        target_dir.mkdir(parents=True, exist_ok=True)
+        file_handler = logging.handlers.RotatingFileHandler(
+            target_dir / "drillmaster.log",
+            maxBytes=10 * 1024 * 1024,
+            backupCount=5,
+            encoding="utf-8",
+        )
+        file_handler.setLevel(logging.INFO)
+        file_handler.setFormatter(formatter)
+        handlers.append(file_handler)
+    except OSError:
+        # A read-only profile must not prevent the UI from starting. The
+        # warning is visible on stderr, without including configuration values.
+        pass
 
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.WARNING)
-
-    formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
-    file_handler.setFormatter(formatter)
     console_handler.setFormatter(formatter)
+    handlers.append(console_handler)
 
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.INFO)
     if not root_logger.handlers:
-        root_logger.addHandler(file_handler)
-        root_logger.addHandler(console_handler)
+        for handler in handlers:
+            root_logger.addHandler(handler)
 
 
 _setup_logging()
@@ -63,7 +78,7 @@ logger = logging.getLogger(__name__)
 class AppConfig:
     """تنظیمات برنامه"""
     APP_NAME = "DrillMaster"
-    APP_VERSION = "1.0.0"
+    APP_VERSION = __version__
     ORGANIZATION_NAME = "DrillMaster Inc."
     
     # Timing
@@ -78,8 +93,8 @@ class AppConfig:
     DEFAULT_STYLE = "Fusion"
     
     # Database
-    DB_PATH = "drillmaster.db"
-    LOG_PATH = "logs/drillmaster.log"
+    DB_PATH = database_path()
+    LOG_PATH = str(log_dir() / "drillmaster.log")
 
 
 class DrillMasterSplash(QSplashScreen):
@@ -131,7 +146,7 @@ class DrillMasterSplash(QSplashScreen):
         painter.drawText(
             QRect(0, 265, 500, 25),
             Qt.AlignCenter,
-            "Version 1.0.0  |  © 2024 DrillMaster Inc."
+            f"Version {AppConfig.APP_VERSION}  |  © 2024 DrillMaster Inc."
         )
 
         painter.end()
@@ -158,7 +173,7 @@ class DrillMasterApp(QApplication):
         super().__init__(argv)
 
         self.setApplicationName(AppConfig.APP_NAME)
-        self.setApplicationVersion("1.0.0")
+        self.setApplicationVersion(AppConfig.APP_VERSION)
         self.setOrganizationName("DrillMaster Inc.")
 
         self.setFont(QFont("Segoe UI", 10))
@@ -169,7 +184,71 @@ class DrillMasterApp(QApplication):
         self.main_window = None
         self.startup_result = None
 
+        # The desktop application defaults to production behavior. Development
+        # fixtures remain available only when the operator explicitly selects
+        # DRILLMASTER_ENV=development or test.
+        if "DRILLMASTER_ENV" not in os.environ and "DRILLMASTER_ENVIRONMENT" not in os.environ:
+            os.environ["DRILLMASTER_ENV"] = "production"
+
         self.initialize()
+
+    @staticmethod
+    def _needs_first_run_bootstrap() -> bool:
+        """Return whether a new file-backed desktop database needs setup."""
+        import sqlite3
+        from contextlib import closing
+
+        path = database_path()
+        if path == ":memory:":
+            return False
+        database = Path(path).expanduser()
+        if not database.exists():
+            return True
+        try:
+            with closing(sqlite3.connect(str(database))) as connection:
+                table = connection.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type='table' AND name='users'"
+                ).fetchone()
+                if table is None:
+                    return True
+                return connection.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0
+        except (OSError, sqlite3.DatabaseError):
+            # A present but unreadable/corrupt database must go through the
+            # normal fatal initialization path, not be overwritten by setup.
+            return False
+
+    def _run_first_run_bootstrap(self) -> bool:
+        """Use explicit environment credentials or the existing secure setup UI."""
+        from core.credential_policy import (
+            CredentialLifecycleError, _BOOTSTRAP_PASSWORD_ENV, resolve_bootstrap_passwords,
+        )
+        self._bootstrap_credentials = None
+        try:
+            if not is_production_environment() or not self._needs_first_run_bootstrap():
+                return True
+            if any(name in os.environ for name in _BOOTSTRAP_PASSWORD_ENV.values()):
+                # Respect supplied credentials; never replace invalid/empty settings
+                # with silent defaults or an unnecessary interactive prompt.
+                resolve_bootstrap_passwords()
+                return True
+            ensure_writable_directories()
+            dialog = BootstrapDialog()
+            try:
+                if dialog.exec() != QDialog.Accepted:
+                    return False
+                self._bootstrap_credentials = resolve_bootstrap_passwords(dialog.passwords())
+            finally:
+                dialog.deleteLater()
+            logger.info("First-run production bootstrap credentials collected")
+            return True
+        except CredentialLifecycleError as exc:
+            logger.error("First-run credential configuration blocked: %s", exc)
+            QMessageBox.critical(None, "First-run credentials required", str(exc))
+            return False
+        except Exception:
+            logger.error("First-run bootstrap could not be completed")
+            QMessageBox.critical(None, "First-run setup failed", "Could not complete secure setup. No database was initialized.")
+            return False
 
     def initialize(self):
         """Initialize application."""
@@ -183,18 +262,30 @@ class DrillMasterApp(QApplication):
             splash.set_status("Applying styles...")
             self._apply_global_stylesheet()
 
+            splash.set_status("Checking first-run security setup...")
+            if not self._run_first_run_bootstrap():
+                splash.close()
+                self.quit()
+                return
+
             splash.set_status("Initializing database...")
-            self.db_manager = DatabaseManager()
+            self.db_manager = DatabaseManager(bootstrap_passwords=self._bootstrap_credentials)
+            self._bootstrap_credentials = None  # UI secrets do not enter os.environ or child processes
             if not self.db_manager.initialize():
                 splash.close()
                 QMessageBox.critical(
                     None, "Database Error",
-                    "Failed to initialize database.\nApplication will exit."
+                    ((self.db_manager.last_diagnostic or {}).get("message")
+                     if (self.db_manager.last_diagnostic or {}).get("credential_error") else
+                     "Failed to initialize database. Check the database diagnostics. Application will exit.")
                 )
                 sys.exit(1)
 
             splash.set_status("Checking data...")
-            if self.is_database_empty():
+            # Demo/sample records are never offered automatically in
+            # production. A production database starts with only the explicit
+            # bootstrap users and is populated by an authenticated operator.
+            if self.is_database_empty() and not is_production_environment():
                 splash.close()
                 self.show_welcome_message()
                 splash.show()
@@ -374,7 +465,10 @@ class DrillMasterApp(QApplication):
             self.create_sample_data()
 
     def create_sample_data(self):
-        """ایجاد داده‌های نمونه."""
+        """Create development-only sample data."""
+        if is_production_environment():
+            logger.warning("Sample data request rejected in production")
+            return False
         try:
             from datetime import date
             session = self.db_manager.create_session()
@@ -441,14 +535,20 @@ class DrillMasterApp(QApplication):
     def show_login(self) -> bool:
         """نمایش دیالوگ Login."""
         try:
-            # Auto-login for testing (set DRILLMASTER_AUTO_LOGIN=1)
+            # Auto-login is a development/test convenience only.
             import os
-            if os.getenv("DRILLMASTER_AUTO_LOGIN", "").lower() in ("1", "true", "yes"):
-                self.user = self.db_manager.authenticate_user("admin", "admin123")
+            if (
+                not is_production_environment()
+                and os.getenv("DRILLMASTER_AUTO_LOGIN", "").lower()
+                in ("1", "true", "yes")
+            ):
+                auto_password = bootstrap_password_for_role("admin")
+                if auto_password:
+                    self.user = self.db_manager.authenticate_user("admin", auto_password)
                 if self.user:
                     from core.permissions import permissions
                     permissions.set_user(self.user)
-                    logger.info("Auto-login as admin (DRILLMASTER_AUTO_LOGIN)")
+                    logger.info("Auto-login as admin (development/test mode)")
                     return True
 
             login_dialog = LoginDialog(self.db_manager)
@@ -483,11 +583,15 @@ class DrillMasterApp(QApplication):
                 self.startup_result = startup_dialog.get_result()
                 return True
             return False
-        except Exception as e:
-            logger.error(f"Startup error: {e}")
-            # Fallback: ادامه بدون startup result
+        except Exception:
+            logger.exception("Startup dialog failed")
             self.startup_result = None
-            return True
+            QMessageBox.critical(
+                None,
+                "Startup Error",
+                "The startup dialog could not be opened. The application will exit.",
+            )
+            return False
 
     def create_main_window(self):
         """ایجاد و نمایش Main Window."""
@@ -541,16 +645,90 @@ class DrillMasterApp(QApplication):
             logger.error(f"Cleanup error: {e}")
 
 
+def run_package_smoke() -> int:
+    """Run a non-GUI smoke check inside a frozen bundle."""
+    import importlib
+    import tempfile
+
+    from core.runtime_config import ensure_writable_directories
+
+    required_modules = (
+        "main_window",
+        "ui.helper",
+        "core.database",
+        "core.engineering",
+        "core.engineering.registry",
+        "core.ddr_pdf_export",
+        "core.professional_export",
+        "core.excel_intelligence",
+        "core.document_import",
+        "core.ai_import_mapper",
+        "core.optional_capabilities",
+        "dialogs.login_dialog",
+        "dialogs.startup_dialog",
+        "tabs.w11_Export",
+        "tabs.w12_Analysis",
+        "tabs.w13_Engineering_Calculator",
+    )
+    from core.credential_policy import _BOOTSTRAP_PASSWORD_ENV
+    keys = ("DRILLMASTER_ENV", "DRILLMASTER_ENVIRONMENT", "DRILLMASTER_DATA_DIR",
+            "DRILLMASTER_DB_PATH", "DRILLMASTER_AI_IMPORT", *_BOOTSTRAP_PASSWORD_ENV.values())
+    previous = {key: os.environ.get(key) for key in keys}
+    try:
+        with tempfile.TemporaryDirectory(prefix="drillmaster-package-smoke-") as directory:
+            os.environ["DRILLMASTER_ENV"] = "test"
+            os.environ.pop("DRILLMASTER_ENVIRONMENT", None)
+            os.environ["DRILLMASTER_DATA_DIR"] = directory
+            os.environ["DRILLMASTER_DB_PATH"] = str(Path(directory) / "package-smoke.db")
+            for key in _BOOTSTRAP_PASSWORD_ENV.values():
+                os.environ.pop(key, None)
+            os.environ["DRILLMASTER_AI_IMPORT"] = "0"
+            ensure_writable_directories()
+            for module_name in required_modules:
+                importlib.import_module(module_name)
+            manager = DatabaseManager()
+            try:
+                if not manager.initialize():
+                    return 1
+                session = manager.create_session()
+                try:
+                    from sqlalchemy import text
+
+                    schema_version = session.execute(
+                        text("SELECT MAX(version) FROM schema_version")
+                    ).scalar()
+                    if schema_version != manager.schema_version:
+                        return 1
+                finally:
+                    session.close()
+            finally:
+                manager.close()
+        return 0
+    except Exception:
+        logger.exception("Frozen package smoke test failed")
+        return 1
+
+    finally:
+        for key, value in previous.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+
 def main():
     """Main entry point."""
+    if "--package-smoke" in sys.argv:
+        return run_package_smoke()
     try:
         app = DrillMasterApp(sys.argv)
         return app.exec()
-    except Exception as e:
-        logger.error(f"Fatal error: {e}")
+    except Exception:
+        logger.exception("Fatal application error")
         QMessageBox.critical(
-            None, "Fatal Error",
-            f"A fatal error occurred:\n\n{str(e)}"
+            None,
+            "Fatal Error",
+            "A fatal error occurred. Review the DrillMaster log for details.",
         )
         return 1
 

@@ -3,16 +3,14 @@ Hierarchy Dialogs - دیالوگ‌های ایجاد Company، Project و Well
 """
 
 import logging
-from datetime import datetime, date
-from typing import Optional
+from datetime import datetime
 
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
 
 from core.database import DatabaseManager, Company, Project, Well, DailyReport, Section
-from core.managers import StatusBarManager
-import json
+from core.permissions import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -174,6 +172,7 @@ class NewCompanyDialog(BaseHierarchyDialog):
 
         self.setLayout(layout)
 
+    @require_permission("can_create_well")
     def create_company(self):
         """ایجاد شرکت جدید"""
         try:
@@ -417,6 +416,7 @@ class NewProjectDialog(BaseHierarchyDialog):
         except Exception as e:
             logger.error(f"Error loading companies: {e}")
 
+    @require_permission("can_create_well")
     def create_project(self):
         """ایجاد پروژه جدید"""
         try:
@@ -907,6 +907,7 @@ class NewWellDialog(BaseHierarchyDialog):
             self.water_depth_spin.setEnabled(False)
             self.water_depth_spin.setValue(0.0)
 
+    @require_permission("can_create_well")
     def create_well(self):
         """ایجاد چاه جدید"""
         try:
@@ -1105,14 +1106,15 @@ class NewSectionDialog(BaseHierarchyDialog):
         # ========== ورود دستی روزهای برنامه ==========
         form_layout.addWidget(QLabel("Planned Days (days)*:"), 4, 0)
         self.planned_days_spin = QDoubleSpinBox()
-        self.planned_days_spin.setRange(0.1, 1000)
+        self.planned_days_spin.setRange(-1, 1000)
+        self.planned_days_spin.setSpecialValueText("Not planned")
         self.planned_days_spin.setDecimals(1)
-        self.planned_days_spin.setValue(0.0)
+        self.planned_days_spin.setValue(-1)
         self.planned_days_spin.setToolTip("Enter the planned duration in days for this section")
         form_layout.addWidget(self.planned_days_spin, 4, 1)
 
         form_layout.addWidget(QLabel("Estimated ROP (m/day):"), 5, 0)
-        self.estimated_rop_label = QLabel("0.0")
+        self.estimated_rop_label = QLabel("—")
         self.estimated_rop_label.setStyleSheet("font-weight: bold; color: #3498db;")
         form_layout.addWidget(self.estimated_rop_label, 5, 1)
 
@@ -1187,13 +1189,15 @@ class NewSectionDialog(BaseHierarchyDialog):
             rop = (depth_to - depth_from) / days
             self.estimated_rop_label.setText(f"{rop:.1f}")
         else:
-            self.estimated_rop_label.setText("0.0")
+            self.estimated_rop_label.setText("—")
 
+    @require_permission("can_edit_reports")
     def create_section(self):
         name = self.name_edit.text().strip()
         depth_from = self.depth_from_spin.value()
         depth_to = self.depth_to_spin.value()
         planned_days = self.planned_days_spin.value()
+        planned_days = planned_days if planned_days >= 0 else None
 
         if not name:
             QMessageBox.warning(self, "Validation Error", "Section name is required!")
@@ -1203,11 +1207,7 @@ class NewSectionDialog(BaseHierarchyDialog):
             QMessageBox.warning(self, "Validation Error", "Depth To must be greater than Depth From!")
             return
 
-        if planned_days <= 0:
-            QMessageBox.warning(self, "Validation Error", "Planned Days must be greater than zero!")
-            return
-
-        estimated_rop = (depth_to - depth_from) / planned_days if planned_days > 0 else 0
+        estimated_rop = (depth_to - depth_from) / planned_days if planned_days else None
 
         section_data = {
             "well_id": self.well_id,
@@ -1364,6 +1364,7 @@ class NewDailyReportDialog(BaseHierarchyDialog):
         except Exception as e:
             logger.error(f"Error loading next report number: {e}")
 
+    @require_permission("can_edit_reports")
     def _copy_all_report_data(self, session, source_report_id, target_report_id):
         """
         کپی تمام داده‌های گزارش – با استفاده از .all() برای همه جداول
@@ -1373,13 +1374,24 @@ class NewDailyReportDialog(BaseHierarchyDialog):
             TimeLog24H, TimeLogMorning, DrillingParameters, MudReport,
             CementReport, CasingReport, BitReport, BHAReport, DownholeEquipment,
             FormationReport, LogisticsPersonnel, ServiceCompanyPOB, FuelWaterInventory,
-            BulkMaterials, TransportLog, TransportNotes, SafetyReport, BOPComponent,
+            BulkMaterials, TransportLog, SafetyReport, BOPComponent,
             WasteRecord, ServiceCompany, ServiceNote, MaterialRequest, EquipmentLog,
             SevenDaysLookahead, TripSheetEntry, SurveyPoint, WellboreSchematic
         )
         from datetime import date, timedelta
         import logging
         logger = logging.getLogger(__name__)
+
+        from copy import deepcopy
+        from sqlalchemy import null
+        from core.report_lifecycle import is_editable
+        source = session.get(DailyReport, source_report_id)
+        target = session.get(DailyReport, target_report_id)
+        if source is None or target is None or source.id == target.id or source.well_id != target.well_id:
+            raise ValueError("Copy requires distinct source/target reports in the same well")
+        if not is_editable(target.status):
+            raise ValueError("Target report is not editable")
+        target_date = target.report_date
 
         # 1. TimeLogMorning -> TimeLog24H
         logs_morning = session.query(TimeLogMorning).filter(TimeLogMorning.report_id == source_report_id).all()
@@ -1409,7 +1421,7 @@ class NewDailyReportDialog(BaseHierarchyDialog):
             'BHAReport': BHAReport,
             'DownholeEquipment': DownholeEquipment,
             'FormationReport': FormationReport,
-            'SafetyReport': SafetyReport,
+            # Do not manufacture a safety assessment from yesterday.
             'WellboreSchematic': WellboreSchematic,
             'TripSheetEntry': TripSheetEntry,
             'SurveyPoint': SurveyPoint,
@@ -1432,14 +1444,13 @@ class NewDailyReportDialog(BaseHierarchyDialog):
                 if name in ('FuelWaterInventory', 'SevenDaysLookahead'):
                     continue  # این جداول جداگانه پردازش می‌شوند
                 # برای سایر جداول، همه فیلدها را کپی می‌کنیم
-                data = {c.name: getattr(rec, c.name) for c in model.__table__.columns
+                data = {c.name: deepcopy(getattr(rec, c.name)) for c in model.__table__.columns
                         if c.name not in ('id', 'report_id')}
                 data['report_id'] = target_report_id
-                # تنظیم تاریخ برای برخی جداول
-                if name == 'SafetyReport':
-                    data['report_date'] = date.today()
-                elif name == 'WellboreSchematic':
-                    data['report_date'] = date.today()
+                if 'section_id' in data:
+                    data['section_id'] = target.section_id
+                if 'report_date' in data:
+                    data['report_date'] = target_date
                 new_rec = model(**data)
                 session.add(new_rec)
 
@@ -1448,33 +1459,33 @@ class NewDailyReportDialog(BaseHierarchyDialog):
         for fw in fw_records:
             new_fw = FuelWaterInventory(
                 well_id=fw.well_id,
-                section_id=fw.section_id,
+                section_id=target.section_id,
                 report_id=target_report_id,
-                report_date=date.today(),
+                report_date=target_date,
                 fuel_type=fw.fuel_type,
                 fuel_consumed=0.0,
-                fuel_stock=fw.fuel_remaining or fw.fuel_stock,
+                fuel_stock=(fw.fuel_remaining if fw.fuel_remaining is not None else null()),
                 fuel_received=0.0,
                 water_consumed=0.0,
-                water_stock=fw.water_remaining or fw.water_stock,
+                water_stock=(fw.water_remaining if fw.water_remaining is not None else null()),
                 water_received=0.0,
-                fuel_remaining=fw.fuel_remaining or fw.fuel_stock,
-                water_remaining=fw.water_remaining or fw.water_stock,
-                days_remaining_fuel=0.0,
-                days_remaining_water=0.0,
+                fuel_remaining=(fw.fuel_remaining if fw.fuel_remaining is not None else null()),
+                water_remaining=(fw.water_remaining if fw.water_remaining is not None else null()),
+                days_remaining_fuel=None,
+                days_remaining_water=None,
                 created_by=fw.created_by
             )
             session.add(new_fw)
 
         # 4. SevenDaysLookahead (حداکثر 7 روز اول)
         lookaheads = session.query(SevenDaysLookahead).filter(SevenDaysLookahead.report_id == source_report_id).all()
-        today = date.today()
+        today = target_date
         for i, la in enumerate(lookaheads):
             if i >= 7:
                 break
             new_la = SevenDaysLookahead(
                 well_id=la.well_id,
-                section_id=la.section_id,
+                section_id=target.section_id,
                 report_id=target_report_id,
                 plan_date=today + timedelta(days=i),
                 day_number=i+1,
@@ -1492,8 +1503,10 @@ class NewDailyReportDialog(BaseHierarchyDialog):
             session.add(new_la)
 
         session.commit()
+        return True
         
 
+    @require_permission("can_edit_reports")
     def create_daily_report(self):
         if not self.section_id:
             self.show_error("No section selected!")
@@ -1502,7 +1515,7 @@ class NewDailyReportDialog(BaseHierarchyDialog):
         session = None
         try:
             session = self.db.create_session()
-            section = session.query(Section).filter(Section.id == self.section_id).first()
+            section = session.query(Section).filter(Section.id == self.section_id).one_or_none()
             if not section:
                 self.show_error("Section not found!")
                 return
@@ -1523,10 +1536,10 @@ class NewDailyReportDialog(BaseHierarchyDialog):
                 prev_report = session.query(DailyReport).filter(
                     DailyReport.section_id == self.section_id,
                     DailyReport.report_date == previous_date
-                ).first()
+                ).one_or_none()
                 if prev_report:
-                    report_data["depth_0000"] = prev_report.depth_2400 or 0
-                    report_data["depth_0600"] = prev_report.depth_2400 or 0
+                    report_data["depth_0000"] = prev_report.depth_2400
+                    report_data["depth_0600"] = prev_report.depth_2400
                     report_data["rig_day"] = (prev_report.rig_day or 0) + 1
                     report_data["summary"] = prev_report.summary or ""
                     previous_report_id = prev_report.id

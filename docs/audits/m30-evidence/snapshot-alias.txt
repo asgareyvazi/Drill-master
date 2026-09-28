@@ -1,0 +1,10 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____________ test_attribution_serialization_does_not_alias_outcomes ____________
+tests/test_m30_semantic_regressions.py:98: in test_attribution_serialization_does_not_alias_outcomes
+    assert report.outcomes[0].target_id == original
+E   AssertionError: assert -999 == 1
+E    +  where -999 = ReportOutcome(report_id=1, dimension='wellbore', status='already', target_id=-999, method='', detail='').target_id
+=========================== short test summary info ============================
+FAILED tests/test_m30_semantic_regressions.py::test_attribution_serialization_does_not_alias_outcomes
+1 failed in 0.54s

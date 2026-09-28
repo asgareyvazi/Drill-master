@@ -1,27 +1,12 @@
-"""
-RAG Historical DDR Search - Professional Intelligence Feature (P2)
+"""Deterministic, well-scoped keyword retrieval with typed source evidence.
 
-Implements:
-- RAG (Retrieval Augmented Generation) over historical DDRs
-- Search: Operations Summary, Depth Progress, Time Breakdown, NPT, Mud Summary, etc.
-- AI reasons over validated numerical results, not invents
-
-Architecture:
-- Vector store from validated reports (not raw Excel)
-- Embeddings from summary + time logs + drilling params
-- Retrieval with evidence: Source Reports, Date Range, Metrics, Confidence, Reason
-- AI explains/interprets, deterministic engines calculate
-
-Future models:
-- Qwen → general mapping
-- Gemma → comparison and review
-- Qwen-VL → PDF vision
-- Table Transformer → table structure
+This module does not implement embeddings, vector search, an LLM call, numeric
+validation, or a calibrated relevance probability. Those are not inferred from
+a database substring match. Engineering calculations belong to canonical tools.
 """
 
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 import logging
-import re
 
 logger = logging.getLogger(__name__)
 
@@ -56,10 +41,10 @@ class HistoricalDDRSearch:
                             "source": r.get("type", "unknown"),
                             "id": r.get("id"),
                             "title": r.get("title", ""),
-                            "confidence": 0.75,  # placeholder, future will use embedding similarity
+                            "confidence": None,  # substring matches are not calibrated probabilities
                             "reason": f"Matched query '{query}' in {r.get('type')}",
                         },
-                        "retrieval_method": "DB LIKE search (future: vector embeddings)",
+                        "retrieval_method": "DB literal substring search",
                     }
                 )
 
@@ -67,29 +52,26 @@ class HistoricalDDRSearch:
 
         except Exception as exc:
             logger.error(f"Historical search failed: {exc}", exc_info=True)
-            return []
+            raise
 
     def rag_query(self, question: str, well_id: int = None) -> Dict[str, Any]:
-        """RAG query: retrieve relevant DDRs and generate answer with evidence.
-
-        This is where AI would reason over validated results.
-
-        Flow:
-        1. Retrieve relevant reports via search
-        2. Collect validated numerical data (depth, ROP, NPT, mud, etc.)
-        3. Call engineering engines for calculations if needed (via ai_tools)
-        4. Generate answer with evidence and confidence
-
-        Never invent engineering formulas - use deterministic engines.
-        """
-        retrieved = self.search(question, well_id=well_id, limit=5)
+        """Return typed retrieval evidence, not generated/validated numerical facts."""
+        if not question or len(question.strip()) < 2:
+            return {"status": "invalid-query", "answer": "Enter at least two characters",
+                    "evidence": [], "confidence": None, "method": "DB literal substring search"}
+        try:
+            retrieved = self.search(question, well_id=well_id, limit=5)
+        except Exception:
+            return {"status": "failed", "answer": "Historical search failed; results unavailable",
+                    "evidence": [], "confidence": None, "method": "DB literal substring search"}
 
         if not retrieved:
             return {
-                "answer": "No relevant historical DDRs found",
+                "status": "no-matches",
+                "answer": "No keyword matches found",
                 "evidence": [],
-                "confidence": 0.0,
-                "method": "RAG - retrieval over validated reports",
+                "confidence": None,
+                "method": "DB literal substring search",
             }
 
         # For now, simple answer with evidence
@@ -100,19 +82,21 @@ class HistoricalDDRSearch:
         for item in retrieved:
             evidence_summary.append(
                 {
-                    "source_report": item.get("id"),
+                    "source_report": item.get("id") if item.get("type") == "report" else item.get("report_id"),
+                    "source_entity_id": item.get("id"),
                     "title": item.get("title", ""),
                     "type": item.get("type", ""),
-                    "confidence": item.get("evidence", {}).get("confidence", 0.75),
+                    "confidence": item.get("evidence", {}).get("confidence"),
                 }
             )
 
         return {
-            "answer": f"Found {len(retrieved)} relevant historical reports for '{question}' - see evidence",
+            "status": "matched",
+            "answer": f"Found {len(retrieved)} keyword matches for '{question}' - see typed source evidence",
             "evidence": evidence_summary,
             "retrieved": retrieved,
-            "confidence": 0.7,
-            "method": "RAG Historical DDR Search - validated data only",
+            "confidence": None,
+            "method": "DB literal substring search; semantic/numeric validation not performed",
             "future": "Vector embeddings + Qwen/Gemma for explanation over validated numerical results",
             "safety": "AI explains, deterministic engines calculate - never invent formulas",
         }

@@ -1,0 +1,1966 @@
+[
+  {
+    "model": "ActivityCode",
+    "file": "core/database.py",
+    "line": 1770,
+    "table": "activity_codes",
+    "scope_columns": [
+      "well_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "well_id",
+        "targets": [
+          "wells.id"
+        ]
+      },
+      {
+        "column": "created_by",
+        "targets": [
+          "users.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": [
+      {
+        "column": "usage_count",
+        "value": 0,
+        "nullable": true
+      },
+      {
+        "column": "total_hours",
+        "value": 0.0,
+        "nullable": true
+      }
+    ]
+  },
+  {
+    "model": "ApprovalAction",
+    "file": "core/database.py",
+    "line": 701,
+    "table": "approval_actions",
+    "scope_columns": [
+      "report_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "report_id",
+        "targets": [
+          "daily_reports.id"
+        ]
+      },
+      {
+        "column": "user_id",
+        "targets": [
+          "users.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": []
+  },
+  {
+    "model": "AuditLog",
+    "file": "core/database.py",
+    "line": 92,
+    "table": "audit_logs",
+    "scope_columns": [],
+    "foreign_keys": [
+      {
+        "column": "user_id",
+        "targets": [
+          "users.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": []
+  },
+  {
+    "model": "BHAReport",
+    "file": "core/database.py",
+    "line": 1106,
+    "table": "bha_reports",
+    "scope_columns": [
+      "well_id",
+      "report_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "well_id",
+        "targets": [
+          "wells.id"
+        ]
+      },
+      {
+        "column": "report_id",
+        "targets": [
+          "daily_reports.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": []
+  },
+  {
+    "model": "BOPComponent",
+    "file": "core/database.py",
+    "line": 1494,
+    "table": "bop_components",
+    "scope_columns": [
+      "well_id",
+      "report_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "well_id",
+        "targets": [
+          "wells.id"
+        ]
+      },
+      {
+        "column": "safety_report_id",
+        "targets": [
+          "safety_reports.id"
+        ]
+      },
+      {
+        "column": "report_id",
+        "targets": [
+          "daily_reports.id"
+        ]
+      },
+      {
+        "column": "created_by",
+        "targets": [
+          "users.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": []
+  },
+  {
+    "model": "BitReport",
+    "file": "core/database.py",
+    "line": 1087,
+    "table": "bit_reports",
+    "scope_columns": [
+      "well_id",
+      "report_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "well_id",
+        "targets": [
+          "wells.id"
+        ]
+      },
+      {
+        "column": "report_id",
+        "targets": [
+          "daily_reports.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": []
+  },
+  {
+    "model": "BulkMaterials",
+    "file": "core/database.py",
+    "line": 1256,
+    "table": "bulk_materials",
+    "scope_columns": [
+      "well_id",
+      "section_id",
+      "report_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "well_id",
+        "targets": [
+          "wells.id"
+        ]
+      },
+      {
+        "column": "section_id",
+        "targets": [
+          "sections.id"
+        ]
+      },
+      {
+        "column": "report_id",
+        "targets": [
+          "daily_reports.id"
+        ]
+      },
+      {
+        "column": "created_by",
+        "targets": [
+          "users.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": [
+      {
+        "column": "received",
+        "value": 0.0,
+        "nullable": true
+      },
+      {
+        "column": "used",
+        "value": 0.0,
+        "nullable": true
+      }
+    ]
+  },
+  {
+    "model": "CasingCalculationRecord",
+    "file": "core/database.py",
+    "line": 2223,
+    "table": "casing_calculations",
+    "scope_columns": [
+      "well_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "well_id",
+        "targets": [
+          "wells.id"
+        ]
+      },
+      {
+        "column": "created_by",
+        "targets": [
+          "users.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": [
+      {
+        "column": "snapshot_schema_version",
+        "value": 1,
+        "nullable": false
+      }
+    ]
+  },
+  {
+    "model": "CasingReport",
+    "file": "core/database.py",
+    "line": 900,
+    "table": "casing_reports",
+    "scope_columns": [
+      "well_id",
+      "section_id",
+      "report_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "well_id",
+        "targets": [
+          "wells.id"
+        ]
+      },
+      {
+        "column": "section_id",
+        "targets": [
+          "sections.id"
+        ]
+      },
+      {
+        "column": "report_id",
+        "targets": [
+          "daily_reports.id"
+        ]
+      },
+      {
+        "column": "created_by",
+        "targets": [
+          "users.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": []
+  },
+  {
+    "model": "CementCalculationRecord",
+    "file": "core/database.py",
+    "line": 2279,
+    "table": "cement_calculations",
+    "scope_columns": [
+      "well_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "well_id",
+        "targets": [
+          "wells.id"
+        ]
+      },
+      {
+        "column": "created_by",
+        "targets": [
+          "users.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": [
+      {
+        "column": "snapshot_schema_version",
+        "value": 1,
+        "nullable": false
+      }
+    ]
+  },
+  {
+    "model": "CementReport",
+    "file": "core/database.py",
+    "line": 860,
+    "table": "cement_reports",
+    "scope_columns": [
+      "well_id",
+      "section_id",
+      "report_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "well_id",
+        "targets": [
+          "wells.id"
+        ]
+      },
+      {
+        "column": "section_id",
+        "targets": [
+          "sections.id"
+        ]
+      },
+      {
+        "column": "report_id",
+        "targets": [
+          "daily_reports.id"
+        ]
+      },
+      {
+        "column": "created_by",
+        "targets": [
+          "users.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": []
+  },
+  {
+    "model": "Company",
+    "file": "core/database.py",
+    "line": 125,
+    "table": "companies",
+    "scope_columns": [],
+    "foreign_keys": [],
+    "nullable_numeric_defaults": []
+  },
+  {
+    "model": "CostRecord",
+    "file": "core/database.py",
+    "line": 2514,
+    "table": "cost_records",
+    "scope_columns": [
+      "well_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "well_id",
+        "targets": [
+          "wells.id"
+        ]
+      },
+      {
+        "column": "created_by",
+        "targets": [
+          "users.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": []
+  },
+  {
+    "model": "DailyReport",
+    "file": "core/database.py",
+    "line": 320,
+    "table": "daily_reports",
+    "scope_columns": [
+      "well_id",
+      "section_id",
+      "wellbore_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "well_id",
+        "targets": [
+          "wells.id"
+        ]
+      },
+      {
+        "column": "section_id",
+        "targets": [
+          "sections.id"
+        ]
+      },
+      {
+        "column": "wellbore_id",
+        "targets": [
+          "wellbores.id"
+        ]
+      },
+      {
+        "column": "created_by",
+        "targets": [
+          "users.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": [
+      {
+        "column": "report_number",
+        "value": 1,
+        "nullable": true
+      },
+      {
+        "column": "rig_day",
+        "value": 1,
+        "nullable": true
+      }
+    ]
+  },
+  {
+    "model": "DownholeEquipment",
+    "file": "core/database.py",
+    "line": 1124,
+    "table": "downhole_equipment",
+    "scope_columns": [
+      "well_id",
+      "report_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "well_id",
+        "targets": [
+          "wells.id"
+        ]
+      },
+      {
+        "column": "report_id",
+        "targets": [
+          "daily_reports.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": []
+  },
+  {
+    "model": "DrillPipeSpecRecord",
+    "file": "core/database.py",
+    "line": 2111,
+    "table": "drill_pipe_specs",
+    "scope_columns": [],
+    "foreign_keys": [
+      {
+        "column": "created_by",
+        "targets": [
+          "users.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": []
+  },
+  {
+    "model": "DrillingParameters",
+    "file": "core/database.py",
+    "line": 752,
+    "table": "drilling_parameters",
+    "scope_columns": [
+      "well_id",
+      "report_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "well_id",
+        "targets": [
+          "wells.id"
+        ]
+      },
+      {
+        "column": "report_id",
+        "targets": [
+          "daily_reports.id"
+        ]
+      },
+      {
+        "column": "created_by",
+        "targets": [
+          "users.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": [
+      {
+        "column": "bit_rerun",
+        "value": 1,
+        "nullable": true
+      }
+    ]
+  },
+  {
+    "model": "EquipmentLog",
+    "file": "core/database.py",
+    "line": 1665,
+    "table": "equipment_logs",
+    "scope_columns": [
+      "well_id",
+      "section_id",
+      "report_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "well_id",
+        "targets": [
+          "wells.id"
+        ]
+      },
+      {
+        "column": "section_id",
+        "targets": [
+          "sections.id"
+        ]
+      },
+      {
+        "column": "report_id",
+        "targets": [
+          "daily_reports.id"
+        ]
+      },
+      {
+        "column": "created_by",
+        "targets": [
+          "users.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": [
+      {
+        "column": "hours_worked",
+        "value": 0.0,
+        "nullable": true
+      }
+    ]
+  },
+  {
+    "model": "ExportTemplate",
+    "file": "core/database.py",
+    "line": 1862,
+    "table": "export_templates",
+    "scope_columns": [],
+    "foreign_keys": [
+      {
+        "column": "created_by",
+        "targets": [
+          "users.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": []
+  },
+  {
+    "model": "FormationReport",
+    "file": "core/database.py",
+    "line": 1141,
+    "table": "formation_reports",
+    "scope_columns": [
+      "well_id",
+      "report_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "well_id",
+        "targets": [
+          "wells.id"
+        ]
+      },
+      {
+        "column": "report_id",
+        "targets": [
+          "daily_reports.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": []
+  },
+  {
+    "model": "FuelWaterInventory",
+    "file": "core/database.py",
+    "line": 1216,
+    "table": "fuel_water_inventory",
+    "scope_columns": [
+      "well_id",
+      "section_id",
+      "report_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "well_id",
+        "targets": [
+          "wells.id"
+        ]
+      },
+      {
+        "column": "section_id",
+        "targets": [
+          "sections.id"
+        ]
+      },
+      {
+        "column": "report_id",
+        "targets": [
+          "daily_reports.id"
+        ]
+      },
+      {
+        "column": "created_by",
+        "targets": [
+          "users.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": [
+      {
+        "column": "fuel_consumed",
+        "value": 0.0,
+        "nullable": true
+      },
+      {
+        "column": "fuel_stock",
+        "value": 0.0,
+        "nullable": true
+      },
+      {
+        "column": "fuel_received",
+        "value": 0.0,
+        "nullable": true
+      },
+      {
+        "column": "water_consumed",
+        "value": 0.0,
+        "nullable": true
+      },
+      {
+        "column": "water_stock",
+        "value": 0.0,
+        "nullable": true
+      },
+      {
+        "column": "water_received",
+        "value": 0.0,
+        "nullable": true
+      }
+    ]
+  },
+  {
+    "model": "InventoryItem",
+    "file": "core/database.py",
+    "line": 1294,
+    "table": "inventory_items",
+    "scope_columns": [
+      "well_id",
+      "section_id",
+      "report_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "well_id",
+        "targets": [
+          "wells.id"
+        ]
+      },
+      {
+        "column": "section_id",
+        "targets": [
+          "sections.id"
+        ]
+      },
+      {
+        "column": "report_id",
+        "targets": [
+          "daily_reports.id"
+        ]
+      },
+      {
+        "column": "created_by",
+        "targets": [
+          "users.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": [
+      {
+        "column": "received",
+        "value": 0.0,
+        "nullable": true
+      },
+      {
+        "column": "used",
+        "value": 0.0,
+        "nullable": true
+      }
+    ]
+  },
+  {
+    "model": "LogisticsPersonnel",
+    "file": "core/database.py",
+    "line": 1159,
+    "table": "logistics_personnel",
+    "scope_columns": [
+      "well_id",
+      "section_id",
+      "report_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "well_id",
+        "targets": [
+          "wells.id"
+        ]
+      },
+      {
+        "column": "section_id",
+        "targets": [
+          "sections.id"
+        ]
+      },
+      {
+        "column": "report_id",
+        "targets": [
+          "daily_reports.id"
+        ]
+      },
+      {
+        "column": "created_by",
+        "targets": [
+          "users.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": []
+  },
+  {
+    "model": "MSECalculationRecord",
+    "file": "core/database.py",
+    "line": 2393,
+    "table": "mse_calculations",
+    "scope_columns": [
+      "well_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "well_id",
+        "targets": [
+          "wells.id"
+        ]
+      },
+      {
+        "column": "created_by",
+        "targets": [
+          "users.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": [
+      {
+        "column": "snapshot_schema_version",
+        "value": 1,
+        "nullable": false
+      }
+    ]
+  },
+  {
+    "model": "MaterialRequest",
+    "file": "core/database.py",
+    "line": 1629,
+    "table": "material_requests",
+    "scope_columns": [
+      "well_id",
+      "section_id",
+      "report_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "well_id",
+        "targets": [
+          "wells.id"
+        ]
+      },
+      {
+        "column": "section_id",
+        "targets": [
+          "sections.id"
+        ]
+      },
+      {
+        "column": "report_id",
+        "targets": [
+          "daily_reports.id"
+        ]
+      },
+      {
+        "column": "created_by",
+        "targets": [
+          "users.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": [
+      {
+        "column": "requested_quantity",
+        "value": 0.0,
+        "nullable": true
+      },
+      {
+        "column": "outstanding_quantity",
+        "value": 0.0,
+        "nullable": true
+      },
+      {
+        "column": "received_quantity",
+        "value": 0.0,
+        "nullable": true
+      },
+      {
+        "column": "backload_quantity",
+        "value": 0.0,
+        "nullable": true
+      }
+    ]
+  },
+  {
+    "model": "MudReport",
+    "file": "core/database.py",
+    "line": 809,
+    "table": "mud_reports",
+    "scope_columns": [
+      "well_id",
+      "report_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "well_id",
+        "targets": [
+          "wells.id"
+        ]
+      },
+      {
+        "column": "report_id",
+        "targets": [
+          "daily_reports.id"
+        ]
+      },
+      {
+        "column": "created_by",
+        "targets": [
+          "users.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": []
+  },
+  {
+    "model": "MudVolumeCalculationRecord",
+    "file": "core/database.py",
+    "line": 2446,
+    "table": "mud_volume_calculations",
+    "scope_columns": [
+      "well_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "well_id",
+        "targets": [
+          "wells.id"
+        ]
+      },
+      {
+        "column": "created_by",
+        "targets": [
+          "users.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": [
+      {
+        "column": "snapshot_schema_version",
+        "value": 1,
+        "nullable": false
+      }
+    ]
+  },
+  {
+    "model": "NPTReport",
+    "file": "core/database.py",
+    "line": 1731,
+    "table": "npt_reports",
+    "scope_columns": [
+      "well_id",
+      "section_id",
+      "report_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "well_id",
+        "targets": [
+          "wells.id"
+        ]
+      },
+      {
+        "column": "section_id",
+        "targets": [
+          "sections.id"
+        ]
+      },
+      {
+        "column": "report_id",
+        "targets": [
+          "daily_reports.id"
+        ]
+      },
+      {
+        "column": "created_by",
+        "targets": [
+          "users.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": []
+  },
+  {
+    "model": "OperationalProcedure",
+    "file": "core/database.py",
+    "line": 1958,
+    "table": "operational_procedures",
+    "scope_columns": [
+      "well_id",
+      "section_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "well_id",
+        "targets": [
+          "wells.id"
+        ]
+      },
+      {
+        "column": "section_id",
+        "targets": [
+          "sections.id"
+        ]
+      },
+      {
+        "column": "created_by",
+        "targets": [
+          "users.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": []
+  },
+  {
+    "model": "PJSMRecord",
+    "file": "core/database.py",
+    "line": 2081,
+    "table": "pjsm_records",
+    "scope_columns": [],
+    "foreign_keys": [
+      {
+        "column": "procedure_id",
+        "targets": [
+          "operational_procedures.id"
+        ]
+      },
+      {
+        "column": "created_by",
+        "targets": [
+          "users.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": []
+  },
+  {
+    "model": "PlannedActivity",
+    "file": "core/database.py",
+    "line": 1886,
+    "table": "planned_activities",
+    "scope_columns": [
+      "well_id",
+      "section_id",
+      "plan_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "well_id",
+        "targets": [
+          "wells.id"
+        ]
+      },
+      {
+        "column": "section_id",
+        "targets": [
+          "sections.id"
+        ]
+      },
+      {
+        "column": "plan_id",
+        "targets": [
+          "well_plans.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": [
+      {
+        "column": "progress_percent",
+        "value": 0.0,
+        "nullable": true
+      }
+    ]
+  },
+  {
+    "model": "ProcedureApproval",
+    "file": "core/database.py",
+    "line": 2061,
+    "table": "procedure_approvals",
+    "scope_columns": [],
+    "foreign_keys": [
+      {
+        "column": "procedure_id",
+        "targets": [
+          "operational_procedures.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": []
+  },
+  {
+    "model": "ProcedureChecklist",
+    "file": "core/database.py",
+    "line": 2034,
+    "table": "procedure_checklists",
+    "scope_columns": [],
+    "foreign_keys": [
+      {
+        "column": "procedure_id",
+        "targets": [
+          "operational_procedures.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": [
+      {
+        "column": "sort_order",
+        "value": 0,
+        "nullable": true
+      }
+    ]
+  },
+  {
+    "model": "ProcedureStep",
+    "file": "core/database.py",
+    "line": 2010,
+    "table": "procedure_steps",
+    "scope_columns": [],
+    "foreign_keys": [
+      {
+        "column": "procedure_id",
+        "targets": [
+          "operational_procedures.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": []
+  },
+  {
+    "model": "ProcedureTemplate",
+    "file": "core/database.py",
+    "line": 2496,
+    "table": "procedure_templates",
+    "scope_columns": [],
+    "foreign_keys": [
+      {
+        "column": "created_by",
+        "targets": [
+          "users.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": []
+  },
+  {
+    "model": "Project",
+    "file": "core/database.py",
+    "line": 143,
+    "table": "projects",
+    "scope_columns": [],
+    "foreign_keys": [
+      {
+        "column": "company_id",
+        "targets": [
+          "companies.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": [
+      {
+        "column": "budget",
+        "value": 0.0,
+        "nullable": true
+      }
+    ]
+  },
+  {
+    "model": "ROPAnalysis",
+    "file": "core/database.py",
+    "line": 1827,
+    "table": "rop_analysis",
+    "scope_columns": [
+      "well_id",
+      "section_id",
+      "report_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "well_id",
+        "targets": [
+          "wells.id"
+        ]
+      },
+      {
+        "column": "section_id",
+        "targets": [
+          "sections.id"
+        ]
+      },
+      {
+        "column": "report_id",
+        "targets": [
+          "daily_reports.id"
+        ]
+      },
+      {
+        "column": "created_by",
+        "targets": [
+          "users.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": []
+  },
+  {
+    "model": "ReportRevision",
+    "file": "core/database.py",
+    "line": 688,
+    "table": "report_revisions",
+    "scope_columns": [
+      "report_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "report_id",
+        "targets": [
+          "daily_reports.id"
+        ]
+      },
+      {
+        "column": "created_by",
+        "targets": [
+          "users.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": []
+  },
+  {
+    "model": "SafetyIncident",
+    "file": "core/database.py",
+    "line": 1465,
+    "table": "safety_incidents",
+    "scope_columns": [],
+    "foreign_keys": [
+      {
+        "column": "safety_report_id",
+        "targets": [
+          "safety_reports.id"
+        ]
+      },
+      {
+        "column": "created_by",
+        "targets": [
+          "users.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": []
+  },
+  {
+    "model": "SafetyReport",
+    "file": "core/database.py",
+    "line": 1416,
+    "table": "safety_reports",
+    "scope_columns": [
+      "well_id",
+      "section_id",
+      "report_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "well_id",
+        "targets": [
+          "wells.id"
+        ]
+      },
+      {
+        "column": "section_id",
+        "targets": [
+          "sections.id"
+        ]
+      },
+      {
+        "column": "report_id",
+        "targets": [
+          "daily_reports.id"
+        ]
+      },
+      {
+        "column": "created_by",
+        "targets": [
+          "users.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": []
+  },
+  {
+    "model": "Section",
+    "file": "core/database.py",
+    "line": 290,
+    "table": "sections",
+    "scope_columns": [
+      "well_id",
+      "wellbore_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "well_id",
+        "targets": [
+          "wells.id"
+        ]
+      },
+      {
+        "column": "wellbore_id",
+        "targets": [
+          "wellbores.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": [
+      {
+        "column": "depth_from",
+        "value": 0.0,
+        "nullable": true
+      },
+      {
+        "column": "depth_to",
+        "value": 0.0,
+        "nullable": true
+      }
+    ]
+  },
+  {
+    "model": "ServiceCompany",
+    "file": "core/database.py",
+    "line": 1564,
+    "table": "service_companies",
+    "scope_columns": [
+      "well_id",
+      "section_id",
+      "report_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "well_id",
+        "targets": [
+          "wells.id"
+        ]
+      },
+      {
+        "column": "section_id",
+        "targets": [
+          "sections.id"
+        ]
+      },
+      {
+        "column": "report_id",
+        "targets": [
+          "daily_reports.id"
+        ]
+      },
+      {
+        "column": "created_by",
+        "targets": [
+          "users.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": [
+      {
+        "column": "personnel_count",
+        "value": 1,
+        "nullable": true
+      }
+    ]
+  },
+  {
+    "model": "ServiceCompanyPOB",
+    "file": "core/database.py",
+    "line": 1188,
+    "table": "service_company_pob",
+    "scope_columns": [
+      "well_id",
+      "section_id",
+      "report_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "well_id",
+        "targets": [
+          "wells.id"
+        ]
+      },
+      {
+        "column": "section_id",
+        "targets": [
+          "sections.id"
+        ]
+      },
+      {
+        "column": "report_id",
+        "targets": [
+          "daily_reports.id"
+        ]
+      },
+      {
+        "column": "created_by",
+        "targets": [
+          "users.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": [
+      {
+        "column": "personnel_count",
+        "value": 0,
+        "nullable": true
+      }
+    ]
+  },
+  {
+    "model": "ServiceNote",
+    "file": "core/database.py",
+    "line": 1602,
+    "table": "service_notes",
+    "scope_columns": [
+      "well_id",
+      "section_id",
+      "report_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "well_id",
+        "targets": [
+          "wells.id"
+        ]
+      },
+      {
+        "column": "section_id",
+        "targets": [
+          "sections.id"
+        ]
+      },
+      {
+        "column": "report_id",
+        "targets": [
+          "daily_reports.id"
+        ]
+      },
+      {
+        "column": "created_by",
+        "targets": [
+          "users.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": []
+  },
+  {
+    "model": "SevenDaysLookahead",
+    "file": "core/database.py",
+    "line": 1698,
+    "table": "seven_days_lookahead",
+    "scope_columns": [
+      "well_id",
+      "section_id",
+      "report_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "well_id",
+        "targets": [
+          "wells.id"
+        ]
+      },
+      {
+        "column": "section_id",
+        "targets": [
+          "sections.id"
+        ]
+      },
+      {
+        "column": "report_id",
+        "targets": [
+          "daily_reports.id"
+        ]
+      },
+      {
+        "column": "created_by",
+        "targets": [
+          "users.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": [
+      {
+        "column": "progress_percentage",
+        "value": 0,
+        "nullable": true
+      }
+    ]
+  },
+  {
+    "model": "SurveyPoint",
+    "file": "core/database.py",
+    "line": 995,
+    "table": "survey_points",
+    "scope_columns": [
+      "well_id",
+      "section_id",
+      "report_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "well_id",
+        "targets": [
+          "wells.id"
+        ]
+      },
+      {
+        "column": "section_id",
+        "targets": [
+          "sections.id"
+        ]
+      },
+      {
+        "column": "calculation_id",
+        "targets": [
+          "trajectory_calculations.id"
+        ]
+      },
+      {
+        "column": "report_id",
+        "targets": [
+          "daily_reports.id"
+        ]
+      },
+      {
+        "column": "created_by",
+        "targets": [
+          "users.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": []
+  },
+  {
+    "model": "TimeDepthData",
+    "file": "core/database.py",
+    "line": 1797,
+    "table": "time_depth_data",
+    "scope_columns": [
+      "well_id",
+      "section_id",
+      "report_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "well_id",
+        "targets": [
+          "wells.id"
+        ]
+      },
+      {
+        "column": "section_id",
+        "targets": [
+          "sections.id"
+        ]
+      },
+      {
+        "column": "report_id",
+        "targets": [
+          "daily_reports.id"
+        ]
+      },
+      {
+        "column": "created_by",
+        "targets": [
+          "users.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": []
+  },
+  {
+    "model": "TimeLog24H",
+    "file": "core/database.py",
+    "line": 713,
+    "table": "time_logs_24h",
+    "scope_columns": [
+      "report_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "report_id",
+        "targets": [
+          "daily_reports.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": []
+  },
+  {
+    "model": "TimeLogMorning",
+    "file": "core/database.py",
+    "line": 733,
+    "table": "time_logs_morning",
+    "scope_columns": [
+      "report_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "report_id",
+        "targets": [
+          "daily_reports.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": []
+  },
+  {
+    "model": "TorqueDragCalculationRecord",
+    "file": "core/database.py",
+    "line": 2161,
+    "table": "torque_drag_calculations",
+    "scope_columns": [
+      "well_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "well_id",
+        "targets": [
+          "wells.id"
+        ]
+      },
+      {
+        "column": "created_by",
+        "targets": [
+          "users.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": [
+      {
+        "column": "snapshot_schema_version",
+        "value": 1,
+        "nullable": false
+      }
+    ]
+  },
+  {
+    "model": "TrajectoryCalculation",
+    "file": "core/database.py",
+    "line": 1035,
+    "table": "trajectory_calculations",
+    "scope_columns": [
+      "well_id",
+      "section_id",
+      "report_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "well_id",
+        "targets": [
+          "wells.id"
+        ]
+      },
+      {
+        "column": "section_id",
+        "targets": [
+          "sections.id"
+        ]
+      },
+      {
+        "column": "report_id",
+        "targets": [
+          "daily_reports.id"
+        ]
+      },
+      {
+        "column": "calculated_by",
+        "targets": [
+          "users.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": []
+  },
+  {
+    "model": "TrajectoryPlot",
+    "file": "core/database.py",
+    "line": 1067,
+    "table": "trajectory_plots",
+    "scope_columns": [
+      "report_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "calculation_id",
+        "targets": [
+          "trajectory_calculations.id"
+        ]
+      },
+      {
+        "column": "report_id",
+        "targets": [
+          "daily_reports.id"
+        ]
+      },
+      {
+        "column": "created_by",
+        "targets": [
+          "users.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": []
+  },
+  {
+    "model": "TransportLog",
+    "file": "core/database.py",
+    "line": 1354,
+    "table": "transport_logs",
+    "scope_columns": [
+      "well_id",
+      "section_id",
+      "report_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "well_id",
+        "targets": [
+          "wells.id"
+        ]
+      },
+      {
+        "column": "section_id",
+        "targets": [
+          "sections.id"
+        ]
+      },
+      {
+        "column": "report_id",
+        "targets": [
+          "daily_reports.id"
+        ]
+      },
+      {
+        "column": "created_by",
+        "targets": [
+          "users.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": [
+      {
+        "column": "passengers_in",
+        "value": 0,
+        "nullable": true
+      },
+      {
+        "column": "passengers_out",
+        "value": 0,
+        "nullable": true
+      }
+    ]
+  },
+  {
+    "model": "TransportNotes",
+    "file": "core/database.py",
+    "line": 1389,
+    "table": "transport_notes",
+    "scope_columns": [
+      "well_id",
+      "section_id",
+      "report_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "well_id",
+        "targets": [
+          "wells.id"
+        ]
+      },
+      {
+        "column": "section_id",
+        "targets": [
+          "sections.id"
+        ]
+      },
+      {
+        "column": "report_id",
+        "targets": [
+          "daily_reports.id"
+        ]
+      },
+      {
+        "column": "created_by",
+        "targets": [
+          "users.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": []
+  },
+  {
+    "model": "TripSheetEntry",
+    "file": "core/database.py",
+    "line": 965,
+    "table": "trip_sheet_entries",
+    "scope_columns": [
+      "well_id",
+      "section_id",
+      "report_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "well_id",
+        "targets": [
+          "wells.id"
+        ]
+      },
+      {
+        "column": "section_id",
+        "targets": [
+          "sections.id"
+        ]
+      },
+      {
+        "column": "report_id",
+        "targets": [
+          "daily_reports.id"
+        ]
+      },
+      {
+        "column": "created_by",
+        "targets": [
+          "users.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": []
+  },
+  {
+    "model": "User",
+    "file": "core/database.py",
+    "line": 109,
+    "table": "users",
+    "scope_columns": [],
+    "foreign_keys": [],
+    "nullable_numeric_defaults": []
+  },
+  {
+    "model": "WasteRecord",
+    "file": "core/database.py",
+    "line": 1528,
+    "table": "waste_records",
+    "scope_columns": [
+      "well_id",
+      "report_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "well_id",
+        "targets": [
+          "wells.id"
+        ]
+      },
+      {
+        "column": "safety_report_id",
+        "targets": [
+          "safety_reports.id"
+        ]
+      },
+      {
+        "column": "report_id",
+        "targets": [
+          "daily_reports.id"
+        ]
+      },
+      {
+        "column": "created_by",
+        "targets": [
+          "users.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": []
+  },
+  {
+    "model": "Well",
+    "file": "core/database.py",
+    "line": 166,
+    "table": "wells",
+    "scope_columns": [],
+    "foreign_keys": [
+      {
+        "column": "project_id",
+        "targets": [
+          "projects.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": [
+      {
+        "column": "elevation",
+        "value": 0.0,
+        "nullable": true
+      },
+      {
+        "column": "water_depth",
+        "value": 0.0,
+        "nullable": true
+      }
+    ]
+  },
+  {
+    "model": "WellControlKillSheetCalculationRecord",
+    "file": "core/database.py",
+    "line": 2333,
+    "table": "well_control_kill_sheet_calculations",
+    "scope_columns": [
+      "well_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "well_id",
+        "targets": [
+          "wells.id"
+        ]
+      },
+      {
+        "column": "created_by",
+        "targets": [
+          "users.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": [
+      {
+        "column": "snapshot_schema_version",
+        "value": 1,
+        "nullable": false
+      }
+    ]
+  },
+  {
+    "model": "WellPlan",
+    "file": "core/database.py",
+    "line": 1927,
+    "table": "well_plans",
+    "scope_columns": [
+      "well_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "well_id",
+        "targets": [
+          "wells.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": []
+  },
+  {
+    "model": "Wellbore",
+    "file": "core/database.py",
+    "line": 240,
+    "table": "wellbores",
+    "scope_columns": [
+      "well_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "well_id",
+        "targets": [
+          "wells.id"
+        ]
+      },
+      {
+        "column": "parent_wellbore_id",
+        "targets": [
+          "wellbores.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": []
+  },
+  {
+    "model": "WellboreSchematic",
+    "file": "core/database.py",
+    "line": 939,
+    "table": "wellbore_schematics",
+    "scope_columns": [
+      "well_id",
+      "report_id"
+    ],
+    "foreign_keys": [
+      {
+        "column": "well_id",
+        "targets": [
+          "wells.id"
+        ]
+      },
+      {
+        "column": "report_id",
+        "targets": [
+          "daily_reports.id"
+        ]
+      },
+      {
+        "column": "created_by",
+        "targets": [
+          "users.id"
+        ]
+      }
+    ],
+    "nullable_numeric_defaults": []
+  }
+]

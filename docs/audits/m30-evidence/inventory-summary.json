@@ -1,0 +1,21 @@
+{
+  "total": 2232,
+  "reviewed": 41,
+  "closed": 40,
+  "unreviewed": 2191,
+  "dispositions": {
+    "G": 2192,
+    "D": 9,
+    "A": 12,
+    "B": 16,
+    "E": 1,
+    "C": 2
+  },
+  "priority": {
+    "HIGH": 1069,
+    "CRITICAL": 1163
+  },
+  "legacy_id_collisions_all_2259": 100,
+  "complete": false,
+  "warning": "G assigned to unreviewed items is queue transparency, not 2232/2232 semantic disposition completion. Prior M29 approvals are not inherited as M30 approval."
+}

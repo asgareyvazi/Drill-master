@@ -1,0 +1,9 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+__________ test_safety_absence_zero_incomplete_and_latest_not_maximum __________
+tests/test_m28_finance_safety_plan.py:82: in test_safety_absence_zero_incomplete_and_latest_not_maximum
+    assert all(value is None for value in safety_kpis([]).values())
+E   assert False
+E    +  where False = all(<generator object test_safety_absence_zero_incomplete_and_latest_not_maximum.<locals>.<genexpr> at 0x7f6ced45db10>)
+=========================== short test summary info ============================
+FAILED tests/test_m28_finance_safety_plan.py::test_safety_absence_zero_incomplete_and_latest_not_maximum

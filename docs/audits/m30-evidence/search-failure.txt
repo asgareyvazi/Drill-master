@@ -1,0 +1,49 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____________ test_search_database_exception_reaches_ui_failed_state ____________
+tests/test_m30_semantic_regressions.py:209: in test_search_database_exception_reaches_ui_failed_state
+    assert MainWindow._global_search(stub) is False
+E   AssertionError: assert None is False
+E    +  where None = <function MainWindow._global_search at 0x7f052f9b23e0>(namespace(search_input=namespace(text=<function test_search_database_exception_reaches_ui_failed_state.<locals>.<lambd...ce(show_message=<function test_search_database_exception_reaches_ui_failed_state.<locals>.<lambda> at 0x7f052f9b16c0>)))
+E    +    where <function MainWindow._global_search at 0x7f052f9b23e0> = <class 'main_window.MainWindow'>._global_search
+------------------------------ Captured log call -------------------------------
+WARNING  matplotlib.style.core:core.py:213 In /home/user/Drill-master/.venv/lib/python3.11/site-packages/matplotlib/mpl-data/stylelib/classic.mplstyle: 'parseString' deprecated - use 'parse_string'
+WARNING  matplotlib.style.core:core.py:213 In /home/user/Drill-master/.venv/lib/python3.11/site-packages/matplotlib/mpl-data/stylelib/classic.mplstyle: 'resetCache' deprecated - use 'reset_cache'
+WARNING  matplotlib.style.core:core.py:213 In /home/user/Drill-master/.venv/lib/python3.11/site-packages/matplotlib/mpl-data/stylelib/classic.mplstyle: 'parseString' deprecated - use 'parse_string'
+WARNING  matplotlib.style.core:core.py:213 In /home/user/Drill-master/.venv/lib/python3.11/site-packages/matplotlib/mpl-data/stylelib/classic.mplstyle: 'resetCache' deprecated - use 'reset_cache'
+WARNING  matplotlib.style.core:core.py:213 In /home/user/Drill-master/.venv/lib/python3.11/site-packages/matplotlib/mpl-data/stylelib/classic.mplstyle: 'parseString' deprecated - use 'parse_string'
+WARNING  matplotlib.style.core:core.py:213 In /home/user/Drill-master/.venv/lib/python3.11/site-packages/matplotlib/mpl-data/stylelib/classic.mplstyle: 'resetCache' deprecated - use 'reset_cache'
+WARNING  matplotlib.style.core:core.py:213 In /home/user/Drill-master/.venv/lib/python3.11/site-packages/matplotlib/mpl-data/stylelib/classic.mplstyle: 'parseString' deprecated - use 'parse_string'
+WARNING  matplotlib.style.core:core.py:213 In /home/user/Drill-master/.venv/lib/python3.11/site-packages/matplotlib/mpl-data/stylelib/classic.mplstyle: 'resetCache' deprecated - use 'reset_cache'
+ERROR    core.database:database.py:10369 Search error: locked DB
+=============================== warnings summary ===============================
+tests/test_m30_semantic_regressions.py::test_search_database_exception_reaches_ui_failed_state
+  /home/user/Drill-master/.venv/lib/python3.11/site-packages/matplotlib/_fontconfig_pattern.py:64: PyparsingDeprecationWarning: 'oneOf' deprecated - use 'one_of'
+    prop = Group((name + Suppress("=") + comma_separated(value)) | oneOf(_CONSTANTS))
+
+tests/test_m30_semantic_regressions.py::test_search_database_exception_reaches_ui_failed_state
+tests/test_m30_semantic_regressions.py::test_search_database_exception_reaches_ui_failed_state
+tests/test_m30_semantic_regressions.py::test_search_database_exception_reaches_ui_failed_state
+tests/test_m30_semantic_regressions.py::test_search_database_exception_reaches_ui_failed_state
+tests/test_m30_semantic_regressions.py::test_search_database_exception_reaches_ui_failed_state
+tests/test_m30_semantic_regressions.py::test_search_database_exception_reaches_ui_failed_state
+  /home/user/Drill-master/.venv/lib/python3.11/site-packages/matplotlib/_fontconfig_pattern.py:85: PyparsingDeprecationWarning: 'parseString' deprecated - use 'parse_string'
+    parse = parser.parseString(pattern)
+
+tests/test_m30_semantic_regressions.py::test_search_database_exception_reaches_ui_failed_state
+tests/test_m30_semantic_regressions.py::test_search_database_exception_reaches_ui_failed_state
+tests/test_m30_semantic_regressions.py::test_search_database_exception_reaches_ui_failed_state
+tests/test_m30_semantic_regressions.py::test_search_database_exception_reaches_ui_failed_state
+tests/test_m30_semantic_regressions.py::test_search_database_exception_reaches_ui_failed_state
+tests/test_m30_semantic_regressions.py::test_search_database_exception_reaches_ui_failed_state
+  /home/user/Drill-master/.venv/lib/python3.11/site-packages/matplotlib/_fontconfig_pattern.py:89: PyparsingDeprecationWarning: 'resetCache' deprecated - use 'reset_cache'
+    parser.resetCache()
+
+tests/test_m30_semantic_regressions.py::test_search_database_exception_reaches_ui_failed_state
+  /home/user/Drill-master/.venv/lib/python3.11/site-packages/matplotlib/_mathtext.py:45: PyparsingDeprecationWarning: 'enablePackrat' deprecated - use 'enable_packrat'
+    ParserElement.enablePackrat()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_m30_semantic_regressions.py::test_search_database_exception_reaches_ui_failed_state
+1 failed, 14 warnings in 1.38s

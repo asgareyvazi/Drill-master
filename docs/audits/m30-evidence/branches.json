@@ -1,0 +1,101 @@
+[
+  {
+    "ref": "arena/01a0c945-drill-master",
+    "sha": "e2eeb3539c5d9c468e73961824e9fe5229864a59",
+    "classification": "ACTIVE",
+    "ancestor_of_source_head": true,
+    "unique_commits": [],
+    "unique_files": [],
+    "action": "RETAINED; no branch deleted"
+  },
+  {
+    "ref": "drill-Master",
+    "sha": "02053eb0fa351f62279e5086eedecdcc492107d4",
+    "classification": "UNMERGED-REVIEW-REQUIRED",
+    "ancestor_of_source_head": false,
+    "unique_commits": [
+      "02053eb0fa351f62279e5086eedecdcc492107d4 Add files via upload",
+      "1e4b92041e243276f0be37a4b542d15f2721778c Merge branch 'arena/01a05747-drill-master' into drill-Master Co-authored-by: arena-agent <297053741+arena-agent@users.noreply.github.com>",
+      "dad3adc3c69b9d6ef7de86695b92a8d62400131a Merge pull request #3 from asgareyvazi/arena/01a056c5-drill-master"
+    ],
+    "unique_files": [
+      "A\t12 - DDR OEOC-201 AZNS-166 2025-Nov-07 (1404.08.16).pdf"
+    ],
+    "action": "RETAINED; no branch deleted"
+  },
+  {
+    "ref": "origin/HEAD",
+    "sha": "02053eb0fa351f62279e5086eedecdcc492107d4",
+    "classification": "UNMERGED-REVIEW-REQUIRED",
+    "ancestor_of_source_head": false,
+    "unique_commits": [
+      "02053eb0fa351f62279e5086eedecdcc492107d4 Add files via upload",
+      "1e4b92041e243276f0be37a4b542d15f2721778c Merge branch 'arena/01a05747-drill-master' into drill-Master Co-authored-by: arena-agent <297053741+arena-agent@users.noreply.github.com>",
+      "dad3adc3c69b9d6ef7de86695b92a8d62400131a Merge pull request #3 from asgareyvazi/arena/01a056c5-drill-master"
+    ],
+    "unique_files": [
+      "A\t12 - DDR OEOC-201 AZNS-166 2025-Nov-07 (1404.08.16).pdf"
+    ],
+    "action": "RETAINED; no branch deleted"
+  },
+  {
+    "ref": "origin/arena/01a056c5-drill-master",
+    "sha": "02dd3e140885490d5d0d10eb153867b064e19bb9",
+    "classification": "MERGED-SAFE-TO-DELETE",
+    "ancestor_of_source_head": true,
+    "unique_commits": [],
+    "unique_files": [],
+    "action": "RETAINED; no branch deleted"
+  },
+  {
+    "ref": "origin/arena/01a05747-drill-master",
+    "sha": "c7e7697f80de0a91daf59541c419a44aadac8df9",
+    "classification": "MERGED-SAFE-TO-DELETE",
+    "ancestor_of_source_head": true,
+    "unique_commits": [],
+    "unique_files": [],
+    "action": "RETAINED; no branch deleted"
+  },
+  {
+    "ref": "origin/arena/01a07094-drill-master",
+    "sha": "ad7ea0dbf353f3c376fa59750cdee86713ff2d89",
+    "classification": "MERGED-SAFE-TO-DELETE",
+    "ancestor_of_source_head": true,
+    "unique_commits": [],
+    "unique_files": [],
+    "action": "RETAINED; no branch deleted"
+  },
+  {
+    "ref": "origin/arena/01a0801f-drill-master",
+    "sha": "b05ea768398184bdaa299eeae413edf1622137b1",
+    "classification": "MERGED-SAFE-TO-DELETE",
+    "ancestor_of_source_head": true,
+    "unique_commits": [],
+    "unique_files": [],
+    "action": "RETAINED; no branch deleted"
+  },
+  {
+    "ref": "origin/arena/01a085e0-drill-master",
+    "sha": "c28bbef37cbac9de7abcfa693e7e21f678fa74ab",
+    "classification": "ACTIVE",
+    "ancestor_of_source_head": true,
+    "unique_commits": [],
+    "unique_files": [],
+    "action": "RETAINED; no branch deleted"
+  },
+  {
+    "ref": "origin/drill-Master",
+    "sha": "02053eb0fa351f62279e5086eedecdcc492107d4",
+    "classification": "UNMERGED-REVIEW-REQUIRED",
+    "ancestor_of_source_head": false,
+    "unique_commits": [
+      "02053eb0fa351f62279e5086eedecdcc492107d4 Add files via upload",
+      "1e4b92041e243276f0be37a4b542d15f2721778c Merge branch 'arena/01a05747-drill-master' into drill-Master Co-authored-by: arena-agent <297053741+arena-agent@users.noreply.github.com>",
+      "dad3adc3c69b9d6ef7de86695b92a8d62400131a Merge pull request #3 from asgareyvazi/arena/01a056c5-drill-master"
+    ],
+    "unique_files": [
+      "A\t12 - DDR OEOC-201 AZNS-166 2025-Nov-07 (1404.08.16).pdf"
+    ],
+    "action": "RETAINED; no branch deleted"
+  }
+]

@@ -1,0 +1,18 @@
+{
+  "files": 174,
+  "sites": 2262,
+  "kinds": {
+    "reduction": 314,
+    "numeric-parameter-default": 126,
+    "typed-exception": 350,
+    "numeric-get-default": 405,
+    "broad-exception": 621,
+    "numeric-default": 124,
+    "or-zero": 173,
+    "selection": 149
+  },
+  "review_status": {
+    "NOT-REVIEWED": 2262
+  },
+  "warning": "Inventory completeness is not semantic adjudication. NOT-REVIEWED sites remain a repository verification blocker, not verified SAFE."
+}

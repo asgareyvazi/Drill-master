@@ -1,0 +1,1 @@
+INFO:core.professional_export:Professional Excel export saved: /home/user/Drill-master/build/acceptance/production-complete/Professional.xlsx with 28 sheets

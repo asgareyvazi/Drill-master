@@ -10,11 +10,8 @@ Professional Features (P0/P1):
 """
 
 from dataclasses import dataclass, asdict, field
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any, Optional
 from pathlib import Path
-import re
-import math
-from collections import Counter
 
 
 @dataclass

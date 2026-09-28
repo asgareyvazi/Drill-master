@@ -18,10 +18,10 @@ Never silently invent missing inputs - return MISSING_INPUT or UNSUPPORTED.
 """
 
 import logging
-from datetime import date, datetime, time
-from typing import Dict, List, Optional, Tuple
-import math
-import re
+from datetime import date
+from typing import Dict, List
+
+from core.import_quality import ImportValidator as _ImportQualityValidator
 
 logger = logging.getLogger(__name__)
 
@@ -173,15 +173,16 @@ class MudValidator:
             except (ValueError, TypeError):
                 r.add_error(field, "Must be a number")
 
-        try:
-            s = float(data.get("solid_percent") or 0)
-            o = float(data.get("oil_percent") or 0)
-            w = float(data.get("water_percent") or 0)
-            total = s + o + w
-            if total > 0 and abs(total - 100) > 5:
-                r.add_warning("solids", f"Solids+Oil+Water = {total:.1f}% (expected ~100%)")
-        except (ValueError, TypeError):
-            pass
+        composition = [data.get(k) for k in ("solid_percent", "oil_percent", "water_percent")]
+        if any(v is not None for v in composition) and any(v is None for v in composition):
+            r.add_warning("composition", "Partial composition: solids/oil/water not all supplied; total cannot be validated")
+        elif all(v is not None for v in composition):
+            try:
+                total = sum(float(v) for v in composition)
+                if abs(total - 100) > 5:
+                    r.add_warning("solids", f"Solids+Oil+Water = {total:.1f}% (expected ~100%)")
+            except (ValueError, TypeError):
+                pass  # individual invalid fields are reported above
 
         return r
 
@@ -257,8 +258,10 @@ class SurveyValidator:
                 r.add_error(f"survey[{idx}].md", f"Non-monotonic MD: {md_f} <= {prev_md}")
             prev_md = md_f
 
-            inc = p.get("inc", p.get("inclination", 0))
-            if inc not in (None, ""):
+            inc = p.get("inc", p.get("inclination"))
+            if inc in (None, ""):
+                r.add_error(f"survey[{idx}].inc", "Inclination is required - MISSING_INPUT")
+            else:
                 try:
                     inc_f = float(inc)
                     if not (0 <= inc_f <= 180):
@@ -266,8 +269,10 @@ class SurveyValidator:
                 except (TypeError, ValueError):
                     r.add_error(f"survey[{idx}].inc", "Inc must be numeric")
 
-            azi = p.get("azi", p.get("azimuth", 0))
-            if azi not in (None, ""):
+            azi = p.get("azi", p.get("azimuth"))
+            if azi in (None, ""):
+                r.add_error(f"survey[{idx}].azi", "Azimuth is required - MISSING_INPUT")
+            else:
                 try:
                     float(azi)
                 except (TypeError, ValueError):
@@ -384,17 +389,22 @@ class BulkValidator:
                 r.add_warning(f"bulk[{idx}].material_name", f"Duplicate material: {name}")
             seen_names.add(name)
 
-            # Stock checks
+            # Stock checks — trichotomy-aware: a missing opening (None)
+            # or missing closing cannot be cross-checked against 0.
             try:
-                initial = float(m.get("initial_stock", 0) or 0)
+                initial_raw = m.get("initial_stock")
                 received = float(m.get("received", 0) or 0)
                 used = float(m.get("used", 0) or 0)
-                current = float(m.get("current_stock", 0) or 0)
-                expected = initial + received - used
-                if abs(current - expected) > 0.01 and current != 0:
-                    r.add_warning(f"bulk[{idx}].current_stock", f"Stock mismatch: {current} != {initial}+{received}-{used}={expected}")
-                if current < 0:
-                    r.add_error(f"bulk[{idx}].current_stock", f"Negative stock: {current}")
+                current_raw = m.get("current_stock")
+                if current_raw is not None:
+                    current = float(current_raw)
+                    if current < 0:
+                        r.add_error(f"bulk[{idx}].current_stock", f"Negative stock: {current}")
+                    if initial_raw is not None:
+                        initial = float(initial_raw)
+                        expected = initial + received - used
+                        if abs(current - expected) > 0.01 and current != 0:
+                            r.add_warning(f"bulk[{idx}].current_stock", f"Stock mismatch: {current} != {initial}+{received}-{used}={expected}")
             except (TypeError, ValueError):
                 r.add_error(f"bulk[{idx}]", "Stock values must be numeric")
 
@@ -530,20 +540,22 @@ class CostValidator:
         return r
 
 
-class ImportValidator:
-    """Legacy wrapper for backward compat - delegates to import_quality module"""
+class ImportValidator(_ImportQualityValidator):
+    """DEPRECATED alias of :class:`core.import_quality.ImportValidator`.
 
-    @staticmethod
-    def validate_rows(rows, required_fields=()):
-        result = ValidationResult()
-        for index, row in enumerate(rows or [], start=2):
-            if not isinstance(row, dict):
-                result.add_error(str(index), "Row must be an object")
-                continue
-            for field in required_fields:
-                if row.get(field) in (None, ""):
-                    result.add_error(f"row {index}.{field}", "Required value is missing - MISSING_INPUT")
-        return result
+    Historical note (2026-09-09 audit): this wrapper predated the canonical
+    import-quality validator and previously implemented an incompatible
+    ``validate_rows(rows, required_fields)`` signature while its docstring
+    claimed — falsely — to delegate to the import_quality module. Production
+    code (``core/ddr_import_service.py``, ``dialogs/excel_import_dialog.py``)
+    has always imported the authoritative class from ``core.import_quality``.
+
+    This class now *actually* delegates by subclassing the canonical
+    implementation, so the two names can never drift apart again. New code
+    must import ``from core.import_quality import ImportValidator`` directly.
+    """
+
+    __doc__ += _ImportQualityValidator.__doc__ or ""
 
 
 def cross_validate(data):
@@ -570,11 +582,20 @@ class TimeLogValidator:
     @staticmethod
     def validate_logs(logs: list) -> ValidationResult:
         r = ValidationResult()
-        total = sum(l.get("duration", 0) or 0 for l in logs)
-        if total > 0 and abs(total - 24) > 0.5:
+        recorded = [l.get("duration") for l in logs]
+        unrecorded = sum(1 for value in recorded if value is None)
+        total = sum(float(value) for value in recorded if value is not None)
+        if unrecorded:
+            # An absent duration is unknown; counting it as 0 h silently understates
+            # coverage, so the total is reported as incomplete instead.
+            r.add_warning("total_hours",
+                          f"{unrecorded} entr(ies) have no recorded duration; total hours incomplete")
+        elif total > 0 and abs(total - 24) > 0.5:
             r.add_warning("total_hours", f"Total = {total:.2f}h (expected ~24h)")
         for i, log in enumerate(logs):
-            dur = log.get("duration", 0) or 0
+            dur = log.get("duration")
+            if dur is None:
+                continue
             if dur < 0:
                 r.add_error(f"log_{i}", "Duration cannot be negative")
             if dur > 24:

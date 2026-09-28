@@ -1,0 +1,13 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_____________ test_wheel_includes_desktop_ui_and_builtin_templates _____________
+
+    def test_wheel_includes_desktop_ui_and_builtin_templates():
+        import tomllib
+        config = tomllib.loads((ROOT / "pyproject.toml").read_text())
+>       assert "ui*" in config["tool"]["setuptools"]["packages"]["find"]["include"]
+E       AssertionError: assert 'ui*' in ['core*', 'dialogs*', 'tabs*', 'config*', 'templates*']
+
+tests/test_packaging_smoke.py:77: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_packaging_smoke.py::test_wheel_includes_desktop_ui_and_builtin_templates

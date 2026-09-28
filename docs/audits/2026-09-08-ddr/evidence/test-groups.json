@@ -1,0 +1,35 @@
+{
+  "import": [
+    "tests/test_core_import.py",
+    "tests/test_excel_intelligence.py",
+    "tests/test_excel_intelligence_regressions.py",
+    "tests/test_import_architecture.py",
+    "tests/test_import_quality_extra.py",
+    "tests/test_import_repairs.py",
+    "tests/test_import_router.py",
+    "tests/test_p0_atomic_import.py",
+    "tests/test_production_import_guarantees.py",
+    "tests/test_real_oeoc_golden.py",
+    "tests/test_real_world_import.py",
+    "tests/test_review_contract_certification.py"
+  ],
+  "engineering": [
+    "tests/test_anti_collision_engine.py",
+    "tests/test_engineering_completion.py",
+    "tests/test_engineering_ground_truth.py",
+    "tests/test_engineering_integrations.py",
+    "tests/test_extended_engineering.py",
+    "tests/test_nozzle_optimization.py",
+    "tests/test_p0_engineering_core.py",
+    "tests/test_trajectory_mcm_parity.py"
+  ],
+  "integration": [
+    "tests/test_integration.py",
+    "tests/test_import_architecture.py",
+    "tests/test_p0_atomic_import.py",
+    "tests/test_ddr_forensic_regressions.py"
+  ],
+  "full": [
+    "tests"
+  ]
+}

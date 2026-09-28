@@ -1,0 +1,52 @@
+{
+ "dispositions": {
+  "DEFECT-FIXED": 155,
+  "DUPLICATE/DEAD-WITH-EVIDENCE": 19,
+  "EXTERNAL-ACCEPTANCE-ONLY": 2,
+  "INTENTIONAL-BY-DESIGN": 3800,
+  "UNDER-REVIEW": 3518,
+  "VERIFIED-CORRECT": 1172
+ },
+ "items": 8666,
+ "rules": {
+  "except-outside": 2,
+  "fallback-identity": 408,
+  "fallback-measurement": 151,
+  "fallback-none-guarded": 13,
+  "fallback-unknown": 369,
+  "handler-bare-pass": 101,
+  "handler-logs": 666,
+  "handler-reraises": 50,
+  "handler-unproven": 388,
+  "m31-ledger-confirmed": 161,
+  "numdefault-measurement": 75,
+  "numdefault-structural": 622,
+  "pass-silent": 85,
+  "pass-stub": 45,
+  "reduction-measurement": 79,
+  "reduction-plain": 419,
+  "return-bool-contract": 10,
+  "return-in-handler": 217,
+  "return-optional-documented": 136,
+  "return-unproven": 648,
+  "return-with-raise": 76,
+  "revalidation-replacement": 116,
+  "selection-ambiguous-key": 45,
+  "selection-keyed": 245,
+  "selection-single": 75,
+  "skip-external": 2,
+  "skip-qt": 2,
+  "skip-unknown": 13,
+  "sql-static": 453,
+  "truthiness-handle": 642,
+  "truthiness-identity": 567,
+  "truthiness-measurement": 94,
+  "truthiness-predicate": 227,
+  "truthiness-unknown": 1464
+ },
+ "under_review_by_priority": {
+  "CRITICAL": 150,
+  "HIGH": 874,
+  "MEDIUM": 2494
+ }
+}

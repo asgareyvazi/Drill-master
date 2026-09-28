@@ -1,16 +1,58 @@
-# NNNNN current development snapshot
+# Release notes — import consistency audit (2026-09-08)
 
-The `arena/019fc7b1-nnnnn` branch contains the consolidated Universal Import implementation:
+> **Current evidence — 2026-09-27: [Mission 33 semantic audit](M33_SEMANTIC_AUDIT.md).** Inventory **8934** occurrences adjudicated from the current source: **3712 verified-correct**, **2264 intentional-by-design**, **51 defect-fixed**, **49 removed-with-evidence**, **17 external-acceptance-only**, **2837 under-review** and **4 evidence-incomplete** (the last two stop release certification for repository-verifiable items). This tree is **NOT RELEASE-CERTIFIABLE** — see [M33_RELEASE_CERTIFICATION.md](M33_RELEASE_CERTIFICATION.md). Earlier counts, SHAs and acceptance statements anywhere below are historical or unverified, not current certification.
 
-- One Import Report(s) entry point for XLSX/XLSM/CSV/PDF and batch files
-- workbook scanning, table/column profiling and embedded DDR table extraction
-- merged-cell normalization without duplicating merged labels
-- workbook Activity Code catalog and company-agnostic mapping memory
-- optional local Ollama AI mapping with persistent model selection
-- complete import review matrix (scalar and row-oriented records)
-- validation, duplicate detection, section/well identity resolution and rollback cleanup
-- PDF table adapter (Camelot when installed, PyMuPDF fallback)
-- report deletion cleanup and inventory carry-forward
-- optional engineering/PDF capability adapters
 
-Engineering calculation engines remain optional and are not enabled implicitly; they must be benchmarked against the built-in calculations before being used operationally.
+## Branch
+
+`arena/01a07094-drill-master`
+
+## Targeted changes
+
+- Repaired `core/import_ir.py` into a serializable lossless contract for
+  source file/page/sheet/table/row/column/cell, headers, section titles, units,
+  coordinates, original/normalized values, extraction method, confidence,
+  validation state, and review state.
+- Made `ExcelIntelligence._build_cache()` and merge analysis consume the common
+  workbook IR instead of rereading openpyxl cells.
+- Extended Excel extraction results and MinerU normalization to retain source
+  values separately from normalized values and update IR state.
+- Completed `ReviewItem` serialization/deserialization and preview edit
+  propagation for mapping, value, unit, accept/reject/ignore decisions.
+- Disabled Smart Template's silent `ProfileImportEngine` fallback and disabled
+  the profile engine's direct DB write API.
+- Removed the database compatibility method's non-atomic per-table rescue loop;
+  the compatibility name now delegates only to the atomic saver.
+- Added environment-gated real DDR Excel/PDF acceptance tests using
+  `DRILLMASTER_TEST_DDR_XLSX` and `DRILLMASTER_TEST_DDR_PDF`.
+- Reconciled architecture, pipeline, AI, readiness, testing, README, and audit
+  documentation with source behavior.
+- Corrected ReviewItem provenance/entity/type/mapping normalization across
+  field, time-log, lookahead, BOP, and survey persistence rows; retained
+  same-value duplicate provenance explicitly.
+- Corrected template-anchor precedence so placeholders and empty note anchors
+  cannot be replaced by diagonal/fuzzy values; added real-workbook golden
+  counts, semantic validation, and a complete 79-item baseline/current audit.
+- Added PDF density unit safety (`10.2` is not ppg without explicit source
+  evidence), failed MinerU output cleanup, and Windows acceptance sequencing.
+
+## Certification status
+
+- Source compile and pure-Python IR/review smoke checks: **PASS** in this
+  workspace.
+- Dependency-backed Python 3.11 complete suite: **530 passed, 8 skipped, 0
+  failed/errors** (538 collected); real repository workbook audit: **PASS for
+  source-level evidence**. This is not Windows/Python 3.12 acceptance.
+- Repository workbook fixture: audited; this is not AZNS-12 production evidence.
+- **AZNS-12 production asset not present in repository/workspace.**
+- User Windows MinerU/PDF: **BLOCKED / not available**.
+- Python 3.12: **BLOCKED / not executed**.
+- Windows PyInstaller/Inno Setup and clean-machine checks: **BLOCKED / not
+  executed**.
+
+## Remaining limitations
+
+The PDF Camelot/PyMuPDF/OCR path is explicitly a legacy fallback with weaker
+PDF-native provenance and is not equivalent to a real MinerU certification.
+WITSML/LAS and legacy XLS remain unsupported contracts. Review data is carried
+in the import report/export and does not have a dedicated review ORM table.

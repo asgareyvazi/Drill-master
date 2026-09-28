@@ -1,0 +1,2684 @@
+{
+ "schema": "m33-evidence-manifest",
+ "generated_from_head": "c28bbef37cbac9de7abcfa693e7e21f678fa74ab",
+ "tree": "7e16996cdcc1bce4a79fed8823371c20c74eef15",
+ "tracked_diff_sha256_at_capture": "7acf216888f4741a05cc975057b24e81f5babc9a10259ed591bcf5b6286778ba",
+ "files": [
+  {
+   "path": "AI_MAPPING.md",
+   "sha256": "90e4c2f4ce3fbfd2b3ab2748e72488711e24b9c20350fbf1e24e3b2f91bbc15c",
+   "size_bytes": 4512,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "ARCHITECTURE.md",
+   "sha256": "8499ee71eea25568d27e86eaf53036020b9de468790cd2b39e3f80d2911636db",
+   "size_bytes": 9369,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "DATABASE_ARCHITECTURE.md",
+   "sha256": "0936f703df7d59e99169ba603df159d4840717e2746c502709f285ca8c84f2de",
+   "size_bytes": 19477,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "DEPLOYMENT.md",
+   "sha256": "e93871d53f433ba92bb0f44ea9fbb020597e141bffbfe93131e80a61fe644dab",
+   "size_bytes": 12949,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "ENGINEERING_ARCHITECTURE.md",
+   "sha256": "eb3c7c1e4eb4c440db4a4c92ed7a70bc9dade560da8ceec69316623aeabfc600",
+   "size_bytes": 8435,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "ENGINEERING_AUDIT.md",
+   "sha256": "12f4861503de4631022f8ec9fea87b655c69334d45610ac2420b403c72d5f8bd",
+   "size_bytes": 11428,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "ENGINEERING_CAPABILITY_STATUS.md",
+   "sha256": "0797c203561b149088b43c127b8e6547ef43a5ffa6f1ea6f11b3e6423e563d88",
+   "size_bytes": 5872,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "ENGINEERING_REFERENCE_MATRIX.md",
+   "sha256": "d08f43eed08340eb99f860cd6c4e70d5df5b1373a65923341ade93395e0035ae",
+   "size_bytes": 6700,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "IMPORT_PIPELINE.md",
+   "sha256": "b021dd53e4ca8f5102d6b6057e88bb3635a1b9e15cd439b49bdb2fdaed79d27e",
+   "size_bytes": 9933,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "M30_DOMAIN_MATRIX.md",
+   "sha256": "9e26072fec2bd26ddcfd1b14bf52fd707e427bc943ff26262d0950e978de2491",
+   "size_bytes": 25417,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "M30_RELEASE_CERTIFICATION.md",
+   "sha256": "1d88fe70a969b22d2c172b064d379cba060abda5165627b33d3f69506f0c8240",
+   "size_bytes": 21260,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "M30_ROOT_CAUSES.md",
+   "sha256": "06722d245873bcea1b4526081016ae9dcdf144e6fc5b7a1c8b2531bfc6cfa8b8",
+   "size_bytes": 10066,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "M30_SEMANTIC_AUDIT.md",
+   "sha256": "29763c7f8aa022932408a7add20cf1b01b5a592583f8cb189a1786b9e06e935d",
+   "size_bytes": 11794,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "M33_DOMAIN_MATRIX.md",
+   "sha256": "d56b630c148097c954af666c2525a4a179a4e3f3bb964a3872c90b9f6442f547",
+   "size_bytes": 9053,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "M33_ENGINE_DEFAULTS.md",
+   "sha256": "70dc8721b70db8c3f99031e85213e71fe55545609f190c1680b0c984e3db5c12",
+   "size_bytes": 15362,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "M33_EVIDENCE_INDEX.md",
+   "sha256": "e57c2ffdad4f2869867fb5684f09ea0a2c70ca2602b96d491d7374a277778ff5",
+   "size_bytes": 5695,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "M33_RELEASE_CERTIFICATION.md",
+   "sha256": "0c4fcc8648e486218522cd2c94c23620fbfbe4c4233cd33b61757f3396d9523b",
+   "size_bytes": 14880,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "M33_ROOT_CAUSES.md",
+   "sha256": "bee37c52e760b9c7bc757143f63a7ce2d45015ccfe2440be9cb8c408fa8ec412",
+   "size_bytes": 7178,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "M33_SEMANTIC_AUDIT.md",
+   "sha256": "15a59559f056e933e759a8e3f48ddb2878d435ab30534ee96deb6d81b31161a4",
+   "size_bytes": 9642,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "PRODUCTION_READINESS.md",
+   "sha256": "6068ef751cbc6f4e605e30e2810919c08e87717ce36e7b5558d60da73833733c",
+   "size_bytes": 8024,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "README.md",
+   "sha256": "d1474d36b450e07eb3be29ddbf9e1b56321aa375cc96bca8b1fb60add7f9c3bd",
+   "size_bytes": 13850,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "RELEASE_NOTES.md",
+   "sha256": "cec4677e95c488a4bfd79fed1d5bb933c6b4dab498d5473c0d7af5f0d9ff50ab",
+   "size_bytes": 4301,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "TESTING.md",
+   "sha256": "49ef758b8102ee9c402c4458b369121aea5d55082ec572646481e4f5cbdf9431",
+   "size_bytes": 11092,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "config/company_templates/README.md",
+   "sha256": "132e4a6c209e0ae9c1306870d39bd703515b6dbfa01b127f430860775196827e",
+   "size_bytes": 510,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/AUDIT_AND_PLAN.md",
+   "sha256": "32d895fe3fe27cf9eaad8ffdd24523f71c8e868998d9d72fc7456d9b9e453564",
+   "size_bytes": 27980,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/ENGINEERING_ARCHITECTURE.md",
+   "sha256": "c51f5a6f1745b3049c7d876d8bc54bee8ec86989a06fe2b02cde09a87f02d690",
+   "size_bytes": 7965,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/IMPLEMENTATION_REPORT.md",
+   "sha256": "50190f380e8e4cf0e0095f20b8537e82e7df9e533d63a6045d2c5aaf6e16a26b",
+   "size_bytes": 16330,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/IMPORT_AUDIT_2026-09.md",
+   "sha256": "08cd5e32af4f065de2c405dd253ec7de7fab8958ccf6dbcf4db7bc5315a3a07b",
+   "size_bytes": 11386,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/LOCAL_AI_IMPORT.md",
+   "sha256": "5159ca87df9aeb018b35dc486ebd02779a58495b692c6ad6fad44f92d9027eb1",
+   "size_bytes": 865,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/PHASE_STATUS.md",
+   "sha256": "335b3764ba827c22c32ddb2ddac33678fb0d53a08766095b116c616c8493f8a6",
+   "size_bytes": 8296,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/REVIEW_AUDIT_2026-09.md",
+   "sha256": "c9c1c02adf4a62fd65bb2d8b5472592b84a5555531139c93b0f1d1e21954c6dc",
+   "size_bytes": 3949,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/WINDOWS_ACCEPTANCE.md",
+   "sha256": "44e7ab19cf7fcff94d6f0de8d13e7ee85f6035a79207849d90c731697aabe705",
+   "size_bytes": 6691,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/FOLLOWUP_INSPECTION.md",
+   "sha256": "79db0d6128a4a1804e2949a03a255e9650b1b8995489a5c088814c75702fadf2",
+   "size_bytes": 3090,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/FOLLOWUP_REPORT.md",
+   "sha256": "fff127d1909325c8cc32d05475227ebc06fa3a353db3859b20765a2ac8de9529",
+   "size_bytes": 24780,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/MANUAL_LIFECYCLE_MATRIX.md",
+   "sha256": "e1b4edfe8d8b171e1f2e0984a9c0608b1215d7eab8f53331f8336ec196e17db6",
+   "size_bytes": 9626,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/PRODUCTION_CREDENTIAL_LIFECYCLE_FIX.md",
+   "sha256": "0bc6f65b938824b99ba19a0184ab85a204e242410e82a03dcd1cb7fdce175f7f",
+   "size_bytes": 20115,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/REAL_USER_ACCEPTANCE_AUDIT.md",
+   "sha256": "1a71d568471a00025568ef1ac244dbdf816efce55fd601eee656ca61d57e3cdd",
+   "size_bytes": 46322,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/REPORT.md",
+   "sha256": "69d8fd11db535e75d8636d893554710a8ab62d710856d8531cef7b41ec8d01ba",
+   "size_bytes": 25640,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/REVIEW_CLASSIFICATION_65.md",
+   "sha256": "97cec219a91c9e1d8e15caa8223ff69fbb53b947464e865802d9db2dac9703d4",
+   "size_bytes": 35540,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/chemical-matrix.csv",
+   "sha256": "a2e8b1ead5c16ca099bf5341cd81821aac014f543a6f1b9bd94bfa0f467b3b33",
+   "size_bytes": 16635,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/baseline-optin-failure.txt",
+   "sha256": "17529d06ce7d690f69c473b7c77b6259e6317b91d26710e2c69a3dd515e141a6",
+   "size_bytes": 4674,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/baseline-optin.txt",
+   "sha256": "17529d06ce7d690f69c473b7c77b6259e6317b91d26710e2c69a3dd515e141a6",
+   "size_bytes": 4674,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/baseline-optin.xml",
+   "sha256": "aa659057f0697783c6291edefb5dc1d2f547972c4c5bc3ddace89f93dc63932d",
+   "size_bytes": 4531,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/baseline.txt",
+   "sha256": "23fd40938ebb92265a4a02f801fcfea4a5f074ffcdf8af0b96e50c020eb6817d",
+   "size_bytes": 2181,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/baseline.xml",
+   "sha256": "c4ccdbaefd8daba28013a39deafcc69d4681dec9cf771145a79dc56675dabbe1",
+   "size_bytes": 70064,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/credential-lifecycle/commands.txt",
+   "sha256": "2c4ae48dd6027c6405b03d19f0e73feb25f25fefcdaf51fb38bc64519d9735de",
+   "size_bytes": 1891,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/credential-lifecycle/environment.json",
+   "sha256": "3e7b624eb1a60ed94e6a7afe1b4194b59f4ca5121d391196ca55cbe132eb400c",
+   "size_bytes": 302,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/credential-lifecycle/focused.txt",
+   "sha256": "430abf8c22d41fe0cfbb07f714bb6eb76c444dbab74315b942e93058332e3fe1",
+   "size_bytes": 100,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/credential-lifecycle/focused.xml",
+   "sha256": "3dd3902f2a61fa67b138b11c879f7a9fffec25856b9e8fea189e7106e19f0bd6",
+   "size_bytes": 7416,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/credential-lifecycle/full.txt",
+   "sha256": "f51a8970a4d012ea76b111d8c6ec4b2702ddc9191f23579e93f5a43934672c89",
+   "size_bytes": 1863,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/credential-lifecycle/full.xml",
+   "sha256": "ce8e1bc9f53974764cbcd93387acd6d5123623bb990967ab67371b751ed8e8c7",
+   "size_bytes": 92194,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/credential-lifecycle/native-startup.txt",
+   "sha256": "49e85424936795123ab69646bb034d3cae71707b5567513f559b4c045ee2b884",
+   "size_bytes": 313,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/credential-lifecycle/runtime.json",
+   "sha256": "f8d0668971c54810d11cc7edcfe91d6ce6fb00d080a2195bd5c7e4467a4e00d0",
+   "size_bytes": 571,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/credential-lifecycle/runtime.txt",
+   "sha256": "5de877b5a9be1034e6612f5da52109bdd664946337deacf80b994efc79a0b178",
+   "size_bytes": 893,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/credential-lifecycle/subsystem.txt",
+   "sha256": "65dca7aeda3fe9bfb125e327311670dbed54c3d7118f6dc8d251cdc853bdcdeb",
+   "size_bytes": 191,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/credential-lifecycle/subsystem.xml",
+   "sha256": "241696d175770debc6e994e33abc1612897c577eff988ad6afdd7569d6751c4c",
+   "size_bytes": 11081,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/desktop-startup.txt",
+   "sha256": "49e85424936795123ab69646bb034d3cae71707b5567513f559b4c045ee2b884",
+   "size_bytes": 313,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/engineering.txt",
+   "sha256": "fd4a77bf0359b49d90b0705f9a0e17e4903d6f6cd404ff0f1769a1e1605c2cbc",
+   "size_bytes": 191,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/engineering.xml",
+   "sha256": "5f12ea72fc9e540a13ef736160729b88569beb0841fe75458195b8b31e1f7097",
+   "size_bytes": 17701,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/followup/acceptance.txt",
+   "sha256": "fae68bf5f25ad141e9812e6ecb26191c78e2f832298e1b3a82ebae9b841e66cc",
+   "size_bytes": 1374,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/followup/baseline.txt",
+   "sha256": "0440d18c2c9aecf65086b2aa7c50825b796032cc0edfde659abb60cfde4aabcf",
+   "size_bytes": 1733,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/followup/baseline.xml",
+   "sha256": "4bc0cf756741f119c3209ca3e35570bc8cb472de128ec23362f0f85a06e269c0",
+   "size_bytes": 79091,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/followup/commands.txt",
+   "sha256": "1a53e2de6e1d53e4b5e72503da28d1ae68374276d6df7f72a1df14a7ac3d8ea6",
+   "size_bytes": 1863,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/followup/desktop-startup.txt",
+   "sha256": "49e85424936795123ab69646bb034d3cae71707b5567513f559b4c045ee2b884",
+   "size_bytes": 313,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/followup/focused-complete.txt",
+   "sha256": "da9273126c098576604dbc125a9ff3ad0ab009d81565e3837ff1ece1e24777d8",
+   "size_bytes": 729,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/followup/focused-complete.xml",
+   "sha256": "0a86fa876504ebed2f98139589f724724d4ac029b27efa8034ac24c39bff16ec",
+   "size_bytes": 6180,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/followup/full-complete.txt",
+   "sha256": "febe81f4dd73584eefdacf49bb9ec218a68f5330c2ac2ff0cccd87097c81514e",
+   "size_bytes": 1863,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/followup/full-complete.xml",
+   "sha256": "e33ae41e13ad74f2f25874ad7b2961ad0b82bede206e56087a26180c725bb6f3",
+   "size_bytes": 85025,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/followup/golden-a-3d-state.png",
+   "sha256": "bf66c50e2e2b9816667cec46b5e93eabce80a66225c9d5cb0c0e7388d76615f3",
+   "size_bytes": 62861,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/followup/golden-a-import.json",
+   "sha256": "456c4f6ced44a97354aa4e36fe8842c48c05a81498db7bca9d61cd5f2642811b",
+   "size_bytes": 496404,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/followup/golden-a-lifecycle.json",
+   "sha256": "14cb7ea41e9544b559827ec2285d831b925af72c002d0077aa3cbf212dada9e1",
+   "size_bytes": 130270,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/followup/subsystem-complete.txt",
+   "sha256": "5d9877ed90b42de5c65447452edf6ae31ec7a80125b92d4eb1a48204cd5091e8",
+   "size_bytes": 929,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/followup/subsystem-complete.xml",
+   "sha256": "839ffbedeac9e52f39887ea4dd6a1c962b132e0b450b002e652890ac1f610977",
+   "size_bytes": 21786,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/followup/system-libraries.txt",
+   "sha256": "dff1dfe85761d50926aeef98621dfca868b15329dcaf134ba785156afd0fcec6",
+   "size_bytes": 153,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/followup/verification-summary.json",
+   "sha256": "ef1d54e3a31c13450e4e9bd6fe728f9747a283f3ee795f72e1c72bd9f747c061",
+   "size_bytes": 965,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/full.txt",
+   "sha256": "e903893f3cf471e84c38e4a58db1b11fbf92a144db748dd768fe6c7ee85a59e0",
+   "size_bytes": 1733,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/full.xml",
+   "sha256": "069627a63c456d958bf0a9d6401f68df3fe672d7609282340938543bf0d54671",
+   "size_bytes": 79092,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/golden-a-console.txt",
+   "sha256": "590837b05ee171d240eb2d32ca9af5af09632548df89d1daebc0a98983730ca1",
+   "size_bytes": 429,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/golden-a.json",
+   "sha256": "056e56ff66b1a421e621b13b249a5ca15c1bacea8c1059f591f401572f9592fe",
+   "size_bytes": 493433,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/import.txt",
+   "sha256": "7d1d5bd52d895b1cfe08485790f607291144251ecc85da4a268c956fc98d2d32",
+   "size_bytes": 1275,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/import.xml",
+   "sha256": "51fe241afbf3be16e901360d0f2f500e60314734a3cb6bf6e74c31cfdb4a32e9",
+   "size_bytes": 16081,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/integration.txt",
+   "sha256": "cc5d57f50327395095e67a1735d050518ce67c0149f7576ee4725697a7256553",
+   "size_bytes": 633,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/integration.xml",
+   "sha256": "f6567955d7001cb55600ba59a2660a6286bcf10dbfb0deb140aaac3b91155bce",
+   "size_bytes": 12870,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/r18-r19/bha-preservation.txt",
+   "sha256": "42f23d0adcb018876a901a304a39bdbe73aea9d243a781cda88af037f7333ce5",
+   "size_bytes": 115,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/r18-r19/changed-files.txt",
+   "sha256": "98604e31fbfd60f8edf2ffffcb795909e0d6c71e407af55ef1411266ebfdd9e0",
+   "size_bytes": 1125,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/r18-r19/commands.md",
+   "sha256": "29fa1207a8e7e4ef5166ce04c77ec8095ed22ec436b4057be459f176686b0964",
+   "size_bytes": 2081,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/r18-r19/dirty-contract.txt",
+   "sha256": "38e9efe895aecc1a0047f981bcc91d57815d432794b398147dd9e8f3f4d88c28",
+   "size_bytes": 115,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/r18-r19/final-exit-codes.txt",
+   "sha256": "0c661921c91c64959cc041d4c46145f089ee7c76d3cfd20accc697dabc82c70b",
+   "size_bytes": 47,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/r18-r19/focused.txt",
+   "sha256": "d870a236f6691ab7cce41996d5be8e54eaff42305c763f3ef5a06ee83cc1d7d9",
+   "size_bytes": 100,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/r18-r19/full.txt",
+   "sha256": "095e2846a62b3248574e375e0bdacb031ae433e2454cfa062e10db98a9a58ed3",
+   "size_bytes": 2669,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/r18-r19/subsystem.txt",
+   "sha256": "550d181d0cf6e7dabfb82949cbc95638e40fbd79e61aace892443f40d95ab54d",
+   "size_bytes": 1305,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/real-acceptance.txt",
+   "sha256": "5abc7c20cb407e4875d80f8cde8343bb88e73d53f278c5c771bc7d7bc32aba9d",
+   "size_bytes": 533,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/real-acceptance.xml",
+   "sha256": "05407494dd50e9e15b8de90697e48164936e83bc753e573585143e9cb19c96ab",
+   "size_bytes": 370,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/real-user-acceptance/commands.txt",
+   "sha256": "306b617c008fe7f76bc9e3a9fef65be139204cd877ff7d5ecc9c21bd2bec30ee",
+   "size_bytes": 3227,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/real-user-acceptance/engineering-executed.json",
+   "sha256": "d93ec802a34fd30024fc58695833e81fded0f7f03180d454ef041577200fdccb",
+   "size_bytes": 31757,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/real-user-acceptance/engineering.txt",
+   "sha256": "b65f0c41823beaa89e8c03f2d2bbcb8415690f561045373ccd84437da706e6bc",
+   "size_bytes": 180,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/real-user-acceptance/engineering.xml",
+   "sha256": "3ce799544c64035fce5ffe29b472fc69f779dcc0c4c9fdc9f51b6dad39ed2f12",
+   "size_bytes": 15257,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/real-user-acceptance/entity-crud.csv",
+   "sha256": "a62d46020485fbd142956db258c74eb80648f82772482282ca4ba7dd1aaf6727",
+   "size_bytes": 4460,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/real-user-acceptance/environment.json",
+   "sha256": "4641ea668469d69aa26a922bfce9020a9dad38a1c73586862263448ce465bf9d",
+   "size_bytes": 468,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/real-user-acceptance/focused.txt",
+   "sha256": "cbcff57a823522ca3aa2b5e1433fb4cc920ffdb9eac708ec95d2920bd9671f9b",
+   "size_bytes": 99,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/real-user-acceptance/focused.xml",
+   "sha256": "47a1171ecfa16902bd7e485329ed8a9cbcd8cde2b9d4c80f82bed00cf1ef6fcf",
+   "size_bytes": 4976,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/real-user-acceptance/full.txt",
+   "sha256": "c56dea23b8631b333f940459b9d72cae507352b68d46a08625a9ca37075a2709",
+   "size_bytes": 1943,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/real-user-acceptance/full.xml",
+   "sha256": "a9090fe61d9c92a0847a4072c43e592eb819639d29b5ca6c63ea77578f5ca1ee",
+   "size_bytes": 96737,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/real-user-acceptance/native-startup.txt",
+   "sha256": "49e85424936795123ab69646bb034d3cae71707b5567513f559b4c045ee2b884",
+   "size_bytes": 313,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/real-user-acceptance/parent-crud.json",
+   "sha256": "d97d4babd58215dda292392d11ad95d7238844dbddaf6c6c8665c513f78aa1d2",
+   "size_bytes": 827,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/real-user-acceptance/pdf-attempts.json",
+   "sha256": "50077331c50345b9cce46b300f2ac2dd0e72fea56542453068c9168a8964fd93",
+   "size_bytes": 560,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/real-user-acceptance/production-console.txt",
+   "sha256": "39f14768cf17abe8393196b4d21c1419ee769c737de4d1680f07332ec2cfa53a",
+   "size_bytes": 5704,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/real-user-acceptance/production-runtime.txt",
+   "sha256": "15609686debca28e8e8c8768c4b46816e731bdaebe1d57832b9a5f597144a43d",
+   "size_bytes": 157,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/real-user-acceptance/production.json",
+   "sha256": "9aa3df06002bcbe0dbb3d65193203095e87fc280878d71ac89368b330dd78836",
+   "size_bytes": 219312,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/real-user-acceptance/qt-dependency-attempt.txt",
+   "sha256": "8c62b6e4b5ea34adba6cccef562366d9395479c4663717b50c81495feb1976dc",
+   "size_bytes": 1686,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/real-user-acceptance/recovery-cli.txt",
+   "sha256": "a83e547caf2ab661d11e4f348ccd8586cd572284de88c4a9a2addce994da824f",
+   "size_bytes": 1168,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/real-user-acceptance/recovery-probe.py",
+   "sha256": "37400208f3e6aa5cb2641373df4822685871a2ed42b8ff3e1467f9415f5f1d72",
+   "size_bytes": 2640,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/real-user-acceptance/recovery.json",
+   "sha256": "1a2e00e4cebaf987babd756635a47dcad4ca6dc70ad1d78cbe08f4f3a915bef6",
+   "size_bytes": 324,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/real-user-acceptance/review-classification.csv",
+   "sha256": "faa7bf9743aea203fcdb39fbba1a420dd9033df8d49c8f72adcf76ef2da2926b",
+   "size_bytes": 20498,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/real-user-acceptance/review-counts.json",
+   "sha256": "56c95c1f408ec13e2cfc9404536a7f089ab3bbe9f7d8e385fa975e629f48e57f",
+   "size_bytes": 165,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/real-user-acceptance/source-inventory.json",
+   "sha256": "3eb280d86724a5b6fb6482280fb3f4ece9d1ea93a3bfe10a5aa754af2a470a32",
+   "size_bytes": 330145,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/real-user-acceptance/subsystem.txt",
+   "sha256": "0bf3653cc05ce1c95ee3e74a3f1f4767649f6b83011044afe82c5c669a95561c",
+   "size_bytes": 1257,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/real-user-acceptance/subsystem.xml",
+   "sha256": "e89fae9d332671c3eed756dca9b3c55af838a3d69286ef076e2e627f0ec53710",
+   "size_bytes": 46177,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/real-user-acceptance/supplemental-calculators.json",
+   "sha256": "225a5bf00eb66caf1498f90c113ba1faee0ab699c6b429c02772fd4b10425ddc",
+   "size_bytes": 37844,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/real-user-acceptance/supplemental-calculators.py",
+   "sha256": "4bcb398c7f1f58acb701a5fb7c849fcf8afc633bf08d294719205f233ba639b8",
+   "size_bytes": 4162,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/real-user-acceptance/supplemental-calculators.txt",
+   "sha256": "f16e777dc38817082134155384cd52668813a3b1b12ef7b8d64ddbf744efbd3b",
+   "size_bytes": 122,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/real-user-acceptance/trace-engineering.py",
+   "sha256": "271618a0b2199f2188e662e71584ba34473628d05f4f22baa68ae1b0b43d1c1a",
+   "size_bytes": 1094,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/real-user-acceptance/trajectory-refresh.json",
+   "sha256": "30bc6b1d28aca0562924016f2cbb61b8988741ffcb29ed508106f9f680ee748d",
+   "size_bytes": 299,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/real-user-acceptance/trajectory-refresh.png",
+   "sha256": "2d26a2e0497140a71b2122cb591c8c8ef3c225cf1d8296276f62f9ab2bcea570",
+   "size_bytes": 66785,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/targeted.txt",
+   "sha256": "b5c677dcb729e89cf5f3d8e4cdac7d31fc367c727c847bc19ac86f2168ff0c3e",
+   "size_bytes": 553,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/targeted.xml",
+   "sha256": "48ccdd5c68ee06ee9a23a652cb8276cac40c028647a657fb35a445934bde393c",
+   "size_bytes": 9525,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/test-groups.json",
+   "sha256": "8a0f3be733488956da60a6f81401221bb4e4e8d6de7496f6162985d9a1b02c91",
+   "size_bytes": 1094,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/evidence/test-results.json",
+   "sha256": "6ac7bbfd31f5a9380cb79011e3da681b9c32a7d08c4d8542427b625afec6c4fb",
+   "size_bytes": 4967,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/manual-lifecycle-matrix.csv",
+   "sha256": "f966856cb1077c2e71011107b3faf79eec5cc3fab1939d2f8e43890c3242811a",
+   "size_bytes": 9913,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/review-classification-65.csv",
+   "sha256": "11493f4618a8c6cdf923e8abd63cb6f7eaa21d0c87a2cb8a04b7673eb9a9d6af",
+   "size_bytes": 59190,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-08-ddr/section-matrix.csv",
+   "sha256": "f901054a139b3654b89c79e49a548fae66a24431014ea4fa25e05e8ea6cab9cf",
+   "size_bytes": 5928,
+   "classification": "unclassified",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-09/KPI_MATRIX.md",
+   "sha256": "f9d9781e7f517786ba94f2e1a14469a70c629a72217a9961a917155b3ccf857c",
+   "size_bytes": 3928,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-09/MASTER_FORENSIC_AUDIT.md",
+   "sha256": "42fde2f6b8d231bcbc639e2ce3601d3d09c8d81917e5225dd9fed5eacc8bb309",
+   "size_bytes": 13906,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-09/PRODUCTION_ACCEPTANCE.md",
+   "sha256": "60bafe67c1aeb8e9424cee8d509ad1f446bd0f901c835732ee77a0cb371c7f0b",
+   "size_bytes": 5994,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-09/SCOPE_MATRIX.md",
+   "sha256": "2dd4fbb63cc6afa3aaa171dd85660b0812c4eb53d4eb8ac997fc3aa230668c1c",
+   "size_bytes": 8060,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-09/VERIFICATION_PLANS.md",
+   "sha256": "b5668a3184969736abe8261128280e98daabf8d4766048263ae08360b8e226c7",
+   "size_bytes": 5864,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-10_FORENSIC_REAUDIT.md",
+   "sha256": "baa158485befedb6e1956f0803688106377678d4788d2d704ec79bd2b5b4f05b",
+   "size_bytes": 17613,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-10_ZERO_SEMANTICS_IMPLEMENTATION.md",
+   "sha256": "482149a93e9b3962ffd5992ffe8ac3ef462351e2acd8161c29b1b7a90687920c",
+   "size_bytes": 19968,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-11_CI_OPERATIONALIZATION.md",
+   "sha256": "3ad11fd46362703e33c692e5336114e56fbd2d3576671a0e5e7bda4574584a93",
+   "size_bytes": 7010,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-12_BHA_BIT_FORENSIC_AUDIT.md",
+   "sha256": "c23cbb8ee9ecc2158618255efaf43f0ed77e983de1c5fedef2cd957104b1b11f",
+   "size_bytes": 16042,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-12_COST_FORENSIC_AUDIT.md",
+   "sha256": "b01954aa2a1bd1f45364eb5445c23e1d9cba5350a0e0868a538b5e3681c75fd4",
+   "size_bytes": 24224,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-12_DRILLING_KPI_COVERAGE_FORENSIC_AUDIT.md",
+   "sha256": "67562a36ceb721d03421c7891e057da4fbaf8000cdda892ab791252ae7c92240",
+   "size_bytes": 21377,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-12_ENGINEERING_DATA_SEMANTICS_FORENSIC_AUDIT.md",
+   "sha256": "dbd52f5e25d946b2745567559044e3129d5b1989489a22c3a00c2cfee3036060",
+   "size_bytes": 21608,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-12_ENGINEERING_PERFORMANCE_COMPLETION_PASS.md",
+   "sha256": "0c4caf4435be218aec9aef6d3edae5f74d522ee59d1d0991112c0521e7b3e4f7",
+   "size_bytes": 10544,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-12_KPI_CONSUMER_SCOPE_FORENSIC_AUDIT.md",
+   "sha256": "51d1852d49a078ac936ad54ff575f2b0711afc21e8171aee3d02ba4b0594475b",
+   "size_bytes": 15656,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-12_KPI_PERFORMANCE_FORENSIC_AUDIT.md",
+   "sha256": "0e2e6ff957b4b8973b332efb9800e43b937ad7ea8ffb02a524cbce7fc908ac0a",
+   "size_bytes": 26226,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-12_SCOPE_IDENTITY_ATTRIBUTION_PASS.md",
+   "sha256": "d51bfce8359635ba7105ef7a17c7d727cfc65330692b7423ba9854fa088595e3",
+   "size_bytes": 10174,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-12_WEIGHTED_ROP_IMPLEMENTATION_AUDIT.md",
+   "sha256": "b7539229e953e64b345ce789eaf573feb88cfb66a2e06d1e885ce9c4ab031245",
+   "size_bytes": 8599,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-12_WELLBORE_SCHEMA_V3.md",
+   "sha256": "5afe4539598fb57da401fc884f7b1d5624a36464b2d372d0117ed9d620765419",
+   "size_bytes": 9057,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-12_WELLBORE_V3_ACCEPTANCE_AUDIT.md",
+   "sha256": "d70c30f00afff45c50cc0a28f922ae89fe36e3a467cce8cca174d9bd0189d1f8",
+   "size_bytes": 13145,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-13_CALCULATION_PERSISTENCE.md",
+   "sha256": "97574b1f1c3323d575706b326e64d8aa5988848a7f19982c574a3c388d595cb5",
+   "size_bytes": 22400,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-13_CASING_STRENGTH_CALCULATION_PERSISTENCE.md",
+   "sha256": "b8c55797b99d59f7a827af8a90e607af756e2f76eddcfcf14aa8a663eb2d6807",
+   "size_bytes": 12137,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-13_DRILLPIPE_CATALOG_OPERATIONALIZATION.md",
+   "sha256": "144c08b167adaf99e6dec7cfbef0a4da4bcfe23e438cf65a3b662b99bce15108",
+   "size_bytes": 12118,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-13_DRILLPIPE_REFERENCE_PERSISTENCE_DECISION.md",
+   "sha256": "be6279f6996edf10b9839b6b22a5b0e0b4ac1dbc944789a53e684a71e15dddbd",
+   "size_bytes": 8871,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-13_DRILLPIPE_REFERENCE_SELECTION_INTEGRATION.md",
+   "sha256": "4c4e0fd624dd9f17394d54e072127cfafd43c83dacce852b92181b02605b3560",
+   "size_bytes": 10263,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-13_DRILLPIPE_SOURCE_OF_TRUTH_CERTIFICATION.md",
+   "sha256": "e12b5c13d54c490aa472c2b46cfe7340b1d8bbe2703786562ca4efda2a70883f",
+   "size_bytes": 10795,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-13_DRILLPIPE_VENDOR_IMPORT_VERTICAL_SLICE.md",
+   "sha256": "083e6e84c2c479e7ecad34f288aac7c63cd08f5135e7fb2b4f5bbf507661a861",
+   "size_bytes": 9058,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-13_ENGINEERING_DATABASE_FORENSIC_AUDIT.md",
+   "sha256": "ffc12a6e668da9599cbd1f083589ee9d7790ea5bca9529deb38f85c30a4e9f44",
+   "size_bytes": 13435,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-13_ENGINEERING_REFERENCE_DATA_VERIFICATION.md",
+   "sha256": "fd634a1c552b662303c6653cc4c7b5607650fab49f0452561fab17b9e6ebf41c",
+   "size_bytes": 10364,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-13_IMPORT_TIME_WELLBORE_DISCRIMINATOR.md",
+   "sha256": "d6148981beae3f6717e80c7eb9507cbd467db2a288de8431fe6a31d758ec9b76",
+   "size_bytes": 9709,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-14_CASING_REFERENCE_AUTHORITY_FORENSIC_AUDIT.md",
+   "sha256": "6165e1048073afe19389ddf81f498c9902aa9c5a67b0f123dd40b1f95de45ef5",
+   "size_bytes": 16199,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-14_CEMENT_CALCULATION_THIRD_SLICE.md",
+   "sha256": "851655a191360d81a386a045b4f3cff6154697d76fd517c945c699f97e29c47a",
+   "size_bytes": 16808,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-14_WELL_CONTROL_DUAL_PATH_CONSOLIDATION.md",
+   "sha256": "98070b98a8605da6567daeb4103d4aaab116d5976d7d965c81252e0de7a3d498",
+   "size_bytes": 13510,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-14_WELL_CONTROL_INPUT_BOUNDARY_HARDENING.md",
+   "sha256": "27fcf01cbc20d9cbe809d3b502cc93b1e43db35b1a009bd9480760c0fb2e782d",
+   "size_bytes": 11948,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-14_WELL_CONTROL_KILL_SHEET_FOURTH_SLICE.md",
+   "sha256": "2e6bb890be6239c2b46b8cef3a60feb73012565c1f1d0904441951ae5843fb2b",
+   "size_bytes": 17580,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-19_COMPLETE_COVERAGE_AUDIT_AND_ANTI_COLLISION_UI.md",
+   "sha256": "dae569fcf9a635652ef42d150a671db4d4237309c10f4835bf935964caec9b78",
+   "size_bytes": 7743,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-19_MSE_FIFTH_CALCULATION_SLICE.md",
+   "sha256": "5a7293382c0a848f4a1643b6ed7434c1281ac2f2c241adf7cad4843c5c35b67b",
+   "size_bytes": 20190,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-19_MUD_VOLUME_SIXTH_CALCULATION_AND_MSE_DECOUPLING.md",
+   "sha256": "cae8a80f1ec68f38d0284bd6f906a071ee3bfbaa6c478c5269105d0515f65fa1",
+   "size_bytes": 20225,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-19_REPOSITORY_WIDE_CAPABILITY_AUDIT.md",
+   "sha256": "b4ecf91ceb059bac5bec90bdf3fcbb920058cff0df44cba6874d2aa6520178bd",
+   "size_bytes": 7974,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-20_WELLBORE_ANALYTICS_SCOPE_CERTIFICATION.md",
+   "sha256": "d78e4be6f1a569b45427fc1c57ba7d7644aad4b940e12296b8a491b4d93a8eca",
+   "size_bytes": 8102,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-22_M27_INDEPENDENT_REAUDIT.md",
+   "sha256": "b292d1a3690e39551ef8b4ba3b4a8b8a9da3daf9d7ca9d89a30424e4c1b42c4a",
+   "size_bytes": 43540,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-22_M28_FORENSIC_RELEASE_GATE.md",
+   "sha256": "1a118a923ec33c7d24cef28c56e4f0f4a2bdaaf3b03341641bd0469cf9f91b60",
+   "size_bytes": 31224,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-22_RELEASE_CANDIDATE_INTEGRITY_CERTIFICATION.md",
+   "sha256": "4e77e778faf58c760e15b513f12e4b3643e874537c5e16ccdaee2d8e4198ca13",
+   "size_bytes": 19365,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-22_REPORT_SCOPED_OWNERSHIP_INTEGRITY_CERTIFICATION.md",
+   "sha256": "24e123c880db2a392248b98ef88741de6f368405d7676fb540c85efbeedfc587",
+   "size_bytes": 19521,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-22_SCOPE_CONTRACT_COMPLETION_CERTIFICATION.md",
+   "sha256": "0bb92f4ab724c035c35a54057c97c051a3d02957599715a19f8c33ef21125ccf",
+   "size_bytes": 11084,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-23_M29_DOMAIN_MATRIX.md",
+   "sha256": "a73b27511bca17b224832984a4cdf211346d5182203a5a8fc6b6749ad08319de",
+   "size_bytes": 17159,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/2026-09-23_M29_RELEASE_CLOSURE.md",
+   "sha256": "baeb561c4ee3b7c3d76b5e0486ef36864dcac5be53b1ef32e06d0b35a7c5ace2",
+   "size_bytes": 27781,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m27-independent-evidence/clean-worktree-refusal.txt",
+   "sha256": "02b6b876b6f68c2473ad35de7d5071976a47834a7073742a42d0f428e1170ca4",
+   "size_bytes": 1221,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m27-independent-evidence/environment.json",
+   "sha256": "dc29d524429f0e81a3e1a4b7daf0fdc9e2e8947a480ccde7a07c866700314d76",
+   "size_bytes": 1166,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m27-independent-evidence/final-worktree.txt",
+   "sha256": "6305d506d8dea2a4f7ccba3be33770416222b9dd01b2527891ef261ee27e116c",
+   "size_bytes": 1164,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m27-independent-evidence/python310-lock-resolution.txt",
+   "sha256": "06de0f169b6b1b538ff0dfa516b1c9f40e6f0cee438064f055335fd75a20b6a6",
+   "size_bytes": 392,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m27-independent-evidence/remote-heads.txt",
+   "sha256": "54b1ea1530f32bf9e427a4284e2c07252f74ac218c4413f409f03411fb06bce7",
+   "size_bytes": 465,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m27-independent-evidence/repository-workbook.txt",
+   "sha256": "0a89d294a6806b9cb70d2dea7ed4c874876cda0832353305d9fef41c9158ff13",
+   "size_bytes": 737,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m27-independent-evidence/residual-probes.json",
+   "sha256": "02a972e82a56d69bf17caaa88a1ec90154301b26a7a8047cac7048d0e1d3f45d",
+   "size_bytes": 390,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m27-independent-evidence/source-gate.txt",
+   "sha256": "384aabf7afea4e2d3654d1d9e293d7f30464d8c70f434ce50b474d01acf24a4f",
+   "size_bytes": 38910,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m27-independent-evidence/source-sha256.json",
+   "sha256": "88e49de800158764bb866d53081cf3d51d38fbc3670316f3bacb00e86ee9c237",
+   "size_bytes": 35745,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m27-independent-evidence/time-negative-control.txt",
+   "sha256": "767bc52311335c1211d136c4c8beca649fb12dd820546b0904dd5678af15c415",
+   "size_bytes": 7540,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m28-evidence/c28bbef-check-runs.json",
+   "sha256": "e83cfac35507982a40cfeb776ce85aa0367e7646f81fe857df4a6c841ea8a170",
+   "size_bytes": 33,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m28-evidence/environment.json",
+   "sha256": "0775ca9f3667551e121ae0db32cbedebe4a5b1bc388f9a8f2d7ead6f864bca09",
+   "size_bytes": 412,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m28-evidence/execution-ledger.txt",
+   "sha256": "8cab5ca237d8ddb8841a139738d152c8514621ec63395497975ad5c10a910144",
+   "size_bytes": 1185,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m28-evidence/git-reality.txt",
+   "sha256": "277dae69f1833adf51bbaf890a72b4525e3dc5c7bc5e84e0ae169579e9afc124",
+   "size_bytes": 855,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m28-evidence/import-removals.json",
+   "sha256": "d1ccf8c03b672ee5a8f835290e1eae2ab3c248e0f8d1b2fb82b33bca6d881185",
+   "size_bytes": 109859,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m28-evidence/import-summary.txt",
+   "sha256": "783c69c9fa03a7100d77baae3203a5c5009eeb5e80e633b3d96aec697ae9c23d",
+   "size_bytes": 732,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m28-evidence/isolated-imports.json",
+   "sha256": "a2da91e34734bcf3c66259aff3a45e38875e7531730561d0b0325a22648c1484",
+   "size_bytes": 17062,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m28-evidence/lock-resolution-310.txt",
+   "sha256": "06de0f169b6b1b538ff0dfa516b1c9f40e6f0cee438064f055335fd75a20b6a6",
+   "size_bytes": 392,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m28-evidence/lock-resolution-312.txt",
+   "sha256": "13fdb7e744ac25a8592c5c6de7e95f6094fb990f73c6187a15a15d2b92378528",
+   "size_bytes": 3257,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m28-evidence/lock-resolution-313.txt",
+   "sha256": "e3dd6b44a12a3d2a45eba79e02e65e8e389ac44178e3cf0924baaa54b42e737d",
+   "size_bytes": 3257,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m28-evidence/negative-controls.txt",
+   "sha256": "217ff6cb0a7c74b26a4bb68ede37b18afd054074c382bbb3e9a97c8f8544bd64",
+   "size_bytes": 3710,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m28-evidence/pdf-acceptance-environment-blocked.txt",
+   "sha256": "e21dd10d9fe77431004d5d73c7eb8f616808671a71c50aab63c9bb50052f2122",
+   "size_bytes": 886,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m28-evidence/publication-permission.txt",
+   "sha256": "a147c9bf48922abbe7055525f383c6116d519c0c54991483099a4b227d0aab38",
+   "size_bytes": 657,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m28-evidence/real-asset-boundaries.txt",
+   "sha256": "445983c81f62644208c9ef10837bf4850914958179dc5a699e8c3bd44c3a57cb",
+   "size_bytes": 544,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m28-evidence/remote-actions.json",
+   "sha256": "54ec9a380a651a86766d309c0f19ea1ca2b8d48ef6e9739ce62c8f563fd9781b",
+   "size_bytes": 350,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m28-evidence/remote-heads.txt",
+   "sha256": "54b1ea1530f32bf9e427a4284e2c07252f74ac218c4413f409f03411fb06bce7",
+   "size_bytes": 465,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m28-evidence/repository-workbook.txt",
+   "sha256": "232fe14be4e8473353967fc773b15eae065218b4b487a9ddb009b3cf835f5d67",
+   "size_bytes": 533,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m28-evidence/risky-site-inventory.json",
+   "sha256": "33ee5fff8d766f95559983be4608d82f27ee277ceff11727c340683c86d76f39",
+   "size_bytes": 258602,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m28-evidence/source-gate.txt",
+   "sha256": "8ad7ffa1dd5aedc1b5a31920c64ac92893bdde7321e830dcc30f84bbd548ddfb",
+   "size_bytes": 38127,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m28-evidence/source-manifest.json",
+   "sha256": "f18ffccdd67eedcaf6eb372d29d979ed9b26f626d2ff6b6ab7dab782bc9ad4ab",
+   "size_bytes": 37283,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m28-evidence/source-package-smoke-initial-failure.txt",
+   "sha256": "ab9d6f10d77177f498ee9da7c1d8a437d9942957912c08d1bcdc077d30a04004",
+   "size_bytes": 324,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m28-evidence/source-package-smoke.txt",
+   "sha256": "cc9cf0c34fc86a31f4f47037fa6ef08d3cede51e2f6c779e8b4276006fe635e0",
+   "size_bytes": 69,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/README.md",
+   "sha256": "7a7ebb6525d36d777992439a4eb877728a94befa057fb3f7b289c831a4b09dc7",
+   "size_bytes": 2850,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/branch-inventory.json",
+   "sha256": "e98fddc849a3068bd90dd497d975994b490f8fe56e065b309cb795653d86ed35",
+   "size_bytes": 2365,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/calendar-mud-tests.txt",
+   "sha256": "a0a35f207e26fc90931a1b58ab03484c6e32715069a5ecfc1d630ec05fb0360d",
+   "size_bytes": 180,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/definition-review.json",
+   "sha256": "cbbb7f8f6a7bcab1e87b359ef78ef0ece3071401cda51ee59f683c8d5f40f17d",
+   "size_bytes": 139,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/domain-matrix.json",
+   "sha256": "90dd0ea8e463c5650692407a36b1b69bd054b69ede1a70344d7f0a39a10d7ba7",
+   "size_bytes": 27622,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/environment.json",
+   "sha256": "741a0f22007bcef927284c6deee89ad1505db983b9dbfdd6009cdd842dd64cea",
+   "size_bytes": 1130,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/execution-summary.json",
+   "sha256": "96949c1e0c87edcb7d257f1016f035b814b35368a42da3e52c680ebd21efb2f5",
+   "size_bytes": 1315,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/final-source-gate.txt",
+   "sha256": "e38107bbbced78f26c3108e48655656455ab06403fa6213b52faf90b5b7dcdaa",
+   "size_bytes": 51084,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/full-gate-first-attempt.txt",
+   "sha256": "20ab6775f5b839e7b7b85b52eed129f1795e0f5b9e1322dd742588734263fc38",
+   "size_bytes": 15194,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/github-api-response.json",
+   "sha256": "96fb2fba25bc8cc7e29d4d56d485b1f5e82594aea51c122aa2d5f13b5ada9daa",
+   "size_bytes": 109,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/inventory-runner.py",
+   "sha256": "824f5c08d1c1b3d3ea85a45701368c116320b061466fa9d12ce14a63ff636016",
+   "size_bytes": 7545,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/inventory-summary.json",
+   "sha256": "2bc7778cdb32b87e574ec16e548d91e5865a9803d8effb2e121be078cf547d70",
+   "size_bytes": 491,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/isolated-imports.json",
+   "sha256": "4ec3b14a06ee577a9aeddae6ba53c1e766396d6414b120afdb7cb390259a6fae",
+   "size_bytes": 24781,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/latest-focused-tests.txt",
+   "sha256": "22a5c6405d42203be9ea0ba14c69df297e7c70ea749835d8d9006d8ede9a61f1",
+   "size_bytes": 2301,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/model-inventory.json",
+   "sha256": "c519adb38f0f657597b2cae7af640b54335727c29eb376a48c6b764d0012a70a",
+   "size_bytes": 35927,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-atomic-memory.txt",
+   "sha256": "c25edca6dc198b7e8ba04af3f7c7fcbd066bf0ad79acc0a1daeaac143c17ade4",
+   "size_bytes": 2700,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-backup.txt",
+   "sha256": "63f757f089b5ce5a2b98418056d682c98b72a6ca091c6646592c8dcbee29584c",
+   "size_bytes": 1515,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-calendar-ambiguity.txt",
+   "sha256": "eea0fcb760e272916fce63c49bb614bf2299208ea1cce5bee7c1183b6371b53c",
+   "size_bytes": 1033,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-controls.json",
+   "sha256": "0ed7ca43018b50226ccec8bbef2fb3fc088c98e5fe548f84ddf9885e63b5adbf",
+   "size_bytes": 7445,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-currency.txt",
+   "sha256": "309ec99b5b4039a15b6acea879e70671ae5d47a15e12e5f2dd17348db614e49d",
+   "size_bytes": 549,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-export-return.txt",
+   "sha256": "2a22da4d3b39fb46a9acbee77d3a6af3008bac2d60271be5e43a11519e1b1753",
+   "size_bytes": 4775,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-gate.txt",
+   "sha256": "e373809a8fc727ee566c2d9406511f0c1cb86ae9f3ca4585a00629c6bcfb6a70",
+   "size_bytes": 2621,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-mud-direction.txt",
+   "sha256": "8b671bb456d71c53a30b289f37f5b284f46f18a89ad691e7ee82ca7482356064",
+   "size_bytes": 621,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-npt-scope.txt",
+   "sha256": "060172f0bd8087876339c65a98e81ffcf847a2433a67f98a03093388cd64aed6",
+   "size_bytes": 4340,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-null-plan.txt",
+   "sha256": "b65702e504832e04f5e1d6c7d82eb0878e5187cce8cc5ab6eb304f54bdaa88cc",
+   "size_bytes": 1464,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-ownership.txt",
+   "sha256": "46e91741eaf5f4bf005a8e79db69a0ebfd9b1d9ae1c594f3ec6cd27d851e8399",
+   "size_bytes": 19390,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-permission.txt",
+   "sha256": "cca6112e608e0329e303168c01434ef21434b129a03fb79f7f119fcfef42d049",
+   "size_bytes": 5091,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-re-export.txt",
+   "sha256": "8e9f46b87d178f8b1ab6eff3d6c65048f210c8aa0bc02332c9c39b420fa80d2e",
+   "size_bytes": 1140,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-runner.py",
+   "sha256": "6a9c424dbd6ba6f0c7dc00d7d50b6c26b64f73001ca4521db82eedabd066fb3b",
+   "size_bytes": 6231,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-safety.txt",
+   "sha256": "7bb17f9cdcf3d0d528acc133c148b09c2e6637f5b19787eeff0c9cbc43741c3a",
+   "size_bytes": 759,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-snapshot.txt",
+   "sha256": "436ce7d4e16e99b2495f9c0a42884aae193a3c321993e54ed49ce20422f09000",
+   "size_bytes": 873,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-wheel-gate.txt",
+   "sha256": "a585972061be83105524f71557689fd835a80bdea327b014229c90f5792c7c42",
+   "size_bytes": 37231,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-wheel-runner.py",
+   "sha256": "27324a301e386ae6bf7695c1b6c009a0572aca36556092484787cbca3d229533",
+   "size_bytes": 1796,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-wheel-test.txt",
+   "sha256": "3e4589ef1ea643dc958cd38ddf3750ceb270fc578ec20c8bab33b077f5a3cea5",
+   "size_bytes": 802,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/mutation-wheel.json",
+   "sha256": "5a5e0335a718e2dc4a5242a7f53d438bd71e437d77408c0eb1d21b41901d3ba3",
+   "size_bytes": 311,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/post-documentation-lint.json",
+   "sha256": "3e922d71cbe4bf28205337aa81672550006215e5d88d736427efca4a8db12334",
+   "size_bytes": 480,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/post-documentation-wheel.txt",
+   "sha256": "81715b19bed4e0b9856b3eb7c014c4088d0111b97f1156ae51cad6579045a78e",
+   "size_bytes": 38018,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/post-gate-source-check.json",
+   "sha256": "032c2d462d225ef4da55313b0e2e9fcde02f76399b05acb8f2dba48b9927e63c",
+   "size_bytes": 45839,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/publication-attempt.txt",
+   "sha256": "7efd2d8a835bdef11f3d4bb8220f3b941c5641958c333c254593f588b4f14360",
+   "size_bytes": 97,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/real-pdf-attempt.txt",
+   "sha256": "f65f5409621d134a01182db9ab0762177977117a442fe693e30dd6ee512bb124",
+   "size_bytes": 810,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/real-pdf-probe.json",
+   "sha256": "2dafa77622b1d83595c6053d002c36f1685bad2d90244d41595fa803d0abedab",
+   "size_bytes": 1392,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/recovery-file-inventory.json",
+   "sha256": "d9485118bff610fb1d3c79c2af73122855b08c4e8b2163b53ed85d5466485e4b",
+   "size_bytes": 30545,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/risky-site-inventory.json",
+   "sha256": "406ed4c0c8eac65476431e37a9f99b14a64e4a7ba9e7fcc5fc351a622c53197a",
+   "size_bytes": 839091,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/scope-consumer-index.json",
+   "sha256": "80b31ac1b7cd0bceb85238aa2ed9910d04ad1454e91f7091cb4c9757d829ef09",
+   "size_bytes": 45625,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/site-adjudications.json",
+   "sha256": "4012f1a7f04acb5e6c537ca683b79e7c58fd9291660484a3c97b0245e9f8ace9",
+   "size_bytes": 18527,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/source-manifest.json",
+   "sha256": "7f1cb5198f9da0e0cf778e8c3cfa90837197df2e7c03f0b69d44faabfd36bb0e",
+   "size_bytes": 51264,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/unique-branch-content.json",
+   "sha256": "0405a49e805bda47acb066724f9a378f78fe906c4906d703749d1c5103ad60b4",
+   "size_bytes": 470,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m29-evidence/wheel-clean-staging.txt",
+   "sha256": "b32bfa7da39f32909792c4ee00e15b34b554bab0f73502d0b0a734096f7b26e0",
+   "size_bytes": 38018,
+   "classification": "historical artifact (earlier mission)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/README.md",
+   "sha256": "4cbe0b435c2fd6c404cd28a7b390f30ce62570fb6125c1a4379189f04e3e6350",
+   "size_bytes": 4933,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/backup-source.txt",
+   "sha256": "8386d7a77bc58cb6e224d2e511b706da74d721e4231b383dd2b56023bbf01aa7",
+   "size_bytes": 1000,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/baseline-gate.txt",
+   "sha256": "f369df932e6649aa9369cbe107d7c781e3f94e3c6682eb04165b5723efdede22",
+   "size_bytes": 51084,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/branches.json",
+   "sha256": "e80ac5918899ed52b5f0b4dffe737fd0183d5985350da68944a900456ba6b5e3",
+   "size_bytes": 3893,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/compressed-logs.json",
+   "sha256": "2a9ba240eb1f53bfbfbd6e44fe6dae16431bb7a0dd798a53475dbed090904956",
+   "size_bytes": 1261,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/current-ci.json",
+   "sha256": "bd034c804863c259576187c573e899a4383512e8d95ddf0240dfe36f3e430f20",
+   "size_bytes": 455,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/documentation-claim-queue.json",
+   "sha256": "2616b014a275e8e1b1c66214366e0752147bed56adcfd143c723d089b0f9935b",
+   "size_bytes": 89221,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/evidence-manifest.json",
+   "sha256": "f42ac178e46e1e047d2720f6ede15ccba3cdc1ee634a3e971db460d9301c6b8c",
+   "size_bytes": 12135,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/final-focused-currency.txt",
+   "sha256": "bd2c2c6952147b47157b91f4dac8da44c2181613ee33b15d8338d6eea9388d38",
+   "size_bytes": 2539,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/final-gate-e2eeb35.txt",
+   "sha256": "cd393eb2c62f1e92dee93a039bbde6486c8abf542c76c23b9609d592f416267e",
+   "size_bytes": 51207,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/final-source-and-controls-check.json",
+   "sha256": "eb06c220d1cd7ec0d8533be07fb0e91094e09fc63a52891c51dc727575d836ad",
+   "size_bytes": 3026,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/financial-overflow-before.txt",
+   "sha256": "6e578e808a16838f9571a81676ddaf86da30431e04817846edb995e340fc8ca8",
+   "size_bytes": 1799,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/fresh-inventory-summary.json",
+   "sha256": "8be42045f9e98bb191113b32e551719d882c7ef9bfb4a877c16453f6a228d86d",
+   "size_bytes": 471,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/fresh-risky-site-inventory.json",
+   "sha256": "294420d6a0246bf7857af38b2fcb381c804667bb429a91e55ede60729c243890",
+   "size_bytes": 831207,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/fresh-source-manifest.json",
+   "sha256": "c4806b8497c7b81b7ef3427e48709740cdd1f30e1ed021ad0dc5902f070e89e3",
+   "size_bytes": 51408,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/fresh-sweep.json",
+   "sha256": "0c7e80ab21d0af7223d3fa537e9c65112b261c7bbc27ec4b46cb280e61d0f4fb",
+   "size_bytes": 459126,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/git-00.txt",
+   "sha256": "6cff0f5d25b3f190c717c59d5c03ad3ec63f7c7505ed700dc0ab22e1b7f4bfcb",
+   "size_bytes": 2595,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/git-01.txt",
+   "sha256": "38a7706af88dcb167e8431a7f9fa777968e38dfb5b2eaf528a8bbdec173dd65a",
+   "size_bytes": 166,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/git-02.txt",
+   "sha256": "5775232042df002a5075ff5a61e29d4b30d25d0eca4a067b71309deca1ed5bd5",
+   "size_bytes": 120,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/git-03.txt",
+   "sha256": "e282a1d6481e712222f4d7ca841961ed1a63c0670777379c9baf8e600689d034",
+   "size_bytes": 125,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/git-04.txt",
+   "sha256": "2ca0a0ecad72f04b92b56fdf915a3535c2292ee53fc81c60507e00c79354277b",
+   "size_bytes": 41,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/git-05.txt",
+   "sha256": "92a64c7de2a0e7eabe3405663564da80de0dab3259d8f8aa261ce89215575851",
+   "size_bytes": 28,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/git-06.txt",
+   "sha256": "ee448d1644865b74e2377517f7b6d72735b3a164e58c49b1bcaff41f1839b16b",
+   "size_bytes": 102,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/git-07.txt",
+   "sha256": "19527aa7c3a64a573020a248c9bf3bfcc2281e192be0c46196ad53bae97d8b92",
+   "size_bytes": 31804,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/git-08.txt",
+   "sha256": "2dbd1547b18c2fa62196a9b2f39059672b25011e0b0f1b96398fc46f410a0bd3",
+   "size_bytes": 3964,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/git-09.txt.gz",
+   "sha256": "1a41443506057ebdae16453c33931412471c72273f7b75541d64a0ffa4bc788a",
+   "size_bytes": 95166,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/git-10.txt",
+   "sha256": "5705c2204047de3a310c94474da846f3d921e870bc458838a1a5ece3bb8efe5a",
+   "size_bytes": 2564,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/git-11.txt",
+   "sha256": "a17fcf0a2f50e2d495e4f90ce263410edc183add6c62699a2facbccf60410f74",
+   "size_bytes": 5,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/git-initial.json",
+   "sha256": "eaa9479c3455ec973a40021610be8dd6019fc64aa9f8b0bc9a2d7afe3124bc04",
+   "size_bytes": 1929,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/huge-integer-before.txt",
+   "sha256": "eee51e09b595af9cc1a189964df02dfc4401591b538ce09d1bd2775867d77168",
+   "size_bytes": 1307,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/input-assets.json",
+   "sha256": "bdadd394c402e268b3ac7c7f2c7a0dc43bb5df7eb82a4d56f67cdf5173577b05",
+   "size_bytes": 548,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/inventory-summary.json",
+   "sha256": "0ca626cd4104bca5cbd91682bf6a9eb902548b3297bdfcd685ed66acc5fb6c31",
+   "size_bytes": 470,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/inventory.json",
+   "sha256": "e28271bd442263625f628e4c30ad21f47cfbaff5b4ed36213e40da0391f4f55f",
+   "size_bytes": 2010204,
+   "classification": "historical artifact (M30 state)",
+   "giant": true
+  },
+  {
+   "path": "docs/audits/m30-evidence/ledger-runner.py.txt",
+   "sha256": "3fe8ce5cbe30cd74cb27192125511c5dcbc0920628ae3ec15c2002fe7d3603be",
+   "size_bytes": 20329,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-manifest-recheck.json",
+   "sha256": "54e076298b6cae8da31d5ec30bdd91d43f0de5615b67d158364e0583e7868bd7",
+   "size_bytes": 39,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-replay-mutation-atomic-memory.txt.gz",
+   "sha256": "e580cbf05dccebc910a755a69506a323761e9bffe70869bbe1b1c5eb0043ab31",
+   "size_bytes": 472,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-replay-mutation-backup.txt",
+   "sha256": "e91d1b3779881e4f6622991df73d01cd8a0a42be84cbde3a39129d0c42461ab5",
+   "size_bytes": 1489,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-replay-mutation-calendar-ambiguity.txt",
+   "sha256": "eea0fcb760e272916fce63c49bb614bf2299208ea1cce5bee7c1183b6371b53c",
+   "size_bytes": 1033,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-replay-mutation-controls.json",
+   "sha256": "ef96ab8dc5c31876831eb97a4eef0a90a2fa9bd6e2a6cd78c62e8a60a3499915",
+   "size_bytes": 7444,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-replay-mutation-currency.txt",
+   "sha256": "309ec99b5b4039a15b6acea879e70671ae5d47a15e12e5f2dd17348db614e49d",
+   "size_bytes": 549,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-replay-mutation-export-return.txt",
+   "sha256": "12bc07bb9096b257c688ec7efabfd7161dc69bffc442c1d15fdaca3f5b7411d7",
+   "size_bytes": 4775,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-replay-mutation-gate.txt.gz",
+   "sha256": "df552d08f41a6593deaab9b7d650f9e7f5c6b437ab6fd24e7f01f9aa579c20fe",
+   "size_bytes": 479,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-replay-mutation-mud-direction.txt",
+   "sha256": "8b671bb456d71c53a30b289f37f5b284f46f18a89ad691e7ee82ca7482356064",
+   "size_bytes": 621,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-replay-mutation-npt-scope.txt",
+   "sha256": "060172f0bd8087876339c65a98e81ffcf847a2433a67f98a03093388cd64aed6",
+   "size_bytes": 4340,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-replay-mutation-null-plan.txt.gz",
+   "sha256": "cefa31c8e38c92fe3e54ff64002d870302c767103fc214fd8d161c3ca0afb371",
+   "size_bytes": 322,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-replay-mutation-ownership.txt",
+   "sha256": "46e91741eaf5f4bf005a8e79db69a0ebfd9b1d9ae1c594f3ec6cd27d851e8399",
+   "size_bytes": 19390,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-replay-mutation-permission.txt",
+   "sha256": "ee6bede49db26600e74f17c7105ec9fccd5b1ef04f54b48754e63a38928bd3b3",
+   "size_bytes": 5091,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-replay-mutation-re-export.txt.gz",
+   "sha256": "eac0fb1193f7bf3dcaf0d6e40c798545b1b7a5d2c1e490eed946fda543844a49",
+   "size_bytes": 466,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-replay-mutation-safety.txt",
+   "sha256": "26011f0666f1a65713fa96a14e87140ba310e9f02868582b2c07056ee4d50fea",
+   "size_bytes": 759,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/m29-replay-mutation-snapshot.txt",
+   "sha256": "7638f60290341788002641fabd01092c5f886e6bb2cd8ff350650e8ec00e4745",
+   "size_bytes": 873,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/money-overflow.txt",
+   "sha256": "7ef67983fd3cf5f83f7768b8dee4eaa76733dd46c8cbe5ef72860b591c69d3b9",
+   "size_bytes": 653,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/mse-nonfinite.txt",
+   "sha256": "063a8f3a09464ef2034aa102c57fc15e70332c9d85e492bcddf1b65edd09d0b5",
+   "size_bytes": 987,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/mutation-wheel-gate.txt",
+   "sha256": "3629b246599fbf5943bc4f81a12074051869936b7268bae6cd512e614e0c8eb6",
+   "size_bytes": 37231,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/mutation-wheel-test.txt",
+   "sha256": "3e4589ef1ea643dc958cd38ddf3750ceb270fc578ec20c8bab33b077f5a3cea5",
+   "size_bytes": 802,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/mutation-wheel.json",
+   "sha256": "8fe9121206502e489efb673012ee1bc7e40548c6f0571332e03d5cde8ac87698",
+   "size_bytes": 311,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/native-qt.txt",
+   "sha256": "f6416d156b933a1ecee26841d1442a7589fe874086e227cfd238b172c969efc2",
+   "size_bytes": 157,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/new-controls.json",
+   "sha256": "e04da22320005fc67b0c98377aebe5854c81a7f995ca7b0189270ef2b90f6bae",
+   "size_bytes": 4160,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/new-regressions-before.txt.gz",
+   "sha256": "781e0773fd6af7fc268d907fbc759935654997db3e82269aef6ed44d08e32b2f",
+   "size_bytes": 2087,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/new.py.txt",
+   "sha256": "e281ec681b5240fa7dfe795014d0faaf822550e0fc520573441dc8b9c0ec5312",
+   "size_bytes": 3128,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/numeric-overflow.txt",
+   "sha256": "16aeaac64ff92b5b11bfef56b37feb5df73b0cb5f45d89140ef01650f597be37",
+   "size_bytes": 792,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/patch-verification.json",
+   "sha256": "283e16e15986b211a4ca5a12e3ca6900e60640745a78d1a7d018b3653e9d6995",
+   "size_bytes": 333,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/push-source.txt",
+   "sha256": "568a88575f992c78b54098c0d7e31c62ac55c9e42d48ac64cc7cc413665693b7",
+   "size_bytes": 336,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/real-pdf.txt",
+   "sha256": "0ef402d813ffa31cdf69875f498f7eb32ddc64d397c1ec7ca0eaf991032331d7",
+   "size_bytes": 810,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/remote-9d511cd.json",
+   "sha256": "ae6a40e40a6d2565317160de20ec24d8ea726dea4c400d8077cde1dac93d8c85",
+   "size_bytes": 64475,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/remote-beaf963.json",
+   "sha256": "ae13b61ed7afd2a085c4443ac59692962dfd4b22346263ab445ec512b2a6645a",
+   "size_bytes": 316,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/remote-fb857d7.json",
+   "sha256": "58f620f11c9e3acb839d5fb6ca806c8437e88d725f9e33c30069e15a2045388f",
+   "size_bytes": 316,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/remote-heads-after-push.txt",
+   "sha256": "54b1ea1530f32bf9e427a4284e2c07252f74ac218c4413f409f03411fb06bce7",
+   "size_bytes": 465,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/replay.py.txt",
+   "sha256": "6eeda3a37f0626c8ffae915f0e5bffcf8c14bffa8146e478a0773e9e18eb2890",
+   "size_bytes": 6243,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/ruff-ratchet-summary.json",
+   "sha256": "3e57acec087127ac54d5f22ff70257dfcd7b19241501aeb181aefd88bfd90d7e",
+   "size_bytes": 307,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/ruff-ratchet.json.gz",
+   "sha256": "e23ca4af673c58cebd36ec5ad24a8dc1cb86f32f2333935f4317f451006d4d62",
+   "size_bytes": 95476,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/ruff-root-summary.json",
+   "sha256": "efeefef55aabd334f010e7260bc94dbd6e0844f3799d73bc02e156c2c04505a3",
+   "size_bytes": 337,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/ruff-root.json.gz",
+   "sha256": "7c494daff493c5a3e07a59ff44db2ca0e8d670684ff2ce8ed66c19a99982595f",
+   "size_bytes": 100274,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/same-pattern-runner.py.txt",
+   "sha256": "7723bb0ebef8943edb8d5d2b1344f15302c13bad4a71e8a44d745b61718c03a0",
+   "size_bytes": 7550,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/scope-candidate.txt",
+   "sha256": "3bfd9633878102ee8ec8fccd26d35328acdce93410016e2b4ddeadf2aa2a1509",
+   "size_bytes": 1102,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/scope-coverage.txt",
+   "sha256": "62b5ee84ce2f686fb3854a2bf257532ad2af2981371f1df03028dffebcbfff34",
+   "size_bytes": 622,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/search-failure.txt",
+   "sha256": "f841699bd3429e4ee9bf49653203698d2490a5831e382323a7a3f2a8aa9708a6",
+   "size_bytes": 5159,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/second-controls-before.txt",
+   "sha256": "d99fe5b5b7c9f34e8a542323d42a70f8f229d76aecbbfc366c67b123670a76b5",
+   "size_bytes": 5356,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/snapshot-alias.txt",
+   "sha256": "71f05695d14b478ca09a37efa6a93861b84958d99ccc014d52a76b7295db2f54",
+   "size_bytes": 769,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/stock-unit.txt",
+   "sha256": "004838e7d5d8b234f6238fdb6d6bf3f5e65d6c6d4148a068d4cb440db9cec9fd",
+   "size_bytes": 667,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/sweep-comparison.json",
+   "sha256": "cad08f9c829f410710844c1a966a58c82309a8e4aa912374963e48c5bbef9020",
+   "size_bytes": 365,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/tree-reconstruction.json",
+   "sha256": "11d68f3b4296952c52f408b1072fd5610bd548fdc54038e281417d6593fddac7",
+   "size_bytes": 141,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/unknown-currency-before.txt",
+   "sha256": "c43e2ef8e19788402f915ff892c5e8851a974d9c00b6d9925b28a5c8febf0353",
+   "size_bytes": 2258,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/unknown-currency.txt",
+   "sha256": "7d6b368f9a69a00661bb98187ed73cdbff0f06905e82a591dcd1c25888f4b69b",
+   "size_bytes": 2258,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m30-evidence/wheel-replay.py.txt",
+   "sha256": "f9af6798e4e5135f7c28509a7531ece1ba6fc405829f85f73a7639a59b4bbbc8",
+   "size_bytes": 1795,
+   "classification": "historical artifact (M30 state)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m31-evidence/m31-adjudication-pass1.json",
+   "sha256": "cb5089ce1b635275ffa50478aed1832fbc3d11ee5a2543bf766054197d4644e6",
+   "size_bytes": 6846300,
+   "classification": "historical artifact (M31 state; superseded by the M33 ledger, kept for provenance)",
+   "giant": true
+  },
+  {
+   "path": "docs/audits/m31-evidence/m31-adjudication-summary.json",
+   "sha256": "2fc1e2ca6c5ac23afb50bd22b3df50fc0a1aa53f13587b0c12756d672fca0d62",
+   "size_bytes": 1823,
+   "classification": "historical artifact (M31 state; superseded by the M33 ledger, kept for provenance)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m31-evidence/m31-dispositions.jsonl",
+   "sha256": "38ba8f780e219dd062e4a4789c5b300bd9e7ed0590e0a723bbf75b2f47d31462",
+   "size_bytes": 96494,
+   "classification": "historical artifact (M31 state; superseded by the M33 ledger, kept for provenance)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m31-evidence/m31-inventory-summary.json",
+   "sha256": "54f88f79db3ba5ad126ddadc5f84e6db7944ada67f8bb5dc8910aa766b487f34",
+   "size_bytes": 1306,
+   "classification": "historical artifact (M31 state; superseded by the M33 ledger, kept for provenance)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m31-evidence/m31-inventory.json",
+   "sha256": "2d4112f68d28f561fef48adb61e7237a0db83b80880702c269be08e8f2c0c6e4",
+   "size_bytes": 4680238,
+   "classification": "historical artifact (M31 state; superseded by the M33 ledger, kept for provenance)",
+   "giant": true
+  },
+  {
+   "path": "docs/audits/m31-evidence/m31-source-manifest.json",
+   "sha256": "d6da8e4517e3d3db7497b06f7a4f4fda4d6dbdb6f04d119cd4473640f7644fa3",
+   "size_bytes": 47471,
+   "classification": "historical artifact (M31 state; superseded by the M33 ledger, kept for provenance)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m32-evidence/m32-absent-evidence-summary.json",
+   "sha256": "01cc789d8986eef9d59972d3ad9e1293617fd8c4878a0522b8eee923d94d9ac8",
+   "size_bytes": 226,
+   "classification": "required reproduction artifact (M32); m32-ledger.json superseded by m33-ledger.json",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m32-evidence/m32-absent-evidence.json",
+   "sha256": "5709a1e8115ea8f37e2e00ff6e379267e8516481cf8c95121c73b44ae6cd7e13",
+   "size_bytes": 52084,
+   "classification": "required reproduction artifact (M32); m32-ledger.json superseded by m33-ledger.json",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m32-evidence/m32-fix-batch-1.json",
+   "sha256": "1a474a7e831b451d67e934e2685dfec0498d3ccfac140ae14fcba9d04457bc57",
+   "size_bytes": 7724,
+   "classification": "required reproduction artifact (M32); m32-ledger.json superseded by m33-ledger.json",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m32-evidence/m32-fix-batch-2.json",
+   "sha256": "8d161219ed964017fcb8704e145b148306dd6da9bdc9268793fb1116baeec7de",
+   "size_bytes": 5604,
+   "classification": "required reproduction artifact (M32); m32-ledger.json superseded by m33-ledger.json",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m32-evidence/m32-fix-integrity.json",
+   "sha256": "3d00e305fc960fcddca5366efcbcad84e6588bb728b6582ed3174ad1c4b03e77",
+   "size_bytes": 1444,
+   "classification": "required reproduction artifact (M32); m32-ledger.json superseded by m33-ledger.json",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m32-evidence/m32-ledger-summary.json",
+   "sha256": "5187bc20b7695e7500e11e2f8cccbc905b2fff78b8708c97359157911629ff28",
+   "size_bytes": 1256,
+   "classification": "required reproduction artifact (M32); m32-ledger.json superseded by m33-ledger.json",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m32-evidence/m32-ledger.json",
+   "sha256": "13aaddc5c86f89f5dcc5121823788410c0c44ade5b0dfeb99466fe7493bb0a31",
+   "size_bytes": 6035669,
+   "classification": "required reproduction artifact (M32); m32-ledger.json superseded by m33-ledger.json",
+   "giant": true
+  },
+  {
+   "path": "docs/audits/m32-evidence/m32-new-sites.json",
+   "sha256": "8e75631939ad8ae67b761057033048ccc008783d71128b69834e2bbf21132a87",
+   "size_bytes": 800944,
+   "classification": "required reproduction artifact (M32); m32-ledger.json superseded by m33-ledger.json",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m32-evidence/m32-revalidation-summary.json",
+   "sha256": "f2f944e95ded7ab6d3a8ba8c5e63417b4fca0f4dee4435d86a699723b1276f50",
+   "size_bytes": 327,
+   "classification": "required reproduction artifact (M32); m32-ledger.json superseded by m33-ledger.json",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m32-evidence/m32-revalidation.json",
+   "sha256": "46734e88e4dca97ad1794f0f0b8ad2f1a9ba2333c73e6c3d08900d5ecf91835a",
+   "size_bytes": 3824238,
+   "classification": "required reproduction artifact (M32); m32-ledger.json superseded by m33-ledger.json",
+   "giant": true
+  },
+  {
+   "path": "docs/audits/m32-evidence/m32-source-manifest-summary.json",
+   "sha256": "2c384244cc2b9b46a02a3d0eff81eab05214f082f3e50dca0e598032e1379e01",
+   "size_bytes": 141,
+   "classification": "required reproduction artifact (M32); m32-ledger.json superseded by m33-ledger.json",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m32-evidence/m32-source-manifest.json",
+   "sha256": "9e2abf58a1bc11dba00a35ab8f02b8d756de4ec8e9bdae201422317c81f64919",
+   "size_bytes": 82548,
+   "classification": "required reproduction artifact (M32); m32-ledger.json superseded by m33-ledger.json",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m32-evidence/m32-sweep-summary.json",
+   "sha256": "61f8c2b774b5a90b66598ffa7918d258241978d4040aa46c06931d594cedd930",
+   "size_bytes": 750,
+   "classification": "required reproduction artifact (M32); m32-ledger.json superseded by m33-ledger.json",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m32-evidence/m32-sweep.json",
+   "sha256": "2f0817c9cfee4dc4ce97541cb9a9bdc1484ce3ea94c2107f9140f5fce6504224",
+   "size_bytes": 1779767,
+   "classification": "required reproduction artifact (M32); m32-ledger.json superseded by m33-ledger.json",
+   "giant": true
+  },
+  {
+   "path": "docs/audits/m33-evidence/M33_INVENTORY_LEDGER.json",
+   "sha256": "8a4b3fa5255270beaa1513e14eec3df14c60698fa386396fcb65b031e5a9ec7e",
+   "size_bytes": 9096,
+   "classification": "required reproduction artifact (M33)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m33-evidence/M33_PREWORKSPACE_MANIFEST.json",
+   "sha256": "6297ad5b977b34e952f0f9063a032de5bbf0a04424b9de4f208f02683eb5a1cb",
+   "size_bytes": 74757,
+   "classification": "required reproduction artifact (M33)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-closure-invariants.json",
+   "sha256": "08c320712fa316d2f81edb4953b32341c29d4f5e472f9194ed372bfe7b98c0b4",
+   "size_bytes": 1987,
+   "classification": "required reproduction artifact (M33)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-commit-staging-simulation.json",
+   "sha256": "4be6f7dcecb393a59c4166d338bd62b61c99d2ca54ddfaad55f4377022f7b759",
+   "size_bytes": 16183,
+   "classification": "required reproduction artifact (M33)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-doc-claim-audit.json",
+   "sha256": "5c7ab7167f10026fccc3a29db307674595e0b5034c6ba607116123c3af86b62b",
+   "size_bytes": 34134,
+   "classification": "required reproduction artifact (M33)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-domain-matrix.json",
+   "sha256": "7d47aaa81e8ec8de99ad78db86a7297be3b72950bd211b0ac5825602700bdc86",
+   "size_bytes": 31172,
+   "classification": "required reproduction artifact (M33)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-evidence-manifest.json",
+   "sha256": "3cfbb196c1dbeea9bc73e5ea2cb1faccc51244c22a1290dfcd2cc129e7e8bd08",
+   "size_bytes": 96494,
+   "classification": "required reproduction artifact (M33)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-fix-records.json",
+   "sha256": "8794442bb65d71c7d0e6f87b80ebef9df3c2d76e092663014e608335abf83b75",
+   "size_bytes": 2092,
+   "classification": "required reproduction artifact (M33)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-fresh-sweep.json",
+   "sha256": "4a1ae1e69a3179a4044aed6f4c1d724b4071e3e93cfd6314eab7a9815fb8f990",
+   "size_bytes": 829911,
+   "classification": "required reproduction artifact (M33)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-full-suite-junit.xml",
+   "sha256": "b7ec010961a0930c891b5ac346965eeaac9e78f105a7a45d7102865f51673e8f",
+   "size_bytes": 238035,
+   "classification": "required reproduction artifact (M33)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-full-suite-summary.json",
+   "sha256": "2db8ef3cb63116e5fb4e672627fa52757f991273673961e8323adbd978f39c1f",
+   "size_bytes": 1196,
+   "classification": "required reproduction artifact (M33)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-integrity-incidents.json",
+   "sha256": "5cdf0a1bb5655a662700244be8e965bcb84bd3d45ca75eb7c613263593c066df",
+   "size_bytes": 1888,
+   "classification": "required reproduction artifact (M33)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-ledger-summary.json",
+   "sha256": "0e2575f6f067425609fa303c47b9d2d133ede351166d74738dda9d0bb1e69551",
+   "size_bytes": 2243,
+   "classification": "required reproduction artifact (M33)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-ledger.json",
+   "sha256": "d4f8616bdc6c994a105d79345a607a0b05195257f85cb36ba0871fd93281d60d",
+   "size_bytes": 7117048,
+   "classification": "regenerable (rebuilt by /home/user/m33-tools/adjudicate33.py + reconcile.py)",
+   "giant": true
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-m32-fix-reverification.json",
+   "sha256": "1bcb43293ee78184a42c6599959b3cd8e14aac05b87d6fe8cf06994677d8f9dc",
+   "size_bytes": 3448,
+   "classification": "required reproduction artifact (M33)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-mutation-controls.json",
+   "sha256": "60955c10b8597dce5a4e6b0f890c43281eb99385056ca8fb683e0a402aa4fd97",
+   "size_bytes": 10476,
+   "classification": "required reproduction artifact (M33)",
+   "giant": false
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-reconciliation.json",
+   "sha256": "793a8924ef6685d2d834512c6fe6aaed5f002b08b07208468bcdb774db43a266",
+   "size_bytes": 8853925,
+   "classification": "regenerable (rebuilt by /home/user/m33-tools/adjudicate33.py + reconcile.py)",
+   "giant": true
+  },
+  {
+   "path": "docs/audits/m33-evidence/m33-wheel-and-clean-env.json",
+   "sha256": "c2245686df1b5727009dc89e310b52cecf77d20087318d165a772f86bc7ab671",
+   "size_bytes": 1924,
+   "classification": "required reproduction artifact (M33)",
+   "giant": false
+  },
+  {
+   "path": "docs/import_mapping_contract.md",
+   "sha256": "122c9be82e2dd0a2de25f43d39dfecbc435c90444010e9b06f5d199bfb904eff",
+   "size_bytes": 2647,
+   "classification": "documentation (living or historical banner, see doc claim audit)",
+   "giant": false
+  }
+ ],
+ "totals": {
+  "files": 380,
+  "bytes": 51605951,
+  "giant_files": [
+   "docs/audits/m30-evidence/inventory.json",
+   "docs/audits/m31-evidence/m31-adjudication-pass1.json",
+   "docs/audits/m31-evidence/m31-inventory.json",
+   "docs/audits/m32-evidence/m32-ledger.json",
+   "docs/audits/m32-evidence/m32-revalidation.json",
+   "docs/audits/m32-evidence/m32-sweep.json",
+   "docs/audits/m33-evidence/m33-ledger.json",
+   "docs/audits/m33-evidence/m33-reconciliation.json"
+  ],
+  "giant_bytes": 41147389
+ },
+ "policy": "evidence is never deleted without a provenance decision; regenerable artifacts keep their runner and hash beside them; historical artifacts stay as they were produced"
+}

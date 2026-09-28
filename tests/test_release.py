@@ -3,9 +3,10 @@
 Run with: python -m pytest tests/test_release.py -v
 """
 
-import pytest
+import importlib
+import subprocess
+
 import sys
-import os
 from pathlib import Path
 
 
@@ -18,29 +19,30 @@ class TestReleaseVerification:
     
     def test_core_dependencies(self):
         """All core dependencies must be importable."""
-        import PySide6
-        import sqlalchemy
-        import openpyxl
-        assert True
+        for module in ("PySide6", "sqlalchemy", "openpyxl", "bcrypt", "numpy",
+                       "matplotlib", "pandas", "pyqtgraph", "fitz"):
+            assert importlib.import_module(module) is not None
     
     def test_all_core_modules_importable(self):
         """All core modules must import without error."""
-        # Skip if no display (headless CI/sandbox)
-        if not os.environ.get("DISPLAY") and sys.platform == "linux":
-            pytest.skip("No display — PySide6 requires libGL")
-        from core.database import DatabaseManager, Well, DailyReport
-        from core.db_models import Base
-        from core.canonical_schema import FIELD_SPECS, CANONICAL_FIELDS
-        from core.unit_manager import UnitManager
-        from core.managers import StatusBarManager, TableManager, DrillingManager
-        from core.permissions import permissions
-        from core.selection_manager import SelectionManager
-        from core.lineage import LineageTracker, get_import_lineage
-        from core.engineering import TrajectoryEngine, HydraulicsEngine
-        from core.validators import validate_rows
-        from core.import_quality import ImportValidator
-        from core.hierarchy_operations import delete_entity, check_delete_permission
-        assert True
+        exports = {
+            "core.database": ("DatabaseManager", "Well", "DailyReport"),
+            "core.db_models": ("Base",),
+            "core.canonical_schema": ("FIELD_SPECS", "CANONICAL_FIELDS"),
+            "core.unit_manager": ("UnitManager",),
+            "core.managers": ("StatusBarManager", "TableManager", "DrillingManager"),
+            "core.permissions": ("permissions",),
+            "core.selection_manager": ("SelectionManager",),
+            "core.lineage": ("LineageTracker", "get_import_lineage"),
+            "core.engineering": ("TrajectoryEngine", "HydraulicsEngine"),
+            "core.validators": ("WellValidator", "DailyReportValidator", "MudValidator"),
+            "core.import_quality": ("ImportValidator",),
+            "core.hierarchy_operations": ("delete_entity", "check_delete_permission"),
+        }
+        for name, attributes in exports.items():
+            module = importlib.import_module(name)
+            for attribute in attributes:
+                assert getattr(module, attribute) is not None
     
     def test_canonical_schema_minimum_fields(self):
         """Schema must have at least 100 fields."""
@@ -138,18 +140,21 @@ class TestReleaseVerification:
         from core.permissions import permissions
         assert permissions is not None
     
+    def test_real_entrypoint_source_package_smoke(self):
+        """Core-only imports missed a deleted re-export required by app.py."""
+        root = Path(__file__).resolve().parents[1]
+        result = subprocess.run([sys.executable, str(root / "app.py"), "--package-smoke"],
+                                cwd=root, capture_output=True, text=True, timeout=180)
+        assert result.returncode == 0, result.stdout + result.stderr
+
     def test_no_circular_imports(self):
         """Core modules must not have circular import issues."""
-        if not os.environ.get("DISPLAY") and sys.platform == "linux":
-            pytest.skip("No display — PySide6 requires libGL")
-        import core.database
-        import core.db_models
-        import core.managers
-        import core.canonical_schema
-        import core.unit_manager
-        import core.lineage
-        import core.engineering
-        assert True
+        # A fresh process prevents already-cached pytest imports hiding cycles.
+        result = subprocess.run([sys.executable, "-c",
+            "import core.database, core.db_models, core.managers, core.canonical_schema; "
+            "import core.unit_manager, core.lineage, core.engineering"],
+            capture_output=True, text=True, timeout=30)
+        assert result.returncode == 0, result.stdout + result.stderr
     
     def test_file_sizes_reasonable(self):
         """No single file should be excessively large."""

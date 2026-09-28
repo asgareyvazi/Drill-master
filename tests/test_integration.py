@@ -5,12 +5,10 @@ using in-memory SQLite database.
 """
 
 import pytest
-from datetime import date, time, datetime
+from datetime import date
 from core.database import (
-    DatabaseManager, Well, Company, Project, Section, DailyReport,
-    MudReport, DrillingParameters, TimeLog24H, SurveyPoint,
-    SafetyReport, BulkMaterials, CostRecord, EquipmentLog,
-    ServiceCompanyPOB, FuelWaterInventory, BHAReport, BitReport,
+    DatabaseManager, Well, Company, Project, Section, MudReport, SurveyPoint,
+    BulkMaterials, CostRecord,
 )
 
 
@@ -212,7 +210,10 @@ class TestFullImportPipeline:
             
             # Verify bulk materials
             bulks = session.query(BulkMaterials).filter(BulkMaterials.report_id == report_id).all()
-            assert len(bulks) == 2
+            assert len(bulks) == 0  # chemicals are not Fuel/Water bulk inventory
+            import json
+            mud = session.query(MudReport).filter_by(report_id=report_id).one()
+            assert len(json.loads(mud.chemicals_json)) == 2
             
             # Verify costs
             costs = session.query(CostRecord).filter(CostRecord.well_id == well_id).all()
@@ -246,7 +247,10 @@ class TestFullImportPipeline:
         session = db.create_session()
         try:
             count1 = session.query(BulkMaterials).filter(BulkMaterials.report_id == report_id).count()
-            assert count1 == 1
+            assert count1 == 0
+            import json
+            mud = session.query(MudReport).filter_by(report_id=report_id).one()
+            assert json.loads(mud.chemicals_json)[0]["product"] == "Barite"
         finally:
             session.close()
     
@@ -333,3 +337,88 @@ class TestFullImportPipeline:
         logs = db.get_audit_logs(entity_type="well")
         assert len(logs) > 0
         assert logs[0]["action"] == "create"
+
+
+class TestCostImportLineage:
+    """Regression cover for the cost import silent-drop defect (COST-01).
+
+    A source cost row that carries its category only under the ``cost_category``
+    alias (the shape emitted by the profile importer) previously vanished at
+    persistence together with its amounts: the alias fallback read from the
+    already-filtered column dict, where ``cost_category`` no longer existed.
+    The row produced no CostRecord and no review entry — silent money loss.
+    """
+
+    def _report(self, db, well_with_section):
+        return db.save_daily_report({
+            "well_id": well_with_section["well_id"],
+            "section_id": well_with_section["section_id"],
+            "report_date": date(2026, 8, 24),
+        })["id"]
+
+    def test_aliased_cost_category_is_persisted_not_dropped(self, db, well_with_section):
+        well_id = well_with_section["well_id"]
+        report_id = self._report(db, well_with_section)
+
+        result = db.save_imported_multi_tab_data_atomic(well_id, report_id, {
+            "cost_records": [
+                # Category supplied only via the alias, with real amounts.
+                {"cost_category": "Rig Rate", "description": "Day rate",
+                 "planned_cost": 10000.0, "actual_cost": 10000.0},
+            ],
+        })
+        assert result["failed"] == 0
+
+        session = db.create_session()
+        try:
+            costs = session.query(CostRecord).filter(
+                CostRecord.well_id == well_id
+            ).all()
+            assert len(costs) == 1, "aliased cost row must not be dropped"
+            assert costs[0].category == "Rig Rate"
+            assert costs[0].actual_cost == 10000.0
+            assert costs[0].planned_cost == 10000.0
+        finally:
+            session.close()
+
+    def test_category_less_cost_row_goes_to_review_not_silent(self, db, well_with_section):
+        well_id = well_with_section["well_id"]
+        report_id = self._report(db, well_with_section)
+
+        result = db.save_imported_multi_tab_data_atomic(well_id, report_id, {
+            # Neither ``category`` nor ``cost_category``: unknown ownership must
+            # never be fabricated, but the row must not disappear silently.
+            "cost_records": [{"description": "unlabelled spend", "actual_cost": 999.0}],
+        })
+        assert result["review"] >= 1
+        assert any(r.get("entity") == "cost_records" for r in result.get("review_rows", []))
+
+        session = db.create_session()
+        try:
+            assert session.query(CostRecord).filter(
+                CostRecord.well_id == well_id
+            ).count() == 0, "no fabricated category may be persisted"
+        finally:
+            session.close()
+
+    @pytest.mark.parametrize("currency", [None, "USD", "EUR"])
+    def test_explicit_category_and_amounts_round_trip(self, db, well_with_section, currency):
+        well_id = well_with_section["well_id"]
+        report_id = self._report(db, well_with_section)
+
+        db.save_imported_multi_tab_data_atomic(well_id, report_id, {
+            "cost_records": [
+                {"category": "Fuel", "description": "Diesel",
+                 "planned_cost": 2000.0, "actual_cost": 2500.0, "currency": currency},
+            ],
+        })
+        summary = db.get_cost_summary(well_id)
+        fuel = [row for row in summary if row["category"] == "Fuel"]
+        assert len(fuel) == 1
+        raw = db.get_cost_records(well_id)
+        assert raw[0]["planned_cost"] == 2000.0
+        assert raw[0]["actual_cost"] == 2500.0
+        assert raw[0]["currency"] == currency
+        assert fuel[0]["planned"] == (2000.0 if currency else None)
+        assert fuel[0]["actual"] == (2500.0 if currency else None)
+        assert fuel[0]["variance"] == (-500.0 if currency else None)

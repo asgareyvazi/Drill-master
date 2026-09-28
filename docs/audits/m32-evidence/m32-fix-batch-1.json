@@ -1,0 +1,115 @@
+{
+  "schema": "m32-fix-batch-1",
+  "generated_utc": "2026-09-27T05:20:00Z",
+  "scope": "Mission 32 authorized minimal evidenced root-cause fixes (supersedes the M31 read-only freeze)",
+  "rule_zero_note": "no reset/clean/stash/checkout--/restore/history rewrite was used; every edit is an in-place source edit on the M32 pre-work snapshot",
+  "fixes": [
+    {
+      "fix_id": "M32-FIX-001",
+      "path": "dialogs/drilling_report_dialogs.py",
+      "symbol": "AddBitRecordDialog/_save,_load,_calc + AddBHAComponentDialog/_save,_load + module helpers",
+      "kind": "fabricated-measurement",
+      "before": "every measurement spin box started at 0 (bit size/first BHA OD,ID at invented values 8.5 / 6.75 / 2.813) and _save persisted str(value), so an absent measurement was stored as a measured 0; ROP printed 0.0 m/hr for an uncomputed rate",
+      "after": "setMinimum(-1) + specialValueText 'Not recorded'; _spin_text persists an empty string for an unrecorded measurement and a real 0.0 when the operator entered zero; _loaded keeps absent values absent; ROP shows an em dash when a term is missing",
+      "detector": "INV sweep: numeric-parameter-default / numeric-get-default, dialogs/",
+      "test": "tests/test_m31_scenarios.py::test_bit_record_dialog_keeps_unrecorded_measurements_blank, ::test_bha_component_dialog_keeps_unrecorded_dimensions_blank",
+      "mutant": "M-DIALOG (spin.setMinimum(-1) -> 0) killed: both dialog tests fail"
+    },
+    {
+      "fix_id": "M32-FIX-002",
+      "path": "core/professional_export.py",
+      "symbol": "ProfessionalExcelExport.export (Time Logs sheet)",
+      "kind": "missing-vs-explicit-zero",
+      "before": "ws3.cell(row=r, column=3, value=log.duration or 0)",
+      "after": "value=log.duration -> an unrecorded duration exports as an empty cell while a recorded 0.0 stays 0.0",
+      "detector": "INV sweep or-zero in export path",
+      "test": "tests/test_m31_scenarios.py::test_professional_export_leaves_unrecorded_duration_blank",
+      "mutant": "M-EXPORT (value=log.duration -> log.duration or 0) killed"
+    },
+    {
+      "fix_id": "M32-FIX-003",
+      "path": "core/database.py",
+      "symbol": "DatabaseManager.get_full_hierarchy",
+      "kind": "missing-vs-explicit-zero",
+      "before": "key=lambda s: s.depth_from or 0 ordered a NULL section depth as the shallowest 0 m stage",
+      "after": "key=(s.depth_from is None, s.depth_from or 0) sorts unknown depth last; legacy NULLs are ordered, never asserted as 0 m",
+      "detector": "INV sweep or-zero, section ordering",
+      "test": "tests/test_m31_scenarios.py::test_full_hierarchy_orders_unknown_section_depth_last (emulates a legacy NULL row via raw SQL, since the ORM default writes 0.0)",
+      "mutant": "M-HIERARCHY (tuple key -> s.depth_from or 0) killed"
+    },
+    {
+      "fix_id": "M32-FIX-004",
+      "path": "core/database.py",
+      "symbol": "DatabaseManager.auto_update_from_daily_report (NPT derivation)",
+      "kind": "invented-measurement",
+      "before": "'duration_hours': log.duration or 0 derived an NPT report of 0 h from a time log with no recorded duration",
+      "after": "a time log with duration None is left underived (skipped) and counted in a warning that names the report id; recorded durations are stored verbatim",
+      "detector": "INV sweep or-zero, derived-record write path",
+      "test": "tests/test_m31_scenarios.py::test_derived_npt_skips_logs_without_a_recorded_duration",
+      "mutant": "M-NPT (skip block removed + or 0 restored) killed"
+    },
+    {
+      "fix_id": "M32-FIX-005",
+      "path": "core/database.py",
+      "symbol": "DatabaseManager.auto_update_from_daily_report (ActivityCode usage)",
+      "kind": "missing-vs-explicit-zero",
+      "before": "code_usage[code]['hours'] += log.duration or 0 and update_code_usage(usage.get('hours', 0.0)) persisted a subtotal as the total hours",
+      "after": "per-code unrecorded counters are tracked and the code's total_hours is written as NULL when any contributing log has no duration -> unknown is preserved (NPTReport.duration_hours / ActivityCode.total_hours are nullable)",
+      "detector": "INV sweep or-zero + persisted aggregate consumer check",
+      "test": "tests/test_m31_scenarios.py::test_activity_code_usage_hours_are_unknown_when_a_duration_is_missing",
+      "mutant": "M-CODEHOURS (unknown-state override removed) killed; M-CODEHOURS-RAW ('+= log.duration' -> '+= log.duration or 0') is provably equivalent inside the is-not-None branch and is recorded as an equivalent mutant, not a survivor"
+    },
+    {
+      "fix_id": "M32-FIX-006",
+      "path": "core/validators.py",
+      "symbol": "TimeLogValidator.validate_logs",
+      "kind": "missing-vs-explicit-zero",
+      "before": "total = sum(l.get('duration', 0) or 0 ...) validated a 'Total = X h (expected ~24h)' claim built from missing hours treated as 0",
+      "after": "missing durations are counted separately and reported as 'no recorded duration; total hours incomplete'; the 24 h completeness check runs only over fully recorded days; the per-entry checks now skip None instead of scoring it as 0",
+      "detector": "INV sweep or-zero / numeric-get-default in validation",
+      "test": "tests/test_m31_scenarios.py::test_legacy_time_log_validator_reports_unrecorded_duration",
+      "mutant": "M-VALIDATOR (if unrecorded -> if False) killed"
+    }
+  ],
+  "post_fix_hashes": {
+    "dialogs/drilling_report_dialogs.py": "4c296617482bc11721365e6b0a4389a293d1904272f0b849c55943f0b4a373c0",
+    "core/professional_export.py": "96878cf690f49d01c29a0b38323a761e275c9cddec9ff2d98d387a060dd73727",
+    "core/database.py": "578d6a9c3eb83c405d7c3fb5d532416c2612137117a7bfa6d8d32b83562e54c2",
+    "core/validators.py": "ae1f69d157a55d3691df42b71379973150b4d57cd56e1ea8178b5cb60152ad0c"
+  },
+  "mutation_controls": {
+    "harness": "/tmp/mutate.py (copy file, apply mutant, run pytest selector, restore, verify sha256)",
+    "killed": [
+      "M-DIALOG",
+      "M-EXPORT",
+      "M-HIERARCHY",
+      "M-CODEHOURS",
+      "M-NPT",
+      "M-VALIDATOR"
+    ],
+    "equivalent": {
+      "M-CODEHOURS-RAW": "inside the log.duration is not None branch, 'or 0' can only differ for duration == 0.0, where 'x or 0' == 0; the branch guard makes the mutant semantically identical"
+    },
+    "restore": "all six mutated files were restored byte-identically (sha256 before == after) and no mutant remains in the worktree"
+  },
+  "regression_run": {
+    "command": "pytest tests/test_activity_mapper.py tests/test_ddr_forensic_regressions.py tests/test_final_hardening_regressions.py tests/test_integration.py tests/test_p0_time_log_validation.py tests/test_r18_r19_save_preservation.py tests/test_real_oeoc_golden.py tests/test_real_user_acceptance_regressions.py tests/test_release_smoke.py tests/test_wellbore_scope_display.py tests/test_m31_scenarios.py",
+    "result": "336 passed, 0 failed (2 pre-existing openpyxl Data Validation warnings)",
+    "environment": "Linux headless, offscreen Qt, fail-loud /tmp/qtstub shims"
+  },
+  "lint": {
+    "gate": "ruff==0.16.6, --select E722,F821 over '.' -> All checks passed",
+    "debt_population": "ruff check --output-format json core dialogs tabs tests",
+    "debt_head_tree_measured_via_git_archive": 5375,
+    "debt_current_worktree": 5338,
+    "ceiling": 5375,
+    "note": "the committed HEAD tree sits exactly at the ceiling; this batch leaves 37 findings of headroom and adds no new finding (tests/test_m31_scenarios.py is lint-clean: 11 inherited findings removed, 0 remaining)"
+  },
+  "files_touched": [
+    "core/database.py",
+    "core/professional_export.py",
+    "core/validators.py",
+    "dialogs/drilling_report_dialogs.py",
+    "tests/test_m31_scenarios.py"
+  ]
+}

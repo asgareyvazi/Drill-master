@@ -1,0 +1,75 @@
+{
+ "schema": "m34-clean-env-and-wheel",
+ "generated_utc": "2026-09-27T12:01:39+00:00",
+ "lock": {
+  "path": "requirements-lock.txt",
+  "pins": 26,
+  "installed_exactly": 26,
+  "mismatched": {},
+  "pip_check": "OK",
+  "pip_check_output": "No broken requirements found.\n",
+  "venv": "/tmp/m34-clean-venv",
+  "created": "OK"
+ },
+ "wheel": {
+  "tracked_file_population": 507,
+  "copied": 692,
+  "copy_failures": 0,
+  "build": {
+   "exit_code": 0,
+   "outcome": "OK",
+   "seconds": 2.3
+  },
+  "build_tail": "",
+  "wheel": {
+   "name": "drillmaster-1.0.0-py3-none-any.whl",
+   "bytes": 1036029,
+   "sha256": "8fb5d566eb9a322127ad5c2a4c0e1bc7f8f7624c65522baff20fb213d56b13dd"
+  },
+  "packaged_modules_sampled": 119,
+  "modules_absent_from_wheel": [
+   "core/operational_time.py",
+   "core/safety_semantics.py"
+  ],
+  "required_entries_present": {
+   "app.py": true,
+   "main_window.py": true,
+   "core/database.py": true,
+   "ui/helper.py": true,
+   "ui/utils.py": true,
+   "config/ai_models.json": true,
+   "config/company_templates/oeoc.json": true,
+   "templates/OEOC_DDR_v3.json": true
+  },
+  "tests_shipped_in_wheel": false,
+  "install_into_clean_venv": {
+   "exit_code": 0,
+   "outcome": "OK"
+  },
+  "app_package_smoke_outside_checkout": {
+   "exit_code": 1,
+   "outcome": "FAIL",
+   "stdout": "",
+   "stderr": "d): DECLARED STUB, not native\n[qtstub] libGL.so.1 loaded (44 symbols declared): DECLARED STUB, not native\nTraceback (most recent call last):\n  File \"/tmp/m34-wheel-yjrxkizh/installed/app.py\", line 36, in <module>\n    from main_window import MainWindow\n  File \"/tmp/m34-wheel-yjrxkizh/installed/main_window.py\", line 44, in <module>\n    from tabs.w10_Planning_Widget import PlanningWidget\n  File \"/tmp/m34-wheel-yjrxkizh/installed/tabs/w10_Planning_Widget.py\", line 19, in <module>\n    from core.operational_time import summarize_time_logs\nModuleNotFoundError: No module named 'core.operational_time'\n"
+  },
+  "smoke_from_outside_checkout": {
+   "exit_code": 1,
+   "outcome": "FAIL",
+   "stdout": "",
+   "stderr": "Traceback (most recent call last):\n  File \"/tmp/m34-wheel-yjrxkizh/probe.py\", line 9, in <module>\n    import core.engineering.engines.casing as casing\nModuleNotFoundError: No module named 'core'\n"
+  }
+ },
+ "verdicts": {
+  "lock_exact": true,
+  "wheel_builds_from_tracked_files": true,
+  "wheel_contains_required_entries": true,
+  "wheel_excludes_tests": true,
+  "wheel_entrypoint_runs_outside_checkout": false,
+  "wheel_blocking_evidence": " in <module>\n    from main_window import MainWindow\n  File \"/tmp/m34-wheel-yjrxkizh/installed/main_window.py\", line 44, in <module>\n    from tabs.w10_Planning_Widget import PlanningWidget\n  File \"/tmp/m34-wheel-yjrxkizh/installed/tabs/w10_Planning_Widget.py\", line 19, in <module>\n    from core.operational_time import summarize_time_logs\nModuleNotFoundError: No module named 'core.operational_time'\n",
+  "modules_absent_from_tracked_wheel": [
+   "core/operational_time.py",
+   "core/safety_semantics.py"
+  ]
+ },
+ "truth_note": "the wheel is built from the tracked population only, which is exactly what a release artefact can contain; if a module that production code imports is not tracked, the wheel probe reports ModuleNotFoundError and that is recorded as a repository blocker rather than explained away"
+}

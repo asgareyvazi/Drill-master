@@ -1,0 +1,10 @@
+..............................................                           [100%]
+=============================== warnings summary ===============================
+tests/test_ddr_followup_lifecycle.py::test_real_golden_source_reviews_and_domain_roundtrip
+tests/test_ddr_followup_lifecycle.py::test_actual_golden_lifecycle_save_all_and_clean_replay
+tests/test_ddr_followup_lifecycle.py::test_actual_golden_lifecycle_save_all_and_clean_replay
+  /home/user/Drill-master/.venv/lib/python3.11/site-packages/openpyxl/worksheet/_reader.py:329: UserWarning: Data Validation extension is not supported and will be removed
+    warn(msg)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+46 passed, 3 warnings in 28.48s

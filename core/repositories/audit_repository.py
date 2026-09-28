@@ -1,8 +1,6 @@
 """Audit repository."""
 
 from .base import BaseRepository
-from core.database import AuditLog
-from typing import List, Dict
 
 
 class AuditRepository(BaseRepository):

@@ -1,114 +1,186 @@
-# DrillMaster — Testing Documentation
+# Testing and acceptance guide
 
-> **Version:** 1.0 — Audit Baseline (2026-08-24)
+> **Current evidence — 2026-09-27: [Mission 33 semantic audit](M33_SEMANTIC_AUDIT.md).** Inventory **8934** occurrences adjudicated from the current source: **3712 verified-correct**, **2264 intentional-by-design**, **51 defect-fixed**, **49 removed-with-evidence**, **17 external-acceptance-only**, **2837 under-review** and **4 evidence-incomplete** (the last two stop release certification for repository-verifiable items). This tree is **NOT RELEASE-CERTIFIABLE** — see [M33_RELEASE_CERTIFICATION.md](M33_RELEASE_CERTIFICATION.md). Earlier counts, SHAs and acceptance statements anywhere below are historical or unverified, not current certification.
 
----
 
-## 1. Test Suite Overview
 
-**Location:** `tests/`
-**Framework:** pytest
-**Total Tests:** 64 (all passing)
-**Run Time:** ~6 seconds
+**Historical independent evidence (2026-09-22):**
+[`M27 re-audit`](docs/audits/2026-09-22_M27_INDEPENDENT_REAUDIT.md).
+Historical counts below are evidence only for their original runs.
+Install the lock on Python 3.11–3.13, plus
+`pytest==9.1.1 ruff==0.16.6 build==1.6.1` for the source gate.
+The gate defaults to a clean worktree; use `--allow-dirty` for development only.
+Pytest always isolates writable data/config paths, even with an explicit ENV.
 
-### Run Command
+## 1. Local test gate
+
+From the repository root, in a dependency-complete environment:
+
 ```bash
-cd /home/user/Drill-master
-source .venv/bin/activate
-python -m pytest tests/ -v
+python -m pytest -ra
+python verify_release.py
+python -m compileall -q core dialogs tabs tests
+python -m py_compile app.py run.py main_window.py verify_release.py
+python -m pip wheel . --no-deps --wheel-dir dist
+git diff --check
 ```
 
----
+### Headless Qt
 
-## 2. Test Inventory
+The suite runs headless with the offscreen platform. Two cases:
 
-### 2.1 P0 Critical Tests
+1. **Normal Linux with libGL available** (e.g. CI runners):
+   `QT_QPA_PLATFORM=offscreen python -m pytest -ra`
+2. **Minimal sandbox without system Qt libraries**: `tools/qt_headless_env.sh`
+   builds no-op stub libraries (`libGL.so.1`, `libEGL.so.1`,
+   `libxkbcommon.so.0`, `libdbus-1.so.3`) from the exact undefined-symbol sets
+   of the installed Qt binaries. Source it, then run pytest. These stubs
+   return 0/NULL ("capability absent") — offscreen raster UI testing works;
+   anything genuinely requiring OpenGL does not and is an environment limit,
+   not a code defect.
 
-| File | Tests | Focus |
-|------|-------|-------|
-| test_p0_atomic_import.py | 3 | Atomic import transactions, rollback, no orphan data |
-| test_p0_engineering_core.py | 20 | All engineering calculations (trajectory, bit, BHA, hydraulics, well control, operations, mud ledger) |
-| test_p0_permissions.py | 5 | RBAC enforcement, viewer restrictions, permission checks |
-| test_p0_time_log_validation.py | 10 | Time log overlap detection, duration calculation, 24h coverage |
-| test_p0_unit_preservation.py | 8 | Unit conversion preservation, original value retention, canonical normalization |
-| test_p0_well_identity.py | 3 | Well identity management, code uniqueness |
+Qt-dependent tests skip **only on a real capability probe** (importing
+`PySide6.QtWidgets` with the offscreen platform). Earlier releases skipped on
+the `DISPLAY` environment variable, which hid real failures — including a
+broken `QAction` import and a phantom `validate_rows` import discovered on
+2026-09-09. Do not reintroduce DISPLAY-based skips.
 
-### 2.2 Integration Tests
+### Historical run (2026-09-10, Python 3.11, sandbox with Qt stubs)
 
-| File | Tests | Focus |
-|------|-------|-------|
-| test_core_import.py | 4 | Core import pipeline, table detection, sheet classification |
-| test_import_quality_extra.py | 3 | Import quality validation, data quality checks |
-| test_operations.py | 3 | Operations intelligence, ROP/NPT trend analysis |
+```text
+Collected: 848   Passed: 844   Failed: 0   Errors: 0   Skipped: 4   XFailed: 0   XPassed: 0
+```
 
-### 2.3 Unit Tests
+(The 2026-09-09 baseline before the zero-semantics phase was 812 collected /
+808 passed / 4 skipped — the +32 tests are the schematic no-fabrication and
+inventory zero-semantics suites below.)
 
-| File | Tests | Focus |
-|------|-------|-------|
-| test_canonical_schema.py | 1 | Canonical schema integrity |
-| test_config_and_mapping.py | 2 | Configuration and mapping store |
-| test_health_check.py | 1 | System health checks |
-| test_table_mapper.py | 1 | Table-to-record mapping |
+The 4 skips are legitimate opt-ins (real DDR workbook/PDF paths, MinerU
+integration input, Windows bundle). This number is evidence for that run only —
+re-run the suite before quoting any count. No Python 3.12/3.13 local run,
+Windows GUI/package, real MinerU/PDF, or production-DB result is claimed from
+that historical environment. The current workflow targets Python 3.11–3.13;
+remote execution has not been verified. The release lock does not support 3.10.
 
----
+### Raster rendering tests and the QApplication singleton
 
-## 3. Test Categories
+`test_schematic_no_fabrication.py` renders schematics through the REAL
+`WellboreSchematicRenderer` in a **subprocess**. Reason:
+`test_autosave_manager_regression.py` creates a `QCoreApplication` singleton;
+after that test, a `QApplication` cannot be constructed in-process (Qt:
+"Please destroy the QCoreApplication singleton before creating a new
+QApplication instance"), and `QPixmap`/`QFont` fatally abort without one.
+The subprocess runs the unmodified production renderer with real
+`QPainter`/`QPixmap` — process isolation, not a skip and not a stub.
 
-### 3.1 Atomic Import Tests
-- Verify that multi-table imports are atomic (all or nothing)
-- Verify rollback restores exact pre-import state
-- Verify no orphan child data after failed import
+## 2. Real DDR acceptance
 
-### 3.2 Engineering Core Tests
-- **Trajectory:** Single point, multi-point, validation (monotonic MD, inc range), projection
-- **Bit:** TFA from nozzles, HSI calculation
-- **BHA:** Cumulative length/weight, component validation
-- **Hydraulics:** Annular velocity, ECD, PV/YP from viscometer
-- **Well Control:** Kill MW, MAASP
-- **Operations:** ROP degradation detection, NPT threshold alerts
-- **Mud Ledger:** Closing stock calculation, alert generation
+The opt-in tests are `tests/test_ddr_acceptance.py`:
 
-### 3.3 Permission Tests
-- Viewer role cannot delete
-- Engineer role cannot manage users
-- Permission enforcement on critical operations
+```bash
+DRILLMASTER_TEST_DDR_XLSX='C:\path\to\DDR.xlsx' \
+DRILLMASTER_TEST_DDR_PDF='C:\path\to\DDR.pdf' \
+python -m pytest -q -m integration tests/test_ddr_acceptance.py
+```
 
-### 3.4 Unit Preservation Tests
-- Original value is preserved after conversion
-- Canonical unit is correctly applied
-- Conversion rule is recorded
-- Failed conversions are flagged
+Each test skips when its path is unset; a supplied nonexistent path fails. The PDF test
+also skips when the separately managed MinerU installation is unavailable; it
+does not install MinerU. A supplied but malformed real input fails rather than
+being converted into a synthetic PASS.
 
-### 3.5 Time Log Validation Tests
-- Overlapping time entries are detected
-- Duration calculation is correct
-- 24-hour coverage is verified
+### Excel assertions
 
----
+- source workbook -> `raw_document_from_workbook` -> `ExcelIntelligence`;
+- cache/merge lookup comes from the common IR;
+- original source tokens and normalized values remain separate;
+- canonical schema mapping and bounds run;
+- review rows deserialize as `ReviewItem`;
+- `DatabaseManager.save_imported_multi_tab_data_atomic()` persists without
+  failure in an in-memory DB;
+- non-numeric `Drilling Data`/placeholder tokens remain NULL plus provenance,
+  never zero or a numeric-conversion crash.
 
-## 4. Missing Tests (Recommended Additions)
+### PDF assertions
 
-### 4.1 Integration Tests
-- Full Excel → Import → Validate → Save → Display pipeline
-- Real-world Excel fixtures (merged cells, multi-row headers)
-- Import → Export → Compare roundtrip
+- `MinerUAdapter.health_check()` and `parse_file()` run the actual external
+  executable;
+- generated raw output files are present;
+- MinerU tables/text/headings adapt to the common IR;
+- page/row/column/bounding-box provenance, original/normalized values, review
+  states, canonical validation and review rows survive;
+- a real report date is required for DB acceptance; no date is invented;
+- canonical values pass the same atomic DB boundary.
 
-### 4.2 Database Tests
-- Session management under concurrent access
-- Backup and restore verification
-- Migration compatibility
+## 3. Test categories
 
-### 4.3 UI Tests
-- Tab switching with data preservation
-- SelectionManager signal propagation
-- Auto-save functionality
+| Category | Main evidence |
+| --- | --- |
+| Canonical schema | `test_canonical_schema.py`, expanded schema tests: field count, aliases, duplicate-context behavior, types, quantities, criticality, bounds |
+| Shared normalizer | value normalizer tests and import regressions: missing tokens, invalid types, dates/times, zero vs missing |
+| Authoritative units | `test_p0_unit_preservation.py`: original value/unit, conversion rule, canonical value, failed conversion review |
+| Review contract | `test_import_quality_extra.py`, acceptance tests: aliases, serialization/deserialization, decisions, edits, provenance |
+| Atomicity | `test_p0_atomic_import.py`, real-golden DB tests: failure rollback, no orphan/partial records, prior report preservation |
+| MinerU failures | `test_mineru_engine.py`: unavailable executable, bad input/format, process error, timeout, missing/malformed output |
+| Optional AI | mapper capability/failure tests: disabled, unavailable, timeout, malformed response, no invented values |
+| Security | permissions, path/config, shell-free subprocess and secret-handling tests |
+| Packaging/release | packaging smoke, release gate, version/spec/asset checks |
+| Weak assertions | release gate and source-audit checks; acceptance tests assert persisted values/provenance rather than only non-crash |
+| Schematic no-fabrication | `test_schematic_no_fabrication.py`: empty well → no invented TD/GL/KB/casings; explicit zero survives; partial source shows only known facts; string casing sizes parsed exactly; existing saved schematic rows never overwritten by fabricated content; repeated generation deterministic; real raster render of unknown states (subprocess — see above) |
+| Inventory zero≠missing | `test_inventory_zero_semantics.py`: explicit-zero/missing/nonzero openings stay distinct through the save path, the mud ledger, import extraction, atomic import persistence and re-import (upsert, no duplicates); carry-forward applies only to genuinely missing openings |
 
----
+## 4. Review/UI contract checks
 
-## 5. Test Fixtures
+`ReviewItem` preserves file, sheet/page, table/section, source cell and PDF
+coordinates, original/normalized values and units, target field, confidence,
+certainty, mapping method, validation/review state, decision, reason, and user
+correction. `ImportReviewMatrix.from_rows()` restores serialized rows.
 
-Currently, tests use in-memory SQLite databases and synthetic data. Future improvements should include:
+The preview supports accept-high, review-medium, reject-low, mapping edit,
+value edit, unit edit, and ignore. `apply_review_changes()` synchronizes those
+edits into the canonical scalar payload before `_do_import()`; a visual edit
+alone is not considered a successful test.
 
-1. **Real Excel fixtures:** Representative drilling spreadsheets
-2. **Edge case fixtures:** Merged cells, hidden rows, formulas
-3. **Large dataset fixtures:** Performance testing with 1000+ rows
+## 5. Environment and certification limits
+
+The repository's Windows packaging is not certified on Linux. The user's
+Windows MinerU installation and AZNS-12 files were not available here. Exact
+Windows/Python 3.12/package commands are in `docs/WINDOWS_ACCEPTANCE.md`.
+Python 3.12 is not PASS unless the exact runtime executes the suite and real
+acceptance. Keep real documents, MinerU outputs, databases, and generated
+builds outside Git unless a fixture is intentionally required.
+
+## Credential lifecycle tests
+
+`tests/test_credential_lifecycle.py` covers the production/development bootstrap,
+offline reset, guard, authentication and secret-redaction boundaries. The shared
+runtime now defaults to production everywhere. `tests/conftest.py` explicitly
+selects test mode **only for an otherwise unconfigured pytest process** and uses
+a disposable data directory/database instead of the normal per-user profile.
+Production tests explicitly override/remove this mode. Do not point tests at an
+operational database. Standalone fixture tools must explicitly select test or
+development mode and an isolated database path; they no longer inherit an unsafe
+library default. No application code detects pytest to weaken its security.
+
+```text
+python -m pytest tests/test_credential_lifecycle.py
+```
+
+Headless protocol tests are not native Qt or Windows startup proof. Exact current
+counts and Windows limitations are in
+`docs/audits/2026-09-08-ddr/PRODUCTION_CREDENTIAL_LIFECYCLE_FIX.md`.
+
+## Real-user acceptance (2026-09)
+
+See `docs/audits/2026-09-08-ddr/REAL_USER_ACCEPTANCE_AUDIT.md` for the
+**NOT PRODUCTION ACCEPTED** decision, repaired defects and open native/dirty-state
+requirements. Reproduce the isolated Production service exercise with:
+
+```bash
+python tools/real_user_acceptance.py "path/to/actual-workbook.xlsx" --output build/new-acceptance-run
+```
+
+The output directory must not already exist. It creates its own database and
+generated bootstrap credential; it does not reset an operational database.
+Generated databases and workbooks must remain outside Git. For the opt-in real
+Excel test, set `DRILLMASTER_TEST_DDR_XLSX` (not `DRILLMASTER_REAL_DDR_XLSX`).
+Table/control protocol tests are not native Qt or Windows certification.

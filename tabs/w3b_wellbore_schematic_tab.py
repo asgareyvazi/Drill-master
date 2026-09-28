@@ -11,6 +11,7 @@ from PySide6.QtCore import *
 from PySide6.QtGui import *
 from PySide6.QtSvg import QSvgGenerator
 
+from core.editor_state import editor_loaded
 from core.base_tab import DrillTabBase
 from core.wellbore_schematic_engine import (
     WellboreSchematic, WellboreSchematicRenderer, SchematicConfig,
@@ -30,8 +31,20 @@ class WellboreSchematicTab(DrillTabBase):
         self.config = SchematicConfig()
         self.renderer = None
         self._is_loading = False
+        # Bore scope: when a specific wellbore is selected the schematic is
+        # built for that bore only; None = whole-well view. Never inferred.
+        self.current_wellbore_id = getattr(
+            self.sel_manager, "current_wellbore_id", None)
 
         self.init_ui()
+        self.configure_save_tracking()
+
+        # A wellbore selection must re-scope the schematic. The base tab only
+        # tracks well/section/report, so the bore signal is wired here.
+        try:
+            self.sel_manager.wellbore_changed.connect(self.on_wellbore_changed)
+        except Exception:
+            pass
 
     def init_ui(self):
         main_layout = QHBoxLayout(self)
@@ -138,13 +151,15 @@ class WellboreSchematicTab(DrillTabBase):
 
         self.td_spin = QDoubleSpinBox()
         self.td_spin.setRange(0, 20000)
-        self.td_spin.setValue(3000)
+        # 0 = not set. The well's real TD is loaded on well change; a
+        # pre-filled 3000 would present a fabricated depth as data.
+        self.td_spin.setValue(0)
         self.td_spin.setSuffix(" m")
         f.addRow("Total Depth:", self.td_spin)
 
         self.tubing_od_spin = QDoubleSpinBox()
         self.tubing_od_spin.setRange(0, 20)
-        self.tubing_od_spin.setValue(3.5)
+        self.tubing_od_spin.setValue(0)
         self.tubing_od_spin.setDecimals(3)
         self.tubing_od_spin.setSuffix("\"")
         f.addRow("Tubing OD:", self.tubing_od_spin)
@@ -452,16 +467,36 @@ class WellboreSchematicTab(DrillTabBase):
 
     # ==================== Actions ====================
 
+    def on_wellbore_changed(self, wellbore_id, wellbore_data):
+        """Re-scope the schematic to the selected wellbore.
+
+        Selecting a specific bore isolates its casing/formation/completion;
+        an unknown bore keeps the current whole-well view rather than
+        fabricating one.
+        """
+        self.current_wellbore_id = wellbore_id
+        if self.current_well_id:
+            self.auto_generate()
+
     def on_well_changed(self, well_id, well_data):
-        """وقتی چاه تغییر می‌کند، شماتیک را به‌روز می‌کنیم."""
+        """وقتی چاه تغییر می‌کند، شماتیک را به‌روزرسانی می‌کنیم."""
         self.current_well_id = well_id
+        # A new well clears any prior bore scope (bore belongs to the old well).
+        self.current_wellbore_id = getattr(
+            self.sel_manager, "current_wellbore_id", None)
         if well_id and well_data:
             self.well_name_edit.setText(well_data.get("name", ""))
-            td = well_data.get("target_depth", 3000) or 3000
-            self.td_spin.setValue(td)
+            # TD is displayed exactly as the source reports it: absent
+            # stays 0 in the input (unset), explicit zero stays 0.0.
+            td = well_data.get("target_depth")
+            try:
+                self.td_spin.setValue(float(td) if td is not None else 0.0)
+            except (TypeError, ValueError):
+                self.td_spin.setValue(0.0)
             # Auto-generate
-            QTimer.singleShot(500, self.auto_generate)
+            return self.auto_generate()
 
+    @editor_loaded()
     def auto_generate(self):
         """ساخت خودکار شماتیک از DB."""
         if not self.current_well_id or not self.db:
@@ -473,19 +508,34 @@ class WellboreSchematicTab(DrillTabBase):
 
         try:
             builder = SchematicAutoBuilder(self.db)
-            self.schematic = builder.build_from_well(self.current_well_id)
+            # Scope to the selected bore when one is active; otherwise the
+            # whole-well (single-bore / explicit aggregate) view.
+            self.schematic = builder.build_from_well(
+                self.current_well_id, wellbore_id=self.current_wellbore_id)
 
             self._sync_tables_to_schematic()
             self.refresh_drawing()
-            self.canvas_status.setText(
-                f"✅ Generated: "
-                f"{len(self.schematic.casings)} casings, "
-                f"{len(self.schematic.formations)} formations"
-            )
+            if (
+                not self.schematic.casings
+                and not self.schematic.formations
+                and not self.schematic.completion
+                and self.schematic.total_depth_m is None
+            ):
+                self.canvas_status.setText(
+                    "⚠️ No source data available — schematic is empty "
+                    "(no invented values)"
+                )
+            else:
+                self.canvas_status.setText(
+                    f"✅ Generated: "
+                    f"{len(self.schematic.casings)} casings, "
+                    f"{len(self.schematic.formations)} formations"
+                )
 
         except Exception as e:
             logger.error(f"Auto-generate error: {e}")
             self.canvas_status.setText(f"❌ Error: {str(e)[:50]}")
+            raise
 
     def _apply_manual_changes(self):
         """اعمال تغییرات دستی."""
@@ -643,6 +693,7 @@ class WellboreSchematicTab(DrillTabBase):
                 ElementType.INTERMEDIATE_CASING: "Intermediate",
                 ElementType.PRODUCTION_CASING: "Production",
                 ElementType.LINER: "Liner",
+                ElementType.CASING: "Casing",
             }
             self.casing_table.setItem(
                 row, 0, QTableWidgetItem(
@@ -653,7 +704,9 @@ class WellboreSchematicTab(DrillTabBase):
                 row, 1, QTableWidgetItem(f"{c.od_inch:.3f}")
             )
             self.casing_table.setItem(
-                row, 2, QTableWidgetItem(f"{c.id_inch:.3f}")
+                row, 2, QTableWidgetItem(
+                    f"{c.id_inch:.3f}" if c.id_inch is not None else "—"
+                )
             )
             self.casing_table.setItem(
                 row, 3, QTableWidgetItem(f"{c.top_depth_m:.0f}")
@@ -698,6 +751,7 @@ class WellboreSchematicTab(DrillTabBase):
             "Intermediate": ElementType.INTERMEDIATE_CASING,
             "Production": ElementType.PRODUCTION_CASING,
             "Liner": ElementType.LINER,
+            "Casing": ElementType.CASING,
         }
 
         for i, casing in enumerate(self.schematic.casings):
@@ -715,7 +769,13 @@ class WellboreSchematicTab(DrillTabBase):
                 if od_item:
                     casing.od_inch = float(od_item.text())
                 if id_item:
-                    casing.id_inch = float(id_item.text())
+                    # "—"/empty = explicitly unknown wall thickness (None);
+                    # a numeric value (including 0) is a real fact.
+                    id_text = id_item.text().strip()
+                    if id_text in ("", "—", "-"):
+                        casing.id_inch = None
+                    else:
+                        casing.id_inch = float(id_text)
                 if top_item:
                     casing.top_depth_m = float(top_item.text())
                 if bot_item:
@@ -747,9 +807,9 @@ class WellboreSchematicTab(DrillTabBase):
                         name=name.text(),
                         top_depth_m=float(top.text()),
                         bottom_depth_m=float(base.text()),
-                        lithology=litho.text() if litho else "Shale",
+                        lithology=litho.text().strip() if litho else "",
                         color=SchematicColors.FORMATIONS.get(
-                            litho.text() if litho else "Shale", "#808080"
+                            litho.text().strip() if litho else "", "#808080"
                         ),
                     ))
             except (ValueError, AttributeError):
@@ -765,8 +825,12 @@ class WellboreSchematicTab(DrillTabBase):
         last_bottom = max(
             (c.bottom_depth_m for c in self.schematic.casings), default=0
         )
-        new_bottom = min(
-            last_bottom + 500, self.schematic.total_depth_m
+        # Explicit user-initiated template add: the suggested shoe is
+        # clamped to TD when TD is known, otherwise unclamped. The values
+        # land in an editable table before any save.
+        td = self.schematic.total_depth_m
+        new_bottom = (
+            min(last_bottom + 500, td) if td is not None else last_bottom + 500
         )
 
         new_casing = CasingData(
@@ -776,6 +840,7 @@ class WellboreSchematicTab(DrillTabBase):
             top_depth_m=0, bottom_depth_m=new_bottom,
             cement_top_m=max(0, new_bottom - 300),
             cement_bottom_m=new_bottom,
+            show_cement=True,
         )
         self.schematic.casings.append(new_casing)
         self._sync_tables_to_schematic()
@@ -830,7 +895,12 @@ class WellboreSchematicTab(DrillTabBase):
 
     def _add_completion_item(self, etype: ElementType):
         """اضافه کردن المنت Completion."""
-        dlg = CompletionItemDialog(etype, self.schematic.total_depth_m, self)
+        # Dialog depth bound: TD when known, else the model's maximum
+        # input range (a bound, not a value).
+        max_depth = self.schematic.total_depth_m
+        if max_depth is None or max_depth <= 0:
+            max_depth = 20000.0
+        dlg = CompletionItemDialog(etype, max_depth, self)
         if dlg.exec():
             item = dlg.get_item()
             if item:

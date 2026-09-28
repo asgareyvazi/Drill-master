@@ -1,0 +1,37 @@
+{
+ "covered_by_m31": 2179,
+ "files": 337,
+ "hits": 3985,
+ "kinds": {
+  "broad-exception": 633,
+  "or-constant": 110,
+  "or-empty": 518,
+  "or-zero": 146,
+  "pass-statement": 130,
+  "return-false": 302,
+  "return-none": 793,
+  "selection-first": 160,
+  "selection-one": 44,
+  "selection-one_or_none": 18,
+  "selection-scalar": 8,
+  "test-skip": 17,
+  "truthiness-bare": 952,
+  "typed-exception": 154
+ },
+ "new_by_kind": {
+  "broad-exception": 211,
+  "or-constant": 96,
+  "or-empty": 318,
+  "or-zero": 58,
+  "pass-statement": 130,
+  "return-false": 1,
+  "return-none": 344,
+  "selection-first": 122,
+  "selection-one": 5,
+  "selection-one_or_none": 13,
+  "selection-scalar": 7,
+  "truthiness-bare": 486,
+  "typed-exception": 15
+ },
+ "new_items": 1806
+}

@@ -8,15 +8,19 @@ import json
 from pathlib import Path
 from typing import Dict, Any
 
+from core.runtime_config import standards_path
+
 
 def _load_config() -> Dict[str, Any]:
-    """Load from config file if exists, else env vars."""
-    config_path = Path(__file__).resolve().parent.parent / "config" / "operational_standards.json"
-    if config_path.exists():
-        try:
-            return json.loads(config_path.read_text(encoding="utf-8"))
-        except Exception:
-            pass
+    """Load user overrides first, then the read-only packaged defaults."""
+    user_path = standards_path()
+    packaged_path = Path(__file__).resolve().parent.parent / "config" / "operational_standards.json"
+    for config_path in (user_path, packaged_path):
+        if config_path.exists():
+            try:
+                return json.loads(config_path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
     return {}
 
 
@@ -75,6 +79,6 @@ def get_all_standards() -> Dict[str, Any]:
 def save_standards(standards: Dict[str, Any], path: str = None):
     """Save standards to config file."""
     if path is None:
-        path = str(Path(__file__).resolve().parent.parent / "config" / "operational_standards.json")
+        path = str(standards_path())
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     Path(path).write_text(json.dumps(standards, indent=2), encoding="utf-8")

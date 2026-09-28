@@ -1,0 +1,98 @@
+{
+ "schema": "m33-part-b-m32-fix-reverification",
+ "method": "each M32 fix is re-verified by its own source marker in the CURRENT file plus the hash of that file; the semantic behaviour is re-verified independently by the mutation matrix (24/24 killed) and by the targeted tests re-run in this mission",
+ "fixes": [
+  {
+   "fix": "M32-FIX-001",
+   "file": "dialogs/drilling_report_dialogs.py",
+   "sha256": "4c296617482bc11721365e6b0a4389a293d1904272f0b849c55943f0b4a373c0",
+   "marker": "def _not_recorded|def _spin_value|def _spin_text",
+   "marker_matches": 3,
+   "present": true,
+   "what": "unrecorded dialog measurements stay blank instead of 0"
+  },
+  {
+   "fix": "M32-FIX-002",
+   "file": "core/database.py",
+   "sha256": "578d6a9c3eb83c405d7c3fb5d532416c2612137117a7bfa6d8d32b83562e54c2",
+   "marker": "depth_from is None",
+   "marker_matches": 1,
+   "present": true,
+   "what": "unknown section depth sorts last"
+  },
+  {
+   "fix": "M32-FIX-003",
+   "file": "core/database.py",
+   "sha256": "578d6a9c3eb83c405d7c3fb5d532416c2612137117a7bfa6d8d32b83562e54c2",
+   "marker": "unrecorded_hours",
+   "marker_matches": 3,
+   "present": true,
+   "what": "activity code hours unknown when a duration is missing"
+  },
+  {
+   "fix": "M32-FIX-004",
+   "file": "core/database.py",
+   "sha256": "578d6a9c3eb83c405d7c3fb5d532416c2612137117a7bfa6d8d32b83562e54c2",
+   "marker": "duration is None",
+   "marker_matches": 2,
+   "present": true,
+   "what": "derived NPT skips logs without a recorded duration"
+  },
+  {
+   "fix": "M32-FIX-005",
+   "file": "core/validators.py",
+   "sha256": "ae1f69d157a55d3691df42b71379973150b4d57cd56e1ea8178b5cb60152ad0c",
+   "marker": "if unrecorded",
+   "marker_matches": 1,
+   "present": true,
+   "what": "legacy time-log validator reports unrecorded duration"
+  },
+  {
+   "fix": "M32-FIX-006",
+   "file": "core/report_engine.py",
+   "sha256": "b14943e80b71c7d29d3e5c43f7a5fbcf150c6854bd68bb8f5c4dcf90bdf88b0c",
+   "marker": "requires exactly one active plan|active plan",
+   "marker_matches": 1,
+   "present": true,
+   "what": "plan engine requires exactly one active plan"
+  },
+  {
+   "fix": "M32-FIX-007",
+   "file": "core/professional_export.py",
+   "sha256": "96878cf690f49d01c29a0b38323a761e275c9cddec9ff2d98d387a060dd73727",
+   "marker": "value=log\\.duration",
+   "marker_matches": 1,
+   "present": true,
+   "what": "unrecorded duration exported blank"
+  },
+  {
+   "fix": "M32-FIX-008",
+   "file": "core/managers.py",
+   "sha256": "1c0f33c4ca47170a995b35d8b33126fb48b473f0c0dfb4dd1597ce8c36d2609b",
+   "marker": "if not r\\.success:\\s*\\n\\s*return None",
+   "marker_matches": 1,
+   "present": true,
+   "what": "failed engine calculations are not 0"
+  },
+  {
+   "fix": "M32-FIX-009",
+   "file": "tabs/w3_drilling_report.py",
+   "sha256": "e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0",
+   "marker": "def safe_opt|def _calc_value",
+   "marker_matches": 2,
+   "present": true,
+   "what": "unknown persisted for uncomputed tab values"
+  },
+  {
+   "fix": "M32-FIX-010",
+   "file": "tests/test_autosave_manager_regression.py",
+   "sha256": "f07170668dbaf302ea6b3f0d633dd9686bfc6e1547f4d05253d03819cc642860",
+   "marker": "QApplication",
+   "marker_matches": 5,
+   "present": true,
+   "what": "widget-capable application bootstrap"
+  }
+ ],
+ "all_present": true,
+ "targeted_tests": "tests/test_m31_scenarios.py selected M32-fix regressions: see the pytest run recorded in the certification doc"
+}

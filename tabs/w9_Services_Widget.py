@@ -4,26 +4,17 @@ Services Management Widget with full database integration and enhanced functiona
 """
 
 import logging
-from datetime import datetime, date
-import csv
-import os
-from typing import Dict, List, Optional, Any
+from datetime import datetime
 
 from PySide6.QtCore import *
 from PySide6.QtWidgets import *
 from PySide6.QtGui import *
 from PySide6.QtPrintSupport import *
 
-from core.database import (
-    ServiceCompany, ServiceNote, MaterialRequest, EquipmentLog,
-    DailyReport, Well, Section
-)
 from core.managers import (
-    StatusBarManager, TableManager, TableButtonManager,
-    ExportManager, AutoSaveManager
+    StatusBarManager, ExportManager, AutoSaveManager
 )
 from core.base_tab import DrillTabBase
-from core.selection_manager import SelectionManager
 
 logger = logging.getLogger(__name__)
 
@@ -221,6 +212,12 @@ class MaterialHandlingTab(QWidget):
 
     def set_current_report(self, report_id):
         self.current_report_id = report_id
+        # Report-scoped imports are committed before the main window emits its
+        # refresh signal. Reload every service/equipment table with the new
+        # scope; merely changing the ID left imported records invisible until
+        # a manual well reload.
+        if self.current_well_id:
+            self.load_all_data()
 
     def load_all_data(self):
         self.load_notes()
@@ -483,8 +480,10 @@ class MaterialHandlingTab(QWidget):
         QMessageBox.warning(self, "Well Not Selected", "Please select a well before adding data.\nGo to 'Well Information' tab and select a well first.")
 
     def save_all_pending(self):
-        """ذخیره همه داده‌های pending"""
-        return True
+        """Record dialogs persist immediately; there is no pending batch."""
+        from core.save_outcome import SaveOutcome
+        self.last_save_outcome = SaveOutcome(saved=0)
+        return self.last_save_outcome
     
     def save_all_data(self):
         """ذخیره همه داده‌ها"""
@@ -651,8 +650,14 @@ class EquipmentDialog(QDialog):
         equipment = next((e for e in equipment_list if e.get("id") == self.equipment_id), None)
         if not equipment:
             return
-        idx = self.equipment_type_input.findText(equipment.get("equipment_type", ""))
-        if idx >= 0: self.equipment_type_input.setCurrentIndex(idx)
+        value = str(equipment.get("equipment_type", "") or "")
+        idx = self.equipment_type_input.findText(value)
+        if idx >= 0:
+            self.equipment_type_input.setCurrentIndex(idx)
+        elif value:
+            self.equipment_type_input.setEditable(True)
+            self.equipment_type_input.setCurrentIndex(-1)
+            self.equipment_type_input.setCurrentText(value)
         self.equipment_name_input.setText(equipment.get("equipment_name", ""))
         self.equipment_id_input.setText(equipment.get("equipment_id", ""))
         self.manufacturer_input.setText(equipment.get("manufacturer", ""))
@@ -663,13 +668,26 @@ class EquipmentDialog(QDialog):
                 try:
                     dt = datetime.strptime(date_val, "%Y-%m-%d")
                     self.service_date_input.setDate(QDate(dt.year, dt.month, dt.day))
-                except: pass
-        idx = self.service_type_input.findText(equipment.get("service_type", ""))
-        if idx >= 0: self.service_type_input.setCurrentIndex(idx)
+                except (ValueError, AttributeError):
+                    pass
+        value = str(equipment.get("service_type", "") or "")
+        idx = self.service_type_input.findText(value)
+        if idx >= 0:
+            self.service_type_input.setCurrentIndex(idx)
+        elif value:
+            self.service_type_input.setEditable(True)
+            self.service_type_input.setCurrentIndex(-1)
+            self.service_type_input.setCurrentText(value)
         self.service_provider_input.setText(equipment.get("service_provider", ""))
         self.hours_input.setValue(equipment.get("hours_worked", 0))
-        idx = self.status_input.findText(equipment.get("status", "Operational"))
-        if idx >= 0: self.status_input.setCurrentIndex(idx)
+        value = str(equipment.get("status", "") or "")
+        idx = self.status_input.findText(value)
+        if idx >= 0:
+            self.status_input.setCurrentIndex(idx)
+        elif value:
+            self.status_input.setEditable(True)
+            self.status_input.setCurrentIndex(-1)
+            self.status_input.setCurrentText(value)
         self.notes_input.setText(equipment.get("notes", ""))
 
     def save_equipment(self):
@@ -771,14 +789,11 @@ class ServicesWidget(DrillTabBase):
         auto_save_manager.enable_for_widget("ServicesWidget", self, interval_minutes=5)
 
     def save_data(self) -> bool:
-        """ذخیره تمام داده‌های تب‌ها"""
-        if not self.current_well_id:
-            return False
-
-        success = True
-        
-        if hasattr(self.material_handling_tab, 'save_all_pending'):
-            if not self.material_handling_tab.save_all_pending():
-                success = False
-        
-        return success
+        """Dialogs persist immediately; propagate the actual zero-pending outcome."""
+        from core.save_outcome import save_all
+        def save_pending():
+            if not self.current_well_id:
+                raise ValueError("Select a well before saving services")
+            return self.material_handling_tab.save_all_pending()
+        self.last_save_outcome = save_all([("Services", save_pending)])
+        return bool(self.last_save_outcome)

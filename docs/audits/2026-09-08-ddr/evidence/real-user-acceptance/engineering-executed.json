@@ -1,0 +1,437 @@
+{
+  "core/engineering/bridge.py:CalculatorBridge.anti_collision": [
+    "tests/test_engineering_completion.py::test_ai_anti_collision_preserves_failure_and_screening_metadata",
+    "tests/test_engineering_completion.py::test_bridge_exposes_anti_collision_engineering_result"
+  ],
+  "core/engineering/bridge.py:CalculatorBridge.kick_tolerance": [
+    "tests/test_engineering_ground_truth.py::AIToolsCallEngines::test_kick_tolerance_tool"
+  ],
+  "core/engineering/core.py:BHAEngine.calculate_cumulative": [
+    "tests/test_p0_engineering_core.py::BHAEngineTests::test_cumulative_length",
+    "tests/test_p0_engineering_core.py::BHAEngineTests::test_invalid_bha_length"
+  ],
+  "core/engineering/core.py:BitEngine.calculate_hsi": [
+    "tests/test_engineering_ground_truth.py::BitHsiGroundTruth::test_hsi_is_hhp_over_area",
+    "tests/test_engineering_integrations.py::TestBitHydraulicsCanonical::test_bit_engine_hsi_delegates"
+  ],
+  "core/engineering/core.py:BitEngine.calculate_tfa": [
+    "tests/test_p0_engineering_core.py::BitEngineTests::test_missing_nozzle",
+    "tests/test_p0_engineering_core.py::BitEngineTests::test_tfa"
+  ],
+  "core/engineering/core.py:BitEngine.validate": [
+    "tests/test_p0_engineering_core.py::BitEngineTests::test_missing_bit_size"
+  ],
+  "core/engineering/core.py:ChemicalLedgerEntry.alerts": [
+    "tests/test_p0_engineering_core.py::MudLedgerEngineTests::test_negative_stock_alert"
+  ],
+  "core/engineering/core.py:ChemicalLedgerEntry.closing_stock": [
+    "tests/test_p0_engineering_core.py::MudLedgerEngineTests::test_closing_formula",
+    "tests/test_p0_engineering_core.py::MudLedgerEngineTests::test_negative_stock_alert"
+  ],
+  "core/engineering/core.py:HydraulicsEngine.calculate_annular_velocity": [
+    "tests/test_engineering_ground_truth.py::HydraulicsGroundTruth::test_av_and_ecd",
+    "tests/test_p0_engineering_core.py::HydraulicsEngineTests::test_annular_velocity"
+  ],
+  "core/engineering/core.py:HydraulicsEngine.calculate_ecd": [
+    "tests/test_engineering_ground_truth.py::HydraulicsGroundTruth::test_av_and_ecd",
+    "tests/test_p0_engineering_core.py::HydraulicsEngineTests::test_ecd"
+  ],
+  "core/engineering/core.py:HydraulicsEngine.calculate_pv_yp": [
+    "tests/test_p0_engineering_core.py::HydraulicsEngineTests::test_pv_yp"
+  ],
+  "core/engineering/core.py:MudLedgerEngine.build_history": [
+    "tests/test_p0_engineering_core.py::MudLedgerEngineTests::test_history"
+  ],
+  "core/engineering/core.py:MudLedgerEngine.next_day_opening": [
+    "tests/test_p0_engineering_core.py::MudLedgerEngineTests::test_next_day_opening"
+  ],
+  "core/engineering/core.py:TrajectoryEngine.calculate": [
+    "tests/test_engineering_completion.py::test_torque_drag_contract_remains_screening_not_production",
+    "tests/test_engineering_completion.py::test_trajectory_bit_and_mse_canonical_ground_truths",
+    "tests/test_engineering_ground_truth.py::TorqueDragGroundTruth::test_buckling_uses_local_compression",
+    "tests/test_engineering_ground_truth.py::TorqueDragGroundTruth::test_neutral_point_with_wob",
+    "tests/test_engineering_ground_truth.py::TorqueDragGroundTruth::test_vertical_buoyed_weight",
+    "tests/test_engineering_ground_truth.py::TrajectoryGroundTruth::test_first_station_md_zero",
+    "tests/test_engineering_ground_truth.py::TrajectoryGroundTruth::test_first_station_tvd_from_inc",
+    "tests/test_engineering_ground_truth.py::TrajectoryGroundTruth::test_project_ahead_recomputes_vs",
+    "tests/test_engineering_ground_truth.py::TrajectoryGroundTruth::test_tie_on_overrides_origin",
+    "tests/test_engineering_ground_truth.py::TrajectoryGroundTruth::test_vs_from_north_east",
+    "tests/test_p0_engineering_core.py::TrajectoryEngineTests::test_dls_calculation",
+    "tests/test_p0_engineering_core.py::TrajectoryEngineTests::test_duplicate_md_detection",
+    "tests/test_p0_engineering_core.py::TrajectoryEngineTests::test_minimum_curvature_build",
+    "tests/test_p0_engineering_core.py::TrajectoryEngineTests::test_minimum_curvature_vertical",
+    "tests/test_p0_engineering_core.py::TrajectoryEngineTests::test_missing_input",
+    "tests/test_p0_engineering_core.py::TrajectoryEngineTests::test_non_monotonic_md_detection"
+  ],
+  "core/engineering/core.py:TrajectoryEngine.calculate_build_rate": [
+    "tests/test_engineering_completion.py::test_torque_drag_contract_remains_screening_not_production",
+    "tests/test_engineering_completion.py::test_trajectory_bit_and_mse_canonical_ground_truths",
+    "tests/test_engineering_ground_truth.py::TorqueDragGroundTruth::test_buckling_uses_local_compression",
+    "tests/test_engineering_ground_truth.py::TorqueDragGroundTruth::test_neutral_point_with_wob",
+    "tests/test_engineering_ground_truth.py::TorqueDragGroundTruth::test_vertical_buoyed_weight",
+    "tests/test_engineering_ground_truth.py::TrajectoryGroundTruth::test_project_ahead_recomputes_vs",
+    "tests/test_engineering_ground_truth.py::TrajectoryGroundTruth::test_vs_from_north_east",
+    "tests/test_p0_engineering_core.py::TrajectoryEngineTests::test_dls_calculation",
+    "tests/test_p0_engineering_core.py::TrajectoryEngineTests::test_minimum_curvature_build",
+    "tests/test_p0_engineering_core.py::TrajectoryEngineTests::test_minimum_curvature_vertical"
+  ],
+  "core/engineering/core.py:TrajectoryEngine.calculate_turn_rate": [
+    "tests/test_engineering_completion.py::test_torque_drag_contract_remains_screening_not_production",
+    "tests/test_engineering_completion.py::test_trajectory_bit_and_mse_canonical_ground_truths",
+    "tests/test_engineering_ground_truth.py::TorqueDragGroundTruth::test_buckling_uses_local_compression",
+    "tests/test_engineering_ground_truth.py::TorqueDragGroundTruth::test_neutral_point_with_wob",
+    "tests/test_engineering_ground_truth.py::TorqueDragGroundTruth::test_vertical_buoyed_weight",
+    "tests/test_engineering_ground_truth.py::TrajectoryGroundTruth::test_project_ahead_recomputes_vs",
+    "tests/test_engineering_ground_truth.py::TrajectoryGroundTruth::test_vs_from_north_east",
+    "tests/test_p0_engineering_core.py::TrajectoryEngineTests::test_dls_calculation",
+    "tests/test_p0_engineering_core.py::TrajectoryEngineTests::test_minimum_curvature_build",
+    "tests/test_p0_engineering_core.py::TrajectoryEngineTests::test_minimum_curvature_vertical"
+  ],
+  "core/engineering/core.py:TrajectoryEngine.project_ahead": [
+    "tests/test_engineering_ground_truth.py::TrajectoryGroundTruth::test_project_ahead_recomputes_vs"
+  ],
+  "core/engineering/core.py:WellControlEngine.calculate_kill_mw": [
+    "tests/test_p0_engineering_core.py::WellControlEngineTests::test_kill_mw"
+  ],
+  "core/engineering/core.py:WellControlEngine.calculate_maasp": [
+    "tests/test_p0_engineering_core.py::WellControlEngineTests::test_maasp"
+  ],
+  "core/engineering/engines/anti_collision.py:AntiCollisionEngine.screen_clearance": [
+    "tests/test_engineering_completion.py::test_ai_anti_collision_preserves_failure_and_screening_metadata",
+    "tests/test_engineering_completion.py::test_bridge_exposes_anti_collision_engineering_result"
+  ],
+  "core/engineering/engines/bit_performance.py:BitPerformanceEngine.cost_per_foot": [
+    "tests/test_engineering_integrations.py::TestCostPerFoot::test_full_cycle",
+    "tests/test_engineering_integrations.py::TestCostPerFoot::test_known_value",
+    "tests/test_engineering_integrations.py::TestCostPerFoot::test_zero_footage"
+  ],
+  "core/engineering/engines/bit_performance.py:BitPerformanceEngine.d_exponent": [
+    "tests/test_engineering_integrations.py::TestBitHydraulicsCanonical::test_d_exponent_from_stored_units",
+    "tests/test_engineering_integrations.py::TestDExponent::test_corrected",
+    "tests/test_engineering_integrations.py::TestDExponent::test_invalid_inputs",
+    "tests/test_engineering_integrations.py::TestDExponent::test_known_value"
+  ],
+  "core/engineering/engines/bit_performance.py:BitPerformanceEngine.d_exponent_corrected": [
+    "tests/test_engineering_integrations.py::TestDExponent::test_corrected"
+  ],
+  "core/engineering/engines/bit_performance.py:BitPerformanceEngine.from_run": [
+    "tests/test_engineering_completion.py::test_trajectory_bit_and_mse_canonical_ground_truths",
+    "tests/test_engineering_ground_truth.py::BitPerformanceFromDdr::test_rop_from_run"
+  ],
+  "core/engineering/engines/casing.py:CasingEngine.burst": [
+    "tests/test_engineering_completion.py::test_casing_and_cement_results_keep_explicit_scope",
+    "tests/test_engineering_ground_truth.py::CasingGroundTruth::test_barlow_burst_9_625_n80",
+    "tests/test_engineering_ground_truth.py::CasingGroundTruth::test_connection_governs_when_supplied"
+  ],
+  "core/engineering/engines/casing.py:CasingEngine.collapse": [
+    "tests/test_engineering_completion.py::test_casing_and_cement_results_keep_explicit_scope",
+    "tests/test_engineering_ground_truth.py::CasingGroundTruth::test_collapse_combined_pi_correction",
+    "tests/test_engineering_ground_truth.py::CasingGroundTruth::test_collapse_four_regime_returns_regime",
+    "tests/test_engineering_ground_truth.py::CasingGroundTruth::test_connection_governs_when_supplied"
+  ],
+  "core/engineering/engines/casing.py:CasingEngine.collapse_combined": [
+    "tests/test_engineering_completion.py::test_casing_and_cement_results_keep_explicit_scope",
+    "tests/test_engineering_ground_truth.py::CasingGroundTruth::test_collapse_combined_pi_correction",
+    "tests/test_engineering_ground_truth.py::CasingGroundTruth::test_connection_governs_when_supplied"
+  ],
+  "core/engineering/engines/casing.py:CasingEngine.evaluate": [
+    "tests/test_engineering_completion.py::test_casing_and_cement_results_keep_explicit_scope",
+    "tests/test_engineering_ground_truth.py::CasingGroundTruth::test_connection_governs_when_supplied"
+  ],
+  "core/engineering/engines/casing.py:CasingEngine.fyax": [
+    "tests/test_engineering_completion.py::test_casing_and_cement_results_keep_explicit_scope",
+    "tests/test_engineering_ground_truth.py::CasingGroundTruth::test_collapse_combined_pi_correction",
+    "tests/test_engineering_ground_truth.py::CasingGroundTruth::test_connection_governs_when_supplied",
+    "tests/test_engineering_ground_truth.py::CasingGroundTruth::test_fyax_tension_z_half"
+  ],
+  "core/engineering/engines/casing.py:CasingEngine.tensile": [
+    "tests/test_engineering_completion.py::test_casing_and_cement_results_keep_explicit_scope",
+    "tests/test_engineering_ground_truth.py::CasingGroundTruth::test_connection_governs_when_supplied"
+  ],
+  "core/engineering/engines/casing.py:CasingEngine.triaxial_vme": [
+    "tests/test_engineering_ground_truth.py::CasingGroundTruth::test_vme_inner_wall_internal_only"
+  ],
+  "core/engineering/engines/cement.py:CementEngine.hydrostatic_column": [
+    "tests/test_engineering_ground_truth.py::CementHonesty::test_hydrostatic_stack"
+  ],
+  "core/engineering/engines/cement.py:CementEngine.job_volumes": [
+    "tests/test_engineering_completion.py::test_casing_and_cement_results_keep_explicit_scope",
+    "tests/test_engineering_ground_truth.py::CementHonesty::test_sacks_from_yield_not_invented",
+    "tests/test_engineering_ground_truth.py::CementHonesty::test_volume_scope_complete_worksheet"
+  ],
+  "core/engineering/engines/fishing.py:FishingEngine.backoff_depth": [
+    "tests/test_engineering_completion.py::test_fishing_modulus_is_in_result_and_affects_backoff"
+  ],
+  "core/engineering/engines/mse.py:MSEEngine.calculate": [
+    "tests/test_engineering_completion.py::test_trajectory_bit_and_mse_canonical_ground_truths",
+    "tests/test_engineering_ground_truth.py::MSEGroundTruth::test_teale_120pi",
+    "tests/test_engineering_ground_truth.py::MSEGroundTruth::test_zero_rop_is_error_not_invented"
+  ],
+  "core/engineering/engines/mud_volume.py:MudVolumeEngine.balance": [
+    "tests/test_engineering_ground_truth.py::MudVolumeGroundTruth::test_balance"
+  ],
+  "core/engineering/engines/mud_volume.py:MudVolumeEngine.weight_up": [
+    "tests/test_engineering_completion.py::test_mud_volume_requires_additive_density_for_weight_up",
+    "tests/test_engineering_ground_truth.py::MudVolumeGroundTruth::test_weight_up_requires_density"
+  ],
+  "core/engineering/engines/torque_drag.py:TorqueDragEngine.buoyancy_factor": [
+    "tests/test_engineering_completion.py::test_torque_drag_contract_remains_screening_not_production",
+    "tests/test_engineering_ground_truth.py::TorqueDragGroundTruth::test_buckling_uses_local_compression",
+    "tests/test_engineering_ground_truth.py::TorqueDragGroundTruth::test_neutral_point_with_wob",
+    "tests/test_engineering_ground_truth.py::TorqueDragGroundTruth::test_vertical_buoyed_weight"
+  ],
+  "core/engineering/engines/torque_drag.py:TorqueDragEngine.calculate": [
+    "tests/test_engineering_completion.py::test_torque_drag_contract_remains_screening_not_production",
+    "tests/test_engineering_ground_truth.py::AIToolsCallEngines::test_td_no_silent_friction",
+    "tests/test_engineering_ground_truth.py::TorqueDragGroundTruth::test_buckling_uses_local_compression",
+    "tests/test_engineering_ground_truth.py::TorqueDragGroundTruth::test_friction_not_defaulted",
+    "tests/test_engineering_ground_truth.py::TorqueDragGroundTruth::test_neutral_point_with_wob",
+    "tests/test_engineering_ground_truth.py::TorqueDragGroundTruth::test_vertical_buoyed_weight"
+  ],
+  "core/engineering/engines/well_control.py:WellControlEngine.calculate_kill_mw": [
+    "tests/test_p0_engineering_core.py::WellControlEngineTests::test_kill_mw"
+  ],
+  "core/engineering/engines/well_control.py:WellControlEngine.calculate_maasp": [
+    "tests/test_p0_engineering_core.py::WellControlEngineTests::test_maasp"
+  ],
+  "core/engineering/engines/well_control.py:WellControlEngine.eaton_fracture_gradient": [
+    "tests/test_engineering_integrations.py::TestWellControlAdditions::test_eaton_known_value",
+    "tests/test_engineering_integrations.py::TestWellControlAdditions::test_eaton_poisson_bounds"
+  ],
+  "core/engineering/engines/well_control.py:WellControlEngine.influx_type": [
+    "tests/test_engineering_integrations.py::TestWellControlAdditions::test_influx_type_gas",
+    "tests/test_engineering_integrations.py::TestWellControlAdditions::test_influx_type_invalid",
+    "tests/test_engineering_integrations.py::TestWellControlAdditions::test_influx_type_saltwater"
+  ],
+  "core/engineering/engines/well_control.py:WellControlEngine.kick_tolerance": [
+    "tests/test_engineering_completion.py::test_well_control_missing_critical_influx_input_is_explicit",
+    "tests/test_engineering_ground_truth.py::AIToolsCallEngines::test_kick_tolerance_tool",
+    "tests/test_engineering_ground_truth.py::KickToleranceGroundTruth::test_iwcf_gas_kick_tolerance_bbl",
+    "tests/test_engineering_ground_truth.py::KickToleranceGroundTruth::test_kick_tolerance_requires_influx_gradient"
+  ],
+  "core/engineering/engines/well_control.py:WellControlEngine.trip_margin": [
+    "tests/test_engineering_ground_truth.py::TripMarginGroundTruth::test_trip_margin_ppg_and_psi"
+  ],
+  "core/engineering/extended.py:CasingDesign.burst_pressure": [
+    "tests/test_extended_engineering.py::TestCasingDesign::test_burst_pressure"
+  ],
+  "core/engineering/extended.py:CasingDesign.collapse_pressure": [
+    "tests/test_extended_engineering.py::TestCasingDesign::test_collapse_pressure"
+  ],
+  "core/engineering/extended.py:CasingDesign.hydrostatic_pressure": [
+    "tests/test_extended_engineering.py::TestCasingDesign::test_hydrostatic_pressure"
+  ],
+  "core/engineering/extended.py:CementingEngine.cement_volume_annular": [
+    "tests/test_extended_engineering.py::TestCementingEngine::test_annular_volume"
+  ],
+  "core/engineering/extended.py:CementingEngine.cement_volume_pipe": [
+    "tests/test_extended_engineering.py::TestCementingEngine::test_pipe_volume"
+  ],
+  "core/engineering/extended.py:CementingEngine.slurry_density": [
+    "tests/test_extended_engineering.py::TestCementingEngine::test_slurry_density"
+  ],
+  "core/engineering/extended.py:DirectionalExtended.azimuth_from_magnetometers": [
+    "tests/test_extended_engineering.py::TestDirectionalExtended::test_azimuth_from_magnetometers"
+  ],
+  "core/engineering/extended.py:DirectionalExtended.deviation_from_vertical": [
+    "tests/test_extended_engineering.py::TestDirectionalExtended::test_deviation"
+  ],
+  "core/engineering/extended.py:DirectionalExtended.inclination_from_accelerometers": [
+    "tests/test_extended_engineering.py::TestDirectionalExtended::test_inclination_from_accelerometers"
+  ],
+  "core/engineering/extended.py:DirectionalExtended.slide_rotor_ratio": [
+    "tests/test_extended_engineering.py::TestDirectionalExtended::test_slide_rotor"
+  ],
+  "core/engineering/extended.py:DirectionalExtended.tool_face_offset": [
+    "tests/test_extended_engineering.py::TestDirectionalExtended::test_tool_face_offset"
+  ],
+  "core/engineering/extended.py:HydraulicsExtended.bit_nozzle_pressure_drop": [
+    "tests/test_extended_engineering.py::TestHydraulicsExtended::test_bit_nozzle_pressure_drop"
+  ],
+  "core/engineering/extended.py:HydraulicsExtended.impact_force": [
+    "tests/test_extended_engineering.py::TestHydraulicsExtended::test_impact_force"
+  ],
+  "core/engineering/extended.py:HydraulicsExtended.jet_velocity": [
+    "tests/test_extended_engineering.py::TestHydraulicsExtended::test_jet_velocity"
+  ],
+  "core/engineering/extended.py:HydraulicsExtended.pressure_loss_annular": [
+    "tests/test_extended_engineering.py::TestHydraulicsExtended::test_annular_pressure_loss"
+  ],
+  "core/engineering/extended.py:HydraulicsExtended.pressure_loss_pipe": [
+    "tests/test_extended_engineering.py::TestHydraulicsExtended::test_pipe_pressure_loss"
+  ],
+  "core/engineering/extended.py:MudEngineering.corrosion_rate": [
+    "tests/test_engineering_integrations.py::TestMudLabAdditions::test_corrosion_rate",
+    "tests/test_engineering_integrations.py::TestMudLabAdditions::test_corrosion_rate_invalid"
+  ],
+  "core/engineering/extended.py:MudEngineering.excess_lime_obm": [
+    "tests/test_engineering_integrations.py::TestMudLabAdditions::test_excess_lime"
+  ],
+  "core/engineering/extended.py:MudEngineering.funnel_viscosity_to_pv_yp": [
+    "tests/test_extended_engineering.py::TestMudEngineering::test_funnel_viscosity"
+  ],
+  "core/engineering/extended.py:MudEngineering.lsryp": [
+    "tests/test_engineering_integrations.py::TestMudLabAdditions::test_lsryp",
+    "tests/test_engineering_integrations.py::TestMudLabAdditions::test_lsryp_sag_warning"
+  ],
+  "core/engineering/extended.py:MudEngineering.mbt_bentonite_equiv": [
+    "tests/test_engineering_integrations.py::TestMudLabAdditions::test_mbt_bentonite_equiv",
+    "tests/test_engineering_integrations.py::TestMudLabAdditions::test_mbt_invalid_sample"
+  ],
+  "core/engineering/extended.py:MudEngineering.mix_two_muds": [
+    "tests/test_extended_engineering.py::TestMudEngineering::test_mix_two_muds"
+  ],
+  "core/engineering/extended.py:MudEngineering.mud_weighting": [
+    "tests/test_extended_engineering.py::TestMudEngineering::test_mud_weighting",
+    "tests/test_extended_engineering.py::TestMudEngineering::test_mud_weighting_invalid"
+  ],
+  "core/engineering/extended.py:MudEngineering.oil_water_ratio": [
+    "tests/test_extended_engineering.py::TestMudEngineering::test_oil_water_ratio"
+  ],
+  "core/engineering/extended.py:MudEngineering.slug_dry_length": [
+    "tests/test_engineering_integrations.py::TestMudLabAdditions::test_slug_dry_length"
+  ],
+  "core/engineering/extended.py:MudEngineering.solids_content": [
+    "tests/test_extended_engineering.py::TestMudEngineering::test_solids_content"
+  ],
+  "core/engineering/extended.py:ROPModels.bourgoyne_young_rop": [
+    "tests/test_extended_engineering.py::TestROPModels::test_bourgoyne_young",
+    "tests/test_extended_engineering.py::TestROPModels::test_bourgoyne_young_invalid"
+  ],
+  "core/engineering/extended.py:WellControlExtended.formation_pressure": [
+    "tests/test_extended_engineering.py::TestWellControlExtended::test_formation_pressure"
+  ],
+  "core/engineering/extended.py:WellControlExtended.kick_tolerance": [
+    "tests/test_extended_engineering.py::TestWellControlExtended::test_kick_tolerance"
+  ],
+  "core/engineering/extended.py:WellControlExtended.wait_weight_method": [
+    "tests/test_extended_engineering.py::TestWellControlExtended::test_wait_weight"
+  ],
+  "core/engineering/result.py:EngineeringResult.as_dict": [
+    "tests/test_engineering_ground_truth.py::AIToolsCallEngines::test_kick_tolerance_tool",
+    "tests/test_engineering_ground_truth.py::AIToolsCallEngines::test_td_no_silent_friction"
+  ],
+  "core/engineering/result.py:failed": [
+    "tests/test_engineering_ground_truth.py::MSEGroundTruth::test_zero_rop_is_error_not_invented",
+    "tests/test_engineering_integrations.py::TestCostPerFoot::test_zero_footage",
+    "tests/test_engineering_integrations.py::TestDExponent::test_invalid_inputs",
+    "tests/test_engineering_integrations.py::TestWellControlAdditions::test_eaton_poisson_bounds",
+    "tests/test_engineering_integrations.py::TestWellControlAdditions::test_influx_type_invalid"
+  ],
+  "core/engineering/result.py:missing": [
+    "tests/test_engineering_completion.py::test_ai_anti_collision_preserves_failure_and_screening_metadata",
+    "tests/test_engineering_completion.py::test_mud_volume_requires_additive_density_for_weight_up",
+    "tests/test_engineering_completion.py::test_well_control_missing_critical_influx_input_is_explicit",
+    "tests/test_engineering_ground_truth.py::AIToolsCallEngines::test_td_no_silent_friction",
+    "tests/test_engineering_ground_truth.py::KickToleranceGroundTruth::test_kick_tolerance_requires_influx_gradient",
+    "tests/test_engineering_ground_truth.py::MudVolumeGroundTruth::test_weight_up_requires_density",
+    "tests/test_engineering_ground_truth.py::TorqueDragGroundTruth::test_friction_not_defaulted"
+  ],
+  "core/engineering/result.py:ok": [
+    "tests/test_engineering_completion.py::test_actual_vs_plan_compares_only_present_metrics",
+    "tests/test_engineering_completion.py::test_actual_vs_plan_does_not_invent_missing_actual_data",
+    "tests/test_engineering_completion.py::test_ai_anti_collision_preserves_failure_and_screening_metadata",
+    "tests/test_engineering_completion.py::test_bridge_exposes_anti_collision_engineering_result",
+    "tests/test_engineering_completion.py::test_casing_and_cement_results_keep_explicit_scope",
+    "tests/test_engineering_completion.py::test_database_actual_vs_plan_uses_recorded_hours_and_costs_only",
+    "tests/test_engineering_completion.py::test_fishing_modulus_is_in_result_and_affects_backoff",
+    "tests/test_engineering_completion.py::test_torque_drag_contract_remains_screening_not_production",
+    "tests/test_engineering_completion.py::test_trajectory_bit_and_mse_canonical_ground_truths",
+    "tests/test_engineering_ground_truth.py::AIToolsCallEngines::test_kick_tolerance_tool",
+    "tests/test_engineering_ground_truth.py::BitPerformanceFromDdr::test_rop_from_run",
+    "tests/test_engineering_ground_truth.py::CasingGroundTruth::test_barlow_burst_9_625_n80",
+    "tests/test_engineering_ground_truth.py::CasingGroundTruth::test_collapse_combined_pi_correction",
+    "tests/test_engineering_ground_truth.py::CasingGroundTruth::test_collapse_four_regime_returns_regime",
+    "tests/test_engineering_ground_truth.py::CasingGroundTruth::test_connection_governs_when_supplied",
+    "tests/test_engineering_ground_truth.py::CasingGroundTruth::test_vme_inner_wall_internal_only",
+    "tests/test_engineering_ground_truth.py::CementHonesty::test_hydrostatic_stack",
+    "tests/test_engineering_ground_truth.py::CementHonesty::test_sacks_from_yield_not_invented",
+    "tests/test_engineering_ground_truth.py::CementHonesty::test_volume_scope_complete_worksheet",
+    "tests/test_engineering_ground_truth.py::KickToleranceGroundTruth::test_iwcf_gas_kick_tolerance_bbl",
+    "tests/test_engineering_ground_truth.py::MSEGroundTruth::test_teale_120pi",
+    "tests/test_engineering_ground_truth.py::MudVolumeGroundTruth::test_balance",
+    "tests/test_engineering_ground_truth.py::TorqueDragGroundTruth::test_buckling_uses_local_compression",
+    "tests/test_engineering_ground_truth.py::TorqueDragGroundTruth::test_neutral_point_with_wob",
+    "tests/test_engineering_ground_truth.py::TorqueDragGroundTruth::test_vertical_buoyed_weight",
+    "tests/test_engineering_ground_truth.py::TripMarginGroundTruth::test_trip_margin_ppg_and_psi",
+    "tests/test_engineering_integrations.py::TestBitHydraulicsCanonical::test_d_exponent_from_stored_units",
+    "tests/test_engineering_integrations.py::TestCostPerFoot::test_full_cycle",
+    "tests/test_engineering_integrations.py::TestCostPerFoot::test_known_value",
+    "tests/test_engineering_integrations.py::TestDExponent::test_corrected",
+    "tests/test_engineering_integrations.py::TestDExponent::test_known_value",
+    "tests/test_engineering_integrations.py::TestWellControlAdditions::test_eaton_known_value",
+    "tests/test_engineering_integrations.py::TestWellControlAdditions::test_influx_type_gas",
+    "tests/test_engineering_integrations.py::TestWellControlAdditions::test_influx_type_saltwater"
+  ],
+  "core/engineering/result.py:optional_number": [
+    "tests/test_engineering_completion.py::test_ai_anti_collision_preserves_failure_and_screening_metadata",
+    "tests/test_engineering_completion.py::test_bridge_exposes_anti_collision_engineering_result",
+    "tests/test_engineering_completion.py::test_casing_and_cement_results_keep_explicit_scope",
+    "tests/test_engineering_completion.py::test_torque_drag_contract_remains_screening_not_production",
+    "tests/test_engineering_completion.py::test_trajectory_bit_and_mse_canonical_ground_truths",
+    "tests/test_engineering_completion.py::test_well_control_missing_critical_influx_input_is_explicit",
+    "tests/test_engineering_ground_truth.py::AIToolsCallEngines::test_kick_tolerance_tool",
+    "tests/test_engineering_ground_truth.py::BitPerformanceFromDdr::test_rop_from_run",
+    "tests/test_engineering_ground_truth.py::CasingGroundTruth::test_barlow_burst_9_625_n80",
+    "tests/test_engineering_ground_truth.py::CasingGroundTruth::test_collapse_combined_pi_correction",
+    "tests/test_engineering_ground_truth.py::CasingGroundTruth::test_collapse_four_regime_returns_regime",
+    "tests/test_engineering_ground_truth.py::CasingGroundTruth::test_connection_governs_when_supplied",
+    "tests/test_engineering_ground_truth.py::CementHonesty::test_hydrostatic_stack",
+    "tests/test_engineering_ground_truth.py::CementHonesty::test_sacks_from_yield_not_invented",
+    "tests/test_engineering_ground_truth.py::CementHonesty::test_volume_scope_complete_worksheet",
+    "tests/test_engineering_ground_truth.py::KickToleranceGroundTruth::test_iwcf_gas_kick_tolerance_bbl",
+    "tests/test_engineering_ground_truth.py::KickToleranceGroundTruth::test_kick_tolerance_requires_influx_gradient",
+    "tests/test_engineering_ground_truth.py::TorqueDragGroundTruth::test_buckling_uses_local_compression",
+    "tests/test_engineering_ground_truth.py::TorqueDragGroundTruth::test_neutral_point_with_wob",
+    "tests/test_engineering_ground_truth.py::TorqueDragGroundTruth::test_vertical_buoyed_weight",
+    "tests/test_engineering_ground_truth.py::TripMarginGroundTruth::test_trip_margin_ppg_and_psi"
+  ],
+  "core/engineering/result.py:require_number": [
+    "tests/test_engineering_completion.py::test_actual_vs_plan_compares_only_present_metrics",
+    "tests/test_engineering_completion.py::test_actual_vs_plan_does_not_invent_missing_actual_data",
+    "tests/test_engineering_completion.py::test_ai_anti_collision_preserves_failure_and_screening_metadata",
+    "tests/test_engineering_completion.py::test_bridge_exposes_anti_collision_engineering_result",
+    "tests/test_engineering_completion.py::test_casing_and_cement_results_keep_explicit_scope",
+    "tests/test_engineering_completion.py::test_database_actual_vs_plan_uses_recorded_hours_and_costs_only",
+    "tests/test_engineering_completion.py::test_fishing_modulus_is_in_result_and_affects_backoff",
+    "tests/test_engineering_completion.py::test_mud_volume_requires_additive_density_for_weight_up",
+    "tests/test_engineering_completion.py::test_torque_drag_contract_remains_screening_not_production",
+    "tests/test_engineering_completion.py::test_trajectory_bit_and_mse_canonical_ground_truths",
+    "tests/test_engineering_completion.py::test_well_control_missing_critical_influx_input_is_explicit",
+    "tests/test_engineering_ground_truth.py::AIToolsCallEngines::test_kick_tolerance_tool",
+    "tests/test_engineering_ground_truth.py::AIToolsCallEngines::test_td_no_silent_friction",
+    "tests/test_engineering_ground_truth.py::CasingGroundTruth::test_barlow_burst_9_625_n80",
+    "tests/test_engineering_ground_truth.py::CasingGroundTruth::test_collapse_combined_pi_correction",
+    "tests/test_engineering_ground_truth.py::CasingGroundTruth::test_collapse_four_regime_returns_regime",
+    "tests/test_engineering_ground_truth.py::CasingGroundTruth::test_connection_governs_when_supplied",
+    "tests/test_engineering_ground_truth.py::CasingGroundTruth::test_vme_inner_wall_internal_only",
+    "tests/test_engineering_ground_truth.py::CementHonesty::test_hydrostatic_stack",
+    "tests/test_engineering_ground_truth.py::CementHonesty::test_sacks_from_yield_not_invented",
+    "tests/test_engineering_ground_truth.py::CementHonesty::test_volume_scope_complete_worksheet",
+    "tests/test_engineering_ground_truth.py::KickToleranceGroundTruth::test_iwcf_gas_kick_tolerance_bbl",
+    "tests/test_engineering_ground_truth.py::KickToleranceGroundTruth::test_kick_tolerance_requires_influx_gradient",
+    "tests/test_engineering_ground_truth.py::MSEGroundTruth::test_teale_120pi",
+    "tests/test_engineering_ground_truth.py::MSEGroundTruth::test_zero_rop_is_error_not_invented",
+    "tests/test_engineering_ground_truth.py::MudVolumeGroundTruth::test_balance",
+    "tests/test_engineering_ground_truth.py::MudVolumeGroundTruth::test_weight_up_requires_density",
+    "tests/test_engineering_ground_truth.py::TorqueDragGroundTruth::test_buckling_uses_local_compression",
+    "tests/test_engineering_ground_truth.py::TorqueDragGroundTruth::test_friction_not_defaulted",
+    "tests/test_engineering_ground_truth.py::TorqueDragGroundTruth::test_neutral_point_with_wob",
+    "tests/test_engineering_ground_truth.py::TorqueDragGroundTruth::test_vertical_buoyed_weight",
+    "tests/test_engineering_ground_truth.py::TripMarginGroundTruth::test_trip_margin_ppg_and_psi",
+    "tests/test_engineering_integrations.py::TestBitHydraulicsCanonical::test_d_exponent_from_stored_units",
+    "tests/test_engineering_integrations.py::TestCostPerFoot::test_full_cycle",
+    "tests/test_engineering_integrations.py::TestCostPerFoot::test_known_value",
+    "tests/test_engineering_integrations.py::TestCostPerFoot::test_zero_footage",
+    "tests/test_engineering_integrations.py::TestDExponent::test_corrected",
+    "tests/test_engineering_integrations.py::TestDExponent::test_invalid_inputs",
+    "tests/test_engineering_integrations.py::TestDExponent::test_known_value",
+    "tests/test_engineering_integrations.py::TestWellControlAdditions::test_eaton_known_value",
+    "tests/test_engineering_integrations.py::TestWellControlAdditions::test_eaton_poisson_bounds",
+    "tests/test_engineering_integrations.py::TestWellControlAdditions::test_influx_type_gas",
+    "tests/test_engineering_integrations.py::TestWellControlAdditions::test_influx_type_invalid",
+    "tests/test_engineering_integrations.py::TestWellControlAdditions::test_influx_type_saltwater",
+    "tests/test_p0_engineering_core.py::WellControlEngineTests::test_kill_mw",
+    "tests/test_p0_engineering_core.py::WellControlEngineTests::test_maasp"
+  ]
+}

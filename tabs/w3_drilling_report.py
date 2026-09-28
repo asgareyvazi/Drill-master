@@ -4,29 +4,64 @@ Drilling Report - کلاس اصلی یکپارچه برای تمام تب‌ها
 
 import logging
 import json
-from datetime import datetime, date
-from typing import Dict, List, Optional, Any
+from datetime import date
 
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
 import os
-from PySide6.QtPrintSupport import QPrinter, QPrintDialog
-from PySide6.QtSvg import QSvgGenerator
 
-from core.database import DatabaseManager
 from core.managers import (
     StatusBarManager,
-    AutoSaveManager,
-    ShortcutManager,
-    TableButtonManager,
-    ExportManager,
     DrillingManager,
 )
+from core.editor_state import editor_loaded, editor_saved
 from core.base_tab import DrillTabBase
-from core.selection_manager import SelectionManager
 
 logger = logging.getLogger(__name__)
+
+
+def _calc_spin(spin, maximum=None):
+    """Derived-value display: the sentinel minimum means "not computed".
+
+    These fields show numbers produced by the engineering engines. A failed or
+    impossible calculation used to be displayed (and then persisted) as 0, which
+    states a measured zero the engines never returned.
+
+    ``maximum`` is the DOCUMENTED domain bound for the field, passed explicitly
+    at each call site — e.g. ``avg_rop`` is 0-500 m/hr in
+    ``core/validators.py`` (``("avg_rop", 0, 500)``). Without it a plain
+    ``QDoubleSpinBox`` inherits Qt's default maximum of 99.99, which silently
+    truncates every larger computed value (see ``_set_calc``).
+    """
+    spin.setMinimum(-1)
+    if maximum is not None:
+        spin.setMaximum(maximum)
+    spin.setSpecialValueText("Not computed")
+    spin.setValue(-1)
+    return spin
+
+
+def _calc_value(spin):
+    """Read a derived-value display: None when the calculation is unavailable."""
+    return None if spin.value() <= spin.minimum() else spin.value()
+
+
+def _set_calc(spin, value):
+    """Show a real result, or fall back to the explicit "not computed" state.
+
+    A computed value outside the widget's range must never be silently clamped:
+    this read-only field is what ``collect_data`` reads for the payload, so Qt's
+    silent ``setValue`` truncation would display AND persist a number the engine
+    never produced (domain plausibility is the validator's job — it warns for
+    ``avg_rop`` outside 0-500 — not the display's).
+    """
+    if value is None:
+        spin.setValue(spin.minimum())
+        return
+    if value > spin.maximum():
+        spin.setMaximum(value)
+    spin.setValue(value)
 
 import matplotlib
 try:
@@ -37,7 +72,6 @@ try:
 except Exception:
     pass
 
-import matplotlib.pyplot as plt
 
 try:
     from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
@@ -71,6 +105,7 @@ class DrillingReportWidget(DrillTabBase):
         self.setup_connections()
         self.register_tabs_with_managers()
         logger.info("DrillingReport initialized")
+        self.configure_save_tracking()
 
     def init_ui(self):
         layout = QVBoxLayout(self)
@@ -168,6 +203,7 @@ class DrillingReportWidget(DrillTabBase):
                     getattr(tab, method)(report_id)
                 except Exception as e:
                     logger.error(f"Error: {e}")
+                    raise
 
     def load_all_tabs(self):
         if not self.current_well:
@@ -212,33 +248,14 @@ class DrillingReportWidget(DrillTabBase):
             )
             return False
 
-        try:
-            results = {
-                "drilling": self.drilling_tab.save_data_for_report(
-                    self.current_report_id
-                ),
-                "mud": self.mud_tab.save_data_for_report(
-                    self.current_report_id
-                ),
-            }
-            success_count = sum(1 for r in results.values() if r)
-            if success_count > 0:
-                self.status_manager.show_success(
-                    "DrillingReport_Main",
-                    f"Saved {success_count}/{len(results)} tabs"
-                )
-                return True
-            else:
-                self.status_manager.show_error(
-                    "DrillingReport_Main", "Failed to save tabs"
-                )
-                return False
-        except Exception as e:
-            logger.error(f"Save all error: {e}")
-            self.status_manager.show_error(
-                "DrillingReport_Main", f"Save error: {str(e)}"
-            )
-            return False
+        from core.save_outcome import save_all
+        self.last_save_outcome = save_all([
+            ("Drilling Parameters", lambda: self.drilling_tab.save_data_for_report(self.current_report_id)),
+            ("Mud", lambda: self.mud_tab.save_data_for_report(self.current_report_id)),
+        ])
+        notifier = self.status_manager.show_success if self.last_save_outcome else self.status_manager.show_error
+        notifier("DrillingReport_Main", self.last_save_outcome.summary())
+        return bool(self.last_save_outcome)
 
     def export_complete_report(self):
         """اکسپورت کامل گزارش حفاری به PDF یا HTML"""
@@ -395,7 +412,7 @@ class DrillingParametersTab(QWidget):
 
         tfa_layout = QHBoxLayout()
         tfa_layout.addWidget(QLabel("Total Flow Area (TFA):"))
-        self.tfa_value = QDoubleSpinBox()
+        self.tfa_value = _calc_spin(QDoubleSpinBox())
         self.tfa_value.setReadOnly(True)
         self.tfa_value.setDecimals(3)
         self.tfa_value.setSuffix(" in²")
@@ -571,13 +588,15 @@ class DrillingParametersTab(QWidget):
         calc_layout = QGridLayout()
 
         calc_layout.addWidget(QLabel("Avg ROP (m/hr):"), 0, 0)
-        self.avg_rop = QDoubleSpinBox()
+        # 0-500 m/hr is the validator's documented domain range for avg_rop
+        # (core/validators.py) — a plain QDoubleSpinBox would default to 99.99.
+        self.avg_rop = _calc_spin(QDoubleSpinBox(), 500)
         self.avg_rop.setReadOnly(True)
         self.avg_rop.setDecimals(2)
         calc_layout.addWidget(self.avg_rop, 0, 1)
 
         calc_layout.addWidget(QLabel("HSI:"), 0, 2)
-        self.hsi = QDoubleSpinBox()
+        self.hsi = _calc_spin(QDoubleSpinBox())
         self.hsi.setReadOnly(True)
         self.hsi.setDecimals(2)
         calc_layout.addWidget(self.hsi, 0, 3)
@@ -685,7 +704,7 @@ class DrillingParametersTab(QWidget):
                         'quantity': qty_widget.value()
                     })
             tfa = DrillingManager.calculate_tfa(nozzles_data)
-            self.tfa_value.setValue(tfa)
+            _set_calc(self.tfa_value, tfa)
         except Exception as e:
             logger.error(f"Error calculating TFA: {e}")
 
@@ -706,7 +725,7 @@ class DrillingParametersTab(QWidget):
             depth_out = self.depth_out.value()
             hours = self.hours_on_bottom.value()
             rop = DrillingManager.calculate_rop(depth_in, depth_out, hours)
-            self.avg_rop.setValue(rop)
+            _set_calc(self.avg_rop, rop)
         except Exception as e:
             logger.error(f"Error calculating ROP: {e}")
 
@@ -716,7 +735,7 @@ class DrillingParametersTab(QWidget):
             flow_rate = (self.pump_output_min.value() + self.pump_output_max.value()) / 2
             bit_size = self.bit_size.value()
             hsi_val = DrillingManager.calculate_hsi(pump_pressure, flow_rate, bit_size)
-            self.hsi.setValue(hsi_val)
+            _set_calc(self.hsi, hsi_val)
         except Exception as e:
             logger.error(f"Error calculating HSI: {e}")
 
@@ -792,6 +811,7 @@ class DrillingParametersTab(QWidget):
     def set_current_well(self, well_id):
         self.current_well = well_id
 
+    @editor_loaded()
     def load_for_report(self, report_id):
         if not self.db_manager:
             return
@@ -801,6 +821,7 @@ class DrillingParametersTab(QWidget):
         else:
             self.clear_form()
 
+    @editor_saved()
     def save_data_for_report(self, report_id):
         if not self.current_well:
             return False
@@ -838,7 +859,7 @@ class DrillingParametersTab(QWidget):
             "manufacturer": self.bit_manufacturer.text(),
             "iadc_code": self.iadc_code.text(),
             "nozzles_json": json.dumps(nozzles_data, indent=2),
-            "tfa": self.tfa_value.value(),
+            "tfa": _calc_value(self.tfa_value),
             "depth_in": self.depth_in.value(),
             "depth_out": self.depth_out.value(),
             "bit_drilled": self.bit_drilled.value(),
@@ -860,8 +881,8 @@ class DrillingParametersTab(QWidget):
             "pump2_spm": self.pump2_spm.value(),
             "pump2_spp": self.pump2_spp.value(),
             "pump_liner_size": self.pump_liner_size.text().strip() or None,
-            "avg_rop": self.avg_rop.value(),
-            "hsi": self.hsi.value(),
+            "avg_rop": _calc_value(self.avg_rop),
+            "hsi": _calc_value(self.hsi),
             "annular_velocity": self.annular_velocity.value(),
             "bit_revolution": self.bit_revolution.value(),
         }
@@ -881,6 +902,7 @@ class DrillingParametersTab(QWidget):
             logger.debug("DrillingParametersTab: no report selected yet")
             return False
         
+    @editor_loaded()
     def load_from_dict(self, data: dict):
         def safe_val(key, default=0):
             v = data.get(key)
@@ -890,6 +912,16 @@ class DrillingParametersTab(QWidget):
                 return float(v)
             except (ValueError, TypeError):
                 return default
+
+        def safe_opt(key):
+            """Stored value, or None when the report holds no recorded number."""
+            v = data.get(key)
+            if v is None:
+                return None
+            try:
+                return float(v)
+            except (ValueError, TypeError):
+                return None
 
         def safe_str(key, default=""):
             v = data.get(key)
@@ -901,9 +933,14 @@ class DrillingParametersTab(QWidget):
 
         bit_type = data.get("bit_type", "")
         if bit_type:
-            index = self.bit_type.findText(str(bit_type))
+            value = str(bit_type)
+            index = self.bit_type.findText(value)
             if index >= 0:
                 self.bit_type.setCurrentIndex(index)
+            else:
+                self.bit_type.setEditable(True)
+                self.bit_type.setCurrentIndex(-1)
+                self.bit_type.setCurrentText(value)
 
         self.bit_manufacturer.setText(safe_str("manufacturer"))
         self.iadc_code.setText(safe_str("iadc_code"))
@@ -922,7 +959,7 @@ class DrillingParametersTab(QWidget):
             except (json.JSONDecodeError, TypeError):
                 pass
 
-        self.tfa_value.setValue(safe_val("tfa"))
+        _set_calc(self.tfa_value, safe_opt("tfa"))
         self.depth_in.setValue(safe_val("depth_in"))
         self.depth_out.setValue(safe_val("depth_out"))
         self.bit_drilled.setValue(safe_val("bit_drilled"))
@@ -944,8 +981,8 @@ class DrillingParametersTab(QWidget):
         self.pump2_spm.setValue(safe_val("pump2_spm"))
         self.pump2_spp.setValue(safe_val("pump2_spp"))
         self.pump_liner_size.setText(safe_str("pump_liner_size"))
-        self.avg_rop.setValue(safe_val("avg_rop"))
-        self.hsi.setValue(safe_val("hsi"))
+        _set_calc(self.avg_rop, safe_opt("avg_rop"))
+        _set_calc(self.hsi, safe_opt("hsi"))
         self.annular_velocity.setValue(safe_val("annular_velocity"))
         self.bit_revolution.setValue(safe_val("bit_revolution"))
         
@@ -957,7 +994,7 @@ class DrillingParametersTab(QWidget):
         self.bit_manufacturer.clear()
         self.iadc_code.clear()
         self.nozzle_table.setRowCount(0)
-        self.tfa_value.setValue(0)
+        self.tfa_value.setValue(self.tfa_value.minimum())
         self.depth_in.setValue(0)
         self.depth_out.setValue(0)
         self.bit_drilled.setValue(0)
@@ -979,8 +1016,8 @@ class DrillingParametersTab(QWidget):
         self.pump2_spm.setValue(0)
         self.pump2_spp.setValue(0)
         self.pump_liner_size.clear()
-        self.avg_rop.setValue(0)
-        self.hsi.setValue(0)
+        self.avg_rop.setValue(self.avg_rop.minimum())
+        self.hsi.setValue(self.hsi.minimum())
         self.annular_velocity.setValue(0)
         self.bit_revolution.setValue(0)
 
@@ -1009,6 +1046,9 @@ class MudReportTab(QWidget):
         self.current_data = {}
         self.init_ui()
         self.setup_connections()
+        self._composition_missing = set()
+        for key in ("solid_percent", "oil_percent", "water_percent"):
+            getattr(self, key).valueChanged.connect(lambda _value, field=key: self._composition_missing.discard(field))
         logger.info("MudReportTab initialized")
 
     def init_ui(self):
@@ -1299,50 +1339,67 @@ class MudReportTab(QWidget):
 
     # ============ Chemicals Table Methods ============
 
-    def add_chemical_row(self, product="", product_type="", received=0,
-                          used=0, stock=0, unit="kg"):
+    def add_chemical_row(self, product="", product_type="", received=None,
+                          used=None, stock=None, unit=None):
         row = self.chemicals_table.rowCount()
         self.chemicals_table.insertRow(row)
 
-        product_edit = QLineEdit(product or f"Chemical_{row+1}")
+        product_edit = QLineEdit(product or "")
         self.chemicals_table.setCellWidget(row, 0, product_edit)
 
         type_combo = QComboBox()
-        type_combo.addItems([
-            "Viscosifier", "Weight Material", "Alkalinity",
-            "Filtration Control", "Lubricant", "Shale Inhibitor"
-        ])
+        from core.domain_records import CHEMICAL_TYPES, chemical_type
+        for identity in CHEMICAL_TYPES:
+            type_combo.addItem(identity, identity)
+        type_combo.setCurrentIndex(-1)
+        resolution = chemical_type(product, product_type)
+        product_type = resolution.identity or ""
         if product_type in [type_combo.itemText(i)
                              for i in range(type_combo.count())]:
             type_combo.setCurrentText(product_type)
+        elif product_type:
+            type_combo.setEditable(True)
+            type_combo.setCurrentIndex(-1)
+            type_combo.setCurrentText(str(product_type))
         self.chemicals_table.setCellWidget(row, 1, type_combo)
 
         received_spin = QDoubleSpinBox()
         received_spin.setRange(0, 10000)
-        received_spin.setValue(received)
+        received_spin.setValue(0 if received is None else received)
         received_spin.valueChanged.connect(
-            lambda val, r=row: self.calculate_stock_for_row(r)
+            lambda val, product=product_edit: self.calculate_stock_for_product(product)
         )
         self.chemicals_table.setCellWidget(row, 2, received_spin)
 
         used_spin = QDoubleSpinBox()
         used_spin.setRange(0, 10000)
-        used_spin.setValue(used)
+        used_spin.setValue(0 if used is None else used)
         used_spin.valueChanged.connect(
-            lambda val, r=row: self.calculate_stock_for_row(r)
+            lambda val, product=product_edit: self.calculate_stock_for_product(product)
         )
         self.chemicals_table.setCellWidget(row, 3, used_spin)
 
         stock_spin = QDoubleSpinBox()
         stock_spin.setRange(-10000, 10000)
-        stock_spin.setValue(stock)
-        stock_spin.setReadOnly(True)
+        stock_spin.setValue(0 if stock is None else stock)
+        stock_spin.setReadOnly(False)  # explicit current reading, never a fabricated opening balance
         self.chemicals_table.setCellWidget(row, 4, stock_spin)
 
         unit_combo = QComboBox()
         unit_combo.addItems(["kg", "lb", "bbl", "gal", "l", "m³"])
-        unit_combo.setCurrentText(unit)
+        unit_combo.setCurrentIndex(-1)
+        if unit in [unit_combo.itemText(i) for i in range(unit_combo.count())]:
+            unit_combo.setCurrentText(unit)
+        elif unit:
+            unit_combo.setEditable(True)
+            unit_combo.setCurrentIndex(-1)
+            unit_combo.setCurrentText(str(unit))
         self.chemicals_table.setCellWidget(row, 5, unit_combo)
+        product_edit.setProperty("source_record", {"product": product, "received": received, "used": used, "stock": stock, "unit": unit})
+        for widget in (received_spin, used_spin, stock_spin):
+            widget.setProperty("explicitly_edited", False)
+            widget.valueChanged.connect(lambda _value, widget=widget: widget.setProperty("explicitly_edited", True))
+            widget.lineEdit().textEdited.connect(lambda _text, widget=widget: widget.setProperty("explicitly_edited", True))
 
     def remove_chemical_row(self):
         current_row = self.chemicals_table.currentRow()
@@ -1350,28 +1407,38 @@ class MudReportTab(QWidget):
             self.chemicals_table.removeRow(current_row)
 
     def calculate_stock(self):
+        return [self.calculate_stock_for_row(row) for row in range(self.chemicals_table.rowCount())]
+
+    def calculate_stock_for_product(self, product):
+        # Locate the stable row owner after deletion/reordering; never capture an old row ordinal.
         for row in range(self.chemicals_table.rowCount()):
-            received_widget = self.chemicals_table.cellWidget(row, 2)
-            used_widget = self.chemicals_table.cellWidget(row, 3)
-            stock_widget = self.chemicals_table.cellWidget(row, 4)
-            if received_widget and used_widget and stock_widget:
-                stock = received_widget.value() - used_widget.value()
-                stock_widget.setValue(stock)
-    
+            if self.chemicals_table.cellWidget(row, 0) is product:
+                return self.calculate_stock_for_row(row)
+
     def calculate_stock_for_row(self, row):
-        """محاسبه خودکار موجودی برای یک ردیف خاص"""
-        received_widget = self.chemicals_table.cellWidget(row, 2)
-        used_widget = self.chemicals_table.cellWidget(row, 3)
-        stock_widget = self.chemicals_table.cellWidget(row, 4)
-        if received_widget and used_widget and stock_widget:
-            stock = received_widget.value() - used_widget.value()
-            stock_widget.setValue(stock)
-    
+        from core.mud_records import chemical_balance
+        product = self.chemicals_table.cellWidget(row, 0)
+        stock = self.chemicals_table.cellWidget(row, 4)
+        if product is None or stock is None:
+            return None
+        record = dict(product.property("source_record") or {})
+        for column, key in ((2, "received"), (3, "used")):
+            widget = self.chemicals_table.cellWidget(row, column)
+            if widget:
+                record[key] = widget.value()
+        result = chemical_balance(record)
+        stock.setProperty("derived_balance", result)
+        stock.setToolTip("Derived balance: " + str(result) + ". Source/current stock is unchanged.")
+        return result
+
     # ============ Update helper methods (for live calculations) ============
     def check_percentages_total(self):
-        total = self.solid_percent.value() + self.oil_percent.value() + self.water_percent.value()
-        if abs(total - 100) > 0.1:
-            logger.warning(f"Solids+Oil+Water = {total:.1f}%, expected 100%")
+        from core.validators import MudValidator
+        if getattr(self, "_composition_missing", set()):
+            return  # incomplete composition is reported once on save, not while loading
+        result = MudValidator.validate({key: getattr(self, key).value() for key in ("solid_percent", "oil_percent", "water_percent")})
+        for issue in result.warnings:
+            logger.warning(str(issue))
 
     def update_mud_volumes(self):
         from core.engineering.engines.mud_volume import MudVolumeEngine
@@ -1425,6 +1492,7 @@ class MudReportTab(QWidget):
     def set_current_well(self, well_id):
         self.current_well = well_id
 
+    @editor_loaded()
     def load_for_report(self, report_id):
         if not self.db_manager:
             return
@@ -1434,14 +1502,18 @@ class MudReportTab(QWidget):
         else:
             self.clear_form()
 
+    @editor_saved()
     def save_data_for_report(self, report_id):
         if not self.current_well:
             return False
+        report = self.db_manager.get_daily_report_by_id(report_id)
+        if not report or not report.get("report_date"):
+            raise ValueError("Mud save requires a valid dated report")
         chemicals = self.collect_chemicals()
         mud_data = {
             "well_id": self.current_well,
             "report_id": report_id,
-            "report_date": date.today(),
+            "report_date": report["report_date"],
             "mud_type": self.mud_type.currentText(),
             "sample_time": self.sample_time.time().toPython(),
             "mw": self.mw.value(),
@@ -1473,18 +1545,33 @@ class MudReportTab(QWidget):
             "summary": self.mud_summary.toPlainText(),
             "chemicals_json": json.dumps(chemicals),
         }
+        from core.mud_records import preserve_widget_values
+        mud_data = preserve_widget_values(getattr(self, "_loaded_mud_source", {}),
+            getattr(self, "_loaded_mud_display", {}), mud_data, getattr(self, "_mud_touched", set()))
+        for key in getattr(self, "_composition_missing", set()):
+            mud_data[key] = None
         # Pit readings are import-only; preserve whatever was loaded.
         if getattr(self, "_pit_volumes_json", None):
             mud_data["pit_volumes_json"] = self._pit_volumes_json
         from core.validators import MudValidator
         validation = MudValidator.validate(mud_data)
         if not validation.is_valid:
-            self.show_error(validation.summary())
+            from core.save_outcome import validation_outcome
+            self.last_save_outcome = validation_outcome("Mud", validation)
+            QMessageBox.critical(self, "Mud validation", validation.summary())
             return False
         if validation.warnings:
-            self.show_warning(validation.summary())
+            QMessageBox.warning(self, "Mud validation", validation.summary())
         result = self.db_manager.save_mud_report(mud_data)
-        return result is not None
+        from core.save_outcome import validation_outcome, SaveIssue
+        self.last_save_outcome = validation_outcome("Mud", validation, saved=1 if result else 0)
+        for index, chemical in enumerate(chemicals, 1):
+            if not chemical.get("type"):
+                self.last_save_outcome.issues.append(SaveIssue("Mud chemicals", "Unresolved chemical category", status="REVIEW_REQUIRED", row=index, field="type",
+                    corrective_action="Confirm a supported catalogue role; original product/quantity/unit are preserved."))
+        if not result:
+            self.last_save_outcome.issues.append(SaveIssue("Mud", "Database did not confirm persistence", status="SYSTEM_ERROR"))
+        return bool(self.last_save_outcome)
 
     def collect_chemicals(self):
         chemicals = []
@@ -1503,6 +1590,22 @@ class MudReportTab(QWidget):
                 "stock": stock_widget.value() if stock_widget else 0,
                 "unit": unit_widget.currentText() if unit_widget else "kg",
             })
+        from core.domain_records import chemical_type
+        for row, chemical in enumerate(chemicals):
+            product = self.chemicals_table.cellWidget(row, 0)
+            source = product.property("source_record") if product else None
+            if isinstance(source, dict):
+                chemical["_provenance"] = source.get("_provenance", {})
+                for column, key in ((2, "received"), (3, "used"), (4, "stock")):
+                    widget = self.chemicals_table.cellWidget(row, column)
+                    if source.get(key) is None and chemical[key] == 0 and not widget.property("explicitly_edited"):
+                        chemical[key] = None
+            chemical["type"] = chemical_type(chemical["product"], chemical["type"]).identity
+            chemical["unit"] = chemical["unit"] or None
+        chemicals = [row for row in chemicals if any(row.get(key) not in (None, "") for key in ("product", "type", "received", "used", "stock", "unit"))]
+        for index, chemical in enumerate(chemicals, 1):
+            if not chemical.get("product"):
+                raise ValueError(f"Mud chemical row {index}: product name is required")
         return chemicals
 
     def save_data(self):
@@ -1520,6 +1623,7 @@ class MudReportTab(QWidget):
             logger.debug("MudReportTab: no report selected yet")
             return False
         
+    @editor_loaded()
     def load_from_dict(self, data: dict):
         def safe_val(key, default=0):
             v = data.get(key)
@@ -1530,7 +1634,14 @@ class MudReportTab(QWidget):
             except (ValueError, TypeError):
                 return default
 
-        self.mud_type.setCurrentText(str(data.get("mud_type", "") or ""))
+        mud_type = str(data.get("mud_type", "") or "")
+        self.mud_type.setCurrentIndex(-1)
+        if mud_type in [self.mud_type.itemText(i) for i in range(self.mud_type.count())]:
+            self.mud_type.setCurrentText(mud_type)
+        elif mud_type:
+            self.mud_type.setEditable(True)
+            self.mud_type.setCurrentIndex(-1)
+            self.mud_type.setCurrentText(mud_type)
         self.mw.setValue(safe_val("mw", 65.0))
         self.pv.setValue(safe_val("pv"))
         self.yp.setValue(safe_val("yp"))
@@ -1548,9 +1659,14 @@ class MudReportTab(QWidget):
         self.cake_thickness.setValue(safe_val("cake_thickness"))
         self.ph.setValue(safe_val("ph", 9.5))
         self.temperature.setValue(safe_val("temperature", 25.0))
-        self.solid_percent.setValue(safe_val("solid_percent"))
-        self.oil_percent.setValue(safe_val("oil_percent"))
-        self.water_percent.setValue(safe_val("water_percent"))
+        self._composition_missing = {key for key in ("solid_percent", "oil_percent", "water_percent") if data.get(key) is None}
+        for key in ("solid_percent", "oil_percent", "water_percent"):
+            widget = getattr(self, key)
+            blocker = QSignalBlocker(widget)
+            widget.setValue(safe_val(key))
+            widget.setToolTip("Not supplied in source" if key in self._composition_missing else "")
+            del blocker
+        self.check_percentages_total()
         self.chloride.setValue(safe_val("chloride"))
         self.calcium.setValue(safe_val("calcium"))
         self.kcl.setValue(safe_val("kcl"))
@@ -1577,10 +1693,12 @@ class MudReportTab(QWidget):
             self.pit_readings.clear()
 
         chemicals_json = data.get("chemicals_json")
+        self.chemicals_table.setRowCount(0)
+        self._chemical_sources = []
         if chemicals_json:
-            self.chemicals_table.setRowCount(0)
             try:
                 chemicals = json.loads(chemicals_json) if isinstance(chemicals_json, str) else chemicals_json
+                self._chemical_sources = chemicals
                 for c in chemicals:
                     self.add_chemical_row(
                         c.get("product", ""),
@@ -1588,43 +1706,49 @@ class MudReportTab(QWidget):
                         float(c.get("received", 0) or 0),
                         float(c.get("used", 0) or 0),
                         float(c.get("stock", 0) or 0),
-                        c.get("unit", "kg"),
+                        c.get("unit"),
                     )
+                    row = self.chemicals_table.rowCount() - 1
+                    self.chemicals_table.cellWidget(row, 0).setProperty("source_record", c)
+                    for column in (2, 3, 4):
+                        widget = self.chemicals_table.cellWidget(row, column)
+                        widget.setProperty("explicitly_edited", False)
+
             except (json.JSONDecodeError, TypeError):
-                pass
-                
+                raise ValueError("Mud chemicals must be a JSON collection of named records")
+
+        from copy import deepcopy
+        self._loaded_mud_source = deepcopy(data)
+        self._loaded_mud_display = {}
+        self._mud_touched = set()
+        for key in data:
+            widget = getattr(self, key, None)
+            if isinstance(widget, (QDoubleSpinBox, QSpinBox)):
+                self._loaded_mud_display[key] = widget.value()
+                if not widget.property("mud_tracking"):
+                    widget.valueChanged.connect(lambda _value, key=key: self._mud_touched.add(key))
+                    widget.lineEdit().textEdited.connect(lambda _text, key=key: (self._mud_touched.add(key), self._composition_missing.discard(key)))
+                    widget.setProperty("mud_tracking", True)
+                if data[key] is None:
+                    widget.setToolTip("Not supplied; unchanged save preserves NULL. Editing supplies a value.")
+        from datetime import time as PythonTime
+        supplied_time = data.get("sample_time")
+        if isinstance(supplied_time, str) and supplied_time:
+            supplied_time = PythonTime.fromisoformat(supplied_time)
+        self.sample_time.blockSignals(True)
+        self.sample_time.setTime(QTime(supplied_time.hour, supplied_time.minute, supplied_time.second) if supplied_time else QTime(0, 0))
+        self.sample_time.setToolTip("Source sample time" if supplied_time else "Not supplied; unchanged save preserves NULL")
+        self.sample_time.blockSignals(False)
+        self._loaded_mud_display["sample_time"] = self.sample_time.time().toPython()
+        if not self.sample_time.property("mud_tracking"):
+            self.sample_time.timeChanged.connect(lambda _value: self._mud_touched.add("sample_time"))
+            self.sample_time.setProperty("mud_tracking", True)
+
     def clear_form(self):
-        self.mud_type.setCurrentIndex(0)
-        self.mw.setValue(65.0)
-        self.pv.setValue(0)
-        self.yp.setValue(0)
-        self.funnel_vis.setValue(0)
-        self.gel_10s.setValue(0)
-        self.gel_10m.setValue(0)
-        self.fl_nc.setChecked(False)
-        self.fl.setEnabled(True)
-        self.fl.setValue(0)
-        self.cake_thickness.setValue(0)
-        self.ph.setValue(9.5)
-        self.temperature.setValue(25.0)
-        self.solid_percent.setValue(0)
-        self.oil_percent.setValue(0)
-        self.water_percent.setValue(0)
-        self.chloride.setValue(0)
-        self.calcium.setValue(0)
-        self.kcl.setValue(0)
-        self.mbt.setValue(0)
-        self.pf_mf.setValue(0)
-        self.total_hardness.setValue(0)
-        self.flowline_temp.setValue(0)
-        self.volume_hole.setValue(0)
-        self.total_circulated.setValue(0)
-        self.loss_downhole.setValue(0)
-        self.loss_surface.setValue(0)
-        self.chemicals_table.setRowCount(0)
-        self.mud_summary.clear()
-        self._pit_volumes_json = None
-        self.pit_readings.clear()
+        numeric = ["mw", "pv", "yp", "funnel_vis", "gel_10s", "gel_10m", "fl", "cake_thickness", "ph", "temperature",
+            "solid_percent", "oil_percent", "water_percent", "chloride", "calcium", "kcl", "mbt", "pf_mf", "total_hardness",
+            "flowline_temp", "volume_hole", "total_circulated", "loss_downhole", "loss_surface", "sample_time"]
+        self.load_from_dict({key: None for key in numeric})
 
     def refresh(self):
         self.load_data()

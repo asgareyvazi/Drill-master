@@ -86,9 +86,16 @@ def require_permission(permission):
         @wraps(func)
         def wrapper(*args, **kwargs):
             manager = getattr(args[0], "permissions", permissions) if args else permissions
-            if not manager.has_permission(permission):
-                logger.warning("Permission denied: %s (%s)", manager.username, permission)
+            try:
+                allowed = manager.has_permission(permission)
+            except Exception:
+                logger.exception("Permission check failed (%s)", permission)
+                allowed = False
+            if not allowed:
+                logger.warning("Permission denied (%s)", permission)
                 target = args[0] if args else None
+                if hasattr(target, "status_label"):
+                    target.status_label.setText("NOT SAVED: permission denied or unavailable")
                 if hasattr(target, "show_warning"):
                     target.show_warning("You do not have permission for this action.")
                 return False

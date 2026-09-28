@@ -1,0 +1,15 @@
+.................................................s...................... [ 60%]
+...............................................                          [100%]
+=============================== warnings summary ===============================
+tests/test_excel_intelligence_regressions.py::test_formula_and_cached_views_preserve_date_and_provenance
+tests/test_excel_intelligence_regressions.py::test_repository_workbook_contains_meaningful_semantic_evidence
+tests/test_excel_intelligence_regressions.py::test_invalid_formula_duplicate_cannot_erase_valid_date_components
+tests/test_real_oeoc_golden.py::TestLTAExtraction::test_lta_day_extracted
+tests/test_review_contract_certification.py::test_real_workbook_golden_shape_and_semantic_validation
+tests/test_review_contract_certification.py::test_real_workbook_review_items_have_complete_lineage_and_keep_ambiguity
+tests/test_review_contract_certification.py::test_duplicate_scalar_values_are_explicitly_classified_not_dropped
+  /home/user/Drill-master/.venv/lib/python3.11/site-packages/openpyxl/worksheet/_reader.py:329: UserWarning: Data Validation extension is not supported and will be removed
+    warn(msg)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+118 passed, 1 skipped, 7 warnings in 34.44s

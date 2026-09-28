@@ -3,20 +3,29 @@
 Professional Report Engine
 موتور تولید گزارش‌های حرفه‌ای DDR, EOWR, NPT, Cost
 """
-import os
 import logging
-from datetime import datetime, date
-from typing import Dict, List, Any, Optional
+from datetime import datetime
+from typing import Dict, Optional
 
 from sqlalchemy import func
 
-from PySide6.QtGui import QTextDocument, QPageSize, QPageLayout
-from PySide6.QtCore import QMarginsF
-from PySide6.QtPrintSupport import QPrinter
 
 logger = logging.getLogger(__name__)
 
-from core.text_utils import wrap_html, safe_str, fmt_num
+from core.text_utils import wrap_html, safe_str, fmt_num, not_recorded_text
+from core.operational_time import summarize_time_logs
+
+
+def _cell(value):
+    """Spreadsheet cell value: absent (None) stays empty, never a fabricated 0."""
+    return "" if value is None else value
+
+
+def _range(low, high, unit=""):
+    """Min-max display where a missing bound must not print as a measured 0."""
+    if low is None or high is None:
+        return "—"
+    return f"{low}-{high}{unit}"
 
 class ReportBranding:
     """تنظیمات برندینگ سازمانی"""
@@ -115,11 +124,9 @@ class DDRReportEngine:
             )
 
         # Time analysis
-        total_hrs = sum(l.duration or 0 for l in logs_24h)
-        npt_hrs = sum(
-            l.duration or 0 for l in logs_24h if l.is_npt
-        )
-        pt_hrs = total_hrs - npt_hrs
+        times = summarize_time_logs(logs_24h)
+        total_hrs, npt_hrs, pt_hrs = (times[k] for k in
+                                     ("total_hours", "npt_hours", "productive_hours"))
 
         return {
             "report": report,
@@ -143,21 +150,10 @@ class DDRReportEngine:
         params = data["params"] or {}
         mud = data["mud"] or {}
 
-        def fmt_num(value, digits=1, default=0):
-            """فرمت امن برای مقادیر عددی"""
-            try:
-                if value is None or value == "":
-                    value = default
-                return f"{float(value):.{digits}f}"
-            except (ValueError, TypeError):
-                return f"{float(default):.{digits}f}"
+        def fmt_num(value, digits=1, default=None):
+            from core.text_utils import fmt_num as format_number
+            return format_number(value, digits, default)
 
-        def safe_str(value, default=""):
-            """رشته امن"""
-            if value is None:
-                return default
-            return str(value)
-            
         section = data["section"] or {}
         logs_24 = data["logs_24h"]
         logs_m = data["logs_morning"]
@@ -190,10 +186,8 @@ class DDRReportEngine:
         rd = safe_str(r.get("report_date", ""))
         rno = safe_str(r.get("report_number", ""))
         rig_day = safe_str(r.get("rig_day", ""))
-        d0 = float(r.get("depth_0000") or 0)
-        d6 = float(r.get("depth_0600") or 0)
-        d24 = float(r.get("depth_2400") or 0)
-        progress = d24 - d0
+        d0, d6, d24 = (r.get(key) for key in ("depth_0000", "depth_0600", "depth_2400"))
+        progress = d24 - d0 if d24 is not None and d0 is not None else None
         summary = safe_str(r.get("summary", ""), "")
         status = safe_str(r.get("status", "Draft"), "Draft")
 
@@ -369,10 +363,10 @@ table {{
 <div class="section-title">📏 Depth Summary</div>
 <table class="info-grid">
 <tr>
-    <td class="label">@ 00:00</td><td class="value"><b>{d0:.1f}</b> m</td>
-    <td class="label">@ 06:00</td><td class="value"><b>{d6:.1f}</b> m</td>
-    <td class="label">@ 24:00</td><td class="value"><b>{d24:.1f}</b> m</td>
-    <td class="label">Progress</td><td class="value" style="color:{bc.accent_color};font-weight:bold">{progress:.1f} m</td>
+    <td class="label">@ 00:00</td><td class="value"><b>{fmt_num(d0, 1)}</b> m</td>
+    <td class="label">@ 06:00</td><td class="value"><b>{fmt_num(d6, 1)}</b> m</td>
+    <td class="label">@ 24:00</td><td class="value"><b>{fmt_num(d24, 1)}</b> m</td>
+    <td class="label">Progress</td><td class="value" style="color:{bc.accent_color};font-weight:bold">{fmt_num(progress, 1)} m</td>
 </tr>
 </table>"""
 
@@ -388,10 +382,10 @@ table {{
     <td class="label">ROP</td><td class="value"><b>{fmt_num(params.get('avg_rop'), 1)}</b> m/hr</td>
 </tr>
 <tr>
-    <td class="label">WOB</td><td class="value">{safe_str(params.get('wob_min',0))}-{safe_str(params.get('wob_max',0))} klb</td>
-    <td class="label">RPM</td><td class="value">{safe_str(params.get('rpm_min',0))}-{safe_str(params.get('rpm_max',0))}</td>
-    <td class="label">Torque</td><td class="value">{safe_str(params.get('torque_min',0))}-{safe_str(params.get('torque_max',0))} klb.ft</td>
-    <td class="label">SPP</td><td class="value">{safe_str(params.get('pump_pressure_min',0))}-{safe_str(params.get('pump_pressure_max',0))} psi</td>
+    <td class="label">WOB</td><td class="value">{_range(params.get('wob_min'), params.get('wob_max'), " klb")}</td>
+    <td class="label">RPM</td><td class="value">{_range(params.get('rpm_min'), params.get('rpm_max'))}</td>
+    <td class="label">Torque</td><td class="value">{_range(params.get('torque_min'), params.get('torque_max'), " klb.ft")}</td>
+    <td class="label">SPP</td><td class="value">{_range(params.get('pump_pressure_min'), params.get('pump_pressure_max'), " psi")}</td>
 </tr>
 </table>"""
 
@@ -439,7 +433,6 @@ table {{
             tt = log.time_to.strftime("%H:%M") if log.time_to else ""
             cls = ' class="npt-row"' if log.is_npt else ""
             npt_mark = "⚠️" if log.is_npt else ""
-            import textwrap
             desc = log.activity_description or ""
             desc_html = wrap_html(desc)
 
@@ -477,27 +470,39 @@ table {{
 </tr>"""
             html += "</table>"
 
-        # Time Analysis
-        pt_pct = (pt / total * 100) if total > 0 else 100
-        npt_pct = (npt / total * 100) if total > 0 else 0
+        # Time Analysis. When no time has been logged the percentages are
+        # unknown, not "100% productive / 0% NPT" — render "—" and draw an empty
+        # bar rather than fabricating a fully-productive day.
+        if total is not None and total > 0 and npt is not None and pt is not None:
+            pt_pct = pt / total * 100
+            npt_pct = npt / total * 100
+            pt_pct_disp = f"{pt_pct:.0f}"
+            npt_pct_disp = f"{npt_pct:.0f}"
+            pt_bar_w = pt_pct
+            npt_bar_w = npt_pct
+        else:
+            pt_pct_disp = "—"
+            npt_pct_disp = "—"
+            pt_bar_w = 0
+            npt_bar_w = 0
 
         html += f"""
 <div class="section-title">📊 Time Analysis</div>
 <table class="info-grid">
 <tr>
     <td class="label">Total Hours</td>
-    <td class="value"><b>{total:.1f}</b></td>
+    <td class="value"><b>{fmt_num(total, 1)}</b></td>
     <td class="label">Productive</td>
-    <td class="value" style="color:{bc.accent_color}"><b>{pt:.1f}</b> ({pt_pct:.0f}%)</td>
+    <td class="value" style="color:{bc.accent_color}"><b>{fmt_num(pt, 1)}</b> ({pt_pct_disp}%)</td>
     <td class="label">NPT</td>
-    <td class="value" style="color:#e74c3c"><b>{npt:.1f}</b> ({npt_pct:.0f}%)</td>
+    <td class="value" style="color:#e74c3c"><b>{fmt_num(npt, 1)}</b> ({npt_pct_disp}%)</td>
     <td class="label">Efficiency</td>
-    <td class="value"><b>{pt_pct:.0f}%</b></td>
+    <td class="value"><b>{pt_pct_disp}%</b></td>
 </tr>
 </table>
 <div class="time-bar">
-    <div class="time-bar-pt" style="width:{pt_pct:.0f}%"></div>
-    <div class="time-bar-npt" style="width:{npt_pct:.0f}%"></div>
+    <div class="time-bar-pt" style="width:{pt_bar_w:.0f}%"></div>
+    <div class="time-bar-npt" style="width:{npt_bar_w:.0f}%"></div>
 </div>"""
 
         # Summary
@@ -518,6 +523,9 @@ table {{
 
     def _save_pdf(self, html: str, output_path: str) -> bool:
         try:
+            from PySide6.QtGui import QTextDocument, QPageSize, QPageLayout
+            from PySide6.QtCore import QMarginsF
+            from PySide6.QtPrintSupport import QPrinter
             printer = QPrinter(QPrinter.HighResolution)
             printer.setOutputFormat(QPrinter.PdfFormat)
             printer.setOutputFileName(output_path)
@@ -551,7 +559,7 @@ table {{
         """ذخیره Excel"""
         try:
             from openpyxl import Workbook
-            from openpyxl.styles import Font, PatternFill, Alignment
+            from openpyxl.styles import Font, PatternFill
 
             wb = Workbook()
 
@@ -569,9 +577,9 @@ table {{
                 ("Report #", r.get("report_number", "")),
                 ("Date", str(r.get("report_date", ""))),
                 ("Rig Day", r.get("rig_day", "")),
-                ("Depth 00:00", r.get("depth_0000", 0)),
-                ("Depth 06:00", r.get("depth_0600", 0)),
-                ("Depth 24:00", r.get("depth_2400", 0)),
+                ("Depth 00:00", _cell(r.get("depth_0000"))),
+                ("Depth 06:00", _cell(r.get("depth_0600"))),
+                ("Depth 24:00", _cell(r.get("depth_2400"))),
                 ("Status", r.get("status", "")),
                 ("Summary", r.get("summary", "")),
             ]
@@ -598,7 +606,7 @@ table {{
                 tt = log.time_to.strftime("%H:%M") if log.time_to else ""
                 ws2.cell(row=i, column=1, value=tf)
                 ws2.cell(row=i, column=2, value=tt)
-                ws2.cell(row=i, column=3, value=log.duration or 0)
+                ws2.cell(row=i, column=3, value=log.duration)
                 ws2.cell(row=i, column=4, value=log.main_phase or "")
                 ws2.cell(row=i, column=5, value=log.main_code or "")
                 ws2.cell(row=i, column=6, value=log.sub_code or "")
@@ -614,9 +622,9 @@ table {{
                     ("Bit No", p.get("bit_no", "")),
                     ("Bit Size", p.get("bit_size", "")),
                     ("Bit Type", p.get("bit_type", "")),
-                    ("Avg ROP", p.get("avg_rop", 0)),
-                    ("WOB Min-Max", f"{p.get('wob_min',0)}-{p.get('wob_max',0)}"),
-                    ("RPM Min-Max", f"{p.get('rpm_min',0)}-{p.get('rpm_max',0)}"),
+                    ("Avg ROP", _cell(p.get("avg_rop"))),
+                    ("WOB Min-Max", _range(p.get('wob_min'), p.get('wob_max'))),
+                    ("RPM Min-Max", _range(p.get('rpm_min'), p.get('rpm_max'))),
                 ]
                 for i, (k, v) in enumerate(param_rows):
                     ws3.cell(row=i+1, column=1, value=k)
@@ -629,12 +637,12 @@ table {{
                 mud_rows = [
                     ("Property", "Value"),
                     ("Mud Type", m.get("mud_type", "")),
-                    ("MW (pcf)", m.get("mw", 0)),
-                    ("PV (cp)", m.get("pv", 0)),
-                    ("YP", m.get("yp", 0)),
-                    ("pH", m.get("ph", 0)),
-                    ("FL", m.get("fl", 0)),
-                    ("Chloride", m.get("chloride", 0)),
+                    ("MW (pcf)", _cell(m.get("mw"))),
+                    ("PV (cp)", _cell(m.get("pv"))),
+                    ("YP", _cell(m.get("yp"))),
+                    ("pH", _cell(m.get("ph"))),
+                    ("FL", _cell(m.get("fl"))),
+                    ("Chloride", _cell(m.get("chloride"))),
                 ]
                 for i, (k, v) in enumerate(mud_rows):
                     ws4.cell(row=i+1, column=1, value=k)
@@ -663,13 +671,8 @@ class EOWRReportEngine:
                 )
                 return False
 
-            # ✅ اگر plan نداشته باشد
-            if not data.get("plan"):
-                logger.warning(
-                    f"No active plan for well {well_id}"
-                )
-                return False
-
+            # EOWR is an actual-history report, not a WellPlan report.
+            # _collect_data has no "plan" key; planning is optional here.
             html = self._build_html(data, selected_sections=None)
 
             if format == "pdf":
@@ -690,7 +693,7 @@ class EOWRReportEngine:
             BHAReport, SurveyPoint, CementReport, CasingReport,
             SafetyReport, TimeLog24H, TimeLogMorning,
             LogisticsPersonnel, ServiceCompany, TransportLog,
-            MaterialRequest, EquipmentLog, Section
+            MaterialRequest, EquipmentLog
         )
         try:
             session = self.db.create_session()
@@ -774,28 +777,34 @@ class EOWRReportEngine:
                 # Derived summaries
                 total_reports = len(daily_reports)
                 final_depth = max(
-                    [(r.depth_2400 or 0) for r in daily_reports],
-                    default=0
+                    [r.depth_2400 for r in daily_reports if r.depth_2400 is not None],
+                    default=None
                 )
-                total_npt = sum(
-                    [(l.duration or 0) for l in time_logs_24h if l.is_npt]
-                )
-                total_hours = sum(
-                    [(l.duration or 0) for l in time_logs_24h]
-                ) or 1
-                npt_pct = total_npt / total_hours * 100
+                # NPT / NPT% are unknown when no time has been recorded across
+                # the well, not zero. With recorded time and no NPT rows they are
+                # a real 0.0 / 0%.
+                times = summarize_time_logs(time_logs_24h)
+                total_npt = times["npt_hours"]
+                npt_pct = times["npt_percent"]
 
-                avg_rop = 0
-                rops = [p.avg_rop for p in drilling_params if p.avg_rop]
+                avg_rop = None
+                rops = [p.avg_rop for p in drilling_params if p.avg_rop is not None]
                 if rops:
                     avg_rop = sum(rops) / len(rops)
 
-                total_cost = 0
-                if cost_records:
-                    total_cost = sum([(c.actual_cost or 0) for c in cost_records])
-                else:
-                    # fallback تخمینی
-                    total_cost = total_reports * 60000
+                # Footage-weighted ROP via the canonical engine — computed from
+                # the SAME valid paired observations, NOT recalculated here and
+                # NOT a mean of per-day rates. Distinct from ``avg_rop`` above.
+                from core.engineering.engines.bit_performance import (
+                    BitPerformanceEngine,
+                )
+                weighted_rop = BitPerformanceEngine.weighted_rop(
+                    drilling_params
+                ).value
+
+                from core.cost_semantics import summarize_costs
+                costs = summarize_costs(cost_records)
+                total_cost = costs["total_actual"]
 
                 return {
                     "well": well,
@@ -821,9 +830,12 @@ class EOWRReportEngine:
                         "total_reports": total_reports,
                         "final_depth": final_depth,
                         "avg_rop": avg_rop,
+                        "weighted_rop": weighted_rop,
                         "total_npt": total_npt,
                         "npt_pct": npt_pct,
                         "total_cost": total_cost,
+                        "cost_currency": costs["currency"],
+                        "cost_currency_status": costs["status"],
                     }
                 }
             finally:
@@ -841,12 +853,16 @@ class EOWRReportEngine:
         if not s:
             s = {}
         s.setdefault("total_reports", 0)
-        s.setdefault("final_depth", 0)
-        s.setdefault("avg_rop", 0)
-        s.setdefault("total_npt", 0)
-        s.setdefault("npt_pct", 0)
-        s.setdefault("total_cost", 0)
-        
+        s.setdefault("final_depth", None)
+        s.setdefault("avg_rop", None)
+        s.setdefault("weighted_rop", None)
+        s.setdefault("total_npt", None)
+        s.setdefault("npt_pct", None)
+        s.setdefault("total_cost", None)
+        cost_value = s.get("total_cost")
+        from core.cost_semantics import format_money
+        cost_display = format_money(cost_value, s.get("cost_currency"))
+
         well_name = w.get("name", "Unknown Well")
         rig_name = w.get("rig_name", "")
         operator = w.get("operator", "")
@@ -881,20 +897,20 @@ body {{
     padding: 0;
 }}
 h1 {{
-    color: {bc.primary_color};
-    border-bottom: 3px solid {bc.secondary_color};
+    color: {safe_str(bc.primary_color)};
+    border-bottom: 3px solid {safe_str(bc.secondary_color)};
     padding-bottom: 8px;
     font-size: 18pt;
 }}
 h2 {{
-    color: {bc.secondary_color};
+    color: {safe_str(bc.secondary_color)};
     border-bottom: 1px solid #bdc3c7;
     padding-bottom: 4px;
     margin-top: 18px;
     font-size: 13pt;
 }}
 h3 {{
-    color: {bc.primary_color};
+    color: {safe_str(bc.primary_color)};
     margin-top: 10px;
     font-size: 11pt;
 }}
@@ -906,11 +922,11 @@ h3 {{
 .cover .title {{
     font-size: 26pt;
     font-weight: bold;
-    color: {bc.primary_color};
+    color: {safe_str(bc.primary_color)};
 }}
 .cover .subtitle {{
     font-size: 14pt;
-    color: {bc.secondary_color};
+    color: {safe_str(bc.secondary_color)};
     margin-top: 10px;
 }}
 .cover .meta {{
@@ -922,7 +938,7 @@ h3 {{
     width: 22%;
     margin: 5px;
     background: #f8f9fa;
-    border-left: 4px solid {bc.secondary_color};
+    border-left: 4px solid {safe_str(bc.secondary_color)};
     border-radius: 4px;
     padding: 10px;
     vertical-align: top;
@@ -930,7 +946,7 @@ h3 {{
 .kpi-value {{
     font-size: 18pt;
     font-weight: bold;
-    color: {bc.primary_color};
+    color: {safe_str(bc.primary_color)};
 }}
 .kpi-label {{
     font-size: 8pt;
@@ -943,7 +959,7 @@ h3 {{
     font-size: 8pt;
 }}
 .table th {{
-    background: {bc.primary_color};
+    background: {safe_str(bc.primary_color)};
     color: white;
     padding: 5px;
     border: 1px solid #ccc;
@@ -981,6 +997,7 @@ h3 {{
     <div class="title">END OF WELL REPORT</div>
     <div class="subtitle">{well_name}</div>
     <div class="meta">
+        <p><b>Scope:</b> Whole-Well Aggregate</p>
         <p><b>Field:</b> {field_name}</p>
         <p><b>Operator:</b> {operator}</p>
         <p><b>Client:</b> {client}</p>
@@ -996,24 +1013,28 @@ h3 {{
 <h1>1. Executive Summary</h1>
 <div>
     <div class="kpi-box">
-        <div class="kpi-value">{s.get("total_reports", 0)}</div>
+        <div class="kpi-value">{safe_str(s.get("total_reports", 0))}</div>
         <div class="kpi-label">Rig Days / Reports</div>
     </div>
     <div class="kpi-box">
-        <div class="kpi-value">{s.get("final_depth", 0):.0f} m</div>
+        <div class="kpi-value">{fmt_num(s.get("final_depth"), 0)} m</div>
         <div class="kpi-label">Final Depth</div>
     </div>
     <div class="kpi-box">
-        <div class="kpi-value">{s.get("avg_rop", 0):.1f}</div>
+        <div class="kpi-value">{fmt_num(s.get("avg_rop"), 1)}</div>
         <div class="kpi-label">Average ROP (m/hr)</div>
     </div>
     <div class="kpi-box">
-        <div class="kpi-value">{s.get("total_npt", 0):.1f} h</div>
-        <div class="kpi-label">Total NPT ({s.get("npt_pct", 0):.1f}%)</div>
+        <div class="kpi-value">{fmt_num(s.get("weighted_rop"), 1, default=None)}</div>
+        <div class="kpi-label">Footage-Weighted ROP (m/hr)</div>
+    </div>
+    <div class="kpi-box">
+        <div class="kpi-value">{fmt_num(s.get("total_npt"), 1)} h</div>
+        <div class="kpi-label">Total NPT ({fmt_num(s.get("npt_pct"), 1)}%)</div>
     </div>
 </div>
 <div class="note">
-<b>Total Estimated Cost:</b> ${s.get("total_cost", 0):,.0f}
+<b>Total Actual Cost:</b> {cost_display}
 </div>
 """
 
@@ -1022,12 +1043,12 @@ h3 {{
 <h1>2. Well Information</h1>
 <table class="table">
 <tr><th>Field</th><th>Value</th><th>Field</th><th>Value</th></tr>
-<tr><td>Well Name</td><td>{well_name}</td><td>Well Code</td><td>{w.get('code','')}</td></tr>
-<tr><td>Well Type</td><td>{w.get('well_type','')}</td><td>Well Shape</td><td>{w.get('well_shape','')}</td></tr>
-<tr><td>Target Depth</td><td>{w.get('target_depth',0)} m</td><td>Water Depth</td><td>{w.get('water_depth',0)} m</td></tr>
-<tr><td>Spud Date</td><td>{w.get('spud_date','')}</td><td>Formation</td><td>{w.get('formation','')}</td></tr>
-<tr><td>Supervisor Day</td><td>{w.get('supervisor_day','')}</td><td>Supervisor Night</td><td>{w.get('supervisor_night','')}</td></tr>
-<tr><td>Geologist</td><td>{w.get('geologist1','')}</td><td>Toolpusher</td><td>{w.get('tool_pusher_day','')}</td></tr>
+<tr><td>Well Name</td><td>{well_name}</td><td>Well Code</td><td>{safe_str(w.get('code',''))}</td></tr>
+<tr><td>Well Type</td><td>{safe_str(w.get('well_type',''))}</td><td>Well Shape</td><td>{safe_str(w.get('well_shape',''))}</td></tr>
+<tr><td>Target Depth</td><td>{fmt_num(w.get('target_depth'), 1)} m</td><td>Water Depth</td><td>{fmt_num(w.get('water_depth'), 1)} m</td></tr>
+<tr><td>Spud Date</td><td>{safe_str(w.get('spud_date',''))}</td><td>Formation</td><td>{safe_str(w.get('formation',''))}</td></tr>
+<tr><td>Supervisor Day</td><td>{safe_str(w.get('supervisor_day',''))}</td><td>Supervisor Night</td><td>{safe_str(w.get('supervisor_night',''))}</td></tr>
+<tr><td>Geologist</td><td>{safe_str(w.get('geologist1',''))}</td><td>Toolpusher</td><td>{safe_str(w.get('tool_pusher_day',''))}</td></tr>
 </table>
 """
 
@@ -1038,12 +1059,12 @@ h3 {{
 <tr><th>Name</th><th>Code</th><th>Depth From</th><th>Depth To</th><th>Hole Size</th><th>Purpose</th></tr>"""
             for sec in sections:
                 html += f"""<tr>
-<td>{sec.get('name','')}</td>
-<td>{sec.get('code','')}</td>
-<td>{sec.get('depth_from',0)}</td>
-<td>{sec.get('depth_to',0)}</td>
-<td>{sec.get('hole_size',0)}</td>
-<td>{sec.get('purpose','')}</td>
+<td>{safe_str(sec.get('name',''))}</td>
+<td>{safe_str(sec.get('code',''))}</td>
+<td>{fmt_num(sec.get('depth_from'), 1)}</td>
+<td>{fmt_num(sec.get('depth_to'), 1)}</td>
+<td>{fmt_num(sec.get('hole_size'), 2)}</td>
+<td>{safe_str(sec.get('purpose',''))}</td>
 </tr>"""
             html += "</table>"
         else:
@@ -1055,17 +1076,16 @@ h3 {{
             html += """<table class="table">
 <tr><th>Date</th><th>Report #</th><th>Rig Day</th><th>Depth 24:00</th><th>Progress</th><th>Status</th><th>Summary</th></tr>"""
             for r in daily_reports:
-                d0 = r.depth_0000 or 0
-                d24 = r.depth_2400 or 0
-                progress = d24 - d0
+                d0, d24 = r.depth_0000, r.depth_2400
+                progress = d24 - d0 if d24 is not None and d0 is not None else None
                 summary = wrap_html((r.summary or ""), 150)
                 html += f"""<tr>
-<td>{r.report_date}</td>
-<td>{r.report_number}</td>
-<td>{r.rig_day}</td>
-<td>{d24:.1f}</td>
-<td>{progress:.1f}</td>
-<td>{r.status}</td>
+<td>{safe_str(r.report_date)}</td>
+<td>{safe_str(r.report_number)}</td>
+<td>{safe_str(r.rig_day)}</td>
+<td>{fmt_num(d24, 1, default=None)}</td>
+<td>{fmt_num(progress, 1, default=None)}</td>
+<td>{safe_str(r.status)}</td>
 <td>{summary}</td>
 </tr>"""
             html += "</table>"
@@ -1077,16 +1097,16 @@ h3 {{
 <tr><th>Date</th><th>Bit No</th><th>Bit Size</th><th>Depth In</th><th>Depth Out</th><th>Bit Drilled</th><th>ROP</th><th>WOB Max</th><th>RPM Max</th><th>SPP Max</th></tr>"""
             for p in drilling_params:
                 html += f"""<tr>
-<td>{p.report_date}</td>
+<td>{safe_str(p.report_date)}</td>
 <td>{p.bit_no or ''}</td>
 <td>{p.bit_size or ''}</td>
-<td>{p.depth_in or 0}</td>
-<td>{p.depth_out or 0}</td>
-<td>{p.bit_drilled or 0}</td>
-<td>{p.avg_rop or 0:.1f}</td>
-<td>{p.wob_max or 0}</td>
-<td>{p.rpm_max or 0}</td>
-<td>{p.pump_pressure_max or 0}</td>
+<td>{safe_str(p.depth_in)}</td>
+<td>{safe_str(p.depth_out)}</td>
+<td>{safe_str(p.bit_drilled)}</td>
+<td>{fmt_num(p.avg_rop, 1, default=None)}</td>
+<td>{safe_str(p.wob_max)}</td>
+<td>{safe_str(p.rpm_max)}</td>
+<td>{safe_str(p.pump_pressure_max)}</td>
 </tr>"""
             html += "</table>"
 
@@ -1097,17 +1117,19 @@ h3 {{
 <tr><th>Date</th><th>Type</th><th>MW</th><th>PV</th><th>YP</th><th>FL</th><th>pH</th><th>Temp</th><th>Loss DH</th></tr>"""
             for m in mud_reports:
                 html += f"""<tr>
-<td>{m.report_date}</td>
+<td>{safe_str(m.report_date)}</td>
 <td>{m.mud_type or ''}</td>
-<td>{m.mw or 0:.1f}</td>
-<td>{m.pv or 0:.1f}</td>
-<td>{m.yp or 0:.1f}</td>
-<td>{m.fl or 0:.1f}</td>
-<td>{m.ph or 0:.1f}</td>
-<td>{m.temperature or 0:.1f}</td>
-<td>{m.loss_downhole or 0:.1f}</td>
+<td>{fmt_num(m.mw, 1, default=None)}</td>
+<td>{fmt_num(m.pv, 1, default=None)}</td>
+<td>{fmt_num(m.yp, 1, default=None)}</td>
+<td>{fmt_num(m.fl, 1, default=None)}</td>
+<td>{fmt_num(m.ph, 1, default=None)}</td>
+<td>{fmt_num(m.temperature, 1, default=None)}</td>
+<td>{fmt_num(m.loss_downhole, 1, default=None)}</td>
 </tr>"""
             html += "</table>"
+        else:
+            html += f'<p class="note">{not_recorded_text("mud")}</p>'
 
         # Cement / Casing
         html += "<h1>7. Casing & Cementing</h1>"
@@ -1120,23 +1142,25 @@ h3 {{
             html += f"""
 <div class="note">
 <b>Final Survey:</b><br>
-MD: {last.md:.2f} m | TVD: {last.tvd:.2f} m | North: {last.north:.2f} m |
-East: {last.east:.2f} m | HD: {last.hd:.2f} m | DLS: {last.dls:.2f}
+MD: {fmt_num(last.md, 2, default=None)} m | TVD: {fmt_num(last.tvd, 2, default=None)} m | North: {fmt_num(last.north, 2, default=None)} m |
+East: {fmt_num(last.east, 2, default=None)} m | HD: {fmt_num(last.hd, 2, default=None)} m | DLS: {fmt_num(last.dls, 2, default=None)}
 </div>
 """
             html += """<table class="table">
 <tr><th>MD</th><th>Inc</th><th>Azi</th><th>TVD</th><th>North</th><th>East</th><th>DLS</th></tr>"""
-            for srow in surveys[:100]:
+            for srow in surveys:
                 html += f"""<tr>
-<td>{srow.md:.2f}</td>
-<td>{srow.inc:.2f}</td>
-<td>{srow.azi:.2f}</td>
-<td>{srow.tvd:.2f}</td>
-<td>{srow.north:.2f}</td>
-<td>{srow.east:.2f}</td>
-<td>{srow.dls:.2f}</td>
+<td>{fmt_num(srow.md, 2, default=None)}</td>
+<td>{fmt_num(srow.inc, 2, default=None)}</td>
+<td>{fmt_num(srow.azi, 2, default=None)}</td>
+<td>{fmt_num(srow.tvd, 2, default=None)}</td>
+<td>{fmt_num(srow.north, 2, default=None)}</td>
+<td>{fmt_num(srow.east, 2, default=None)}</td>
+<td>{fmt_num(srow.dls, 2, default=None)}</td>
 </tr>"""
             html += "</table>"
+        else:
+            html += f'<p class="note">{not_recorded_text("trajectory/survey")}</p>'
 
         # Safety
         html += "<h1>9. Safety Summary</h1>"
@@ -1145,13 +1169,15 @@ East: {last.east:.2f} m | HD: {last.hd:.2f} m | DLS: {last.dls:.2f}
 <tr><th>Date</th><th>Days without LTI</th><th>Near Miss</th><th>Last Fire Drill</th><th>Last BOP Drill</th></tr>"""
             for sr in safety_reports:
                 html += f"""<tr>
-<td>{sr.report_date}</td>
-<td>{sr.days_without_lti or 0}</td>
-<td>{sr.near_miss_count or 0}</td>
+<td>{safe_str(sr.report_date)}</td>
+<td>{safe_str(sr.days_without_lti)}</td>
+<td>{safe_str(sr.near_miss_count)}</td>
 <td>{sr.last_fire_drill or ''}</td>
 <td>{sr.last_bop_drill or ''}</td>
 </tr>"""
             html += "</table>"
+        else:
+            html += f'<p class="note">{not_recorded_text("safety")}</p>'
 
         # Logistics
         html += "<h1>10. Logistics & Services</h1>"
@@ -1163,23 +1189,23 @@ East: {last.east:.2f} m | HD: {last.hd:.2f} m | DLS: {last.dls:.2f}
             html += """<table class="table">
 <tr><th>Date</th><th>Category</th><th>Planned</th><th>Actual</th><th>Variance</th><th>Status</th></tr>"""
             for c in cost_records:
-                variance = (c.planned_cost or 0) - (c.actual_cost or 0)
+                variance = c.planned_cost - c.actual_cost if c.planned_cost is not None and c.actual_cost is not None else None
                 html += f"""<tr>
 <td>{c.cost_date or ''}</td>
 <td>{c.category or ''}</td>
-<td>{c.planned_cost or 0:.2f}</td>
-<td>{c.actual_cost or 0:.2f}</td>
-<td>{variance:.2f}</td>
+<td>{fmt_num(c.planned_cost, 2, default=None)}</td>
+<td>{fmt_num(c.actual_cost, 2, default=None)}</td>
+<td>{fmt_num(variance, 2, default=None)}</td>
 <td>{c.status or ''}</td>
 </tr>"""
             html += "</table>"
         else:
-            html += f"<p>Total Estimated Cost: ${s.get('total_cost', 0):,.0f}</p>"
+            html += f"<p>Total Actual Cost: {cost_display}</p>"
 
         # Footer
         html += f"""
 <div class="footer">
-{bc.footer_text} | EOWR | {datetime.now().strftime("%Y-%m-%d %H:%M")} | {well_name}
+{safe_str(bc.footer_text)} | EOWR | {datetime.now().strftime("%Y-%m-%d %H:%M")} | {well_name}
 </div>
 </body></html>
 """
@@ -1187,6 +1213,9 @@ East: {last.east:.2f} m | HD: {last.hd:.2f} m | DLS: {last.dls:.2f}
 
     def _save_pdf(self, html: str, output_path: str) -> bool:
         try:
+            from PySide6.QtGui import QTextDocument, QPageSize, QPageLayout
+            from PySide6.QtCore import QMarginsF
+            from PySide6.QtPrintSupport import QPrinter
             printer = QPrinter(QPrinter.HighResolution)
             printer.setOutputFormat(QPrinter.PdfFormat)
             printer.setOutputFileName(output_path)
@@ -1226,6 +1255,10 @@ East: {last.east:.2f} m | HD: {last.hd:.2f} m | DLS: {last.dls:.2f}
             ws = wb.create_sheet("Summary")
             ws["A1"] = "END OF WELL REPORT"
             ws["A2"] = data["well"].get("name", "")
+            # Scope metadata (kept in the summary, never mixed into the
+            # engineering data sheets): EOWR aggregates the whole well.
+            ws["A3"] = "Scope"
+            ws["B3"] = "Whole-Well Aggregate"
             ws["A4"] = "Metric"
             ws["B4"] = "Value"
             ws["A4"].font = header_font
@@ -1235,15 +1268,16 @@ East: {last.east:.2f} m | HD: {last.hd:.2f} m | DLS: {last.dls:.2f}
 
             metrics = [
                 ("Total Reports", data["summary"].get("total_reports", 0)),
-                ("Final Depth", data["summary"].get("final_depth", 0)),
-                ("Average ROP", data["summary"].get("avg_rop", 0)),
-                ("Total NPT", data["summary"].get("total_npt", 0)),
-                ("NPT %", data["summary"].get("npt_pct", 0)),
-                ("Total Cost", data["summary"].get("total_cost", 0)),
+                ("Final Depth", _cell(data["summary"].get("final_depth"))),
+                ("Average ROP", _cell(data["summary"].get("avg_rop"))),
+                ("Total NPT", _cell(data["summary"].get("total_npt"))),
+                ("NPT %", _cell(data["summary"].get("npt_pct"))),
+                ("Total Cost", data["summary"].get("total_cost")),
+                ("Cost currency", data["summary"].get("cost_currency") or "Unknown / nonaggregatable"),
             ]
             for i, (k, v) in enumerate(metrics, 5):
                 ws.cell(row=i, column=1, value=k)
-                ws.cell(row=i, column=2, value=str(v))
+                ws.cell(row=i, column=2, value=v)
 
             # Sections
             self._write_sheet_from_objects(
@@ -1280,15 +1314,9 @@ East: {last.east:.2f} m | HD: {last.hd:.2f} m | DLS: {last.dls:.2f}
             return
         ws = wb.create_sheet(sheet_name[:31])
 
-        # headers
-        cols = list(objects[0].__table__.columns.keys())
-        for c, h in enumerate(cols, 1):
-            ws.cell(row=1, column=c, value=h)
+        from core.professional_export import _write_records
+        _write_records(ws, [obj if isinstance(obj, dict) else {col.name: getattr(obj, col.name) for col in obj.__table__.columns} for obj in objects])
 
-        for r, obj in enumerate(objects, 2):
-            for c, h in enumerate(cols, 1):
-                ws.cell(row=r, column=c, value=str(getattr(obj, h, "")))
-                
 class NPTReportEngine:
     """موتور تولید NPT Summary Report حرفه‌ای"""
 
@@ -1316,7 +1344,7 @@ class NPTReportEngine:
             return False
 
     def _collect_data(self, well_id, from_date=None, to_date=None):
-        from core.database import TimeLog24H, DailyReport
+        from core.database import TimeLog24H, DailyReport, CostRecord
         session = self.db.create_session()
         try:
             well = self.db.get_well_by_id(well_id) or {}
@@ -1337,14 +1365,15 @@ class NPTReportEngine:
             ).all()
 
             # All logs for total hours
-            total_query = session.query(func.sum(TimeLog24H.duration)).join(
+            total_query = session.query(TimeLog24H).join(
                 DailyReport, TimeLog24H.report_id == DailyReport.id
             ).filter(DailyReport.well_id == well_id)
             if from_date:
                 total_query = total_query.filter(DailyReport.report_date >= from_date)
             if to_date:
                 total_query = total_query.filter(DailyReport.report_date <= to_date)
-            total_hours = total_query.scalar() or 1
+            times = summarize_time_logs(total_query.all())
+            total_hours = times["total_hours"]
 
             # Aggregations
             by_main_code = {}
@@ -1353,23 +1382,21 @@ class NPTReportEngine:
             by_phase = {}
             by_date = {}
             entries = []
-            total_npt = 0
+            total_npt = times["npt_hours"]
 
             for log, rep in npt_logs:
-                hrs = log.duration or 0
-                total_npt += hrs
+                hrs = log.duration
                 mc = log.main_code or "Unknown"
                 sc = log.sub_code or ""
                 cont = log.contractor or "Unknown"
                 phase = log.main_phase or "Unknown"
                 rd = str(rep.report_date)
 
-                by_main_code[mc] = by_main_code.get(mc, 0) + hrs
                 key_sub = f"{mc} → {sc}" if sc else mc
-                by_sub_code[key_sub] = by_sub_code.get(key_sub, 0) + hrs
-                by_contractor[cont] = by_contractor.get(cont, 0) + hrs
-                by_phase[phase] = by_phase.get(phase, 0) + hrs
-                by_date[rd] = by_date.get(rd, 0) + hrs
+                for group, key in ((by_main_code, mc), (by_sub_code, key_sub),
+                                   (by_contractor, cont), (by_phase, phase), (by_date, rd)):
+                    previous = group.get(key, 0)
+                    group[key] = previous + hrs if previous is not None and hrs is not None else None
 
                 entries.append({
                     "date": rd,
@@ -1384,30 +1411,37 @@ class NPTReportEngine:
                 })
 
             # Total reports
-            report_count = session.query(DailyReport).filter(
-                DailyReport.well_id == well_id
-            ).count()
+            reports_query = session.query(DailyReport).filter(DailyReport.well_id == well_id)
+            if from_date:
+                reports_query = reports_query.filter(DailyReport.report_date >= from_date)
+            if to_date:
+                reports_query = reports_query.filter(DailyReport.report_date <= to_date)
+            report_count = reports_query.count()
+            npt_pct = times["npt_percent"]
+            daily_avg = total_npt / report_count if total_npt is not None and report_count else None
 
-            npt_pct = (total_npt / total_hours * 100) if total_hours > 0 else 0
-            daily_avg = total_npt / report_count if report_count > 0 else 0
-
-            # Cost estimate
-            daily_rate = 60000
-            npt_cost = (total_npt / 24) * daily_rate
+            # Whole-well costs have no proven attribution to a requested date
+            # window. Do not allocate the entire well's cost to a subset of logs.
+            from core.cost_semantics import allocate_npt_cost, summarize_costs
+            costs = summarize_costs(session.query(CostRecord).filter(CostRecord.well_id == well_id).all())
+            actual_cost = costs["total_actual"]
+            npt_cost = (allocate_npt_cost(actual_cost, total_npt, total_hours)
+                        if from_date is None and to_date is None else None)
 
             return {
                 "well": well,
                 "entries": entries,
-                "by_main_code": dict(sorted(by_main_code.items(), key=lambda x: x[1], reverse=True)),
-                "by_sub_code": dict(sorted(by_sub_code.items(), key=lambda x: x[1], reverse=True)),
-                "by_contractor": dict(sorted(by_contractor.items(), key=lambda x: x[1], reverse=True)),
-                "by_phase": dict(sorted(by_phase.items(), key=lambda x: x[1], reverse=True)),
+                "by_main_code": dict(sorted(by_main_code.items(), key=lambda x: (x[1] is not None, x[1] or 0), reverse=True)),
+                "by_sub_code": dict(sorted(by_sub_code.items(), key=lambda x: (x[1] is not None, x[1] or 0), reverse=True)),
+                "by_contractor": dict(sorted(by_contractor.items(), key=lambda x: (x[1] is not None, x[1] or 0), reverse=True)),
+                "by_phase": dict(sorted(by_phase.items(), key=lambda x: (x[1] is not None, x[1] or 0), reverse=True)),
                 "by_date": dict(sorted(by_date.items())),
                 "total_npt": total_npt,
                 "total_hours": total_hours,
                 "npt_pct": npt_pct,
                 "daily_avg": daily_avg,
                 "npt_cost": npt_cost,
+                "cost_currency": costs["currency"],
                 "report_count": report_count,
                 "from_date": str(from_date or "Start"),
                 "to_date": str(to_date or "End"),
@@ -1426,6 +1460,8 @@ class NPTReportEngine:
         npt_pct = data["npt_pct"]
         daily_avg = data["daily_avg"]
         npt_cost = data["npt_cost"]
+        from core.cost_semantics import format_money
+        npt_cost_display = format_money(npt_cost, data.get("cost_currency"))
 
         html = f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8">
@@ -1460,24 +1496,25 @@ h2 {{ color: #e74c3c; border-bottom: 1px solid #fadbd8; margin-top: 15px; font-s
 </style></head><body>
 
 <h1>⏱️ NPT SUMMARY REPORT</h1>
+<p><b>Scope:</b> Whole-Well Aggregate</p>
 <p><b>Well:</b> {well_name} | <b>Period:</b> {data["from_date"]} to {data["to_date"]} | <b>Reports:</b> {data["report_count"]}</p>
 
 <div class="kpi-row">
     <div class="kpi-box kpi-red">
-        <div class="kpi-value">{total_npt:.1f}</div>
+        <div class="kpi-value">{fmt_num(total_npt, 1, default=None)}</div>
         <div class="kpi-label">Total NPT (hours)</div>
     </div>
     <div class="kpi-box kpi-orange">
-        <div class="kpi-value">{npt_pct:.1f}%</div>
+        <div class="kpi-value">{fmt_num(npt_pct, 1, default=None)}%</div>
         <div class="kpi-label">NPT Percentage</div>
     </div>
     <div class="kpi-box kpi-blue">
-        <div class="kpi-value">{daily_avg:.1f}</div>
+        <div class="kpi-value">{fmt_num(daily_avg, 1, default=None)}</div>
         <div class="kpi-label">Daily Average (hrs/day)</div>
     </div>
     <div class="kpi-box kpi-green">
-        <div class="kpi-value">${npt_cost:,.0f}</div>
-        <div class="kpi-label">Estimated NPT Cost</div>
+        <div class="kpi-value">{npt_cost_display}</div>
+        <div class="kpi-label">Allocated NPT Cost</div>
     </div>
 </div>
 """
@@ -1512,13 +1549,13 @@ h2 {{ color: #e74c3c; border-bottom: 1px solid #fadbd8; margin-top: 15px; font-s
         html += "<h2>📅 NPT Daily Trend</h2>"
         html += """<table class="table">
 <tr><th>Date</th><th>NPT Hours</th><th>Distribution</th></tr>"""
-        max_daily = max(data["by_date"].values()) if data["by_date"] else 1
+        max_daily = max((v for v in data["by_date"].values() if v is not None), default=0)
         for dt, hrs in data["by_date"].items():
-            pct = (hrs / max_daily * 100) if max_daily > 0 else 0
+            pct = (hrs / max_daily * 100) if max_daily > 0 and hrs is not None else None
             html += f"""<tr>
 <td>{dt}</td>
-<td style="text-align:right"><b>{hrs:.1f}</b></td>
-<td><div class="bar-container"><div class="bar-fill bar-red" style="width:{pct:.0f}%"></div></div></td>
+<td style="text-align:right"><b>{fmt_num(hrs, 1, default=None)}</b></td>
+<td><div class="bar-container"><div class="bar-fill bar-red" style="width:{pct if pct is not None else 0:.0f}%"></div></div></td>
 </tr>"""
         html += "</table>"
 
@@ -1532,7 +1569,7 @@ h2 {{ color: #e74c3c; border-bottom: 1px solid #fadbd8; margin-top: 15px; font-s
 <td>{e["date"]}</td>
 <td>{e["from"]}</td>
 <td>{e["to"]}</td>
-<td style="text-align:right"><b>{e["hours"]:.2f}</b></td>
+<td style="text-align:right"><b>{fmt_num(e["hours"], 2, default=None)}</b></td>
 <td>{e["main_code"]}</td>
 <td>{e["sub_code"]}</td>
 <td>{e["contractor"]}</td>
@@ -1552,20 +1589,23 @@ h2 {{ color: #e74c3c; border-bottom: 1px solid #fadbd8; margin-top: 15px; font-s
         html = """<table class="table">
 <tr><th>Category</th><th style="width:70px">Hours</th><th style="width:50px">%</th><th>Distribution</th></tr>"""
         for cat, hrs in breakdown.items():
-            pct = (hrs / total * 100) if total > 0 else 0
+            pct = (hrs / total * 100) if total and total > 0 and hrs is not None else None
             html += f"""<tr>
 <td>{cat}</td>
-<td style="text-align:right"><b>{hrs:.1f}</b></td>
-<td style="text-align:right">{pct:.1f}%</td>
-<td><div class="bar-container"><div class="bar-fill {bar_class}" style="width:{pct:.0f}%"></div></div></td>
+<td style="text-align:right"><b>{fmt_num(hrs, 1, default=None)}</b></td>
+<td style="text-align:right">{fmt_num(pct, 1, default=None)}%</td>
+<td><div class="bar-container"><div class="bar-fill {bar_class}" style="width:{pct if pct is not None else 0:.0f}%"></div></div></td>
 </tr>"""
         html += f"""<tr style="font-weight:bold;background:#ecf0f1">
-<td>TOTAL</td><td style="text-align:right">{total:.1f}</td><td>100%</td><td></td>
+<td>TOTAL</td><td style="text-align:right">{fmt_num(total, 1, default=None)}</td><td>{"100%" if total else "—"}</td><td></td>
 </tr></table>"""
         return html
 
     def _save_pdf(self, html, path):
         try:
+            from PySide6.QtGui import QTextDocument, QPageSize, QPageLayout
+            from PySide6.QtCore import QMarginsF
+            from PySide6.QtPrintSupport import QPrinter
             printer = QPrinter(QPrinter.HighResolution)
             printer.setOutputFormat(QPrinter.PdfFormat)
             printer.setOutputFileName(path)
@@ -1601,10 +1641,12 @@ h2 {{ color: #e74c3c; border-bottom: 1px solid #fadbd8; margin-top: 15px; font-s
             ws.title = "NPT Summary"
             summary = [
                 ("Metric", "Value"),
+                ("Scope", "Whole-Well Aggregate"),
                 ("Total NPT (hrs)", data["total_npt"]),
                 ("NPT %", data["npt_pct"]),
                 ("Daily Average", data["daily_avg"]),
-                ("NPT Cost ($)", data["npt_cost"]),
+                ("Allocated NPT Cost", data["npt_cost"]),
+                ("Cost currency", data.get("cost_currency") or "Unknown / nonaggregatable"),
                 ("Total Reports", data["report_count"]),
             ]
             for i, (k, v) in enumerate(summary, 1):
@@ -1626,8 +1668,8 @@ h2 {{ color: #e74c3c; border-bottom: 1px solid #fadbd8; margin-top: 15px; font-s
             ws2.cell(row=1, column=3).fill = hfill
             for i, (k, v) in enumerate(data["by_main_code"].items(), 2):
                 ws2.cell(row=i, column=1, value=k)
-                ws2.cell(row=i, column=2, value=round(v, 2))
-                ws2.cell(row=i, column=3, value=round(v / data["total_npt"] * 100, 1) if data["total_npt"] > 0 else 0)
+                ws2.cell(row=i, column=2, value=round(v, 2) if v is not None else None)
+                ws2.cell(row=i, column=3, value=round(v / data["total_npt"] * 100, 1) if data["total_npt"] and v is not None else None)
 
             # By Contractor
             ws3 = wb.create_sheet("By Contractor")
@@ -1637,7 +1679,7 @@ h2 {{ color: #e74c3c; border-bottom: 1px solid #fadbd8; margin-top: 15px; font-s
             ws3.cell(row=1, column=2).fill = hfill
             for i, (k, v) in enumerate(data["by_contractor"].items(), 2):
                 ws3.cell(row=i, column=1, value=k)
-                ws3.cell(row=i, column=2, value=round(v, 2))
+                ws3.cell(row=i, column=2, value=round(v, 2) if v is not None else None)
 
             # Events
             ws4 = wb.create_sheet("NPT Events")
@@ -1649,7 +1691,7 @@ h2 {{ color: #e74c3c; border-bottom: 1px solid #fadbd8; margin-top: 15px; font-s
                 ws4.cell(row=i, column=1, value=e["date"])
                 ws4.cell(row=i, column=2, value=e["from"])
                 ws4.cell(row=i, column=3, value=e["to"])
-                ws4.cell(row=i, column=4, value=round(e["hours"], 2))
+                ws4.cell(row=i, column=4, value=round(e["hours"], 2) if e["hours"] is not None else None)
                 ws4.cell(row=i, column=5, value=e["main_code"])
                 ws4.cell(row=i, column=6, value=e["sub_code"])
                 ws4.cell(row=i, column=7, value=e["contractor"])
@@ -1663,7 +1705,7 @@ h2 {{ color: #e74c3c; border-bottom: 1px solid #fadbd8; margin-top: 15px; font-s
             ws5.cell(row=1, column=2).fill = hfill
             for i, (k, v) in enumerate(data["by_date"].items(), 2):
                 ws5.cell(row=i, column=1, value=k)
-                ws5.cell(row=i, column=2, value=round(v, 2))
+                ws5.cell(row=i, column=2, value=round(v, 2) if v is not None else None)
 
             wb.save(path)
             return True
@@ -1680,10 +1722,11 @@ class CostReportEngine:
 
     def generate(self, well_id: int, output_path: str,
                  format: str = "pdf",
-                 daily_rate: float = 45000,
-                 spread_rate: float = 15000) -> bool:
+                 daily_rate: float = None,
+                 spread_rate: float = None,
+                 projection_currency: str = None) -> bool:
         try:
-            data = self._collect_data(well_id, daily_rate, spread_rate)
+            data = self._collect_data(well_id, daily_rate, spread_rate, projection_currency)
             if not data:
                 return False
             html = self._build_html(data)
@@ -1698,86 +1741,44 @@ class CostReportEngine:
             logger.error(f"Cost report error: {e}")
             return False
 
-    def _collect_data(self, well_id, daily_rate, spread_rate):
-        from core.database import DailyReport, TimeLog24H
+    def _collect_data(self, well_id, daily_rate=None, spread_rate=None, projection_currency=None):
+        from core.database import DailyReport, TimeLog24H, CostRecord
+        from core.cost_semantics import summarize_costs, normalize_currency
+        from core.operational_time import summarize_time_logs
         session = self.db.create_session()
         try:
             well = self.db.get_well_by_id(well_id) or {}
-            reports = session.query(DailyReport).filter(
-                DailyReport.well_id == well_id
-            ).order_by(DailyReport.report_date).all()
-
-            total_days = len(reports)
-            total_daily_cost = daily_rate + spread_rate
-
-            # NPT
-            total_npt = session.query(func.sum(TimeLog24H.duration)).join(
-                DailyReport, TimeLog24H.report_id == DailyReport.id
-            ).filter(
-                DailyReport.well_id == well_id,
-                TimeLog24H.is_npt == True
-            ).scalar() or 0
-            npt_days = total_npt / 24
-
-            total_cost = total_days * total_daily_cost
-            npt_cost = npt_days * total_daily_cost
-            pt_cost = total_cost - npt_cost
-
-            max_depth = max(
-                [(r.depth_2400 or 0) for r in reports], default=0
-            )
-            cost_per_meter = total_cost / max_depth if max_depth > 0 else 0
-            cost_per_foot = cost_per_meter / 3.28084 if max_depth > 0 else 0
-
-            # Cumulative
-            cum_data = []
-            cum_cost = 0
-            for r in reports:
-                cum_cost += total_daily_cost
-                cum_data.append({
-                    "date": str(r.report_date),
-                    "rig_day": r.rig_day or 0,
-                    "depth": r.depth_2400 or 0,
-                    "daily_cost": total_daily_cost,
-                    "cum_cost": cum_cost,
-                })
-
-            # Cost records from DB
-            try:
-                from core.database import CostRecord
-                cost_records = session.query(CostRecord).filter(
-                    CostRecord.well_id == well_id
-                ).order_by(CostRecord.category).all()
-                categories = {}
-                for cr in cost_records:
-                    cat = cr.category or "Other"
-                    if cat not in categories:
-                        categories[cat] = {"planned": 0, "actual": 0}
-                    categories[cat]["planned"] += cr.planned_cost or 0
-                    categories[cat]["actual"] += cr.actual_cost or 0
-            except Exception:
-                cost_records = []
-                categories = {}
-
-            return {
-                "well": well,
-                "total_days": total_days,
-                "daily_rate": daily_rate,
-                "spread_rate": spread_rate,
-                "total_daily_cost": total_daily_cost,
-                "total_cost": total_cost,
-                "npt_cost": npt_cost,
-                "pt_cost": pt_cost,
-                "npt_days": npt_days,
-                "max_depth": max_depth,
-                "cost_per_meter": cost_per_meter,
-                "cost_per_foot": cost_per_foot,
-                "cumulative": cum_data,
-                "categories": categories,
-            }
-        except Exception as e:
-            logger.error(f"Cost collect error: {e}")
-            return None
+            reports = session.query(DailyReport).filter_by(well_id=well_id).order_by(DailyReport.report_date, DailyReport.id).all()
+            records = session.query(CostRecord).filter_by(well_id=well_id).order_by(CostRecord.category).all()
+            costs = summarize_costs(records)
+            logs = session.query(TimeLog24H).join(DailyReport, TimeLog24H.report_id == DailyReport.id).filter(DailyReport.well_id == well_id).all()
+            times = summarize_time_logs(logs)
+            total_days = len({r.report_date for r in reports})
+            npt_days = times["npt_hours"] / 24 if times["npt_hours"] is not None else None
+            projection_currency = normalize_currency(projection_currency)
+            rate_supplied = daily_rate is not None and spread_rate is not None and projection_currency is not None
+            total_daily = float(daily_rate) + float(spread_rate) if rate_supplied else None
+            projected = total_days * total_daily if total_daily is not None and reports else None
+            npt_cost = npt_days * total_daily if npt_days is not None and total_daily is not None else None
+            pt_cost = projected - npt_cost if projected is not None and npt_cost is not None else None
+            depth = max((r.depth_2400 for r in reports if r.depth_2400 is not None), default=None)
+            actual = costs["total_actual"]
+            cpm = actual / depth if actual is not None and depth and depth > 0 else None
+            cumulative = []
+            if projected is not None:
+                for day, date in enumerate(sorted({r.report_date for r in reports}), 1):
+                    day_depths = [r.depth_2400 for r in reports if r.report_date == date and r.depth_2400 is not None]
+                    cumulative.append(dict(date=str(date), rig_day=day, depth=max(day_depths, default=None),
+                                           daily_cost=total_daily, cum_cost=day * total_daily))
+            return dict(well=well, total_days=total_days, daily_rate=daily_rate, spread_rate=spread_rate,
+                        total_daily_cost=total_daily, total_cost=actual, currency=costs["currency"],
+                        currency_status=costs["status"], projection_currency=projection_currency,
+                        projected_total_cost=projected, npt_cost=npt_cost, pt_cost=pt_cost,
+                        npt_days=npt_days, max_depth=depth, cost_per_meter=cpm,
+                        cost_per_foot=cpm / 3.28084 if cpm is not None else None,
+                        cumulative=cumulative,
+                        records=[{key: getattr(r, key) for key in ("category", "currency", "planned_cost", "actual_cost")} for r in records],
+                        categories={f"{r['category']} [{r['currency'] or 'currency unknown'}]": r for r in costs["groups"]})
         finally:
             session.close()
 
@@ -1785,6 +1786,12 @@ class CostReportEngine:
         w = data["well"]
         bc = self.branding
         well_name = w.get("name", "Unknown")
+
+        from core.cost_semantics import format_money
+        def _money(value):
+            return format_money(value, data["currency"])
+        def _projection(value):
+            return format_money(value, data["projection_currency"])
 
         html = f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8">
@@ -1809,34 +1816,35 @@ h2 {{ color: #27ae60; border-bottom: 1px solid #d5f5e3; margin-top: 15px; font-s
 </style></head><body>
 
 <h1>💰 COST ANALYSIS REPORT</h1>
-<p><b>Well:</b> {well_name} | <b>Total Days:</b> {data["total_days"]} | <b>Final Depth:</b> {data["max_depth"]:.0f} m</p>
+<p><b>Scope:</b> Whole-Well Aggregate</p>
+<p><b>Well:</b> {well_name} | <b>Total Days:</b> {data["total_days"]} | <b>Final Depth:</b> {fmt_num(data["max_depth"], 0, default=None)} m</p>
 
 <div class="kpi-row">
     <div class="kpi-box" style="background:#eafaf1;border-left:4px solid #27ae60">
-        <div class="kpi-value" style="color:#27ae60">${data["total_cost"]:,.0f}</div>
-        <div class="kpi-label">Total Well Cost</div>
+        <div class="kpi-value" style="color:#27ae60">{_money(data["total_cost"])}</div>
+        <div class="kpi-label">Total Actual Cost (stored)</div>
     </div>
     <div class="kpi-box" style="background:#fadbd8;border-left:4px solid #e74c3c">
-        <div class="kpi-value" style="color:#e74c3c">${data["npt_cost"]:,.0f}</div>
-        <div class="kpi-label">NPT Cost ({data["npt_days"]:.1f} days)</div>
+        <div class="kpi-value" style="color:#e74c3c">{_projection(data["npt_cost"])}</div>
+        <div class="kpi-label">NPT Cost — projection ({fmt_num(data["npt_days"], 1, default=None)} days)</div>
     </div>
     <div class="kpi-box" style="background:#eaf2f8;border-left:4px solid #3498db">
-        <div class="kpi-value" style="color:#3498db">${data["cost_per_meter"]:,.0f}</div>
-        <div class="kpi-label">Cost per Meter</div>
+        <div class="kpi-value" style="color:#3498db">{_money(data["cost_per_meter"])}</div>
+        <div class="kpi-label">Cost per Meter (actual)</div>
     </div>
     <div class="kpi-box" style="background:#fef9e7;border-left:4px solid #f39c12">
-        <div class="kpi-value" style="color:#f39c12">${data["total_daily_cost"]:,.0f}</div>
-        <div class="kpi-label">Daily Cost (Rig + Spread)</div>
+        <div class="kpi-value" style="color:#f39c12">{_projection(data["projected_total_cost"])}</div>
+        <div class="kpi-label">Projected Total (day-rate assumption)</div>
     </div>
 </div>
 
 <h2>📊 Cost Parameters</h2>
 <table class="table">
 <tr><th>Parameter</th><th>Value</th><th>Parameter</th><th>Value</th></tr>
-<tr><td>Rig Day Rate</td><td>${data["daily_rate"]:,.0f}/day</td><td>Spread Cost</td><td>${data["spread_rate"]:,.0f}/day</td></tr>
-<tr><td>Total Days</td><td>{data["total_days"]}</td><td>NPT Days</td><td>{data["npt_days"]:.1f}</td></tr>
-<tr><td>Productive Cost</td><td>${data["pt_cost"]:,.0f}</td><td>NPT Cost</td><td>${data["npt_cost"]:,.0f}</td></tr>
-<tr><td>Cost/Meter</td><td>${data["cost_per_meter"]:,.0f}</td><td>Cost/Foot</td><td>${data["cost_per_foot"]:,.0f}</td></tr>
+<tr><td>Rig Day Rate</td><td>{_projection(data["daily_rate"])}/day</td><td>Spread Cost</td><td>{_projection(data["spread_rate"])}/day</td></tr>
+<tr><td>Total Days</td><td>{data["total_days"]}</td><td>NPT Days</td><td>{fmt_num(data["npt_days"], 1, default=None)}</td></tr>
+<tr><td>Productive Cost</td><td>{_projection(data["pt_cost"])}</td><td>NPT Cost</td><td>{_projection(data["npt_cost"])}</td></tr>
+<tr><td>Cost/Meter</td><td>{_money(data["cost_per_meter"])}</td><td>Cost/Foot</td><td>{_money(data["cost_per_foot"])}</td></tr>
 </table>
 """
 
@@ -1844,38 +1852,28 @@ h2 {{ color: #27ae60; border-bottom: 1px solid #d5f5e3; margin-top: 15px; font-s
         if data["categories"]:
             html += "<h2>📋 Cost by Category</h2>"
             html += """<table class="table">
-<tr><th>Category</th><th>Planned ($)</th><th>Actual ($)</th><th>Variance ($)</th><th>Status</th></tr>"""
-            total_p = total_a = 0
+<tr><th>Category</th><th>Planned</th><th>Actual</th><th>Variance</th><th>Status</th></tr>"""
             for cat, vals in data["categories"].items():
-                p = vals["planned"]
-                a = vals["actual"]
-                v = p - a
-                total_p += p
-                total_a += a
-                color = "#27ae60" if v >= 0 else "#e74c3c"
-                html += f"""<tr>
-<td>{cat}</td>
-<td style="text-align:right">{p:,.0f}</td>
-<td style="text-align:right">{a:,.0f}</td>
-<td style="text-align:right;color:{color}"><b>{v:,.0f}</b></td>
-<td>{'✅ Under' if v >= 0 else '❌ Over'}</td>
-</tr>"""
-            html += f"""<tr style="font-weight:bold;background:#ecf0f1">
-<td>TOTAL</td><td style="text-align:right">{total_p:,.0f}</td>
-<td style="text-align:right">{total_a:,.0f}</td>
-<td style="text-align:right">{total_p-total_a:,.0f}</td><td></td>
-</tr></table>"""
+                variance = vals["variance"]
+                status = "NOT ASSESSED" if variance is None else "Under budget" if variance >= 0 else "Over budget"
+                html += f"<tr><td>{cat}</td><td>{format_money(vals['planned'], vals['currency'])}</td><td>{format_money(vals['actual'], vals['currency'])}</td><td>{format_money(variance, vals['currency'])}</td><td>{status}</td></tr>"
+            html += "</table>"
+        html += f"<p>Aggregation: {data['currency_status']}. No currency conversion is performed.</p>"
+        html += "<h2>Source cost lines (unaggregated)</h2><table class='table'><tr><th>Category</th><th>Planned</th><th>Actual</th></tr>"
+        for row in data["records"]:
+            html += f"<tr><td>{row['category']}</td><td>{format_money(row['planned_cost'], row['currency'])}</td><td>{format_money(row['actual_cost'], row['currency'])}</td></tr>"
+        html += "</table>"
 
         # Cumulative Cost Table
         html += "<h2>📈 Cumulative Cost vs Depth</h2>"
         html += """<table class="table">
-<tr><th>Day</th><th>Date</th><th>Depth (m)</th><th>Daily Cost ($)</th><th>Cumulative ($)</th></tr>"""
+<tr><th>Day</th><th>Date</th><th>Depth (m)</th><th>Projected Daily Cost</th><th>Projected Cumulative Cost</th></tr>"""
         for c in data["cumulative"]:
             html += f"""<tr>
 <td>{c["rig_day"]}</td><td>{c["date"]}</td>
-<td>{c["depth"]:.0f}</td>
-<td style="text-align:right">{c["daily_cost"]:,.0f}</td>
-<td style="text-align:right"><b>{c["cum_cost"]:,.0f}</b></td>
+<td>{fmt_num(c["depth"], 0, default=None)}</td>
+<td style="text-align:right">{_projection(c["daily_cost"])}</td>
+<td style="text-align:right"><b>{_projection(c["cum_cost"])}</b></td>
 </tr>"""
         html += "</table>"
 
@@ -1887,6 +1885,9 @@ h2 {{ color: #27ae60; border-bottom: 1px solid #d5f5e3; margin-top: 15px; font-s
 
     def _save_pdf(self, html, path):
         try:
+            from PySide6.QtGui import QTextDocument, QPageSize, QPageLayout
+            from PySide6.QtCore import QMarginsF
+            from PySide6.QtPrintSupport import QPrinter
             printer = QPrinter(QPrinter.HighResolution)
             printer.setOutputFormat(QPrinter.PdfFormat)
             printer.setOutputFileName(path)
@@ -1905,7 +1906,9 @@ h2 {{ color: #27ae60; border-bottom: 1px solid #d5f5e3; margin-top: 15px; font-s
             with open(path, 'w', encoding='utf-8') as f:
                 f.write(html)
             return True
-        except: return False
+        except OSError as exc:
+            logger.debug("HTML export failed for %s: %s", path, exc)
+            return False
 
     def _save_excel(self, data, path):
         try:
@@ -1917,15 +1920,19 @@ h2 {{ color: #27ae60; border-bottom: 1px solid #d5f5e3; margin-top: 15px; font-s
 
             ws = wb.active
             ws.title = "Cost Summary"
+            from core.cost_semantics import format_money
             rows = [
                 ("Metric", "Value"),
-                ("Total Cost", f"${data['total_cost']:,.0f}"),
-                ("NPT Cost", f"${data['npt_cost']:,.0f}"),
-                ("Productive Cost", f"${data['pt_cost']:,.0f}"),
-                ("Cost/Meter", f"${data['cost_per_meter']:,.0f}"),
-                ("Cost/Foot", f"${data['cost_per_foot']:,.0f}"),
+                ("Scope", "Whole-Well Aggregate"),
+                ("Total Cost", format_money(data['total_cost'], data['currency'])),
+                ("NPT Cost (projection)", format_money(data['npt_cost'], data['projection_currency'])),
+                ("Productive Cost (projection)", format_money(data['pt_cost'], data['projection_currency'])),
+                ("Cost/Meter", format_money(data['cost_per_meter'], data['currency'])),
+                ("Cost/Foot", format_money(data['cost_per_foot'], data['currency'])),
                 ("Total Days", str(data['total_days'])),
-                ("NPT Days", f"{data['npt_days']:.1f}"),
+                ("NPT Days", data['npt_days']),
+                ("Actual currency status", data["currency_status"]),
+                ("Projection currency", data["projection_currency"] or "Unknown"),
             ]
             for i, (k, v) in enumerate(rows, 1):
                 ws.cell(row=i, column=1, value=k)
@@ -1958,8 +1965,12 @@ h2 {{ color: #27ae60; border-bottom: 1px solid #d5f5e3; margin-top: 15px; font-s
                     ws3.cell(row=i, column=1, value=cat)
                     ws3.cell(row=i, column=2, value=vals["planned"])
                     ws3.cell(row=i, column=3, value=vals["actual"])
-                    ws3.cell(row=i, column=4, value=vals["planned"] - vals["actual"])
+                    ws3.cell(row=i, column=4, value=vals["variance"])
 
+            raw = wb.create_sheet("Source lines")
+            raw.append(["Category", "Currency", "Planned", "Actual"])
+            for row in data["records"]:
+                raw.append([row["category"], row["currency"], row["planned_cost"], row["actual_cost"]])
             wb.save(path)
             return True
         except Exception as e:
@@ -1992,7 +2003,7 @@ class PlanReportEngine:
             return False
 
     def _collect_data(self, well_id):
-        from core.database import WellPlan, PlannedActivity, Well
+        from core.database import WellPlan, PlannedActivity
         session = self.db.create_session()
         try:
             well = self.db.get_well_by_id(well_id) or {}
@@ -2003,27 +2014,29 @@ class PlanReportEngine:
             if not plans:
                 return None
 
-            active_plan = next((p for p in plans if p.is_active), plans[0])
+            active = [plan for plan in plans if plan.is_active]
+            if len(active) != 1:
+                raise ValueError("Export requires exactly one active plan for the selected well")
+            active_plan = active[0]
 
             activities = session.query(PlannedActivity).filter(
                 PlannedActivity.well_id == well_id,
                 PlannedActivity.plan_id == active_plan.id
             ).order_by(PlannedActivity.planned_start).all()
 
-            total_hrs = sum(a.planned_duration_hours or 0 for a in activities)
-            total_days = total_hrs / 24
-            max_depth = max(
-                [a.planned_depth_to or 0 for a in activities],
-                default=0
-            )
+            from core.actual_vs_plan import activity_plan_totals
+            from core.cost_semantics import complete_total
+            totals = activity_plan_totals(activities)
+            total_hrs = totals["hours"]
+            total_days = total_hrs / 24 if total_hrs is not None else None
+            max_depth = totals["depth"]
 
             # breakdown by phase
             by_phase = {}
             for a in activities:
                 phase = a.phase_code or "Unknown"
-                by_phase[phase] = by_phase.get(phase, 0) + (
-                    a.planned_duration_hours or 0
-                )
+                by_phase.setdefault(phase, []).append(a.planned_duration_hours)
+            by_phase = {phase: complete_total(hours) for phase, hours in by_phase.items()}
 
             return {
                 "well": well,
@@ -2033,7 +2046,7 @@ class PlanReportEngine:
                 "total_hrs": total_hrs,
                 "total_days": total_days,
                 "max_depth": max_depth,
-                "by_phase": dict(sorted(by_phase.items(), key=lambda x: x[1], reverse=True)),
+                "by_phase": dict(sorted(by_phase.items(), key=lambda x: (x[1] is not None, x[1] or 0), reverse=True)),
             }
         except Exception as e:
             logger.error(f"Plan collect error: {e}")
@@ -2071,6 +2084,7 @@ h2 {{ color: #9b59b6; border-bottom: 1px solid #e8daef; margin-top: 15px; font-s
 </style></head><body>
 
 <h1>📋 DRILLING PLAN REPORT</h1>
+<p><b>Scope:</b> Whole-Well (Well-Level Plan)</p>
 <p><b>Well:</b> {w.get("name","")} | <b>Plan:</b> {plan.plan_name} | <b>Version:</b> {plan.plan_version}</p>
 <p><b>Planned Spud:</b> {plan.planned_spud_date or ''} | <b>Planned Finish:</b> {plan.planned_finish_date or ''}</p>
 
@@ -2080,15 +2094,15 @@ h2 {{ color: #9b59b6; border-bottom: 1px solid #e8daef; margin-top: 15px; font-s
         <div class="kpi-label">Activities</div>
     </div>
     <div class="kpi-box">
-        <div class="kpi-value">{data["total_days"]:.1f}</div>
+        <div class="kpi-value">{fmt_num(data["total_days"], 1, default=None)}</div>
         <div class="kpi-label">Planned Days</div>
     </div>
     <div class="kpi-box">
-        <div class="kpi-value">{data["total_hrs"]:.1f}</div>
+        <div class="kpi-value">{fmt_num(data["total_hrs"], 1, default=None)}</div>
         <div class="kpi-label">Planned Hours</div>
     </div>
     <div class="kpi-box">
-        <div class="kpi-value">{data["max_depth"]:.0f} m</div>
+        <div class="kpi-value">{fmt_num(data["max_depth"], 0, default=None)} m</div>
         <div class="kpi-label">Planned Final Depth</div>
     </div>
 </div>
@@ -2100,16 +2114,16 @@ h2 {{ color: #9b59b6; border-bottom: 1px solid #e8daef; margin-top: 15px; font-s
 
         # By phase
         html += "<h2>📊 Hours by Phase</h2>"
-        total = data["total_hrs"] or 1
+        total = data["total_hrs"]
         html += """<table class="table">
 <tr><th>Phase</th><th>Hours</th><th>%</th><th>Distribution</th></tr>"""
         for phase, hrs in data["by_phase"].items():
-            pct = hrs / total * 100
+            pct = hrs / total * 100 if hrs is not None and total else None
             html += f"""<tr>
 <td>{phase}</td>
-<td style="text-align:right"><b>{hrs:.1f}</b></td>
-<td style="text-align:right">{pct:.1f}%</td>
-<td><div class="bar-container"><div class="bar-fill" style="width:{pct:.0f}%"></div></div></td>
+<td style="text-align:right"><b>{fmt_num(hrs, 1, default=None)}</b></td>
+<td style="text-align:right">{fmt_num(pct, 1, default=None)}%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:{pct if pct is not None else 0:.0f}%"></div></div></td>
 </tr>"""
         html += "</table>"
 
@@ -2121,9 +2135,9 @@ h2 {{ color: #9b59b6; border-bottom: 1px solid #e8daef; margin-top: 15px; font-s
             html += f"""<tr>
 <td>{a.phase_code or ''}</td>
 <td>{a.activity_name or ''}</td>
-<td>{a.planned_depth_from or 0:.0f}</td>
-<td>{a.planned_depth_to or 0:.0f}</td>
-<td>{a.planned_duration_hours or 0:.1f}</td>
+<td>{fmt_num(a.planned_depth_from, 0, default=None)}</td>
+<td>{fmt_num(a.planned_depth_to, 0, default=None)}</td>
+<td>{fmt_num(a.planned_duration_hours, 1, default=None)}</td>
 <td>{a.planned_start.strftime('%Y-%m-%d %H:%M') if a.planned_start else ''}</td>
 <td>{a.planned_end.strftime('%Y-%m-%d %H:%M') if a.planned_end else ''}</td>
 </tr>"""
@@ -2137,6 +2151,9 @@ h2 {{ color: #9b59b6; border-bottom: 1px solid #e8daef; margin-top: 15px; font-s
 
     def _save_pdf(self, html, path):
         try:
+            from PySide6.QtGui import QTextDocument, QPageSize, QPageLayout
+            from PySide6.QtCore import QMarginsF
+            from PySide6.QtPrintSupport import QPrinter
             printer = QPrinter(QPrinter.HighResolution)
             printer.setOutputFormat(QPrinter.PdfFormat)
             printer.setOutputFileName(path)
@@ -2155,7 +2172,9 @@ h2 {{ color: #9b59b6; border-bottom: 1px solid #e8daef; margin-top: 15px; font-s
             with open(path, 'w', encoding='utf-8') as f:
                 f.write(html)
             return True
-        except: return False
+        except OSError as exc:
+            logger.debug("HTML export failed for %s: %s", path, exc)
+            return False
 
     def _save_excel(self, data, path):
         try:
@@ -2169,6 +2188,7 @@ h2 {{ color: #9b59b6; border-bottom: 1px solid #e8daef; margin-top: 15px; font-s
             ws.title = "Plan Summary"
             rows = [
                 ("Metric", "Value"),
+                ("Scope", "Whole-Well (Well-Level Plan)"),
                 ("Plan Name", data["plan"].plan_name),
                 ("Version", data["plan"].plan_version),
                 ("Planned Days", data["total_days"]),
@@ -2194,9 +2214,11 @@ h2 {{ color: #9b59b6; border-bottom: 1px solid #e8daef; margin-top: 15px; font-s
             for i, a in enumerate(data["activities"], 2):
                 ws2.cell(row=i, column=1, value=a.phase_code or "")
                 ws2.cell(row=i, column=2, value=a.activity_name or "")
-                ws2.cell(row=i, column=3, value=a.planned_depth_from or 0)
-                ws2.cell(row=i, column=4, value=a.planned_depth_to or 0)
-                ws2.cell(row=i, column=5, value=a.planned_duration_hours or 0)
+                # An unplanned depth or duration exports as an empty cell; only a
+                # value the planner actually recorded is written as a number.
+                ws2.cell(row=i, column=3, value=a.planned_depth_from)
+                ws2.cell(row=i, column=4, value=a.planned_depth_to)
+                ws2.cell(row=i, column=5, value=a.planned_duration_hours)
                 ws2.cell(row=i, column=6, value=str(a.planned_start or ""))
                 ws2.cell(row=i, column=7, value=str(a.planned_end or ""))
 

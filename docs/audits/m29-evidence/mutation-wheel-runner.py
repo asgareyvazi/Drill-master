@@ -1,0 +1,56 @@
+from pathlib import Path
+import hashlib
+import json
+import subprocess
+import os
+import time
+
+p = Path("pyproject.toml")
+original = p.read_bytes()
+before = hashlib.sha256(original).hexdigest()
+out = Path("docs/audits/m29-evidence")
+start = time.monotonic()
+try:
+    p.write_text(original.decode().replace(', "ui*"', ""))
+    test = subprocess.run(
+        [
+            ".venv/bin/python",
+            "-m",
+            "pytest",
+            "-q",
+            "tests/test_packaging_smoke.py::test_wheel_includes_desktop_ui_and_builtin_templates",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    (out / "mutation-wheel-test.txt").write_text(test.stdout + test.stderr)
+    gate = subprocess.run(
+        [
+            ".venv/bin/python",
+            "-c",
+            "import verify_release; raise SystemExit(0 if verify_release.verify_wheel() else 1)",
+        ],
+        capture_output=True,
+        text=True,
+        env=dict(
+            os.environ,
+            QT_QPA_PLATFORM="offscreen",
+            QT_STUB_DIR="/home/user/qt-libs",
+            LD_LIBRARY_PATH="/home/user/qt-libs",
+        ),
+        timeout=120,
+    )
+    (out / "mutation-wheel-gate.txt").write_text(gate.stdout + gate.stderr)
+finally:
+    p.write_bytes(original)
+record = dict(
+    test_returncode=test.returncode,
+    gate_returncode=gate.returncode,
+    source_restored=hashlib.sha256(p.read_bytes()).hexdigest() == before,
+    source_sha256=before,
+    seconds=round(time.monotonic() - start, 2),
+    mutation="Remove ui* from setuptools package selection; clean staging must prevent stale build/lib from masking omission",
+)
+(out / "mutation-wheel.json").write_text(json.dumps(record, indent=2) + "\n")
+print(record)
+assert test.returncode == gate.returncode == 1 and record["source_restored"]

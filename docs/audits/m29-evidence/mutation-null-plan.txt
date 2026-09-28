@@ -1,0 +1,27 @@
+FF..F......                                                              [100%]
+=================================== FAILURES ===================================
+_______________ test_required_eleven_pair_plan_matrix[None-None] _______________
+tests/test_m29_release_closure.py:75: in test_required_eleven_pair_plan_matrix
+    assert (scalar.planned, scalar.actual) == (p, a)
+E   assert (0.0, None) == (None, None)
+E
+E     At index 0 diff: 0.0 != None
+E     Use -v to get more diff
+________________ test_required_eleven_pair_plan_matrix[None-0] _________________
+tests/test_m29_release_closure.py:75: in test_required_eleven_pair_plan_matrix
+    assert (scalar.planned, scalar.actual) == (p, a)
+E   assert (0.0, 0.0) == (None, 0)
+E
+E     At index 0 diff: 0.0 != None
+E     Use -v to get more diff
+_______________ test_required_eleven_pair_plan_matrix[None-100] ________________
+tests/test_m29_release_closure.py:75: in test_required_eleven_pair_plan_matrix
+    assert (scalar.planned, scalar.actual) == (p, a)
+E   assert (0.0, 100.0) == (None, 100)
+E
+E     At index 0 diff: 0.0 != None
+E     Use -v to get more diff
+=========================== short test summary info ============================
+FAILED tests/test_m29_release_closure.py::test_required_eleven_pair_plan_matrix[None-None]
+FAILED tests/test_m29_release_closure.py::test_required_eleven_pair_plan_matrix[None-0]
+FAILED tests/test_m29_release_closure.py::test_required_eleven_pair_plan_matrix[None-100]

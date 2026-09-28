@@ -1,0 +1,1513 @@
+{
+ "schema": "m34-doc-claim-audit",
+ "generated_utc": "2026-09-27T12:28:27+00:00",
+ "head": "c28bbef37cbac9de7abcfa693e7e21f678fa74ab",
+ "local_branches": [
+  "arena/01a0c945-drill-master",
+  "drill-Master",
+  "remotes/origin/HEAD -> origin/drill-Master",
+  "remotes/origin/drill-Master"
+ ],
+ "docs_scanned": 96,
+ "finding_counts": {
+  "CHECK": 48,
+  "CHECK-AGAINST-FINAL-RUN": 15,
+  "UNRESOLVED": 37,
+  "CURRENT-VERIFIED": 12,
+  "HISTORICAL": 101
+ },
+ "findings": [
+  {
+   "doc": "AI_MAPPING.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "ARCHITECTURE.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "DATABASE_ARCHITECTURE.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "DEPLOYMENT.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "ENGINEERING_ARCHITECTURE.md",
+   "claim_type": "test-count",
+   "claim": "122",
+   "state": "CHECK-AGAINST-FINAL-RUN",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "ENGINEERING_ARCHITECTURE.md",
+   "claim_type": "test-count",
+   "claim": "424",
+   "state": "CHECK-AGAINST-FINAL-RUN",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "ENGINEERING_ARCHITECTURE.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "ENGINEERING_AUDIT.md",
+   "claim_type": "test-count",
+   "claim": "122",
+   "state": "CHECK-AGAINST-FINAL-RUN",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "ENGINEERING_AUDIT.md",
+   "claim_type": "test-count",
+   "claim": "421",
+   "state": "CHECK-AGAINST-FINAL-RUN",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "ENGINEERING_AUDIT.md",
+   "claim_type": "test-count",
+   "claim": "424",
+   "state": "CHECK-AGAINST-FINAL-RUN",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "ENGINEERING_AUDIT.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "ENGINEERING_CAPABILITY_STATUS.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "ENGINEERING_REFERENCE_MATRIX.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "IMPORT_PIPELINE.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "M30_DOMAIN_MATRIX.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "M30_RELEASE_CERTIFICATION.md",
+   "claim_type": "sha",
+   "claim": "e6e6982d8238917d877f1716a9c6f59eef5649c4",
+   "state": "UNRESOLVED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "M30_RELEASE_CERTIFICATION.md",
+   "claim_type": "sha",
+   "claim": "e2eeb3539c5d9c468e73961824e9fe5229864a59",
+   "state": "UNRESOLVED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "M30_RELEASE_CERTIFICATION.md",
+   "claim_type": "sha",
+   "claim": "c28bbef37cbac9de7abcfa693e7e21f678fa74ab",
+   "state": "CURRENT-VERIFIED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "M30_RELEASE_CERTIFICATION.md",
+   "claim_type": "test-count",
+   "claim": "1732",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "M30_RELEASE_CERTIFICATION.md",
+   "claim_type": "test-count",
+   "claim": "1729",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "M30_RELEASE_CERTIFICATION.md",
+   "claim_type": "branch-or-status",
+   "claim": "drill-Master",
+   "state": "HISTORICAL",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "M30_RELEASE_CERTIFICATION.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "M30_SEMANTIC_AUDIT.md",
+   "claim_type": "sha",
+   "claim": "e6e6982d8238917d877f1716a9c6f59eef5649c4",
+   "state": "UNRESOLVED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "M30_SEMANTIC_AUDIT.md",
+   "claim_type": "sha",
+   "claim": "e2eeb3539c5d9c468e73961824e9fe5229864a59",
+   "state": "UNRESOLVED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "M30_SEMANTIC_AUDIT.md",
+   "claim_type": "sha",
+   "claim": "23805f4689b43e5efd6c54e30bf09aeb829df952",
+   "state": "UNRESOLVED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "M30_SEMANTIC_AUDIT.md",
+   "claim_type": "sha",
+   "claim": "c28bbef37cbac9de7abcfa693e7e21f678fa74ab",
+   "state": "CURRENT-VERIFIED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "M30_SEMANTIC_AUDIT.md",
+   "claim_type": "sha",
+   "claim": "964e922a221870b3844fc9469544c4862ab67fbb",
+   "state": "UNRESOLVED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "M30_SEMANTIC_AUDIT.md",
+   "claim_type": "test-count",
+   "claim": "1732",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "M30_SEMANTIC_AUDIT.md",
+   "claim_type": "test-count",
+   "claim": "1690",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "M30_SEMANTIC_AUDIT.md",
+   "claim_type": "test-count",
+   "claim": "1687",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "M30_SEMANTIC_AUDIT.md",
+   "claim_type": "test-count",
+   "claim": "1729",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "M30_SEMANTIC_AUDIT.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "M33_ENGINE_DEFAULTS.md",
+   "claim_type": "sha",
+   "claim": "c28bbef37cbac9de7abcfa693e7e21f678fa74ab",
+   "state": "CURRENT-VERIFIED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "M33_ENGINE_DEFAULTS.md",
+   "claim_type": "test-count",
+   "claim": "219",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "M33_EVIDENCE_INDEX.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "M33_RELEASE_CERTIFICATION.md",
+   "claim_type": "sha",
+   "claim": "b1fca5dac4181f16e0aa9c52de6c6b96369a7178",
+   "state": "UNRESOLVED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "M33_RELEASE_CERTIFICATION.md",
+   "claim_type": "sha",
+   "claim": "a9d7dede612b9c5c86de8eea5555a969811cc77a",
+   "state": "UNRESOLVED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "M33_RELEASE_CERTIFICATION.md",
+   "claim_type": "sha",
+   "claim": "c28bbef37cbac9de7abcfa693e7e21f678fa74ab",
+   "state": "CURRENT-VERIFIED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "M33_RELEASE_CERTIFICATION.md",
+   "claim_type": "sha",
+   "claim": "7e16996cdcc1bce4a79fed8823371c20c74eef15",
+   "state": "UNRESOLVED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "M33_RELEASE_CERTIFICATION.md",
+   "claim_type": "test-count",
+   "claim": "818",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "M33_RELEASE_CERTIFICATION.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "M33_ROOT_CAUSES.md",
+   "claim_type": "sha",
+   "claim": "c28bbef37cbac9de7abcfa693e7e21f678fa74ab",
+   "state": "CURRENT-VERIFIED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "M33_SEMANTIC_AUDIT.md",
+   "claim_type": "sha",
+   "claim": "b1fca5dac4181f16e0aa9c52de6c6b96369a7178",
+   "state": "UNRESOLVED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "M33_SEMANTIC_AUDIT.md",
+   "claim_type": "sha",
+   "claim": "a9d7dede612b9c5c86de8eea5555a969811cc77a",
+   "state": "UNRESOLVED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "M33_SEMANTIC_AUDIT.md",
+   "claim_type": "sha",
+   "claim": "c28bbef37cbac9de7abcfa693e7e21f678fa74ab",
+   "state": "CURRENT-VERIFIED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "M33_SEMANTIC_AUDIT.md",
+   "claim_type": "sha",
+   "claim": "7e16996cdcc1bce4a79fed8823371c20c74eef15",
+   "state": "UNRESOLVED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "M33_SEMANTIC_AUDIT.md",
+   "claim_type": "test-count",
+   "claim": "818",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "M33_SEMANTIC_AUDIT.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "M34_AUDIT_ANSWERS.md",
+   "claim_type": "test-count",
+   "claim": "814",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "M34_AUDIT_ANSWERS.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "M34_FORENSIC_RECOVERY.md",
+   "claim_type": "sha",
+   "claim": "964e922a221870b3844fc9469544c4862ab67fbb",
+   "state": "UNRESOLVED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "M34_FORENSIC_RECOVERY.md",
+   "claim_type": "sha",
+   "claim": "c28bbef37cbac9de7abcfa693e7e21f678fa74ab",
+   "state": "CURRENT-VERIFIED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "M34_FORENSIC_RECOVERY.md",
+   "claim_type": "sha",
+   "claim": "7e16996cdcc1bce4a79fed8823371c20c74eef15",
+   "state": "UNRESOLVED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "M34_FORENSIC_RECOVERY.md",
+   "claim_type": "branch-or-status",
+   "claim": "drill-Master",
+   "state": "HISTORICAL",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "M34_FORENSIC_RECOVERY.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "M34_M33_RECOVERY.md",
+   "claim_type": "sha",
+   "claim": "a9d7dede612b9c5c86de8eea5555a969811cc77a",
+   "state": "UNRESOLVED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "M34_M33_RECOVERY.md",
+   "claim_type": "sha",
+   "claim": "c28bbef37cbac9de7abcfa693e7e21f678fa74ab",
+   "state": "CURRENT-VERIFIED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "M34_M33_RECOVERY.md",
+   "claim_type": "sha",
+   "claim": "dc5939c80aa8a1a75e9f2a074b196fcacbf3b7f9",
+   "state": "UNRESOLVED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "M34_M33_RECOVERY.md",
+   "claim_type": "test-count",
+   "claim": "818",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "M34_M33_RECOVERY.md",
+   "claim_type": "test-count",
+   "claim": "814",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "M34_M33_RECOVERY.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "M34_RELEASE_CERTIFICATION.md",
+   "claim_type": "sha",
+   "claim": "c28bbef37cbac9de7abcfa693e7e21f678fa74ab",
+   "state": "CURRENT-VERIFIED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "M34_RELEASE_CERTIFICATION.md",
+   "claim_type": "sha",
+   "claim": "7e16996cdcc1bce4a79fed8823371c20c74eef15",
+   "state": "UNRESOLVED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "M34_RELEASE_CERTIFICATION.md",
+   "claim_type": "test-count",
+   "claim": "814",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "M34_RELEASE_CERTIFICATION.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "M34_ROOT_CAUSES.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "M34_SEMANTIC_AUDIT.md",
+   "claim_type": "test-count",
+   "claim": "814",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "PRODUCTION_READINESS.md",
+   "claim_type": "test-count",
+   "claim": "538",
+   "state": "CHECK-AGAINST-FINAL-RUN",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "PRODUCTION_READINESS.md",
+   "claim_type": "test-count",
+   "claim": "808",
+   "state": "CHECK-AGAINST-FINAL-RUN",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "PRODUCTION_READINESS.md",
+   "claim_type": "test-count",
+   "claim": "530",
+   "state": "CHECK-AGAINST-FINAL-RUN",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "PRODUCTION_READINESS.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "README.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "RELEASE_NOTES.md",
+   "claim_type": "test-count",
+   "claim": "538",
+   "state": "CHECK-AGAINST-FINAL-RUN",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "RELEASE_NOTES.md",
+   "claim_type": "test-count",
+   "claim": "530",
+   "state": "CHECK-AGAINST-FINAL-RUN",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "RELEASE_NOTES.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "TESTING.md",
+   "claim_type": "test-count",
+   "claim": "812",
+   "state": "CHECK-AGAINST-FINAL-RUN",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "TESTING.md",
+   "claim_type": "test-count",
+   "claim": "808",
+   "state": "CHECK-AGAINST-FINAL-RUN",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "TESTING.md",
+   "claim_type": "test-count",
+   "claim": "848",
+   "state": "CHECK-AGAINST-FINAL-RUN",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "TESTING.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "docs/ENGINEERING_ARCHITECTURE.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "docs/IMPORT_AUDIT_2026-09.md",
+   "claim_type": "sha",
+   "claim": "c7e7697f80de0a91daf59541c419a44aadac8df9",
+   "state": "UNRESOLVED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "docs/IMPORT_AUDIT_2026-09.md",
+   "claim_type": "test-count",
+   "claim": "524",
+   "state": "CHECK-AGAINST-FINAL-RUN",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/IMPORT_AUDIT_2026-09.md",
+   "claim_type": "test-count",
+   "claim": "532",
+   "state": "CHECK-AGAINST-FINAL-RUN",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/WINDOWS_ACCEPTANCE.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "docs/audits/2026-09-08-ddr/FOLLOWUP_INSPECTION.md",
+   "claim_type": "sha",
+   "claim": "eb8041de79d44f6ac6099ca84e569116af0d617c",
+   "state": "UNRESOLVED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "docs/audits/2026-09-08-ddr/FOLLOWUP_INSPECTION.md",
+   "claim_type": "test-count",
+   "claim": "616",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-08-ddr/FOLLOWUP_INSPECTION.md",
+   "claim_type": "test-count",
+   "claim": "609",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-08-ddr/FOLLOWUP_REPORT.md",
+   "claim_type": "sha",
+   "claim": "eb8041de79d44f6ac6099ca84e569116af0d617c",
+   "state": "UNRESOLVED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "docs/audits/2026-09-08-ddr/FOLLOWUP_REPORT.md",
+   "claim_type": "test-count",
+   "claim": "151",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-08-ddr/FOLLOWUP_REPORT.md",
+   "claim_type": "test-count",
+   "claim": "655",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-08-ddr/FOLLOWUP_REPORT.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "docs/audits/2026-09-08-ddr/PRODUCTION_CREDENTIAL_LIFECYCLE_FIX.md",
+   "claim_type": "sha",
+   "claim": "eb8041de79d44f6ac6099ca84e569116af0d617c",
+   "state": "UNRESOLVED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "docs/audits/2026-09-08-ddr/PRODUCTION_CREDENTIAL_LIFECYCLE_FIX.md",
+   "claim_type": "sha",
+   "claim": "c7d9f2ee6d513cf18c0f6a4eb5e2ebb181f869c2",
+   "state": "UNRESOLVED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "docs/audits/2026-09-08-ddr/PRODUCTION_CREDENTIAL_LIFECYCLE_FIX.md",
+   "claim_type": "test-count",
+   "claim": "662",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-08-ddr/PRODUCTION_CREDENTIAL_LIFECYCLE_FIX.md",
+   "claim_type": "test-count",
+   "claim": "704",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-08-ddr/REAL_USER_ACCEPTANCE_AUDIT.md",
+   "claim_type": "sha",
+   "claim": "7d21679ee64012ba425302b9fbc7445dee334142",
+   "state": "UNRESOLVED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "docs/audits/2026-09-08-ddr/REAL_USER_ACCEPTANCE_AUDIT.md",
+   "claim_type": "sha",
+   "claim": "ac3845fef8e848a62c6bd7a6f0a95601835572c3",
+   "state": "UNRESOLVED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "docs/audits/2026-09-08-ddr/REAL_USER_ACCEPTANCE_AUDIT.md",
+   "claim_type": "test-count",
+   "claim": "744",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-08-ddr/REAL_USER_ACCEPTANCE_AUDIT.md",
+   "claim_type": "test-count",
+   "claim": "786",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-08-ddr/REAL_USER_ACCEPTANCE_AUDIT.md",
+   "claim_type": "test-count",
+   "claim": "298",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-08-ddr/REPORT.md",
+   "claim_type": "sha",
+   "claim": "ad7ea0dbf353f3c376fa59750cdee86713ff2d89",
+   "state": "UNRESOLVED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "docs/audits/2026-09-08-ddr/REPORT.md",
+   "claim_type": "test-count",
+   "claim": "100",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-08-ddr/REPORT.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "docs/audits/2026-09-08-ddr/REVIEW_CLASSIFICATION_65.md",
+   "claim_type": "sha",
+   "claim": "eb8041de79d44f6ac6099ca84e569116af0d617c",
+   "state": "UNRESOLVED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "docs/audits/2026-09-08-ddr/evidence/r18-r19/commands.md",
+   "claim_type": "sha",
+   "claim": "7d21679ee64012ba425302b9fbc7445dee334142",
+   "state": "UNRESOLVED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "docs/audits/2026-09-09/MASTER_FORENSIC_AUDIT.md",
+   "claim_type": "sha",
+   "claim": "b05ea768398184bdaa299eeae413edf1622137b1",
+   "state": "UNRESOLVED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "docs/audits/2026-09-09/MASTER_FORENSIC_AUDIT.md",
+   "claim_type": "test-count",
+   "claim": "792",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-09/MASTER_FORENSIC_AUDIT.md",
+   "claim_type": "test-count",
+   "claim": "817",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-09/PRODUCTION_ACCEPTANCE.md",
+   "claim_type": "test-count",
+   "claim": "779",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-09/PRODUCTION_ACCEPTANCE.md",
+   "claim_type": "test-count",
+   "claim": "792",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-09/PRODUCTION_ACCEPTANCE.md",
+   "claim_type": "test-count",
+   "claim": "812",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-09/VERIFICATION_PLANS.md",
+   "claim_type": "test-count",
+   "claim": "808",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-10_FORENSIC_REAUDIT.md",
+   "claim_type": "test-count",
+   "claim": "808",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-10_FORENSIC_REAUDIT.md",
+   "claim_type": "test-count",
+   "claim": "812",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-10_FORENSIC_REAUDIT.md",
+   "claim_type": "test-count",
+   "claim": "800",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-12_BHA_BIT_FORENSIC_AUDIT.md",
+   "claim_type": "test-count",
+   "claim": "885",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-12_BHA_BIT_FORENSIC_AUDIT.md",
+   "claim_type": "test-count",
+   "claim": "899",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-12_COST_FORENSIC_AUDIT.md",
+   "claim_type": "test-count",
+   "claim": "902",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-12_DRILLING_KPI_COVERAGE_FORENSIC_AUDIT.md",
+   "claim_type": "sha",
+   "claim": "9be4c42803fce0e1e00c82050df2afb38a1410b3",
+   "state": "UNRESOLVED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "docs/audits/2026-09-12_DRILLING_KPI_COVERAGE_FORENSIC_AUDIT.md",
+   "claim_type": "test-count",
+   "claim": "910",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-12_DRILLING_KPI_COVERAGE_FORENSIC_AUDIT.md",
+   "claim_type": "test-count",
+   "claim": "908",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-12_DRILLING_KPI_COVERAGE_FORENSIC_AUDIT.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "docs/audits/2026-09-12_ENGINEERING_DATA_SEMANTICS_FORENSIC_AUDIT.md",
+   "claim_type": "sha",
+   "claim": "472903ff9e8ab188f0368f4f99ddecc66e7aab2e",
+   "state": "UNRESOLVED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "docs/audits/2026-09-12_ENGINEERING_DATA_SEMANTICS_FORENSIC_AUDIT.md",
+   "claim_type": "test-count",
+   "claim": "914",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-12_ENGINEERING_DATA_SEMANTICS_FORENSIC_AUDIT.md",
+   "claim_type": "test-count",
+   "claim": "910",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-12_ENGINEERING_PERFORMANCE_COMPLETION_PASS.md",
+   "claim_type": "test-count",
+   "claim": "933",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-12_ENGINEERING_PERFORMANCE_COMPLETION_PASS.md",
+   "claim_type": "test-count",
+   "claim": "945",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-12_ENGINEERING_PERFORMANCE_COMPLETION_PASS.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "docs/audits/2026-09-12_KPI_CONSUMER_SCOPE_FORENSIC_AUDIT.md",
+   "claim_type": "test-count",
+   "claim": "908",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-12_KPI_CONSUMER_SCOPE_FORENSIC_AUDIT.md",
+   "claim_type": "test-count",
+   "claim": "904",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-12_KPI_PERFORMANCE_FORENSIC_AUDIT.md",
+   "claim_type": "test-count",
+   "claim": "904",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-12_KPI_PERFORMANCE_FORENSIC_AUDIT.md",
+   "claim_type": "test-count",
+   "claim": "902",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-12_SCOPE_IDENTITY_ATTRIBUTION_PASS.md",
+   "claim_type": "test-count",
+   "claim": "960",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-12_SCOPE_IDENTITY_ATTRIBUTION_PASS.md",
+   "claim_type": "test-count",
+   "claim": "945",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-12_SCOPE_IDENTITY_ATTRIBUTION_PASS.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "docs/audits/2026-09-12_WELLBORE_SCHEMA_V3.md",
+   "claim_type": "test-count",
+   "claim": "865",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-12_WELLBORE_SCHEMA_V3.md",
+   "claim_type": "test-count",
+   "claim": "844",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-12_WELLBORE_V3_ACCEPTANCE_AUDIT.md",
+   "claim_type": "test-count",
+   "claim": "885",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-12_WELLBORE_V3_ACCEPTANCE_AUDIT.md",
+   "claim_type": "test-count",
+   "claim": "865",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-13_CALCULATION_PERSISTENCE.md",
+   "claim_type": "test-count",
+   "claim": "1093",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-13_CALCULATION_PERSISTENCE.md",
+   "claim_type": "test-count",
+   "claim": "1073",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-13_CALCULATION_PERSISTENCE.md",
+   "claim_type": "test-count",
+   "claim": "1080",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-13_CALCULATION_PERSISTENCE.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "docs/audits/2026-09-13_CASING_STRENGTH_CALCULATION_PERSISTENCE.md",
+   "claim_type": "test-count",
+   "claim": "1093",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-13_CASING_STRENGTH_CALCULATION_PERSISTENCE.md",
+   "claim_type": "test-count",
+   "claim": "1125",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-13_DRILLPIPE_CATALOG_OPERATIONALIZATION.md",
+   "claim_type": "test-count",
+   "claim": "1059",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-13_DRILLPIPE_CATALOG_OPERATIONALIZATION.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "docs/audits/2026-09-13_DRILLPIPE_REFERENCE_PERSISTENCE_DECISION.md",
+   "claim_type": "test-count",
+   "claim": "1009",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-13_DRILLPIPE_REFERENCE_PERSISTENCE_DECISION.md",
+   "claim_type": "test-count",
+   "claim": "1021",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-13_DRILLPIPE_REFERENCE_SELECTION_INTEGRATION.md",
+   "claim_type": "test-count",
+   "claim": "1031",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-13_DRILLPIPE_REFERENCE_SELECTION_INTEGRATION.md",
+   "claim_type": "test-count",
+   "claim": "1021",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-13_DRILLPIPE_SOURCE_OF_TRUTH_CERTIFICATION.md",
+   "claim_type": "test-count",
+   "claim": "1033",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-13_DRILLPIPE_SOURCE_OF_TRUTH_CERTIFICATION.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "docs/audits/2026-09-13_DRILLPIPE_VENDOR_IMPORT_VERTICAL_SLICE.md",
+   "claim_type": "test-count",
+   "claim": "1046",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-13_DRILLPIPE_VENDOR_IMPORT_VERTICAL_SLICE.md",
+   "claim_type": "test-count",
+   "claim": "1050",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-13_DRILLPIPE_VENDOR_IMPORT_VERTICAL_SLICE.md",
+   "claim_type": "test-count",
+   "claim": "1033",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-13_ENGINEERING_DATABASE_FORENSIC_AUDIT.md",
+   "claim_type": "test-count",
+   "claim": "999",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-13_ENGINEERING_DATABASE_FORENSIC_AUDIT.md",
+   "claim_type": "test-count",
+   "claim": "978",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-13_ENGINEERING_REFERENCE_DATA_VERIFICATION.md",
+   "claim_type": "test-count",
+   "claim": "999",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-13_ENGINEERING_REFERENCE_DATA_VERIFICATION.md",
+   "claim_type": "test-count",
+   "claim": "1009",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-13_IMPORT_TIME_WELLBORE_DISCRIMINATOR.md",
+   "claim_type": "test-count",
+   "claim": "978",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-13_IMPORT_TIME_WELLBORE_DISCRIMINATOR.md",
+   "claim_type": "test-count",
+   "claim": "960",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-14_CASING_REFERENCE_AUTHORITY_FORENSIC_AUDIT.md",
+   "claim_type": "test-count",
+   "claim": "1125",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-14_CEMENT_CALCULATION_THIRD_SLICE.md",
+   "claim_type": "test-count",
+   "claim": "1125",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-14_CEMENT_CALCULATION_THIRD_SLICE.md",
+   "claim_type": "test-count",
+   "claim": "1149",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-14_CEMENT_CALCULATION_THIRD_SLICE.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "docs/audits/2026-09-14_WELL_CONTROL_DUAL_PATH_CONSOLIDATION.md",
+   "claim_type": "test-count",
+   "claim": "1196",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-14_WELL_CONTROL_DUAL_PATH_CONSOLIDATION.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "docs/audits/2026-09-14_WELL_CONTROL_INPUT_BOUNDARY_HARDENING.md",
+   "claim_type": "test-count",
+   "claim": "1160",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-14_WELL_CONTROL_INPUT_BOUNDARY_HARDENING.md",
+   "claim_type": "test-count",
+   "claim": "1149",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-14_WELL_CONTROL_KILL_SHEET_FOURTH_SLICE.md",
+   "claim_type": "test-count",
+   "claim": "1186",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-14_WELL_CONTROL_KILL_SHEET_FOURTH_SLICE.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "docs/audits/2026-09-19_COMPLETE_COVERAGE_AUDIT_AND_ANTI_COLLISION_UI.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "docs/audits/2026-09-19_MSE_FIFTH_CALCULATION_SLICE.md",
+   "claim_type": "test-count",
+   "claim": "1219",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-19_MSE_FIFTH_CALCULATION_SLICE.md",
+   "claim_type": "test-count",
+   "claim": "1196",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-19_MSE_FIFTH_CALCULATION_SLICE.md",
+   "claim_type": "test-count",
+   "claim": "111",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-19_MSE_FIFTH_CALCULATION_SLICE.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "docs/audits/2026-09-19_MUD_VOLUME_SIXTH_CALCULATION_AND_MSE_DECOUPLING.md",
+   "claim_type": "test-count",
+   "claim": "1242",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-19_MUD_VOLUME_SIXTH_CALCULATION_AND_MSE_DECOUPLING.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "docs/audits/2026-09-19_REPOSITORY_WIDE_CAPABILITY_AUDIT.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "docs/audits/2026-09-20_WELLBORE_ANALYTICS_SCOPE_CERTIFICATION.md",
+   "claim_type": "test-count",
+   "claim": "111",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-22_M27_INDEPENDENT_REAUDIT.md",
+   "claim_type": "sha",
+   "claim": "c28bbef37cbac9de7abcfa693e7e21f678fa74ab",
+   "state": "CURRENT-VERIFIED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "docs/audits/2026-09-22_M27_INDEPENDENT_REAUDIT.md",
+   "claim_type": "test-count",
+   "claim": "549",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-22_M27_INDEPENDENT_REAUDIT.md",
+   "claim_type": "test-count",
+   "claim": "553",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-22_M27_INDEPENDENT_REAUDIT.md",
+   "claim_type": "branch-or-status",
+   "claim": "drill-Master",
+   "state": "HISTORICAL",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "docs/audits/2026-09-22_M27_INDEPENDENT_REAUDIT.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "docs/audits/2026-09-22_M28_FORENSIC_RELEASE_GATE.md",
+   "claim_type": "sha",
+   "claim": "e83fc3ec85447446e50b4dd2acbc64169d07f054",
+   "state": "UNRESOLVED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "docs/audits/2026-09-22_M28_FORENSIC_RELEASE_GATE.md",
+   "claim_type": "sha",
+   "claim": "c28bbef37cbac9de7abcfa693e7e21f678fa74ab",
+   "state": "CURRENT-VERIFIED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "docs/audits/2026-09-22_M28_FORENSIC_RELEASE_GATE.md",
+   "claim_type": "sha",
+   "claim": "e91e0b6899268c37455c93c6132620b012ed6112",
+   "state": "UNRESOLVED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "docs/audits/2026-09-22_M28_FORENSIC_RELEASE_GATE.md",
+   "claim_type": "test-count",
+   "claim": "1589",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-22_M28_FORENSIC_RELEASE_GATE.md",
+   "claim_type": "branch-or-status",
+   "claim": "drill-Master",
+   "state": "HISTORICAL",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "docs/audits/2026-09-22_M28_FORENSIC_RELEASE_GATE.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "docs/audits/2026-09-22_RELEASE_CANDIDATE_INTEGRITY_CERTIFICATION.md",
+   "claim_type": "test-count",
+   "claim": "1502",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-22_RELEASE_CANDIDATE_INTEGRITY_CERTIFICATION.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "docs/audits/2026-09-22_REPORT_SCOPED_OWNERSHIP_INTEGRITY_CERTIFICATION.md",
+   "claim_type": "test-count",
+   "claim": "232",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-22_REPORT_SCOPED_OWNERSHIP_INTEGRITY_CERTIFICATION.md",
+   "claim_type": "test-count",
+   "claim": "1502",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-22_REPORT_SCOPED_OWNERSHIP_INTEGRITY_CERTIFICATION.md",
+   "claim_type": "branch-or-status",
+   "claim": "drill-Master",
+   "state": "HISTORICAL",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "docs/audits/2026-09-22_REPORT_SCOPED_OWNERSHIP_INTEGRITY_CERTIFICATION.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "docs/audits/2026-09-22_SCOPE_CONTRACT_COMPLETION_CERTIFICATION.md",
+   "claim_type": "test-count",
+   "claim": "1468",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-23_M29_RELEASE_CLOSURE.md",
+   "claim_type": "sha",
+   "claim": "8a20cb90b68bacb6c69e3cdf6e8303d4a009e599",
+   "state": "UNRESOLVED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "docs/audits/2026-09-23_M29_RELEASE_CLOSURE.md",
+   "claim_type": "sha",
+   "claim": "2e73747e5507b22587436005e4906b49a46510ee",
+   "state": "UNRESOLVED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "docs/audits/2026-09-23_M29_RELEASE_CLOSURE.md",
+   "claim_type": "sha",
+   "claim": "c28bbef37cbac9de7abcfa693e7e21f678fa74ab",
+   "state": "CURRENT-VERIFIED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "docs/audits/2026-09-23_M29_RELEASE_CLOSURE.md",
+   "claim_type": "sha",
+   "claim": "2bdc25d116c0f1fd9aabce0962f8e983b7375235",
+   "state": "UNRESOLVED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "docs/audits/2026-09-23_M29_RELEASE_CLOSURE.md",
+   "claim_type": "sha",
+   "claim": "beaf9635ffb7bcecf16b3320b138077c7ef8e6c8",
+   "state": "UNRESOLVED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "docs/audits/2026-09-23_M29_RELEASE_CLOSURE.md",
+   "claim_type": "test-count",
+   "claim": "1690",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-23_M29_RELEASE_CLOSURE.md",
+   "claim_type": "test-count",
+   "claim": "1676",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-23_M29_RELEASE_CLOSURE.md",
+   "claim_type": "test-count",
+   "claim": "1687",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/2026-09-23_M29_RELEASE_CLOSURE.md",
+   "claim_type": "branch-or-status",
+   "claim": "drill-Master",
+   "state": "HISTORICAL",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "docs/audits/2026-09-23_M29_RELEASE_CLOSURE.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "docs/audits/m29-evidence/README.md",
+   "claim_type": "sha",
+   "claim": "beaf9635ffb7bcecf16b3320b138077c7ef8e6c8",
+   "state": "UNRESOLVED",
+   "basis": "git cat-file -e <sha>^{commit}"
+  },
+  {
+   "doc": "docs/audits/m29-evidence/README.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  },
+  {
+   "doc": "docs/audits/m30-evidence/README.md",
+   "claim_type": "test-count",
+   "claim": "1732",
+   "state": "HISTORICAL",
+   "basis": "final pytest collection/run counts"
+  },
+  {
+   "doc": "docs/audits/m30-evidence/README.md",
+   "claim_type": "branch-or-status",
+   "claim": "CERTIFI",
+   "state": "CHECK",
+   "basis": "the session works on arena/01a0c945-drill-master"
+  }
+ ],
+ "rule": "no earlier mission's report is a source of truth; a doc claim is CURRENT-VERIFIED only when this mission re-derived it from the tree"
+}

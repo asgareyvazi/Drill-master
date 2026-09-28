@@ -1,0 +1,251 @@
+/home/user/Drill-master/.venv/lib/python3.11/site-packages/openpyxl/worksheet/_reader.py:329: UserWarning: Data Validation extension is not supported and will be removed
+  warn(msg)
+{
+  "first_run": {
+    "users": 1,
+    "wells": 0,
+    "companies": 0
+  },
+  "authentication": "correct/wrong/unknown/reopen without bootstrap PASS; service level",
+  "imported_counts": {
+    "DailyReport": 1,
+    "TimeLog24H": 7,
+    "TimeLogMorning": 6,
+    "MudReport": 1,
+    "DrillingParameters": 1,
+    "SurveyPoint": 3,
+    "BHAReport": 1,
+    "DownholeEquipment": 1,
+    "FormationReport": 1,
+    "ServiceCompanyPOB": 6,
+    "BOPComponent": 5,
+    "WasteRecord": 0,
+    "FuelWaterInventory": 1,
+    "BulkMaterials": 0,
+    "ServiceCompany": 6,
+    "SevenDaysLookahead": 11,
+    "EquipmentLog": 9,
+    "CasingReport": 1,
+    "CementReport": 1,
+    "TimeDepthData": 1,
+    "NPTReport": 0,
+    "SafetyReport": 1,
+    "MaterialRequest": 1
+  },
+  "import_reopen_replay_equal": true,
+  "edit_reopen_equal": true,
+  "exports": {
+    "DDRReportEngine.html": {
+      "returned_success": true,
+      "bytes": 10932
+    },
+    "DDRReportEngine.xlsx": {
+      "returned_success": true,
+      "bytes": 7890,
+      "sheets": [
+        "DDR Header",
+        "24h Time Log",
+        "Drilling Params",
+        "Mud Report"
+      ],
+      "rows": {
+        "DDR Header": 10,
+        "24h Time Log": 8,
+        "Drilling Params": 7,
+        "Mud Report": 8
+      }
+    },
+    "EOWRReportEngine.html": {
+      "returned_success": true,
+      "bytes": 6451
+    },
+    "EOWRReportEngine.xlsx": {
+      "returned_success": true,
+      "bytes": 10637,
+      "sheets": [
+        "Summary",
+        "Sections",
+        "DailyReports",
+        "DrillingParams",
+        "MudReports",
+        "Surveys",
+        "Safety"
+      ],
+      "rows": {
+        "Summary": 10,
+        "Sections": 2,
+        "DailyReports": 2,
+        "DrillingParams": 2,
+        "MudReports": 2,
+        "Surveys": 4,
+        "Safety": 2
+      }
+    },
+    "NPTReportEngine.html": {
+      "returned_success": true,
+      "bytes": 4001
+    },
+    "NPTReportEngine.xlsx": {
+      "returned_success": true,
+      "bytes": 6987,
+      "sheets": [
+        "NPT Summary",
+        "By Main Code",
+        "By Contractor",
+        "NPT Events",
+        "Daily Trend"
+      ],
+      "rows": {
+        "NPT Summary": 6,
+        "By Main Code": 1,
+        "By Contractor": 1,
+        "NPT Events": 1,
+        "Daily Trend": 1
+      }
+    },
+    "CostReportEngine.html": {
+      "returned_success": true,
+      "bytes": 2736
+    },
+    "CostReportEngine.xlsx": {
+      "returned_success": true,
+      "bytes": 5524,
+      "sheets": [
+        "Cost Summary",
+        "Cumulative"
+      ],
+      "rows": {
+        "Cost Summary": 8,
+        "Cumulative": 1
+      }
+    },
+    "PlanReportEngine.html": {
+      "returned_success": false,
+      "bytes": 0
+    },
+    "PlanReportEngine.xlsx": {
+      "returned_success": false,
+      "bytes": 0
+    },
+    "Plan-with-data.html": {
+      "returned_success": true,
+      "bytes": 2813
+    },
+    "Plan-with-data.xlsx": {
+      "returned_success": true,
+      "bytes": 5654,
+      "sheets": [
+        "Plan Summary",
+        "Activities"
+      ],
+      "rows": {
+        "Plan Summary": 7,
+        "Activities": 2
+      }
+    },
+    "Professional.xlsx": {
+      "returned_success": true,
+      "bytes": 209345,
+      "sheets": [
+        "Executive Summary",
+        "Daily Report",
+        "Time Logs",
+        "Mud",
+        "Mud Chemicals",
+        "Drilling Parameters",
+        "Bit",
+        "BHA",
+        "Survey",
+        "Safety",
+        "Logistics",
+        "Services",
+        "Cost",
+        "Data Quality",
+        "Validation",
+        "Audit",
+        "Raw Data",
+        "POB",
+        "Fuel Water",
+        "Equipment",
+        "Lookahead",
+        "BOP",
+        "Waste",
+        "Casing",
+        "Cement",
+        "Morning Operations",
+        "Formations",
+        "Downhole Equipment"
+      ],
+      "rows": {
+        "Executive Summary": 19,
+        "Daily Report": 2,
+        "Time Logs": 8,
+        "Mud": 2,
+        "Mud Chemicals": 35,
+        "Drilling Parameters": 2,
+        "Bit": 1,
+        "BHA": 10,
+        "Survey": 4,
+        "Safety": 2,
+        "Logistics": 1,
+        "Services": 7,
+        "Cost": 1,
+        "Data Quality": 8,
+        "Validation": 11,
+        "Audit": 4,
+        "Raw Data": 273,
+        "POB": 7,
+        "Fuel Water": 2,
+        "Equipment": 10,
+        "Lookahead": 12,
+        "BOP": 6,
+        "Waste": 1,
+        "Casing": 2,
+        "Cement": 2,
+        "Morning Operations": 7,
+        "Formations": 2,
+        "Downhole Equipment": 4
+      }
+    }
+  },
+  "well_delete": true,
+  "integrity_after_delete": {
+    "integrity_check": [
+      [
+        "ok"
+      ]
+    ],
+    "foreign_key_check": [],
+    "report_well_mismatches": {
+      "drilling_parameters": 0,
+      "mud_reports": 0,
+      "cement_reports": 0,
+      "casing_reports": 0,
+      "wellbore_schematics": 0,
+      "trip_sheet_entries": 0,
+      "survey_points": 0,
+      "trajectory_calculations": 0,
+      "bit_reports": 0,
+      "bha_reports": 0,
+      "downhole_equipment": 0,
+      "formation_reports": 0,
+      "logistics_personnel": 0,
+      "service_company_pob": 0,
+      "fuel_water_inventory": 0,
+      "bulk_materials": 0,
+      "transport_logs": 0,
+      "transport_notes": 0,
+      "safety_reports": 0,
+      "bop_components": 0,
+      "waste_records": 0,
+      "service_companies": 0,
+      "service_notes": 0,
+      "material_requests": 0,
+      "equipment_logs": 0,
+      "seven_days_lookahead": 0,
+      "npt_reports": 0,
+      "time_depth_data": 0,
+      "rop_analysis": 0
+    }
+  }
+}

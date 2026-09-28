@@ -128,6 +128,8 @@ class LoginDialog(QDialog):
     def _load_saved_credentials(self):
         """بارگذاری username/password ذخیره شده"""
         settings = QSettings("Nikan", "DrillMaster")
+        settings.remove("login/password")  # purge legacy plaintext settings even before successful login
+        settings.sync()
         remembered = settings.value("login/remember", False, type=bool)
 
         if remembered:
@@ -158,7 +160,9 @@ class LoginDialog(QDialog):
     def authenticate(self):
         """Authenticate user"""
         username = self.username_edit.text().strip()
-        password = self.password_edit.text().strip()
+        # Usernames are normalized; passwords are opaque and may intentionally
+        # contain leading or trailing whitespace.
+        password = self.password_edit.text()
 
         if not username or not password:
             self.show_error("Please enter both username and password")
@@ -187,9 +191,11 @@ class LoginDialog(QDialog):
                 self.password_edit.clear()
                 self.password_edit.setFocus()
 
-        except Exception as e:
-            logger.error(f"Authentication error: {e}")
-            self.show_error(f"Authentication error: {str(e)}")
+        except Exception:
+            # Do not expose database/provider details (or user input) in the
+            # dialog. The full traceback is available only in the protected log.
+            logger.exception("Authentication error")
+            self.show_error("Authentication failed. Please try again or contact an administrator.")
         finally:
             self.login_btn.setText("🚀 Login")
             self.login_btn.setEnabled(True)

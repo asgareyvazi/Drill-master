@@ -1,0 +1,9 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+__________ test_scope_coverage_distinguishes_persisted_from_possible ___________
+tests/test_m30_semantic_regressions.py:69: in test_scope_coverage_distinguishes_persisted_from_possible
+    assert before["wellbore_coverage_pct"] == 50
+E   assert 100.0 == 50
+=========================== short test summary info ============================
+FAILED tests/test_m30_semantic_regressions.py::test_scope_coverage_distinguishes_persisted_from_possible
+1 failed in 0.48s

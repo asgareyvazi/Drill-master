@@ -226,8 +226,212 @@ class ReferenceTablesWidget(DrillTabBase):
     # ==================== 2. Drill Pipe (API 5DP) ====================
 
     def _create_drillpipe_tab(self):
+        """Drill-pipe reference tab: authoritative vendor catalog + presets.
+
+        Two clearly-distinguished sources (mission §21):
+
+        * **◆ Vendor Catalog** — the persisted, authoritative
+          ``DrillPipeReferenceRepository`` records that feed calculations via a
+          component's Quick Select. Browsable, searchable, with full provenance.
+        * **◇ Standard Presets (API 5DP)** — the built-in generic nominal
+          reference table (no vendor identity), display-only.
+
+        Nominal presets are never made to look like vendor-certified records.
+        """
         tab = QWidget()
         layout = QVBoxLayout(tab)
+
+        sub_tabs = QTabWidget()
+        sub_tabs.addTab(self._create_drillpipe_catalog_tab(),
+                        "\u25c6 Vendor Catalog")
+        sub_tabs.addTab(self._create_drillpipe_presets_tab(),
+                        "\u25c7 Standard Presets (API 5DP)")
+        layout.addWidget(sub_tabs)
+        return tab
+
+    def _drill_pipe_reference_repo(self):
+        """Lazily build the persisted drill-pipe reference repository.
+
+        Returns ``None`` when no database is available so the catalog view
+        degrades to an explanatory empty state rather than raising.
+        """
+        if getattr(self, "db", None) is None:
+            return None
+        repo = getattr(self, "_dp_ref_repo", None)
+        if repo is None:
+            try:
+                from core.repositories.drill_pipe_reference_repository import (
+                    DrillPipeReferenceRepository,
+                )
+                repo = DrillPipeReferenceRepository(self.db)
+            except Exception:
+                logger.exception("Could not build DrillPipe reference repository")
+                repo = None
+            self._dp_ref_repo = repo
+        return repo
+
+    def _create_drillpipe_catalog_tab(self):
+        """Live, searchable view of the persisted authoritative vendor catalog."""
+        from core.engineering.drill_pipe_catalog_view import CATALOG_COLUMNS
+
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+
+        info = QLabel(
+            "\u25c6 Authoritative vendor drill-pipe references used by calculations "
+            "(select them via a component's Quick Select in Eng. Calc). Import new "
+            "vendor workbooks from the Eng. Calc \u2192 Weight tab."
+        )
+        info.setWordWrap(True)
+        info.setStyleSheet("color: #c9a65a; padding: 4px;")
+        layout.addWidget(info)
+
+        controls = QHBoxLayout()
+        controls.addWidget(QLabel("\U0001f50d Search:"))
+        self._dp_catalog_search = QLineEdit()
+        self._dp_catalog_search.setPlaceholderText(
+            "Filter by manufacturer, model, OD, weight, grade, connection..."
+        )
+        self._dp_catalog_search.textChanged.connect(self._dp_catalog_filter)
+        controls.addWidget(self._dp_catalog_search)
+        refresh_btn = QPushButton("\u21bb Refresh")
+        refresh_btn.clicked.connect(self._dp_catalog_reload)
+        controls.addWidget(refresh_btn)
+        details_btn = QPushButton("\U0001f50e Details / Provenance")
+        details_btn.clicked.connect(self._dp_catalog_show_details)
+        controls.addWidget(details_btn)
+        layout.addLayout(controls)
+
+        headers = [h for _, h in CATALOG_COLUMNS]
+        self._dp_catalog_table = QTableWidget(0, len(headers))
+        self._dp_catalog_table.setHorizontalHeaderLabels(headers)
+        self._dp_catalog_table.horizontalHeader().setSectionResizeMode(
+            QHeaderView.ResizeToContents)
+        self._dp_catalog_table.horizontalHeader().setStretchLastSection(True)
+        self._dp_catalog_table.setAlternatingRowColors(True)
+        self._dp_catalog_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self._dp_catalog_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self._dp_catalog_table.setSortingEnabled(True)
+        self._dp_catalog_table.doubleClicked.connect(self._dp_catalog_show_details)
+        layout.addWidget(self._dp_catalog_table)
+
+        self._dp_catalog_status = QLabel("")
+        self._dp_catalog_status.setStyleSheet("color: #7f8c8d; padding: 2px;")
+        layout.addWidget(self._dp_catalog_status)
+
+        self._dp_catalog_rows = []  # current filtered CatalogRow list (view state)
+        self._dp_catalog_reload()
+        return tab
+
+    def _dp_catalog_reload(self):
+        """(Re)load catalog rows from the repository and repaint the grid."""
+        from core.engineering.drill_pipe_catalog_view import build_catalog_rows
+
+        repo = self._drill_pipe_reference_repo()
+        if repo is None:
+            self._dp_catalog_all_rows = []
+            self._dp_catalog_render([], status_override=(
+                "No database available \u2014 vendor catalog cannot be loaded."))
+            return
+        try:
+            self._dp_catalog_all_rows = build_catalog_rows(repo.all())
+        except Exception:
+            logger.exception("Could not load DrillPipe reference catalog")
+            self._dp_catalog_all_rows = []
+            self._dp_catalog_render([], status_override="Failed to load catalog (see log).")
+            return
+        # Re-apply any active search filter after reload.
+        self._dp_catalog_filter(self._dp_catalog_search.text()
+                                if hasattr(self, "_dp_catalog_search") else "")
+
+    def _dp_catalog_filter(self, text):
+        from core.engineering.drill_pipe_catalog_view import filter_catalog_rows
+
+        rows = filter_catalog_rows(getattr(self, "_dp_catalog_all_rows", []), text or "")
+        self._dp_catalog_render(rows)
+
+    def _dp_catalog_render(self, rows, status_override=None):
+        from core.engineering.drill_pipe_catalog_view import CATALOG_COLUMNS
+
+        self._dp_catalog_rows = list(rows)
+        table = self._dp_catalog_table
+        table.setSortingEnabled(False)
+        table.setRowCount(len(rows))
+        for r_idx, row in enumerate(rows):
+            for c_idx, (key, _) in enumerate(CATALOG_COLUMNS):
+                item = QTableWidgetItem(row.cell(key))
+                item.setTextAlignment(Qt.AlignCenter)
+                # Stash the engineering fingerprint on the first column so the
+                # details lookup survives user-driven column sorting (row index
+                # no longer maps to insertion order once sorted).
+                if c_idx == 0:
+                    item.setData(Qt.UserRole, row.fingerprint)
+                table.setItem(r_idx, c_idx, item)
+        table.setSortingEnabled(True)
+        if status_override is not None:
+            self._dp_catalog_status.setText(status_override)
+            return
+        total = len(getattr(self, "_dp_catalog_all_rows", []))
+        shown = len(rows)
+        if total == 0:
+            self._dp_catalog_status.setText(
+                "No vendor references yet. Import a vendor workbook from "
+                "Eng. Calc \u2192 Weight \u2192 Import Reference Catalog.")
+        elif shown == total:
+            self._dp_catalog_status.setText(f"{total} vendor reference(s).")
+        else:
+            self._dp_catalog_status.setText(f"{shown} of {total} vendor reference(s).")
+
+    def _dp_catalog_show_details(self):
+        from core.engineering.drill_pipe_catalog_view import detail_text
+
+        table = self._dp_catalog_table
+        idx = table.currentRow()
+        rows = getattr(self, "_dp_catalog_rows", [])
+        if idx < 0:
+            QMessageBox.information(self, "Reference details",
+                                    "Select a reference row first.")
+            return
+        # Resolve by fingerprint (sort-safe), falling back to positional index.
+        fp_item = table.item(idx, 0)
+        fp = fp_item.data(Qt.UserRole) if fp_item else None
+        spec = None
+        if fp is not None:
+            for r in rows:
+                if r.fingerprint == fp:
+                    spec = r.spec
+                    break
+        if spec is None and idx < len(rows):
+            spec = rows[idx].spec
+        if spec is None:
+            QMessageBox.information(self, "Reference details",
+                                    "Select a reference row first.")
+            return
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Drill-pipe reference \u2014 details & provenance")
+        dlg.resize(560, 520)
+        dl = QVBoxLayout(dlg)
+        view = QPlainTextEdit()
+        view.setReadOnly(True)
+        view.setPlainText(detail_text(spec))
+        view.setStyleSheet("font-family: monospace; font-size: 12px;")
+        dl.addWidget(view)
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(dlg.accept)
+        dl.addWidget(close_btn)
+        dlg.exec()
+
+    def _create_drillpipe_presets_tab(self):
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+
+        note = QLabel(
+            "\u25c7 Built-in generic nominal API 5DP reference data (no vendor "
+            "identity). Display-only; not the calculation catalog."
+        )
+        note.setWordWrap(True)
+        note.setStyleSheet("color: #7f8c8d; padding: 4px;")
+        layout.addWidget(note)
 
         headers = [
             "Size (in)", "Nom Wt (ppf)", "Grade", "ID (in)",

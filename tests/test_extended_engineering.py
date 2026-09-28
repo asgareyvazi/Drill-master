@@ -1,7 +1,6 @@
 """Tests for extended drilling engineering calculations."""
 
 import pytest
-import math
 from core.engineering.extended import (
     MudEngineering, HydraulicsExtended, WellControlExtended,
     CasingDesign, DirectionalExtended, CementingEngine, ROPModels,

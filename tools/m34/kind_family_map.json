@@ -1,0 +1,20 @@
+{
+ "broad-exception": "broad-except",
+ "return-false": "return-none-false",
+ "truthiness-bare": "if-not-falsy",
+ "numeric-get-default": "get-default",
+ "numeric-default": "default-zero-param",
+ "or-zero": "or-zero",
+ "reduction": "get-default",
+ "truthiness-selection": "if-not-falsy",
+ "selection-first": "orm-single-fetch",
+ "or-empty": "if-not-falsy",
+ "selection-one_or_none": "orm-single-fetch",
+ "selection-scalar": "orm-single-fetch",
+ "raw-sql": "if-not-falsy",
+ "none-get-default": "get-default",
+ "numeric-parameter-default": "default-zero-param",
+ "return-none": "return-none-false",
+ "selection-one": "orm-single-fetch",
+ "pass-statement": "pass-statement"
+}

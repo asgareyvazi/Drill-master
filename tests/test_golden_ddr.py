@@ -192,7 +192,7 @@ class TestCanonicalNamespace:
     """Verify canonical paths are preserved."""
 
     def test_one_mapping_registry(self):
-        from core.canonical_schema import lookup_alias, FIELD_SPECS
+        from core.canonical_schema import lookup_alias
         assert lookup_alias("mud weight") == "mud_report.mw"
         assert lookup_alias("well name") == "well_info.name"
         assert lookup_alias("bit size") == "drilling_params.bit_size"
@@ -240,7 +240,9 @@ class TestTimeLogGoldenValues:
         first = logs[0]
         sc = first.get("sub_code") or first.get("time_log.sub_code")
         assert sc is not None
-        assert str(sc).strip() in ("1", "1.0")
+        # DDR Sub-Code=1 is the first child of Code=2; persistence uses the
+        # stable application identity instead of the raw ordinal.
+        assert str(sc).strip() == "2.1 - Vertical Drilling"
 
     def test_first_entry_duration(self, ddr_report):
         logs = self._get_logs(ddr_report)

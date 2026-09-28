@@ -1,0 +1,11 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+________ test_backup_source_disappearing_does_not_create_empty_success _________
+tests/test_m30_semantic_regressions.py:182: in test_backup_source_disappearing_does_not_create_empty_success
+    assert db.backup_to(destination) is None
+E   AssertionError: assert '/tmp/pytest-of-user/pytest-17/test_backup_source_disappearin0/previous.db' is None
+E    +  where '/tmp/pytest-of-user/pytest-17/test_backup_source_disappearin0/previous.db' = backup_to(PosixPath('/tmp/pytest-of-user/pytest-17/test_backup_source_disappearin0/previous.db'))
+E    +    where backup_to = <core.database.DatabaseManager object at 0x7f36b266ee50>.backup_to
+=========================== short test summary info ============================
+FAILED tests/test_m30_semantic_regressions.py::test_backup_source_disappearing_does_not_create_empty_success
+1 failed in 0.39s

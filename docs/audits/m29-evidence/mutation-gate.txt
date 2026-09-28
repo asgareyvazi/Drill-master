@@ -1,0 +1,33 @@
+..FFF.                                                                   [100%]
+=================================== FAILURES ===================================
+__________ test_junit_accounting_and_optional_skip_policy[duplicate] ___________
+tests/test_release_gate_integrity.py:118: in test_junit_accounting_and_optional_skip_policy
+    assert verify_release.validate_pytest_report(path, 1, counts) == (case == "valid-external")
+E   AssertionError: assert True == ('duplicate' == 'valid-external'
+E    +  where True = <function validate_pytest_report at 0x7fb010c35080>(PosixPath('/tmp/pytest-of-user/pytest-24/test_junit_accounting_and_opti2/report.xml'), 1, {'passed': 0, 'skipped': 1})
+E    +    where <function validate_pytest_report at 0x7fb010c35080> = verify_release.validate_pytest_report
+E
+E     - valid-external
+E     + duplicate)
+_______ test_junit_accounting_and_optional_skip_policy[unexpected-skip] ________
+tests/test_release_gate_integrity.py:118: in test_junit_accounting_and_optional_skip_policy
+    assert verify_release.validate_pytest_report(path, 1, counts) == (case == "valid-external")
+E   AssertionError: assert True == ('unexpected-skip' == 'valid-external'
+E    +  where True = <function validate_pytest_report at 0x7fb010c35080>(PosixPath('/tmp/pytest-of-user/pytest-24/test_junit_accounting_and_opti3/report.xml'), 1, {'passed': 0, 'skipped': 1})
+E    +    where <function validate_pytest_report at 0x7fb010c35080> = verify_release.validate_pytest_report
+E
+E     - valid-external
+E     + unexpected-skip)
+_________ test_junit_accounting_and_optional_skip_policy[wrong-reason] _________
+tests/test_release_gate_integrity.py:118: in test_junit_accounting_and_optional_skip_policy
+    assert verify_release.validate_pytest_report(path, 1, counts) == (case == "valid-external")
+E   AssertionError: assert True == ('wrong-reason' == 'valid-external'
+E    +  where True = <function validate_pytest_report at 0x7fb010c35080>(PosixPath('/tmp/pytest-of-user/pytest-24/test_junit_accounting_and_opti4/report.xml'), 1, {'passed': 0, 'skipped': 1})
+E    +    where <function validate_pytest_report at 0x7fb010c35080> = verify_release.validate_pytest_report
+E
+E     - valid-external
+E     + wrong-reason)
+=========================== short test summary info ============================
+FAILED tests/test_release_gate_integrity.py::test_junit_accounting_and_optional_skip_policy[duplicate]
+FAILED tests/test_release_gate_integrity.py::test_junit_accounting_and_optional_skip_policy[unexpected-skip]
+FAILED tests/test_release_gate_integrity.py::test_junit_accounting_and_optional_skip_policy[wrong-reason]

@@ -22,13 +22,15 @@ from difflib import SequenceMatcher
 import re
 import logging
 import time
-from datetime import date
+from datetime import date, time as dt_time, timedelta
 
 from core.canonical_schema import (
-    FIELD_SPECS, lookup_alias, get_engineering_bounds,
-    get_quantity_unit, get_field_spec, CANONICAL_FIELDS,
+    FIELD_SPECS, get_engineering_bounds,
     mapping_certainty,
 )
+from core.import_ir import raw_document_from_workbook
+from core.canonical_mapper import resolve_canonical_field, normalize_canonical_value
+from core.combo_identity import ComboCatalog, DEFAULT_ACTIVITY_CATALOG
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +53,11 @@ class Candidate:
     raw_score: float = 0.0  # base score before normalization
     final_score: float = 0.0  # normalized 0-1
     reason: str = ""
+    original_value: Any = None
+
+    def __post_init__(self):
+        if self.original_value is None:
+            self.original_value = self.value
 
 
 @dataclass
@@ -73,11 +80,15 @@ class ExtractionResult:
     data_type: str = ""
     canonical_unit: str = ""
     engineering_bounds: tuple = (None, None)
+    original_value: Any = None
+    normalized_value: Any = None
 
     def to_dict(self) -> dict:
         return {
             "field": self.canonical_field,
             "value": self.value,
+            "original_value": self.original_value,
+            "normalized_value": self.normalized_value if self.normalized_value is not None else self.value,
             "status": self.status,
             "confidence": round(self.confidence, 2),
             "certainty": self.certainty,
@@ -137,6 +148,15 @@ class ImportReport:
     # Provenance for values that could not be stored as-is (e.g. "N.C").
     # {canonical_path: {"original_value": ..., "cell": ..., "sheet": ..., "status": "NON_NUMERIC"}}
     source_tokens: Dict[str, Dict] = field(default_factory=dict)
+    # Provenance for canonical scalar values, including values assembled from
+    # multiple source cells such as DDR report dates.
+    field_provenance: Dict[str, Dict] = field(default_factory=dict)
+    # Same-value source locations are retained as an explicit duplicate audit;
+    # they are not silently dropped and are not treated as conflicts.
+    duplicate_mappings: List[Dict] = field(default_factory=list)
+    # Shared lossless IR snapshot.  Canonical JSON remains deliberately small;
+    # this object is consumed by diagnostics/lineage, not persisted as a DB row.
+    raw_document: Any = None
 
     def summary(self) -> str:
         return (
@@ -199,6 +219,37 @@ class MergeCellAnalyzer:
                         )
         except Exception as e:
             logger.debug(f"Merge cell analysis error: {e}")
+
+    @classmethod
+    def from_raw_cells(cls, raw_cells, sheet: str = ""):
+        """Build merge lookup from the common IR, not from openpyxl."""
+        analyzer = cls.__new__(cls)
+        analyzer._merge_map = {}
+        cells = {
+            (cell.location.row, cell.location.column): cell
+            for cell in raw_cells
+            if cell.location.sheet == sheet
+            and cell.location.row is not None
+            and isinstance(cell.location.column, int)
+        }
+        for key, cell in cells.items():
+            if not cell.merged or not cell.merge_anchor:
+                continue
+            anchor = next(
+                (
+                    candidate for candidate in cells.values()
+                    if candidate.location.cell == cell.merge_anchor
+                ),
+                None,
+            )
+            if anchor is None:
+                continue
+            analyzer._merge_map[key] = (
+                anchor.location.row,
+                anchor.location.column,
+                anchor.value,
+            )
+        return analyzer
 
     def get_value(self, row: int, col: int) -> Tuple[Any, bool]:
         key = (row, col)
@@ -454,6 +505,10 @@ class CandidateScorer:
             provenance_score * 0.05
         )
         
+        # Confidence remains evidence-based; a preferred coordinate is not
+        # inflated to an acceptance-looking score.  Field extraction applies
+        # the deterministic-anchor policy separately, while malformed source
+        # tokens still fail typed validation.
         return max(0.0, min(1.0, score))
 
     @staticmethod
@@ -513,12 +568,28 @@ class FieldExtractor:
         spec = FIELD_SPECS.get(canonical)
         critical = spec.critical if spec else False
 
-        candidates = []
+        def looks_like_label(value):
+            text = str(value).strip()
+            # Match this field's semantic aliases even when the publisher
+            # appends units. No workbook coordinates or names are involved.
+            key = re.sub(r"\([^)]*\)", "", text).strip().casefold()
+            aliases = {re.sub(r"\([^)]*\)", "", alias).strip().casefold() for alias in (spec.aliases if spec else [])}
+            return self.labels._looks_like_label(text) or key in aliases
 
-        # Strategy 1: Preferred cell — HIGH confidence when non-label value
+        candidates = []
+        preferred_authoritative = False
+        preferred_anchor_missing = False
+
+        # Strategy 1: Preferred cell — the template anchor is authoritative
+        # when it contains a value (including an explicit placeholder such as
+        # '-').  Never replace an anchored placeholder with a diagonal value
+        # from a neighbouring table.  This is especially important for
+        # engineering fields where a plausible number can still be the wrong
+        # field.
         value = self.cells.get((row, col))
         if value is not None and str(value).strip():
-            if not self.labels._looks_like_label(str(value)):
+            if not looks_like_label(value):
+                preferred_authoritative = True
                 # Preferred cell has a real value — this is the STRONGEST signal.
                 # Template v3 positions were verified against the real Excel.
                 candidates.append(Candidate(
@@ -532,7 +603,12 @@ class FieldExtractor:
                 for dc in range(1, 8):
                     right_val = self.cells.get((row, col + dc))
                     if right_val is not None and str(right_val).strip():
-                        if not self.labels._looks_like_label(str(right_val)):
+                        if looks_like_label(right_val):
+                            break  # next header is a structural boundary
+                        if spec and spec.quantity not in {"text", "string"} and not normalize_canonical_value(right_val, canonical).ok:
+                            break  # do not wander into an adjacent table
+                        if not looks_like_label(right_val):
+                            preferred_authoritative = True
                             candidates.append(Candidate(
                                 value=right_val, source="preferred_cell",
                                 row=row, col=col+dc, sheet=sheet,
@@ -540,11 +616,17 @@ class FieldExtractor:
                                 reason=f"Value right of label at {self._col_letter(col)}{row}",
                             ))
                             break
+                if not preferred_authoritative:
+                    # The configured cell is the label itself and no value is
+                    # present on its anchored row.  Keep this as an explicit
+                    # unresolved source rather than fuzzy-matching another
+                    # note/table row.
+                    preferred_anchor_missing = True
 
         # Strategy 2: Merge cell — reject labels, look right
         merge_val, is_merged = self.merge.get_value(row, col)
         if merge_val is not None and str(merge_val).strip():
-            if not self.labels._looks_like_label(str(merge_val)):
+            if not looks_like_label(merge_val):
                 candidates.append(Candidate(
                     value=merge_val, source="merge_cell",
                     row=row, col=col, sheet=sheet,
@@ -555,7 +637,11 @@ class FieldExtractor:
                 for dc in range(1, 8):
                     right_val = self.cells.get((row, col + dc))
                     if right_val is not None and str(right_val).strip():
-                        if not self.labels._looks_like_label(str(right_val)):
+                        if looks_like_label(right_val):
+                            break  # next header is a structural boundary
+                        if spec and spec.quantity not in {"text", "string"} and not normalize_canonical_value(right_val, canonical).ok:
+                            break  # do not wander into an adjacent table
+                        if not looks_like_label(right_val):
                             candidates.append(Candidate(
                                 value=right_val, source="merge_cell",
                                 row=row, col=col+dc, sheet=sheet,
@@ -595,6 +681,11 @@ class FieldExtractor:
         # Strategy 4: Alias match
         aliases = self._get_aliases(canonical)
         alias_matches = self.labels.find_aliases(aliases)
+        # A matching label adjacent to an empty value anchor is evidence of
+        # missing data, not permission to borrow a value from another table.
+        if value in (None, "") and row and col and not (is_merged and merge_val is not None):
+            if any(lr == row and 0 < col - lc <= 4 for lr, lc, *_ in (label_matches + alias_matches)):
+                preferred_anchor_missing = True
         for lr, lc, lv, matched_alias in alias_matches:
             anchor_near_label = abs(row - lr) <= 3 and abs(col - lc) <= 3
             nearby = self.labels.find_near_label(lr, lc)
@@ -628,6 +719,15 @@ class FieldExtractor:
                     reason=f"Fuzzy ({ratio:.0%}) '{lv}' at {self._col_letter(lc)}{lr}",
                 ))
 
+        # An explicit template anchor outranks broad label/alias/fuzzy
+        # searches.  This prevents a valid value in a neighbouring table from
+        # being misclassified as the anchored field.  If the anchor is a
+        # label with no value, the field remains unresolved at that location.
+        if preferred_authoritative:
+            candidates = [candidate for candidate in candidates if candidate.source == "preferred_cell"]
+        elif preferred_anchor_missing:
+            candidates = []
+
         # Normalize textual numeric formats BEFORE scoring so that
         # '17-1/2"' -> 17.5 and '3K' -> 3000 are scored as the numbers they are.
         if spec and spec.quantity in self.NUMERIC_QUANTITIES:
@@ -643,10 +743,17 @@ class FieldExtractor:
 
         # Select best candidate
         if not candidates:
+            anchor = f"{self._col_letter(col)}{row}" if row and col else ""
+            reason = (
+                f"Template anchor {anchor} has no value"
+                if preferred_anchor_missing and anchor
+                else f"Field '{field_name}' not found by any strategy"
+            )
             return ExtractionResult(
-                canonical_field=canonical, value=None, status="UNRESOLVED",
-                confidence=0.0, certainty="LOW", source="not_found",
-                reason=f"Field '{field_name}' not found by any strategy",
+                canonical_field=canonical, value=None, original_value=None, normalized_value=None,
+                status="UNRESOLVED", confidence=0.0, certainty="LOW", source="template_anchor" if anchor else "not_found",
+                cell=anchor, row=row, col=col, sheet=sheet,
+                reason=reason,
                 data_type=spec.quantity if spec else "text",
                 canonical_unit=spec.unit if spec else "",
             )
@@ -667,17 +774,34 @@ class FieldExtractor:
                 if best.value != second.value:
                     status = "CONFLICT"
 
-        # Engineering validation
-        validation = self._validate_engineering(best.value, canonical, spec)
+        # A single value under a compound oil/water label has no unambiguous
+        # component identity. It is not two percentages and not necessarily oil.
+        compound_composition = False
+        if canonical in {"mud_report.oil_percent", "mud_report.water_percent"}:
+            labels_left = [str(v).lower() for (r, c), v in self.cells.items()
+                           if r == best.row and 0 < best.col - c <= 4 and isinstance(v, str)]
+            compound_composition = any("oil" in v and "water" in v for v in labels_left)
+            if compound_composition:
+                status = "REVIEW_REQUIRED"
+                best.reason = "Single source value under combined Oil / Water label; component assignment requires review"
 
-        # Confidence policy
+        # Engineering validation
+        validation = "ambiguous_composition" if compound_composition else self._validate_engineering(best.value, canonical, spec)
+
+        # Confidence policy. A verified template anchor can be accepted as a
+        # mapping method without pretending its numeric score is 0.99; typed
+        # and engineering-invalid values always remain reviewable.
         decision = confidence_decision(best.final_score, critical)
-        if decision == "REJECT" and status == "OK":
+        if validation not in {"valid", "missing"} and status == "OK":
+            status = "REVIEW_REQUIRED"
+        elif decision == "REJECT" and status == "OK" and not preferred_authoritative:
             status = "REVIEW_REQUIRED"
 
         return ExtractionResult(
             canonical_field=canonical,
             value=best.value,
+            original_value=best.original_value,
+            normalized_value=best.value,
             status=status,
             confidence=best.final_score,
             certainty=mapping_certainty(best.final_score, method=best.source),
@@ -846,6 +970,12 @@ class DynamicTableExtractor:
                     actual_start = r + 1
                     break
 
+        # Resolve configured columns against the nearest semantic header.  The
+        # template's ``col`` remains a fallback/alias, not a hard positional
+        # contract, so harmless inserted columns or reordered table fields do
+        # not silently move values into the wrong canonical field.
+        columns = self._resolve_semantic_columns(table_def, columns, actual_start)
+
         # Find end row with row classification
         end_row = actual_start
         blank_count = 0
@@ -884,6 +1014,69 @@ class DynamicTableExtractor:
         return self._build_result(table_def, sheet, actual_start, end_row,
                                    columns, rejected_count, rejection_reasons)
 
+    def _resolve_semantic_columns(self, table_def: Dict, columns: List[Dict], data_row: int) -> List[Dict]:
+        """Resolve table columns from contextual header labels.
+
+        Positional template coordinates are deliberately retained as a
+        fallback because they are useful for sparse/merged legacy templates.
+        When a nearby row contains semantic labels, however, the labels win.
+        This is generic and configuration-driven; it contains no workbook or
+        company-specific coordinates.
+        """
+        if not columns:
+            return columns
+
+        aliases = {
+            "from": {"from", "start", "time from", "begin", "begin time"},
+            "to": {"to", "end", "time to", "end time"},
+            "hrs": {"hrs", "hours", "duration", "h", "hours worked"},
+            "code": {"code", "main code", "activity code", "no"},
+            "sub code": {"sub code", "sub-code", "subcategory"},
+            "main phase": {"main phase", "phase", "activity"},
+            "status": {"status", "state"},
+            "rig activity": {"rig activity", "activity", "description", "remarks", "remark"},
+            "activity": {"activity", "description", "remarks", "remark"},
+        }
+
+        def normalize(value):
+            return re.sub(r"[^a-z0-9]+", " ", str(value or "").lower()).strip()
+
+        expected = []
+        for column in columns:
+            label = normalize(column.get("field") or column.get("canonical", "").split(".")[-1])
+            candidates = {label} | {normalize(item) for item in column.get("aliases", [])}
+            candidates |= aliases.get(label, set())
+            expected.append({normalize(item) for item in candidates if normalize(item)})
+
+        explicit_header = table_def.get("header_row")
+        candidate_rows = [explicit_header] if explicit_header else range(max(1, data_row - 6), data_row)
+        best = None
+        for row in candidate_rows:
+            if not row:
+                continue
+            matches = []
+            used = set()
+            for col_index, candidates in enumerate(expected):
+                found = None
+                for (r, c), value in self.cells.items():
+                    if r != row or c in used:
+                        continue
+                    token = normalize(value)
+                    if token in candidates or any(token == item or token.startswith(item + " ") for item in candidates if len(item) >= 3):
+                        found = c
+                        break
+                if found is not None:
+                    matches.append((col_index, found))
+                    used.add(found)
+            if len(matches) >= 2 and (best is None or len(matches) > len(best)):
+                best = matches
+        if best is None:
+            return columns
+        resolved = [dict(column) for column in columns]
+        for index, col in best:
+            resolved[index]["col"] = col
+        return resolved
+
     def _classify_row(self, row: int, columns: List[Dict]) -> str:
         """Classify a row as: data, header_repeat, subtotal, footer, note, unit_row, title."""
         values = []
@@ -892,11 +1085,15 @@ class DynamicTableExtractor:
             val = self.cells.get((row, c))
             if val is None:
                 val, _ = self.merge.get_value(row, c)
-            if val is not None:
+            if val is not None and str(val).strip():
                 values.append(str(val).strip().lower())
 
         if not values:
             return "empty"
+        if all(value.startswith("=") for value in values):
+            # No cached measurement or entered source value in this row.
+            # Formula expressions remain in RawDocument, not phantom records.
+            return "formula_only"
 
         all_text = " ".join(values)
 
@@ -962,8 +1159,10 @@ class DynamicTableExtractor:
             # into records as phantom data.
             row_class = self._classify_row(r, columns)
             if row_class != "data":
-                rejected_count += 1
-                rejection_reasons.append(f"R{r}: {row_class}")
+                reason = f"R{r}: {row_class}"
+                if reason not in rejection_reasons:
+                    rejected_count += 1
+                    rejection_reasons.append(reason)
                 continue
             record = {}
             has_value = False
@@ -987,6 +1186,18 @@ class DynamicTableExtractor:
                         key = col_def.get("field", f"col_{c}")
                     record[key] = val
             if has_value and record:
+                record["_source_row"] = r
+                record["_source_cells"] = {
+                    str(col_def.get("canonical") or col_def.get("field")): f"R{r}C{col_def.get('col')}"
+                    for col_def in columns
+                }
+                is_morning_table = any(
+                    str(column.get("canonical", "")).startswith("time_log_morning.")
+                    for column in columns
+                )
+                if is_morning_table and record.get("time_log_morning.time_from") in (None, ""):
+                    record["_classification"] = "continuation"
+                    record["_review_reason"] = "Continuation text has no independent time anchor"
                 records.append(record)
 
         return TableExtraction(
@@ -1008,26 +1219,91 @@ class DynamicTableExtractor:
 class ExcelIntelligence:
     """Main orchestrator for robust Excel extraction."""
 
-    def __init__(self, workbook, template: Dict = None):
+    def __init__(
+        self,
+        workbook,
+        template: Dict = None,
+        source_file: Optional[str] = None,
+        cached_workbook=None,
+    ):
         self.workbook = workbook
+        # openpyxl may discard the input path (notably when given a Path
+        # object). The caller at the file boundary supplies it explicitly so
+        # IR provenance never degrades to an empty source document.
+        if source_file and not getattr(workbook, "filename", None):
+            try:
+                workbook.filename = str(source_file)
+            except Exception:
+                pass
         self.template = template or {}
+        # Both Excel and MinerU are adapted to the same raw IR before the
+        # canonical schema mapper runs.  It retains hidden/merged/formula
+        # provenance without changing the established extraction semantics.
+        self.raw_document = raw_document_from_workbook(
+            workbook,
+            cached_workbook=cached_workbook,
+        )
         self.cell_cache = {}
         self.merge_analyzers = {}
         self.label_detectors = {}
         self._build_cache()
+        self.activity_catalog = self._load_activity_catalog()
+
+    def _load_activity_catalog(self) -> ComboCatalog:
+        """Load the workbook's authoritative Activity Codes catalogue.
+
+        The catalogue is read from the same Excel IR as all business values.
+        If a workbook has no catalogue, the application DDR catalogue is used
+        only for the proven DDR activity convention; values still go through
+        the unresolved/review path when they do not match it.
+        """
+        rows = []
+        for raw_cell in self.raw_document.cells:
+            if "activity" not in str(raw_cell.location.sheet or "").casefold() and "code" not in str(raw_cell.location.sheet or "").casefold():
+                continue
+            rows.append(raw_cell)
+        if not rows:
+            return DEFAULT_ACTIVITY_CATALOG
+        by_row = {}
+        for cell in rows:
+            by_row.setdefault(cell.location.row, {})[cell.location.column] = cell.value
+        catalog_rows = [
+            (values.get(1), values.get(2), values.get(3))
+            for _row, values in sorted(by_row.items())
+        ]
+        catalog = ComboCatalog.from_activity_rows(catalog_rows)
+        return catalog if catalog.main_labels or catalog.sub_labels else DEFAULT_ACTIVITY_CATALOG
 
     def _build_cache(self):
-        for ws in self.workbook.worksheets:
-            if ws.sheet_state != 'visible' and ws.title.lower() == 'setting':
+        """Build all mapping indexes from the common raw IR.
+
+        The workbook is adapted once in ``__init__``.  Reading worksheet cells
+        again here would create a second extraction architecture and could
+        disagree on formulas, merges, or provenance.
+        """
+        by_sheet: Dict[str, List[Any]] = {}
+        for raw_cell in self.raw_document.cells:
+            sheet = raw_cell.location.sheet
+            if not sheet:
                 continue
-            cells = {}
-            for row in ws.iter_rows():
-                for cell in row:
-                    if cell.value is not None and str(cell.value).strip():
-                        cells[(cell.row, cell.column)] = cell.value
-            self.cell_cache[ws.title] = cells
-            self.merge_analyzers[ws.title] = MergeCellAnalyzer(ws)
-            self.label_detectors[ws.title] = LabelDetector(cells)
+            by_sheet.setdefault(sheet, []).append(raw_cell)
+
+        for sheet, raw_cells in by_sheet.items():
+            if sheet.lower() == "setting":
+                continue
+            cells = {
+                (raw_cell.location.row, raw_cell.location.column): raw_cell.value
+                for raw_cell in raw_cells
+                if raw_cell.location.row is not None
+                and isinstance(raw_cell.location.column, int)
+                and raw_cell.value is not None
+                and str(raw_cell.value).strip()
+            }
+            self.cell_cache[sheet] = cells
+            self.merge_analyzers[sheet] = MergeCellAnalyzer.from_raw_cells(
+                self.raw_document.cells, sheet
+            )
+            self.label_detectors[sheet] = LabelDetector(cells)
 
     # Quantities that must hold numeric values. Non-numeric source tokens
     # (e.g. "N.C") are converted to NULL and preserved as provenance.
@@ -1037,12 +1313,138 @@ class ExcelIntelligence:
         "flow_rate", "volume", "temperature", "currency",
     })
 
+    def extract_generic(self) -> ImportReport:
+        """Extract an unknown workbook using semantic labels from the common IR.
+
+        This is deliberately conservative: it maps only an unambiguous label
+        with a nearby value and leaves ambiguous/unresolved content for review.
+        It never depends on a filename, company name, sheet name, or MinerU.
+        """
+        started = time.time()
+        report = ImportReport(
+            file_name=getattr(self.workbook, "filename", ""),
+            template_version="generic-ir",
+            raw_document=self.raw_document,
+        )
+        canonical = {}
+        from core.semantic_tables import detect_tables
+        tables, consumed = detect_tables(self.cell_cache)
+        for sheet, storage, mapping, first, last, rows in tables:
+            normalized = self._normalize_table_records(rows, storage, source_sheet=sheet,
+                source_file=self.raw_document.source_file, activity_catalog=self.activity_catalog)
+            canonical.setdefault(storage, []).extend(normalized)
+            report.table_results.append(TableExtraction(name=storage, sheet=sheet, start_row=first, end_row=last,
+                columns=[{"canonical": p, "col": c} for p, c in mapping.items()], records=rows, row_count=len(rows), confidence=0.8))
+        report.tables_detected = len(tables)
+        report.total_rows_extracted = sum(len(t[-1]) for t in tables)
+        seen = set()
+        for raw_cell in self.raw_document.cells:
+            if (raw_cell.location.sheet, raw_cell.location.row, raw_cell.location.column) in consumed:
+                continue
+            value = raw_cell.value
+            if value in (None, "") or not isinstance(value, str):
+                continue
+            label = str(value).strip()
+            sheet = raw_cell.location.sheet or ""
+            nearby_values = [
+                str(item).strip()
+                for (candidate_row, candidate_col), item in self.cell_cache.get(sheet, {}).items()
+                if abs(candidate_row - (raw_cell.location.row or 0)) <= 2
+                and abs(candidate_col - (raw_cell.location.column or 0)) <= 3
+                and item not in (None, "")
+            ]
+            context = " ".join(
+                [f"{sheet} {raw_cell.table or ''} {raw_cell.section_title or ''}"]
+                + nearby_values
+            )
+            field_path = resolve_canonical_field(label, context)
+            if not field_path or field_path in seen:
+                continue
+            row = raw_cell.location.row or 0
+            column = raw_cell.location.column if isinstance(raw_cell.location.column, int) else 0
+            cells = self.cell_cache.get(sheet, {})
+            candidate = None
+            for distance in range(1, 8):
+                for position in ((row, column + distance), (row + distance, column)):
+                    candidate = cells.get(position)
+                    if candidate not in (None, "") and str(candidate).strip().lower() != label.lower():
+                        break
+                if candidate not in (None, "") and str(candidate).strip().lower() != label.lower():
+                    break
+            if candidate in (None, ""):
+                report.fields_unresolved += 1
+                continue
+            normalized = normalize_canonical_value(candidate, field_path)
+            spec = FIELD_SPECS.get(field_path)
+            confidence = 0.82
+            status = "OK" if normalized.validation_state in {"valid", "missing"} else "REVIEW_REQUIRED"
+            result = ExtractionResult(
+                canonical_field=field_path,
+                value=normalized.normalized_value,
+                original_value=normalized.original_value,
+                status=status,
+                confidence=confidence,
+                certainty=mapping_certainty(confidence, "label_match"),
+                source="generic-semantic",
+                cell=f"{sheet}!R{row}C{column}",
+                row=row,
+                col=column,
+                sheet=sheet,
+                original_label=label,
+                reason=normalized.review_reason,
+                validation=normalized.validation_state,
+                data_type=normalized.expected_type,
+                canonical_unit=spec.unit if spec else "",
+                engineering_bounds=get_engineering_bounds(field_path),
+            )
+            report.field_results.append(result)
+            report.fields_detected += 1
+            if status == "OK":
+                report.fields_accepted += 1
+            else:
+                report.fields_review += 1
+                report.source_tokens[field_path] = {
+                    "original_value": candidate,
+                    "normalized_value": normalized.normalized_value,
+                    "sheet": sheet,
+                    "cell": result.cell,
+                    "expected_type": normalized.expected_type,
+                    "status": "REVIEW",
+                }
+            section, key = field_path.split(".", 1)
+            storage_section = {
+                "time_log": "time_logs_24h",
+                "time_log_morning": "time_logs_morning",
+            }.get(section, section)
+            if storage_section in {"time_logs_24h", "time_logs_morning"}:
+                canonical.setdefault(storage_section, [{}])[0][key] = normalized.normalized_value
+            else:
+                canonical.setdefault(storage_section, {})[key] = normalized.normalized_value
+            report.field_provenance[field_path] = {
+                "source_file": self.raw_document.source_file,
+                "source_sheet": sheet,
+                "source_cell": result.cell,
+                "source_row": row,
+                "source_column": column,
+                "original_value": candidate,
+                "normalized_value": normalized.normalized_value,
+                "extraction_method": "generic-semantic",
+                "confidence": confidence,
+                "validation_state": normalized.validation_state,
+                "review_state": "accepted" if status == "OK" else "review",
+            }
+            seen.add(field_path)
+        report.canonical_json = canonical
+        report.extraction_time_ms = (time.time() - started) * 1000
+        return report
+
     def extract(self) -> ImportReport:
         """Run full extraction pipeline."""
         start_time = time.time()
         report = ImportReport(
             file_name=getattr(self.workbook, 'filename', ''),
             template_version=self.template.get("version", "none"),
+            raw_document=self.raw_document,
         )
 
         canonical = {}
@@ -1075,9 +1477,10 @@ class ExcelIntelligence:
                         spec = FIELD_SPECS.get(canonical_path)
                         critical = spec.critical if spec else False
                         decision = confidence_decision(result.confidence, critical)
+                        if result.status in {"OK", "REVIEW_REQUIRED"}:
+                            report.fields_detected += 1
 
                         if result.status == "OK":
-                            report.fields_detected += 1
                             if decision == "ACCEPT":
                                 report.fields_accepted += 1
                             elif decision == "REVIEW":
@@ -1085,6 +1488,14 @@ class ExcelIntelligence:
                             else:
                                 report.fields_rejected += 1
                             self._store_scalar(report, canonical, canonical_path, result, actual_sheet)
+                            if canonical_path in report.source_tokens:
+                                # Typed normalization rejected the candidate;
+                                # keep the record as NULL but force explicit
+                                # review instead of silently accepting it.
+                                if decision == "ACCEPT":
+                                    report.fields_accepted = max(0, report.fields_accepted - 1)
+                                result.status = "REVIEW_REQUIRED"
+                                report.fields_review += 1
                         elif result.status == "REVIEW_REQUIRED":
                             report.fields_review += 1
                             self._store_scalar(report, canonical, canonical_path, result, actual_sheet)
@@ -1145,7 +1556,10 @@ class ExcelIntelligence:
                             }
                             storage_key = key_map.get(section, section)
                             normalized = self._normalize_table_records(
-                                table_result.records, storage_key
+                                table_result.records, storage_key,
+                                source_sheet=actual_sheet,
+                                source_file=report.raw_document.source_file if report.raw_document is not None else report.file_name,
+                                activity_catalog=self.activity_catalog,
                             )
                             canonical.setdefault(storage_key, []).extend(normalized)
                     else:
@@ -1190,7 +1604,10 @@ class ExcelIntelligence:
                                     }
                                     storage_key = key_map.get(section, section)
                                     normalized = self._normalize_table_records(
-                                        table_result.records, storage_key
+                                        table_result.records, storage_key,
+                                        source_sheet=actual_sheet,
+                                        source_file=report.raw_document.source_file if report.raw_document is not None else report.file_name,
+                                        activity_catalog=self.activity_catalog,
                                     )
                                     canonical.setdefault(storage_key, []).extend(normalized)
 
@@ -1206,6 +1623,51 @@ class ExcelIntelligence:
             if assembled is not None:
                 daily["report_date"] = assembled.isoformat()
                 daily["report_date_source"] = "assembled(year/month/day)"
+                components = [
+                    report.field_provenance.get(f"daily_report.{part}")
+                    for part in ("report_year", "report_month", "report_day")
+                ]
+                components = [component for component in components if component]
+                source_sheets = list(dict.fromkeys(component.get("source_sheet", "") for component in components))
+                report.field_provenance["daily_report.report_date"] = {
+                    "source_file": report.raw_document.source_file if report.raw_document is not None else "",
+                    "source_sheet": source_sheets[0] if len(source_sheets) == 1 else source_sheets,
+                    "source_cell": [component.get("source_cell") for component in components],
+                    "merged_cell": [component.get("merged_cell") for component in components],
+                    "source_header": [component.get("source_header") for component in components],
+                    "source_row": [component.get("source_row") for component in components],
+                    "source_column": [component.get("source_column") for component in components],
+                    "original_value": [component.get("original_value") for component in components],
+                    "normalized_value": daily["report_date"],
+                    "extraction_method": "assembled-date",
+                    "confidence": min((component.get("confidence", 0.0) for component in components), default=0.0),
+                    "validation_state": "valid",
+                    "review_state": "accepted",
+                    "components": components,
+                }
+
+        # Resolve source-unit context after all scalar anchors have been
+        # visited.  DDR layouts may place MW Unit below Mud Weight; preserve a
+        # numeric PCF/SG source token for the explicit UnitManager conversion
+        # instead of treating it as ppg or discarding it as out-of-range.
+        mud_values = canonical.get("mud_report")
+        source_mw = report.source_tokens.get("mud_report.mw")
+        source_unit = str(mud_values.get("mw_unit", "") if isinstance(mud_values, dict) else "").strip().lower()
+        if isinstance(mud_values, dict) and source_mw and source_unit in {"pcf", "sg", "ppg"}:
+            if source_mw.get("status") == "ENGINEERING_REVIEW" and source_mw.get("original_value") not in (None, ""):
+                mud_values["mw"] = source_mw["original_value"]
+                source_mw["normalized_value"] = source_mw["original_value"]
+                source_mw["status"] = "SOURCE_UNIT_RESOLVED"
+                source_mw["source_unit"] = source_unit
+                source_mw["review"] = False
+                for field_result in report.field_results:
+                    if field_result.canonical_field == "mud_report.mw":
+                        field_result.status = "OK"
+                        field_result.validation = "valid"
+                        field_result.value = mud_values["mw"]
+                        field_result.normalized_value = mud_values["mw"]
+                        field_result.reason = "Density source unit resolved from explicit unit field"
+                mud_values.pop("mw_source", None)
 
         report.canonical_json = canonical
         report.extraction_time_ms = (time.time() - start_time) * 1000
@@ -1259,29 +1721,210 @@ class ExcelIntelligence:
         """
         section, key = canonical_path.split(".", 1)
         spec = FIELD_SPECS.get(canonical_path)
+        target = canonical.setdefault(section, {})
+        missing = object()
+        existing_value = target.get(key, missing)
+        existing_source_token = report.source_tokens.get(canonical_path)
         value = result.value
-        if (
-            value is not None
-            and spec is not None
-            and spec.quantity in self.NUMERIC_QUANTITIES
-            and isinstance(value, str)
-        ):
-            try:
-                float(value.replace(",", "").strip())
-            except (ValueError, TypeError):
-                token = value.strip()
+        original_value = result.original_value if result.original_value is not None else value
+        if spec is not None:
+            normalization = normalize_canonical_value(value, canonical_path)
+            if normalization.missing:
+                value = None
+                if isinstance(original_value, str) and original_value.strip():
+                    token = original_value.strip()
+                    report.source_tokens[canonical_path] = {
+                        "original_value": original_value,
+                        "normalized_value": None,
+                        "cell": result.cell,
+                        "sheet": actual_sheet or result.sheet,
+                        "expected_type": normalization.expected_type,
+                        "status": "PLACEHOLDER",
+                        "review": True,
+                    }
+                    canonical.setdefault(section, {})[key + "_source"] = token
+            elif normalization.ok and result.validation not in {"valid", "missing"}:
+                # Engineering bounds/type checks are a second semantic
+                # boundary.  A value can be syntactically numeric yet still
+                # be wrong for the field (for example a PCF token selected for
+                # the ppg mud-weight field).  An explicit source suffix is
+                # safe to retain for the later UnitManager conversion; a bare
+                # out-of-range value remains NULL/reviewable.
+                source_unit_match = re.search(
+                    r"(?:^|\s)(pcf|ppg|sg)\s*$", str(original_value or ""), re.IGNORECASE
+                )
+                explicit_source_unit = source_unit_match.group(1).lower() if source_unit_match else ""
+                if canonical_path == "mud_report.mw" and explicit_source_unit:
+                    value = normalization.value
+                    target.setdefault("mw_unit", explicit_source_unit.upper())
+                    report.source_tokens[canonical_path] = {
+                        "original_value": original_value,
+                        "normalized_value": value,
+                        "source_unit": explicit_source_unit,
+                        "cell": result.cell,
+                        "sheet": actual_sheet or result.sheet,
+                        "expected_type": normalization.expected_type,
+                        "status": "SOURCE_UNIT_PENDING",
+                        "review": True,
+                    }
+                else:
+                    report.source_tokens[canonical_path] = {
+                        "original_value": original_value,
+                        "normalized_value": None,
+                        "cell": result.cell,
+                        "sheet": actual_sheet or result.sheet,
+                        "expected_type": normalization.expected_type,
+                        "status": "ENGINEERING_REVIEW",
+                        "review": True,
+                    }
+                    value = None
+                    canonical.setdefault(section, {})[key + "_source"] = original_value
+            elif normalization.ok:
+                # Canonical JSON keeps legacy serializable date/time tokens
+                # and raw Excel timedelta semantics.  The typed normalizer
+                # still validates them; UI/DB boundaries perform the final
+                # explicit conversion.
+                if spec.quantity in {"date", "datetime", "timestamp"} and isinstance(value, (str, bytes)):
+                    value = str(value).strip()
+                elif spec.quantity in {"time", "duration", "timedelta"} and isinstance(value, (str, bytes)):
+                    value = str(value).strip()
+                elif spec.quantity in {"time", "duration", "timedelta"} and isinstance(value, (dt_time, timedelta)):
+                    value = value
+                elif spec.quantity in {"date", "datetime", "timestamp"} and hasattr(normalization.value, "isoformat"):
+                    value = normalization.value.isoformat()
+                else:
+                    value = normalization.value
+            elif normalization.needs_review:
+                token = str(value).strip()
                 report.source_tokens[canonical_path] = {
-                    "original_value": token,
+                    "original_value": value,
+                    "normalized_value": None,
                     "cell": result.cell,
                     "sheet": actual_sheet or result.sheet,
+                    "expected_type": normalization.expected_type,
                     "status": "NON_NUMERIC",
+                    "review": True,
                 }
                 value = None
                 canonical.setdefault(section, {})[key + "_source"] = token
-        canonical.setdefault(section, {})[key] = value
+        # A template can expose the same DDR date more than once (for
+        # example, direct cells on DDR Remark and formula links on DDR Data).
+        # A lower-quality duplicate must never erase an already normalized
+        # value. This is deterministic duplicate resolution, not a company
+        # or workbook-specific hardcode.
+        preserve_existing = (
+            existing_value is not missing
+            and existing_value not in (None, "")
+            and value in (None, "")
+        )
+        conflict_with_existing = (
+            existing_value is not missing
+            and existing_value not in (None, "")
+            and value not in (None, "")
+            and existing_value != value
+        )
+        duplicate_with_existing = (
+            existing_value is not missing
+            and existing_value not in (None, "")
+            and value not in (None, "")
+            and existing_value == value
+            and report.field_provenance.get(canonical_path, {}).get("source_cell") != result.cell
+        )
+        if preserve_existing or conflict_with_existing or duplicate_with_existing:
+            value = existing_value
+            if existing_source_token is None:
+                report.source_tokens.pop(canonical_path, None)
+                target.pop(key + "_source", None)
+        else:
+            target[key] = value
+            if value not in (None, "") and existing_source_token is not None:
+                report.source_tokens.pop(canonical_path, None)
+                target.pop(key + "_source", None)
+
+        source_ir_cell = next(
+            (
+                raw_cell for raw_cell in (report.raw_document.cells if report.raw_document is not None else ())
+                if raw_cell.location.sheet == actual_sheet and raw_cell.location.cell == result.cell
+            ),
+            None,
+        )
+        if canonical_path not in report.field_provenance or not (
+            preserve_existing or conflict_with_existing or duplicate_with_existing
+        ):
+            report.field_provenance[canonical_path] = {
+                "source_file": report.raw_document.source_file if report.raw_document is not None else "",
+                "source_sheet": actual_sheet or result.sheet,
+                "source_cell": result.cell,
+                "merged_cell": (
+                    source_ir_cell.merge_anchor or result.cell
+                    if source_ir_cell is not None and source_ir_cell.merged
+                    else None
+                ),
+                "source_header": result.original_label,
+                "source_row": result.row,
+                "source_column": result.col,
+                "original_value": original_value,
+                "normalized_value": value,
+                "extraction_method": result.source or "excel-template",
+                "confidence": result.confidence,
+                "validation_state": result.validation or "unvalidated",
+                "review_state": "accepted" if result.status == "OK" else "review",
+            }
+        if conflict_with_existing:
+            report.field_provenance[canonical_path].setdefault("alternates", []).append({
+                "source_sheet": actual_sheet or result.sheet,
+                "source_cell": result.cell,
+                "original_value": original_value,
+                "normalized_value": value,
+                "status": "CONFLICT",
+            })
+        if duplicate_with_existing:
+            duplicate = {
+                "source_file": report.raw_document.source_file if report.raw_document is not None else report.file_name,
+                "source_sheet": actual_sheet or result.sheet,
+                "source_cell": result.cell,
+                "original_value": original_value,
+                "normalized_value": value,
+                "status": "DUPLICATE_CONFIRMED",
+                "classification": "duplicate-same-value",
+            }
+            report.field_provenance[canonical_path].setdefault("duplicates", []).append(duplicate)
+            report.duplicate_mappings.append({
+                "canonical_field": canonical_path,
+                "primary": report.field_provenance[canonical_path].get("source_cell", ""),
+                **duplicate,
+            })
+
+        # Keep the common IR synchronized with the mapping result.  The
+        # source token remains in ``original_value``; only the explicit
+        # normalized/state fields are changed.
+        for raw_cell in report.raw_document.cells if report.raw_document is not None else ():
+            if (
+                raw_cell.location.sheet == actual_sheet
+                and raw_cell.location.cell == result.cell
+            ):
+                raw_cell.normalized_value = value
+                raw_cell.normalized_unit = spec.unit if spec is not None else None
+                raw_cell.confidence = result.confidence
+                raw_cell.validation_state = (
+                    "valid" if not result.validation or result.validation == "valid"
+                    else "needs_review"
+                )
+                raw_cell.review_state = (
+                    "accepted" if result.status == "OK" and raw_cell.validation_state == "valid"
+                    else "review"
+                )
+                break
 
     @staticmethod
-    def _normalize_table_records(records: List[Dict], storage_key: str) -> List[Dict]:
+    def _normalize_table_records(
+        records: List[Dict],
+        storage_key: str,
+        *,
+        source_sheet: str = "",
+        source_file: str = "",
+        activity_catalog: Optional[ComboCatalog] = None,
+    ) -> List[Dict]:
         """Normalize raw table records into canonical short-key records.
 
         * Full canonical paths ("time_log.time_from") become short keys
@@ -1299,7 +1942,30 @@ class ExcelIntelligence:
             for k, v in rec.items():
                 if k is None:
                     continue
-                key = str(k).split(".")[-1]
+                canonical_path = str(k)
+                key = canonical_path.split(".")[-1]
+                spec = FIELD_SPECS.get(canonical_path)
+                if spec is not None:
+                    normalization = normalize_canonical_value(v, canonical_path)
+                    if normalization.missing:
+                        if isinstance(v, str) and v.strip():
+                            short[key + "_source"] = v.strip()
+                        v = None
+                    elif normalization.ok:
+                        if spec.quantity in {"date", "datetime", "timestamp"} and isinstance(v, (str, bytes)):
+                            v = str(v).strip()
+                        elif spec.quantity in {"date", "datetime", "timestamp"} and hasattr(normalization.value, "isoformat"):
+                            v = normalization.value.isoformat()
+                        elif spec.quantity in {"time", "duration", "timedelta"} and isinstance(v, (str, bytes, dt_time, timedelta)):
+                            v = str(v).strip() if isinstance(v, (str, bytes)) else v
+                        else:
+                            v = normalization.value
+                    elif normalization.needs_review:
+                        # Retain the original source token beside a NULL
+                        # typed value; the review matrix can show it without
+                        # risking an ORM Float/Integer conversion.
+                        short[key + "_source"] = v
+                        v = None
                 if key == "duration" and isinstance(v, (int, float)) and not isinstance(v, bool):
                     v = round(float(v), 2)
                 short[key] = v
@@ -1308,6 +1974,44 @@ class ExcelIntelligence:
             if storage_key == "bulk_materials":
                 if short.get("product_type") and not short.get("material_name"):
                     short["material_name"] = short["product_type"]
+            # Keep table provenance beside canonical row values.  Persistence
+            # and ReviewItem construction can therefore report the original
+            # worksheet/table without reconstructing it from a bare row index.
+            if source_sheet:
+                short["_source_sheet"] = source_sheet
+            if source_file:
+                short["_source_file"] = source_file
+            short["_source_location"] = {
+                "file": source_file,
+                "sheet": source_sheet,
+                "row": short.get("_source_row"),
+                "cells": short.get("_source_cells", {}),
+                "table": storage_key,
+            }
+            if storage_key in {"time_logs_24h", "time_logs_morning"}:
+                catalog = activity_catalog or DEFAULT_ACTIVITY_CATALOG
+                prefix = "time_log_morning" if storage_key == "time_logs_morning" else "time_log"
+                raw_main = short.get("main_code")
+                raw_sub = short.get("sub_code")
+                main_result = catalog.resolve_main(raw_main, field=f"{prefix}.main_code")
+                sub_result = catalog.resolve_sub(raw_sub, raw_main, field=f"{prefix}.sub_code")
+                # The UI/domain identity is persisted, never the DDR ordinal.
+                # Original source tokens and resolution diagnostics remain on
+                # the row so ReviewItem creation is lossless.
+                if main_result.accepted:
+                    short["main_code"] = main_result.identity
+                else:
+                    short["main_code"] = None
+                    short["main_code_source"] = raw_main
+                if sub_result.accepted:
+                    short["sub_code"] = sub_result.identity
+                else:
+                    short["sub_code"] = None
+                    short["sub_code_source"] = raw_sub
+                short["_combo_resolution"] = {
+                    "main_code": main_result.to_dict(),
+                    "sub_code": sub_result.to_dict(),
+                }
             out.append(short)
         return out
 

@@ -1,10 +1,9 @@
 """Tests for Excel Intelligence Layer v2 — candidate scoring, engineering validation."""
 
-import pytest
 from core.excel_intelligence import (
-    MergeCellAnalyzer, LabelDetector, FieldExtractor,
-    DynamicTableExtractor, ExcelIntelligence, CandidateScorer,
-    ExtractionResult, TableExtraction, ImportReport, Candidate,
+    LabelDetector, FieldExtractor,
+    CandidateScorer,
+    Candidate,
     confidence_decision,
 )
 from core.canonical_schema import FIELD_SPECS, lookup_alias, get_engineering_bounds

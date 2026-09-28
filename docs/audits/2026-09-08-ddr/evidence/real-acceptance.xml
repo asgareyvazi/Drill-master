@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="5.023" timestamp="2026-09-08T09:22:25.967335+00:00" hostname="e2b.local"><testcase classname="tests.test_ddr_acceptance" name="test_real_ddr_excel_canonical_ir_review_and_atomic_db" time="5.005" /></testsuite></testsuites>

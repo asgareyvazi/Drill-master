@@ -1,0 +1,12 @@
+{
+ "files_indexed": 226,
+ "identity_rule": "sha256(path|kind|symbol|normalised expression|ordinal)",
+ "items": 6860,
+ "method": "content re-resolution by normalised AST source segment; M31 fingerprint retained as stable identity",
+ "status": {
+  "ABSENT": 112,
+  "MOVED": 1735,
+  "REVALIDATION-REQUIRED": 4,
+  "SAME": 5009
+ }
+}

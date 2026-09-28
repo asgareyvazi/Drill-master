@@ -1,0 +1,1250 @@
+{
+ "schema": "m34-reconciliation",
+ "generated_utc": "2026-09-27T12:15:15+00:00",
+ "ledger": {
+  "path": "docs/audits/m34-evidence/m34-ledger.json",
+  "sha256": "d81a77bda0330c75493f4081c4a02e4d106fe7602e49c14f0c67d12977658a6b",
+  "items": 11554
+ },
+ "inventories": {
+  "M30": {
+   "claimed": 2232,
+   "state": "prior claim \u2014 not a target; M34 does not use it as a baseline"
+  },
+  "M31": {
+   "claimed": 6860,
+   "state": "prior claim \u2014 not a target"
+  },
+  "M32": {
+   "claimed_remaining": 3518,
+   "state": "prior claim \u2014 verified family-wise only where the M33 records carrying it are still byte-identical"
+  },
+  "M33": {
+   "claimed": 8934,
+   "state": "recovered from docs/audits/m33-evidence/m33-ledger.json; its per-item records are the carry-forward population"
+  },
+  "M34": {
+   "independent": 11554,
+   "origin": {
+    "M32-LEDGER": 8570,
+    "M32-LEDGER-ABSENT": 96,
+    "M33-NEW": 266,
+    "M33-FORENSICS": 2,
+    "M34-NEW": 2620
+   },
+   "explanation": "M33 records carried forward where the file hash still matches (SAME-FILE-HASH), plus every fresh-sweep hit M33 did not hold; sweep hits M33 already held are de-duplicated rather than re-counted"
+  }
+ },
+ "delta_classes": {
+  "NEW": null,
+  "CARRIED-FORWARD-SAME-FILE-HASH": 8933,
+  "CARRIED-FORWARD-WITHOUT-LINE": 1,
+  "DUPLICATE-OF-M33-RECORD": 3182,
+  "FIXED": 51,
+  "REMOVED-WITH-EVIDENCE": 49,
+  "INTENTIONAL": 2880,
+  "EXTERNAL": 17,
+  "OPEN": 1224,
+  "note": "a count that changed is not a deletion: every M33 record is either carried (with its own evidence retained) or replaced by a re-adjudication that keeps the M33 evidence under `m33_evidence`"
+ },
+ "readjudication": {
+  "VERIFIED-CORRECT": 1252,
+  "UNDER-REVIEW": 877,
+  "INTENTIONAL-BY-DESIGN": 519
+ },
+ "m33_state_transitions": {
+  "INTENTIONAL-BY-DESIGN -> INTENTIONAL-BY-DESIGN": 2264,
+  "VERIFIED-CORRECT -> VERIFIED-CORRECT": 3712,
+  "UNDER-REVIEW -> VERIFIED-CORRECT": 1248,
+  "UNDER-REVIEW -> UNDER-REVIEW": 1070,
+  "UNDER-REVIEW -> INTENTIONAL-BY-DESIGN": 519,
+  "DEFECT-FIXED -> DEFECT-FIXED": 51,
+  "EXTERNAL-ACCEPTANCE-ONLY -> EXTERNAL-ACCEPTANCE-ONLY": 17,
+  "EVIDENCE-INCOMPLETE -> VERIFIED-CORRECT": 4,
+  "REMOVED-WITH-EVIDENCE -> REMOVED-WITH-EVIDENCE": 49
+ },
+ "families": [
+  {
+   "family": "if-not-falsy",
+   "total": 4209,
+   "verified_correct": 3213,
+   "intentional": 444,
+   "under_review": 552,
+   "defect_fixed": 0,
+   "evidence_incomplete": 0,
+   "removed_with_evidence": 0,
+   "external_acceptance_only": 0
+  },
+  {
+   "family": "session-lifecycle",
+   "total": 1282,
+   "verified_correct": 1256,
+   "intentional": 0,
+   "under_review": 26,
+   "defect_fixed": 0,
+   "evidence_incomplete": 0,
+   "removed_with_evidence": 0,
+   "external_acceptance_only": 0
+  },
+  {
+   "family": "return-none-false",
+   "total": 1255,
+   "verified_correct": 558,
+   "intentional": 697,
+   "under_review": 0,
+   "defect_fixed": 0,
+   "evidence_incomplete": 0,
+   "removed_with_evidence": 0,
+   "external_acceptance_only": 0
+  },
+  {
+   "family": "get-default",
+   "total": 1065,
+   "verified_correct": 530,
+   "intentional": 465,
+   "under_review": 18,
+   "defect_fixed": 4,
+   "evidence_incomplete": 0,
+   "removed_with_evidence": 48,
+   "external_acceptance_only": 0
+  },
+  {
+   "family": "broad-except",
+   "total": 877,
+   "verified_correct": 215,
+   "intentional": 573,
+   "under_review": 89,
+   "defect_fixed": 0,
+   "evidence_incomplete": 0,
+   "removed_with_evidence": 0,
+   "external_acceptance_only": 0
+  },
+  {
+   "family": "plan-actual",
+   "total": 410,
+   "verified_correct": 360,
+   "intentional": 0,
+   "under_review": 50,
+   "defect_fixed": 0,
+   "evidence_incomplete": 0,
+   "removed_with_evidence": 0,
+   "external_acceptance_only": 0
+  },
+  {
+   "family": "orm-single-fetch",
+   "total": 376,
+   "verified_correct": 352,
+   "intentional": 4,
+   "under_review": 20,
+   "defect_fixed": 0,
+   "evidence_incomplete": 0,
+   "removed_with_evidence": 0,
+   "external_acceptance_only": 0
+  },
+  {
+   "family": "typed-exception",
+   "total": 371,
+   "verified_correct": 58,
+   "intentional": 158,
+   "under_review": 155,
+   "defect_fixed": 0,
+   "evidence_incomplete": 0,
+   "removed_with_evidence": 0,
+   "external_acceptance_only": 0
+  },
+  {
+   "family": "default-zero-param",
+   "total": 350,
+   "verified_correct": 13,
+   "intentional": 290,
+   "under_review": 47,
+   "defect_fixed": 0,
+   "evidence_incomplete": 0,
+   "removed_with_evidence": 0,
+   "external_acceptance_only": 0
+  },
+  {
+   "family": "snapshot-serialize",
+   "total": 343,
+   "verified_correct": 327,
+   "intentional": 0,
+   "under_review": 16,
+   "defect_fixed": 0,
+   "evidence_incomplete": 0,
+   "removed_with_evidence": 0,
+   "external_acceptance_only": 0
+  },
+  {
+   "family": "or-zero",
+   "total": 236,
+   "verified_correct": 39,
+   "intentional": 96,
+   "under_review": 55,
+   "defect_fixed": 46,
+   "evidence_incomplete": 0,
+   "removed_with_evidence": 0,
+   "external_acceptance_only": 0
+  },
+  {
+   "family": "currency-arithmetic",
+   "total": 206,
+   "verified_correct": 206,
+   "intentional": 0,
+   "under_review": 0,
+   "defect_fixed": 0,
+   "evidence_incomplete": 0,
+   "removed_with_evidence": 0,
+   "external_acceptance_only": 0
+  },
+  {
+   "family": "pass-statement",
+   "total": 132,
+   "verified_correct": 0,
+   "intentional": 34,
+   "under_review": 98,
+   "defect_fixed": 0,
+   "evidence_incomplete": 0,
+   "removed_with_evidence": 0,
+   "external_acceptance_only": 0
+  },
+  {
+   "family": "or-constant",
+   "total": 110,
+   "verified_correct": 0,
+   "intentional": 71,
+   "under_review": 38,
+   "defect_fixed": 0,
+   "evidence_incomplete": 0,
+   "removed_with_evidence": 1,
+   "external_acceptance_only": 0
+  },
+  {
+   "family": "setvalue-zero",
+   "total": 77,
+   "verified_correct": 5,
+   "intentional": 45,
+   "under_review": 26,
+   "defect_fixed": 1,
+   "evidence_incomplete": 0,
+   "removed_with_evidence": 0,
+   "external_acceptance_only": 0
+  },
+  {
+   "family": "numeric-coalesce",
+   "total": 65,
+   "verified_correct": 37,
+   "intentional": 3,
+   "under_review": 25,
+   "defect_fixed": 0,
+   "evidence_incomplete": 0,
+   "removed_with_evidence": 0,
+   "external_acceptance_only": 0
+  },
+  {
+   "family": "shell-subprocess",
+   "total": 41,
+   "verified_correct": 41,
+   "intentional": 0,
+   "under_review": 0,
+   "defect_fixed": 0,
+   "evidence_incomplete": 0,
+   "removed_with_evidence": 0,
+   "external_acceptance_only": 0
+  },
+  {
+   "family": "raw-sql-text",
+   "total": 40,
+   "verified_correct": 40,
+   "intentional": 0,
+   "under_review": 0,
+   "defect_fixed": 0,
+   "evidence_incomplete": 0,
+   "removed_with_evidence": 0,
+   "external_acceptance_only": 0
+  },
+  {
+   "family": "float-or-zero-strict",
+   "total": 29,
+   "verified_correct": 26,
+   "intentional": 0,
+   "under_review": 3,
+   "defect_fixed": 0,
+   "evidence_incomplete": 0,
+   "removed_with_evidence": 0,
+   "external_acceptance_only": 0
+  },
+  {
+   "family": "temp-file",
+   "total": 27,
+   "verified_correct": 25,
+   "intentional": 0,
+   "under_review": 2,
+   "defect_fixed": 0,
+   "evidence_incomplete": 0,
+   "removed_with_evidence": 0,
+   "external_acceptance_only": 0
+  },
+  {
+   "family": "skip-call",
+   "total": 25,
+   "verified_correct": 25,
+   "intentional": 0,
+   "under_review": 0,
+   "defect_fixed": 0,
+   "evidence_incomplete": 0,
+   "removed_with_evidence": 0,
+   "external_acceptance_only": 0
+  },
+  {
+   "family": "test-skip",
+   "total": 17,
+   "verified_correct": 0,
+   "intentional": 0,
+   "under_review": 0,
+   "defect_fixed": 0,
+   "evidence_incomplete": 0,
+   "removed_with_evidence": 0,
+   "external_acceptance_only": 17
+  },
+  {
+   "family": "float-int-or-zero",
+   "total": 9,
+   "verified_correct": 6,
+   "intentional": 0,
+   "under_review": 3,
+   "defect_fixed": 0,
+   "evidence_incomplete": 0,
+   "removed_with_evidence": 0,
+   "external_acceptance_only": 0
+  },
+  {
+   "family": "sum-or-zero",
+   "total": 2,
+   "verified_correct": 1,
+   "intentional": 0,
+   "under_review": 1,
+   "defect_fixed": 0,
+   "evidence_incomplete": 0,
+   "removed_with_evidence": 0,
+   "external_acceptance_only": 0
+  }
+ ],
+ "open_by_rule": [
+  {
+   "rule": "R-TRUTH-UNKNOWN",
+   "total": 367,
+   "priorities": {
+    "MEDIUM": 367
+   }
+  },
+  {
+   "rule": "R-DEF-UNKNOWN",
+   "total": 152,
+   "priorities": {
+    "MEDIUM": 152
+   }
+  },
+  {
+   "rule": "R-EXC-PASS",
+   "total": 98,
+   "priorities": {
+    "HIGH": 98
+   }
+  },
+  {
+   "rule": "R-TRUTH-NUMERIC",
+   "total": 88,
+   "priorities": {
+    "HIGH": 88
+   }
+  },
+  {
+   "rule": "R-PASS-EXC",
+   "total": 74,
+   "priorities": {
+    "HIGH": 74
+   }
+  },
+  {
+   "rule": "R-EXC-OTHER",
+   "total": 60,
+   "priorities": {
+    "MEDIUM": 60
+   }
+  },
+  {
+   "rule": "R-EXC-SILENT-RETURN",
+   "total": 52,
+   "priorities": {
+    "HIGH": 52
+   }
+  },
+  {
+   "rule": "R-DEF-RETURN-NUM",
+   "total": 52,
+   "priorities": {
+    "HIGH": 35,
+    "MEDIUM": 17
+   }
+  },
+  {
+   "rule": "R-PLAN-OTHER",
+   "total": 48,
+   "priorities": {
+    "MEDIUM": 48
+   }
+  },
+  {
+   "rule": "R-NUM-UNKNOWN",
+   "total": 45,
+   "priorities": {
+    "MEDIUM": 45
+   }
+  },
+  {
+   "rule": "R-EXC-CONTINUE",
+   "total": 35,
+   "priorities": {
+    "MEDIUM": 35
+   }
+  },
+  {
+   "rule": "R-SESSION-OTHER",
+   "total": 26,
+   "priorities": {
+    "MEDIUM": 26
+   }
+  },
+  {
+   "rule": "R-SPIN-ZERO",
+   "total": 26,
+   "priorities": {
+    "MEDIUM": 26
+   }
+  },
+  {
+   "rule": "R-PASS-OTHER",
+   "total": 23,
+   "priorities": {
+    "MEDIUM": 23
+   }
+  },
+  {
+   "rule": "R-DEF-VALUE-PATH",
+   "total": 21,
+   "priorities": {
+    "HIGH": 21
+   }
+  },
+  {
+   "rule": "R-SEL-UNPROVEN",
+   "total": 20,
+   "priorities": {
+    "MEDIUM": 20
+   }
+  },
+  {
+   "rule": "R-SNAP-SERIAL-DEFAULT",
+   "total": 16,
+   "priorities": {
+    "MEDIUM": 16
+   }
+  },
+  {
+   "rule": "R-RED-UNPROVEN",
+   "total": 14,
+   "priorities": {
+    "MEDIUM": 14
+   }
+  },
+  {
+   "rule": "R-PARAM-ARITH",
+   "total": 2,
+   "priorities": {
+    "HIGH": 2
+   }
+  },
+  {
+   "rule": "R-PLAN-BASELINE",
+   "total": 2,
+   "priorities": {
+    "MEDIUM": 2
+   }
+  },
+  {
+   "rule": "R-SEC-TEMP",
+   "total": 2,
+   "priorities": {
+    "MEDIUM": 2
+   }
+  },
+  {
+   "rule": "R-RED-ZERO",
+   "total": 1,
+   "priorities": {
+    "HIGH": 1
+   }
+  }
+ ],
+ "evidence_incomplete_items": [],
+ "carried_without_line": [],
+ "defect_fixed_items": [
+  {
+   "path": "core/engineering/engines/casing.py",
+   "line": 217,
+   "family": "or-zero",
+   "rule": "M33-FIX-02",
+   "evidence": "absent optional load no longer echoes a measured 0/fyax; reported as None with axial_tension_supplied/internal_pressure_supplied flags and an explicit warning (post-fix source sha256 17eb484b1a095712\u2026"
+  },
+  {
+   "path": "core/engineering/engines/casing.py",
+   "line": 218,
+   "family": "or-zero",
+   "rule": "M33-FIX-02",
+   "evidence": "absent optional load no longer echoes a measured 0/fyax; reported as None with axial_tension_supplied/internal_pressure_supplied flags and an explicit warning (post-fix source sha256 17eb484b1a095712\u2026"
+  },
+  {
+   "path": "core/data_quality.py",
+   "line": 85,
+   "family": "or-zero",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads: # 24h coverage is a claim about recorded time. An entry with no recorded  [M34: verified against a byte-identical file (0151a92768ec15d1\u2026)]"
+  },
+  {
+   "path": "core/database.py",
+   "line": 9334,
+   "family": "or-zero",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads: # instead of a generic placeholder.  [M34: verified against a byte-identical file (578d6a9c3eb83c40\u2026)]"
+  },
+  {
+   "path": "core/database.py",
+   "line": 9355,
+   "family": "or-zero",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads: for log in all_logs:  [M34: verified against a byte-identical file (578d6a9c3eb83c40\u2026)]"
+  },
+  {
+   "path": "core/database.py",
+   "line": 7497,
+   "family": "or-zero",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads: except Exception as e:  [M34: verified against a byte-identical file (578d6a9c3eb83c40\u2026)]"
+  },
+  {
+   "path": "core/database.py",
+   "line": 7494,
+   "family": "or-zero",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads: }  [M34: verified against a byte-identical file (578d6a9c3eb83c40\u2026)]"
+  },
+  {
+   "path": "core/database.py",
+   "line": 7495,
+   "family": "or-zero",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads: for m in materials  [M34: verified against a byte-identical file (578d6a9c3eb83c40\u2026)]"
+  },
+  {
+   "path": "core/database.py",
+   "line": 7496,
+   "family": "or-zero",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads: ]  [M34: verified against a byte-identical file (578d6a9c3eb83c40\u2026)]"
+  },
+  {
+   "path": "core/database.py",
+   "line": 8346,
+   "family": "or-zero",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads: \"received_date\": r.received_date,  [M34: verified against a byte-identical file (578d6a9c3eb83c40\u2026)]"
+  },
+  {
+   "path": "core/database.py",
+   "line": 8345,
+   "family": "or-zero",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads: \"received_quantity\": r.received_quantity,  [M34: verified against a byte-identical file (578d6a9c3eb83c40\u2026)]"
+  },
+  {
+   "path": "core/database.py",
+   "line": 8344,
+   "family": "or-zero",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads: \"received_items\": r.received_items,  [M34: verified against a byte-identical file (578d6a9c3eb83c40\u2026)]"
+  },
+  {
+   "path": "core/database.py",
+   "line": 8887,
+   "family": "or-zero",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads: if report_id:  [M34: verified against a byte-identical file (578d6a9c3eb83c40\u2026)]"
+  },
+  {
+   "path": "core/database.py",
+   "line": 8892,
+   "family": "or-zero",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads: query = query.filter(NPTReport.npt_date >= start_date)  [M34: verified against a byte-identical file (578d6a9c3eb83c40\u2026)]"
+  },
+  {
+   "path": "core/database.py",
+   "line": 8896,
+   "family": "or-zero",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads: query = query.filter(NPTReport.npt_code == npt_code)  [M34: verified against a byte-identical file (578d6a9c3eb83c40\u2026)]"
+  },
+  {
+   "path": "core/database.py",
+   "line": 9224,
+   "family": "or-zero",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads: for a in analyses  [M34: verified against a byte-identical file (578d6a9c3eb83c40\u2026)]"
+  },
+  {
+   "path": "core/database.py",
+   "line": 9227,
+   "family": "or-zero",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads: logger.error(f\"Error getting ROP analysis: {e}\")  [M34: verified against a byte-identical file (578d6a9c3eb83c40\u2026)]"
+  },
+  {
+   "path": "core/database.py",
+   "line": 9190,
+   "family": "or-zero",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads: session = self.create_session()  [M34: verified against a byte-identical file (578d6a9c3eb83c40\u2026)]"
+  },
+  {
+   "path": "core/database.py",
+   "line": 9191,
+   "family": "or-zero",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads: try:  [M34: verified against a byte-identical file (578d6a9c3eb83c40\u2026)]"
+  },
+  {
+   "path": "core/database.py",
+   "line": 8544,
+   "family": "or-zero",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads: \"notes\": l.notes,  [M34: verified against a byte-identical file (578d6a9c3eb83c40\u2026)]"
+  },
+  {
+   "path": "core/database.py",
+   "line": 8551,
+   "family": "or-zero",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads: logger.error(f\"Error getting equipment logs: {e}\")  [M34: verified against a byte-identical file (578d6a9c3eb83c40\u2026)]"
+  },
+  {
+   "path": "core/database.py",
+   "line": 8346,
+   "family": "get-default",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads: \"received_date\": r.received_date,  [M34: verified against a byte-identical file (578d6a9c3eb83c40\u2026)]"
+  },
+  {
+   "path": "core/database.py",
+   "line": 8345,
+   "family": "get-default",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads: \"received_quantity\": r.received_quantity,  [M34: verified against a byte-identical file (578d6a9c3eb83c40\u2026)]"
+  },
+  {
+   "path": "core/database.py",
+   "line": 8344,
+   "family": "get-default",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads: \"received_items\": r.received_items,  [M34: verified against a byte-identical file (578d6a9c3eb83c40\u2026)]"
+  },
+  {
+   "path": "core/database.py",
+   "line": 8887,
+   "family": "get-default",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads: if report_id:  [M34: verified against a byte-identical file (578d6a9c3eb83c40\u2026)]"
+  },
+  {
+   "path": "core/managers.py",
+   "line": 406,
+   "family": "or-zero",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads: r = BitPerformanceEngine.from_run(  [M34: verified against a byte-identical file (1c0f33c4ca47170a\u2026)]"
+  },
+  {
+   "path": "core/professional_export.py",
+   "line": 188,
+   "family": "or-zero",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads: # Unrecorded duration exports as an empty cell, not 0 hours.  [M34: verified against a byte-identical file (96878cf690f49d01\u2026)]"
+  },
+  {
+   "path": "core/report_engine.py",
+   "line": 597,
+   "family": "or-zero",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads: headers = [\"From\", \"To\", \"Duration\", \"Phase\", \"Code\",  [M34: verified against a byte-identical file (b14943e80b71c7d2\u2026)]"
+  },
+  {
+   "path": "core/report_engine.py",
+   "line": 2217,
+   "family": "or-zero",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads: # An unplanned depth or duration exports as an empty cell; only a  [M34: verified against a byte-identical file (b14943e80b71c7d2\u2026)]"
+  },
+  {
+   "path": "core/report_engine.py",
+   "line": 2218,
+   "family": "or-zero",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads: # value the planner actually recorded is written as a number.  [M34: verified against a byte-identical file (b14943e80b71c7d2\u2026)]"
+  },
+  {
+   "path": "core/report_engine.py",
+   "line": 2219,
+   "family": "or-zero",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads: ws2.cell(row=i, column=3, value=a.planned_depth_from)  [M34: verified against a byte-identical file (b14943e80b71c7d2\u2026)]"
+  },
+  {
+   "path": "core/validators.py",
+   "line": 585,
+   "family": "or-zero",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads: recorded = [l.get(\"duration\") for l in logs]  [M34: verified against a byte-identical file (ae1f69d157a55d36\u2026)]"
+  },
+  {
+   "path": "core/validators.py",
+   "line": 589,
+   "family": "or-zero",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads: # An absent duration is unknown; counting it as 0 h silently understates  [M34: verified against a byte-identical file (ae1f69d157a55d36\u2026)]"
+  },
+  {
+   "path": "dialogs/drilling_report_dialogs.py",
+   "line": 457,
+   "family": "or-zero",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads: self.length.setMaximum(100)  [M34: verified against a byte-identical file (4c296617482bc117\u2026)]"
+  },
+  {
+   "path": "dialogs/drilling_report_dialogs.py",
+   "line": 458,
+   "family": "or-zero",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads: self.length.setValue(-1)  [M34: verified against a byte-identical file (4c296617482bc117\u2026)]"
+  },
+  {
+   "path": "dialogs/drilling_report_dialogs.py",
+   "line": 456,
+   "family": "or-zero",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads: self.length = _not_recorded(QDoubleSpinBox())  [M34: verified against a byte-identical file (4c296617482bc117\u2026)]"
+  },
+  {
+   "path": "dialogs/drilling_report_dialogs.py",
+   "line": 460,
+   "family": "or-zero",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads: self.length.setSuffix(\" m\")  [M34: verified against a byte-identical file (4c296617482bc117\u2026)]"
+  },
+  {
+   "path": "dialogs/drilling_report_dialogs.py",
+   "line": 283,
+   "family": "or-zero",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads: main.addWidget(g5)  [M34: verified against a byte-identical file (4c296617482bc117\u2026)]"
+  },
+  {
+   "path": "dialogs/drilling_report_dialogs.py",
+   "line": 284,
+   "family": "or-zero",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads:   [M34: verified against a byte-identical file (4c296617482bc117\u2026)]"
+  },
+  {
+   "path": "dialogs/drilling_report_dialogs.py",
+   "line": 285,
+   "family": "or-zero",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads: scroll.setWidget(content)  [M34: verified against a byte-identical file (4c296617482bc117\u2026)]"
+  },
+  {
+   "path": "dialogs/drilling_report_dialogs.py",
+   "line": 289,
+   "family": "or-zero",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads: btn_layout = QHBoxLayout()  [M34: verified against a byte-identical file (4c296617482bc117\u2026)]"
+  },
+  {
+   "path": "dialogs/drilling_report_dialogs.py",
+   "line": 288,
+   "family": "or-zero",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads: # Buttons  [M34: verified against a byte-identical file (4c296617482bc117\u2026)]"
+  },
+  {
+   "path": "dialogs/drilling_report_dialogs.py",
+   "line": 287,
+   "family": "or-zero",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads:   [M34: verified against a byte-identical file (4c296617482bc117\u2026)]"
+  },
+  {
+   "path": "dialogs/drilling_report_dialogs.py",
+   "line": 286,
+   "family": "or-zero",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads: layout.addWidget(scroll)  [M34: verified against a byte-identical file (4c296617482bc117\u2026)]"
+  },
+  {
+   "path": "core/database.py",
+   "line": 9334,
+   "family": "or-zero",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads: # instead of a generic placeholder.  [M34: verified against a byte-identical file (578d6a9c3eb83c40\u2026)]"
+  },
+  {
+   "path": "core/database.py",
+   "line": 9355,
+   "family": "or-zero",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads: for log in all_logs:  [M34: verified against a byte-identical file (578d6a9c3eb83c40\u2026)]"
+  },
+  {
+   "path": "core/report_engine.py",
+   "line": 2217,
+   "family": "or-zero",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads: # An unplanned depth or duration exports as an empty cell; only a  [M34: verified against a byte-identical file (b14943e80b71c7d2\u2026)]"
+  },
+  {
+   "path": "core/report_engine.py",
+   "line": 2218,
+   "family": "or-zero",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads: # value the planner actually recorded is written as a number.  [M34: verified against a byte-identical file (b14943e80b71c7d2\u2026)]"
+  },
+  {
+   "path": "core/report_engine.py",
+   "line": 2219,
+   "family": "or-zero",
+   "rule": "R-GONE-FIXED",
+   "evidence": "the recorded pattern is gone; the current line reads: ws2.cell(row=i, column=3, value=a.planned_depth_from)  [M34: verified against a byte-identical file (b14943e80b71c7d2\u2026)]"
+  },
+  {
+   "path": "core/engineering/engines/casing.py",
+   "line": null,
+   "family": "or-zero",
+   "rule": "M33-FIX-02",
+   "evidence": "casing combined collapse echoed axial_stress_psi=0.0 and fyax_psi=Yp for a run where no axial load was supplied (and internal_pressure_psi=0.0 when none was supplied); W13 displayed it and the run rec"
+  },
+  {
+   "path": "tabs/w3_drilling_report.py",
+   "line": 24,
+   "family": "setvalue-zero",
+   "rule": "M33-FIX-03",
+   "evidence": "the derived ROP display inherited QDoubleSpinBox's default maximum 99.99 and Qt clamps setValue silently, so a legal 150 m/hr result was displayed, read for the payload and persisted as 99.99  [M34: v"
+  }
+ ],
+ "external_items": [
+  {
+   "path": "tests/test_autosave_manager_regression.py",
+   "family": "test-skip",
+   "rule": "R-SKIP-EXTERNAL",
+   "evidence": "skip keyed to an external acceptance input  [M34: verified against a byte-identical file (f07170668dbaf302\u2026)]"
+  },
+  {
+   "path": "tests/test_autosave_manager_regression.py",
+   "family": "test-skip",
+   "rule": "R-SKIP-EXTERNAL",
+   "evidence": "skip keyed to an external acceptance input  [M34: verified against a byte-identical file (f07170668dbaf302\u2026)]"
+  },
+  {
+   "path": "tests/test_ddr_acceptance.py",
+   "family": "test-skip",
+   "rule": "R-SKIP-EXTERNAL",
+   "evidence": "skip keyed to an external acceptance input  [M34: verified against a byte-identical file (525a263277a4527f\u2026)]"
+  },
+  {
+   "path": "tests/test_ddr_followup_lifecycle.py",
+   "family": "test-skip",
+   "rule": "R-SKIP-EXTERNAL",
+   "evidence": "skip keyed to an external acceptance input  [M34: verified against a byte-identical file (e798ccf211cb1702\u2026)]"
+  },
+  {
+   "path": "tests/test_ddr_regression.py",
+   "family": "test-skip",
+   "rule": "R-SKIP-EXTERNAL",
+   "evidence": "skip keyed to an external acceptance input  [M34: verified against a byte-identical file (bd1eff15eb729ff9\u2026)]"
+  },
+  {
+   "path": "tests/test_ddr_regression.py",
+   "family": "test-skip",
+   "rule": "R-SKIP-EXTERNAL",
+   "evidence": "skip keyed to an external acceptance input  [M34: verified against a byte-identical file (bd1eff15eb729ff9\u2026)]"
+  },
+  {
+   "path": "tests/test_engineering_completion.py",
+   "family": "test-skip",
+   "rule": "R-SKIP-EXTERNAL",
+   "evidence": "skip keyed to an external acceptance input  [M34: verified against a byte-identical file (b253da9da7e4bf6c\u2026)]"
+  },
+  {
+   "path": "tests/test_golden_ddr.py",
+   "family": "test-skip",
+   "rule": "R-SKIP-EXTERNAL",
+   "evidence": "skip keyed to an external acceptance input  [M34: verified against a byte-identical file (8da03a9f2c5fd7c4\u2026)]"
+  },
+  {
+   "path": "tests/test_mineru_real_integration.py",
+   "family": "test-skip",
+   "rule": "R-SKIP-EXTERNAL",
+   "evidence": "skip keyed to an external acceptance input  [M34: verified against a byte-identical file (8681e2492437e3d8\u2026)]"
+  },
+  {
+   "path": "tests/test_p0_phase1_regressions.py",
+   "family": "test-skip",
+   "rule": "R-SKIP-EXTERNAL",
+   "evidence": "skip keyed to an external acceptance input  [M34: verified against a byte-identical file (ba60ccff37bd9175\u2026)]"
+  },
+  {
+   "path": "tests/test_p0_phase1_regressions.py",
+   "family": "test-skip",
+   "rule": "R-SKIP-EXTERNAL",
+   "evidence": "skip keyed to an external acceptance input  [M34: verified against a byte-identical file (ba60ccff37bd9175\u2026)]"
+  },
+  {
+   "path": "tests/test_p0_phase1_regressions.py",
+   "family": "test-skip",
+   "rule": "R-SKIP-EXTERNAL",
+   "evidence": "skip keyed to an external acceptance input  [M34: verified against a byte-identical file (ba60ccff37bd9175\u2026)]"
+  },
+  {
+   "path": "tests/test_packaging_smoke.py",
+   "family": "test-skip",
+   "rule": "R-SKIP-EXTERNAL",
+   "evidence": "skip keyed to an external acceptance input  [M34: verified against a byte-identical file (b9c4474fdcfcfc53\u2026)]"
+  },
+  {
+   "path": "tests/test_real_oeoc_golden.py",
+   "family": "test-skip",
+   "rule": "R-SKIP-EXTERNAL",
+   "evidence": "skip keyed to an external acceptance input  [M34: verified against a byte-identical file (4842290c59f6a623\u2026)]"
+  },
+  {
+   "path": "tests/test_real_world_import.py",
+   "family": "test-skip",
+   "rule": "R-SKIP-EXTERNAL",
+   "evidence": "skip keyed to an external acceptance input  [M34: verified against a byte-identical file (b046f6271dfb3f2a\u2026)]"
+  },
+  {
+   "path": "tests/test_review_contract_certification.py",
+   "family": "test-skip",
+   "rule": "R-SKIP-EXTERNAL",
+   "evidence": "skip keyed to an external acceptance input  [M34: verified against a byte-identical file (5f1d0df42fc650d5\u2026)]"
+  },
+  {
+   "path": "tests/test_review_contract_certification.py",
+   "family": "test-skip",
+   "rule": "R-SKIP-EXTERNAL",
+   "evidence": "skip keyed to an external acceptance input  [M34: verified against a byte-identical file (5f1d0df42fc650d5\u2026)]"
+  }
+ ],
+ "removed_items": [
+  {
+   "path": "core/database.py",
+   "line": 8892,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line: query = query.filter(NPTReport.npt_date >= start_date)  [M34: verified against a byte-identical file (578d6a9c3"
+  },
+  {
+   "path": "core/database.py",
+   "line": 8896,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line: query = query.filter(NPTReport.npt_code == npt_code)  [M34: verified against a byte-identical file (578d6a9c3eb"
+  },
+  {
+   "path": "core/database.py",
+   "line": 8455,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line: if \"service_date\" in log_data:  [M34: verified against a byte-identical file (578d6a9c3eb83c40\u2026)]"
+  },
+  {
+   "path": "core/database.py",
+   "line": 8267,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line:   [M34: verified against a byte-identical file (578d6a9c3eb83c40\u2026)]"
+  },
+  {
+   "path": "core/database.py",
+   "line": 8262,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line: session.rollback()  [M34: verified against a byte-identical file (578d6a9c3eb83c40\u2026)]"
+  },
+  {
+   "path": "core/database.py",
+   "line": 8264,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line: return False  [M34: verified against a byte-identical file (578d6a9c3eb83c40\u2026)]"
+  },
+  {
+   "path": "core/database.py",
+   "line": 8259,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line: return True  [M34: verified against a byte-identical file (578d6a9c3eb83c40\u2026)]"
+  },
+  {
+   "path": "core/database.py",
+   "line": 8065,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line: # company_name is NOT NULL; reject generic table false-positives before  [M34: verified against a byte-identica"
+  },
+  {
+   "path": "core/database.py",
+   "line": 6863,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line: count = ValueNormalizer.normalize(pob_data[\"personnel_count\"], \"integer\")  [M34: verified against a byte-identi"
+  },
+  {
+   "path": "core/database.py",
+   "line": 8718,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line: if record_id:  [M34: verified against a byte-identical file (578d6a9c3eb83c40\u2026)]"
+  },
+  {
+   "path": "core/database.py",
+   "line": 7531,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line: return {}  [M34: verified against a byte-identical file (578d6a9c3eb83c40\u2026)]"
+  },
+  {
+   "path": "core/database.py",
+   "line": 7532,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line: finally:  [M34: verified against a byte-identical file (578d6a9c3eb83c40\u2026)]"
+  },
+  {
+   "path": "core/report_engine.py",
+   "line": 376,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line: <div class=\"section-title\">\u2699\ufe0f Drilling Parameters</div>  [M34: verified against a byte-identical file (b14943e8"
+  },
+  {
+   "path": "core/report_engine.py",
+   "line": 376,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line: <div class=\"section-title\">\u2699\ufe0f Drilling Parameters</div>  [M34: verified against a byte-identical file (b14943e8"
+  },
+  {
+   "path": "core/report_engine.py",
+   "line": 374,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line: if params:  [M34: verified against a byte-identical file (b14943e80b71c7d2\u2026)]"
+  },
+  {
+   "path": "core/report_engine.py",
+   "line": 374,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line: if params:  [M34: verified against a byte-identical file (b14943e80b71c7d2\u2026)]"
+  },
+  {
+   "path": "core/report_engine.py",
+   "line": 375,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line: html += f\"\"\"  [M34: verified against a byte-identical file (b14943e80b71c7d2\u2026)]"
+  },
+  {
+   "path": "core/report_engine.py",
+   "line": 375,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line: html += f\"\"\"  [M34: verified against a byte-identical file (b14943e80b71c7d2\u2026)]"
+  },
+  {
+   "path": "core/report_engine.py",
+   "line": 373,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line: # Drilling Parameters  [M34: verified against a byte-identical file (b14943e80b71c7d2\u2026)]"
+  },
+  {
+   "path": "core/report_engine.py",
+   "line": 373,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line: # Drilling Parameters  [M34: verified against a byte-identical file (b14943e80b71c7d2\u2026)]"
+  },
+  {
+   "path": "core/report_engine.py",
+   "line": 633,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line: # Sheet 4: Mud  [M34: verified against a byte-identical file (b14943e80b71c7d2\u2026)]"
+  },
+  {
+   "path": "core/report_engine.py",
+   "line": 632,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line:   [M34: verified against a byte-identical file (b14943e80b71c7d2\u2026)]"
+  },
+  {
+   "path": "core/report_engine.py",
+   "line": 628,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line: ]  [M34: verified against a byte-identical file (b14943e80b71c7d2\u2026)]"
+  },
+  {
+   "path": "core/report_engine.py",
+   "line": 631,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line: ws3.cell(row=i+1, column=2, value=str(v))  [M34: verified against a byte-identical file (b14943e80b71c7d2\u2026)]"
+  },
+  {
+   "path": "core/report_engine.py",
+   "line": 629,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line: for i, (k, v) in enumerate(param_rows):  [M34: verified against a byte-identical file (b14943e80b71c7d2\u2026)]"
+  },
+  {
+   "path": "core/report_engine.py",
+   "line": 630,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line: ws3.cell(row=i+1, column=1, value=k)  [M34: verified against a byte-identical file (b14943e80b71c7d2\u2026)]"
+  },
+  {
+   "path": "core/report_engine.py",
+   "line": 613,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line: ws2.cell(row=i, column=7, value=\"Yes\" if log.is_npt else \"\")  [M34: verified against a byte-identical file (b14"
+  },
+  {
+   "path": "core/report_engine.py",
+   "line": 615,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line:   [M34: verified against a byte-identical file (b14943e80b71c7d2\u2026)]"
+  },
+  {
+   "path": "core/report_engine.py",
+   "line": 615,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line:   [M34: verified against a byte-identical file (b14943e80b71c7d2\u2026)]"
+  },
+  {
+   "path": "core/report_engine.py",
+   "line": 614,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line: ws2.cell(row=i, column=8, value=log.activity_description or \"\")  [M34: verified against a byte-identical file ("
+  },
+  {
+   "path": "core/report_engine.py",
+   "line": 614,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line: ws2.cell(row=i, column=8, value=log.activity_description or \"\")  [M34: verified against a byte-identical file ("
+  },
+  {
+   "path": "core/report_engine.py",
+   "line": 568,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line: ws1.title = \"DDR Header\"  [M34: verified against a byte-identical file (b14943e80b71c7d2\u2026)]"
+  },
+  {
+   "path": "core/report_engine.py",
+   "line": 569,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line: header_font = Font(bold=True, color=\"FFFFFF\")  [M34: verified against a byte-identical file (b14943e80b71c7d2\u2026)"
+  },
+  {
+   "path": "core/report_engine.py",
+   "line": 570,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line: header_fill = PatternFill(\"solid\", fgColor=\"2C3E50\")  [M34: verified against a byte-identical file (b14943e80b7"
+  },
+  {
+   "path": "core/validators.py",
+   "line": 585,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line: recorded = [l.get(\"duration\") for l in logs]  [M34: verified against a byte-identical file (ae1f69d157a55d36\u2026)]"
+  },
+  {
+   "path": "core/validators.py",
+   "line": 589,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line: # An absent duration is unknown; counting it as 0 h silently understates  [M34: verified against a byte-identic"
+  },
+  {
+   "path": "dialogs/drilling_report_dialogs.py",
+   "line": 457,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line: self.length.setMaximum(100)  [M34: verified against a byte-identical file (4c296617482bc117\u2026)]"
+  },
+  {
+   "path": "dialogs/drilling_report_dialogs.py",
+   "line": 458,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line: self.length.setValue(-1)  [M34: verified against a byte-identical file (4c296617482bc117\u2026)]"
+  },
+  {
+   "path": "dialogs/drilling_report_dialogs.py",
+   "line": 456,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line: self.length = _not_recorded(QDoubleSpinBox())  [M34: verified against a byte-identical file (4c296617482bc117\u2026)"
+  },
+  {
+   "path": "dialogs/drilling_report_dialogs.py",
+   "line": 460,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line: self.length.setSuffix(\" m\")  [M34: verified against a byte-identical file (4c296617482bc117\u2026)]"
+  },
+  {
+   "path": "dialogs/drilling_report_dialogs.py",
+   "line": 289,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line: btn_layout = QHBoxLayout()  [M34: verified against a byte-identical file (4c296617482bc117\u2026)]"
+  },
+  {
+   "path": "dialogs/drilling_report_dialogs.py",
+   "line": 288,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line: # Buttons  [M34: verified against a byte-identical file (4c296617482bc117\u2026)]"
+  },
+  {
+   "path": "dialogs/drilling_report_dialogs.py",
+   "line": 287,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line:   [M34: verified against a byte-identical file (4c296617482bc117\u2026)]"
+  },
+  {
+   "path": "dialogs/drilling_report_dialogs.py",
+   "line": 286,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line: layout.addWidget(scroll)  [M34: verified against a byte-identical file (4c296617482bc117\u2026)]"
+  },
+  {
+   "path": "dialogs/drilling_report_dialogs.py",
+   "line": 279,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line: self.remarks.setMaximumHeight(60)  [M34: verified against a byte-identical file (4c296617482bc117\u2026)]"
+  },
+  {
+   "path": "dialogs/drilling_report_dialogs.py",
+   "line": 283,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line: main.addWidget(g5)  [M34: verified against a byte-identical file (4c296617482bc117\u2026)]"
+  },
+  {
+   "path": "dialogs/drilling_report_dialogs.py",
+   "line": 284,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line:   [M34: verified against a byte-identical file (4c296617482bc117\u2026)]"
+  },
+  {
+   "path": "dialogs/drilling_report_dialogs.py",
+   "line": 285,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line: scroll.setWidget(content)  [M34: verified against a byte-identical file (4c296617482bc117\u2026)]"
+  },
+  {
+   "path": "dialogs/drilling_report_dialogs.py",
+   "line": 279,
+   "rule": "R-GONE-REMOVED",
+   "evidence": "the statement no longer contains the recorded pattern; current line: self.remarks.setMaximumHeight(60)  [M34: verified against a byte-identical file (4c296617482bc117\u2026)]"
+  }
+ ]
+}

@@ -1,20 +1,27 @@
 # DrillMaster — Database Architecture Documentation
 
-> **Version:** 1.0 — Audit Baseline (2026-08-24)
+> **Current evidence — 2026-09-27: [Mission 33 semantic audit](M33_SEMANTIC_AUDIT.md).** Inventory **8934** occurrences adjudicated from the current source: **3712 verified-correct**, **2264 intentional-by-design**, **51 defect-fixed**, **49 removed-with-evidence**, **17 external-acceptance-only**, **2837 under-review** and **4 evidence-incomplete** (the last two stop release certification for repository-verifiable items). This tree is **NOT RELEASE-CERTIFIABLE** — see [M33_RELEASE_CERTIFICATION.md](M33_RELEASE_CERTIFICATION.md). Earlier counts, SHAs and acceptance statements anywhere below are historical or unverified, not current certification.
+
+
+> **Version:** 1.1 — Release-candidate deployment audit (2026-09-05)
 
 ---
 
 ## 1. Overview
 
-The database layer uses SQLAlchemy ORM with SQLite as the storage engine. All models and database operations are currently in a single file (`core/database.py`, 7,094 lines).
+The database layer uses SQLAlchemy ORM with SQLite as the storage engine. All models and database operations are currently in a single file (`core/database.py`, approximately 7,952 lines).
 
 ---
 
 ## 2. Engine Configuration
 
+The SQLite filename is resolved by `core/runtime_config.py`, normally under
+the OS user-data directory. `DRILLMASTER_DB_PATH` can override it; the
+application does not write beside the installed source package.
+
 ```python
 engine = create_engine(
-    "sqlite:///drillmaster.db",
+    f"sqlite:///{configured_database_path()}",
     connect_args={"check_same_thread": False, "timeout": 30},
     poolclass=StaticPool,
     echo=False,
@@ -39,16 +46,17 @@ engine = create_engine(
 | User | users | User accounts with RBAC |
 | Company | companies | Operating companies |
 | Project | projects | Drilling projects |
-| Well | wells | Individual wellbores |
-| Section | sections | Well sections (hole intervals) |
+| Well | wells | A surface location / well identity |
+| Wellbore | wellbores | A physical bore within a well — the original hole or a sidetrack (`wellbore_type` original/sidetrack, `parent_wellbore_id`, nullable `kickoff_md`). WELL ≠ WELLBORE. |
+| Section | sections | Hole intervals; `wellbore_id` scopes a section to its bore (NULL = unknown/legacy, never silently the original) |
 
 ### 3.2 Daily Reporting
 
 | Model | Table | Purpose |
 |-------|-------|---------|
 | DailyReport | daily_reports | Daily drilling reports |
-| ReportRevision | report_revisions | Immutable report snapshots |
-| ApprovalAction | approval_actions | Workflow approval history |
+| ReportRevision | report_revisions | Immutable **complete** report snapshots (header + all report-owned child records) |
+| ApprovalAction | approval_actions | Workflow approval history (action, actor, comment) |
 | TimeLog24H | time_logs_24h | 24-hour time logs |
 | TimeLogMorning | time_logs_morning | Morning tour time logs |
 
@@ -92,10 +100,39 @@ engine = create_engine(
 | LogisticsPersonnel | logistics_personnel | Personnel on location |
 | ServiceCompanyPOB | service_company_pob | Service company POB |
 | FuelWaterInventory | fuel_water_inventory | Fuel and water tracking |
-| BulkMaterials | bulk_materials | Bulk material inventory |
+| BulkMaterials | bulk_materials | Mud/drilling bulk-material ledger (feeds MudChemicalLedger) |
+| InventoryItem | inventory_items | General consumable/materials inventory (W5 Inventory tab) |
 | TransportLog | transport_logs | Vehicle/boat/helicopter logs |
 | TransportNotes | transport_notes | Transport notes |
-| MaterialRequest | material_requests | Material requests |
+| MaterialRequest | material_requests | Material procurement requests |
+
+#### Inventory domains (distinct — never merged)
+
+The product persists inventory through THREE distinct, non-interchangeable
+authoritative models. They are separate domains and must not be summed together
+(kg of Barite, litres of Diesel and bbl of water are not one quantity):
+
+| Domain | Model | Owner UI | Notes |
+|--------|-------|----------|-------|
+| Mud/drilling bulk material | `BulkMaterials` | W7 Logistics, W10 Planning | Consumed wholesale by `MudChemicalLedger`; no item category / reorder levels |
+| Fuel & water | `FuelWaterInventory` | W7 Logistics | Fixed fuel/water schema |
+| General consumables/materials | `InventoryItem` | W5 Equipment → Inventory tab | Item `category`, reorder `min_level`/`max_level`; report-scoped |
+
+`InventoryItem` is the authoritative store for the W5 Inventory tab. W5 used to
+encode inventory into an `EquipmentLog.notes` string
+(`Stock:..|Recv:..|Used:..|Rem:..|Unit:..`), which lost Min/Max levels and
+collapsed missing into 0. That path is retired for new writes; legacy rows are
+read once via `get_legacy_inventory_notes` (read-only) and migrated by
+re-saving.
+
+Three-state numeric semantics (shared with `BulkMaterials`, enforced in
+`core/inventory_semantics.py`): `None` = not reported (unknown), `0.0` =
+explicitly reported zero, value = reported quantity. `current_stock` (closing)
+= opening + received − used only when opening is known, else NULL — never a
+fabricated 0. Carry-forward fills only a MISSING opening from the previous
+report's closing; it never overwrites an explicit opening (including 0). One
+worksheet save is one atomic transaction; clearing then saving yields an empty
+persisted collection for that report while older reports remain intact.
 
 ### 3.8 Safety
 
@@ -144,6 +181,30 @@ engine = create_engine(
 | CostRecord | cost_records | Cost tracking (AFE) |
 | ExportTemplate | export_templates | Export templates |
 
+#### Cost truth boundary (single source of truth)
+
+`CostRecord` (well-scoped) is the **only** persisted cost truth. There is no
+parallel cost table. The canonical semantics live in `core/cost_semantics.py`
+and are shared by every consumer:
+
+* **Variance sign** is `planned - actual` everywhere (positive = under budget).
+  It is recomputed on save (`save_afe_worksheet`) so the stored `variance`
+  column can never contradict `get_cost_summary` / `get_actual_vs_plan` /
+  report engine.
+* **Total actual cost** is `Σ CostRecord.actual_cost`. This is what the report
+  engine, `OperationsIntelligenceService.analyze_well`, W16 Summary, and W12
+  Analysis all report. Rig/spread day-rates entered in W16/W12 are UI
+  **planning assumptions/projections**, never persisted as actual cost.
+* **NPT cost** is an *allocation* of stored actual cost by NPT time fraction
+  (`actual_cost * npt_hours / total_hours`); it is `None` (unknown) when actual
+  cost or recorded time is absent — never a synthetic rig-rate product.
+* **Currency** has no model default: an unspecified currency stays `NULL`
+  (unknown), never silently `USD`.
+* **W16 AFE worksheet** persists via `DatabaseManager.save_afe_worksheet`,
+  which atomically replaces the well's `cost_type="AFE"` budget lines in one
+  transaction (idempotent re-save; OPEX lines untouched). `save_data` used to
+  be a no-op `return True`.
+
 ### 3.13 Audit
 
 | Model | Table | Purpose |
@@ -170,7 +231,8 @@ engine = create_engine(
 | Method | Purpose |
 |--------|---------|
 | `get_hierarchy()` | Full company→project→well tree |
-| `get_full_hierarchy()` | Eager-loaded hierarchy with sections and reports |
+| `get_full_hierarchy()` | Eager-loaded company→project→well tree. Each well carries a bore-aware `wellbores` list (sections nested under their owning bore, so an original hole and a sidetrack that reuse a section name stay distinct), an `unassigned_sections` list for unknown-bore (legacy NULL) sections, and a flat `sections` list retained for backward compatibility. |
+| `get_sections_by_well(id)` | Sections for a well, each exposing `wellbore_id` (NULL = unknown bore) |
 | `get_all_projects()` | List all projects |
 
 ### 4.3 Well Operations
@@ -191,8 +253,9 @@ engine = create_engine(
 | `get_daily_reports_by_well(id)` | Get reports for a well |
 | `get_daily_reports_by_section(id)` | Get reports for a section |
 | `delete_daily_report(id)` | Delete report and all children |
-| `create_report_revision(id)` | Create immutable snapshot |
-| `set_report_status(id, status)` | Change workflow state |
+| `transition_report(id, action, has_permission, user_id, comment, ...)` | **Authoritative** lifecycle path: validates transition + permission + actor + content + ownership, then writes status, a COMPLETE immutable revision snapshot, and the approval action in ONE atomic transaction |
+| `create_report_revision(id)` | Header-only snapshot — COMPATIBILITY/TEST ONLY, not a production path |
+| `set_report_status(id, status)` | Raw status writer — COMPATIBILITY/TEST ONLY, does not enforce the state machine |
 
 ### 4.5 Import Operations
 
@@ -205,6 +268,39 @@ engine = create_engine(
 ### 4.6 Domain-Specific Operations
 
 Each domain (drilling, mud, safety, logistics, etc.) has dedicated save/get methods. See the source code for complete API.
+
+Cost-specific:
+
+| Method | Purpose |
+|--------|---------|
+| `save_afe_worksheet(well_id, rows, afe_number, currency, user_id)` | Atomically replace the well's `cost_type="AFE"` budget lines in ONE transaction; recomputes canonical variance; leaves OPEX lines untouched (idempotent re-save) |
+| `save_cost_record(data)` | Upsert a single cost line (OPEX or AFE) |
+| `get_cost_records(well_id, category)` | All cost lines for a well |
+| `get_cost_summary(well_id)` | Per-category `planned`/`actual`/`variance` (variance = planned − actual) |
+| `get_planned_total_days(well_id)` | Read-only mirror of the active `WellPlan.planned_total_days` (Planning owns it; W16 only displays it) |
+
+Note: AFE and OPEX `actual_cost` lines are distinct cost records; total actual
+cost is their sum. There is no code path that writes the same spend to both an
+AFE and an OPEX record, so summing them does not double-count.
+
+Inventory-specific (general consumables — `InventoryItem`):
+
+| Method | Purpose |
+|--------|---------|
+| `save_inventory_items(well_id, report_id, rows, report_date, section_id, user_id)` | Atomically replace a report's inventory worksheet; three-state + carry-forward; identity = (well, report, item_name) |
+| `get_inventory_items(well_id, report_id, report_date)` | Structured inventory rows (unknown preserved as None) |
+| `get_legacy_inventory_notes(well_id, report_id)` | Read-only decode of legacy `EquipmentLog` "Inventory" notes rows (migration compatibility) |
+
+KPI canonical source:
+
+`tabs/w12_Analysis.py::calculate_kpis` sources its shared metrics
+(current depth = MAX recorded depth, average ROP, NPT hours, NPT %, rig days)
+from `OperationsIntelligenceService.analyze_well` so W12, the report engine and
+the intelligence dashboard cannot silently disagree. W12-specific reductions
+(best ROP, mean WOB/RPM/torque, daily depth gain) remain local and keep the
+unknown≠zero contract. The `CostReportEngine` always reports stored actual cost
+as "Total Actual Cost"; a supplied day-rate produces a separately-labelled
+"Projected Total", never actual cost.
 
 ---
 
@@ -238,9 +334,50 @@ SQLite with `check_same_thread=False` and `StaticPool` ensures single-connection
 ## 6. Backup Strategy
 
 - **Auto-backup:** Every 30 minutes via `auto_backup()`
-- **Location:** `backups/` directory
+- **Location:** configured `DRILLMASTER_BACKUP_DIR`, normally `<data>/backups/`
 - **Retention:** Max 10 backups
-- **Method:** File copy (`shutil.copy2`)
+- **Method:** SQLite backup API, including WAL state
+- **Recovery:** stop the application, restore a verified backup, and restart;
+  deployments must perform and record a restore drill
+- **Schema:** startup migrations are recorded in `schema_version` (current
+  version `2`).  Additive upgrades are followed by an idempotent SQLite
+  nullability-contract audit/rebuild for legacy `NOT NULL` columns where the
+  ORM explicitly allows `NULL`; migration errors fail initialization.
+
+## 6.1 Import transaction boundary
+
+The universal Excel/PDF import opens one outer SQLAlchemy session in
+`ExcelImportDialog._do_import()`. Well, section, daily report, mud, drilling
+parameters, time logs, morning logs, and every report-scoped collection receive
+that session. Save helpers `flush()` only when an identifier is needed; they do
+not commit or swallow exceptions when a caller-owned import session is passed.
+There is exactly one successful commit, or the outer rollback removes all
+objects created/updated by that report import. Ordinary CRUD calls omit the
+session and retain their own commit behavior.
+
+Import results expose `ACCEPT`, `REVIEW_REQUIRED`, `VALIDATION_ERROR`, and
+`PERSISTENCE_ERROR` separately. Structured diagnostics include stage,
+entity/field, row/source, original and normalized values, expected type,
+operation, exception type/message, traceback, and available provenance.
+Reviewable input is never counted as a persistence failure; morning
+continuation rows remain review items with their source cells and text rather
+than receiving invented time values. Final status precedence is deterministic:
+`PERSISTENCE_ERROR` > `VALIDATION_ERROR` > `REVIEW_REQUIRED` > `ACCEPT`.
+
+All source formats first become the lossless IR in `core/import_ir.py`. Excel
+uses `ExcelIntelligence.extract()` for matched templates and the same module's
+`extract_generic()` for unknown `.xlsx` files; it never routes XLSX through
+MinerU. PDF/MinerU and Excel both use `core/canonical_mapper.py` for canonical
+alias resolution, contextual `Hrs`/`Report Date` disambiguation, typed
+normalization, and the `ReviewItem` contract. Unknown or ambiguous labels are
+reviewable with document/page/sheet/table/cell provenance rather than guessed.
+
+Schema v2 migration uses the live SQLite `CREATE TABLE` SQL as the rebuild
+source. It copies every live column, preserves defaults, embedded constraints,
+foreign keys, external indexes, triggers, and unknown data, verifies the
+result, checks `PRAGMA foreign_key_check`, records the version, and rolls back
+as one migration transaction. Future versions are rejected before any table
+creation or import write.
 
 ---
 

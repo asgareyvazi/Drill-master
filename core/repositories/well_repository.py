@@ -9,17 +9,19 @@ logger = logging.getLogger(__name__)
 
 
 class WellRepository(BaseRepository):
-    def get_by_name_or_code(self, name: str = "", code: str = "") -> Optional[Dict]:
+    def get_by_name_or_code(self, name: str = "", code: str = "", project_id: int = None) -> Optional[Dict]:
         with self.db.session_scope() as session:
             q = session.query(Well)
-            if code:
-                existing = q.filter(Well.code == code).first()
-                if existing:
-                    return {c.name: getattr(existing, c.name) for c in Well.__table__.columns}
-            if name:
-                existing = session.query(Well).filter(Well.name == name).first()
-                if existing:
-                    return {c.name: getattr(existing, c.name) for c in Well.__table__.columns}
+            if project_id is not None:
+                q = q.filter(Well.project_id == project_id)
+            for field, value in ((Well.code, code), (Well.name, name)):
+                if not value:
+                    continue
+                matches = q.filter(field == value).limit(2).all()
+                if len(matches) > 1:
+                    raise ValueError("Ambiguous well identity; select its project explicitly")
+                if matches:
+                    return {c.name: getattr(matches[0], c.name) for c in Well.__table__.columns}
             return None
 
     def resolve_identity(self, well_info: Dict) -> int:
@@ -44,7 +46,7 @@ class WellRepository(BaseRepository):
         if not name and not code:
             return None
 
-        existing = self.get_by_name_or_code(name, code)
+        existing = self.get_by_name_or_code(name, code, (well_info or {}).get("project_id"))
         if existing:
             return existing["id"]
 
@@ -53,8 +55,10 @@ class WellRepository(BaseRepository):
             from core.database import Project
             fallback_id = well_info.get("project_id")
             if not fallback_id:
-                proj = session.query(Project.id).order_by(Project.id).first()
-                fallback_id = proj[0] if proj else None
+                projects = session.query(Project.id).all()
+                if len(projects) != 1:
+                    raise ValueError("Select a project explicitly; no unique project context exists")
+                fallback_id = projects[0][0]
             if not fallback_id:
                 raise ValueError("Cannot create well: no project exists")
             valid_keys = {c.name for c in Well.__table__.columns}

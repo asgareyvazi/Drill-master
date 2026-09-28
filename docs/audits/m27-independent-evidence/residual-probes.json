@@ -1,0 +1,17 @@
+{
+  "planned_days_explicit_zero_readback": null,
+  "canonical_average_rop_explicit_zero": 0.0,
+  "actual_vs_plan_rop": {
+    "planned": null,
+    "actual": null,
+    "delta": null,
+    "pct": null,
+    "status": "unavailable"
+  },
+  "mixed_currency_total_100USD_plus_100EUR": 200.0,
+  "no_safety_records_kpi": {
+    "days_without_lti": 0,
+    "total_lti": 0,
+    "total_near_miss": 0
+  }
+}

@@ -6,7 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from core.permissions import PermissionManager, ROLE_PERMISSIONS
+from core.permissions import PermissionManager
 
 
 class PermissionTests(unittest.TestCase):

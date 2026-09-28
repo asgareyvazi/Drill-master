@@ -1,0 +1,15 @@
+Configured database: /home/user/Drill-master/build/acceptance/recovery-final/live.db
+Close all DrillMaster instances and back up this database first.
+This permanently deletes all data and users in the configured database.
+Type RESET to continue: Reset cancelled.
+
+Configured database: /home/user/Drill-master/build/acceptance/recovery-final/live.db
+Close all DrillMaster instances and back up this database first.
+This permanently deletes all data and users in the configured database.
+Type RESET to continue: Reset refused before data deletion: Production database requires initial administrator credentials. Configure DRILLMASTER_ADMIN_PASSWORD or complete secure first-run setup. Optional account settings must be unset, not empty.
+
+Configured database: /home/user/Drill-master/build/acceptance/recovery-final/live.db
+Close all DrillMaster instances and back up this database first.
+This permanently deletes all data and users in the configured database.
+Type RESET to continue: Reset completed securely: /home/user/Drill-master/build/acceptance/recovery-final/live.db
+Start DrillMaster and sign in with the configured bootstrap account. No passwords were printed.

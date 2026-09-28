@@ -1,0 +1,9 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___________ test_real_ddr_pdf_mineru_common_ir_review_and_atomic_db ____________
+tests/test_ddr_acceptance.py:217: in test_real_ddr_pdf_mineru_common_ir_review_and_atomic_db
+    pytest.fail("ENVIRONMENT-BLOCKED: MinerU is unavailable for the explicitly requested PDF acceptance: " + str(health.error or health.to_dict()))
+E   Failed: ENVIRONMENT-BLOCKED: MinerU is unavailable for the explicitly requested PDF acceptance: MinerU is disabled or not detected
+=========================== short test summary info ============================
+FAILED tests/test_ddr_acceptance.py::test_real_ddr_pdf_mineru_common_ir_review_and_atomic_db
+1 failed in 0.05s

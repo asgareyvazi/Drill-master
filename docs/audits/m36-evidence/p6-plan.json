@@ -1,0 +1,211 @@
+{
+ "schema": "m36-p6-plan",
+ "batch_size": 45,
+ "high_open": 369,
+ "by_class": {
+  "E": 136,
+  "A": 107,
+  "D": 61,
+  "C": 45,
+  "B": 20
+ },
+ "batches": [
+  {
+   "batch": "p6-batch-002",
+   "class": "A",
+   "records": 45,
+   "first_id": "INV34-000074",
+   "last_id": "INV34-007678",
+   "first_site": "core/ai_import_mapper.py:151",
+   "files": [
+    "core/ai_import_mapper.py",
+    "core/database.py",
+    "core/ddr_import_service.py",
+    "core/ddr_pdf_export.py",
+    "core/import_quality.py",
+    "core/managers.py",
+    "core/professional_export.py",
+    "core/profile_import_engine.py"
+   ],
+   "sites": 36
+  },
+  {
+   "batch": "p6-batch-003",
+   "class": "A",
+   "records": 45,
+   "first_id": "INV34-002453",
+   "last_id": "INV34-008432",
+   "first_site": "core/profile_import_engine.py:928",
+   "files": [
+    "core/profile_import_engine.py",
+    "dialogs/engineering_dialogs.py",
+    "dialogs/excel_import_dialog.py",
+    "main_window.py",
+    "tabs/w11_Export.py",
+    "tabs/w12_Analysis.py",
+    "tabs/w13_Engineering_Calculator.py",
+    "tabs/w14_Procedure_Widget.py",
+    "tabs/w2_Daily_Report.py",
+    "tabs/w3b_wellbore_schematic_tab.py",
+    "tabs/w3c_section_data.py",
+    "tabs/w4_Downhole_Widget.py",
+    "tabs/w5_Equipment_Widget.py",
+    "tabs/w6_Trajectory_Widget.py",
+    "tabs/w7_logistics_Widget.py"
+   ],
+   "sites": 43
+  },
+  {
+   "batch": "p6-batch-004",
+   "class": "A",
+   "records": 45,
+   "first_id": "INV34-010297",
+   "last_id": "INV34-007521",
+   "first_site": "tabs/w7_logistics_Widget.py:825",
+   "files": [
+    "core/database.py",
+    "core/engineering/adapters/torque_drag_adapter.py",
+    "core/engineering/core.py",
+    "core/engineering/engines/anti_collision.py",
+    "core/engineering/engines/torque_drag.py",
+    "core/engineering/well_control_kill_sheet.py",
+    "core/import_quality.py",
+    "core/import_router.py",
+    "core/mud_ledger.py",
+    "core/operations_intelligence.py",
+    "core/value_normalizer.py",
+    "tabs/w12_Analysis.py",
+    "tabs/w7_logistics_Widget.py",
+    "tabs/w8_Safety_Widget.py",
+    "tabs/w9_Services_Widget.py"
+   ],
+   "sites": 36
+  },
+  {
+   "batch": "p6-batch-005",
+   "class": "C",
+   "records": 45,
+   "first_id": "INV34-001765",
+   "last_id": "INV34-008226",
+   "first_site": "core/engineering/well_control_kill_sheet.py:288",
+   "files": [
+    "core/engineering/well_control_kill_sheet.py",
+    "core/hydraulics_engine.py",
+    "core/inventory_semantics.py",
+    "core/time_utils.py",
+    "tabs/w13_Engineering_Calculator.py",
+    "tabs/w3_drilling_report.py",
+    "tests/test_real_oeoc_golden.py"
+   ],
+   "sites": 29
+  },
+  {
+   "batch": "p6-batch-006",
+   "class": "D",
+   "records": 45,
+   "first_id": "INV34-008231",
+   "last_id": "INV34-008327",
+   "first_site": "tabs/w13_Engineering_Calculator.py:5338",
+   "files": [
+    "tabs/w13_Engineering_Calculator.py",
+    "tabs/w2_Daily_Report.py",
+    "tabs/w3_drilling_report.py",
+    "tabs/w3b_wellbore_schematic_tab.py"
+   ],
+   "sites": 42
+  },
+  {
+   "batch": "p6-batch-007",
+   "class": "D",
+   "records": 45,
+   "first_id": "INV34-005747",
+   "last_id": "INV34-007853",
+   "first_site": "tabs/w3c_section_data.py:202",
+   "files": [
+    "app.py",
+    "core/ai_import_mapper.py",
+    "core/base_tab.py",
+    "core/canonical_mapper.py",
+    "core/canonical_schema.py",
+    "core/data_quality.py",
+    "core/database_reset.py",
+    "core/document_import.py",
+    "core/domain_records.py",
+    "core/excel_intelligence.py",
+    "core/functions.py",
+    "core/mapping_store.py",
+    "core/mineru_engine.py",
+    "core/performance.py",
+    "core/runtime_config.py",
+    "core/selection_manager.py",
+    "core/standards.py",
+    "core/survey_records.py",
+    "core/text_utils.py",
+    "core/universal_import.py",
+    "tabs/w3c_section_data.py"
+   ],
+   "sites": 44
+  },
+  {
+   "batch": "p6-batch-008",
+   "class": "E",
+   "records": 45,
+   "first_id": "INV34-002893",
+   "last_id": "INV34-003810",
+   "first_site": "core/universal_import.py:163",
+   "files": [
+    "core/universal_import.py",
+    "core/validators.py",
+    "dialogs/casing_history_dialog.py",
+    "dialogs/cement_history_dialog.py",
+    "dialogs/daily_report_dialogs.py",
+    "dialogs/hierarchy_dialogs.py",
+    "dialogs/mse_history_dialog.py",
+    "dialogs/mud_volume_history_dialog.py",
+    "dialogs/planning_dialog.py",
+    "dialogs/report_history_dialog.py",
+    "dialogs/smart_template_dialog.py",
+    "dialogs/startup_dialog.py"
+   ],
+   "sites": 42
+  },
+  {
+   "batch": "p6-batch-009",
+   "class": "E",
+   "records": 45,
+   "first_id": "INV34-003846",
+   "last_id": "INV34-006343",
+   "first_site": "dialogs/torque_drag_history_dialog.py:54",
+   "files": [
+    "dialogs/torque_drag_history_dialog.py",
+    "dialogs/well_control_kill_sheet_history_dialog.py",
+    "main_window.py",
+    "tabs/home_tab.py",
+    "tabs/w10_Planning_Widget.py",
+    "tabs/w12_Analysis.py",
+    "tabs/w14_Procedure_Widget.py",
+    "tabs/w6_Trajectory_Widget.py",
+    "tabs/w7_logistics_Widget.py",
+    "tabs/w9_Services_Widget.py"
+   ],
+   "sites": 41
+  },
+  {
+   "batch": "p6-batch-010",
+   "class": "E",
+   "records": 9,
+   "first_id": "INV34-006370",
+   "last_id": "INV34-006762",
+   "first_site": "tabs/w9_Services_Widget.py:671",
+   "files": [
+    "tabs/w9_Services_Widget.py",
+    "tests/test_m29_release_closure.py",
+    "tests/test_m30_semantic_regressions.py",
+    "tools/real_user_acceptance.py",
+    "ui/utils.py",
+    "verify_release.py"
+   ],
+   "sites": 9
+  }
+ ]
+}

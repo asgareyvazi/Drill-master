@@ -1,0 +1,285 @@
+Environment: Python 3.11.2 (main, Apr  8 2026, 01:58:00) [GCC 12.2.0]; platform=linux; Qt=offscreen; Qt stub directory=/home/user/qt-libs
+$ git rev-parse HEAD
+8a20cb90b68bacb6c69e3cdf6e8303d4a009e599
+$ git status --porcelain=v1 --untracked-files=all
+$ git branch --show-current
+arena/01a0c945-drill-master
+$ git diff --check
+$ git diff --cached --check
+Dependency: bcrypt 4.2.1 (required ==4.2.1)
+Dependency: contourpy 1.3.3 (required ==1.3.3)
+Dependency: cycler 0.12.1 (required ==0.12.1)
+Dependency: et_xmlfile 2.0.0 (required ==2.0.0)
+Dependency: fonttools 4.64.0 (required ==4.64.0)
+Dependency: greenlet 3.5.5 (required ==3.5.5)
+Dependency: kiwisolver 1.5.1 (required ==1.5.1)
+Dependency: matplotlib 3.9.3 (required ==3.9.3)
+Dependency: numpy 2.1.3 (required ==2.1.3)
+Dependency: openpyxl 3.1.5 (required ==3.1.5)
+Dependency: packaging 26.3 (required ==26.3)
+Dependency: pandas 2.2.3 (required ==2.2.3)
+Dependency: pillow 12.3.0 (required ==12.3.0)
+Dependency: PyMuPDF 1.24.14 (required ==1.24.14)
+Dependency: pyparsing 3.3.2 (required ==3.3.2)
+Dependency: pyqtgraph 0.13.7 (required ==0.13.7)
+Dependency: PySide6 6.8.1.1 (required ==6.8.1.1)
+Dependency: PySide6_Addons 6.8.1.1 (required ==6.8.1.1)
+Dependency: PySide6_Essentials 6.8.1.1 (required ==6.8.1.1)
+Dependency: python-dateutil 2.9.0.post0 (required ==2.9.0.post0)
+Dependency: pytz 2026.3.post1 (required ==2026.3.post1)
+Dependency: shiboken6 6.8.1.1 (required ==6.8.1.1)
+Dependency: six 1.17.0 (required ==1.17.0)
+Dependency: SQLAlchemy 2.0.36 (required ==2.0.36)
+Dependency: typing_extensions 4.16.0 (required ==4.16.0)
+Dependency: tzdata 2026.3 (required ==2026.3)
+$ /home/user/Drill-master/.venv/bin/python -m pip check
+No broken requirements found.
+Source/packaging version: 1.0.0; consistent=True
+$ /home/user/Drill-master/.venv/bin/python -m ruff check --select E722,F821 .
+All checks passed!
+$ /home/user/Drill-master/.venv/bin/python -m ruff check --output-format json core dialogs tabs tests
+Lint debt: 5332; ceiling: 5375 (not lint-clean)
+$ /home/user/Drill-master/.venv/bin/python -m compileall -q core dialogs tabs tests packaging app.py main_window.py run.py verify_release.py reset_database.py
+$ /home/user/Drill-master/.venv/bin/python -m pytest --collect-only -q
+tests/test_activity_mapper.py: 28
+tests/test_addpipe_reference_fingerprint_smoke.py: 1
+tests/test_anti_collision_engine.py: 6
+tests/test_anti_collision_widget_smoke.py: 1
+tests/test_autosave_manager_regression.py: 1
+tests/test_bha_bit_ownership_integrity.py: 14
+tests/test_calculation_verification_core.py: 10
+tests/test_canonical_schema.py: 1
+tests/test_canonical_schema_expanded.py: 13
+tests/test_casing_cross_process.py: 2
+tests/test_casing_history_viewmodel.py: 2
+tests/test_casing_persistence.py: 18
+tests/test_cement_cross_process.py: 2
+tests/test_cement_history_viewmodel.py: 2
+tests/test_cement_persistence.py: 19
+tests/test_cement_save_widget_smoke.py: 1
+tests/test_combo_identity.py: 5
+tests/test_config_and_mapping.py: 2
+tests/test_core_import.py: 4
+tests/test_cost_management_widget_smoke.py: 1
+tests/test_cost_truth_boundary.py: 15
+tests/test_credential_lifecycle.py: 49
+tests/test_ddr_acceptance.py: 2
+tests/test_ddr_followup_lifecycle.py: 46
+tests/test_ddr_forensic_regressions.py: 72
+tests/test_ddr_regression.py: 20
+tests/test_ddr_save_atomicity.py: 2
+tests/test_drill_pipe_catalog_view.py: 8
+tests/test_drill_pipe_catalog_widget_smoke.py: 1
+tests/test_drill_pipe_import.py: 13
+tests/test_drill_pipe_reference_repository.py: 14
+tests/test_drill_pipe_spec.py: 31
+tests/test_drilling_calculator_dialog_smoke.py: 1
+tests/test_drillpipe_reference_selection.py: 10
+tests/test_engineering_calculator_well_context.py: 2
+tests/test_engineering_completion.py: 12
+tests/test_engineering_data_semantics.py: 4
+tests/test_engineering_ground_truth.py: 32
+tests/test_engineering_integrations.py: 30
+tests/test_excel_intelligence.py: 23
+tests/test_excel_intelligence_regressions.py: 3
+tests/test_extended_engineering.py: 27
+tests/test_final_hardening_regressions.py: 8
+tests/test_fuel_water_truth.py: 14
+tests/test_golden_ddr.py: 56
+tests/test_health_check.py: 1
+tests/test_hierarchy_updated_at.py: 1
+tests/test_history_well_scope.py: 2
+tests/test_import_architecture.py: 13
+tests/test_import_inventory_routing.py: 21
+tests/test_import_quality_extra.py: 4
+tests/test_import_repairs.py: 6
+tests/test_import_router.py: 4
+tests/test_import_to_selection_m25.py: 6
+tests/test_import_to_selection_ui_smoke_m25.py: 1
+tests/test_integration.py: 14
+tests/test_inventory_item_authority.py: 27
+tests/test_inventory_live_calc_smoke.py: 1
+tests/test_inventory_widget_smoke.py: 1
+tests/test_inventory_zero_semantics.py: 16
+tests/test_kpi_parity.py: 5
+tests/test_lineage.py: 15
+tests/test_m28_finance_safety_plan.py: 32
+tests/test_m29_planning_ui.py: 1
+tests/test_m29_release_closure.py: 83
+tests/test_mineru_engine.py: 19
+tests/test_mineru_real_integration.py: 1
+tests/test_mse_cross_process.py: 2
+tests/test_mse_history_viewmodel.py: 2
+tests/test_mse_persistence.py: 18
+tests/test_mse_save_widget_smoke.py: 1
+tests/test_mud_volume_cross_process.py: 2
+tests/test_mud_volume_history_viewmodel.py: 2
+tests/test_mud_volume_persistence.py: 18
+tests/test_mud_volume_save_widget_smoke.py: 1
+tests/test_multi_company_template.py: 3
+tests/test_nozzle_optimization.py: 8
+tests/test_operational_time_integrity.py: 12
+tests/test_operations.py: 3
+tests/test_operations_intelligence_regressions.py: 6
+tests/test_ownership_parent_edits.py: 8
+tests/test_p0_atomic_import.py: 3
+tests/test_p0_engineering_core.py: 20
+tests/test_p0_permissions.py: 5
+tests/test_p0_phase1_regressions.py: 9
+tests/test_p0_time_log_validation.py: 10
+tests/test_p0_unit_preservation.py: 8
+tests/test_p0_well_identity.py: 3
+tests/test_packaging_smoke.py: 4
+tests/test_pdf_structured_fallback.py: 1
+tests/test_planning_context_isolation.py: 1
+tests/test_planning_material_persistence.py: 1
+tests/test_planning_table_presentation.py: 1
+tests/test_production_import_guarantees.py: 6
+tests/test_r18_r19_save_preservation.py: 48
+tests/test_real_oeoc_golden.py: 36
+tests/test_real_user_acceptance_regressions.py: 37
+tests/test_real_world_import.py: 14
+tests/test_release.py: 15
+tests/test_release_gate_and_w13.py: 14
+tests/test_release_gate_integrity.py: 19
+tests/test_release_smoke.py: 5
+tests/test_report_history_ui.py: 4
+tests/test_report_lifecycle.py: 23
+tests/test_report_scope_metadata_m25.py: 8
+tests/test_report_scoped_ownership_m26.py: 25
+tests/test_report_snapshot.py: 25
+tests/test_review_contract_certification.py: 3
+tests/test_schematic_no_fabrication.py: 16
+tests/test_scope_attribution.py: 20
+tests/test_selection_manager_context.py: 17
+tests/test_single_source_guard.py: 36
+tests/test_table_mapper.py: 1
+tests/test_test_process_isolation.py: 3
+tests/test_torque_drag_history.py: 22
+tests/test_torque_drag_history_widget_smoke.py: 1
+tests/test_torque_drag_persistence.py: 13
+tests/test_torque_drag_save_widget_smoke.py: 1
+tests/test_trajectory_mcm_parity.py: 2
+tests/test_w12_analytics_truth.py: 9
+tests/test_w12_milestones_m25.py: 4
+tests/test_w12_recent_reports_display_m25.py: 6
+tests/test_w12_risk_assessment_m26.py: 5
+tests/test_w12_scope_leakage_m25.py: 8
+tests/test_w12_scope_ui_smoke.py: 1
+tests/test_w12_wellbore_scope.py: 8
+tests/test_w7_carry_forward_preview_smoke.py: 1
+tests/test_w7_null_zero_semantics.py: 9
+tests/test_w7_null_zero_ui_smoke.py: 1
+tests/test_weighted_rop.py: 19
+tests/test_well_centric_acceptance.py: 9
+tests/test_well_control_icp_fcp_consolidation.py: 9
+tests/test_well_control_kill_sheet.py: 11
+tests/test_well_control_kill_sheet_cross_process.py: 3
+tests/test_well_control_kill_sheet_history_viewmodel.py: 3
+tests/test_well_control_kill_sheet_persistence.py: 19
+tests/test_well_control_kill_sheet_save_widget_smoke.py: 1
+tests/test_wellbore_discriminator_import.py: 18
+tests/test_wellbore_identity_conflict_m25.py: 8
+tests/test_wellbore_ownership_integrity.py: 17
+tests/test_wellbore_schema_v3.py: 18
+tests/test_wellbore_scope_display.py: 13
+tests/test_wellbore_section_performance.py: 12
+tests/test_whole_well_scope_labels_m25.py: 1
+
+$ /home/user/Drill-master/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-8mvenguv/results.xml
+........................................................................ [  4%]
+........................................................................ [  8%]
+......................................................s................. [ 12%]
+........................................................................ [ 17%]
+........................................................................ [ 21%]
+........................................................................ [ 25%]
+........................................................................ [ 29%]
+........................................................................ [ 34%]
+........................................................................ [ 38%]
+........................................................................ [ 42%]
+........................................................................ [ 47%]
+........................................................................ [ 51%]
+.....................................s.................................. [ 55%]
+........................................................................ [ 59%]
+........................................s............................... [ 64%]
+........................................................................ [ 68%]
+........................................................................ [ 72%]
+........................................................................ [ 77%]
+.........................................F.........F.................... [ 81%]
+........................................................................ [ 85%]
+........................................................................ [ 89%]
+........................................................................ [ 94%]
+........................................................................ [ 98%]
+.........................                                                [100%]
+=================================== FAILURES ===================================
+_______________ TestCaseAEmptyWell.test_td_not_replaced_by_3000 ________________
+
+self = <test_schematic_no_fabrication.TestCaseAEmptyWell object at 0x7f56142788d0>
+manager = <core.database.DatabaseManager object at 0x7f56023e8a10>
+
+    def test_td_not_replaced_by_3000(self, manager):
+        # Well created without target_depth: the ORM column default
+        # stores 0.0. 0 must survive — the old code turned it into 3000.
+        well_id = make_well(manager)
+        s = build(manager, well_id)
+>       assert s.total_depth_m == 0.0
+E       AssertionError: assert None == 0.0
+E        +  where None = WellboreSchematic(well_name='A-002', wellbore_name='', rig_name='', total_depth_m=None, water_depth_m=0.0, gle_msl_m=N...], completion=[], show_xmas_tree=True, show_wellhead=True, show_tubing=True, tubing_od_inch=None, tubing_bottom_m=None).total_depth_m
+
+tests/test_schematic_no_fabrication.py:113: AssertionError
+_____ TestCaseDExistingSchematicPreserved.test_unknown_td_persists_as_null _____
+
+self = <test_schematic_no_fabrication.TestCaseDExistingSchematicPreserved object at 0x7f561427cc10>
+manager = <core.database.DatabaseManager object at 0x7f5609b46490>
+
+    def test_unknown_td_persists_as_null(self, manager):
+        """A schematic whose TD is unknown persists null, not a number."""
+        well_id = make_well(manager)
+        s = build(manager, well_id)
+>       assert s.total_depth_m == 0.0  # ORM column default, preserved
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert None == 0.0
+E        +  where None = WellboreSchematic(well_name='A-011', wellbore_name='', rig_name='', total_depth_m=None, water_depth_m=0.0, gle_msl_m=N...], completion=[], show_xmas_tree=True, show_wellhead=True, show_tubing=True, tubing_od_inch=None, tubing_bottom_m=None).total_depth_m
+
+tests/test_schematic_no_fabrication.py:351: AssertionError
+=============================== warnings summary ===============================
+tests/test_ddr_acceptance.py: 1 warning
+tests/test_ddr_followup_lifecycle.py: 3 warnings
+tests/test_ddr_forensic_regressions.py: 1 warning
+tests/test_ddr_regression.py: 1 warning
+tests/test_excel_intelligence_regressions.py: 3 warnings
+tests/test_golden_ddr.py: 1 warning
+tests/test_real_oeoc_golden.py: 1 warning
+tests/test_review_contract_certification.py: 3 warnings
+  /home/user/Drill-master/.venv/lib/python3.11/site-packages/openpyxl/worksheet/_reader.py:329: UserWarning: Data Validation extension is not supported and will be removed
+    warn(msg)
+
+tests/test_release.py::TestReleaseVerification::test_core_dependencies
+tests/test_release.py::TestReleaseVerification::test_core_dependencies
+  <frozen importlib._bootstrap>:241: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute
+
+tests/test_release.py::TestReleaseVerification::test_core_dependencies
+tests/test_release.py::TestReleaseVerification::test_core_dependencies
+  <frozen importlib._bootstrap>:241: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute
+
+tests/test_release.py::TestReleaseVerification::test_core_dependencies
+  <frozen importlib._bootstrap>:241: DeprecationWarning: builtin type swigvarlink has no __module__ attribute
+
+tests/test_release.py::TestReleaseVerification::test_file_sizes_reasonable
+  /home/user/Drill-master/tests/test_release.py:179: UserWarning: Large files (>3000 lines): [('main_window.py', 3058), ('database.py', 10335), ('w12_Analysis.py', 3205), ('w13_Engineering_Calculator.py', 5398)]
+    warnings.warn(f"Large files (>3000 lines): {large_files}")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+SKIPPED [1] tests/test_ddr_acceptance.py:33: DRILLMASTER_TEST_DDR_PDF is not set; real DDR acceptance is opt-in
+SKIPPED [1] tests/test_mineru_real_integration.py:26: Set MINERU_INTEGRATION_INPUT to run against a real MinerU installation
+SKIPPED [1] tests/test_packaging_smoke.py:66: Windows bundle not available in this environment
+FAILED tests/test_schematic_no_fabrication.py::TestCaseAEmptyWell::test_td_not_replaced_by_3000
+FAILED tests/test_schematic_no_fabrication.py::TestCaseDExistingSchematicPreserved::test_unknown_td_persists_as_null
+2 failed, 1676 passed, 3 skipped, 20 warnings in 292.18s (0:04:52)
+sys:1: DeprecationWarning: builtin type swigvarlink has no __module__ attribute
+NOT-RUN external acceptance (SKIPPED-OPTIONAL in source gate): ('tests.test_ddr_acceptance', 'test_real_ddr_pdf_mineru_common_ir_review_and_atomic_db')
+NOT-RUN external acceptance (SKIPPED-OPTIONAL in source gate): ('tests.test_mineru_real_integration', 'test_real_mineru_parse_and_normalize')
+NOT-RUN external acceptance (SKIPPED-OPTIONAL in source gate): ('tests.test_packaging_smoke', 'test_real_windows_bundle_smoke_when_provided')
+Pytest release counts: collected=1681, passed=1676, skipped=3, failed=2, errors=0, xfailed=0, xpassed=0, deselected=0
+Release verification failed: pytest reported failures or errors.

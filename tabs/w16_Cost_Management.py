@@ -4,7 +4,6 @@ Cost Management Module
 مدیریت هزینه عملیات حفاری
 """
 import logging
-from datetime import datetime, date
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
@@ -12,6 +11,10 @@ from PySide6.QtGui import *
 from core.base_tab import DrillTabBase
 from core.managers import ExportManager
 from core.common_widgets import safe_replace_chart
+from core.cost_semantics import (
+    allocate_npt_cost, cost_records_to_afe_rows, summarize_costs,
+    canonical_variance, percent_used, format_money, complete_total,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +39,12 @@ class CostManagementWidget(DrillTabBase):
         )
         layout.addWidget(header)
 
+        scope = QLabel("Scope: Whole-Well Aggregate — costs grouped by currency across all wellbores/sidetracks")
+        scope.setStyleSheet(
+            "font-size: 11px; color: #bdc3c7; padding: 2px 8px; border: none;"
+        )
+        layout.addWidget(scope)
+
         self.tabs = QTabWidget()
         self.tabs.addTab(self._create_afe_tab(), "📋 AFE")
         self.tabs.addTab(self._create_daily_cost_tab(), "📅 Daily Cost")
@@ -54,20 +63,31 @@ class CostManagementWidget(DrillTabBase):
 
         self.afe_number = QLineEdit()
         self.afe_number.setPlaceholderText("AFE-2024-001")
-        self.afe_total = QDoubleSpinBox()
-        self.afe_total.setRange(0, 999999999)
-        self.afe_total.setPrefix("$ ")
-        self.afe_total.setDecimals(0)
+        # Total Budget is DERIVED (read-only): it mirrors the sum of the
+        # persisted planned costs in the breakdown below. It is not a separate
+        # editable field that silently vanishes on save.
+        self.afe_total = QLabel("Unknown")
+        self.afe_total.setStyleSheet("font-weight: bold; color: #2c3e50;")
         self.afe_currency = QComboBox()
-        self.afe_currency.addItems(["USD", "EUR", "GBP", "IRR"])
-        self.afe_days = QSpinBox()
-        self.afe_days.setRange(0, 999)
+        # Leading blank represents UNKNOWN currency — never silently assume USD.
+        self.afe_currency.addItems(["— (unspecified)", "USD", "EUR", "GBP", "IRR"])
+        # Planned Days is a NON-PERSISTENT reference here. Its authoritative
+        # home is the Planning tab (WellPlan.planned_total_days); this widget
+        # only mirrors it and never writes it, so the label says so plainly.
+        self.afe_days = QDoubleSpinBox()
+        self.afe_days.setRange(-1, 99999)
+        self.afe_days.setSpecialValueText("Not supplied")
+        self.afe_days.setValue(-1)
         self.afe_days.setSuffix(" days")
+        # Reference mirror of WellPlan.planned_total_days — not editable here so
+        # the UI cannot imply this widget owns/persists planned days.
+        self.afe_days.setReadOnly(True)
+        self.afe_days.setButtonSymbols(QAbstractSpinBox.NoButtons)
 
         hf.addRow("AFE Number:", self.afe_number)
-        hf.addRow("Total Budget:", self.afe_total)
-        hf.addRow("Currency:", self.afe_currency)
-        hf.addRow("Planned Days:", self.afe_days)
+        hf.addRow("Total Planned (auto):", self.afe_total)
+        hf.addRow("Currency for NEW rows / projection assumptions:", self.afe_currency)
+        hf.addRow("Planned Days (reference — set in Planning):", self.afe_days)
         layout.addWidget(g_header)
 
         # Cost Categories
@@ -80,28 +100,30 @@ class CostManagementWidget(DrillTabBase):
         add_cat.clicked.connect(self._add_cost_category)
         rem_cat = QPushButton("🗑️ Remove")
         rem_cat.clicked.connect(self._rem_cost_category)
+        save_afe = QPushButton("💾 Save AFE")
+        save_afe.setStyleSheet("background: #2980b9; color: white; padding: 4px 10px; border-radius: 3px; border: none; font-weight: bold;")
+        save_afe.clicked.connect(self.save_data)
+        reload_afe = QPushButton("🔄 Reload")
+        reload_afe.clicked.connect(self._load_afe_from_db)
         cat_btns.addWidget(add_cat)
         cat_btns.addWidget(rem_cat)
+        cat_btns.addWidget(save_afe)
+        cat_btns.addWidget(reload_afe)
         cat_btns.addStretch()
         cat_layout.addLayout(cat_btns)
 
-        self.afe_table = QTableWidget(0, 5)
-        self.afe_table.setHorizontalHeaderLabels(["Category", "Planned ($)", "Actual ($)", "Variance ($)", "% Used"])
+        self.afe_table = QTableWidget(0, 6)
+        self.afe_table.setHorizontalHeaderLabels(["Category", "Planned", "Actual", "Variance", "% Used", "Currency"])
         self.afe_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.afe_table.setAlternatingRowColors(True)
         cat_layout.addWidget(self.afe_table)
 
         # Default categories
-        default_cats = [
-            ("Rig & Equipment", 500000), ("Drilling Services", 300000),
-            ("Mud & Chemicals", 200000), ("Cementing", 150000),
-            ("Casing & Tubulars", 400000), ("Logging & MWD", 180000),
-            ("Bits & Tools", 120000), ("Well Control", 50000),
-            ("Logistics & Transport", 100000), ("Personnel", 80000),
-            ("Contingency (10%)", 208000),
-        ]
-        for cat, planned in default_cats:
-            self._insert_afe_row(cat, planned, 0)
+        default_cats = ["Rig & Equipment", "Drilling Services", "Mud & Chemicals",
+                        "Cementing", "Casing & Tubulars", "Logging & MWD", "Bits & Tools",
+                        "Well Control", "Logistics & Transport", "Personnel", "Contingency"]
+        for cat in default_cats:
+            self._insert_afe_row(cat, None, None)
 
         # Totals
         self.afe_total_label = QLabel("")
@@ -112,39 +134,32 @@ class CostManagementWidget(DrillTabBase):
         layout.addWidget(g_cat)
         return tab
 
-    def _insert_afe_row(self, category, planned, actual):
+    def _insert_afe_row(self, category, planned, actual, currency=None, metadata=None):
         row = self.afe_table.rowCount()
         self.afe_table.insertRow(row)
-        self.afe_table.setItem(row, 0, QTableWidgetItem(category))
-
-        planned_spin = QDoubleSpinBox()
-        planned_spin.setRange(0, 999999999)
-        planned_spin.setPrefix("$ ")
-        planned_spin.setDecimals(0)
-        planned_spin.setValue(planned)
-        planned_spin.valueChanged.connect(self._update_afe_totals)
-        self.afe_table.setCellWidget(row, 1, planned_spin)
-
-        actual_spin = QDoubleSpinBox()
-        actual_spin.setRange(0, 999999999)
-        actual_spin.setPrefix("$ ")
-        actual_spin.setDecimals(0)
-        actual_spin.setValue(actual)
-        actual_spin.valueChanged.connect(self._update_afe_totals)
-        self.afe_table.setCellWidget(row, 2, actual_spin)
-
-        var_item = QTableWidgetItem(f"$ {planned - actual:,.0f}")
-        var_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        self.afe_table.setItem(row, 3, var_item)
-
-        pct_item = QTableWidgetItem(f"{actual/planned*100:.0f}%" if planned > 0 else "0%")
-        pct_item.setTextAlignment(Qt.AlignCenter)
-        self.afe_table.setItem(row, 4, pct_item)
+        item = QTableWidgetItem(category)
+        item.setData(Qt.UserRole, metadata or {})
+        self.afe_table.setItem(row, 0, item)
+        for col, value in ((1, planned), (2, actual)):
+            spin = QDoubleSpinBox()
+            spin.setRange(-1, 999999999)
+            spin.setSpecialValueText("Not supplied")
+            spin.setDecimals(2)
+            spin.setValue(value if value is not None else -1)
+            spin.valueChanged.connect(self._update_afe_totals)
+            self.afe_table.setCellWidget(row, col, spin)
+        code = QComboBox()
+        code.setEditable(True)
+        code.addItems(["", "USD", "EUR", "GBP", "IRR"])
+        code.setCurrentText(currency or "")
+        code.currentTextChanged.connect(self._update_afe_totals)
+        self.afe_table.setCellWidget(row, 5, code)
 
     def _add_cost_category(self):
         name, ok = QInputDialog.getText(self, "Add Category", "Category name:")
         if ok and name:
-            self._insert_afe_row(name, 0, 0)
+            self._insert_afe_row(name, None, None, self._selected_currency())
+            self._update_afe_totals()
 
     def _rem_cost_category(self):
         row = self.afe_table.currentRow()
@@ -153,38 +168,24 @@ class CostManagementWidget(DrillTabBase):
             self._update_afe_totals()
 
     def _update_afe_totals(self):
-        total_planned = 0
-        total_actual = 0
-        for row in range(self.afe_table.rowCount()):
-            pw = self.afe_table.cellWidget(row, 1)
-            aw = self.afe_table.cellWidget(row, 2)
-            planned = pw.value() if pw else 0
-            actual = aw.value() if aw else 0
-            total_planned += planned
-            total_actual += actual
-            variance = planned - actual
-
-            vi = self.afe_table.item(row, 3)
-            if not vi:
-                vi = QTableWidgetItem()
-                self.afe_table.setItem(row, 3, vi)
-            vi.setText(f"$ {variance:,.0f}")
-            vi.setForeground(QColor("#27ae60" if variance >= 0 else "#e74c3c"))
-
-            pi = self.afe_table.item(row, 4)
-            if not pi:
-                pi = QTableWidgetItem()
-                self.afe_table.setItem(row, 4, pi)
-            pct = actual / planned * 100 if planned > 0 else 0
-            pi.setText(f"{pct:.0f}%")
-            if pct > 100:
-                pi.setForeground(QColor("#e74c3c"))
-
-        variance = total_planned - total_actual
+        rows = self._read_afe_rows()
+        for row, data in enumerate(rows):
+            variance = canonical_variance(data["planned_cost"], data["actual_cost"])
+            vi = QTableWidgetItem(format_money(variance, data["currency"]))
+            vi.setForeground(QColor("#7f8c8d" if variance is None else "#27ae60" if variance >= 0 else "#e74c3c"))
+            vi.setFlags(vi.flags() & ~Qt.ItemIsEditable)
+            self.afe_table.setItem(row, 3, vi)
+            pct = percent_used(data["planned_cost"], data["actual_cost"])
+            pi = QTableWidgetItem(f"{pct:.1f}%" if pct is not None else "—")
+            pi.setFlags(pi.flags() & ~Qt.ItemIsEditable)
+            self.afe_table.setItem(row, 4, pi)
+        totals = summarize_costs(rows)
+        currency = totals["currency"]
         self.afe_total_label.setText(
-            f"💰 TOTAL → Planned: ${total_planned:,.0f} | Actual: ${total_actual:,.0f} | "
-            f"Variance: ${variance:,.0f} ({'+' if variance >= 0 else ''}{variance/total_planned*100:.1f}%)" if total_planned > 0 else ""
-        )
+            f"{totals['status']} | Planned: {format_money(totals['total_planned'], currency)} | "
+            f"Actual: {format_money(totals['total_actual'], currency)} | "
+            f"Variance: {format_money(totals['variance'], currency)}")
+        self.afe_total.setText(format_money(totals['total_planned'], currency))
 
     # ===== Daily Cost Tab =====
     def _create_daily_cost_tab(self):
@@ -196,22 +197,31 @@ class CostManagementWidget(DrillTabBase):
 
         self.rig_rate = QDoubleSpinBox()
         self.rig_rate.setRange(0, 999999)
-        self.rig_rate.setPrefix("$ ")
-        self.rig_rate.setValue(45000)
+        self.rig_rate.setPrefix("")
+        self.rig_rate.setValue(0)
         self.rig_rate.setSuffix(" /day")
 
         self.spread_rate = QDoubleSpinBox()
         self.spread_rate.setRange(0, 999999)
-        self.spread_rate.setPrefix("$ ")
-        self.spread_rate.setValue(15000)
+        self.spread_rate.setPrefix("")
+        self.spread_rate.setValue(0)
         self.spread_rate.setSuffix(" /day")
 
-        self.total_daily = QLabel("$ 60,000 /day")
+        self.total_daily = QLabel("Unknown /day")
         self.total_daily.setStyleSheet("font-weight: bold; color: #e74c3c; font-size: 14px;")
+
+        assume = QLabel(
+            "⚠️ Day-rate figures below are planning ASSUMPTIONS you enter — they "
+            "are NOT actual recorded cost. Actual cost comes from the AFE tab "
+            "(persisted) and reports."
+        )
+        assume.setWordWrap(True)
+        assume.setStyleSheet("color: #b9770e; font-size: 10px; background: #fef9e7; padding: 4px; border-radius: 3px;")
 
         f1.addRow("Rig Day Rate:", self.rig_rate)
         f1.addRow("Spread Cost:", self.spread_rate)
         f1.addRow("Total Daily:", self.total_daily)
+        f1.addRow(assume)
 
         self.rig_rate.valueChanged.connect(self._update_daily_total)
         self.spread_rate.valueChanged.connect(self._update_daily_total)
@@ -238,60 +248,18 @@ class CostManagementWidget(DrillTabBase):
 
     def _update_daily_total(self):
         total = self.rig_rate.value() + self.spread_rate.value()
-        self.total_daily.setText(f"$ {total:,.0f} /day")
+        self.total_daily.setText(format_money(total, self._selected_currency()) + " /day (assumption)")
 
     def _calc_from_well(self):
         if not self.current_well_id or not self.db:
             self.cost_result.setText("❌ Select a well first")
             return
 
-        reports = self.db.get_daily_reports_by_well(self.current_well_id)
-        total_days = len(reports)
-        daily_rate = self.rig_rate.value() + self.spread_rate.value()
-
-        npt_hrs = 0
-        npt_list = self.db.get_npt_reports(well_id=self.current_well_id) if hasattr(self.db, 'get_npt_reports') else []
-        npt_hrs = sum(n.get('duration_hours', 0) for n in npt_list)
-        npt_days = npt_hrs / 24
-        pt_days = total_days - npt_days
-
-        total_cost = total_days * daily_rate
-        npt_cost = npt_days * daily_rate
-        pt_cost = pt_days * daily_rate
-
-        # Cost per meter
-        max_depth = 0
-        if reports:
-            max_depth = max(r.get('depth_2400', 0) or 0 for r in reports)
-        cpm = total_cost / max_depth if max_depth > 0 else 0
-        cpf = cpm / 3.28084 if max_depth > 0 else 0
-
-        text = f"""╔═══════════════════════════════════════════════╗
-║            WELL COST ANALYSIS                 ║
-╠═══════════════════════════════════════════════╣
-║ PARAMETERS:
-║   Rig Day Rate:     $ {self.rig_rate.value():,.0f}
-║   Spread Cost:      $ {self.spread_rate.value():,.0f}
-║   Total Daily:      $ {daily_rate:,.0f}
-╠═══════════════════════════════════════════════╣
-║ WELL DATA:
-║   Total Rig Days:   {total_days}
-║   Productive Days:  {pt_days:.1f}
-║   NPT Days:         {npt_days:.1f} ({npt_hrs:.1f} hrs)
-║   Final Depth:      {max_depth:.1f} m
-╠═══════════════════════════════════════════════╣
-║ COST BREAKDOWN:
-║   Total Cost:       $ {total_cost:,.0f}
-║   Productive Cost:  $ {pt_cost:,.0f} ({pt_cost/total_cost*100:.0f}%)
-║   NPT Cost:         $ {npt_cost:,.0f} ({npt_cost/total_cost*100:.0f}%)
-╠═══════════════════════════════════════════════╣
-║ EFFICIENCY:
-║   Cost per Meter:   $ {cpm:,.0f} /m
-║   Cost per Foot:    $ {cpf:,.0f} /ft
-║   Avg Cost per Day: $ {daily_rate:,.0f}
-╚═══════════════════════════════════════════════╝""" if total_days > 0 else "No daily reports found for this well."
-
-        self.cost_result.setText(text)
+        from core.report_engine import CostReportEngine
+        engine = CostReportEngine(self.db)
+        data = engine._collect_data(self.current_well_id, self.rig_rate.value(),
+                                    self.spread_rate.value(), self._selected_currency())
+        self.cost_result.setHtml(engine._build_html(data) if data else "Cost projection unavailable")
 
     # ===== NPT Cost Tab =====
     def _create_npt_cost_tab(self):
@@ -304,7 +272,7 @@ class CostManagementWidget(DrillTabBase):
         layout.addWidget(calc_btn)
 
         self.npt_cost_table = QTableWidget(0, 4)
-        self.npt_cost_table.setHorizontalHeaderLabels(["NPT Category", "Hours", "Cost ($)", "% of Total NPT"])
+        self.npt_cost_table.setHorizontalHeaderLabels(["NPT Category", "Hours", "Allocated cost (currency shown)", "% of Total NPT"])
         self.npt_cost_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.npt_cost_table.setAlternatingRowColors(True)
         self.npt_cost_table.setEditTriggers(QTableWidget.NoEditTriggers)
@@ -318,10 +286,20 @@ class CostManagementWidget(DrillTabBase):
 
     def _calc_npt_cost(self):
         if not self.current_well_id or not self.db:
+            # Clear rather than leave the previous well's NPT allocation visible.
+            self.npt_cost_table.setRowCount(0)
+            self.npt_cost_summary.setText("⏱️ NPT cost: NOT ASSESSED (select a well)")
             return
 
-        daily_rate = self.rig_rate.value() + self.spread_rate.value()
-        hourly_rate = daily_rate / 24
+        # NPT cost is an allocation of the well's STORED ACTUAL cost across NPT
+        # time (canonical model, matching the report engine). It is only known
+        # when actual cost AND total recorded time exist — otherwise "unknown",
+        # never a synthetic rig-rate product.
+        from core.operations_intelligence import OperationsIntelligenceService
+        kpis = OperationsIntelligenceService(self.db).analyze_well(
+            self.current_well_id).get("kpis", {})
+        actual_cost = kpis.get("total_cost")
+        well_total_hours = kpis.get("total_hours")
 
         npt_list = self.db.get_npt_reports(well_id=self.current_well_id) if hasattr(self.db, 'get_npt_reports') else []
 
@@ -329,33 +307,39 @@ class CostManagementWidget(DrillTabBase):
         categories = {}
         for n in npt_list:
             cat = n.get('npt_category', 'Unknown')
-            hrs = n.get('duration_hours', 0)
-            categories[cat] = categories.get(cat, 0) + hrs
+            categories.setdefault(cat, []).append(n.get('duration_hours'))
+        categories = {cat: complete_total(values) for cat, values in categories.items()}
+        total_npt = complete_total(categories.values())
+        total_npt_cost = allocate_npt_cost(actual_cost, total_npt, well_total_hours or None)
 
-        total_npt = sum(categories.values())
-        total_cost = total_npt * hourly_rate
+        def money(v):
+            return f"$ {v:,.0f}" if v is not None else "—"
 
         self.npt_cost_table.setRowCount(0)
-        sorted_cats = sorted(categories.items(), key=lambda x: x[1], reverse=True)
+        sorted_cats = sorted(categories.items(), key=lambda x: (x[1] is not None, x[1] or 0), reverse=True)
 
         for cat, hrs in sorted_cats:
             row = self.npt_cost_table.rowCount()
             self.npt_cost_table.insertRow(row)
-            cost = hrs * hourly_rate
-            pct = hrs / total_npt * 100 if total_npt > 0 else 0
+            cost = allocate_npt_cost(actual_cost, hrs, well_total_hours or None)
+            pct = hrs / total_npt * 100 if total_npt and hrs is not None else None
 
             self.npt_cost_table.setItem(row, 0, QTableWidgetItem(cat))
-            hi = QTableWidgetItem(f"{hrs:.1f}")
+            hi = QTableWidgetItem(f"{hrs:.1f}" if hrs is not None else "—")
             hi.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
             self.npt_cost_table.setItem(row, 1, hi)
-            ci = QTableWidgetItem(f"$ {cost:,.0f}")
+            ci = QTableWidgetItem(money(cost))
             ci.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
             self.npt_cost_table.setItem(row, 2, ci)
-            self.npt_cost_table.setItem(row, 3, QTableWidgetItem(f"{pct:.1f}%"))
+            self.npt_cost_table.setItem(row, 3, QTableWidgetItem(f"{pct:.1f}%" if pct is not None else "—"))
 
+        cost_note = (
+            money(total_npt_cost) if actual_cost is not None
+            else "— (incomplete cost or currency data)"
+        )
         self.npt_cost_summary.setText(
-            f"⏱️ Total NPT: {total_npt:.1f} hrs ({total_npt/24:.1f} days) | "
-            f"💰 Total NPT Cost: $ {total_cost:,.0f}"
+            f"⏱️ Total recorded NPT: {total_npt if total_npt is not None else 'Unknown'} hrs | "
+            f"💰 Total NPT Cost: {cost_note}"
         )
 
     # ===== Summary Tab =====
@@ -373,10 +357,10 @@ class CostManagementWidget(DrillTabBase):
         cl = QHBoxLayout(cards)
         cl.setContentsMargins(0, 0, 0, 0)
 
-        self.card_total = self._make_card("Total Cost", "$ 0", "", "#e74c3c")
-        self.card_daily = self._make_card("Cost/Day", "$ 0", "", "#3498db")
-        self.card_meter = self._make_card("Cost/Meter", "$ 0", "", "#27ae60")
-        self.card_npt = self._make_card("NPT Cost", "$ 0", "", "#f39c12")
+        self.card_total = self._make_card("Total Actual Cost", "—", "", "#e74c3c")
+        self.card_daily = self._make_card("Actual Cost/Day", "—", "", "#3498db")
+        self.card_meter = self._make_card("Actual Cost/Meter", "—", "", "#27ae60")
+        self.card_npt = self._make_card("NPT Cost (allocated)", "—", "", "#f39c12")
 
         cl.addWidget(self.card_total)
         cl.addWidget(self.card_daily)
@@ -412,29 +396,46 @@ class CostManagementWidget(DrillTabBase):
 
     def _generate_summary(self):
         if not self.current_well_id or not self.db:
+            # Stale KPIs from a previously selected well must not read as current.
+            for card in (self.card_total, self.card_daily, self.card_meter, self.card_npt):
+                # Plain wording: matches on_well_changed and the M28 acceptance test.
+                card.value_label.setText("Unknown")
+            safe_replace_chart(self.cost_chart, QLabel("NOT ASSESSED: select a well"))
             return
 
-        daily_rate = self.rig_rate.value() + self.spread_rate.value()
+        # AUTHORITATIVE cost KPIs come from persisted CostRecord actuals, NOT a
+        # synthetic rig-day rate. Unknown stays unknown ($ —), never a fake 0.
+        # Total actual cost is read directly from the cost summary so it is
+        # available even for a well that has cost lines but no daily reports;
+        # depth-dependent metrics come from the canonical KPI service.
+        from core.operations_intelligence import OperationsIntelligenceService
+        summary = self.db.get_cost_totals(self.current_well_id)
+        total_cost = summary["total_actual"]
+        kpis = OperationsIntelligenceService(self.db).analyze_well(
+            self.current_well_id).get("kpis", {})
+        cpm = kpis.get("cost_per_meter")
+        npt_hours = kpis.get("npt_hours")
+        total_hours = kpis.get("total_hours")
+        npt_cost = allocate_npt_cost(total_cost, npt_hours, total_hours or None)
+        rig_days = kpis.get("rig_days") or 0
+        daily_actual = (total_cost / rig_days) if (total_cost is not None and rig_days) else None
+
+        def money(v):
+            return format_money(v, summary["currency"])
+
+        self.card_total.value_label.setText(money(total_cost))
+        self.card_daily.value_label.setText(money(daily_actual))
+        self.card_meter.value_label.setText(money(cpm))
+        self.card_npt.value_label.setText(money(npt_cost))
+
         reports = self.db.get_daily_reports_by_well(self.current_well_id)
-        total_days = len(reports)
-        total_cost = total_days * daily_rate
-
-        max_depth = max((r.get('depth_2400', 0) or 0 for r in reports), default=0)
-        cpm = total_cost / max_depth if max_depth > 0 else 0
-
-        npt_list = self.db.get_npt_reports(well_id=self.current_well_id) if hasattr(self.db, 'get_npt_reports') else []
-        npt_hrs = sum(n.get('duration_hours', 0) for n in npt_list)
-        npt_cost = npt_hrs / 24 * daily_rate
-
-        self.card_total.value_label.setText(f"<b>$ {total_cost:,.0f}</b>")
-        self.card_daily.value_label.setText(f"<b>$ {daily_rate:,.0f}</b>")
-        self.card_meter.value_label.setText(f"<b>$ {cpm:,.0f}</b>")
-        self.card_npt.value_label.setText(f"<b>$ {npt_cost:,.0f}</b>")
-
-        self._draw_cost_chart(reports, daily_rate)
+        # The chart projects the user-entered day-rate ASSUMPTION over rig days;
+        # it is explicitly a projection, distinct from the actual-cost KPIs above.
+        self._draw_cost_chart(reports, self.rig_rate.value() + self.spread_rate.value())
 
     def _draw_cost_chart(self, reports, daily_rate):
-        if not reports:
+        if not reports or not self._selected_currency():
+            safe_replace_chart(self.cost_chart, QLabel("Projection not assessed: reports and currency required"))
             return
         try:
             import matplotlib
@@ -444,14 +445,14 @@ class CostManagementWidget(DrillTabBase):
 
             days = list(range(1, len(reports) + 1))
             cum_cost = [d * daily_rate for d in days]
-            depths = [r.get('depth_2400', 0) or 0 for r in reports]
+            depths = [r.get('depth_2400') for r in reports]
 
             fig, ax1 = plt.subplots(figsize=(8, 4), facecolor='#f8f9fa')
             ax1.set_facecolor('#f8f9fa')
 
-            ax1.plot(days, [c/1000 for c in cum_cost], 'r-o', lw=2, ms=3, label='Cost ($K)')
+            ax1.plot(days, [c/1000 for c in cum_cost], 'r-o', lw=2, ms=3, label='Projected cost (thousands)')
             ax1.set_xlabel("Rig Day")
-            ax1.set_ylabel("Cumulative Cost ($K)", color='r')
+            ax1.set_ylabel(f"Projected cost (thousands {self._selected_currency() or 'currency unknown'})", color='r')
             ax1.tick_params(axis='y', labelcolor='r')
 
             ax2 = ax1.twinx()
@@ -460,7 +461,7 @@ class CostManagementWidget(DrillTabBase):
             ax2.tick_params(axis='y', labelcolor='b')
             ax2.invert_yaxis()
 
-            ax1.set_title("Cost vs Depth", fontweight='bold')
+            ax1.set_title("Day-rate assumption vs recorded depth (not actual cost)", fontweight='bold')
             ax1.grid(True, alpha=0.3)
             fig.tight_layout()
 
@@ -473,14 +474,137 @@ class CostManagementWidget(DrillTabBase):
     def _export_cost(self):
         ExportManager(self).export_table_with_dialog(self.afe_table, "cost_report")
 
+    # ===== Persistence (canonical CostRecord truth) =====
+    def _selected_currency(self):
+        """Return the chosen currency code, or None when left unspecified (§9)."""
+        text = self.afe_currency.currentText().strip()
+        if not text or text.startswith("—"):
+            return None
+        return text
+
+    def _read_afe_rows(self):
+        """Read AFE worksheet rows from the table as plain dicts."""
+        rows = []
+        for row in range(self.afe_table.rowCount()):
+            cat_item = self.afe_table.item(row, 0)
+            category = cat_item.text().strip() if cat_item else ""
+            pw = self.afe_table.cellWidget(row, 1)
+            aw = self.afe_table.cellWidget(row, 2)
+            currency = self.afe_table.cellWidget(row, 5)
+            data = dict(cat_item.data(Qt.UserRole) or {}) if cat_item else {}
+            data.update({
+                "category": category,
+                "planned_cost": pw.value() if pw and pw.value() >= 0 else None,
+                "actual_cost": aw.value() if aw and aw.value() >= 0 else None,
+                "currency": currency.currentText().strip() or None if currency else None,
+            })
+            rows.append(data)
+        return rows
+
+    def save_data(self):
+        from core.save_outcome import SaveOutcome, SaveIssue
+        # Enforce the standard permission contract before mutating.
+        try:
+            from core.permissions import permissions
+            if permissions.is_viewer():
+                self.show_warning("Viewer role is read-only: No Save allowed")
+                return False
+            if not permissions.has_permission("can_edit_reports"):
+                self.show_warning("You do not have permission to edit reports")
+                return False
+            user_id = getattr(permissions, "user_id", None)
+        except Exception as exc:
+            self.last_save_outcome = SaveOutcome(issues=[SaveIssue(
+                "Cost (AFE)", f"Permission check failed: {exc}", status="SYSTEM_ERROR")])
+            return self.last_save_outcome
+
+        if not self.current_well_id or not self.db:
+            # No well selected: nothing was persisted. Report this HONESTLY as
+            # a blocked context, never as a silent success (§2.4). Save All
+            # reads last_save_outcome and will surface the real disposition.
+            outcome = SaveOutcome(issues=[SaveIssue(
+                "Cost (AFE)",
+                "No well is selected; the AFE worksheet was not saved.",
+                status="REVIEW_REQUIRED", code="CONTEXT_BLOCKED",
+                corrective_action="Select a well, then save the AFE worksheet again.")])
+            self.last_save_outcome = outcome
+            self.show_warning("Select a well before saving the AFE worksheet")
+            return outcome
+
+        rows = [r for r in self._read_afe_rows() if r["category"]]
+        try:
+            saved = self.db.save_afe_worksheet(
+                self.current_well_id, rows,
+                afe_number=self.afe_number.text().strip() or None,
+                currency=self._selected_currency(),
+                user_id=user_id,
+            )
+            outcome = SaveOutcome(saved=saved)
+            self.last_save_outcome = outcome
+            self.show_success(f"Saved {saved} AFE cost line(s)")
+            return outcome
+        except Exception as e:
+            logger.error(f"AFE save failed: {e}")
+            outcome = SaveOutcome(issues=[SaveIssue(
+                "Cost (AFE)", str(e), status="SYSTEM_ERROR",
+                exception_type=type(e).__name__)])
+            self.last_save_outcome = outcome
+            self.show_error(f"AFE save failed: {e}")
+            return outcome
+
+    def _load_afe_from_db(self):
+        """Reload the AFE worksheet from persisted CostRecord budget lines."""
+        if not self.current_well_id or not self.db:
+            self.afe_table.setRowCount(0)
+            self.afe_total.setText("Unknown (no well selected)")
+            return
+        try:
+            records = self.db.get_cost_records(self.current_well_id)
+        except Exception as e:
+            logger.error(f"AFE load failed: {e}")
+            # A failed load is not an empty AFE: drop stale rows and say so.
+            self.afe_table.setRowCount(0)
+            self.afe_total.setText("Unknown (load failed)")
+            self.show_error(f"AFE load failed: {e}")
+            return
+        self._mirror_planned_days()
+        rows = cost_records_to_afe_rows(records)
+        self.afe_table.setRowCount(0)
+        self.afe_number.clear()
+        afes = {r.get("afe_number") for r in rows}
+        if len(afes) == 1:
+            self.afe_number.setText(next(iter(afes)) or "")
+        # A blank new worksheet is an input template, never synthetic money.
+        if not rows:
+            self._insert_afe_row("Rig & Equipment", None, None)
+        for r in rows:
+            self._insert_afe_row(r["category"], r["planned_cost"], r["actual_cost"], r["currency"], r)
+        self._update_afe_totals()
+
+    def _mirror_planned_days(self):
+        """Reflect the authoritative WellPlan planned days (read-only mirror)."""
+        if not self.current_well_id or not self.db:
+            return
+        try:
+            days = self.db.get_planned_total_days(self.current_well_id)
+        except Exception:
+            days = None
+        self.afe_days.setValue(days if days is not None else -1)
+
     # ===== DrillTabBase =====
     def on_well_changed(self, well_id, well_data):
         self.current_well_id = well_id
+        self.afe_table.setRowCount(0)
+        self.afe_number.clear()
+        self.cost_result.clear()
+        self.npt_cost_table.setRowCount(0)
+        self.npt_cost_summary.clear()
+        for card in (self.card_total, self.card_daily, self.card_meter, self.card_npt):
+            card.value_label.setText("Unknown")
+        safe_replace_chart(self.cost_chart, QLabel("Not assessed"))
         self.refresh()
-        
-    def save_data(self):
-        return True
 
     def refresh(self):
+        self._load_afe_from_db()
         self._update_afe_totals()
         self._generate_summary()

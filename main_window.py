@@ -27,6 +27,7 @@ from core.managers import StatusBarManager, AutoSaveManager, ShortcutManager
 from core.permissions import require_permission
 from core.selection_manager import SelectionManager
 from core.functions import CentralFunctions
+from core.version import __version__
 
 from tabs.home_tab import HomeTab
 from tabs.w1_well_info import WellInfoTab
@@ -728,10 +729,14 @@ class MainWindow(QMainWindow):
         if not query or len(query) < 2:
             return
 
-        results = self.db_manager.search_all(
-            query,
-            well_id=self.sel_manager.current_well_id
-        )
+        try:
+            results = self.db_manager.search_all(
+                query, well_id=self.sel_manager.current_well_id
+            )
+        except Exception:
+            logger.exception("Global search failed")
+            self.status_manager.show_message("MainWindow", "Search FAILED — results unavailable", 5000)
+            return False
 
         if not results:
             self.status_manager.show_message(
@@ -1098,13 +1103,7 @@ class MainWindow(QMainWindow):
                 if hasattr(self, 'export_widget') else None
             )
         )
-        self.sel_manager.report_changed.connect(
-            lambda rid, ri: (
-                self.daily_report_tab.load_report_by_id(rid)
-                if rid and hasattr(self, 'daily_report_tab')
-                else None
-            )
-        )
+        # DailyReport loads through DrillTabBase, retaining failed pending context.
     # ==================== Setup ====================
 
     def setup_managers(self):
@@ -1123,6 +1122,9 @@ class MainWindow(QMainWindow):
             self.safety_widget,
             self.services_widget,
             self.section_data_tab,
+            self.planning_widget,
+            self.procedure_widget,
+            self.wellbore_schematic_tab,
         ]
         for tab in tabs_with_save:
             if hasattr(tab, 'save_data'):
@@ -1260,61 +1262,43 @@ class MainWindow(QMainWindow):
                         "well_id": well_data["id"],
                         "tab_title": "📋 Procedures",
                     })
-                    
-                    # === Sections ===
-                    for section in well_data.get("sections", []):
-                        section_item = QTreeWidgetItem(well_item)
-                        section_item.setText(
-                            0, f"  📐 {section['name']}"
-                        )
-                        section_item.setText(1, "Section")
-                        section_item.setData(0, Qt.UserRole, {
-                            "type": "section",
-                            "id": section["id"],
-                            "well_id": well_data["id"],
-                        })
-                        
-                        # Section-level sub-items
-                        section_tabs = [
-                            ("🏗️ Cement Report", "📐 Section Data"),
-                            ("📏 Casing Tally", "📐 Section Data"),
-                            ("🔩 Casing Report", "📐 Section Data"),
-                            ("🏢 Service Companies", "📐 Section Data"),
-                        ]
-                        for label, tab_title in section_tabs:
-                            sub = QTreeWidgetItem(section_item)
-                            sub.setText(0, f"    {label}")
-                            sub.setText(1, "Section Tab")
-                            sub.setData(0, Qt.UserRole, {
-                                "type": "section_tab",
-                                "section_id": section["id"],
+
+                    # === Wellbores + Sections ===
+                    # When a well has explicit wellbores (an original bore and/or
+                    # sidetracks), sections are grouped UNDER their owning bore so
+                    # two same-named sections in different bores are visibly
+                    # distinct. Wells with no wellbore rows keep the legacy flat
+                    # section list. Sections whose bore is unknown (legacy NULL)
+                    # are shown directly under the well, honestly un-grouped.
+                    wellbores = well_data.get("wellbores", [])
+                    if wellbores:
+                        for wb in wellbores:
+                            wb_item = QTreeWidgetItem(well_item)
+                            icon = "🪝" if wb.get("wellbore_type") == "sidetrack" else "🕳️"
+                            wb_item.setText(0, f"  {icon} {wb['name']}")
+                            wb_item.setText(1, (
+                                "Sidetrack" if wb.get("wellbore_type") == "sidetrack"
+                                else "Wellbore"))
+                            wb_item.setData(0, Qt.UserRole, {
+                                "type": "wellbore",
+                                "id": wb["id"],
                                 "well_id": well_data["id"],
-                                "tab_title": tab_title,
+                                "wellbore_id": wb["id"],
                             })
-                        
-                        # === Reports in this section ===
-                        for report in section.get("reports", []):
-                            date_str = str(
-                                report.get('report_date', '')
-                            )
-                            rnum = report.get('report_number', '?')
-                            report_item = QTreeWidgetItem(section_item)
-                            report_item.setText(
-                                0, f"    📅 #{rnum} - {date_str}"
-                            )
-                            report_item.setText(1, "Daily Report")
-                            report_item.setData(0, Qt.UserRole, {
-                                "type": "daily_report",
-                                "id": report["id"],
-                                "report_id": report["id"],
-                                "section_id": section["id"],
-                                "well_id": well_data["id"],
-                            })
-                            
-                            # Report-level sub-items
-                            self._add_report_subitems(
-                                report_item, report["id"]
-                            )
+                            for section in wb.get("sections", []):
+                                self._add_section_tree_item(
+                                    wb_item, section, well_data["id"],
+                                    wellbore_id=wb["id"])
+                        # Legacy/unknown-bore sections remain visible under the well.
+                        for section in well_data.get("unassigned_sections", []):
+                            self._add_section_tree_item(
+                                well_item, section, well_data["id"],
+                                wellbore_id=None)
+                    else:
+                        for section in well_data.get("sections", []):
+                            self._add_section_tree_item(
+                                well_item, section, well_data["id"],
+                                wellbore_id=section.get("wellbore_id"))
         
         self.tree_widget.expandToDepth(2)
             
@@ -1322,6 +1306,74 @@ class MainWindow(QMainWindow):
         from core.cache_manager import cache
         cache.delete("main_window_hierarchy")
 
+
+    def _select_wellbore_from_payload(self, data, well_id):
+        """Carry bore scope into the selection when a node knows its wellbore.
+
+        A section/report node created under a wellbore carries ``wellbore_id``.
+        Selecting it must set the bore scope so downstream consumers know which
+        bore is active. An unknown bore (legacy NULL) is left as-is — never
+        fabricated to the original bore.
+        """
+        wellbore_id = data.get("wellbore_id")
+        if not (well_id and wellbore_id):
+            return
+        wb_data = next(
+            (wb for wb in self.db_manager.get_wellbores_by_well(well_id)
+             if wb["id"] == wellbore_id), {})
+        self.sel_manager.select_wellbore(wellbore_id, wb_data)
+
+    def _add_section_tree_item(self, parent_item, section, well_id, wellbore_id=None):
+        """Render one Section node (+ its section tabs and reports).
+
+        Shared by both the bore-grouped and legacy-flat tree layouts so section
+        behaviour stays identical regardless of whether a wellbore node exists.
+        The ``wellbore_id`` scope is carried on every descendant payload so a
+        later selection resolves the correct bore.
+        """
+        section_item = QTreeWidgetItem(parent_item)
+        section_item.setText(0, f"  📐 {section['name']}")
+        section_item.setText(1, "Section")
+        section_item.setData(0, Qt.UserRole, {
+            "type": "section",
+            "id": section["id"],
+            "well_id": well_id,
+            "wellbore_id": wellbore_id,
+        })
+
+        section_tabs = [
+            ("🏗️ Cement Report", "📐 Section Data"),
+            ("📏 Casing Tally", "📐 Section Data"),
+            ("🔩 Casing Report", "📐 Section Data"),
+            ("🏢 Service Companies", "📐 Section Data"),
+        ]
+        for label, tab_title in section_tabs:
+            sub = QTreeWidgetItem(section_item)
+            sub.setText(0, f"    {label}")
+            sub.setText(1, "Section Tab")
+            sub.setData(0, Qt.UserRole, {
+                "type": "section_tab",
+                "section_id": section["id"],
+                "well_id": well_id,
+                "wellbore_id": wellbore_id,
+                "tab_title": tab_title,
+            })
+
+        for report in section.get("reports", []):
+            date_str = str(report.get('report_date', ''))
+            rnum = report.get('report_number', '?')
+            report_item = QTreeWidgetItem(section_item)
+            report_item.setText(0, f"    📅 #{rnum} - {date_str}")
+            report_item.setText(1, "Daily Report")
+            report_item.setData(0, Qt.UserRole, {
+                "type": "daily_report",
+                "id": report["id"],
+                "report_id": report["id"],
+                "section_id": section["id"],
+                "well_id": well_id,
+                "wellbore_id": wellbore_id,
+            })
+            self._add_report_subitems(report_item, report["id"])
 
     def _add_report_subitems(self, parent_item, report_id):
         """زیرآیتم‌ها فقط report-level"""
@@ -1437,23 +1489,13 @@ class MainWindow(QMainWindow):
 
         menu.exec(self.tree_widget.viewport().mapToGlobal(position))
         
-    def _check_delete_permission(self) -> bool:
-        """P0: Permission enforcement for all delete operations."""
-        try:
-            from core.permissions import permissions
-            if permissions.is_viewer():
-                self.status_manager.show_error("MainWindow", "Viewer role is read-only: No Delete allowed")
-                return False
-            if not permissions.has_permission("can_delete_well") and not permissions.has_permission("can_delete_reports"):
-                self.status_manager.show_error("MainWindow", "Permission denied: delete requires can_delete_well or can_delete_reports")
-                return False
-        except Exception:
-            pass
-        return True
+    def _check_delete_permission(self, entity_type="well") -> bool:
+        from core.hierarchy_operations import check_delete_permission
+        return check_delete_permission(self.status_manager, entity_type)
 
     def _delete_company(self, company_id: int):
         """حذف شرکت - P0 with permission + audit + atomic"""
-        if not self._check_delete_permission():
+        if not self._check_delete_permission("company"):
             return
         reply = QMessageBox.question(
             self, "Delete Company",
@@ -1499,7 +1541,7 @@ class MainWindow(QMainWindow):
 
     def _delete_project(self, project_id: int):
         """حذف پروژه - P0 with permission"""
-        if not self._check_delete_permission():
+        if not self._check_delete_permission("project"):
             return
         reply = QMessageBox.question(
             self, "Delete Project",
@@ -1545,7 +1587,7 @@ class MainWindow(QMainWindow):
 
     def _delete_well(self, well_id: int):
         """حذف چاه - P0 with permission + atomic child deletion"""
-        if not self._check_delete_permission():
+        if not self._check_delete_permission("well"):
             return
         reply = QMessageBox.question(
             self, "Delete Well",
@@ -1590,7 +1632,7 @@ class MainWindow(QMainWindow):
 
     def _delete_section(self, section_id: int, well_id: int = None):
         """حذف سکشن - P0 with permission"""
-        if not self._check_delete_permission():
+        if not self._check_delete_permission("section"):
             return
         reply = QMessageBox.question(
             self, "Delete Section",
@@ -1648,12 +1690,26 @@ class MainWindow(QMainWindow):
                 self.sel_manager.select_well(well_id, well_data)
                 self.tab_widget.setCurrentIndex(1)
 
+        elif item_type == "wellbore":
+            well_id = data.get("well_id")
+            wellbore_id = data.get("wellbore_id") or data.get("id")
+            if well_id:
+                well_data = self.db_manager.get_well_by_id(well_id) or {}
+                self.sel_manager.select_well(well_id, well_data)
+            if wellbore_id:
+                wb_data = next(
+                    (wb for wb in self.db_manager.get_wellbores_by_well(well_id)
+                     if wb["id"] == wellbore_id), {}) if well_id else {}
+                self.sel_manager.select_wellbore(wellbore_id, wb_data)
+                self.tab_widget.setCurrentIndex(1)
+
         elif item_type == "section":
             section_id = data.get("id")
             well_id = data.get("well_id")
             if well_id:
                 well_data = self.db_manager.get_well_by_id(well_id) or {}
                 self.sel_manager.select_well(well_id, well_data)
+            self._select_wellbore_from_payload(data, well_id)
             if section_id:
                 sections = self.db_manager.get_sections_by_well(
                     well_id
@@ -1672,6 +1728,8 @@ class MainWindow(QMainWindow):
             if well_id:
                 well_data = self.db_manager.get_well_by_id(well_id) or {}
                 self.sel_manager.select_well(well_id, well_data)
+
+            self._select_wellbore_from_payload(data, well_id)
 
             if section_id:
                 sections = self.db_manager.get_sections_by_well(
@@ -1992,9 +2050,16 @@ class MainWindow(QMainWindow):
         if well_id is None and self.current_well:
             well_id = self.current_well['id'] if isinstance(self.current_well, dict) else self.current_well.id
 
-        message = f"Import done! ✅ {total} imported, ❌ {failed} failed"
+        status_counts = {}
+        for result in results:
+            status = result.get("status", "PERSISTENCE_ERROR")
+            status_counts[status] = status_counts.get(status, 0) + 1
+        status_text = ", ".join(f"{status}: {count}" for status, count in sorted(status_counts.items()))
+        message = f"Import done! {status_text} | {total} records written"
         self._show_import_summary(results)
-        if failed:
+        if any(result.get("status") in {"VALIDATION_ERROR", "PERSISTENCE_ERROR"} for result in results):
+            self.status_manager.show_warning("MainWindow", message)
+        elif any(result.get("status") == "REVIEW_REQUIRED" for result in results):
             self.status_manager.show_warning("MainWindow", message)
         else:
             self.status_manager.show_success("MainWindow", message)
@@ -2043,10 +2108,23 @@ class MainWindow(QMainWindow):
                     )
             details = result.get("details", [])
             lines.extend(details[-10:])
-            if result.get("failed", 0) == 0 and result.get("imported", 0) > 0:
-                successful.append(file_name)
-            elif result.get("failed", 0) > 0 or result.get("skipped", 0) > 0:
-                failed.append(file_name)
+            status = result.get("status", "PERSISTENCE_ERROR")
+            if status in {"ACCEPT", "REVIEW_REQUIRED"}:
+                successful.append(f"{file_name} [{status}]")
+            else:
+                failed.append(f"{file_name} [{status}]")
+            for diagnostic in result.get("diagnostics", [])[:20]:
+                lines.append(
+                    f"[{diagnostic.get('status', 'PERSISTENCE_ERROR')}] "
+                    f"{diagnostic.get('stage', '')}/{diagnostic.get('entity', '')} "
+                    f"row {diagnostic.get('row', '')}: {diagnostic.get('message', '')}"
+                )
+            for item in result.get("review_items", [])[:20]:
+                lines.append(
+                    f"[REVIEW_REQUIRED] {item.get('source_document', item.get('file', file_name))} "
+                    f"{item.get('source_cell', '')} -> {item.get('canonical_field', item.get('target_field', ''))}: "
+                    f"{item.get('reason', item.get('validation_message', 'Review required'))}"
+                )
 
         if not lines:
             return
@@ -2089,6 +2167,23 @@ class MainWindow(QMainWindow):
                     item.get("target_field", item.get("canonical_field", "")),
                     f"{float(item.get('confidence', 0)):.0%}" if item.get("confidence") not in (None, "") else "",
                     item.get("decision", "REVIEW"),
+                ]
+                for col, value in enumerate(values):
+                    table.setItem(row, col, QTableWidgetItem(str(value)))
+            for item in result.get("review_items", []):
+                row = table.rowCount()
+                table.insertRow(row)
+                values = [
+                    item.get("source_document", item.get("file", file_name)),
+                    item.get("sheet", ""),
+                    item.get("detected_table", item.get("source_table", "Review")),
+                    item.get("source_cell", ""),
+                    str(item.get("original_value", ""))[:120],
+                    str(item.get("normalized_value", item.get("value", "")))[:120],
+                    item.get("unit", ""),
+                    item.get("canonical_field", item.get("target_field", "")),
+                    f"{float(item.get('confidence', 0)):.0%}" if item.get("confidence") not in (None, "") else "",
+                    "REVIEW_REQUIRED",
                 ]
                 for col, value in enumerate(values):
                     table.setItem(row, col, QTableWidgetItem(str(value)))
@@ -2141,7 +2236,8 @@ class MainWindow(QMainWindow):
     ):
         """Precise refresh after import with specific IDs - hybrid mode"""
         try:
-            # 1. Load data
+            # 1. Load data (from the PERSISTED rows, never stale pre-import
+            #    payloads) so the effective scope comes from the ownership chain.
             well_data = self.db_manager.get_well_by_id(well_id) or {}
             sections = self.db_manager.get_sections_by_well(well_id)
             section_data = next(
@@ -2150,6 +2246,26 @@ class MainWindow(QMainWindow):
             report_data = (
                 self.db_manager.get_daily_report_by_id(report_id) or {}
             )
+
+            # 1b. Resolve the effective wellbore (bore) from the persisted
+            #     ownership chain: the report's own wellbore_id wins; otherwise
+            #     the section's. A blank/unknown bore stays None (Whole-Well) and
+            #     is NEVER inferred to be Original. This is what carries the bore
+            #     scope from an import straight into the selection, so a
+            #     bore-tagged report opens W12/W3b already scoped to that bore.
+            wellbore_id = report_data.get("wellbore_id")
+            if wellbore_id is None:
+                wellbore_id = section_data.get("wellbore_id")
+            wellbore_data = None
+            if wellbore_id is not None:
+                try:
+                    wellbore_data = next(
+                        (wb for wb in self.db_manager.get_wellbores_by_well(well_id)
+                         if wb["id"] == wellbore_id),
+                        None,
+                    )
+                except Exception:
+                    wellbore_data = None
 
             # 2. Update main state
             self.current_well = well_data
@@ -2160,7 +2276,8 @@ class MainWindow(QMainWindow):
                     f"🛢️ Well: {well_data['name']}"
                 )
 
-            # 3. SelectionManager - force full context
+            # 3. SelectionManager - force full context (well → wellbore →
+            #    section → report), including the resolved bore dimension.
             if hasattr(self.sel_manager, "select_full_context"):
                 self.sel_manager.select_full_context(
                     well_id,
@@ -2169,9 +2286,13 @@ class MainWindow(QMainWindow):
                     well_data,
                     section_data,
                     report_data,
+                    wellbore_id=wellbore_id,
+                    wellbore_data=wellbore_data,
                 )
             else:
                 self.sel_manager.select_well(well_id, well_data)
+                if wellbore_id is not None:
+                    self.sel_manager.select_wellbore(wellbore_id, wellbore_data)
                 self.sel_manager.select_section(section_id, section_data)
                 self.sel_manager.select_report(report_id, report_data)
 
@@ -2572,7 +2693,7 @@ class MainWindow(QMainWindow):
     def show_about(self):
         QMessageBox.about(
             self, "About DrillMaster",
-            "<h2>DrillMaster v1.0.0</h2>"
+            f"<h2>DrillMaster v{__version__}</h2>"
             "<p>Drilling Operations Management System</p>"
             "<p>© 2024 DrillMaster Inc.</p>"
         )
@@ -2611,51 +2732,34 @@ class MainWindow(QMainWindow):
     # ==================== Save/Load ====================
 
     def save_current_tab(self):
-        current_tab = self.tab_widget.currentWidget()
-        if hasattr(current_tab, 'save_data'):
-            try:
-                if current_tab.save_data():
-                    tab_name = self.tab_widget.tabText(
-                        self.tab_widget.currentIndex()
-                    )
-                    self.status_manager.show_success(
-                        "MainWindow", f"Saved: {tab_name}"
-                    )
-                    self._invalidate_hierarchy_cache()
-                else:
-                    self.status_manager.show_error(
-                        "MainWindow", "Save failed"
-                    )
-            except Exception as e:
-                self.status_manager.show_error("MainWindow", str(e))
-        else:
-            self.status_manager.show_message(
-                "MainWindow", "Nothing to save", 2000
-            )
+        from core.save_outcome import save_all
+        tab = self.tab_widget.currentWidget()
+        if not hasattr(tab, "save_data"):
+            self.status_manager.show_message("MainWindow", "No save operation for this view", 2000)
+            return False
+        name = self.tab_widget.tabText(self.tab_widget.currentIndex())
+        self.last_save_outcome = save_all([(name, getattr(tab, "save_changes", tab.save_data))])
+        notifier = self.status_manager.show_success if self.last_save_outcome else self.status_manager.show_error
+        notifier("MainWindow", self.last_save_outcome.summary())
+        if self.last_save_outcome.saved:
+            self._invalidate_hierarchy_cache()
+        return bool(self.last_save_outcome)
+
     def save_all_tabs(self):
-        saved = 0
-        for i in range(self.tab_widget.count()):
-            tab = self.tab_widget.widget(i)
-            if hasattr(tab, 'save_data'):
-                try:
-                    if tab.save_data():
-                        saved += 1
-                except Exception as e:
-                    logger.error(
-                        f"Error saving {self.tab_widget.tabText(i)}: {e}"
-                    )
-        self.status_manager.show_success(
-            "MainWindow", f"Saved {saved} tabs"
-        )
-        return saved
+        from core.save_outcome import save_all
+        steps = [(self.tab_widget.tabText(i), getattr(self.tab_widget.widget(i), "save_changes", self.tab_widget.widget(i).save_data))
+                 for i in range(self.tab_widget.count()) if hasattr(self.tab_widget.widget(i), "save_data")]
+        self.last_save_outcome = save_all(steps)
+        notifier = self.status_manager.show_success if self.last_save_outcome else self.status_manager.show_error
+        notifier("MainWindow", self.last_save_outcome.summary())
+        if self.last_save_outcome.saved:
+            self._invalidate_hierarchy_cache()
+        return bool(self.last_save_outcome)
 
     def auto_save(self):
         current_tab = self.tab_widget.currentWidget()
-        if hasattr(current_tab, 'save_data'):
-            try:
-                current_tab.save_data()
-            except Exception as e:
-                logger.error(f"Auto-save error: {e}")
+        self.last_auto_save_outcome = AutoSaveManager.save_widget("Current tab", current_tab)
+        return bool(self.last_auto_save_outcome)
 
     def refresh_all_tabs(self):
         self.show_loading("Refreshing...")
@@ -2880,25 +2984,24 @@ class MainWindow(QMainWindow):
     # ==================== Backup ====================
 
     def backup_database(self):
-        import shutil
         try:
-            src = "drillmaster.db"
-            if not os.path.exists(src):
-                QMessageBox.warning(self, "Backup", "Database not found!")
+            if not self.db_manager or self.db_manager.db_path == ":memory:":
+                QMessageBox.warning(self, "Backup", "A file-backed database is required.")
                 return
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename, _ = QFileDialog.getSaveFileName(
-                self, "Save Backup",
+                self,
+                "Save Backup",
                 f"drillmaster_backup_{timestamp}.db",
-                "Database Files (*.db)"
+                "Database Files (*.db)",
             )
-            if filename:
-                shutil.copy2(src, filename)
-                self.status_manager.show_success(
-                    "MainWindow", f"Backup saved: {filename}"
-                )
-        except Exception as e:
-            logger.error(f"Backup error: {e}")
+            if filename and self.db_manager.backup_to(filename):
+                self.status_manager.show_success("MainWindow", f"Backup saved: {filename}")
+            elif filename:
+                QMessageBox.warning(self, "Backup", "The database backup could not be created.")
+        except Exception:
+            logger.exception("Manual database backup failed")
+            QMessageBox.warning(self, "Backup", "The database backup could not be created.")
 
     # ==================== Cleanup ====================
 
