@@ -1,0 +1,42 @@
+{
+ "schema": "m36-master-ledger",
+ "batches": [
+  {
+   "batch": "p6-batch-002",
+   "class": "A (safety / authorization / mutation)",
+   "records": 45,
+   "sites": 36,
+   "by_classification": {
+    "VERIFIED-CORRECT": 24,
+    "INTENTIONAL": 16,
+    "DOMAIN_DECISION_REQUIRED": 3,
+    "DUPLICATE/FALSE-POSITIVE": 2
+   },
+   "defects_fixed": [],
+   "commit": null,
+   "tests": "ledger/register validation (no production change)"
+  }
+ ],
+ "start_open": 1224,
+ "start_high": 371,
+ "arithmetic": {
+  "register_open_at_p6_start": 1224,
+  "defect_fixed_by_p6": 2,
+  "adjudicated_by_p6_batches": 45,
+  "current_open": 1177,
+  "check": true,
+  "note": "every record is either OPEN or carries a terminal evidence-backed classification; the fixed sites are subtracted separately so nothing disappears"
+ },
+ "open_by_priority": {
+  "MEDIUM": 853,
+  "HIGH": 324
+ },
+ "open_by_class": {
+  "E": 377,
+  "A": 356,
+  "C": 204,
+  "D": 126,
+  "B": 114
+ },
+ "generated_utc": "2026-09-28T05:24:28+00:00"
+}
