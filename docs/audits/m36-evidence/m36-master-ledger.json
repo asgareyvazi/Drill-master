@@ -254,7 +254,7 @@
    },
    "defects_fixed": [],
    "new_findings": [],
-   "evidence_commit": null,
+   "evidence_commit": "3da68f0",
    "commit": null,
    "tests": "no production file changes in this batch (all 45 records adjudicated as INTENTIONAL 15 / DUPLICATE 23 / VERIFIED-CORRECT 7; 0 defects), so the evidence is (a) the phase-1 full-suite gate on the pre-batch tree (1 834 passed / 0 failures / 0 errors / 4 skipped, 317.146 s) and (b) a fresh related run on the current tree covering every module the batch quotes: 346 passed / 0 failed / 0 errors / 0 skipped in 94.954 s (/tmp/p6-014-related.xml; includes the cement/mse/mud-volume/torque-drag/kill-sheet persistence, cross-process, history and save-widget suites, the calculation-verification core, the casing-id gate, the save-outcome consumers and the import-pipeline suites).  compileall and the phase-end full suite re-run on the final tree"
   }
@@ -279,7 +279,7 @@
   "B": 94,
   "D": 65
  },
- "generated_utc": "2026-09-28T07:23:44+00:00",
+ "generated_utc": "2026-09-28T07:23:52+00:00",
  "recovery_bundles": [
   {
    "file": "/home/user/recovery/drillmaster-115fc09.bundle",
