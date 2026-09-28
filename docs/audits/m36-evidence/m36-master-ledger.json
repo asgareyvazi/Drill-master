@@ -345,7 +345,7 @@
    },
    "defects_fixed": [],
    "new_findings": [],
-   "evidence_commit": null,
+   "evidence_commit": "b562c39",
    "commit": null,
    "tests": "no production code was changed in this batch, so no new regression was written and no mutation validation applies; the batch script itself runs with the provenance and fingerprint gates active (see `staleness`), i.e. all 45 records were re-anchored and re-identified against the hash-verified tree before any classification was written"
   }
@@ -369,7 +369,7 @@
   "D": 65,
   "B": 28
  },
- "generated_utc": "2026-09-28T08:30:46+00:00",
+ "generated_utc": "2026-09-28T08:37:09+00:00",
  "recovery_bundles": [
   {
    "file": "/home/user/recovery/drillmaster-115fc09.bundle",
@@ -447,6 +447,12 @@
    "file": "/home/user/recovery/drillmaster-acb6279.bundle",
    "sha256": "c83382fdfece3d72a1295242a87371af6429315b519ec6addd7fc602afec2cd4",
    "captured_head": "acb6279",
+   "verified": "clone verified in this session"
+  },
+  {
+   "file": "/home/user/recovery/drillmaster-b562c39.bundle",
+   "sha256": "9cc297c3ca756145445c3eb12c634e07f10df77684afdf8f47678eff8b54b396",
+   "captured_head": "b562c39",
    "verified": "clone verified in this session"
   },
   {
