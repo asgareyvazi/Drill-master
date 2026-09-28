@@ -1,20 +1,19 @@
 {
  "schema": "m36-open-item-register",
- "generated_utc": "2026-09-28T07:49:25+00:00",
+ "generated_utc": "2026-09-28T08:02:49+00:00",
  "source_register": "docs/audits/m35-evidence/m35-open-item-register.json",
  "source_sha256_declared": "d81a77bda0330c75493f4081c4a02e4d106fe7602e49c14f0c67d12977658a6b",
  "totals": {
   "records": 1224,
-  "open": 583,
+  "open": 538,
   "open_by_priority": {
-   "MEDIUM": 583
+   "MEDIUM": 538
   },
   "open_by_class": {
    "E": 241,
    "C": 159,
-   "B": 94,
-   "D": 65,
-   "A": 24
+   "B": 73,
+   "D": 65
   },
   "defect_fixed": 2
  },
@@ -748,13 +747,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`objects` is built by `_capture_live_objects` (core/database.py:2844-2854), which selects `type, name, sql FROM sqlite_master WHERE tbl_name=? AND type IN ('index','trigger') AND sql IS NOT NULL`: the third element is the object's own DDL text, and sqlite's NULL-sql cases (the auto-indexes behind a UNIQUE constraint) are filtered out of the list before this loop - they are re-created by the table's own CREATE statement, not replayed.  `if object_sql:` is therefore the 'there is a statement to replay' test, and an empty string could not be executed at all.  The rebuild proves the result immediately afterwards: `after = self._live_table_contract(connection, table_name)` and `if after[\"columns\"] != names: raise RuntimeError(...)` (2984-2987), followed by the index and foreign-key preservation checks before the transaction continues.",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-017"
+   "p6_batch": "p6-batch-017",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-000725",
@@ -773,13 +775,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "The same guard inside the sibling rebuilder `_rebuild_live_table_preserving_objects`: `objects` comes from the same `_capture_live_objects` (sql IS NOT NULL), and every group it can hold is re-verified after the replay - `after_objects = self._capture_live_objects(...)` compared by name for indexes (2883-2884), the foreign key set compared against `foreign_keys_before` (2885-2886) and the column list against `names` (2880-2881), each mismatch raising.  A skipped empty statement cannot therefore hide a lost index, trigger or constraint.",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-017"
+   "p6_batch": "p6-batch-017",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-000726",
@@ -826,13 +831,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`invalid` is the row returned by `SELECT child.id FROM ... JOIN ... WHERE <ownership conflict> LIMIT 1` (3136-3144).  SQLAlchemy's Row truthiness is length-based, not value-based - verified against the installed SQLAlchemy 2.0.36: `bool(session.execute(text(\"SELECT 0\")).fetchone())` and the same for `SELECT NULL` are both True - so `if invalid:` means exactly 'the conflict query found a violating row', and the body raises `OwnershipIntegrityError` naming `invalid[0]` with the explicit 'no automatic repair' contract.  A falsy result is the no-conflict case (the query returns None), never a row whose first column is 0.",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-017"
+   "p6_batch": "p6-batch-017",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-000736",
@@ -2210,13 +2218,16 @@
    "missing_fact": "the intended failure semantics at this call site",
    "why_it_matters": "failures may be reported as successes",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "GENUINE_DEFECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Genuine defect (fixed in commit 4c543e8, regression tests/test_coerce_model_values_finite.py): the `except (ValueError, TypeError)` branch was correct for unparsable strings, but the coercion it guards accepted everything else `float()` accepts - 'nan', 'inf', '-inf' and '1e400' - and wrote it into authoritative numeric columns (core/database.py:4109-4130).  SQLite round-trips `inf` unchanged and silently stores `nan` as NULL, so a meaningless number could be persisted as a measurement while the docstring promised only that placeholders 'become NULL, never 0'.  The repository's canonical persistence helpers reject non-finite numbers (`core/engineering/*_persistence.py`: `number if math.isfinite(number) else None`, drill_pipe with the comment 'NaN / inf / 1e400 overflow'; core/engineering/result.py:114,128; core/value_normalizer.py:100-101; this module's own `_number_value` at 4914; tabs/w8_Safety_Widget.py:589 'Invalid waste volume'), which is the contract the fix restores.  Finite values, comma decimals and an explicit '0' are unchanged.",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-017"
+   "p6_batch": "p6-batch-017",
+   "p6_remaining_question": null,
+   "p6_defect": true,
+   "p6_commit": "4c543e8"
   },
   {
    "id": "INV34-001116",
@@ -16539,13 +16550,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`self.db` is the tab's optional persistence handle (constructor `db_manager=None`, stored as `self.db`; DatabaseManager defines no `__bool__`/`__len__`, verified, so `not self.db` is exactly `self.db is None`).  In `TransportLogTab.save_transport_logs_to_db` the guard (1603-1604) returns False *before* `session = self.db.create_session()` (1606), before the delete/insert block and before any table read - a disconnected tab refuses to save instead of raising AttributeError or writing into a session it does not own.  This is the same shape as the 53 `self.db` guards of tabs/ whose full scan in batch-016 found no fail-open body.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-017"
+   "p6_batch": "p6-batch-017",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-006205",
@@ -16592,13 +16606,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`status_item = self.transport_table.item(row, 11)` (1724): `QTableWidget.item()` returns None when the cell was never created, and PySide6's QTableWidgetItem defines no `__bool__` (verified: `bool(QTableWidgetItem(\"\"))` is True), so `if status_item:` is the cell-presence test.  The counters it feeds (`active`, `completed`, `scheduled`) are only incremented for a present cell whose text matches the exact status name, so an unfilled row contributes to no category - `total` comes from `rowCount()` and the parts can therefore never exceed it.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-017"
+   "p6_batch": "p6-batch-017",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-006207",
@@ -16617,13 +16634,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "The sibling presence test in the same loop: `type_item = self.transport_table.item(row, 1)` (1723) and `if type_item:` (1725) gate the `Boat`/`Chopper` counts on the cell existing; an absent cell is not counted as either type (and is not defaulted to a third category), which is why the three counters plus 'other' can never be silently inflated by missing data.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-017"
+   "p6_batch": "p6-batch-017",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-006210",
@@ -16804,13 +16824,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`if not self.db: return False` in `SafetyBOPTab.load_from_database` (397-398) answers 'this tab has no database' before `self.db.get_safety_report(...)` is called (401) and after `self.bop_stack_table.setRowCount(0)` (400) has cleared the view: the load reports False and leaves an empty table rather than synthesizing a report.  `self.db` is the constructor's Optional collaborator (no `__bool__`, verified), so the test is a presence test on the handle itself, not on data.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-017"
+   "p6_batch": "p6-batch-017",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-006257",
@@ -16885,13 +16908,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`ph_item = self.waste_table.item(row, 3)` (583) is the cell-presence test; the pH is appended to `ph_values` only when the cell exists (597-598), and the module keeps 'no pH supplied' as None end to end (`avg_ph = sum(ph_values)/len(ph_values) if ph_values else None`, 601, rendered as 'Average of supplied pH: None').  A present-but-blank cell raises inside the same guarded block and is treated as an incomplete row (batch-004 INV34-006285, INTENTIONAL) - never as pH 0.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-017"
+   "p6_batch": "p6-batch-017",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-006270",
@@ -16910,13 +16936,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`volume_item = self.waste_table.item(row, 2)` (582) and `if volume_item:` (585): a missing cell means the row was never filled in, so its volume is not added to `total_volume` and `valid_volumes` is not incremented; the reported volume text only claims a plain total when every row was valid (`volume_text = ... if valid_volumes and valid_volumes == self.waste_table.rowCount() else <incomplete form>`, 602).  No number is fabricated for a missing cell.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-017"
+   "p6_batch": "p6-batch-017",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-006271",
@@ -16935,13 +16964,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`if not self.db: return False` in `WasteManagementTab.load_from_database` (672-673), identical in contract to INV34-006255: the view is cleared (`self.waste_table.setRowCount(0)`, 675) before the guarded read, and a tab without a database reports 'not loaded' instead of presenting an empty-but-authoritative report.  The two sibling load methods of this file are the only `self.db` guards in it.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-017"
+   "p6_batch": "p6-batch-017",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-006273",
@@ -17016,13 +17048,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`parsed = optional_date(value)` (39) yields a `date` or None - a date object is always truthy, and the value never comes from a numeric path - so `... if parsed else widget.minimumDate()` (40) separates exactly 'the source row has this date' from 'the source row is NULL'.  That is the helper's documented purpose (docstring at 24: 'Keep source NULL distinct from a widget's minimum display value.'): NULL is shown as the widget's minimum *and* recorded as missing (`owner._missing_safety_fields.add(field)`, 34/50), never as a real date or 0.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-017"
+   "p6_batch": "p6-batch-017",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-006284",
@@ -17437,13 +17472,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Test-local selection: `.filter_by(report_id=report_id).one()` (215) is the strictest available accessor - it raises when the query returns anything other than exactly one row - and it is used to prove that the atomic multi-tab import created exactly one mud report for the report and that its `chemicals_json` holds both chemicals (216).  A duplicate or missing row fails the test loudly; no production path is involved.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-017"
+   "p6_batch": "p6-batch-017",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-006503",
@@ -17462,13 +17500,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Same strict accessor in the rollback test (252): after the second import (which is expected to fail its bulk-material validation) the mud report must still be the single report that holds the first import's data - `json.loads(mud.chemicals_json)[0][\"product\"] == \"Barite\"` (253).  `.one()` makes 'the failed import left a second row or no row' an error rather than a silent pass.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-017"
+   "p6_batch": "p6-batch-017",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-006512",
@@ -17618,13 +17659,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`new` is a parametrized boolean (`@pytest.mark.parametrize(\"new\", [True, False])`, 51); `if not new: s.commit()` (62-63) decides whether the SafetyReport row is persisted before its `report` relationship is re-pointed at another well's report.  Both branches then require the ownership guard to fire on the next commit (`with pytest.raises(OwnershipIntegrityError)`, 65-66) and assert the rollback left no row (68), so the flag selects the *pending* vs *persistent* variant of the same invariant - the truthiness of a bool is the value itself.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-017"
+   "p6_batch": "p6-batch-017",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-006543",
@@ -17643,13 +17687,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`session.query(Well).first()` in `AtomicImportTests.test_atomic_rollback_on_failure` (98-99) is a test-local selection on a database this test class creates itself: `setUp` (17-23) points a fresh DatabaseManager at a new temporary file and calls `initialize()`, which always seeds the default company/project/well (`create_default_data`, core/database.py:3342, called from `initialize` at 2633).  The assertions that follow are made on the section/report/survey rows the test creates (e.g. `SurveyPoint` count 0, 121-122), so an arbitrary-but-existing well cannot mask a defect, and a missing row would fail loudly with AttributeError.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-017"
+   "p6_batch": "p6-batch-017",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-006544",
@@ -17668,13 +17715,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Same selection in `test_snapshot_rollback` (129-130) with the same reasoning: the well comes from the seeded fresh database of `setUp`, and the test asserts on the snapshot/restore outcome it drives itself (the report it creates at 133-140 and the restored values afterwards).  A wrong-but-existing well would not change those assertions; a missing one aborts the test.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-017"
+   "p6_batch": "p6-batch-017",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-006552",
@@ -18593,13 +18643,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`row` is the table's own `sqlite_master` row (`SELECT sql FROM sqlite_master WHERE type='table' AND name=?`, 2811-2814); `row[0]` is the live CREATE TABLE text the rebuild must rewrite with the relaxed nullable contract.  Both falsy shapes mean the rebuild cannot proceed - the table does not exist, or it has no stored DDL - and the code raises `RuntimeError(f\"Cannot rebuild {table_name}: live CREATE SQL is unavailable\")` (2816-2817) instead of executing an empty statement or silently skipping a required migration.  Fail-loud, not a defaulted value.",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-017"
+   "p6_batch": "p6-batch-017",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-006860",
@@ -18618,13 +18671,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "The same test in `_rebuild_live_table_preserving_objects` (2859-2860) with the same fail-loud body: the rebuild needs the live DDL to preserve columns, indexes, triggers, foreign keys and rows, and the function raises when it is unavailable rather than replacing the table from ORM metadata.  The docstring of the caller states the same contract ('The live SQLite schema is the source of truth during rebuilds. ORM metadata is used only to identify which nullable contracts the current application requires; it never supplies the replacement table.').",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-017"
+   "p6_batch": "p6-batch-017",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-006861",
@@ -18643,13 +18699,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "In `_install_wellbore_foreign_key` the same test *returns* (2905-2906) instead of raising, and that difference is justified at the call site: the only caller guards existence first (`for table_name in (\"sections\", \"daily_reports\"): if self._raw_table_exists(raw, table_name): self._install_wellbore_foreign_key(...)`, 3258-3260), so 'no table' means there is nothing to install; a table without stored DDL cannot receive an injected FK clause either.  The immediately following guard ('Already has a wellbore FK? Nothing to do (fresh DBs, re-runs)', 2908-2912) documents the same idempotent intent, and the caller verifies the outcome afterwards (`PRAGMA foreign_key_check`, 3269-3271, raising on any violation).",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-017"
+   "p6_batch": "p6-batch-017",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-006864",
@@ -18668,13 +18727,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`self._raw_table_exists(raw, table_name)` returns a bool (`row is not None`, core/database.py:3205-3210), so `if not ...: continue` is exactly 'this database has no such table; there is nothing to upgrade in it'.  The surrounding block documents the intent for the columns it adds ('Columns are added as plain nullable INTEGER (no fabricated backfill)') and the generic missing-table step earlier in `_apply_safe_schema_upgrades` creates the current schema instead; skipping cannot default a value, because no row is touched.",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-017"
+   "p6_batch": "p6-batch-017",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-006865",
@@ -18693,13 +18755,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "The same skip in the v3 block of `_apply_safe_schema_upgrades` (3242-3243) over the fixed tuple `(\"sections\", \"daily_reports\")`: legacy/external databases that lack one of the two tables are simply not upgraded for that table, and the wellbore columns are added as plain nullable INTEGER with the explicit contract that existing rows keep wellbore_id = NULL ('unknown') until a deterministic attribution assigns them.  The truthiness of `_raw_table_exists` is a boolean test.",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-017"
+   "p6_batch": "p6-batch-017",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-006868",
@@ -18858,17 +18923,20 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "contract_quote": {
     "kind": "explicit-reporting",
     "quote": "logger.exception(\"Authentication error\")"
    },
    "register_classification": "OPEN-CONTRACT-CANDIDATE",
-   "p6_evidence": null,
+   "p6_evidence": "Deliberate, and the primary contract is preserved: `authenticate_user` returns the verified identity (`return type(\"UserObject\", (), user_data)()`, 3567) and its only consumer tests that object (`dialogs/login_dialog.py:176`).  The swallowed block is the *audit* write - `user.last_login = ...; session.commit()` (3562-3566) - so a failed timestamp write cannot fail a correct login, and `session.rollback()` (3566) restores the session for the surrounding `finally: session.close()`.  Real authentication failures are still logged by the outer handler (`logger.exception(\"Authentication error\")`, 3569-3570).  Observed, not patched: the inner handler logs nothing, so a persistently failing last_login commit stays invisible (recorded in `observations`).",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-017"
+   "p6_batch": "p6-batch-017",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-006908",
@@ -18887,13 +18955,16 @@
    "missing_fact": "the intended failure semantics at this call site",
    "why_it_matters": "failures may be reported as successes",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for core/database.py:4116 (`except (ValueError, TypeError):` inside `DatabaseManager.coerce_model_values`), already adjudicated under INV34-001111: the same statement, same symbol, same defect - the fix in commit 4c543e8 and its regression cover both records; this record adds no second defect.",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-017"
+   "p6_batch": "p6-batch-017",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-006916",
@@ -19004,13 +19075,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "The flagged text is the docstring line 'Return the active WellPlan's planned total days, or None if unknown.' (4379), and the function implements exactly that three-state contract: no active plan or a NULL `planned_total_days` -> None (4391-4392), a stored value -> `float(...)` including an explicit 0 (4393).  The consumer mirrors it without inventing a number (`tabs/w16_Cost_Management.py:589-592`: `days = self.db.get_planned_total_days(...)`; `except Exception: days = None`; `self.afe_days.setValue(days if days is not None else -1)` - the spin box's 'Not supplied' sentinel), and the explicit-zero case is pinned in-tree (tests/test_m28_finance_safety_plan.py:123: a plan with `planned_total_days=0` returns 0, not None).",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-017"
+   "p6_batch": "p6-batch-017",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-006940",
@@ -27289,13 +27363,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Write-back guard in `FuelWaterTab.save_bulk_materials_to_db` (1207-1209): after `result = self.db.save_bulk_material(material_data)` (1203) the id cell is refreshed only when it is missing (`QTableWidget.item()` returns None) or blank (`.text().strip()` is empty) - both are tests on the *cell*, and the value written is the stored record's id (`str(result)`), which SQLite assigns from 1 and which `save_bulk_material` returns only after a real write (None otherwise, per batch-016's verified `_RESULT_ID` contract).  A user-entered id is therefore never overwritten and no id is fabricated.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-017"
+   "p6_batch": "p6-batch-017",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-008460",
@@ -27339,13 +27416,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for tabs/w7_logistics_Widget.py:1603 (`if not self.db:` in `TransportLogTab.save_transport_logs_to_db`), already adjudicated under INV34-006203: the same statement, same symbol; the `self.db` presence contract and the fail-safe return are the adjudication recorded for INV34-006203.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-017"
+   "p6_batch": "p6-batch-017",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-008465",
@@ -27364,13 +27444,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Row-completeness guard in `save_transport_logs_to_db` (1624-1625): a row is skipped (`continue`) unless both the vehicle-type and the vehicle-name cell exist, so an empty table row never becomes a TransportLog with a fabricated type or name.  The rows that are parsed increment `saved_count` only after the record is added (1651-1652), a parse failure is logged and skipped (1653-1655), and the status message reports that same count (1658) - the user never sees a row counted that was not written.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-017"
+   "p6_batch": "p6-batch-017",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-008470",
@@ -27414,13 +27497,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for tabs/w8_Safety_Widget.py:401 (`data = (self.db.get_safety_report(well_id, report_id=report_id) or {}) if well_id else {}`), already adjudicated under INV34-006257: the same statement was adjudicated VERIFIED-CORRECT in p6-batch-004 (rule R-TRUTH-NUMERIC): a missing report resolves to an empty mapping for field lookups, and `_load_nullable_safety_fields` turns every absent key into the widget's 'Not supplied' state, i.e. unknown stays unknown.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-017"
+   "p6_batch": "p6-batch-017",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-008479",
@@ -27439,13 +27525,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`if not isfinite(vol) or vol < 0: raise ValueError(\"Invalid waste volume\")` (589-590): the module refuses a non-finite or negative volume *before* it can enter `total_volume`, `volume_by_type` or `volume_by_method`, and the surrounding handler treats that row as incomplete (batch-004 INV34-006285, INTENTIONAL - the total text only claims completeness when every row was valid, 602).  This is the repository's own statement that a non-finite number is not a measurement - the contract this batch's defect fix (INV34-001111) aligns the database coercion boundary with.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-017"
+   "p6_batch": "p6-batch-017",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-008480",
@@ -27464,13 +27553,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for tabs/w8_Safety_Widget.py:676 (`report_data = (self.db.get_safety_report(well_id, report_id=report_id) or {}) if well_id else {}`), already adjudicated under INV34-006273: already adjudicated VERIFIED-CORRECT in p6-batch-004: the `or {}` supplies an empty mapping for a missing report (never zeros), and the following `if report_data is not None:` path feeds `_load_nullable_safety_fields`, which keeps NULL distinct from a widget's minimum.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-017"
+   "p6_batch": "p6-batch-017",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-008481",
@@ -27564,13 +27656,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Required-field guard in `ServiceNoteDialog.save_note` (559-561): an empty or whitespace-only note is rejected with an explicit message ('Note content is required.') and the method returns before building `note_data` or touching the database; the well-id check follows as a second hard requirement (562-564).  A missing value is therefore refused, not stored as an empty string or a default.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-017"
+   "p6_batch": "p6-batch-017",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-008485",
@@ -27617,13 +27712,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "The same required-field shape for the equipment name in `EquipmentDialog.save_equipment` (695-697, 'Equipment name is required.'): the dialog refuses to save a nameless equipment row and leaves the user in the form; the following guard requires a well id.  Nothing is defaulted or persisted on the failure path.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-017"
+   "p6_batch": "p6-batch-017",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-008489",
@@ -27767,13 +27865,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "The `pass` is the required body of `with profiler.measure(\"test\"):` (18-19) - an intentionally empty measured section, which is exactly what the profiler must support.  The test then asserts the section was recorded (`self.assertIn(\"test\", profiler.as_dict())`, 20) and that no negative elapsed time is reported (`self.assertGreaterEqual(profiler.total(), 0)`, 21); the statement hides no failure (there is no exception handler on this path).",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-017"
+   "p6_batch": "p6-batch-017",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-008518",
@@ -28092,13 +28193,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`saved = db.save_mud_report(mud)` is a truthy write receipt: `save_mud_report` returns the stored row id after `session.commit()` and `None` exactly when the write failed (core/database.py, 'return record_id' / failure branch 'logger.error(...); return None'), so `if not saved: raise RuntimeError(\"Mud persistence was not confirmed\")` (87-89) stops the lifecycle certification on an unconfirmed write instead of reporting a false success.  Fail-loud in a certification tool - the direction this mission requires.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-017"
+   "p6_batch": "p6-batch-017",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-008559",
@@ -28295,13 +28399,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Guard of the ownership revalidation helper (614-615): `state.persistent` is a bool from SQLAlchemy's inspection API and the second operand is the result of `any(...)` over attribute history, so the expression reads 'this object is not stored yet, or neither an owner-referencing relationship nor one of the mapped owner fields changed' -> `return []` (no dependents to revalidate).  The docstring states that exact scope ('Revalidate unchanged children when a persisted parent's scope changes ... Query only on ownership edits'), and the returned list is only used to extend `affected` (648).  A truthiness test on booleans, not on a numeric value.",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-017"
+   "p6_batch": "p6-batch-017",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-008685",
@@ -28860,13 +28967,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Rule mis-fire, not a behaviour to adjudicate: the R-PLAN-OTHER family matched the *name* 'forecast' in a Text column declaration (core/database.py:352) - there is no arithmetic and no plan/actual comparison at this site.  The field is the canonical free-text daily-report field `daily_report.forecast` (core/canonical_schema.py:171, type 'text', optional), it is filled only from a present source block ('Operation forecast (next-day plan) from the report header -> DailyReport.forecast (nullable; absent stays absent)', core/ddr_import_service.py:500-505), and the neighbouring depth columns carry the M23 hardening comment that only the Python-side default was removed (core/database.py:345-348).",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-017"
+   "p6_batch": "p6-batch-017",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-009108",
@@ -28941,13 +29051,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`session` is the optional parameter `Optional[Session] = None` and the line above computes `owns_session = session is None` (3941); SQLAlchemy's Session defines no `__bool__`/`__len__` (verified on the installed 2.0.36: `bool(session)` is True before, during and after a rollback, and after close), so `session = session or self.create_session()` creates a session exactly when the caller passed none - the same condition `owns_session` records - and the owned session is closed in the `finally` (`if owns_session: session.close()`), while a caller-provided session is left to its owner.",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-017"
+   "p6_batch": "p6-batch-017",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-009118",
@@ -29026,13 +29139,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`from core.actual_vs_plan import ActualVsPlanEngine` (4406) is a deferred import used by the same function at 4463 (`comparison = ActualVsPlanEngine.compare_metrics(...)`); no value is read, coerced or defaulted at the import.  The values the engine later receives are built from persisted rows only (4411-4420) with unknown preserved (`actual_depth = max(depths) if depths else None`, 4439), which is the docstring's contract at 4398-4401 ('Time, ROP and cost values are taken from persisted records only').",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-017"
+   "p6_batch": "p6-batch-017",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-009139",
@@ -29051,13 +29167,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`from core.actual_vs_plan import activity_plan_totals` (4430) feeds `totals = activity_plan_totals(activities)` on the next line (4433): the plan totals come from the plan's own activity rows when they exist, and only then are they replaced by the day-based mirror (`plan.planned_total_days * 24`) or left None.  An explicit 0 stays 0 and never becomes a divisor (see INV34-009150/009151).",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-017"
+   "p6_batch": "p6-batch-017",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-009141",
@@ -29076,13 +29195,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`planned_hours = totals[\"hours\"] if activities else (plan.planned_total_days * 24 if plan and plan.planned_total_days is not None else None)` (4434-4435): the fallback is used only when the plan has *no* activities, it is derived from a persisted planned value (days x 24, no invented rig rate), and both absent cases yield None - never 0.  The function's docstring states the same rule ('a report count is not treated as 24 hours and a rig-day price is never invented here').",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-017"
+   "p6_batch": "p6-batch-017",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-009147",
@@ -29101,13 +29223,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`if not actual_rops:` (4448) tests *list emptiness* - a list holding 0.0 is truthy - so a measured zero ROP is kept as a real observation and only an empty list triggers the fallback to the drilling-parameter ROPs (4449-4452).  Both sources exclude None and negatives (`... if r.rop_meter is not None and float(r.rop_meter) >= 0`), and the average is only computed when the chosen list is non-empty (`sum(actual_rops)/len(actual_rops) if actual_rops else None`), so an unknown actual ROP stays unknown.",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-017"
+   "p6_batch": "p6-batch-017",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-009150",
@@ -29126,13 +29251,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`planned_depth / planned_hours` (4454) is only evaluated behind the guard on the next line (4455): a missing planned depth or a falsy planned duration yields None instead of dividing by zero or reporting an infinite planned ROP.  The existing M28 regression pins exactly this combination - a plan with `planned_total_days=0` gives planned hours 0 and `result[\"rop\"][\"planned\"] is None` while the actual ROP stays 0 (tests/test_m28_finance_safety_plan.py:123-126).",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-017"
+   "p6_batch": "p6-batch-017",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-009151",
@@ -29151,13 +29279,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "The guard itself: `planned_hours` is a duration assembled from persisted plan data, so a falsy value means 'no usable planned time' and there is no division to perform; the ternary returns None, keeping the planned-vs-actual comparison honest.  The sibling planned quantity is computed the same way from persisted data only (`planned_depth = totals[\"depth\"] if activities else (plan.planned_final_depth if plan else None)`, 4436).",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-017"
+   "p6_batch": "p6-batch-017",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-009183",
@@ -32475,13 +32606,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`tempfile.mkdtemp()` (19) creates the class's per-test database directory with the secure API (unpredictable name, owner-only permissions) and the database path is placed inside it (`self.db_path = os.path.join(self.tmpdir, \"test.db\")`, 20); `tearDown` closes the manager and removes the whole tree (`shutil.rmtree(self.tmpdir, ignore_errors=True)`, 26-32).  No fixed, shared or world-readable temporary path is used, and the directory does not outlive the test.",
    "fixed_commit": null,
    "p6_class": "A",
-   "p6_batch": "p6-batch-017"
+   "p6_batch": "p6-batch-017",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-011007",

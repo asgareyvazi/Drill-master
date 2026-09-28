@@ -299,6 +299,39 @@
    "evidence_commit": "1e78cfd",
    "commit": null,
    "tests": "no production file changed in this batch, so no new regression is owed; the batch's script ran with the provenance gates active (see `staleness`), compileall OK, and the phase-end full suite re-runs on the final tree.  The prior gates remain the batch-015 evidence: fix regression 5/0/0/0 in 0.607 s, related 7-file run 50/0/0/0 in 9.419 s"
+  },
+  {
+   "batch": "p6-batch-017",
+   "class": "phase-2 mixed classes: A:24, B:21 - the database persistence boundary, the W7/W8/W9 tab guards, the batch's test selections and the DDR lifecycle tool",
+   "records": 45,
+   "sites": 43,
+   "by_classification": {
+    "VERIFIED-CORRECT": 37,
+    "DUPLICATE/FALSE-POSITIVE": 5,
+    "INTENTIONAL": 2,
+    "GENUINE_DEFECT": 1
+   },
+   "defects_fixed": [
+    {
+     "id": "INV34-001111",
+     "file": "core/database.py",
+     "line": 4111,
+     "duplicate_record": "INV34-006908",
+     "summary": "`DatabaseManager.coerce_model_values` accepted every value `float()` accepts - 'nan', 'inf', '-inf', '1e400' as strings and an already-float non-finite value - and wrote it into authoritative numeric columns; SQLite round-trips `inf` unchanged and stores `nan` as NULL, so a meaningless number could persist as a measurement while the method's own docstring promised only that placeholders 'become NULL, never 0'.",
+     "root_cause": "the coercion guarded only unparsable strings: `float()` succeeds for the spellings of nan/inf and for out-of-range decimals, and the already-numeric branch passed floats through unchanged",
+     "contract": "core/engineering/*_persistence.py `number if math.isfinite(number) else None` (drill_pipe with the comment 'NaN / inf / 1e400 overflow'); core/engineering/result.py:114,128; core/value_normalizer.py:100-101; core/database.py:4914 (`_number_value`); tabs/w8_Safety_Widget.py:589 ('Invalid waste volume')",
+     "fix": "the string branch keeps the finite parse and otherwise stores None, and an already-float non-finite value is coerced to None as well; the docstring states the contract",
+     "commit": "4c543e8",
+     "test": "tests/test_coerce_model_values_finite.py",
+     "test_result": "15 passed / 0 failed / 0 errors / 0 skipped in 1.419 s",
+     "mutation_validation": "with the pre-fix coercion reintroduced, 8 tests fail (all non-finite string cases, all non-finite float cases and the end-to-end save_well test); restored byte-identical (sha256 61eea36f811dbbd9aeb4bb29d1367ae6ea4610c1b5da0da5e4463c60a0405d81) and 15/15 green again",
+     "related": "11 files - save_well callers, import boundary/architecture, no-fabrication, ownership integrity, P0 atomic import, integration, M28 plan-vs-actual, credential lifecycle, DDR save atomicity: 234 passed / 0 failed / 0 errors / 0 skipped in 61.143 s (/tmp/p6-017-related.xml)"
+    }
+   ],
+   "new_findings": [],
+   "evidence_commit": null,
+   "commit": null,
+   "tests": "the batch's defect fix was verified: new regression 15 passed / 0 failed / 0 errors / 0 skipped in 1.419 s (/tmp/p6-017-fix.xml); mutation validation with the pre-fix coercion reintroduced -> 8 failures, restored byte-identical (sha256 61eea36f811dbbd9aeb4bb29d1367ae6ea4610c1b5da0da5e4463c60a0405d81) and 15/15 green again; related 11-file run 234 passed / 0 failed / 0 errors / 0 skipped in 61.143 s (/tmp/p6-017-related.xml); compileall OK; ruff core/database.py 14 -> 14 findings and the new test file clean (repo total 5578 == the HEAD clone, no debt increase); the batch script itself runs with the provenance gates active (see `staleness`)"
   }
  ],
  "start_open": 1224,
@@ -306,22 +339,21 @@
  "arithmetic": {
   "register_open_at_p6_start": 1224,
   "defect_fixed_by_p6": 2,
-  "adjudicated_by_p6_batches": 639,
-  "current_open": 583,
+  "adjudicated_by_p6_batches": 684,
+  "current_open": 538,
   "check": true,
   "note": "every record is either OPEN or carries a terminal evidence-backed classification; the fixed sites are subtracted separately so nothing disappears"
  },
  "open_by_priority": {
-  "MEDIUM": 583
+  "MEDIUM": 538
  },
  "open_by_class": {
   "E": 241,
   "C": 159,
-  "B": 94,
-  "D": 65,
-  "A": 24
+  "B": 73,
+  "D": 65
  },
- "generated_utc": "2026-09-28T07:49:51+00:00",
+ "generated_utc": "2026-09-28T08:02:49+00:00",
  "recovery_bundles": [
   {
    "file": "/home/user/recovery/drillmaster-115fc09.bundle",
