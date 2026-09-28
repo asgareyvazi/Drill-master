@@ -280,7 +280,7 @@
     }
    ],
    "new_findings": [],
-   "evidence_commit": null,
+   "evidence_commit": "0c82fb4",
    "commit": null,
    "tests": "defect fix commit fd51a54: new regression file 5 passed / 0 failed / 0 errors / 0 skipped in 0.607 s; with the bug reintroduced 3 of the 5 fail, then restored byte-identical (sha256 809186f7a5700f3d27b159f288c81fec6263a424125f3ce2ae8b67b44bf44e3a) -> 5/5; related run (7 files: the new regression, the M29 planning UI, planning context/material/presentation, M28 finance-safety and the P0 phase-1 regressions) 50 passed / 0 failed / 0 errors / 0 skipped in 9.419 s (/tmp/p6-015-related.xml); compileall OK; ruff on the changed file 151 -> 151 findings (no debt increase) and the new test file is clean.  The other 44 records change no production file; the phase-end full suite re-runs on the final tree"
   }
@@ -305,7 +305,7 @@
   "A": 69,
   "D": 65
  },
- "generated_utc": "2026-09-28T07:28:05+00:00",
+ "generated_utc": "2026-09-28T07:28:13+00:00",
  "recovery_bundles": [
   {
    "file": "/home/user/recovery/drillmaster-115fc09.bundle",
