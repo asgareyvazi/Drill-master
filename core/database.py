@@ -4090,7 +4090,12 @@ class DatabaseManager:
 
         Workbook placeholders ('-', '--', 'N.C', 'n/a', ...) must never
         crash numeric columns — they become NULL, never 0. Non-numeric
-        strings on numeric columns are dropped to NULL as well.
+        strings on numeric columns are dropped to NULL as well, and so is
+        any value that is not a finite number ('nan', 'inf', '-inf',
+        '1e400', ``float('inf')``): a non-finite float is not a measurement,
+        it is unknown, so it becomes NULL exactly like the engineering
+        persistence helpers (``core/engineering/*_persistence.py``:
+        ``number if math.isfinite(number) else None``).
         """
         _PLACEHOLDERS = {"-", "--", "n/a", "na", "n.c", "not available", "none", ""}
         numeric_types = (Integer, Float, Numeric)
@@ -4107,11 +4112,17 @@ class DatabaseManager:
                         out[k] = None
                         continue
                     try:
-                        out[k] = float(v.replace(",", "").strip())
+                        number = float(v.replace(",", "").strip())
                     except (ValueError, TypeError):
                         out[k] = None
+                    else:
+                        out[k] = number if math.isfinite(number) else None
                 elif isinstance(v, bool):
                     out[k] = int(v)
+                elif isinstance(v, float) and not math.isfinite(v):
+                    # 'nan'/'inf' are accepted by float() but are not measurements;
+                    # never write one into an authoritative numeric column.
+                    out[k] = None
                 else:
                     out[k] = v
             else:
