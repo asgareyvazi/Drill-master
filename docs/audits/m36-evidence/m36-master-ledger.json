@@ -15,7 +15,8 @@
    "defects_fixed": [],
    "commit": null,
    "tests": "ledger/register validation (no production change)",
-   "evidence_commit": "3b60dfd"
+   "evidence_commit": "3b60dfd",
+   "new_findings": []
   },
   {
    "batch": "p6-batch-003",
@@ -33,7 +34,8 @@
    ],
    "commit": "c2e0016",
    "tests": "tests/test_bulk_stock_three_state_smoke.py PASS; tests/test_inventory_live_calc_smoke.py PASS; tests/test_permission_failclosed_regression.py PASS; full suite 1828 results, 0 failures, 6 documented skips (post-fix, this worktree)",
-   "evidence_commit": "2f61e6f"
+   "evidence_commit": "2f61e6f",
+   "new_findings": []
   },
   {
    "batch": "p6-batch-004",
@@ -54,7 +56,9 @@
      "file": "core/mud_ledger.py",
      "line": 208,
      "severity": "HIGH",
-     "status": "recorded, not patched"
+     "status": "FIXED in this batch (dedicated commit, not mixed with the audit evidence)",
+     "commit": "3f0cf3e",
+     "test": "tests/test_mud_ledger_unknown_stock_history.py - 5 tests over the facade and the AI-tool path (success=True, entries+alerts preserved, unknown last stock -> days_remaining None, explicit zero stays 0.0)"
     }
    ],
    "evidence_commit": "a375b06",
@@ -113,7 +117,9 @@
      "file": "app.py",
      "line": 57,
      "severity": "LOW-MEDIUM",
-     "status": "recorded, not patched"
+     "status": "recorded, not patched",
+     "commit": null,
+     "test": null
     }
    ],
    "evidence_commit": "ca2bb1e",

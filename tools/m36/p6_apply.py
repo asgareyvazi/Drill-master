@@ -98,7 +98,9 @@ def main() -> int:
         "batch": batch, "class": data.get("class"), "records": len(records), "sites": sites,
         "by_classification": counts, "defects_fixed": data.get("defects_fixed", []),
         "new_findings": [{"id": f["id"], "file": f["file"], "line": f["line"],
-                          "severity": f["severity"], "status": "recorded, not patched"}
+                          "severity": f["severity"],
+                          "status": f.get("status", "recorded, not patched"),
+                          "commit": f.get("commit"), "test": f.get("test")}
                          for f in data.get("new_findings", [])],
         "evidence_commit": data.get("evidence_commit"),
         "commit": data.get("commit"), "tests": data.get("tests"),
