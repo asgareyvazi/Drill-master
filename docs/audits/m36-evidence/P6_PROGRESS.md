@@ -28,3 +28,16 @@ command:      python tools/m36/p6_dump.py p6-batch-004 45
               python tools/m36/p6_apply.py p6-batch-004
 blockers:     none in the repository; environment needs LD_LIBRARY_PATH=/tmp/qtstub for Qt tests
 ```
+
+## Continuity (recorded by `tools/m36/p6_stamp.py`)
+
+```text
+batch 003 code commit:      c2e0016  (W7 bulk-stock three-state fix + regression)
+batch 003 evidence commit:  2f61e6f  (45 records, register stamped, ledger check true)
+recovery bundle:            /home/user/recovery/drillmaster-2f61e6f.bundle
+sha256:                     5cb8762ae153151f61e3d29a2505b0910ecc5d2cf53f9a94ce0729f0d73032b5
+bundle verification:        git clone -> HEAD 2f61e6f, 804 tracked files
+note:                       the bundle captures the batch-003 checkpoint; the commit that
+                            records this stamp is one commit later and is captured by the
+                            next bundle (created after every subsequent commit).
+```

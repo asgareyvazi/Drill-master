@@ -31,7 +31,8 @@
     "INV34-006021 / INV34-008432 - tabs/w7_logistics_Widget.py FuelWaterTab.update_bulk_stock_for_row (line 825): `float(cell.text() or 0)` turned an unreported opening balance into 0 and displayed a fabricated \"Current Stock\", while the em dash the loader writes for unknown raised through the handler. One statement, one defect, two register records. Fix commit c2e0016, regression tests/test_bulk_stock_three_state_smoke.py (mutation-killed: fabricated '5.0' observed with the original expression)."
    ],
    "commit": "c2e0016",
-   "tests": "tests/test_bulk_stock_three_state_smoke.py PASS; tests/test_inventory_live_calc_smoke.py PASS; tests/test_permission_failclosed_regression.py PASS; full suite 1828 results, 0 failures, 6 documented skips (post-fix, this worktree)"
+   "tests": "tests/test_bulk_stock_three_state_smoke.py PASS; tests/test_inventory_live_calc_smoke.py PASS; tests/test_permission_failclosed_regression.py PASS; full suite 1828 results, 0 failures, 6 documented skips (post-fix, this worktree)",
+   "evidence_commit": "2f61e6f"
   }
  ],
  "start_open": 1224,
@@ -55,5 +56,13 @@
   "D": 126,
   "B": 114
  },
- "generated_utc": "2026-09-28T05:42:24+00:00"
+ "generated_utc": "2026-09-28T05:42:53+00:00",
+ "recovery_bundles": [
+  {
+   "file": "/home/user/recovery/drillmaster-2f61e6f.bundle",
+   "sha256": "5cb8762ae153151f61e3d29a2505b0910ecc5d2cf53f9a94ce0729f0d73032b5",
+   "captured_head": "2f61e6f",
+   "verified": "clone verified in this session"
+  }
+ ]
 }
