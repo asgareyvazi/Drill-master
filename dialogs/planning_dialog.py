@@ -469,10 +469,12 @@ class PlanImportReviewDialog(QDialog):
                 if not col:
                     continue
                 val = self.cell_cache.get((r, col))
+                # Plan-input trichotomy: an absent or unparseable numeric cell
+                # is unknown (None) — never a planned 0.  Text keys keep "".
                 if val is None:
                     row_data[key] = "" if key in [
                         "iadc_code", "formation"
-                    ] else 0
+                    ] else None
                     continue
 
                 if key in ["iadc_code", "formation"]:
@@ -481,7 +483,7 @@ class PlanImportReviewDialog(QDialog):
                     try:
                         row_data[key] = float(val)
                     except (ValueError, TypeError):
-                        row_data[key] = 0
+                        row_data[key] = None
 
             data.append(row_data)
 
