@@ -134,6 +134,22 @@
    "evidence_commit": null,
    "commit": null,
    "tests": "no production change in this batch; the full suite evidence recorded in P6_PROGRESS.md (1 831 tests / 0 failures / 0 errors / 4 skipped on the 3f0cf3e tree) stands for this batch too - every site read here is untracked by this session's changes"
+  },
+  {
+   "batch": "p6-batch-009",
+   "class": "class E (tab-level truthiness guards, optional plotting preludes, dialog formatters): E:45",
+   "records": 45,
+   "sites": 41,
+   "by_classification": {
+    "DUPLICATE/FALSE-POSITIVE": 26,
+    "VERIFIED-CORRECT": 12,
+    "INTENTIONAL": 7
+   },
+   "defects_fixed": [],
+   "new_findings": [],
+   "evidence_commit": null,
+   "commit": null,
+   "tests": "no production change in this batch; the full suite evidence recorded in P6_PROGRESS.md (1 831 tests / 0 failures / 0 errors / 4 skipped on the 3f0cf3e tree) stands for this batch too - the only production files this session has written are core/engineering/well_control_kill_sheet.py, core/mud_ledger.py and tabs/w7_logistics_Widget.py, none of which this batch edits"
   }
  ],
  "start_open": 1224,
@@ -141,23 +157,23 @@
  "arithmetic": {
   "register_open_at_p6_start": 1224,
   "defect_fixed_by_p6": 2,
-  "adjudicated_by_p6_batches": 315,
-  "current_open": 907,
+  "adjudicated_by_p6_batches": 360,
+  "current_open": 862,
   "check": true,
   "note": "every record is either OPEN or carries a terminal evidence-backed classification; the fixed sites are subtracted separately so nothing disappears"
  },
  "open_by_priority": {
   "MEDIUM": 853,
-  "HIGH": 54
+  "HIGH": 9
  },
  "open_by_class": {
-  "E": 295,
   "A": 294,
+  "E": 250,
   "C": 159,
   "B": 94,
   "D": 65
  },
- "generated_utc": "2026-09-28T06:08:59+00:00",
+ "generated_utc": "2026-09-28T06:11:51+00:00",
  "recovery_bundles": [
   {
    "file": "/home/user/recovery/drillmaster-2f61e6f.bundle",
