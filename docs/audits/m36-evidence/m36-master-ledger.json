@@ -795,6 +795,49 @@
     ],
     "mutation": "Temporarily restored the original `and current != 0` condition and reran tests/test_bulk_validator_zero.py: the explicit-zero mismatch regression failed (1 failed, 1 passed); the production fix was restored and the focused tests pass."
    }
+  },
+  {
+   "batch": "p6-batch-027",
+   "class": "phase-2 class E/F mixed review: hierarchy dialogs, revision/history views, workbook templates, MainWindow selection/refresh, package smoke and planning tabs",
+   "records": 45,
+   "sites": 45,
+   "by_classification": {
+    "INTENTIONAL": 41,
+    "DOMAIN_DECISION_REQUIRED": 3,
+    "VERIFIED-CORRECT": 1
+   },
+   "defects_fixed": [],
+   "new_findings": [
+    {
+     "id": "NEW-P6-025",
+     "file": "main_window.py",
+     "line": 1195,
+     "severity": "MEDIUM",
+     "status": "DOMAIN_DECISION_REQUIRED",
+     "commit": null,
+     "test": null
+    },
+    {
+     "id": "NEW-P6-026",
+     "file": "tabs/w10_Planning_Widget.py",
+     "line": 45,
+     "severity": "LOW",
+     "status": "DOMAIN_DECISION_REQUIRED",
+     "commit": null,
+     "test": null
+    }
+   ],
+   "evidence_commit": null,
+   "commit": null,
+   "tests": {
+    "passed": [
+     "70 passed: tests/test_hierarchy_updated_at.py tests/test_multi_company_template.py tests/test_torque_drag_history.py tests/test_torque_drag_persistence.py tests/test_well_control_kill_sheet.py tests/test_well_control_kill_sheet_persistence.py tests/test_kill_sheet_casing_id_gate.py."
+    ],
+    "environment_blocked": [
+     "Qt dependency limitation: 3 history-viewmodel test modules failed collection, 2 history projection tests failed, and 11 dialog/Planning UI smoke tests failed before assertions because PySide6 cannot load missing libGL.so.1. The blocked tests were: tests/test_mse_history_viewmodel.py, tests/test_mud_volume_history_viewmodel.py, tests/test_well_control_kill_sheet_history_viewmodel.py; tests/test_torque_drag_history.py::test_history_rows_projection_and_ordering and ::test_history_rows_empty_when_no_runs; tests/test_report_history_ui.py (4), tests/test_m29_planning_ui.py (1), tests/test_planning_context_isolation.py (1), tests/test_planning_material_persistence.py (1), tests/test_planning_table_presentation.py (1), tests/test_torque_drag_history_widget_smoke.py (1), tests/test_torque_drag_save_widget_smoke.py (1), tests/test_well_control_kill_sheet_save_widget_smoke.py (1). No packaged Windows executable was built or run."
+    ],
+    "mutation": "No production code was changed in this batch; no mutation validation applies."
+   }
   }
  ],
  "start_open": 1224,
@@ -802,18 +845,18 @@
  "arithmetic": {
   "register_open_at_p6_start": 1224,
   "defect_fixed_by_p6": 2,
-  "adjudicated_by_p6_batches": 1089,
-  "current_open": 133,
+  "adjudicated_by_p6_batches": 1134,
+  "current_open": 88,
   "check": true,
   "note": "every record is either OPEN or carries a terminal evidence-backed classification; the fixed sites are subtracted separately so nothing disappears"
  },
  "open_by_priority": {
-  "MEDIUM": 133
+  "MEDIUM": 88
  },
  "open_by_class": {
-  "E": 133
+  "E": 88
  },
- "generated_utc": "2026-09-29T09:59:53+00:00",
+ "generated_utc": "2026-09-29T10:04:47+00:00",
  "recovery_bundles": [
   {
    "file": "/home/user/recovery/drillmaster-115fc09.bundle",

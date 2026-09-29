@@ -1,0 +1,1106 @@
+{
+ "schema": "m36-p6-batch",
+ "batch": "p6-batch-027",
+ "class": "phase-2 class E/F mixed review: hierarchy dialogs, revision/history views, workbook templates, MainWindow selection/refresh, package smoke and planning tabs",
+ "records": 45,
+ "sites": 45,
+ "records_by_file": {
+  "dialogs/hierarchy_dialogs.py": 4,
+  "dialogs/mse_history_dialog.py": 1,
+  "dialogs/mud_volume_history_dialog.py": 1,
+  "dialogs/planning_dialog.py": 1,
+  "dialogs/report_history_dialog.py": 3,
+  "dialogs/smart_template_dialog.py": 10,
+  "dialogs/torque_drag_history_dialog.py": 2,
+  "dialogs/well_control_kill_sheet_history_dialog.py": 2,
+  "main_window.py": 14,
+  "packaging/package_smoke.py": 1,
+  "tabs/w10_Planning_Widget.py": 3,
+  "dialogs/startup_dialog.py": 3
+ },
+ "by_classification": {
+  "INTENTIONAL": 41,
+  "VERIFIED-CORRECT": 1,
+  "DOMAIN_DECISION_REQUIRED": 3
+ },
+ "defects_fixed": [],
+ "new_findings": [
+  {
+   "id": "NEW-P6-025",
+   "line": 1195,
+   "severity": "MEDIUM",
+   "status": "DOMAIN_DECISION_REQUIRED",
+   "file": "main_window.py",
+   "site": "MainWindow._stop_hierarchy_worker timeout path",
+   "summary": "A slow hierarchy read is forcibly terminated after a 3-second wait. QThread.terminate can bypass normal cleanup, including get_full_hierarchy's SQLAlchemy session close. Define a cooperative cancellation/worker lifecycle and add a regression before replacing the timeout behavior.",
+   "evidence": "main_window.py:65-85, 1186-1203; core/database.py:3656-3760. The worker calls a synchronous read and closes the session in finally; caller may terminate the thread after timeout."
+  },
+  {
+   "id": "NEW-P6-026",
+   "line": 45,
+   "severity": "LOW",
+   "status": "DOMAIN_DECISION_REQUIRED",
+   "file": "tabs/w10_Planning_Widget.py",
+   "site": "Matplotlib Qt canvas import fallback",
+   "summary": "The Qt canvas import falls back to FigureCanvasAgg, but chart consumers insert the canvas into Qt layouts (and the later fallback can set the canvas to None). Define whether this mode should disable charts or provide a QWidget-backed image adapter; current render handlers show per-chart errors and preserve the rest of the tab.",
+   "evidence": "tabs/w10_Planning_Widget.py:42-51, 641-661; core/common_widgets.py:403-424. GUI runtime confirmation is blocked locally by missing libGL.so.1."
+  }
+ ],
+ "observations": [
+  {
+   "topic": "history and revision views",
+   "summary": "History entry points check their repository and display a warning before opening dialogs when no database is available; repository failures have an explicit error UI. Revision details bounds-check the selected row, serialize snapshots with a string fallback, and include all non-NULL/nonblank fields in detail even where the short summary prefers truthy labels."
+  },
+  {
+   "topic": "hierarchy and scope",
+   "summary": "Creation/approval dialogs stop on QDialog rejection. Tree selections retain explicit IDs independently of optional display mappings. Targeted refresh carries known wellbore ID separately from its optional mapping, and report-scoped lookahead requires its explicit report ID."
+  },
+  {
+   "topic": "smart template import",
+   "summary": "Router scores are computed per worksheet/section; candidates pass through field detection, explicit rejection filters, reviewable assignments and shared save boundaries. Optional learning/template files are not numeric inputs."
+  }
+ ],
+ "sibling_search": [
+  {
+   "family": "history repository availability",
+   "result": "MSE, mud-volume, torque-drag and kill-sheet history launchers all refuse to open without a repository and show a warning; repository exceptions are surfaced by dialogs. The constructor's optional-repo guard is defensive rather than a production 'no records' result."
+  },
+  {
+   "family": "well and report tree identities",
+   "result": "MainWindow tree payloads carry well/section/report/wellbore IDs independently of `get_well_by_id(...) or {}` display mappings. Targeted refresh retains the resolved wellbore ID if its optional object mapping cannot be loaded. No ID is inferred from a display name and no report ID is substituted for cumulative scope."
+  },
+  {
+   "family": "history summary unknown-versus-zero",
+   "result": "The revision child tree retains `0` because it filters only None/empty string; only its short summary may omit a zero candidate, while raw snapshot and structured details remain available."
+  },
+  {
+   "family": "missing source fingerprint ledger",
+   "result": "All source hashes/recorded sites are anchored; the unavailable M34 pattern ledger leaves INV34-004316 and INV34-004317 as the only non-reproducing context fingerprints in this batch. No pattern is invented."
+  }
+ ],
+ "tests": {
+  "passed": [
+   "70 passed: tests/test_hierarchy_updated_at.py tests/test_multi_company_template.py tests/test_torque_drag_history.py tests/test_torque_drag_persistence.py tests/test_well_control_kill_sheet.py tests/test_well_control_kill_sheet_persistence.py tests/test_kill_sheet_casing_id_gate.py."
+  ],
+  "environment_blocked": [
+   "Qt dependency limitation: 3 history-viewmodel test modules failed collection, 2 history projection tests failed, and 11 dialog/Planning UI smoke tests failed before assertions because PySide6 cannot load missing libGL.so.1. The blocked tests were: tests/test_mse_history_viewmodel.py, tests/test_mud_volume_history_viewmodel.py, tests/test_well_control_kill_sheet_history_viewmodel.py; tests/test_torque_drag_history.py::test_history_rows_projection_and_ordering and ::test_history_rows_empty_when_no_runs; tests/test_report_history_ui.py (4), tests/test_m29_planning_ui.py (1), tests/test_planning_context_isolation.py (1), tests/test_planning_material_persistence.py (1), tests/test_planning_table_presentation.py (1), tests/test_torque_drag_history_widget_smoke.py (1), tests/test_torque_drag_save_widget_smoke.py (1), tests/test_well_control_kill_sheet_save_widget_smoke.py (1). No packaged Windows executable was built or run."
+  ],
+  "mutation": "No production code was changed in this batch; no mutation validation applies."
+ },
+ "head": "d07fba898a89cd8713a769ae1a66bcb82fbd6982",
+ "commit": null,
+ "evidence_commit": null,
+ "evidence_files": [
+  "tools/m36/p6_batch_027.py",
+  "docs/audits/m36-evidence/p6-batch-027.json"
+ ],
+ "staleness": {
+  "checked": 45,
+  "stale": 1,
+  "re_anchored": 1,
+  "method": "Recorded SHA-256 file blobs, source lines, enclosing symbols and current expression mappings verified; dialogs/planning_dialog.py is anchored to fd18a2bca5b849356c50f9da19c278ecdd8f9967 and the changed IADC line re-anchored. The M34 item ledger is absent, so two context fingerprints remain explicitly non-reproduced while their source hash/line/symbol anchors verify.",
+  "re_anchored_items": [
+   {
+    "id": "INV34-003565",
+    "file": "dialogs/planning_dialog.py",
+    "previous_site": "dialogs/planning_dialog.py:1051",
+    "current_site": "dialogs/planning_dialog.py:1053",
+    "tree": "provenance tree = fd18a2bca5b849356c50f9da19c278ecdd8f9967 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+    "source_sha256": "adb5875bb751af734d517e688649453953304d0ec5d4bc27b87a4b21024221c4",
+    "context_fingerprint": "846355d79391b71479c3ffc4576daf11af035cfd2a9b93dd70b86239b7b4f1a4",
+    "reason": "Original tree blob/hash, recorded line and enclosing symbol were verified; current expression mapped within the same method."
+   }
+  ],
+  "provenance_trees": {
+   "dialogs/hierarchy_dialogs.py": "current tree: sha256(file) == the record's source_sha256",
+   "dialogs/mse_history_dialog.py": "current tree: sha256(file) == the record's source_sha256",
+   "dialogs/mud_volume_history_dialog.py": "current tree: sha256(file) == the record's source_sha256",
+   "dialogs/planning_dialog.py": "provenance tree = fd18a2bca5b849356c50f9da19c278ecdd8f9967 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+   "dialogs/report_history_dialog.py": "current tree: sha256(file) == the record's source_sha256",
+   "dialogs/smart_template_dialog.py": "current tree: sha256(file) == the record's source_sha256",
+   "dialogs/torque_drag_history_dialog.py": "current tree: sha256(file) == the record's source_sha256",
+   "dialogs/well_control_kill_sheet_history_dialog.py": "current tree: sha256(file) == the record's source_sha256",
+   "main_window.py": "current tree: sha256(file) == the record's source_sha256",
+   "packaging/package_smoke.py": "current tree: sha256(file) == the record's source_sha256",
+   "tabs/w10_Planning_Widget.py": "current tree: sha256(file) == the record's source_sha256",
+   "dialogs/startup_dialog.py": "current tree: sha256(file) == the record's source_sha256"
+  },
+  "m34_fingerprint_ledger": {
+   "manifest": "docs/audits/m34-evidence/M34_INVENTORY_LEDGER.json",
+   "expected_path": "docs/audits/m34-evidence/m34-ledger.json",
+   "expected_sha256": "d81a77bda0330c75493f4081c4a02e4d106fe7602e49c14f0c67d12977658a6b",
+   "expected_bytes": 11394989,
+   "present_in_workspace": false,
+   "effect": "Two original context patterns could not be reproduced. Their source files matched recorded hashes, so line/symbol scope is still anchored and the uncertainty is listed separately."
+  },
+  "fingerprint_proof": {
+   "checked": 45,
+   "verified": 43,
+   "records_without_a_reproducible_fingerprint": [],
+   "records_without_a_reproducing_fingerprint_but_hash_anchored": [
+    "INV34-004316",
+    "INV34-004317"
+   ],
+   "symbol_forms_that_reproduced": {
+    "short": 41,
+    "MISMATCH": 2,
+    "qualified": 2
+   },
+   "expression_forms_that_reproduced": {
+    "ast-segment": 20,
+    "recorded-line": 23
+   },
+   "method": "ledger-free: recorded-line + AST-segment expression forms (the 11 MB M34 ledger is not tracked in the repository)"
+  }
+ },
+ "method": "Trace producers through dialog/workflow callers, selection and scope consumers, optional file/backend boundaries and tests; keep unknown data distinct from zero; do not infer production reachability from a standalone helper; preserve owner decisions where failure/timeout behavior needs product policy.",
+ "items": [
+  {
+   "id": "INV34-003455",
+   "file": "dialogs/hierarchy_dialogs.py",
+   "line": 1554,
+   "symbol": "NewDailyReportDialog.create_daily_report",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not result:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source dialogs/hierarchy_dialogs.py:1554 `if not result:`; source_sha256=ae4cafcb940cc4938ec8514f56b7a60744acddde6366298290a7a1103c2c3737; context_fingerprint=fa5b2e7f918848f83712f390bb5e0100dbaf5535bed63b2e39e674e7ea6387e2. DatabaseManager.save_daily_report returns None on failure or a populated result mapping on success (core/database.py:4227-4296); the dialog's falsey gate prevents acceptance of a failed save, and report IDs are positive database identities rather than zero-valued measurements.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "dialogs/hierarchy_dialogs.py",
+    "line": 1554,
+    "symbol": "NewDailyReportDialog.create_daily_report",
+    "expression": "if not result:",
+    "source_sha256": "ae4cafcb940cc4938ec8514f56b7a60744acddde6366298290a7a1103c2c3737",
+    "context_fingerprint": "fa5b2e7f918848f83712f390bb5e0100dbaf5535bed63b2e39e674e7ea6387e2"
+   }
+  },
+  {
+   "id": "INV34-003460",
+   "file": "dialogs/hierarchy_dialogs.py",
+   "line": 1358,
+   "symbol": "NewDailyReportDialog.load_next_report_number",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if last_report:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source dialogs/hierarchy_dialogs.py:1358 `if last_report:`; source_sha256=ae4cafcb940cc4938ec8514f56b7a60744acddde6366298290a7a1103c2c3737; context_fingerprint=03bd3999a1aa3bf482f8bb503217255e22d65867a7f18b82ccf109d7ffa96ade. The query returns an ORM DailyReport row or None. A row object is truthy independently of report_number; no prior row selects the documented first report number 1.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "dialogs/hierarchy_dialogs.py",
+    "line": 1358,
+    "symbol": "NewDailyReportDialog.load_next_report_number",
+    "expression": "if last_report:",
+    "source_sha256": "ae4cafcb940cc4938ec8514f56b7a60744acddde6366298290a7a1103c2c3737",
+    "context_fingerprint": "03bd3999a1aa3bf482f8bb503217255e22d65867a7f18b82ccf109d7ffa96ade"
+   }
+  },
+  {
+   "id": "INV34-003461",
+   "file": "dialogs/hierarchy_dialogs.py",
+   "line": 1254,
+   "symbol": "NewDailyReportDialog.load_section_info",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if section:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source dialogs/hierarchy_dialogs.py:1254 `if section:`; source_sha256=ae4cafcb940cc4938ec8514f56b7a60744acddde6366298290a7a1103c2c3737; context_fingerprint=4cf3b698351d506ecf8ab626861c28ea9feef6ddb4315ff3ec11de2266d42b78. The section query returns an ORM Section object or None; the branch only controls optional display of section/well/project labels and does not decide persisted scope.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "dialogs/hierarchy_dialogs.py",
+    "line": 1254,
+    "symbol": "NewDailyReportDialog.load_section_info",
+    "expression": "if section:",
+    "source_sha256": "ae4cafcb940cc4938ec8514f56b7a60744acddde6366298290a7a1103c2c3737",
+    "context_fingerprint": "4cf3b698351d506ecf8ab626861c28ea9feef6ddb4315ff3ec11de2266d42b78"
+   }
+  },
+  {
+   "id": "INV34-003491",
+   "file": "dialogs/mse_history_dialog.py",
+   "line": 164,
+   "symbol": "MSEHistoryDialog.reload",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "all_saved = self._repo.all() if self._repo else []",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source dialogs/mse_history_dialog.py:164 `all_saved = self._repo.all() if self._repo else []`; source_sha256=d3a588e88b917098310ea4f7bcea74ed6a484ddbcf8859b229aaf60c966c1436; context_fingerprint=58a498ac4b94bebf28880d6d932f8ebc6e6f7f5b4c8f942e00e03477576c26f3. The Engineering Calculator entry point checks for a missing MSE history repository and warns before constructing the dialog. The None-to-empty guard is defensive for direct/test construction; repository query exceptions are displayed by the dialog's explicit error path.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "dialogs/mse_history_dialog.py",
+    "line": 164,
+    "symbol": "MSEHistoryDialog.reload",
+    "expression": "all_saved = self._repo.all() if self._repo else []",
+    "source_sha256": "d3a588e88b917098310ea4f7bcea74ed6a484ddbcf8859b229aaf60c966c1436",
+    "context_fingerprint": "58a498ac4b94bebf28880d6d932f8ebc6e6f7f5b4c8f942e00e03477576c26f3"
+   }
+  },
+  {
+   "id": "INV34-003502",
+   "file": "dialogs/mud_volume_history_dialog.py",
+   "line": 163,
+   "symbol": "MudVolumeHistoryDialog.reload",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "all_saved = self._repo.all() if self._repo else []",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source dialogs/mud_volume_history_dialog.py:163 `all_saved = self._repo.all() if self._repo else []`; source_sha256=4576c9ba1f3c013e6be65711ad3d907bd29f01c20335ccb66e809645aae3de3f; context_fingerprint=5618144dd2af065377f86ddb1f1c7957bc80652b31013cd0eb59e0540caa31a0. The Engineering Calculator entry point checks for a missing mud-volume history repository and warns before constructing the dialog. The None-to-empty guard is defensive; query exceptions are surfaced instead of described as zero stock.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "dialogs/mud_volume_history_dialog.py",
+    "line": 163,
+    "symbol": "MudVolumeHistoryDialog.reload",
+    "expression": "all_saved = self._repo.all() if self._repo else []",
+    "source_sha256": "4576c9ba1f3c013e6be65711ad3d907bd29f01c20335ccb66e809645aae3de3f",
+    "context_fingerprint": "5618144dd2af065377f86ddb1f1c7957bc80652b31013cd0eb59e0540caa31a0"
+   }
+  },
+  {
+   "id": "INV34-003565",
+   "file": "dialogs/planning_dialog.py",
+   "line": 1051,
+   "symbol": "WellPlanDialog._map_iadc_to_phase",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not iadc_code:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source dialogs/planning_dialog.py:1051 `if not iadc_code:`; source_sha256=adb5875bb751af734d517e688649453953304d0ec5d4bc27b87a4b21024221c4; context_fingerprint=846355d79391b71479c3ffc4576daf11af035cfd2a9b93dd70b86239b7b4f1a4. Exact recorded source hash/line/symbol/fingerprint belongs to dialogs/planning_dialog.py in tree fd18a2bca5b849356c50f9da19c278ecdd8f9967; current site is line 1053 after later source edits. IADC phase mapping takes optional textual codes; blank means no phase mapping and nonblank codes are normalized against explicit aliases. It is not a numeric depth or activity count.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "dialogs/planning_dialog.py",
+    "line": 1051,
+    "symbol": "WellPlanDialog._map_iadc_to_phase",
+    "expression": "if not iadc_code:",
+    "source_sha256": "adb5875bb751af734d517e688649453953304d0ec5d4bc27b87a4b21024221c4",
+    "context_fingerprint": "846355d79391b71479c3ffc4576daf11af035cfd2a9b93dd70b86239b7b4f1a4"
+   },
+   "current_site": "dialogs/planning_dialog.py:1053",
+   "current_source_line": "if not iadc_code:"
+  },
+  {
+   "id": "INV34-003572",
+   "file": "dialogs/report_history_dialog.py",
+   "line": 134,
+   "symbol": "ReportHistoryDialog._build_revision_tab.show_detail",
+   "rule": "R-EXC-CONTINUE",
+   "kind": "broad-exception",
+   "register_line_text": "except Exception:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source dialogs/report_history_dialog.py:134 `except Exception:`; source_sha256=3680970bf73e61e1134008402080f8d8f4b5f432743361390c385468fe8d2bdc; context_fingerprint=cca77ddee145406fa8d08949185bb07482b8e2e5bd7d961e1770f26aa67416ab. The selected report-revision snapshot is displayed as JSON when serializable; if an unusual object cannot be JSON encoded, the UI displays its string representation. This fallback affects debug display only; the structured revision tree is populated from the snapshot first.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "dialogs/report_history_dialog.py",
+    "line": 134,
+    "symbol": "ReportHistoryDialog._build_revision_tab.show_detail",
+    "expression": "except Exception:",
+    "source_sha256": "3680970bf73e61e1134008402080f8d8f4b5f432743361390c385468fe8d2bdc",
+    "context_fingerprint": "cca77ddee145406fa8d08949185bb07482b8e2e5bd7d961e1770f26aa67416ab"
+   }
+  },
+  {
+   "id": "INV34-003581",
+   "file": "dialogs/report_history_dialog.py",
+   "line": 127,
+   "symbol": "ReportHistoryDialog._build_revision_tab.show_detail",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not (0 <= row < len(revisions)):",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source dialogs/report_history_dialog.py:127 `if not (0 <= row < len(revisions)):`; source_sha256=3680970bf73e61e1134008402080f8d8f4b5f432743361390c385468fe8d2bdc; context_fingerprint=2aef356b600ce3faa212c26362882f44f9e9886fffd7d40a6f0fca591d62ac1d. The selected row is checked against the actual revisions list bounds before indexing; row -1 or a stale/out-of-range selection is ignored, so no unrelated revision is shown.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "dialogs/report_history_dialog.py",
+    "line": 127,
+    "symbol": "ReportHistoryDialog._build_revision_tab.show_detail",
+    "expression": "if not (0 <= row < len(revisions)):",
+    "source_sha256": "3680970bf73e61e1134008402080f8d8f4b5f432743361390c385468fe8d2bdc",
+    "context_fingerprint": "2aef356b600ce3faa212c26362882f44f9e9886fffd7d40a6f0fca591d62ac1d"
+   }
+  },
+  {
+   "id": "INV34-003584",
+   "file": "dialogs/report_history_dialog.py",
+   "line": 218,
+   "symbol": "ReportHistoryDialog._row_summary",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-selection",
+   "register_line_text": "if entry.get(key):",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source dialogs/report_history_dialog.py:218 `if entry.get(key):`; source_sha256=3680970bf73e61e1134008402080f8d8f4b5f432743361390c385468fe8d2bdc; context_fingerprint=dd7df482d6372ce63e7823bc3df37eea57852d9b15b3784f134a2c7b9377d42a. This is only the first human-readable summary candidate, not data filtering. Numeric zero in a field such as MD may be omitted from the one-line summary, but the same revision tree iterates every non-None/nonblank field and renders explicit `0`; the raw snapshot remains available as secondary detail.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "dialogs/report_history_dialog.py",
+    "line": 218,
+    "symbol": "ReportHistoryDialog._row_summary",
+    "expression": "if entry.get(key):",
+    "source_sha256": "3680970bf73e61e1134008402080f8d8f4b5f432743361390c385468fe8d2bdc",
+    "context_fingerprint": "dd7df482d6372ce63e7823bc3df37eea57852d9b15b3784f134a2c7b9377d42a"
+   }
+  },
+  {
+   "id": "INV34-003603",
+   "file": "dialogs/smart_template_dialog.py",
+   "line": 1542,
+   "symbol": "LearningManager._load",
+   "rule": "R-EXC-OTHER",
+   "kind": "broad-exception",
+   "register_line_text": "except Exception:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source dialogs/smart_template_dialog.py:1542 `except Exception:`; source_sha256=c913e2b2c955001959d33730fc6d1ed94e0fab3140837bfdc739622228edf093; context_fingerprint=94393327d4a4a5545945a638df5181f461bb80b8deee31057684b27b015efac9. Learning corrections are optional advisory import metadata. A missing or unreadable/corrupt learning file leaves the current correction set empty; field extraction still proceeds through the explicit mapping/review pipeline and the catch does not manufacture an engineering value.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "dialogs/smart_template_dialog.py",
+    "line": 1542,
+    "symbol": "LearningManager._load",
+    "expression": "except Exception:",
+    "source_sha256": "c913e2b2c955001959d33730fc6d1ed94e0fab3140837bfdc739622228edf093",
+    "context_fingerprint": "94393327d4a4a5545945a638df5181f461bb80b8deee31057684b27b015efac9"
+   }
+  },
+  {
+   "id": "INV34-003642",
+   "file": "dialogs/smart_template_dialog.py",
+   "line": 2219,
+   "symbol": "SmartTemplateDialog._smart_auto_detect",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "numeric-get-default",
+   "register_line_text": "score = router.sheet_scores.get(",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source dialogs/smart_template_dialog.py:2219 `score = router.sheet_scores.get(`; source_sha256=c913e2b2c955001959d33730fc6d1ed94e0fab3140837bfdc739622228edf093; context_fingerprint=fb4241c4082a8e3d77220bcc5508ef95a7723149c72fdea4491138ba8f7f55e1. Every worksheet is populated into SheetRouter.sheet_scores with all known section keys before this lookup. The `0` is a defensive score for an absent key; the > -5 threshold is a candidate-sheet inclusion heuristic, not a measurement default or automatic persistence decision.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "dialogs/smart_template_dialog.py",
+    "line": 2219,
+    "symbol": "SmartTemplateDialog._smart_auto_detect",
+    "expression": "score = router.sheet_scores.get(",
+    "source_sha256": "c913e2b2c955001959d33730fc6d1ed94e0fab3140837bfdc739622228edf093",
+    "context_fingerprint": "fb4241c4082a8e3d77220bcc5508ef95a7723149c72fdea4491138ba8f7f55e1"
+   }
+  },
+  {
+   "id": "INV34-003751",
+   "file": "dialogs/smart_template_dialog.py",
+   "line": 2069,
+   "symbol": "SmartTemplateDialog._load_workbook",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if self.wb.worksheets:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source dialogs/smart_template_dialog.py:2069 `if self.wb.worksheets:`; source_sha256=c913e2b2c955001959d33730fc6d1ed94e0fab3140837bfdc739622228edf093; context_fingerprint=93c45e7d314f1ecbd6a24ead001fef1b8c992c96c76f8b1c8bf599e882155f20. An empty workbook worksheet collection suppresses preview and auto-detection; the surrounding load path raises a visible error for an unusable workbook rather than creating a data row.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "dialogs/smart_template_dialog.py",
+    "line": 2069,
+    "symbol": "SmartTemplateDialog._load_workbook",
+    "expression": "if self.wb.worksheets:",
+    "source_sha256": "c913e2b2c955001959d33730fc6d1ed94e0fab3140837bfdc739622228edf093",
+    "context_fingerprint": "93c45e7d314f1ecbd6a24ead001fef1b8c992c96c76f8b1c8bf599e882155f20"
+   }
+  },
+  {
+   "id": "INV34-003801",
+   "file": "dialogs/smart_template_dialog.py",
+   "line": 1454,
+   "symbol": "CodeResolver.resolve_sub_code",
+   "rule": "R-EXC-OTHER",
+   "kind": "typed-exception",
+   "register_line_text": "except (ValueError, TypeError):",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source dialogs/smart_template_dialog.py:1454 `except (ValueError, TypeError):`; source_sha256=c913e2b2c955001959d33730fc6d1ed94e0fab3140837bfdc739622228edf093; context_fingerprint=4e5f3c22d8e48e6a8585bf24e024e5ceab5b02f396cb5554e0c0610c6ec229f1. Malformed optional main-code text leaves `main_num` empty; the resolver then continues with sub-code/direct aliases and otherwise returns no resolved label. It does not coerce invalid activity data to code zero.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "dialogs/smart_template_dialog.py",
+    "line": 1454,
+    "symbol": "CodeResolver.resolve_sub_code",
+    "expression": "except (ValueError, TypeError):",
+    "source_sha256": "c913e2b2c955001959d33730fc6d1ed94e0fab3140837bfdc739622228edf093",
+    "context_fingerprint": "4e5f3c22d8e48e6a8585bf24e024e5ceab5b02f396cb5554e0c0610c6ec229f1"
+   }
+  },
+  {
+   "id": "INV34-003844",
+   "file": "dialogs/torque_drag_history_dialog.py",
+   "line": 174,
+   "symbol": "TorqueDragHistoryDialog.reload",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "all_saved = self._repo.all() if self._repo else []",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source dialogs/torque_drag_history_dialog.py:174 `all_saved = self._repo.all() if self._repo else []`; source_sha256=8f49b4bded976a5efa799db02d4568c16a2432652eb9772aa85a3bbe353b1732; context_fingerprint=5e2000b8d746b92ebd0ed1bd5e0bb7b412948d7905bf7035a9b285785707da24. The Engineering Calculator entry point verifies the Torque & Drag history repository exists before dialog construction; direct None construction safely yields no rows, while repository errors have an explicit error banner.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "dialogs/torque_drag_history_dialog.py",
+    "line": 174,
+    "symbol": "TorqueDragHistoryDialog.reload",
+    "expression": "all_saved = self._repo.all() if self._repo else []",
+    "source_sha256": "8f49b4bded976a5efa799db02d4568c16a2432652eb9772aa85a3bbe353b1732",
+    "context_fingerprint": "5e2000b8d746b92ebd0ed1bd5e0bb7b412948d7905bf7035a9b285785707da24"
+   }
+  },
+  {
+   "id": "INV34-003855",
+   "file": "dialogs/well_control_kill_sheet_history_dialog.py",
+   "line": 166,
+   "symbol": "WellControlKillSheetHistoryDialog.reload",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "all_saved = self._repo.all() if self._repo else []",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source dialogs/well_control_kill_sheet_history_dialog.py:166 `all_saved = self._repo.all() if self._repo else []`; source_sha256=0bda3e33077a879515a6d75122ea60846e4d81cf74de6f30bc1dcebfad9f6e3d; context_fingerprint=d7277d9ae25c6191b750f2997dc90a9312f6944ee0ef2a855f10b965973d8d41. The Engineering Calculator entry point verifies the kill-sheet history repository exists before dialog construction; direct None construction safely yields no rows, while repository errors have an explicit error banner.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "dialogs/well_control_kill_sheet_history_dialog.py",
+    "line": 166,
+    "symbol": "WellControlKillSheetHistoryDialog.reload",
+    "expression": "all_saved = self._repo.all() if self._repo else []",
+    "source_sha256": "0bda3e33077a879515a6d75122ea60846e4d81cf74de6f30bc1dcebfad9f6e3d",
+    "context_fingerprint": "d7277d9ae25c6191b750f2997dc90a9312f6944ee0ef2a855f10b965973d8d41"
+   }
+  },
+  {
+   "id": "INV34-003880",
+   "file": "main_window.py",
+   "line": 2267,
+   "symbol": "MainWindow._targeted_refresh",
+   "rule": "R-EXC-OTHER",
+   "kind": "broad-exception",
+   "register_line_text": "except Exception:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source main_window.py:2267 `except Exception:`; source_sha256=b2db27d79a7d237acbf2688e29a71cf0f9fbee1c78318124f8026fc2df80ca75; context_fingerprint=6e69c0b72942da6fa8b331be6f32cf5efba57282a467f6cad2d57fefe37abca9. A wellbore lookup failure leaves the already-resolved `wellbore_id` intact and only makes the optional `wellbore_data` mapping unknown. `select_full_context` receives that ID separately, so this fallback does not collapse a known wellbore to Whole-Well scope; outer refresh failures are logged and trigger full refresh.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "main_window.py",
+    "line": 2267,
+    "symbol": "MainWindow._targeted_refresh",
+    "expression": "except Exception:",
+    "source_sha256": "b2db27d79a7d237acbf2688e29a71cf0f9fbee1c78318124f8026fc2df80ca75",
+    "context_fingerprint": "6e69c0b72942da6fa8b331be6f32cf5efba57282a467f6cad2d57fefe37abca9"
+   }
+  },
+  {
+   "id": "INV34-003971",
+   "file": "main_window.py",
+   "line": 3025,
+   "symbol": "MainWindow._auto_backup",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if path:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source main_window.py:3025 `if path:`; source_sha256=b2db27d79a7d237acbf2688e29a71cf0f9fbee1c78318124f8026fc2df80ca75; context_fingerprint=a886c80540318733062ae36bd86dd323d2d716b6683423b937998a76695b3c42. The backup path is an optional return value: only a nonempty path is logged as a successful backup. DatabaseManager.auto_backup owns creation and returns no path when no backup was produced; failures are separately logged.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "main_window.py",
+    "line": 3025,
+    "symbol": "MainWindow._auto_backup",
+    "expression": "if path:",
+    "source_sha256": "b2db27d79a7d237acbf2688e29a71cf0f9fbee1c78318124f8026fc2df80ca75",
+    "context_fingerprint": "a886c80540318733062ae36bd86dd323d2d716b6683423b937998a76695b3c42"
+   }
+  },
+  {
+   "id": "INV34-003992",
+   "file": "main_window.py",
+   "line": 701,
+   "symbol": "MainWindow.create_menubar",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if shortcut:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source main_window.py:701 `if shortcut:`; source_sha256=b2db27d79a7d237acbf2688e29a71cf0f9fbee1c78318124f8026fc2df80ca75; context_fingerprint=998def1b4d957927ca677221a679e5164ef72c25da6f015690de9bf128495627. The Help menu's About action has no shortcut; only nonblank shortcut strings are installed on actions. The optional UI accelerator does not gate action creation or execution.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "main_window.py",
+    "line": 701,
+    "symbol": "MainWindow.create_menubar",
+    "expression": "if shortcut:",
+    "source_sha256": "b2db27d79a7d237acbf2688e29a71cf0f9fbee1c78318124f8026fc2df80ca75",
+    "context_fingerprint": "998def1b4d957927ca677221a679e5164ef72c25da6f015690de9bf128495627"
+   }
+  },
+  {
+   "id": "INV34-003994",
+   "file": "main_window.py",
+   "line": 721,
+   "symbol": "MainWindow.ensure_menubar_visible",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if menubar:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source main_window.py:721 `if menubar:`; source_sha256=b2db27d79a7d237acbf2688e29a71cf0f9fbee1c78318124f8026fc2df80ca75; context_fingerprint=6fea02bc5a7ee7e9e173473927e000db23d3248a14cf527760732c6431e0f4a1. QMainWindow.menuBar() returns the existing menu-bar widget; the branch is an existence guard before visibility/update operations, not an ID or measurement truthiness test.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "main_window.py",
+    "line": 721,
+    "symbol": "MainWindow.ensure_menubar_visible",
+    "expression": "if menubar:",
+    "source_sha256": "b2db27d79a7d237acbf2688e29a71cf0f9fbee1c78318124f8026fc2df80ca75",
+    "context_fingerprint": "6fea02bc5a7ee7e9e173473927e000db23d3248a14cf527760732c6431e0f4a1"
+   }
+  },
+  {
+   "id": "INV34-004047",
+   "file": "packaging/package_smoke.py",
+   "line": 76,
+   "symbol": "main",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if args.run:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source packaging/package_smoke.py:76 `if args.run:`; source_sha256=6bc03c135253e1c95effe2ce4d355565c67ba1d6088db6c1b705c3face9fadeb; context_fingerprint=0c0d3610eb4c99fdc2cdee329887b5659f40a3d1d33e85f866932f1dc134f235. The package structure check is always performed; `--run` is an explicit opt-in to execute the packaged Windows binary smoke command, avoiding accidental process execution during static package inspection.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "packaging/package_smoke.py",
+    "line": 76,
+    "symbol": "main",
+    "expression": "if args.run:",
+    "source_sha256": "6bc03c135253e1c95effe2ce4d355565c67ba1d6088db6c1b705c3face9fadeb",
+    "context_fingerprint": "0c0d3610eb4c99fdc2cdee329887b5659f40a3d1d33e85f866932f1dc134f235"
+   }
+  },
+  {
+   "id": "INV34-004316",
+   "file": "tabs/w10_Planning_Widget.py",
+   "line": 49,
+   "symbol": null,
+   "rule": "R-EXC-OTHER",
+   "kind": "typed-exception",
+   "register_line_text": "except ImportError:",
+   "classification": "DOMAIN_DECISION_REQUIRED",
+   "evidence": "Hash-anchored source tabs/w10_Planning_Widget.py:49 `except ImportError:`; source_sha256=924ad3e30d57d7cffa2868aa7dcb9595455c56d0ac052f4362c1575b2fe807c3; context_fingerprint=0cdd81e97ab7299987d6593f36938e741f09c04cee8a52fcacd9446c2e846db9. The Qt canvas import falls back to FigureCanvasAgg, but chart consumers later pass FigureCanvas into Qt layout.addWidget. In that dependency configuration Agg is not a QWidget, and chart renderers catch the resulting exception and show a Chart error label. Decide whether chart-less fallback is supported and should render an image/disable charts; no backend/device-specific UI rule is invented.",
+   "defect": false,
+   "remaining_question": "Whether Matplotlib Qt-backend absence is a supported chart-less mode and how charts should render/disable the Agg fallback",
+   "site": {
+    "file": "tabs/w10_Planning_Widget.py",
+    "line": 49,
+    "symbol": null,
+    "expression": "except ImportError:",
+    "source_sha256": "924ad3e30d57d7cffa2868aa7dcb9595455c56d0ac052f4362c1575b2fe807c3",
+    "context_fingerprint": "0cdd81e97ab7299987d6593f36938e741f09c04cee8a52fcacd9446c2e846db9"
+   }
+  },
+  {
+   "id": "INV34-004317",
+   "file": "tabs/w10_Planning_Widget.py",
+   "line": 45,
+   "symbol": null,
+   "rule": "R-EXC-OTHER",
+   "kind": "typed-exception",
+   "register_line_text": "except ImportError:",
+   "classification": "DOMAIN_DECISION_REQUIRED",
+   "evidence": "Hash-anchored source tabs/w10_Planning_Widget.py:45 `except ImportError:`; source_sha256=924ad3e30d57d7cffa2868aa7dcb9595455c56d0ac052f4362c1575b2fe807c3; context_fingerprint=9cc62706bd118c0307c0b85ca0f830f62682ffed3f57503b221efb1525a1c71a. The second ImportError fallback sets FigureCanvas=None when even Matplotlib's Agg backend cannot import; chart call sites are caught and show a chart error rather than persisting bad data. It shares the chart-availability policy question recorded at INV34-004316; no independent measurement or scope defect.",
+   "defect": false,
+   "remaining_question": "Whether Matplotlib Qt-backend absence is a supported chart-less mode and how charts should render/disable the Agg fallback",
+   "site": {
+    "file": "tabs/w10_Planning_Widget.py",
+    "line": 45,
+    "symbol": null,
+    "expression": "except ImportError:",
+    "source_sha256": "924ad3e30d57d7cffa2868aa7dcb9595455c56d0ac052f4362c1575b2fe807c3",
+    "context_fingerprint": "9cc62706bd118c0307c0b85ca0f830f62682ffed3f57503b221efb1525a1c71a"
+   }
+  },
+  {
+   "id": "INV34-007975",
+   "file": "dialogs/hierarchy_dialogs.py",
+   "line": 1392,
+   "symbol": "NewDailyReportDialog._copy_all_report_data",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not is_editable(target.status):",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source dialogs/hierarchy_dialogs.py:1392 `if not is_editable(target.status):`; source_sha256=ae4cafcb940cc4938ec8514f56b7a60744acddde6366298290a7a1103c2c3737; context_fingerprint=1c5a4d0456c78b4927f4c5f6eda7f7b91d69fd6d9e6ea3a0a2a8e09a33eb23e4. Report-copy editing is gated by report_lifecycle.is_editable(target.status); locked workflow states are refused before any child data is copied.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "dialogs/hierarchy_dialogs.py",
+    "line": 1392,
+    "symbol": "NewDailyReportDialog._copy_all_report_data",
+    "expression": "if not is_editable(target.status):",
+    "source_sha256": "ae4cafcb940cc4938ec8514f56b7a60744acddde6366298290a7a1103c2c3737",
+    "context_fingerprint": "1c5a4d0456c78b4927f4c5f6eda7f7b91d69fd6d9e6ea3a0a2a8e09a33eb23e4"
+   }
+  },
+  {
+   "id": "INV34-007990",
+   "file": "dialogs/smart_template_dialog.py",
+   "line": 1535,
+   "symbol": "LearningManager._load",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not os.path.exists(path):",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source dialogs/smart_template_dialog.py:1535 `if not os.path.exists(path):`; source_sha256=c913e2b2c955001959d33730fc6d1ed94e0fab3140837bfdc739622228edf093; context_fingerprint=8c5818c9e1bbfe9a3b84726cb41143f2a21241d3d304ba7bbef3533e1bafc5e2. LearningManager first checks the user learning file and then a packaged legacy learning file; if neither exists, the optional correction map remains empty and standard extraction continues.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "dialogs/smart_template_dialog.py",
+    "line": 1535,
+    "symbol": "LearningManager._load",
+    "expression": "if not os.path.exists(path):",
+    "source_sha256": "c913e2b2c955001959d33730fc6d1ed94e0fab3140837bfdc739622228edf093",
+    "context_fingerprint": "8c5818c9e1bbfe9a3b84726cb41143f2a21241d3d304ba7bbef3533e1bafc5e2"
+   }
+  },
+  {
+   "id": "INV34-007991",
+   "file": "dialogs/smart_template_dialog.py",
+   "line": 1639,
+   "symbol": "SmartTemplateDialog.__init__",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-empty",
+   "register_line_text": "self.preload_template = preload_template or {}",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source dialogs/smart_template_dialog.py:1639 `self.preload_template = preload_template or {}`; source_sha256=c913e2b2c955001959d33730fc6d1ed94e0fab3140837bfdc739622228edf093; context_fingerprint=4fd99aaaabb88ec59ca3e4207d8f93c9987c913223626dc0cc8f45c511696b0d. The optional preload template is a mapping; None and an empty mapping both mean no preload assignments. It does not convert a template measurement to zero; the importer still requires explicit detection/review.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "dialogs/smart_template_dialog.py",
+    "line": 1639,
+    "symbol": "SmartTemplateDialog.__init__",
+    "expression": "self.preload_template = preload_template or {}",
+    "source_sha256": "c913e2b2c955001959d33730fc6d1ed94e0fab3140837bfdc739622228edf093",
+    "context_fingerprint": "4fd99aaaabb88ec59ca3e4207d8f93c9987c913223626dc0cc8f45c511696b0d"
+   }
+  },
+  {
+   "id": "INV34-008011",
+   "file": "dialogs/smart_template_dialog.py",
+   "line": 3377,
+   "symbol": "SmartTemplateDialog._load_template_file",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not os.path.isdir(td):",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source dialogs/smart_template_dialog.py:3377 `if not os.path.isdir(td):`; source_sha256=c913e2b2c955001959d33730fc6d1ed94e0fab3140837bfdc739622228edf093; context_fingerprint=000b228203a8abcf84677e8a0b8bb0cff3143005a7e849a3cf73669cca58816b. A missing user-template directory selects the packaged templates directory; this is a source-selection fallback, not a drilling-data default.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "dialogs/smart_template_dialog.py",
+    "line": 3377,
+    "symbol": "SmartTemplateDialog._load_template_file",
+    "expression": "if not os.path.isdir(td):",
+    "source_sha256": "c913e2b2c955001959d33730fc6d1ed94e0fab3140837bfdc739622228edf093",
+    "context_fingerprint": "000b228203a8abcf84677e8a0b8bb0cff3143005a7e849a3cf73669cca58816b"
+   }
+  },
+  {
+   "id": "INV34-008012",
+   "file": "dialogs/smart_template_dialog.py",
+   "line": 3379,
+   "symbol": "SmartTemplateDialog._load_template_file",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not os.path.exists(td):",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source dialogs/smart_template_dialog.py:3379 `if not os.path.exists(td):`; source_sha256=c913e2b2c955001959d33730fc6d1ed94e0fab3140837bfdc739622228edf093; context_fingerprint=a30d19ac00bbae865b7dbdcde69969918bb2ff8bb583fc7805c1b60c870784ad. The chosen user or packaged templates directory is verified to exist before opening the file picker; nonexistent paths return without reading or creating a template.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "dialogs/smart_template_dialog.py",
+    "line": 3379,
+    "symbol": "SmartTemplateDialog._load_template_file",
+    "expression": "if not os.path.exists(td):",
+    "source_sha256": "c913e2b2c955001959d33730fc6d1ed94e0fab3140837bfdc739622228edf093",
+    "context_fingerprint": "a30d19ac00bbae865b7dbdcde69969918bb2ff8bb583fc7805c1b60c870784ad"
+   }
+  },
+  {
+   "id": "INV34-008017",
+   "file": "dialogs/startup_dialog.py",
+   "line": 547,
+   "symbol": "StartupDialog.create_complete_hierarchy",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not company_dialog.exec():",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source dialogs/startup_dialog.py:547 `if not company_dialog.exec():`; source_sha256=93cf61b43cbfd9a16d668aa210688d7fa6f5eeaf673d8d079123be648242ed3b; context_fingerprint=d9f49a26c307e76cd8c38216192f1214492da7e6a6ad6e645d6e3baed2a18b31. QDialog.exec() uses Accepted as nonzero and Rejected/cancel as zero; cancellation stops hierarchy creation before creating a project, well, or report.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "dialogs/startup_dialog.py",
+    "line": 547,
+    "symbol": "StartupDialog.create_complete_hierarchy",
+    "expression": "if not company_dialog.exec():",
+    "source_sha256": "93cf61b43cbfd9a16d668aa210688d7fa6f5eeaf673d8d079123be648242ed3b",
+    "context_fingerprint": "d9f49a26c307e76cd8c38216192f1214492da7e6a6ad6e645d6e3baed2a18b31"
+   }
+  },
+  {
+   "id": "INV34-008019",
+   "file": "dialogs/startup_dialog.py",
+   "line": 563,
+   "symbol": "StartupDialog.create_complete_hierarchy",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not project_dialog.exec():",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source dialogs/startup_dialog.py:563 `if not project_dialog.exec():`; source_sha256=93cf61b43cbfd9a16d668aa210688d7fa6f5eeaf673d8d079123be648242ed3b; context_fingerprint=948d0c29d3bce84f8414f4720fa299a5c6ef71ea9f8fbe0874c80c3b92c59220. QDialog.exec() acceptance is required before well creation; a rejected project dialog stops the sequence and creates no descendant.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "dialogs/startup_dialog.py",
+    "line": 563,
+    "symbol": "StartupDialog.create_complete_hierarchy",
+    "expression": "if not project_dialog.exec():",
+    "source_sha256": "93cf61b43cbfd9a16d668aa210688d7fa6f5eeaf673d8d079123be648242ed3b",
+    "context_fingerprint": "948d0c29d3bce84f8414f4720fa299a5c6ef71ea9f8fbe0874c80c3b92c59220"
+   }
+  },
+  {
+   "id": "INV34-008021",
+   "file": "dialogs/startup_dialog.py",
+   "line": 574,
+   "symbol": "StartupDialog.create_complete_hierarchy",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not well_dialog.exec():",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source dialogs/startup_dialog.py:574 `if not well_dialog.exec():`; source_sha256=93cf61b43cbfd9a16d668aa210688d7fa6f5eeaf673d8d079123be648242ed3b; context_fingerprint=a96404e45669be1bfdbf2b4c8c73203020afdd40c87867bff212eb565758d8d5. QDialog.exec() acceptance is required before final hierarchy completion; rejecting well creation leaves no new well/report attached.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "dialogs/startup_dialog.py",
+    "line": 574,
+    "symbol": "StartupDialog.create_complete_hierarchy",
+    "expression": "if not well_dialog.exec():",
+    "source_sha256": "93cf61b43cbfd9a16d668aa210688d7fa6f5eeaf673d8d079123be648242ed3b",
+    "context_fingerprint": "a96404e45669be1bfdbf2b4c8c73203020afdd40c87867bff212eb565758d8d5"
+   }
+  },
+  {
+   "id": "INV34-008027",
+   "file": "dialogs/torque_drag_history_dialog.py",
+   "line": 220,
+   "symbol": "TorqueDragHistoryDialog._describe",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-empty",
+   "register_line_text": "snap = s.input_snapshot or {}",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source dialogs/torque_drag_history_dialog.py:220 `snap = s.input_snapshot or {}`; source_sha256=8f49b4bded976a5efa799db02d4568c16a2432652eb9772aa85a3bbe353b1732; context_fingerprint=9a6663e52bd894dd3d62723c79ce9639157a0bab207817ba68ace56bec9a0144. History snapshot is optional serialized result content; absent/empty snapshot maps to an empty display mapping. The immutable saved run identity and stored inputs remain separate and are shown elsewhere in the dialog.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "dialogs/torque_drag_history_dialog.py",
+    "line": 220,
+    "symbol": "TorqueDragHistoryDialog._describe",
+    "expression": "snap = s.input_snapshot or {}",
+    "source_sha256": "8f49b4bded976a5efa799db02d4568c16a2432652eb9772aa85a3bbe353b1732",
+    "context_fingerprint": "9a6663e52bd894dd3d62723c79ce9639157a0bab207817ba68ace56bec9a0144"
+   }
+  },
+  {
+   "id": "INV34-008031",
+   "file": "dialogs/well_control_kill_sheet_history_dialog.py",
+   "line": 213,
+   "symbol": "WellControlKillSheetHistoryDialog._describe",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-empty",
+   "register_line_text": "res = s.result or {}",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source dialogs/well_control_kill_sheet_history_dialog.py:213 `res = s.result or {}`; source_sha256=0bda3e33077a879515a6d75122ea60846e4d81cf74de6f30bc1dcebfad9f6e3d; context_fingerprint=94d71f10e479000993e6a3f0b8e752dad1fcabed3103dec2c7762a8f9add26e7. Saved result JSON is optional presentation content; absent/empty result maps to an empty detail view. The dialog does not change or recalculate the stored engineering result.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "dialogs/well_control_kill_sheet_history_dialog.py",
+    "line": 213,
+    "symbol": "WellControlKillSheetHistoryDialog._describe",
+    "expression": "res = s.result or {}",
+    "source_sha256": "0bda3e33077a879515a6d75122ea60846e4d81cf74de6f30bc1dcebfad9f6e3d",
+    "context_fingerprint": "94d71f10e479000993e6a3f0b8e752dad1fcabed3103dec2c7762a8f9add26e7"
+   }
+  },
+  {
+   "id": "INV34-008043",
+   "file": "main_window.py",
+   "line": 1195,
+   "symbol": "MainWindow._stop_hierarchy_worker",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not worker.wait(3000):",
+   "classification": "DOMAIN_DECISION_REQUIRED",
+   "evidence": "Hash-anchored source main_window.py:1195 `if not worker.wait(3000):`; source_sha256=b2db27d79a7d237acbf2688e29a71cf0f9fbee1c78318124f8026fc2df80ca75; context_fingerprint=81c98346fdc6231eae689cdeea66b128f6ebee87ebd19906513cd3292cf06d44. The hierarchy worker is a live MainWindow background reader. If the joined load is still running after 3 seconds, the UI calls QThread.terminate(), which can kill execution before `get_full_hierarchy`'s `finally: session.close()` runs. The worker is read-only, but connection cleanup/thread safety and shutdown policy need an explicit fix/design; this is not a truthy domain value. No patch is made without a cooperative cancellation/lifecycle regression.",
+   "defect": false,
+   "remaining_question": "Whether the MainWindow hierarchy worker should use cooperative cancellation or remain alive until its read completes, instead of forced QThread termination",
+   "site": {
+    "file": "main_window.py",
+    "line": 1195,
+    "symbol": "MainWindow._stop_hierarchy_worker",
+    "expression": "if not worker.wait(3000):",
+    "source_sha256": "b2db27d79a7d237acbf2688e29a71cf0f9fbee1c78318124f8026fc2df80ca75",
+    "context_fingerprint": "81c98346fdc6231eae689cdeea66b128f6ebee87ebd19906513cd3292cf06d44"
+   }
+  },
+  {
+   "id": "INV34-008056",
+   "file": "main_window.py",
+   "line": 1689,
+   "symbol": "MainWindow.on_tree_item_clicked",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-empty",
+   "register_line_text": "well_data = self.db_manager.get_well_by_id(well_id) or {}",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source main_window.py:1689 `well_data = self.db_manager.get_well_by_id(well_id) or {}`; source_sha256=b2db27d79a7d237acbf2688e29a71cf0f9fbee1c78318124f8026fc2df80ca75; context_fingerprint=1f0deaf3f8e6bd87228eac3e15561967cbd4f9be763cfd2beaedaf88bf7beddd. Tree item carries a positive well ID independently of the returned metadata mapping. DatabaseManager.get_well_by_id returns None on missing/error; the empty mapping only avoids attribute errors, while SelectionManager retains the well ID and downstream tabs query by ID.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "main_window.py",
+    "line": 1689,
+    "symbol": "MainWindow.on_tree_item_clicked",
+    "expression": "well_data = self.db_manager.get_well_by_id(well_id) or {}",
+    "source_sha256": "b2db27d79a7d237acbf2688e29a71cf0f9fbee1c78318124f8026fc2df80ca75",
+    "context_fingerprint": "1f0deaf3f8e6bd87228eac3e15561967cbd4f9be763cfd2beaedaf88bf7beddd"
+   }
+  },
+  {
+   "id": "INV34-008057",
+   "file": "main_window.py",
+   "line": 1697,
+   "symbol": "MainWindow.on_tree_item_clicked",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-empty",
+   "register_line_text": "well_data = self.db_manager.get_well_by_id(well_id) or {}",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source main_window.py:1697 `well_data = self.db_manager.get_well_by_id(well_id) or {}`; source_sha256=b2db27d79a7d237acbf2688e29a71cf0f9fbee1c78318124f8026fc2df80ca75; context_fingerprint=1f0deaf3f8e6bd87228eac3e15561967cbd4f9be763cfd2beaedaf88bf7beddd. Same optional well-metadata mapping for a wellbore tree item. Wellbore identity is read from the hierarchy payload and selected separately; a missing well display mapping does not become an empty wellbore ID.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "main_window.py",
+    "line": 1697,
+    "symbol": "MainWindow.on_tree_item_clicked",
+    "expression": "well_data = self.db_manager.get_well_by_id(well_id) or {}",
+    "source_sha256": "b2db27d79a7d237acbf2688e29a71cf0f9fbee1c78318124f8026fc2df80ca75",
+    "context_fingerprint": "1f0deaf3f8e6bd87228eac3e15561967cbd4f9be763cfd2beaedaf88bf7beddd"
+   }
+  },
+  {
+   "id": "INV34-008058",
+   "file": "main_window.py",
+   "line": 1710,
+   "symbol": "MainWindow.on_tree_item_clicked",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-empty",
+   "register_line_text": "well_data = self.db_manager.get_well_by_id(well_id) or {}",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source main_window.py:1710 `well_data = self.db_manager.get_well_by_id(well_id) or {}`; source_sha256=b2db27d79a7d237acbf2688e29a71cf0f9fbee1c78318124f8026fc2df80ca75; context_fingerprint=1f0deaf3f8e6bd87228eac3e15561967cbd4f9be763cfd2beaedaf88bf7beddd. Same optional well-metadata fallback for a section tree item; persisted section identity and wellbore ownership are selected independently of the display mapping.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "main_window.py",
+    "line": 1710,
+    "symbol": "MainWindow.on_tree_item_clicked",
+    "expression": "well_data = self.db_manager.get_well_by_id(well_id) or {}",
+    "source_sha256": "b2db27d79a7d237acbf2688e29a71cf0f9fbee1c78318124f8026fc2df80ca75",
+    "context_fingerprint": "1f0deaf3f8e6bd87228eac3e15561967cbd4f9be763cfd2beaedaf88bf7beddd"
+   }
+  },
+  {
+   "id": "INV34-008059",
+   "file": "main_window.py",
+   "line": 1729,
+   "symbol": "MainWindow.on_tree_item_clicked",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-empty",
+   "register_line_text": "well_data = self.db_manager.get_well_by_id(well_id) or {}",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source main_window.py:1729 `well_data = self.db_manager.get_well_by_id(well_id) or {}`; source_sha256=b2db27d79a7d237acbf2688e29a71cf0f9fbee1c78318124f8026fc2df80ca75; context_fingerprint=1f0deaf3f8e6bd87228eac3e15561967cbd4f9be763cfd2beaedaf88bf7beddd. Same optional well-metadata fallback for a daily-report tree item; report/section/wellbore IDs come from the tree payload, not from the optional dictionary returned here.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "main_window.py",
+    "line": 1729,
+    "symbol": "MainWindow.on_tree_item_clicked",
+    "expression": "well_data = self.db_manager.get_well_by_id(well_id) or {}",
+    "source_sha256": "b2db27d79a7d237acbf2688e29a71cf0f9fbee1c78318124f8026fc2df80ca75",
+    "context_fingerprint": "1f0deaf3f8e6bd87228eac3e15561967cbd4f9be763cfd2beaedaf88bf7beddd"
+   }
+  },
+  {
+   "id": "INV34-008060",
+   "file": "main_window.py",
+   "line": 1751,
+   "symbol": "MainWindow.on_tree_item_clicked",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-empty",
+   "register_line_text": "well_data = self.db_manager.get_well_by_id(well_id) or {}",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source main_window.py:1751 `well_data = self.db_manager.get_well_by_id(well_id) or {}`; source_sha256=b2db27d79a7d237acbf2688e29a71cf0f9fbee1c78318124f8026fc2df80ca75; context_fingerprint=1f0deaf3f8e6bd87228eac3e15561967cbd4f9be763cfd2beaedaf88bf7beddd. Same optional well-metadata fallback for a well-tab item; the selected well ID remains the payload identity and no engineering number is defaulted.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "main_window.py",
+    "line": 1751,
+    "symbol": "MainWindow.on_tree_item_clicked",
+    "expression": "well_data = self.db_manager.get_well_by_id(well_id) or {}",
+    "source_sha256": "b2db27d79a7d237acbf2688e29a71cf0f9fbee1c78318124f8026fc2df80ca75",
+    "context_fingerprint": "1f0deaf3f8e6bd87228eac3e15561967cbd4f9be763cfd2beaedaf88bf7beddd"
+   }
+  },
+  {
+   "id": "INV34-008061",
+   "file": "main_window.py",
+   "line": 1764,
+   "symbol": "MainWindow.on_tree_item_clicked",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-empty",
+   "register_line_text": "well_data = self.db_manager.get_well_by_id(well_id) or {}",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source main_window.py:1764 `well_data = self.db_manager.get_well_by_id(well_id) or {}`; source_sha256=b2db27d79a7d237acbf2688e29a71cf0f9fbee1c78318124f8026fc2df80ca75; context_fingerprint=1f0deaf3f8e6bd87228eac3e15561967cbd4f9be763cfd2beaedaf88bf7beddd. Same optional well-metadata fallback for a section-tab item; section and well IDs remain separate identity fields.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "main_window.py",
+    "line": 1764,
+    "symbol": "MainWindow.on_tree_item_clicked",
+    "expression": "well_data = self.db_manager.get_well_by_id(well_id) or {}",
+    "source_sha256": "b2db27d79a7d237acbf2688e29a71cf0f9fbee1c78318124f8026fc2df80ca75",
+    "context_fingerprint": "1f0deaf3f8e6bd87228eac3e15561967cbd4f9be763cfd2beaedaf88bf7beddd"
+   }
+  },
+  {
+   "id": "INV34-008062",
+   "file": "main_window.py",
+   "line": 1800,
+   "symbol": "MainWindow._open_section_data",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-empty",
+   "register_line_text": "well_data = self.db_manager.get_well_by_id(well_id) or {}",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source main_window.py:1800 `well_data = self.db_manager.get_well_by_id(well_id) or {}`; source_sha256=b2db27d79a7d237acbf2688e29a71cf0f9fbee1c78318124f8026fc2df80ca75; context_fingerprint=330c6bda1b08e1be5b2c4be776283645bb0f851cb70f5305649d76f1e8244a5a. The Section Data entry helper keeps well_id/section_id identities even if optional well labels are unavailable; saved report scope is not synthesized from this mapping.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "main_window.py",
+    "line": 1800,
+    "symbol": "MainWindow._open_section_data",
+    "expression": "well_data = self.db_manager.get_well_by_id(well_id) or {}",
+    "source_sha256": "b2db27d79a7d237acbf2688e29a71cf0f9fbee1c78318124f8026fc2df80ca75",
+    "context_fingerprint": "330c6bda1b08e1be5b2c4be776283645bb0f851cb70f5305649d76f1e8244a5a"
+   }
+  },
+  {
+   "id": "INV34-008070",
+   "file": "main_window.py",
+   "line": 2241,
+   "symbol": "MainWindow._targeted_refresh",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-empty",
+   "register_line_text": "well_data = self.db_manager.get_well_by_id(well_id) or {}",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source main_window.py:2241 `well_data = self.db_manager.get_well_by_id(well_id) or {}`; source_sha256=b2db27d79a7d237acbf2688e29a71cf0f9fbee1c78318124f8026fc2df80ca75; context_fingerprint=b02cd28d16ca098751f3960b7080146b104e94146525b9cdaa45f4f2c1645b22. Targeted refresh uses an explicit well ID and expects the persisted well object only for display/section context; a missing lookup does not change the supplied well ID. Outer failures are logged and fall back to the normal refresh path.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "main_window.py",
+    "line": 2241,
+    "symbol": "MainWindow._targeted_refresh",
+    "expression": "well_data = self.db_manager.get_well_by_id(well_id) or {}",
+    "source_sha256": "b2db27d79a7d237acbf2688e29a71cf0f9fbee1c78318124f8026fc2df80ca75",
+    "context_fingerprint": "b02cd28d16ca098751f3960b7080146b104e94146525b9cdaa45f4f2c1645b22"
+   }
+  },
+  {
+   "id": "INV34-008071",
+   "file": "main_window.py",
+   "line": 2247,
+   "symbol": "MainWindow._targeted_refresh",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-empty",
+   "register_line_text": "self.db_manager.get_daily_report_by_id(report_id) or {}",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source main_window.py:2247 `self.db_manager.get_daily_report_by_id(report_id) or {}`; source_sha256=b2db27d79a7d237acbf2688e29a71cf0f9fbee1c78318124f8026fc2df80ca75; context_fingerprint=b736f37a969d109008f7e06cbbbb144cc347c5cb901039fcb2c5a9f4e9ec9f17. The persisted report lookup returns a row mapping or None; a query exception propagates to the outer refresh error handler. In the None case, the refresh retains explicit report_id and falls back to the selected section's persisted wellbore_id when available; all active tabs are then reloaded by explicit IDs. The empty mapping is not a zero-valued report result.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "main_window.py",
+    "line": 2247,
+    "symbol": "MainWindow._targeted_refresh",
+    "expression": "self.db_manager.get_daily_report_by_id(report_id) or {}",
+    "source_sha256": "b2db27d79a7d237acbf2688e29a71cf0f9fbee1c78318124f8026fc2df80ca75",
+    "context_fingerprint": "b736f37a969d109008f7e06cbbbb144cc347c5cb901039fcb2c5a9f4e9ec9f17"
+   }
+  },
+  {
+   "id": "INV34-008084",
+   "file": "tabs/w10_Planning_Widget.py",
+   "line": 189,
+   "symbol": "SevenDaysLookaheadTab.load_lookahead_plan",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not self.db or not self.current_report_id:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source tabs/w10_Planning_Widget.py:189 `if not self.db or not self.current_report_id:`; source_sha256=924ad3e30d57d7cffa2868aa7dcb9595455c56d0ac052f4362c1575b2fe807c3; context_fingerprint=71401ece44a739bb161dc01c74e104fe59b17c2646b57a37b181e36867d80deb. Lookahead records are report-scoped: without a database or explicit current_report_id the widget does not issue a query. ID zero is not a valid persisted report identity; this does not reuse a globally selected report by accident.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w10_Planning_Widget.py",
+    "line": 189,
+    "symbol": "SevenDaysLookaheadTab.load_lookahead_plan",
+    "expression": "if not self.db or not self.current_report_id:",
+    "source_sha256": "924ad3e30d57d7cffa2868aa7dcb9595455c56d0ac052f4362c1575b2fe807c3",
+    "context_fingerprint": "71401ece44a739bb161dc01c74e104fe59b17c2646b57a37b181e36867d80deb"
+   }
+  },
+  {
+   "id": "INV34-008803",
+   "file": "dialogs/smart_template_dialog.py",
+   "line": 2221,
+   "symbol": "SmartTemplateDialog._smart_auto_detect",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "numeric-get-default",
+   "register_line_text": ").get(section, 0)",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source dialogs/smart_template_dialog.py:2221 `).get(section, 0)`; source_sha256=c913e2b2c955001959d33730fc6d1ed94e0fab3140837bfdc739622228edf093; context_fingerprint=d4575ca0db879be4eacc9b9c463bebcb13b4d37fb30ee2fac954697bc966eacb. Router scores are computed for every loaded worksheet and every supported section; the 0 default is defensive for a missing score map. The filter only selects sheets for a reviewable detector and does not auto-persist candidates.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "dialogs/smart_template_dialog.py",
+    "line": 2221,
+    "symbol": "SmartTemplateDialog._smart_auto_detect",
+    "expression": ").get(section, 0)",
+    "source_sha256": "c913e2b2c955001959d33730fc6d1ed94e0fab3140837bfdc739622228edf093",
+    "context_fingerprint": "d4575ca0db879be4eacc9b9c463bebcb13b4d37fb30ee2fac954697bc966eacb"
+   }
+  },
+  {
+   "id": "INV34-008804",
+   "file": "dialogs/smart_template_dialog.py",
+   "line": 2243,
+   "symbol": "SmartTemplateDialog._smart_auto_detect",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not self._should_reject(",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source dialogs/smart_template_dialog.py:2243 `if not self._should_reject(`; source_sha256=c913e2b2c955001959d33730fc6d1ed94e0fab3140837bfdc739622228edf093; context_fingerprint=8df81f20fc1bc3024d950c7cd4efdda9ee1bba6f3f85f4d0b3a60fc0e1ea491f. The field detector result is accepted unless the explicit rejection predicate returns true; this is a boolean policy test on a candidate, not a truthiness check on the candidate's numeric value (tuple result remains truthy even when value is 0).",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "dialogs/smart_template_dialog.py",
+    "line": 2243,
+    "symbol": "SmartTemplateDialog._smart_auto_detect",
+    "expression": "if not self._should_reject(",
+    "source_sha256": "c913e2b2c955001959d33730fc6d1ed94e0fab3140837bfdc739622228edf093",
+    "context_fingerprint": "8df81f20fc1bc3024d950c7cd4efdda9ee1bba6f3f85f4d0b3a60fc0e1ea491f"
+   }
+  }
+ ]
+}
