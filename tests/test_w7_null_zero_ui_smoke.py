@@ -49,8 +49,9 @@ _CHILD = textwrap.dedent(
     w = Well(name="W", code="W", project_id=p.id); s.add(w); s.flush()
     r1 = DailyReport(well_id=w.id, report_date=date(2026, 5, 1)); s.add(r1); s.flush()
     r2 = DailyReport(well_id=w.id, report_date=date(2026, 5, 2)); s.add(r2); s.flush()
+    empty_well = Well(name="W-empty", code="W-empty", project_id=p.id); s.add(empty_well)
     s.commit()
-    wid, r1id, r2id = w.id, r1.id, r2.id
+    wid, r1id, r2id, empty_wid = w.id, r1.id, r2.id, empty_well.id
     s.close()
 
     # r1: a persisted UNKNOWN fuel stock (NULL), carry-forward disabled.
@@ -106,6 +107,15 @@ _CHILD = textwrap.dedent(
 
     # The two states never collapsed into one another.
     assert row1["fuel_stock"] is None and row2["fuel_stock"] == 0.0
+
+    # Switching to a different well with no inventory must not leave the prior
+    # well's controls populated; otherwise a later save could misattribute data.
+    tab.current_well_id = empty_wid
+    tab.current_report_id = None
+    tab.load_fuel_water_from_db()
+    assert _stock_value(tab.fuel_stock) is None
+    assert _stock_value(tab.water_stock) is None
+    assert tab.fuel_consumed.value() == 0.0
 
     # Clear means unreported stock, not four empty-tank facts. Movement fields
     # remain explicit zero because no movement is the additive identity.

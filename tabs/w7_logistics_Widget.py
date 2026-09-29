@@ -1057,7 +1057,10 @@ class FuelWaterTab(QWidget):
                     self.status_manager.show_success(
                         "FuelWaterTab", "Fuel/water data loaded")
             else:
-                self._clear_carry_forward_preview()
+                # A well/date change with no matching record must not retain the
+                # prior selection's controls (which could later be saved under
+                # this well/report). Reset stocks to unknown and movements to 0.
+                self.clear_fields()
                 self.status_manager.show_message("FuelWaterTab", "No data found for selected date")
         except Exception as e:
             logger.error(f"Error loading fuel/water data: {e}")

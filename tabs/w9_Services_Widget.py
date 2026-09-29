@@ -18,6 +18,10 @@ from core.base_tab import DrillTabBase
 
 logger = logging.getLogger(__name__)
 
+# The MaterialRequest schema is nullable: an untouched quantity is unknown,
+# while an explicitly entered 0.0 is a real zero quantity.
+_REQUEST_QUANTITY_UNKNOWN = -1.0
+
 # ------------------------ Material Handling Tab ------------------------
 class MaterialHandlingTab(QWidget):
     """Tab for material handling, notes, and requests"""
@@ -107,8 +111,9 @@ class MaterialHandlingTab(QWidget):
         self.requested_items_input.setPlaceholderText("Enter requested items (one per line or comma separated)")
         form_layout.addRow("Requested Items:", self.requested_items_input)
         self.requested_qty_input = QDoubleSpinBox()
-        self.requested_qty_input.setRange(0, 999999)
-        self.requested_qty_input.setValue(0)
+        self.requested_qty_input.setRange(_REQUEST_QUANTITY_UNKNOWN, 999999)
+        self.requested_qty_input.setSpecialValueText("Not specified")
+        self.requested_qty_input.setValue(_REQUEST_QUANTITY_UNKNOWN)
         form_layout.addRow("Requested Quantity:", self.requested_qty_input)
         self.requested_unit_input = QComboBox()
         self.requested_unit_input.addItems(["units", "kg", "lbs", "liters", "gallons", "meters", "feet"])
@@ -265,7 +270,8 @@ class MaterialHandlingTab(QWidget):
                     else:
                         self.requests_table.setItem(row, 1, QTableWidgetItem(date_val.strftime("%Y-%m-%d")))
                 self.requests_table.setItem(row, 2, QTableWidgetItem(req.get("requested_items", "")))
-                self.requests_table.setItem(row, 3, QTableWidgetItem(str(req.get("requested_quantity", 0))))
+                quantity = req.get("requested_quantity")
+                self.requests_table.setItem(row, 3, QTableWidgetItem("—" if quantity is None else str(quantity)))
                 self.requests_table.setItem(row, 4, QTableWidgetItem(req.get("requested_unit", "")))
                 self.requests_table.setItem(row, 5, QTableWidgetItem(req.get("outstanding_items", "")))
                 self.requests_table.setItem(row, 6, QTableWidgetItem(req.get("received_items", "")))
@@ -372,7 +378,10 @@ class MaterialHandlingTab(QWidget):
                 "report_id": self.current_report_id,
                 "request_date": self.request_date_input.date().toPython(),
                 "requested_items": requested_items,
-                "requested_quantity": self.requested_qty_input.value(),
+                "requested_quantity": (
+                    None if self.requested_qty_input.value() <= _REQUEST_QUANTITY_UNKNOWN
+                    else self.requested_qty_input.value()
+                ),
                 "requested_unit": self.requested_unit_input.currentText(),
                 "status": "Pending"
             }
@@ -389,7 +398,7 @@ class MaterialHandlingTab(QWidget):
 
     def clear_request_form(self):
         self.requested_items_input.clear()
-        self.requested_qty_input.setValue(0)
+        self.requested_qty_input.setValue(_REQUEST_QUANTITY_UNKNOWN)
         self.requested_unit_input.setCurrentIndex(0)
 
     def edit_material_request(self):
