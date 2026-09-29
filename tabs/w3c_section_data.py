@@ -1672,13 +1672,25 @@ class SectionDataWidget(DrillTabBase):
         layout.addWidget(self.tab_widget)
 
     def on_well_changed(self, well_id, well_data):
+        well_changed = well_id != self.current_well_id
         self.current_well_id = well_id
+        if well_changed:
+            # SelectionManager clears section on a well switch but does not emit
+            # a separate section event. Drop the old section and its form state
+            # so a later save cannot attribute the previous well's values here.
+            self.current_section_id = None
         self._load_sections(well_id)
         if not self._tabs_ready:
             return
         for t in [self.cement_tab, self.casing_tab, self.casing_tally_tab]:
             if hasattr(t, 'current_well'):
                 t.current_well = well_id
+        if well_changed:
+            self.cement_tab.clear_form()
+            self.casing_tab.clear_form()
+            self.casing_tally_tab.tally_table.setRowCount(0)
+            self.casing_tally_tab.summary_text.clear()
+            self.bit_tab.bit_table.setRowCount(0)
         self.service_company_tab.set_current_well(well_id)
         self.failure_tab.current_well = well_id
         self.bit_tab.current_well = well_id
