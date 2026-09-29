@@ -742,7 +742,8 @@ class DailyReportWidget(DrillTabBase):
         from_time = TimeLineEdit()
         if log_data and hasattr(log_data, 'time_from'):
             if hasattr(log_data.time_from, 'hour'):
-                # اگر زمان از نوع time است
+                # Preserve the ORM time value; midnight is an explicit value,
+                # while malformed legacy strings below stay visibly invalid.
                 if log_data.time_from.hour == 0 and log_data.time_from.minute == 0:
                     from_time.set_time(0, 0, is_2400=True)
                 else:
@@ -753,13 +754,22 @@ class DailyReportWidget(DrillTabBase):
                 else:
                     try:
                         parts = log_data.time_from.split(':')
+                        if len(parts) not in (1, 2):
+                            raise ValueError("time must have at most one colon")
                         hour = int(parts[0])
-                        minute = int(parts[1]) if len(parts) > 1 else 0
-                        from_time.set_time(hour, minute)
+                        minute = int(parts[1]) if len(parts) == 2 else 0
+                        if 0 <= hour <= 23 and 0 <= minute <= 59:
+                            from_time.set_time(hour, minute)
+                        else:
+                            from_time.set_invalid_time(log_data.time_from)
                     except (AttributeError, IndexError, ValueError):
-                        from_time.set_time(8, 0)
+                        from_time.set_invalid_time(log_data.time_from)
+            else:
+                from_time.set_invalid_time(log_data.time_from)
         else:
-            from_time.set_time(8, 0)
+            # A blank/new row has no operational time yet. Do not prefill an
+            # illustrative interval that can be saved as if it were observed.
+            from_time.set_invalid_time(None)
         
         from_time.timeChanged.connect(lambda: self.calculate_row_duration(table, row))
         table.setCellWidget(row, 0, from_time)
@@ -778,13 +788,21 @@ class DailyReportWidget(DrillTabBase):
                 else:
                     try:
                         parts = log_data.time_to.split(':')
+                        if len(parts) not in (1, 2):
+                            raise ValueError("time must have at most one colon")
                         hour = int(parts[0])
-                        minute = int(parts[1]) if len(parts) > 1 else 0
-                        to_time.set_time(hour, minute)
+                        minute = int(parts[1]) if len(parts) == 2 else 0
+                        if 0 <= hour <= 23 and 0 <= minute <= 59:
+                            to_time.set_time(hour, minute)
+                        else:
+                            to_time.set_invalid_time(log_data.time_to)
                     except (AttributeError, IndexError, ValueError):
-                        to_time.set_time(16, 0)
+                        to_time.set_invalid_time(log_data.time_to)
+            else:
+                to_time.set_invalid_time(log_data.time_to)
         else:
-            to_time.set_time(16, 0)
+            # End time remains unknown until entered or loaded from a record.
+            to_time.set_invalid_time(None)
         
         to_time.timeChanged.connect(lambda: self.calculate_row_duration(table, row))
         table.setCellWidget(row, 1, to_time)
@@ -1094,10 +1112,17 @@ class DailyReportWidget(DrillTabBase):
         duration_widget = table.cellWidget(row, 2)
         
         if from_widget and to_widget and duration_widget:
-            # دریافت زمان‌ها از TimeLineEdit
-            from_hour, from_minute, from_is_2400 = from_widget.get_time()
-            to_hour, to_minute, to_is_2400 = to_widget.get_time()
-            
+            # An invalid legacy value is unknown, not 00:00 and not a duration.
+            try:
+                from_hour, from_minute, from_is_2400 = from_widget.get_time()
+                to_hour, to_minute, to_is_2400 = to_widget.get_time()
+            except (AttributeError, TypeError, ValueError) as exc:
+                duration_widget.setText("NOT ASSESSED")
+                duration_widget.setToolTip(str(exc))
+                self.update_statistics()
+                return
+            duration_widget.setToolTip("")
+
             # تبدیل به ثانیه
             if from_is_2400:
                 from_seconds = 24 * 3600
@@ -1336,6 +1361,24 @@ class DailyReportWidget(DrillTabBase):
         owns_session = session is None
         session = session or self.db_manager.create_session()
         try:
+            # Validate required time fields before deleting the stored rows. A
+            # malformed legacy value must be corrected, not replaced by a
+            # synthetic midnight/default interval or silently dropped.
+            for table, table_name in (
+                (self.time_24_table, "24-hour"),
+                (self.morning_table, "morning"),
+            ):
+                for row in range(table.rowCount()):
+                    for column, field_name in ((0, "start"), (1, "end")):
+                        widget = table.cellWidget(row, column)
+                        try:
+                            widget.get_time()
+                        except (AttributeError, TypeError, ValueError) as exc:
+                            raise ValueError(
+                                f"{table_name} time-log row {row + 1} {field_name} "
+                                f"time is missing or invalid: {exc}"
+                            ) from exc
+
             session.query(TimeLog24H).filter_by(report_id=report_id).delete()
             session.query(TimeLogMorning).filter_by(report_id=report_id).delete()
             
@@ -1405,29 +1448,15 @@ class DailyReportWidget(DrillTabBase):
                 except (ValueError, TypeError):
                     pass
 
-            # ✅ خواندن time_from - امن
-            from_python_time = time(0, 0)
-            if hasattr(from_widget, 'get_time'):
-                try:
-                    hour, minute, is_2400 = from_widget.get_time()
-                    if is_2400:
-                        from_python_time = time(0, 0)
-                    else:
-                        from_python_time = time(hour, minute)
-                except Exception:
-                    pass
-
-            # ✅ خواندن time_to - امن
-            to_python_time = time(0, 0)
-            if hasattr(to_widget, 'get_time'):
-                try:
-                    hour, minute, is_2400 = to_widget.get_time()
-                    if is_2400:
-                        to_python_time = time(0, 0)
-                    else:
-                        to_python_time = time(hour, minute)
-                except Exception:
-                    pass
+            # Times are required schema inputs; invalid widgets must not default
+            # to midnight or be swallowed as a successful row.
+            try:
+                from_hour, from_minute, from_is_2400 = from_widget.get_time()
+                to_hour, to_minute, to_is_2400 = to_widget.get_time()
+            except (AttributeError, TypeError, ValueError) as exc:
+                raise ValueError(f"Time-log row {row + 1} has a missing/invalid time") from exc
+            from_python_time = time(0, 0) if from_is_2400 else time(from_hour, from_minute)
+            to_python_time = time(0, 0) if to_is_2400 else time(to_hour, to_minute)
 
             # ✅ محاسبه duration اگر صفر بود
             if duration == 0.0:
@@ -1494,7 +1523,7 @@ class DailyReportWidget(DrillTabBase):
             }
         except Exception as e:
             logger.error(f"Row extraction error at row {row}: {e}")
-            return None
+            raise
             
     def _calculate_duration_with_2400(self, from_time: DrillTime, to_time: DrillTime) -> float:
         """محاسبه دیرکرد با پشتیبانی از 24:00"""

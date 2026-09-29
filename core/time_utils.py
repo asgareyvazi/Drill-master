@@ -22,6 +22,7 @@ class TimeLineEdit(QLineEdit):
         self._hour = 0
         self._minute = 0
         self._is_2400 = False
+        self._invalid_time = False
         
         # تنظیم validator
         self.setValidator(TimeValidator(self))
@@ -32,7 +33,11 @@ class TimeLineEdit(QLineEdit):
     
     def _on_text_edited(self, text):
         """بررسی متن وارد شده"""
+        self._invalid_time = True
         if text == "24:00":
+            self._invalid_time = False
+            self.setStyleSheet("")
+            self.setToolTip("")
             self._is_2400 = True
             self._hour = 24
             self._minute = 0
@@ -42,8 +47,15 @@ class TimeLineEdit(QLineEdit):
     def _on_editing_finished(self):
         """پس از اتمام ویرایش"""
         text = self.text().strip()
+        if not text:
+            self._invalid_time = True
+            self.setToolTip("Time is not recorded; enter a valid HH:MM value.")
+            return
 
         if text in ("24:00", "24", "2400"):
+            self._invalid_time = False
+            self.setStyleSheet("")
+            self.setToolTip("")
             self._is_2400 = True
             self._hour = 24
             self._minute = 0
@@ -59,6 +71,9 @@ class TimeLineEdit(QLineEdit):
                     hour = int(parts[0])
                     minute = int(parts[1])
                     if 0 <= hour <= 23 and 0 <= minute <= 59:
+                        self._invalid_time = False
+                        self.setStyleSheet("")
+                        self.setToolTip("")
                         self._is_2400 = False
                         self._hour = hour
                         self._minute = minute
@@ -72,6 +87,9 @@ class TimeLineEdit(QLineEdit):
                 hour = int(text[:2])
                 minute = int(text[2:4]) if len(text) >= 4 else 0
                 if 0 <= hour <= 23 and 0 <= minute <= 59:
+                    self._invalid_time = False
+                    self.setStyleSheet("")
+                    self.setToolTip("")
                     self._is_2400 = False
                     self._hour = hour
                     self._minute = minute
@@ -81,30 +99,50 @@ class TimeLineEdit(QLineEdit):
             except ValueError:
                 pass
 
-        # اگر نامعتبر بود، مقدار قبلی را برگردان
+        # Keep an invalid imported/user value visible instead of silently
+        # replacing it with a plausible clock time.
+        if self._invalid_time:
+            self.setToolTip("Invalid or unrecorded time; correct it before saving.")
+            return
         if self._is_2400:
             self.setText("24:00")
         else:
             self.setText(f"{self._hour:02d}:{self._minute:02d}")
-    
+
+    def set_invalid_time(self, raw_value):
+        """Display an unparseable source value without inventing a time."""
+        self._invalid_time = True
+        self._is_2400 = False
+        self.setText(str(raw_value) if raw_value is not None else "")
+        self.setStyleSheet("background-color: #ffe0b2; color: #7f2704;")
+        self.setToolTip("Invalid legacy time value; correct it before saving.")
+
     def get_time(self):
-        """دریافت زمان به صورت (hour, minute, is_2400)"""
+        """Return time tuple; missing/invalid values are explicit failures."""
+        if self._invalid_time:
+            raise ValueError("Time is missing or invalid; enter a valid HH:MM value")
         return self._hour, self._minute, self._is_2400
     
     def get_display_string(self):
         """دریافت رشته نمایشی"""
+        if self._invalid_time:
+            return self.text().strip()
         if self._is_2400:
             return "24:00"
         return f"{self._hour:02d}:{self._minute:02d}"
     
     def get_python_time(self):
         """دریافت به صورت time پایتون"""
+        self.get_time()
         if self._is_2400:
             return time(0, 0)
         return time(self._hour, self._minute)
     
     def set_time(self, hour: int, minute: int = 0, is_2400: bool = False):
         """تنظیم زمان"""
+        self._invalid_time = False
+        self.setStyleSheet("")
+        self.setToolTip("")
         if is_2400:
             self._is_2400 = True
             self._hour = 24
@@ -118,7 +156,8 @@ class TimeLineEdit(QLineEdit):
         self.timeChanged.emit()
     
     def clear(self):
-        """پاک کردن"""
+        """پاک کردن to an explicit unrecorded state."""
+        self._invalid_time = True
         self._is_2400 = False
         self._hour = 0
         self._minute = 0
@@ -128,6 +167,8 @@ class TimeLineEdit(QLineEdit):
         """محاسبه اختلاف تا زمان دیگر (به ساعت)."""
         if not isinstance(other, TimeLineEdit):
             raise TypeError("other must be a TimeLineEdit")
+        self.get_time()
+        other.get_time()
         if self._is_2400:
             self_seconds = 24 * 3600
         else:
