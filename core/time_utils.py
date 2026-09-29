@@ -41,6 +41,7 @@ class TimeLineEdit(QLineEdit):
             self._is_2400 = True
             self._hour = 24
             self._minute = 0
+            self.setMaxLength(5)
             self.setText("24:00")
             self.timeChanged.emit()
     
@@ -59,6 +60,7 @@ class TimeLineEdit(QLineEdit):
             self._is_2400 = True
             self._hour = 24
             self._minute = 0
+            self.setMaxLength(5)
             self.setText("24:00")
             self.timeChanged.emit()
             return
@@ -77,6 +79,7 @@ class TimeLineEdit(QLineEdit):
                         self._is_2400 = False
                         self._hour = hour
                         self._minute = minute
+                        self.setMaxLength(5)
                         self.setText(f"{hour:02d}:{minute:02d}")
                         self.timeChanged.emit()
                         return
@@ -93,6 +96,7 @@ class TimeLineEdit(QLineEdit):
                     self._is_2400 = False
                     self._hour = hour
                     self._minute = minute
+                    self.setMaxLength(5)
                     self.setText(f"{hour:02d}:{minute:02d}")
                     self.timeChanged.emit()
                     return
@@ -113,7 +117,11 @@ class TimeLineEdit(QLineEdit):
         """Display an unparseable source value without inventing a time."""
         self._invalid_time = True
         self._is_2400 = False
-        self.setText(str(raw_value) if raw_value is not None else "")
+        display_value = str(raw_value) if raw_value is not None else ""
+        # QLineEdit's normal HH:MM limit must not truncate malformed imported
+        # values into text that looks like a valid time.
+        self.setMaxLength(max(5, len(display_value)))
+        self.setText(display_value)
         self.setStyleSheet("background-color: #ffe0b2; color: #7f2704;")
         self.setToolTip("Invalid legacy time value; correct it before saving.")
 
@@ -141,6 +149,7 @@ class TimeLineEdit(QLineEdit):
     def set_time(self, hour: int, minute: int = 0, is_2400: bool = False):
         """تنظیم زمان"""
         self._invalid_time = False
+        self.setMaxLength(5)
         self.setStyleSheet("")
         self.setToolTip("")
         if is_2400:
@@ -158,6 +167,7 @@ class TimeLineEdit(QLineEdit):
     def clear(self):
         """پاک کردن to an explicit unrecorded state."""
         self._invalid_time = True
+        self.setMaxLength(5)
         self._is_2400 = False
         self._hour = 0
         self._minute = 0
