@@ -1,16 +1,16 @@
 {
  "schema": "m36-open-item-register",
- "generated_utc": "2026-09-29T08:53:10+00:00",
+ "generated_utc": "2026-09-29T09:59:53+00:00",
  "source_register": "docs/audits/m35-evidence/m35-open-item-register.json",
  "source_sha256_declared": "d81a77bda0330c75493f4081c4a02e4d106fe7602e49c14f0c67d12977658a6b",
  "totals": {
   "records": 1224,
-  "open": 178,
+  "open": 133,
   "open_by_priority": {
-   "MEDIUM": 178
+   "MEDIUM": 133
   },
   "open_by_class": {
-   "E": 178
+   "E": 133
   },
   "defect_fixed": 2
  },
@@ -6577,13 +6577,16 @@
    "missing_fact": "the intended failure semantics at this call site",
    "why_it_matters": "failures may be reported as successes",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source core/mineru_engine.py:1064 `except (TypeError, ValueError):`; source_sha256=d6e3e753a7af271fc15410ae8114770a7665d75db554b33f90337f2828d14c3f; context_fingerprint=54ded87ba1b67ac25cdeeb5abd2107d4f0813d2f25eb8490f38ff892277ce7c1. The JSON payload parser catches only type/value failures for an individual node; unusable source nodes are skipped while other document structure and provenance remain available.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-026"
+   "p6_batch": "p6-batch-026",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-002208",
@@ -6806,13 +6809,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source core/operations_intelligence.py:193 `if npt_insight:`; source_sha256=aeb313cd7d99e6b169076fdace72c6bc650547235faab9cc1ae2fdc0c700b0ad; context_fingerprint=bf446db0be7fb83d64bd967d20a6b6c99bef9de44f008d8c2c6d38a533d6a01c. NPT insight is optional by threshold: analyze_well calls the analyzer only for a known percentage, and appends an insight only when the analyzer returns one. No 0% substitute is created for missing data.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-026"
+   "p6_batch": "p6-batch-026",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-002258",
@@ -7647,13 +7653,16 @@
    "missing_fact": "the intended failure semantics at this call site",
    "why_it_matters": "failures may be reported as successes",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "DOMAIN_DECISION_REQUIRED",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source core/report_engine.py:774 `except Exception:`; source_sha256=b14943e80b71c7d29d3e5c43f7a5fbcf150c6854bd68bb8f5c4dcf90bdf88b0c; context_fingerprint=a2bce89988675bc74c84a72aa1919b1d6dbd74f278e7520bb1a4f1cd54909d3c. The EOWR collection path currently catches cost-query exceptions and supplies an empty cost list, making query failure indistinguishable from a successful query with no cost rows. A product decision is needed: fail the report, or retain an explicit unavailable/error state for only the cost section. There is no production cost report consumer contract in this path that authorizes treating DB failure as no rows.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-026"
+   "p6_batch": "p6-batch-026",
+   "p6_remaining_question": "Report policy for distinguishing cost-query failure from an empty cost collection",
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-002634",
@@ -7672,13 +7681,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source core/report_engine.py:322 `if bc.watermark:`; source_sha256=b14943e80b71c7d29d3e5c43f7a5fbcf150c6854bd68bb8f5c4dcf90bdf88b0c; context_fingerprint=170f66f9c182ad27ab687055d5298e9f12f3208b128bf7c28cd0bafa6ea523b7. A watermark is optional report-branding metadata; absence suppresses only the watermark and does not affect measurement or report content fields.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-026"
+   "p6_batch": "p6-batch-026",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-002706",
@@ -7897,13 +7909,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source core/scope_attribution.py:190 `if invalid:`; source_sha256=7de589e5a975941bc0618b1afbdc585b40562d9fff60f5b6d4735e4006e41611; context_fingerprint=ca18d3564b9af1397272c88c76e7af704d946bba562c5f979c090defd7273dce. The flag is a computed boolean consistency result; invalid ownership candidates are counted and excluded before any proposed attribution is applied.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-026"
+   "p6_batch": "p6-batch-026",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-002787",
@@ -7922,13 +7937,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source core/scope_attribution.py:126 `if report.applied:`; source_sha256=7de589e5a975941bc0618b1afbdc585b40562d9fff60f5b6d4735e4006e41611; context_fingerprint=6a02c36df134b82fa1aa8ce8b2adf5371479c0c65d1044bd89de240a70996260. `applied` records the count of rows actually changed; commit is correctly conditional on a nonzero write count, not on a scope or identifier.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-026"
+   "p6_batch": "p6-batch-026",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-002794",
@@ -8003,17 +8021,20 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "contract_quote": {
     "kind": "explicit-reporting",
     "quote": "logger.debug(f\"Selection: section → {section_id}\")"
    },
    "register_classification": "OPEN-CONTRACT-CANDIDATE",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source core/selection_manager.py:251 `if changed:`; source_sha256=f0ef3ab19398fb0f43b8f1268b08b6f00c67e89c28fe9010fbf7824841ffee22; context_fingerprint=003f0bbdb7a5368711d208953f0034141c40c217c58fb5fb95f9852e669636da. `changed` compares the new section identity to the selected identity; dependent report state is cleared only when section identity changes, while same-ID payload refresh is handled separately.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-026"
+   "p6_batch": "p6-batch-026",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-002798",
@@ -8032,17 +8053,20 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "contract_quote": {
     "kind": "function-docstring-or-comment",
     "quote": "# after Excel import), and an explicit None must not suppress it."
    },
    "register_classification": "OPEN-CONTRACT-CANDIDATE",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source core/selection_manager.py:179 `if changed:`; source_sha256=f0ef3ab19398fb0f43b8f1268b08b6f00c67e89c28fe9010fbf7824841ffee22; context_fingerprint=521818ac9dc8d0ce15e40e9044a58e2dcafb3ece5e8baeda18a18e5a26a44c99. `changed` compares well identity; changing the well clears all descendant wellbore/section/report context, whereas same-ID data refresh does not.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-026"
+   "p6_batch": "p6-batch-026",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-002799",
@@ -8061,13 +8085,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source core/selection_manager.py:219 `if changed:`; source_sha256=f0ef3ab19398fb0f43b8f1268b08b6f00c67e89c28fe9010fbf7824841ffee22; context_fingerprint=c6808b3b8cb48b0666e777d584aa7dd3137b7746180440b376167657682ad0f6. `changed` compares wellbore identity; changing the wellbore clears only descendant section/report context, preserving the selected well.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-026"
+   "p6_batch": "p6-batch-026",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-002808",
@@ -8142,17 +8169,20 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "contract_quote": {
     "kind": "function-docstring-or-comment",
     "quote": "\"\"\"Load user overrides first, then the read-only packaged defaults.\"\"\""
    },
    "register_classification": "OPEN-CONTRACT-CANDIDATE",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source core/standards.py:22 `except (OSError, ValueError):`; source_sha256=f1c646e62d73c6d1e6f6a79cbd556045165ed949d2e632900ab9644c496673ca; context_fingerprint=dfabd723cffc4590e2d1a9c54c3ae5e526e7bef855ef113c8a698f6fd01476dc. Unreadable or malformed optional standards configuration falls back to the module's explicit configured default; it does not convert a drilling measurement to zero. The resulting default policy is visible through standards accessors.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-026"
+   "p6_batch": "p6-batch-026",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-002813",
@@ -8563,13 +8593,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source core/unit_manager.py:394 `except ValueError:`; source_sha256=2c8f6605e261b25c3c89bdb2ad96bd0ed3bc5abbdad782ed87c062c55a6ef2e5; context_fingerprint=07bb04ef797255cc2cac63eda48ee5e32394cad9ecb2a3b9b0aba018724a3371. Unit normalization preserves the original value when conversion is unsupported and documents that downstream validation will flag it; it does not silently return a converted zero or mark conversion successful.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-026"
+   "p6_batch": "p6-batch-026",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-002893",
@@ -8784,13 +8817,16 @@
    "missing_fact": "the intended failure semantics at this call site",
    "why_it_matters": "failures may be reported as successes",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source core/universal_import.py:462 `except (ValueError, TypeError):`; source_sha256=5d9a026218a8b7e99863df284d960b3007c077fffd75de315fdf5ee3904f50a6; context_fingerprint=d0f125e8fdb1154cd416c3d577e0080562291b85f3986aabf0d049c238d03bd7. A failed numeric parse contributes to the text type bucket for workbook-layout consistency scoring; the source cell remains unchanged and this is not canonical measurement conversion.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-026"
+   "p6_batch": "p6-batch-026",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-002962",
@@ -8809,13 +8845,16 @@
    "missing_fact": "the intended failure semantics at this call site",
    "why_it_matters": "failures may be reported as successes",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source core/universal_import.py:423 `except (ValueError, TypeError):`; source_sha256=5d9a026218a8b7e99863df284d960b3007c077fffd75de315fdf5ee3904f50a6; context_fingerprint=f22935ab36d38b307d960b852186459ce26a99eeb43b282c83cf48773ab50e0a. A failed numeric parse is classified as text while evaluating header-row layout; values are not accepted as numeric engineering inputs here.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-026"
+   "p6_batch": "p6-batch-026",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-002963",
@@ -8918,13 +8957,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source core/validators.py:267 `if not (0 <= inc_f <= 180):`; source_sha256=ae1f69d157a55d3691df42b71379973150b4d57cd56e1ea8178b5cb60152ad0c; context_fingerprint=7bff2cad0958013e8958d3f2bd3801f5f1c8744c94e60bd04dcf13fa628aa547. Survey inclination is checked against the inclusive 0-to-180 degree domain; zero is a valid vertical survey angle.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-026"
+   "p6_batch": "p6-batch-026",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-002987",
@@ -8943,13 +8985,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source core/validators.py:101 `if not (-180 <= float(lon) <= 180):`; source_sha256=ae1f69d157a55d3691df42b71379973150b4d57cd56e1ea8178b5cb60152ad0c; context_fingerprint=afa96e1eb068d4d60a8add5094b578d046f04a1c809f9fa37c9ab27861a1e58a. Longitude is checked against the inclusive geographic range -180 to 180; zero is valid and is not treated as missing.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-026"
+   "p6_batch": "p6-batch-026",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-002988",
@@ -8968,13 +9013,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source core/validators.py:93 `if not (-90 <= float(lat) <= 90):`; source_sha256=ae1f69d157a55d3691df42b71379973150b4d57cd56e1ea8178b5cb60152ad0c; context_fingerprint=4251a5472e2cf3bbe138e9b546e6d22ed1bdb25d4022eb83f78d4aa0facafa4a. Latitude is checked against the inclusive geographic range -90 to 90; zero is valid and is not treated as missing.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-026"
+   "p6_batch": "p6-batch-026",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-002998",
@@ -9105,13 +9153,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source core/value_normalizer.py:196 `return text or None`; source_sha256=7f36dbcfec89eea0b8a729dc392dcf3f545525a9ceb5191dd18fb06d699a0278; context_fingerprint=647b35fe789df49c4ea793cb021962320a4324e7126d324e12d1952a4b968d65. This returns stripped optional text as text and maps only blank text to None. The explicit string `\"0\"` remains a nonblank string. Same expression is also recorded at INV34-007888.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-026"
+   "p6_batch": "p6-batch-026",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-003023",
@@ -9158,13 +9209,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source core/value_normalizer.py:145 `if fraction:`; source_sha256=7f36dbcfec89eea0b8a729dc392dcf3f545525a9ceb5191dd18fb06d699a0278; context_fingerprint=08d2d8ccf85bf90038b1b433b005bfc497531b3b20ab2ebce8a92fbb26e48a6e. `fraction` is a regex match object for a recognized fraction syntax, not an engineering quantity whose numeric zero is tested for presence.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-026"
+   "p6_batch": "p6-batch-026",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-003027",
@@ -9183,13 +9237,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source core/value_normalizer.py:138 `if mixed:`; source_sha256=7f36dbcfec89eea0b8a729dc392dcf3f545525a9ceb5191dd18fb06d699a0278; context_fingerprint=15a6e64df978071ec96439f856b8f79bf6966aec1b5fd11b9758687fdbadebde. `mixed` is a regex match object for a recognized mixed-number syntax; successful parsing may produce numeric zero without the match condition confusing presence.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-026"
+   "p6_batch": "p6-batch-026",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-003028",
@@ -9208,13 +9265,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source core/value_normalizer.py:152 `if not match:`; source_sha256=7f36dbcfec89eea0b8a729dc392dcf3f545525a9ceb5191dd18fb06d699a0278; context_fingerprint=05100b2f3cd377a63ed2fce8ef50e4a89837fec87b12e6f7dd10ca7c4d965c18. No recognized numeric syntax is explicitly the invalid-text path; it returns an unknown/invalid conversion result instead of zero.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-026"
+   "p6_batch": "p6-batch-026",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-003036",
@@ -9233,13 +9293,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source core/value_normalizer.py:215 `except ValueError:`; source_sha256=7f36dbcfec89eea0b8a729dc392dcf3f545525a9ceb5191dd18fb06d699a0278; context_fingerprint=82d12fc882d24b02bd3374b41063586c6e4a5517ff67c06ff8b39a2d3cf2cb37. A failed parse format advances to the next declared date format; if all formats fail, the converter returns None rather than a fabricated date.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-026"
+   "p6_batch": "p6-batch-026",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-003037",
@@ -9258,13 +9321,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source core/value_normalizer.py:266 `except ValueError:`; source_sha256=7f36dbcfec89eea0b8a729dc392dcf3f545525a9ceb5191dd18fb06d699a0278; context_fingerprint=dd0661e9626ea4096c8992026a71c8edc6ac447cd9e00956fbd8dbb897f9684d. A failed datetime format advances to the next declared format; exhaustion remains an invalid/unknown result, not a zero datetime.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-026"
+   "p6_batch": "p6-batch-026",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-003047",
@@ -9627,13 +9693,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source dialogs/casing_history_dialog.py:165 `all_saved = self._repo.all() if self._repo else []`; source_sha256=06d93ba8186dd347544e78ff5461f2d7f749e2448acf5c7b7944bffeae5e7aa2; context_fingerprint=0edcbb147759e0ddf1a4d3def1ddc2dac16a5004dbc10d71f7d3c9167feffb1c. The application entry point checks for a missing casing-history repository and displays that history cannot be opened before constructing this dialog. The optional `None -> []` guard is defensive for standalone/test construction; the live UI does not tell a database failure that no records exist.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-026"
+   "p6_batch": "p6-batch-026",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-003153",
@@ -9680,13 +9749,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source dialogs/cement_history_dialog.py:165 `all_saved = self._repo.all() if self._repo else []`; source_sha256=fbb7028b5f0f7edd095ea74d6707404c98e7a18cec7ed936ecc1469453e3c024; context_fingerprint=fb705d028f9799ac646a50186062e17baa10bc59925ca50de5d0f5aad1e5835c. The application entry point checks for a missing cement-history repository and displays that history cannot be opened before constructing this dialog. The optional `None -> []` guard is defensive for standalone/test construction; the live UI does not tell a database failure that no records exist.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-026"
+   "p6_batch": "p6-batch-026",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-003164",
@@ -9901,13 +9973,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source dialogs/engineering_dialogs.py:982 `if self.prev_survey:`; source_sha256=f85f5a854ea519d240237c8ecff9760a6cafa7efa32221d7d6345dd8b8be18bb; context_fingerprint=ee41ebed3d4fdc6cf5946803567cf879a9c71cbbfd591015382fc439a9eda5d3. `prev_survey` is optional prior survey data used only to prefill the preview; an absent/empty prior survey disables that preview and does not seed a survey measurement.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-026"
+   "p6_batch": "p6-batch-026",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-003292",
@@ -10234,13 +10309,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source dialogs/hierarchy_dialogs.py:210 `if existing:`; source_sha256=ae4cafcb940cc4938ec8514f56b7a60744acddde6366298290a7a1103c2c3737; context_fingerprint=a1f689146116971da432d209329decba3288af96367b03f282b84167e6859c2d. `existing` is the repository lookup result for a company name; the branch handles an existing entity, not a numeric measurement or zero-valued key.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-026"
+   "p6_batch": "p6-batch-026",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-003455",
@@ -10334,13 +10412,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source dialogs/hierarchy_dialogs.py:470 `if existing:`; source_sha256=ae4cafcb940cc4938ec8514f56b7a60744acddde6366298290a7a1103c2c3737; context_fingerprint=a7142b32ca7136cc64c9b83783bb2899103d81b30f83b4bcd9e0487777d6e5f3. `existing` is the repository lookup result for project identity; a found entity is rejected as a duplicate before insertion.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-026"
+   "p6_batch": "p6-batch-026",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-003466",
@@ -10387,13 +10468,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source dialogs/hierarchy_dialogs.py:1228 `if result:`; source_sha256=ae4cafcb940cc4938ec8514f56b7a60744acddde6366298290a7a1103c2c3737; context_fingerprint=039620bd4cd2d4d60c61e669f88f94204237c5d3e7907b6d625f206501ff1018. The create result is the repository's success/entity result; the dialog closes only after success and displays validation/error state otherwise. This is not a numeric engineering measurement default.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-026"
+   "p6_batch": "p6-batch-026",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-003469",
@@ -10412,13 +10496,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source dialogs/hierarchy_dialogs.py:977 `if existing:`; source_sha256=ae4cafcb940cc4938ec8514f56b7a60744acddde6366298290a7a1103c2c3737; context_fingerprint=3a7c8db1a799d8e359f5f1643fd208caf282cbdb6c497a48cb2883e26dc8d07f. `existing` is a repository entity lookup for a well; the branch prevents duplicate creation and does not test an optional numeric well field.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-026"
+   "p6_batch": "p6-batch-026",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-003472",
@@ -22172,13 +22259,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source core/mineru_engine.py:1317 `source[\"source_table\"] = table.name or None`; source_sha256=d6e3e753a7af271fc15410ae8114770a7665d75db554b33f90337f2828d14c3f; context_fingerprint=57d36a3a7a4b1f928d66740ae5034aa1f06da44583e02372f525e1609256055f. Source-table name is optional extraction provenance metadata; absent or blank table labels become None without changing the extracted cell values or table geometry.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-026"
+   "p6_batch": "p6-batch-026",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007660",
@@ -22337,13 +22427,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source core/rag_search.py:117 `params = self.db.get_drilling_parameters(report_id=current_report_id) or {}`; source_sha256=2217ee7ad0a06a71f5d9d80152c95145e8708bcc423841b1df4e15831ae2f4eb; context_fingerprint=809f5c7749e67223b8128a0d155f9813eb4ced78ccd33613ce515479f284e4fb. Historical search uses parameters for the explicit current report only; no parameters means an empty comparison context, not zero drilling parameters. Search identity remains the supplied report ID and its well.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-026"
+   "p6_batch": "p6-batch-026",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007691",
@@ -22362,13 +22455,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source core/report_engine.py:92 `well = self.db.get_well_by_id(well_id) or {}`; source_sha256=b14943e80b71c7d29d3e5c43f7a5fbcf150c6854bd68bb8f5c4dcf90bdf88b0c; context_fingerprint=031d32f6599d4d6c900222efe988009f555d0ee0446438fa512753674a5396b5. A missing related well produces a blank metadata mapping for report rendering; it does not replace a well ID or engineering quantity. Well/report relationship is persisted separately and lookup exceptions are not swallowed here.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-026"
+   "p6_batch": "p6-batch-026",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007708",
@@ -22387,13 +22483,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source core/report_engine.py:701 `well = self.db.get_well_by_id(well_id) or {}`; source_sha256=b14943e80b71c7d29d3e5c43f7a5fbcf150c6854bd68bb8f5c4dcf90bdf88b0c; context_fingerprint=031d32f6599d4d6c900222efe988009f555d0ee0446438fa512753674a5396b5. A missing related well produces a blank metadata mapping for EOWR rendering; it does not replace a well ID or cost amount. Lookup exceptions are not swallowed by this expression.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-026"
+   "p6_batch": "p6-batch-026",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007710",
@@ -22412,13 +22511,16 @@
    "missing_fact": "the intended failure semantics at this call site",
    "why_it_matters": "failures may be reported as successes",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source core/report_engine.py:774 `except Exception:`; source_sha256=b14943e80b71c7d29d3e5c43f7a5fbcf150c6854bd68bb8f5c4dcf90bdf88b0c; context_fingerprint=bd8d96e202e2cb1b76afab1a40d108d8844e937e7633b18711833e9786b52ed8. Duplicate scanner capture of the exact EOWR cost-query `except Exception` already recorded at INV34-002477; the underlying query-failure-versus-no-rows question is recorded once there.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-026"
+   "p6_batch": "p6-batch-026",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007727",
@@ -22437,13 +22539,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source core/report_engine.py:1350 `well = self.db.get_well_by_id(well_id) or {}`; source_sha256=b14943e80b71c7d29d3e5c43f7a5fbcf150c6854bd68bb8f5c4dcf90bdf88b0c; context_fingerprint=031d32f6599d4d6c900222efe988009f555d0ee0446438fa512753674a5396b5. A missing related well produces a blank metadata mapping for NPT report rendering; it does not replace a well ID or NPT hours. Lookup exceptions are not swallowed by this expression.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-026"
+   "p6_batch": "p6-batch-026",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007741",
@@ -22462,13 +22567,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source core/report_engine.py:1750 `well = self.db.get_well_by_id(well_id) or {}`; source_sha256=b14943e80b71c7d29d3e5c43f7a5fbcf150c6854bd68bb8f5c4dcf90bdf88b0c; context_fingerprint=031d32f6599d4d6c900222efe988009f555d0ee0446438fa512753674a5396b5. A missing related well produces a blank metadata mapping for cost report rendering; it does not replace a well ID or cost amount. Lookup exceptions are not swallowed by this expression.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-026"
+   "p6_batch": "p6-batch-026",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007746",
@@ -22487,13 +22595,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source core/report_engine.py:2009 `well = self.db.get_well_by_id(well_id) or {}`; source_sha256=b14943e80b71c7d29d3e5c43f7a5fbcf150c6854bd68bb8f5c4dcf90bdf88b0c; context_fingerprint=031d32f6599d4d6c900222efe988009f555d0ee0446438fa512753674a5396b5. A missing related well produces a blank metadata mapping for plan report rendering; it does not replace a well ID or plan value. Lookup exceptions are not swallowed by this expression.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-026"
+   "p6_batch": "p6-batch-026",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007762",
@@ -22512,13 +22623,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source core/report_lifecycle.py:83 `\"\"\"Return the next status for a (current_status, action) pair, or None.\"\"\"`; source_sha256=d00919fd5ea26ef894fb65443e5b5be99c15a2d1435796f6f0aaabe17bb53bc5; context_fingerprint=d72753692d521a1af723c5f479245a03f330afa35c74aa0a4820a13551b73434. Rule mis-fire: this is a docstring describing that resolve_transition may return None; it is not an executable default expression.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-026"
+   "p6_batch": "p6-batch-026",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007769",
@@ -23797,13 +23911,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source core/unit_manager.py:385 `result = dict(row or {})`; source_sha256=2c8f6605e261b25c3c89bdb2ad96bd0ed3bc5abbdad782ed87c062c55a6ef2e5; context_fingerprint=4a9a5c81fcbeaeb0459d83d07924d7a6e8945071e20a904eb783e6b12572974c. The row adapter accepts an optional row mapping and copies an absent mapping as empty input; each absent field remains absent and no field-specific value is invented.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-026"
+   "p6_batch": "p6-batch-026",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007853",
@@ -23906,13 +24023,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source core/universal_import.py:400 `\"\"\"Detect if header is 1, 2, or 3 rows.`; source_sha256=5d9a026218a8b7e99863df284d960b3007c077fffd75de315fdf5ee3904f50a6; context_fingerprint=bf05e0ec85ea40b02658085b048173f7e7827321f0194932f67c87bd67af95af. Rule mis-fire: the reported text is a docstring explaining header detection, not executable behavior.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-026"
+   "p6_batch": "p6-batch-026",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007857",
@@ -24071,13 +24191,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "DOMAIN_DECISION_REQUIRED",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source core/validators.py:480 `pass`; source_sha256=ae1f69d157a55d3691df42b71379973150b4d57cd56e1ea8178b5cb60152ad0c; context_fingerprint=80e3b4f34b47a9cdd980d5bc21927c1eda0dfce9ef33788e13ce3a3722676b2a. SafetyValidator has no in-repository caller. Its BOP date branch is an explicit no-op despite the comment saying validation checks dates. The active safety widget independently uses configured test intervals and NOT ASSESSED handling, so there is no demonstrated current user-visible production path through this helper. Owner decision: either retire the dead validation branch or define/wire its date-validation contract; no interval/date rule is invented here.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-026"
+   "p6_batch": "p6-batch-026",
+   "p6_remaining_question": "SafetyValidator date-validation ownership/contract (helper currently has no in-repository caller)",
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007877",
@@ -24124,13 +24247,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source core/value_normalizer.py:196 `return text or None`; source_sha256=7f36dbcfec89eea0b8a729dc392dcf3f545525a9ceb5191dd18fb06d699a0278; context_fingerprint=0691ab089d549075df37e5136b2b3432e74ff04f87fbca013e93548c0799b88c. Duplicate scanner capture of the same `return text or None` expression as INV34-003022; blank optional text maps to None and literal string zero is retained.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-026"
+   "p6_batch": "p6-batch-026",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007928",
@@ -24233,13 +24359,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source dialogs/excel_import_dialog.py:69 `if not business_key(key):`; source_sha256=328b449d7d32416d2d9a788a6885e77b7c0dbcc75c6c20a73acd295be56f2b74; context_fingerprint=f712716c321304566c6ae932f8694133f97cb3f8fcbc2a713a540f2794ab7c96. The importer filters metadata/non-business keys from its meaningful-data decision; this prevents worksheet labels and formatting-only data from being treated as a canonical drilling record.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-026"
+   "p6_batch": "p6-batch-026",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007936",
@@ -24430,13 +24559,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source dialogs/hierarchy_dialogs.py:481 `location=project_data[\"location\"] or None,`; source_sha256=ae4cafcb940cc4938ec8514f56b7a60744acddde6366298290a7a1103c2c3737; context_fingerprint=d59bb74be2be71c4924af197648a021bfabdd3e6365df8edd20eb69278a06375. Project location is optional descriptive text; blank input persists as NULL/None, not a geographic coordinate or numeric zero.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-026"
+   "p6_batch": "p6-batch-026",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007954",
@@ -24455,13 +24587,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source dialogs/hierarchy_dialogs.py:487 `manager=project_data[\"manager\"] or None,`; source_sha256=ae4cafcb940cc4938ec8514f56b7a60744acddde6366298290a7a1103c2c3737; context_fingerprint=2acc4152c3de282c08e37f90df7f61f522affc49f8d6e14f8710c890370b7211. Project manager is optional descriptive text; blank input persists as NULL/None, not an employee identifier zero.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-026"
+   "p6_batch": "p6-batch-026",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007975",

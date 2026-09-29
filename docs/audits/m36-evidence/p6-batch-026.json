@@ -1,0 +1,1111 @@
+{
+ "schema": "m36-p6-batch",
+ "batch": "p6-batch-026",
+ "class": "phase-2 mixed review: report collection and metadata fallback, hierarchy/scope selection, validation, import normalization and engineering dialogs",
+ "records": 45,
+ "sites": 43,
+ "records_by_file": {
+  "core/mineru_engine.py": 2,
+  "core/operations_intelligence.py": 1,
+  "core/report_engine.py": 8,
+  "core/scope_attribution.py": 2,
+  "core/selection_manager.py": 3,
+  "core/standards.py": 1,
+  "core/unit_manager.py": 2,
+  "core/universal_import.py": 3,
+  "core/validators.py": 4,
+  "core/value_normalizer.py": 7,
+  "dialogs/casing_history_dialog.py": 1,
+  "dialogs/cement_history_dialog.py": 1,
+  "dialogs/engineering_dialogs.py": 1,
+  "dialogs/hierarchy_dialogs.py": 6,
+  "core/rag_search.py": 1,
+  "core/report_lifecycle.py": 1,
+  "dialogs/excel_import_dialog.py": 1
+ },
+ "by_classification": {
+  "INTENTIONAL": 36,
+  "DOMAIN_DECISION_REQUIRED": 2,
+  "VERIFIED-CORRECT": 3,
+  "DUPLICATE/FALSE-POSITIVE": 4
+ },
+ "defects_fixed": [
+  {
+   "id": "NEW-P6-022",
+   "file": "core/validators.py",
+   "site": "BulkValidator.validate current_stock reconciliation",
+   "test": "tests/test_bulk_validator_zero.py",
+   "summary": "Removed the explicit-zero exemption from stock mismatch validation. With known opening/receipts/usage, a closing stock of 0 is compared to the calculated expected stock; unknown opening/current stock remains outside the reconciliation. The helper has no in-repository production caller, so this corrects its exposed validation contract without claiming a live UI impact."
+  }
+ ],
+ "new_findings": [
+  {
+   "id": "NEW-P6-023",
+   "line": 480,
+   "severity": "LOW",
+   "status": "DOMAIN_DECISION_REQUIRED",
+   "file": "core/validators.py",
+   "site": "SafetyValidator.validate last_rams_test branch",
+   "summary": "The last-RAMS-test branch is a no-op; no in-repository caller exists. The active safety widget has independent configured-interval/NOT ASSESSED behavior. Decide whether the legacy helper should be retired or given an explicit date-validation contract before wiring it into a live path.",
+   "evidence": "core/validators.py:475-482 and repository-wide search: no SafetyValidator callers; tabs/w8_Safety_Widget.py has configured interval logic and unknown-state UI."
+  },
+  {
+   "id": "NEW-P6-024",
+   "line": 774,
+   "severity": "MEDIUM",
+   "status": "DOMAIN_DECISION_REQUIRED",
+   "file": "core/report_engine.py",
+   "site": "EOWRReportEngine._collect_data cost-record query exception",
+   "summary": "Broad exception handling converts a failed cost query into the same empty collection used for a successful zero-row query. Define whether report generation should fail or mark the cost section unavailable while retaining non-cost report data.",
+   "evidence": "core/report_engine.py:774-777; duplicate scanner record INV34-007710; no source/test evidence establishes the intended partial-report/error presentation."
+  }
+ ],
+ "observations": [
+  {
+   "topic": "unknown, zero and range semantics",
+   "summary": "Inclusive survey/geographic bounds admit legitimate zero values; string zero survives text normalization; stock reconciliation now compares explicit zero only when both sides of the ledger are known. SQL NULL/missing remains outside that comparison."
+  },
+  {
+   "topic": "scope selection and attribution",
+   "summary": "Selection changes clear only descendants; same-identity refreshes are separately emitted. Scope attribution counts invalid ownership chains and commits only when writes occurred. This does not equate cumulative scope with whole-well scope."
+  },
+  {
+   "topic": "consumer reachability",
+   "summary": "Casing/cement history entry points reject a missing repository before opening dialogs; SafetyValidator and BulkValidator have no in-repository production callers. Findings distinguish exposed helper contracts from demonstrated live product impact."
+  }
+ ],
+ "sibling_search": [
+  {
+   "family": "zero-versus-missing validator paths",
+   "result": "BulkMaterials documents SQL NULL as missing and 0.0 as explicit reported zero. BulkValidator uses `is not None` to enter numeric validation; the previous `current != 0` exception was the isolated mismatch-suppression sibling. Added tests cover explicit zero mismatch, matching zero ledger and unknown NULL values."
+  },
+  {
+   "family": "BOP interval validation",
+   "result": "SafetyValidator has no in-repository caller. tabs/w8_Safety_Widget.py uses configured interval policy and displays NOT ASSESSED for unavailable test dates. No change was made to the independent active widget or domain interval policy."
+  },
+  {
+   "family": "report lookup fallback",
+   "result": "The five `get_well_by_id(...) or {}` branches only build optional report metadata; `None` does not become an engineering zero. Exceptions from the lookup are not handled by these expressions. Cost query exception semantics remain an owner decision."
+  },
+  {
+   "family": "source review tooling",
+   "result": "The M34 fingerprint-ledger file expected by its manifest is absent; source SHA, line, symbol and expression anchoring are verified, but unavailable original fingerprint patterns are not fabricated."
+  }
+ ],
+ "tests": {
+  "passed": [
+   "184 passed, 2 deselected: focused run covering BulkValidator/unknown stock, MinerU, report lifecycle/snapshots, scope attribution/selection/ownership, unit preservation, hierarchy and safety/business regressions. Includes tests/test_bulk_validator_zero.py; full command is recorded in the session verification.",
+   "69 passed: tests/test_mineru_engine.py tests/test_mineru_timeout_zero.py tests/test_report_lifecycle.py tests/test_report_snapshot.py.",
+   "Ruff --select E722,F821 on changed source/tests/audit tool, compileall and git diff --check are recorded at final verification."
+  ],
+  "environment_blocked": [
+   "Six Qt-backed tests failed before exercising assertions because PySide6 could not load missing system library libGL.so.1: tests/test_bulk_stock_three_state_smoke.py (1), tests/test_history_well_scope.py (2), tests/test_whole_well_scope_labels_m25.py (1), and tests/test_m28_finance_safety_plan.py (2). Selection-manager module reported 17 skips. No GUI/Qt end-to-end workflow, production database, real DDR report corpus, or safety-widget deployment acceptance is claimed."
+  ],
+  "mutation": "Temporarily restored the original `and current != 0` condition and reran tests/test_bulk_validator_zero.py: the explicit-zero mismatch regression failed (1 failed, 1 passed); the production fix was restored and the focused tests pass."
+ },
+ "head": "e6a1ffb23a7641d09ad0a94e693b879de45ec612",
+ "commit": null,
+ "evidence_commit": null,
+ "evidence_files": [
+  "core/validators.py",
+  "tests/test_bulk_validator_zero.py",
+  "tools/m36/p6_batch_026.py",
+  "docs/audits/m36-evidence/p6-batch-026.json"
+ ],
+ "staleness": {
+  "checked": 45,
+  "stale": 0,
+  "re_anchored": 0,
+  "method": "All recorded source hashes were resolved to provenance tree 7f0186e3e6ac966f1fe9cbd804785129b9246fbe; recorded lines/symbols were checked, and changed-current-file mappings were verified by the ledger-aware provenance helper. The manifest-listed M34 item ledger is absent, so only reproducible source fingerprints are asserted.",
+  "re_anchored_items": [],
+  "provenance_trees": {
+   "core/mineru_engine.py": "provenance tree = 7f0186e3e6ac966f1fe9cbd804785129b9246fbe (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+   "core/operations_intelligence.py": "current tree: sha256(file) == the record's source_sha256",
+   "core/report_engine.py": "current tree: sha256(file) == the record's source_sha256",
+   "core/scope_attribution.py": "current tree: sha256(file) == the record's source_sha256",
+   "core/selection_manager.py": "current tree: sha256(file) == the record's source_sha256",
+   "core/standards.py": "current tree: sha256(file) == the record's source_sha256",
+   "core/unit_manager.py": "current tree: sha256(file) == the record's source_sha256",
+   "core/universal_import.py": "current tree: sha256(file) == the record's source_sha256",
+   "core/validators.py": "provenance tree = 7f0186e3e6ac966f1fe9cbd804785129b9246fbe (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+   "core/value_normalizer.py": "current tree: sha256(file) == the record's source_sha256",
+   "dialogs/casing_history_dialog.py": "current tree: sha256(file) == the record's source_sha256",
+   "dialogs/cement_history_dialog.py": "current tree: sha256(file) == the record's source_sha256",
+   "dialogs/engineering_dialogs.py": "current tree: sha256(file) == the record's source_sha256",
+   "dialogs/hierarchy_dialogs.py": "current tree: sha256(file) == the record's source_sha256",
+   "core/rag_search.py": "current tree: sha256(file) == the record's source_sha256",
+   "core/report_lifecycle.py": "current tree: sha256(file) == the record's source_sha256",
+   "dialogs/excel_import_dialog.py": "current tree: sha256(file) == the record's source_sha256"
+  },
+  "m34_fingerprint_ledger": {
+   "manifest": "docs/audits/m34-evidence/M34_INVENTORY_LEDGER.json",
+   "expected_path": "docs/audits/m34-evidence/m34-ledger.json",
+   "expected_sha256": "d81a77bda0330c75493f4081c4a02e4d106fe7602e49c14f0c67d12977658a6b",
+   "expected_bytes": 11394989,
+   "present_in_workspace": false,
+   "effect": "Missing item ledger prevents reproduction of some historical context fingerprints; source hash, line and symbol evidence is kept distinct and no fingerprint result is fabricated."
+  },
+  "fingerprint_proof": {
+   "checked": 45,
+   "verified": 45,
+   "records_without_a_reproducible_fingerprint": [],
+   "records_without_a_reproducing_fingerprint_but_hash_anchored": [],
+   "symbol_forms_that_reproduced": {
+    "short": 45
+   },
+   "expression_forms_that_reproduced": {
+    "ast-segment": 29,
+    "recorded-line": 16
+   },
+   "method": "ledger-free: recorded-line + AST-segment expression forms (the 11 MB M34 ledger is not tracked in the repository)"
+  }
+ },
+ "method": "Trace producer, transformation, caller/consumer, contract and tests; distinguish current production reachability from exposed utility behavior; preserve unknown-versus-zero and hierarchical scope; record unresolved product policy instead of inventing it.",
+ "items": [
+  {
+   "id": "INV34-002204",
+   "file": "core/mineru_engine.py",
+   "line": 1064,
+   "symbol": "_parse_json_payload.visit",
+   "rule": "R-EXC-OTHER",
+   "kind": "typed-exception",
+   "register_line_text": "except (TypeError, ValueError):",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source core/mineru_engine.py:1064 `except (TypeError, ValueError):`; source_sha256=d6e3e753a7af271fc15410ae8114770a7665d75db554b33f90337f2828d14c3f; context_fingerprint=54ded87ba1b67ac25cdeeb5abd2107d4f0813d2f25eb8490f38ff892277ce7c1. The JSON payload parser catches only type/value failures for an individual node; unusable source nodes are skipped while other document structure and provenance remain available.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/mineru_engine.py",
+    "line": 1064,
+    "symbol": "_parse_json_payload.visit",
+    "expression": "except (TypeError, ValueError):",
+    "source_sha256": "d6e3e753a7af271fc15410ae8114770a7665d75db554b33f90337f2828d14c3f",
+    "context_fingerprint": "54ded87ba1b67ac25cdeeb5abd2107d4f0813d2f25eb8490f38ff892277ce7c1"
+   }
+  },
+  {
+   "id": "INV34-002246",
+   "file": "core/operations_intelligence.py",
+   "line": 193,
+   "symbol": "OperationsIntelligenceService.analyze_well",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if npt_insight:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source core/operations_intelligence.py:193 `if npt_insight:`; source_sha256=aeb313cd7d99e6b169076fdace72c6bc650547235faab9cc1ae2fdc0c700b0ad; context_fingerprint=bf446db0be7fb83d64bd967d20a6b6c99bef9de44f008d8c2c6d38a533d6a01c. NPT insight is optional by threshold: analyze_well calls the analyzer only for a known percentage, and appends an insight only when the analyzer returns one. No 0% substitute is created for missing data.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/operations_intelligence.py",
+    "line": 193,
+    "symbol": "OperationsIntelligenceService.analyze_well",
+    "expression": "if npt_insight:",
+    "source_sha256": "aeb313cd7d99e6b169076fdace72c6bc650547235faab9cc1ae2fdc0c700b0ad",
+    "context_fingerprint": "bf446db0be7fb83d64bd967d20a6b6c99bef9de44f008d8c2c6d38a533d6a01c"
+   }
+  },
+  {
+   "id": "INV34-002477",
+   "file": "core/report_engine.py",
+   "line": 774,
+   "symbol": "EOWRReportEngine._collect_data",
+   "rule": "R-EXC-OTHER",
+   "kind": "broad-exception",
+   "register_line_text": "except Exception:",
+   "classification": "DOMAIN_DECISION_REQUIRED",
+   "evidence": "Hash-anchored source core/report_engine.py:774 `except Exception:`; source_sha256=b14943e80b71c7d29d3e5c43f7a5fbcf150c6854bd68bb8f5c4dcf90bdf88b0c; context_fingerprint=a2bce89988675bc74c84a72aa1919b1d6dbd74f278e7520bb1a4f1cd54909d3c. The EOWR collection path currently catches cost-query exceptions and supplies an empty cost list, making query failure indistinguishable from a successful query with no cost rows. A product decision is needed: fail the report, or retain an explicit unavailable/error state for only the cost section. There is no production cost report consumer contract in this path that authorizes treating DB failure as no rows.",
+   "defect": false,
+   "remaining_question": "Report policy for distinguishing cost-query failure from an empty cost collection",
+   "site": {
+    "file": "core/report_engine.py",
+    "line": 774,
+    "symbol": "EOWRReportEngine._collect_data",
+    "expression": "except Exception:",
+    "source_sha256": "b14943e80b71c7d29d3e5c43f7a5fbcf150c6854bd68bb8f5c4dcf90bdf88b0c",
+    "context_fingerprint": "a2bce89988675bc74c84a72aa1919b1d6dbd74f278e7520bb1a4f1cd54909d3c"
+   }
+  },
+  {
+   "id": "INV34-002634",
+   "file": "core/report_engine.py",
+   "line": 322,
+   "symbol": "DDRReportEngine._build_html",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if bc.watermark:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source core/report_engine.py:322 `if bc.watermark:`; source_sha256=b14943e80b71c7d29d3e5c43f7a5fbcf150c6854bd68bb8f5c4dcf90bdf88b0c; context_fingerprint=170f66f9c182ad27ab687055d5298e9f12f3208b128bf7c28cd0bafa6ea523b7. A watermark is optional report-branding metadata; absence suppresses only the watermark and does not affect measurement or report content fields.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/report_engine.py",
+    "line": 322,
+    "symbol": "DDRReportEngine._build_html",
+    "expression": "if bc.watermark:",
+    "source_sha256": "b14943e80b71c7d29d3e5c43f7a5fbcf150c6854bd68bb8f5c4dcf90bdf88b0c",
+    "context_fingerprint": "170f66f9c182ad27ab687055d5298e9f12f3208b128bf7c28cd0bafa6ea523b7"
+   }
+  },
+  {
+   "id": "INV34-002784",
+   "file": "core/scope_attribution.py",
+   "line": 190,
+   "symbol": "ScopeAttributionService._compute",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if invalid:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source core/scope_attribution.py:190 `if invalid:`; source_sha256=7de589e5a975941bc0618b1afbdc585b40562d9fff60f5b6d4735e4006e41611; context_fingerprint=ca18d3564b9af1397272c88c76e7af704d946bba562c5f979c090defd7273dce. The flag is a computed boolean consistency result; invalid ownership candidates are counted and excluded before any proposed attribution is applied.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/scope_attribution.py",
+    "line": 190,
+    "symbol": "ScopeAttributionService._compute",
+    "expression": "if invalid:",
+    "source_sha256": "7de589e5a975941bc0618b1afbdc585b40562d9fff60f5b6d4735e4006e41611",
+    "context_fingerprint": "ca18d3564b9af1397272c88c76e7af704d946bba562c5f979c090defd7273dce"
+   }
+  },
+  {
+   "id": "INV34-002787",
+   "file": "core/scope_attribution.py",
+   "line": 126,
+   "symbol": "ScopeAttributionService.resolve",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if report.applied:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source core/scope_attribution.py:126 `if report.applied:`; source_sha256=7de589e5a975941bc0618b1afbdc585b40562d9fff60f5b6d4735e4006e41611; context_fingerprint=6a02c36df134b82fa1aa8ce8b2adf5371479c0c65d1044bd89de240a70996260. `applied` records the count of rows actually changed; commit is correctly conditional on a nonzero write count, not on a scope or identifier.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/scope_attribution.py",
+    "line": 126,
+    "symbol": "ScopeAttributionService.resolve",
+    "expression": "if report.applied:",
+    "source_sha256": "7de589e5a975941bc0618b1afbdc585b40562d9fff60f5b6d4735e4006e41611",
+    "context_fingerprint": "6a02c36df134b82fa1aa8ce8b2adf5371479c0c65d1044bd89de240a70996260"
+   }
+  },
+  {
+   "id": "INV34-002797",
+   "file": "core/selection_manager.py",
+   "line": 251,
+   "symbol": "SelectionManager.select_section",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if changed:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source core/selection_manager.py:251 `if changed:`; source_sha256=f0ef3ab19398fb0f43b8f1268b08b6f00c67e89c28fe9010fbf7824841ffee22; context_fingerprint=003f0bbdb7a5368711d208953f0034141c40c217c58fb5fb95f9852e669636da. `changed` compares the new section identity to the selected identity; dependent report state is cleared only when section identity changes, while same-ID payload refresh is handled separately.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/selection_manager.py",
+    "line": 251,
+    "symbol": "SelectionManager.select_section",
+    "expression": "if changed:",
+    "source_sha256": "f0ef3ab19398fb0f43b8f1268b08b6f00c67e89c28fe9010fbf7824841ffee22",
+    "context_fingerprint": "003f0bbdb7a5368711d208953f0034141c40c217c58fb5fb95f9852e669636da"
+   }
+  },
+  {
+   "id": "INV34-002798",
+   "file": "core/selection_manager.py",
+   "line": 179,
+   "symbol": "SelectionManager.select_well",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if changed:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source core/selection_manager.py:179 `if changed:`; source_sha256=f0ef3ab19398fb0f43b8f1268b08b6f00c67e89c28fe9010fbf7824841ffee22; context_fingerprint=521818ac9dc8d0ce15e40e9044a58e2dcafb3ece5e8baeda18a18e5a26a44c99. `changed` compares well identity; changing the well clears all descendant wellbore/section/report context, whereas same-ID data refresh does not.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/selection_manager.py",
+    "line": 179,
+    "symbol": "SelectionManager.select_well",
+    "expression": "if changed:",
+    "source_sha256": "f0ef3ab19398fb0f43b8f1268b08b6f00c67e89c28fe9010fbf7824841ffee22",
+    "context_fingerprint": "521818ac9dc8d0ce15e40e9044a58e2dcafb3ece5e8baeda18a18e5a26a44c99"
+   }
+  },
+  {
+   "id": "INV34-002799",
+   "file": "core/selection_manager.py",
+   "line": 219,
+   "symbol": "SelectionManager.select_wellbore",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if changed:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source core/selection_manager.py:219 `if changed:`; source_sha256=f0ef3ab19398fb0f43b8f1268b08b6f00c67e89c28fe9010fbf7824841ffee22; context_fingerprint=c6808b3b8cb48b0666e777d584aa7dd3137b7746180440b376167657682ad0f6. `changed` compares wellbore identity; changing the wellbore clears only descendant section/report context, preserving the selected well.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/selection_manager.py",
+    "line": 219,
+    "symbol": "SelectionManager.select_wellbore",
+    "expression": "if changed:",
+    "source_sha256": "f0ef3ab19398fb0f43b8f1268b08b6f00c67e89c28fe9010fbf7824841ffee22",
+    "context_fingerprint": "c6808b3b8cb48b0666e777d584aa7dd3137b7746180440b376167657682ad0f6"
+   }
+  },
+  {
+   "id": "INV34-002812",
+   "file": "core/standards.py",
+   "line": 22,
+   "symbol": "_load_config",
+   "rule": "R-EXC-CONTINUE",
+   "kind": "typed-exception",
+   "register_line_text": "except (OSError, ValueError):",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source core/standards.py:22 `except (OSError, ValueError):`; source_sha256=f1c646e62d73c6d1e6f6a79cbd556045165ed949d2e632900ab9644c496673ca; context_fingerprint=dfabd723cffc4590e2d1a9c54c3ae5e526e7bef855ef113c8a698f6fd01476dc. Unreadable or malformed optional standards configuration falls back to the module's explicit configured default; it does not convert a drilling measurement to zero. The resulting default policy is visible through standards accessors.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/standards.py",
+    "line": 22,
+    "symbol": "_load_config",
+    "expression": "except (OSError, ValueError):",
+    "source_sha256": "f1c646e62d73c6d1e6f6a79cbd556045165ed949d2e632900ab9644c496673ca",
+    "context_fingerprint": "dfabd723cffc4590e2d1a9c54c3ae5e526e7bef855ef113c8a698f6fd01476dc"
+   }
+  },
+  {
+   "id": "INV34-002892",
+   "file": "core/unit_manager.py",
+   "line": 394,
+   "symbol": "UnitManager.normalize_row",
+   "rule": "R-EXC-CONTINUE",
+   "kind": "typed-exception",
+   "register_line_text": "except ValueError:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source core/unit_manager.py:394 `except ValueError:`; source_sha256=2c8f6605e261b25c3c89bdb2ad96bd0ed3bc5abbdad782ed87c062c55a6ef2e5; context_fingerprint=07bb04ef797255cc2cac63eda48ee5e32394cad9ecb2a3b9b0aba018724a3371. Unit normalization preserves the original value when conversion is unsupported and documents that downstream validation will flag it; it does not silently return a converted zero or mark conversion successful.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/unit_manager.py",
+    "line": 394,
+    "symbol": "UnitManager.normalize_row",
+    "expression": "except ValueError:",
+    "source_sha256": "2c8f6605e261b25c3c89bdb2ad96bd0ed3bc5abbdad782ed87c062c55a6ef2e5",
+    "context_fingerprint": "07bb04ef797255cc2cac63eda48ee5e32394cad9ecb2a3b9b0aba018724a3371"
+   }
+  },
+  {
+   "id": "INV34-002961",
+   "file": "core/universal_import.py",
+   "line": 462,
+   "symbol": "WorkbookScanner._calculate_type_consistency",
+   "rule": "R-EXC-OTHER",
+   "kind": "typed-exception",
+   "register_line_text": "except (ValueError, TypeError):",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source core/universal_import.py:462 `except (ValueError, TypeError):`; source_sha256=5d9a026218a8b7e99863df284d960b3007c077fffd75de315fdf5ee3904f50a6; context_fingerprint=d0f125e8fdb1154cd416c3d577e0080562291b85f3986aabf0d049c238d03bd7. A failed numeric parse contributes to the text type bucket for workbook-layout consistency scoring; the source cell remains unchanged and this is not canonical measurement conversion.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/universal_import.py",
+    "line": 462,
+    "symbol": "WorkbookScanner._calculate_type_consistency",
+    "expression": "except (ValueError, TypeError):",
+    "source_sha256": "5d9a026218a8b7e99863df284d960b3007c077fffd75de315fdf5ee3904f50a6",
+    "context_fingerprint": "d0f125e8fdb1154cd416c3d577e0080562291b85f3986aabf0d049c238d03bd7"
+   }
+  },
+  {
+   "id": "INV34-002962",
+   "file": "core/universal_import.py",
+   "line": 423,
+   "symbol": "WorkbookScanner._detect_header_rows",
+   "rule": "R-EXC-OTHER",
+   "kind": "typed-exception",
+   "register_line_text": "except (ValueError, TypeError):",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source core/universal_import.py:423 `except (ValueError, TypeError):`; source_sha256=5d9a026218a8b7e99863df284d960b3007c077fffd75de315fdf5ee3904f50a6; context_fingerprint=f22935ab36d38b307d960b852186459ce26a99eeb43b282c83cf48773ab50e0a. A failed numeric parse is classified as text while evaluating header-row layout; values are not accepted as numeric engineering inputs here.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/universal_import.py",
+    "line": 423,
+    "symbol": "WorkbookScanner._detect_header_rows",
+    "expression": "except (ValueError, TypeError):",
+    "source_sha256": "5d9a026218a8b7e99863df284d960b3007c077fffd75de315fdf5ee3904f50a6",
+    "context_fingerprint": "f22935ab36d38b307d960b852186459ce26a99eeb43b282c83cf48773ab50e0a"
+   }
+  },
+  {
+   "id": "INV34-002984",
+   "file": "core/validators.py",
+   "line": 267,
+   "symbol": "SurveyValidator.validate_points",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not (0 <= inc_f <= 180):",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source core/validators.py:267 `if not (0 <= inc_f <= 180):`; source_sha256=ae1f69d157a55d3691df42b71379973150b4d57cd56e1ea8178b5cb60152ad0c; context_fingerprint=7bff2cad0958013e8958d3f2bd3801f5f1c8744c94e60bd04dcf13fa628aa547. Survey inclination is checked against the inclusive 0-to-180 degree domain; zero is a valid vertical survey angle.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/validators.py",
+    "line": 267,
+    "symbol": "SurveyValidator.validate_points",
+    "expression": "if not (0 <= inc_f <= 180):",
+    "source_sha256": "ae1f69d157a55d3691df42b71379973150b4d57cd56e1ea8178b5cb60152ad0c",
+    "context_fingerprint": "7bff2cad0958013e8958d3f2bd3801f5f1c8744c94e60bd04dcf13fa628aa547"
+   }
+  },
+  {
+   "id": "INV34-002987",
+   "file": "core/validators.py",
+   "line": 101,
+   "symbol": "WellValidator.validate",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not (-180 <= float(lon) <= 180):",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source core/validators.py:101 `if not (-180 <= float(lon) <= 180):`; source_sha256=ae1f69d157a55d3691df42b71379973150b4d57cd56e1ea8178b5cb60152ad0c; context_fingerprint=afa96e1eb068d4d60a8add5094b578d046f04a1c809f9fa37c9ab27861a1e58a. Longitude is checked against the inclusive geographic range -180 to 180; zero is valid and is not treated as missing.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/validators.py",
+    "line": 101,
+    "symbol": "WellValidator.validate",
+    "expression": "if not (-180 <= float(lon) <= 180):",
+    "source_sha256": "ae1f69d157a55d3691df42b71379973150b4d57cd56e1ea8178b5cb60152ad0c",
+    "context_fingerprint": "afa96e1eb068d4d60a8add5094b578d046f04a1c809f9fa37c9ab27861a1e58a"
+   }
+  },
+  {
+   "id": "INV34-002988",
+   "file": "core/validators.py",
+   "line": 93,
+   "symbol": "WellValidator.validate",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not (-90 <= float(lat) <= 90):",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source core/validators.py:93 `if not (-90 <= float(lat) <= 90):`; source_sha256=ae1f69d157a55d3691df42b71379973150b4d57cd56e1ea8178b5cb60152ad0c; context_fingerprint=4251a5472e2cf3bbe138e9b546e6d22ed1bdb25d4022eb83f78d4aa0facafa4a. Latitude is checked against the inclusive geographic range -90 to 90; zero is valid and is not treated as missing.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/validators.py",
+    "line": 93,
+    "symbol": "WellValidator.validate",
+    "expression": "if not (-90 <= float(lat) <= 90):",
+    "source_sha256": "ae1f69d157a55d3691df42b71379973150b4d57cd56e1ea8178b5cb60152ad0c",
+    "context_fingerprint": "4251a5472e2cf3bbe138e9b546e6d22ed1bdb25d4022eb83f78d4aa0facafa4a"
+   }
+  },
+  {
+   "id": "INV34-003022",
+   "file": "core/value_normalizer.py",
+   "line": 196,
+   "symbol": "ValueNormalizer.to_str",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-empty",
+   "register_line_text": "return text or None",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source core/value_normalizer.py:196 `return text or None`; source_sha256=7f36dbcfec89eea0b8a729dc392dcf3f545525a9ceb5191dd18fb06d699a0278; context_fingerprint=647b35fe789df49c4ea793cb021962320a4324e7126d324e12d1952a4b968d65. This returns stripped optional text as text and maps only blank text to None. The explicit string `\"0\"` remains a nonblank string. Same expression is also recorded at INV34-007888.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/value_normalizer.py",
+    "line": 196,
+    "symbol": "ValueNormalizer.to_str",
+    "expression": "return text or None",
+    "source_sha256": "7f36dbcfec89eea0b8a729dc392dcf3f545525a9ceb5191dd18fb06d699a0278",
+    "context_fingerprint": "647b35fe789df49c4ea793cb021962320a4324e7126d324e12d1952a4b968d65"
+   }
+  },
+  {
+   "id": "INV34-003026",
+   "file": "core/value_normalizer.py",
+   "line": 145,
+   "symbol": "ValueNormalizer._number",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if fraction:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source core/value_normalizer.py:145 `if fraction:`; source_sha256=7f36dbcfec89eea0b8a729dc392dcf3f545525a9ceb5191dd18fb06d699a0278; context_fingerprint=08d2d8ccf85bf90038b1b433b005bfc497531b3b20ab2ebce8a92fbb26e48a6e. `fraction` is a regex match object for a recognized fraction syntax, not an engineering quantity whose numeric zero is tested for presence.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/value_normalizer.py",
+    "line": 145,
+    "symbol": "ValueNormalizer._number",
+    "expression": "if fraction:",
+    "source_sha256": "7f36dbcfec89eea0b8a729dc392dcf3f545525a9ceb5191dd18fb06d699a0278",
+    "context_fingerprint": "08d2d8ccf85bf90038b1b433b005bfc497531b3b20ab2ebce8a92fbb26e48a6e"
+   }
+  },
+  {
+   "id": "INV34-003027",
+   "file": "core/value_normalizer.py",
+   "line": 138,
+   "symbol": "ValueNormalizer._number",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if mixed:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source core/value_normalizer.py:138 `if mixed:`; source_sha256=7f36dbcfec89eea0b8a729dc392dcf3f545525a9ceb5191dd18fb06d699a0278; context_fingerprint=15a6e64df978071ec96439f856b8f79bf6966aec1b5fd11b9758687fdbadebde. `mixed` is a regex match object for a recognized mixed-number syntax; successful parsing may produce numeric zero without the match condition confusing presence.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/value_normalizer.py",
+    "line": 138,
+    "symbol": "ValueNormalizer._number",
+    "expression": "if mixed:",
+    "source_sha256": "7f36dbcfec89eea0b8a729dc392dcf3f545525a9ceb5191dd18fb06d699a0278",
+    "context_fingerprint": "15a6e64df978071ec96439f856b8f79bf6966aec1b5fd11b9758687fdbadebde"
+   }
+  },
+  {
+   "id": "INV34-003028",
+   "file": "core/value_normalizer.py",
+   "line": 152,
+   "symbol": "ValueNormalizer._number",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not match:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source core/value_normalizer.py:152 `if not match:`; source_sha256=7f36dbcfec89eea0b8a729dc392dcf3f545525a9ceb5191dd18fb06d699a0278; context_fingerprint=05100b2f3cd377a63ed2fce8ef50e4a89837fec87b12e6f7dd10ca7c4d965c18. No recognized numeric syntax is explicitly the invalid-text path; it returns an unknown/invalid conversion result instead of zero.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/value_normalizer.py",
+    "line": 152,
+    "symbol": "ValueNormalizer._number",
+    "expression": "if not match:",
+    "source_sha256": "7f36dbcfec89eea0b8a729dc392dcf3f545525a9ceb5191dd18fb06d699a0278",
+    "context_fingerprint": "05100b2f3cd377a63ed2fce8ef50e4a89837fec87b12e6f7dd10ca7c4d965c18"
+   }
+  },
+  {
+   "id": "INV34-003036",
+   "file": "core/value_normalizer.py",
+   "line": 215,
+   "symbol": "ValueNormalizer.to_date",
+   "rule": "R-EXC-CONTINUE",
+   "kind": "typed-exception",
+   "register_line_text": "except ValueError:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source core/value_normalizer.py:215 `except ValueError:`; source_sha256=7f36dbcfec89eea0b8a729dc392dcf3f545525a9ceb5191dd18fb06d699a0278; context_fingerprint=82d12fc882d24b02bd3374b41063586c6e4a5517ff67c06ff8b39a2d3cf2cb37. A failed parse format advances to the next declared date format; if all formats fail, the converter returns None rather than a fabricated date.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/value_normalizer.py",
+    "line": 215,
+    "symbol": "ValueNormalizer.to_date",
+    "expression": "except ValueError:",
+    "source_sha256": "7f36dbcfec89eea0b8a729dc392dcf3f545525a9ceb5191dd18fb06d699a0278",
+    "context_fingerprint": "82d12fc882d24b02bd3374b41063586c6e4a5517ff67c06ff8b39a2d3cf2cb37"
+   }
+  },
+  {
+   "id": "INV34-003037",
+   "file": "core/value_normalizer.py",
+   "line": 266,
+   "symbol": "ValueNormalizer.to_datetime",
+   "rule": "R-EXC-CONTINUE",
+   "kind": "typed-exception",
+   "register_line_text": "except ValueError:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source core/value_normalizer.py:266 `except ValueError:`; source_sha256=7f36dbcfec89eea0b8a729dc392dcf3f545525a9ceb5191dd18fb06d699a0278; context_fingerprint=dd0661e9626ea4096c8992026a71c8edc6ac447cd9e00956fbd8dbb897f9684d. A failed datetime format advances to the next declared format; exhaustion remains an invalid/unknown result, not a zero datetime.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/value_normalizer.py",
+    "line": 266,
+    "symbol": "ValueNormalizer.to_datetime",
+    "expression": "except ValueError:",
+    "source_sha256": "7f36dbcfec89eea0b8a729dc392dcf3f545525a9ceb5191dd18fb06d699a0278",
+    "context_fingerprint": "dd0661e9626ea4096c8992026a71c8edc6ac447cd9e00956fbd8dbb897f9684d"
+   }
+  },
+  {
+   "id": "INV34-003151",
+   "file": "dialogs/casing_history_dialog.py",
+   "line": 165,
+   "symbol": "CasingHistoryDialog.reload",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "all_saved = self._repo.all() if self._repo else []",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source dialogs/casing_history_dialog.py:165 `all_saved = self._repo.all() if self._repo else []`; source_sha256=06d93ba8186dd347544e78ff5461f2d7f749e2448acf5c7b7944bffeae5e7aa2; context_fingerprint=0edcbb147759e0ddf1a4d3def1ddc2dac16a5004dbc10d71f7d3c9167feffb1c. The application entry point checks for a missing casing-history repository and displays that history cannot be opened before constructing this dialog. The optional `None -> []` guard is defensive for standalone/test construction; the live UI does not tell a database failure that no records exist.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "dialogs/casing_history_dialog.py",
+    "line": 165,
+    "symbol": "CasingHistoryDialog.reload",
+    "expression": "all_saved = self._repo.all() if self._repo else []",
+    "source_sha256": "06d93ba8186dd347544e78ff5461f2d7f749e2448acf5c7b7944bffeae5e7aa2",
+    "context_fingerprint": "0edcbb147759e0ddf1a4d3def1ddc2dac16a5004dbc10d71f7d3c9167feffb1c"
+   }
+  },
+  {
+   "id": "INV34-003162",
+   "file": "dialogs/cement_history_dialog.py",
+   "line": 165,
+   "symbol": "CementHistoryDialog.reload",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "all_saved = self._repo.all() if self._repo else []",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source dialogs/cement_history_dialog.py:165 `all_saved = self._repo.all() if self._repo else []`; source_sha256=fbb7028b5f0f7edd095ea74d6707404c98e7a18cec7ed936ecc1469453e3c024; context_fingerprint=fb705d028f9799ac646a50186062e17baa10bc59925ca50de5d0f5aad1e5835c. The application entry point checks for a missing cement-history repository and displays that history cannot be opened before constructing this dialog. The optional `None -> []` guard is defensive for standalone/test construction; the live UI does not tell a database failure that no records exist.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "dialogs/cement_history_dialog.py",
+    "line": 165,
+    "symbol": "CementHistoryDialog.reload",
+    "expression": "all_saved = self._repo.all() if self._repo else []",
+    "source_sha256": "fbb7028b5f0f7edd095ea74d6707404c98e7a18cec7ed936ecc1469453e3c024",
+    "context_fingerprint": "fb705d028f9799ac646a50186062e17baa10bc59925ca50de5d0f5aad1e5835c"
+   }
+  },
+  {
+   "id": "INV34-003280",
+   "file": "dialogs/engineering_dialogs.py",
+   "line": 982,
+   "symbol": "AddSurveyDialog.init_ui",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if self.prev_survey:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source dialogs/engineering_dialogs.py:982 `if self.prev_survey:`; source_sha256=f85f5a854ea519d240237c8ecff9760a6cafa7efa32221d7d6345dd8b8be18bb; context_fingerprint=ee41ebed3d4fdc6cf5946803567cf879a9c71cbbfd591015382fc439a9eda5d3. `prev_survey` is optional prior survey data used only to prefill the preview; an absent/empty prior survey disables that preview and does not seed a survey measurement.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "dialogs/engineering_dialogs.py",
+    "line": 982,
+    "symbol": "AddSurveyDialog.init_ui",
+    "expression": "if self.prev_survey:",
+    "source_sha256": "f85f5a854ea519d240237c8ecff9760a6cafa7efa32221d7d6345dd8b8be18bb",
+    "context_fingerprint": "ee41ebed3d4fdc6cf5946803567cf879a9c71cbbfd591015382fc439a9eda5d3"
+   }
+  },
+  {
+   "id": "INV34-003453",
+   "file": "dialogs/hierarchy_dialogs.py",
+   "line": 210,
+   "symbol": "NewCompanyDialog.create_company",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if existing:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source dialogs/hierarchy_dialogs.py:210 `if existing:`; source_sha256=ae4cafcb940cc4938ec8514f56b7a60744acddde6366298290a7a1103c2c3737; context_fingerprint=a1f689146116971da432d209329decba3288af96367b03f282b84167e6859c2d. `existing` is the repository lookup result for a company name; the branch handles an existing entity, not a numeric measurement or zero-valued key.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "dialogs/hierarchy_dialogs.py",
+    "line": 210,
+    "symbol": "NewCompanyDialog.create_company",
+    "expression": "if existing:",
+    "source_sha256": "ae4cafcb940cc4938ec8514f56b7a60744acddde6366298290a7a1103c2c3737",
+    "context_fingerprint": "a1f689146116971da432d209329decba3288af96367b03f282b84167e6859c2d"
+   }
+  },
+  {
+   "id": "INV34-003462",
+   "file": "dialogs/hierarchy_dialogs.py",
+   "line": 470,
+   "symbol": "NewProjectDialog.create_project",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if existing:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source dialogs/hierarchy_dialogs.py:470 `if existing:`; source_sha256=ae4cafcb940cc4938ec8514f56b7a60744acddde6366298290a7a1103c2c3737; context_fingerprint=a7142b32ca7136cc64c9b83783bb2899103d81b30f83b4bcd9e0487777d6e5f3. `existing` is the repository lookup result for project identity; a found entity is rejected as a duplicate before insertion.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "dialogs/hierarchy_dialogs.py",
+    "line": 470,
+    "symbol": "NewProjectDialog.create_project",
+    "expression": "if existing:",
+    "source_sha256": "ae4cafcb940cc4938ec8514f56b7a60744acddde6366298290a7a1103c2c3737",
+    "context_fingerprint": "a7142b32ca7136cc64c9b83783bb2899103d81b30f83b4bcd9e0487777d6e5f3"
+   }
+  },
+  {
+   "id": "INV34-003467",
+   "file": "dialogs/hierarchy_dialogs.py",
+   "line": 1228,
+   "symbol": "NewSectionDialog.create_section",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if result:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source dialogs/hierarchy_dialogs.py:1228 `if result:`; source_sha256=ae4cafcb940cc4938ec8514f56b7a60744acddde6366298290a7a1103c2c3737; context_fingerprint=039620bd4cd2d4d60c61e669f88f94204237c5d3e7907b6d625f206501ff1018. The create result is the repository's success/entity result; the dialog closes only after success and displays validation/error state otherwise. This is not a numeric engineering measurement default.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "dialogs/hierarchy_dialogs.py",
+    "line": 1228,
+    "symbol": "NewSectionDialog.create_section",
+    "expression": "if result:",
+    "source_sha256": "ae4cafcb940cc4938ec8514f56b7a60744acddde6366298290a7a1103c2c3737",
+    "context_fingerprint": "039620bd4cd2d4d60c61e669f88f94204237c5d3e7907b6d625f206501ff1018"
+   }
+  },
+  {
+   "id": "INV34-003469",
+   "file": "dialogs/hierarchy_dialogs.py",
+   "line": 977,
+   "symbol": "NewWellDialog.create_well",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if existing:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source dialogs/hierarchy_dialogs.py:977 `if existing:`; source_sha256=ae4cafcb940cc4938ec8514f56b7a60744acddde6366298290a7a1103c2c3737; context_fingerprint=3a7c8db1a799d8e359f5f1643fd208caf282cbdb6c497a48cb2883e26dc8d07f. `existing` is a repository entity lookup for a well; the branch prevents duplicate creation and does not test an optional numeric well field.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "dialogs/hierarchy_dialogs.py",
+    "line": 977,
+    "symbol": "NewWellDialog.create_well",
+    "expression": "if existing:",
+    "source_sha256": "ae4cafcb940cc4938ec8514f56b7a60744acddde6366298290a7a1103c2c3737",
+    "context_fingerprint": "3a7c8db1a799d8e359f5f1643fd208caf282cbdb6c497a48cb2883e26dc8d07f"
+   }
+  },
+  {
+   "id": "INV34-007651",
+   "file": "core/mineru_engine.py",
+   "line": 1317,
+   "symbol": "DocumentNormalizer._table_source",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-constant",
+   "register_line_text": "source[\"source_table\"] = table.name or None",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source core/mineru_engine.py:1317 `source[\"source_table\"] = table.name or None`; source_sha256=d6e3e753a7af271fc15410ae8114770a7665d75db554b33f90337f2828d14c3f; context_fingerprint=57d36a3a7a4b1f928d66740ae5034aa1f06da44583e02372f525e1609256055f. Source-table name is optional extraction provenance metadata; absent or blank table labels become None without changing the extracted cell values or table geometry.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/mineru_engine.py",
+    "line": 1317,
+    "symbol": "DocumentNormalizer._table_source",
+    "expression": "source[\"source_table\"] = table.name or None",
+    "source_sha256": "d6e3e753a7af271fc15410ae8114770a7665d75db554b33f90337f2828d14c3f",
+    "context_fingerprint": "57d36a3a7a4b1f928d66740ae5034aa1f06da44583e02372f525e1609256055f"
+   }
+  },
+  {
+   "id": "INV34-007686",
+   "file": "core/rag_search.py",
+   "line": 117,
+   "symbol": "HistoricalDDRSearch.find_similar_operations",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-empty",
+   "register_line_text": "params = self.db.get_drilling_parameters(report_id=current_report_id) or {}",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source core/rag_search.py:117 `params = self.db.get_drilling_parameters(report_id=current_report_id) or {}`; source_sha256=2217ee7ad0a06a71f5d9d80152c95145e8708bcc423841b1df4e15831ae2f4eb; context_fingerprint=809f5c7749e67223b8128a0d155f9813eb4ced78ccd33613ce515479f284e4fb. Historical search uses parameters for the explicit current report only; no parameters means an empty comparison context, not zero drilling parameters. Search identity remains the supplied report ID and its well.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/rag_search.py",
+    "line": 117,
+    "symbol": "HistoricalDDRSearch.find_similar_operations",
+    "expression": "params = self.db.get_drilling_parameters(report_id=current_report_id) or {}",
+    "source_sha256": "2217ee7ad0a06a71f5d9d80152c95145e8708bcc423841b1df4e15831ae2f4eb",
+    "context_fingerprint": "809f5c7749e67223b8128a0d155f9813eb4ced78ccd33613ce515479f284e4fb"
+   }
+  },
+  {
+   "id": "INV34-007691",
+   "file": "core/report_engine.py",
+   "line": 92,
+   "symbol": "DDRReportEngine._collect_data",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-empty",
+   "register_line_text": "well = self.db.get_well_by_id(well_id) or {}",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source core/report_engine.py:92 `well = self.db.get_well_by_id(well_id) or {}`; source_sha256=b14943e80b71c7d29d3e5c43f7a5fbcf150c6854bd68bb8f5c4dcf90bdf88b0c; context_fingerprint=031d32f6599d4d6c900222efe988009f555d0ee0446438fa512753674a5396b5. A missing related well produces a blank metadata mapping for report rendering; it does not replace a well ID or engineering quantity. Well/report relationship is persisted separately and lookup exceptions are not swallowed here.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/report_engine.py",
+    "line": 92,
+    "symbol": "DDRReportEngine._collect_data",
+    "expression": "well = self.db.get_well_by_id(well_id) or {}",
+    "source_sha256": "b14943e80b71c7d29d3e5c43f7a5fbcf150c6854bd68bb8f5c4dcf90bdf88b0c",
+    "context_fingerprint": "031d32f6599d4d6c900222efe988009f555d0ee0446438fa512753674a5396b5"
+   }
+  },
+  {
+   "id": "INV34-007708",
+   "file": "core/report_engine.py",
+   "line": 701,
+   "symbol": "EOWRReportEngine._collect_data",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-empty",
+   "register_line_text": "well = self.db.get_well_by_id(well_id) or {}",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source core/report_engine.py:701 `well = self.db.get_well_by_id(well_id) or {}`; source_sha256=b14943e80b71c7d29d3e5c43f7a5fbcf150c6854bd68bb8f5c4dcf90bdf88b0c; context_fingerprint=031d32f6599d4d6c900222efe988009f555d0ee0446438fa512753674a5396b5. A missing related well produces a blank metadata mapping for EOWR rendering; it does not replace a well ID or cost amount. Lookup exceptions are not swallowed by this expression.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/report_engine.py",
+    "line": 701,
+    "symbol": "EOWRReportEngine._collect_data",
+    "expression": "well = self.db.get_well_by_id(well_id) or {}",
+    "source_sha256": "b14943e80b71c7d29d3e5c43f7a5fbcf150c6854bd68bb8f5c4dcf90bdf88b0c",
+    "context_fingerprint": "031d32f6599d4d6c900222efe988009f555d0ee0446438fa512753674a5396b5"
+   }
+  },
+  {
+   "id": "INV34-007710",
+   "file": "core/report_engine.py",
+   "line": 774,
+   "symbol": "EOWRReportEngine._collect_data",
+   "rule": "R-EXC-OTHER",
+   "kind": "broad-exception",
+   "register_line_text": "except Exception:",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Hash-anchored source core/report_engine.py:774 `except Exception:`; source_sha256=b14943e80b71c7d29d3e5c43f7a5fbcf150c6854bd68bb8f5c4dcf90bdf88b0c; context_fingerprint=bd8d96e202e2cb1b76afab1a40d108d8844e937e7633b18711833e9786b52ed8. Duplicate scanner capture of the exact EOWR cost-query `except Exception` already recorded at INV34-002477; the underlying query-failure-versus-no-rows question is recorded once there.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/report_engine.py",
+    "line": 774,
+    "symbol": "EOWRReportEngine._collect_data",
+    "expression": "except Exception:",
+    "source_sha256": "b14943e80b71c7d29d3e5c43f7a5fbcf150c6854bd68bb8f5c4dcf90bdf88b0c",
+    "context_fingerprint": "bd8d96e202e2cb1b76afab1a40d108d8844e937e7633b18711833e9786b52ed8"
+   }
+  },
+  {
+   "id": "INV34-007727",
+   "file": "core/report_engine.py",
+   "line": 1350,
+   "symbol": "NPTReportEngine._collect_data",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-empty",
+   "register_line_text": "well = self.db.get_well_by_id(well_id) or {}",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source core/report_engine.py:1350 `well = self.db.get_well_by_id(well_id) or {}`; source_sha256=b14943e80b71c7d29d3e5c43f7a5fbcf150c6854bd68bb8f5c4dcf90bdf88b0c; context_fingerprint=031d32f6599d4d6c900222efe988009f555d0ee0446438fa512753674a5396b5. A missing related well produces a blank metadata mapping for NPT report rendering; it does not replace a well ID or NPT hours. Lookup exceptions are not swallowed by this expression.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/report_engine.py",
+    "line": 1350,
+    "symbol": "NPTReportEngine._collect_data",
+    "expression": "well = self.db.get_well_by_id(well_id) or {}",
+    "source_sha256": "b14943e80b71c7d29d3e5c43f7a5fbcf150c6854bd68bb8f5c4dcf90bdf88b0c",
+    "context_fingerprint": "031d32f6599d4d6c900222efe988009f555d0ee0446438fa512753674a5396b5"
+   }
+  },
+  {
+   "id": "INV34-007741",
+   "file": "core/report_engine.py",
+   "line": 1750,
+   "symbol": "CostReportEngine._collect_data",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-empty",
+   "register_line_text": "well = self.db.get_well_by_id(well_id) or {}",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source core/report_engine.py:1750 `well = self.db.get_well_by_id(well_id) or {}`; source_sha256=b14943e80b71c7d29d3e5c43f7a5fbcf150c6854bd68bb8f5c4dcf90bdf88b0c; context_fingerprint=031d32f6599d4d6c900222efe988009f555d0ee0446438fa512753674a5396b5. A missing related well produces a blank metadata mapping for cost report rendering; it does not replace a well ID or cost amount. Lookup exceptions are not swallowed by this expression.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/report_engine.py",
+    "line": 1750,
+    "symbol": "CostReportEngine._collect_data",
+    "expression": "well = self.db.get_well_by_id(well_id) or {}",
+    "source_sha256": "b14943e80b71c7d29d3e5c43f7a5fbcf150c6854bd68bb8f5c4dcf90bdf88b0c",
+    "context_fingerprint": "031d32f6599d4d6c900222efe988009f555d0ee0446438fa512753674a5396b5"
+   }
+  },
+  {
+   "id": "INV34-007746",
+   "file": "core/report_engine.py",
+   "line": 2009,
+   "symbol": "PlanReportEngine._collect_data",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-empty",
+   "register_line_text": "well = self.db.get_well_by_id(well_id) or {}",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source core/report_engine.py:2009 `well = self.db.get_well_by_id(well_id) or {}`; source_sha256=b14943e80b71c7d29d3e5c43f7a5fbcf150c6854bd68bb8f5c4dcf90bdf88b0c; context_fingerprint=031d32f6599d4d6c900222efe988009f555d0ee0446438fa512753674a5396b5. A missing related well produces a blank metadata mapping for plan report rendering; it does not replace a well ID or plan value. Lookup exceptions are not swallowed by this expression.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/report_engine.py",
+    "line": 2009,
+    "symbol": "PlanReportEngine._collect_data",
+    "expression": "well = self.db.get_well_by_id(well_id) or {}",
+    "source_sha256": "b14943e80b71c7d29d3e5c43f7a5fbcf150c6854bd68bb8f5c4dcf90bdf88b0c",
+    "context_fingerprint": "031d32f6599d4d6c900222efe988009f555d0ee0446438fa512753674a5396b5"
+   }
+  },
+  {
+   "id": "INV34-007762",
+   "file": "core/report_lifecycle.py",
+   "line": 83,
+   "symbol": "resolve_transition",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-constant",
+   "register_line_text": "\"\"\"Return the next status for a (current_status, action) pair, or None.\"\"\"",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Hash-anchored source core/report_lifecycle.py:83 `\"\"\"Return the next status for a (current_status, action) pair, or None.\"\"\"`; source_sha256=d00919fd5ea26ef894fb65443e5b5be99c15a2d1435796f6f0aaabe17bb53bc5; context_fingerprint=d72753692d521a1af723c5f479245a03f330afa35c74aa0a4820a13551b73434. Rule mis-fire: this is a docstring describing that resolve_transition may return None; it is not an executable default expression.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/report_lifecycle.py",
+    "line": 83,
+    "symbol": "resolve_transition",
+    "expression": "\"\"\"Return the next status for a (current_status, action) pair, or None.\"\"\"",
+    "source_sha256": "d00919fd5ea26ef894fb65443e5b5be99c15a2d1435796f6f0aaabe17bb53bc5",
+    "context_fingerprint": "d72753692d521a1af723c5f479245a03f330afa35c74aa0a4820a13551b73434"
+   }
+  },
+  {
+   "id": "INV34-007850",
+   "file": "core/unit_manager.py",
+   "line": 385,
+   "symbol": "UnitManager.normalize_row",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-empty",
+   "register_line_text": "result = dict(row or {})",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source core/unit_manager.py:385 `result = dict(row or {})`; source_sha256=2c8f6605e261b25c3c89bdb2ad96bd0ed3bc5abbdad782ed87c062c55a6ef2e5; context_fingerprint=4a9a5c81fcbeaeb0459d83d07924d7a6e8945071e20a904eb783e6b12572974c. The row adapter accepts an optional row mapping and copies an absent mapping as empty input; each absent field remains absent and no field-specific value is invented.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/unit_manager.py",
+    "line": 385,
+    "symbol": "UnitManager.normalize_row",
+    "expression": "result = dict(row or {})",
+    "source_sha256": "2c8f6605e261b25c3c89bdb2ad96bd0ed3bc5abbdad782ed87c062c55a6ef2e5",
+    "context_fingerprint": "4a9a5c81fcbeaeb0459d83d07924d7a6e8945071e20a904eb783e6b12572974c"
+   }
+  },
+  {
+   "id": "INV34-007856",
+   "file": "core/universal_import.py",
+   "line": 400,
+   "symbol": "WorkbookScanner._detect_header_rows",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-constant",
+   "register_line_text": "\"\"\"Detect if header is 1, 2, or 3 rows.",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Hash-anchored source core/universal_import.py:400 `\"\"\"Detect if header is 1, 2, or 3 rows.`; source_sha256=5d9a026218a8b7e99863df284d960b3007c077fffd75de315fdf5ee3904f50a6; context_fingerprint=bf05e0ec85ea40b02658085b048173f7e7827321f0194932f67c87bd67af95af. Rule mis-fire: the reported text is a docstring explaining header detection, not executable behavior.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/universal_import.py",
+    "line": 400,
+    "symbol": "WorkbookScanner._detect_header_rows",
+    "expression": "\"\"\"Detect if header is 1, 2, or 3 rows.",
+    "source_sha256": "5d9a026218a8b7e99863df284d960b3007c077fffd75de315fdf5ee3904f50a6",
+    "context_fingerprint": "bf05e0ec85ea40b02658085b048173f7e7827321f0194932f67c87bd67af95af"
+   }
+  },
+  {
+   "id": "INV34-007874",
+   "file": "core/validators.py",
+   "line": 480,
+   "symbol": "SafetyValidator.validate",
+   "rule": "R-PASS-OTHER",
+   "kind": "pass-statement",
+   "register_line_text": "pass",
+   "classification": "DOMAIN_DECISION_REQUIRED",
+   "evidence": "Hash-anchored source core/validators.py:480 `pass`; source_sha256=ae1f69d157a55d3691df42b71379973150b4d57cd56e1ea8178b5cb60152ad0c; context_fingerprint=80e3b4f34b47a9cdd980d5bc21927c1eda0dfce9ef33788e13ce3a3722676b2a. SafetyValidator has no in-repository caller. Its BOP date branch is an explicit no-op despite the comment saying validation checks dates. The active safety widget independently uses configured test intervals and NOT ASSESSED handling, so there is no demonstrated current user-visible production path through this helper. Owner decision: either retire the dead validation branch or define/wire its date-validation contract; no interval/date rule is invented here.",
+   "defect": false,
+   "remaining_question": "SafetyValidator date-validation ownership/contract (helper currently has no in-repository caller)",
+   "site": {
+    "file": "core/validators.py",
+    "line": 480,
+    "symbol": "SafetyValidator.validate",
+    "expression": "pass",
+    "source_sha256": "ae1f69d157a55d3691df42b71379973150b4d57cd56e1ea8178b5cb60152ad0c",
+    "context_fingerprint": "80e3b4f34b47a9cdd980d5bc21927c1eda0dfce9ef33788e13ce3a3722676b2a"
+   }
+  },
+  {
+   "id": "INV34-007888",
+   "file": "core/value_normalizer.py",
+   "line": 196,
+   "symbol": "ValueNormalizer.to_str",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-constant",
+   "register_line_text": "return text or None",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Hash-anchored source core/value_normalizer.py:196 `return text or None`; source_sha256=7f36dbcfec89eea0b8a729dc392dcf3f545525a9ceb5191dd18fb06d699a0278; context_fingerprint=0691ab089d549075df37e5136b2b3432e74ff04f87fbca013e93548c0799b88c. Duplicate scanner capture of the same `return text or None` expression as INV34-003022; blank optional text maps to None and literal string zero is retained.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/value_normalizer.py",
+    "line": 196,
+    "symbol": "ValueNormalizer.to_str",
+    "expression": "return text or None",
+    "source_sha256": "7f36dbcfec89eea0b8a729dc392dcf3f545525a9ceb5191dd18fb06d699a0278",
+    "context_fingerprint": "0691ab089d549075df37e5136b2b3432e74ff04f87fbca013e93548c0799b88c"
+   }
+  },
+  {
+   "id": "INV34-007935",
+   "file": "dialogs/excel_import_dialog.py",
+   "line": 69,
+   "symbol": "has_meaningful_canonical_data.meaningful",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not business_key(key):",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source dialogs/excel_import_dialog.py:69 `if not business_key(key):`; source_sha256=328b449d7d32416d2d9a788a6885e77b7c0dbcc75c6c20a73acd295be56f2b74; context_fingerprint=f712716c321304566c6ae932f8694133f97cb3f8fcbc2a713a540f2794ab7c96. The importer filters metadata/non-business keys from its meaningful-data decision; this prevents worksheet labels and formatting-only data from being treated as a canonical drilling record.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "dialogs/excel_import_dialog.py",
+    "line": 69,
+    "symbol": "has_meaningful_canonical_data.meaningful",
+    "expression": "if not business_key(key):",
+    "source_sha256": "328b449d7d32416d2d9a788a6885e77b7c0dbcc75c6c20a73acd295be56f2b74",
+    "context_fingerprint": "f712716c321304566c6ae932f8694133f97cb3f8fcbc2a713a540f2794ab7c96"
+   }
+  },
+  {
+   "id": "INV34-007953",
+   "file": "dialogs/hierarchy_dialogs.py",
+   "line": 481,
+   "symbol": "NewProjectDialog.create_project",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-constant",
+   "register_line_text": "location=project_data[\"location\"] or None,",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source dialogs/hierarchy_dialogs.py:481 `location=project_data[\"location\"] or None,`; source_sha256=ae4cafcb940cc4938ec8514f56b7a60744acddde6366298290a7a1103c2c3737; context_fingerprint=d59bb74be2be71c4924af197648a021bfabdd3e6365df8edd20eb69278a06375. Project location is optional descriptive text; blank input persists as NULL/None, not a geographic coordinate or numeric zero.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "dialogs/hierarchy_dialogs.py",
+    "line": 481,
+    "symbol": "NewProjectDialog.create_project",
+    "expression": "location=project_data[\"location\"] or None,",
+    "source_sha256": "ae4cafcb940cc4938ec8514f56b7a60744acddde6366298290a7a1103c2c3737",
+    "context_fingerprint": "d59bb74be2be71c4924af197648a021bfabdd3e6365df8edd20eb69278a06375"
+   }
+  },
+  {
+   "id": "INV34-007954",
+   "file": "dialogs/hierarchy_dialogs.py",
+   "line": 487,
+   "symbol": "NewProjectDialog.create_project",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-constant",
+   "register_line_text": "manager=project_data[\"manager\"] or None,",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source dialogs/hierarchy_dialogs.py:487 `manager=project_data[\"manager\"] or None,`; source_sha256=ae4cafcb940cc4938ec8514f56b7a60744acddde6366298290a7a1103c2c3737; context_fingerprint=2acc4152c3de282c08e37f90df7f61f522affc49f8d6e14f8710c890370b7211. Project manager is optional descriptive text; blank input persists as NULL/None, not an employee identifier zero.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "dialogs/hierarchy_dialogs.py",
+    "line": 487,
+    "symbol": "NewProjectDialog.create_project",
+    "expression": "manager=project_data[\"manager\"] or None,",
+    "source_sha256": "ae4cafcb940cc4938ec8514f56b7a60744acddde6366298290a7a1103c2c3737",
+    "context_fingerprint": "2acc4152c3de282c08e37f90df7f61f522affc49f8d6e14f8710c890370b7211"
+   }
+  }
+ ]
+}

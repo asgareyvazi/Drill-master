@@ -403,7 +403,7 @@ class BulkValidator:
                     if initial_raw is not None:
                         initial = float(initial_raw)
                         expected = initial + received - used
-                        if abs(current - expected) > 0.01 and current != 0:
+                        if abs(current - expected) > 0.01:
                             r.add_warning(f"bulk[{idx}].current_stock", f"Stock mismatch: {current} != {initial}+{received}-{used}={expected}")
             except (TypeError, ValueError):
                 r.add_error(f"bulk[{idx}]", "Stock values must be numeric")

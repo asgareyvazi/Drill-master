@@ -741,6 +741,60 @@
     ],
     "mutation": "The persisted timeout-zero regression failed before the fix (600 seconds instead of 1); both persisted integer zero and environment string zero now pass. Existing MinerU adapter tests run without a real MinerU installation and do not establish OCR/real-DDR acceptance."
    }
+  },
+  {
+   "batch": "p6-batch-026",
+   "class": "phase-2 mixed review: report collection and metadata fallback, hierarchy/scope selection, validation, import normalization and engineering dialogs",
+   "records": 45,
+   "sites": 43,
+   "by_classification": {
+    "INTENTIONAL": 36,
+    "DUPLICATE/FALSE-POSITIVE": 4,
+    "VERIFIED-CORRECT": 3,
+    "DOMAIN_DECISION_REQUIRED": 2
+   },
+   "defects_fixed": [
+    {
+     "id": "NEW-P6-022",
+     "file": "core/validators.py",
+     "site": "BulkValidator.validate current_stock reconciliation",
+     "test": "tests/test_bulk_validator_zero.py",
+     "summary": "Removed the explicit-zero exemption from stock mismatch validation. With known opening/receipts/usage, a closing stock of 0 is compared to the calculated expected stock; unknown opening/current stock remains outside the reconciliation. The helper has no in-repository production caller, so this corrects its exposed validation contract without claiming a live UI impact."
+    }
+   ],
+   "new_findings": [
+    {
+     "id": "NEW-P6-023",
+     "file": "core/validators.py",
+     "line": 480,
+     "severity": "LOW",
+     "status": "DOMAIN_DECISION_REQUIRED",
+     "commit": null,
+     "test": null
+    },
+    {
+     "id": "NEW-P6-024",
+     "file": "core/report_engine.py",
+     "line": 774,
+     "severity": "MEDIUM",
+     "status": "DOMAIN_DECISION_REQUIRED",
+     "commit": null,
+     "test": null
+    }
+   ],
+   "evidence_commit": null,
+   "commit": null,
+   "tests": {
+    "passed": [
+     "184 passed, 2 deselected: focused run covering BulkValidator/unknown stock, MinerU, report lifecycle/snapshots, scope attribution/selection/ownership, unit preservation, hierarchy and safety/business regressions. Includes tests/test_bulk_validator_zero.py; full command is recorded in the session verification.",
+     "69 passed: tests/test_mineru_engine.py tests/test_mineru_timeout_zero.py tests/test_report_lifecycle.py tests/test_report_snapshot.py.",
+     "Ruff --select E722,F821 on changed source/tests/audit tool, compileall and git diff --check are recorded at final verification."
+    ],
+    "environment_blocked": [
+     "Six Qt-backed tests failed before exercising assertions because PySide6 could not load missing system library libGL.so.1: tests/test_bulk_stock_three_state_smoke.py (1), tests/test_history_well_scope.py (2), tests/test_whole_well_scope_labels_m25.py (1), and tests/test_m28_finance_safety_plan.py (2). Selection-manager module reported 17 skips. No GUI/Qt end-to-end workflow, production database, real DDR report corpus, or safety-widget deployment acceptance is claimed."
+    ],
+    "mutation": "Temporarily restored the original `and current != 0` condition and reran tests/test_bulk_validator_zero.py: the explicit-zero mismatch regression failed (1 failed, 1 passed); the production fix was restored and the focused tests pass."
+   }
   }
  ],
  "start_open": 1224,
@@ -748,18 +802,18 @@
  "arithmetic": {
   "register_open_at_p6_start": 1224,
   "defect_fixed_by_p6": 2,
-  "adjudicated_by_p6_batches": 1044,
-  "current_open": 178,
+  "adjudicated_by_p6_batches": 1089,
+  "current_open": 133,
   "check": true,
   "note": "every record is either OPEN or carries a terminal evidence-backed classification; the fixed sites are subtracted separately so nothing disappears"
  },
  "open_by_priority": {
-  "MEDIUM": 178
+  "MEDIUM": 133
  },
  "open_by_class": {
-  "E": 178
+  "E": 133
  },
- "generated_utc": "2026-09-29T08:53:10+00:00",
+ "generated_utc": "2026-09-29T09:59:53+00:00",
  "recovery_bundles": [
   {
    "file": "/home/user/recovery/drillmaster-115fc09.bundle",
