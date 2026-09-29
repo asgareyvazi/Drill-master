@@ -107,6 +107,18 @@ _CHILD = textwrap.dedent(
     # The two states never collapsed into one another.
     assert row1["fuel_stock"] is None and row2["fuel_stock"] == 0.0
 
+    # Clear means unreported stock, not four empty-tank facts. Movement fields
+    # remain explicit zero because no movement is the additive identity.
+    tab.clear_fields()
+    assert _stock_value(tab.fuel_stock) is None
+    assert _stock_value(tab.water_stock) is None
+    assert _stock_value(tab.dw_stock) is None
+    assert _stock_value(tab.fuel_camp_stock) is None
+    assert tab.fuel_consumed.value() == 0.0
+    assert tab.water_consumed.value() == 0.0
+    assert tab.dw_consumed.value() == 0.0
+    assert tab.fuel_camp_consumed.value() == 0.0
+
     print("W7_NULL_ZERO_UI_OK")
     """
 )

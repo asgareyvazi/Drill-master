@@ -1088,17 +1088,18 @@ class FuelWaterTab(QWidget):
             self.preview_banner.setVisible(False)
         
     def clear_fields(self):
+        # Clear nullable stock as unknown; movement fields use zero for no movement.
         self.fuel_consumed.setValue(0)
-        self.fuel_stock.setValue(0)
+        _set_stock_value(self.fuel_stock, None)
         self.fuel_received.setValue(0)
         self.water_consumed.setValue(0)
-        self.water_stock.setValue(0)
+        _set_stock_value(self.water_stock, None)
         self.water_received.setValue(0)
         self.dw_consumed.setValue(0)
-        self.dw_stock.setValue(0)
+        _set_stock_value(self.dw_stock, None)
         self.dw_received.setValue(0)
         self.fuel_camp_consumed.setValue(0)
-        self.fuel_camp_stock.setValue(0)
+        _set_stock_value(self.fuel_camp_stock, None)
         self.fuel_camp_received.setValue(0)
         self.results_label.clear()
         self._clear_carry_forward_preview()
