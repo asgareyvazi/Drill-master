@@ -3,7 +3,7 @@
   "as_of": "2026-09-29",
   "branch": "arena/01a0ec23-drill-master",
   "base_head": "33e0cc9b9a5a116d5b25993f474ea4046c98d183",
-  "status": "Follow-up fixes for both failures in exact-HEAD run 36565419818 are prepared; the next exact-HEAD CI result is pending.",
+  "status": "Exact-HEAD source release gate passed on 355e13d70b3043eda1515eacca2fc3524a0ac03d across Python 3.11, 3.12, and 3.13 (run 36566403593). The subsequent evidence-only update will require its own exact-HEAD gate.",
   "source_hashes": {
     "tabs/w13_Engineering_Calculator.py": {
       "before_sha256": "4fd94858f423a09793e7afaf0f40e346c9bab046d39bfe49faab4aad340f4bee",
@@ -58,14 +58,14 @@
       "changed_symbols": [
         "DrillingParametersTab._current_report_pipe_od",
         "DrillingParametersTab.calculate_annular_velocity",
-        "DrillingParametersTab.get_form_data",
+        "DrillingParametersTab.collect_data",
         "DrillingParametersTab.load_from_dict",
         "DrillingParametersTab.clear_form"
       ]
     },
     "tests/test_w3_annular_velocity_truth.py": {
-      "sha256": "164d948167af9ab84cb2f2c0cc07e5ca44c2f4d2d04c4e70c5df7f87a49b5da6",
-      "status": "Qt regression added; local host cannot import Qt because libGL.so.1 is missing; pending CI execution"
+      "sha256": "ea20fa6c388dce0403e15df96f561799c70406a6cf4e96d836031fb32090be3f",
+      "status": "Qt regression now uses production collect_data API; exact-HEAD CI passed on real Qt runners in run 36566403593."
     },
     "tests/test_well_control_kill_sheet_save_widget_smoke.py": {
       "sha256": "4bb85e27f9acb82dc444260d872a65d550a1f91b25670a83ee92f05e2b629691",
@@ -83,7 +83,8 @@
         "tests/test_single_source_guard.py::TestW13DelegationParity::test_fishing_result_facade_preserves_failure_and_converts_display_units",
         "tests/test_w13_fishing_result_ui.py::test_w13_fishing_widgets_start_unknown_and_render_result_status"
       ],
-      "remaining_compatibility_note": "External callers of the legacy scalar wrapper are unknown; its old zero-on-failure behavior is retained."
+      "remaining_compatibility_note": "External callers of the legacy scalar wrapper are unknown; its old zero-on-failure behavior is retained.",
+      "verification": "Exact-HEAD CI run 36566403593 succeeded on Python 3.11/3.12/3.13, including real-Qt UI assertions."
     },
     {
       "p6_finding": "NEW-P6-005",
@@ -114,7 +115,8 @@
         "tests/test_well_control_kill_sheet.py::test_legacy_missing_pipe_geometry_kick_height_is_explicitly_labelled",
         "tests/test_well_control_kill_sheet_save_widget_smoke.py::test_w13_kill_sheet_save_calculation_smoke_in_subprocess"
       ],
-      "open_owner_decision": "Whether the legacy fallback should remain available or the kick-height estimate should be refused without pipe geometry remains unresolved; this mitigation does not close that domain decision."
+      "open_owner_decision": "Whether the legacy fallback should remain available or the kick-height estimate should be refused without pipe geometry remains unresolved; this mitigation does not close that domain decision.",
+      "verification": "Exact-HEAD CI run 36566403593 succeeded on Python 3.11/3.12/3.13; the owner decision about policy for missing geometry remains open."
     },
     {
       "p6_finding": "NEW-P6-009",
@@ -145,7 +147,7 @@
       "regressions": [
         "tests/test_w2_malformed_time_load.py"
       ],
-      "verification": "commit 3829274815871414415a966960698281b9019aac exact-HEAD source gate succeeded on Python 3.11/3.12/3.13 (run 36564552535); local Qt tests skipped due missing libGL.so.1."
+      "verification": "commit 3829274815871414415a966960698281b9019aac exact-HEAD source gate succeeded on Python 3.11/3.12/3.13 (run 36564552535); later exact-HEAD gate 36566403593 also succeeded after W13/W3 corrections."
     },
     {
       "p6_finding": "NEW-P6-019",
@@ -156,7 +158,7 @@
         "tests/test_w3_annular_velocity_truth.py"
       ],
       "mutation_or_fault_injection": "Regression covers geometry existing only on another report and injects a failed manager result carrying ft_min=0; both must remain NOT ASSESSED.",
-      "verification": "Targeted local Qt test skipped because libGL.so.1 is unavailable; exact-HEAD CI pending.",
+      "verification": "Exact-HEAD CI run 36566403593 succeeded on Python 3.11/3.12/3.13, including the real-Qt regression.",
       "owner_note": "The conventional fallback is refused rather than retained; this does not authorize 5 inches as a domain default."
     },
     {
@@ -167,7 +169,7 @@
       "regressions": [
         "tests/test_well_control_kill_sheet_save_widget_smoke.py::test_w13_kill_sheet_save_calculation_smoke_in_subprocess"
       ],
-      "verification": "Local subprocess widget test blocked by missing libGL.so.1; pending exact-HEAD CI."
+      "verification": "Exact-HEAD CI run 36566403593 succeeded on Python 3.11/3.12/3.13, including the real-Qt subprocess smoke and failed-recompute save gate."
     }
   ],
   "mutation_validation": [
@@ -211,20 +213,21 @@
       "tests/test_well_control_kill_sheet_save_widget_smoke.py cannot execute its child-process widget assertions locally because libGL.so.1 is unavailable."
     ],
     "not_claimed": [
-      "real Qt widget assertions on this host",
-      "exact-HEAD CI for these working-tree changes",
-      "release verification or production acceptance"
+      "real Qt widget assertions on this local host (libGL.so.1 is unavailable locally; CI used real Qt system libraries)",
+      "release verification for the next evidence-only commit until its exact-HEAD gate completes",
+      "production acceptance or closure of owner-dependent fallback policy decisions"
     ],
     "exact_head_ci": {
-      "commit": "3829274815871414415a966960698281b9019aac",
-      "run_id": 36564552535,
+      "commit": "355e13d70b3043eda1515eacca2fc3524a0ac03d",
+      "run_id": 36566403593,
       "conclusion": "success",
       "matrix": [
         "3.11",
         "3.12",
         "3.13"
       ],
-      "scope_note": "This run includes NEW-P6-016 and the cement NULL-roundtrip regression; it does not include the current W13/W3 worktree changes."
+      "url": "https://github.com/asgareyvazi/Drill-master/actions/runs/36566403593",
+      "scope_note": "All exact-source, dependency, test and wheel verification jobs passed; includes the corrected W3 collection-method regression and W13 real-Qt stale-result/assumption-note smoke."
     },
     "failed_exact_head_runs": [
       {
