@@ -3,11 +3,11 @@
   "as_of": "2026-09-29",
   "branch": "arena/01a0ec23-drill-master",
   "base_head": "33e0cc9b9a5a116d5b25993f474ea4046c98d183",
-  "status": "W13 and W3 changes are prepared in the worktree; exact-HEAD CI is pending for these uncommitted changes. NEW-P6-016 is already committed and passed the exact-HEAD 3.11/3.12/3.13 source gate at 3829274815871414415a966960698281b9019aac.",
+  "status": "Follow-up fixes for both failures in exact-HEAD run 36565419818 are prepared; the next exact-HEAD CI result is pending.",
   "source_hashes": {
     "tabs/w13_Engineering_Calculator.py": {
       "before_sha256": "4fd94858f423a09793e7afaf0f40e346c9bab046d39bfe49faab4aad340f4bee",
-      "after_sha256": "37ff0c9cd7e298f035fe0b006b4d40c89b74b8460454b560b6f99f67ede5c6b7",
+      "after_sha256": "43a71bc48d0f3de450a087f3baad3c65cba6c730d0378872b590d6eca02b4fba",
       "changed_symbols": [
         "DrillingCalculationEngine.calc_free_point_result",
         "DrillingCalculationEngine.calc_string_stretch_result",
@@ -20,7 +20,8 @@
         "EngineeringCalculatorTab._create_casing_cement_tab",
         "EngineeringCalculatorTab._csg_calc_landing",
         "EngineeringCalculatorTab._calc_backoff"
-      ]
+      ],
+      "additional_changed_symbol": "EngineeringCalculatorTab._wc_calc_kill"
     },
     "core/engineering/engines/fishing.py": {
       "before_sha256": "06a089e27504d9dcc560ddddb852376dfb8f1fda25186e6292dc621f38bb85db",
@@ -65,6 +66,11 @@
     "tests/test_w3_annular_velocity_truth.py": {
       "sha256": "164d948167af9ab84cb2f2c0cc07e5ca44c2f4d2d04c4e70c5df7f87a49b5da6",
       "status": "Qt regression added; local host cannot import Qt because libGL.so.1 is missing; pending CI execution"
+    },
+    "tests/test_well_control_kill_sheet_save_widget_smoke.py": {
+      "sha256": "4bb85e27f9acb82dc444260d872a65d550a1f91b25670a83ee92f05e2b629691",
+      "changed_symbol": "test_w13_kill_sheet_save_calculation_smoke_in_subprocess",
+      "covers": "failed recomputation invalidates prior success before save; then valid no-pipe calculation labels its explicit 5-in assumption"
     }
   },
   "finding_reconciliation": [
@@ -152,6 +158,16 @@
       "mutation_or_fault_injection": "Regression covers geometry existing only on another report and injects a failed manager result carrying ft_min=0; both must remain NOT ASSESSED.",
       "verification": "Targeted local Qt test skipped because libGL.so.1 is unavailable; exact-HEAD CI pending.",
       "owner_note": "The conventional fallback is refused rather than retained; this does not authorize 5 inches as a domain default."
+    },
+    {
+      "p6_finding": "NEW-P6-007 sibling integrity",
+      "source_record": "docs/audits/m36-evidence/p6-batch-021.json",
+      "original_site": "W13 _wc_calc_kill result state and _wc_save_calculation persistence gate",
+      "result": "A failed recomputation now replaces/invalidates the previous result before UI return, so an old successful result cannot be saved under new inputs. The behavior-level Qt smoke verifies a failed recompute leaves history unchanged, followed by a successful no-pipe screening run whose fallback assumption is disclosed.",
+      "regressions": [
+        "tests/test_well_control_kill_sheet_save_widget_smoke.py::test_w13_kill_sheet_save_calculation_smoke_in_subprocess"
+      ],
+      "verification": "Local subprocess widget test blocked by missing libGL.so.1; pending exact-HEAD CI."
     }
   ],
   "mutation_validation": [
@@ -188,12 +204,11 @@
       "ruff --select E722,F821 on changed production and test files",
       "compileall on changed production and test files",
       "git diff --check",
-      "121 passed across time-integrity and W13/kill-sheet/nozzle targeted non-Qt suites; ruff E722,F821 and compileall passed for current changes."
+      "121 passed on local targeted non-Qt suites; ruff E722,F821 and compileall passed after the failed-run fixes."
     ],
     "qt_blocked": [
-      "tests/test_w13_fishing_result_ui.py skipped locally because PySide6 import fails on missing libGL.so.1",
-      "tests/test_well_control_kill_sheet_save_widget_smoke.py failed in its child process before assertions because libGL.so.1 is absent",
-      "tests/test_w3_annular_velocity_truth.py skipped locally because PySide6 cannot load libGL.so.1; CI execution pending."
+      "tests/test_w2_malformed_time_load.py, tests/test_w3_annular_velocity_truth.py, tests/test_w13_fishing_result_ui.py skipped locally because libGL.so.1 is unavailable.",
+      "tests/test_well_control_kill_sheet_save_widget_smoke.py cannot execute its child-process widget assertions locally because libGL.so.1 is unavailable."
     ],
     "not_claimed": [
       "real Qt widget assertions on this host",
@@ -210,7 +225,20 @@
         "3.13"
       ],
       "scope_note": "This run includes NEW-P6-016 and the cement NULL-roundtrip regression; it does not include the current W13/W3 worktree changes."
-    }
+    },
+    "failed_exact_head_runs": [
+      {
+        "commit": "9c2d8b28de0081794016909adeede9511254770e",
+        "run_id": 36565419818,
+        "conclusion": "failure",
+        "matrix": [
+          "3.11",
+          "3.12",
+          "3.13"
+        ],
+        "summary": "1888 passed, 4 skipped, 2 failed. Failures: W3 test called nonexistent get_form_data (corrected to collect_data); W13 smoke used a stale successful result after failed recomputation and did not reset mud weight before expected successful assumed-geometry calculation (production state fix and regression assertions added)."
+      }
+    ]
   },
   "fingerprint_policy": "The prior batch records remain the provenance source for original SHA/line/symbol/fingerprint. This remediation records before/after file hashes and current symbols; it does not claim to reproduce unavailable M34 fingerprints or silently re-anchor historical records."
 }

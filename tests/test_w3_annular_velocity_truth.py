@@ -56,7 +56,7 @@ def test_annular_velocity_refuses_fallback_and_uses_active_report_pipe_od(monkey
         tab.calculate_annular_velocity()
 
         assert tab.annular_velocity.value() == tab.annular_velocity.minimum()
-        assert tab.get_form_data()["annular_velocity"] is None
+        assert tab.collect_data()["annular_velocity"] is None
         assert "NOT ASSESSED" in tab.annular_velocity.toolTip()
         assert "current report" in tab.annular_velocity.toolTip().lower()
 
@@ -76,7 +76,7 @@ def test_annular_velocity_refuses_fallback_and_uses_active_report_pipe_od(monkey
         assert tab.annular_velocity.value() == pytest.approx(round(expected, 1))
         assert "SCREENING" in tab.annular_velocity.toolTip()
         assert "6.5 in" in tab.annular_velocity.toolTip()
-        assert tab.get_form_data()["annular_velocity"] == pytest.approx(round(expected, 1))
+        assert tab.collect_data()["annular_velocity"] == pytest.approx(round(expected, 1))
 
         # A calculation wrapper failure contains a compatibility zero, but the
         # UI must not persist or show that zero as a valid engineering result.
@@ -87,7 +87,7 @@ def test_annular_velocity_refuses_fallback_and_uses_active_report_pipe_od(monkey
         )
         tab.calculate_annular_velocity()
         assert tab.annular_velocity.value() == tab.annular_velocity.minimum()
-        assert tab.get_form_data()["annular_velocity"] is None
+        assert tab.collect_data()["annular_velocity"] is None
         assert "NOT ASSESSED" in tab.annular_velocity.toolTip()
     finally:
         if tab is not None:

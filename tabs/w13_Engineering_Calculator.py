@@ -4452,8 +4452,11 @@ class EngineeringCalculatorTab(DrillTabBase):
             pipes_m=self.wc_pipes,
         )
         self._wc_last_kill_inputs = inp
-
+        # Invalidate any previous successful result before recomputing. A failed
+        # calculation must never leave stale numeric output available to Save.
+        self._wc_last_kill_result = None
         res = compute_kill_sheet(inp)
+        self._wc_last_kill_result = res
         if not res.success:
             self.wc_result.setText(f"❌ {res.error}")
             return
@@ -4491,8 +4494,6 @@ class EngineeringCalculatorTab(DrillTabBase):
         kick_height = res.kick_height_ft
         kick_note = res.kick_note
         schedule = res.choke_schedule
-
-        self._wc_last_kill_result = res
 
         # Build report
         text = f"""╔═════════════════════════════════════════════════════════╗

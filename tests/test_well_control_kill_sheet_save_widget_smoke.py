@@ -97,6 +97,10 @@ _CHILD = textwrap.dedent(
     tab.wc_mw.setValue(120.0)
     tab.wc_pipes.append({"type": "HWDP", "od": 5.0, "id": 3.0, "length": 500.0})
     tab._wc_calc_kill()
+    failed_recalc = tab._wc_last_kill_result
+    assert failed_recalc is not None and not failed_recalc.success
+    tab._wc_save_calculation()
+    assert repo.count() == 1, "a failed recomputation must not save stale success"
     reloaded = repo.get(saved.id)
     assert reloaded.result["kill_mw_ppg"] == stored_kill_mw, "history must not change"
     assert repo.count() == 1, "recompute alone must not persist a new run"
@@ -104,6 +108,7 @@ _CHILD = textwrap.dedent(
     # Missing pipe geometry still follows the documented legacy 5-in estimate,
     # but the real W13 result card must expose it as an assumption rather than
     # presenting the kick height as measured geometry.
+    tab.wc_mw.setValue(90.0)
     tab.wc_pipes = []
     tab._wc_calc_kill()
     assumed = tab._wc_last_kill_result
