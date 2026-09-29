@@ -864,8 +864,8 @@
     }
    ],
    "new_findings": [],
-   "evidence_commit": null,
-   "commit": null,
+   "evidence_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29",
+   "commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29",
    "tests": {
     "passed": [
      "68 passed: tests/test_bulk_display_totals.py tests/test_bulk_validator_zero.py tests/test_inventory_zero_semantics.py tests/test_mud_ledger_unknown_stock_history.py tests/test_fuel_water_truth.py tests/test_inventory_item_authority.py.",
@@ -899,8 +899,8 @@
     }
    ],
    "new_findings": [],
-   "evidence_commit": null,
-   "commit": null,
+   "evidence_commit": "994f9cf",
+   "commit": "994f9cf",
    "tests": {
     "passed": [
      "155 passed: tests/test_wellbore_section_performance.py, tests/test_credential_lifecycle.py, tests/test_ddr_regression.py, tests/test_golden_ddr.py, tests/test_real_world_import.py, tests/test_review_contract_certification.py.",
@@ -928,7 +928,7 @@
  },
  "open_by_priority": {},
  "open_by_class": {},
- "generated_utc": "2026-09-29T10:15:08+00:00",
+ "generated_utc": "2026-09-29T10:15:59+00:00",
  "recovery_bundles": [
   {
    "file": "/home/user/recovery/drillmaster-115fc09.bundle",

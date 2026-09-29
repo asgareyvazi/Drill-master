@@ -74,8 +74,8 @@
   "mutation": "Replaced summarize_bulk_display_rows temporarily with the original row-wide `try/except ValueError: continue` aggregation. Three regression cases failed (unknown stock and independent movements; blank stock; malformed/nonfinite values), 1 passed; restored fix then all 4 tests passed."
  },
  "head": "aae13dc",
- "commit": null,
- "evidence_commit": null,
+ "commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29",
+ "evidence_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29",
  "evidence_files": [
   "tabs/w7_logistics_Widget.py",
   "core/bulk_material_semantics.py",

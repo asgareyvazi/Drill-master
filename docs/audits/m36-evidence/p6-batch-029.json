@@ -90,8 +90,8 @@
   "mutation": "Restoring the missing-depth-to-zero fallback made the dedicated fixture SQL NULL assertion fail; the corrected helper was restored and the test passed."
  },
  "head": "ea3c3b0",
- "commit": null,
- "evidence_commit": null,
+ "commit": "994f9cf",
+ "evidence_commit": "994f9cf",
  "evidence_files": [
   "tests/test_wellbore_section_performance.py",
   "tools/m36/p6_batch_029.py",

@@ -1,6 +1,6 @@
 {
  "schema": "m36-open-item-register",
- "generated_utc": "2026-09-29T10:15:08+00:00",
+ "generated_utc": "2026-09-29T10:15:59+00:00",
  "source_register": "docs/audits/m35-evidence/m35-open-item-register.json",
  "source_sha256_declared": "d81a77bda0330c75493f4081c4a02e4d106fe7602e49c14f0c67d12977658a6b",
  "totals": {
@@ -12030,7 +12030,7 @@
    "p6_batch": "p6-batch-028",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29"
   },
   {
    "id": "INV34-004290",
@@ -12058,7 +12058,7 @@
    "p6_batch": "p6-batch-028",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29"
   },
   {
    "id": "INV34-004293",
@@ -12086,7 +12086,7 @@
    "p6_batch": "p6-batch-028",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29"
   },
   {
    "id": "INV34-004296",
@@ -12226,7 +12226,7 @@
    "p6_batch": "p6-batch-028",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29"
   },
   {
    "id": "INV34-004319",
@@ -12254,7 +12254,7 @@
    "p6_batch": "p6-batch-028",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29"
   },
   {
    "id": "INV34-004357",
@@ -12654,7 +12654,7 @@
    "p6_batch": "p6-batch-028",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29"
   },
   {
    "id": "INV34-004539",
@@ -12858,7 +12858,7 @@
    "p6_batch": "p6-batch-028",
    "p6_remaining_question": "Chart availability policy under missing Matplotlib Qt backend; linked to NEW-P6-026 from batch 027",
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29"
   },
   {
    "id": "INV34-004591",
@@ -12886,7 +12886,7 @@
    "p6_batch": "p6-batch-028",
    "p6_remaining_question": "Chart availability policy under missing Matplotlib Qt backend; linked to NEW-P6-026 from batch 027",
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29"
   },
   {
    "id": "INV34-004593",
@@ -13474,7 +13474,7 @@
    "p6_batch": "p6-batch-028",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29"
   },
   {
    "id": "INV34-005006",
@@ -13502,7 +13502,7 @@
    "p6_batch": "p6-batch-028",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29"
   },
   {
    "id": "INV34-005007",
@@ -13530,7 +13530,7 @@
    "p6_batch": "p6-batch-028",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29"
   },
   {
    "id": "INV34-005016",
@@ -13558,7 +13558,7 @@
    "p6_batch": "p6-batch-028",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29"
   },
   {
    "id": "INV34-005022",
@@ -13586,7 +13586,7 @@
    "p6_batch": "p6-batch-028",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29"
   },
   {
    "id": "INV34-005023",
@@ -13670,7 +13670,7 @@
    "p6_batch": "p6-batch-028",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29"
   },
   {
    "id": "INV34-005047",
@@ -13726,7 +13726,7 @@
    "p6_batch": "p6-batch-028",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29"
   },
   {
    "id": "INV34-005069",
@@ -13754,7 +13754,7 @@
    "p6_batch": "p6-batch-028",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29"
   },
   {
    "id": "INV34-005071",
@@ -13898,7 +13898,7 @@
    "p6_batch": "p6-batch-028",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29"
   },
   {
    "id": "INV34-005180",
@@ -13926,7 +13926,7 @@
    "p6_batch": "p6-batch-028",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29"
   },
   {
    "id": "INV34-005181",
@@ -15894,7 +15894,7 @@
    "p6_batch": "p6-batch-028",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29"
   },
   {
    "id": "INV34-005829",
@@ -15922,7 +15922,7 @@
    "p6_batch": "p6-batch-028",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29"
   },
   {
    "id": "INV34-005830",
@@ -15950,7 +15950,7 @@
    "p6_batch": "p6-batch-028",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29"
   },
   {
    "id": "INV34-005834",
@@ -16418,7 +16418,7 @@
    "p6_batch": "p6-batch-028",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29"
   },
   {
    "id": "INV34-005984",
@@ -16474,7 +16474,7 @@
    "p6_batch": "p6-batch-028",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29"
   },
   {
    "id": "INV34-006015",
@@ -16642,7 +16642,7 @@
    "p6_batch": "p6-batch-029",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "994f9cf"
   },
   {
    "id": "INV34-006134",
@@ -16670,7 +16670,7 @@
    "p6_batch": "p6-batch-028",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29"
   },
   {
    "id": "INV34-006136",
@@ -16838,7 +16838,7 @@
    "p6_batch": "p6-batch-029",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "994f9cf"
   },
   {
    "id": "INV34-006166",
@@ -16894,7 +16894,7 @@
    "p6_batch": "p6-batch-028",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29"
   },
   {
    "id": "INV34-006173",
@@ -16922,7 +16922,7 @@
    "p6_batch": "p6-batch-028",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29"
   },
   {
    "id": "INV34-006176",
@@ -16950,7 +16950,7 @@
    "p6_batch": "p6-batch-028",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29"
   },
   {
    "id": "INV34-006177",
@@ -17402,7 +17402,7 @@
    "p6_batch": "p6-batch-028",
    "p6_remaining_question": null,
    "p6_defect": true,
-   "p6_commit": null
+   "p6_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29"
   },
   {
    "id": "INV34-006212",
@@ -17486,7 +17486,7 @@
    "p6_batch": "p6-batch-029",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "994f9cf"
   },
   {
    "id": "INV34-006220",
@@ -18018,7 +18018,7 @@
    "p6_batch": "p6-batch-029",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "994f9cf"
   },
   {
    "id": "INV34-006381",
@@ -18046,7 +18046,7 @@
    "p6_batch": "p6-batch-029",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "994f9cf"
   },
   {
    "id": "INV34-006408",
@@ -18102,7 +18102,7 @@
    "p6_batch": "p6-batch-029",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "994f9cf"
   },
   {
    "id": "INV34-006452",
@@ -18130,7 +18130,7 @@
    "p6_batch": "p6-batch-029",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "994f9cf"
   },
   {
    "id": "INV34-006473",
@@ -18186,7 +18186,7 @@
    "p6_batch": "p6-batch-029",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "994f9cf"
   },
   {
    "id": "INV34-006482",
@@ -18214,7 +18214,7 @@
    "p6_batch": "p6-batch-029",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "994f9cf"
   },
   {
    "id": "INV34-006502",
@@ -18326,7 +18326,7 @@
    "p6_batch": "p6-batch-029",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "994f9cf"
   },
   {
    "id": "INV34-006523",
@@ -18578,7 +18578,7 @@
    "p6_batch": "p6-batch-029",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "994f9cf"
   },
   {
    "id": "INV34-006594",
@@ -18690,7 +18690,7 @@
    "p6_batch": "p6-batch-029",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "994f9cf"
   },
   {
    "id": "INV34-006628",
@@ -18718,7 +18718,7 @@
    "p6_batch": "p6-batch-029",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "994f9cf"
   },
   {
    "id": "INV34-006629",
@@ -18858,7 +18858,7 @@
    "p6_batch": "p6-batch-029",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "994f9cf"
   },
   {
    "id": "INV34-006716",
@@ -18886,7 +18886,7 @@
    "p6_batch": "p6-batch-029",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "994f9cf"
   },
   {
    "id": "INV34-006718",
@@ -19026,7 +19026,7 @@
    "p6_batch": "p6-batch-029",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "994f9cf"
   },
   {
    "id": "INV34-006770",
@@ -25974,7 +25974,7 @@
    "p6_batch": "p6-batch-028",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29"
   },
   {
    "id": "INV34-008095",
@@ -26002,7 +26002,7 @@
    "p6_batch": "p6-batch-028",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29"
   },
   {
    "id": "INV34-008102",
@@ -26030,7 +26030,7 @@
    "p6_batch": "p6-batch-028",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29"
   },
   {
    "id": "INV34-008103",
@@ -26058,7 +26058,7 @@
    "p6_batch": "p6-batch-028",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29"
   },
   {
    "id": "INV34-008106",
@@ -26086,7 +26086,7 @@
    "p6_batch": "p6-batch-028",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29"
   },
   {
    "id": "INV34-008109",
@@ -26366,7 +26366,7 @@
    "p6_batch": "p6-batch-028",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29"
   },
   {
    "id": "INV34-008144",
@@ -26394,7 +26394,7 @@
    "p6_batch": "p6-batch-028",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29"
   },
   {
    "id": "INV34-008147",
@@ -26842,7 +26842,7 @@
    "p6_batch": "p6-batch-028",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29"
   },
   {
    "id": "INV34-008264",
@@ -27910,7 +27910,7 @@
    "p6_batch": "p6-batch-028",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29"
   },
   {
    "id": "INV34-008376",
@@ -27938,7 +27938,7 @@
    "p6_batch": "p6-batch-028",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29"
   },
   {
    "id": "INV34-008377",
@@ -27966,7 +27966,7 @@
    "p6_batch": "p6-batch-028",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29"
   },
   {
    "id": "INV34-008380",
@@ -28050,7 +28050,7 @@
    "p6_batch": "p6-batch-028",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29"
   },
   {
    "id": "INV34-008408",
@@ -28162,7 +28162,7 @@
    "p6_batch": "p6-batch-028",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29"
   },
   {
    "id": "INV34-008416",
@@ -28250,7 +28250,7 @@
    "p6_batch": "p6-batch-028",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29"
   },
   {
    "id": "INV34-008424",
@@ -28306,7 +28306,7 @@
    "p6_batch": "p6-batch-028",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29"
   },
   {
    "id": "INV34-008430",
@@ -28362,7 +28362,7 @@
    "p6_batch": "p6-batch-028",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29"
   },
   {
    "id": "INV34-008432",
@@ -28446,7 +28446,7 @@
    "p6_batch": "p6-batch-028",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29"
   },
   {
    "id": "INV34-008442",
@@ -28614,7 +28614,7 @@
    "p6_batch": "p6-batch-029",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "994f9cf"
   },
   {
    "id": "INV34-008464",
@@ -28698,7 +28698,7 @@
    "p6_batch": "p6-batch-029",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "994f9cf"
   },
   {
    "id": "INV34-008478",
@@ -28810,7 +28810,7 @@
    "p6_batch": "p6-batch-029",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "994f9cf"
   },
   {
    "id": "INV34-008482",
@@ -28838,7 +28838,7 @@
    "p6_batch": "p6-batch-029",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "994f9cf"
   },
   {
    "id": "INV34-008483",
@@ -28866,7 +28866,7 @@
    "p6_batch": "p6-batch-029",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "994f9cf"
   },
   {
    "id": "INV34-008484",
@@ -28978,7 +28978,7 @@
    "p6_batch": "p6-batch-029",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "994f9cf"
   },
   {
    "id": "INV34-008490",
@@ -29006,7 +29006,7 @@
    "p6_batch": "p6-batch-029",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "994f9cf"
   },
   {
    "id": "INV34-008495",
@@ -29034,7 +29034,7 @@
    "p6_batch": "p6-batch-029",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "994f9cf"
   },
   {
    "id": "INV34-008502",
@@ -29146,7 +29146,7 @@
    "p6_batch": "p6-batch-029",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "994f9cf"
   },
   {
    "id": "INV34-008519",
@@ -29174,7 +29174,7 @@
    "p6_batch": "p6-batch-029",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "994f9cf"
   },
   {
    "id": "INV34-008520",
@@ -29202,7 +29202,7 @@
    "p6_batch": "p6-batch-029",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "994f9cf"
   },
   {
    "id": "INV34-008531",
@@ -29230,7 +29230,7 @@
    "p6_batch": "p6-batch-029",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "994f9cf"
   },
   {
    "id": "INV34-008532",
@@ -29258,7 +29258,7 @@
    "p6_batch": "p6-batch-029",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "994f9cf"
   },
   {
    "id": "INV34-008541",
@@ -29286,7 +29286,7 @@
    "p6_batch": "p6-batch-029",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "994f9cf"
   },
   {
    "id": "INV34-008542",
@@ -29314,7 +29314,7 @@
    "p6_batch": "p6-batch-029",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "994f9cf"
   },
   {
    "id": "INV34-008544",
@@ -29342,7 +29342,7 @@
    "p6_batch": "p6-batch-029",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "994f9cf"
   },
   {
    "id": "INV34-008546",
@@ -29370,7 +29370,7 @@
    "p6_batch": "p6-batch-029",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "994f9cf"
   },
   {
    "id": "INV34-008550",
@@ -29398,7 +29398,7 @@
    "p6_batch": "p6-batch-029",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "994f9cf"
   },
   {
    "id": "INV34-008552",
@@ -29426,7 +29426,7 @@
    "p6_batch": "p6-batch-029",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "994f9cf"
   },
   {
    "id": "INV34-008553",
@@ -29454,7 +29454,7 @@
    "p6_batch": "p6-batch-029",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "994f9cf"
   },
   {
    "id": "INV34-008555",
@@ -29510,7 +29510,7 @@
    "p6_batch": "p6-batch-029",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "994f9cf"
   },
   {
    "id": "INV34-008561",
@@ -29538,7 +29538,7 @@
    "p6_batch": "p6-batch-029",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "994f9cf"
   },
   {
    "id": "INV34-008562",
@@ -29594,7 +29594,7 @@
    "p6_batch": "p6-batch-029",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "994f9cf"
   },
   {
    "id": "INV34-008568",
@@ -29622,7 +29622,7 @@
    "p6_batch": "p6-batch-029",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "994f9cf"
   },
   {
    "id": "INV34-008569",
@@ -29650,7 +29650,7 @@
    "p6_batch": "p6-batch-029",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "994f9cf"
   },
   {
    "id": "INV34-008570",
@@ -29678,7 +29678,7 @@
    "p6_batch": "p6-batch-029",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "994f9cf"
   },
   {
    "id": "INV34-008677",
@@ -30186,7 +30186,7 @@
    "p6_batch": "p6-batch-029",
    "p6_remaining_question": null,
    "p6_defect": false,
-   "p6_commit": null
+   "p6_commit": "994f9cf"
   },
   {
    "id": "INV34-008925",
