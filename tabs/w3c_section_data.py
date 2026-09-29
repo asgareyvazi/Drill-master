@@ -26,6 +26,20 @@ logger = logging.getLogger(__name__)
 class CementReportTab(QWidget):
     """تب گزارش سیمان - section level"""
 
+    CEMENT_NULL_FIELDS = {
+        "slurry_density": "Slurry density",
+        "slurry_yield": "Slurry yield",
+        "mix_water": "Mix water",
+        "thickening_time": "Thickening time",
+        "compressive_strength": "Compressive strength",
+        "fluid_loss": "Fluid loss",
+        "cement_volume": "Cement volume",
+        "displacement_volume": "Displacement volume",
+        "top_of_cement": "Top of cement",
+        "bottom_of_cement": "Bottom of cement",
+        "summary": "Summary",
+    }
+
     def __init__(self, db_manager=None, parent=None):
         super().__init__(parent)
         self.db_manager = db_manager
@@ -59,14 +73,79 @@ class CementReportTab(QWidget):
             widgets = control if isinstance(control, tuple) else (control,)
             for widget in widgets:
                 if isinstance(widget, (QDoubleSpinBox, QSpinBox)):
-                    widget.valueChanged.connect(lambda _value, key=key: self._cement_touched.add(key))
-                    widget.lineEdit().textEdited.connect(lambda _text, key=key: self._cement_touched.add(key))
+                    widget.valueChanged.connect(lambda _value, key=key: self._mark_cement_touched(key))
+                    widget.lineEdit().textEdited.connect(lambda _text, key=key: self._mark_cement_touched(key))
                 elif isinstance(widget, QLineEdit):
-                    widget.textChanged.connect(lambda _text, key=key: self._cement_touched.add(key))
+                    widget.textChanged.connect(lambda _text, key=key: self._mark_cement_touched(key))
                 elif isinstance(widget, QComboBox):
-                    widget.currentTextChanged.connect(lambda _text, key=key: self._cement_touched.add(key))
+                    widget.currentTextChanged.connect(lambda _text, key=key: self._mark_cement_touched(key))
                 elif isinstance(widget, QTextEdit):
-                    widget.textChanged.connect(lambda key=key: self._cement_touched.add(key))
+                    widget.textChanged.connect(lambda key=key: self._mark_cement_touched(key))
+
+    def _mark_cement_touched(self, key):
+        self._cement_touched.add(key)
+        self._refresh_cement_source_status()
+
+    def _refresh_cement_source_status(self):
+        if not hasattr(self, "cement_source_status"):
+            return
+        unknown = [
+            key for key in self.CEMENT_NULL_FIELDS
+            if key in self._loaded_cement_source
+            and self._loaded_cement_source[key] is None
+            and key not in self._cement_touched
+        ]
+        controls = {
+            "slurry_density": self.slurry_density,
+            "slurry_yield": self.slurry_yield,
+            "mix_water": self.mix_water,
+            "thickening_time": (self.thickening_hours, self.thickening_minutes),
+            "compressive_strength": self.compressive_strength,
+            "fluid_loss": self.fluid_loss,
+            "cement_volume": self.cement_volume,
+            "displacement_volume": self.displacement_volume,
+            "top_of_cement": self.top_of_cement,
+            "bottom_of_cement": self.bottom_of_cement,
+            "summary": self.cement_summary,
+        }
+        unknown_set = set(unknown)
+        for key, control in controls.items():
+            widgets = control if isinstance(control, tuple) else (control,)
+            for widget in widgets:
+                is_unknown = key in unknown_set
+                widget.setProperty("sourceUnknown", is_unknown)
+                widget.setStyleSheet(
+                    "background-color: #fff3cd;" if is_unknown else ""
+                )
+                if is_unknown:
+                    widget.setToolTip(
+                        "Source database value is NULL (unknown). This displayed "
+                        "value is a placeholder; leave it untouched to preserve NULL."
+                    )
+                elif widget.toolTip().startswith("Source database value is NULL"):
+                    widget.setToolTip("")
+        if unknown:
+            names = ", ".join(self.CEMENT_NULL_FIELDS[key] for key in unknown)
+            self.cement_source_status.setText(
+                "⚠ UNKNOWN SOURCE VALUES (database NULL): " + names + ". "
+                "Highlighted controls show placeholders; saving without editing "
+                "preserves NULL."
+            )
+            self.cement_source_status.setStyleSheet(
+                "background: #fff3cd; color: #664d03; padding: 6px; font-weight: bold;"
+            )
+            self.cement_source_status.show()
+        elif self._loaded_cement_source:
+            self.cement_source_status.setText(
+                "Source-status: no untouched NULL values remain."
+            )
+            self.cement_source_status.setStyleSheet(
+                "background: #d1e7dd; color: #0f5132; padding: 6px;"
+            )
+            self.cement_source_status.show()
+        else:
+            self.cement_source_status.clear()
+            self.cement_source_status.hide()
 
     def _cement_display_values(self):
         return {
@@ -124,10 +203,24 @@ class CementReportTab(QWidget):
         hg.setLayout(hl)
         cl.addWidget(hg)
 
+        self.cement_source_status = QLabel()
+        self.cement_source_status.setWordWrap(True)
+        self.cement_source_status.hide()
+        cl.addWidget(self.cement_source_status)
+
         mg = QGroupBox("🧱 Cement Materials")
         ml = QVBoxLayout()
-        self.materials_table = QTableWidget(0, 7)
-        self.materials_table.setHorizontalHeaderLabels(["Material", "Type", "Received", "Consumed", "Backload", "Inventory", "Unit"])
+        self.materials_table = QTableWidget(0, 8)
+        self.materials_table.setHorizontalHeaderLabels([
+            "Material", "Type", "Received", "Consumed", "Backload",
+            "Stored Inventory (legacy/source)",
+            "Net Movement (Received − Consumed; not closing stock)", "Unit",
+        ])
+        self.materials_table.setToolTip(
+            "Stored Inventory is retained as source/legacy JSON. Net Movement is "
+            "a separate Received − Consumed calculation; it excludes backload and "
+            "is not a closing stock balance."
+        )
         self.materials_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         ml.addWidget(self.materials_table)
         mb = QHBoxLayout()
@@ -182,22 +275,97 @@ class CementReportTab(QWidget):
         cl.addLayout(bl); cl.addStretch()
         scroll.setWidget(content); layout.addWidget(scroll)
 
-    def add_material_row(self, material="", mt="", received=0, consumed=0, backload=0, inventory=0, unit="kg"):
-        row = self.materials_table.rowCount(); self.materials_table.insertRow(row)
+    def add_material_row(
+        self, material="", mt="", received=None, consumed=None, backload=None,
+        inventory=None, unit="kg",
+    ):
+        row = self.materials_table.rowCount()
+        self.materials_table.insertRow(row)
         self.materials_table.setCellWidget(row, 0, QLineEdit(material or f"Material_{row+1}"))
-        tc = QComboBox(); tc.addItems(["Cement","Additive","Mix Water","Spacer","Chemical"]); tc.setCurrentText(mt)
+        tc = QComboBox()
+        tc.addItems(["Cement", "Additive", "Mix Water", "Spacer", "Chemical"])
+        tc.setCurrentText(mt)
         self.materials_table.setCellWidget(row, 1, tc)
-        for col, val, ro in [(2,received,False),(3,consumed,False),(4,backload,False),(5,inventory,True)]:
-            sp = QDoubleSpinBox(); sp.setRange(-10000,10000); sp.setValue(val)
-            if ro: sp.setReadOnly(True)
-            if col in [2,3]: sp.valueChanged.connect(lambda v,r=row: self._calc_inv(r))
-            self.materials_table.setCellWidget(row, col, sp)
-        uc = QComboBox(); uc.addItems(["sacks","kg","lb","bbl","gal"]); uc.setCurrentText(unit)
-        self.materials_table.setCellWidget(row, 6, uc)
+
+        for col, value, read_only in (
+            (2, received, False), (3, consumed, False),
+            (4, backload, False), (5, inventory, True),
+        ):
+            spin = QDoubleSpinBox()
+            # Keep the established correction range while reserving one
+            # out-of-domain value as the visible unknown sentinel.
+            spin.setRange(-10001, 10000)
+            spin.setSpecialValueText("Not recorded")
+            spin.setToolTip(
+                "Not recorded is unknown; enter 0 only when zero is recorded."
+            )
+            spin.setDecimals(2)
+            spin.setValue(spin.minimum() if value is None else float(value))
+            if read_only:
+                spin.setReadOnly(True)
+                spin.setToolTip(
+                    "Stored legacy/source inventory value. It is not inferred from "
+                    "Received or Consumed and is not a closing stock balance."
+                )
+            if col in (2, 3):
+                spin.valueChanged.connect(
+                    lambda _value, r=row: self._calc_inv(r)
+                )
+                spin.lineEdit().textEdited.connect(
+                    lambda _text, r=row: self._calc_inv(r)
+                )
+            self.materials_table.setCellWidget(row, col, spin)
+
+        movement = QLineEdit()
+        movement.setReadOnly(True)
+        movement.setToolTip(
+            "Received − Consumed only; backload is not included. This is a daily "
+            "movement, not an opening/closing stock balance."
+        )
+        self.materials_table.setCellWidget(row, 6, movement)
+        # Recompute from source movements; persisted net_movement is derived
+        # data and is never trusted over Received / Consumed.
+        self._calc_inv(row)
+
+        uc = QComboBox()
+        uc.addItems(["sacks", "kg", "lb", "bbl", "gal"])
+        uc.setCurrentText(unit)
+        self.materials_table.setCellWidget(row, 7, uc)
 
     def _calc_inv(self, row):
-        r=self.materials_table.cellWidget(row,2); c=self.materials_table.cellWidget(row,3); i=self.materials_table.cellWidget(row,5)
-        if r and c and i: i.setValue(r.value()-c.value())
+        received = self.materials_table.cellWidget(row, 2)
+        consumed = self.materials_table.cellWidget(row, 3)
+        movement = self.materials_table.cellWidget(row, 6)
+        if not (received and consumed and movement):
+            return
+        if received.value() <= received.minimum() or consumed.value() <= consumed.minimum():
+            movement.clear()
+            movement.setPlaceholderText("Not assessed")
+            movement.setProperty("net_movement_value", None)
+            return
+        net_movement = received.value() - consumed.value()
+        movement.setText(f"{net_movement:g}")
+        movement.setProperty("net_movement_value", net_movement)
+
+    @staticmethod
+    def _optional_material_value(spin):
+        return None if spin.value() <= spin.minimum() else spin.value()
+
+    def _collect_material_rows(self):
+        materials = []
+        for row in range(self.materials_table.rowCount()):
+            movement = self.materials_table.cellWidget(row, 6)
+            materials.append({
+                "material": self.materials_table.cellWidget(row, 0).text(),
+                "type": self.materials_table.cellWidget(row, 1).currentText(),
+                "received": self._optional_material_value(self.materials_table.cellWidget(row, 2)),
+                "consumed": self._optional_material_value(self.materials_table.cellWidget(row, 3)),
+                "backload": self._optional_material_value(self.materials_table.cellWidget(row, 4)),
+                "inventory": self._optional_material_value(self.materials_table.cellWidget(row, 5)),
+                "net_movement": movement.property("net_movement_value"),
+                "unit": self.materials_table.cellWidget(row, 7).currentText(),
+            })
+        return materials
 
     def remove_material_row(self):
         r=self.materials_table.currentRow()
@@ -212,9 +380,7 @@ class CementReportTab(QWidget):
 
     def save_data_for_report(self, report_id):
         if not self.current_well: return False
-        mats = []
-        for row in range(self.materials_table.rowCount()):
-            mats.append({k: (self.materials_table.cellWidget(row,c).text() if isinstance(self.materials_table.cellWidget(row,c),QLineEdit) else self.materials_table.cellWidget(row,c).value() if isinstance(self.materials_table.cellWidget(row,c),QDoubleSpinBox) else self.materials_table.cellWidget(row,c).currentText()) for c,k in enumerate(["material","type","received","consumed","backload","inventory","unit"])})
+        mats = self._collect_material_rows()
         d = {"well_id":self.current_well,"report_id":report_id,"report_date":date.today(),"report_name":self.report_name.text(),"cement_type":self.cement_type.currentText(),"job_type":self.job_type.currentText(),"materials_json":json.dumps(mats),"slurry_density":self.slurry_density.value(),"slurry_yield":self.slurry_yield.value(),"mix_water":self.mix_water.value(),"thickening_time":f"{self.thickening_hours.value():02d}:{self.thickening_minutes.value():02d}","compressive_strength":self.compressive_strength.value(),"fluid_loss":self.fluid_loss.value(),"cement_volume":self.cement_volume.value(),"displacement_volume":self.displacement_volume.value(),"top_of_cement":self.top_of_cement.value(),"bottom_of_cement":self.bottom_of_cement.value(),"summary":self.cement_summary.toPlainText()}
         d = self._preserve_untouched_cement_values(d)
         return self.db_manager.save_cement_report(d) is not None
@@ -228,9 +394,7 @@ class CementReportTab(QWidget):
 
     def save_data_with_section(self, well_id, section_id):
         """ذخیره با section_id"""
-        mats = []
-        for row in range(self.materials_table.rowCount()):
-            mats.append({k: (self.materials_table.cellWidget(row,c).text() if isinstance(self.materials_table.cellWidget(row,c),QLineEdit) else self.materials_table.cellWidget(row,c).value() if isinstance(self.materials_table.cellWidget(row,c),QDoubleSpinBox) else self.materials_table.cellWidget(row,c).currentText()) for c,k in enumerate(["material","type","received","consumed","backload","inventory","unit"])})
+        mats = self._collect_material_rows()
         d = {
             "well_id": well_id,
             "section_id": section_id,
@@ -293,7 +457,16 @@ class CementReportTab(QWidget):
         if mj:
             try:
                 ms=json.loads(mj) if isinstance(mj,str) else mj
-                for m in ms: self.add_material_row(m.get("material",""),m.get("type",""),float(m.get("received",0) or 0),float(m.get("consumed",0) or 0),float(m.get("backload",0) or 0),float(m.get("inventory",0) or 0),m.get("unit","kg"))
+                for m in ms:
+                    self.add_material_row(
+                        material=m.get("material", ""),
+                        mt=m.get("type", ""),
+                        received=(None if m.get("received") is None else float(m["received"])),
+                        consumed=(None if m.get("consumed") is None else float(m["consumed"])),
+                        backload=(None if m.get("backload") is None else float(m["backload"])),
+                        inventory=(None if m.get("inventory") is None else float(m["inventory"])),
+                        unit=m.get("unit", "kg"),
+                    )
             except (TypeError, ValueError, KeyError, json.JSONDecodeError):
                 pass  # malformed legacy materials JSON — leave table empty
 
@@ -302,6 +475,7 @@ class CementReportTab(QWidget):
         self._loaded_cement_source = {key: deepcopy(data[key]) for key in display if key in data}
         self._loaded_cement_display = display
         self._cement_touched.clear()
+        self._refresh_cement_source_status()
 
     def clear_form(self):
         self.report_name.clear(); self.cement_type.setCurrentIndex(0); self.job_type.setCurrentIndex(0)
@@ -311,6 +485,7 @@ class CementReportTab(QWidget):
         self._loaded_cement_source = {}
         self._loaded_cement_display = {}
         self._cement_touched.clear()
+        self._refresh_cement_source_status()
 
     def refresh(self): self.load_data()
 
@@ -318,6 +493,20 @@ class CementReportTab(QWidget):
 # ==================== 2. CasingReportTab ====================
 class CasingReportTab(QWidget):
     """تب گزارش کیسینگ - section level"""
+
+    CASING_NULL_FIELDS = {
+        "burst_pressure": "Burst pressure",
+        "collapse_pressure": "Collapse pressure",
+        "tensile_strength": "Tensile strength",
+        "makeup_torque": "Make-up torque",
+        "drift_diameter": "Drift diameter",
+        "internal_yield": "Internal yield",
+        "running_speed": "Running speed",
+        "fillup_frequency": "Fill-up frequency",
+        "centralizer_spacing": "Centralizer spacing",
+        "scratcher_spacing": "Scratcher spacing",
+        "summary": "Summary",
+    }
 
     def __init__(self, db_manager=None, parent=None):
         super().__init__(parent)
@@ -342,14 +531,74 @@ class CasingReportTab(QWidget):
         }
         for key, widget in controls.items():
             if isinstance(widget, (QDoubleSpinBox, QSpinBox)):
-                widget.valueChanged.connect(lambda _value, key=key: self._casing_touched.add(key))
-                widget.lineEdit().textEdited.connect(lambda _text, key=key: self._casing_touched.add(key))
+                widget.valueChanged.connect(lambda _value, key=key: self._mark_casing_touched(key))
+                widget.lineEdit().textEdited.connect(lambda _text, key=key: self._mark_casing_touched(key))
             elif isinstance(widget, QLineEdit):
-                widget.textChanged.connect(lambda _text, key=key: self._casing_touched.add(key))
+                widget.textChanged.connect(lambda _text, key=key: self._mark_casing_touched(key))
             elif isinstance(widget, QComboBox):
-                widget.currentTextChanged.connect(lambda _text, key=key: self._casing_touched.add(key))
+                widget.currentTextChanged.connect(lambda _text, key=key: self._mark_casing_touched(key))
             elif isinstance(widget, QTextEdit):
-                widget.textChanged.connect(lambda key=key: self._casing_touched.add(key))
+                widget.textChanged.connect(lambda key=key: self._mark_casing_touched(key))
+
+    def _mark_casing_touched(self, key):
+        self._casing_touched.add(key)
+        self._refresh_casing_source_status()
+
+    def _refresh_casing_source_status(self):
+        if not hasattr(self, "casing_source_status"):
+            return
+        unknown = [
+            key for key in self.CASING_NULL_FIELDS
+            if key in self._loaded_casing_source
+            and self._loaded_casing_source[key] is None
+            and key not in self._casing_touched
+        ]
+        controls = {
+            "burst_pressure": self.burst_pressure,
+            "collapse_pressure": self.collapse_pressure,
+            "tensile_strength": self.tensile_strength,
+            "makeup_torque": self.makeup_torque,
+            "drift_diameter": self.drift_diameter,
+            "internal_yield": self.internal_yield,
+            "running_speed": self.running_speed,
+            "fillup_frequency": self.fillup_frequency,
+            "centralizer_spacing": self.centralizer_spacing,
+            "scratcher_spacing": self.scratcher_spacing,
+            "summary": self.casing_summary,
+        }
+        for key, widget in controls.items():
+            is_unknown = key in unknown
+            widget.setProperty("sourceUnknown", is_unknown)
+            widget.setStyleSheet("background-color: #fff3cd;" if is_unknown else "")
+            if is_unknown:
+                widget.setToolTip(
+                    "Source database value is NULL (unknown). This displayed "
+                    "value is a placeholder; leave it untouched to preserve NULL."
+                )
+            elif widget.toolTip().startswith("Source database value is NULL"):
+                widget.setToolTip("")
+        if unknown:
+            names = ", ".join(self.CASING_NULL_FIELDS[key] for key in unknown)
+            self.casing_source_status.setText(
+                "⚠ UNKNOWN SOURCE VALUES (database NULL): " + names + ". "
+                "Highlighted controls show placeholders; saving without editing "
+                "preserves NULL."
+            )
+            self.casing_source_status.setStyleSheet(
+                "background: #fff3cd; color: #664d03; padding: 6px; font-weight: bold;"
+            )
+            self.casing_source_status.show()
+        elif self._loaded_casing_source:
+            self.casing_source_status.setText(
+                "Source-status: no untouched NULL values remain."
+            )
+            self.casing_source_status.setStyleSheet(
+                "background: #d1e7dd; color: #0f5132; padding: 6px;"
+            )
+            self.casing_source_status.show()
+        else:
+            self.casing_source_status.clear()
+            self.casing_source_status.hide()
 
     def _casing_display_values(self):
         return {
@@ -382,6 +631,11 @@ class CasingReportTab(QWidget):
         self.casing_type = QComboBox(); self.casing_type.addItems(["Surface","Intermediate","Production","Liner","Tieback"])
         hl.addWidget(self.casing_type,0,3)
         hg.setLayout(hl); cl.addWidget(hg)
+
+        self.casing_source_status = QLabel()
+        self.casing_source_status.setWordWrap(True)
+        self.casing_source_status.hide()
+        cl.addWidget(self.casing_source_status)
 
         dg = QGroupBox("📐 Casing String Design")
         dl = QVBoxLayout()
@@ -524,6 +778,7 @@ class CasingReportTab(QWidget):
         self._loaded_casing_source = {key: deepcopy(data[key]) for key in display if key in data}
         self._loaded_casing_display = display
         self._casing_touched.clear()
+        self._refresh_casing_source_status()
 
     def clear_form(self):
         self.report_name.clear();self.casing_type.setCurrentIndex(0)
@@ -532,6 +787,7 @@ class CasingReportTab(QWidget):
         self._loaded_casing_source = {}
         self._loaded_casing_display = {}
         self._casing_touched.clear()
+        self._refresh_casing_source_status()
 
     def refresh(self):self.load_data()
 

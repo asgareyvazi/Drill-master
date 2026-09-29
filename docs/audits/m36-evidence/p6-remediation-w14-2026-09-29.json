@@ -1,0 +1,195 @@
+{
+  "schema": "m36-p6-remediation-reconciliation",
+  "as_of": "2026-09-29",
+  "branch": "arena/01a0ec23-drill-master",
+  "reconciled_base_head": "8fabfe1d86a69cb54a0112eabb4b93790bd011dd",
+  "scope": {
+    "source_batches": [
+      "p6-batch-020.json",
+      "p6-batch-021.json",
+      "p6-batch-022.json",
+      "p6-batch-023.json",
+      "p6-batch-024.json",
+      "p6-batch-026.json",
+      "p6-batch-027.json",
+      "p6-batch-028.json"
+    ],
+    "target_finding_ids": [
+      "NEW-P6-004", "NEW-P6-005", "NEW-P6-006", "NEW-P6-007",
+      "NEW-P6-008", "NEW-P6-009", "NEW-P6-010", "NEW-P6-011",
+      "NEW-P6-012", "NEW-P6-013", "NEW-P6-014", "NEW-P6-015",
+      "NEW-P6-016", "NEW-P6-019", "NEW-P6-020", "NEW-P6-023",
+      "NEW-P6-024", "NEW-P6-025", "NEW-P6-026"
+    ],
+    "historical_provenance_policy": "Original P6 batch records and line/hash anchors are unchanged; this file adds current disposition and regression evidence without re-anchoring findings."
+  },
+  "reconciliation_counts": {
+    "target_findings": 19,
+    "technical_behavior_addressed_or_previously_fixed": 13,
+    "owner_or_consumer_decision_still_open": 6,
+    "arithmetic": "13 + 6 = 19"
+  },
+  "findings": [
+    {
+      "id": "NEW-P6-004",
+      "status": "FIXED_PREVIOUSLY",
+      "disposition": "W13 uses the result-aware FishingEngine path and does not render engine failure as numeric stretch zero; legacy scalar compatibility remains unchanged.",
+      "evidence": "p6-remediation-w13-2026-09-29.json",
+      "regressions": ["tests/test_single_source_guard.py", "tests/test_w13_fishing_result_ui.py"]
+    },
+    {
+      "id": "NEW-P6-005",
+      "status": "FIXED_PREVIOUSLY",
+      "disposition": "W13 free-point UI retains result status and does not present legacy failure zero as a measured depth.",
+      "evidence": "p6-remediation-w13-2026-09-29.json",
+      "regressions": ["tests/test_single_source_guard.py", "tests/test_w13_fishing_result_ui.py"]
+    },
+    {
+      "id": "NEW-P6-006",
+      "status": "FIXED_PREVIOUSLY",
+      "disposition": "W13 back-off UI retains result status and does not present legacy failure zero as a measured depth.",
+      "evidence": "p6-remediation-w13-2026-09-29.json",
+      "regressions": ["tests/test_single_source_guard.py", "tests/test_w13_fishing_result_ui.py"]
+    },
+    {
+      "id": "NEW-P6-007",
+      "status": "MITIGATED_OWNER_DECISION_OPEN",
+      "disposition": "The existing missing-pipe screening fallback and stale-result save protection remain visibly labeled and regression-tested. Whether the fallback remains available or is refused without geometry still requires the domain owner.",
+      "evidence": "p6-remediation-w13-2026-09-29.json",
+      "regressions": ["tests/test_well_control_kill_sheet.py", "tests/test_well_control_kill_sheet_save_widget_smoke.py"]
+    },
+    {
+      "id": "NEW-P6-008",
+      "status": "OWNER_DECISION_OPEN_UNCHANGED",
+      "disposition": "No mud-ledger runway policy was changed. The source evidence explicitly records a legacy zero-consumption rule and requests an owner decision; W7 fuel/water semantics are domain-specific and do not by themselves authorize changing mud-chemical policy.",
+      "evidence": "p6-batch-021.json",
+      "regressions": ["tests/test_mud_ledger_unknown_stock_history.py"]
+    },
+    {
+      "id": "NEW-P6-009",
+      "status": "MITIGATED_PREVIOUSLY",
+      "disposition": "Nozzle optimization returns friction-exponent provenance and W13 labels the assumed n=1.0 fallback without changing the numerical optimization.",
+      "evidence": "p6-remediation-w13-2026-09-29.json",
+      "regressions": ["tests/test_nozzle_optimization.py", "tests/test_w13_fishing_result_ui.py"]
+    },
+    {
+      "id": "NEW-P6-010",
+      "status": "FIXED_CONSERVATIVE_NULL_PRESERVATION",
+      "disposition": "Cement and casing forms visibly identify untouched database NULLs, highlight placeholder controls, preserve untouched NULL on save, and allow explicit zero to remain numeric. No baseline default was promoted to a source fact.",
+      "evidence": "tests/test_cement_report_null_roundtrip.py",
+      "regressions": ["tests/test_cement_report_null_roundtrip.py::test_unchanged_cement_nulls_round_trip_and_explicit_zero_is_saved"],
+      "local_environment": "Qt assertions not run locally because libGL.so.1 is unavailable; real-Qt exact-HEAD CI is required."
+    },
+    {
+      "id": "NEW-P6-011",
+      "status": "FIXED_PREVIOUSLY",
+      "disposition": "W7 well/report switching clears stale inventory controls to unknown stock and zero movement.",
+      "evidence": "p6-batch-022.json",
+      "regressions": ["tests/test_w7_null_zero_ui_smoke.py"]
+    },
+    {
+      "id": "NEW-P6-012",
+      "status": "FIXED_PREVIOUSLY",
+      "disposition": "W3c well/section switching clears stale section forms and scopes cement/casing load and save to the selected section.",
+      "evidence": "p6-batch-022.json",
+      "regressions": ["tests/test_w3c_well_switch_scope_smoke.py"]
+    },
+    {
+      "id": "NEW-P6-013",
+      "status": "FIXED_PREVIOUSLY",
+      "disposition": "W13 landing-load UI uses result-aware buoyancy and explicit unknown inputs; a failed result is not fed downstream as a successful zero.",
+      "evidence": "p6-remediation-w13-2026-09-29.json",
+      "regressions": ["tests/test_single_source_guard.py", "tests/test_w13_fishing_result_ui.py"]
+    },
+    {
+      "id": "NEW-P6-014",
+      "status": "FIXED_RESULT_AWARE_UNKNOWN_PRESERVATION",
+      "disposition": "The canonical BitPerformanceEngine now computes bit revolutions from required RPM bounds and hours; W3 inputs start as Not recorded, missing/failed calculations clear the derived display and persist NULL, while explicit zero and valid positive results round-trip.",
+      "evidence": "tests/test_w3_bit_revolution_unknown_inputs.py",
+      "regressions": ["tests/test_w3_bit_revolution_unknown_inputs.py"],
+      "fault_injection": "The UI regression injects a failed calculation after a successful 13.2 k.rev result and requires the display/payload to return to NOT ASSESSED/None.",
+      "local_environment": "Pure engine cases ran locally; real-Qt persistence test is blocked locally by missing libGL.so.1 and requires exact-HEAD CI."
+    },
+    {
+      "id": "NEW-P6-015",
+      "status": "MITIGATED_OWNER_PRESENTATION_DECISION_OPEN",
+      "disposition": "Missing/nonpositive/nonfinite completion OD no longer receives a fabricated engineering-scale width. A fixed-size, depth-positioned glyph explicitly says OD not recorded and symbol not to scale; the manual completion dialog also starts OD as Not recorded. Owner preference for showing versus omitting such a marker remains open.",
+      "evidence": "core/wellbore_schematic_engine.py",
+      "regressions": ["tests/test_completion_od_unknown_geometry.py"],
+      "local_environment": "Real Qt raster assertions are blocked locally by missing libGL.so.1 and require exact-HEAD CI."
+    },
+    {
+      "id": "NEW-P6-016",
+      "status": "FIXED_PREVIOUSLY",
+      "disposition": "Malformed or missing legacy time strings remain visibly invalid; no synthetic 08:00/16:00 fallback is generated, and invalid intervals are rejected before replacement save.",
+      "evidence": "p6-remediation-w13-2026-09-29.json",
+      "regressions": ["tests/test_w2_malformed_time_load.py"]
+    },
+    {
+      "id": "NEW-P6-019",
+      "status": "FIXED_PREVIOUSLY",
+      "disposition": "Annular velocity requires a unique pipe OD associated with the current report/well scope; missing, invalid, ambiguous, or failed inputs remain NOT ASSESSED/NULL.",
+      "evidence": "p6-remediation-w13-2026-09-29.json",
+      "regressions": ["tests/test_w3_annular_velocity_truth.py"]
+    },
+    {
+      "id": "NEW-P6-020",
+      "status": "MITIGATED_OWNER_BALANCE_POLICY_OPEN",
+      "disposition": "Stored legacy/source inventory remains separate and is no longer overwritten by Received minus Consumed. A distinct movement field is calculated only when both source movements are recorded, explicitly excludes backload, and is labeled not a closing stock balance. No opening/closing-stock formula was invented.",
+      "evidence": "tests/test_cement_report_null_roundtrip.py",
+      "regressions": ["tests/test_cement_report_null_roundtrip.py::test_unchanged_cement_nulls_round_trip_and_explicit_zero_is_saved"],
+      "open_owner_decision": "Whether a true closing balance should include opening stock/backload and how historical imported on_hand should participate remains undefined by the current model."
+    },
+    {
+      "id": "NEW-P6-023",
+      "status": "OWNER_CONTRACT_DECISION_OPEN_UNCHANGED",
+      "disposition": "SafetyValidator has no in-repository caller and its last_rams_test branch remains a no-op. The active SafetyWidget has its own configured interval and NOT ASSESSED behavior. No new interval contract or wiring was invented.",
+      "evidence": "p6-batch-026.json",
+      "regressions": []
+    },
+    {
+      "id": "NEW-P6-024",
+      "status": "TECHNICAL_FAILURE_VS_EMPTY_DISTINGUISHED_OWNER_POLICY_OPEN",
+      "disposition": "EOWR cost query failure is represented as unavailable (None/query-failed), successful empty results remain available/no-records, and cost status is explicit in HTML and Excel Summary. Non-cost EOWR output continues as before; whether a future consumer requires whole-report failure remains an owner contract question.",
+      "evidence": "tests/test_eowr_cost_query_status.py",
+      "regressions": ["tests/test_eowr_cost_query_status.py::test_eowr_distinguishes_empty_cost_result_from_failed_cost_query"],
+      "fault_injection": "The test injects an exception only for CostRecord.query and checks collected status, HTML, and exported workbook Summary."
+    },
+    {
+      "id": "NEW-P6-025",
+      "status": "FIXED_SAFE_SINGLE_WORKER_LIFECYCLE",
+      "disposition": "Hierarchy refreshes coalesce to one pending latest-generation read, stale results are ignored, cancellation never terminates/detaches active synchronous database work, and window close defers until QThread.finished.",
+      "evidence": "main_window.py",
+      "regressions": ["tests/test_hierarchy_worker_lifecycle.py"],
+      "fault_injection": "A barrier-controlled slow DB fake issues repeated refresh requests and asserts maximum concurrent calls is one and only the latest result renders.",
+      "local_environment": "Real QThread test is blocked locally by missing libGL.so.1 and requires exact-HEAD CI."
+    },
+    {
+      "id": "NEW-P6-026",
+      "status": "FIXED_WIDGET_BACKED_AGG_FALLBACK",
+      "disposition": "W10 and the linked W12 sibling now select a shared Agg adapter that renders into a real QWidget; raw FigureCanvasAgg is never passed to Qt layouts. Interactive Matplotlib callbacks are not part of this raster fallback.",
+      "evidence": "core/matplotlib_widgets.py",
+      "regressions": ["tests/test_matplotlib_fallback_widget.py"],
+      "fault_injection": "The canvas selector is tested with an injected ImportError for the Qt backend, then the returned widget is inserted in a real Qt layout and raster output is asserted.",
+      "local_environment": "Real Qt widget assertion is blocked locally by missing libGL.so.1 and requires exact-HEAD CI."
+    }
+  ],
+  "ledger_reconciliation": {
+    "m36_master_ledger": "docs/audits/m36-evidence/m36-master-ledger.json",
+    "register": "docs/audits/m36-evidence/m36-open-item-register.json",
+    "register_records": 1224,
+    "register_open": 0,
+    "register_fixed": 2,
+    "p6_target_ids_are_a_separate_finding_namespace": true,
+    "m36_arithmetic_changed": false,
+    "p6_target_arithmetic": "19 target findings = 13 behavior addressed or previously fixed + 6 owner/consumer decisions open; owner-dependent items are not counted as closed."
+  },
+  "verification_state": {
+    "focused_local_tests": "42 passed, 13 skipped, 0 failed across the selected affected families; skips include Qt-dependent assertions blocked by libGL.so.1.",
+    "full_local_pytest": "BLOCKED during collection: 18 Qt-dependent modules could not import because libGL.so.1 is unavailable; no full-suite PASS is claimed.",
+    "ruff": "ruff==0.16.6: E722/F821 repository gate passed; current lint debt 5337 <= ceiling 5375 (not lint-clean).",
+    "compileall": "release compile target set passed locally.",
+    "exact_head_ci": "Required on Python 3.11/3.12/3.13 with real Qt; result is external to this source artifact and is not claimed here.",
+    "production_acceptance": "Not claimed."
+  }
+}

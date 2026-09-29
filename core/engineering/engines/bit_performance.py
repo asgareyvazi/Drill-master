@@ -28,6 +28,43 @@ class BitPerformanceEngine:
     SCOPE = "COMPLETE"
 
     @classmethod
+    def bit_revolutions(cls, rpm_min=None, rpm_max=None, hours_on_bottom=None) -> EngineeringResult:
+        """Return drilled-bit revolutions (thousands) from one run's RPM/time.
+
+        All three source inputs must be recorded. Explicit zero RPM or duration
+        is a real value and may yield a real zero; missing inputs remain missing.
+        """
+        try:
+            low = require_number(rpm_min, "rpm_min")
+            high = require_number(rpm_max, "rpm_max")
+            hours = require_number(hours_on_bottom, "hours_on_bottom")
+            if low < 0 or high < 0 or hours < 0:
+                raise EngineeringError("RPM and hours_on_bottom cannot be negative")
+            if high < low:
+                raise EngineeringError("rpm_max must be >= rpm_min")
+            average_rpm = (low + high) / 2.0
+            thousands = average_rpm * hours * 60.0 / 1000.0
+            if not math.isfinite(thousands):
+                raise EngineeringError("bit revolution result is non-finite")
+            return ok(
+                thousands,
+                values={
+                    "rpm_min": low,
+                    "rpm_max": high,
+                    "average_rpm": average_rpm,
+                    "hours_on_bottom": hours,
+                    "bit_revolution_k": thousands,
+                },
+                unit="k.rev",
+                formula="((RPM_min + RPM_max) / 2) × hours_on_bottom × 60 / 1000",
+                method=cls.METHOD,
+            )
+        except MissingInputError as exc:
+            return missing(exc.field)
+        except EngineeringError as exc:
+            return failed(str(exc))
+
+    @classmethod
     def from_run(
         cls,
         bit_size_in=None,

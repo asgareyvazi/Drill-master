@@ -1072,7 +1072,12 @@ class CompletionItemDialog(QDialog):
 
         self.od_spin = QDoubleSpinBox()
         self.od_spin.setRange(0, 20)
-        self.od_spin.setValue(4.5)
+        self.od_spin.setSpecialValueText("Not recorded")
+        self.od_spin.setToolTip(
+            "Optional source OD. Leave as Not recorded when it is not known; "
+            "the schematic will mark the symbol not to scale."
+        )
+        self.od_spin.setValue(0)
         self.od_spin.setDecimals(3)
         self.od_spin.setSuffix("\"")
         layout.addRow("OD:", self.od_spin)

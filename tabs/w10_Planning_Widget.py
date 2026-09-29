@@ -39,16 +39,9 @@ except Exception:
 
 import matplotlib.pyplot as plt
 
-try:
-    from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-    MATPLOTLIB_QT_OK = True
-except ImportError:
-    try:
-        from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
-        MATPLOTLIB_QT_OK = False
-    except ImportError:
-        FigureCanvas = None
-        MATPLOTLIB_QT_OK = False
+from core.matplotlib_widgets import select_figure_canvas
+
+FigureCanvas, MATPLOTLIB_QT_OK = select_figure_canvas()
 
 from ui.helper import make_scrollable
 logger = logging.getLogger(__name__)

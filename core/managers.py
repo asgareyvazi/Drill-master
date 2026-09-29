@@ -435,10 +435,17 @@ class DrillingManager:
             return {"ft_min": 0, "m_min": 0, "status": str(exc)}
 
     @staticmethod
+    def calculate_bit_revolution_result(rpm_min, rpm_max, hours):
+        """Canonical W3 bit-revolution result; missing input remains unknown."""
+        from core.engineering.engines.bit_performance import BitPerformanceEngine
+        return BitPerformanceEngine.bit_revolutions(rpm_min, rpm_max, hours)
+
+    @staticmethod
     def calculate_bit_revolution(rpm_avg, hours):
-        if rpm_avg is None or hours is None:
-            return 0.0
-        return rpm_avg * hours * 60.0 / 1000.0  # k.rev
+        """Legacy scalar compatibility wrapper; W3 consumes the result method."""
+        from core.engineering.engines.bit_performance import BitPerformanceEngine
+        result = BitPerformanceEngine.bit_revolutions(rpm_avg, rpm_avg, hours)
+        return result.value if result.success else 0.0
 
 
 class WindowStateManager:

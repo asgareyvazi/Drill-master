@@ -64,6 +64,31 @@ def _set_calc(spin, value):
         spin.setMaximum(value)
     spin.setValue(value)
 
+
+def _optional_input_spin(spin, maximum):
+    """Configure a source input where a real zero differs from not recorded."""
+    # Reserve a remote sentinel rather than -1, so invalid negative source
+    # measurements remain visible for validation instead of collapsing to unknown.
+    spin.setRange(-1e12, maximum)
+    spin.setSpecialValueText("Not recorded")
+    spin.setValue(spin.minimum())
+    spin.setToolTip("Not recorded is unknown; enter 0 only when zero was measured/reported.")
+    return spin
+
+
+def _optional_input_value(spin):
+    return None if spin.value() <= spin.minimum() else spin.value()
+
+
+def _set_optional_input(spin, value):
+    if value is None:
+        spin.setValue(spin.minimum())
+        return
+    value = float(value)
+    if value > spin.maximum():
+        spin.setMaximum(value)
+    spin.setValue(value)
+
 import matplotlib
 try:
     import matplotlib
@@ -453,8 +478,7 @@ class DrillingParametersTab(QWidget):
         depth_layout.addWidget(self.cum_drilled, 1, 3)
 
         depth_layout.addWidget(QLabel("Hours on Bottom:"), 2, 0)
-        self.hours_on_bottom = QDoubleSpinBox()
-        self.hours_on_bottom.setRange(0, 1000)
+        self.hours_on_bottom = _optional_input_spin(QDoubleSpinBox(), 1000)
         self.hours_on_bottom.setDecimals(1)
         depth_layout.addWidget(self.hours_on_bottom, 2, 1)
 
@@ -484,14 +508,12 @@ class DrillingParametersTab(QWidget):
         params_layout.addWidget(self.wob_max, 0, 3)
 
         params_layout.addWidget(QLabel("RPM Min:"), 1, 0)
-        self.rpm_min = QDoubleSpinBox()
-        self.rpm_min.setRange(0, 500)
+        self.rpm_min = _optional_input_spin(QDoubleSpinBox(), 500)
         self.rpm_min.setDecimals(0)
         params_layout.addWidget(self.rpm_min, 1, 1)
 
         params_layout.addWidget(QLabel("RPM Max:"), 1, 2)
-        self.rpm_max = QDoubleSpinBox()
-        self.rpm_max.setRange(0, 500)
+        self.rpm_max = _optional_input_spin(QDoubleSpinBox(), 500)
         self.rpm_max.setDecimals(0)
         params_layout.addWidget(self.rpm_max, 1, 3)
 
@@ -610,9 +632,10 @@ class DrillingParametersTab(QWidget):
         calc_layout.addWidget(self.annular_velocity, 1, 1)
 
         calc_layout.addWidget(QLabel("Bit Revolution (k.rev):"), 1, 2)
-        self.bit_revolution = QDoubleSpinBox()
+        self.bit_revolution = _calc_spin(QDoubleSpinBox())
         self.bit_revolution.setReadOnly(True)
-        self.bit_revolution.setDecimals(0)
+        self.bit_revolution.setDecimals(2)
+        self.bit_revolution.setToolTip("NOT ASSESSED until both RPM readings and hours on bottom are recorded.")
         calc_layout.addWidget(self.bit_revolution, 1, 3)
 
         calc_group.setLayout(calc_layout)
@@ -641,6 +664,7 @@ class DrillingParametersTab(QWidget):
         self.depth_in.valueChanged.connect(self.calculate_bit_drilled)
         self.depth_out.valueChanged.connect(self.calculate_bit_drilled)
         self.hours_on_bottom.valueChanged.connect(self.calculate_rop)
+        self.hours_on_bottom.valueChanged.connect(self.calculate_bit_revolution)
         self.pump_pressure_min.valueChanged.connect(self.calculate_hsi)
         self.pump_pressure_max.valueChanged.connect(self.calculate_hsi)
         self.pump_output_min.valueChanged.connect(self.calculate_hsi)
@@ -870,12 +894,20 @@ class DrillingParametersTab(QWidget):
 
     def calculate_bit_revolution(self):
         try:
-            rpm_avg = (self.rpm_min.value() + self.rpm_max.value()) / 2
-            hours = self.hours_on_bottom.value()
-            rev = DrillingManager.calculate_bit_revolution(rpm_avg, hours)
-            self.bit_revolution.setValue(rev)
+            result = DrillingManager.calculate_bit_revolution_result(
+                _optional_input_value(self.rpm_min),
+                _optional_input_value(self.rpm_max),
+                _optional_input_value(self.hours_on_bottom),
+            )
+            _set_calc(self.bit_revolution, result.value if result.success else None)
+            self.bit_revolution.setToolTip(
+                f"{result.scope} — {result.method}; {result.formula}. "
+                + (f"Error: {result.error}" if result.error else "")
+            )
         except Exception as e:
             logger.error(f"Error calculating bit revolution: {e}")
+            _set_calc(self.bit_revolution, None)
+            self.bit_revolution.setToolTip("NOT ASSESSED — bit-revolution calculation failed.")
 
     def on_bit_type_changed(self, text):
         logger.debug(f"Bit type changed to: {text}")
@@ -949,12 +981,12 @@ class DrillingParametersTab(QWidget):
             "depth_out": self.depth_out.value(),
             "bit_drilled": self.bit_drilled.value(),
             "cum_drilled": self.cum_drilled.value(),
-            "hours_on_bottom": self.hours_on_bottom.value(),
+            "hours_on_bottom": _optional_input_value(self.hours_on_bottom),
             "cum_hours": self.cum_hours.value(),
             "wob_min": self.wob_min.value(),
             "wob_max": self.wob_max.value(),
-            "rpm_min": self.rpm_min.value(),
-            "rpm_max": self.rpm_max.value(),
+            "rpm_min": _optional_input_value(self.rpm_min),
+            "rpm_max": _optional_input_value(self.rpm_max),
             "torque_min": self.torque_min.value(),
             "torque_max": self.torque_max.value(),
             "pump_pressure_min": self.pump_pressure_min.value(),
@@ -969,7 +1001,7 @@ class DrillingParametersTab(QWidget):
             "avg_rop": _calc_value(self.avg_rop),
             "hsi": _calc_value(self.hsi),
             "annular_velocity": _calc_value(self.annular_velocity),
-            "bit_revolution": self.bit_revolution.value(),
+            "bit_revolution": _calc_value(self.bit_revolution),
         }
 
     def save_data(self):
@@ -1049,12 +1081,12 @@ class DrillingParametersTab(QWidget):
         self.depth_out.setValue(safe_val("depth_out"))
         self.bit_drilled.setValue(safe_val("bit_drilled"))
         self.cum_drilled.setValue(safe_val("cum_drilled"))
-        self.hours_on_bottom.setValue(safe_val("hours_on_bottom"))
+        _set_optional_input(self.hours_on_bottom, safe_opt("hours_on_bottom"))
         self.cum_hours.setValue(safe_val("cum_hours"))
         self.wob_min.setValue(safe_val("wob_min"))
         self.wob_max.setValue(safe_val("wob_max"))
-        self.rpm_min.setValue(safe_val("rpm_min"))
-        self.rpm_max.setValue(safe_val("rpm_max"))
+        _set_optional_input(self.rpm_min, safe_opt("rpm_min"))
+        _set_optional_input(self.rpm_max, safe_opt("rpm_max"))
         self.torque_min.setValue(safe_val("torque_min"))
         self.torque_max.setValue(safe_val("torque_max"))
         self.pump_pressure_min.setValue(safe_val("pump_pressure_min"))
@@ -1069,7 +1101,9 @@ class DrillingParametersTab(QWidget):
         _set_calc(self.avg_rop, safe_opt("avg_rop"))
         _set_calc(self.hsi, safe_opt("hsi"))
         _set_calc(self.annular_velocity, safe_opt("annular_velocity"))
-        self.bit_revolution.setValue(safe_val("bit_revolution"))
+        # Recompute from current source fields. Never trust a stored derived zero
+        # when its RPM/time inputs are unknown or invalid.
+        self.calculate_bit_revolution()
         
     def clear_form(self):
         self.bit_no.clear()
@@ -1084,12 +1118,12 @@ class DrillingParametersTab(QWidget):
         self.depth_out.setValue(0)
         self.bit_drilled.setValue(0)
         self.cum_drilled.setValue(0)
-        self.hours_on_bottom.setValue(0)
+        _set_optional_input(self.hours_on_bottom, None)
         self.cum_hours.setValue(0)
         self.wob_min.setValue(0)
         self.wob_max.setValue(0)
-        self.rpm_min.setValue(0)
-        self.rpm_max.setValue(0)
+        _set_optional_input(self.rpm_min, None)
+        _set_optional_input(self.rpm_max, None)
         self.torque_min.setValue(0)
         self.torque_max.setValue(0)
         self.pump_pressure_min.setValue(0)
@@ -1104,7 +1138,7 @@ class DrillingParametersTab(QWidget):
         self.avg_rop.setValue(self.avg_rop.minimum())
         self.hsi.setValue(self.hsi.minimum())
         _set_calc(self.annular_velocity, None)
-        self.bit_revolution.setValue(0)
+        _set_calc(self.bit_revolution, None)
 
     def validate_form(self):
         """اعتبارسنجی فیلدهای ضروری"""

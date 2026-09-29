@@ -14,7 +14,6 @@ from PySide6.QtCore import (
     QEventLoop,
 )
 
-from shiboken6 import isValid
 
 from PySide6.QtGui import *
 from PySide6.QtPrintSupport import QPrinter, QPrintDialog
@@ -63,26 +62,31 @@ logger = logging.getLogger(__name__)
 
 
 class HierarchyWorker(QThread):
-    finished = Signal(list)
-    error = Signal(str)
+    """One hierarchy query; cancellation never interrupts active DB work."""
 
-    def __init__(self, db_manager):
+    def __init__(self, db_manager, generation=0):
         super().__init__()
         self.db_manager = db_manager
+        self.generation = generation
         self._cancelled = False
+        self.result = None
+        self.error = None
 
     def cancel(self):
+        # This flag prevents not-yet-started work and discards a result after
+        # synchronous DB work returns. It intentionally does not terminate a
+        # thread or pretend an in-flight database call has stopped.
         self._cancelled = True
 
     def run(self):
         try:
             if not self._cancelled:
-                data = self.db_manager.get_full_hierarchy()
+                result = self.db_manager.get_full_hierarchy()
                 if not self._cancelled:
-                    self.finished.emit(data)
-        except Exception as e:
+                    self.result = result
+        except Exception as exc:
             if not self._cancelled:
-                self.error.emit(str(e))
+                self.error = str(exc)
                 
 # ==================== Loading Dialog ====================
 
@@ -162,6 +166,10 @@ class MainWindow(QMainWindow):
 
 
         self._hierarchy_worker = None
+        self._hierarchy_generation = 0
+        self._hierarchy_refresh_pending = False
+        self._hierarchy_shutdown_requested = False
+        self._close_confirmed = False
 
         self.init_ui()
         self.setup_connections()
@@ -488,26 +496,39 @@ class MainWindow(QMainWindow):
     # ==================== اضافه کردن به closeEvent ====================
 
     def closeEvent(self, event):
-        reply = QMessageBox.question(
-            self, "Exit",
-            "Are you sure you want to exit?",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
-        )
-        if reply == QMessageBox.Yes:
-            self._save_dock_state()
-            
-            self._stop_hierarchy_worker()
-            
-            if hasattr(self, 'backup_timer') and self.backup_timer.isActive():
-                self.backup_timer.stop()
-            if hasattr(self, 'time_timer') and self.time_timer.isActive():
-                self.time_timer.stop()
+        if not self._close_confirmed:
+            reply = QMessageBox.question(
+                self, "Exit",
+                "Are you sure you want to exit?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+            if reply != QMessageBox.Yes:
+                event.ignore()
+                return
+            self._close_confirmed = True
 
-            self.cleanup()
-            event.accept()
-        else:
+        self._save_dock_state()
+        self._stop_hierarchy_worker()
+        worker = self._hierarchy_worker
+        if worker is not None:
+            # Keep the window and its QThread owner alive until the synchronous
+            # database call returns and Qt emits finished. The completion slot
+            # will close the window; no terminate(), timed detachment, or
+            # overlapping query is safe here.
+            self._hierarchy_shutdown_requested = True
+            self._hierarchy_refresh_pending = False
+            self.hide_loading()
             event.ignore()
+            return
+
+        if hasattr(self, 'backup_timer') and self.backup_timer.isActive():
+            self.backup_timer.stop()
+        if hasattr(self, 'time_timer') and self.time_timer.isActive():
+            self.time_timer.stop()
+
+        self.cleanup()
+        event.accept()
         
     # ==================== Toolbar - اضافه کردن Toggle Button ====================
 
@@ -1164,57 +1185,84 @@ class MainWindow(QMainWindow):
 
 
     def populate_hierarchy(self):
-        """بارگذاری async hierarchy"""
+        """Load the hierarchy with at most one database query in flight."""
         from core.cache_manager import cache
 
-        cache_key = "main_window_hierarchy"
-        cached = cache.get(cache_key)
-        if cached is not None:
+        if self._hierarchy_shutdown_requested:
+            return
+
+        cached = cache.get("main_window_hierarchy")
+        if cached is not None and self._hierarchy_worker is None:
             self._build_tree_from_data(cached)
             return
 
+        self._hierarchy_generation += 1
+        generation = self._hierarchy_generation
         self.show_loading("Loading hierarchy...")
+        if self._hierarchy_worker is not None:
+            # Coalesce any number of refreshes into one latest-generation query
+            # after the current synchronous database call has fully completed.
+            self._hierarchy_refresh_pending = True
+            return
+        self._start_hierarchy_worker(generation)
 
-        # توقف worker قبلی
-        self._stop_hierarchy_worker()
-
-        self._hierarchy_worker = HierarchyWorker(self.db_manager)
-        self._hierarchy_worker.finished.connect(self._on_hierarchy_loaded)
-        self._hierarchy_worker.error.connect(self._on_hierarchy_error)
-        self._hierarchy_worker.start()
+    def _start_hierarchy_worker(self, generation):
+        if self._hierarchy_worker is not None:
+            raise RuntimeError("hierarchy worker already active")
+        worker = HierarchyWorker(self.db_manager, generation=generation)
+        worker.finished.connect(self._on_hierarchy_worker_finished)
+        self._hierarchy_worker = worker
+        worker.start()
 
     def _stop_hierarchy_worker(self):
-        worker = getattr(self, '_hierarchy_worker', None)
-        if worker is None:
+        """Request cooperative cancellation without detaching live DB work."""
+        worker = getattr(self, "_hierarchy_worker", None)
+        if worker is not None:
+            try:
+                worker.cancel()
+            except RuntimeError:
+                # A deleted/completed Qt object remains owned until its queued
+                # finished slot runs; do not clear the reference prematurely.
+                pass
+
+    def _on_hierarchy_worker_finished(self):
+        from core.cache_manager import cache
+
+        worker = self.sender()
+        if worker is None or worker is not self._hierarchy_worker:
+            return
+        self._hierarchy_worker = None
+        worker.deleteLater()
+
+        if self._hierarchy_shutdown_requested:
+            QTimer.singleShot(0, self.close)
             return
 
-        try:
-            worker.cancel()
-            if worker.isRunning():
-                worker.quit()
-                if not worker.wait(3000):
-                    worker.terminate()
-                    worker.wait(1000)
-        except RuntimeError:
-            pass
-        except Exception as e:
-            logger.debug(f"Worker stop warning: {e}")
-        finally:
-            self._hierarchy_worker = None
-            
-    def _on_hierarchy_loaded(self, hierarchy):
-        from core.cache_manager import cache
-        cache.set("main_window_hierarchy", hierarchy, ttl=30.0)
-        self._build_tree_from_data(hierarchy)
-        self.hide_loading()
-        # ✅ پاک کردن reference بعد از اتمام
-        self._hierarchy_worker = None
+        if self._hierarchy_refresh_pending:
+            self._hierarchy_refresh_pending = False
+            self._start_hierarchy_worker(self._hierarchy_generation)
+            return
 
-    def _on_hierarchy_error(self, error_msg):
-        logger.error(f"Hierarchy load error: {error_msg}")
+        if worker.generation != self._hierarchy_generation:
+            # Defensive stale-result rejection if a future call path changes
+            # generation without setting the pending flag.
+            self._hierarchy_generation += 1
+            self._start_hierarchy_worker(self._hierarchy_generation)
+            return
+
+        if worker.error is not None:
+            logger.error("Hierarchy load error: %s", worker.error)
+            self.hide_loading()
+            return
+
+        if worker.result is None:
+            logger.error("Hierarchy load completed without a result")
+            self.hide_loading()
+            return
+
+        cache.set("main_window_hierarchy", worker.result, ttl=30.0)
+        self._build_tree_from_data(worker.result)
         self.hide_loading()
-        # ✅ پاک کردن reference بعد از خطا
-        self._hierarchy_worker = None
         
     def _build_tree_from_data(self, hierarchy):
         """ساخت درخت با مالکیت صحیح"""
@@ -3037,26 +3085,3 @@ class MainWindow(QMainWindow):
         self.status_label.setStyleSheet(
             "color: #e67e22; font-weight: bold;"
         )
-
-    def _is_worker_valid(self, worker) -> bool:
-        """بررسی معتبر بودن worker از نظر Qt/Python"""
-        try:
-            return worker is not None and isValid(worker)
-        except Exception:
-            return False
-
-    def _cleanup_hierarchy_worker(self, *args):
-        """پاکسازی reference مربوط به hierarchy worker"""
-        worker = getattr(self, '_hierarchy_worker', None)
-        if worker is None:
-            return
-
-        try:
-            if self._is_worker_valid(worker):
-                worker.deleteLater()
-        except RuntimeError:
-            pass
-        except Exception as e:
-            logger.debug(f"Hierarchy worker cleanup warning: {e}")
-
-        self._hierarchy_worker = None

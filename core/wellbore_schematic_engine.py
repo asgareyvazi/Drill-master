@@ -764,8 +764,17 @@ class WellboreSchematicRenderer:
     # ==================== Completion ====================
 
     def _draw_completion(self, painter: QPainter):
-        """رندر المنت‌های Completion."""
+        """رندر المنت‌های Completion without fabricating missing dimensions."""
+        needs_od = {
+            ElementType.PACKER,
+            ElementType.PERFORATIONS,
+            ElementType.BRIDGE_PLUG,
+            ElementType.SAND_SCREEN,
+        }
         for item in self.schematic.completion:
+            if item.element_type in needs_od and not self._has_recorded_od(item.od_inch):
+                self._draw_unknown_od_marker(painter, item)
+                continue
             if item.element_type == ElementType.PACKER:
                 self._draw_packer(painter, item)
             elif item.element_type == ElementType.PERFORATIONS:
@@ -779,13 +788,48 @@ class WellboreSchematicRenderer:
             elif item.element_type == ElementType.GAS_LIFT_VALVE:
                 self._draw_gas_lift_valve(painter, item)
 
+    @staticmethod
+    def _has_recorded_od(value):
+        try:
+            return math.isfinite(float(value)) and float(value) > 0
+        except (TypeError, ValueError):
+            return False
+
+    def _draw_unknown_od_marker(self, painter: QPainter, item: CompletionItem):
+        """Show the completion fact without implying a fabricated OD scale."""
+        cx = self.get_center_x()
+        y = self.depth_to_y(item.depth_m)
+        color = QColor(item.color or SchematicColors.PACKER)
+        painter.setPen(QPen(color, 1.5))
+        marker_background = self.config.background_color if self.config.dark_mode else "#f8f9fa"
+        painter.setBrush(QBrush(QColor(marker_background)))
+        painter.drawEllipse(QRectF(cx - 5, y - 5, 10, 10))
+        painter.drawLine(int(cx - 3), int(y), int(cx + 3), int(y))
+
+        labels = {
+            ElementType.PACKER: "Packer",
+            ElementType.PERFORATIONS: "Perforations",
+            ElementType.BRIDGE_PLUG: "Bridge Plug",
+            ElementType.SAND_SCREEN: "Sand Screen",
+        }
+        font = QFont(self.config.font_family, self.config.font_size - 1)
+        painter.setFont(font)
+        painter.setPen(color)
+        label = item.label or labels.get(item.element_type, "Completion")
+        # Provenance warning is mandatory even when general diagram labels are
+        # disabled; otherwise the small glyph could be mistaken for scaled OD.
+        painter.drawText(
+            int(cx + 12), int(y + 4),
+            f"{label} @ {item.depth_m:.0f}m — OD not recorded; symbol not to scale",
+        )
+
     def _draw_packer(self, painter: QPainter, item: CompletionItem):
         """رندر Packer."""
         cx = self.get_center_x()
         y = self.depth_to_y(item.depth_m)
 
         # شکل packer
-        od_px = self.od_to_pixels(item.od_inch or 4.5) / 2
+        od_px = self.od_to_pixels(item.od_inch) / 2
         packer_height = 14
 
         packer_color = QColor(SchematicColors.PACKER)
@@ -832,7 +876,7 @@ class WellboreSchematicRenderer:
             height = 20
 
         perf_color = QColor(SchematicColors.PERFORATION)
-        casing_od_px = self.od_to_pixels(item.od_inch or 7.0) / 2
+        casing_od_px = self.od_to_pixels(item.od_inch) / 2
 
         # خطوط perforation
         num_perfs = max(3, int(height / 6))
@@ -882,7 +926,7 @@ class WellboreSchematicRenderer:
         """رندر Bridge Plug."""
         cx = self.get_center_x()
         y = self.depth_to_y(item.depth_m)
-        od_px = self.od_to_pixels(item.od_inch or 6.0) / 2
+        od_px = self.od_to_pixels(item.od_inch) / 2
 
         color = QColor(SchematicColors.BRIDGE_PLUG)
 
@@ -957,7 +1001,7 @@ class WellboreSchematicRenderer:
         cx = self.get_center_x()
         y_top = self.depth_to_y(item.depth_m)
         y_bottom = self.depth_to_y(item.depth_m + item.length_m)
-        od_px = self.od_to_pixels(item.od_inch or 4.0) / 2
+        od_px = self.od_to_pixels(item.od_inch) / 2
         height = max(10, y_bottom - y_top)
 
         color = QColor("#00CED1")  # Dark Turquoise

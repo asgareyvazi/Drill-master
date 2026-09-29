@@ -63,6 +63,9 @@ def test_unchanged_cement_nulls_round_trip_and_explicit_zero_is_saved():
         tab = section_widget.cement_tab
 
         assert tab.slurry_density.value() == 120  # visual placeholder, not source data
+        assert "Slurry density" in tab.cement_source_status.text()
+        assert not tab.cement_source_status.isHidden()
+        assert "Source database value is NULL" in tab.slurry_density.toolTip()
         assert tab.save_data()
 
         saved = db.get_cement_report(section_id=section_id)
@@ -75,10 +78,31 @@ def test_unchanged_cement_nulls_round_trip_and_explicit_zero_is_saved():
 
         # A deliberate operator entry of numeric zero must remain a real value.
         tab.slurry_density.setValue(0)
+        assert "Slurry density" not in tab.cement_source_status.text()
         assert tab.save_data()
         saved = db.get_cement_report(section_id=section_id)
         assert saved["slurry_density"] == 0
         assert saved["slurry_yield"] is None
+
+        # Imported/stored inventory and daily movement are separate facts.
+        # Editing movement inputs must not overwrite the stored inventory value.
+        tab.add_material_row(
+            material="Imported additive", received=10, consumed=4,
+            backload=2, inventory=25, unit="kg",
+        )
+        assert tab.materials_table.columnCount() == 8
+        assert tab.materials_table.cellWidget(0, 5).value() == 25
+        assert tab.materials_table.cellWidget(0, 6).text() == "6"
+        tab.materials_table.cellWidget(0, 2).setValue(11)
+        assert tab.materials_table.cellWidget(0, 5).value() == 25
+        assert tab.materials_table.cellWidget(0, 6).text() == "7"
+        assert tab.save_data()
+        saved_materials = db.get_cement_report(section_id=section_id)["materials_json"]
+        import json
+        material = json.loads(saved_materials)[0]
+        assert material["inventory"] == 25
+        assert material["net_movement"] == 7
+        assert material["backload"] == 2
 
         db.save_casing_report({
             "well_id": well_id,
@@ -99,6 +123,8 @@ def test_unchanged_cement_nulls_round_trip_and_explicit_zero_is_saved():
 
         casing = section_widget.casing_tab
         section_widget._load_section_data(section_id)
+        assert "Burst pressure" in casing.casing_source_status.text()
+        assert "Source database value is NULL" in casing.burst_pressure.toolTip()
         assert casing.save_data()
         saved_casing = db.get_casing_report(section_id=section_id)
         for key in (
@@ -107,6 +133,14 @@ def test_unchanged_cement_nulls_round_trip_and_explicit_zero_is_saved():
             "centralizer_spacing", "scratcher_spacing", "summary",
         ):
             assert saved_casing[key] is None, key
+
+        casing.burst_pressure.setValue(1)
+        casing.burst_pressure.setValue(0)
+        assert "Burst pressure" not in casing.casing_source_status.text()
+        assert casing.save_data()
+        saved_casing = db.get_casing_report(section_id=section_id)
+        assert saved_casing["burst_pressure"] == 0
+        assert saved_casing["collapse_pressure"] is None
     finally:
         if section_widget is not None:
             section_widget.close()

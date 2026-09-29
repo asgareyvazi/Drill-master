@@ -765,14 +765,20 @@ class EOWRReportEngine:
                     EquipmentLog.well_id == well_id
                 ).all()
 
-                # Cost records اگر وجود داشته باشد
+                # A successful empty query and a failed query are different
+                # facts. Keep query failure explicit while allowing non-cost
+                # EOWR sections to render; do not report unavailable costs as
+                # a successfully empty/zero total.
+                from core.database import CostRecord
+                cost_query_status = "available"
                 try:
-                    from core.database import CostRecord
                     cost_records = session.query(CostRecord).filter(
                         CostRecord.well_id == well_id
                     ).all()
                 except Exception:
-                    cost_records = []
+                    logger.exception("EOWR cost-record query failed for well %s", well_id)
+                    cost_records = None
+                    cost_query_status = "query-failed"
 
                 # Derived summaries
                 total_reports = len(daily_reports)
@@ -803,7 +809,14 @@ class EOWRReportEngine:
                 ).value
 
                 from core.cost_semantics import summarize_costs
-                costs = summarize_costs(cost_records)
+                if cost_records is None:
+                    costs = {
+                        "total_actual": None,
+                        "currency": None,
+                        "status": "query-failed",
+                    }
+                else:
+                    costs = summarize_costs(cost_records)
                 total_cost = costs["total_actual"]
 
                 return {
@@ -826,6 +839,7 @@ class EOWRReportEngine:
                     "requests": requests,
                     "equipment_logs": equipment_logs,
                     "cost_records": cost_records,
+                    "cost_query_status": cost_query_status,
                     "summary": {
                         "total_reports": total_reports,
                         "final_depth": final_depth,
@@ -836,6 +850,7 @@ class EOWRReportEngine:
                         "total_cost": total_cost,
                         "cost_currency": costs["currency"],
                         "cost_currency_status": costs["status"],
+                        "cost_query_status": cost_query_status,
                     }
                 }
             finally:
@@ -1185,7 +1200,12 @@ East: {fmt_num(last.east, 2, default=None)} m | HD: {fmt_num(last.hd, 2, default
 
         # Cost
         html += "<h1>11. Cost Summary</h1>"
-        if cost_records:
+        if cost_records is None or data.get("cost_query_status") == "query-failed":
+            html += (
+                "<p>Cost data unavailable — the cost-record query failed; "
+                "cost totals are not assessed.</p>"
+            )
+        elif cost_records:
             html += """<table class="table">
 <tr><th>Date</th><th>Category</th><th>Planned</th><th>Actual</th><th>Variance</th><th>Status</th></tr>"""
             for c in cost_records:
@@ -1198,9 +1218,12 @@ East: {fmt_num(last.east, 2, default=None)} m | HD: {fmt_num(last.hd, 2, default
 <td>{fmt_num(variance, 2, default=None)}</td>
 <td>{c.status or ''}</td>
 </tr>"""
-            html += "</table>"
+            html += f"</table><p>Total Actual Cost: {cost_display}</p>"
         else:
-            html += f"<p>Total Actual Cost: {cost_display}</p>"
+            html += (
+                "<p>No cost records were returned; this is not a reported zero. "
+                "Total Actual Cost: — (no records)</p>"
+            )
 
         # Footer
         html += f"""
@@ -1272,8 +1295,14 @@ East: {fmt_num(last.east, 2, default=None)} m | HD: {fmt_num(last.hd, 2, default
                 ("Average ROP", _cell(data["summary"].get("avg_rop"))),
                 ("Total NPT", _cell(data["summary"].get("total_npt"))),
                 ("NPT %", _cell(data["summary"].get("npt_pct"))),
-                ("Total Cost", data["summary"].get("total_cost")),
+                ("Total Cost", _cell(data["summary"].get("total_cost"))),
                 ("Cost currency", data["summary"].get("cost_currency") or "Unknown / nonaggregatable"),
+                ("Cost Data Status", (
+                    "Unavailable — query failed"
+                    if data.get("cost_query_status") == "query-failed" or data.get("cost_records") is None
+                    else "No cost records returned" if not data.get("cost_records")
+                    else "Available — records returned"
+                )),
             ]
             for i, (k, v) in enumerate(metrics, 5):
                 ws.cell(row=i, column=1, value=k)
@@ -1299,7 +1328,7 @@ East: {fmt_num(last.east, 2, default=None)} m | HD: {fmt_num(last.hd, 2, default
                 wb, "Safety", data.get("safety_reports", [])
             )
             self._write_sheet_from_objects(
-                wb, "Cost", data.get("cost_records", [])
+                wb, "Cost", data.get("cost_records") or []
             )
 
             wb.save(output_path)
