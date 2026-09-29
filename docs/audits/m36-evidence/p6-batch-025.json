@@ -1,0 +1,1101 @@
+{
+ "schema": "m36-p6-batch",
+ "batch": "p6-batch-025",
+ "class": "phase-2 mixed review: DDR provenance adapters, editor boundaries, Excel semantic import, data lineage and optional MinerU configuration/fallbacks",
+ "records": 45,
+ "sites": 43,
+ "records_by_file": {
+  "core/document_import.py": 3,
+  "core/error_handler.py": 4,
+  "core/excel_intelligence.py": 12,
+  "core/excel_normalizer.py": 2,
+  "core/functions.py": 5,
+  "core/lineage.py": 4,
+  "core/mapping_store.py": 1,
+  "core/mineru_engine.py": 7,
+  "core/ddr_import_service.py": 2,
+  "core/editor_state.py": 3,
+  "core/fuel_water_semantics.py": 1,
+  "core/editor_bindings.py": 1
+ },
+ "by_classification": {
+  "VERIFIED-CORRECT": 27,
+  "INTENTIONAL": 13,
+  "DUPLICATE/FALSE-POSITIVE": 4,
+  "GENUINE_DEFECT": 1
+ },
+ "defects_fixed": [
+  {
+   "id": "NEW-P6-021",
+   "file": "core/mineru_engine.py",
+   "site": "MinerUConfig.from_environment timeout_seconds",
+   "test": "tests/test_mineru_timeout_zero.py",
+   "summary": "Normalize explicit persisted numeric timeout zero and environment string zero through the same 1-second minimum instead of treating numeric zero as missing and silently using 600 seconds."
+  }
+ ],
+ "new_findings": [],
+ "observations": [
+  {
+   "topic": "MinerU configuration",
+   "summary": "Executable/Python/output paths are optional; backends and timeout are resolved before out-of-process invocation. Explicit timeout 0 now clamps consistently to one second. Real installation, real DDR OCR/quality and production deployment remain external acceptance."
+  },
+  {
+   "topic": "Excel semantic mapping",
+   "summary": "Preferred anchors are authoritative when populated; labels are structural boundaries; conflict and duplicate states append provenance without replacing the primary canonical result. Raw row zero is only a one-based worksheet search sentinel."
+  },
+  {
+   "topic": "review and edit boundaries",
+   "summary": "Empty import tables stay empty, invalid text is carried as validation/review rather than numeric defaults, and Save All snapshots exclude read-only derived views."
+  }
+ ],
+ "sibling_search": [
+  {
+   "family": "zero and blank handling",
+   "result": "Excel/DDL converters primarily receive text strings from parser adapters; textual `\"0\"` survives their blank normalizers. CentralFunctions required IDs reject zero; optional numeric validators use non-None checks where zero is numeric."
+  },
+  {
+   "family": "PDF/MinerU fallback tables",
+   "result": "Source adapter contracts yield textual cell values for Camelot/PyMuPDF/OCR; page parse failures remain `None`, and malformed extraction is left for review. No actual MinerU binary, CUDA stack, or production DDR corpus was present for external acceptance."
+  },
+  {
+   "family": "exception/pass sites",
+   "result": "The reviewed `pass` statements are named exception class bodies; caught decode/type errors select an alternate encoding, reduce candidate score, or preserve an unknown page state rather than asserting success."
+  }
+ ],
+ "tests": {
+  "passed": [
+   "28 passed: tests/test_excel_intelligence.py tests/test_excel_intelligence_regressions.py.",
+   "65 passed: tests/test_lineage.py tests/test_config_and_mapping.py tests/test_r18_r19_save_preservation.py.",
+   "42 passed: tests/test_import_architecture.py tests/test_import_quality_extra.py tests/test_core_import.py tests/test_mineru_engine.py tests/test_mineru_timeout_zero.py.",
+   "Ruff --select E722,F821, compileall, and git diff --check passed for changed files."
+  ],
+  "environment_blocked": [
+   "No MinerU installation, CUDA/GPU backend, operator DDR corpus, or production OCR acceptance was exercised; these are environment/domain acceptance gates, not source-test claims."
+  ],
+  "mutation": "The persisted timeout-zero regression failed before the fix (600 seconds instead of 1); both persisted integer zero and environment string zero now pass. Existing MinerU adapter tests run without a real MinerU installation and do not establish OCR/real-DDR acceptance."
+ },
+ "head": "dc0ad4b",
+ "commit": null,
+ "evidence_commit": null,
+ "evidence_files": [
+  "core/mineru_engine.py",
+  "tests/test_mineru_timeout_zero.py",
+  "tools/m36/p6_batch_025.py",
+  "docs/audits/m36-evidence/p6-batch-025.json"
+ ],
+ "staleness": {
+  "checked": 45,
+  "stale": 1,
+  "re_anchored": 1,
+  "method": "All hashes resolve to their recorded trees; recorded lines, enclosing symbols and current mappings were verified. Context fingerprints were checked ledger-free and are reported with any hash-anchored non-reproductions. The timeout line was manually re-anchored with original fingerprint proof plus current method/expression verification.",
+  "re_anchored_items": [
+   {
+    "id": "INV34-002162",
+    "file": "core/mineru_engine.py",
+    "previous_site": "core/mineru_engine.py:174",
+    "previous_source_line": "timeout_seconds = max(1, int(timeout_value)) if timeout_value else 600",
+    "current_site": "core/mineru_engine.py:174",
+    "current_source_line": "timeout_seconds = max(1, int(timeout_value)) if timeout_value is not None else 600",
+    "tree": "provenance tree = 7f0186e3e6ac966f1fe9cbd804785129b9246fbe (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+    "source_sha256": "d6e3e753a7af271fc15410ae8114770a7665d75db554b33f90337f2828d14c3f",
+    "context_fingerprint": "e2e43e79974706f722974e9c6c1f9d97ed90c10c39fc99aab1793b0612f8948c",
+    "fingerprint_proof": [
+     "short",
+     "ast-segment"
+    ],
+    "reason": "Original source hash/line/symbol/fingerprint verified; the falsy timeout branch is changed and current code is mapped within the same config method."
+   }
+  ],
+  "provenance_trees": {
+   "core/document_import.py": "current tree: sha256(file) == the record's source_sha256",
+   "core/error_handler.py": "current tree: sha256(file) == the record's source_sha256",
+   "core/excel_intelligence.py": "provenance tree = 7f0186e3e6ac966f1fe9cbd804785129b9246fbe (blob sha256 equals the twelve recorded source hashes; current line map was verified)",
+   "core/excel_normalizer.py": "current tree: sha256(file) == the record's source_sha256",
+   "core/functions.py": "current tree: sha256(file) == the record's source_sha256",
+   "core/lineage.py": "current tree: sha256(file) == the record's source_sha256",
+   "core/mapping_store.py": "current tree: sha256(file) == the record's source_sha256",
+   "core/mineru_engine.py": "provenance tree = 7f0186e3e6ac966f1fe9cbd804785129b9246fbe (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+   "core/ddr_import_service.py": "current tree: sha256(file) == the record's source_sha256",
+   "core/editor_state.py": "current tree: sha256(file) == the record's source_sha256",
+   "core/fuel_water_semantics.py": "current tree: sha256(file) == the record's source_sha256",
+   "core/editor_bindings.py": "current tree: sha256(file) == the record's source_sha256"
+  },
+  "m34_fingerprint_ledger": {
+   "manifest": "docs/audits/m34-evidence/M34_INVENTORY_LEDGER.json",
+   "expected_path": "docs/audits/m34-evidence/m34-ledger.json",
+   "expected_sha256": "d81a77bda0330c75493f4081c4a02e4d106fe7602e49c14f0c67d12977658a6b",
+   "expected_bytes": 11394989,
+   "present_in_workspace": false,
+   "effect": "The ledger-free proof was used; the unavailable original patterns are not claimed or fabricated."
+  },
+  "fingerprint_proof": {
+   "checked": 45,
+   "verified": 45,
+   "records_without_a_reproducible_fingerprint": [],
+   "records_without_a_reproducing_fingerprint_but_hash_anchored": [],
+   "symbol_forms_that_reproduced": {
+    "short": 38,
+    "enclosing-scope:DatabaseError": 1,
+    "enclosing-scope:ValidationError": 1,
+    "enclosing-scope:DataImportError": 1,
+    "enclosing-scope:ExcelNormalizationError": 1,
+    "qualified": 2
+   },
+   "expression_forms_that_reproduced": {
+    "ast-segment": 25,
+    "recorded-line": 19
+   },
+   "method": "ledger-free: recorded-line + AST-segment expression forms (the 11 MB M34 ledger is not tracked in the repository); changed timeout source was separately checked in the original tree and re-anchored to its current method"
+  }
+ },
+ "method": "Trace producers through import/editor adapters, normalization, review/persistence and tests; validate only known contracts, preserve source locations and unknown values, and keep external MinerU/real-DDR conditions explicitly outside source-test acceptance.",
+ "items": [
+  {
+   "id": "INV34-001406",
+   "file": "core/document_import.py",
+   "line": 168,
+   "symbol": "pdf_to_xlsx",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not confident.empty:",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source core/document_import.py:168 `if not confident.empty:`; source_sha256=277d157b6b95b0bc1dc7110d9215358bce9bf6a48be43d60d929c84fdb83fd49; context_fingerprint=722edfe8f5cc8b68e28c1aa62c034d58c405eaa25ea76a49349a9781e668d24b. Pandas `DataFrame.empty` is an explicit row/column emptiness contract; non-empty confident rows alone enter mapping.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/document_import.py",
+    "line": 168,
+    "symbol": "pdf_to_xlsx",
+    "expression": "if not confident.empty:",
+    "source_sha256": "277d157b6b95b0bc1dc7110d9215358bce9bf6a48be43d60d929c84fdb83fd49",
+    "context_fingerprint": "722edfe8f5cc8b68e28c1aa62c034d58c405eaa25ea76a49349a9781e668d24b"
+   }
+  },
+  {
+   "id": "INV34-001408",
+   "file": "core/document_import.py",
+   "line": 165,
+   "symbol": "pdf_to_xlsx",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not tsv_data.empty:",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source core/document_import.py:165 `if not tsv_data.empty:`; source_sha256=277d157b6b95b0bc1dc7110d9215358bce9bf6a48be43d60d929c84fdb83fd49; context_fingerprint=ec4628e782836ebf04c418db2cf56d072a98b3d5347cdef367839a5a096b22eb. Pandas `DataFrame.empty` guards the optional extracted TSV table before it is added to the document; no values are defaulted.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/document_import.py",
+    "line": 165,
+    "symbol": "pdf_to_xlsx",
+    "expression": "if not tsv_data.empty:",
+    "source_sha256": "277d157b6b95b0bc1dc7110d9215358bce9bf6a48be43d60d929c84fdb83fd49",
+    "context_fingerprint": "ec4628e782836ebf04c418db2cf56d072a98b3d5347cdef367839a5a096b22eb"
+   }
+  },
+  {
+   "id": "INV34-001413",
+   "file": "core/document_import.py",
+   "line": 46,
+   "symbol": "csv_to_xlsx",
+   "rule": "R-EXC-CONTINUE",
+   "kind": "typed-exception",
+   "register_line_text": "except UnicodeDecodeError:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source core/document_import.py:46 `except UnicodeDecodeError:`; source_sha256=277d157b6b95b0bc1dc7110d9215358bce9bf6a48be43d60d929c84fdb83fd49; context_fingerprint=93c517034fcd5d832f821cef63880deceb0bf04be5be5baa621f2cd035637d3e. UTF-8 decode failure selects the next declared CSV encoding; all candidate encodings are tried before an unsupported-encoding error, while successful rows retain the selected encoding metadata.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/document_import.py",
+    "line": 46,
+    "symbol": "csv_to_xlsx",
+    "expression": "except UnicodeDecodeError:",
+    "source_sha256": "277d157b6b95b0bc1dc7110d9215358bce9bf6a48be43d60d929c84fdb83fd49",
+    "context_fingerprint": "93c517034fcd5d832f821cef63880deceb0bf04be5be5baa621f2cd035637d3e"
+   }
+  },
+  {
+   "id": "INV34-001783",
+   "file": "core/error_handler.py",
+   "line": 66,
+   "symbol": "safe_call.decorator.wrapper",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "parent = args[0] if args else None",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source core/error_handler.py:66 `parent = args[0] if args else None`; source_sha256=5eae7f2f874adba72738784f5c201360cc792fbcbbe52f7043c2e528f680224f; context_fingerprint=a24fb6fe57521a0348e81659140f33e9050822c0d8a686dd73e8c241ba57282e. A wrapper may be called without positional arguments; `parent=None` is only for an optional error-dialog parent and does not hide the exception (logging/default behavior remains explicit).",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/error_handler.py",
+    "line": 66,
+    "symbol": "safe_call.decorator.wrapper",
+    "expression": "parent = args[0] if args else None",
+    "source_sha256": "5eae7f2f874adba72738784f5c201360cc792fbcbbe52f7043c2e528f680224f",
+    "context_fingerprint": "a24fb6fe57521a0348e81659140f33e9050822c0d8a686dd73e8c241ba57282e"
+   }
+  },
+  {
+   "id": "INV34-001810",
+   "file": "core/excel_intelligence.py",
+   "line": 1363,
+   "symbol": "ExcelIntelligence.extract_generic",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-zero",
+   "register_line_text": "row = raw_cell.location.row or 0",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source core/excel_intelligence.py:1363 `row = raw_cell.location.row or 0`; source_sha256=6a3280ecb3e29ccfdefab1d075cc1f346ec933c0077f4d4d1061b9dc08978135; context_fingerprint=d349c6b3e1064b222a5013d90292c094e891609072f6c3ac0cb05ad9748371ae. Excel row index zero is a sentinel for missing location in the nearby-cell search; real worksheet rows are one-based. The original RawCell location/provenance is retained separately.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/excel_intelligence.py",
+    "line": 1363,
+    "symbol": "ExcelIntelligence.extract_generic",
+    "expression": "row = raw_cell.location.row or 0",
+    "source_sha256": "6a3280ecb3e29ccfdefab1d075cc1f346ec933c0077f4d4d1061b9dc08978135",
+    "context_fingerprint": "d349c6b3e1064b222a5013d90292c094e891609072f6c3ac0cb05ad9748371ae"
+   }
+  },
+  {
+   "id": "INV34-001850",
+   "file": "core/excel_intelligence.py",
+   "line": 1873,
+   "symbol": "ExcelIntelligence._store_scalar",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if conflict_with_existing:",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source core/excel_intelligence.py:1873 `if conflict_with_existing:`; source_sha256=6a3280ecb3e29ccfdefab1d075cc1f346ec933c0077f4d4d1061b9dc08978135; context_fingerprint=8c618deaae9850710008d56b738a17b895ec6973c67565ee93cb332ed86795b2. A true conflict flag appends the alternate source/value to field provenance; it does not overwrite the chosen canonical value.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/excel_intelligence.py",
+    "line": 1873,
+    "symbol": "ExcelIntelligence._store_scalar",
+    "expression": "if conflict_with_existing:",
+    "source_sha256": "6a3280ecb3e29ccfdefab1d075cc1f346ec933c0077f4d4d1061b9dc08978135",
+    "context_fingerprint": "8c618deaae9850710008d56b738a17b895ec6973c67565ee93cb332ed86795b2"
+   }
+  },
+  {
+   "id": "INV34-001851",
+   "file": "core/excel_intelligence.py",
+   "line": 1881,
+   "symbol": "ExcelIntelligence._store_scalar",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if duplicate_with_existing:",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source core/excel_intelligence.py:1881 `if duplicate_with_existing:`; source_sha256=6a3280ecb3e29ccfdefab1d075cc1f346ec933c0077f4d4d1061b9dc08978135; context_fingerprint=e3310cb24283836047e2900e0db6c5b2b27ac6d36714ae773f5d8a7e2742f9ca. A true duplicate flag records a duplicate-same-value audit entry and source location; it does not alter the primary mapping.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/excel_intelligence.py",
+    "line": 1881,
+    "symbol": "ExcelIntelligence._store_scalar",
+    "expression": "if duplicate_with_existing:",
+    "source_sha256": "6a3280ecb3e29ccfdefab1d075cc1f346ec933c0077f4d4d1061b9dc08978135",
+    "context_fingerprint": "e3310cb24283836047e2900e0db6c5b2b27ac6d36714ae773f5d8a7e2742f9ca"
+   }
+  },
+  {
+   "id": "INV34-001890",
+   "file": "core/excel_intelligence.py",
+   "line": 446,
+   "symbol": "CandidateScorer.score_candidate",
+   "rule": "R-EXC-OTHER",
+   "kind": "typed-exception",
+   "register_line_text": "except (ValueError, TypeError):",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source core/excel_intelligence.py:446 `except (ValueError, TypeError):`; source_sha256=6a3280ecb3e29ccfdefab1d075cc1f346ec933c0077f4d4d1061b9dc08978135; context_fingerprint=dbeff46acf81958979fe9c861a138c32019c2486780c25235d45150a5f5d71c0. A nonnumeric candidate receives a low compatibility score, not an accepted canonical measurement; deterministic normalization/validation is downstream authority.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/excel_intelligence.py",
+    "line": 446,
+    "symbol": "CandidateScorer.score_candidate",
+    "expression": "except (ValueError, TypeError):",
+    "source_sha256": "6a3280ecb3e29ccfdefab1d075cc1f346ec933c0077f4d4d1061b9dc08978135",
+    "context_fingerprint": "dbeff46acf81958979fe9c861a138c32019c2486780c25235d45150a5f5d71c0"
+   }
+  },
+  {
+   "id": "INV34-001891",
+   "file": "core/excel_intelligence.py",
+   "line": 479,
+   "symbol": "CandidateScorer.score_candidate",
+   "rule": "R-EXC-OTHER",
+   "kind": "typed-exception",
+   "register_line_text": "except (ValueError, TypeError):",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source core/excel_intelligence.py:479 `except (ValueError, TypeError):`; source_sha256=6a3280ecb3e29ccfdefab1d075cc1f346ec933c0077f4d4d1061b9dc08978135; context_fingerprint=138862e565980b754f4158eef05b0aedf87bc1c414c008eb2b253fec7dad8ab1. A value outside the score's numeric unit heuristic gets a reduced score; the exception is local scoring fallback, not value coercion.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/excel_intelligence.py",
+    "line": 479,
+    "symbol": "CandidateScorer.score_candidate",
+    "expression": "except (ValueError, TypeError):",
+    "source_sha256": "6a3280ecb3e29ccfdefab1d075cc1f346ec933c0077f4d4d1061b9dc08978135",
+    "context_fingerprint": "138862e565980b754f4158eef05b0aedf87bc1c414c008eb2b253fec7dad8ab1"
+   }
+  },
+  {
+   "id": "INV34-001899",
+   "file": "core/excel_normalizer.py",
+   "line": 34,
+   "symbol": "normalize_xlsx",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if style:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source core/excel_normalizer.py:34 `if style:`; source_sha256=632cfeae8ed6dfee05eb752d648650441512cc9026b8f27297f63a83beb1a3ae; context_fingerprint=1a93a555d9bcc863db8a0cea626d9f095ccfca1df1e00fc169401aca2d524841. An absent/default OpenPyXL style has no style payload to copy; skipping it preserves the workbook's default presentation without changing cell values.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/excel_normalizer.py",
+    "line": 34,
+    "symbol": "normalize_xlsx",
+    "expression": "if style:",
+    "source_sha256": "632cfeae8ed6dfee05eb752d648650441512cc9026b8f27297f63a83beb1a3ae",
+    "context_fingerprint": "1a93a555d9bcc863db8a0cea626d9f095ccfca1df1e00fc169401aca2d524841"
+   }
+  },
+  {
+   "id": "INV34-001904",
+   "file": "core/functions.py",
+   "line": 23,
+   "symbol": "CentralFunctions.validate_well_data",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-selection",
+   "register_line_text": "if not data.get(field):",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source core/functions.py:23 `if not data.get(field):`; source_sha256=9e713abf52cd3ef8ba06dbee6c9b3306089509507d10a40a0531e64efe288b69; context_fingerprint=41680831eba72e4b781bdf414ed170b619f42b1e199b7ae296280f032f24a735. The required fields are well name, project id and well type; empty/zero project identity is invalid, while optional numeric fields are validated by separate non-None paths. Repository search found no current production caller of this legacy CentralFunctions validator, so no downstream result/persistence behavior is claimed.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/functions.py",
+    "line": 23,
+    "symbol": "CentralFunctions.validate_well_data",
+    "expression": "if not data.get(field):",
+    "source_sha256": "9e713abf52cd3ef8ba06dbee6c9b3306089509507d10a40a0531e64efe288b69",
+    "context_fingerprint": "41680831eba72e4b781bdf414ed170b619f42b1e199b7ae296280f032f24a735"
+   }
+  },
+  {
+   "id": "INV34-001905",
+   "file": "core/functions.py",
+   "line": 66,
+   "symbol": "CentralFunctions.validate_drilling_data",
+   "rule": "R-EXC-OTHER",
+   "kind": "typed-exception",
+   "register_line_text": "except (ValueError, TypeError):",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source core/functions.py:66 `except (ValueError, TypeError):`; source_sha256=9e713abf52cd3ef8ba06dbee6c9b3306089509507d10a40a0531e64efe288b69; context_fingerprint=4a63e3d7815a7ded6e0baffa36dfb9861f5b18232d4b1eb01791db535561e583. Malformed optional mud numerics create a field-specific validation error; zero is still parsed because the guard is `is not None`.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/functions.py",
+    "line": 66,
+    "symbol": "CentralFunctions.validate_drilling_data",
+    "expression": "except (ValueError, TypeError):",
+    "source_sha256": "9e713abf52cd3ef8ba06dbee6c9b3306089509507d10a40a0531e64efe288b69",
+    "context_fingerprint": "4a63e3d7815a7ded6e0baffa36dfb9861f5b18232d4b1eb01791db535561e583"
+   }
+  },
+  {
+   "id": "INV34-001907",
+   "file": "core/functions.py",
+   "line": 47,
+   "symbol": "CentralFunctions.validate_mud_data",
+   "rule": "R-EXC-OTHER",
+   "kind": "typed-exception",
+   "register_line_text": "except (ValueError, TypeError):",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source core/functions.py:47 `except (ValueError, TypeError):`; source_sha256=9e713abf52cd3ef8ba06dbee6c9b3306089509507d10a40a0531e64efe288b69; context_fingerprint=952761db394cfdd92d18519c67bff51a1374eaa9956b44cbc5abcb4f08a4f8f6. Malformed nonblank drilling numeric text creates a validation error; blank optional values remain absent.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/functions.py",
+    "line": 47,
+    "symbol": "CentralFunctions.validate_mud_data",
+    "expression": "except (ValueError, TypeError):",
+    "source_sha256": "9e713abf52cd3ef8ba06dbee6c9b3306089509507d10a40a0531e64efe288b69",
+    "context_fingerprint": "952761db394cfdd92d18519c67bff51a1374eaa9956b44cbc5abcb4f08a4f8f6"
+   }
+  },
+  {
+   "id": "INV34-001908",
+   "file": "core/functions.py",
+   "line": 31,
+   "symbol": "CentralFunctions.validate_well_data",
+   "rule": "R-EXC-OTHER",
+   "kind": "typed-exception",
+   "register_line_text": "except (ValueError, TypeError):",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source core/functions.py:31 `except (ValueError, TypeError):`; source_sha256=9e713abf52cd3ef8ba06dbee6c9b3306089509507d10a40a0531e64efe288b69; context_fingerprint=dfb31c4a6082dc7e9fb501ce0b5107ead283a74007cc93ef89a8479f7a840b62. Depth conversion failures are already recorded by the numeric-field loop; this catch only prevents a duplicate ordering error and does not clear the validation result.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/functions.py",
+    "line": 31,
+    "symbol": "CentralFunctions.validate_well_data",
+    "expression": "except (ValueError, TypeError):",
+    "source_sha256": "9e713abf52cd3ef8ba06dbee6c9b3306089509507d10a40a0531e64efe288b69",
+    "context_fingerprint": "dfb31c4a6082dc7e9fb501ce0b5107ead283a74007cc93ef89a8479f7a840b62"
+   }
+  },
+  {
+   "id": "INV34-002058",
+   "file": "core/lineage.py",
+   "line": 73,
+   "symbol": "LineageRecord.summary",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if self.original_label:",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source core/lineage.py:73 `if self.original_label:`; source_sha256=710b6a521078581bc55465905faffbe42de663f4890185f536eec329ff5e0561; context_fingerprint=a288377a700201f9111040a8c8234ff3d54874544f80313868fccd1cb4001ba8. Lineage summary omits only an absent original label; the `value is not None` branch still displays explicit numeric zero.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/lineage.py",
+    "line": 73,
+    "symbol": "LineageRecord.summary",
+    "expression": "if self.original_label:",
+    "source_sha256": "710b6a521078581bc55465905faffbe42de663f4890185f536eec329ff5e0561",
+    "context_fingerprint": "a288377a700201f9111040a8c8234ff3d54874544f80313868fccd1cb4001ba8"
+   }
+  },
+  {
+   "id": "INV34-002060",
+   "file": "core/lineage.py",
+   "line": 67,
+   "symbol": "LineageRecord.summary",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if self.source_file:",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source core/lineage.py:67 `if self.source_file:`; source_sha256=710b6a521078581bc55465905faffbe42de663f4890185f536eec329ff5e0561; context_fingerprint=f76ef512b42b197b2d2d3e583820252481c8aa4b837a75c6e2c106e540bc1046. Source-file text is optional descriptive metadata; the actual raw value and structured lineage record are unchanged.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/lineage.py",
+    "line": 67,
+    "symbol": "LineageRecord.summary",
+    "expression": "if self.source_file:",
+    "source_sha256": "710b6a521078581bc55465905faffbe42de663f4890185f536eec329ff5e0561",
+    "context_fingerprint": "f76ef512b42b197b2d2d3e583820252481c8aa4b837a75c6e2c106e540bc1046"
+   }
+  },
+  {
+   "id": "INV34-002061",
+   "file": "core/lineage.py",
+   "line": 69,
+   "symbol": "LineageRecord.summary",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if self.source_sheet:",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source core/lineage.py:69 `if self.source_sheet:`; source_sha256=710b6a521078581bc55465905faffbe42de663f4890185f536eec329ff5e0561; context_fingerprint=990c6a4dcb2c1b4c3c112f81ec9eeba7fc90b00093b89437f50935675cb1708c. Source-sheet text is optional descriptive metadata; it is not an engineering scope selector.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/lineage.py",
+    "line": 69,
+    "symbol": "LineageRecord.summary",
+    "expression": "if self.source_sheet:",
+    "source_sha256": "710b6a521078581bc55465905faffbe42de663f4890185f536eec329ff5e0561",
+    "context_fingerprint": "990c6a4dcb2c1b4c3c112f81ec9eeba7fc90b00093b89437f50935675cb1708c"
+   }
+  },
+  {
+   "id": "INV34-002064",
+   "file": "core/lineage.py",
+   "line": 91,
+   "symbol": "LineageTracker.track",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not record.imported_at:",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source core/lineage.py:91 `if not record.imported_at:`; source_sha256=710b6a521078581bc55465905faffbe42de663f4890185f536eec329ff5e0561; context_fingerprint=d5e6ee960ac85de57daa3ea7a62cc79df513ef656f875df50696d1cea8ef2f96. Missing import timestamp is filled with current UTC time at ingestion; an existing timestamp is retained.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/lineage.py",
+    "line": 91,
+    "symbol": "LineageTracker.track",
+    "expression": "if not record.imported_at:",
+    "source_sha256": "710b6a521078581bc55465905faffbe42de663f4890185f536eec329ff5e0561",
+    "context_fingerprint": "d5e6ee960ac85de57daa3ea7a62cc79df513ef656f875df50696d1cea8ef2f96"
+   }
+  },
+  {
+   "id": "INV34-002107",
+   "file": "core/mapping_store.py",
+   "line": 13,
+   "symbol": "MappingStore.__init__",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "self.path = Path(path) if path else mapping_memory_path()",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source core/mapping_store.py:13 `self.path = Path(path) if path else mapping_memory_path()`; source_sha256=172ccd7f6b97185718011855b0c3eeb7e5b8d865748f0b6c626a2a9e6d90c8df; context_fingerprint=56538b37e928b52423c3b3610f2f84542f386585ad16f1afdc00f0f061fb1571. An omitted mapping-store path selects the configured application data path; an explicit non-empty path is retained.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/mapping_store.py",
+    "line": 13,
+    "symbol": "MappingStore.__init__",
+    "expression": "self.path = Path(path) if path else mapping_memory_path()",
+    "source_sha256": "172ccd7f6b97185718011855b0c3eeb7e5b8d865748f0b6c626a2a9e6d90c8df",
+    "context_fingerprint": "56538b37e928b52423c3b3610f2f84542f386585ad16f1afdc00f0f061fb1571"
+   }
+  },
+  {
+   "id": "INV34-002147",
+   "file": "core/mineru_engine.py",
+   "line": 418,
+   "symbol": "MinerUAdapter._command_prefix",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if self.config.executable:",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source core/mineru_engine.py:418 `if self.config.executable:`; source_sha256=d6e3e753a7af271fc15410ae8114770a7665d75db554b33f90337f2828d14c3f; context_fingerprint=1e93148046ab1d6a4a12a4005f6a255b27cea8881be4491c1727f8a5bbe8893b. An explicit executable config selects that executable as the child-process command prefix; absence falls through to the configured Python module route.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/mineru_engine.py",
+    "line": 418,
+    "symbol": "MinerUAdapter._command_prefix",
+    "expression": "if self.config.executable:",
+    "source_sha256": "d6e3e753a7af271fc15410ae8114770a7665d75db554b33f90337f2828d14c3f",
+    "context_fingerprint": "1e93148046ab1d6a4a12a4005f6a255b27cea8881be4491c1727f8a5bbe8893b"
+   }
+  },
+  {
+   "id": "INV34-002148",
+   "file": "core/mineru_engine.py",
+   "line": 420,
+   "symbol": "MinerUAdapter._command_prefix",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if self.config.python_executable:",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source core/mineru_engine.py:420 `if self.config.python_executable:`; source_sha256=d6e3e753a7af271fc15410ae8114770a7665d75db554b33f90337f2828d14c3f; context_fingerprint=87994190b470ce9cea8df71427a56193ef51386077a8281ee38dd68de4be3543. An explicit Python executable selects the `python -m mineru` route; absence produces no command prefix and a clear unavailable state.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/mineru_engine.py",
+    "line": 420,
+    "symbol": "MinerUAdapter._command_prefix",
+    "expression": "if self.config.python_executable:",
+    "source_sha256": "d6e3e753a7af271fc15410ae8114770a7665d75db554b33f90337f2828d14c3f",
+    "context_fingerprint": "87994190b470ce9cea8df71427a56193ef51386077a8281ee38dd68de4be3543"
+   }
+  },
+  {
+   "id": "INV34-002160",
+   "file": "core/mineru_engine.py",
+   "line": 169,
+   "symbol": "MinerUConfig.from_environment",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "output_dir = Path(output_value).expanduser() if output_value else None",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source core/mineru_engine.py:169 `output_dir = Path(output_value).expanduser() if output_value else None`; source_sha256=d6e3e753a7af271fc15410ae8114770a7665d75db554b33f90337f2828d14c3f; context_fingerprint=fd65917a8c086c5cda04ad4629f88d4df3f7bf89adbffb64522879ddfe3be570. Output directory is optional; only a non-empty path is expanded, otherwise the adapter's managed temporary output is used.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/mineru_engine.py",
+    "line": 169,
+    "symbol": "MinerUConfig.from_environment",
+    "expression": "output_dir = Path(output_value).expanduser() if output_value else None",
+    "source_sha256": "d6e3e753a7af271fc15410ae8114770a7665d75db554b33f90337f2828d14c3f",
+    "context_fingerprint": "fd65917a8c086c5cda04ad4629f88d4df3f7bf89adbffb64522879ddfe3be570"
+   }
+  },
+  {
+   "id": "INV34-002161",
+   "file": "core/mineru_engine.py",
+   "line": 156,
+   "symbol": "MinerUConfig.from_environment",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "python_executable = _resolve_executable(python_setting) if python_setting else None",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source core/mineru_engine.py:156 `python_executable = _resolve_executable(python_setting) if python_setting else None`; source_sha256=d6e3e753a7af271fc15410ae8114770a7665d75db554b33f90337f2828d14c3f; context_fingerprint=173f51bbb66fe799f4ed49729ea23cf01eb99311a543304f85b291729b5179c4. Python executable configuration is optional; absent configuration does not trigger discovery from an empty string.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/mineru_engine.py",
+    "line": 156,
+    "symbol": "MinerUConfig.from_environment",
+    "expression": "python_executable = _resolve_executable(python_setting) if python_setting else None",
+    "source_sha256": "d6e3e753a7af271fc15410ae8114770a7665d75db554b33f90337f2828d14c3f",
+    "context_fingerprint": "173f51bbb66fe799f4ed49729ea23cf01eb99311a543304f85b291729b5179c4"
+   }
+  },
+  {
+   "id": "INV34-002162",
+   "file": "core/mineru_engine.py",
+   "line": 174,
+   "symbol": "MinerUConfig.from_environment",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "timeout_seconds = max(1, int(timeout_value)) if timeout_value else 600",
+   "classification": "GENUINE_DEFECT",
+   "evidence": "Hash-anchored source core/mineru_engine.py:174 `timeout_seconds = max(1, int(timeout_value)) if timeout_value else 600`; source_sha256=d6e3e753a7af271fc15410ae8114770a7665d75db554b33f90337f2828d14c3f; context_fingerprint=e2e43e79974706f722974e9c6c1f9d97ed90c10c39fc99aab1793b0612f8948c. Persisted numeric timeout `0` was treated as absent and became 600 seconds, while the equivalent environment string `\"0\"` was clamped to 1 second. Since the code's explicit lower bound is one second, the inconsistent falsy check was fixed to test `is not None`; two regressions prove both config channels now agree.",
+   "defect": true,
+   "remaining_question": null,
+   "site": {
+    "file": "core/mineru_engine.py",
+    "line": 174,
+    "symbol": "MinerUConfig.from_environment",
+    "expression": "timeout_seconds = max(1, int(timeout_value)) if timeout_value else 600",
+    "source_sha256": "d6e3e753a7af271fc15410ae8114770a7665d75db554b33f90337f2828d14c3f",
+    "context_fingerprint": "e2e43e79974706f722974e9c6c1f9d97ed90c10c39fc99aab1793b0612f8948c"
+   },
+   "current_site": "core/mineru_engine.py:174",
+   "current_source_line": "timeout_seconds = max(1, int(timeout_value)) if timeout_value is not None else 600"
+  },
+  {
+   "id": "INV34-002202",
+   "file": "core/mineru_engine.py",
+   "line": 175,
+   "symbol": "MinerUConfig.from_environment",
+   "rule": "R-EXC-OTHER",
+   "kind": "typed-exception",
+   "register_line_text": "except (TypeError, ValueError):",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source core/mineru_engine.py:175 `except (TypeError, ValueError):`; source_sha256=d6e3e753a7af271fc15410ae8114770a7665d75db554b33f90337f2828d14c3f; context_fingerprint=e84dbdff58b72be75d9ffb8e732faaee6129e5e1d2c2f7148d9f53ef48b7ff7d. An invalid/unavailable page number is represented as `None`, not page zero; the table remains available with its other source provenance.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/mineru_engine.py",
+    "line": 175,
+    "symbol": "MinerUConfig.from_environment",
+    "expression": "except (TypeError, ValueError):",
+    "source_sha256": "d6e3e753a7af271fc15410ae8114770a7665d75db554b33f90337f2828d14c3f",
+    "context_fingerprint": "e84dbdff58b72be75d9ffb8e732faaee6129e5e1d2c2f7148d9f53ef48b7ff7d"
+   }
+  },
+  {
+   "id": "INV34-002208",
+   "file": "core/mineru_engine.py",
+   "line": 906,
+   "symbol": "parse_pdf_native_fallback",
+   "rule": "R-EXC-OTHER",
+   "kind": "typed-exception",
+   "register_line_text": "except (TypeError, ValueError):",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source core/mineru_engine.py:906 `except (TypeError, ValueError):`; source_sha256=d6e3e753a7af271fc15410ae8114770a7665d75db554b33f90337f2828d14c3f; context_fingerprint=d3aa5304705b85a2eb47fe26b587fe8069f99db669fb2220d0b78ac86d787835. Bounding box is optional extraction metadata; absent/empty geometry maps to `None` and no table measurements are altered.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/mineru_engine.py",
+    "line": 906,
+    "symbol": "parse_pdf_native_fallback",
+    "expression": "except (TypeError, ValueError):",
+    "source_sha256": "d6e3e753a7af271fc15410ae8114770a7665d75db554b33f90337f2828d14c3f",
+    "context_fingerprint": "d3aa5304705b85a2eb47fe26b587fe8069f99db669fb2220d0b78ac86d787835"
+   }
+  },
+  {
+   "id": "INV34-007354",
+   "file": "core/ddr_import_service.py",
+   "line": 88,
+   "symbol": "_enrich_record_reviews",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-empty",
+   "register_line_text": "for record in records or []",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source core/ddr_import_service.py:88 `for record in records or []`; source_sha256=ee069e9e1adf74a59f52dbf8efc560bd7995426ecf1cd5bd3dea21aa40d44f3d; context_fingerprint=fecad649f1ee3ab0a490a6906d963800851699576ddb148143542b160fe568a3. `records` is an optional input list at the review-lineage adapter; absent payloads yield no enrichment and do not create a persisted record.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/ddr_import_service.py",
+    "line": 88,
+    "symbol": "_enrich_record_reviews",
+    "expression": "for record in records or []",
+    "source_sha256": "ee069e9e1adf74a59f52dbf8efc560bd7995426ecf1cd5bd3dea21aa40d44f3d",
+    "context_fingerprint": "fecad649f1ee3ab0a490a6906d963800851699576ddb148143542b160fe568a3"
+   }
+  },
+  {
+   "id": "INV34-007355",
+   "file": "core/ddr_import_service.py",
+   "line": 91,
+   "symbol": "_enrich_record_reviews",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-empty",
+   "register_line_text": "for item in items or []:",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source core/ddr_import_service.py:91 `for item in items or []:`; source_sha256=ee069e9e1adf74a59f52dbf8efc560bd7995426ecf1cd5bd3dea21aa40d44f3d; context_fingerprint=077374927c36fa6f1ecb0ba1a0a055968448647e042b3ca4df84127f02298d36. `items` is an optional input list at the same adapter boundary; an absent review collection remains empty rather than raising or becoming a value.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/ddr_import_service.py",
+    "line": 91,
+    "symbol": "_enrich_record_reviews",
+    "expression": "for item in items or []:",
+    "source_sha256": "ee069e9e1adf74a59f52dbf8efc560bd7995426ecf1cd5bd3dea21aa40d44f3d",
+    "context_fingerprint": "077374927c36fa6f1ecb0ba1a0a055968448647e042b3ca4df84127f02298d36"
+   }
+  },
+  {
+   "id": "INV34-007409",
+   "file": "core/editor_state.py",
+   "line": 63,
+   "symbol": "editor_loaded.decorate.load",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not names or section.name in names:",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source core/editor_state.py:63 `if not names or section.name in names:`; source_sha256=4ef699308d0398147bedc93e40303b0bb84dba8b8d4f8f4b5180e138b83549fd; context_fingerprint=40a587cd324a4baed1185bb160a2adc33dd8ad01bccfc63672af46e8c53282ed. An absent allowlist means no section-name filter; when names exist, only the requested section is selected.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/editor_state.py",
+    "line": 63,
+    "symbol": "editor_loaded.decorate.load",
+    "expression": "if not names or section.name in names:",
+    "source_sha256": "4ef699308d0398147bedc93e40303b0bb84dba8b8d4f8f4b5180e138b83549fd",
+    "context_fingerprint": "40a587cd324a4baed1185bb160a2adc33dd8ad01bccfc63672af46e8c53282ed"
+   }
+  },
+  {
+   "id": "INV34-007410",
+   "file": "core/editor_state.py",
+   "line": 68,
+   "symbol": "editor_loaded.decorate.load",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not names or section.name in names:",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source core/editor_state.py:68 `if not names or section.name in names:`; source_sha256=4ef699308d0398147bedc93e40303b0bb84dba8b8d4f8f4b5180e138b83549fd; context_fingerprint=40a587cd324a4baed1185bb160a2adc33dd8ad01bccfc63672af46e8c53282ed. Same optional section-name filter for a second loader; empty names mean all sections, not a missing numeric input.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/editor_state.py",
+    "line": 68,
+    "symbol": "editor_loaded.decorate.load",
+    "expression": "if not names or section.name in names:",
+    "source_sha256": "4ef699308d0398147bedc93e40303b0bb84dba8b8d4f8f4b5180e138b83549fd",
+    "context_fingerprint": "40a587cd324a4baed1185bb160a2adc33dd8ad01bccfc63672af46e8c53282ed"
+   }
+  },
+  {
+   "id": "INV34-007411",
+   "file": "core/editor_state.py",
+   "line": 72,
+   "symbol": "editor_loaded.decorate.load",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not names or section.name in names:",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source core/editor_state.py:72 `if not names or section.name in names:`; source_sha256=4ef699308d0398147bedc93e40303b0bb84dba8b8d4f8f4b5180e138b83549fd; context_fingerprint=40a587cd324a4baed1185bb160a2adc33dd8ad01bccfc63672af46e8c53282ed. Same optional section-name filter for a third loader; section identity and loaded-context checks remain separate.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/editor_state.py",
+    "line": 72,
+    "symbol": "editor_loaded.decorate.load",
+    "expression": "if not names or section.name in names:",
+    "source_sha256": "4ef699308d0398147bedc93e40303b0bb84dba8b8d4f8f4b5180e138b83549fd",
+    "context_fingerprint": "40a587cd324a4baed1185bb160a2adc33dd8ad01bccfc63672af46e8c53282ed"
+   }
+  },
+  {
+   "id": "INV34-007541",
+   "file": "core/error_handler.py",
+   "line": 28,
+   "symbol": null,
+   "rule": "R-PASS-OTHER",
+   "kind": "pass-statement",
+   "register_line_text": "pass",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source core/error_handler.py:28 `pass`; source_sha256=5eae7f2f874adba72738784f5c201360cc792fbcbbe52f7043c2e528f680224f; context_fingerprint=98d9118920c6bd7ddba370ed6c7a873aba997982a2c304065a4dd95bc421d4ce. `DatabaseError` is a named exception type with no additional methods; `pass` is the required empty class body.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/error_handler.py",
+    "line": 28,
+    "symbol": null,
+    "expression": "pass",
+    "source_sha256": "5eae7f2f874adba72738784f5c201360cc792fbcbbe52f7043c2e528f680224f",
+    "context_fingerprint": "98d9118920c6bd7ddba370ed6c7a873aba997982a2c304065a4dd95bc421d4ce"
+   }
+  },
+  {
+   "id": "INV34-007542",
+   "file": "core/error_handler.py",
+   "line": 33,
+   "symbol": null,
+   "rule": "R-PASS-OTHER",
+   "kind": "pass-statement",
+   "register_line_text": "pass",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source core/error_handler.py:33 `pass`; source_sha256=5eae7f2f874adba72738784f5c201360cc792fbcbbe52f7043c2e528f680224f; context_fingerprint=f8c6fc0bd0a20696427cf9d76cc82687645ecd8b7cc5b4e6e780a7b9f5a51c43. `ValidationError` is a named exception type with no additional methods; `pass` is the required empty class body.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/error_handler.py",
+    "line": 33,
+    "symbol": null,
+    "expression": "pass",
+    "source_sha256": "5eae7f2f874adba72738784f5c201360cc792fbcbbe52f7043c2e528f680224f",
+    "context_fingerprint": "f8c6fc0bd0a20696427cf9d76cc82687645ecd8b7cc5b4e6e780a7b9f5a51c43"
+   }
+  },
+  {
+   "id": "INV34-007543",
+   "file": "core/error_handler.py",
+   "line": 38,
+   "symbol": null,
+   "rule": "R-PASS-OTHER",
+   "kind": "pass-statement",
+   "register_line_text": "pass",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source core/error_handler.py:38 `pass`; source_sha256=5eae7f2f874adba72738784f5c201360cc792fbcbbe52f7043c2e528f680224f; context_fingerprint=428cefce254fa1ae843c87fbf6114b7b769a2b7ff89e1f0cc8b74ff9bf901142. `DataImportError` is a named exception type with no additional methods; `pass` is the required empty class body.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/error_handler.py",
+    "line": 38,
+    "symbol": null,
+    "expression": "pass",
+    "source_sha256": "5eae7f2f874adba72738784f5c201360cc792fbcbbe52f7043c2e528f680224f",
+    "context_fingerprint": "428cefce254fa1ae843c87fbf6114b7b769a2b7ff89e1f0cc8b74ff9bf901142"
+   }
+  },
+  {
+   "id": "INV34-007546",
+   "file": "core/excel_intelligence.py",
+   "line": 591,
+   "symbol": "FieldExtractor.extract",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not looks_like_label(value):",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source core/excel_intelligence.py:591 `if not looks_like_label(value):`; source_sha256=6a3280ecb3e29ccfdefab1d075cc1f346ec933c0077f4d4d1061b9dc08978135; context_fingerprint=2428417b37e59581068954bad6443da92f968cebd59d755c744eb1a4554efafc. A label in the preferred anchor is not accepted as its own field value; the matcher searches only within the anchored row and stops at the next label boundary.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/excel_intelligence.py",
+    "line": 591,
+    "symbol": "FieldExtractor.extract",
+    "expression": "if not looks_like_label(value):",
+    "source_sha256": "6a3280ecb3e29ccfdefab1d075cc1f346ec933c0077f4d4d1061b9dc08978135",
+    "context_fingerprint": "2428417b37e59581068954bad6443da92f968cebd59d755c744eb1a4554efafc"
+   }
+  },
+  {
+   "id": "INV34-007547",
+   "file": "core/excel_intelligence.py",
+   "line": 610,
+   "symbol": "FieldExtractor.extract",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not looks_like_label(right_val):",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source core/excel_intelligence.py:610 `if not looks_like_label(right_val):`; source_sha256=6a3280ecb3e29ccfdefab1d075cc1f346ec933c0077f4d4d1061b9dc08978135; context_fingerprint=0e8bfffdb7e700109036a966807e0d016e62fc2ab44db0436852d08a19d0a4a7. A neighboring label is treated as a structural boundary, preventing extraction from wandering into another table.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/excel_intelligence.py",
+    "line": 610,
+    "symbol": "FieldExtractor.extract",
+    "expression": "if not looks_like_label(right_val):",
+    "source_sha256": "6a3280ecb3e29ccfdefab1d075cc1f346ec933c0077f4d4d1061b9dc08978135",
+    "context_fingerprint": "0e8bfffdb7e700109036a966807e0d016e62fc2ab44db0436852d08a19d0a4a7"
+   }
+  },
+  {
+   "id": "INV34-007548",
+   "file": "core/excel_intelligence.py",
+   "line": 629,
+   "symbol": "FieldExtractor.extract",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not looks_like_label(merge_val):",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source core/excel_intelligence.py:629 `if not looks_like_label(merge_val):`; source_sha256=6a3280ecb3e29ccfdefab1d075cc1f346ec933c0077f4d4d1061b9dc08978135; context_fingerprint=2b52ecce39e07ee34f1b71fa4f086268e797fdec8510bb1ffd567be718c82f46. A merged label is not treated as a value; a rightward search is bounded by labels and canonical type validation.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/excel_intelligence.py",
+    "line": 629,
+    "symbol": "FieldExtractor.extract",
+    "expression": "if not looks_like_label(merge_val):",
+    "source_sha256": "6a3280ecb3e29ccfdefab1d075cc1f346ec933c0077f4d4d1061b9dc08978135",
+    "context_fingerprint": "2b52ecce39e07ee34f1b71fa4f086268e797fdec8510bb1ffd567be718c82f46"
+   }
+  },
+  {
+   "id": "INV34-007549",
+   "file": "core/excel_intelligence.py",
+   "line": 644,
+   "symbol": "FieldExtractor.extract",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not looks_like_label(right_val):",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source core/excel_intelligence.py:644 `if not looks_like_label(right_val):`; source_sha256=6a3280ecb3e29ccfdefab1d075cc1f346ec933c0077f4d4d1061b9dc08978135; context_fingerprint=0e8bfffdb7e700109036a966807e0d016e62fc2ab44db0436852d08a19d0a4a7. Same label-boundary guard for the right-side candidate path; only a non-label source value is proposed.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/excel_intelligence.py",
+    "line": 644,
+    "symbol": "FieldExtractor.extract",
+    "expression": "if not looks_like_label(right_val):",
+    "source_sha256": "6a3280ecb3e29ccfdefab1d075cc1f346ec933c0077f4d4d1061b9dc08978135",
+    "context_fingerprint": "0e8bfffdb7e700109036a966807e0d016e62fc2ab44db0436852d08a19d0a4a7"
+   }
+  },
+  {
+   "id": "INV34-007552",
+   "file": "core/excel_intelligence.py",
+   "line": 1238,
+   "symbol": "ExcelIntelligence.__init__",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-empty",
+   "register_line_text": "self.template = template or {}",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source core/excel_intelligence.py:1238 `self.template = template or {}`; source_sha256=6a3280ecb3e29ccfdefab1d075cc1f346ec933c0077f4d4d1061b9dc08978135; context_fingerprint=f766076f13ebcf452db0bfd758efab47f23f2c58660f25d65ca83aa5d97e9991. An absent template becomes empty configuration; candidate values remain unresolved/reviewable and no field values are invented.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/excel_intelligence.py",
+    "line": 1238,
+    "symbol": "ExcelIntelligence.__init__",
+    "expression": "self.template = template or {}",
+    "source_sha256": "6a3280ecb3e29ccfdefab1d075cc1f346ec933c0077f4d4d1061b9dc08978135",
+    "context_fingerprint": "f766076f13ebcf452db0bfd758efab47f23f2c58660f25d65ca83aa5d97e9991"
+   }
+  },
+  {
+   "id": "INV34-007555",
+   "file": "core/excel_intelligence.py",
+   "line": 1679,
+   "symbol": "ExcelIntelligence._assemble_date",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-constant",
+   "register_line_text": "English month names ('Oct', 'October'). Returns date or None.\"\"\"",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Hash-anchored source core/excel_intelligence.py:1679 `English month names ('Oct', 'October'). Returns date or None.\"\"\"`; source_sha256=6a3280ecb3e29ccfdefab1d075cc1f346ec933c0077f4d4d1061b9dc08978135; context_fingerprint=40ab8e1c383a902eba6d1945abc5e3a9db2c97e5d25e245b2a020aae316c4607. Rule mis-fire: the `or None` wording is in `_assemble_date`'s docstring, describing its actual return contract.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/excel_intelligence.py",
+    "line": 1679,
+    "symbol": "ExcelIntelligence._assemble_date",
+    "expression": "English month names ('Oct', 'October'). Returns date or None.\"\"\"",
+    "source_sha256": "6a3280ecb3e29ccfdefab1d075cc1f346ec933c0077f4d4d1061b9dc08978135",
+    "context_fingerprint": "40ab8e1c383a902eba6d1945abc5e3a9db2c97e5d25e245b2a020aae316c4607"
+   }
+  },
+  {
+   "id": "INV34-007562",
+   "file": "core/excel_normalizer.py",
+   "line": 8,
+   "symbol": null,
+   "rule": "R-PASS-OTHER",
+   "kind": "pass-statement",
+   "register_line_text": "pass",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source core/excel_normalizer.py:8 `pass`; source_sha256=632cfeae8ed6dfee05eb752d648650441512cc9026b8f27297f63a83beb1a3ae; context_fingerprint=228386c712b6a35680bda195ae1d1e1bae49c2fe5bf1beef6f24006547e4e4af. `ExcelNormalizationError` is an exception type with no extra body; `pass` is the required class declaration.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/excel_normalizer.py",
+    "line": 8,
+    "symbol": null,
+    "expression": "pass",
+    "source_sha256": "632cfeae8ed6dfee05eb752d648650441512cc9026b8f27297f63a83beb1a3ae",
+    "context_fingerprint": "228386c712b6a35680bda195ae1d1e1bae49c2fe5bf1beef6f24006547e4e4af"
+   }
+  },
+  {
+   "id": "INV34-007563",
+   "file": "core/fuel_water_semantics.py",
+   "line": 25,
+   "symbol": "days_remaining",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-constant",
+   "register_line_text": "\"\"\"Return runway in days, or None when it cannot be truthfully computed.",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Hash-anchored source core/fuel_water_semantics.py:25 `\"\"\"Return runway in days, or None when it cannot be truthfully computed.`; source_sha256=544c3e9a09f82ec1bd45c055a1ad83a786512206c4679a28fdea8f9f85a05380; context_fingerprint=5868642038260c78129b75ebf950e4111a83ebade13a392f74443c2404fc2b06. Rule mis-fire: the text describes the `None` return of `days_remaining`; actual function semantics keep unknown balances/rates separate from zero.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/fuel_water_semantics.py",
+    "line": 25,
+    "symbol": "days_remaining",
+    "expression": "\"\"\"Return runway in days, or None when it cannot be truthfully computed.",
+    "source_sha256": "544c3e9a09f82ec1bd45c055a1ad83a786512206c4679a28fdea8f9f85a05380",
+    "context_fingerprint": "5868642038260c78129b75ebf950e4111a83ebade13a392f74443c2404fc2b06"
+   }
+  },
+  {
+   "id": "INV34-007566",
+   "file": "core/functions.py",
+   "line": 23,
+   "symbol": "CentralFunctions.validate_well_data",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not data.get(field):",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Hash-anchored source core/functions.py:23 `if not data.get(field):`; source_sha256=9e713abf52cd3ef8ba06dbee6c9b3306089509507d10a40a0531e64efe288b69; context_fingerprint=bbfadb9c909f45deb9f3dcf91775df859dfb47187db013c7da21fb82274eb19e. Duplicate capture of the same required-field guard in `validate_well_data` as INV34-001904; no separate behavior.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/functions.py",
+    "line": 23,
+    "symbol": "CentralFunctions.validate_well_data",
+    "expression": "if not data.get(field):",
+    "source_sha256": "9e713abf52cd3ef8ba06dbee6c9b3306089509507d10a40a0531e64efe288b69",
+    "context_fingerprint": "bbfadb9c909f45deb9f3dcf91775df859dfb47187db013c7da21fb82274eb19e"
+   }
+  },
+  {
+   "id": "INV34-008700",
+   "file": "core/editor_bindings.py",
+   "line": 49,
+   "symbol": "editor_snapshot.read",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "return widget.toPlainText() if not widget.isReadOnly() else None",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source core/editor_bindings.py:49 `return widget.toPlainText() if not widget.isReadOnly() else None`; source_sha256=c183043804323cb7430470da6c000ee5d3f57c9dd43a5f6a1a7be21d25a8d337; context_fingerprint=74f3c788f5a98b9a5d3b429b33cdd726f5dfda195c5a7619168e6200f986f59d. The editor snapshot excludes a read-only QTextEdit from writable state; derived display text cannot silently enter Save All persistence.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/editor_bindings.py",
+    "line": 49,
+    "symbol": "editor_snapshot.read",
+    "expression": "return widget.toPlainText() if not widget.isReadOnly() else None",
+    "source_sha256": "c183043804323cb7430470da6c000ee5d3f57c9dd43a5f6a1a7be21d25a8d337",
+    "context_fingerprint": "74f3c788f5a98b9a5d3b429b33cdd726f5dfda195c5a7619168e6200f986f59d"
+   }
+  },
+  {
+   "id": "INV34-009659",
+   "file": "core/excel_intelligence.py",
+   "line": 1363,
+   "symbol": "ExcelIntelligence.extract_generic",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "numeric-coalesce",
+   "register_line_text": "row = raw_cell.location.row or 0",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Hash-anchored source core/excel_intelligence.py:1363 `row = raw_cell.location.row or 0`; source_sha256=6a3280ecb3e29ccfdefab1d075cc1f346ec933c0077f4d4d1061b9dc08978135; context_fingerprint=a6ab6e17db9361e857b8e7ab8103db55c17e09500a28721fb41c9a848eaa6392. Duplicate scanner capture of `raw_cell.location.row or 0` at the same Excel label-search site as INV34-001810; the row fallback is a search sentinel, not a stored value.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/excel_intelligence.py",
+    "line": 1363,
+    "symbol": "ExcelIntelligence.extract_generic",
+    "expression": "row = raw_cell.location.row or 0",
+    "source_sha256": "6a3280ecb3e29ccfdefab1d075cc1f346ec933c0077f4d4d1061b9dc08978135",
+    "context_fingerprint": "a6ab6e17db9361e857b8e7ab8103db55c17e09500a28721fb41c9a848eaa6392"
+   }
+  }
+ ]
+}

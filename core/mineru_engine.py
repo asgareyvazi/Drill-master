@@ -171,7 +171,7 @@ class MinerUConfig:
             persisted, "timeout", "DRILLMASTER_MINERU_TIMEOUT", "MINERU_TIMEOUT"
         )
         try:
-            timeout_seconds = max(1, int(timeout_value)) if timeout_value else 600
+            timeout_seconds = max(1, int(timeout_value)) if timeout_value is not None else 600
         except (TypeError, ValueError):
             timeout_seconds = 600
 

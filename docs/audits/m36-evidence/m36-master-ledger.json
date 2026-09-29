@@ -705,6 +705,42 @@
     ],
     "mutation": "Orphan regression was run before the fix: the clean case had no evidence and the injected orphan incorrectly returned 100/good; after the fix, clean/orphan/query-failure tests pass. The SQL-NULL UI mutation is source-proven (old widget fallback flowed into save) and the new Qt regression asserts unchanged NULL plus explicit zero; local runtime is blocked, so CI is required before treating that path as executed."
    }
+  },
+  {
+   "batch": "p6-batch-025",
+   "class": "phase-2 mixed review: DDR provenance adapters, editor boundaries, Excel semantic import, data lineage and optional MinerU configuration/fallbacks",
+   "records": 45,
+   "sites": 43,
+   "by_classification": {
+    "VERIFIED-CORRECT": 27,
+    "INTENTIONAL": 13,
+    "DUPLICATE/FALSE-POSITIVE": 4,
+    "GENUINE_DEFECT": 1
+   },
+   "defects_fixed": [
+    {
+     "id": "NEW-P6-021",
+     "file": "core/mineru_engine.py",
+     "site": "MinerUConfig.from_environment timeout_seconds",
+     "test": "tests/test_mineru_timeout_zero.py",
+     "summary": "Normalize explicit persisted numeric timeout zero and environment string zero through the same 1-second minimum instead of treating numeric zero as missing and silently using 600 seconds."
+    }
+   ],
+   "new_findings": [],
+   "evidence_commit": null,
+   "commit": null,
+   "tests": {
+    "passed": [
+     "28 passed: tests/test_excel_intelligence.py tests/test_excel_intelligence_regressions.py.",
+     "65 passed: tests/test_lineage.py tests/test_config_and_mapping.py tests/test_r18_r19_save_preservation.py.",
+     "42 passed: tests/test_import_architecture.py tests/test_import_quality_extra.py tests/test_core_import.py tests/test_mineru_engine.py tests/test_mineru_timeout_zero.py.",
+     "Ruff --select E722,F821, compileall, and git diff --check passed for changed files."
+    ],
+    "environment_blocked": [
+     "No MinerU installation, CUDA/GPU backend, operator DDR corpus, or production OCR acceptance was exercised; these are environment/domain acceptance gates, not source-test claims."
+    ],
+    "mutation": "The persisted timeout-zero regression failed before the fix (600 seconds instead of 1); both persisted integer zero and environment string zero now pass. Existing MinerU adapter tests run without a real MinerU installation and do not establish OCR/real-DDR acceptance."
+   }
   }
  ],
  "start_open": 1224,
@@ -712,18 +748,18 @@
  "arithmetic": {
   "register_open_at_p6_start": 1224,
   "defect_fixed_by_p6": 2,
-  "adjudicated_by_p6_batches": 999,
-  "current_open": 223,
+  "adjudicated_by_p6_batches": 1044,
+  "current_open": 178,
   "check": true,
   "note": "every record is either OPEN or carries a terminal evidence-backed classification; the fixed sites are subtracted separately so nothing disappears"
  },
  "open_by_priority": {
-  "MEDIUM": 223
+  "MEDIUM": 178
  },
  "open_by_class": {
-  "E": 223
+  "E": 178
  },
- "generated_utc": "2026-09-29T08:48:55+00:00",
+ "generated_utc": "2026-09-29T08:53:10+00:00",
  "recovery_bundles": [
   {
    "file": "/home/user/recovery/drillmaster-115fc09.bundle",
