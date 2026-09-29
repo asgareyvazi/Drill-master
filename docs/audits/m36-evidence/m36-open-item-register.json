@@ -1,19 +1,18 @@
 {
  "schema": "m36-open-item-register",
- "generated_utc": "2026-09-28T08:30:46+00:00",
+ "generated_utc": "2026-09-29T05:51:48+00:00",
  "source_register": "docs/audits/m35-evidence/m35-open-item-register.json",
  "source_sha256_declared": "d81a77bda0330c75493f4081c4a02e4d106fe7602e49c14f0c67d12977658a6b",
  "totals": {
   "records": 1224,
-  "open": 493,
+  "open": 448,
   "open_by_priority": {
-   "MEDIUM": 493
+   "MEDIUM": 448
   },
   "open_by_class": {
    "E": 241,
-   "C": 159,
-   "D": 65,
-   "B": 28
+   "C": 142,
+   "D": 65
   },
   "defect_fixed": 2
  },
@@ -68,13 +67,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`def compare(metric, planned, actual, tolerance_pct=10.0)` (core/actual_vs_plan.py:28-44) is the documented backward-compatible scalar comparison ('used by existing operations tests').  The flagged default 10.0 is the *tolerance band* of the status verdict, not a value substituted for a missing measurement: `planned = optional_number(planned, \"planned\")` and `actual = optional_number(actual, \"actual\")` (core/engineering/result.optional_number returns the number, None for a missing value and raises on a non-numeric one - unknown is carried, never converted to 0), and the function returns `Variance(metric, planned, actual, None, None, \"unavailable\")` when either side is None (40-41) - unknown planned/actual propagates as status 'unavailable' with variance None, never as a zero-variance 'on-track'.  The zero/zero convention is explicit in the code comment ('nonzero / zero has a known delta but no finite percentage - never synthetic 100%', 42-43).  Consumers: tabs/w10_Planning_Widget.py:1727-1738 passes the default and explicitly branches on `result.variance is None` (grey render) before any numeric use; tests/test_operations.py:2, tests/test_m28_finance_safety_plan.py:8 and tests/test_m30_semantic_regressions.py:259 exercise the comparator including the unavailable path.  No caller treats a missing planned value as 0.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-019"
+   "p6_batch": "p6-batch-019",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-000072",
@@ -258,13 +260,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: parameter/unit domain and the legal range for this reduction",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`CacheEntry.remaining_ttl` returns `max(0.0, self.ttl - self.age)` (core/cache_manager.py:66-67).  The class's own expiry contract is one line above: `is_expired` is `(time.monotonic() - self.created_at) > self.ttl` (58-59), i.e. an entry older than its ttl legitimately exists in the dict until eviction.  For that state `ttl - age` is negative, and a negative 'remaining time' is a nonsensical countdown; the clamp reports the truthful 0.0 ('no TTL left'), which agrees with is_expired rather than inventing time.  This is a derived *time* accessor over monotonic clock deltas, not a measurement: no stored datum is clamped, and age/creation are never falsified.  The property currently has no in-repo caller (grep over core/, tabs/, dialogs/, tests/: only the definition), so there is also no consumer that could misread 0.0 as data.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-019"
+   "p6_batch": "p6-batch-019",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-000161",
@@ -339,13 +344,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`min_height: int = 200` (core/common_widgets.py:30) is the minimum pixel height of the shared `CommonTableWidget` (used by `self._setup_ui(show_toolbar, alternating_colors, min_height)`, 34).  It is a Qt layout presentation default for the widget frame, not an operational quantity: it never reaches a model, a database column, an import boundary or an engineering result, and a caller that wants a different frame passes its own value (the keyword is part of the public constructor signature, 24-31).  UI presentation defaults are outside the unknown-vs-zero contract by construction.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-019"
+   "p6_batch": "p6-batch-019",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-000234",
@@ -389,13 +397,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`normalize_currency` ends `return text or None` (core/cost_semantics.py:99) under the docstring 'Return an explicit currency code or None (unknown). An empty/blank currency is unknown, NOT silently USD (§9)' (88-90).  After `text = str(value).strip().upper()` (94) the only falsy value `text` can hold is \"\", i.e. the caller supplied a blank currency; `text or None` maps exactly that to None (unknown) and passes every non-empty code through, which is precisely the documented contract - the known-marker set above it (97) already filtered the explicit 'UNKNOWN'/'N/A' spellings so two unknown rows are never aggregated as proven.  Consumers enforce the unknown downstream: the `_canonicalize_cost_record` event listener stores the normalized value on every CostRecord insert/update (core/database.py:2558-2566), and report_engine.py:1758 gates the whole rate projection on `projection_currency is not None` - an unknown currency blocks the projection instead of fabricating a converted figure.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-019"
+   "p6_batch": "p6-batch-019",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-000276",
@@ -3158,13 +3169,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`if b.hd:` (core/engineering/bridge.py:91) guards the closure-azimuth computation `closure_azi = round(math.degrees(math.atan2(b.east, b.north)) % 360, 3)` (92).  `b` is the second TrajectoryPoint returned by TrajectoryEngine.calculate, and `hd` is a derived non-negative float of that dataclass (`hd: float = 0.0`, core/engineering/core.py:90; computed as `hd = math.sqrt(north**2 + east**2)`, 289) - it can never be None, so the truthiness test is exactly `hd != 0`.  When hd == 0 the projected station sits on the survey origin axis and atan2(0, 0) would fabricate a 0° closure azimuth by IEEE convention, not by measurement; leaving `closure_azi = None` (90) preserves 'no closure direction is defined' for that degenerate geometry, which is the unknown-preserving choice.  The result object carries both the values and the None (values['closure_azimuth_deg'], 100-104), and the two documented consumers are the acceptance calculator scripts docs/audits/2026-09-08-ddr/evidence/real-user-acceptance/supplemental-calculators.py:35,54 which assert on the numeric fields of a non-degenerate pair.  Sibling guard in the same function: `if d_md > 0 and b.dls:` (94) is the same non-negative-derived-float pattern.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-019"
+   "p6_batch": "p6-batch-019",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-001477",
@@ -3183,13 +3197,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`MudLedgerEngine.calculate_closing(opening, received, used, returned=0, adjusted=0)` (core/engineering/core.py:630-631) computes `opening + received + adjusted - used - returned` under the class contract 'Mud Chemical Ledger with Opening(day+1)=Closing(day) enforcement' (627) and `next_day_opening(closing)` chains the result into the next day (634).  The two flagged defaults are the additive identity of that formula: a ledger day with no returns and no adjustments closes to exactly the value the formula gives when those terms are absent, so 0 here is the *physical* 'nothing moved' quantity, not a substitute for an unknown - the volume fields of a mud ledger are quantities that are zero when nothing moved, and the repository's zero-semantics contract explicitly preserves such zeros (tests/test_inventory_zero_semantics.py asserts the same distinction for bulk movements).  Consumers: tests/test_p0_engineering_core.py:141-169 (MudLedgerEngineTests) pins next_day_opening/build_history, and core/repositories/logistics_repository.py imports the engine for ledger validation; no caller passes None-with-a-0-fallback through this path.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-019"
+   "p6_batch": "p6-batch-019",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-001478",
@@ -3208,13 +3225,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for the identical `calculate_closing` signature default at core/engineering/core.py:630 (second register record, same file/line/symbol), already adjudicated under INV34-001477: the zero defaults are the additive identity of the mud-ledger closing formula, pinned by MudLedgerEngineTests and consumed through the logistics repository",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-019"
+   "p6_batch": "p6-batch-019",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-001482",
@@ -3233,13 +3253,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`vs_azimuth: float = 0.0` (core/engineering/core.py:338) is the reference azimuth the vertical-section projection is measured against, documented in the method's own docstring: 'VS is recomputed from the projected North/East and vs_azimuth (not copied from the last station)' (340-342).  0.0 is the north-referenced VS convention, not a substituted measurement, and the recomputation comment exists precisely so no stale planned VS is copied forward.  The AI tool registry records the same assumption explicitly ('VS azimuth 0 default', core/ai_tools.py:190) and the only other caller, tests/test_engineering_ground_truth.py:105, passes vs_azimuth=0 explicitly.  The value is a direction convention for a derived projection - it never replaces a missing planned/actual depth, hour or cost.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-019"
+   "p6_batch": "p6-batch-019",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-001497",
@@ -3258,13 +3281,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`return hhp / bit_area if bit_area else 0` (core/engineering/core.py:415) closes `calculate_hsi`, whose precondition already excludes the falsy case: `if not flow_rate_gpm or not pressure_drop_psi or not bit_size_in: raise MissingInputError` (410-411), so bit_size_in != 0 on every path that reaches 413 and `bit_area = math.pi/4 * bit_size_in * bit_size_in` (413) is strictly positive (sign is squared away).  The `else 0` branch is therefore unreachable defensive code, and an unreachable branch is not a behaviour to adjudicate - the value actually returned is hhp / bit_area, with missing inputs refused loudly instead of rendered as 0 HSI.  The single production caller is the w3 report widget (tabs/w3_drilling_report.py calculate_hsi, whose inputs are QDoubleSpinBox values - finite floats by construction), and batch-002 already recorded that caller's log-and-leave-unset handling of engine failures.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-019"
+   "p6_batch": "p6-batch-019",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-001502",
@@ -3283,13 +3309,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Rule mis-fire, not a behaviour to adjudicate: `if not (0 <= inc_f <= 180):` (core/engineering/core.py:168) is a chained range comparison over a *required* survey inclination, not a truthiness test: the value was raised as MissingInputError when missing (140-141), converted with a typed error (147-150) and already rejected when non-finite (`if not all(math.isfinite(value) for value in (md_f, inc_f, azi_f))`, 154-156) before this line.  The R-TRUTH-UNKNOWN family targets bare truthiness on a value whose optionality is unproven; here the range test itself is the validation that makes the engine refuse out-of-domain input (EngineeringError 'Inclination out of range [0,180]', 169).  Nothing about the construct matches the rule's semantic.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-019"
+   "p6_batch": "p6-batch-019",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-001508",
@@ -3308,13 +3337,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`except (TypeError, ValueError): continue` inside `BitEngine.calculate_tfa` (core/engineering/core.py:398-402) skips a nozzle token that is not a number while summing pi/4*(n/32)^2.  The skip cannot fabricate a measurement and cannot lose one: a non-numeric token has no truthful area, the numeric subset is summed as-is, and the engine refuses the empty result (`if tfa == 0: raise EngineeringError(\"TFA calculated as 0\")`, 403-404) instead of returning a fabricated 0 in^2.  The production producers cannot emit non-numeric tokens in the first place: the w3 nozzle table builds `{'size_32nd': size_widget.value(), 'quantity': qty_widget.value()}` from QDoubleSpinBoxes (tabs/w3_drilling_report.py:695-707, finite floats by construction), the managers facade `DrillingManager.calculate_tfa` maps that data through and converts any engine failure to None with the documented 'not entered, not a measured 0' contract (core/managers.py:381-400), and the w13 calculator pre-filters `[s for s in nozzle_sizes if s > 0]` (tabs/w13_Engineering_Calculator.py:64).  The handler is typed (no bare except) and the remaining caller (core/ai_tools.py:192-197) reports MISSING_INPUT/success explicitly around the same engine.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-019"
+   "p6_batch": "p6-batch-019",
+   "p6_remaining_question": "when a *mixed* list of parseable and non-parseable tokens reaches the engine the returned TFA silently covers the parseable subset; no in-repo producer can emit that input today (all three producers are numeric by construction), so this is recorded as an observation, not patched.",
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-001514",
@@ -17472,13 +17504,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`naive_footage, naive_hours = session.query(func.sum(...), func.sum(...)).filter(...).one()` (tests/test_engineering_data_semantics.py:150-153) is the *deliberately wrong* half of a documentation test: the docstring states the hazard ('the naive SUM(footage)/SUM(hours) is wrong because SQL SUM skips the NULL footage while still counting that row's hours', 130-135) and the assertions encode it - naive 9.0909 marked 'WRONG value' (155-157) versus the per-row-paired 20.0 marked 'CORRECT value' (158-185).  a SQL aggregate without GROUP BY returns exactly one row, so `.one()` on it asserts the query ran, not a row count.  The test would fail if the aggregate semantics changed (a NULL-footage row dropping out of the denominator would move naive_hours off 11.0).  the fixture creates a fresh DatabaseManager with its own in-memory/static-pool engine inside the same test function, so the selection cannot see another test's data.",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-019"
+   "p6_batch": "p6-batch-019",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-006481",
@@ -17603,13 +17638,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`fetch_row` closes with `.one()` on BulkMaterials filtered by (well_id, report_date, material_name) (tests/test_inventory_zero_semantics.py:80-89).  The identity it asserts is the writer's own upsert key: `save_bulk_material` locates the existing row by exactly well_id + report_date + report_id IS NULL + unit + material_name before updating (core/database.py:7359-7390), so one save per (well, date, material) is the storage contract and `.one()` is its enforcement - a second row would raise MultipleResultsFound and fail the test, which is the load-bearing direction.  All three call sites (111, 129, 146) read back the single Barite row of a fresh per-test in-memory DB (the fixture creates a fresh DatabaseManager with its own in-memory/static-pool engine inside the same test function, so the selection cannot see another test's data) to assert explicit-zero semantics (State A/B/C of the module).",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-019"
+   "p6_batch": "p6-batch-019",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-006522",
@@ -17709,13 +17747,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`assert conn.execute(DrillingParameters.__table__.select()).one().well_id == a` (tests/test_ownership_parent_edits.py:106) verifies that a rejected startup did NOT repair the corrupted ownership link: the test seeds exactly one DrillingParameters row pointing at well `a` (the corruption scenario of 87-99), reopens with a fresh DatabaseManager, asserts `not reopened.initialize()` and the 'ownership conflict' diagnostic (103-104), then reads the raw table.  The seeded table has exactly one row, so `.one()` doubles as a no-silent-repair check - if startup had deleted, re-parented or duplicated rows, `.one()` would raise and fail the test.  The context is a plain engine.connect() read of the same file the test created (tmp_path), not a shared database.",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-019"
+   "p6_batch": "p6-batch-019",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-006537",
@@ -17818,13 +17859,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for the same `session.query(Well).first()` selection at tests/test_p0_well_identity.py:95 (test_report_identity_unique; the sibling test_section_identity_depth_range at :78), already adjudicated under INV34-006553: a test-local selection of the Default Well that `DatabaseManager.initialize()` seeds outside production before the test creates its own section/report on it",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-019"
+   "p6_batch": "p6-batch-019",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-006553",
@@ -17843,13 +17887,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`well = session.query(Well).first()` (tests/test_p0_well_identity.py:78, repeated at 95) runs immediately after `self.db.initialize()` in setUp (16-24) on a brand-new per-test SQLite file: `initialize()` calls `create_default_data()`, which - outside production environments, which tests are - seeds Company 'Default Company', Project 'Default Project' and Well 'Default Well' (core/database.py:3342-3430), and no other well exists in that database at this point.  `.first()` is therefore a deterministic selection of the single seeded well whose id the test then uses to create its own Section/Report (81-99); it is not a scoping shortcut over shared data, and tearDown closes the DB and removes the tmpdir (26-33).",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-019"
+   "p6_batch": "p6-batch-019",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-006574",
@@ -17893,13 +17940,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for the same `.first()`-after-atomic-save read-back at tests/test_real_oeoc_golden.py:696 (CasingReport; sibling CementReport at :701), already adjudicated under INV34-006596: the single row-table row written by save_imported_multi_tab_data_atomic for the seeded report, read back to verify the golden canonical JSON persisted verbatim",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-019"
+   "p6_batch": "p6-batch-019",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-006595",
@@ -17918,13 +17968,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for the same `.first()`-after-atomic-save read-back at tests/test_real_oeoc_golden.py:701 (CementReport), already adjudicated under INV34-006596: the single row-table row written by save_imported_multi_tab_data_atomic for the seeded report, read back to verify the golden materials JSON persisted verbatim",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-019"
+   "p6_batch": "p6-batch-019",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-006596",
@@ -17943,13 +17996,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`de = session.query(DownholeEquipment).filter_by(report_id=report_id).first()` (tests/test_real_oeoc_golden.py:691; CasingReport at 696, CementReport at 701) reads back the row-table row that `db.save_imported_multi_tab_data_atomic(well_id, report_id, dict(canonical))` (688) just wrote for the report the test itself seeded via _seed_well_report (687).  The atomic writer creates exactly one row-table row per report, so filter_by(report_id) + .first() is the deterministic read of the data this test wrote, and the assertion is load-bearing in both directions: a missing row would crash on `de.equipment_data_json` (None has no attribute) and a duplicated one would make the golden-content assertions on equipment_data_json[0]/casing[0]/materials[0] (692-704) test an arbitrary row.  the fixture creates a fresh DatabaseManager with its own in-memory/static-pool engine inside the same test function, so the selection cannot see another test's data.",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-019"
+   "p6_batch": "p6-batch-019",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-006609",
@@ -18043,13 +18099,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`seed_well` opens `project = session.query(Project).first()` (tests/test_wellbore_discriminator_import.py:75; identical helper in tests/test_wellbore_schema_v3.py:80) after that module's `memory_manager()` fixture has created exactly one Company and one Project on a fresh StaticPool in-memory engine (49-68).  The selection is the deterministic single project of the test's own database, and the well it inserts (76-79) is the subject the suite's discriminator/scope assertions run against; the module docstring of the schema_v3 twin states the fixture mirrors tests/test_well_centric_acceptance.memory_manager so both suites build identical fixtures (51-55).  the fixture creates a fresh DatabaseManager with its own in-memory/static-pool engine inside the same test function, so the selection cannot see another test's data.",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-019"
+   "p6_batch": "p6-batch-019",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-006707",
@@ -18068,13 +18127,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for the identical seed_well `session.query(Project).first()` at tests/test_wellbore_schema_v3.py:80, already adjudicated under INV34-006663: the single Project of the fixture's fresh in-memory database, seeded by the same memory_manager idiom the module documents as a deliberate mirror of the acceptance fixture",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-019"
+   "p6_batch": "p6-batch-019",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-006714",
@@ -18640,13 +18702,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for the identical `return text or None` at core/cost_semantics.py:99 (second register record for normalize_currency, R-DEF-UNKNOWN/or-constant beside R-DEF-UNKNOWN/or-empty), already adjudicated under INV34-000239: blank input is the only falsy value after strip().upper(), so `text or None` implements the docstring's 'empty/blank currency is unknown, NOT silently USD' and every real code passes through",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-019"
+   "p6_batch": "p6-batch-019",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-006841",
@@ -19969,13 +20034,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`_to_number` (core/engineering/drill_pipe.py:106-122) is the repository's finite-boundary parser, and its record anchors the docstring that states the contract: 'Parse a finite float, or None when the value is not a clean number... this does NOT judge the engineering domain (0/negative pass here); domain validity (OD>0 etc.) is enforced separately so we can distinguish not-a-number from a number outside the physical domain' (107-111).  The implementation matches it exactly: missing -> None via _is_missing, bool -> None ('never a measurement'), float() with typed failure -> None, `if not math.isfinite(number): return None` for NaN/inf/1e400 (117-121).  Consumers honour the None: `_to_inches` propagates it (128-131) and the component parser at 330 skips non-numeric raws, so an unparseable cell never becomes a 0-inch pipe segment.  This is the same boundary the batch-017 contract established for coerce_model_values, implemented correctly here.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-019"
+   "p6_batch": "p6-batch-019",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-007452",
@@ -27938,13 +28006,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for the second line of the same naive-aggregate statement at tests/test_engineering_data_semantics.py:153 (the `.filter(...).one()` tail), already adjudicated under INV34-006473: the deliberately-wrong naive SUM/SUM of the weighted-ROP documentation test, whose 'WRONG value' assertion is the hazard the test exists to record",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-019"
+   "p6_batch": "p6-batch-019",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-008508",
@@ -27963,13 +28034,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for the `.one()` tail of the same fetch_row statement at tests/test_inventory_zero_semantics.py:87, already adjudicated under INV34-006512: the upsert-identity read of the single Barite row, enforcing the writer's (well_id, report_date, report_id IS NULL, unit, material_name) key",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-019"
+   "p6_batch": "p6-batch-019",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-008514",
@@ -29065,13 +29139,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`allocate_npt_cost(actual_cost, npt_hours, total_hours)` (core/cost_semantics.py:65-85) implements, and its docstring states, the unknown-preserving contract: 'Returns None (unknown) unless stored actual cost AND a positive total_hours exist - the same contract used by the report engine. No synthetic rig-day rate is ever introduced here' (68-71).  The body matches: None when actual_cost/total_hours/npt_hours is missing (79), None when total_hours <= 0 (81-82), EngineeringError when npt_hours leaves [0, total_hours] (83-84), and a require_number-wrapped proportional allocation otherwise.  The plan/actual direction is never inverted - the function only divides *stored actual* cost across *recorded* NPT time.  Consumers: report_engine.py:1425-1431 applies it only for the whole-well window ('Whole-well costs have no proven attribution to a requested date window. Do not allocate the entire well's cost to a subset of logs', 1423-1424) and tabs/w12_Analysis.py:2281 surfaces the same None-as-unknown value.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-019"
+   "p6_batch": "p6-batch-019",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-009050",
@@ -29942,13 +30019,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`forecast = Column(Text)` (core/db_models.py:209) is the DailyReport operation-forecast free-text field, not a numeric planned value: the canonical schema declares it text with an empty default and no measurement semantics (core/canonical_schema.py:171), and the DDR import boundary states the contract in code: '-> DailyReport.forecast (nullable; absent stays absent)' with the write guarded by `if dr.get(\"forecast\") in (None, \"\")` (core/ddr_import_service.py:501-505) - a report whose source page has no forecast keeps NULL instead of an empty-string stand-in, and no reader coerces it to a number.  The register stores no symbol for this record (a class-body column line), so its scope is the enclosing DailyReport model (191-213), read via AST; the neighbouring depth/rop/wob columns carry their own numeric-default records in other rule families and are not part of this flag.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-019"
+   "p6_batch": "p6-batch-019",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-009543",
@@ -30107,13 +30187,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`self.baseline = deepcopy(self.reader())` (core/editor_state.py:22) establishes the edit baseline the module docstring defines: 'A baseline is established at editor creation/load, never at first Save All. Readers must describe persisted input, including raw invalid text, not selection or derived displays' (1-4).  The deepcopy is what makes the comparison in `dirty` meaningful - the baseline is an independent snapshot of the loaded persisted state (including its invalid raw text), so later reader() mutations cannot alias it - and `checkpoint()` re-runs it only at load and after a successful save (36-37).  No plan/actual value is involved: this is an edit session's own before-image, never coerced, never zero-filled.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-019"
+   "p6_batch": "p6-batch-019",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-009588",
@@ -30132,13 +30215,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`return not self.read_only() and self.reader() != self.baseline` (core/editor_state.py:27) is the dirty test against the baseline established at 22 (same mechanism, adjudicated separately above).  It is an equality test over the reader's persisted-input snapshot - raw invalid text included, per the module docstring - so 'unchanged' means byte-equal to what was loaded and any user edit (including typing then un-typing invalid text) is detected; read_only gates the whole test.  save() consults it and re-checkpoints only after a successful save (29-37), so the baseline always denotes the last persisted state.  Nothing is defaulted or coerced in this comparison.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-019"
+   "p6_batch": "p6-batch-019",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-009612",
@@ -32391,13 +32477,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`second = json.dumps(recalculate_from_snapshot(snap).values, sort_keys=True, default=str)` (tests/test_casing_persistence.py:139-140) is the second half of the determinism check batch-018 already adjudicated from its first half under INV34-010367: `first` (135-136) and `second` (139-140) serialize two recalculations of the same snapshot taken before and after five unrelated engine calls, and the test asserts `first == second` plus `INPUTS == before` (141-142).  json.dumps(..., sort_keys=True, default=str) is a test-internal comparison, not the persistence path: sort_keys makes the equality order-independent and default=str only makes a non-JSON-native value representable so the equality check is possible; any value that changed between the two serializations would produce a different string and fail the assertion  No production data is serialized here - the persistence path for these runs is CasingCalculationRepository with its own converter (core/repositories/casing_repository.py), exactly as batch-018 recorded.",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-019"
+   "p6_batch": "p6-batch-019",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-010382",
@@ -32416,13 +32505,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`first = json.dumps(recalculate_from_snapshot(snap).values, sort_keys=True, default=str)` (tests/test_cement_persistence.py:145-146) opens the cement twin of the casing determinism test: `second` at 150-151 closes it and the test asserts `first == second` plus `INPUTS == before` (152-153) after five unrelated CementEngine.job_volumes calls (147-149).  json.dumps(..., sort_keys=True, default=str) is a test-internal comparison, not the persistence path: sort_keys makes the equality order-independent and default=str only makes a non-JSON-native value representable so the equality check is possible; any value that changed between the two serializations would produce a different string and fail the assertion  The persistence path for cement jobs is the cement repository's own converter, not this comparison.",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-019"
+   "p6_batch": "p6-batch-019",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-010383",
@@ -32441,13 +32533,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for the second serialization of the same determinism check at tests/test_cement_persistence.py:150, already adjudicated under INV34-010382: the closing half of the first/second comparison whose equality assertion is the determinism claim itself",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-019"
+   "p6_batch": "p6-batch-019",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-010506",
@@ -32466,13 +32561,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`json_str = json.dumps(report_dict, default=str, ensure_ascii=False)` (tests/test_ddr_regression.py:189) is the assertion target of `test_full_report_json_serializable` ('Full report must be JSON serializable', 173): the dict assembles the DDR report's counts, confidence distribution and canonical_json (180-188) and the test fails the moment dumps raises on any non-JSON-native value.  `default=str` is part of the *contract under test* - the export boundary must render non-native values rather than crash - and `len(json_str) > 100` (190) additionally asserts real content was produced.  This is a test of the serialization boundary, not the boundary itself; the production canonical JSON is produced by the DDR service with its own writer.",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-019"
+   "p6_batch": "p6-batch-019",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-010533",
@@ -32516,13 +32614,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`m.create_session()` (tests/test_import_to_selection_m25.py:37) is the last line of the module's `db()` fixture: after replacing engine/Session with a StaticPool in-memory binding and create_all (31-36), the fixture opens one session and returns the manager without keeping the handle.  `DatabaseManager.create_session` is `return self.Session()` (core/database.py:3452-3454); the fixture replaces `Session` with a sessionmaker bound to a StaticPool in-memory engine and discards the returned session without emitting any SQL, so no transaction is opened, the pool's single connection is shared with (not withheld from) the sessions the test actually uses, and the engine itself is per-test.  The identical fixture idiom appears in tests/test_report_scope_metadata_m25.py:42, tests/test_w12_milestones_m25.py:36, tests/test_w12_scope_leakage_m25.py:39, tests/test_w12_wellbore_scope.py:46, tests/test_wellbore_identity_conflict_m25.py:34 and tests/test_wellbore_scope_display.py:54, and every test in these modules obtains its own sessions via db.create_session()/session_scope() for the actual work.  The Persian docstring on create_session ('use session_scope so tracking works') is about *production callers keeping* the session; a fixture warm-up that discards the handle has no work to track.",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-019"
+   "p6_batch": "p6-batch-019",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-010703",
@@ -32769,13 +32870,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "`self.tmpdir = tempfile.mkdtemp()` (tests/test_p0_well_identity.py:17) is the secure temp-directory API (0700, unique name) holding the per-test SQLite file at self.db_path (18-20); tearDown closes the DatabaseManager and removes the tree with `shutil.rmtree(self.tmpdir, ignore_errors=True)` (26-33), so the artifact is cleaned on success and on failure alike.  The rule family's hazards - a world-readable temp file carrying secrets, or a temp file left behind - do not apply: the payload is a throwaway test database with seeded demo users, and cleanup is unconditional.",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-019"
+   "p6_batch": "p6-batch-019",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-011052",
@@ -32847,13 +32951,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for the identical discarded fixture session at tests/test_report_scope_metadata_m25.py:42, already adjudicated under INV34-010614: the same db() fixture idiom: one SQL-less session opened on the fixture's own StaticPool engine and dropped, with per-test isolation",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-019"
+   "p6_batch": "p6-batch-019",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-011242",
@@ -32872,17 +32979,20 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "contract_quote": {
     "kind": "function-docstring-or-comment",
     "quote": "# must give a byte-identical numeric result, and the engine must not mutate"
    },
    "register_classification": "OPEN-CONTRACT-CANDIDATE",
-   "p6_evidence": null,
+   "p6_evidence": "`frozen = json.dumps(snap, sort_keys=True)` (tests/test_torque_drag_persistence.py:127) freezes the engine-input snapshot so line 138 can assert `json.dumps(snap, sort_keys=True) == frozen` after five unrelated TorqueDragEngine.calculate calls - the register's own contract quote for this record is the test's comment: 'must give a byte-identical numeric result, and the engine must not mutate' (116-119).  Here json.dumps carries *no* default=str because build_snapshot output is JSON-native by construction, and the frozen-string equality IS the mutation check: any mutation of the snapshot (a recalculated field, a sorted-in-place survey) changes the string and fails the test.  The sibling assertions at 129-137 pin the byte-identical recomputation.  This is the strongest form of the family: the serialization exists to detect non-determinism, and weakening it would be the defect.",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-019"
+   "p6_batch": "p6-batch-019",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-011243",
@@ -32901,17 +33011,20 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "contract_quote": {
     "kind": "function-docstring-or-comment",
     "quote": "# must give a byte-identical numeric result, and the engine must not mutate"
    },
    "register_classification": "OPEN-CONTRACT-CANDIDATE",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for the `first = json.dumps(recalculate_from_snapshot(snap).values, ...)` line of the same test at tests/test_torque_drag_persistence.py:129, already adjudicated under INV34-011242: one half of the byte-identical recomputation comparison whose frozen-snapshot anchor and quoted contract are recorded under INV34-011242",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-019"
+   "p6_batch": "p6-batch-019",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-011244",
@@ -32930,17 +33043,20 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "contract_quote": {
     "kind": "function-docstring-or-comment",
     "quote": "# must give a byte-identical numeric result, and the engine must not mutate"
    },
    "register_classification": "OPEN-CONTRACT-CANDIDATE",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for the `second = json.dumps(recalculate_from_snapshot(snap).values, ...)` line of the same test at tests/test_torque_drag_persistence.py:134, already adjudicated under INV34-011242: the other half of the byte-identical recomputation comparison asserted at 137",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-019"
+   "p6_batch": "p6-batch-019",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-011245",
@@ -32959,17 +33075,20 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "contract_quote": {
     "kind": "function-docstring-or-comment",
     "quote": "# must give a byte-identical numeric result, and the engine must not mutate"
    },
    "register_classification": "OPEN-CONTRACT-CANDIDATE",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for the re-serialization assertion `assert json.dumps(snap, sort_keys=True) == frozen` at tests/test_torque_drag_persistence.py:138, already adjudicated under INV34-011242: the mutation detector itself: the frozen string from line 127 compared against the snapshot after five unrelated engine calls",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-019"
+   "p6_batch": "p6-batch-019",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-011270",
@@ -32988,13 +33107,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for the identical discarded fixture session at tests/test_w12_milestones_m25.py:36, already adjudicated under INV34-010614: the same db() fixture idiom: one SQL-less session opened on the fixture's own StaticPool engine and dropped, with per-test isolation",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-019"
+   "p6_batch": "p6-batch-019",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-011280",
@@ -33013,13 +33135,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for the identical discarded fixture session at tests/test_w12_scope_leakage_m25.py:39, already adjudicated under INV34-010614: the same db() fixture idiom: one SQL-less session opened on the fixture's own StaticPool engine and dropped, with per-test isolation",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-019"
+   "p6_batch": "p6-batch-019",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-011306",
@@ -33038,13 +33163,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for the identical discarded fixture session at tests/test_w12_wellbore_scope.py:46, already adjudicated under INV34-010614: the same db() fixture idiom: one SQL-less session opened on the fixture's own StaticPool engine and dropped, with per-test isolation",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-019"
+   "p6_batch": "p6-batch-019",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-011415",
@@ -33063,13 +33191,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for the identical discarded fixture session at tests/test_wellbore_identity_conflict_m25.py:34, already adjudicated under INV34-010614: the same db() fixture idiom: one SQL-less session opened on the fixture's own StaticPool engine and dropped, with per-test isolation",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-019"
+   "p6_batch": "p6-batch-019",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-011489",
@@ -33088,13 +33219,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Second register record for the identical discarded fixture session at tests/test_wellbore_scope_display.py:54, already adjudicated under INV34-010614: the same db() fixture idiom: one SQL-less session opened on the fixture's own StaticPool engine and dropped, with per-test isolation",
    "fixed_commit": null,
    "p6_class": "B",
-   "p6_batch": "p6-batch-019"
+   "p6_batch": "p6-batch-019",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   }
  ],
  "phase2_plan": {

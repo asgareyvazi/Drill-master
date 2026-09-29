@@ -348,6 +348,21 @@
    "evidence_commit": "b562c39",
    "commit": null,
    "tests": "no production code was changed in this batch, so no new regression was written and no mutation validation applies; the batch script itself runs with the provenance and fingerprint gates active (see `staleness`), i.e. all 45 records were re-anchored and re-identified against the hash-verified tree before any classification was written"
+  },
+  {
+   "batch": "p6-batch-019",
+   "class": "phase-2 classes B+C (persistence/identity surfaces + core semantics): B:28, C:17 - the actual-vs-plan scalar comparator and its engine callers, the cache TTL accessor, the shared table-widget default, the currency normalizer pair, the trajectory/bridged-calculator truthiness sites, the mud-ledger closing helper, the two engineering-ground-truth weighted-ROP assertions, the test seeders/teardowns on fresh self-created databases, the deterministic-snapshot test idiom (casing/cement/torque-drag) and the seven discarded-fixture-session records",
+   "records": 45,
+   "sites": 43,
+   "by_classification": {
+    "VERIFIED-CORRECT": 26,
+    "DUPLICATE/FALSE-POSITIVE": 19
+   },
+   "defects_fixed": [],
+   "new_findings": [],
+   "evidence_commit": null,
+   "commit": null,
+   "tests": "no production code was changed in this batch, so no new regression was written and no mutation validation applies; the batch script ran with the provenance and fingerprint gates active (see `staleness`) - all 45 records were hash-anchored and re-identified against the current tree before any classification was written"
   }
  ],
  "start_open": 1224,
@@ -355,21 +370,20 @@
  "arithmetic": {
   "register_open_at_p6_start": 1224,
   "defect_fixed_by_p6": 2,
-  "adjudicated_by_p6_batches": 729,
-  "current_open": 493,
+  "adjudicated_by_p6_batches": 774,
+  "current_open": 448,
   "check": true,
   "note": "every record is either OPEN or carries a terminal evidence-backed classification; the fixed sites are subtracted separately so nothing disappears"
  },
  "open_by_priority": {
-  "MEDIUM": 493
+  "MEDIUM": 448
  },
  "open_by_class": {
   "E": 241,
-  "C": 159,
-  "D": 65,
-  "B": 28
+  "C": 142,
+  "D": 65
  },
- "generated_utc": "2026-09-28T08:37:09+00:00",
+ "generated_utc": "2026-09-29T05:51:48+00:00",
  "recovery_bundles": [
   {
    "file": "/home/user/recovery/drillmaster-115fc09.bundle",
