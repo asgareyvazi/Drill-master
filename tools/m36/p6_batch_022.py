@@ -285,6 +285,7 @@ def main() -> int:
                 "39 passed: tests/test_w7_null_zero_semantics.py tests/test_fuel_water_truth.py tests/test_inventory_zero_semantics.py",
                 "76 passed: tests/test_cement_persistence.py tests/test_casing_persistence.py tests/test_w7_null_zero_semantics.py tests/test_fuel_water_truth.py tests/test_inventory_zero_semantics.py",
                 "33 passed: tests/test_report_scoped_ownership_m26.py tests/test_report_scope_metadata_m25.py",
+                "20 passed: tests/test_report_scope_metadata_m25.py tests/test_operational_time_integrity.py",
                 "17 passed: tests/test_inventory_zero_semantics.py tests/test_m31_scenarios.py -k 'material_request or inventory or request_quantities'",
                 "20 passed: tests/test_report_scope_metadata_m25.py tests/test_operational_time_integrity.py",
                 "AST behavior/mutation checks: W7 current vs pre-fix clear_fields; W7 empty-load current vs pre-fix; W9 actual save expression sentinel/zero/positive plus direct-value mutation; W3c current vs pre-fix well-change handler",
