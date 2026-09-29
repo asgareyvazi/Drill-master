@@ -1,0 +1,1456 @@
+{
+ "schema": "m36-p6-batch",
+ "batch": "p6-batch-022",
+ "class": "phase-2 medium class C/D/E mixed review: engineering adapters, nullable UI persistence, plan/report scopes and lifecycle defaults",
+ "records": 45,
+ "sites": 45,
+ "records_by_file": {
+  "main_window.py": 2,
+  "tabs/w13_Engineering_Calculator.py": 3,
+  "tabs/w3_drilling_report.py": 1,
+  "tabs/w3c_section_data.py": 2,
+  "tabs/w7_logistics_Widget.py": 13,
+  "tests/test_cost_truth_boundary.py": 1,
+  "tests/test_m29_release_closure.py": 2,
+  "dialogs/hierarchy_dialogs.py": 5,
+  "tabs/w10_Planning_Widget.py": 4,
+  "tabs/w12_Analysis.py": 1,
+  "tabs/w14_Procedure_Widget.py": 3,
+  "tabs/w1_well_info.py": 1,
+  "tabs/w3b_wellbore_schematic_tab.py": 1,
+  "tabs/w9_Services_Widget.py": 2,
+  "tests/test_engineering_completion.py": 1,
+  "tests/test_m28_finance_safety_plan.py": 1,
+  "tests/test_m30_semantic_regressions.py": 2
+ },
+ "by_classification": {
+  "VERIFIED-CORRECT": 23,
+  "INTENTIONAL": 4,
+  "DOMAIN_DECISION_REQUIRED": 3,
+  "DUPLICATE/FALSE-POSITIVE": 9,
+  "GENUINE_DEFECT": 6
+ },
+ "defects_fixed": [
+  {
+   "records": [
+    "INV34-010301",
+    "INV34-010304",
+    "INV34-010307",
+    "INV34-010310"
+   ],
+   "file": "tabs/w7_logistics_Widget.py",
+   "fix_commit": "4849e03a6cb9571bf82909732aeba3ec0c07483e",
+   "summary": "FuelWaterTab.clear_fields resets nullable stock controls to unknown while movement controls remain zero.",
+   "regression": "tests/test_w7_null_zero_ui_smoke.py; tests/test_w7_null_zero_semantics.py",
+   "mutation": "Directly executed current and pre-fix clear_fields AST bodies with fake controls: current yields four unknown stocks/zero movements; pre-fix yields four zero stocks and fails the regression expectation."
+  },
+  {
+   "records": [
+    "INV34-010318",
+    "INV34-010319"
+   ],
+   "file": "tabs/w9_Services_Widget.py",
+   "fix_commit": "219dc06e5cafa30ec5e38bf48feefe95c1c4e12c",
+   "summary": "The material-request quantity UI has a visible unknown sentinel, maps it to SQL NULL, preserves explicitly entered zero, and clear restores unknown.",
+   "regression": "tests/test_w9_material_request_unknown_quantity.py",
+   "mutation": "Executed the actual AST save expression for sentinel/zero/positive inputs; outputs are None/0.0/value. Mutating back to direct spinbox.value() yields -1.0 and violates the NULL expectation."
+  },
+  {
+   "id": "NEW-P6-011",
+   "file": "tabs/w7_logistics_Widget.py",
+   "status": "fixed",
+   "commit": "219dc06e5cafa30ec5e38bf48feefe95c1c4e12c",
+   "summary": "Loading a well/report with no inventory used to leave prior selection values in W7 controls; loader now clears stocks to unknown and movements to zero.",
+   "regression": "tests/test_w7_null_zero_ui_smoke.py (switches from a populated well to an empty well)",
+   "mutation": "Executed the actual load_fuel_water_from_db AST against empty-result DB stubs: pre-fix retains old stock/movement values; current resets unknown/zero."
+  },
+  {
+   "id": "NEW-P6-012",
+   "file": "tabs/w3c_section_data.py",
+   "status": "fixed",
+   "commit": "6c07d3a2ed4782bb5dd707f43b0d78635dead162",
+   "summary": "A well switch clears the previous selected section and W3c form state; cement/casing loads and saves now use the selected section id instead of leaking well-wide/other-section reports.",
+   "regression": "tests/test_w3c_well_switch_scope_smoke.py",
+   "mutation": "The isolated integration regression asserts section A does not load into B, saves attach section_id B, and a well switch clears stale form/tally/bit state; the prior implementation would fail these assertions."
+  }
+ ],
+ "new_findings": [
+  {
+   "id": "NEW-P6-010",
+   "file": "tabs/w3c_section_data.py",
+   "line": 198,
+   "severity": "MEDIUM",
+   "status": "domain decision required; not patched",
+   "summary": "Cement/casing nullable numeric fields (and cement thickening_time) collapse SQL NULL to spinbox/string defaults during load; saving writes the widget values and can overwrite unknowns. Determine field-by-field whether defaults are contractual baselines or nullable measurements and how untouched NULL should display/persist.",
+   "records": [
+    "INV34-005574",
+    "INV34-005588"
+   ],
+   "impact": "A load-and-save without editing can convert unknown values to 0, 120 pcf, 1.18 yield, 5.2 mix water, 2500 strength, or 04:30; current sources do not establish which are intentional defaults."
+  },
+  {
+   "id": "NEW-P6-013",
+   "file": "tabs/w13_Engineering_Calculator.py",
+   "line": 119,
+   "severity": "MEDIUM",
+   "status": "domain decision required; not patched",
+   "summary": "The legacy W13 buoyancy facade returns 0.0 for invalid/nonpositive mud weight or engine exceptions; `_csg_calc_landing` feeds that zero to a downstream accepted load card. The canonical engine rejects nonpositive mud density. Decide whether to preserve compatibility or surface an explicit failed/unknown result.",
+   "records": [
+    "INV34-004704"
+   ],
+   "impact": "An invalid input can be presented as a numeric buoyancy/load output without an error marker."
+  },
+  {
+   "id": "NEW-P6-014",
+   "file": "tabs/w3_drilling_report.py",
+   "line": 786,
+   "severity": "MEDIUM",
+   "status": "domain decision required; not patched",
+   "summary": "Bit revolutions are calculated from default-zero RPM bounds and hours, and the derived value is saved into nullable DailyReport fields; an otherwise valid bit/depth form can therefore persist 0 before RPM/time are entered. Decide whether the product contract requires an explicit zero or represents these inputs as unknown until supplied.",
+   "records": [
+    "INV34-005394"
+   ],
+   "impact": "A missing operational rotation/time entry can become a saved zero derived fact; the flagged layout line itself is a false positive, but the traced producer-to-persistence path merits a separate contract decision."
+  }
+ ],
+ "observations": [
+  {
+   "topic": "report and plan scope",
+   "summary": "W10's active plan is selected by well and active flag; activities are also constrained by plan id and optional section id. Section header depth is excluded when viewing a section. W12 milestones query section facts from complete time logs, filter sections by selected bore, and use whole-well report fallback only when no whole-well sections exist."
+  },
+  {
+   "topic": "unknown versus zero",
+   "summary": "W7 distinguishes nullable stock from zero-default movements; W9's nullable requested quantity/complete-total code already supports NULL and explicit zero. The two UI boundaries were corrected without changing DB semantics."
+  },
+  {
+   "topic": "nullable cement/casing",
+   "summary": "Database columns are nullable but UI widgets cannot encode unknown independently of numeric defaults. This is a documented domain decision, not closed by changing defaults arbitrarily."
+  },
+  {
+   "topic": "audit tooling",
+   "summary": "The 11 MB M34 fingerprint ledger is absent/untracked in the repository; all 45 batch records were checked ledger-free using exact source SHA, source expression, AST symbol and context fingerprint. One test-layout record has an unreproduced fingerprint but exact hash-anchored source line/symbol; it is retained with this exception disclosed."
+  }
+ ],
+ "sibling_search": [
+  {
+   "family": "W7 nullable stock versus movements",
+   "result": "FuelWaterInventory stock columns are nullable; movement fields default to zero. Clear/load-empty paths now preserve that distinction; carry-forward remains a visibly marked preview."
+  },
+  {
+   "family": "W9 material quantities",
+   "result": "MaterialRequest.requested_quantity is nullable with no DB default and complete totals turn unknown components into unknown totals; both form initialization and clearing now preserve NULL."
+  },
+  {
+   "family": "W3c nullable measurement controls",
+   "result": "CementReport and CasingReport numeric columns are nullable; all widget save paths write numeric widget values. No field-level product policy was found, so no schema or blanket conversion was made."
+  },
+  {
+   "family": "well/section selection scope",
+   "result": "SelectionManager clears wellbore/section/report state on well changes but emits only well_changed. W3c now clears its local section id/forms on well switches and filters cement/casing reads/writes by the selected section; W7 clears stale values on an empty inventory load."
+  }
+ ],
+ "tests": {
+  "passed": [
+   "39 passed: tests/test_w7_null_zero_semantics.py tests/test_fuel_water_truth.py tests/test_inventory_zero_semantics.py",
+   "76 passed: tests/test_cement_persistence.py tests/test_casing_persistence.py tests/test_w7_null_zero_semantics.py tests/test_fuel_water_truth.py tests/test_inventory_zero_semantics.py",
+   "33 passed: tests/test_report_scoped_ownership_m26.py tests/test_report_scope_metadata_m25.py",
+   "17 passed: tests/test_inventory_zero_semantics.py tests/test_m31_scenarios.py -k 'material_request or inventory or request_quantities'",
+   "20 passed: tests/test_report_scope_metadata_m25.py tests/test_operational_time_integrity.py",
+   "AST behavior/mutation checks: W7 current vs pre-fix clear_fields; W7 empty-load current vs pre-fix; W9 actual save expression sentinel/zero/positive plus direct-value mutation; W3c current vs pre-fix well-change handler",
+   "ruff --select E722,F821; compileall; git diff --check"
+  ],
+  "environment_blocked": [
+   "3 isolated Qt smoke tests (W7, W9, W3c) fail before assertions because PySide6 cannot load system libGL.so.1.",
+   "4 W12 UI tests fail at collection for missing libGL.so.1; planning-context subprocess smoke also fails before assertions for the same dependency.",
+   "2 cement/casing history-viewmodel test modules fail at collection for missing libGL.so.1."
+  ],
+  "mutation": "Production/UI regression tests are committed, but their native Qt execution is blocked locally. AST execution of the actual current and pre-fix methods/expressions proved the targeted reset/unknown behavior and the pre-fix/direct-value mutations violate expectations. Exact-HEAD CI must run the isolated UI tests."
+ },
+ "head": "6c07d3a",
+ "commit": null,
+ "evidence_commit": null,
+ "evidence_files": [
+  "docs/audits/m36-evidence/p6-batch-022.json",
+  "docs/audits/m36-evidence/m36-open-item-register.json",
+  "docs/audits/m36-evidence/m36-master-ledger.json",
+  "tools/m36/p6_batch_022.py",
+  "tabs/w7_logistics_Widget.py",
+  "tabs/w9_Services_Widget.py",
+  "tabs/w3c_section_data.py",
+  "tests/test_w7_null_zero_ui_smoke.py",
+  "tests/test_w9_material_request_unknown_quantity.py",
+  "tests/test_w3c_well_switch_scope_smoke.py"
+ ],
+ "staleness": {
+  "checked": 45,
+  "stale": 17,
+  "re_anchored": 17,
+  "method": "All 45 records were verified against declared file SHA, recorded source expression, enclosing symbol and context fingerprint. 39 unchanged-expression records passed the shared AST/hash checker (the one non-reproducing fingerprint is source-hash anchored); six rewritten expressions were explicitly reconstructed with former/current site, exact hashes/fingerprints, current symbols and behavioral checks.",
+  "re_anchored_items": [
+   {
+    "id": "INV34-005574",
+    "file": "tabs/w3c_section_data.py",
+    "previous_site": "tabs/w3c_section_data.py:366",
+    "previous_source_line": "def sv(k,d=0):",
+    "current_site": "tabs/w3c_section_data.py:382",
+    "current_source_line": "def sv(k,d=0):",
+    "tree": "provenance tree = 7f0186e3e6ac966f1fe9cbd804785129b9246fbe (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+    "source_sha256": "5038a740761be06f65b9c81076482aff3f58e2e85b737d600e4f3fda5b8eaf27",
+    "context_fingerprint": "fa367521b73f80b3cd5e8afc5703a46b22fbfbdf3d65171c3ab071a1faaeec63",
+    "reason": "Only preceding comments/lines changed; shared line-map plus exact source expression and enclosing symbol verified the new site."
+   },
+   {
+    "id": "INV34-005588",
+    "file": "tabs/w3c_section_data.py",
+    "previous_site": "tabs/w3c_section_data.py:198",
+    "previous_source_line": "def sv(k,d=0):",
+    "current_site": "tabs/w3c_section_data.py:206",
+    "current_source_line": "def sv(k,d=0):",
+    "tree": "provenance tree = 7f0186e3e6ac966f1fe9cbd804785129b9246fbe (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+    "source_sha256": "5038a740761be06f65b9c81076482aff3f58e2e85b737d600e4f3fda5b8eaf27",
+    "context_fingerprint": "fa367521b73f80b3cd5e8afc5703a46b22fbfbdf3d65171c3ab071a1faaeec63",
+    "reason": "Only preceding comments/lines changed; shared line-map plus exact source expression and enclosing symbol verified the new site."
+   },
+   {
+    "id": "INV34-006015",
+    "file": "tabs/w7_logistics_Widget.py",
+    "previous_site": "tabs/w7_logistics_Widget.py:993",
+    "previous_source_line": "def _val(key, default=0.0):",
+    "current_site": "tabs/w7_logistics_Widget.py:1011",
+    "current_source_line": "def _val(key, default=0.0):",
+    "tree": "provenance tree = fd18a2bca5b849356c50f9da19c278ecdd8f9967 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+    "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+    "context_fingerprint": "a1433e3cf754df15302697595e5198f60715918796e66d95edbad756a3d520aa",
+    "reason": "Only preceding comments/lines changed; shared line-map plus exact source expression and enclosing symbol verified the new site."
+   },
+   {
+    "id": "INV34-010300",
+    "file": "tabs/w7_logistics_Widget.py",
+    "previous_site": "tabs/w7_logistics_Widget.py:1073",
+    "previous_source_line": "self.fuel_consumed.setValue(0)",
+    "current_site": "tabs/w7_logistics_Widget.py:1095",
+    "current_source_line": "self.fuel_consumed.setValue(0)",
+    "tree": "provenance tree = fd18a2bca5b849356c50f9da19c278ecdd8f9967 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+    "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+    "context_fingerprint": "6ca30275a482a33119efc78dc4eca8e126760f12a961251a129345f9acf528d1",
+    "reason": "Only preceding comments/lines changed; shared line-map plus exact source expression and enclosing symbol verified the new site."
+   },
+   {
+    "id": "INV34-010302",
+    "file": "tabs/w7_logistics_Widget.py",
+    "previous_site": "tabs/w7_logistics_Widget.py:1075",
+    "previous_source_line": "self.fuel_received.setValue(0)",
+    "current_site": "tabs/w7_logistics_Widget.py:1097",
+    "current_source_line": "self.fuel_received.setValue(0)",
+    "tree": "provenance tree = fd18a2bca5b849356c50f9da19c278ecdd8f9967 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+    "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+    "context_fingerprint": "79cf43e8ed75fac1693200d0482cfc2bd96d87e422e1ae54da410a9d34db1a12",
+    "reason": "Only preceding comments/lines changed; shared line-map plus exact source expression and enclosing symbol verified the new site."
+   },
+   {
+    "id": "INV34-010303",
+    "file": "tabs/w7_logistics_Widget.py",
+    "previous_site": "tabs/w7_logistics_Widget.py:1076",
+    "previous_source_line": "self.water_consumed.setValue(0)",
+    "current_site": "tabs/w7_logistics_Widget.py:1098",
+    "current_source_line": "self.water_consumed.setValue(0)",
+    "tree": "provenance tree = fd18a2bca5b849356c50f9da19c278ecdd8f9967 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+    "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+    "context_fingerprint": "a200e053a927a766255aa2337a0ac44115cea69188a147ce16184457182ee741",
+    "reason": "Only preceding comments/lines changed; shared line-map plus exact source expression and enclosing symbol verified the new site."
+   },
+   {
+    "id": "INV34-010305",
+    "file": "tabs/w7_logistics_Widget.py",
+    "previous_site": "tabs/w7_logistics_Widget.py:1078",
+    "previous_source_line": "self.water_received.setValue(0)",
+    "current_site": "tabs/w7_logistics_Widget.py:1100",
+    "current_source_line": "self.water_received.setValue(0)",
+    "tree": "provenance tree = fd18a2bca5b849356c50f9da19c278ecdd8f9967 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+    "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+    "context_fingerprint": "bd0b987d93fc17fcfb33f9a061485f2405ab29a6e0efeafc7762a6bc37982f01",
+    "reason": "Only preceding comments/lines changed; shared line-map plus exact source expression and enclosing symbol verified the new site."
+   },
+   {
+    "id": "INV34-010306",
+    "file": "tabs/w7_logistics_Widget.py",
+    "previous_site": "tabs/w7_logistics_Widget.py:1079",
+    "previous_source_line": "self.dw_consumed.setValue(0)",
+    "current_site": "tabs/w7_logistics_Widget.py:1101",
+    "current_source_line": "self.dw_consumed.setValue(0)",
+    "tree": "provenance tree = fd18a2bca5b849356c50f9da19c278ecdd8f9967 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+    "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+    "context_fingerprint": "09dc747e57c6f2499ae7ca24ff2329c969e80be55116cc7cc30b4aa3da95ca99",
+    "reason": "Only preceding comments/lines changed; shared line-map plus exact source expression and enclosing symbol verified the new site."
+   },
+   {
+    "id": "INV34-010308",
+    "file": "tabs/w7_logistics_Widget.py",
+    "previous_site": "tabs/w7_logistics_Widget.py:1081",
+    "previous_source_line": "self.dw_received.setValue(0)",
+    "current_site": "tabs/w7_logistics_Widget.py:1103",
+    "current_source_line": "self.dw_received.setValue(0)",
+    "tree": "provenance tree = fd18a2bca5b849356c50f9da19c278ecdd8f9967 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+    "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+    "context_fingerprint": "e4ae4c12e87f86272007a8b7f872542391a6b73175a6fe54aa1e4f8f66d378da",
+    "reason": "Only preceding comments/lines changed; shared line-map plus exact source expression and enclosing symbol verified the new site."
+   },
+   {
+    "id": "INV34-010309",
+    "file": "tabs/w7_logistics_Widget.py",
+    "previous_site": "tabs/w7_logistics_Widget.py:1082",
+    "previous_source_line": "self.fuel_camp_consumed.setValue(0)",
+    "current_site": "tabs/w7_logistics_Widget.py:1104",
+    "current_source_line": "self.fuel_camp_consumed.setValue(0)",
+    "tree": "provenance tree = fd18a2bca5b849356c50f9da19c278ecdd8f9967 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+    "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+    "context_fingerprint": "2ca7e27a27127e4fa39be892c58b083e0026c92c35c46d7a2e7650284e1d7f42",
+    "reason": "Only preceding comments/lines changed; shared line-map plus exact source expression and enclosing symbol verified the new site."
+   },
+   {
+    "id": "INV34-010311",
+    "file": "tabs/w7_logistics_Widget.py",
+    "previous_site": "tabs/w7_logistics_Widget.py:1084",
+    "previous_source_line": "self.fuel_camp_received.setValue(0)",
+    "current_site": "tabs/w7_logistics_Widget.py:1106",
+    "current_source_line": "self.fuel_camp_received.setValue(0)",
+    "tree": "provenance tree = fd18a2bca5b849356c50f9da19c278ecdd8f9967 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+    "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+    "context_fingerprint": "f7f381aec25c0b4cf6b12ed6890857f48d3dd83d85ff81403a17a2589ae83636",
+    "reason": "Only preceding comments/lines changed; shared line-map plus exact source expression and enclosing symbol verified the new site."
+   },
+   {
+    "id": "INV34-010301",
+    "file": "tabs/w7_logistics_Widget.py",
+    "previous_site": "tabs/w7_logistics_Widget.py:1074",
+    "previous_source_line": "self.fuel_stock.setValue(0)",
+    "current_site": "tabs/w7_logistics_Widget.py:1096",
+    "current_source_line": "_set_stock_value(self.fuel_stock, None)",
+    "tree": "fd18a2bca5b849356c50f9da19c278ecdd8f9967",
+    "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+    "context_fingerprint": "ce192c843c0f45468d7868e7d845d2aa97fb721f89fd6c3f97fdcbcb54d32e89",
+    "fingerprint_proof": [
+     "qualified",
+     "recorded-line"
+    ],
+    "reason": "clear_fields now uses the nullable-stock unknown sentinel",
+    "proof": "former bytes match source_sha256; recorded context_fingerprint reproduces from the former AST/source line; current expression and enclosing symbol were checked exactly"
+   },
+   {
+    "id": "INV34-010304",
+    "file": "tabs/w7_logistics_Widget.py",
+    "previous_site": "tabs/w7_logistics_Widget.py:1077",
+    "previous_source_line": "self.water_stock.setValue(0)",
+    "current_site": "tabs/w7_logistics_Widget.py:1099",
+    "current_source_line": "_set_stock_value(self.water_stock, None)",
+    "tree": "fd18a2bca5b849356c50f9da19c278ecdd8f9967",
+    "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+    "context_fingerprint": "0dd1119640b43419da06dbc217f359753e49719eebbabe5da3b0548391fe6c57",
+    "fingerprint_proof": [
+     "qualified",
+     "recorded-line"
+    ],
+    "reason": "clear_fields now uses the nullable-stock unknown sentinel",
+    "proof": "former bytes match source_sha256; recorded context_fingerprint reproduces from the former AST/source line; current expression and enclosing symbol were checked exactly"
+   },
+   {
+    "id": "INV34-010307",
+    "file": "tabs/w7_logistics_Widget.py",
+    "previous_site": "tabs/w7_logistics_Widget.py:1080",
+    "previous_source_line": "self.dw_stock.setValue(0)",
+    "current_site": "tabs/w7_logistics_Widget.py:1102",
+    "current_source_line": "_set_stock_value(self.dw_stock, None)",
+    "tree": "fd18a2bca5b849356c50f9da19c278ecdd8f9967",
+    "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+    "context_fingerprint": "b835a89fd14d44fbe4aebc387e95fef4e72a267a672f81c91299a19ff126252d",
+    "fingerprint_proof": [
+     "qualified",
+     "recorded-line"
+    ],
+    "reason": "clear_fields now uses the nullable-stock unknown sentinel",
+    "proof": "former bytes match source_sha256; recorded context_fingerprint reproduces from the former AST/source line; current expression and enclosing symbol were checked exactly"
+   },
+   {
+    "id": "INV34-010310",
+    "file": "tabs/w7_logistics_Widget.py",
+    "previous_site": "tabs/w7_logistics_Widget.py:1083",
+    "previous_source_line": "self.fuel_camp_stock.setValue(0)",
+    "current_site": "tabs/w7_logistics_Widget.py:1105",
+    "current_source_line": "_set_stock_value(self.fuel_camp_stock, None)",
+    "tree": "fd18a2bca5b849356c50f9da19c278ecdd8f9967",
+    "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+    "context_fingerprint": "5e09745133030e6a7f76706be9e2e739f3e0b106d85080461f54171a06e6cd57",
+    "fingerprint_proof": [
+     "qualified",
+     "recorded-line"
+    ],
+    "reason": "clear_fields now uses the nullable-stock unknown sentinel",
+    "proof": "former bytes match source_sha256; recorded context_fingerprint reproduces from the former AST/source line; current expression and enclosing symbol were checked exactly"
+   },
+   {
+    "id": "INV34-010318",
+    "file": "tabs/w9_Services_Widget.py",
+    "previous_site": "tabs/w9_Services_Widget.py:111",
+    "previous_source_line": "self.requested_qty_input.setValue(0)",
+    "current_site": "tabs/w9_Services_Widget.py:116",
+    "current_source_line": "self.requested_qty_input.setValue(_REQUEST_QUANTITY_UNKNOWN)",
+    "tree": "7f0186e3e6ac966f1fe9cbd804785129b9246fbe",
+    "source_sha256": "68b15111c31170d6dc02cc1e08b1d8e9fba346ba3078cdbc0c724d8f312d6f04",
+    "context_fingerprint": "c9e091bdffc0bfbb9a3592ced4f1f884eb3d8ead533e1c822003f6fd44156248",
+    "fingerprint_proof": [
+     "qualified",
+     "recorded-line"
+    ],
+    "reason": "the UI now displays an explicit unknown sentinel and maps it to NULL",
+    "proof": "former bytes match source_sha256; recorded context_fingerprint reproduces from the former AST/source line; current expression and enclosing symbol were checked exactly"
+   },
+   {
+    "id": "INV34-010319",
+    "file": "tabs/w9_Services_Widget.py",
+    "previous_site": "tabs/w9_Services_Widget.py:392",
+    "previous_source_line": "self.requested_qty_input.setValue(0)",
+    "current_site": "tabs/w9_Services_Widget.py:401",
+    "current_source_line": "self.requested_qty_input.setValue(_REQUEST_QUANTITY_UNKNOWN)",
+    "tree": "7f0186e3e6ac966f1fe9cbd804785129b9246fbe",
+    "source_sha256": "68b15111c31170d6dc02cc1e08b1d8e9fba346ba3078cdbc0c724d8f312d6f04",
+    "context_fingerprint": "6fe1ffe87e2d3195d1468667f71cce50f6082796424babc9b4c208cdbf30639c",
+    "fingerprint_proof": [
+     "qualified",
+     "recorded-line"
+    ],
+    "reason": "clearing the request form restores unknown, not zero",
+    "proof": "former bytes match source_sha256; recorded context_fingerprint reproduces from the former AST/source line; current expression and enclosing symbol were checked exactly"
+   }
+  ],
+  "provenance_trees": {
+   "main_window.py": "current tree: sha256(file) == the record's source_sha256",
+   "tabs/w13_Engineering_Calculator.py": "current tree: sha256(file) == the record's source_sha256",
+   "tabs/w3_drilling_report.py": "current tree: sha256(file) == the record's source_sha256",
+   "tabs/w3c_section_data.py": "provenance tree = 7f0186e3e6ac966f1fe9cbd804785129b9246fbe (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+   "tabs/w7_logistics_Widget.py": "provenance tree = fd18a2bca5b849356c50f9da19c278ecdd8f9967 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+   "tests/test_cost_truth_boundary.py": "current tree: sha256(file) == the record's source_sha256",
+   "tests/test_m29_release_closure.py": "current tree: sha256(file) == the record's source_sha256",
+   "dialogs/hierarchy_dialogs.py": "current tree: sha256(file) == the record's source_sha256",
+   "tabs/w10_Planning_Widget.py": "current tree: sha256(file) == the record's source_sha256",
+   "tabs/w12_Analysis.py": "current tree: sha256(file) == the record's source_sha256",
+   "tabs/w14_Procedure_Widget.py": "current tree: sha256(file) == the record's source_sha256",
+   "tabs/w1_well_info.py": "current tree: sha256(file) == the record's source_sha256",
+   "tabs/w3b_wellbore_schematic_tab.py": "current tree: sha256(file) == the record's source_sha256",
+   "tests/test_engineering_completion.py": "current tree: sha256(file) == the record's source_sha256",
+   "tests/test_m28_finance_safety_plan.py": "current tree: sha256(file) == the record's source_sha256",
+   "tests/test_m30_semantic_regressions.py": "current tree: sha256(file) == the record's source_sha256"
+  },
+  "fingerprint_proof": {
+   "checked": 45,
+   "verified": 44,
+   "records_without_a_reproducible_fingerprint": [],
+   "records_without_a_reproducing_fingerprint_but_hash_anchored": [
+    "INV34-005394"
+   ],
+   "symbol_forms_that_reproduced": {
+    "short": 12,
+    "MISMATCH": 1,
+    "qualified": 22,
+    "empty-symbol": 4
+   },
+   "expression_forms_that_reproduced": {
+    "ast-segment": 9,
+    "recorded-line": 29
+   },
+   "method": "ledger-free: recorded-line + AST-segment expression forms (the 11 MB M34 ledger is not tracked in the repository)"
+  }
+ },
+ "method": "For each record, verify exact old file SHA/source line/context fingerprint and enclosing AST symbol, then trace its caller, normalization, engine/database consumer, UI/report/persistence and relevant tests. Genuine unknown-vs-zero and selection-scope defects were fixed minimally with regression coverage; nullable cement/casing and legacy W13 failure-to-zero behavior remain explicit owner decisions.",
+ "items": [
+  {
+   "id": "INV34-003911",
+   "file": "main_window.py",
+   "line": 444,
+   "symbol": "MainWindow._filter_items",
+   "rule": "R-NUM-UNKNOWN",
+   "kind": "numeric-parameter-default",
+   "register_line_text": "current_depth: int = 0",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored register site main_window.py:444 `current_depth: int = 0` in `MainWindow._filter_items`; source_sha256=b2db27d79a7d237acbf2688e29a71cf0f9fbee1c78318124f8026fc2df80ca75; context_fingerprint=8ea16e58effbb474edf44d5b4873a5bc963bca3bc1bb6f859ea687a6095cfa4c. `current_depth=0` is the root call from `_filter_hierarchy`; each recursive child gets depth+1. It is traversal state, not a drilling measurement.",
+   "defect": false,
+   "remaining_question": null,
+   "commit": null,
+   "site": {
+    "file": "main_window.py",
+    "line": 444,
+    "symbol": "MainWindow._filter_items",
+    "expression": "current_depth: int = 0",
+    "source_sha256": "b2db27d79a7d237acbf2688e29a71cf0f9fbee1c78318124f8026fc2df80ca75",
+    "context_fingerprint": "8ea16e58effbb474edf44d5b4873a5bc963bca3bc1bb6f859ea687a6095cfa4c"
+   }
+  },
+  {
+   "id": "INV34-003912",
+   "file": "main_window.py",
+   "line": 443,
+   "symbol": "MainWindow._filter_items",
+   "rule": "R-NUM-UNKNOWN",
+   "kind": "numeric-parameter-default",
+   "register_line_text": "max_depth: int = 10,",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored register site main_window.py:443 `max_depth: int = 10,` in `MainWindow._filter_items`; source_sha256=b2db27d79a7d237acbf2688e29a71cf0f9fbee1c78318124f8026fc2df80ca75; context_fingerprint=0ae8e8854f7cf8e37f2655ea4a3bc5aacd504272c97b61047b61f2b571891740. The depth cap is a recursion guard. Tree depth in this UI is shallow (company/project/well/section/report); exceeding the cap excludes only deeper descendants instead of risking unbounded recursion.",
+   "defect": false,
+   "remaining_question": null,
+   "commit": null,
+   "site": {
+    "file": "main_window.py",
+    "line": 443,
+    "symbol": "MainWindow._filter_items",
+    "expression": "max_depth: int = 10,",
+    "source_sha256": "b2db27d79a7d237acbf2688e29a71cf0f9fbee1c78318124f8026fc2df80ca75",
+    "context_fingerprint": "0ae8e8854f7cf8e37f2655ea4a3bc5aacd504272c97b61047b61f2b571891740"
+   }
+  },
+  {
+   "id": "INV34-004703",
+   "file": "tabs/w13_Engineering_Calculator.py",
+   "line": 258,
+   "symbol": "DrillingCalculationEngine.calc_backoff_depth",
+   "rule": "R-NUM-UNKNOWN",
+   "kind": "numeric-parameter-default",
+   "register_line_text": "modulus=30e6) -> float:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored register site tabs/w13_Engineering_Calculator.py:258 `modulus=30e6) -> float:` in `DrillingCalculationEngine.calc_backoff_depth`; source_sha256=4fd94858f423a09793e7afaf0f40e346c9bab046d39bfe49faab4aad340f4bee; context_fingerprint=e86b5b383ee3c7558a62a86edf0013d151b21aed6ca023bb9570e9803660b8f2. 30e6 psi is the conventional steel modulus and matches `FishingEngine.backoff_depth`'s canonical default; tests compare a changed modulus to prove the parameter reaches the engine. Separately, the legacy plain-return back-off wrapper maps invalid inputs to 0 and is recorded in NEW-P6-013 for owner review.",
+   "defect": false,
+   "remaining_question": null,
+   "commit": null,
+   "site": {
+    "file": "tabs/w13_Engineering_Calculator.py",
+    "line": 258,
+    "symbol": "DrillingCalculationEngine.calc_backoff_depth",
+    "expression": "modulus=30e6) -> float:",
+    "source_sha256": "4fd94858f423a09793e7afaf0f40e346c9bab046d39bfe49faab4aad340f4bee",
+    "context_fingerprint": "e86b5b383ee3c7558a62a86edf0013d151b21aed6ca023bb9570e9803660b8f2"
+   }
+  },
+  {
+   "id": "INV34-004704",
+   "file": "tabs/w13_Engineering_Calculator.py",
+   "line": 112,
+   "symbol": "DrillingCalculationEngine.calc_buoyancy_factor",
+   "rule": "R-NUM-UNKNOWN",
+   "kind": "numeric-parameter-default",
+   "register_line_text": "def calc_buoyancy_factor(mud_weight_pcf, steel_density=490) -> float:",
+   "classification": "DOMAIN_DECISION_REQUIRED",
+   "evidence": "Hash-anchored register site tabs/w13_Engineering_Calculator.py:112 `def calc_buoyancy_factor(mud_weight_pcf, steel_density=490) -> float:` in `DrillingCalculationEngine.calc_buoyancy_factor`; source_sha256=4fd94858f423a09793e7afaf0f40e346c9bab046d39bfe49faab4aad340f4bee; context_fingerprint=1c8eae163d02f44ccbf747508418aea7840c33bc0636654f96f7c5d3ffffb24d. The adapter converts pcf to ppg and delegates to `TorqueDragEngine.buoyancy_factor`, but returns 0 on nonpositive input or engine exception. W13 then feeds that 0 into a successful landing-load card; the canonical engine rejects nonpositive mud density. This needs an owner decision on preserving the plain-return compatibility API versus surfacing an explicit failed/unknown result; no behavior was silently changed.",
+   "defect": false,
+   "remaining_question": "Should the public W13 buoyancy facade keep its legacy 0.0-on-invalid behavior, or surface an explicit failed/unknown result so the caller cannot present an invalid landing-load card as valid?",
+   "commit": null,
+   "site": {
+    "file": "tabs/w13_Engineering_Calculator.py",
+    "line": 112,
+    "symbol": "DrillingCalculationEngine.calc_buoyancy_factor",
+    "expression": "def calc_buoyancy_factor(mud_weight_pcf, steel_density=490) -> float:",
+    "source_sha256": "4fd94858f423a09793e7afaf0f40e346c9bab046d39bfe49faab4aad340f4bee",
+    "context_fingerprint": "1c8eae163d02f44ccbf747508418aea7840c33bc0636654f96f7c5d3ffffb24d"
+   }
+  },
+  {
+   "id": "INV34-004705",
+   "file": "tabs/w13_Engineering_Calculator.py",
+   "line": 130,
+   "symbol": "DrillingCalculationEngine.calc_casing_landing_load",
+   "rule": "R-NUM-UNKNOWN",
+   "kind": "numeric-parameter-default",
+   "register_line_text": "buoyancy_factor, friction_factor=0) -> dict:",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored register site tabs/w13_Engineering_Calculator.py:130 `buoyancy_factor, friction_factor=0) -> dict:` in `DrillingCalculationEngine.calc_casing_landing_load`; source_sha256=4fd94858f423a09793e7afaf0f40e346c9bab046d39bfe49faab4aad340f4bee; context_fingerprint=f902245560fa1bf8464a62ee9b78eb414df2b00423f1777b1789c4f2fac29509. The UI passes its friction control explicitly; the facade delegates to `TorqueDragEngine.casing_landing_load` and returns `{error: ...}` on failure. No failed result is replaced with a numeric zero at this site.",
+   "defect": false,
+   "remaining_question": null,
+   "commit": null,
+   "site": {
+    "file": "tabs/w13_Engineering_Calculator.py",
+    "line": 130,
+    "symbol": "DrillingCalculationEngine.calc_casing_landing_load",
+    "expression": "buoyancy_factor, friction_factor=0) -> dict:",
+    "source_sha256": "4fd94858f423a09793e7afaf0f40e346c9bab046d39bfe49faab4aad340f4bee",
+    "context_fingerprint": "f902245560fa1bf8464a62ee9b78eb414df2b00423f1777b1789c4f2fac29509"
+   }
+  },
+  {
+   "id": "INV34-005394",
+   "file": "tabs/w3_drilling_report.py",
+   "line": 614,
+   "symbol": "DrillingParametersTab.init_ui",
+   "rule": "R-NUM-UNKNOWN",
+   "kind": "numeric-parameter-default",
+   "register_line_text": "calc_layout.addWidget(self.bit_revolution, 1, 3)",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Hash-anchored register site tabs/w3_drilling_report.py:614 `calc_layout.addWidget(self.bit_revolution, 1, 3)` in `DrillingParametersTab.init_ui`; source_sha256=e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0; context_fingerprint=c553bb3229be88b1a18e0fd572ae786768d5764296a0a0f93aaba08ac282eef1. The recorded line only places a read-only derived-output widget in the form layout; it assigns no value. The formula is in `calculate_bit_revolution`. The separate nullable persistence risk (empty RPM/time inputs yield a displayed/saved zero) is retained as NEW-P6-014 rather than misclassifying this layout call.",
+   "defect": false,
+   "remaining_question": null,
+   "commit": null,
+   "site": {
+    "file": "tabs/w3_drilling_report.py",
+    "line": 614,
+    "symbol": "DrillingParametersTab.init_ui",
+    "expression": "calc_layout.addWidget(self.bit_revolution, 1, 3)",
+    "source_sha256": "e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0",
+    "context_fingerprint": "c553bb3229be88b1a18e0fd572ae786768d5764296a0a0f93aaba08ac282eef1"
+   }
+  },
+  {
+   "id": "INV34-005574",
+   "file": "tabs/w3c_section_data.py",
+   "line": 366,
+   "symbol": "CasingReportTab.load_from_dict.sv",
+   "rule": "R-NUM-UNKNOWN",
+   "kind": "numeric-parameter-default",
+   "register_line_text": "def sv(k,d=0):",
+   "classification": "DOMAIN_DECISION_REQUIRED",
+   "evidence": "Hash-anchored register site tabs/w3c_section_data.py:366 `def sv(k,d=0):` in `CasingReportTab.load_from_dict.sv`; source_sha256=5038a740761be06f65b9c81076482aff3f58e2e85b737d600e4f3fda5b8eaf27; context_fingerprint=fa367521b73f80b3cd5e8afc5703a46b22fbfbdf3d65171c3ab071a1faaeec63. CasingReport nullable numeric columns are read through `sv(k,d=0)` and the form save path writes every spinbox value, so SQL NULL reloads as a displayed zero and can be overwritten on save. Several fields may be optional measurements; whether blank controls should use explicit unknowns/preserve NULL requires product/domain policy. See NEW-P6-010.",
+   "defect": false,
+   "remaining_question": "For nullable casing measurements, should an untouched field remain SQL NULL across load/save, or are any named fields intended to receive specified engineering defaults?",
+   "commit": null,
+   "site": {
+    "file": "tabs/w3c_section_data.py",
+    "line": 366,
+    "symbol": "CasingReportTab.load_from_dict.sv",
+    "expression": "def sv(k,d=0):",
+    "source_sha256": "5038a740761be06f65b9c81076482aff3f58e2e85b737d600e4f3fda5b8eaf27",
+    "context_fingerprint": "fa367521b73f80b3cd5e8afc5703a46b22fbfbdf3d65171c3ab071a1faaeec63"
+   }
+  },
+  {
+   "id": "INV34-005588",
+   "file": "tabs/w3c_section_data.py",
+   "line": 198,
+   "symbol": "CementReportTab.load_from_dict.sv",
+   "rule": "R-NUM-UNKNOWN",
+   "kind": "numeric-parameter-default",
+   "register_line_text": "def sv(k,d=0):",
+   "classification": "DOMAIN_DECISION_REQUIRED",
+   "evidence": "Hash-anchored register site tabs/w3c_section_data.py:198 `def sv(k,d=0):` in `CementReportTab.load_from_dict.sv`; source_sha256=5038a740761be06f65b9c81076482aff3f58e2e85b737d600e4f3fda5b8eaf27; context_fingerprint=fa367521b73f80b3cd5e8afc5703a46b22fbfbdf3d65171c3ab071a1faaeec63. CementReport numeric columns and `thickening_time` are nullable; `sv` substitutes zero or engineering-looking defaults (density 120, yield 1.18, mix water 5.2, strength 2500), and save writes widget values. This is a concrete NULL-to-value round-trip risk; do not guess whether the defaults are intended baselines or optional measurements. See NEW-P6-010.",
+   "defect": false,
+   "remaining_question": "For nullable cement values and thickening_time, which are measurements versus default job-design baselines, and how should NULL be represented/preserved in the form?",
+   "commit": null,
+   "site": {
+    "file": "tabs/w3c_section_data.py",
+    "line": 198,
+    "symbol": "CementReportTab.load_from_dict.sv",
+    "expression": "def sv(k,d=0):",
+    "source_sha256": "5038a740761be06f65b9c81076482aff3f58e2e85b737d600e4f3fda5b8eaf27",
+    "context_fingerprint": "fa367521b73f80b3cd5e8afc5703a46b22fbfbdf3d65171c3ab071a1faaeec63"
+   }
+  },
+  {
+   "id": "INV34-006015",
+   "file": "tabs/w7_logistics_Widget.py",
+   "line": 993,
+   "symbol": "FuelWaterTab.load_fuel_water_from_db._val",
+   "rule": "R-NUM-UNKNOWN",
+   "kind": "numeric-parameter-default",
+   "register_line_text": "def _val(key, default=0.0):",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored register site tabs/w7_logistics_Widget.py:993 `def _val(key, default=0.0):` in `FuelWaterTab.load_fuel_water_from_db._val`; source_sha256=c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71; context_fingerprint=a1433e3cf754df15302697595e5198f60715918796e66d95edbad756a3d520aa. `_val` is used for movement quantities only (consumed/received); model/database semantics specify absent movements as zero. Nullable stocks use the separate `_stock`/unknown sentinel path and are not passed through this default.",
+   "defect": false,
+   "remaining_question": null,
+   "commit": null,
+   "site": {
+    "file": "tabs/w7_logistics_Widget.py",
+    "line": 993,
+    "symbol": "FuelWaterTab.load_fuel_water_from_db._val",
+    "expression": "def _val(key, default=0.0):",
+    "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+    "context_fingerprint": "a1433e3cf754df15302697595e5198f60715918796e66d95edbad756a3d520aa"
+   }
+  },
+  {
+   "id": "INV34-006408",
+   "file": "tests/test_cost_truth_boundary.py",
+   "line": 208,
+   "symbol": "TestConsumerParity.test_summary_actual_matches_operations_intelligence",
+   "rule": "R-RED-UNPROVEN",
+   "kind": "reduction",
+   "register_line_text": "direct = session.query(func.sum(CostRecord.actual_cost)).filter(",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored register site tests/test_cost_truth_boundary.py:208 `direct = session.query(func.sum(CostRecord.actual_cost)).filter(` in `TestConsumerParity.test_summary_actual_matches_operations_intelligence`; source_sha256=c7a46412853f79ebee861469ec1e4e576b326763b594c012411fbb5c9fb17d0f; context_fingerprint=1152d1c13aa81f3d225da9fcb6227e645bd46e14803dee07b17759fe2dfdb18c. This test deliberately compares the displayed cost summary's stored actuals with a direct `SUM(CostRecord.actual_cost)`; it tests cross-consumer parity rather than manufacturing a value from a default.",
+   "defect": false,
+   "remaining_question": null,
+   "commit": null,
+   "site": {
+    "file": "tests/test_cost_truth_boundary.py",
+    "line": 208,
+    "symbol": "TestConsumerParity.test_summary_actual_matches_operations_intelligence",
+    "expression": "direct = session.query(func.sum(CostRecord.actual_cost)).filter(",
+    "source_sha256": "c7a46412853f79ebee861469ec1e4e576b326763b594c012411fbb5c9fb17d0f",
+    "context_fingerprint": "1152d1c13aa81f3d225da9fcb6227e645bd46e14803dee07b17759fe2dfdb18c"
+   }
+  },
+  {
+   "id": "INV34-008925",
+   "file": "tests/test_m29_release_closure.py",
+   "line": 113,
+   "symbol": "required_values",
+   "rule": "R-NUM-UNKNOWN",
+   "kind": "numeric-parameter-default",
+   "register_line_text": "value = 0",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Hash-anchored register site tests/test_m29_release_closure.py:113 `value = 0` in `required_values`; source_sha256=3bab76112cba7d7e28f5f0e9555cccfbade06294d4f0ab87acf21ed10f9200aa; context_fingerprint=33d60bbdb88ab5156f7b39a68d01cc3f84082df8c70bd8fd2635241e411737ab. `required_values` builds synthetic values only for non-nullable columns in an ownership-integrity test fixture. The zero is test data used to exercise FK ownership rejection, not a production initializer or saved business fact.",
+   "defect": false,
+   "remaining_question": null,
+   "commit": null,
+   "site": {
+    "file": "tests/test_m29_release_closure.py",
+    "line": 113,
+    "symbol": "required_values",
+    "expression": "value = 0",
+    "source_sha256": "3bab76112cba7d7e28f5f0e9555cccfbade06294d4f0ab87acf21ed10f9200aa",
+    "context_fingerprint": "33d60bbdb88ab5156f7b39a68d01cc3f84082df8c70bd8fd2635241e411737ab"
+   }
+  },
+  {
+   "id": "INV34-009982",
+   "file": "dialogs/hierarchy_dialogs.py",
+   "line": 1109,
+   "symbol": "NewSectionDialog.init_ui",
+   "rule": "R-PLAN-OTHER",
+   "kind": "plan-actual",
+   "register_line_text": "self.planned_days_spin.setRange(-1, 1000)",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored register site dialogs/hierarchy_dialogs.py:1109 `self.planned_days_spin.setRange(-1, 1000)` in `NewSectionDialog.init_ui`; source_sha256=ae4cafcb940cc4938ec8514f56b7a60744acddde6366298290a7a1103c2c3737; context_fingerprint=7b4d480bcdabb89665d1fd9df9704caa5282a9a771ef991e9028fe80e16dec8d. The minimum -1 is the named `Not planned` sentinel; `create_section` maps negative to None. Zero remains a separate explicitly supplied value.",
+   "defect": false,
+   "remaining_question": null,
+   "commit": null,
+   "site": {
+    "file": "dialogs/hierarchy_dialogs.py",
+    "line": 1109,
+    "symbol": "NewSectionDialog.init_ui",
+    "expression": "self.planned_days_spin.setRange(-1, 1000)",
+    "source_sha256": "ae4cafcb940cc4938ec8514f56b7a60744acddde6366298290a7a1103c2c3737",
+    "context_fingerprint": "7b4d480bcdabb89665d1fd9df9704caa5282a9a771ef991e9028fe80e16dec8d"
+   }
+  },
+  {
+   "id": "INV34-009984",
+   "file": "dialogs/hierarchy_dialogs.py",
+   "line": 1111,
+   "symbol": "NewSectionDialog.init_ui",
+   "rule": "R-PLAN-OTHER",
+   "kind": "plan-actual",
+   "register_line_text": "self.planned_days_spin.setDecimals(1)",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored register site dialogs/hierarchy_dialogs.py:1111 `self.planned_days_spin.setDecimals(1)` in `NewSectionDialog.init_ui`; source_sha256=ae4cafcb940cc4938ec8514f56b7a60744acddde6366298290a7a1103c2c3737; context_fingerprint=b166d66bd580eada622bec093466e72302eca0432f5914e8a6156642bb3737a5. One decimal place is UI precision, not a numeric fallback.",
+   "defect": false,
+   "remaining_question": null,
+   "commit": null,
+   "site": {
+    "file": "dialogs/hierarchy_dialogs.py",
+    "line": 1111,
+    "symbol": "NewSectionDialog.init_ui",
+    "expression": "self.planned_days_spin.setDecimals(1)",
+    "source_sha256": "ae4cafcb940cc4938ec8514f56b7a60744acddde6366298290a7a1103c2c3737",
+    "context_fingerprint": "b166d66bd580eada622bec093466e72302eca0432f5914e8a6156642bb3737a5"
+   }
+  },
+  {
+   "id": "INV34-009985",
+   "file": "dialogs/hierarchy_dialogs.py",
+   "line": 1112,
+   "symbol": "NewSectionDialog.init_ui",
+   "rule": "R-PLAN-OTHER",
+   "kind": "plan-actual",
+   "register_line_text": "self.planned_days_spin.setValue(-1)",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored register site dialogs/hierarchy_dialogs.py:1112 `self.planned_days_spin.setValue(-1)` in `NewSectionDialog.init_ui`; source_sha256=ae4cafcb940cc4938ec8514f56b7a60744acddde6366298290a7a1103c2c3737; context_fingerprint=193e8810e75d130eee5dcca9737329f9cbb6ff97744470573feb530f79fc34ab. Initial -1 is the UI's explicit `Not planned` sentinel, not zero days. The persistence boundary maps it to SQL NULL.",
+   "defect": false,
+   "remaining_question": null,
+   "commit": null,
+   "site": {
+    "file": "dialogs/hierarchy_dialogs.py",
+    "line": 1112,
+    "symbol": "NewSectionDialog.init_ui",
+    "expression": "self.planned_days_spin.setValue(-1)",
+    "source_sha256": "ae4cafcb940cc4938ec8514f56b7a60744acddde6366298290a7a1103c2c3737",
+    "context_fingerprint": "193e8810e75d130eee5dcca9737329f9cbb6ff97744470573feb530f79fc34ab"
+   }
+  },
+  {
+   "id": "INV34-009988",
+   "file": "dialogs/hierarchy_dialogs.py",
+   "line": 1181,
+   "symbol": "NewSectionDialog.init_ui",
+   "rule": "R-PLAN-OTHER",
+   "kind": "plan-actual",
+   "register_line_text": "self.planned_days_spin.valueChanged.connect(self.update_estimated_rop)",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored register site dialogs/hierarchy_dialogs.py:1181 `self.planned_days_spin.valueChanged.connect(self.update_estimated_rop)` in `NewSectionDialog.init_ui`; source_sha256=ae4cafcb940cc4938ec8514f56b7a60744acddde6366298290a7a1103c2c3737; context_fingerprint=f6c23a948129f122e5daeddfaaec86b6fb4507f3b25dd996d7198e11525fdd92. The signal recomputes a derived ROP when days/depth change; handler emits an em dash for nonpositive days or invalid depth interval.",
+   "defect": false,
+   "remaining_question": null,
+   "commit": null,
+   "site": {
+    "file": "dialogs/hierarchy_dialogs.py",
+    "line": 1181,
+    "symbol": "NewSectionDialog.init_ui",
+    "expression": "self.planned_days_spin.valueChanged.connect(self.update_estimated_rop)",
+    "source_sha256": "ae4cafcb940cc4938ec8514f56b7a60744acddde6366298290a7a1103c2c3737",
+    "context_fingerprint": "f6c23a948129f122e5daeddfaaec86b6fb4507f3b25dd996d7198e11525fdd92"
+   }
+  },
+  {
+   "id": "INV34-009992",
+   "file": "dialogs/hierarchy_dialogs.py",
+   "line": 1210,
+   "symbol": "NewSectionDialog.create_section",
+   "rule": "R-PLAN-OTHER",
+   "kind": "plan-actual",
+   "register_line_text": "estimated_rop = (depth_to - depth_from) / planned_days if planned_days else None",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored register site dialogs/hierarchy_dialogs.py:1210 `estimated_rop = (depth_to - depth_from) / planned_days if planned_days else None` in `NewSectionDialog.create_section`; source_sha256=ae4cafcb940cc4938ec8514f56b7a60744acddde6366298290a7a1103c2c3737; context_fingerprint=6cc72c9e2c10c9a6b6946aabc870129d26a388470f60ec24b8f05fa8cb584208. ROP is undefined when planned days are zero, so the UI shows None/emdash instead of dividing by zero; the explicitly entered planned_days zero itself is retained. Whether a zero-day section plan is permitted remains product policy, but no division fallback is fabricated here.",
+   "defect": false,
+   "remaining_question": null,
+   "commit": null,
+   "site": {
+    "file": "dialogs/hierarchy_dialogs.py",
+    "line": 1210,
+    "symbol": "NewSectionDialog.create_section",
+    "expression": "estimated_rop = (depth_to - depth_from) / planned_days if planned_days else None",
+    "source_sha256": "ae4cafcb940cc4938ec8514f56b7a60744acddde6366298290a7a1103c2c3737",
+    "context_fingerprint": "6cc72c9e2c10c9a6b6946aabc870129d26a388470f60ec24b8f05fa8cb584208"
+   }
+  },
+  {
+   "id": "INV34-010046",
+   "file": "tabs/w10_Planning_Widget.py",
+   "line": 20,
+   "symbol": null,
+   "rule": "R-PLAN-OTHER",
+   "kind": "plan-actual",
+   "register_line_text": "from core.actual_vs_plan import section_actual_days",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Hash-anchored register site tabs/w10_Planning_Widget.py:20 `from core.actual_vs_plan import section_actual_days` in `None`; source_sha256=924ad3e30d57d7cffa2868aa7dcb9595455c56d0ac052f4362c1575b2fe807c3; context_fingerprint=269c059e9e065e39ba601630fe8a9d58088b8d856f3deceacee0427099059ed7. This line is a dependency import; actual report days are computed by the imported section-scoped complete-time helper. Importing the helper does not assign a numeric default.",
+   "defect": false,
+   "remaining_question": null,
+   "commit": null,
+   "site": {
+    "file": "tabs/w10_Planning_Widget.py",
+    "line": 20,
+    "symbol": null,
+    "expression": "from core.actual_vs_plan import section_actual_days",
+    "source_sha256": "924ad3e30d57d7cffa2868aa7dcb9595455c56d0ac052f4362c1575b2fe807c3",
+    "context_fingerprint": "269c059e9e065e39ba601630fe8a9d58088b8d856f3deceacee0427099059ed7"
+   }
+  },
+  {
+   "id": "INV34-010059",
+   "file": "tabs/w10_Planning_Widget.py",
+   "line": 1582,
+   "symbol": "WellPlanTab.load_plan_data",
+   "rule": "R-PLAN-OTHER",
+   "kind": "plan-actual",
+   "register_line_text": "self._plan_header_depth = plan.planned_final_depth if not self.current_section_id else None",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored register site tabs/w10_Planning_Widget.py:1582 `self._plan_header_depth = plan.planned_final_depth if not self.current_section_id else None` in `WellPlanTab.load_plan_data`; source_sha256=924ad3e30d57d7cffa2868aa7dcb9595455c56d0ac052f4362c1575b2fe807c3; context_fingerprint=cd118dbfb2e35315425b62cfc1cc8982759c5943d5526deb60d8092e0b773a31. The plan header depth is used only at whole-plan scope. Section scope sets it to None and filters `PlannedActivity.section_id`; the plan query is bound to the selected well and active plan, not current_report_id.",
+   "defect": false,
+   "remaining_question": null,
+   "commit": null,
+   "site": {
+    "file": "tabs/w10_Planning_Widget.py",
+    "line": 1582,
+    "symbol": "WellPlanTab.load_plan_data",
+    "expression": "self._plan_header_depth = plan.planned_final_depth if not self.current_section_id else None",
+    "source_sha256": "924ad3e30d57d7cffa2868aa7dcb9595455c56d0ac052f4362c1575b2fe807c3",
+    "context_fingerprint": "cd118dbfb2e35315425b62cfc1cc8982759c5943d5526deb60d8092e0b773a31"
+   }
+  },
+  {
+   "id": "INV34-010063",
+   "file": "tabs/w10_Planning_Widget.py",
+   "line": 1597,
+   "symbol": "WellPlanTab.load_plan_data",
+   "rule": "R-PLAN-OTHER",
+   "kind": "plan-actual",
+   "register_line_text": "depth_from = act.planned_depth_from",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored register site tabs/w10_Planning_Widget.py:1597 `depth_from = act.planned_depth_from` in `WellPlanTab.load_plan_data`; source_sha256=924ad3e30d57d7cffa2868aa7dcb9595455c56d0ac052f4362c1575b2fe807c3; context_fingerprint=0280553abfd0eaa35116488b9b54877f52f5381484123692faf8b0897e7d7492. Each activity's nullable stored `planned_depth_from` is passed through as a plan point; there is no zero substitution at the load site. Chart/table consumers operate on the selected active plan and optional section filter.",
+   "defect": false,
+   "remaining_question": null,
+   "commit": null,
+   "site": {
+    "file": "tabs/w10_Planning_Widget.py",
+    "line": 1597,
+    "symbol": "WellPlanTab.load_plan_data",
+    "expression": "depth_from = act.planned_depth_from",
+    "source_sha256": "924ad3e30d57d7cffa2868aa7dcb9595455c56d0ac052f4362c1575b2fe807c3",
+    "context_fingerprint": "0280553abfd0eaa35116488b9b54877f52f5381484123692faf8b0897e7d7492"
+   }
+  },
+  {
+   "id": "INV34-010064",
+   "file": "tabs/w10_Planning_Widget.py",
+   "line": 1598,
+   "symbol": "WellPlanTab.load_plan_data",
+   "rule": "R-PLAN-OTHER",
+   "kind": "plan-actual",
+   "register_line_text": "depth_to = act.planned_depth_to",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored register site tabs/w10_Planning_Widget.py:1598 `depth_to = act.planned_depth_to` in `WellPlanTab.load_plan_data`; source_sha256=924ad3e30d57d7cffa2868aa7dcb9595455c56d0ac052f4362c1575b2fe807c3; context_fingerprint=9e061c6d6cfd247bfc1963c5c5a2d36c13f81f860a40ec9c8ea2435eae1178b1. Same direct pass-through as depth-from: missing end depth remains None, while a reported zero is not collapsed by truthiness.",
+   "defect": false,
+   "remaining_question": null,
+   "commit": null,
+   "site": {
+    "file": "tabs/w10_Planning_Widget.py",
+    "line": 1598,
+    "symbol": "WellPlanTab.load_plan_data",
+    "expression": "depth_to = act.planned_depth_to",
+    "source_sha256": "924ad3e30d57d7cffa2868aa7dcb9595455c56d0ac052f4362c1575b2fe807c3",
+    "context_fingerprint": "9e061c6d6cfd247bfc1963c5c5a2d36c13f81f860a40ec9c8ea2435eae1178b1"
+   }
+  },
+  {
+   "id": "INV34-010109",
+   "file": "tabs/w12_Analysis.py",
+   "line": 2505,
+   "symbol": "AnalysisWidget.load_milestones_data",
+   "rule": "R-PLAN-OTHER",
+   "kind": "plan-actual",
+   "register_line_text": "from core.actual_vs_plan import section_actual_days",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Hash-anchored register site tabs/w12_Analysis.py:2505 `from core.actual_vs_plan import section_actual_days` in `AnalysisWidget.load_milestones_data`; source_sha256=4935eb8b49d13bf8aa39851cfdfa3ee58561a37a5514ba3e50d52ec28517bbbe; context_fingerprint=f9addbc1e771d6b9a9ad4f3749fea3a0c3c7b461260173fc43f705dea5b599a2. This is a helper import only; the milestone reader calls `section_actual_days` for each section and keeps selected-wellbore filtering at the section query.",
+   "defect": false,
+   "remaining_question": null,
+   "commit": null,
+   "site": {
+    "file": "tabs/w12_Analysis.py",
+    "line": 2505,
+    "symbol": "AnalysisWidget.load_milestones_data",
+    "expression": "from core.actual_vs_plan import section_actual_days",
+    "source_sha256": "4935eb8b49d13bf8aa39851cfdfa3ee58561a37a5514ba3e50d52ec28517bbbe",
+    "context_fingerprint": "f9addbc1e771d6b9a9ad4f3749fea3a0c3c7b461260173fc43f705dea5b599a2"
+   }
+  },
+  {
+   "id": "INV34-010134",
+   "file": "tabs/w14_Procedure_Widget.py",
+   "line": 799,
+   "symbol": "ProcedureEditorPage.new_procedure",
+   "rule": "R-SPIN-ZERO",
+   "kind": "setvalue-zero",
+   "register_line_text": "self.mud_weight.setValue(0)",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored register site tabs/w14_Procedure_Widget.py:799 `self.mud_weight.setValue(0)` in `ProcedureEditorPage.new_procedure`; source_sha256=c9f3a11e00d06f2e97a4649276e0bcff86c7a2d63fb77c832da2db1443e0473a; context_fingerprint=d66a54338d6fd2cddc3291076e6c1b39d21a1844d5fa579f5d36185a93fdfd85. The source comment states this context-only mud-weight control is not persisted by `save_procedure`; zero is a blank-entry placeholder, not a well mud-weight measurement. GLE-MSL is explicitly not copied into it.",
+   "defect": false,
+   "remaining_question": null,
+   "commit": null,
+   "site": {
+    "file": "tabs/w14_Procedure_Widget.py",
+    "line": 799,
+    "symbol": "ProcedureEditorPage.new_procedure",
+    "expression": "self.mud_weight.setValue(0)",
+    "source_sha256": "c9f3a11e00d06f2e97a4649276e0bcff86c7a2d63fb77c832da2db1443e0473a",
+    "context_fingerprint": "d66a54338d6fd2cddc3291076e6c1b39d21a1844d5fa579f5d36185a93fdfd85"
+   }
+  },
+  {
+   "id": "INV34-010137",
+   "file": "tabs/w14_Procedure_Widget.py",
+   "line": 1494,
+   "symbol": "ProcedureEditorPage._clear_all_fields",
+   "rule": "R-SPIN-ZERO",
+   "kind": "setvalue-zero",
+   "register_line_text": "self.checklist_progress.setValue(0)",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored register site tabs/w14_Procedure_Widget.py:1494 `self.checklist_progress.setValue(0)` in `ProcedureEditorPage._clear_all_fields`; source_sha256=c9f3a11e00d06f2e97a4649276e0bcff86c7a2d63fb77c832da2db1443e0473a; context_fingerprint=7c1a549d8d0ec1041a4158528d83fa4b5b359e61790b1c1178cf3e33d2b73b95. Checklist progress starts at zero items complete; it is a UI count and is recomputed as checklist state changes.",
+   "defect": false,
+   "remaining_question": null,
+   "commit": null,
+   "site": {
+    "file": "tabs/w14_Procedure_Widget.py",
+    "line": 1494,
+    "symbol": "ProcedureEditorPage._clear_all_fields",
+    "expression": "self.checklist_progress.setValue(0)",
+    "source_sha256": "c9f3a11e00d06f2e97a4649276e0bcff86c7a2d63fb77c832da2db1443e0473a",
+    "context_fingerprint": "7c1a549d8d0ec1041a4158528d83fa4b5b359e61790b1c1178cf3e33d2b73b95"
+   }
+  },
+  {
+   "id": "INV34-010138",
+   "file": "tabs/w14_Procedure_Widget.py",
+   "line": 1495,
+   "symbol": "ProcedureEditorPage._clear_all_fields",
+   "rule": "R-SPIN-ZERO",
+   "kind": "setvalue-zero",
+   "register_line_text": "self.steps_progress.setValue(0)",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored register site tabs/w14_Procedure_Widget.py:1495 `self.steps_progress.setValue(0)` in `ProcedureEditorPage._clear_all_fields`; source_sha256=c9f3a11e00d06f2e97a4649276e0bcff86c7a2d63fb77c832da2db1443e0473a; context_fingerprint=c4c4c358ad402d86b4fdd0f00e10fb9f4ad52d758d75a6fb32c8377e62ff49ae. Steps progress likewise starts at zero completed steps and is recomputed from the workflow table.",
+   "defect": false,
+   "remaining_question": null,
+   "commit": null,
+   "site": {
+    "file": "tabs/w14_Procedure_Widget.py",
+    "line": 1495,
+    "symbol": "ProcedureEditorPage._clear_all_fields",
+    "expression": "self.steps_progress.setValue(0)",
+    "source_sha256": "c9f3a11e00d06f2e97a4649276e0bcff86c7a2d63fb77c832da2db1443e0473a",
+    "context_fingerprint": "c4c4c358ad402d86b4fdd0f00e10fb9f4ad52d758d75a6fb32c8377e62ff49ae"
+   }
+  },
+  {
+   "id": "INV34-010181",
+   "file": "tabs/w1_well_info.py",
+   "line": 236,
+   "symbol": "WellInfoTab.init_ui",
+   "rule": "R-PLAN-OTHER",
+   "kind": "plan-actual",
+   "register_line_text": "self.actual_rig_days.setRange(0, 9999)",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored register site tabs/w1_well_info.py:236 `self.actual_rig_days.setRange(0, 9999)` in `WellInfoTab.init_ui`; source_sha256=8533c3cd2141d945e890e1cbde7aa3a55db518c638f7e6d8090657ef071cbdeb; context_fingerprint=de54da6dfb182ac1840fdb80704cc33aa742eb25291344f3884982423637f4ff. This line only bounds the user-entered actual rig-days control. `load_well_data` captures displayed baselines and `save_data` calls `preserve_widget_values`, which restores untouched source NULL while allowing an explicitly touched zero; the control range itself is not the persistence default.",
+   "defect": false,
+   "remaining_question": null,
+   "commit": null,
+   "site": {
+    "file": "tabs/w1_well_info.py",
+    "line": 236,
+    "symbol": "WellInfoTab.init_ui",
+    "expression": "self.actual_rig_days.setRange(0, 9999)",
+    "source_sha256": "8533c3cd2141d945e890e1cbde7aa3a55db518c638f7e6d8090657ef071cbdeb",
+    "context_fingerprint": "de54da6dfb182ac1840fdb80704cc33aa742eb25291344f3884982423637f4ff"
+   }
+  },
+  {
+   "id": "INV34-010259",
+   "file": "tabs/w3b_wellbore_schematic_tab.py",
+   "line": 495,
+   "symbol": "WellboreSchematicTab.on_well_changed",
+   "rule": "R-SPIN-ZERO",
+   "kind": "setvalue-zero",
+   "register_line_text": "self.td_spin.setValue(0.0)",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored register site tabs/w3b_wellbore_schematic_tab.py:495 `self.td_spin.setValue(0.0)` in `WellboreSchematicTab.on_well_changed`; source_sha256=9d91a9dd4f0acf5ad4899db96f8ec4b462d5b0ae7f2f07355ecd687588074eaa; context_fingerprint=003f1bd7f04ba0b7f848ecd2d36d2a69a47c09b629f97771100d2e7419d6d6ab. Missing target depth is represented in the widget by zero with an explicit comment; the auto-builder independently reads nullable `Well.target_depth` as None and the neutral schematic scale treats None/zero as view geometry only. No depth is persisted by this control.",
+   "defect": false,
+   "remaining_question": null,
+   "commit": null,
+   "site": {
+    "file": "tabs/w3b_wellbore_schematic_tab.py",
+    "line": 495,
+    "symbol": "WellboreSchematicTab.on_well_changed",
+    "expression": "self.td_spin.setValue(0.0)",
+    "source_sha256": "9d91a9dd4f0acf5ad4899db96f8ec4b462d5b0ae7f2f07355ecd687588074eaa",
+    "context_fingerprint": "003f1bd7f04ba0b7f848ecd2d36d2a69a47c09b629f97771100d2e7419d6d6ab"
+   }
+  },
+  {
+   "id": "INV34-010300",
+   "file": "tabs/w7_logistics_Widget.py",
+   "line": 1073,
+   "symbol": "FuelWaterTab.clear_fields",
+   "rule": "R-SPIN-ZERO",
+   "kind": "setvalue-zero",
+   "register_line_text": "self.fuel_consumed.setValue(0)",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored register site tabs/w7_logistics_Widget.py:1073 `self.fuel_consumed.setValue(0)` in `FuelWaterTab.clear_fields`; source_sha256=c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71; context_fingerprint=6ca30275a482a33119efc78dc4eca8e126760f12a961251a129345f9acf528d1. Fuel consumed is a movement; clear-to-zero represents no movement and matches the DB movement semantics.",
+   "defect": false,
+   "remaining_question": null,
+   "commit": null,
+   "site": {
+    "file": "tabs/w7_logistics_Widget.py",
+    "line": 1073,
+    "symbol": "FuelWaterTab.clear_fields",
+    "expression": "self.fuel_consumed.setValue(0)",
+    "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+    "context_fingerprint": "6ca30275a482a33119efc78dc4eca8e126760f12a961251a129345f9acf528d1"
+   }
+  },
+  {
+   "id": "INV34-010301",
+   "file": "tabs/w7_logistics_Widget.py",
+   "line": 1074,
+   "symbol": "FuelWaterTab.clear_fields",
+   "rule": "R-SPIN-ZERO",
+   "kind": "setvalue-zero",
+   "register_line_text": "self.fuel_stock.setValue(0)",
+   "classification": "GENUINE_DEFECT",
+   "evidence": "Hash-anchored register site tabs/w7_logistics_Widget.py:1074 `self.fuel_stock.setValue(0)` in `FuelWaterTab.clear_fields`; source_sha256=c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71; context_fingerprint=ce192c843c0f45468d7868e7d845d2aa97fb721f89fd6c3f97fdcbcb54d32e89. Fuel stock is nullable physical inventory. Clearing it to 0 fabricated an empty-tank report; `clear_fields` now sets the unknown mark and save persists SQL NULL. Fixed in 4849e03.",
+   "defect": true,
+   "remaining_question": null,
+   "commit": "4849e03a6cb9571bf82909732aeba3ec0c07483e",
+   "site": {
+    "file": "tabs/w7_logistics_Widget.py",
+    "line": 1074,
+    "symbol": "FuelWaterTab.clear_fields",
+    "expression": "self.fuel_stock.setValue(0)",
+    "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+    "context_fingerprint": "ce192c843c0f45468d7868e7d845d2aa97fb721f89fd6c3f97fdcbcb54d32e89"
+   }
+  },
+  {
+   "id": "INV34-010302",
+   "file": "tabs/w7_logistics_Widget.py",
+   "line": 1075,
+   "symbol": "FuelWaterTab.clear_fields",
+   "rule": "R-SPIN-ZERO",
+   "kind": "setvalue-zero",
+   "register_line_text": "self.fuel_received.setValue(0)",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored register site tabs/w7_logistics_Widget.py:1075 `self.fuel_received.setValue(0)` in `FuelWaterTab.clear_fields`; source_sha256=c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71; context_fingerprint=79cf43e8ed75fac1693200d0482cfc2bd96d87e422e1ae54da410a9d34db1a12. Fuel received is a movement; zero means no receipt, distinct from nullable stock.",
+   "defect": false,
+   "remaining_question": null,
+   "commit": null,
+   "site": {
+    "file": "tabs/w7_logistics_Widget.py",
+    "line": 1075,
+    "symbol": "FuelWaterTab.clear_fields",
+    "expression": "self.fuel_received.setValue(0)",
+    "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+    "context_fingerprint": "79cf43e8ed75fac1693200d0482cfc2bd96d87e422e1ae54da410a9d34db1a12"
+   }
+  },
+  {
+   "id": "INV34-010303",
+   "file": "tabs/w7_logistics_Widget.py",
+   "line": 1076,
+   "symbol": "FuelWaterTab.clear_fields",
+   "rule": "R-SPIN-ZERO",
+   "kind": "setvalue-zero",
+   "register_line_text": "self.water_consumed.setValue(0)",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored register site tabs/w7_logistics_Widget.py:1076 `self.water_consumed.setValue(0)` in `FuelWaterTab.clear_fields`; source_sha256=c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71; context_fingerprint=a200e053a927a766255aa2337a0ac44115cea69188a147ce16184457182ee741. Water consumed is a movement; zero means no movement.",
+   "defect": false,
+   "remaining_question": null,
+   "commit": null,
+   "site": {
+    "file": "tabs/w7_logistics_Widget.py",
+    "line": 1076,
+    "symbol": "FuelWaterTab.clear_fields",
+    "expression": "self.water_consumed.setValue(0)",
+    "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+    "context_fingerprint": "a200e053a927a766255aa2337a0ac44115cea69188a147ce16184457182ee741"
+   }
+  },
+  {
+   "id": "INV34-010304",
+   "file": "tabs/w7_logistics_Widget.py",
+   "line": 1077,
+   "symbol": "FuelWaterTab.clear_fields",
+   "rule": "R-SPIN-ZERO",
+   "kind": "setvalue-zero",
+   "register_line_text": "self.water_stock.setValue(0)",
+   "classification": "GENUINE_DEFECT",
+   "evidence": "Hash-anchored register site tabs/w7_logistics_Widget.py:1077 `self.water_stock.setValue(0)` in `FuelWaterTab.clear_fields`; source_sha256=c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71; context_fingerprint=0dd1119640b43419da06dbc217f359753e49719eebbabe5da3b0548391fe6c57. Water stock is nullable; clear now restores unknown rather than asserting an empty tank. Fixed in 4849e03.",
+   "defect": true,
+   "remaining_question": null,
+   "commit": "4849e03a6cb9571bf82909732aeba3ec0c07483e",
+   "site": {
+    "file": "tabs/w7_logistics_Widget.py",
+    "line": 1077,
+    "symbol": "FuelWaterTab.clear_fields",
+    "expression": "self.water_stock.setValue(0)",
+    "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+    "context_fingerprint": "0dd1119640b43419da06dbc217f359753e49719eebbabe5da3b0548391fe6c57"
+   }
+  },
+  {
+   "id": "INV34-010305",
+   "file": "tabs/w7_logistics_Widget.py",
+   "line": 1078,
+   "symbol": "FuelWaterTab.clear_fields",
+   "rule": "R-SPIN-ZERO",
+   "kind": "setvalue-zero",
+   "register_line_text": "self.water_received.setValue(0)",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored register site tabs/w7_logistics_Widget.py:1078 `self.water_received.setValue(0)` in `FuelWaterTab.clear_fields`; source_sha256=c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71; context_fingerprint=bd0b987d93fc17fcfb33f9a061485f2405ab29a6e0efeafc7762a6bc37982f01. Water received is a movement; zero is the additive identity for no movement.",
+   "defect": false,
+   "remaining_question": null,
+   "commit": null,
+   "site": {
+    "file": "tabs/w7_logistics_Widget.py",
+    "line": 1078,
+    "symbol": "FuelWaterTab.clear_fields",
+    "expression": "self.water_received.setValue(0)",
+    "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+    "context_fingerprint": "bd0b987d93fc17fcfb33f9a061485f2405ab29a6e0efeafc7762a6bc37982f01"
+   }
+  },
+  {
+   "id": "INV34-010306",
+   "file": "tabs/w7_logistics_Widget.py",
+   "line": 1079,
+   "symbol": "FuelWaterTab.clear_fields",
+   "rule": "R-SPIN-ZERO",
+   "kind": "setvalue-zero",
+   "register_line_text": "self.dw_consumed.setValue(0)",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored register site tabs/w7_logistics_Widget.py:1079 `self.dw_consumed.setValue(0)` in `FuelWaterTab.clear_fields`; source_sha256=c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71; context_fingerprint=09dc747e57c6f2499ae7ca24ff2329c969e80be55116cc7cc30b4aa3da95ca99. Drilling-water consumed is a movement; zero means no movement.",
+   "defect": false,
+   "remaining_question": null,
+   "commit": null,
+   "site": {
+    "file": "tabs/w7_logistics_Widget.py",
+    "line": 1079,
+    "symbol": "FuelWaterTab.clear_fields",
+    "expression": "self.dw_consumed.setValue(0)",
+    "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+    "context_fingerprint": "09dc747e57c6f2499ae7ca24ff2329c969e80be55116cc7cc30b4aa3da95ca99"
+   }
+  },
+  {
+   "id": "INV34-010307",
+   "file": "tabs/w7_logistics_Widget.py",
+   "line": 1080,
+   "symbol": "FuelWaterTab.clear_fields",
+   "rule": "R-SPIN-ZERO",
+   "kind": "setvalue-zero",
+   "register_line_text": "self.dw_stock.setValue(0)",
+   "classification": "GENUINE_DEFECT",
+   "evidence": "Hash-anchored register site tabs/w7_logistics_Widget.py:1080 `self.dw_stock.setValue(0)` in `FuelWaterTab.clear_fields`; source_sha256=c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71; context_fingerprint=b835a89fd14d44fbe4aebc387e95fef4e72a267a672f81c91299a19ff126252d. Drilling-water stock is nullable; clear now restores unknown, not zero. Fixed in 4849e03.",
+   "defect": true,
+   "remaining_question": null,
+   "commit": "4849e03a6cb9571bf82909732aeba3ec0c07483e",
+   "site": {
+    "file": "tabs/w7_logistics_Widget.py",
+    "line": 1080,
+    "symbol": "FuelWaterTab.clear_fields",
+    "expression": "self.dw_stock.setValue(0)",
+    "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+    "context_fingerprint": "b835a89fd14d44fbe4aebc387e95fef4e72a267a672f81c91299a19ff126252d"
+   }
+  },
+  {
+   "id": "INV34-010308",
+   "file": "tabs/w7_logistics_Widget.py",
+   "line": 1081,
+   "symbol": "FuelWaterTab.clear_fields",
+   "rule": "R-SPIN-ZERO",
+   "kind": "setvalue-zero",
+   "register_line_text": "self.dw_received.setValue(0)",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored register site tabs/w7_logistics_Widget.py:1081 `self.dw_received.setValue(0)` in `FuelWaterTab.clear_fields`; source_sha256=c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71; context_fingerprint=e4ae4c12e87f86272007a8b7f872542391a6b73175a6fe54aa1e4f8f66d378da. Drilling-water received is a movement; zero means no movement.",
+   "defect": false,
+   "remaining_question": null,
+   "commit": null,
+   "site": {
+    "file": "tabs/w7_logistics_Widget.py",
+    "line": 1081,
+    "symbol": "FuelWaterTab.clear_fields",
+    "expression": "self.dw_received.setValue(0)",
+    "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+    "context_fingerprint": "e4ae4c12e87f86272007a8b7f872542391a6b73175a6fe54aa1e4f8f66d378da"
+   }
+  },
+  {
+   "id": "INV34-010309",
+   "file": "tabs/w7_logistics_Widget.py",
+   "line": 1082,
+   "symbol": "FuelWaterTab.clear_fields",
+   "rule": "R-SPIN-ZERO",
+   "kind": "setvalue-zero",
+   "register_line_text": "self.fuel_camp_consumed.setValue(0)",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored register site tabs/w7_logistics_Widget.py:1082 `self.fuel_camp_consumed.setValue(0)` in `FuelWaterTab.clear_fields`; source_sha256=c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71; context_fingerprint=2ca7e27a27127e4fa39be892c58b083e0026c92c35c46d7a2e7650284e1d7f42. Camp fuel consumed is a movement; zero means no movement.",
+   "defect": false,
+   "remaining_question": null,
+   "commit": null,
+   "site": {
+    "file": "tabs/w7_logistics_Widget.py",
+    "line": 1082,
+    "symbol": "FuelWaterTab.clear_fields",
+    "expression": "self.fuel_camp_consumed.setValue(0)",
+    "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+    "context_fingerprint": "2ca7e27a27127e4fa39be892c58b083e0026c92c35c46d7a2e7650284e1d7f42"
+   }
+  },
+  {
+   "id": "INV34-010310",
+   "file": "tabs/w7_logistics_Widget.py",
+   "line": 1083,
+   "symbol": "FuelWaterTab.clear_fields",
+   "rule": "R-SPIN-ZERO",
+   "kind": "setvalue-zero",
+   "register_line_text": "self.fuel_camp_stock.setValue(0)",
+   "classification": "GENUINE_DEFECT",
+   "evidence": "Hash-anchored register site tabs/w7_logistics_Widget.py:1083 `self.fuel_camp_stock.setValue(0)` in `FuelWaterTab.clear_fields`; source_sha256=c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71; context_fingerprint=5e09745133030e6a7f76706be9e2e739f3e0b106d85080461f54171a06e6cd57. Camp fuel stock is nullable; clear now restores unknown, not zero. Fixed in 4849e03.",
+   "defect": true,
+   "remaining_question": null,
+   "commit": "4849e03a6cb9571bf82909732aeba3ec0c07483e",
+   "site": {
+    "file": "tabs/w7_logistics_Widget.py",
+    "line": 1083,
+    "symbol": "FuelWaterTab.clear_fields",
+    "expression": "self.fuel_camp_stock.setValue(0)",
+    "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+    "context_fingerprint": "5e09745133030e6a7f76706be9e2e739f3e0b106d85080461f54171a06e6cd57"
+   }
+  },
+  {
+   "id": "INV34-010311",
+   "file": "tabs/w7_logistics_Widget.py",
+   "line": 1084,
+   "symbol": "FuelWaterTab.clear_fields",
+   "rule": "R-SPIN-ZERO",
+   "kind": "setvalue-zero",
+   "register_line_text": "self.fuel_camp_received.setValue(0)",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored register site tabs/w7_logistics_Widget.py:1084 `self.fuel_camp_received.setValue(0)` in `FuelWaterTab.clear_fields`; source_sha256=c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71; context_fingerprint=f7f381aec25c0b4cf6b12ed6890857f48d3dd83d85ff81403a17a2589ae83636. Camp fuel received is a movement; zero means no movement.",
+   "defect": false,
+   "remaining_question": null,
+   "commit": null,
+   "site": {
+    "file": "tabs/w7_logistics_Widget.py",
+    "line": 1084,
+    "symbol": "FuelWaterTab.clear_fields",
+    "expression": "self.fuel_camp_received.setValue(0)",
+    "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+    "context_fingerprint": "f7f381aec25c0b4cf6b12ed6890857f48d3dd83d85ff81403a17a2589ae83636"
+   }
+  },
+  {
+   "id": "INV34-010318",
+   "file": "tabs/w9_Services_Widget.py",
+   "line": 111,
+   "symbol": "MaterialHandlingTab.create_requests_tab",
+   "rule": "R-SPIN-ZERO",
+   "kind": "setvalue-zero",
+   "register_line_text": "self.requested_qty_input.setValue(0)",
+   "classification": "GENUINE_DEFECT",
+   "evidence": "Hash-anchored register site tabs/w9_Services_Widget.py:111 `self.requested_qty_input.setValue(0)` in `MaterialHandlingTab.create_requests_tab`; source_sha256=68b15111c31170d6dc02cc1e08b1d8e9fba346ba3078cdbc0c724d8f312d6f04; context_fingerprint=c9e091bdffc0bfbb9a3592ced4f1f884eb3d8ead533e1c822003f6fd44156248. New material requests now start at an explicit `Not specified` sentinel; the save adapter translates it to None while preserving an explicitly entered 0.0. The nullable `MaterialRequest.requested_quantity` contract and totals already preserve NULL. Fixed in 219dc06.",
+   "defect": true,
+   "remaining_question": null,
+   "commit": "219dc06e5cafa30ec5e38bf48feefe95c1c4e12c",
+   "site": {
+    "file": "tabs/w9_Services_Widget.py",
+    "line": 111,
+    "symbol": "MaterialHandlingTab.create_requests_tab",
+    "expression": "self.requested_qty_input.setValue(0)",
+    "source_sha256": "68b15111c31170d6dc02cc1e08b1d8e9fba346ba3078cdbc0c724d8f312d6f04",
+    "context_fingerprint": "c9e091bdffc0bfbb9a3592ced4f1f884eb3d8ead533e1c822003f6fd44156248"
+   }
+  },
+  {
+   "id": "INV34-010319",
+   "file": "tabs/w9_Services_Widget.py",
+   "line": 392,
+   "symbol": "MaterialHandlingTab.clear_request_form",
+   "rule": "R-SPIN-ZERO",
+   "kind": "setvalue-zero",
+   "register_line_text": "self.requested_qty_input.setValue(0)",
+   "classification": "GENUINE_DEFECT",
+   "evidence": "Hash-anchored register site tabs/w9_Services_Widget.py:392 `self.requested_qty_input.setValue(0)` in `MaterialHandlingTab.clear_request_form`; source_sha256=68b15111c31170d6dc02cc1e08b1d8e9fba346ba3078cdbc0c724d8f312d6f04; context_fingerprint=6fe1ffe87e2d3195d1468667f71cce50f6082796424babc9b4c208cdbf30639c. Clearing a request form now restores the unknown sentinel, not zero; save maps that sentinel to None and distinguishes explicit zero. Fixed in 219dc06.",
+   "defect": true,
+   "remaining_question": null,
+   "commit": "219dc06e5cafa30ec5e38bf48feefe95c1c4e12c",
+   "site": {
+    "file": "tabs/w9_Services_Widget.py",
+    "line": 392,
+    "symbol": "MaterialHandlingTab.clear_request_form",
+    "expression": "self.requested_qty_input.setValue(0)",
+    "source_sha256": "68b15111c31170d6dc02cc1e08b1d8e9fba346ba3078cdbc0c724d8f312d6f04",
+    "context_fingerprint": "6fe1ffe87e2d3195d1468667f71cce50f6082796424babc9b4c208cdbf30639c"
+   }
+  },
+  {
+   "id": "INV34-010533",
+   "file": "tests/test_engineering_completion.py",
+   "line": 8,
+   "symbol": null,
+   "rule": "R-PLAN-OTHER",
+   "kind": "plan-actual",
+   "register_line_text": "from core.actual_vs_plan import ActualVsPlanEngine",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Hash-anchored register site tests/test_engineering_completion.py:8 `from core.actual_vs_plan import ActualVsPlanEngine` in `None`; source_sha256=b253da9da7e4bf6c01a04bcf7551db7b8f1f1a792fc17f31b02cb1ed1f900ad4; context_fingerprint=1f1fae033396ec914340569e56ffa35331d4be4493dae303cf715a3e8ab52a2a. Import-only test line; behavioral assertions below exercise `ActualVsPlanEngine` rather than using the import as a value default.",
+   "defect": false,
+   "remaining_question": null,
+   "commit": null,
+   "site": {
+    "file": "tests/test_engineering_completion.py",
+    "line": 8,
+    "symbol": null,
+    "expression": "from core.actual_vs_plan import ActualVsPlanEngine",
+    "source_sha256": "b253da9da7e4bf6c01a04bcf7551db7b8f1f1a792fc17f31b02cb1ed1f900ad4",
+    "context_fingerprint": "1f1fae033396ec914340569e56ffa35331d4be4493dae303cf715a3e8ab52a2a"
+   }
+  },
+  {
+   "id": "INV34-010703",
+   "file": "tests/test_m28_finance_safety_plan.py",
+   "line": 8,
+   "symbol": null,
+   "rule": "R-PLAN-OTHER",
+   "kind": "plan-actual",
+   "register_line_text": "from core.actual_vs_plan import compare, ActualVsPlanEngine, compare_plan_activities",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Hash-anchored register site tests/test_m28_finance_safety_plan.py:8 `from core.actual_vs_plan import compare, ActualVsPlanEngine, compare_plan_activities` in `None`; source_sha256=fe80e2fe8197f186a9908af0ef55f19c35874e0aa00e0ebbbb64d5a383fcd922; context_fingerprint=8121dee1a2487a11ab62b5596a7a23047855888108abba84ba51518f5417a89a. Import-only test line; the module's assertions compare plan/actual contracts and scope.",
+   "defect": false,
+   "remaining_question": null,
+   "commit": null,
+   "site": {
+    "file": "tests/test_m28_finance_safety_plan.py",
+    "line": 8,
+    "symbol": null,
+    "expression": "from core.actual_vs_plan import compare, ActualVsPlanEngine, compare_plan_activities",
+    "source_sha256": "fe80e2fe8197f186a9908af0ef55f19c35874e0aa00e0ebbbb64d5a383fcd922",
+    "context_fingerprint": "8121dee1a2487a11ab62b5596a7a23047855888108abba84ba51518f5417a89a"
+   }
+  },
+  {
+   "id": "INV34-010769",
+   "file": "tests/test_m29_release_closure.py",
+   "line": 20,
+   "symbol": null,
+   "rule": "R-PLAN-OTHER",
+   "kind": "plan-actual",
+   "register_line_text": "from core.actual_vs_plan import compare, ActualVsPlanEngine, compare_plan_activities",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Hash-anchored register site tests/test_m29_release_closure.py:20 `from core.actual_vs_plan import compare, ActualVsPlanEngine, compare_plan_activities` in `None`; source_sha256=3bab76112cba7d7e28f5f0e9555cccfbade06294d4f0ab87acf21ed10f9200aa; context_fingerprint=a08b079bca5d30acf535270995f673c1b72d244bb91218a16ca95b8bcb5b4eca. Import-only test line; the release test imports the comparison API, with behavior asserted in test bodies.",
+   "defect": false,
+   "remaining_question": null,
+   "commit": null,
+   "site": {
+    "file": "tests/test_m29_release_closure.py",
+    "line": 20,
+    "symbol": null,
+    "expression": "from core.actual_vs_plan import compare, ActualVsPlanEngine, compare_plan_activities",
+    "source_sha256": "3bab76112cba7d7e28f5f0e9555cccfbade06294d4f0ab87acf21ed10f9200aa",
+    "context_fingerprint": "a08b079bca5d30acf535270995f673c1b72d244bb91218a16ca95b8bcb5b4eca"
+   }
+  },
+  {
+   "id": "INV34-010823",
+   "file": "tests/test_m30_semantic_regressions.py",
+   "line": 157,
+   "symbol": "test_comparison_formula_matches_negative_plan_denominator",
+   "rule": "R-PLAN-OTHER",
+   "kind": "plan-actual",
+   "register_line_text": "from core.actual_vs_plan import ActualVsPlanEngine",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Hash-anchored register site tests/test_m30_semantic_regressions.py:157 `from core.actual_vs_plan import ActualVsPlanEngine` in `test_comparison_formula_matches_negative_plan_denominator`; source_sha256=98180b5855924b28f0c2ca2c2530274b15b8ea6e981ea9d3f2d499d04fdbb100; context_fingerprint=8310f2667759e4297aa038ae66c0f6487ee3df2de56945b93c198668d3ea5968. Import-only line in a test focused on negative planned cost denominators; no numeric default is introduced here.",
+   "defect": false,
+   "remaining_question": null,
+   "commit": null,
+   "site": {
+    "file": "tests/test_m30_semantic_regressions.py",
+    "line": 157,
+    "symbol": "test_comparison_formula_matches_negative_plan_denominator",
+    "expression": "from core.actual_vs_plan import ActualVsPlanEngine",
+    "source_sha256": "98180b5855924b28f0c2ca2c2530274b15b8ea6e981ea9d3f2d499d04fdbb100",
+    "context_fingerprint": "8310f2667759e4297aa038ae66c0f6487ee3df2de56945b93c198668d3ea5968"
+   }
+  },
+  {
+   "id": "INV34-010827",
+   "file": "tests/test_m30_semantic_regressions.py",
+   "line": 259,
+   "symbol": "test_finite_financial_inputs_must_not_emit_infinite_facts",
+   "rule": "R-PLAN-OTHER",
+   "kind": "plan-actual",
+   "register_line_text": "from core.actual_vs_plan import compare",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Hash-anchored register site tests/test_m30_semantic_regressions.py:259 `from core.actual_vs_plan import compare` in `test_finite_financial_inputs_must_not_emit_infinite_facts`; source_sha256=98180b5855924b28f0c2ca2c2530274b15b8ea6e981ea9d3f2d499d04fdbb100; context_fingerprint=82034d7e6583b36aa469bf9eef957b3f6bb8517b3311b6bcf08c6adfcb6000f2. Import-only line in a test rejecting infinite financial facts; no numeric default is introduced here.",
+   "defect": false,
+   "remaining_question": null,
+   "commit": null,
+   "site": {
+    "file": "tests/test_m30_semantic_regressions.py",
+    "line": 259,
+    "symbol": "test_finite_financial_inputs_must_not_emit_infinite_facts",
+    "expression": "from core.actual_vs_plan import compare",
+    "source_sha256": "98180b5855924b28f0c2ca2c2530274b15b8ea6e981ea9d3f2d499d04fdbb100",
+    "context_fingerprint": "82034d7e6583b36aa469bf9eef957b3f6bb8517b3311b6bcf08c6adfcb6000f2"
+   }
+  }
+ ]
+}

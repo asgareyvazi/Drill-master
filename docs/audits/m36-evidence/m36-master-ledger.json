@@ -485,6 +485,111 @@
     ],
     "mutation": "The two added sheet-binding tests were both run against a runtime mutation restoring the previous resolver; both failed as expected. Production code was unchanged during mutation validation."
    }
+  },
+  {
+   "batch": "p6-batch-022",
+   "class": "phase-2 medium class C/D/E mixed review: engineering adapters, nullable UI persistence, plan/report scopes and lifecycle defaults",
+   "records": 45,
+   "sites": 45,
+   "by_classification": {
+    "VERIFIED-CORRECT": 23,
+    "DUPLICATE/FALSE-POSITIVE": 9,
+    "GENUINE_DEFECT": 6,
+    "INTENTIONAL": 4,
+    "DOMAIN_DECISION_REQUIRED": 3
+   },
+   "defects_fixed": [
+    {
+     "records": [
+      "INV34-010301",
+      "INV34-010304",
+      "INV34-010307",
+      "INV34-010310"
+     ],
+     "file": "tabs/w7_logistics_Widget.py",
+     "fix_commit": "4849e03a6cb9571bf82909732aeba3ec0c07483e",
+     "summary": "FuelWaterTab.clear_fields resets nullable stock controls to unknown while movement controls remain zero.",
+     "regression": "tests/test_w7_null_zero_ui_smoke.py; tests/test_w7_null_zero_semantics.py",
+     "mutation": "Directly executed current and pre-fix clear_fields AST bodies with fake controls: current yields four unknown stocks/zero movements; pre-fix yields four zero stocks and fails the regression expectation."
+    },
+    {
+     "records": [
+      "INV34-010318",
+      "INV34-010319"
+     ],
+     "file": "tabs/w9_Services_Widget.py",
+     "fix_commit": "219dc06e5cafa30ec5e38bf48feefe95c1c4e12c",
+     "summary": "The material-request quantity UI has a visible unknown sentinel, maps it to SQL NULL, preserves explicitly entered zero, and clear restores unknown.",
+     "regression": "tests/test_w9_material_request_unknown_quantity.py",
+     "mutation": "Executed the actual AST save expression for sentinel/zero/positive inputs; outputs are None/0.0/value. Mutating back to direct spinbox.value() yields -1.0 and violates the NULL expectation."
+    },
+    {
+     "id": "NEW-P6-011",
+     "file": "tabs/w7_logistics_Widget.py",
+     "status": "fixed",
+     "commit": "219dc06e5cafa30ec5e38bf48feefe95c1c4e12c",
+     "summary": "Loading a well/report with no inventory used to leave prior selection values in W7 controls; loader now clears stocks to unknown and movements to zero.",
+     "regression": "tests/test_w7_null_zero_ui_smoke.py (switches from a populated well to an empty well)",
+     "mutation": "Executed the actual load_fuel_water_from_db AST against empty-result DB stubs: pre-fix retains old stock/movement values; current resets unknown/zero."
+    },
+    {
+     "id": "NEW-P6-012",
+     "file": "tabs/w3c_section_data.py",
+     "status": "fixed",
+     "commit": "6c07d3a2ed4782bb5dd707f43b0d78635dead162",
+     "summary": "A well switch clears the previous selected section and W3c form state; cement/casing loads and saves now use the selected section id instead of leaking well-wide/other-section reports.",
+     "regression": "tests/test_w3c_well_switch_scope_smoke.py",
+     "mutation": "The isolated integration regression asserts section A does not load into B, saves attach section_id B, and a well switch clears stale form/tally/bit state; the prior implementation would fail these assertions."
+    }
+   ],
+   "new_findings": [
+    {
+     "id": "NEW-P6-010",
+     "file": "tabs/w3c_section_data.py",
+     "line": 198,
+     "severity": "MEDIUM",
+     "status": "domain decision required; not patched",
+     "commit": null,
+     "test": null
+    },
+    {
+     "id": "NEW-P6-013",
+     "file": "tabs/w13_Engineering_Calculator.py",
+     "line": 119,
+     "severity": "MEDIUM",
+     "status": "domain decision required; not patched",
+     "commit": null,
+     "test": null
+    },
+    {
+     "id": "NEW-P6-014",
+     "file": "tabs/w3_drilling_report.py",
+     "line": 786,
+     "severity": "MEDIUM",
+     "status": "domain decision required; not patched",
+     "commit": null,
+     "test": null
+    }
+   ],
+   "evidence_commit": null,
+   "commit": null,
+   "tests": {
+    "passed": [
+     "39 passed: tests/test_w7_null_zero_semantics.py tests/test_fuel_water_truth.py tests/test_inventory_zero_semantics.py",
+     "76 passed: tests/test_cement_persistence.py tests/test_casing_persistence.py tests/test_w7_null_zero_semantics.py tests/test_fuel_water_truth.py tests/test_inventory_zero_semantics.py",
+     "33 passed: tests/test_report_scoped_ownership_m26.py tests/test_report_scope_metadata_m25.py",
+     "17 passed: tests/test_inventory_zero_semantics.py tests/test_m31_scenarios.py -k 'material_request or inventory or request_quantities'",
+     "20 passed: tests/test_report_scope_metadata_m25.py tests/test_operational_time_integrity.py",
+     "AST behavior/mutation checks: W7 current vs pre-fix clear_fields; W7 empty-load current vs pre-fix; W9 actual save expression sentinel/zero/positive plus direct-value mutation; W3c current vs pre-fix well-change handler",
+     "ruff --select E722,F821; compileall; git diff --check"
+    ],
+    "environment_blocked": [
+     "3 isolated Qt smoke tests (W7, W9, W3c) fail before assertions because PySide6 cannot load system libGL.so.1.",
+     "4 W12 UI tests fail at collection for missing libGL.so.1; planning-context subprocess smoke also fails before assertions for the same dependency.",
+     "2 cement/casing history-viewmodel test modules fail at collection for missing libGL.so.1."
+    ],
+    "mutation": "Production/UI regression tests are committed, but their native Qt execution is blocked locally. AST execution of the actual current and pre-fix methods/expressions proved the targeted reset/unknown behavior and the pre-fix/direct-value mutations violate expectations. Exact-HEAD CI must run the isolated UI tests."
+   }
   }
  ],
  "start_open": 1224,
@@ -492,20 +597,20 @@
  "arithmetic": {
   "register_open_at_p6_start": 1224,
   "defect_fixed_by_p6": 2,
-  "adjudicated_by_p6_batches": 864,
-  "current_open": 358,
+  "adjudicated_by_p6_batches": 909,
+  "current_open": 313,
   "check": true,
   "note": "every record is either OPEN or carries a terminal evidence-backed classification; the fixed sites are subtracted separately so nothing disappears"
  },
  "open_by_priority": {
-  "MEDIUM": 358
+  "MEDIUM": 313
  },
  "open_by_class": {
   "E": 241,
   "D": 65,
-  "C": 52
+  "C": 7
  },
- "generated_utc": "2026-09-29T08:00:47+00:00",
+ "generated_utc": "2026-09-29T08:30:04+00:00",
  "recovery_bundles": [
   {
    "file": "/home/user/recovery/drillmaster-115fc09.bundle",
