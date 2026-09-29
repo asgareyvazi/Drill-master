@@ -1,16 +1,16 @@
 {
  "schema": "m36-open-item-register",
- "generated_utc": "2026-09-29T10:04:47+00:00",
+ "generated_utc": "2026-09-29T10:10:06+00:00",
  "source_register": "docs/audits/m35-evidence/m35-open-item-register.json",
  "source_sha256_declared": "d81a77bda0330c75493f4081c4a02e4d106fe7602e49c14f0c67d12977658a6b",
  "totals": {
   "records": 1224,
-  "open": 88,
+  "open": 43,
   "open_by_priority": {
-   "MEDIUM": 88
+   "MEDIUM": 43
   },
   "open_by_class": {
-   "E": 88
+   "E": 43
   },
   "defect_fixed": 2
  },
@@ -12025,13 +12025,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source tabs/w10_Planning_Widget.py:2728 `well_data = self.db.get_well_by_id(well_id) if self.db else None`; source_sha256=924ad3e30d57d7cffa2868aa7dcb9595455c56d0ac052f4362c1575b2fe807c3; context_fingerprint=a9d801ef0759dba779151154d3bbddb1591fc54f3b1cb4f248242584ee65e599. The selected well ID is the combo-box identity; lookup data is optional display context. A missing record maps to an empty presentation mapping without substituting a different well ID.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-028"
+   "p6_batch": "p6-batch-028",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-004290",
@@ -12050,13 +12053,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source tabs/w10_Planning_Widget.py:2687 `if self.db:`; source_sha256=924ad3e30d57d7cffa2868aa7dcb9595455c56d0ac052f4362c1575b2fe807c3; context_fingerprint=9ddbbd03e9dfe38358eedfe7fb58f7265e26ea29091cc2032f6a29a3626d6145. Well-list population is conditional on an available database object; without a repository the widget does not query or fabricate a well list.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-028"
+   "p6_batch": "p6-batch-028",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-004293",
@@ -12075,13 +12081,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source tabs/w10_Planning_Widget.py:2843 `if widget:`; source_sha256=924ad3e30d57d7cffa2868aa7dcb9595455c56d0ac052f4362c1575b2fe807c3; context_fingerprint=72d40fcb548dc2645e30cf3cb32925e3a826a3adbc445f2d2234f6d650f2e4bc. The target chart widget is optional; the function checks it before modifying or replacing its layout.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-028"
+   "p6_batch": "p6-batch-028",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-004296",
@@ -12212,13 +12221,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source tabs/w10_Planning_Widget.py:1905 `except (TypeError, ValueError):`; source_sha256=924ad3e30d57d7cffa2868aa7dcb9595455c56d0ac052f4362c1575b2fe807c3; context_fingerprint=1f54738787897780675a3a79a27a7ef3838e7dee4d1ea80350558e0ceab739dd. Bit-record depth and ROP parsing skips only malformed/non-numeric rows. The accepted values are separately required to be finite and nonnegative; explicit numeric zero remains a valid value.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-028"
+   "p6_batch": "p6-batch-028",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-004319",
@@ -12237,13 +12249,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source tabs/w10_Planning_Widget.py:1937 `except (TypeError, ValueError):`; source_sha256=924ad3e30d57d7cffa2868aa7dcb9595455c56d0ac052f4362c1575b2fe807c3; context_fingerprint=3c9308411cacb5280aea7e91cf975c9593cbf96965d9a6238fc8fd0bac1b7f14. Alias parsing advances to the next named field on a type/value conversion failure and yields None only when no valid finite alias exists. It does not assign zero for missing input.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-028"
+   "p6_batch": "p6-batch-028",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-004357",
@@ -12634,13 +12649,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source tabs/w12_Analysis.py:507 `card.trend_label = trend_label if trend else None`; source_sha256=4935eb8b49d13bf8aa39851cfdfa3ee58561a37a5514ba3e50d52ec28517bbbe; context_fingerprint=5275b1f0f0bfeb9fccd0bdccdea1c73a69c9047e23354770a15c7e17511b7b67. Trend text is optional presentation metadata. A missing trend sets the card's trend_label attribute to None without changing its numeric KPI value.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-028"
+   "p6_batch": "p6-batch-028",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-004539",
@@ -12835,13 +12853,16 @@
    "missing_fact": "the intended failure semantics at this call site",
    "why_it_matters": "failures may be reported as successes",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "DOMAIN_DECISION_REQUIRED",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source tabs/w12_Analysis.py:41 `except ImportError:`; source_sha256=4935eb8b49d13bf8aa39851cfdfa3ee58561a37a5514ba3e50d52ec28517bbbe; context_fingerprint=95bd6e21e0f8f4b26b89f98456e376b73e41ce4dc1e9cf8618fc599c49555f58. This is the second optional Matplotlib fallback branch in W12 Analysis. The UI canvas may be Agg/None while consumers pass it to Qt layouts; chart errors are caught and logged. It is the same unresolved chart-availability policy as NEW-P6-026 from batch 027, not a new independent engineering defect.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-028"
+   "p6_batch": "p6-batch-028",
+   "p6_remaining_question": "Chart availability policy under missing Matplotlib Qt backend; linked to NEW-P6-026 from batch 027",
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-004591",
@@ -12860,13 +12881,16 @@
    "missing_fact": "the intended failure semantics at this call site",
    "why_it_matters": "failures may be reported as successes",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "DOMAIN_DECISION_REQUIRED",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source tabs/w12_Analysis.py:37 `except ImportError:`; source_sha256=4935eb8b49d13bf8aa39851cfdfa3ee58561a37a5514ba3e50d52ec28517bbbe; context_fingerprint=c8b58208f8b528dad15affb3879431ce54a43c568859f9fc0c46249f698702d2. Optional Qt canvas import failure selects the Agg fallback; W12 passes the resulting canvas to Qt layout consumers (see _draw_milestones_chart). The chart-availability question is already recorded as NEW-P6-026 in batch 027; no chart or measurement value is persisted by this fallback.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-028"
+   "p6_batch": "p6-batch-028",
+   "p6_remaining_question": "Chart availability policy under missing Matplotlib Qt backend; linked to NEW-P6-026 from batch 027",
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-004593",
@@ -13445,13 +13469,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source tabs/w14_Procedure_Widget.py:1074 `if cb:`; source_sha256=c9f3a11e00d06f2e97a4649276e0bcff86c7a2d63fb77c832da2db1443e0473a; context_fingerprint=5f296d4e108a63cf370fb4fbd41efdb851c78e97980294afbe0cccb1b19db7b5. Checklist cell-widget lookup may return None for a removed/malformed row; skipping a missing checkbox prevents a crash and never marks the missing item complete.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-028"
+   "p6_batch": "p6-batch-028",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-005006",
@@ -13470,13 +13497,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source tabs/w14_Procedure_Widget.py:1351 `is_checked = cb.isChecked() if cb else False`; source_sha256=c9f3a11e00d06f2e97a4649276e0bcff86c7a2d63fb77c832da2db1443e0473a; context_fingerprint=58157cc2c5049859dad4d40823988ad1ae79b08f4e06f37f3d15522daa0ac9c2. Preview reads completion state only when a checkbox exists; a missing checkbox is represented as unchecked, which is the safe non-complete state.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-028"
+   "p6_batch": "p6-batch-028",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-005007",
@@ -13495,13 +13525,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source tabs/w14_Procedure_Widget.py:1396 `is_done = cb.isChecked() if cb else False`; source_sha256=c9f3a11e00d06f2e97a4649276e0bcff86c7a2d63fb77c832da2db1443e0473a; context_fingerprint=58157cc2c5049859dad4d40823988ad1ae79b08f4e06f37f3d15522daa0ac9c2. Step completion defaults to false when the optional checkbox widget is absent; missing UI state cannot report an operation as done.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-028"
+   "p6_batch": "p6-batch-028",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-005016",
@@ -13520,13 +13553,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source tabs/w14_Procedure_Widget.py:1364 `is_na = na_cb.isChecked() if na_cb else False`; source_sha256=c9f3a11e00d06f2e97a4649276e0bcff86c7a2d63fb77c832da2db1443e0473a; context_fingerprint=53ed5c03fe3db938688214493d686683a2e0aa33156349b6a7915e364fb00ad6. The optional N/A checkbox is false when no widget is present; the rendered preview does not claim a missing item was assessed as N/A.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-028"
+   "p6_batch": "p6-batch-028",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-005022",
@@ -13545,13 +13581,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source tabs/w14_Procedure_Widget.py:1392 `step_num = step_num_item.text() if step_num_item else str(row + 1)`; source_sha256=c9f3a11e00d06f2e97a4649276e0bcff86c7a2d63fb77c832da2db1443e0473a; context_fingerprint=939a062f3dc8b336d34f9ad33ab6f499bbfd60aa6f6b639a38c03ca1d757d043. A missing step-number cell uses the deterministic display row ordinal; persisted procedure content and actual checklist completion are unchanged.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-028"
+   "p6_batch": "p6-batch-028",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-005023",
@@ -13626,13 +13665,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source tabs/w14_Procedure_Widget.py:1082 `if cb:`; source_sha256=c9f3a11e00d06f2e97a4649276e0bcff86c7a2d63fb77c832da2db1443e0473a; context_fingerprint=bcc8db128e538c5bdd90239f8d4548521b36f5e0e6f277390cfbbedeccc9df1b. The uncheck-all command safely skips rows without a checkbox; it does not infer a checked or completed value.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-028"
+   "p6_batch": "p6-batch-028",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-005047",
@@ -13679,13 +13721,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source tabs/w14_Procedure_Widget.py:1562 `if not self.db:`; source_sha256=c9f3a11e00d06f2e97a4649276e0bcff86c7a2d63fb77c832da2db1443e0473a; context_fingerprint=4bbacb9b916d7a0f1f4de2cb4b27a3fb52f03f925f4c681ac6c9870a32177710. Procedure-template loading is guarded by the optional database dependency; without it, the dialog remains open with no templates and performs no persistence.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-028"
+   "p6_batch": "p6-batch-028",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-005069",
@@ -13704,13 +13749,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source tabs/w15_Reference_Tables.py:397 `fp = fp_item.data(Qt.UserRole) if fp_item else None`; source_sha256=28bbcb99abf0b0b47a5cac10256aafe72d8f104fac3b382175bca2a6abc2b239; context_fingerprint=f2adb20de08d93ffd46d2b4aad07e62d1244286791e17c5f383a4987922de368. The selected reference-table item may not exist; the detail action returns no optional provenance pointer rather than selecting another row.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-028"
+   "p6_batch": "p6-batch-028",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-005071",
@@ -13845,13 +13893,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source tabs/w1_well_info.py:621 `except Exception:`; source_sha256=8533c3cd2141d945e890e1cbde7aa3a55db518c638f7e6d8090657ef071cbdeb; context_fingerprint=ba1fbffa6d66163b2632a678077d893a3b3ce89631c02c7138b8555f4a5a1d95. Malformed well date text is caught at the UI parse boundary. Untouched source values are retained by form edit tracking on save, while a parseable user edit is explicit; the display fallback does not itself persist a current date.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-028"
+   "p6_batch": "p6-batch-028",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-005180",
@@ -13870,13 +13921,16 @@
    "missing_fact": "the intended failure semantics at this call site",
    "why_it_matters": "failures may be reported as successes",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source tabs/w1_well_info.py:14 `except ImportError:`; source_sha256=8533c3cd2141d945e890e1cbde7aa3a55db518c638f7e6d8090657ef071cbdeb; context_fingerprint=cb6abcfa92af8880b78e30f54cfe5482b29f0928f34a72aade62c7f862157dd2. `ui.utils` is an optional styling/message helper. The local fallback constructs ordinary Qt controls and explicit success/error message boxes; it does not suppress a database or validation failure.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-028"
+   "p6_batch": "p6-batch-028",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-005181",
@@ -15835,13 +15889,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source tabs/w4_Downhole_Widget.py:397 `self.bha_table.setEditTriggers(QAbstractItemView.NoEditTriggers if read_only else`; source_sha256=923d9786b5e04fb5ff6ce0b5c859ab5024453a32fbc857fbb54f25eef2537923; context_fingerprint=f8dfec6c311161e591136a16d15f66c40b34f6ab39e28b5eefd3f488e24e2e32. The read-only parameter is an explicit editor mode. It chooses `NoEditTriggers` when true and interactive triggers when false; table content and values are unchanged.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-028"
+   "p6_batch": "p6-batch-028",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-005829",
@@ -15860,13 +15917,16 @@
    "missing_fact": "the intended failure semantics at this call site",
    "why_it_matters": "failures may be reported as successes",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source tabs/w4_Downhole_Widget.py:12 `except ImportError:`; source_sha256=923d9786b5e04fb5ff6ce0b5c859ab5024453a32fbc857fbb54f25eef2537923; context_fingerprint=cc458a9b8b9d30a17e2446e00c2e3fa8d952a873f77629dd03a35decd55b9265. Pandas is optional for the downhole UI; absence is recorded in `PANDAS_AVAILABLE` and the widget can use its native table path without coercing equipment values.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-028"
+   "p6_batch": "p6-batch-028",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-005830",
@@ -15885,13 +15945,16 @@
    "missing_fact": "the intended failure semantics at this call site",
    "why_it_matters": "failures may be reported as successes",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source tabs/w4_Downhole_Widget.py:770 `except ValueError:`; source_sha256=923d9786b5e04fb5ff6ce0b5c859ab5024453a32fbc857fbb54f25eef2537923; context_fingerprint=a10f201192eb1d1fcfe06f8f022289004b6df4760a74211615c7395ad84a8ef6. The shared optional_date parser raises ValueError for malformed dates; the service checker moves that equipment row to `service_review` rather than calling it current or overdue.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-028"
+   "p6_batch": "p6-batch-028",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-005834",
@@ -16350,13 +16413,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source tabs/w6_Trajectory_Widget.py:762 `if self.db:`; source_sha256=068546ebd1fffde7dd1def78366cff89969d6d1a9531b852a42b432150623327; context_fingerprint=d30db9fc26f00633106b5c58a273a2e3c462ef46a739861ba89f62a084bce7b1. Trajectory well loading is conditional on a configured database manager; absent DB means no query and no synthetic well identity.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-028"
+   "p6_batch": "p6-batch-028",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-005984",
@@ -16403,13 +16469,16 @@
    "missing_fact": "the intended failure semantics at this call site",
    "why_it_matters": "failures may be reported as successes",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source tabs/w6_Trajectory_Widget.py:858 `except ValueError:`; source_sha256=068546ebd1fffde7dd1def78366cff89969d6d1a9531b852a42b432150623327; context_fingerprint=5687f7d531991704ccc806bc01cc4161ad9af78074f622a1585d991c04a02a60. Repository search found no in-repository caller of this legacy get_survey_data adapter. On a bad optional cell it retains the original text for review rather than silently converting it to 0; active SurveyDataTab persistence uses its separate nullable parser.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-028"
+   "p6_batch": "p6-batch-028",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-006015",
@@ -16593,13 +16662,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source tabs/w7_logistics_Widget.py:979 `if not self.db:`; source_sha256=c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71; context_fingerprint=a5d6f4b2fda8755b39cebbf444dcac05c28ff4b12db4a3bed70cbac9e232c5fd. This guard distinguishes no selected well/no database from an active query. For a real well change, the loader clears current fuel/water controls before applying returned rows; absent records reset unknown stock and zero movement under the established field contract.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-028"
+   "p6_batch": "p6-batch-028",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-006136",
@@ -16811,13 +16883,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source tabs/w7_logistics_Widget.py:427 `if not self.db:`; source_sha256=c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71; context_fingerprint=2d8c9a14696143f09156fa12e8b2085963b849d91dab9165a6ae4060969e3447. The personnel loader returns without querying when there is no well/database. With an active well it clears rows before loading; a database absence does not create personnel count zero or a persisted row.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-028"
+   "p6_batch": "p6-batch-028",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-006173",
@@ -16836,13 +16911,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source tabs/w7_logistics_Widget.py:513 `if not self.db:`; source_sha256=c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71; context_fingerprint=3f4b07c0c0780c24131215ab4ccd2a6307c81355f7814060bf7a116c1c7068e9. The transport-note loader requires an explicit well and database. Its successful empty-result branch clears the note fields and loaded ID; it does not present prior notes as a successful empty result.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-028"
+   "p6_batch": "p6-batch-028",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-006176",
@@ -16861,13 +16939,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source tabs/w7_logistics_Widget.py:317 `if not self.db:`; source_sha256=c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71; context_fingerprint=89486b612863cde4c0d39f5badd2371de8dba93f27f7247d82550f9c82ce10f4. POB loading requires an explicit well and database; with an active well it clears the current table before repopulating. The early return does not mutate a POB count or write data.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-028"
+   "p6_batch": "p6-batch-028",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-006177",
@@ -17310,13 +17391,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "GENUINE_DEFECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source tabs/w7_logistics_Widget.py:1122 `except ValueError:`; source_sha256=c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71; context_fingerprint=3641de90973389e727cae715093d887c1b83286c3c6699ffa24d90c1662fe6fa. The original `except ValueError: continue` swallowed an entire bulk-material row when any stock cell displayed the explicit unknown marker `—`; it thereby omitted known received/used movements and left stock totals as partial subtotals presented as complete. The fix extracts per-column semantics: SQL/display unknown propagates to a `NOT ASSESSED` total; independent known movements still sum; blank movement means no movement (0.0), explicit zero remains zero. Verified against BulkMaterials NULL/zero model contract, DatabaseManager.calculate_bulk_totals/complete_total, and regression/mutation tests.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-028"
+   "p6_batch": "p6-batch-028",
+   "p6_remaining_question": null,
+   "p6_defect": true,
+   "p6_commit": null
   },
   {
    "id": "INV34-006212",
@@ -25837,13 +25921,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source tabs/w10_Planning_Widget.py:868 `if not self.db or not self.current_well_id:`; source_sha256=924ad3e30d57d7cffa2868aa7dcb9595455c56d0ac052f4362c1575b2fe807c3; context_fingerprint=dafb6b62dedebfcb3d41a2841a4c23c8e4ce0bd6e9131057c35bef153d985aef. Code-management data is report/well dependent; without a database or valid current well ID the loader returns before querying. It does not borrow a globally selected report ID to fabricate code rows.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-028"
+   "p6_batch": "p6-batch-028",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-008095",
@@ -25862,13 +25949,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source tabs/w10_Planning_Widget.py:1109 `if not self.db or not self.current_well_id:`; source_sha256=924ad3e30d57d7cffa2868aa7dcb9595455c56d0ac052f4362c1575b2fe807c3; context_fingerprint=a15363a9e21ec6574c06747392f33e78087065bfe0b748dd9ca6acdb0072cdf9. Status distribution is explicitly scoped to the current well; without an active database/well, no aggregation is requested and no zero distribution is asserted.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-028"
+   "p6_batch": "p6-batch-028",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-008102",
@@ -25887,13 +25977,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source tabs/w10_Planning_Widget.py:1866 `if not self.db or not self.current_well_id:`; source_sha256=924ad3e30d57d7cffa2868aa7dcb9595455c56d0ac052f4362c1575b2fe807c3; context_fingerprint=e5972c8dd5eab2c68b0a96e01ee8e040ddf91de0969864dde0d7498d2a0aed83. The drilling-parameter tab clears current arrays/table/chart before this no-context guard; an absent well therefore shows no previous well's parameter data.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-028"
+   "p6_batch": "p6-batch-028",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-008103",
@@ -25912,13 +26005,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source tabs/w10_Planning_Widget.py:1884 `if not bit_report or not bit_report.bit_records_json:`; source_sha256=924ad3e30d57d7cffa2868aa7dcb9595455c56d0ac052f4362c1575b2fe807c3; context_fingerprint=99694f7049c0e4cf41a700ac3cadb891a2ba7b30cafd45efe2ad9dd837ecfa86. An absent BitReport or empty bit-record payload produces an explicit no-data state and clears charts; it does not treat missing JSON as a zero-depth record.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-028"
+   "p6_batch": "p6-batch-028",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-008106",
@@ -25937,13 +26033,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source tabs/w10_Planning_Widget.py:2332 `if not self.db or not self.current_well_id:`; source_sha256=924ad3e30d57d7cffa2868aa7dcb9595455c56d0ac052f4362c1575b2fe807c3; context_fingerprint=e5972c8dd5eab2c68b0a96e01ee8e040ddf91de0969864dde0d7498d2a0aed83. Material inventory clears its table/chart when database or well context is absent. It is explicitly scoped by well and independently applies section/report filters when available.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-028"
+   "p6_batch": "p6-batch-028",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-008109",
@@ -26214,13 +26313,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source tabs/w12_Analysis.py:2639 `if not np.isfinite(height):`; source_sha256=4935eb8b49d13bf8aa39851cfdfa3ee58561a37a5514ba3e50d52ec28517bbbe; context_fingerprint=2ea0e339f5e8cda5347c71910bb8c6d00b166120c2608a2e8874e280ed45a165. Non-finite chart bar heights are omitted from annotation; finite values including zero remain on the chart, and the operation's known/unknown values are not altered.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-028"
+   "p6_batch": "p6-batch-028",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-008144",
@@ -26239,13 +26341,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source tabs/w12_Analysis.py:2648 `if not np.isfinite(height):`; source_sha256=4935eb8b49d13bf8aa39851cfdfa3ee58561a37a5514ba3e50d52ec28517bbbe; context_fingerprint=2ea0e339f5e8cda5347c71910bb8c6d00b166120c2608a2e8874e280ed45a165. Same finite-value guard for the second bar series; NaN/Inf labels are suppressed instead of rendered as misleading engineering numbers.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-028"
+   "p6_batch": "p6-batch-028",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-008147",
@@ -26684,13 +26789,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source tabs/w14_Procedure_Widget.py:1562 `if not self.db:`; source_sha256=c9f3a11e00d06f2e97a4649276e0bcff86c7a2d63fb77c832da2db1443e0473a; context_fingerprint=3cb4c5f95741e09bdf8b12640dfe45f5b98f2a5bc1ab8a4568177926bf551fba. Duplicate scanner capture of the optional database guard in TemplateSelectionDialog.load_templates at the same source site as INV34-005049; no database means no template query.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-028"
+   "p6_batch": "p6-batch-028",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-008264",
@@ -27749,13 +27857,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source tabs/w4_Downhole_Widget.py:702 `record = restore_named_text((item.data(Qt.UserRole + 1) or {}) if item else {}, record)`; source_sha256=923d9786b5e04fb5ff6ce0b5c859ab5024453a32fbc857fbb54f25eef2537923; context_fingerprint=397ad44efe02c39c70a4f6494ccf1568cfc45456e3c7ead2e63ef3d1df72e011. The BHA table item may be absent or its optional named-text payload empty; `restore_named_text` restores only recorded names and preserves the row's displayed values/provenance.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-028"
+   "p6_batch": "p6-batch-028",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-008376",
@@ -27774,13 +27885,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source tabs/w4_Downhole_Widget.py:783 `record = restore_named_text((item.data(Qt.UserRole + 1) or {}) if item else {}, record)`; source_sha256=923d9786b5e04fb5ff6ce0b5c859ab5024453a32fbc857fbb54f25eef2537923; context_fingerprint=397ad44efe02c39c70a4f6494ccf1568cfc45456e3c7ead2e63ef3d1df72e011. Same optional named-text restoration for downhole equipment; missing hidden metadata leaves the visible row intact and does not invent a description.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-028"
+   "p6_batch": "p6-batch-028",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-008377",
@@ -27799,13 +27913,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source tabs/w4_Downhole_Widget.py:845 `record = restore_named_text((item.data(Qt.UserRole + 1) or {}) if item else {}, record)`; source_sha256=923d9786b5e04fb5ff6ce0b5c859ab5024453a32fbc857fbb54f25eef2537923; context_fingerprint=397ad44efe02c39c70a4f6494ccf1568cfc45456e3c7ead2e63ef3d1df72e011. Same optional named-text restoration for formations; the guard protects empty/missing table cells and does not change geologic numeric fields.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-028"
+   "p6_batch": "p6-batch-028",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-008380",
@@ -27880,13 +27997,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source tabs/w6_Trajectory_Widget.py:413 `\"\"\"Parse a table cell into float, or None for blank/'None'/garbage.`; source_sha256=068546ebd1fffde7dd1def78366cff89969d6d1a9531b852a42b432150623327; context_fingerprint=e64f068e38078e6778efa27ac485b0ef91670f974aaa968502c65b30965c7263. Rule mis-fire: the record is a docstring describing `_optional_float`; executable code below preserves blank/None/garbage as None and converts explicit `0` to 0.0.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-028"
+   "p6_batch": "p6-batch-028",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-008408",
@@ -27989,13 +28109,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source tabs/w7_logistics_Widget.py:317 `if not self.db:`; source_sha256=c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71; context_fingerprint=2b4b4cf47110236f11527b60d636d9d4277d97a0ec0fb8e09b6811344bcb7c60. Duplicate scanner record of the no-database guard in PersonnelLogisticsTab.load_pob_data; same optional DB contract as INV34-006176.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-028"
+   "p6_batch": "p6-batch-028",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-008416",
@@ -28074,13 +28197,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source tabs/w7_logistics_Widget.py:427 `if not self.db:`; source_sha256=c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71; context_fingerprint=5b06b8e0e8879812b886594f92c756734f690192a6b5b8d66ee896abd99a1762. Duplicate scanner record of the no-database guard in PersonnelLogisticsTab.load_crew_data; same optional DB contract as INV34-006171.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-028"
+   "p6_batch": "p6-batch-028",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-008424",
@@ -28127,13 +28253,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source tabs/w7_logistics_Widget.py:513 `if not self.db:`; source_sha256=c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71; context_fingerprint=50b041976fe5fbc4dbe8decf39785a885062e185a8847b6a2ff65bc193bffa3c. Duplicate scanner record of the no-database guard in PersonnelLogisticsTab.load_notes_data; same optional DB contract as INV34-006173.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-028"
+   "p6_batch": "p6-batch-028",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-008430",
@@ -28180,13 +28309,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source tabs/w7_logistics_Widget.py:592 `\"\"\"Return the stock as float, or None when the box is at the unknown mark.\"\"\"`; source_sha256=c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71; context_fingerprint=953b2e4370d082dea31b3fc16b710dfc9ee4a494745555b8261a5bf05ec7ca59. Rule mis-fire: this is the `_stock_value` docstring stating its real contract. The executable helper returns None at the unknown sentinel and preserves explicit numeric 0.0.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-028"
+   "p6_batch": "p6-batch-028",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-008432",
@@ -28261,13 +28393,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "INTENTIONAL",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "Hash-anchored source tabs/w7_logistics_Widget.py:979 `if not self.db:`; source_sha256=c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71; context_fingerprint=24b6b3a96eba6b04fbc22d6f30802c71f0e8c6155c4aa382c3c0a325949f32b6. Duplicate scanner record of the no-database guard in FuelWaterTab.load_fuel_water_from_db, already reviewed at INV34-006134; no active query means no fabricated fuel/water values.",
    "fixed_commit": null,
    "p6_class": "E",
-   "p6_batch": "p6-batch-028"
+   "p6_batch": "p6-batch-028",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-008442",

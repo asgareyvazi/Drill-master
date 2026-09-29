@@ -838,6 +838,45 @@
     ],
     "mutation": "No production code was changed in this batch; no mutation validation applies."
    }
+  },
+  {
+   "batch": "p6-batch-028",
+   "class": "phase-2 class G/H mixed review: Planning/Analysis widgets, procedure/reference/well/downhole/trajectory/logistics, nullable bulk inventory and chart summaries",
+   "records": 45,
+   "sites": 40,
+   "by_classification": {
+    "INTENTIONAL": 36,
+    "VERIFIED-CORRECT": 4,
+    "DOMAIN_DECISION_REQUIRED": 2,
+    "DUPLICATE/FALSE-POSITIVE": 2,
+    "GENUINE_DEFECT": 1
+   },
+   "defects_fixed": [
+    {
+     "id": "NEW-P6-027",
+     "records": [
+      "INV34-006210"
+     ],
+     "file": "tabs/w7_logistics_Widget.py",
+     "site": "FuelWaterTab.calculate_bulk_totals -> core.bulk_material_semantics.summarize_bulk_display_rows",
+     "test": "tests/test_bulk_display_totals.py",
+     "summary": "The W7 summary previously skipped every field in a row when any displayed value was the unknown em dash, and rendered partial stock subtotals as complete. It now totals each column independently, propagates unknown stock to NOT ASSESSED, preserves known movements, treats blank movements as the documented no-movement zero, and keeps explicit zero."
+    }
+   ],
+   "new_findings": [],
+   "evidence_commit": null,
+   "commit": null,
+   "tests": {
+    "passed": [
+     "68 passed: tests/test_bulk_display_totals.py tests/test_bulk_validator_zero.py tests/test_inventory_zero_semantics.py tests/test_mud_ledger_unknown_stock_history.py tests/test_fuel_water_truth.py tests/test_inventory_item_authority.py.",
+     "1 passed: tests/test_m31_scenarios.py::test_stock_and_request_totals_are_unknown_when_a_quantity_is_unrecorded (database canonical-total contract).",
+     "9 passed: tests/test_w7_null_zero_semantics.py."
+    ],
+    "environment_blocked": [
+     "Two Qt subprocess UI tests failed before assertions because PySide6 cannot load missing libGL.so.1: tests/test_bulk_stock_three_state_smoke.py::test_w7_bulk_stock_three_state_in_subprocess and tests/test_w7_null_zero_ui_smoke.py::test_w7_null_zero_ui_smoke_in_subprocess. No GUI display/persistence integration test is claimed in this batch."
+    ],
+    "mutation": "Replaced summarize_bulk_display_rows temporarily with the original row-wide `try/except ValueError: continue` aggregation. Three regression cases failed (unknown stock and independent movements; blank stock; malformed/nonfinite values), 1 passed; restored fix then all 4 tests passed."
+   }
   }
  ],
  "start_open": 1224,
@@ -845,18 +884,18 @@
  "arithmetic": {
   "register_open_at_p6_start": 1224,
   "defect_fixed_by_p6": 2,
-  "adjudicated_by_p6_batches": 1134,
-  "current_open": 88,
+  "adjudicated_by_p6_batches": 1179,
+  "current_open": 43,
   "check": true,
   "note": "every record is either OPEN or carries a terminal evidence-backed classification; the fixed sites are subtracted separately so nothing disappears"
  },
  "open_by_priority": {
-  "MEDIUM": 88
+  "MEDIUM": 43
  },
  "open_by_class": {
-  "E": 88
+  "E": 43
  },
- "generated_utc": "2026-09-29T10:04:47+00:00",
+ "generated_utc": "2026-09-29T10:10:06+00:00",
  "recovery_bundles": [
   {
    "file": "/home/user/recovery/drillmaster-115fc09.bundle",

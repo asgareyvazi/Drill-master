@@ -1134,21 +1134,26 @@ class FuelWaterTab(QWidget):
             self.bulk_table.removeRow(current_row)
         
     def calculate_bulk_totals(self):
-        totals = {'initial': 0.0, 'received': 0.0, 'used': 0.0, 'current': 0.0, 'count': self.bulk_table.rowCount()}
+        from core.bulk_material_semantics import summarize_bulk_display_rows
+
+        display_rows = []
         for row in range(self.bulk_table.rowCount()):
-            try:
-                totals['initial'] += float(self.bulk_table.item(row, 3).text() or 0)
-                totals['received'] += float(self.bulk_table.item(row, 4).text() or 0)
-                totals['used'] += float(self.bulk_table.item(row, 5).text() or 0)
-                totals['current'] += float(self.bulk_table.item(row, 6).text() or 0)
-            except ValueError:
-                continue
+            values = {}
+            for field, column in (("initial", 3), ("received", 4), ("used", 5), ("current", 6)):
+                item = self.bulk_table.item(row, column)
+                values[field] = item.text() if item is not None else None
+            display_rows.append(values)
+        totals = summarize_bulk_display_rows(display_rows)
+
+        def format_total(value):
+            return "NOT ASSESSED" if value is None else f"{value:,.1f}"
+
         msg = (f"<b>Bulk Materials Summary</b><br>"
                f"Total Items: {totals['count']}<br>"
-               f"Initial Stock: {totals['initial']:,.1f}<br>"
-               f"Received: {totals['received']:,.1f}<br>"
-               f"Used: {totals['used']:,.1f}<br>"
-               f"Current Stock: {totals['current']:,.1f}")
+               f"Initial Stock: {format_total(totals['initial'])}<br>"
+               f"Received: {format_total(totals['received'])}<br>"
+               f"Used: {format_total(totals['used'])}<br>"
+               f"Current Stock: {format_total(totals['current'])}")
         QMessageBox.information(self, "Summary", msg)
         
         

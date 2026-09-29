@@ -1,0 +1,1118 @@
+{
+ "schema": "m36-p6-batch",
+ "batch": "p6-batch-028",
+ "class": "phase-2 class G/H mixed review: Planning/Analysis widgets, procedure/reference/well/downhole/trajectory/logistics, nullable bulk inventory and chart summaries",
+ "records": 45,
+ "sites": 40,
+ "records_by_file": {
+  "tabs/w10_Planning_Widget.py": 10,
+  "tabs/w12_Analysis.py": 5,
+  "tabs/w14_Procedure_Widget.py": 8,
+  "tabs/w15_Reference_Tables.py": 1,
+  "tabs/w1_well_info.py": 2,
+  "tabs/w4_Downhole_Widget.py": 6,
+  "tabs/w6_Trajectory_Widget.py": 3,
+  "tabs/w7_logistics_Widget.py": 10
+ },
+ "by_classification": {
+  "INTENTIONAL": 36,
+  "VERIFIED-CORRECT": 4,
+  "DOMAIN_DECISION_REQUIRED": 2,
+  "GENUINE_DEFECT": 1,
+  "DUPLICATE/FALSE-POSITIVE": 2
+ },
+ "defects_fixed": [
+  {
+   "id": "NEW-P6-027",
+   "records": [
+    "INV34-006210"
+   ],
+   "file": "tabs/w7_logistics_Widget.py",
+   "site": "FuelWaterTab.calculate_bulk_totals -> core.bulk_material_semantics.summarize_bulk_display_rows",
+   "test": "tests/test_bulk_display_totals.py",
+   "summary": "The W7 summary previously skipped every field in a row when any displayed value was the unknown em dash, and rendered partial stock subtotals as complete. It now totals each column independently, propagates unknown stock to NOT ASSESSED, preserves known movements, treats blank movements as the documented no-movement zero, and keeps explicit zero."
+  }
+ ],
+ "new_findings": [],
+ "observations": [
+  {
+   "topic": "bulk inventory trichotomy and aggregation",
+   "summary": "BulkMaterials documents NULL opening/closing stock as unknown, explicit 0.0 as reported zero, and absent received/used movement as 0.0. DatabaseManager.calculate_bulk_totals uses complete_total so any missing amount makes that column unknown; the W7 display summary now follows the same independent per-column completeness contract."
+  },
+  {
+   "topic": "Planning and analysis scope",
+   "summary": "Planning loaders clear view data before no-context returns and use current well/section/report IDs explicitly. The code catalog/management paths do not invent a report scope from global selection."
+  },
+  {
+   "topic": "UI optionality and review",
+   "summary": "Missing widgets are not treated as completion; invalid survey/service values stay unassessed/reviewable; optional pandas and DB boundaries do not synthesize persisted values."
+  }
+ ],
+ "sibling_search": [
+  {
+   "family": "nullable inventory totals",
+   "result": "Cross-checked BulkMaterials comments, tests/test_m31_scenarios.py unknown-stock total assertions, DatabaseManager.calculate_bulk_totals and core.cost_semantics.complete_total. `_stock_value` maps only its explicit unknown sentinel to None and preserves 0.0; the display aggregator was the isolated row-wide exception."
+  },
+  {
+   "family": "W12 chart backend fallback",
+   "result": "W12 Analysis has the same Qt/Agg canvas fallback/Qt-layout mismatch as W10 Planning recorded in NEW-P6-026 (batch 027); it is linked rather than duplicated. GUI execution remains blocked by libGL.so.1."
+  },
+  {
+   "family": "field validators and imports",
+   "result": "Bit ROP/depth requires finite nonnegative numbers; trajectory optional parser preserves None and explicit zero; equipment invalid service dates enter review rather than being treated overdue/current."
+  }
+ ],
+ "tests": {
+  "passed": [
+   "68 passed: tests/test_bulk_display_totals.py tests/test_bulk_validator_zero.py tests/test_inventory_zero_semantics.py tests/test_mud_ledger_unknown_stock_history.py tests/test_fuel_water_truth.py tests/test_inventory_item_authority.py.",
+   "1 passed: tests/test_m31_scenarios.py::test_stock_and_request_totals_are_unknown_when_a_quantity_is_unrecorded (database canonical-total contract).",
+   "9 passed: tests/test_w7_null_zero_semantics.py."
+  ],
+  "environment_blocked": [
+   "Two Qt subprocess UI tests failed before assertions because PySide6 cannot load missing libGL.so.1: tests/test_bulk_stock_three_state_smoke.py::test_w7_bulk_stock_three_state_in_subprocess and tests/test_w7_null_zero_ui_smoke.py::test_w7_null_zero_ui_smoke_in_subprocess. No GUI display/persistence integration test is claimed in this batch."
+  ],
+  "mutation": "Replaced summarize_bulk_display_rows temporarily with the original row-wide `try/except ValueError: continue` aggregation. Three regression cases failed (unknown stock and independent movements; blank stock; malformed/nonfinite values), 1 passed; restored fix then all 4 tests passed."
+ },
+ "head": "aae13dc",
+ "commit": null,
+ "evidence_commit": null,
+ "evidence_files": [
+  "tabs/w7_logistics_Widget.py",
+  "core/bulk_material_semantics.py",
+  "tests/test_bulk_display_totals.py",
+  "tools/m36/p6_batch_028.py",
+  "docs/audits/m36-evidence/p6-batch-028.json"
+ ],
+ "staleness": {
+  "checked": 45,
+  "stale": 3,
+  "re_anchored": 3,
+  "method": "All recorded file hashes, lines, symbols and fingerprints were verified against current or fd18 provenance trees. Three changed/stale sites were mapped: two prior W7 guard lines and the fixed bulk-summary site. Four original context fingerprints are not reproducible without the unavailable M34 ledger; their source hash/line/symbol anchors were verified.",
+  "re_anchored_items": [
+   {
+    "id": "INV34-006134",
+    "file": "tabs/w7_logistics_Widget.py",
+    "previous_site": "tabs/w7_logistics_Widget.py:979",
+    "current_site": "tabs/w7_logistics_Widget.py:997",
+    "tree": "provenance tree = fd18a2bca5b849356c50f9da19c278ecdd8f9967 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+    "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+    "context_fingerprint": "a5d6f4b2fda8755b39cebbf444dcac05c28ff4b12db4a3bed70cbac9e232c5fd",
+    "reason": "Exact source tree/hash and recorded fingerprint were checked; current expression mapped in the same method."
+   },
+   {
+    "id": "INV34-008441",
+    "file": "tabs/w7_logistics_Widget.py",
+    "previous_site": "tabs/w7_logistics_Widget.py:979",
+    "current_site": "tabs/w7_logistics_Widget.py:997",
+    "tree": "provenance tree = fd18a2bca5b849356c50f9da19c278ecdd8f9967 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+    "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+    "context_fingerprint": "24b6b3a96eba6b04fbc22d6f30802c71f0e8c6155c4aa382c3c0a325949f32b6",
+    "reason": "Exact source tree/hash and recorded fingerprint were checked; current expression mapped in the same method."
+   },
+   {
+    "id": "INV34-006210",
+    "file": "tabs/w7_logistics_Widget.py",
+    "previous_site": "tabs/w7_logistics_Widget.py:1122",
+    "previous_source_line": "except ValueError:",
+    "current_site": "tabs/w7_logistics_Widget.py:1146",
+    "current_source_line": "totals = summarize_bulk_display_rows(display_rows)",
+    "tree": "provenance tree = fd18a2bca5b849356c50f9da19c278ecdd8f9967 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+    "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+    "context_fingerprint": "3641de90973389e727cae715093d887c1b83286c3c6699ffa24d90c1662fe6fa",
+    "fingerprint_proof": [
+     "short",
+     "ast-segment"
+    ],
+    "reason": "Original exception/hash/fingerprint verified in fd18 tree; the unsafe row-wide skip was replaced by a per-column unknown-aware helper and current call is mapped within the same UI method."
+   }
+  ],
+  "provenance_trees": {
+   "tabs/w10_Planning_Widget.py": "current tree: sha256(file) == the record's source_sha256",
+   "tabs/w12_Analysis.py": "current tree: sha256(file) == the record's source_sha256",
+   "tabs/w14_Procedure_Widget.py": "current tree: sha256(file) == the record's source_sha256",
+   "tabs/w15_Reference_Tables.py": "current tree: sha256(file) == the record's source_sha256",
+   "tabs/w1_well_info.py": "current tree: sha256(file) == the record's source_sha256",
+   "tabs/w4_Downhole_Widget.py": "current tree: sha256(file) == the record's source_sha256",
+   "tabs/w6_Trajectory_Widget.py": "current tree: sha256(file) == the record's source_sha256",
+   "tabs/w7_logistics_Widget.py": "provenance tree = fd18a2bca5b849356c50f9da19c278ecdd8f9967 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)"
+  },
+  "m34_fingerprint_ledger": {
+   "manifest": "docs/audits/m34-evidence/M34_INVENTORY_LEDGER.json",
+   "expected_path": "docs/audits/m34-evidence/m34-ledger.json",
+   "expected_sha256": "d81a77bda0330c75493f4081c4a02e4d106fe7602e49c14f0c67d12977658a6b",
+   "expected_bytes": 11394989,
+   "present_in_workspace": false,
+   "effect": "Four fingerprints in W12/W1/W4 import fallback sites did not reproduce ledger-free. Exact file hash and site/symbol evidence is retained and no pattern is fabricated."
+  },
+  "fingerprint_proof": {
+   "checked": 45,
+   "verified": 41,
+   "records_without_a_reproducible_fingerprint": [],
+   "records_without_a_reproducing_fingerprint_but_hash_anchored": [
+    "INV34-004589",
+    "INV34-004591",
+    "INV34-005180",
+    "INV34-005829"
+   ],
+   "symbol_forms_that_reproduced": {
+    "short": 40,
+    "MISMATCH": 4
+   },
+   "expression_forms_that_reproduced": {
+    "ast-segment": 23,
+    "recorded-line": 17
+   },
+   "method": "ledger-free: recorded-line + AST-segment expression forms (the 11 MB M34 ledger is not tracked in the repository); changed bulk summary was separately proven in original tree and re-anchored to its current helper call"
+  }
+ },
+ "method": "Trace source through selection, UI/load/save and persistence contracts; maintain SQL NULL/unknown versus explicit zero and established blank movement semantics; use complete totals rather than partial subtotals; classify Qt/backend limitations explicitly.",
+ "items": [
+  {
+   "id": "INV34-004287",
+   "file": "tabs/w10_Planning_Widget.py",
+   "line": 2728,
+   "symbol": "PlanningWidget.on_well_combo_changed",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "well_data = self.db.get_well_by_id(well_id) if self.db else None",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source tabs/w10_Planning_Widget.py:2728 `well_data = self.db.get_well_by_id(well_id) if self.db else None`; source_sha256=924ad3e30d57d7cffa2868aa7dcb9595455c56d0ac052f4362c1575b2fe807c3; context_fingerprint=a9d801ef0759dba779151154d3bbddb1591fc54f3b1cb4f248242584ee65e599. The selected well ID is the combo-box identity; lookup data is optional display context. A missing record maps to an empty presentation mapping without substituting a different well ID.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w10_Planning_Widget.py",
+    "line": 2728,
+    "symbol": "PlanningWidget.on_well_combo_changed",
+    "expression": "well_data = self.db.get_well_by_id(well_id) if self.db else None",
+    "source_sha256": "924ad3e30d57d7cffa2868aa7dcb9595455c56d0ac052f4362c1575b2fe807c3",
+    "context_fingerprint": "a9d801ef0759dba779151154d3bbddb1591fc54f3b1cb4f248242584ee65e599"
+   }
+  },
+  {
+   "id": "INV34-004290",
+   "file": "tabs/w10_Planning_Widget.py",
+   "line": 2687,
+   "symbol": "PlanningWidget.populate_wells",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if self.db:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source tabs/w10_Planning_Widget.py:2687 `if self.db:`; source_sha256=924ad3e30d57d7cffa2868aa7dcb9595455c56d0ac052f4362c1575b2fe807c3; context_fingerprint=9ddbbd03e9dfe38358eedfe7fb58f7265e26ea29091cc2032f6a29a3626d6145. Well-list population is conditional on an available database object; without a repository the widget does not query or fabricate a well list.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w10_Planning_Widget.py",
+    "line": 2687,
+    "symbol": "PlanningWidget.populate_wells",
+    "expression": "if self.db:",
+    "source_sha256": "924ad3e30d57d7cffa2868aa7dcb9595455c56d0ac052f4362c1575b2fe807c3",
+    "context_fingerprint": "9ddbbd03e9dfe38358eedfe7fb58f7265e26ea29091cc2032f6a29a3626d6145"
+   }
+  },
+  {
+   "id": "INV34-004293",
+   "file": "tabs/w10_Planning_Widget.py",
+   "line": 2843,
+   "symbol": "PlanningWidget.show_no_data_message",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if widget:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source tabs/w10_Planning_Widget.py:2843 `if widget:`; source_sha256=924ad3e30d57d7cffa2868aa7dcb9595455c56d0ac052f4362c1575b2fe807c3; context_fingerprint=72d40fcb548dc2645e30cf3cb32925e3a826a3adbc445f2d2234f6d650f2e4bc. The target chart widget is optional; the function checks it before modifying or replacing its layout.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w10_Planning_Widget.py",
+    "line": 2843,
+    "symbol": "PlanningWidget.show_no_data_message",
+    "expression": "if widget:",
+    "source_sha256": "924ad3e30d57d7cffa2868aa7dcb9595455c56d0ac052f4362c1575b2fe807c3",
+    "context_fingerprint": "72d40fcb548dc2645e30cf3cb32925e3a826a3adbc445f2d2234f6d650f2e4bc"
+   }
+  },
+  {
+   "id": "INV34-004318",
+   "file": "tabs/w10_Planning_Widget.py",
+   "line": 1905,
+   "symbol": "DrillingParamsTab.load_data",
+   "rule": "R-EXC-CONTINUE",
+   "kind": "typed-exception",
+   "register_line_text": "except (TypeError, ValueError):",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source tabs/w10_Planning_Widget.py:1905 `except (TypeError, ValueError):`; source_sha256=924ad3e30d57d7cffa2868aa7dcb9595455c56d0ac052f4362c1575b2fe807c3; context_fingerprint=1f54738787897780675a3a79a27a7ef3838e7dee4d1ea80350558e0ceab739dd. Bit-record depth and ROP parsing skips only malformed/non-numeric rows. The accepted values are separately required to be finite and nonnegative; explicit numeric zero remains a valid value.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w10_Planning_Widget.py",
+    "line": 1905,
+    "symbol": "DrillingParamsTab.load_data",
+    "expression": "except (TypeError, ValueError):",
+    "source_sha256": "924ad3e30d57d7cffa2868aa7dcb9595455c56d0ac052f4362c1575b2fe807c3",
+    "context_fingerprint": "1f54738787897780675a3a79a27a7ef3838e7dee4d1ea80350558e0ceab739dd"
+   }
+  },
+  {
+   "id": "INV34-004319",
+   "file": "tabs/w10_Planning_Widget.py",
+   "line": 1937,
+   "symbol": "DrillingParamsTab.load_data.get_float_value",
+   "rule": "R-EXC-CONTINUE",
+   "kind": "typed-exception",
+   "register_line_text": "except (TypeError, ValueError):",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source tabs/w10_Planning_Widget.py:1937 `except (TypeError, ValueError):`; source_sha256=924ad3e30d57d7cffa2868aa7dcb9595455c56d0ac052f4362c1575b2fe807c3; context_fingerprint=3c9308411cacb5280aea7e91cf975c9593cbf96965d9a6238fc8fd0bac1b7f14. Alias parsing advances to the next named field on a type/value conversion failure and yields None only when no valid finite alias exists. It does not assign zero for missing input.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w10_Planning_Widget.py",
+    "line": 1937,
+    "symbol": "DrillingParamsTab.load_data.get_float_value",
+    "expression": "except (TypeError, ValueError):",
+    "source_sha256": "924ad3e30d57d7cffa2868aa7dcb9595455c56d0ac052f4362c1575b2fe807c3",
+    "context_fingerprint": "3c9308411cacb5280aea7e91cf975c9593cbf96965d9a6238fc8fd0bac1b7f14"
+   }
+  },
+  {
+   "id": "INV34-004525",
+   "file": "tabs/w12_Analysis.py",
+   "line": 507,
+   "symbol": "AnalysisWidget.create_kpi_card_modern",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "card.trend_label = trend_label if trend else None",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source tabs/w12_Analysis.py:507 `card.trend_label = trend_label if trend else None`; source_sha256=4935eb8b49d13bf8aa39851cfdfa3ee58561a37a5514ba3e50d52ec28517bbbe; context_fingerprint=5275b1f0f0bfeb9fccd0bdccdea1c73a69c9047e23354770a15c7e17511b7b67. Trend text is optional presentation metadata. A missing trend sets the card's trend_label attribute to None without changing its numeric KPI value.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w12_Analysis.py",
+    "line": 507,
+    "symbol": "AnalysisWidget.create_kpi_card_modern",
+    "expression": "card.trend_label = trend_label if trend else None",
+    "source_sha256": "4935eb8b49d13bf8aa39851cfdfa3ee58561a37a5514ba3e50d52ec28517bbbe",
+    "context_fingerprint": "5275b1f0f0bfeb9fccd0bdccdea1c73a69c9047e23354770a15c7e17511b7b67"
+   }
+  },
+  {
+   "id": "INV34-004589",
+   "file": "tabs/w12_Analysis.py",
+   "line": 41,
+   "symbol": null,
+   "rule": "R-EXC-OTHER",
+   "kind": "typed-exception",
+   "register_line_text": "except ImportError:",
+   "classification": "DOMAIN_DECISION_REQUIRED",
+   "evidence": "Hash-anchored source tabs/w12_Analysis.py:41 `except ImportError:`; source_sha256=4935eb8b49d13bf8aa39851cfdfa3ee58561a37a5514ba3e50d52ec28517bbbe; context_fingerprint=95bd6e21e0f8f4b26b89f98456e376b73e41ce4dc1e9cf8618fc599c49555f58. This is the second optional Matplotlib fallback branch in W12 Analysis. The UI canvas may be Agg/None while consumers pass it to Qt layouts; chart errors are caught and logged. It is the same unresolved chart-availability policy as NEW-P6-026 from batch 027, not a new independent engineering defect.",
+   "defect": false,
+   "remaining_question": "Chart availability policy under missing Matplotlib Qt backend; linked to NEW-P6-026 from batch 027",
+   "site": {
+    "file": "tabs/w12_Analysis.py",
+    "line": 41,
+    "symbol": null,
+    "expression": "except ImportError:",
+    "source_sha256": "4935eb8b49d13bf8aa39851cfdfa3ee58561a37a5514ba3e50d52ec28517bbbe",
+    "context_fingerprint": "95bd6e21e0f8f4b26b89f98456e376b73e41ce4dc1e9cf8618fc599c49555f58"
+   }
+  },
+  {
+   "id": "INV34-004591",
+   "file": "tabs/w12_Analysis.py",
+   "line": 37,
+   "symbol": null,
+   "rule": "R-EXC-OTHER",
+   "kind": "typed-exception",
+   "register_line_text": "except ImportError:",
+   "classification": "DOMAIN_DECISION_REQUIRED",
+   "evidence": "Hash-anchored source tabs/w12_Analysis.py:37 `except ImportError:`; source_sha256=4935eb8b49d13bf8aa39851cfdfa3ee58561a37a5514ba3e50d52ec28517bbbe; context_fingerprint=c8b58208f8b528dad15affb3879431ce54a43c568859f9fc0c46249f698702d2. Optional Qt canvas import failure selects the Agg fallback; W12 passes the resulting canvas to Qt layout consumers (see _draw_milestones_chart). The chart-availability question is already recorded as NEW-P6-026 in batch 027; no chart or measurement value is persisted by this fallback.",
+   "defect": false,
+   "remaining_question": "Chart availability policy under missing Matplotlib Qt backend; linked to NEW-P6-026 from batch 027",
+   "site": {
+    "file": "tabs/w12_Analysis.py",
+    "line": 37,
+    "symbol": null,
+    "expression": "except ImportError:",
+    "source_sha256": "4935eb8b49d13bf8aa39851cfdfa3ee58561a37a5514ba3e50d52ec28517bbbe",
+    "context_fingerprint": "c8b58208f8b528dad15affb3879431ce54a43c568859f9fc0c46249f698702d2"
+   }
+  },
+  {
+   "id": "INV34-004994",
+   "file": "tabs/w14_Procedure_Widget.py",
+   "line": 1074,
+   "symbol": "ProcedureEditorPage.check_all_items",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if cb:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source tabs/w14_Procedure_Widget.py:1074 `if cb:`; source_sha256=c9f3a11e00d06f2e97a4649276e0bcff86c7a2d63fb77c832da2db1443e0473a; context_fingerprint=5f296d4e108a63cf370fb4fbd41efdb851c78e97980294afbe0cccb1b19db7b5. Checklist cell-widget lookup may return None for a removed/malformed row; skipping a missing checkbox prevents a crash and never marks the missing item complete.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w14_Procedure_Widget.py",
+    "line": 1074,
+    "symbol": "ProcedureEditorPage.check_all_items",
+    "expression": "if cb:",
+    "source_sha256": "c9f3a11e00d06f2e97a4649276e0bcff86c7a2d63fb77c832da2db1443e0473a",
+    "context_fingerprint": "5f296d4e108a63cf370fb4fbd41efdb851c78e97980294afbe0cccb1b19db7b5"
+   }
+  },
+  {
+   "id": "INV34-005006",
+   "file": "tabs/w14_Procedure_Widget.py",
+   "line": 1351,
+   "symbol": "ProcedureEditorPage.refresh_preview",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "is_checked = cb.isChecked() if cb else False",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source tabs/w14_Procedure_Widget.py:1351 `is_checked = cb.isChecked() if cb else False`; source_sha256=c9f3a11e00d06f2e97a4649276e0bcff86c7a2d63fb77c832da2db1443e0473a; context_fingerprint=58157cc2c5049859dad4d40823988ad1ae79b08f4e06f37f3d15522daa0ac9c2. Preview reads completion state only when a checkbox exists; a missing checkbox is represented as unchecked, which is the safe non-complete state.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w14_Procedure_Widget.py",
+    "line": 1351,
+    "symbol": "ProcedureEditorPage.refresh_preview",
+    "expression": "is_checked = cb.isChecked() if cb else False",
+    "source_sha256": "c9f3a11e00d06f2e97a4649276e0bcff86c7a2d63fb77c832da2db1443e0473a",
+    "context_fingerprint": "58157cc2c5049859dad4d40823988ad1ae79b08f4e06f37f3d15522daa0ac9c2"
+   }
+  },
+  {
+   "id": "INV34-005007",
+   "file": "tabs/w14_Procedure_Widget.py",
+   "line": 1396,
+   "symbol": "ProcedureEditorPage.refresh_preview",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "is_done = cb.isChecked() if cb else False",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source tabs/w14_Procedure_Widget.py:1396 `is_done = cb.isChecked() if cb else False`; source_sha256=c9f3a11e00d06f2e97a4649276e0bcff86c7a2d63fb77c832da2db1443e0473a; context_fingerprint=58157cc2c5049859dad4d40823988ad1ae79b08f4e06f37f3d15522daa0ac9c2. Step completion defaults to false when the optional checkbox widget is absent; missing UI state cannot report an operation as done.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w14_Procedure_Widget.py",
+    "line": 1396,
+    "symbol": "ProcedureEditorPage.refresh_preview",
+    "expression": "is_done = cb.isChecked() if cb else False",
+    "source_sha256": "c9f3a11e00d06f2e97a4649276e0bcff86c7a2d63fb77c832da2db1443e0473a",
+    "context_fingerprint": "58157cc2c5049859dad4d40823988ad1ae79b08f4e06f37f3d15522daa0ac9c2"
+   }
+  },
+  {
+   "id": "INV34-005016",
+   "file": "tabs/w14_Procedure_Widget.py",
+   "line": 1364,
+   "symbol": "ProcedureEditorPage.refresh_preview",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "is_na = na_cb.isChecked() if na_cb else False",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source tabs/w14_Procedure_Widget.py:1364 `is_na = na_cb.isChecked() if na_cb else False`; source_sha256=c9f3a11e00d06f2e97a4649276e0bcff86c7a2d63fb77c832da2db1443e0473a; context_fingerprint=53ed5c03fe3db938688214493d686683a2e0aa33156349b6a7915e364fb00ad6. The optional N/A checkbox is false when no widget is present; the rendered preview does not claim a missing item was assessed as N/A.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w14_Procedure_Widget.py",
+    "line": 1364,
+    "symbol": "ProcedureEditorPage.refresh_preview",
+    "expression": "is_na = na_cb.isChecked() if na_cb else False",
+    "source_sha256": "c9f3a11e00d06f2e97a4649276e0bcff86c7a2d63fb77c832da2db1443e0473a",
+    "context_fingerprint": "53ed5c03fe3db938688214493d686683a2e0aa33156349b6a7915e364fb00ad6"
+   }
+  },
+  {
+   "id": "INV34-005022",
+   "file": "tabs/w14_Procedure_Widget.py",
+   "line": 1392,
+   "symbol": "ProcedureEditorPage.refresh_preview",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "step_num = step_num_item.text() if step_num_item else str(row + 1)",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source tabs/w14_Procedure_Widget.py:1392 `step_num = step_num_item.text() if step_num_item else str(row + 1)`; source_sha256=c9f3a11e00d06f2e97a4649276e0bcff86c7a2d63fb77c832da2db1443e0473a; context_fingerprint=939a062f3dc8b336d34f9ad33ab6f499bbfd60aa6f6b639a38c03ca1d757d043. A missing step-number cell uses the deterministic display row ordinal; persisted procedure content and actual checklist completion are unchanged.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w14_Procedure_Widget.py",
+    "line": 1392,
+    "symbol": "ProcedureEditorPage.refresh_preview",
+    "expression": "step_num = step_num_item.text() if step_num_item else str(row + 1)",
+    "source_sha256": "c9f3a11e00d06f2e97a4649276e0bcff86c7a2d63fb77c832da2db1443e0473a",
+    "context_fingerprint": "939a062f3dc8b336d34f9ad33ab6f499bbfd60aa6f6b639a38c03ca1d757d043"
+   }
+  },
+  {
+   "id": "INV34-005028",
+   "file": "tabs/w14_Procedure_Widget.py",
+   "line": 1082,
+   "symbol": "ProcedureEditorPage.uncheck_all_items",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if cb:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source tabs/w14_Procedure_Widget.py:1082 `if cb:`; source_sha256=c9f3a11e00d06f2e97a4649276e0bcff86c7a2d63fb77c832da2db1443e0473a; context_fingerprint=bcc8db128e538c5bdd90239f8d4548521b36f5e0e6f277390cfbbedeccc9df1b. The uncheck-all command safely skips rows without a checkbox; it does not infer a checked or completed value.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w14_Procedure_Widget.py",
+    "line": 1082,
+    "symbol": "ProcedureEditorPage.uncheck_all_items",
+    "expression": "if cb:",
+    "source_sha256": "c9f3a11e00d06f2e97a4649276e0bcff86c7a2d63fb77c832da2db1443e0473a",
+    "context_fingerprint": "bcc8db128e538c5bdd90239f8d4548521b36f5e0e6f277390cfbbedeccc9df1b"
+   }
+  },
+  {
+   "id": "INV34-005049",
+   "file": "tabs/w14_Procedure_Widget.py",
+   "line": 1562,
+   "symbol": "TemplateSelectionDialog.load_templates",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not self.db:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source tabs/w14_Procedure_Widget.py:1562 `if not self.db:`; source_sha256=c9f3a11e00d06f2e97a4649276e0bcff86c7a2d63fb77c832da2db1443e0473a; context_fingerprint=4bbacb9b916d7a0f1f4de2cb4b27a3fb52f03f925f4c681ac6c9870a32177710. Procedure-template loading is guarded by the optional database dependency; without it, the dialog remains open with no templates and performs no persistence.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w14_Procedure_Widget.py",
+    "line": 1562,
+    "symbol": "TemplateSelectionDialog.load_templates",
+    "expression": "if not self.db:",
+    "source_sha256": "c9f3a11e00d06f2e97a4649276e0bcff86c7a2d63fb77c832da2db1443e0473a",
+    "context_fingerprint": "4bbacb9b916d7a0f1f4de2cb4b27a3fb52f03f925f4c681ac6c9870a32177710"
+   }
+  },
+  {
+   "id": "INV34-005069",
+   "file": "tabs/w15_Reference_Tables.py",
+   "line": 397,
+   "symbol": "ReferenceTablesWidget._dp_catalog_show_details",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "fp = fp_item.data(Qt.UserRole) if fp_item else None",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source tabs/w15_Reference_Tables.py:397 `fp = fp_item.data(Qt.UserRole) if fp_item else None`; source_sha256=28bbcb99abf0b0b47a5cac10256aafe72d8f104fac3b382175bca2a6abc2b239; context_fingerprint=f2adb20de08d93ffd46d2b4aad07e62d1244286791e17c5f383a4987922de368. The selected reference-table item may not exist; the detail action returns no optional provenance pointer rather than selecting another row.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w15_Reference_Tables.py",
+    "line": 397,
+    "symbol": "ReferenceTablesWidget._dp_catalog_show_details",
+    "expression": "fp = fp_item.data(Qt.UserRole) if fp_item else None",
+    "source_sha256": "28bbcb99abf0b0b47a5cac10256aafe72d8f104fac3b382175bca2a6abc2b239",
+    "context_fingerprint": "f2adb20de08d93ffd46d2b4aad07e62d1244286791e17c5f383a4987922de368"
+   }
+  },
+  {
+   "id": "INV34-005104",
+   "file": "tabs/w1_well_info.py",
+   "line": 621,
+   "symbol": "WellInfoTab.load_data",
+   "rule": "R-EXC-CONTINUE",
+   "kind": "broad-exception",
+   "register_line_text": "except Exception:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source tabs/w1_well_info.py:621 `except Exception:`; source_sha256=8533c3cd2141d945e890e1cbde7aa3a55db518c638f7e6d8090657ef071cbdeb; context_fingerprint=ba1fbffa6d66163b2632a678077d893a3b3ce89631c02c7138b8555f4a5a1d95. Malformed well date text is caught at the UI parse boundary. Untouched source values are retained by form edit tracking on save, while a parseable user edit is explicit; the display fallback does not itself persist a current date.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w1_well_info.py",
+    "line": 621,
+    "symbol": "WellInfoTab.load_data",
+    "expression": "except Exception:",
+    "source_sha256": "8533c3cd2141d945e890e1cbde7aa3a55db518c638f7e6d8090657ef071cbdeb",
+    "context_fingerprint": "ba1fbffa6d66163b2632a678077d893a3b3ce89631c02c7138b8555f4a5a1d95"
+   }
+  },
+  {
+   "id": "INV34-005180",
+   "file": "tabs/w1_well_info.py",
+   "line": 14,
+   "symbol": null,
+   "rule": "R-EXC-OTHER",
+   "kind": "typed-exception",
+   "register_line_text": "except ImportError:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source tabs/w1_well_info.py:14 `except ImportError:`; source_sha256=8533c3cd2141d945e890e1cbde7aa3a55db518c638f7e6d8090657ef071cbdeb; context_fingerprint=cb6abcfa92af8880b78e30f54cfe5482b29f0928f34a72aade62c7f862157dd2. `ui.utils` is an optional styling/message helper. The local fallback constructs ordinary Qt controls and explicit success/error message boxes; it does not suppress a database or validation failure.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w1_well_info.py",
+    "line": 14,
+    "symbol": null,
+    "expression": "except ImportError:",
+    "source_sha256": "8533c3cd2141d945e890e1cbde7aa3a55db518c638f7e6d8090657ef071cbdeb",
+    "context_fingerprint": "cb6abcfa92af8880b78e30f54cfe5482b29f0928f34a72aade62c7f862157dd2"
+   }
+  },
+  {
+   "id": "INV34-005792",
+   "file": "tabs/w4_Downhole_Widget.py",
+   "line": 397,
+   "symbol": "DownholeWidget._set_bha_read_only",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "self.bha_table.setEditTriggers(QAbstractItemView.NoEditTriggers if read_only else",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source tabs/w4_Downhole_Widget.py:397 `self.bha_table.setEditTriggers(QAbstractItemView.NoEditTriggers if read_only else`; source_sha256=923d9786b5e04fb5ff6ce0b5c859ab5024453a32fbc857fbb54f25eef2537923; context_fingerprint=f8dfec6c311161e591136a16d15f66c40b34f6ab39e28b5eefd3f488e24e2e32. The read-only parameter is an explicit editor mode. It chooses `NoEditTriggers` when true and interactive triggers when false; table content and values are unchanged.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w4_Downhole_Widget.py",
+    "line": 397,
+    "symbol": "DownholeWidget._set_bha_read_only",
+    "expression": "self.bha_table.setEditTriggers(QAbstractItemView.NoEditTriggers if read_only else",
+    "source_sha256": "923d9786b5e04fb5ff6ce0b5c859ab5024453a32fbc857fbb54f25eef2537923",
+    "context_fingerprint": "f8dfec6c311161e591136a16d15f66c40b34f6ab39e28b5eefd3f488e24e2e32"
+   }
+  },
+  {
+   "id": "INV34-005829",
+   "file": "tabs/w4_Downhole_Widget.py",
+   "line": 12,
+   "symbol": null,
+   "rule": "R-EXC-OTHER",
+   "kind": "typed-exception",
+   "register_line_text": "except ImportError:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source tabs/w4_Downhole_Widget.py:12 `except ImportError:`; source_sha256=923d9786b5e04fb5ff6ce0b5c859ab5024453a32fbc857fbb54f25eef2537923; context_fingerprint=cc458a9b8b9d30a17e2446e00c2e3fa8d952a873f77629dd03a35decd55b9265. Pandas is optional for the downhole UI; absence is recorded in `PANDAS_AVAILABLE` and the widget can use its native table path without coercing equipment values.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w4_Downhole_Widget.py",
+    "line": 12,
+    "symbol": null,
+    "expression": "except ImportError:",
+    "source_sha256": "923d9786b5e04fb5ff6ce0b5c859ab5024453a32fbc857fbb54f25eef2537923",
+    "context_fingerprint": "cc458a9b8b9d30a17e2446e00c2e3fa8d952a873f77629dd03a35decd55b9265"
+   }
+  },
+  {
+   "id": "INV34-005830",
+   "file": "tabs/w4_Downhole_Widget.py",
+   "line": 770,
+   "symbol": "DownholeEquipmentManager.check_service_due",
+   "rule": "R-EXC-OTHER",
+   "kind": "typed-exception",
+   "register_line_text": "except ValueError:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source tabs/w4_Downhole_Widget.py:770 `except ValueError:`; source_sha256=923d9786b5e04fb5ff6ce0b5c859ab5024453a32fbc857fbb54f25eef2537923; context_fingerprint=a10f201192eb1d1fcfe06f8f022289004b6df4760a74211615c7395ad84a8ef6. The shared optional_date parser raises ValueError for malformed dates; the service checker moves that equipment row to `service_review` rather than calling it current or overdue.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w4_Downhole_Widget.py",
+    "line": 770,
+    "symbol": "DownholeEquipmentManager.check_service_due",
+    "expression": "except ValueError:",
+    "source_sha256": "923d9786b5e04fb5ff6ce0b5c859ab5024453a32fbc857fbb54f25eef2537923",
+    "context_fingerprint": "a10f201192eb1d1fcfe06f8f022289004b6df4760a74211615c7395ad84a8ef6"
+   }
+  },
+  {
+   "id": "INV34-005967",
+   "file": "tabs/w6_Trajectory_Widget.py",
+   "line": 762,
+   "symbol": "TrajectoryWidget.load_wells",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if self.db:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source tabs/w6_Trajectory_Widget.py:762 `if self.db:`; source_sha256=068546ebd1fffde7dd1def78366cff89969d6d1a9531b852a42b432150623327; context_fingerprint=d30db9fc26f00633106b5c58a273a2e3c462ef46a739861ba89f62a084bce7b1. Trajectory well loading is conditional on a configured database manager; absent DB means no query and no synthetic well identity.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w6_Trajectory_Widget.py",
+    "line": 762,
+    "symbol": "TrajectoryWidget.load_wells",
+    "expression": "if self.db:",
+    "source_sha256": "068546ebd1fffde7dd1def78366cff89969d6d1a9531b852a42b432150623327",
+    "context_fingerprint": "d30db9fc26f00633106b5c58a273a2e3c462ef46a739861ba89f62a084bce7b1"
+   }
+  },
+  {
+   "id": "INV34-005989",
+   "file": "tabs/w6_Trajectory_Widget.py",
+   "line": 858,
+   "symbol": "TrajectoryWidget.get_survey_data",
+   "rule": "R-EXC-OTHER",
+   "kind": "typed-exception",
+   "register_line_text": "except ValueError:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source tabs/w6_Trajectory_Widget.py:858 `except ValueError:`; source_sha256=068546ebd1fffde7dd1def78366cff89969d6d1a9531b852a42b432150623327; context_fingerprint=5687f7d531991704ccc806bc01cc4161ad9af78074f622a1585d991c04a02a60. Repository search found no in-repository caller of this legacy get_survey_data adapter. On a bad optional cell it retains the original text for review rather than silently converting it to 0; active SurveyDataTab persistence uses its separate nullable parser.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w6_Trajectory_Widget.py",
+    "line": 858,
+    "symbol": "TrajectoryWidget.get_survey_data",
+    "expression": "except ValueError:",
+    "source_sha256": "068546ebd1fffde7dd1def78366cff89969d6d1a9531b852a42b432150623327",
+    "context_fingerprint": "5687f7d531991704ccc806bc01cc4161ad9af78074f622a1585d991c04a02a60"
+   }
+  },
+  {
+   "id": "INV34-006134",
+   "file": "tabs/w7_logistics_Widget.py",
+   "line": 979,
+   "symbol": "FuelWaterTab.load_fuel_water_from_db",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not self.db:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source tabs/w7_logistics_Widget.py:979 `if not self.db:`; source_sha256=c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71; context_fingerprint=a5d6f4b2fda8755b39cebbf444dcac05c28ff4b12db4a3bed70cbac9e232c5fd. This guard distinguishes no selected well/no database from an active query. For a real well change, the loader clears current fuel/water controls before applying returned rows; absent records reset unknown stock and zero movement under the established field contract.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w7_logistics_Widget.py",
+    "line": 979,
+    "symbol": "FuelWaterTab.load_fuel_water_from_db",
+    "expression": "if not self.db:",
+    "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+    "context_fingerprint": "a5d6f4b2fda8755b39cebbf444dcac05c28ff4b12db4a3bed70cbac9e232c5fd"
+   }
+  },
+  {
+   "id": "INV34-006171",
+   "file": "tabs/w7_logistics_Widget.py",
+   "line": 427,
+   "symbol": "PersonnelLogisticsTab.load_crew_data",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not self.db:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source tabs/w7_logistics_Widget.py:427 `if not self.db:`; source_sha256=c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71; context_fingerprint=2d8c9a14696143f09156fa12e8b2085963b849d91dab9165a6ae4060969e3447. The personnel loader returns without querying when there is no well/database. With an active well it clears rows before loading; a database absence does not create personnel count zero or a persisted row.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w7_logistics_Widget.py",
+    "line": 427,
+    "symbol": "PersonnelLogisticsTab.load_crew_data",
+    "expression": "if not self.db:",
+    "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+    "context_fingerprint": "2d8c9a14696143f09156fa12e8b2085963b849d91dab9165a6ae4060969e3447"
+   }
+  },
+  {
+   "id": "INV34-006173",
+   "file": "tabs/w7_logistics_Widget.py",
+   "line": 513,
+   "symbol": "PersonnelLogisticsTab.load_notes_data",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not self.db:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source tabs/w7_logistics_Widget.py:513 `if not self.db:`; source_sha256=c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71; context_fingerprint=3f4b07c0c0780c24131215ab4ccd2a6307c81355f7814060bf7a116c1c7068e9. The transport-note loader requires an explicit well and database. Its successful empty-result branch clears the note fields and loaded ID; it does not present prior notes as a successful empty result.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w7_logistics_Widget.py",
+    "line": 513,
+    "symbol": "PersonnelLogisticsTab.load_notes_data",
+    "expression": "if not self.db:",
+    "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+    "context_fingerprint": "3f4b07c0c0780c24131215ab4ccd2a6307c81355f7814060bf7a116c1c7068e9"
+   }
+  },
+  {
+   "id": "INV34-006176",
+   "file": "tabs/w7_logistics_Widget.py",
+   "line": 317,
+   "symbol": "PersonnelLogisticsTab.load_pob_data",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not self.db:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source tabs/w7_logistics_Widget.py:317 `if not self.db:`; source_sha256=c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71; context_fingerprint=89486b612863cde4c0d39f5badd2371de8dba93f27f7247d82550f9c82ce10f4. POB loading requires an explicit well and database; with an active well it clears the current table before repopulating. The early return does not mutate a POB count or write data.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w7_logistics_Widget.py",
+    "line": 317,
+    "symbol": "PersonnelLogisticsTab.load_pob_data",
+    "expression": "if not self.db:",
+    "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+    "context_fingerprint": "89486b612863cde4c0d39f5badd2371de8dba93f27f7247d82550f9c82ce10f4"
+   }
+  },
+  {
+   "id": "INV34-006210",
+   "file": "tabs/w7_logistics_Widget.py",
+   "line": 1122,
+   "symbol": "FuelWaterTab.calculate_bulk_totals",
+   "rule": "R-EXC-CONTINUE",
+   "kind": "typed-exception",
+   "register_line_text": "except ValueError:",
+   "classification": "GENUINE_DEFECT",
+   "evidence": "Hash-anchored source tabs/w7_logistics_Widget.py:1122 `except ValueError:`; source_sha256=c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71; context_fingerprint=3641de90973389e727cae715093d887c1b83286c3c6699ffa24d90c1662fe6fa. The original `except ValueError: continue` swallowed an entire bulk-material row when any stock cell displayed the explicit unknown marker `—`; it thereby omitted known received/used movements and left stock totals as partial subtotals presented as complete. The fix extracts per-column semantics: SQL/display unknown propagates to a `NOT ASSESSED` total; independent known movements still sum; blank movement means no movement (0.0), explicit zero remains zero. Verified against BulkMaterials NULL/zero model contract, DatabaseManager.calculate_bulk_totals/complete_total, and regression/mutation tests.",
+   "defect": true,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w7_logistics_Widget.py",
+    "line": 1122,
+    "symbol": "FuelWaterTab.calculate_bulk_totals",
+    "expression": "except ValueError:",
+    "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+    "context_fingerprint": "3641de90973389e727cae715093d887c1b83286c3c6699ffa24d90c1662fe6fa"
+   },
+   "current_site": "tabs/w7_logistics_Widget.py:1146",
+   "current_source_line": "totals = summarize_bulk_display_rows(display_rows)"
+  },
+  {
+   "id": "INV34-008094",
+   "file": "tabs/w10_Planning_Widget.py",
+   "line": 868,
+   "symbol": "CodeManagementTab.load_codes",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not self.db or not self.current_well_id:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source tabs/w10_Planning_Widget.py:868 `if not self.db or not self.current_well_id:`; source_sha256=924ad3e30d57d7cffa2868aa7dcb9595455c56d0ac052f4362c1575b2fe807c3; context_fingerprint=dafb6b62dedebfcb3d41a2841a4c23c8e4ce0bd6e9131057c35bef153d985aef. Code-management data is report/well dependent; without a database or valid current well ID the loader returns before querying. It does not borrow a globally selected report ID to fabricate code rows.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w10_Planning_Widget.py",
+    "line": 868,
+    "symbol": "CodeManagementTab.load_codes",
+    "expression": "if not self.db or not self.current_well_id:",
+    "source_sha256": "924ad3e30d57d7cffa2868aa7dcb9595455c56d0ac052f4362c1575b2fe807c3",
+    "context_fingerprint": "dafb6b62dedebfcb3d41a2841a4c23c8e4ce0bd6e9131057c35bef153d985aef"
+   }
+  },
+  {
+   "id": "INV34-008095",
+   "file": "tabs/w10_Planning_Widget.py",
+   "line": 1109,
+   "symbol": "CodeManagementTab.load_status_distribution",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not self.db or not self.current_well_id:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source tabs/w10_Planning_Widget.py:1109 `if not self.db or not self.current_well_id:`; source_sha256=924ad3e30d57d7cffa2868aa7dcb9595455c56d0ac052f4362c1575b2fe807c3; context_fingerprint=a15363a9e21ec6574c06747392f33e78087065bfe0b748dd9ca6acdb0072cdf9. Status distribution is explicitly scoped to the current well; without an active database/well, no aggregation is requested and no zero distribution is asserted.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w10_Planning_Widget.py",
+    "line": 1109,
+    "symbol": "CodeManagementTab.load_status_distribution",
+    "expression": "if not self.db or not self.current_well_id:",
+    "source_sha256": "924ad3e30d57d7cffa2868aa7dcb9595455c56d0ac052f4362c1575b2fe807c3",
+    "context_fingerprint": "a15363a9e21ec6574c06747392f33e78087065bfe0b748dd9ca6acdb0072cdf9"
+   }
+  },
+  {
+   "id": "INV34-008102",
+   "file": "tabs/w10_Planning_Widget.py",
+   "line": 1866,
+   "symbol": "DrillingParamsTab.load_data",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not self.db or not self.current_well_id:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source tabs/w10_Planning_Widget.py:1866 `if not self.db or not self.current_well_id:`; source_sha256=924ad3e30d57d7cffa2868aa7dcb9595455c56d0ac052f4362c1575b2fe807c3; context_fingerprint=e5972c8dd5eab2c68b0a96e01ee8e040ddf91de0969864dde0d7498d2a0aed83. The drilling-parameter tab clears current arrays/table/chart before this no-context guard; an absent well therefore shows no previous well's parameter data.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w10_Planning_Widget.py",
+    "line": 1866,
+    "symbol": "DrillingParamsTab.load_data",
+    "expression": "if not self.db or not self.current_well_id:",
+    "source_sha256": "924ad3e30d57d7cffa2868aa7dcb9595455c56d0ac052f4362c1575b2fe807c3",
+    "context_fingerprint": "e5972c8dd5eab2c68b0a96e01ee8e040ddf91de0969864dde0d7498d2a0aed83"
+   }
+  },
+  {
+   "id": "INV34-008103",
+   "file": "tabs/w10_Planning_Widget.py",
+   "line": 1884,
+   "symbol": "DrillingParamsTab.load_data",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not bit_report or not bit_report.bit_records_json:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source tabs/w10_Planning_Widget.py:1884 `if not bit_report or not bit_report.bit_records_json:`; source_sha256=924ad3e30d57d7cffa2868aa7dcb9595455c56d0ac052f4362c1575b2fe807c3; context_fingerprint=99694f7049c0e4cf41a700ac3cadb891a2ba7b30cafd45efe2ad9dd837ecfa86. An absent BitReport or empty bit-record payload produces an explicit no-data state and clears charts; it does not treat missing JSON as a zero-depth record.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w10_Planning_Widget.py",
+    "line": 1884,
+    "symbol": "DrillingParamsTab.load_data",
+    "expression": "if not bit_report or not bit_report.bit_records_json:",
+    "source_sha256": "924ad3e30d57d7cffa2868aa7dcb9595455c56d0ac052f4362c1575b2fe807c3",
+    "context_fingerprint": "99694f7049c0e4cf41a700ac3cadb891a2ba7b30cafd45efe2ad9dd837ecfa86"
+   }
+  },
+  {
+   "id": "INV34-008106",
+   "file": "tabs/w10_Planning_Widget.py",
+   "line": 2332,
+   "symbol": "MaterialInventoryTab.load_data",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not self.db or not self.current_well_id:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source tabs/w10_Planning_Widget.py:2332 `if not self.db or not self.current_well_id:`; source_sha256=924ad3e30d57d7cffa2868aa7dcb9595455c56d0ac052f4362c1575b2fe807c3; context_fingerprint=e5972c8dd5eab2c68b0a96e01ee8e040ddf91de0969864dde0d7498d2a0aed83. Material inventory clears its table/chart when database or well context is absent. It is explicitly scoped by well and independently applies section/report filters when available.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w10_Planning_Widget.py",
+    "line": 2332,
+    "symbol": "MaterialInventoryTab.load_data",
+    "expression": "if not self.db or not self.current_well_id:",
+    "source_sha256": "924ad3e30d57d7cffa2868aa7dcb9595455c56d0ac052f4362c1575b2fe807c3",
+    "context_fingerprint": "e5972c8dd5eab2c68b0a96e01ee8e040ddf91de0969864dde0d7498d2a0aed83"
+   }
+  },
+  {
+   "id": "INV34-008143",
+   "file": "tabs/w12_Analysis.py",
+   "line": 2639,
+   "symbol": "AnalysisWidget._draw_milestones_chart",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not np.isfinite(height):",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source tabs/w12_Analysis.py:2639 `if not np.isfinite(height):`; source_sha256=4935eb8b49d13bf8aa39851cfdfa3ee58561a37a5514ba3e50d52ec28517bbbe; context_fingerprint=2ea0e339f5e8cda5347c71910bb8c6d00b166120c2608a2e8874e280ed45a165. Non-finite chart bar heights are omitted from annotation; finite values including zero remain on the chart, and the operation's known/unknown values are not altered.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w12_Analysis.py",
+    "line": 2639,
+    "symbol": "AnalysisWidget._draw_milestones_chart",
+    "expression": "if not np.isfinite(height):",
+    "source_sha256": "4935eb8b49d13bf8aa39851cfdfa3ee58561a37a5514ba3e50d52ec28517bbbe",
+    "context_fingerprint": "2ea0e339f5e8cda5347c71910bb8c6d00b166120c2608a2e8874e280ed45a165"
+   }
+  },
+  {
+   "id": "INV34-008144",
+   "file": "tabs/w12_Analysis.py",
+   "line": 2648,
+   "symbol": "AnalysisWidget._draw_milestones_chart",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not np.isfinite(height):",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source tabs/w12_Analysis.py:2648 `if not np.isfinite(height):`; source_sha256=4935eb8b49d13bf8aa39851cfdfa3ee58561a37a5514ba3e50d52ec28517bbbe; context_fingerprint=2ea0e339f5e8cda5347c71910bb8c6d00b166120c2608a2e8874e280ed45a165. Same finite-value guard for the second bar series; NaN/Inf labels are suppressed instead of rendered as misleading engineering numbers.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w12_Analysis.py",
+    "line": 2648,
+    "symbol": "AnalysisWidget._draw_milestones_chart",
+    "expression": "if not np.isfinite(height):",
+    "source_sha256": "4935eb8b49d13bf8aa39851cfdfa3ee58561a37a5514ba3e50d52ec28517bbbe",
+    "context_fingerprint": "2ea0e339f5e8cda5347c71910bb8c6d00b166120c2608a2e8874e280ed45a165"
+   }
+  },
+  {
+   "id": "INV34-008243",
+   "file": "tabs/w14_Procedure_Widget.py",
+   "line": 1562,
+   "symbol": "TemplateSelectionDialog.load_templates",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not self.db:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source tabs/w14_Procedure_Widget.py:1562 `if not self.db:`; source_sha256=c9f3a11e00d06f2e97a4649276e0bcff86c7a2d63fb77c832da2db1443e0473a; context_fingerprint=3cb4c5f95741e09bdf8b12640dfe45f5b98f2a5bc1ab8a4568177926bf551fba. Duplicate scanner capture of the optional database guard in TemplateSelectionDialog.load_templates at the same source site as INV34-005049; no database means no template query.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w14_Procedure_Widget.py",
+    "line": 1562,
+    "symbol": "TemplateSelectionDialog.load_templates",
+    "expression": "if not self.db:",
+    "source_sha256": "c9f3a11e00d06f2e97a4649276e0bcff86c7a2d63fb77c832da2db1443e0473a",
+    "context_fingerprint": "3cb4c5f95741e09bdf8b12640dfe45f5b98f2a5bc1ab8a4568177926bf551fba"
+   }
+  },
+  {
+   "id": "INV34-008375",
+   "file": "tabs/w4_Downhole_Widget.py",
+   "line": 702,
+   "symbol": "BHAManager.get_all_data",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-empty",
+   "register_line_text": "record = restore_named_text((item.data(Qt.UserRole + 1) or {}) if item else {}, record)",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source tabs/w4_Downhole_Widget.py:702 `record = restore_named_text((item.data(Qt.UserRole + 1) or {}) if item else {}, record)`; source_sha256=923d9786b5e04fb5ff6ce0b5c859ab5024453a32fbc857fbb54f25eef2537923; context_fingerprint=397ad44efe02c39c70a4f6494ccf1568cfc45456e3c7ead2e63ef3d1df72e011. The BHA table item may be absent or its optional named-text payload empty; `restore_named_text` restores only recorded names and preserves the row's displayed values/provenance.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w4_Downhole_Widget.py",
+    "line": 702,
+    "symbol": "BHAManager.get_all_data",
+    "expression": "record = restore_named_text((item.data(Qt.UserRole + 1) or {}) if item else {}, record)",
+    "source_sha256": "923d9786b5e04fb5ff6ce0b5c859ab5024453a32fbc857fbb54f25eef2537923",
+    "context_fingerprint": "397ad44efe02c39c70a4f6494ccf1568cfc45456e3c7ead2e63ef3d1df72e011"
+   }
+  },
+  {
+   "id": "INV34-008376",
+   "file": "tabs/w4_Downhole_Widget.py",
+   "line": 783,
+   "symbol": "DownholeEquipmentManager.get_all_data",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-empty",
+   "register_line_text": "record = restore_named_text((item.data(Qt.UserRole + 1) or {}) if item else {}, record)",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source tabs/w4_Downhole_Widget.py:783 `record = restore_named_text((item.data(Qt.UserRole + 1) or {}) if item else {}, record)`; source_sha256=923d9786b5e04fb5ff6ce0b5c859ab5024453a32fbc857fbb54f25eef2537923; context_fingerprint=397ad44efe02c39c70a4f6494ccf1568cfc45456e3c7ead2e63ef3d1df72e011. Same optional named-text restoration for downhole equipment; missing hidden metadata leaves the visible row intact and does not invent a description.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w4_Downhole_Widget.py",
+    "line": 783,
+    "symbol": "DownholeEquipmentManager.get_all_data",
+    "expression": "record = restore_named_text((item.data(Qt.UserRole + 1) or {}) if item else {}, record)",
+    "source_sha256": "923d9786b5e04fb5ff6ce0b5c859ab5024453a32fbc857fbb54f25eef2537923",
+    "context_fingerprint": "397ad44efe02c39c70a4f6494ccf1568cfc45456e3c7ead2e63ef3d1df72e011"
+   }
+  },
+  {
+   "id": "INV34-008377",
+   "file": "tabs/w4_Downhole_Widget.py",
+   "line": 845,
+   "symbol": "FormationManager.get_all_data",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-empty",
+   "register_line_text": "record = restore_named_text((item.data(Qt.UserRole + 1) or {}) if item else {}, record)",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source tabs/w4_Downhole_Widget.py:845 `record = restore_named_text((item.data(Qt.UserRole + 1) or {}) if item else {}, record)`; source_sha256=923d9786b5e04fb5ff6ce0b5c859ab5024453a32fbc857fbb54f25eef2537923; context_fingerprint=397ad44efe02c39c70a4f6494ccf1568cfc45456e3c7ead2e63ef3d1df72e011. Same optional named-text restoration for formations; the guard protects empty/missing table cells and does not change geologic numeric fields.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w4_Downhole_Widget.py",
+    "line": 845,
+    "symbol": "FormationManager.get_all_data",
+    "expression": "record = restore_named_text((item.data(Qt.UserRole + 1) or {}) if item else {}, record)",
+    "source_sha256": "923d9786b5e04fb5ff6ce0b5c859ab5024453a32fbc857fbb54f25eef2537923",
+    "context_fingerprint": "397ad44efe02c39c70a4f6494ccf1568cfc45456e3c7ead2e63ef3d1df72e011"
+   }
+  },
+  {
+   "id": "INV34-008396",
+   "file": "tabs/w6_Trajectory_Widget.py",
+   "line": 413,
+   "symbol": "SurveyDataTab._optional_float",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-constant",
+   "register_line_text": "\"\"\"Parse a table cell into float, or None for blank/'None'/garbage.",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Hash-anchored source tabs/w6_Trajectory_Widget.py:413 `\"\"\"Parse a table cell into float, or None for blank/'None'/garbage.`; source_sha256=068546ebd1fffde7dd1def78366cff89969d6d1a9531b852a42b432150623327; context_fingerprint=e64f068e38078e6778efa27ac485b0ef91670f974aaa968502c65b30965c7263. Rule mis-fire: the record is a docstring describing `_optional_float`; executable code below preserves blank/None/garbage as None and converts explicit `0` to 0.0.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w6_Trajectory_Widget.py",
+    "line": 413,
+    "symbol": "SurveyDataTab._optional_float",
+    "expression": "\"\"\"Parse a table cell into float, or None for blank/'None'/garbage.",
+    "source_sha256": "068546ebd1fffde7dd1def78366cff89969d6d1a9531b852a42b432150623327",
+    "context_fingerprint": "e64f068e38078e6778efa27ac485b0ef91670f974aaa968502c65b30965c7263"
+   }
+  },
+  {
+   "id": "INV34-008413",
+   "file": "tabs/w7_logistics_Widget.py",
+   "line": 317,
+   "symbol": "PersonnelLogisticsTab.load_pob_data",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not self.db:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source tabs/w7_logistics_Widget.py:317 `if not self.db:`; source_sha256=c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71; context_fingerprint=2b4b4cf47110236f11527b60d636d9d4277d97a0ec0fb8e09b6811344bcb7c60. Duplicate scanner record of the no-database guard in PersonnelLogisticsTab.load_pob_data; same optional DB contract as INV34-006176.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w7_logistics_Widget.py",
+    "line": 317,
+    "symbol": "PersonnelLogisticsTab.load_pob_data",
+    "expression": "if not self.db:",
+    "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+    "context_fingerprint": "2b4b4cf47110236f11527b60d636d9d4277d97a0ec0fb8e09b6811344bcb7c60"
+   }
+  },
+  {
+   "id": "INV34-008420",
+   "file": "tabs/w7_logistics_Widget.py",
+   "line": 427,
+   "symbol": "PersonnelLogisticsTab.load_crew_data",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not self.db:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source tabs/w7_logistics_Widget.py:427 `if not self.db:`; source_sha256=c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71; context_fingerprint=5b06b8e0e8879812b886594f92c756734f690192a6b5b8d66ee896abd99a1762. Duplicate scanner record of the no-database guard in PersonnelLogisticsTab.load_crew_data; same optional DB contract as INV34-006171.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w7_logistics_Widget.py",
+    "line": 427,
+    "symbol": "PersonnelLogisticsTab.load_crew_data",
+    "expression": "if not self.db:",
+    "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+    "context_fingerprint": "5b06b8e0e8879812b886594f92c756734f690192a6b5b8d66ee896abd99a1762"
+   }
+  },
+  {
+   "id": "INV34-008427",
+   "file": "tabs/w7_logistics_Widget.py",
+   "line": 513,
+   "symbol": "PersonnelLogisticsTab.load_notes_data",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not self.db:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source tabs/w7_logistics_Widget.py:513 `if not self.db:`; source_sha256=c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71; context_fingerprint=50b041976fe5fbc4dbe8decf39785a885062e185a8847b6a2ff65bc193bffa3c. Duplicate scanner record of the no-database guard in PersonnelLogisticsTab.load_notes_data; same optional DB contract as INV34-006173.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w7_logistics_Widget.py",
+    "line": 513,
+    "symbol": "PersonnelLogisticsTab.load_notes_data",
+    "expression": "if not self.db:",
+    "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+    "context_fingerprint": "50b041976fe5fbc4dbe8decf39785a885062e185a8847b6a2ff65bc193bffa3c"
+   }
+  },
+  {
+   "id": "INV34-008431",
+   "file": "tabs/w7_logistics_Widget.py",
+   "line": 592,
+   "symbol": "_stock_value",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-constant",
+   "register_line_text": "\"\"\"Return the stock as float, or None when the box is at the unknown mark.\"\"\"",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Hash-anchored source tabs/w7_logistics_Widget.py:592 `\"\"\"Return the stock as float, or None when the box is at the unknown mark.\"\"\"`; source_sha256=c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71; context_fingerprint=953b2e4370d082dea31b3fc16b710dfc9ee4a494745555b8261a5bf05ec7ca59. Rule mis-fire: this is the `_stock_value` docstring stating its real contract. The executable helper returns None at the unknown sentinel and preserves explicit numeric 0.0.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w7_logistics_Widget.py",
+    "line": 592,
+    "symbol": "_stock_value",
+    "expression": "\"\"\"Return the stock as float, or None when the box is at the unknown mark.\"\"\"",
+    "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+    "context_fingerprint": "953b2e4370d082dea31b3fc16b710dfc9ee4a494745555b8261a5bf05ec7ca59"
+   }
+  },
+  {
+   "id": "INV34-008441",
+   "file": "tabs/w7_logistics_Widget.py",
+   "line": 979,
+   "symbol": "FuelWaterTab.load_fuel_water_from_db",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not self.db:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source tabs/w7_logistics_Widget.py:979 `if not self.db:`; source_sha256=c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71; context_fingerprint=24b6b3a96eba6b04fbc22d6f30802c71f0e8c6155c4aa382c3c0a325949f32b6. Duplicate scanner record of the no-database guard in FuelWaterTab.load_fuel_water_from_db, already reviewed at INV34-006134; no active query means no fabricated fuel/water values.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w7_logistics_Widget.py",
+    "line": 979,
+    "symbol": "FuelWaterTab.load_fuel_water_from_db",
+    "expression": "if not self.db:",
+    "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+    "context_fingerprint": "24b6b3a96eba6b04fbc22d6f30802c71f0e8c6155c4aa382c3c0a325949f32b6"
+   }
+  }
+ ]
+}
