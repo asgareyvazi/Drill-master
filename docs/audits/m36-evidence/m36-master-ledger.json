@@ -591,6 +591,120 @@
     ],
     "mutation": "Production/UI regression tests are committed, but their native Qt execution is blocked locally. AST execution of the actual current and pre-fix methods/expressions proved the targeted reset/unknown behavior and the pre-fix/direct-value mutations violate expectations. Exact-HEAD CI must run the isolated UI tests."
    }
+  },
+  {
+   "batch": "p6-batch-023",
+   "class": "phase-2 class C/D/E mixed review: schematic rendering, W13 engineering UI adapters, W2 report-time boundaries, inventory semantics and actual-vs-plan fixtures",
+   "records": 45,
+   "sites": 44,
+   "by_classification": {
+    "VERIFIED-CORRECT": 23,
+    "INTENTIONAL": 10,
+    "DOMAIN_DECISION_REQUIRED": 6,
+    "DUPLICATE/FALSE-POSITIVE": 6
+   },
+   "defects_fixed": [],
+   "new_findings": [
+    {
+     "id": "NEW-P6-015",
+     "file": "core/wellbore_schematic_engine.py",
+     "line": 787,
+     "severity": "LOW",
+     "status": "domain decision required; not patched",
+     "commit": null,
+     "test": null
+    },
+    {
+     "id": "NEW-P6-016",
+     "file": "tabs/w2_Daily_Report.py",
+     "line": 759,
+     "severity": "LOW",
+     "status": "domain decision required; not patched",
+     "commit": null,
+     "test": null
+    }
+   ],
+   "evidence_commit": null,
+   "commit": null,
+   "tests": {
+    "passed": [
+     "35 passed: tests/test_scope_attribution.py tests/test_wellbore_section_performance.py tests/test_operations.py",
+     "26 passed: tests/test_p0_time_log_validation.py tests/test_profile_time_log_unknown_duration.py tests/test_operational_time_integrity.py",
+     "27 passed: tests/test_inventory_item_authority.py",
+     "61 passed: tests/test_wellbore_ownership_integrity.py tests/test_wellbore_schema_v3.py tests/test_wellbore_identity_conflict_m25.py tests/test_wellbore_discriminator_import.py"
+    ],
+    "environment_blocked": [
+     "tests/test_schematic_no_fabrication.py fails collection because PySide6 cannot load missing system libGL.so.1.",
+     "A mixed batch23 regression run reported eight UI failures (five W13/M31 widget tests and three real-user W12/W10 tests), each before assertions due missing libGL.so.1."
+    ],
+    "mutation": "No production code changed in this batch; existing tests exercise bore ownership, missing-source behavior, time validation and inventory unknown/zero semantics. Qt-only schematic render assertions remain unverified locally because libGL.so.1 is missing."
+   }
+  },
+  {
+   "batch": "p6-batch-024",
+   "class": "phase-2 mixed review: application gates, optional AI/import mapping, database reset/import contracts, W2 report editability, W3 drilling inputs, W3c section scope and data quality",
+   "records": 45,
+   "sites": 44,
+   "by_classification": {
+    "VERIFIED-CORRECT": 31,
+    "INTENTIONAL": 9,
+    "DUPLICATE/FALSE-POSITIVE": 2,
+    "GENUINE_DEFECT": 2,
+    "DOMAIN_DECISION_REQUIRED": 1
+   },
+   "defects_fixed": [
+    {
+     "id": "NEW-P6-017",
+     "file": "core/data_quality.py",
+     "site": "DataQualityService.for_report",
+     "test": "tests/test_data_quality_orphan_integrity.py",
+     "summary": "Replace the hard-coded 100/good orphan claim with SQLite foreign_key_check evidence and unknown-on-query-failure behavior."
+    },
+    {
+     "id": "NEW-P6-018",
+     "file": "tabs/w3c_section_data.py",
+     "site": "CementReportTab/CasingReportTab load-save round trip",
+     "test": "tests/test_cement_report_null_roundtrip.py",
+     "summary": "Preserve nullable source fields when displayed defaults are untouched; explicit edits remain distinguishable and persist."
+    }
+   ],
+   "new_findings": [
+    {
+     "id": "NEW-P6-019",
+     "file": "tabs/w3_drilling_report.py",
+     "line": 769,
+     "severity": "MEDIUM",
+     "status": "domain decision required; not patched",
+     "commit": null,
+     "test": null
+    },
+    {
+     "id": "NEW-P6-020",
+     "file": "tabs/w3c_section_data.py",
+     "line": 191,
+     "severity": "MEDIUM",
+     "status": "domain decision required; not patched",
+     "commit": null,
+     "test": null
+    }
+   ],
+   "evidence_commit": null,
+   "commit": null,
+   "tests": {
+    "passed": [
+     "4 passed, 1 skipped: tests/test_data_quality_orphan_integrity.py tests/test_cement_report_null_roundtrip.py (Qt integration test skipped locally because PySide6 cannot load libGL.so.1; pure preservation and all data-quality tests passed).",
+     "75 passed: tests/test_m31_scenarios.py excluding five Qt widget tests blocked by libGL.so.1.",
+     "20 passed: tests/test_report_scope_metadata_m25.py tests/test_operational_time_integrity.py; this also independently verifies batch-022's previously unverified 20-test claim.",
+     "13 passed: tests/test_credential_lifecycle.py -k 'reset and not gui'.",
+     "2 passed: tests/test_engineering_ground_truth.py -k CompanyTemplateMapping.",
+     "Ruff --select E722,F821, compileall, and git diff --check passed for changed production/test/tool files."
+    ],
+    "environment_blocked": [
+     "Five Qt tests in the complete tests/test_m31_scenarios.py run failed before assertions because PySide6 could not load system libGL.so.1; 75 non-Qt tests passed.",
+     "The new Cement/Casing nullable round-trip integration test is collected but skipped locally for the same missing libGL.so.1; exact-HEAD GitHub CI with real Qt libraries must execute it."
+    ],
+    "mutation": "Orphan regression was run before the fix: the clean case had no evidence and the injected orphan incorrectly returned 100/good; after the fix, clean/orphan/query-failure tests pass. The SQL-NULL UI mutation is source-proven (old widget fallback flowed into save) and the new Qt regression asserts unchanged NULL plus explicit zero; local runtime is blocked, so CI is required before treating that path as executed."
+   }
   }
  ],
  "start_open": 1224,
@@ -598,20 +712,18 @@
  "arithmetic": {
   "register_open_at_p6_start": 1224,
   "defect_fixed_by_p6": 2,
-  "adjudicated_by_p6_batches": 909,
-  "current_open": 313,
+  "adjudicated_by_p6_batches": 999,
+  "current_open": 223,
   "check": true,
   "note": "every record is either OPEN or carries a terminal evidence-backed classification; the fixed sites are subtracted separately so nothing disappears"
  },
  "open_by_priority": {
-  "MEDIUM": 313
+  "MEDIUM": 223
  },
  "open_by_class": {
-  "E": 241,
-  "D": 65,
-  "C": 7
+  "E": 223
  },
- "generated_utc": "2026-09-29T08:31:10+00:00",
+ "generated_utc": "2026-09-29T08:48:55+00:00",
  "recovery_bundles": [
   {
    "file": "/home/user/recovery/drillmaster-115fc09.bundle",

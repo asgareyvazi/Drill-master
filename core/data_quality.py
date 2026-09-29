@@ -145,22 +145,51 @@ class DataQualityService:
         if report:
             session = self.db.create_session()
             try:
-                from core.database import Base
-                orphan_count = 0
-                for mapper in list(Base.registry.mappers):
-                    model = mapper.class_
-                    if model.__name__ == "DailyReport" or not hasattr(model, "report_id"):
-                        continue
-                    # Count if report_id not in daily_reports
-                    # Simplified: just check if any child has report_id that doesn't exist (should be 0 due to FK)
-                    pass
+                from sqlalchemy import text
 
+                # Check the stored database, not merely the connection's current
+                # FK enforcement setting: older/raw writers may have left rows
+                # that violate a constraint before this connection was opened.
+                violations = session.execute(text("PRAGMA foreign_key_check")).fetchall()
+                violation_details = [
+                    {
+                        "table": row[0],
+                        "rowid": row[1],
+                        "parent_table": row[2],
+                        "foreign_key_index": row[3],
+                    }
+                    for row in violations[:100]
+                ]
+                violation_count = len(violations)
                 metrics.append(
                     QualityMetric(
                         name="Orphan data check",
-                        value=100,  # Assume good if FK ON
-                        status="good",
-                        detail="No orphan child data (FK ON, cascade delete)",
+                        value=0.0 if violation_count else 100.0,
+                        status="critical" if violation_count else "good",
+                        detail=(
+                            f"{violation_count} database foreign-key violation(s)"
+                            if violation_count
+                            else "No database foreign-key violations"
+                        ),
+                        confidence=1.0,
+                        evidence={
+                            "scope": "database",
+                            "violation_count": violation_count,
+                            "violations": violation_details,
+                            "truncated": violation_count > len(violation_details),
+                        },
+                    )
+                )
+            except Exception as exc:
+                logger.exception("Could not check database foreign-key integrity")
+                metrics.append(
+                    QualityMetric(
+                        name="Orphan data check",
+                        value=None,
+                        status="unknown",
+                        confidence=0.0,
+                        detail=f"Database foreign-key integrity check failed: {exc}",
+                        evidence={"scope": "database", "violation_count": None},
                     )
                 )
             finally:

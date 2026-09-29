@@ -31,7 +31,70 @@ class CementReportTab(QWidget):
         self.db_manager = db_manager
         self.parent = parent
         self.current_well = None
+        self._loaded_cement_source = {}
+        self._loaded_cement_display = {}
+        self._cement_touched = set()
         self.init_ui()
+        self._connect_cement_edit_tracking()
+
+    def _connect_cement_edit_tracking(self):
+        """Track intentional edits so an unchanged NULL remains unknown."""
+        controls = {
+            "report_name": self.report_name,
+            "cement_type": self.cement_type,
+            "job_type": self.job_type,
+            "slurry_density": self.slurry_density,
+            "slurry_yield": self.slurry_yield,
+            "mix_water": self.mix_water,
+            "thickening_time": (self.thickening_hours, self.thickening_minutes),
+            "compressive_strength": self.compressive_strength,
+            "fluid_loss": self.fluid_loss,
+            "cement_volume": self.cement_volume,
+            "displacement_volume": self.displacement_volume,
+            "top_of_cement": self.top_of_cement,
+            "bottom_of_cement": self.bottom_of_cement,
+            "summary": self.cement_summary,
+        }
+        for key, control in controls.items():
+            widgets = control if isinstance(control, tuple) else (control,)
+            for widget in widgets:
+                if isinstance(widget, (QDoubleSpinBox, QSpinBox)):
+                    widget.valueChanged.connect(lambda _value, key=key: self._cement_touched.add(key))
+                    widget.lineEdit().textEdited.connect(lambda _text, key=key: self._cement_touched.add(key))
+                elif isinstance(widget, QLineEdit):
+                    widget.textChanged.connect(lambda _text, key=key: self._cement_touched.add(key))
+                elif isinstance(widget, QComboBox):
+                    widget.currentTextChanged.connect(lambda _text, key=key: self._cement_touched.add(key))
+                elif isinstance(widget, QTextEdit):
+                    widget.textChanged.connect(lambda key=key: self._cement_touched.add(key))
+
+    def _cement_display_values(self):
+        return {
+            "report_name": self.report_name.text(),
+            "cement_type": self.cement_type.currentText(),
+            "job_type": self.job_type.currentText(),
+            "slurry_density": self.slurry_density.value(),
+            "slurry_yield": self.slurry_yield.value(),
+            "mix_water": self.mix_water.value(),
+            "thickening_time": f"{self.thickening_hours.value():02d}:{self.thickening_minutes.value():02d}",
+            "compressive_strength": self.compressive_strength.value(),
+            "fluid_loss": self.fluid_loss.value(),
+            "cement_volume": self.cement_volume.value(),
+            "displacement_volume": self.displacement_volume.value(),
+            "top_of_cement": self.top_of_cement.value(),
+            "bottom_of_cement": self.bottom_of_cement.value(),
+            "summary": self.cement_summary.toPlainText(),
+        }
+
+    def _preserve_untouched_cement_values(self, values):
+        from core.mud_records import preserve_widget_values
+
+        return preserve_widget_values(
+            self._loaded_cement_source,
+            self._loaded_cement_display,
+            values,
+            self._cement_touched,
+        )
 
     def init_ui(self):
         layout = QVBoxLayout(self)
@@ -153,6 +216,7 @@ class CementReportTab(QWidget):
         for row in range(self.materials_table.rowCount()):
             mats.append({k: (self.materials_table.cellWidget(row,c).text() if isinstance(self.materials_table.cellWidget(row,c),QLineEdit) else self.materials_table.cellWidget(row,c).value() if isinstance(self.materials_table.cellWidget(row,c),QDoubleSpinBox) else self.materials_table.cellWidget(row,c).currentText()) for c,k in enumerate(["material","type","received","consumed","backload","inventory","unit"])})
         d = {"well_id":self.current_well,"report_id":report_id,"report_date":date.today(),"report_name":self.report_name.text(),"cement_type":self.cement_type.currentText(),"job_type":self.job_type.currentText(),"materials_json":json.dumps(mats),"slurry_density":self.slurry_density.value(),"slurry_yield":self.slurry_yield.value(),"mix_water":self.mix_water.value(),"thickening_time":f"{self.thickening_hours.value():02d}:{self.thickening_minutes.value():02d}","compressive_strength":self.compressive_strength.value(),"fluid_loss":self.fluid_loss.value(),"cement_volume":self.cement_volume.value(),"displacement_volume":self.displacement_volume.value(),"top_of_cement":self.top_of_cement.value(),"bottom_of_cement":self.bottom_of_cement.value(),"summary":self.cement_summary.toPlainText()}
+        d = self._preserve_untouched_cement_values(d)
         return self.db_manager.save_cement_report(d) is not None
 
     @editor_saved()
@@ -187,6 +251,7 @@ class CementReportTab(QWidget):
             "bottom_of_cement": self.bottom_of_cement.value(),
             "summary": self.cement_summary.toPlainText(),
         }
+        d = self._preserve_untouched_cement_values(d)
         return self.db_manager.save_cement_report(d) if self.db_manager else None
         
     def load_data(self):
@@ -232,11 +297,20 @@ class CementReportTab(QWidget):
             except (TypeError, ValueError, KeyError, json.JSONDecodeError):
                 pass  # malformed legacy materials JSON — leave table empty
 
+        from copy import deepcopy
+        display = self._cement_display_values()
+        self._loaded_cement_source = {key: deepcopy(data[key]) for key in display if key in data}
+        self._loaded_cement_display = display
+        self._cement_touched.clear()
+
     def clear_form(self):
         self.report_name.clear(); self.cement_type.setCurrentIndex(0); self.job_type.setCurrentIndex(0)
         for sp in [self.slurry_density,self.slurry_yield,self.mix_water,self.compressive_strength,self.fluid_loss,self.cement_volume,self.displacement_volume,self.top_of_cement,self.bottom_of_cement]: sp.setValue(0)
         self.slurry_density.setValue(120); self.slurry_yield.setValue(1.18); self.mix_water.setValue(5.2); self.compressive_strength.setValue(2500)
         self.materials_table.setRowCount(0); self.cement_summary.clear()
+        self._loaded_cement_source = {}
+        self._loaded_cement_display = {}
+        self._cement_touched.clear()
 
     def refresh(self): self.load_data()
 
@@ -250,7 +324,50 @@ class CasingReportTab(QWidget):
         self.db_manager = db_manager
         self.parent = parent
         self.current_well = None
+        self._loaded_casing_source = {}
+        self._loaded_casing_display = {}
+        self._casing_touched = set()
         self.init_ui()
+        self._connect_casing_edit_tracking()
+
+    def _connect_casing_edit_tracking(self):
+        controls = {
+            "report_name": self.report_name, "casing_type": self.casing_type,
+            "burst_pressure": self.burst_pressure, "collapse_pressure": self.collapse_pressure,
+            "tensile_strength": self.tensile_strength, "makeup_torque": self.makeup_torque,
+            "drift_diameter": self.drift_diameter, "internal_yield": self.internal_yield,
+            "running_speed": self.running_speed, "fillup_frequency": self.fillup_frequency,
+            "centralizer_spacing": self.centralizer_spacing, "scratcher_spacing": self.scratcher_spacing,
+            "summary": self.casing_summary,
+        }
+        for key, widget in controls.items():
+            if isinstance(widget, (QDoubleSpinBox, QSpinBox)):
+                widget.valueChanged.connect(lambda _value, key=key: self._casing_touched.add(key))
+                widget.lineEdit().textEdited.connect(lambda _text, key=key: self._casing_touched.add(key))
+            elif isinstance(widget, QLineEdit):
+                widget.textChanged.connect(lambda _text, key=key: self._casing_touched.add(key))
+            elif isinstance(widget, QComboBox):
+                widget.currentTextChanged.connect(lambda _text, key=key: self._casing_touched.add(key))
+            elif isinstance(widget, QTextEdit):
+                widget.textChanged.connect(lambda key=key: self._casing_touched.add(key))
+
+    def _casing_display_values(self):
+        return {
+            "report_name": self.report_name.text(), "casing_type": self.casing_type.currentText(),
+            "burst_pressure": self.burst_pressure.value(), "collapse_pressure": self.collapse_pressure.value(),
+            "tensile_strength": self.tensile_strength.value(), "makeup_torque": self.makeup_torque.value(),
+            "drift_diameter": self.drift_diameter.value(), "internal_yield": self.internal_yield.value(),
+            "running_speed": self.running_speed.value(), "fillup_frequency": self.fillup_frequency.value(),
+            "centralizer_spacing": self.centralizer_spacing.value(), "scratcher_spacing": self.scratcher_spacing.value(),
+            "summary": self.casing_summary.toPlainText(),
+        }
+
+    def _preserve_untouched_casing_values(self, values):
+        from core.mud_records import preserve_widget_values
+
+        return preserve_widget_values(
+            self._loaded_casing_source, self._loaded_casing_display, values, self._casing_touched
+        )
 
     def init_ui(self):
         layout = QVBoxLayout(self)
@@ -330,6 +447,7 @@ class CasingReportTab(QWidget):
         for row in range(self.casing_table.rowCount()):
             cd.append({k:(self.casing_table.cellWidget(row,c).value() if isinstance(self.casing_table.cellWidget(row,c),QDoubleSpinBox) else self.casing_table.cellWidget(row,c).currentText() if isinstance(self.casing_table.cellWidget(row,c),QComboBox) else self.casing_table.cellWidget(row,c).text() if self.casing_table.cellWidget(row,c) else "") for c,k in enumerate(["size","od","id","weight","grade","connection","from","to","shoe","remarks"])})
         rpt={"well_id":self.current_well,"report_id":report_id,"report_date":date.today(),"report_name":self.report_name.text(),"casing_type":self.casing_type.currentText(),"casing_json":json.dumps(cd),"burst_pressure":self.burst_pressure.value(),"collapse_pressure":self.collapse_pressure.value(),"tensile_strength":self.tensile_strength.value(),"makeup_torque":self.makeup_torque.value(),"drift_diameter":self.drift_diameter.value(),"internal_yield":self.internal_yield.value(),"running_speed":self.running_speed.value(),"fillup_frequency":self.fillup_frequency.value(),"centralizer_spacing":self.centralizer_spacing.value(),"scratcher_spacing":self.scratcher_spacing.value(),"summary":self.casing_summary.toPlainText()}
+        rpt = self._preserve_untouched_casing_values(rpt)
         return self.db_manager.save_casing_report(rpt) is not None
 
     @editor_saved()
@@ -363,6 +481,7 @@ class CasingReportTab(QWidget):
             "scratcher_spacing": self.scratcher_spacing.value(),
             "summary": self.casing_summary.toPlainText(),
         }
+        d = self._preserve_untouched_casing_values(d)
         return self.db_manager.save_casing_report(d) if self.db_manager else None
         
     def load_data(self):
@@ -400,11 +519,19 @@ class CasingReportTab(QWidget):
             except Exception as e:
                 logger.error(f"Casing JSON error: {e}")
                 raise
+        from copy import deepcopy
+        display = self._casing_display_values()
+        self._loaded_casing_source = {key: deepcopy(data[key]) for key in display if key in data}
+        self._loaded_casing_display = display
+        self._casing_touched.clear()
 
     def clear_form(self):
         self.report_name.clear();self.casing_type.setCurrentIndex(0)
         for sp in [self.burst_pressure,self.collapse_pressure,self.tensile_strength,self.makeup_torque,self.drift_diameter,self.internal_yield,self.running_speed,self.centralizer_spacing,self.scratcher_spacing]:sp.setValue(0)
         self.fillup_frequency.setValue(0);self.casing_table.setRowCount(0);self.casing_summary.clear()
+        self._loaded_casing_source = {}
+        self._loaded_casing_display = {}
+        self._casing_touched.clear()
 
     def refresh(self):self.load_data()
 

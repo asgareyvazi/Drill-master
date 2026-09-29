@@ -1,0 +1,1228 @@
+{
+ "schema": "m36-p6-batch",
+ "batch": "p6-batch-024",
+ "class": "phase-2 mixed review: application gates, optional AI/import mapping, database reset/import contracts, W2 report editability, W3 drilling inputs, W3c section scope and data quality",
+ "records": 45,
+ "sites": 44,
+ "records_by_file": {
+  "core/ai_import_mapper.py": 1,
+  "core/company_mapping.py": 1,
+  "core/database_reset.py": 2,
+  "tabs/w3_drilling_report.py": 15,
+  "tabs/w3b_wellbore_schematic_tab.py": 2,
+  "tabs/w3c_section_data.py": 7,
+  "app.py": 3,
+  "core/base_tab.py": 6,
+  "core/canonical_mapper.py": 2,
+  "core/canonical_schema.py": 1,
+  "core/data_quality.py": 1,
+  "core/ddr_import_service.py": 1,
+  "tabs/w2_Daily_Report.py": 3
+ },
+ "by_classification": {
+  "VERIFIED-CORRECT": 31,
+  "DUPLICATE/FALSE-POSITIVE": 2,
+  "INTENTIONAL": 9,
+  "GENUINE_DEFECT": 2,
+  "DOMAIN_DECISION_REQUIRED": 1
+ },
+ "defects_fixed": [
+  {
+   "id": "NEW-P6-017",
+   "file": "core/data_quality.py",
+   "site": "DataQualityService.for_report",
+   "test": "tests/test_data_quality_orphan_integrity.py",
+   "summary": "Replace the hard-coded 100/good orphan claim with SQLite foreign_key_check evidence and unknown-on-query-failure behavior."
+  },
+  {
+   "id": "NEW-P6-018",
+   "file": "tabs/w3c_section_data.py",
+   "site": "CementReportTab/CasingReportTab load-save round trip",
+   "test": "tests/test_cement_report_null_roundtrip.py",
+   "summary": "Preserve nullable source fields when displayed defaults are untouched; explicit edits remain distinguishable and persist."
+  }
+ ],
+ "new_findings": [
+  {
+   "id": "NEW-P6-019",
+   "file": "tabs/w3_drilling_report.py",
+   "line": 769,
+   "severity": "MEDIUM",
+   "status": "domain decision required; not patched",
+   "summary": "Annular velocity uses a 5-inch pipe OD when no sourced drill-pipe OD exists (and replaces a zero OD with 5). The value feeds a visible engineering result but is not marked as an assumption.",
+   "records": [
+    "INV34-005398"
+   ],
+   "impact": "The displayed annular velocity may be materially wrong for a different actual pipe geometry."
+  },
+  {
+   "id": "NEW-P6-020",
+   "file": "tabs/w3c_section_data.py",
+   "line": 191,
+   "severity": "MEDIUM",
+   "status": "domain decision required; not patched",
+   "summary": "Cement material Inventory is recalculated as Received minus Consumed, ignoring the Backload field and any opening stock. A domain owner must define whether it is a per-report derived remainder or a true closing balance before changing the formula.",
+   "records": [
+    "INV34-005706"
+   ],
+   "impact": "Editing a receipt/consumption can overwrite the existing inventory with a different semantic total."
+  }
+ ],
+ "observations": [
+  {
+   "topic": "orphan integrity",
+   "summary": "The check is database-wide and reports actual SQLite FK violations with bounded row details; an unavailable check is unknown. The existing summary excludes unknown values from its score."
+  },
+  {
+   "topic": "W3c nullable round-trip",
+   "summary": "Both CementReportTab and CasingReportTab rendered SQL NULLs as plausible widget values, then wrote them back. New baseline/touched tracking restores unchanged source values; explicitly edited fields, including zero, are not restored."
+  },
+  {
+   "topic": "scopes",
+   "summary": "The current W3c cement reader is section-scoped after the earlier scope fix; the record's original whole-well expression is retained as provenance and manually mapped to the current consumer. No global report id was substituted."
+  },
+  {
+   "topic": "material inventory",
+   "summary": "The UI formula is Received minus Consumed. Backload and opening stock do not participate; no in-repository domain contract resolves the correct balance semantics, so no formula was invented."
+  }
+ ],
+ "sibling_search": [
+  {
+   "family": "database integrity claims",
+   "result": "Checked stored FK state (not merely current FK enforcement). Clean, orphaned and failed-query branches have regression coverage; no other hard-coded orphan pass remains in DataQualityService.for_report."
+  },
+  {
+   "family": "nullable W3c report fields",
+   "result": "Reviewed CementReportTab and CasingReportTab producer→widget→save paths and added unchanged-source preservation for scalar/text fields. JSON row payload behavior was not expanded into a separate migration in this batch."
+  },
+  {
+   "family": "drilling pipe geometry defaults",
+   "result": "The 5-inch OD fallback participates in the annular-velocity engine input, unlike renderer-only schematic fallbacks; it remains an owner decision until an approved default/label contract is established."
+  },
+  {
+   "family": "application and scope guards",
+   "result": "Initializer results guard process startup/reset; UI context empty mappings remain separate from well/section/report IDs; report lifecycle gating blocks copy to finalized reports."
+  }
+ ],
+ "tests": {
+  "passed": [
+   "4 passed, 1 skipped: tests/test_data_quality_orphan_integrity.py tests/test_cement_report_null_roundtrip.py (Qt integration test skipped locally because PySide6 cannot load libGL.so.1; pure preservation and all data-quality tests passed).",
+   "75 passed: tests/test_m31_scenarios.py excluding five Qt widget tests blocked by libGL.so.1.",
+   "20 passed: tests/test_report_scope_metadata_m25.py tests/test_operational_time_integrity.py; this also independently verifies batch-022's previously unverified 20-test claim.",
+   "13 passed: tests/test_credential_lifecycle.py -k 'reset and not gui'.",
+   "2 passed: tests/test_engineering_ground_truth.py -k CompanyTemplateMapping.",
+   "Ruff --select E722,F821, compileall, and git diff --check passed for changed production/test/tool files."
+  ],
+  "environment_blocked": [
+   "Five Qt tests in the complete tests/test_m31_scenarios.py run failed before assertions because PySide6 could not load system libGL.so.1; 75 non-Qt tests passed.",
+   "The new Cement/Casing nullable round-trip integration test is collected but skipped locally for the same missing libGL.so.1; exact-HEAD GitHub CI with real Qt libraries must execute it."
+  ],
+  "mutation": "Orphan regression was run before the fix: the clean case had no evidence and the injected orphan incorrectly returned 100/good; after the fix, clean/orphan/query-failure tests pass. The SQL-NULL UI mutation is source-proven (old widget fallback flowed into save) and the new Qt regression asserts unchanged NULL plus explicit zero; local runtime is blocked, so CI is required before treating that path as executed."
+ },
+ "head": "db5fbbb",
+ "commit": null,
+ "evidence_commit": null,
+ "evidence_files": [
+  "core/data_quality.py",
+  "tabs/w3c_section_data.py",
+  "tests/test_data_quality_orphan_integrity.py",
+  "tests/test_cement_report_null_roundtrip.py",
+  "tools/m36/p6_batch_024.py",
+  "docs/audits/m36-evidence/p6-batch-024.json"
+ ],
+ "staleness": {
+  "checked": 45,
+  "stale": 8,
+  "re_anchored": 8,
+  "method": "All source hashes, recorded lines, enclosing symbols and current mappings were verified. The ledger-free context-fingerprint check reproduced 41/45; four hash-anchored fingerprints did not reproduce because the 11.4 MB M34 item ledger named by its manifest is absent. Two changed source expressions were manually re-anchored with their original fingerprint proof plus current method/expression verification. The four unreproduced fingerprints are explicitly listed and are not claimed as verified.",
+  "re_anchored_items": [
+   {
+    "id": "INV34-005706",
+    "file": "tabs/w3c_section_data.py",
+    "previous_site": "tabs/w3c_section_data.py:129",
+    "current_site": "tabs/w3c_section_data.py:192",
+    "tree": "provenance tree = 7f0186e3e6ac966f1fe9cbd804785129b9246fbe (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+    "source_sha256": "5038a740761be06f65b9c81076482aff3f58e2e85b737d600e4f3fda5b8eaf27",
+    "context_fingerprint": "70c47438d174f126719630f30d6c4aaaa151687a79089608663bbe90fa66b7a7",
+    "reason": "Exact source expression, original hash and fingerprint verified; line map verified current scope."
+   },
+   {
+    "id": "INV34-005715",
+    "file": "tabs/w3c_section_data.py",
+    "previous_site": "tabs/w3c_section_data.py:1169",
+    "current_site": "tabs/w3c_section_data.py:1312",
+    "tree": "provenance tree = 7f0186e3e6ac966f1fe9cbd804785129b9246fbe (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+    "source_sha256": "5038a740761be06f65b9c81076482aff3f58e2e85b737d600e4f3fda5b8eaf27",
+    "context_fingerprint": "2c295be8a988c4261a62f50297ee99bf466e5af8929a0c9e5a78ac2faac89fcf",
+    "reason": "Exact source expression, original hash and fingerprint verified; line map verified current scope."
+   },
+   {
+    "id": "INV34-005717",
+    "file": "tabs/w3c_section_data.py",
+    "previous_site": "tabs/w3c_section_data.py:1468",
+    "current_site": "tabs/w3c_section_data.py:1611",
+    "tree": "provenance tree = 7f0186e3e6ac966f1fe9cbd804785129b9246fbe (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+    "source_sha256": "5038a740761be06f65b9c81076482aff3f58e2e85b737d600e4f3fda5b8eaf27",
+    "context_fingerprint": "70594f8a925f23f36231ad838fb5f1cdc302a62cf5fa2b6a0f0e3736915789a9",
+    "reason": "Exact source expression, original hash and fingerprint verified; line map verified current scope."
+   },
+   {
+    "id": "INV34-008336",
+    "file": "tabs/w3c_section_data.py",
+    "previous_site": "tabs/w3c_section_data.py:740",
+    "current_site": "tabs/w3c_section_data.py:883",
+    "tree": "provenance tree = 7f0186e3e6ac966f1fe9cbd804785129b9246fbe (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+    "source_sha256": "5038a740761be06f65b9c81076482aff3f58e2e85b737d600e4f3fda5b8eaf27",
+    "context_fingerprint": "b7d0c47ef7707e27fb3dd5558aad78f1a490ab8a2c51cfc044bcaf5e13015065",
+    "reason": "Exact source expression, original hash and fingerprint verified; line map verified current scope."
+   },
+   {
+    "id": "INV34-008358",
+    "file": "tabs/w3c_section_data.py",
+    "previous_site": "tabs/w3c_section_data.py:1468",
+    "current_site": "tabs/w3c_section_data.py:1611",
+    "tree": "provenance tree = 7f0186e3e6ac966f1fe9cbd804785129b9246fbe (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+    "source_sha256": "5038a740761be06f65b9c81076482aff3f58e2e85b737d600e4f3fda5b8eaf27",
+    "context_fingerprint": "4b4b89c0c3df2c3f294c7ae09806af14af3b2d918669207a98781c25274d7a75",
+    "reason": "Exact source expression, original hash and fingerprint verified; line map verified current scope."
+   },
+   {
+    "id": "INV34-008359",
+    "file": "tabs/w3c_section_data.py",
+    "previous_site": "tabs/w3c_section_data.py:1472",
+    "current_site": "tabs/w3c_section_data.py:1615",
+    "tree": "provenance tree = 7f0186e3e6ac966f1fe9cbd804785129b9246fbe (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+    "source_sha256": "5038a740761be06f65b9c81076482aff3f58e2e85b737d600e4f3fda5b8eaf27",
+    "context_fingerprint": "5fc2f4b8526efd8cfd5c3b578646937e3baadb956ed87a7879135b3bcdc5695b",
+    "reason": "Exact source expression, original hash and fingerprint verified; line map verified current scope."
+   },
+   {
+    "id": "INV34-006841",
+    "file": "core/data_quality.py",
+    "previous_site": "core/data_quality.py:156",
+    "previous_source_line": "pass",
+    "current_site": "core/data_quality.py:153",
+    "current_source_line": "violations = session.execute(text(\"PRAGMA foreign_key_check\")).fetchall()",
+    "tree": "provenance tree = 7f0186e3e6ac966f1fe9cbd804785129b9246fbe (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+    "source_sha256": "0151a92768ec15d1d26c3e81890c5cd2aad2479b12b97b3c00d2eff92a7ba9cc",
+    "context_fingerprint": "56d17522ca0424891d05cf3ec627a4e417e921d5c9c585f4c56953e043ead04c",
+    "fingerprint_proof": [
+     "short",
+     "recorded-line"
+    ],
+    "reason": "Original source hash/line/symbol/fingerprint are verified in the recorded tree; source expression changed in a reviewed fix and the current consumer anchor is manually re-attested."
+   },
+   {
+    "id": "INV34-005709",
+    "file": "tabs/w3c_section_data.py",
+    "previous_site": "tabs/w3c_section_data.py:193",
+    "previous_source_line": "data = self.db_manager.get_cement_report(well_id=self.current_well) if self.db_manager else None",
+    "current_site": "tabs/w3c_section_data.py:259",
+    "current_source_line": "data = (",
+    "tree": "provenance tree = 7f0186e3e6ac966f1fe9cbd804785129b9246fbe (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+    "source_sha256": "5038a740761be06f65b9c81076482aff3f58e2e85b737d600e4f3fda5b8eaf27",
+    "context_fingerprint": "2c80fb757525c5e4f5d319191a95da9698b0222715552d7f668a55f6c21f58a9",
+    "fingerprint_proof": [
+     "short",
+     "ast-segment"
+    ],
+    "reason": "Original source hash/line/symbol/fingerprint are verified in the recorded tree; source expression changed in a reviewed fix and the current consumer anchor is manually re-attested."
+   }
+  ],
+  "provenance_trees": {
+   "core/ai_import_mapper.py": "current tree: sha256(file) == the record's source_sha256",
+   "core/company_mapping.py": "current tree: sha256(file) == the record's source_sha256",
+   "core/database_reset.py": "current tree: sha256(file) == the record's source_sha256",
+   "tabs/w3_drilling_report.py": "current tree: sha256(file) == the record's source_sha256",
+   "tabs/w3b_wellbore_schematic_tab.py": "current tree: sha256(file) == the record's source_sha256",
+   "tabs/w3c_section_data.py": "provenance tree = 7f0186e3e6ac966f1fe9cbd804785129b9246fbe (blob sha256 equals all seven recorded source hashes; later section-scope change is in 6c07d3)",
+   "app.py": "current tree: sha256(file) == the record's source_sha256",
+   "core/base_tab.py": "current tree: sha256(file) == the record's source_sha256",
+   "core/canonical_mapper.py": "current tree: sha256(file) == the record's source_sha256",
+   "core/canonical_schema.py": "current tree: sha256(file) == the record's source_sha256",
+   "core/ddr_import_service.py": "current tree: sha256(file) == the record's source_sha256",
+   "tabs/w2_Daily_Report.py": "current tree: sha256(file) == the record's source_sha256",
+   "core/data_quality.py": "provenance tree = 7f0186e3e6ac966f1fe9cbd804785129b9246fbe (blob sha256 equals the recorded source hash; current working source includes the reviewed fix)"
+  },
+  "m34_fingerprint_ledger": {
+   "manifest": "docs/audits/m34-evidence/M34_INVENTORY_LEDGER.json",
+   "expected_path": "docs/audits/m34-evidence/m34-ledger.json",
+   "expected_sha256": "d81a77bda0330c75493f4081c4a02e4d106fe7602e49c14f0c67d12977658a6b",
+   "expected_bytes": 11394989,
+   "present_in_workspace": false,
+   "effect": "The ledger-free recorded-line/AST proof reproduces 41/45 P6 fingerprints; four remain hash/line/symbol-anchored but their original M34 pattern cannot be recovered or fingerprint-reproduced here."
+  },
+  "fingerprint_proof": {
+   "checked": 45,
+   "verified": 41,
+   "records_without_a_reproducible_fingerprint": [],
+   "records_without_a_reproducing_fingerprint_but_hash_anchored": [
+    "INV34-005449",
+    "INV34-005478",
+    "INV34-005479",
+    "INV34-008311"
+   ],
+   "symbol_forms_that_reproduced": {
+    "short": 39,
+    "MISMATCH": 4
+   },
+   "expression_forms_that_reproduced": {
+    "ast-segment": 17,
+    "recorded-line": 22
+   },
+   "method": "ledger-free: recorded-line + AST-segment expression forms (the 11 MB M34 ledger is not tracked in the repository); two source-changed records were separately proven by the same recorded-line/AST method"
+  }
+ },
+ "method": "Trace source/input through normalization, query or engine, UI/report and persistence; distinguish unknown from zero and selected report/section/well scope; fix only reproducible defects and retain unresolved engineering contracts as owner decisions.",
+ "items": [
+  {
+   "id": "INV34-000072",
+   "file": "core/ai_import_mapper.py",
+   "line": 43,
+   "symbol": "set_selected_model",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not model:",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source core/ai_import_mapper.py:43 `if not model:`; source_sha256=4142ee2a3d3376301d8aab2cd48daa83f38ed0866505cc63ab4644dc7a324bb9; context_fingerprint=78b80b6fa09c22929cacda073aecc09e4aa453f05a41a0ce266fe61f3b463d68. An empty model name is rejected by the settings writer; model discovery and advisory AI are opt-in and deterministic imports do not depend on it.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/ai_import_mapper.py",
+    "line": 43,
+    "symbol": "set_selected_model",
+    "expression": "if not model:",
+    "source_sha256": "4142ee2a3d3376301d8aab2cd48daa83f38ed0866505cc63ab4644dc7a324bb9",
+    "context_fingerprint": "78b80b6fa09c22929cacda073aecc09e4aa453f05a41a0ce266fe61f3b463d68"
+   }
+  },
+  {
+   "id": "INV34-000234",
+   "file": "core/company_mapping.py",
+   "line": 80,
+   "symbol": "CompanyMappingService.reload",
+   "rule": "R-EXC-CONTINUE",
+   "kind": "typed-exception",
+   "register_line_text": "except (OSError, ValueError):",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source core/company_mapping.py:80 `except (OSError, ValueError):`; source_sha256=b383b1427eae601d2899d051abc5b2833619422bd09fcef1b766641174c7198a; context_fingerprint=74eeefecd11d7186cf9635d1e7629ee03dab0e7cac72abca2dbf189a103d2783. Unreadable or malformed optional company-template files are skipped; unknown mappings retain passthrough values with zero/low confidence for review rather than being asserted as canonical.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/company_mapping.py",
+    "line": 80,
+    "symbol": "CompanyMappingService.reload",
+    "expression": "except (OSError, ValueError):",
+    "source_sha256": "b383b1427eae601d2899d051abc5b2833619422bd09fcef1b766641174c7198a",
+    "context_fingerprint": "74eeefecd11d7186cf9635d1e7629ee03dab0e7cac72abca2dbf189a103d2783"
+   }
+  },
+  {
+   "id": "INV34-001133",
+   "file": "core/database_reset.py",
+   "line": 51,
+   "symbol": "reset_configured_database",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if busy:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source core/database_reset.py:51 `if busy:`; source_sha256=4adee41de6eb0dbc23155c3f1233480f62ef6ff596813ce2f31f9099a722712f; context_fingerprint=a5a66ff684af84aa3fe2dcec2539da8805e376cc9fbe61ec58d8b5dda488c490. SQLite `wal_checkpoint(TRUNCATE)` returns an integer busy flag; nonzero means an active reader/writer and reset refuses before replacing the configured database.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/database_reset.py",
+    "line": 51,
+    "symbol": "reset_configured_database",
+    "expression": "if busy:",
+    "source_sha256": "4adee41de6eb0dbc23155c3f1233480f62ef6ff596813ce2f31f9099a722712f",
+    "context_fingerprint": "a5a66ff684af84aa3fe2dcec2539da8805e376cc9fbe61ec58d8b5dda488c490"
+   }
+  },
+  {
+   "id": "INV34-005398",
+   "file": "tabs/w3_drilling_report.py",
+   "line": 769,
+   "symbol": "DrillingParametersTab.calculate_annular_velocity",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-constant",
+   "register_line_text": "pipe_od = float(it.get(\"od_inch\", 5.0) or 5.0)",
+   "classification": "DOMAIN_DECISION_REQUIRED",
+   "evidence": "Hash-anchored source tabs/w3_drilling_report.py:769 `pipe_od = float(it.get(\"od_inch\", 5.0) or 5.0)`; source_sha256=e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0; context_fingerprint=95c391d2a5ce1b39a5e41f68e84f159927f15f271f071bcb2041f09811a98076. The 5-inch pipe-OD fallback feeds the annular-velocity engine and visible calculated result when no pipe OD is sourced. It is not labeled as an assumption. Whether 5 inches is an approved default for this UI is not established; retained as an owner decision, not treated as verified engineering input.",
+   "defect": false,
+   "remaining_question": "Does the UI's annular-velocity output permit the conventional 5-inch OD when the selected well has no pipe OD, and if so how must the assumption be labeled?",
+   "site": {
+    "file": "tabs/w3_drilling_report.py",
+    "line": 769,
+    "symbol": "DrillingParametersTab.calculate_annular_velocity",
+    "expression": "pipe_od = float(it.get(\"od_inch\", 5.0) or 5.0)",
+    "source_sha256": "e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0",
+    "context_fingerprint": "95c391d2a5ce1b39a5e41f68e84f159927f15f271f071bcb2041f09811a98076"
+   }
+  },
+  {
+   "id": "INV34-005449",
+   "file": "tabs/w3_drilling_report.py",
+   "line": 174,
+   "symbol": "DrillingReportWidget.on_well_changed",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "well_name = (",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source tabs/w3_drilling_report.py:174 `well_name = (`; source_sha256=e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0; context_fingerprint=bbbbfc79f3be5bd2ce2d76202c83af60eb0f58d24a34edca4a45e8bf0312ef7d. Missing well display metadata falls back to the selected well id for a label only; it does not alter query scope or persist a name.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w3_drilling_report.py",
+    "line": 174,
+    "symbol": "DrillingReportWidget.on_well_changed",
+    "expression": "well_name = (",
+    "source_sha256": "e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0",
+    "context_fingerprint": "bbbbfc79f3be5bd2ce2d76202c83af60eb0f58d24a34edca4a45e8bf0312ef7d"
+   }
+  },
+  {
+   "id": "INV34-005450",
+   "file": "tabs/w3_drilling_report.py",
+   "line": 233,
+   "symbol": "DrillingReportWidget.validate_all_tabs",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "errs = self.drilling_tab.validate_form()",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source tabs/w3_drilling_report.py:233 `errs = self.drilling_tab.validate_form()`; source_sha256=e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0; context_fingerprint=3f6e33ec263fa6da7c4bd470d731b7a40d97ec4588efe0cd14caf84e847d15fa. Validation returns an error list; a non-empty list blocks the save path and an empty list means no form errors.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w3_drilling_report.py",
+    "line": 233,
+    "symbol": "DrillingReportWidget.validate_all_tabs",
+    "expression": "errs = self.drilling_tab.validate_form()",
+    "source_sha256": "e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0",
+    "context_fingerprint": "3f6e33ec263fa6da7c4bd470d731b7a40d97ec4588efe0cd14caf84e847d15fa"
+   }
+  },
+  {
+   "id": "INV34-005452",
+   "file": "tabs/w3_drilling_report.py",
+   "line": 1343,
+   "symbol": "MudReportTab.add_chemical_row",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "used=None, stock=None, unit=None):",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source tabs/w3_drilling_report.py:1343 `used=None, stock=None, unit=None):`; source_sha256=e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0; context_fingerprint=db5a16ccfe652040669c2fd3fa7e28b5a8974f1f72b55287a9f3d6560864f108. Optional chemical quantities use `None` at the row-builder API; loaded-source provenance and explicit-edit tracking distinguish missing from a real zero downstream.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w3_drilling_report.py",
+    "line": 1343,
+    "symbol": "MudReportTab.add_chemical_row",
+    "expression": "used=None, stock=None, unit=None):",
+    "source_sha256": "e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0",
+    "context_fingerprint": "db5a16ccfe652040669c2fd3fa7e28b5a8974f1f72b55287a9f3d6560864f108"
+   }
+  },
+  {
+   "id": "INV34-005455",
+   "file": "tabs/w3_drilling_report.py",
+   "line": 1579,
+   "symbol": "MudReportTab.collect_chemicals",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "product_widget = self.chemicals_table.cellWidget(row, 0)",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source tabs/w3_drilling_report.py:1579 `product_widget = self.chemicals_table.cellWidget(row, 0)`; source_sha256=e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0; context_fingerprint=1f40f2d67a695b6ab18b01b70071ffa5324a9a793fa3dc6d13ad9d7e4eeeec6d. Every chemical row is created with a product widget; if a malformed UI row lacks it, collection produces a blank identity that the required-product validator rejects before persistence.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w3_drilling_report.py",
+    "line": 1579,
+    "symbol": "MudReportTab.collect_chemicals",
+    "expression": "product_widget = self.chemicals_table.cellWidget(row, 0)",
+    "source_sha256": "e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0",
+    "context_fingerprint": "1f40f2d67a695b6ab18b01b70071ffa5324a9a793fa3dc6d13ad9d7e4eeeec6d"
+   }
+  },
+  {
+   "id": "INV34-005456",
+   "file": "tabs/w3_drilling_report.py",
+   "line": 1581,
+   "symbol": "MudReportTab.collect_chemicals",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "received_widget = self.chemicals_table.cellWidget(row, 2)",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source tabs/w3_drilling_report.py:1581 `received_widget = self.chemicals_table.cellWidget(row, 2)`; source_sha256=e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0; context_fingerprint=49889df7c4deb781092f559be017f96a6999b8772f80bfa0c63e404a5ffbd34b. Every chemical row is created with a type widget; unresolved types are preserved and surfaced as a review issue rather than treated as a trusted category.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w3_drilling_report.py",
+    "line": 1581,
+    "symbol": "MudReportTab.collect_chemicals",
+    "expression": "received_widget = self.chemicals_table.cellWidget(row, 2)",
+    "source_sha256": "e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0",
+    "context_fingerprint": "49889df7c4deb781092f559be017f96a6999b8772f80bfa0c63e404a5ffbd34b"
+   }
+  },
+  {
+   "id": "INV34-005457",
+   "file": "tabs/w3_drilling_report.py",
+   "line": 1583,
+   "symbol": "MudReportTab.collect_chemicals",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "stock_widget = self.chemicals_table.cellWidget(row, 4)",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source tabs/w3_drilling_report.py:1583 `stock_widget = self.chemicals_table.cellWidget(row, 4)`; source_sha256=e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0; context_fingerprint=0cd20d342ac548953ba4f282e2d31c0897179d96528f5783d3a43d8db716b2ee. Every chemical row is created with a received widget; source-null values are restored from provenance when untouched, while edited values are distinct.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w3_drilling_report.py",
+    "line": 1583,
+    "symbol": "MudReportTab.collect_chemicals",
+    "expression": "stock_widget = self.chemicals_table.cellWidget(row, 4)",
+    "source_sha256": "e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0",
+    "context_fingerprint": "0cd20d342ac548953ba4f282e2d31c0897179d96528f5783d3a43d8db716b2ee"
+   }
+  },
+  {
+   "id": "INV34-005458",
+   "file": "tabs/w3_drilling_report.py",
+   "line": 1580,
+   "symbol": "MudReportTab.collect_chemicals",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "type_widget = self.chemicals_table.cellWidget(row, 1)",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source tabs/w3_drilling_report.py:1580 `type_widget = self.chemicals_table.cellWidget(row, 1)`; source_sha256=e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0; context_fingerprint=a63dca88f8ff8fc7645cf95f64b52c0786f8114b9fbe4acdf91712b6e89c1af8. Every chemical row is created with a type widget; absent/malformed rows are guarded, and normal loading preserves the source category and review state.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w3_drilling_report.py",
+    "line": 1580,
+    "symbol": "MudReportTab.collect_chemicals",
+    "expression": "type_widget = self.chemicals_table.cellWidget(row, 1)",
+    "source_sha256": "e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0",
+    "context_fingerprint": "a63dca88f8ff8fc7645cf95f64b52c0786f8114b9fbe4acdf91712b6e89c1af8"
+   }
+  },
+  {
+   "id": "INV34-005459",
+   "file": "tabs/w3_drilling_report.py",
+   "line": 1584,
+   "symbol": "MudReportTab.collect_chemicals",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "unit_widget = self.chemicals_table.cellWidget(row, 5)",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source tabs/w3_drilling_report.py:1584 `unit_widget = self.chemicals_table.cellWidget(row, 5)`; source_sha256=e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0; context_fingerprint=adc924f39e79c62c3dd16a5948d525e85cb0f18ac0e6a578b88e0b4e7356d2e6. Every chemical row is created with a unit widget; an empty selection normalizes to `None`, not a fabricated unit.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w3_drilling_report.py",
+    "line": 1584,
+    "symbol": "MudReportTab.collect_chemicals",
+    "expression": "unit_widget = self.chemicals_table.cellWidget(row, 5)",
+    "source_sha256": "e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0",
+    "context_fingerprint": "adc924f39e79c62c3dd16a5948d525e85cb0f18ac0e6a578b88e0b4e7356d2e6"
+   }
+  },
+  {
+   "id": "INV34-005478",
+   "file": "tabs/w3_drilling_report.py",
+   "line": 83,
+   "symbol": null,
+   "rule": "R-EXC-OTHER",
+   "kind": "typed-exception",
+   "register_line_text": "except ImportError:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source tabs/w3_drilling_report.py:83 `except ImportError:`; source_sha256=e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0; context_fingerprint=a5641ebe93494968501752c39a0b21bf41606e0c57452b76baea15be3fd63d3d. Matplotlib is an optional plotting dependency; import failure selects the documented no-plot fallback while calculations remain independent.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w3_drilling_report.py",
+    "line": 83,
+    "symbol": null,
+    "expression": "except ImportError:",
+    "source_sha256": "e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0",
+    "context_fingerprint": "a5641ebe93494968501752c39a0b21bf41606e0c57452b76baea15be3fd63d3d"
+   }
+  },
+  {
+   "id": "INV34-005479",
+   "file": "tabs/w3_drilling_report.py",
+   "line": 82,
+   "symbol": null,
+   "rule": "R-EXC-OTHER",
+   "kind": "typed-exception",
+   "register_line_text": "MATPLOTLIB_QT_OK = False",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Hash-anchored source tabs/w3_drilling_report.py:82 `MATPLOTLIB_QT_OK = False`; source_sha256=e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0; context_fingerprint=51db8817168630c331790683096db99fe6532907d51bed47b2610e7587495fc6. Duplicate capture of the same optional-Matplotlib import fallback block; the assignment records capability false and does not catch or suppress a calculation error.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w3_drilling_report.py",
+    "line": 82,
+    "symbol": null,
+    "expression": "MATPLOTLIB_QT_OK = False",
+    "source_sha256": "e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0",
+    "context_fingerprint": "51db8817168630c331790683096db99fe6532907d51bed47b2610e7587495fc6"
+   }
+  },
+  {
+   "id": "INV34-005483",
+   "file": "tabs/w3_drilling_report.py",
+   "line": 1690,
+   "symbol": "MudReportTab.load_from_dict",
+   "rule": "R-EXC-CONTINUE",
+   "kind": "typed-exception",
+   "register_line_text": "except (json.JSONDecodeError, TypeError):",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source tabs/w3_drilling_report.py:1690 `except (json.JSONDecodeError, TypeError):`; source_sha256=e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0; context_fingerprint=22010c82631fd06e479b0a3cd34ff0192e25d5c1979d8b2dabb5f4712e24a440. Malformed imported pit-volume JSON clears only the derived text display; the original `_pit_volumes_json` payload is retained and passed through on save.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w3_drilling_report.py",
+    "line": 1690,
+    "symbol": "MudReportTab.load_from_dict",
+    "expression": "except (json.JSONDecodeError, TypeError):",
+    "source_sha256": "e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0",
+    "context_fingerprint": "22010c82631fd06e479b0a3cd34ff0192e25d5c1979d8b2dabb5f4712e24a440"
+   }
+  },
+  {
+   "id": "INV34-005532",
+   "file": "tabs/w3b_wellbore_schematic_tab.py",
+   "line": 563,
+   "symbol": "WellboreSchematicTab.refresh_drawing",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if self.config.dark_mode:",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source tabs/w3b_wellbore_schematic_tab.py:563 `if self.config.dark_mode:`; source_sha256=9d91a9dd4f0acf5ad4899db96f8ec4b462d5b0ae7f2f07355ecd687588074eaa; context_fingerprint=1c7d48295e78464d868c8d61ac62407ddb2e49a07d80f5b47386e695fb55fe3e. Dark-mode truthiness selects presentation colors only; it does not change data, geometry, or calculation inputs.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w3b_wellbore_schematic_tab.py",
+    "line": 563,
+    "symbol": "WellboreSchematicTab.refresh_drawing",
+    "expression": "if self.config.dark_mode:",
+    "source_sha256": "9d91a9dd4f0acf5ad4899db96f8ec4b462d5b0ae7f2f07355ecd687588074eaa",
+    "context_fingerprint": "1c7d48295e78464d868c8d61ac62407ddb2e49a07d80f5b47386e695fb55fe3e"
+   }
+  },
+  {
+   "id": "INV34-005536",
+   "file": "tabs/w3b_wellbore_schematic_tab.py",
+   "line": 494,
+   "symbol": "WellboreSchematicTab.on_well_changed",
+   "rule": "R-EXC-CONTINUE",
+   "kind": "typed-exception",
+   "register_line_text": "except (TypeError, ValueError):",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source tabs/w3b_wellbore_schematic_tab.py:494 `except (TypeError, ValueError):`; source_sha256=9d91a9dd4f0acf5ad4899db96f8ec4b462d5b0ae7f2f07355ecd687588074eaa; context_fingerprint=ef1ec4526ef1be8bff3a0be69c5f34ae760090441621919cef57400e0d0318be. Database target depth is a nullable numeric column. A non-conforming legacy string falls back only in the editable display; the schematic builder reads authoritative database geometry and the control is not saved automatically.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w3b_wellbore_schematic_tab.py",
+    "line": 494,
+    "symbol": "WellboreSchematicTab.on_well_changed",
+    "expression": "except (TypeError, ValueError):",
+    "source_sha256": "9d91a9dd4f0acf5ad4899db96f8ec4b462d5b0ae7f2f07355ecd687588074eaa",
+    "context_fingerprint": "ef1ec4526ef1be8bff3a0be69c5f34ae760090441621919cef57400e0d0318be"
+   }
+  },
+  {
+   "id": "INV34-005706",
+   "file": "tabs/w3c_section_data.py",
+   "line": 129,
+   "symbol": "CementReportTab.add_material_row",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if ro: sp.setReadOnly(True)",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source tabs/w3c_section_data.py:129 `if ro: sp.setReadOnly(True)`; source_sha256=5038a740761be06f65b9c81076482aff3f58e2e85b737d600e4f3fda5b8eaf27; context_fingerprint=70c47438d174f126719630f30d6c4aaaa151687a79089608663bbe90fa66b7a7. The read-only flag is a UI widget configuration guard; it does not omit or convert the material values.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w3c_section_data.py",
+    "line": 129,
+    "symbol": "CementReportTab.add_material_row",
+    "expression": "if ro: sp.setReadOnly(True)",
+    "source_sha256": "5038a740761be06f65b9c81076482aff3f58e2e85b737d600e4f3fda5b8eaf27",
+    "context_fingerprint": "70c47438d174f126719630f30d6c4aaaa151687a79089608663bbe90fa66b7a7"
+   }
+  },
+  {
+   "id": "INV34-005709",
+   "file": "tabs/w3c_section_data.py",
+   "line": 193,
+   "symbol": "CementReportTab.load_data",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "data = self.db_manager.get_cement_report(well_id=self.current_well) if self.db_manager else None",
+   "classification": "GENUINE_DEFECT",
+   "evidence": "Hash-anchored source tabs/w3c_section_data.py:193 `data = self.db_manager.get_cement_report(well_id=self.current_well) if self.db_manager else None`; source_sha256=5038a740761be06f65b9c81076482aff3f58e2e85b737d600e4f3fda5b8eaf27; context_fingerprint=2c80fb757525c5e4f5d319191a95da9698b0222715552d7f668a55f6c21f58a9. Re-anchored from the recorded whole-well lookup to the current section-scoped `get_cement_report(section_id=...)` path (scope fix in 6c07d3). Semantic sweep of its consumer exposed a separate loss: nullable cement/casing fields were displayed as numeric defaults and those defaults were saved over SQL NULL. Both tabs now capture source/display baselines and restore untouched source values; explicit edits still persist, including zero. Qt round-trip coverage is added but is locally blocked by missing libGL.",
+   "defect": true,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w3c_section_data.py",
+    "line": 193,
+    "symbol": "CementReportTab.load_data",
+    "expression": "data = self.db_manager.get_cement_report(well_id=self.current_well) if self.db_manager else None",
+    "source_sha256": "5038a740761be06f65b9c81076482aff3f58e2e85b737d600e4f3fda5b8eaf27",
+    "context_fingerprint": "2c80fb757525c5e4f5d319191a95da9698b0222715552d7f668a55f6c21f58a9"
+   },
+   "current_site": "tabs/w3c_section_data.py:259",
+   "current_source_line": "data = ("
+  },
+  {
+   "id": "INV34-005715",
+   "file": "tabs/w3c_section_data.py",
+   "line": 1169,
+   "symbol": "FailureReportTab._renumber_rows",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if item:",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source tabs/w3c_section_data.py:1169 `if item:`; source_sha256=5038a740761be06f65b9c81076482aff3f58e2e85b737d600e4f3fda5b8eaf27; context_fingerprint=2c295be8a988c4261a62f50297ee99bf466e5af8929a0c9e5a78ac2faac89fcf. A table item existence guard protects the style/renumbering operation; a missing presentation cell is skipped, not translated into a domain quantity.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w3c_section_data.py",
+    "line": 1169,
+    "symbol": "FailureReportTab._renumber_rows",
+    "expression": "if item:",
+    "source_sha256": "5038a740761be06f65b9c81076482aff3f58e2e85b737d600e4f3fda5b8eaf27",
+    "context_fingerprint": "2c295be8a988c4261a62f50297ee99bf466e5af8929a0c9e5a78ac2faac89fcf"
+   }
+  },
+  {
+   "id": "INV34-005717",
+   "file": "tabs/w3c_section_data.py",
+   "line": 1468,
+   "symbol": "FailureReportTab._wrap_html",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not text:",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source tabs/w3c_section_data.py:1468 `if not text:`; source_sha256=5038a740761be06f65b9c81076482aff3f58e2e85b737d600e4f3fda5b8eaf27; context_fingerprint=70594f8a925f23f36231ad838fb5f1cdc302a62cf5fa2b6a0f0e3736915789a9. Empty failure-report text produces empty wrapped HTML rather than an invented narrative; non-empty text is escaped/wrapped by the shared helper.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w3c_section_data.py",
+    "line": 1468,
+    "symbol": "FailureReportTab._wrap_html",
+    "expression": "if not text:",
+    "source_sha256": "5038a740761be06f65b9c81076482aff3f58e2e85b737d600e4f3fda5b8eaf27",
+    "context_fingerprint": "70594f8a925f23f36231ad838fb5f1cdc302a62cf5fa2b6a0f0e3736915789a9"
+   }
+  },
+  {
+   "id": "INV34-006773",
+   "file": "app.py",
+   "line": 266,
+   "symbol": "DrillMasterApp.initialize",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not self._run_first_run_bootstrap():",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source app.py:266 `if not self._run_first_run_bootstrap():`; source_sha256=8755845b24b901dbaf460472797375ab49002a78d230e8b9131f3d6792abbde7; context_fingerprint=acdb6da0973f8c8b6a6587fbba17764d673a5397784b914562c7c01c93336fd9. Startup stops and exits if first-run credential setup is declined or fails; this is a fail-closed gate, not a truthiness-based data value.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "app.py",
+    "line": 266,
+    "symbol": "DrillMasterApp.initialize",
+    "expression": "if not self._run_first_run_bootstrap():",
+    "source_sha256": "8755845b24b901dbaf460472797375ab49002a78d230e8b9131f3d6792abbde7",
+    "context_fingerprint": "acdb6da0973f8c8b6a6587fbba17764d673a5397784b914562c7c01c93336fd9"
+   }
+  },
+  {
+   "id": "INV34-006774",
+   "file": "app.py",
+   "line": 274,
+   "symbol": "DrillMasterApp.initialize",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not self.db_manager.initialize():",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source app.py:274 `if not self.db_manager.initialize():`; source_sha256=8755845b24b901dbaf460472797375ab49002a78d230e8b9131f3d6792abbde7; context_fingerprint=36d1e06be5c6be9d632e15a2bb4aa1e191778195141315305b6aa7aa4b1b54ca. The database initializer has an explicit boolean success contract; failure displays diagnostics and terminates startup before using an uninitialized database.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "app.py",
+    "line": 274,
+    "symbol": "DrillMasterApp.initialize",
+    "expression": "if not self.db_manager.initialize():",
+    "source_sha256": "8755845b24b901dbaf460472797375ab49002a78d230e8b9131f3d6792abbde7",
+    "context_fingerprint": "36d1e06be5c6be9d632e15a2bb4aa1e191778195141315305b6aa7aa4b1b54ca"
+   }
+  },
+  {
+   "id": "INV34-006779",
+   "file": "app.py",
+   "line": 691,
+   "symbol": "run_package_smoke",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not manager.initialize():",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source app.py:691 `if not manager.initialize():`; source_sha256=8755845b24b901dbaf460472797375ab49002a78d230e8b9131f3d6792abbde7; context_fingerprint=828272438dae6ff7fa8a983c0d0cb70b03e309127ca4e62e4cd57f19022292c0. The package smoke returns failure if the temporary database cannot initialize or its schema version is wrong; the boolean is a gate, not a domain measurement.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "app.py",
+    "line": 691,
+    "symbol": "run_package_smoke",
+    "expression": "if not manager.initialize():",
+    "source_sha256": "8755845b24b901dbaf460472797375ab49002a78d230e8b9131f3d6792abbde7",
+    "context_fingerprint": "828272438dae6ff7fa8a983c0d0cb70b03e309127ca4e62e4cd57f19022292c0"
+   }
+  },
+  {
+   "id": "INV34-006790",
+   "file": "core/base_tab.py",
+   "line": 60,
+   "symbol": "DrillTabBase.__init__",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-empty",
+   "register_line_text": "self.current_well_data = self.sel_manager.current_well_data or {}",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source core/base_tab.py:60 `self.current_well_data = self.sel_manager.current_well_data or {}`; source_sha256=2e45ad138245d11b83f90943ceb2305e6fc900a0ad693486b70d37bbb72fce39; context_fingerprint=a182370f505b7b39f2cd3128cbc668318825c8e3c1b4ec641ccf1bd948c398d5. Selection metadata is optional UI context; `{}` represents no selected well data and is not passed as a numeric or whole-well value.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/base_tab.py",
+    "line": 60,
+    "symbol": "DrillTabBase.__init__",
+    "expression": "self.current_well_data = self.sel_manager.current_well_data or {}",
+    "source_sha256": "2e45ad138245d11b83f90943ceb2305e6fc900a0ad693486b70d37bbb72fce39",
+    "context_fingerprint": "a182370f505b7b39f2cd3128cbc668318825c8e3c1b4ec641ccf1bd948c398d5"
+   }
+  },
+  {
+   "id": "INV34-006791",
+   "file": "core/base_tab.py",
+   "line": 61,
+   "symbol": "DrillTabBase.__init__",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-empty",
+   "register_line_text": "self.current_section_data = self.sel_manager.current_section_data or {}",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source core/base_tab.py:61 `self.current_section_data = self.sel_manager.current_section_data or {}`; source_sha256=2e45ad138245d11b83f90943ceb2305e6fc900a0ad693486b70d37bbb72fce39; context_fingerprint=b27a564e0db3f0a84ff5ad53a682d5241ca64af60d5b720556e35dc06bf538d8. Selection metadata is optional UI context; `{}` does not claim a section was found and section identity remains separately nullable.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/base_tab.py",
+    "line": 61,
+    "symbol": "DrillTabBase.__init__",
+    "expression": "self.current_section_data = self.sel_manager.current_section_data or {}",
+    "source_sha256": "2e45ad138245d11b83f90943ceb2305e6fc900a0ad693486b70d37bbb72fce39",
+    "context_fingerprint": "b27a564e0db3f0a84ff5ad53a682d5241ca64af60d5b720556e35dc06bf538d8"
+   }
+  },
+  {
+   "id": "INV34-006792",
+   "file": "core/base_tab.py",
+   "line": 62,
+   "symbol": "DrillTabBase.__init__",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-empty",
+   "register_line_text": "self.current_report_data = self.sel_manager.current_report_data or {}",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source core/base_tab.py:62 `self.current_report_data = self.sel_manager.current_report_data or {}`; source_sha256=2e45ad138245d11b83f90943ceb2305e6fc900a0ad693486b70d37bbb72fce39; context_fingerprint=4dc0cda37078403686fc3c0cc73e911a8bf08bdc2f7ea5df2b337542677e12a7. Selection metadata is optional UI context; `{}` does not imply a selected report or substitute a report id.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/base_tab.py",
+    "line": 62,
+    "symbol": "DrillTabBase.__init__",
+    "expression": "self.current_report_data = self.sel_manager.current_report_data or {}",
+    "source_sha256": "2e45ad138245d11b83f90943ceb2305e6fc900a0ad693486b70d37bbb72fce39",
+    "context_fingerprint": "4dc0cda37078403686fc3c0cc73e911a8bf08bdc2f7ea5df2b337542677e12a7"
+   }
+  },
+  {
+   "id": "INV34-006793",
+   "file": "core/base_tab.py",
+   "line": 145,
+   "symbol": "DrillTabBase._on_well_changed_internal",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-empty",
+   "register_line_text": "self.current_well_data = well_data or {}",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source core/base_tab.py:145 `self.current_well_data = well_data or {}`; source_sha256=2e45ad138245d11b83f90943ceb2305e6fc900a0ad693486b70d37bbb72fce39; context_fingerprint=342a51e637511bee529a62e58b3bd0947fee555246e9d5a2e7ad02b801b4a440. A missing well payload is normalized to empty UI metadata; the identity and pending-load guard remain separate.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/base_tab.py",
+    "line": 145,
+    "symbol": "DrillTabBase._on_well_changed_internal",
+    "expression": "self.current_well_data = well_data or {}",
+    "source_sha256": "2e45ad138245d11b83f90943ceb2305e6fc900a0ad693486b70d37bbb72fce39",
+    "context_fingerprint": "342a51e637511bee529a62e58b3bd0947fee555246e9d5a2e7ad02b801b4a440"
+   }
+  },
+  {
+   "id": "INV34-006794",
+   "file": "core/base_tab.py",
+   "line": 157,
+   "symbol": "DrillTabBase._on_section_changed_internal",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-empty",
+   "register_line_text": "self.current_section_data = section_data or {}",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source core/base_tab.py:157 `self.current_section_data = section_data or {}`; source_sha256=2e45ad138245d11b83f90943ceb2305e6fc900a0ad693486b70d37bbb72fce39; context_fingerprint=90e71a68cadcc5d141a1d394b6c0e633d778d2651f63848de0f815cbbf93c8f8. A missing section payload is normalized to empty UI metadata; it does not broaden a section query.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/base_tab.py",
+    "line": 157,
+    "symbol": "DrillTabBase._on_section_changed_internal",
+    "expression": "self.current_section_data = section_data or {}",
+    "source_sha256": "2e45ad138245d11b83f90943ceb2305e6fc900a0ad693486b70d37bbb72fce39",
+    "context_fingerprint": "90e71a68cadcc5d141a1d394b6c0e633d778d2651f63848de0f815cbbf93c8f8"
+   }
+  },
+  {
+   "id": "INV34-006795",
+   "file": "core/base_tab.py",
+   "line": 168,
+   "symbol": "DrillTabBase._on_report_changed_internal",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-empty",
+   "register_line_text": "self.current_report_data = report_data or {}",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source core/base_tab.py:168 `self.current_report_data = report_data or {}`; source_sha256=2e45ad138245d11b83f90943ceb2305e6fc900a0ad693486b70d37bbb72fce39; context_fingerprint=5b94722e8ab3806f339c5df3501f3e98c844ffc8428ffb7b2dc9fc66d3e6644d. A missing report payload is normalized to empty UI metadata; report selection remains an independent id.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/base_tab.py",
+    "line": 168,
+    "symbol": "DrillTabBase._on_report_changed_internal",
+    "expression": "self.current_report_data = report_data or {}",
+    "source_sha256": "2e45ad138245d11b83f90943ceb2305e6fc900a0ad693486b70d37bbb72fce39",
+    "context_fingerprint": "5b94722e8ab3806f339c5df3501f3e98c844ffc8428ffb7b2dc9fc66d3e6644d"
+   }
+  },
+  {
+   "id": "INV34-006811",
+   "file": "core/canonical_mapper.py",
+   "line": 172,
+   "symbol": "review_item",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-empty",
+   "register_line_text": "source = dict(location or {})",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source core/canonical_mapper.py:172 `source = dict(location or {})`; source_sha256=601a41f60fff8493fd04cf3a921569934c894d48c495827f4b3c74d5cb8c7296; context_fingerprint=b84b3fb6351b51f84e6a0b7bdaddaf9a456b77a19ed0103f64c3054c598ee107. `review_item` accepts absent source-location metadata and builds an empty lineage object while keeping field/value and review status separate.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/canonical_mapper.py",
+    "line": 172,
+    "symbol": "review_item",
+    "expression": "source = dict(location or {})",
+    "source_sha256": "601a41f60fff8493fd04cf3a921569934c894d48c495827f4b3c74d5cb8c7296",
+    "context_fingerprint": "b84b3fb6351b51f84e6a0b7bdaddaf9a456b77a19ed0103f64c3054c598ee107"
+   }
+  },
+  {
+   "id": "INV34-006816",
+   "file": "core/canonical_schema.py",
+   "line": 523,
+   "symbol": "get_field_spec",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-constant",
+   "register_line_text": "\"\"\"Return the FieldSpec for a canonical path, or None.\"\"\"",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "Hash-anchored source core/canonical_schema.py:523 `\"\"\"Return the FieldSpec for a canonical path, or None.\"\"\"`; source_sha256=bcbb61d20e52b0ad7d73929ffece12e4d1d74a391816c52186e6351ad9409e71; context_fingerprint=3afb9a4e2e9abf5743b4779657595fda638314d037ec69204bcbcb7e1d705e0f. Rule mis-fire: the `or None` phrase is in the `get_field_spec` docstring, whose contract explicitly says the lookup returns `None` when absent.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/canonical_schema.py",
+    "line": 523,
+    "symbol": "get_field_spec",
+    "expression": "\"\"\"Return the FieldSpec for a canonical path, or None.\"\"\"",
+    "source_sha256": "bcbb61d20e52b0ad7d73929ffece12e4d1d74a391816c52186e6351ad9409e71",
+    "context_fingerprint": "3afb9a4e2e9abf5743b4779657595fda638314d037ec69204bcbcb7e1d705e0f"
+   }
+  },
+  {
+   "id": "INV34-006841",
+   "file": "core/data_quality.py",
+   "line": 156,
+   "symbol": "DataQualityService.for_report",
+   "rule": "R-PASS-OTHER",
+   "kind": "pass-statement",
+   "register_line_text": "pass",
+   "classification": "GENUINE_DEFECT",
+   "evidence": "Hash-anchored source core/data_quality.py:156 `pass`; source_sha256=0151a92768ec15d1d26c3e81890c5cd2aad2479b12b97b3c00d2eff92a7ba9cc; context_fingerprint=56d17522ca0424891d05cf3ec627a4e417e921d5c9c585f4c56953e043ead04c. The old orphan loop never incremented its counter and always returned 100/good. A raw SQLite child row with a dangling FK reproduced the false-good result. The new `PRAGMA foreign_key_check` reports table/row/parent/index evidence; query failure is `None/unknown`, never a pass. Regression tests cover clean, violated, and unavailable-query states.",
+   "defect": true,
+   "remaining_question": null,
+   "site": {
+    "file": "core/data_quality.py",
+    "line": 156,
+    "symbol": "DataQualityService.for_report",
+    "expression": "pass",
+    "source_sha256": "0151a92768ec15d1d26c3e81890c5cd2aad2479b12b97b3c00d2eff92a7ba9cc",
+    "context_fingerprint": "56d17522ca0424891d05cf3ec627a4e417e921d5c9c585f4c56953e043ead04c"
+   },
+   "current_site": "core/data_quality.py:153",
+   "current_source_line": "violations = session.execute(text(\"PRAGMA foreign_key_check\")).fetchall()"
+  },
+  {
+   "id": "INV34-007340",
+   "file": "core/database_reset.py",
+   "line": 33,
+   "symbol": "reset_configured_database",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not candidate.initialize():",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source core/database_reset.py:33 `if not candidate.initialize():`; source_sha256=4adee41de6eb0dbc23155c3f1233480f62ef6ff596813ce2f31f9099a722712f; context_fingerprint=4ebf800961a77e48f08faa36f1a4f6d3cb9ba43348e34c0d8cad40488f08948f. The candidate database must initialize successfully before promotion; a false result aborts and preserves the existing file.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/database_reset.py",
+    "line": 33,
+    "symbol": "reset_configured_database",
+    "expression": "if not candidate.initialize():",
+    "source_sha256": "4adee41de6eb0dbc23155c3f1233480f62ef6ff596813ce2f31f9099a722712f",
+    "context_fingerprint": "4ebf800961a77e48f08faa36f1a4f6d3cb9ba43348e34c0d8cad40488f08948f"
+   }
+  },
+  {
+   "id": "INV34-007350",
+   "file": "core/ddr_import_service.py",
+   "line": 27,
+   "symbol": "_canonical_review_row",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-empty",
+   "register_line_text": "row = dict(payload or {})",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source core/ddr_import_service.py:27 `row = dict(payload or {})`; source_sha256=ee069e9e1adf74a59f52dbf8efc560bd7995426ecf1cd5bd3dea21aa40d44f3d; context_fingerprint=1b26d2b406be6f62812e6cc6aabd85362e185cedce342a665b8426a16ac00149. The canonical review-row boundary accepts an optional payload and creates an empty row only for absent input; review defaults remain explicit and no engineering measurement is created.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/ddr_import_service.py",
+    "line": 27,
+    "symbol": "_canonical_review_row",
+    "expression": "row = dict(payload or {})",
+    "source_sha256": "ee069e9e1adf74a59f52dbf8efc560bd7995426ecf1cd5bd3dea21aa40d44f3d",
+    "context_fingerprint": "1b26d2b406be6f62812e6cc6aabd85362e185cedce342a665b8426a16ac00149"
+   }
+  },
+  {
+   "id": "INV34-008296",
+   "file": "tabs/w2_Daily_Report.py",
+   "line": 1395,
+   "symbol": "DailyReportWidget._extract_time_log_row",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not from_widget or not to_widget:",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source tabs/w2_Daily_Report.py:1395 `if not from_widget or not to_widget:`; source_sha256=c5740755f05519d83336777520ee3406b8d60b8a90af77633a9223daa2fb89ae; context_fingerprint=bcca49c963eee4599e8dcb33de4ab8577c9fb9ff78298d19aadc35e308913ce3. The table row is ignored only if a required time widget is structurally absent; normal UI rows create both widgets, and values are read from their typed time API.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w2_Daily_Report.py",
+    "line": 1395,
+    "symbol": "DailyReportWidget._extract_time_log_row",
+    "expression": "if not from_widget or not to_widget:",
+    "source_sha256": "c5740755f05519d83336777520ee3406b8d60b8a90af77633a9223daa2fb89ae",
+    "context_fingerprint": "bcca49c963eee4599e8dcb33de4ab8577c9fb9ff78298d19aadc35e308913ce3"
+   }
+  },
+  {
+   "id": "INV34-008303",
+   "file": "tabs/w2_Daily_Report.py",
+   "line": 1760,
+   "symbol": "DailyReportWidget.copy_data_from_report",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not is_editable(target.status):",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source tabs/w2_Daily_Report.py:1760 `if not is_editable(target.status):`; source_sha256=c5740755f05519d83336777520ee3406b8d60b8a90af77633a9223daa2fb89ae; context_fingerprint=937c806792702d1ba0e83d49470d1ba77a57b9bf38405e6c01eecf820a305ed8. Copying report data is blocked unless the target report lifecycle state is editable; this protects finalized reports rather than treating status as a numeric truth value.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w2_Daily_Report.py",
+    "line": 1760,
+    "symbol": "DailyReportWidget.copy_data_from_report",
+    "expression": "if not is_editable(target.status):",
+    "source_sha256": "c5740755f05519d83336777520ee3406b8d60b8a90af77633a9223daa2fb89ae",
+    "context_fingerprint": "937c806792702d1ba0e83d49470d1ba77a57b9bf38405e6c01eecf820a305ed8"
+   }
+  },
+  {
+   "id": "INV34-008311",
+   "file": "tabs/w2_Daily_Report.py",
+   "line": 2224,
+   "symbol": "DailyReportWidget._add_activity_dialog",
+   "rule": "R-PASS-OTHER",
+   "kind": "pass-statement",
+   "register_line_text": "pass",
+   "classification": "INTENTIONAL",
+   "evidence": "Hash-anchored source tabs/w2_Daily_Report.py:2224 `pass`; source_sha256=c5740755f05519d83336777520ee3406b8d60b8a90af77633a9223daa2fb89ae; context_fingerprint=4f9fb772242ea865b0730e10f42a108100779cf719c818851c2a662c22a17d0f. `class LogData: pass` is a local carrier type populated immediately from a validated dialog result; it is not a swallowed production failure.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w2_Daily_Report.py",
+    "line": 2224,
+    "symbol": "DailyReportWidget._add_activity_dialog",
+    "expression": "pass",
+    "source_sha256": "c5740755f05519d83336777520ee3406b8d60b8a90af77633a9223daa2fb89ae",
+    "context_fingerprint": "4f9fb772242ea865b0730e10f42a108100779cf719c818851c2a662c22a17d0f"
+   }
+  },
+  {
+   "id": "INV34-008315",
+   "file": "tabs/w3_drilling_report.py",
+   "line": 883,
+   "symbol": "DrillingParametersTab.collect_data",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-constant",
+   "register_line_text": "\"pump_liner_size\": self.pump_liner_size.text().strip() or None,",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source tabs/w3_drilling_report.py:883 `\"pump_liner_size\": self.pump_liner_size.text().strip() or None,`; source_sha256=e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0; context_fingerprint=3dd56feb7ad6803a0c6e33a72b23f8117a217dce91011f7a7fbe281bf03ef019. A blank pump-liner text field is represented as `None`; the optional field is not converted to a numeric zero or a fabricated size.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w3_drilling_report.py",
+    "line": 883,
+    "symbol": "DrillingParametersTab.collect_data",
+    "expression": "\"pump_liner_size\": self.pump_liner_size.text().strip() or None,",
+    "source_sha256": "e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0",
+    "context_fingerprint": "3dd56feb7ad6803a0c6e33a72b23f8117a217dce91011f7a7fbe281bf03ef019"
+   }
+  },
+  {
+   "id": "INV34-008317",
+   "file": "tabs/w3_drilling_report.py",
+   "line": 1027,
+   "symbol": "DrillingParametersTab.validate_form",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not self.bit_no.text().strip():",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source tabs/w3_drilling_report.py:1027 `if not self.bit_no.text().strip():`; source_sha256=e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0; context_fingerprint=af01c50758dc5f0ca68288d269610f02b8388cfcacfde86fcbd87c752a157436. The bit number is a required identifier; blank input is rejected before save.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w3_drilling_report.py",
+    "line": 1027,
+    "symbol": "DrillingParametersTab.validate_form",
+    "expression": "if not self.bit_no.text().strip():",
+    "source_sha256": "e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0",
+    "context_fingerprint": "af01c50758dc5f0ca68288d269610f02b8388cfcacfde86fcbd87c752a157436"
+   }
+  },
+  {
+   "id": "INV34-008322",
+   "file": "tabs/w3_drilling_report.py",
+   "line": 1604,
+   "symbol": "MudReportTab.collect_chemicals",
+   "rule": "R-DEF-UNKNOWN",
+   "kind": "or-constant",
+   "register_line_text": "chemical[\"unit\"] = chemical[\"unit\"] or None",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source tabs/w3_drilling_report.py:1604 `chemical[\"unit\"] = chemical[\"unit\"] or None`; source_sha256=e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0; context_fingerprint=9d5cf0d1a721c8bdb382961c1f3eab1d7191a465543f375a8706ae99e87917bc. Blank chemical unit is normalized to `None`; the row remains reviewable and does not inherit an arbitrary physical unit.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w3_drilling_report.py",
+    "line": 1604,
+    "symbol": "MudReportTab.collect_chemicals",
+    "expression": "chemical[\"unit\"] = chemical[\"unit\"] or None",
+    "source_sha256": "e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0",
+    "context_fingerprint": "9d5cf0d1a721c8bdb382961c1f3eab1d7191a465543f375a8706ae99e87917bc"
+   }
+  },
+  {
+   "id": "INV34-008336",
+   "file": "tabs/w3c_section_data.py",
+   "line": 740,
+   "symbol": "ServiceCompanyTab.load_data",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not self.db or not self.current_well_id: self.table.setRowCount(0); return",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source tabs/w3c_section_data.py:740 `if not self.db or not self.current_well_id: self.table.setRowCount(0); return`; source_sha256=5038a740761be06f65b9c81076482aff3f58e2e85b737d600e4f3fda5b8eaf27; context_fingerprint=b7d0c47ef7707e27fb3dd5558aad78f1a490ab8a2c51cfc044bcaf5e13015065. Without a database or selected well, the service-company table is cleared and returns; this is a scope guard, not a whole-well fallback.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w3c_section_data.py",
+    "line": 740,
+    "symbol": "ServiceCompanyTab.load_data",
+    "expression": "if not self.db or not self.current_well_id: self.table.setRowCount(0); return",
+    "source_sha256": "5038a740761be06f65b9c81076482aff3f58e2e85b737d600e4f3fda5b8eaf27",
+    "context_fingerprint": "b7d0c47ef7707e27fb3dd5558aad78f1a490ab8a2c51cfc044bcaf5e13015065"
+   }
+  },
+  {
+   "id": "INV34-008358",
+   "file": "tabs/w3c_section_data.py",
+   "line": 1468,
+   "symbol": "FailureReportTab._wrap_html",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not text:",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source tabs/w3c_section_data.py:1468 `if not text:`; source_sha256=5038a740761be06f65b9c81076482aff3f58e2e85b737d600e4f3fda5b8eaf27; context_fingerprint=4b4b89c0c3df2c3f294c7ae09806af14af3b2d918669207a98781c25274d7a75. Same empty-text guard in failure-report HTML generation; the report body remains blank when no source narrative exists.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w3c_section_data.py",
+    "line": 1468,
+    "symbol": "FailureReportTab._wrap_html",
+    "expression": "if not text:",
+    "source_sha256": "5038a740761be06f65b9c81076482aff3f58e2e85b737d600e4f3fda5b8eaf27",
+    "context_fingerprint": "4b4b89c0c3df2c3f294c7ae09806af14af3b2d918669207a98781c25274d7a75"
+   }
+  },
+  {
+   "id": "INV34-008359",
+   "file": "tabs/w3c_section_data.py",
+   "line": 1472,
+   "symbol": "FailureReportTab._wrap_html",
+   "rule": "R-TRUTH-UNKNOWN",
+   "kind": "truthiness-bare",
+   "register_line_text": "if not paragraph.strip():",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source tabs/w3c_section_data.py:1472 `if not paragraph.strip():`; source_sha256=5038a740761be06f65b9c81076482aff3f58e2e85b737d600e4f3fda5b8eaf27; context_fingerprint=5fc2f4b8526efd8cfd5c3b578646937e3baadb956ed87a7879135b3bcdc5695b. Whitespace-only paragraphs are kept as blank layout lines; they do not become factual report content.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "tabs/w3c_section_data.py",
+    "line": 1472,
+    "symbol": "FailureReportTab._wrap_html",
+    "expression": "if not paragraph.strip():",
+    "source_sha256": "5038a740761be06f65b9c81076482aff3f58e2e85b737d600e4f3fda5b8eaf27",
+    "context_fingerprint": "5fc2f4b8526efd8cfd5c3b578646937e3baadb956ed87a7879135b3bcdc5695b"
+   }
+  },
+  {
+   "id": "INV34-008983",
+   "file": "core/canonical_mapper.py",
+   "line": 203,
+   "symbol": "review_item",
+   "rule": "R-DEF-RETURN-NUM",
+   "kind": "numeric-coalesce",
+   "register_line_text": "certainty=mapping_certainty(confidence or 0, mapping_method),",
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "Hash-anchored source core/canonical_mapper.py:203 `certainty=mapping_certainty(confidence or 0, mapping_method),`; source_sha256=601a41f60fff8493fd04cf3a921569934c894d48c495827f4b3c74d5cb8c7296; context_fingerprint=145a7dbc85e326242365cc6fca8cf72e12504b875ca424a1339ec49f96934afb. Missing confidence is explicitly normalized to zero certainty; actual zero is preserved and the method remains advisory/review metadata, not an engineering value.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/canonical_mapper.py",
+    "line": 203,
+    "symbol": "review_item",
+    "expression": "certainty=mapping_certainty(confidence or 0, mapping_method),",
+    "source_sha256": "601a41f60fff8493fd04cf3a921569934c894d48c495827f4b3c74d5cb8c7296",
+    "context_fingerprint": "145a7dbc85e326242365cc6fca8cf72e12504b875ca424a1339ec49f96934afb"
+   }
+  }
+ ]
+}
