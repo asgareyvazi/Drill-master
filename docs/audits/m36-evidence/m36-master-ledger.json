@@ -363,6 +363,49 @@
    "evidence_commit": null,
    "commit": null,
    "tests": "no production code was changed in this batch, so no new regression was written and no mutation validation applies; the batch script ran with the provenance and fingerprint gates active (see `staleness`) - all 45 records were hash-anchored and re-identified against the current tree before any classification was written"
+  },
+  {
+   "batch": "p6-batch-020",
+   "class": "phase-2 class C (engineering semantics): C:45 - drill-pipe vendor parsing, anti-collision screening, the API TR 5C3 casing engine, fishing plain-return wrappers, MSE, the torque-drag screening engine, extended engineering helpers, the EngineeringResult contract module and the well-control kill-sheet canonical builder",
+   "records": 45,
+   "sites": 44,
+   "by_classification": {
+    "VERIFIED-CORRECT": 35,
+    "DUPLICATE/FALSE-POSITIVE": 10
+   },
+   "defects_fixed": [],
+   "new_findings": [
+    {
+     "id": "NEW-P6-004",
+     "file": "core/engineering/engines/fishing.py",
+     "line": 303,
+     "severity": "MEDIUM",
+     "status": "recorded, not patched",
+     "commit": null,
+     "test": null
+    },
+    {
+     "id": "NEW-P6-005",
+     "file": "core/engineering/engines/fishing.py",
+     "line": 297,
+     "severity": "MEDIUM",
+     "status": "recorded, not patched",
+     "commit": null,
+     "test": null
+    },
+    {
+     "id": "NEW-P6-006",
+     "file": "core/engineering/engines/fishing.py",
+     "line": 321,
+     "severity": "MEDIUM",
+     "status": "recorded, not patched",
+     "commit": null,
+     "test": null
+    }
+   ],
+   "evidence_commit": null,
+   "commit": null,
+   "tests": "no production code was changed in this batch, so no new regression was written and no mutation validation applies; the evidence-cited suites were executed (kill-sheet gate, casing absent-load semantics, single-source guard, extended engineering, anti-collision, torque-drag persistence, MSE, drill-pipe spec/import, engineering core/ground truth) - see the batch ledger entry for the exact counts; the batch script itself ran with the provenance and fingerprint gates active"
   }
  ],
  "start_open": 1224,
@@ -370,20 +413,20 @@
  "arithmetic": {
   "register_open_at_p6_start": 1224,
   "defect_fixed_by_p6": 2,
-  "adjudicated_by_p6_batches": 774,
-  "current_open": 448,
+  "adjudicated_by_p6_batches": 819,
+  "current_open": 403,
   "check": true,
   "note": "every record is either OPEN or carries a terminal evidence-backed classification; the fixed sites are subtracted separately so nothing disappears"
  },
  "open_by_priority": {
-  "MEDIUM": 448
+  "MEDIUM": 403
  },
  "open_by_class": {
   "E": 241,
-  "C": 142,
+  "C": 97,
   "D": 65
  },
- "generated_utc": "2026-09-29T05:51:48+00:00",
+ "generated_utc": "2026-09-29T07:27:47+00:00",
  "recovery_bundles": [
   {
    "file": "/home/user/recovery/drillmaster-115fc09.bundle",
