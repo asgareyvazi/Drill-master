@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from datetime import date
-from types import SimpleNamespace
 
 import pytest
 
@@ -32,76 +31,85 @@ def test_unchanged_cement_nulls_round_trip_and_explicit_zero_is_saved():
 
     app = QApplication.instance() or QApplication([])
     db = _mgr()
-    project_id = _base(db)
-    well_id = _well(db, project_id, "Cement-null")
-    section_id = _section(db, well_id, "Null-values")
-    db.save_cement_report({
-        "well_id": well_id,
-        "section_id": section_id,
-        "report_date": date(2026, 9, 1),
-        "slurry_density": None,
-        "slurry_yield": None,
-        "mix_water": None,
-        "thickening_time": None,
-        "compressive_strength": None,
-        "fluid_loss": None,
-        "cement_volume": None,
-        "displacement_volume": None,
-        "top_of_cement": None,
-        "bottom_of_cement": None,
-        "summary": None,
-    })
+    section_widget = None
+    try:
+        project_id = _base(db)
+        well_id = _well(db, project_id, "Cement-null")
+        section_id = _section(db, well_id, "Null-values")
+        db.save_cement_report({
+            "well_id": well_id,
+            "section_id": section_id,
+            "report_date": date(2026, 9, 1),
+            "slurry_density": None,
+            "slurry_yield": None,
+            "mix_water": None,
+            "thickening_time": None,
+            "compressive_strength": None,
+            "fluid_loss": None,
+            "cement_volume": None,
+            "displacement_volume": None,
+            "top_of_cement": None,
+            "bottom_of_cement": None,
+            "summary": None,
+        })
 
-    from tabs.w3c_section_data import CementReportTab
+        # Exercise the same real QWidget parent/container used by the
+        # application; the tabs' constructors receive QWidget parents here.
+        from tabs.w3c_section_data import SectionDataWidget
 
-    tab = CementReportTab(db, SimpleNamespace(current_section_id=section_id))
-    tab.current_well = well_id
-    tab.load_data()
-    assert tab.slurry_density.value() == 120  # visual placeholder, not source data
-    assert tab.save_data()
+        section_widget = SectionDataWidget(db)
+        section_widget.on_well_changed(well_id, {})
+        section_widget.on_section_changed(section_id, {})
+        tab = section_widget.cement_tab
 
-    saved = db.get_cement_report(section_id=section_id)
-    for key in (
-        "slurry_density", "slurry_yield", "mix_water", "thickening_time",
-        "compressive_strength", "fluid_loss", "cement_volume",
-        "displacement_volume", "top_of_cement", "bottom_of_cement", "summary",
-    ):
-        assert saved[key] is None, key
+        assert tab.slurry_density.value() == 120  # visual placeholder, not source data
+        assert tab.save_data()
 
-    tab.slurry_density.setValue(0)
-    assert tab.save_data()
-    saved = db.get_cement_report(section_id=section_id)
-    assert saved["slurry_density"] == 0
-    assert saved["slurry_yield"] is None
+        saved = db.get_cement_report(section_id=section_id)
+        for key in (
+            "slurry_density", "slurry_yield", "mix_water", "thickening_time",
+            "compressive_strength", "fluid_loss", "cement_volume",
+            "displacement_volume", "top_of_cement", "bottom_of_cement", "summary",
+        ):
+            assert saved[key] is None, key
 
-    db.save_casing_report({
-        "well_id": well_id,
-        "section_id": section_id,
-        "report_date": date(2026, 9, 1),
-        "burst_pressure": None,
-        "collapse_pressure": None,
-        "tensile_strength": None,
-        "makeup_torque": None,
-        "drift_diameter": None,
-        "internal_yield": None,
-        "running_speed": None,
-        "fillup_frequency": None,
-        "centralizer_spacing": None,
-        "scratcher_spacing": None,
-        "summary": None,
-    })
-    from tabs.w3c_section_data import CasingReportTab
+        # A deliberate operator entry of numeric zero must remain a real value.
+        tab.slurry_density.setValue(0)
+        assert tab.save_data()
+        saved = db.get_cement_report(section_id=section_id)
+        assert saved["slurry_density"] == 0
+        assert saved["slurry_yield"] is None
 
-    casing = CasingReportTab(db, SimpleNamespace(current_section_id=section_id))
-    casing.current_well = well_id
-    casing.load_data()
-    assert casing.save_data()
-    saved_casing = db.get_casing_report(section_id=section_id)
-    for key in (
-        "burst_pressure", "collapse_pressure", "tensile_strength", "makeup_torque",
-        "drift_diameter", "internal_yield", "running_speed", "fillup_frequency",
-        "centralizer_spacing", "scratcher_spacing", "summary",
-    ):
-        assert saved_casing[key] is None, key
-    db.close()
-    app.processEvents()
+        db.save_casing_report({
+            "well_id": well_id,
+            "section_id": section_id,
+            "report_date": date(2026, 9, 1),
+            "burst_pressure": None,
+            "collapse_pressure": None,
+            "tensile_strength": None,
+            "makeup_torque": None,
+            "drift_diameter": None,
+            "internal_yield": None,
+            "running_speed": None,
+            "fillup_frequency": None,
+            "centralizer_spacing": None,
+            "scratcher_spacing": None,
+            "summary": None,
+        })
+
+        casing = section_widget.casing_tab
+        section_widget._load_section_data(section_id)
+        assert casing.save_data()
+        saved_casing = db.get_casing_report(section_id=section_id)
+        for key in (
+            "burst_pressure", "collapse_pressure", "tensile_strength", "makeup_torque",
+            "drift_diameter", "internal_yield", "running_speed", "fillup_frequency",
+            "centralizer_spacing", "scratcher_spacing", "summary",
+        ):
+            assert saved_casing[key] is None, key
+    finally:
+        if section_widget is not None:
+            section_widget.close()
+            section_widget.deleteLater()
+        db.close()
+        app.processEvents()
