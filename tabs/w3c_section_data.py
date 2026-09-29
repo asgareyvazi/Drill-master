@@ -157,8 +157,9 @@ class CementReportTab(QWidget):
 
     @editor_saved()
     def save_data(self):
-        if self.parent and hasattr(self.parent,'current_section_id') and self.parent.current_section_id:
-            return self.save_data_for_report(None)
+        section_id = getattr(self.parent, "current_section_id", None)
+        if self.current_well and section_id:
+            return self.save_data_with_section(self.current_well, section_id)
         return False
 
     def save_data_with_section(self, well_id, section_id):
@@ -189,9 +190,16 @@ class CementReportTab(QWidget):
         return self.db_manager.save_cement_report(d) if self.db_manager else None
         
     def load_data(self):
-        if self.current_well:
-            data = self.db_manager.get_cement_report(well_id=self.current_well) if self.db_manager else None
-            if data: self.load_from_dict(data)
+        section_id = getattr(self.parent, "current_section_id", None)
+        data = (
+            self.db_manager.get_cement_report(section_id=section_id)
+            if self.db_manager and self.current_well and section_id
+            else None
+        )
+        if data:
+            self.load_from_dict(data)
+        else:
+            self.clear_form()
 
     @editor_loaded()
     def load_from_dict(self, data):
@@ -215,9 +223,9 @@ class CementReportTab(QWidget):
         self.cement_volume.setValue(sv("cement_volume")); self.displacement_volume.setValue(sv("displacement_volume"))
         self.top_of_cement.setValue(sv("top_of_cement")); self.bottom_of_cement.setValue(sv("bottom_of_cement"))
         self.cement_summary.setPlainText(str(data.get("summary","") or ""))
+        self.materials_table.setRowCount(0)
         mj=data.get("materials_json")
         if mj:
-            self.materials_table.setRowCount(0)
             try:
                 ms=json.loads(mj) if isinstance(mj,str) else mj
                 for m in ms: self.add_material_row(m.get("material",""),m.get("type",""),float(m.get("received",0) or 0),float(m.get("consumed",0) or 0),float(m.get("backload",0) or 0),float(m.get("inventory",0) or 0),m.get("unit","kg"))
@@ -326,8 +334,9 @@ class CasingReportTab(QWidget):
 
     @editor_saved()
     def save_data(self):
-        if self.parent and hasattr(self.parent,'current_section_id'):
-            return self.save_data_for_report(None)
+        section_id = getattr(self.parent, "current_section_id", None)
+        if self.current_well and section_id:
+            return self.save_data_with_section(self.current_well, section_id)
         return False
 
     def save_data_with_section(self, well_id, section_id):
@@ -357,9 +366,16 @@ class CasingReportTab(QWidget):
         return self.db_manager.save_casing_report(d) if self.db_manager else None
         
     def load_data(self):
-        if self.current_well and self.db_manager:
-            data=self.db_manager.get_casing_report(well_id=self.current_well)
-            if data:self.load_from_dict(data)
+        section_id = getattr(self.parent, "current_section_id", None)
+        data = (
+            self.db_manager.get_casing_report(section_id=section_id)
+            if self.db_manager and self.current_well and section_id
+            else None
+        )
+        if data:
+            self.load_from_dict(data)
+        else:
+            self.clear_form()
 
     @editor_loaded()
     def load_from_dict(self,data):
@@ -375,9 +391,9 @@ class CasingReportTab(QWidget):
             attr.setValue(sv(key))
         self.fillup_frequency.setValue(int(sv("fillup_frequency")))
         self.casing_summary.setPlainText(str(data.get("summary","") or ""))
+        self.casing_table.setRowCount(0)
         cj=data.get("casing_json")
         if cj:
-            self.casing_table.setRowCount(0)
             try:
                 cs=json.loads(cj) if isinstance(cj,str) else cj
                 for c in cs:self.add_casing_row(float(c.get("size",0)or 0),float(c.get("od",0)or 0),float(c.get("id",0)or 0),float(c.get("weight",0)or 0),str(c.get("grade","")or""),str(c.get("connection","")or""),float(c.get("from",0)or 0),float(c.get("to",0)or 0),float(c.get("shoe",0)or 0),str(c.get("remarks","")or""))
