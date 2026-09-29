@@ -877,6 +877,43 @@
     ],
     "mutation": "Replaced summarize_bulk_display_rows temporarily with the original row-wide `try/except ValueError: continue` aggregation. Three regression cases failed (unknown stock and independent movements; blank stock; malformed/nonfinite values), 1 passed; restored fix then all 4 tests passed."
    }
+  },
+  {
+   "batch": "p6-batch-029",
+   "class": "phase-2 class H: W7/W9 logistics, test safety and scope regressions, real-DDR acceptance, persistence, release-verification gates",
+   "records": 43,
+   "sites": 41,
+   "by_classification": {
+    "INTENTIONAL": 23,
+    "VERIFIED-CORRECT": 17,
+    "DUPLICATE/FALSE-POSITIVE": 3
+   },
+   "defects_fixed": [
+    {
+     "id": "NEW-P6-028",
+     "records": [],
+     "file": "tests/test_wellbore_section_performance.py",
+     "site": "_ddr DailyReport construction (depth_2400)",
+     "test": "test_fixture_preserves_unknown_daily_depth_as_null",
+     "summary": "A test-only engineering-performance fixture converted a missing depth_out to DailyReport.depth_2400=0, creating an inconsistent synthetic report that hid unknown-vs-zero semantics. The nullable value is now passed through as None; a focused fixture regression asserts SQL NULL survives reload. This is a test-data quality fix, not a production acceptance claim."
+    }
+   ],
+   "new_findings": [],
+   "evidence_commit": null,
+   "commit": null,
+   "tests": {
+    "passed": [
+     "155 passed: tests/test_wellbore_section_performance.py, tests/test_credential_lifecycle.py, tests/test_ddr_regression.py, tests/test_golden_ddr.py, tests/test_real_world_import.py, tests/test_review_contract_certification.py.",
+     "134 passed: tests/test_r18_r19_save_preservation.py, tests/test_casing_persistence.py, tests/test_cement_persistence.py, tests/test_torque_drag_persistence.py, tests/test_real_oeoc_golden.py.",
+     "6 passed, 3 skipped: tests/test_p0_phase1_regressions.py; all skips are Qt-unavailable guards.",
+     "236 passed, 11 environment failures: tests/test_m29_release_closure.py; the 11 listed below fail on Qt import before assertions. The separate targeted NULL fixture test passed (and is included in the 155-test command)."
+    ],
+    "environment_blocked": [
+     "11 tests in tests/test_m29_release_closure.py could not import PySide6 because libGL.so.1 is missing: test_npt_report_scope_and_unknown_duration; test_milestone_unknown_and_zero_are_distinct_in_both_consumers; test_permission_is_entity_specific_and_main_window_fails_closed; test_copy_previous_uses_target_date_zero_closing_and_no_safety_assessment; test_learning_store_uses_user_data_not_application_directory; test_rop_forecast_uses_calendar_dates_not_observation_ordinals; both parameter cases of test_w12_calendar_rate_unique_endpoints_and_canonical_unknown; test_w12_mud_sample_is_not_two_directional_measurements; test_chart_export_false_result_is_not_success; test_template_save_io_failure_has_no_success_message.",
+     "Collection of tests/test_w12_milestones_m25.py, tests/test_w12_scope_leakage_m25.py, and tests/test_w12_wellbore_scope.py is blocked by the same missing libGL.so.1 shared library."
+    ],
+    "mutation": "Restoring the missing-depth-to-zero fallback made the dedicated fixture SQL NULL assertion fail; the corrected helper was restored and the test passed."
+   }
   }
  ],
  "start_open": 1224,
@@ -884,18 +921,14 @@
  "arithmetic": {
   "register_open_at_p6_start": 1224,
   "defect_fixed_by_p6": 2,
-  "adjudicated_by_p6_batches": 1179,
-  "current_open": 43,
+  "adjudicated_by_p6_batches": 1222,
+  "current_open": 0,
   "check": true,
   "note": "every record is either OPEN or carries a terminal evidence-backed classification; the fixed sites are subtracted separately so nothing disappears"
  },
- "open_by_priority": {
-  "MEDIUM": 43
- },
- "open_by_class": {
-  "E": 43
- },
- "generated_utc": "2026-09-29T10:10:06+00:00",
+ "open_by_priority": {},
+ "open_by_class": {},
+ "generated_utc": "2026-09-29T10:15:08+00:00",
  "recovery_bundles": [
   {
    "file": "/home/user/recovery/drillmaster-115fc09.bundle",

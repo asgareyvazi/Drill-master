@@ -102,7 +102,7 @@ def _ddr(m, well_id, wellbore_id, section_id, day, di, do, h,
             wellbore_id=wellbore_id,
             section_id=section_id,
             report_date=date(2026, 1, day),
-            depth_2400=do if do is not None else 0,
+            depth_2400=do,
         )
         s.add(dr)
         s.flush()
@@ -155,6 +155,18 @@ def test_wellbore_isolation_excludes_sibling_wellbore_and_foreign_well():
     k = OperationsIntelligenceService(m).analyze_wellbore(ids["a1"])["kpis"]
     assert k["weighted_rop"] == 20.0
     assert k["weighted_rop_valid_pairs"] == 1
+
+
+def test_fixture_preserves_unknown_daily_depth_as_null():
+    ids = _build()
+    report_id = _ddr(ids["m"], ids["wa"], ids["a1"], ids["s11"], 1,
+                     1500, None, 5)
+    session = ids["m"].create_session()
+    try:
+        report = session.get(DailyReport, report_id)
+        assert report.depth_2400 is None
+    finally:
+        session.close()
 
 
 def test_wellbore_null_scope_reports_not_attributed():
