@@ -96,8 +96,77 @@ class DrillingCalculationEngine:
         return calculate_free_point(diff_stretch, pipe_wt, pull_force)
 
     @staticmethod
+    def calc_free_point_result(stretch_in, pipe_wt_ppf, pull_lbf):
+        """Canonical result path for W13; failures remain non-numeric."""
+        from core.engineering.engines.fishing import FishingEngine
+        return FishingEngine.free_point(stretch_in, pipe_wt_ppf, pull_lbf)
+
+    @staticmethod
+    def calc_string_stretch_result(length_m, mud_weight_pcf):
+        """Convert the W13 display units, then retain the canonical result."""
+        from core.engineering.engines.fishing import FishingEngine
+        from core.engineering.result import EngineeringError, MissingInputError, failed, missing, require_number
+        from core.unit_manager import UnitManager
+
+        try:
+            length_m = require_number(length_m, "length_m")
+            mud_weight_pcf = require_number(mud_weight_pcf, "mud_weight_pcf")
+            if mud_weight_pcf <= 0:
+                return failed("mud_weight_pcf must be > 0")
+            length_ft = UnitManager.convert(length_m, "length", "m", "ft")
+            mud_weight_ppg = UnitManager.convert(mud_weight_pcf, "density", "pcf", "ppg")
+            result = FishingEngine.string_stretch(length_ft, mud_weight_ppg)
+            result.metadata = {
+                **result.metadata,
+                "ui_inputs": {"length_m": length_m, "mud_weight_pcf": mud_weight_pcf},
+                "converted_inputs": {"length_ft": length_ft, "mud_weight_ppg": mud_weight_ppg},
+            }
+            return result
+        except MissingInputError as exc:
+            return missing(exc.field)
+        except (EngineeringError, TypeError, ValueError, OverflowError) as exc:
+            return failed(str(exc))
+
+    @staticmethod
+    def calc_backoff_depth_result(stretch_in, pipe_wt_ppf, modulus_psi=30.0e6):
+        """Canonical screening result; never turn a failed estimate into zero."""
+        from core.engineering.engines.fishing import FishingEngine
+        return FishingEngine.backoff_depth(stretch_in, pipe_wt_ppf, modulus_psi)
+
+    @staticmethod
+    def calc_adjusted_weight_result(od_in, id_in):
+        from core.engineering.engines.fishing import FishingEngine
+        return FishingEngine.adjusted_weight(od_in, id_in)
+
+    @staticmethod
+    def format_screening_result(result, precision=1):
+        """Result-aware UI string; a missing/failed calculation is never numeric."""
+        import math
+        if not result.success or result.value is None:
+            detail = result.error or result.validation_status.replace("_", " ").upper()
+            return f"NOT ASSESSED — {detail}"
+        try:
+            value = float(result.value)
+        except (TypeError, ValueError, OverflowError):
+            return "NOT ASSESSED — invalid result value"
+        if not math.isfinite(value):
+            return "NOT ASSESSED — non-finite result"
+        return f"SCREENING ≈ {value:.{precision}f} {result.unit}".rstrip()
+
+    @staticmethod
+    def _screening_tooltip(result):
+        parts = [part for part in (
+            result.method,
+            f"Formula: {result.formula}" if result.formula else "",
+            "Assumptions: " + "; ".join(result.assumptions) if result.assumptions else "",
+            "Warnings: " + "; ".join(result.warnings) if result.warnings else "",
+            "Error: " + result.error if result.error else "",
+        ) if part]
+        return "\n".join(parts) or "Engineering screening result"
+
+    @staticmethod
     def calc_string_stretch(length: float, mw: float) -> float:
-        """String stretch (in) — canonical FishingEngine.string_stretch."""
+        """Legacy float API retained for compatibility; W13 UI uses the result path."""
         from core.engineering.engines.fishing import calculate_string_stretch
         return calculate_string_stretch(length, mw)
 
@@ -124,6 +193,43 @@ class DrillingCalculationEngine:
             return round(TorqueDragEngine.buoyancy_factor(mw_ppg, steel_ppg), 4)
         except Exception:
             return 0.0
+
+    @staticmethod
+    def calc_buoyancy_factor_result(mud_weight_pcf, steel_density_pcf=490):
+        """Result-aware W13 adapter for the legacy buoyancy-factor scalar."""
+        from core.engineering.engines.torque_drag import TorqueDragEngine
+        from core.engineering.result import EngineeringError, MissingInputError, failed, missing, ok, require_number
+        from core.unit_manager import UnitManager
+
+        try:
+            mud_weight_pcf = require_number(mud_weight_pcf, "mud_weight_pcf")
+            steel_density_pcf = require_number(steel_density_pcf, "steel_density_pcf")
+            mud_ppg = UnitManager.convert(mud_weight_pcf, "density", "pcf", "ppg")
+            steel_ppg = UnitManager.convert(steel_density_pcf, "density", "pcf", "ppg")
+            bf = TorqueDragEngine.buoyancy_factor(mud_ppg, steel_ppg)
+            return ok(
+                round(bf, 4),
+                values={"mud_weight_pcf": mud_weight_pcf, "steel_density_pcf": steel_density_pcf,
+                        "mud_weight_ppg": mud_ppg, "steel_density_ppg": steel_ppg,
+                        "buoyancy_factor": round(bf, 4)},
+                unit="dimensionless",
+                formula="BF = 1 − mud_density / steel_density",
+                method="Simple buoyancy-factor card — SCREENING",
+                assumptions=["Simple density ratio only; no pressure-area buoyancy term"],
+                scope="PARTIAL / SCREENING",
+            )
+        except MissingInputError as exc:
+            return missing(exc.field)
+        except (EngineeringError, TypeError, ValueError, OverflowError) as exc:
+            return failed(str(exc))
+
+    @staticmethod
+    def calc_casing_landing_load_result(casing_weight_ppf, length_ft,
+                                        buoyancy_factor, friction_factor=0):
+        from core.engineering.engines.torque_drag import TorqueDragEngine
+        return TorqueDragEngine.casing_landing_load(
+            casing_weight_ppf, length_ft, buoyancy_factor, friction_factor
+        )
 
     @staticmethod
     def calc_casing_landing_load(casing_weight_ppf, length_ft,
@@ -2289,6 +2395,11 @@ class EngineeringCalculatorTab(DrillTabBase):
         text += f"║ Model:              {model} Model\n"
         text += f"║ Max Flow Rate:      {result['max_flow_rate_gpm']:.1f} gpm\n"
         text += f"║ Optimal Flow Rate:  {result['optimal_flow_rate_gpm']:.1f} gpm\n"
+        n_source = result.get("friction_exponent_source", "unknown")
+        n_label = ("ASSUMED fallback" if n_source == "assumed_fallback"
+                   else "two-point pump test" if n_source == "two_point_pump_test"
+                   else "source unavailable")
+        text += f"║ Friction exponent:  n={result.get('friction_exponent', 1.0):.3f} — {n_label}\n"
         text += f"║ Target TFA:         {result['optimal_tfa_in2']:.4f} in²\n"
         text += f"╠═══════════════════════════════════════════╣\n"
         text += f"║ SELECTED NOZZLES:\n"
@@ -2798,41 +2909,41 @@ class EngineeringCalculatorTab(DrillTabBase):
         # Free Point
         g1 = QGroupBox("Free Point (Differential Sticking)")
         f1 = QFormLayout(g1)
-        self.stk_diff = self._make_dspin(500, 0, 5000, 0, " psi")
-        self.stk_wt = self._make_dspin(22, 0, 500, 2, " lb/ft")
-        self.stk_pull = self._make_dspin(100000, 0, 2000000, 0, " lbs")
-        f1.addRow("Differential Stretch:", self.stk_diff)
+        self.stk_stretch_in = self._make_wc_spin(5000, 2, " in")
+        self.stk_wt = self._make_wc_spin(500, 2, " lb/ft")
+        self.stk_pull = self._make_wc_spin(2000000, 0, " lbs")
+        f1.addRow("Measured Stretch:", self.stk_stretch_in)
         f1.addRow("Pipe Weight:", self.stk_wt)
         f1.addRow("Pull Force:", self.stk_pull)
-        self.stk_free_point = QLabel("Free Point = --")
+        self.stk_free_point = QLabel("NOT ASSESSED — enter measured inputs")
         self.stk_free_point.setStyleSheet("font-weight: bold; color: #e74c3c; padding: 5px; border: 1px solid #e74c3c; border-radius: 3px;")
         f1.addRow(self.stk_free_point)
-        for w in [self.stk_diff, self.stk_wt, self.stk_pull]:
+        for w in [self.stk_stretch_in, self.stk_wt, self.stk_pull]:
             w.valueChanged.connect(self._update_stuck)
         layout.addWidget(g1)
 
         # String Stretch
         g2 = QGroupBox("String Stretch")
         f2 = QFormLayout(g2)
-        self.stk_len = self._make_dspin(1000, 0, 20000, 0, " m")
-        self.stk_mw = self._make_dspin(90, 0, 200, 1, " pcf")
-        f2.addRow("String Length:", self.stk_len)
-        f2.addRow("Mud Weight:", self.stk_mw)
-        self.stk_stretch = QLabel("Stretch = --")
+        self.stk_len_m = self._make_wc_spin(20000, 0, " m")
+        self.stk_mw_pcf = self._make_wc_spin(200, 1, " pcf")
+        f2.addRow("String Length:", self.stk_len_m)
+        f2.addRow("Mud Weight:", self.stk_mw_pcf)
+        self.stk_stretch = QLabel("NOT ASSESSED — enter measured inputs")
         self.stk_stretch.setStyleSheet("font-weight: bold; color: #f39c12; padding: 5px; border: 1px solid #f39c12; border-radius: 3px;")
         f2.addRow(self.stk_stretch)
-        for w in [self.stk_len, self.stk_mw]:
+        for w in [self.stk_len_m, self.stk_mw_pcf]:
             w.valueChanged.connect(self._update_stuck)
         layout.addWidget(g2)
 
         # Adjusted Weight
         g3 = QGroupBox("Adjusted Pipe Weight")
         f3 = QFormLayout(g3)
-        self.stk_pipe_od = self._make_dspin(5.0, 0, 30, 3, " in")
-        self.stk_pipe_id = self._make_dspin(4.276, 0, 30, 3, " in")
+        self.stk_pipe_od = self._make_wc_spin(30, 3, " in")
+        self.stk_pipe_id = self._make_wc_spin(30, 3, " in")
         f3.addRow("Pipe OD:", self.stk_pipe_od)
         f3.addRow("Pipe ID:", self.stk_pipe_id)
-        self.stk_adj_wt = QLabel("Adjusted Weight = --")
+        self.stk_adj_wt = QLabel("NOT ASSESSED — enter pipe dimensions")
         self.stk_adj_wt.setStyleSheet("font-weight: bold; color: #2ecc71; padding: 5px; border: 1px solid #2ecc71; border-radius: 3px;")
         f3.addRow(self.stk_adj_wt)
         for w in [self.stk_pipe_od, self.stk_pipe_id]:
@@ -3551,10 +3662,10 @@ class EngineeringCalculatorTab(DrillTabBase):
 
         g3 = QGroupBox("🌊 Buoyancy & Landing Load")
         f3 = QFormLayout(g3)
-        self.bf_mw = self._make_dspin(90, 0, 200, 1, " pcf")
-        self.bf_csg_wt = self._make_dspin(47, 0, 500, 1, " ppf")
-        self.bf_csg_len = self._make_dspin(10000, 0, 60000, 0, " ft")
-        self.bf_friction = self._make_dspin(0, 0, 0.5, 3)
+        self.bf_mw = self._make_wc_spin(200, 1, " pcf")
+        self.bf_csg_wt = self._make_wc_spin(500, 1, " ppf")
+        self.bf_csg_len = self._make_wc_spin(60000, 0, " ft")
+        self.bf_friction = self._make_wc_spin(0.5, 3)
         f3.addRow("Mud Weight:", self.bf_mw)
         f3.addRow("Casing Weight:", self.bf_csg_wt)
         f3.addRow("Casing Length:", self.bf_csg_len)
@@ -3565,6 +3676,7 @@ class EngineeringCalculatorTab(DrillTabBase):
         f3.addRow(bf_calc)
 
         self.bf_result = self._result_label("#1abc9c")
+        self.bf_result.setText("NOT ASSESSED — enter casing and fluid measurements")
         f3.addRow("Results:", self.bf_result)
 
         bf_layout.addWidget(g3)
@@ -3884,19 +3996,37 @@ class EngineeringCalculatorTab(DrillTabBase):
                                  f"Could not open history:\n{exc}")
 
     def _csg_calc_landing(self):
-        bf = self.engine.calc_buoyancy_factor(self.bf_mw.value())
-        r = self.engine.calc_casing_landing_load(
-            self.bf_csg_wt.value(), self.bf_csg_len.value(),
-            bf, self.bf_friction.value()
-        )
-        if "error" in r:
-            self.bf_result.setText(f"❌ {r['error']}")
+        bf_result = self.engine.calc_buoyancy_factor_result(self._wc_value(self.bf_mw))
+        if not bf_result.success:
+            self.bf_result.setText(self.engine.format_screening_result(bf_result))
+            self.bf_result.setToolTip(self.engine._screening_tooltip(bf_result))
             return
+
+        result = self.engine.calc_casing_landing_load_result(
+            self._wc_value(self.bf_csg_wt),
+            self._wc_value(self.bf_csg_len),
+            bf_result.value,
+            self._wc_value(self.bf_friction),
+        )
+        if not result.success:
+            self.bf_result.setText(self.engine.format_screening_result(result))
+            self.bf_result.setToolTip(
+                self.engine._screening_tooltip(bf_result) + "\n" +
+                self.engine._screening_tooltip(result)
+            )
+            return
+
+        values = result.values
         self.bf_result.setText(
-            f"Buoyancy Factor: {bf:.4f}\n"
-            f"Air Weight: {r['air_weight_lbs']:,.0f} lbs\n"
-            f"Buoyant Weight: {r['buoyant_weight_lbs']:,.0f} lbs\n"
-            f"Hook Load: {r['hook_load_lbs']:,.0f} lbs ({r['hook_load_lbs']/1000:,.0f} Klbs)"
+            f"SCREENING — Buoyancy Factor: {bf_result.value:.4f}\n"
+            f"Air Weight: {values['total_air_weight_lbs']:,.0f} lbs\n"
+            f"Buoyant Weight: {values['buoyed_weight_lbs']:,.0f} lbs\n"
+            f"Hook Load: {values['hook_load_lbs']:,.0f} lbs "
+            f"({result.value:,.3f} klbf)"
+        )
+        self.bf_result.setToolTip(
+            self.engine._screening_tooltip(bf_result) + "\n" +
+            self.engine._screening_tooltip(result)
         )
         
     # ==================== Well Control Tab ====================
@@ -5184,11 +5314,11 @@ class EngineeringCalculatorTab(DrillTabBase):
 
         g3 = QGroupBox("🔧 Back-off Depth")
         f3 = QFormLayout(g3)
-        self.bo_stretch = self._make_dspin(2.5, 0, 100, 2, " in")
-        self.bo_pipe_wt = self._make_dspin(22, 0, 500, 1, " ppf")
+        self.bo_stretch = self._make_wc_spin(100, 2, " in")
+        self.bo_pipe_wt = self._make_wc_spin(500, 1, " ppf")
         f3.addRow("Measured Stretch:", self.bo_stretch)
         f3.addRow("Pipe Weight:", self.bo_pipe_wt)
-        self.bo_result = QLabel("Free Point = -- ft")
+        self.bo_result = QLabel("NOT ASSESSED — enter measured inputs")
         self.bo_result.setStyleSheet("font-weight: bold; color: #e74c3c; padding: 5px; border: 1px solid #e74c3c; border-radius: 3px;")
         f3.addRow(self.bo_result)
         self.bo_stretch.valueChanged.connect(self._calc_backoff)
@@ -5211,13 +5341,12 @@ class EngineeringCalculatorTab(DrillTabBase):
         return sp
 
     def _make_wc_spin(self, max_v, dec, suffix="") -> QDoubleSpinBox:
-        """Kill-sheet input that can express "not recorded".
+        """Optional measurement input that can express "not recorded".
 
         ``QDoubleSpinBox`` has no NULL, so the minimum value renders an explicit
         marker and reads back as ``None`` (the same idiom the daily report uses
-        for its depth readings). The kill sheet is a safety document: a pre-filled
-        SIDPP/SICP/TVD would be submitted as a measured fact the user never
-        entered, so every consumed input starts "not recorded".
+        for its depth readings). Do not preload plausible operational values:
+        an untouched default would otherwise be submitted as a measured fact.
         """
         sp = self._make_dspin(-1, -1, max_v, dec, suffix)
         sp.setSpecialValueText("Not recorded")
@@ -5231,16 +5360,26 @@ class EngineeringCalculatorTab(DrillTabBase):
         return spin.value()
 
     def _update_stuck(self):
-        fp = self.engine.calc_free_point(
-            self.stk_diff.value(), self.stk_wt.value(), self.stk_pull.value()
+        fp = self.engine.calc_free_point_result(
+            self._wc_value(self.stk_stretch_in),
+            self._wc_value(self.stk_wt),
+            self._wc_value(self.stk_pull),
         )
-        self.stk_free_point.setText(f"Free Point = {fp:.1f} ft ({fp/3.281:.1f} m)")
-        
-        stretch = self.engine.calc_string_stretch(self.stk_len.value(), self.stk_mw.value())
-        self.stk_stretch.setText(f"String Stretch = {stretch:.2f} in")
-        
-        adj_wt = self.engine.calc_adjusted_weight(self.stk_pipe_od.value(), self.stk_pipe_id.value())
-        self.stk_adj_wt.setText(f"Adjusted Weight = {adj_wt:.2f} lb/ft")
+        self.stk_free_point.setText(self.engine.format_screening_result(fp, 1))
+        self.stk_free_point.setToolTip(self.engine._screening_tooltip(fp))
+
+        stretch = self.engine.calc_string_stretch_result(
+            self._wc_value(self.stk_len_m),
+            self._wc_value(self.stk_mw_pcf),
+        )
+        self.stk_stretch.setText(self.engine.format_screening_result(stretch, 2))
+        self.stk_stretch.setToolTip(self.engine._screening_tooltip(stretch))
+
+        adj_wt = self.engine.calc_adjusted_weight_result(
+            self._wc_value(self.stk_pipe_od), self._wc_value(self.stk_pipe_id)
+        )
+        self.stk_adj_wt.setText(self.engine.format_screening_result(adj_wt, 2))
+        self.stk_adj_wt.setToolTip(self.engine._screening_tooltip(adj_wt))
 
     def _browse_drillpipe_file(self):
         filename, _ = QFileDialog.getOpenFileName(
@@ -5272,10 +5411,11 @@ class EngineeringCalculatorTab(DrillTabBase):
         )
 
     def _calc_backoff(self):
-        fp = self.engine.calc_backoff_depth(
-            self.bo_stretch.value(), self.bo_pipe_wt.value()
+        result = self.engine.calc_backoff_depth_result(
+            self._wc_value(self.bo_stretch), self._wc_value(self.bo_pipe_wt)
         )
-        self.bo_result.setText(f"Free Point = {fp:.0f} ft ({fp/3.281:.0f} m)")
+        self.bo_result.setText(self.engine.format_screening_result(result, 1))
+        self.bo_result.setToolTip(self.engine._screening_tooltip(result))
         
     # ==================== DrillTabBase Overrides ====================
     def on_well_changed(self, well_id, well_data):

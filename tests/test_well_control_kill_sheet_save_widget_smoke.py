@@ -101,6 +101,16 @@ _CHILD = textwrap.dedent(
     assert reloaded.result["kill_mw_ppg"] == stored_kill_mw, "history must not change"
     assert repo.count() == 1, "recompute alone must not persist a new run"
 
+    # Missing pipe geometry still follows the documented legacy 5-in estimate,
+    # but the real W13 result card must expose it as an assumption rather than
+    # presenting the kick height as measured geometry.
+    tab.wc_pipes = []
+    tab._wc_calc_kill()
+    assumed = tab._wc_last_kill_result
+    assert assumed.success
+    assert "ASSUMPTION: 5-in pipe OD" in assumed.kick_note
+    assert "ASSUMPTION: 5-in pipe OD" in tab.wc_result.toPlainText()
+
     # History dialog constructs + lists from persisted records (read-only).
     from dialogs.well_control_kill_sheet_history_dialog import (
         WellControlKillSheetHistoryDialog)

@@ -149,6 +149,44 @@ class TestW13DelegationParity:
         assert bo == round(12 * 30e6 * (19.5 / 3.4) / (19.5 * 12), 1)
         assert self.E.calc_backoff_depth(12, 0) == 0.0
 
+    def test_fishing_result_facade_preserves_failure_and_converts_display_units(self):
+        from core.engineering.engines.fishing import FishingEngine
+        from core.unit_manager import UnitManager
+
+        missing_free = self.E.calc_free_point_result(None, 19.5, 30000)
+        assert not missing_free.success and missing_free.validation_status == "missing_input"
+        assert self.E.format_screening_result(missing_free).startswith("NOT ASSESSED")
+
+        failed_backoff = self.E.calc_backoff_depth_result(2.5, 0)
+        assert not failed_backoff.success and failed_backoff.error
+        assert "0.0" not in self.E.format_screening_result(failed_backoff)
+        missing_backoff = self.E.calc_backoff_depth_result(None, 22)
+        missing_adjusted = self.E.calc_adjusted_weight_result(None, 4.276)
+        assert not missing_backoff.success and not missing_adjusted.success
+        assert self.E.format_screening_result(missing_adjusted).startswith("NOT ASSESSED")
+
+        converted = self.E.calc_string_stretch_result(1000.0, 90.0)
+        length_ft = UnitManager.convert(1000.0, "length", "m", "ft")
+        mud_ppg = UnitManager.convert(90.0, "density", "pcf", "ppg")
+        expected = FishingEngine.string_stretch(length_ft, mud_ppg)
+        assert converted.success and converted.value == expected.value
+        assert converted.metadata["ui_inputs"] == {
+            "length_m": 1000.0, "mud_weight_pcf": 90.0,
+        }
+        assert converted.metadata["converted_inputs"] == {
+            "length_ft": length_ft, "mud_weight_ppg": mud_ppg,
+        }
+        assert self.E.format_screening_result(converted).startswith("SCREENING ≈")
+
+        bad_density = self.E.calc_string_stretch_result(1000.0, 0.0)
+        assert not bad_density.success
+        assert self.E.format_screening_result(bad_density).startswith("NOT ASSESSED")
+
+        # The public legacy helper contract is retained, but canonical UI callers
+        # above do not consume its ambiguous zero-on-failure scalar.
+        assert self.E.calc_free_point(12, 19.5, 0) == 0.0
+        assert self.E.calc_backoff_depth(12, 0) == 0.0
+
     def test_jet_velocity_uses_canonical_bitengine_tfa(self):
         from core.engineering.core import BitEngine
         v = self.E.calc_jet_velocity(400, [13, 13, 14])
@@ -160,6 +198,27 @@ class TestW13DelegationParity:
         assert self.E.calc_tfa_from_pressure(400, 12, 707.3) == round(
             AdvancedHydraulicsEngine.calc_tfa_from_pressure_drop(400, 12, 707.3), 4)
         assert self.E.calc_tfa_from_pressure(400, 12, 0) == 0
+
+    def test_buoyancy_result_path_does_not_feed_failure_zero_to_landing(self):
+        from core.engineering.engines.torque_drag import TorqueDragEngine
+        from core.unit_manager import UnitManager
+
+        missing = self.E.calc_buoyancy_factor_result(None)
+        zero = self.E.calc_buoyancy_factor_result(0.0)
+        assert not missing.success and missing.validation_status == "missing_input"
+        assert not zero.success
+        assert self.E.format_screening_result(zero).startswith("NOT ASSESSED")
+
+        valid = self.E.calc_buoyancy_factor_result(90.0)
+        mud_ppg = UnitManager.convert(90.0, "density", "pcf", "ppg")
+        steel_ppg = UnitManager.convert(490.0, "density", "pcf", "ppg")
+        assert valid.success
+        assert valid.value == round(TorqueDragEngine.buoyancy_factor(mud_ppg, steel_ppg), 4)
+        assert "SCREENING" in valid.method
+
+        missing_load = self.E.calc_casing_landing_load_result(None, 10000, valid.value, 0)
+        assert not missing_load.success
+        assert self.E.calc_buoyancy_factor(0.0) == 0.0  # legacy compatibility only
 
     def test_landing_load_shape_unchanged(self):
         r = self.E.calc_casing_landing_load(47.0, 5000.0, 0.8163, 0.25)

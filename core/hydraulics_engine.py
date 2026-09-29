@@ -971,8 +971,10 @@ class AdvancedHydraulicsEngine:
            ΔP_par = a·Q^n, then required TFA from the canonical formula.
 
         When the two-point test is invalid (missing/zero readings, or a
-        non-positive exponent) n = 1.0 is used as the documented fallback.
-        Nozzle combination search is over standard 1/32-inch sizes.
+        non-positive exponent) n = 1.0 is used as the documented fallback;
+        the returned ``friction_exponent_source`` distinguishes that assumption
+        from an exponent derived from the two-point test. Nozzle combination
+        search is over standard 1/32-inch sizes.
         """
         import itertools
 
@@ -988,12 +990,14 @@ class AdvancedHydraulicsEngine:
 
         # Parasitic-loss exponent from a two-point pump test.
         n = 1.0  # documented fallback
+        friction_exponent_source = "assumed_fallback"
         if (fr2 > 0 and fr1 > 0 and spp1 > 0 and spp2 > 0
                 and abs(fr1 - fr2) > 1e-9 and spp1 != spp2):
             try:
                 cand = (math.log10(spp1 / spp2) / math.log10(fr1 / fr2))
                 if cand > 0:
                     n = cand
+                    friction_exponent_source = "two_point_pump_test"
             except (ValueError, ZeroDivisionError):
                 n = 1.0
 
@@ -1036,6 +1040,8 @@ class AdvancedHydraulicsEngine:
             "max_flow_rate_gpm": round(q_max, 1),
             "optimal_flow_rate_gpm": round(q_opt, 1),
             "optimal_tfa_in2": round(opt_tfa, 4),
+            "friction_exponent": round(n, 4),
+            "friction_exponent_source": friction_exponent_source,
             "selected_nozzles": list(best_combo) if best_combo else [],
             "actual_tfa_in2": round(
                 sum(nozzle_area(s) for s in best_combo), 4) if best_combo else 0,

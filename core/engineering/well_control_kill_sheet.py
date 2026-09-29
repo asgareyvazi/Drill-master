@@ -520,6 +520,15 @@ def compute_kill_sheet(inp: WellControlKillSheetInputs) -> KillSheetResult:
     kick_note = ""
     warnings: List[str] = []
     last_pipe_od = inp.pipes[-1].od_in if inp.pipes else 5
+    if pit_gain > 0 and not inp.pipes:
+        kick_note = (
+            " ⚠ ASSUMPTION: 5-in pipe OD used because drill-string geometry "
+            "was not entered"
+        )
+        warnings.append(
+            "Kick-height screening uses assumed 5-in pipe OD; no drill-string "
+            "geometry was provided."
+        )
     ann_cap_ft = A.calc_annular_capacity_bbl_ft(hole, last_pipe_od)
     if pit_gain > 0 and ann_cap_ft > 0:
         kv = WC.kick_volume(
@@ -540,7 +549,7 @@ def compute_kill_sheet(inp: WellControlKillSheetInputs) -> KillSheetResult:
                 "saltwater": "Salt Water Kick",
             }.get(kind, "Unknown")
             if kv.warnings:
-                kick_note = " \u26a0 " + "; ".join(kv.warnings)[:80]
+                kick_note += " \u26a0 " + "; ".join(kv.warnings)[:80]
                 warnings.extend(kv.warnings)
 
     # --- choke schedule (linear ICP -> FCP) --------------------------------

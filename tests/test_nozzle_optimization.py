@@ -150,14 +150,22 @@ class TestNozzleOptimizationCanonical:
         assert "math.sqrt" not in opt
         assert "combinations_with_replacement" not in opt
 
-    def test_invalid_pump_test_does_not_crash(self):
-        """Guard regression: zero second SPP used to raise ZeroDivisionError."""
+    def test_invalid_pump_test_does_not_crash_and_labels_fallback(self):
+        """Invalid two-point data uses n=1.0 and identifies it as assumed."""
         bad = dict(PARAMS, spp2=0.0)
         r = AdvancedHydraulicsEngine.optimize_nozzles(**bad)
         assert r["optimal_tfa_in2"] > 0 or r["optimal_flow_rate_gpm"] >= 0
+        assert r["friction_exponent"] == 1.0
+        assert r["friction_exponent_source"] == "assumed_fallback"
+
         bad2 = dict(PARAMS, fr1=0.0, spp1=0.0)
         r2 = AdvancedHydraulicsEngine.optimize_nozzles(**bad2)
         assert r2["optimal_flow_rate_gpm"] >= 0
+        assert r2["friction_exponent_source"] == "assumed_fallback"
+
+        valid = AdvancedHydraulicsEngine.optimize_nozzles(**PARAMS)
+        assert valid["friction_exponent_source"] == "two_point_pump_test"
+        assert valid["friction_exponent"] > 0
 
     def test_legacy_parity_of_numbers(self):
         """The canonical result equals the formula the tab used to compute

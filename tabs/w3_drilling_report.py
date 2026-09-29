@@ -4,6 +4,7 @@ Drilling Report - کلاس اصلی یکپارچه برای تمام تب‌ها
 
 import logging
 import json
+import math
 from datetime import date
 
 from PySide6.QtWidgets import *
@@ -601,10 +602,11 @@ class DrillingParametersTab(QWidget):
         self.hsi.setDecimals(2)
         calc_layout.addWidget(self.hsi, 0, 3)
 
-        calc_layout.addWidget(QLabel("Annular Velocity (ft/min):"), 1, 0)
-        self.annular_velocity = QDoubleSpinBox()
+        calc_layout.addWidget(QLabel("Annular Velocity (ft/min; current-report pipe OD):"), 1, 0)
+        self.annular_velocity = _calc_spin(QDoubleSpinBox())
         self.annular_velocity.setReadOnly(True)
         self.annular_velocity.setDecimals(1)
+        self.annular_velocity.setToolTip("NOT ASSESSED until current-report pipe geometry and valid inputs are available.")
         calc_layout.addWidget(self.annular_velocity, 1, 1)
 
         calc_layout.addWidget(QLabel("Bit Revolution (k.rev):"), 1, 2)
@@ -751,37 +753,120 @@ class DrillingParametersTab(QWidget):
         except Exception as e:
             logger.error(f"Error in calculate_all: {e}")
 
+    def _current_report_pipe_od(self):
+        """Resolve one unambiguous pipe OD from the selected daily report only."""
+        report_id = getattr(self.parent, "current_report_id", None)
+        well_id = getattr(self.parent, "current_well", None)
+        if report_id is None or well_id is None:
+            return None, "Select a well and daily report to source pipe geometry."
+        if self.db_manager is None:
+            return None, "Database unavailable; current-report pipe OD is unknown."
+
+        session = None
+        try:
+            from core.database import DownholeEquipment
+
+            session = self.db_manager.create_session()
+            equipment_rows = (
+                session.query(DownholeEquipment)
+                .filter(
+                    DownholeEquipment.well_id == well_id,
+                    DownholeEquipment.report_id == report_id,
+                )
+                .all()
+            )
+            if not equipment_rows:
+                return None, "No downhole equipment is recorded for the current report."
+            if len(equipment_rows) != 1:
+                return None, "Multiple downhole-equipment records make current-report geometry ambiguous."
+            equipment = equipment_rows[0]
+            if equipment.equipment_data_json is None:
+                return None, "No downhole equipment is recorded for the current report."
+
+            items = equipment.equipment_data_json
+            if isinstance(items, str):
+                try:
+                    items = json.loads(items)
+                except (TypeError, ValueError):
+                    return None, "Current-report downhole equipment data is malformed."
+            if isinstance(items, dict):
+                items = [items]
+            if not isinstance(items, list):
+                return None, "Current-report downhole equipment data is unavailable."
+
+            pipe_items = [
+                item for item in items
+                if isinstance(item, dict)
+                and "pipe" in str(item.get("type", "")).lower()
+            ]
+            if not pipe_items:
+                return None, "No pipe geometry is recorded for the current report."
+
+            pipe_ods = []
+            for item in pipe_items:
+                try:
+                    value = float(item.get("od_inch"))
+                except (TypeError, ValueError, OverflowError):
+                    return None, "Pipe OD is missing or invalid in the current report."
+                if not math.isfinite(value) or value <= 0:
+                    return None, "Pipe OD is missing or invalid in the current report."
+                pipe_ods.append(value)
+
+            unique_ods = set(pipe_ods)
+            if len(unique_ods) != 1:
+                return None, "Current-report pipe OD is ambiguous across pipe sizes."
+            return unique_ods.pop(), None
+        except Exception as exc:
+            logger.warning("Could not source current-report pipe OD: %s", exc)
+            return None, "Could not read pipe geometry for the current report."
+        finally:
+            if session is not None:
+                session.close()
+
     def calculate_annular_velocity(self):
         try:
             flow_rate = (self.pump_output_min.value() + self.pump_output_max.value()) / 2
             bit_size = self.bit_size.value()
-
-            pipe_od = 5.0
-            if self.db_manager and hasattr(self, 'parent') and self.parent and getattr(self.parent, 'current_well_id', None):
-                try:
-                    session = self.db_manager.create_session()
-                    from core.database import DownholeEquipment
-                    eq = session.query(DownholeEquipment).filter(DownholeEquipment.well_id == self.parent.current_well_id).first()
-                    if eq and eq.equipment_data_json:
-                        items = eq.equipment_data_json if isinstance(eq.equipment_data_json, list) else [eq.equipment_data_json]
-                        for it in items:
-                            if isinstance(it, dict) and "pipe" in str(it.get("type", "")).lower():
-                                pipe_od = float(it.get("od_inch", 5.0) or 5.0)
-                                break
-                    session.close()
-                except Exception as db_err:
-                    logger.debug(f"Could not load drill pipe OD from db: {db_err}")
-
-            if bit_size > pipe_od > 0:
-                result = DrillingManager.calculate_annular_velocity(
-                    flow_rate, bit_size, pipe_od
+            pipe_od, source_error = self._current_report_pipe_od()
+            if source_error:
+                _set_calc(self.annular_velocity, None)
+                self.annular_velocity.setToolTip(f"NOT ASSESSED — {source_error}")
+                return
+            if flow_rate <= 0 or bit_size <= 0 or bit_size <= pipe_od:
+                _set_calc(self.annular_velocity, None)
+                self.annular_velocity.setToolTip(
+                    "NOT ASSESSED — require positive flow, bit size greater than sourced pipe OD."
                 )
-                if isinstance(result, dict):
-                    self.annular_velocity.setValue(result.get("ft_min", 0))
-                else:
-                    self.annular_velocity.setValue(result)
-        except Exception as e:
-            logger.error(f"Error calculating annular velocity: {e}")
+                return
+
+            result = DrillingManager.calculate_annular_velocity(
+                flow_rate, bit_size, pipe_od
+            )
+            if not isinstance(result, dict) or result.get("status") != "OK":
+                _set_calc(self.annular_velocity, None)
+                self.annular_velocity.setToolTip(
+                    "NOT ASSESSED — annular-velocity calculation failed."
+                )
+                return
+            value = result.get("ft_min")
+            if value is None or not math.isfinite(float(value)):
+                _set_calc(self.annular_velocity, None)
+                self.annular_velocity.setToolTip(
+                    "NOT ASSESSED — annular-velocity calculation returned no finite value."
+                )
+                return
+
+            _set_calc(self.annular_velocity, float(value))
+            report_id = getattr(self.parent, "current_report_id", None)
+            self.annular_velocity.setToolTip(
+                f"SCREENING — pipe OD {pipe_od:g} in sourced from current daily report {report_id}."
+            )
+        except Exception as exc:
+            logger.error(f"Error calculating annular velocity: {exc}")
+            _set_calc(self.annular_velocity, None)
+            self.annular_velocity.setToolTip(
+                "NOT ASSESSED — annular-velocity calculation failed."
+            )
 
     def calculate_bit_revolution(self):
         try:
@@ -883,7 +968,7 @@ class DrillingParametersTab(QWidget):
             "pump_liner_size": self.pump_liner_size.text().strip() or None,
             "avg_rop": _calc_value(self.avg_rop),
             "hsi": _calc_value(self.hsi),
-            "annular_velocity": self.annular_velocity.value(),
+            "annular_velocity": _calc_value(self.annular_velocity),
             "bit_revolution": self.bit_revolution.value(),
         }
 
@@ -983,7 +1068,7 @@ class DrillingParametersTab(QWidget):
         self.pump_liner_size.setText(safe_str("pump_liner_size"))
         _set_calc(self.avg_rop, safe_opt("avg_rop"))
         _set_calc(self.hsi, safe_opt("hsi"))
-        self.annular_velocity.setValue(safe_val("annular_velocity"))
+        _set_calc(self.annular_velocity, safe_opt("annular_velocity"))
         self.bit_revolution.setValue(safe_val("bit_revolution"))
         
     def clear_form(self):
@@ -1018,7 +1103,7 @@ class DrillingParametersTab(QWidget):
         self.pump_liner_size.clear()
         self.avg_rop.setValue(self.avg_rop.minimum())
         self.hsi.setValue(self.hsi.minimum())
-        self.annular_velocity.setValue(0)
+        _set_calc(self.annular_velocity, None)
         self.bit_revolution.setValue(0)
 
     def validate_form(self):

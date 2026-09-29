@@ -1,0 +1,216 @@
+{
+  "schema": "m36-p6-remediation-evidence",
+  "as_of": "2026-09-29",
+  "branch": "arena/01a0ec23-drill-master",
+  "base_head": "33e0cc9b9a5a116d5b25993f474ea4046c98d183",
+  "status": "W13 and W3 changes are prepared in the worktree; exact-HEAD CI is pending for these uncommitted changes. NEW-P6-016 is already committed and passed the exact-HEAD 3.11/3.12/3.13 source gate at 3829274815871414415a966960698281b9019aac.",
+  "source_hashes": {
+    "tabs/w13_Engineering_Calculator.py": {
+      "before_sha256": "4fd94858f423a09793e7afaf0f40e346c9bab046d39bfe49faab4aad340f4bee",
+      "after_sha256": "37ff0c9cd7e298f035fe0b006b4d40c89b74b8460454b560b6f99f67ede5c6b7",
+      "changed_symbols": [
+        "DrillingCalculationEngine.calc_free_point_result",
+        "DrillingCalculationEngine.calc_string_stretch_result",
+        "DrillingCalculationEngine.calc_backoff_depth_result",
+        "DrillingCalculationEngine.calc_adjusted_weight_result",
+        "DrillingCalculationEngine.calc_buoyancy_factor_result",
+        "DrillingCalculationEngine.format_screening_result",
+        "EngineeringCalculatorTab._create_stuck_tab",
+        "EngineeringCalculatorTab._update_stuck",
+        "EngineeringCalculatorTab._create_casing_cement_tab",
+        "EngineeringCalculatorTab._csg_calc_landing",
+        "EngineeringCalculatorTab._calc_backoff"
+      ]
+    },
+    "core/engineering/engines/fishing.py": {
+      "before_sha256": "06a089e27504d9dcc560ddddb852376dfb8f1fda25186e6292dc621f38bb85db",
+      "after_sha256": "06a089e27504d9dcc560ddddb852376dfb8f1fda25186e6292dc621f38bb85db",
+      "status": "legacy numeric wrappers intentionally unchanged for compatibility"
+    },
+    "core/hydraulics_engine.py": {
+      "before_sha256": "d3c4fae14a8e84761a786ed3cf298aeb19a472b4d8521b967fff24956a3f9d12",
+      "after_sha256": "f85aa1afdb5521f7c32af8387caf7b7cf5b6e97eacae931f784800014c26aa60",
+      "changed_symbol": "AdvancedHydraulicsEngine.optimize_nozzles"
+    },
+    "core/engineering/well_control_kill_sheet.py": {
+      "before_sha256": "30d030005b7c851c7ce26e8ddc0279af9ec16637f791f2fa783e8d55eb5f20fe",
+      "after_sha256": "058c2bef424e581794962bf2311b7c3e7330ae125df92de86ebe80b631067ef3",
+      "changed_symbol": "compute_kill_sheet"
+    },
+    "core/time_utils.py": {
+      "after_sha256": "1f1a640e8186596ca84e9332efacc823b6a7080b4ca78512f9d558648a100640",
+      "changed_symbol": "TimeLineEdit.set_invalid_time",
+      "commit": "3829274815871414415a966960698281b9019aac"
+    },
+    "tabs/w2_Daily_Report.py": {
+      "after_sha256": "e5554250aa1312d6566aa4b57dfd24af7e74ba600b2beabb0a4fb6d0dea1c9ec",
+      "changed_symbols": [
+        "DailyReportWidget.add_time_log_row",
+        "DailyReportWidget.calculate_row_duration",
+        "DailyReportWidget.save_time_logs_to_db"
+      ],
+      "commit": "33e0cc9b9a5a116d5b25993f474ea4046c98d183"
+    },
+    "tabs/w3_drilling_report.py": {
+      "before_sha256": "e2764c18e975670539ef409b5bf931271510191a9581a406a8db8f3dc4e427a0",
+      "after_sha256": "50e8d8538977291961d5a5f826471be50c6b4efbdebd586e2bf6d9e47ffbfec9",
+      "changed_symbols": [
+        "DrillingParametersTab._current_report_pipe_od",
+        "DrillingParametersTab.calculate_annular_velocity",
+        "DrillingParametersTab.get_form_data",
+        "DrillingParametersTab.load_from_dict",
+        "DrillingParametersTab.clear_form"
+      ]
+    },
+    "tests/test_w3_annular_velocity_truth.py": {
+      "sha256": "164d948167af9ab84cb2f2c0cc07e5ca44c2f4d2d04c4e70c5df7f87a49b5da6",
+      "status": "Qt regression added; local host cannot import Qt because libGL.so.1 is missing; pending CI execution"
+    }
+  },
+  "finding_reconciliation": [
+    {
+      "p6_finding": "NEW-P6-004",
+      "source_record": "docs/audits/m36-evidence/p6-batch-020.json",
+      "original_site": "core/engineering/engines/fishing.py calculate_string_stretch; W13 stuck-pipe consumer",
+      "result": "W13 now calls FishingEngine.string_stretch through a result-aware facade. The visible W13 length and density inputs are converted from m/pcf to ft/ppg with UnitManager; unsuccessful results render NOT ASSESSED rather than numeric zero. The original plain-return wrapper remains unchanged.",
+      "regressions": [
+        "tests/test_single_source_guard.py::TestW13DelegationParity::test_fishing_result_facade_preserves_failure_and_converts_display_units",
+        "tests/test_w13_fishing_result_ui.py::test_w13_fishing_widgets_start_unknown_and_render_result_status"
+      ],
+      "remaining_compatibility_note": "External callers of the legacy scalar wrapper are unknown; its old zero-on-failure behavior is retained."
+    },
+    {
+      "p6_finding": "NEW-P6-005",
+      "source_record": "docs/audits/m36-evidence/p6-batch-020.json",
+      "original_site": "core/engineering/engines/fishing.py calculate_free_point; W13 stuck-pipe consumer",
+      "result": "W13 now consumes FishingEngine.free_point as EngineeringResult, labels its input as measured stretch in inches (the engine unit), and renders missing/failed calculations as NOT ASSESSED. The plain-return compatibility wrapper is unchanged.",
+      "regressions": [
+        "tests/test_single_source_guard.py::TestW13DelegationParity::test_fishing_result_facade_preserves_failure_and_converts_display_units",
+        "tests/test_w13_fishing_result_ui.py::test_w13_fishing_widgets_start_unknown_and_render_result_status"
+      ]
+    },
+    {
+      "p6_finding": "NEW-P6-006",
+      "source_record": "docs/audits/m36-evidence/p6-batch-020.json",
+      "original_site": "core/engineering/engines/fishing.py calculate_backoff_depth; W13 back-off panel",
+      "result": "W13 now consumes FishingEngine.backoff_depth as EngineeringResult and displays failure as NOT ASSESSED rather than 0 ft. Legacy scalar compatibility remains unchanged.",
+      "regressions": [
+        "tests/test_single_source_guard.py::TestW13DelegationParity::test_fishing_result_facade_preserves_failure_and_converts_display_units",
+        "tests/test_w13_fishing_result_ui.py::test_w13_fishing_widgets_start_unknown_and_render_result_status"
+      ]
+    },
+    {
+      "p6_finding": "NEW-P6-007",
+      "source_record": "docs/audits/m36-evidence/p6-batch-021.json",
+      "original_site": "core/engineering/well_control_kill_sheet.py compute_kill_sheet missing-pipe 5-in OD fallback",
+      "result": "The existing 5-in calculation is retained for compatibility but is now explicitly labelled as an assumption in kick_note, warnings, and the W13 kill-sheet display when positive pit gain is entered without pipe geometry. The numerical behavior is not represented as sourced pipe geometry.",
+      "regressions": [
+        "tests/test_well_control_kill_sheet.py::test_legacy_missing_pipe_geometry_kick_height_is_explicitly_labelled",
+        "tests/test_well_control_kill_sheet_save_widget_smoke.py::test_w13_kill_sheet_save_calculation_smoke_in_subprocess"
+      ],
+      "open_owner_decision": "Whether the legacy fallback should remain available or the kick-height estimate should be refused without pipe geometry remains unresolved; this mitigation does not close that domain decision."
+    },
+    {
+      "p6_finding": "NEW-P6-009",
+      "source_record": "docs/audits/m36-evidence/p6-batch-021.json",
+      "original_site": "core/hydraulics_engine.py AdvancedHydraulicsEngine.optimize_nozzles n=1.0 fallback",
+      "result": "The optimizer now returns friction_exponent and friction_exponent_source (assumed_fallback vs two_point_pump_test); the W13 result card labels the assumed fallback. Numerical optimization remains unchanged.",
+      "regressions": [
+        "tests/test_nozzle_optimization.py::TestNozzleOptimizationCanonical::test_invalid_pump_test_does_not_crash_and_labels_fallback",
+        "tests/test_w13_fishing_result_ui.py::test_w13_fishing_widgets_start_unknown_and_render_result_status"
+      ]
+    },
+    {
+      "p6_finding": "NEW-P6-013",
+      "source_record": "docs/audits/m36-evidence/p6-batch-022.json",
+      "original_site": "tabs/w13_Engineering_Calculator.py DrillingCalculationEngine.calc_buoyancy_factor -> _csg_calc_landing",
+      "result": "The W13 landing-load UI now uses a result-aware buoyancy adapter and canonical pcf-to-ppg conversion; invalid/missing mud density or load inputs remain failed results and are not passed downstream as a zero buoyancy factor. Preset illustrative values were removed from these operational inputs using the existing explicit Not recorded sentinel. The legacy scalar facade remains for compatibility.",
+      "regressions": [
+        "tests/test_single_source_guard.py::TestW13DelegationParity::test_buoyancy_result_path_does_not_feed_failure_zero_to_landing",
+        "tests/test_w13_fishing_result_ui.py::test_w13_fishing_widgets_start_unknown_and_render_result_status"
+      ],
+      "remaining_compatibility_note": "External callers of the legacy scalar facade are unknown; its old return shape and zero behavior are retained."
+    },
+    {
+      "p6_finding": "NEW-P6-016",
+      "source_record": "docs/audits/m36-evidence/p6-batch-023.json",
+      "original_site": "tabs/w2_Daily_Report.py DailyReportWidget.add_time_log_row malformed start/end parsing",
+      "result": "Malformed, out-of-range, and missing legacy time values remain visibly invalid (including full source strings longer than QLineEdit’s normal five-character limit); blank rows no longer prefill synthetic 08:00/16:00 values. Invalid duration is NOT ASSESSED, and save validates every time before deleting existing rows.",
+      "regressions": [
+        "tests/test_w2_malformed_time_load.py"
+      ],
+      "verification": "commit 3829274815871414415a966960698281b9019aac exact-HEAD source gate succeeded on Python 3.11/3.12/3.13 (run 36564552535); local Qt tests skipped due missing libGL.so.1."
+    },
+    {
+      "p6_finding": "NEW-P6-019",
+      "source_record": "docs/audits/m36-evidence/p6-batch-024.json",
+      "original_site": "tabs/w3_drilling_report.py DrillingParametersTab.calculate_annular_velocity hard-coded 5-inch OD fallback",
+      "result": "The 5-inch fallback is removed. Pipe OD is read only from a unique equipment record matching both the selected well and current daily report; missing, invalid, or ambiguous OD yields NOT ASSESSED and SQL NULL. Annular-velocity wrapper failures (including its compatibility zero) are not displayed or persisted as a valid result.",
+      "regressions": [
+        "tests/test_w3_annular_velocity_truth.py"
+      ],
+      "mutation_or_fault_injection": "Regression covers geometry existing only on another report and injects a failed manager result carrying ft_min=0; both must remain NOT ASSESSED.",
+      "verification": "Targeted local Qt test skipped because libGL.so.1 is unavailable; exact-HEAD CI pending.",
+      "owner_note": "The conventional fallback is refused rather than retained; this does not authorize 5 inches as a domain default."
+    }
+  ],
+  "mutation_validation": [
+    {
+      "behavior": "W13 failure display must not convert an unsuccessful EngineeringResult to numeric zero",
+      "mutation": "Changed format_screening_result failure branch to render SCREENING 0.0",
+      "outcome": "rejected: fishing facade regression failed on NOT ASSESSED assertion"
+    },
+    {
+      "behavior": "W13 string-stretch input units must be converted from m/pcf to ft/ppg",
+      "mutation": "Passed raw W13 values to FishingEngine.string_stretch",
+      "outcome": "rejected: conversion result differed/failed the canonical-unit regression"
+    },
+    {
+      "behavior": "Invalid buoyancy density must not become a successful zero BF",
+      "mutation": "Returned a successful EngineeringResult with BF=0 for zero mud density",
+      "outcome": "rejected: buoyancy result-path regression failed"
+    },
+    {
+      "behavior": "Missing drill-string geometry assumption must be disclosed",
+      "mutation": "Removed the no-pipe assumption note/warning",
+      "outcome": "rejected: kill-sheet assumption regression failed"
+    },
+    {
+      "behavior": "Fallback exponent provenance must distinguish assumed n=1.0 from a measured two-point exponent",
+      "mutation": "Forced friction_exponent_source to two_point_pump_test for every optimizer run",
+      "outcome": "rejected: invalid-pump-test fallback regression failed"
+    }
+  ],
+  "verification": {
+    "passed": [
+      "95 passed: tests/test_nozzle_optimization.py, tests/test_single_source_guard.py, tests/test_engineering_completion.py, tests/test_well_control_kill_sheet.py, tests/test_well_control_kill_sheet_persistence.py, tests/test_well_control_kill_sheet_cross_process.py, tests/test_kill_sheet_casing_id_gate.py",
+      "targeted W13 fishing/buoyancy and kill-sheet tests passed",
+      "ruff --select E722,F821 on changed production and test files",
+      "compileall on changed production and test files",
+      "git diff --check",
+      "121 passed across time-integrity and W13/kill-sheet/nozzle targeted non-Qt suites; ruff E722,F821 and compileall passed for current changes."
+    ],
+    "qt_blocked": [
+      "tests/test_w13_fishing_result_ui.py skipped locally because PySide6 import fails on missing libGL.so.1",
+      "tests/test_well_control_kill_sheet_save_widget_smoke.py failed in its child process before assertions because libGL.so.1 is absent",
+      "tests/test_w3_annular_velocity_truth.py skipped locally because PySide6 cannot load libGL.so.1; CI execution pending."
+    ],
+    "not_claimed": [
+      "real Qt widget assertions on this host",
+      "exact-HEAD CI for these working-tree changes",
+      "release verification or production acceptance"
+    ],
+    "exact_head_ci": {
+      "commit": "3829274815871414415a966960698281b9019aac",
+      "run_id": 36564552535,
+      "conclusion": "success",
+      "matrix": [
+        "3.11",
+        "3.12",
+        "3.13"
+      ],
+      "scope_note": "This run includes NEW-P6-016 and the cement NULL-roundtrip regression; it does not include the current W13/W3 worktree changes."
+    }
+  },
+  "fingerprint_policy": "The prior batch records remain the provenance source for original SHA/line/symbol/fingerprint. This remediation records before/after file hashes and current symbols; it does not claim to reproduce unavailable M34 fingerprints or silently re-anchor historical records."
+}

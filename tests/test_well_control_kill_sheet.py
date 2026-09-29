@@ -213,6 +213,27 @@ def test_matches_original_handler_math(raw):
     assert res.choke_schedule == oracle["schedule"]
 
 
+def test_legacy_missing_pipe_geometry_kick_height_is_explicitly_labelled():
+    raw = {**CASES[0], "pipes_m": []}
+    inp = build_canonical_kill_sheet_inputs(**_raw_to_kwargs(raw))
+    result = compute_kill_sheet(inp)
+
+    assert result.success
+    assert result.kick_height_ft == pytest.approx(_oracle_kill_sheet(raw)["kick_height"])
+    assert "ASSUMPTION: 5-in pipe OD" in result.kick_note
+    assert any("assumed 5-in pipe OD" in warning for warning in result.warnings)
+
+    # No kick-height estimate is made when the measured pit gain is explicitly
+    # zero, so an unused geometric fallback is not described as an assumption.
+    no_kick = {**raw, "pit_gain_bbl": 0.0}
+    no_kick_result = compute_kill_sheet(
+        build_canonical_kill_sheet_inputs(**_raw_to_kwargs(no_kick))
+    )
+    assert no_kick_result.success
+    assert no_kick_result.kick_note == ""
+    assert not no_kick_result.warnings
+
+
 def test_unit_conversion_single_owner():
     """Builder applies each historical factor exactly once (no double conv)."""
     raw = CASES[0]
