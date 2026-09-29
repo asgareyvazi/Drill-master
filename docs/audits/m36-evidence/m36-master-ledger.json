@@ -912,7 +912,46 @@
      "11 tests in tests/test_m29_release_closure.py could not import PySide6 because libGL.so.1 is missing: test_npt_report_scope_and_unknown_duration; test_milestone_unknown_and_zero_are_distinct_in_both_consumers; test_permission_is_entity_specific_and_main_window_fails_closed; test_copy_previous_uses_target_date_zero_closing_and_no_safety_assessment; test_learning_store_uses_user_data_not_application_directory; test_rop_forecast_uses_calendar_dates_not_observation_ordinals; both parameter cases of test_w12_calendar_rate_unique_endpoints_and_canonical_unknown; test_w12_mud_sample_is_not_two_directional_measurements; test_chart_export_false_result_is_not_success; test_template_save_io_failure_has_no_success_message.",
      "Collection of tests/test_w12_milestones_m25.py, tests/test_w12_scope_leakage_m25.py, and tests/test_w12_wellbore_scope.py is blocked by the same missing libGL.so.1 shared library."
     ],
-    "mutation": "Restoring the missing-depth-to-zero fallback made the dedicated fixture SQL NULL assertion fail; the corrected helper was restored and the test passed."
+    "mutation": "Restoring the missing-depth-to-zero fallback made the dedicated fixture SQL NULL assertion fail; the corrected helper was restored and the test passed.",
+    "source_release_gate": {
+     "commit_checked": "bf7ec7453faf726d95c2a3feff22c11c013e502d",
+     "command": "DRILLMASTER_AI_IMPORT=0 .venv/bin/python verify_release.py --expected-sha bf7ec7453faf726d95c2a3feff22c11c013e502d",
+     "environment": "Linux Python 3.11.2; locked runtime dependencies installed; ruff 0.16.6 installed; libGL.so.1 absent",
+     "passed_before_block": [
+      "exact HEAD, clean worktree, branch and diff checks",
+      "requirements-lock dependencies and pip check",
+      "source/packaging version consistency",
+      "repository ruff E722/F821 gate",
+      "lint debt 5344 <= ceiling 5375 (not lint-clean)",
+      "compileall for core, dialogs, tabs, tests, packaging and release/application scripts"
+     ],
+     "blocked_at": "pytest collection; 18 Qt-dependent modules cannot import because libGL.so.1 is missing",
+     "blocked_modules": [
+      "tests/test_casing_history_viewmodel.py",
+      "tests/test_cement_history_viewmodel.py",
+      "tests/test_drillpipe_reference_selection.py",
+      "tests/test_kpi_parity.py",
+      "tests/test_mse_history_viewmodel.py",
+      "tests/test_mud_volume_history_viewmodel.py",
+      "tests/test_nonfinite_import_boundaries.py",
+      "tests/test_permission_failclosed_regression.py",
+      "tests/test_plan_import_unknown_cells.py",
+      "tests/test_schematic_no_fabrication.py",
+      "tests/test_w12_analytics_truth.py",
+      "tests/test_w12_milestones_m25.py",
+      "tests/test_w12_recent_reports_display_m25.py",
+      "tests/test_w12_risk_assessment_m26.py",
+      "tests/test_w12_scope_leakage_m25.py",
+      "tests/test_w12_wellbore_scope.py",
+      "tests/test_well_control_kill_sheet_history_viewmodel.py",
+      "tests/test_wellbore_scope_display.py"
+     ],
+     "not_run": [
+      "full pytest execution beyond collection",
+      "wheel build/install/package smoke"
+     ],
+     "result": "BLOCKED_BY_SANDBOX_OS_LIBRARY; not a passing release gate or production-readiness claim"
+    }
    }
   }
  ],
@@ -928,7 +967,7 @@
  },
  "open_by_priority": {},
  "open_by_class": {},
- "generated_utc": "2026-09-29T10:15:59+00:00",
+ "generated_utc": "2026-09-29T10:17:13+00:00",
  "recovery_bundles": [
   {
    "file": "/home/user/recovery/drillmaster-115fc09.bundle",
