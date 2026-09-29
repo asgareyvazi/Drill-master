@@ -1,18 +1,18 @@
 {
  "schema": "m36-open-item-register",
- "generated_utc": "2026-09-29T07:27:47+00:00",
+ "generated_utc": "2026-09-29T08:00:20+00:00",
  "source_register": "docs/audits/m35-evidence/m35-open-item-register.json",
  "source_sha256_declared": "d81a77bda0330c75493f4081c4a02e4d106fe7602e49c14f0c67d12977658a6b",
  "totals": {
   "records": 1224,
-  "open": 403,
+  "open": 358,
   "open_by_priority": {
-   "MEDIUM": 403
+   "MEDIUM": 358
   },
   "open_by_class": {
    "E": 241,
-   "C": 97,
-   "D": 65
+   "D": 65,
+   "C": 52
   },
   "defect_fixed": 2
  },
@@ -4521,13 +4521,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "core/engineering/well_control_kill_sheet.py:499 `max_allowable_mw_ppg=frac_grad / PSI_PER_PPG_FT if frac_grad else None,` in `compute_kill_sheet`. The canonical builder records absent required fields in missing_inputs and compute_kill_sheet refuses them. MAASP receives None at zero fracture gradient and EngineeringResult failure is checked; the documented dialog labels zero shoe TVD as skip-MAASP. No missing measurement becomes a successful zero result. The no-pipe 5-inch fallback is different: it contributes to kick-height geometry and lacks a displayed assumption/provenance, so its physical applicability is not closed without the operations owner. The canonical builder records absent required fields in missing_inputs and compute_kill_sheet refuses them. MAASP receives None at zero fracture gradient and EngineeringResult failure is checked; the documented dialog labels zero shoe TVD as skip-MAASP. No missing measurement becomes a successful zero result. The no-pipe 5-inch fallback is different: it contributes to kick-height geometry and lacks a displayed assumption/provenance, so its physical applicability is not closed without the operations owner.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-021"
+   "p6_batch": "p6-batch-021",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-001771",
@@ -4546,13 +4549,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "DOMAIN_DECISION_REQUIRED",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "core/engineering/well_control_kill_sheet.py:517 `last_pipe_od = inp.pipes[-1].od_in if inp.pipes else 5` in `compute_kill_sheet`. The canonical builder records absent required fields in missing_inputs and compute_kill_sheet refuses them. MAASP receives None at zero fracture gradient and EngineeringResult failure is checked; the documented dialog labels zero shoe TVD as skip-MAASP. No missing measurement becomes a successful zero result. The no-pipe 5-inch fallback is different: it contributes to kick-height geometry and lacks a displayed assumption/provenance, so its physical applicability is not closed without the operations owner. The canonical builder records absent required fields in missing_inputs and compute_kill_sheet refuses them. MAASP receives None at zero fracture gradient and EngineeringResult failure is checked; the documented dialog labels zero shoe TVD as skip-MAASP. No missing measurement becomes a successful zero result. The no-pipe 5-inch fallback is different: it contributes to kick-height geometry and lacks a displayed assumption/provenance, so its physical applicability is not closed without the operations owner.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-021"
+   "p6_batch": "p6-batch-021",
+   "p6_remaining_question": "Is 5.0 in the legacy no-pipe fallback an operator-approved geometry assumption for kick height, or should the calculator refuse/mark that estimate unknown?",
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-001783",
@@ -4649,17 +4655,20 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: parameter/unit domain and the legal range for this reduction",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "contract_quote": {
     "kind": "function-docstring-or-comment",
     "quote": "# must not lose to another field's value picked diagonally)."
    },
    "register_classification": "OPEN-CONTRACT-CANDIDATE",
-   "p6_evidence": null,
+   "p6_evidence": "core/excel_intelligence.py:512 `return max(0.0, min(1.0, score))` in `CandidateScorer.score_candidate`. score_candidate computes a weighted evidence score then clamps it to its documented [0,1] confidence range. Candidate scoring is bounded confidence, while the extraction pipeline carries actual_sheet to the dynamic table extractor and source-IR updates are guarded by (sheet, cell). The three resolver sites were genuine: a named-template mismatch or ambiguous partial hint previously selected the first sheet, and a reproducible two-sheet workbook produced accepted canonical well_info.name='WRONG-WELL'. The minimal fix uses exact name first, a unique partial match only, and None for missing/ambiguous names; generic unnamed sheet_1 compatibility remains. Regression asserts no canonical value/provenance is emitted.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-021"
+   "p6_batch": "p6-batch-021",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-001814",
@@ -4678,17 +4687,20 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: parameter/unit domain and the legal range for this reduction",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "contract_quote": {
     "kind": "function-docstring-or-comment",
     "quote": "# must not lose to another field's value picked diagonally)."
    },
    "register_classification": "OPEN-CONTRACT-CANDIDATE",
-   "p6_evidence": null,
+   "p6_evidence": "core/excel_intelligence.py:512 `return max(0.0, min(1.0, score))` in `CandidateScorer.score_candidate`. Same score_candidate return expression and source site as INV34-001811; the second inventory rule flag is a duplicate, not a second behavior. Candidate scoring is bounded confidence, while the extraction pipeline carries actual_sheet to the dynamic table extractor and source-IR updates are guarded by (sheet, cell). The three resolver sites were genuine: a named-template mismatch or ambiguous partial hint previously selected the first sheet, and a reproducible two-sheet workbook produced accepted canonical well_info.name='WRONG-WELL'. The minimal fix uses exact name first, a unique partial match only, and None for missing/ambiguous names; generic unnamed sheet_1 compatibility remains. Regression asserts no canonical value/provenance is emitted.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-021"
+   "p6_batch": "p6-batch-021",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-001850",
@@ -4900,13 +4912,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "core/fuel_water_semantics.py:40 `threshold_days: float = 3.0) -> bool:` in `is_low_stock`. The 3-day low-stock threshold is an explicit caller-overridable policy parameter. The helper only warns for a known positive-consumption runway; None/non-positive consumption is not a zero-day alert. The 3-day low-stock threshold is an explicit caller-overridable policy parameter. The helper only warns for a known positive-consumption runway; None/non-positive consumption is not a zero-day alert.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-021"
+   "p6_batch": "p6-batch-021",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-001904",
@@ -5053,13 +5068,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "core/hydraulics_engine.py:1047 `efficiency: float = 0.95) -> float:` in `AdvancedHydraulicsEngine.calc_pump_output`. Pump-output efficiency defaults to the documented 0.95 assumption and is range-validated (0 < efficiency <= 1); the nozzle optimizer documents n=1.0 as its fallback for invalid two-point readings and the UI constrains nozzle count to 1..8. Its empty-combination zero is unreachable from that UI. WellProfile's survey-less fallback is an explicitly simplified KOP model; directional inputs with surveys use interpolation. The residual concern is not a fabricated measurement but visibility of the optimizer fallback assumption. Pump-output efficiency defaults to the documented 0.95 assumption and is range-validated (0 < efficiency <= 1); the nozzle optimizer documents n=1.0 as its fallback for invalid two-point readings and the UI constrains nozzle count to 1..8. Its empty-combination zero is unreachable from that UI. WellProfile's survey-less fallback is an explicitly simplified KOP model; directional inputs with surveys use interpolation. The residual concern is not a fabricated measurement but visibility of the optimizer fallback assumption.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-021"
+   "p6_batch": "p6-batch-021",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-001929",
@@ -5078,13 +5096,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "core/hydraulics_engine.py:1063 `efficiency: float = 0.95) -> float:` in `AdvancedHydraulicsEngine.calc_pump_output_duplex`. Pump-output efficiency defaults to the documented 0.95 assumption and is range-validated (0 < efficiency <= 1); the nozzle optimizer documents n=1.0 as its fallback for invalid two-point readings and the UI constrains nozzle count to 1..8. Its empty-combination zero is unreachable from that UI. WellProfile's survey-less fallback is an explicitly simplified KOP model; directional inputs with surveys use interpolation. The residual concern is not a fabricated measurement but visibility of the optimizer fallback assumption. Pump-output efficiency defaults to the documented 0.95 assumption and is range-validated (0 < efficiency <= 1); the nozzle optimizer documents n=1.0 as its fallback for invalid two-point readings and the UI constrains nozzle count to 1..8. Its empty-combination zero is unreachable from that UI. WellProfile's survey-less fallback is an explicitly simplified KOP model; directional inputs with surveys use interpolation. The residual concern is not a fabricated measurement but visibility of the optimizer fallback assumption.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-021"
+   "p6_batch": "p6-batch-021",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-001941",
@@ -5103,13 +5124,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: parameter/unit domain and the legal range for this reduction",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "core/hydraulics_engine.py:1041 `sum(nozzle_area(s) for s in best_combo), 4) if best_combo else 0,` in `AdvancedHydraulicsEngine.optimize_nozzles`. If no candidate tuple exists, selected_nozzles is empty and actual TFA is zero; W13 spinbox constrains n_nozzles to 1..8, while actual feasible combos have summed physical nozzle areas. Pump-output efficiency defaults to the documented 0.95 assumption and is range-validated (0 < efficiency <= 1); the nozzle optimizer documents n=1.0 as its fallback for invalid two-point readings and the UI constrains nozzle count to 1..8. Its empty-combination zero is unreachable from that UI. WellProfile's survey-less fallback is an explicitly simplified KOP model; directional inputs with surveys use interpolation. The residual concern is not a fabricated measurement but visibility of the optimizer fallback assumption.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-021"
+   "p6_batch": "p6-batch-021",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-001944",
@@ -5128,13 +5152,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: parameter/unit domain and the legal range for this reduction",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "core/hydraulics_engine.py:219 `return min(inc, self.eob_inc)` in `WellProfile.get_inc_at_md`. Build inclination is capped at end-of-build inclination; later branch returns EOB or target inclination. Pump-output efficiency defaults to the documented 0.95 assumption and is range-validated (0 < efficiency <= 1); the nozzle optimizer documents n=1.0 as its fallback for invalid two-point readings and the UI constrains nozzle count to 1..8. Its empty-combination zero is unreachable from that UI. WellProfile's survey-less fallback is an explicitly simplified KOP model; directional inputs with surveys use interpolation. The residual concern is not a fabricated measurement but visibility of the optimizer fallback assumption.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-021"
+   "p6_batch": "p6-batch-021",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-001947",
@@ -5153,13 +5180,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "core/hydraulics_engine.py:1056 `if not 0 < efficiency <= 1:` in `AdvancedHydraulicsEngine.calc_pump_output`. Triplex efficiency guard rejects zero, >1, and NaN before formula evaluation. Pump-output efficiency defaults to the documented 0.95 assumption and is range-validated (0 < efficiency <= 1); the nozzle optimizer documents n=1.0 as its fallback for invalid two-point readings and the UI constrains nozzle count to 1..8. Its empty-combination zero is unreachable from that UI. WellProfile's survey-less fallback is an explicitly simplified KOP model; directional inputs with surveys use interpolation. The residual concern is not a fabricated measurement but visibility of the optimizer fallback assumption.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-021"
+   "p6_batch": "p6-batch-021",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-001948",
@@ -5178,13 +5208,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "core/hydraulics_engine.py:1077 `if not 0 < efficiency <= 1:` in `AdvancedHydraulicsEngine.calc_pump_output_duplex`. Duplex efficiency guard has the same finite range behavior; liner/stroke and rod geometry are validated separately. Pump-output efficiency defaults to the documented 0.95 assumption and is range-validated (0 < efficiency <= 1); the nozzle optimizer documents n=1.0 as its fallback for invalid two-point readings and the UI constrains nozzle count to 1..8. Its empty-combination zero is unreachable from that UI. WellProfile's survey-less fallback is an explicitly simplified KOP model; directional inputs with surveys use interpolation. The residual concern is not a fabricated measurement but visibility of the optimizer fallback assumption.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-021"
+   "p6_batch": "p6-batch-021",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-001955",
@@ -5203,13 +5236,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "core/hydraulics_engine.py:225 `if not self.survey_points:` in `WellProfile._interpolate_tvd`. No survey points makes _interpolate_tvd's documented straight/vertical fallback return MD; normal get_tvd_at_md uses surveyed interpolation only when points exist. Pump-output efficiency defaults to the documented 0.95 assumption and is range-validated (0 < efficiency <= 1); the nozzle optimizer documents n=1.0 as its fallback for invalid two-point readings and the UI constrains nozzle count to 1..8. Its empty-combination zero is unreachable from that UI. WellProfile's survey-less fallback is an explicitly simplified KOP model; directional inputs with surveys use interpolation. The residual concern is not a fabricated measurement but visibility of the optimizer fallback assumption.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-021"
+   "p6_batch": "p6-batch-021",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-001956",
@@ -5228,13 +5264,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "core/hydraulics_engine.py:185 `if self.survey_points:` in `WellProfile.get_tvd_at_md`. Survey data selects interpolation; absent surveys follow the explicit simplified KOP branch rather than treating a missing list as a numeric datum. Pump-output efficiency defaults to the documented 0.95 assumption and is range-validated (0 < efficiency <= 1); the nozzle optimizer documents n=1.0 as its fallback for invalid two-point readings and the UI constrains nozzle count to 1..8. Its empty-combination zero is unreachable from that UI. WellProfile's survey-less fallback is an explicitly simplified KOP model; directional inputs with surveys use interpolation. The residual concern is not a fabricated measurement but visibility of the optimizer fallback assumption.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-021"
+   "p6_batch": "p6-batch-021",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-001957",
@@ -5281,13 +5320,16 @@
    "missing_fact": "the intended failure semantics at this call site",
    "why_it_matters": "failures may be reported as successes",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "core/hydraulics_engine.py:997 `except (ValueError, ZeroDivisionError):` in `AdvancedHydraulicsEngine.optimize_nozzles`. Invalid two-point friction data or logarithm exceptions fall back to n=1.0 exactly as the optimizer docstring states; this approximation is not exposed as a warning in W13 and is retained as NEW-P6-009 for decision/review. Pump-output efficiency defaults to the documented 0.95 assumption and is range-validated (0 < efficiency <= 1); the nozzle optimizer documents n=1.0 as its fallback for invalid two-point readings and the UI constrains nozzle count to 1..8. Its empty-combination zero is unreachable from that UI. WellProfile's survey-less fallback is an explicitly simplified KOP model; directional inputs with surveys use interpolation. The residual concern is not a fabricated measurement but visibility of the optimizer fallback assumption.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-021"
+   "p6_batch": "p6-batch-021",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-001986",
@@ -5726,13 +5768,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "core/lineage.py:148 `def get_low_confidence(self, threshold: float = 0.7) -> List[LineageRecord]:` in `LineageTracker.get_low_confidence`. The confidence threshold is a review-query cutoff, caller-overridable, not an imported engineering measurement; zero confidence is deliberately excluded from the positive-confidence review subset. The confidence threshold is a review-query cutoff, caller-overridable, not an imported engineering measurement; zero confidence is deliberately excluded from the positive-confidence review subset.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-021"
+   "p6_batch": "p6-batch-021",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-002058",
@@ -6620,13 +6665,16 @@
    "missing_fact": "the intended failure semantics at this call site",
    "why_it_matters": "failures may be reported as successes",
    "possible_source": "domain owner: must this failure be reported (log/user message) or is it safely ignored?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "core/operational_time.py:18 `except EngineeringError:` in `summarize_time_logs`. EngineeringError from typed numeric conversion is downgraded to unknown duration, then omitted from complete totals; it does not contribute zero hours. summarize_time_logs consumes stored durations, not wall-clock timestamps: absent/non-finite/negative duration is unknown, known zero is retained, and any incomplete denominator is None. NPT percent requires complete classified hours; timezone, midnight and report-day allocation belong upstream to the report-keyed log.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-021"
+   "p6_batch": "p6-batch-021",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-002230",
@@ -6726,13 +6774,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "core/performance.py:26 `def is_large_file(file_path: str, threshold_mb: float = 10.0) -> bool:` in `is_large_file`. 10 MB only selects chunking/performance strategy. It does not coerce a source quantity. File-size thresholds only choose performance strategy. OSError maps to 0.0 MB and is_large_file is used as a heuristic, not an engineering quantity; no in-repo caller turns the default into a drilling fact.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-021"
+   "p6_batch": "p6-batch-021",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-002269",
@@ -7705,13 +7756,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "core/save_outcome.py:140 `def validation_outcome(section, validation, saved=0):` in `validation_outcome`. The count default initializes SaveOutcome; validation errors/warnings are still copied into explicit statuses. saved=0 is an additive count initializer. SaveOutcome status/disposition comes from structured issues and never interprets the count default as validation success or an engineering zero.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-021"
+   "p6_batch": "p6-batch-021",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-002775",
@@ -7947,13 +8001,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "core/standards.py:27 `def bop_test_interval_days(default=14) -> int:` in `bop_test_interval_days`. 14 is the documented configurable policy default, not a hard-coded measurement. The 14-day BOP test interval is explicitly a configurable policy default: environment overrides precede config, which precedes caller default; parsed values are clamped to at least one day and malformed overrides fall back.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-021"
+   "p6_batch": "p6-batch-021",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-002810",
@@ -7972,13 +8029,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: parameter/unit domain and the legal range for this reduction",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "core/standards.py:38 `return max(1, int(env_val))` in `bop_test_interval_days`. max(1, int(env/config)) enforces a positive interval after the source override is parsed. The 14-day BOP test interval is explicitly a configurable policy default: environment overrides precede config, which precedes caller default; parsed values are clamped to at least one day and malformed overrides fall back.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-021"
+   "p6_batch": "p6-batch-021",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-002812",
@@ -8082,13 +8142,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "core/text_utils.py:24 `def safe_float(value, default=0.0):` in `safe_float`. The generic parser only returns its explicit default on None/conversion error; active formatter caller supplies None for unknown values. safe_float/safe_int expose an explicit caller-supplied default and have no direct numeric-engineering consumers; fmt_num calls safe_float with default=None so missing report values remain an em dash. wrap_text/wrap_html width is presentation-only and these helpers are not a numeric ingestion boundary.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-021"
+   "p6_batch": "p6-batch-021",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-002844",
@@ -8107,13 +8170,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "DUPLICATE/FALSE-POSITIVE",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "core/text_utils.py:24 `def safe_float(value, default=0.0):` in `safe_float`. Same safe_float declaration as INV34-002842, same path and behavior; duplicate scanner record. safe_float/safe_int expose an explicit caller-supplied default and have no direct numeric-engineering consumers; fmt_num calls safe_float with default=None so missing report values remain an em dash. wrap_text/wrap_html width is presentation-only and these helpers are not a numeric ingestion boundary.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-021"
+   "p6_batch": "p6-batch-021",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-002845",
@@ -8132,13 +8198,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "core/text_utils.py:31 `def safe_int(value, default=0):` in `safe_int`. safe_int's zero is a caller-selectable conversion fallback; no direct in-repo engineering consumer exists. safe_float/safe_int expose an explicit caller-supplied default and have no direct numeric-engineering consumers; fmt_num calls safe_float with default=None so missing report values remain an em dash. wrap_text/wrap_html width is presentation-only and these helpers are not a numeric ingestion boundary.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-021"
+   "p6_batch": "p6-batch-021",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-002847",
@@ -8157,13 +8226,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "core/text_utils.py:20 `def wrap_html(text, width=0):` in `wrap_html`. wrap_html is used for display text; width=0 is an unused layout hint, not a numeric default. safe_float/safe_int expose an explicit caller-supplied default and have no direct numeric-engineering consumers; fmt_num calls safe_float with default=None so missing report values remain an em dash. wrap_text/wrap_html width is presentation-only and these helpers are not a numeric ingestion boundary.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-021"
+   "p6_batch": "p6-batch-021",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-002848",
@@ -8182,13 +8254,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "core/text_utils.py:16 `def wrap_text(text, width=0):` in `wrap_text`. wrap_text is used for text normalization in import descriptions; width=0 does not supply a measurement. safe_float/safe_int expose an explicit caller-supplied default and have no direct numeric-engineering consumers; fmt_num calls safe_float with default=None so missing report values remain an em dash. wrap_text/wrap_html width is presentation-only and these helpers are not a numeric ingestion boundary.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-021"
+   "p6_batch": "p6-batch-021",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-002851",
@@ -8263,13 +8338,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "core/time_utils.py:197 `def __init__(self, hour: int, minute: int = 0):` in `DrillTime.__init__`. DrillTime's default minute=0 means the natural start of the specified hour; callers can pass the minute explicitly. DrillTime.minute defaults to the conventional start-of-hour value; from_string special-cases only 24:00 and validates other wall-clock components. The 24:00 representation is preserved for DDR boundaries and subtraction computes forward elapsed hours modulo one 24-hour reporting cycle.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-021"
+   "p6_batch": "p6-batch-021",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-002864",
@@ -8288,13 +8366,16 @@
    "missing_fact": "the subject's type/optionality is not established by declaration, assignment, or a caller contract",
    "why_it_matters": "a wrong test silently drops a legitimate value (or accepts a missing one) in a calculation the user reads",
    "possible_source": "domain owner: is a missing value distinguishable from a zero at this interface?",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "core/time_utils.py:226 `if not (0 <= hour <= 23 and 0 <= minute <= 59):` in `DrillTime.from_string`. from_string accepts 24:00 via the explicit special case; this guard rejects invalid clock values outside the DDR day-boundary convention. DrillTime.minute defaults to the conventional start-of-hour value; from_string special-cases only 24:00 and validates other wall-clock components. The 24:00 representation is preserved for DDR boundaries and subtraction computes forward elapsed hours modulo one 24-hour reporting cycle.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-021"
+   "p6_batch": "p6-batch-021",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-002873",
@@ -8506,13 +8587,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "core/universal_import.py:575 `def compact_context(snapshot: Dict[str, Any], limit=80) -> Dict[str, Any]:` in `WorkbookScanner.compact_context`. The 80-item cap bounds AI context size; omitted tables are still present in the source snapshot and are not converted into facts. compact_context's limit=80 is a bounded AI context/payload control; the compacted snapshot remains metadata and does not canonicalize or persist source measurements.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-021"
+   "p6_batch": "p6-batch-021",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-002933",
@@ -9214,13 +9298,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: parameter/unit domain and the legal range for this reduction",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "core/wellbore_schematic_engine.py:484 `return min(candidates, key=lambda c: c.od_inch)` in `WellboreSchematicRenderer._find_outer_casing`. Among valid outer casings the nearest enclosing one is the smallest OD greater than the inner casing; no candidate returns None. Outer casing selection filters for a larger OD and containing depth interval, then chooses the smallest valid larger diameter (nearest containing casing). No candidate produces None; no missing geometry is set to zero.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-021"
+   "p6_batch": "p6-batch-021",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-003088",
@@ -30809,13 +30896,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "core/excel_intelligence.py:980 `end_row = actual_start` in `DynamicTableExtractor.find_table_by_template`. end_row starts at actual_start as the inclusive lower bound before the row-classification scan grows it. Candidate scoring is bounded confidence, while the extraction pipeline carries actual_sheet to the dynamic table extractor and source-IR updates are guarded by (sheet, cell). The three resolver sites were genuine: a named-template mismatch or ambiguous partial hint previously selected the first sheet, and a reproducible two-sheet workbook produced accepted canonical well_info.name='WRONG-WELL'. The minimal fix uses exact name first, a unique partial match only, and None for missing/ambiguous names; generic unnamed sheet_1 compatibility remains. Regression asserts no canonical value/provenance is emitted.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-021"
+   "p6_batch": "p6-batch-021",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-009659",
@@ -30859,13 +30949,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "core/excel_intelligence.py:1457 `if not actual_sheet:` in `ExcelIntelligence.extract`. Unresolved named sheet is skipped rather than reading unrelated sheet data; this row is part of the no-fabricated-cross-sheet contract. (Whether to surface a missing-sheet review item is a separate residual.) Candidate scoring is bounded confidence, while the extraction pipeline carries actual_sheet to the dynamic table extractor and source-IR updates are guarded by (sheet, cell). The three resolver sites were genuine: a named-template mismatch or ambiguous partial hint previously selected the first sheet, and a reproducible two-sheet workbook produced accepted canonical well_info.name='WRONG-WELL'. The minimal fix uses exact name first, a unique partial match only, and None for missing/ambiguous names; generic unnamed sheet_1 compatibility remains. Regression asserts no canonical value/provenance is emitted.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-021"
+   "p6_batch": "p6-batch-021",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-009669",
@@ -30884,13 +30977,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "core/excel_intelligence.py:1523 `section_data, actual_sheet` in `ExcelIntelligence.extract`. The resolved actual sheet is passed to the table extractor, keeping table discovery tied to the source worksheet. Candidate scoring is bounded confidence, while the extraction pipeline carries actual_sheet to the dynamic table extractor and source-IR updates are guarded by (sheet, cell). The three resolver sites were genuine: a named-template mismatch or ambiguous partial hint previously selected the first sheet, and a reproducible two-sheet workbook produced accepted canonical well_info.name='WRONG-WELL'. The minimal fix uses exact name first, a unique partial match only, and None for missing/ambiguous names; generic unnamed sheet_1 compatibility remains. Regression asserts no canonical value/provenance is emitted.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-021"
+   "p6_batch": "p6-batch-021",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-009675",
@@ -30909,13 +31005,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "core/excel_intelligence.py:1712 `actual_sheet: str) -> None:` in `ExcelIntelligence._store_scalar`. actual_sheet is the method's source sheet identity used when recording scalar extraction/provenance. Candidate scoring is bounded confidence, while the extraction pipeline carries actual_sheet to the dynamic table extractor and source-IR updates are guarded by (sheet, cell). The three resolver sites were genuine: a named-template mismatch or ambiguous partial hint previously selected the first sheet, and a reproducible two-sheet workbook produced accepted canonical well_info.name='WRONG-WELL'. The minimal fix uses exact name first, a unique partial match only, and None for missing/ambiguous names; generic unnamed sheet_1 compatibility remains. Regression asserts no canonical value/provenance is emitted.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-021"
+   "p6_batch": "p6-batch-021",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-009680",
@@ -30934,13 +31033,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "core/excel_intelligence.py:1847 `if raw_cell.location.sheet == actual_sheet and raw_cell.location.cell == result.cell` in `ExcelIntelligence._store_scalar`. Raw IR lookup requires both source sheet and cell, preventing same-address cells on other sheets from being treated as the extracted value. Candidate scoring is bounded confidence, while the extraction pipeline carries actual_sheet to the dynamic table extractor and source-IR updates are guarded by (sheet, cell). The three resolver sites were genuine: a named-template mismatch or ambiguous partial hint previously selected the first sheet, and a reproducible two-sheet workbook produced accepted canonical well_info.name='WRONG-WELL'. The minimal fix uses exact name first, a unique partial match only, and None for missing/ambiguous names; generic unnamed sheet_1 compatibility remains. Regression asserts no canonical value/provenance is emitted.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-021"
+   "p6_batch": "p6-batch-021",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-009684",
@@ -30959,13 +31061,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "core/excel_intelligence.py:1903 `raw_cell.location.sheet == actual_sheet` in `ExcelIntelligence._store_scalar`. Normalized IR value update is guarded by the same sheet+cell pair; no sibling worksheet cell is rewritten. Candidate scoring is bounded confidence, while the extraction pipeline carries actual_sheet to the dynamic table extractor and source-IR updates are guarded by (sheet, cell). The three resolver sites were genuine: a named-template mismatch or ambiguous partial hint previously selected the first sheet, and a reproducible two-sheet workbook produced accepted canonical well_info.name='WRONG-WELL'. The minimal fix uses exact name first, a unique partial match only, and None for missing/ambiguous names; generic unnamed sheet_1 compatibility remains. Regression asserts no canonical value/provenance is emitted.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-021"
+   "p6_batch": "p6-batch-021",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-009687",
@@ -30984,13 +31089,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "GENUINE_DEFECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "core/excel_intelligence.py:2022 `for actual_name in self.cell_cache.keys():` in `ExcelIntelligence._resolve_sheet`. The resolver now evaluates a candidate list and only returns exact or unique partial matches; see regression and source reconstruction proof. Candidate scoring is bounded confidence, while the extraction pipeline carries actual_sheet to the dynamic table extractor and source-IR updates are guarded by (sheet, cell). The three resolver sites were genuine: a named-template mismatch or ambiguous partial hint previously selected the first sheet, and a reproducible two-sheet workbook produced accepted canonical well_info.name='WRONG-WELL'. The minimal fix uses exact name first, a unique partial match only, and None for missing/ambiguous names; generic unnamed sheet_1 compatibility remains. Regression asserts no canonical value/provenance is emitted.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-021"
+   "p6_batch": "p6-batch-021",
+   "p6_remaining_question": null,
+   "p6_defect": true,
+   "p6_commit": null
   },
   {
    "id": "INV34-009688",
@@ -31009,13 +31117,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "GENUINE_DEFECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "core/excel_intelligence.py:2023 `if hint in actual_name.lower() or actual_name.lower() in hint:` in `ExcelIntelligence._resolve_sheet`. The historic first-match substring rule admitted ambiguous 'Operations' sheets; current implementation refuses multiple partial candidates. Candidate scoring is bounded confidence, while the extraction pipeline carries actual_sheet to the dynamic table extractor and source-IR updates are guarded by (sheet, cell). The three resolver sites were genuine: a named-template mismatch or ambiguous partial hint previously selected the first sheet, and a reproducible two-sheet workbook produced accepted canonical well_info.name='WRONG-WELL'. The minimal fix uses exact name first, a unique partial match only, and None for missing/ambiguous names; generic unnamed sheet_1 compatibility remains. Regression asserts no canonical value/provenance is emitted.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-021"
+   "p6_batch": "p6-batch-021",
+   "p6_remaining_question": null,
+   "p6_defect": true,
+   "p6_commit": null
   },
   {
    "id": "INV34-009689",
@@ -31034,13 +31145,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "GENUINE_DEFECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "core/excel_intelligence.py:2024 `return actual_name` in `ExcelIntelligence._resolve_sheet`. Resolver now returns None unless the partial candidate is unique; previous unconditional return could bind wrong worksheet. Candidate scoring is bounded confidence, while the extraction pipeline carries actual_sheet to the dynamic table extractor and source-IR updates are guarded by (sheet, cell). The three resolver sites were genuine: a named-template mismatch or ambiguous partial hint previously selected the first sheet, and a reproducible two-sheet workbook produced accepted canonical well_info.name='WRONG-WELL'. The minimal fix uses exact name first, a unique partial match only, and None for missing/ambiguous names; generic unnamed sheet_1 compatibility remains. Regression asserts no canonical value/provenance is emitted.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-021"
+   "p6_batch": "p6-batch-021",
+   "p6_remaining_question": null,
+   "p6_defect": true,
+   "p6_commit": null
   },
   {
    "id": "INV34-009696",
@@ -31112,13 +31226,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: parameter/unit domain and the legal range for this reduction",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "core/mud_ledger.py:207 `usages = [float(m.used or 0) for m in mats_sorted]` in `MudChemicalLedger.get_history`. BulkMaterials.used is explicitly defaulted to 0.0 for no movement; stock unknownness is held separately in nullable opening/closing fields. ",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-021"
+   "p6_batch": "p6-batch-021",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-009765",
@@ -31137,13 +31254,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: parameter/unit domain and the legal range for this reduction",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "core/mud_ledger.py:209 `received = [float(m.received or 0) for m in mats_sorted]` in `MudChemicalLedger.get_history`. BulkMaterials.received is likewise movement-default 0.0 by model contract; this does not coerce nullable stock. ",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-021"
+   "p6_batch": "p6-batch-021",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-009768",
@@ -31162,13 +31282,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner: parameter/unit domain and the legal range for this reduction",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "core/operations_intelligence.py:50 `depths = [float(item.depth_2400 or 0) for item in reports if item.depth_2400 is not None]` in `OperationsIntelligenceService.analyze_well`. The comprehension first filters depth_2400 is not None, so explicit depth 0 remains zero and missing depth is excluded; the `or 0` is redundant only. ",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-021"
+   "p6_batch": "p6-batch-021",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-009795",
@@ -31215,13 +31338,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "core/report_engine.py:2027 `from core.actual_vs_plan import activity_plan_totals` in `PlanReportEngine._collect_data`. PlanReportEngine selects the one active well plan and queries activities by well_id AND active plan_id before totals; this is plan-scoped whole-well output, not a DDR snapshot. ",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-021"
+   "p6_batch": "p6-batch-021",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-009935",
@@ -31240,13 +31366,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "core/universal_import.py:352 `row_density = actual_data / max(1, total_possible)` in `WorkbookScanner.detect_tables`. Density is a dimensionless diagnostic ratio, with denominator floored at one for empty shape; it is not an engineering zero. compact_context's limit=80 is a bounded AI context/payload control; the compacted snapshot remains metadata and does not canonicalize or persist source measurements.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-021"
+   "p6_batch": "p6-batch-021",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-009953",
@@ -31265,13 +31394,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "dialogs/calculator_dialog.py:211 `self.shoe_tvd.setValue(0)` in `DrillingCalculatorDialog._create_kill_sheet_tab`. The UI explicitly labels zero shoe TVD as skip-MAASP; the backend's required-field gate and MAASP result handling remain distinct. Shoe TVD zero is explicitly labeled by the UI as '0 = skip MAASP'; the core MAASP engine result is checked. This is a deliberate optional-calculation sentinel, not a reported zero depth used in the formula.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-021"
+   "p6_batch": "p6-batch-021",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-009978",
@@ -31290,13 +31422,16 @@
    "missing_fact": "the governing contract for this construct is not established in-repository",
    "why_it_matters": "an incorrect semantic can surface in reports the user treats as facts",
    "possible_source": "domain owner",
-   "classification": "OPEN",
+   "classification": "VERIFIED-CORRECT",
    "confidence": "none",
    "register_classification": "OPEN",
-   "p6_evidence": null,
+   "p6_evidence": "dialogs/hierarchy_dialogs.py:908 `self.water_depth_spin.setValue(0.0)` in `NewWellDialog.on_environment_changed`. On non-offshore environment the water-depth control is disabled and reset to zero as not-applicable domain state. The environment-change handler sets water depth to 0.0 only when the well is classified as non-offshore and disables the input; this is a physical non-applicable value rather than a missing offshore measurement.",
    "fixed_commit": null,
    "p6_class": "C",
-   "p6_batch": "p6-batch-021"
+   "p6_batch": "p6-batch-021",
+   "p6_remaining_question": null,
+   "p6_defect": false,
+   "p6_commit": null
   },
   {
    "id": "INV34-009982",

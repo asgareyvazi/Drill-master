@@ -406,6 +406,85 @@
    "evidence_commit": null,
    "commit": null,
    "tests": "no production code was changed in this batch, so no new regression was written and no mutation validation applies; the evidence-cited suites were executed (kill-sheet gate, casing absent-load semantics, single-source guard, extended engineering, anti-collision, torque-drag persistence, MSE, drill-pipe spec/import, engineering core/ground truth) - see the batch ledger entry for the exact counts; the batch script itself ran with the provenance and fingerprint gates active"
+  },
+  {
+   "batch": "p6-batch-021",
+   "class": "phase-2 class C (engineering, imports, semantics): 45 records / 43 sites",
+   "records": 45,
+   "sites": 43,
+   "by_classification": {
+    "VERIFIED-CORRECT": 39,
+    "GENUINE_DEFECT": 3,
+    "DUPLICATE/FALSE-POSITIVE": 2,
+    "DOMAIN_DECISION_REQUIRED": 1
+   },
+   "defects_fixed": [
+    {
+     "records": [
+      "INV34-009687",
+      "INV34-009688",
+      "INV34-009689"
+     ],
+     "file": "core/excel_intelligence.py",
+     "fix_commit": "9a7b64f59fd3e95a135f0be3572053206bc4d4d5",
+     "summary": "Named-template mismatch/ambiguous sheet hints no longer bind the first workbook sheet; missing or ambiguous names resolve to None.",
+     "regression": "tests/test_excel_intelligence_regressions.py::test_template_sheet_mismatch_does_not_extract_from_first_unrelated_sheet and ::test_template_sheet_ambiguous_partial_match_is_not_first_match",
+     "mutation": "Both behavioral tests fail when the original first-match/first-sheet resolver is restored."
+    }
+   ],
+   "new_findings": [
+    {
+     "id": "NEW-P6-007",
+     "file": "core/engineering/well_control_kill_sheet.py",
+     "line": 522,
+     "severity": "MEDIUM",
+     "status": "domain decision required, not patched",
+     "commit": null,
+     "test": null
+    },
+    {
+     "id": "NEW-P6-008",
+     "file": "core/mud_ledger.py",
+     "line": 230,
+     "severity": "MEDIUM",
+     "status": "recorded, domain decision required",
+     "commit": null,
+     "test": null
+    },
+    {
+     "id": "NEW-P6-009",
+     "file": "core/hydraulics_engine.py",
+     "line": 997,
+     "severity": "LOW",
+     "status": "recorded, not patched",
+     "commit": null,
+     "test": null
+    }
+   ],
+   "evidence_commit": null,
+   "commit": null,
+   "tests": {
+    "passed": [
+     "tests/test_excel_intelligence_regressions.py",
+     "tests/test_multi_company_template.py",
+     "tests/test_excel_intelligence.py",
+     "tests/test_ddr_regression.py",
+     "tests/test_operational_time_integrity.py",
+     "tests/test_operations_intelligence_regressions.py",
+     "tests/test_mud_ledger_unknown_stock_history.py",
+     "tests/test_fuel_water_truth.py",
+     "tests/test_nozzle_optimization.py",
+     "tests/test_engineering_integrations.py",
+     "tests/test_report_scope_metadata_m25.py",
+     "tests/test_scope_attribution.py",
+     "tests/test_wellbore_section_performance.py",
+     "tests/test_lineage.py"
+    ],
+    "environment_blocked": [
+     "2 tests in tests/test_m30_semantic_regressions.py require system libGL.so.1; apt package installation was attempted but sandbox network could not reach Debian package indexes."
+    ],
+    "mutation": "The two added sheet-binding tests were both run against a runtime mutation restoring the previous resolver; both failed as expected. Production code was unchanged during mutation validation."
+   }
   }
  ],
  "start_open": 1224,
@@ -413,20 +492,20 @@
  "arithmetic": {
   "register_open_at_p6_start": 1224,
   "defect_fixed_by_p6": 2,
-  "adjudicated_by_p6_batches": 819,
-  "current_open": 403,
+  "adjudicated_by_p6_batches": 864,
+  "current_open": 358,
   "check": true,
   "note": "every record is either OPEN or carries a terminal evidence-backed classification; the fixed sites are subtracted separately so nothing disappears"
  },
  "open_by_priority": {
-  "MEDIUM": 403
+  "MEDIUM": 358
  },
  "open_by_class": {
   "E": 241,
-  "C": 97,
-  "D": 65
+  "D": 65,
+  "C": 52
  },
- "generated_utc": "2026-09-29T07:27:47+00:00",
+ "generated_utc": "2026-09-29T08:00:20+00:00",
  "recovery_bundles": [
   {
    "file": "/home/user/recovery/drillmaster-115fc09.bundle",

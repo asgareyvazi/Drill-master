@@ -1,0 +1,1019 @@
+{
+ "schema": "m36-p6-batch",
+ "batch": "p6-batch-021",
+ "class": "phase-2 class C (engineering, imports, semantics): 45 records / 43 sites",
+ "records": 45,
+ "sites": 43,
+ "records_by_file": {
+  "core/engineering/well_control_kill_sheet.py": 2,
+  "core/excel_intelligence.py": 11,
+  "core/fuel_water_semantics.py": 1,
+  "core/hydraulics_engine.py": 9,
+  "core/lineage.py": 1,
+  "core/operational_time.py": 1,
+  "core/performance.py": 1,
+  "core/save_outcome.py": 1,
+  "core/standards.py": 2,
+  "core/text_utils.py": 5,
+  "core/time_utils.py": 2,
+  "core/universal_import.py": 2,
+  "core/wellbore_schematic_engine.py": 1,
+  "core/mud_ledger.py": 2,
+  "core/operations_intelligence.py": 1,
+  "core/report_engine.py": 1,
+  "dialogs/calculator_dialog.py": 1,
+  "dialogs/hierarchy_dialogs.py": 1
+ },
+ "by_classification": {
+  "VERIFIED-CORRECT": 39,
+  "DOMAIN_DECISION_REQUIRED": 1,
+  "DUPLICATE/FALSE-POSITIVE": 2,
+  "GENUINE_DEFECT": 3
+ },
+ "defects_fixed": [
+  {
+   "records": [
+    "INV34-009687",
+    "INV34-009688",
+    "INV34-009689"
+   ],
+   "file": "core/excel_intelligence.py",
+   "fix_commit": "9a7b64f59fd3e95a135f0be3572053206bc4d4d5",
+   "summary": "Named-template mismatch/ambiguous sheet hints no longer bind the first workbook sheet; missing or ambiguous names resolve to None.",
+   "regression": "tests/test_excel_intelligence_regressions.py::test_template_sheet_mismatch_does_not_extract_from_first_unrelated_sheet and ::test_template_sheet_ambiguous_partial_match_is_not_first_match",
+   "mutation": "Both behavioral tests fail when the original first-match/first-sheet resolver is restored."
+  }
+ ],
+ "new_findings": [
+  {
+   "id": "NEW-P6-007",
+   "file": "core/engineering/well_control_kill_sheet.py",
+   "line": 522,
+   "severity": "MEDIUM",
+   "status": "domain decision required, not patched",
+   "summary": "When pipes_m is empty, kick height uses an unmarked 5-inch pipe-OD assumption; positive pit gain can therefore yield an operational geometry estimate without source geometry. Decide whether this legacy assumption is accepted, labeled approximate, or refused as unknown.",
+   "records": [
+    "INV34-001771"
+   ],
+   "impact": "W13 kill-sheet output can display kick-height/type values; no pipe OD provenance accompanies the fallback."
+  },
+  {
+   "id": "NEW-P6-008",
+   "file": "core/mud_ledger.py",
+   "line": 230,
+   "severity": "MEDIUM",
+   "status": "recorded, domain decision required",
+   "summary": "Known stock with zero average consumption currently reports days_remaining=0. Tests explicitly preserve this as a pre-existing product decision, while fuel/water semantics treats zero burn runway as None. Do not change mud-chemical behavior until the product/domain owner resolves whether no burn means 0, unbounded, or not-applicable runway.",
+   "records": [
+    "INV34-009764",
+    "INV34-009765"
+   ],
+   "impact": "A zero runway can look like imminent stockout despite no usage; this is separate from (and does not invalidate) the verified zero movement defaults."
+  },
+  {
+   "id": "NEW-P6-009",
+   "file": "core/hydraulics_engine.py",
+   "line": 997,
+   "severity": "LOW",
+   "status": "recorded, not patched",
+   "summary": "Nozzle optimization documents n=1.0 as the fallback when two-point pump data are invalid, but W13 does not expose which path was used. The estimate remains documented and is not silently changed; decide whether the UI should label the fallback assumption.",
+   "records": [
+    "INV34-001958"
+   ],
+   "impact": "A screening recommendation may be based on an assumed friction exponent rather than the entered two-point test."
+  }
+ ],
+ "observations": [
+  {
+   "topic": "operational time and scope",
+   "summary": "summarize_time_logs is duration aggregation for already report-keyed rows, not timestamp allocation; it distinguishes known zero from unknown and incomplete denominators. Whole-well, wellbore, section, and report consumers query distinct scopes; no timezone contract is inferred from duration-only input."
+  },
+  {
+   "topic": "Excel/import provenance",
+   "summary": "Template sheet identity must resolve uniquely before canonical extraction; the prior fallback produced a canonical wrong-well value in a two-sheet reproduction. Fixed with source-sheet identity preserved through extraction and source-IR updates."
+  },
+  {
+   "topic": "mud ledger",
+   "summary": "BulkMaterials model documents nullable stock vs zero-default movements. get_history preserves unknown stocks; current zero-runway behavior for zero consumption is separately pinned as a legacy domain decision."
+  }
+ ],
+ "sibling_search": [
+  {
+   "family": "ExcelIntelligence._resolve_sheet",
+   "result": "single in-repo call at ExcelIntelligence.extract; DDRImportService._auto_match_template requires all named sheets and refuses ambiguous templates; explicit template mismatch now cannot cross-bind first sheet."
+  },
+  {
+   "family": "mud movement vs stock",
+   "result": "BulkMaterials.initial_stock is nullable; received/used default 0.0 by model comment. Same zero movement semantics retained; runway semantics not broadened."
+  },
+  {
+   "family": "report scope",
+   "result": "PlanReportEngine is well_id + exactly one active plan_id; NPT report applies optional date range consistently to NPT rows, total-time denominator, and report count; subset reports refuse whole-well cost attribution."
+  }
+ ],
+ "tests": {
+  "passed": [
+   "tests/test_excel_intelligence_regressions.py",
+   "tests/test_multi_company_template.py",
+   "tests/test_excel_intelligence.py",
+   "tests/test_ddr_regression.py",
+   "tests/test_operational_time_integrity.py",
+   "tests/test_operations_intelligence_regressions.py",
+   "tests/test_mud_ledger_unknown_stock_history.py",
+   "tests/test_fuel_water_truth.py",
+   "tests/test_nozzle_optimization.py",
+   "tests/test_engineering_integrations.py",
+   "tests/test_report_scope_metadata_m25.py",
+   "tests/test_scope_attribution.py",
+   "tests/test_wellbore_section_performance.py",
+   "tests/test_lineage.py"
+  ],
+  "environment_blocked": [
+   "2 tests in tests/test_m30_semantic_regressions.py require system libGL.so.1; apt package installation was attempted but sandbox network could not reach Debian package indexes."
+  ],
+  "mutation": "The two added sheet-binding tests were both run against a runtime mutation restoring the previous resolver; both failed as expected. Production code was unchanged during mutation validation."
+ },
+ "head": "9a7b64f59fd3e95a135f0be3572053206bc4d4d5",
+ "commit": null,
+ "evidence_commit": null,
+ "evidence_files": [
+  "docs/audits/m36-evidence/p6-batch-021.json",
+  "docs/audits/m36-evidence/m36-open-item-register.json",
+  "docs/audits/m36-evidence/m36-master-ledger.json",
+  "tools/m36/p6_batch_021.py",
+  "core/excel_intelligence.py",
+  "tests/test_excel_intelligence_regressions.py"
+ ],
+ "staleness": {
+  "checked": 45,
+  "stale": 7,
+  "re_anchored": 7,
+  "method": "45 fingerprints recomputed ledger-free from the hash-verified source expression/symbol; 42 unchanged records passed the existing AST/hash checker, with the original source files recovered by exact file SHA from Git history. Three resolver records were explicitly reconstructed across fix 9a7b64f: prior line/expression, current line/expression, hash, fingerprint, symbol, and behavior regression are retained in the list below. The 11 MB M34 fingerprint ledger is absent; the reproducible fallback contract is recorded.",
+  "re_anchored_items": [
+   [
+    "INV34-001770",
+    "core/engineering/well_control_kill_sheet.py",
+    499,
+    504,
+    "provenance tree = fd18a2bca5b849356c50f9da19c278ecdd8f9967 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)"
+   ],
+   [
+    "INV34-001771",
+    "core/engineering/well_control_kill_sheet.py",
+    517,
+    522,
+    "provenance tree = fd18a2bca5b849356c50f9da19c278ecdd8f9967 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)"
+   ],
+   [
+    "INV34-003070",
+    "core/wellbore_schematic_engine.py",
+    484,
+    485,
+    "provenance tree = 95dd63186ccda8d3cff41ac9632c8c2886639aa4 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)"
+   ],
+   [
+    "INV34-009765",
+    "core/mud_ledger.py",
+    209,
+    217,
+    "provenance tree = 95dd63186ccda8d3cff41ac9632c8c2886639aa4 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)"
+   ],
+   {
+    "id": "INV34-009687",
+    "file": "core/excel_intelligence.py",
+    "previous_site": "core/excel_intelligence.py:2022",
+    "previous_source_line": "for actual_name in self.cell_cache.keys():",
+    "current_site": "core/excel_intelligence.py:2024",
+    "current_source_line": "names = list(self.cell_cache)",
+    "tree": "7f0186e3e6ac966f1fe9cbd804785129b9246fbe",
+    "reason": "historic loop is now an explicit snapshot of available sheet names",
+    "proof": "declared source_sha256 and context_fingerprint verified; current AST symbol is ExcelIntelligence._resolve_sheet; behavioral regression proves named missing/ambiguous keys do not select first sheet"
+   },
+   {
+    "id": "INV34-009688",
+    "file": "core/excel_intelligence.py",
+    "previous_site": "core/excel_intelligence.py:2023",
+    "previous_source_line": "if hint in actual_name.lower() or actual_name.lower() in hint:",
+    "current_site": "core/excel_intelligence.py:2032",
+    "current_source_line": "if hint in name.strip().casefold() or name.strip().casefold() in hint",
+    "tree": "7f0186e3e6ac966f1fe9cbd804785129b9246fbe",
+    "reason": "historic first-match predicate is now filtered into a candidate list; only a unique candidate resolves",
+    "proof": "declared source_sha256 and context_fingerprint verified; current AST symbol is ExcelIntelligence._resolve_sheet; behavioral regression proves named missing/ambiguous keys do not select first sheet"
+   },
+   {
+    "id": "INV34-009689",
+    "file": "core/excel_intelligence.py",
+    "previous_site": "core/excel_intelligence.py:2024",
+    "previous_source_line": "return actual_name",
+    "current_site": "core/excel_intelligence.py:2039",
+    "current_source_line": "return partial[0] if len(partial) == 1 else None",
+    "tree": "7f0186e3e6ac966f1fe9cbd804785129b9246fbe",
+    "reason": "historic unconditional return now refuses ambiguous/missing named sheets",
+    "proof": "declared source_sha256 and context_fingerprint verified; current AST symbol is ExcelIntelligence._resolve_sheet; behavioral regression proves named missing/ambiguous keys do not select first sheet"
+   }
+  ],
+  "provenance_trees": {
+   "core/engineering/well_control_kill_sheet.py": "provenance tree = fd18a2bca5b849356c50f9da19c278ecdd8f9967 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+   "core/excel_intelligence.py": "provenance tree = 7f0186e3e6ac966f1fe9cbd804785129b9246fbe (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+   "core/fuel_water_semantics.py": "current tree: sha256(file) == the record's source_sha256",
+   "core/hydraulics_engine.py": "current tree: sha256(file) == the record's source_sha256",
+   "core/lineage.py": "current tree: sha256(file) == the record's source_sha256",
+   "core/operational_time.py": "current tree: sha256(file) == the record's source_sha256",
+   "core/performance.py": "current tree: sha256(file) == the record's source_sha256",
+   "core/save_outcome.py": "current tree: sha256(file) == the record's source_sha256",
+   "core/standards.py": "current tree: sha256(file) == the record's source_sha256",
+   "core/text_utils.py": "current tree: sha256(file) == the record's source_sha256",
+   "core/time_utils.py": "current tree: sha256(file) == the record's source_sha256",
+   "core/universal_import.py": "current tree: sha256(file) == the record's source_sha256",
+   "core/wellbore_schematic_engine.py": "provenance tree = 95dd63186ccda8d3cff41ac9632c8c2886639aa4 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+   "core/mud_ledger.py": "provenance tree = 95dd63186ccda8d3cff41ac9632c8c2886639aa4 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+   "core/operations_intelligence.py": "current tree: sha256(file) == the record's source_sha256",
+   "core/report_engine.py": "current tree: sha256(file) == the record's source_sha256",
+   "dialogs/calculator_dialog.py": "current tree: sha256(file) == the record's source_sha256",
+   "dialogs/hierarchy_dialogs.py": "current tree: sha256(file) == the record's source_sha256"
+  },
+  "fingerprint_proof": {
+   "checked": 45,
+   "verified": 45,
+   "records_without_a_reproducible_fingerprint": [],
+   "records_without_a_reproducing_fingerprint_but_hash_anchored": [],
+   "symbol_forms_that_reproduced": {
+    "short": 32,
+    "qualified": 13
+   },
+   "expression_forms_that_reproduced": {
+    "ast-segment": 29,
+    "recorded-line": 16
+   },
+   "method": "ledger-free: recorded-line + AST-segment expression forms (the 11 MB M34 ledger is not tracked in the repository)"
+  }
+ },
+ "method": "Each record was verified against the declared source SHA and AST symbol, then traced through its producer/consumer/test boundary as documented in its evidence. One reproducible cross-sheet source misbinding was fixed minimally, tested for actual canonical-value/provenance absence, and mutation-killed. One no-pipe well-control geometry and one cross-domain mud-runway semantic remain explicit owner decisions; no default was silently changed.",
+ "items": [
+  {
+   "id": "INV34-001770",
+   "file": "core/engineering/well_control_kill_sheet.py",
+   "line": 499,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "core/engineering/well_control_kill_sheet.py:499 `max_allowable_mw_ppg=frac_grad / PSI_PER_PPG_FT if frac_grad else None,` in `compute_kill_sheet`. The canonical builder records absent required fields in missing_inputs and compute_kill_sheet refuses them. MAASP receives None at zero fracture gradient and EngineeringResult failure is checked; the documented dialog labels zero shoe TVD as skip-MAASP. No missing measurement becomes a successful zero result. The no-pipe 5-inch fallback is different: it contributes to kick-height geometry and lacks a displayed assumption/provenance, so its physical applicability is not closed without the operations owner. The canonical builder records absent required fields in missing_inputs and compute_kill_sheet refuses them. MAASP receives None at zero fracture gradient and EngineeringResult failure is checked; the documented dialog labels zero shoe TVD as skip-MAASP. No missing measurement becomes a successful zero result. The no-pipe 5-inch fallback is different: it contributes to kick-height geometry and lacks a displayed assumption/provenance, so its physical applicability is not closed without the operations owner.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/engineering/well_control_kill_sheet.py",
+    "line": 499,
+    "symbol": "compute_kill_sheet",
+    "expression": "max_allowable_mw_ppg=frac_grad / PSI_PER_PPG_FT if frac_grad else None,",
+    "source_sha256": "08e2d7ec1e0d6b1fa067779d41b1039c976c02b8ab76099c3e69cdcf38335eaa",
+    "context_fingerprint": "4be1dcef74eae7b57c91bdea6333925ec2ffab2a35ee3067a249b4c849ef3fc1"
+   }
+  },
+  {
+   "id": "INV34-001771",
+   "file": "core/engineering/well_control_kill_sheet.py",
+   "line": 517,
+   "classification": "DOMAIN_DECISION_REQUIRED",
+   "evidence": "core/engineering/well_control_kill_sheet.py:517 `last_pipe_od = inp.pipes[-1].od_in if inp.pipes else 5` in `compute_kill_sheet`. The canonical builder records absent required fields in missing_inputs and compute_kill_sheet refuses them. MAASP receives None at zero fracture gradient and EngineeringResult failure is checked; the documented dialog labels zero shoe TVD as skip-MAASP. No missing measurement becomes a successful zero result. The no-pipe 5-inch fallback is different: it contributes to kick-height geometry and lacks a displayed assumption/provenance, so its physical applicability is not closed without the operations owner. The canonical builder records absent required fields in missing_inputs and compute_kill_sheet refuses them. MAASP receives None at zero fracture gradient and EngineeringResult failure is checked; the documented dialog labels zero shoe TVD as skip-MAASP. No missing measurement becomes a successful zero result. The no-pipe 5-inch fallback is different: it contributes to kick-height geometry and lacks a displayed assumption/provenance, so its physical applicability is not closed without the operations owner.",
+   "defect": false,
+   "remaining_question": "Is 5.0 in the legacy no-pipe fallback an operator-approved geometry assumption for kick height, or should the calculator refuse/mark that estimate unknown?",
+   "site": {
+    "file": "core/engineering/well_control_kill_sheet.py",
+    "line": 517,
+    "symbol": "compute_kill_sheet",
+    "expression": "last_pipe_od = inp.pipes[-1].od_in if inp.pipes else 5",
+    "source_sha256": "08e2d7ec1e0d6b1fa067779d41b1039c976c02b8ab76099c3e69cdcf38335eaa",
+    "context_fingerprint": "0f928d90a5163828ce2068573e2241b64127d37b97e55216a6ac17126031dfa5"
+   }
+  },
+  {
+   "id": "INV34-001811",
+   "file": "core/excel_intelligence.py",
+   "line": 512,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "core/excel_intelligence.py:512 `return max(0.0, min(1.0, score))` in `CandidateScorer.score_candidate`. score_candidate computes a weighted evidence score then clamps it to its documented [0,1] confidence range. Candidate scoring is bounded confidence, while the extraction pipeline carries actual_sheet to the dynamic table extractor and source-IR updates are guarded by (sheet, cell). The three resolver sites were genuine: a named-template mismatch or ambiguous partial hint previously selected the first sheet, and a reproducible two-sheet workbook produced accepted canonical well_info.name='WRONG-WELL'. The minimal fix uses exact name first, a unique partial match only, and None for missing/ambiguous names; generic unnamed sheet_1 compatibility remains. Regression asserts no canonical value/provenance is emitted.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/excel_intelligence.py",
+    "line": 512,
+    "symbol": "CandidateScorer.score_candidate",
+    "expression": "return max(0.0, min(1.0, score))",
+    "source_sha256": "6a3280ecb3e29ccfdefab1d075cc1f346ec933c0077f4d4d1061b9dc08978135",
+    "context_fingerprint": "77310371ce692831d195610c10fcc01927f7b68c002d1bbcf5f14f881a4ea9e4"
+   }
+  },
+  {
+   "id": "INV34-001814",
+   "file": "core/excel_intelligence.py",
+   "line": 512,
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "core/excel_intelligence.py:512 `return max(0.0, min(1.0, score))` in `CandidateScorer.score_candidate`. Same score_candidate return expression and source site as INV34-001811; the second inventory rule flag is a duplicate, not a second behavior. Candidate scoring is bounded confidence, while the extraction pipeline carries actual_sheet to the dynamic table extractor and source-IR updates are guarded by (sheet, cell). The three resolver sites were genuine: a named-template mismatch or ambiguous partial hint previously selected the first sheet, and a reproducible two-sheet workbook produced accepted canonical well_info.name='WRONG-WELL'. The minimal fix uses exact name first, a unique partial match only, and None for missing/ambiguous names; generic unnamed sheet_1 compatibility remains. Regression asserts no canonical value/provenance is emitted.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/excel_intelligence.py",
+    "line": 512,
+    "symbol": "CandidateScorer.score_candidate",
+    "expression": "return max(0.0, min(1.0, score))",
+    "source_sha256": "6a3280ecb3e29ccfdefab1d075cc1f346ec933c0077f4d4d1061b9dc08978135",
+    "context_fingerprint": "d3c36503732cdee650fd23de61a4410bc16772ecdb4c493d206b91f515149888"
+   }
+  },
+  {
+   "id": "INV34-001901",
+   "file": "core/fuel_water_semantics.py",
+   "line": 40,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "core/fuel_water_semantics.py:40 `threshold_days: float = 3.0) -> bool:` in `is_low_stock`. The 3-day low-stock threshold is an explicit caller-overridable policy parameter. The helper only warns for a known positive-consumption runway; None/non-positive consumption is not a zero-day alert. The 3-day low-stock threshold is an explicit caller-overridable policy parameter. The helper only warns for a known positive-consumption runway; None/non-positive consumption is not a zero-day alert.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/fuel_water_semantics.py",
+    "line": 40,
+    "symbol": "is_low_stock",
+    "expression": "threshold_days: float = 3.0) -> bool:",
+    "source_sha256": "544c3e9a09f82ec1bd45c055a1ad83a786512206c4679a28fdea8f9f85a05380",
+    "context_fingerprint": "e2b924e4657ea813d9e522db359fb4a8cbbc90077b72725140a572ded4aa79a9"
+   }
+  },
+  {
+   "id": "INV34-001928",
+   "file": "core/hydraulics_engine.py",
+   "line": 1047,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "core/hydraulics_engine.py:1047 `efficiency: float = 0.95) -> float:` in `AdvancedHydraulicsEngine.calc_pump_output`. Pump-output efficiency defaults to the documented 0.95 assumption and is range-validated (0 < efficiency <= 1); the nozzle optimizer documents n=1.0 as its fallback for invalid two-point readings and the UI constrains nozzle count to 1..8. Its empty-combination zero is unreachable from that UI. WellProfile's survey-less fallback is an explicitly simplified KOP model; directional inputs with surveys use interpolation. The residual concern is not a fabricated measurement but visibility of the optimizer fallback assumption. Pump-output efficiency defaults to the documented 0.95 assumption and is range-validated (0 < efficiency <= 1); the nozzle optimizer documents n=1.0 as its fallback for invalid two-point readings and the UI constrains nozzle count to 1..8. Its empty-combination zero is unreachable from that UI. WellProfile's survey-less fallback is an explicitly simplified KOP model; directional inputs with surveys use interpolation. The residual concern is not a fabricated measurement but visibility of the optimizer fallback assumption.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/hydraulics_engine.py",
+    "line": 1047,
+    "symbol": "AdvancedHydraulicsEngine.calc_pump_output",
+    "expression": "efficiency: float = 0.95) -> float:",
+    "source_sha256": "d3c4fae14a8e84761a786ed3cf298aeb19a472b4d8521b967fff24956a3f9d12",
+    "context_fingerprint": "de7b78e698b441b308e878332b9d775a0a69e6c3511e1cd47ff0c35782a1b3e2"
+   }
+  },
+  {
+   "id": "INV34-001929",
+   "file": "core/hydraulics_engine.py",
+   "line": 1063,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "core/hydraulics_engine.py:1063 `efficiency: float = 0.95) -> float:` in `AdvancedHydraulicsEngine.calc_pump_output_duplex`. Pump-output efficiency defaults to the documented 0.95 assumption and is range-validated (0 < efficiency <= 1); the nozzle optimizer documents n=1.0 as its fallback for invalid two-point readings and the UI constrains nozzle count to 1..8. Its empty-combination zero is unreachable from that UI. WellProfile's survey-less fallback is an explicitly simplified KOP model; directional inputs with surveys use interpolation. The residual concern is not a fabricated measurement but visibility of the optimizer fallback assumption. Pump-output efficiency defaults to the documented 0.95 assumption and is range-validated (0 < efficiency <= 1); the nozzle optimizer documents n=1.0 as its fallback for invalid two-point readings and the UI constrains nozzle count to 1..8. Its empty-combination zero is unreachable from that UI. WellProfile's survey-less fallback is an explicitly simplified KOP model; directional inputs with surveys use interpolation. The residual concern is not a fabricated measurement but visibility of the optimizer fallback assumption.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/hydraulics_engine.py",
+    "line": 1063,
+    "symbol": "AdvancedHydraulicsEngine.calc_pump_output_duplex",
+    "expression": "efficiency: float = 0.95) -> float:",
+    "source_sha256": "d3c4fae14a8e84761a786ed3cf298aeb19a472b4d8521b967fff24956a3f9d12",
+    "context_fingerprint": "ce638e7015db8c5a559867aa91fcd866a3235f34a392e4f61c42fa882a931704"
+   }
+  },
+  {
+   "id": "INV34-001941",
+   "file": "core/hydraulics_engine.py",
+   "line": 1041,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "core/hydraulics_engine.py:1041 `sum(nozzle_area(s) for s in best_combo), 4) if best_combo else 0,` in `AdvancedHydraulicsEngine.optimize_nozzles`. If no candidate tuple exists, selected_nozzles is empty and actual TFA is zero; W13 spinbox constrains n_nozzles to 1..8, while actual feasible combos have summed physical nozzle areas. Pump-output efficiency defaults to the documented 0.95 assumption and is range-validated (0 < efficiency <= 1); the nozzle optimizer documents n=1.0 as its fallback for invalid two-point readings and the UI constrains nozzle count to 1..8. Its empty-combination zero is unreachable from that UI. WellProfile's survey-less fallback is an explicitly simplified KOP model; directional inputs with surveys use interpolation. The residual concern is not a fabricated measurement but visibility of the optimizer fallback assumption.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/hydraulics_engine.py",
+    "line": 1041,
+    "symbol": "AdvancedHydraulicsEngine.optimize_nozzles",
+    "expression": "sum(nozzle_area(s) for s in best_combo), 4) if best_combo else 0,",
+    "source_sha256": "d3c4fae14a8e84761a786ed3cf298aeb19a472b4d8521b967fff24956a3f9d12",
+    "context_fingerprint": "0f5b8d39758ee37185a328f19b4d06ed732a0cbcc23f2cb83ef2b4ebea339633"
+   }
+  },
+  {
+   "id": "INV34-001944",
+   "file": "core/hydraulics_engine.py",
+   "line": 219,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "core/hydraulics_engine.py:219 `return min(inc, self.eob_inc)` in `WellProfile.get_inc_at_md`. Build inclination is capped at end-of-build inclination; later branch returns EOB or target inclination. Pump-output efficiency defaults to the documented 0.95 assumption and is range-validated (0 < efficiency <= 1); the nozzle optimizer documents n=1.0 as its fallback for invalid two-point readings and the UI constrains nozzle count to 1..8. Its empty-combination zero is unreachable from that UI. WellProfile's survey-less fallback is an explicitly simplified KOP model; directional inputs with surveys use interpolation. The residual concern is not a fabricated measurement but visibility of the optimizer fallback assumption.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/hydraulics_engine.py",
+    "line": 219,
+    "symbol": "WellProfile.get_inc_at_md",
+    "expression": "return min(inc, self.eob_inc)",
+    "source_sha256": "d3c4fae14a8e84761a786ed3cf298aeb19a472b4d8521b967fff24956a3f9d12",
+    "context_fingerprint": "753d3ee44462ebe3c641c91daa74ac6aa3d17082bcb788d3704112469bc50e34"
+   }
+  },
+  {
+   "id": "INV34-001947",
+   "file": "core/hydraulics_engine.py",
+   "line": 1056,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "core/hydraulics_engine.py:1056 `if not 0 < efficiency <= 1:` in `AdvancedHydraulicsEngine.calc_pump_output`. Triplex efficiency guard rejects zero, >1, and NaN before formula evaluation. Pump-output efficiency defaults to the documented 0.95 assumption and is range-validated (0 < efficiency <= 1); the nozzle optimizer documents n=1.0 as its fallback for invalid two-point readings and the UI constrains nozzle count to 1..8. Its empty-combination zero is unreachable from that UI. WellProfile's survey-less fallback is an explicitly simplified KOP model; directional inputs with surveys use interpolation. The residual concern is not a fabricated measurement but visibility of the optimizer fallback assumption.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/hydraulics_engine.py",
+    "line": 1056,
+    "symbol": "AdvancedHydraulicsEngine.calc_pump_output",
+    "expression": "if not 0 < efficiency <= 1:",
+    "source_sha256": "d3c4fae14a8e84761a786ed3cf298aeb19a472b4d8521b967fff24956a3f9d12",
+    "context_fingerprint": "26e36190595fbcd53418ec94d9afa8bcbd264a591f69d908741feae388c18618"
+   }
+  },
+  {
+   "id": "INV34-001948",
+   "file": "core/hydraulics_engine.py",
+   "line": 1077,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "core/hydraulics_engine.py:1077 `if not 0 < efficiency <= 1:` in `AdvancedHydraulicsEngine.calc_pump_output_duplex`. Duplex efficiency guard has the same finite range behavior; liner/stroke and rod geometry are validated separately. Pump-output efficiency defaults to the documented 0.95 assumption and is range-validated (0 < efficiency <= 1); the nozzle optimizer documents n=1.0 as its fallback for invalid two-point readings and the UI constrains nozzle count to 1..8. Its empty-combination zero is unreachable from that UI. WellProfile's survey-less fallback is an explicitly simplified KOP model; directional inputs with surveys use interpolation. The residual concern is not a fabricated measurement but visibility of the optimizer fallback assumption.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/hydraulics_engine.py",
+    "line": 1077,
+    "symbol": "AdvancedHydraulicsEngine.calc_pump_output_duplex",
+    "expression": "if not 0 < efficiency <= 1:",
+    "source_sha256": "d3c4fae14a8e84761a786ed3cf298aeb19a472b4d8521b967fff24956a3f9d12",
+    "context_fingerprint": "79ef6434119bea46a81be610aa189f66dabd52085ce8121a24e69497d0d4550c"
+   }
+  },
+  {
+   "id": "INV34-001955",
+   "file": "core/hydraulics_engine.py",
+   "line": 225,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "core/hydraulics_engine.py:225 `if not self.survey_points:` in `WellProfile._interpolate_tvd`. No survey points makes _interpolate_tvd's documented straight/vertical fallback return MD; normal get_tvd_at_md uses surveyed interpolation only when points exist. Pump-output efficiency defaults to the documented 0.95 assumption and is range-validated (0 < efficiency <= 1); the nozzle optimizer documents n=1.0 as its fallback for invalid two-point readings and the UI constrains nozzle count to 1..8. Its empty-combination zero is unreachable from that UI. WellProfile's survey-less fallback is an explicitly simplified KOP model; directional inputs with surveys use interpolation. The residual concern is not a fabricated measurement but visibility of the optimizer fallback assumption.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/hydraulics_engine.py",
+    "line": 225,
+    "symbol": "WellProfile._interpolate_tvd",
+    "expression": "if not self.survey_points:",
+    "source_sha256": "d3c4fae14a8e84761a786ed3cf298aeb19a472b4d8521b967fff24956a3f9d12",
+    "context_fingerprint": "1bdf8f89e2e20890af5ffba5882bf4885b148ef6f9b2fa67cca8d2010538c79e"
+   }
+  },
+  {
+   "id": "INV34-001956",
+   "file": "core/hydraulics_engine.py",
+   "line": 185,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "core/hydraulics_engine.py:185 `if self.survey_points:` in `WellProfile.get_tvd_at_md`. Survey data selects interpolation; absent surveys follow the explicit simplified KOP branch rather than treating a missing list as a numeric datum. Pump-output efficiency defaults to the documented 0.95 assumption and is range-validated (0 < efficiency <= 1); the nozzle optimizer documents n=1.0 as its fallback for invalid two-point readings and the UI constrains nozzle count to 1..8. Its empty-combination zero is unreachable from that UI. WellProfile's survey-less fallback is an explicitly simplified KOP model; directional inputs with surveys use interpolation. The residual concern is not a fabricated measurement but visibility of the optimizer fallback assumption.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/hydraulics_engine.py",
+    "line": 185,
+    "symbol": "WellProfile.get_tvd_at_md",
+    "expression": "if self.survey_points:",
+    "source_sha256": "d3c4fae14a8e84761a786ed3cf298aeb19a472b4d8521b967fff24956a3f9d12",
+    "context_fingerprint": "4181fe07620b0c18dd85e90dfc72e7378e7417ab2dc459b5e7523de4872b73f4"
+   }
+  },
+  {
+   "id": "INV34-001958",
+   "file": "core/hydraulics_engine.py",
+   "line": 997,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "core/hydraulics_engine.py:997 `except (ValueError, ZeroDivisionError):` in `AdvancedHydraulicsEngine.optimize_nozzles`. Invalid two-point friction data or logarithm exceptions fall back to n=1.0 exactly as the optimizer docstring states; this approximation is not exposed as a warning in W13 and is retained as NEW-P6-009 for decision/review. Pump-output efficiency defaults to the documented 0.95 assumption and is range-validated (0 < efficiency <= 1); the nozzle optimizer documents n=1.0 as its fallback for invalid two-point readings and the UI constrains nozzle count to 1..8. Its empty-combination zero is unreachable from that UI. WellProfile's survey-less fallback is an explicitly simplified KOP model; directional inputs with surveys use interpolation. The residual concern is not a fabricated measurement but visibility of the optimizer fallback assumption.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/hydraulics_engine.py",
+    "line": 997,
+    "symbol": "AdvancedHydraulicsEngine.optimize_nozzles",
+    "expression": "except (ValueError, ZeroDivisionError):",
+    "source_sha256": "d3c4fae14a8e84761a786ed3cf298aeb19a472b4d8521b967fff24956a3f9d12",
+    "context_fingerprint": "bffa1a9bd58cae33bfa3eb08091595e16101b3efe9c3835154e48f1ee0c69c04"
+   }
+  },
+  {
+   "id": "INV34-002054",
+   "file": "core/lineage.py",
+   "line": 148,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "core/lineage.py:148 `def get_low_confidence(self, threshold: float = 0.7) -> List[LineageRecord]:` in `LineageTracker.get_low_confidence`. The confidence threshold is a review-query cutoff, caller-overridable, not an imported engineering measurement; zero confidence is deliberately excluded from the positive-confidence review subset. The confidence threshold is a review-query cutoff, caller-overridable, not an imported engineering measurement; zero confidence is deliberately excluded from the positive-confidence review subset.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/lineage.py",
+    "line": 148,
+    "symbol": "LineageTracker.get_low_confidence",
+    "expression": "def get_low_confidence(self, threshold: float = 0.7) -> List[LineageRecord]:",
+    "source_sha256": "710b6a521078581bc55465905faffbe42de663f4890185f536eec329ff5e0561",
+    "context_fingerprint": "ea3555a4d9cc84469dfc6507f639e6ced9a68574caea69bae0af51415c909c71"
+   }
+  },
+  {
+   "id": "INV34-002226",
+   "file": "core/operational_time.py",
+   "line": 18,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "core/operational_time.py:18 `except EngineeringError:` in `summarize_time_logs`. EngineeringError from typed numeric conversion is downgraded to unknown duration, then omitted from complete totals; it does not contribute zero hours. summarize_time_logs consumes stored durations, not wall-clock timestamps: absent/non-finite/negative duration is unknown, known zero is retained, and any incomplete denominator is None. NPT percent requires complete classified hours; timezone, midnight and report-day allocation belong upstream to the report-keyed log.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/operational_time.py",
+    "line": 18,
+    "symbol": "summarize_time_logs",
+    "expression": "except EngineeringError:",
+    "source_sha256": "8e12b6bb8f0f88e2060f37cd6e617ca754086cfa28aeb29ec6a0c1093b1ef4c6",
+    "context_fingerprint": "db8ddae8b082c68075759920f8cef953d786c9907786aff602dba8c0e6f43fed"
+   }
+  },
+  {
+   "id": "INV34-002264",
+   "file": "core/performance.py",
+   "line": 26,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "core/performance.py:26 `def is_large_file(file_path: str, threshold_mb: float = 10.0) -> bool:` in `is_large_file`. 10 MB only selects chunking/performance strategy. It does not coerce a source quantity. File-size thresholds only choose performance strategy. OSError maps to 0.0 MB and is_large_file is used as a heuristic, not an engineering quantity; no in-repo caller turns the default into a drilling fact.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/performance.py",
+    "line": 26,
+    "symbol": "is_large_file",
+    "expression": "def is_large_file(file_path: str, threshold_mb: float = 10.0) -> bool:",
+    "source_sha256": "f4d44235c60fdfdd30688cf4fda66b2ac1bda6c26b898a1c3f6ace9f964549d7",
+    "context_fingerprint": "01d4c69d0552d8e81e9d1f62654e4df4b8e850eaea8d2e9998237c9dfc1b5abc"
+   }
+  },
+  {
+   "id": "INV34-002773",
+   "file": "core/save_outcome.py",
+   "line": 140,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "core/save_outcome.py:140 `def validation_outcome(section, validation, saved=0):` in `validation_outcome`. The count default initializes SaveOutcome; validation errors/warnings are still copied into explicit statuses. saved=0 is an additive count initializer. SaveOutcome status/disposition comes from structured issues and never interprets the count default as validation success or an engineering zero.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/save_outcome.py",
+    "line": 140,
+    "symbol": "validation_outcome",
+    "expression": "def validation_outcome(section, validation, saved=0):",
+    "source_sha256": "4d974bacd50f298d578690e87c860ff542dd599bcb7318409c6787036472752d",
+    "context_fingerprint": "dbc12e90d080846e5292da3be795cdf76c381a4cc6a1643d81d0ee29282869b0"
+   }
+  },
+  {
+   "id": "INV34-002808",
+   "file": "core/standards.py",
+   "line": 27,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "core/standards.py:27 `def bop_test_interval_days(default=14) -> int:` in `bop_test_interval_days`. 14 is the documented configurable policy default, not a hard-coded measurement. The 14-day BOP test interval is explicitly a configurable policy default: environment overrides precede config, which precedes caller default; parsed values are clamped to at least one day and malformed overrides fall back.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/standards.py",
+    "line": 27,
+    "symbol": "bop_test_interval_days",
+    "expression": "def bop_test_interval_days(default=14) -> int:",
+    "source_sha256": "f1c646e62d73c6d1e6f6a79cbd556045165ed949d2e632900ab9644c496673ca",
+    "context_fingerprint": "63fbe812e9c9b4ccadc3cfa516e57880a2b688d113b4ccd3f7dd547c835d9ee1"
+   }
+  },
+  {
+   "id": "INV34-002810",
+   "file": "core/standards.py",
+   "line": 38,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "core/standards.py:38 `return max(1, int(env_val))` in `bop_test_interval_days`. max(1, int(env/config)) enforces a positive interval after the source override is parsed. The 14-day BOP test interval is explicitly a configurable policy default: environment overrides precede config, which precedes caller default; parsed values are clamped to at least one day and malformed overrides fall back.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/standards.py",
+    "line": 38,
+    "symbol": "bop_test_interval_days",
+    "expression": "return max(1, int(env_val))",
+    "source_sha256": "f1c646e62d73c6d1e6f6a79cbd556045165ed949d2e632900ab9644c496673ca",
+    "context_fingerprint": "454ab3d0aea2b2be7d9e22de4b4f0d6d53d889e1a5df68a22defab19689ce937"
+   }
+  },
+  {
+   "id": "INV34-002842",
+   "file": "core/text_utils.py",
+   "line": 24,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "core/text_utils.py:24 `def safe_float(value, default=0.0):` in `safe_float`. The generic parser only returns its explicit default on None/conversion error; active formatter caller supplies None for unknown values. safe_float/safe_int expose an explicit caller-supplied default and have no direct numeric-engineering consumers; fmt_num calls safe_float with default=None so missing report values remain an em dash. wrap_text/wrap_html width is presentation-only and these helpers are not a numeric ingestion boundary.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/text_utils.py",
+    "line": 24,
+    "symbol": "safe_float",
+    "expression": "def safe_float(value, default=0.0):",
+    "source_sha256": "4b4bfecff79b17a0153e7d57d73f95fffb3e861bf4e0e5e4704b45e4a4d2e656",
+    "context_fingerprint": "12a23b21af1164fb1f34f5f16eac85b840c2b3e2faddc03e09962df5a2fa565f"
+   }
+  },
+  {
+   "id": "INV34-002844",
+   "file": "core/text_utils.py",
+   "line": 24,
+   "classification": "DUPLICATE/FALSE-POSITIVE",
+   "evidence": "core/text_utils.py:24 `def safe_float(value, default=0.0):` in `safe_float`. Same safe_float declaration as INV34-002842, same path and behavior; duplicate scanner record. safe_float/safe_int expose an explicit caller-supplied default and have no direct numeric-engineering consumers; fmt_num calls safe_float with default=None so missing report values remain an em dash. wrap_text/wrap_html width is presentation-only and these helpers are not a numeric ingestion boundary.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/text_utils.py",
+    "line": 24,
+    "symbol": "safe_float",
+    "expression": "def safe_float(value, default=0.0):",
+    "source_sha256": "4b4bfecff79b17a0153e7d57d73f95fffb3e861bf4e0e5e4704b45e4a4d2e656",
+    "context_fingerprint": "12a23b21af1164fb1f34f5f16eac85b840c2b3e2faddc03e09962df5a2fa565f"
+   }
+  },
+  {
+   "id": "INV34-002845",
+   "file": "core/text_utils.py",
+   "line": 31,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "core/text_utils.py:31 `def safe_int(value, default=0):` in `safe_int`. safe_int's zero is a caller-selectable conversion fallback; no direct in-repo engineering consumer exists. safe_float/safe_int expose an explicit caller-supplied default and have no direct numeric-engineering consumers; fmt_num calls safe_float with default=None so missing report values remain an em dash. wrap_text/wrap_html width is presentation-only and these helpers are not a numeric ingestion boundary.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/text_utils.py",
+    "line": 31,
+    "symbol": "safe_int",
+    "expression": "def safe_int(value, default=0):",
+    "source_sha256": "4b4bfecff79b17a0153e7d57d73f95fffb3e861bf4e0e5e4704b45e4a4d2e656",
+    "context_fingerprint": "2789af4670bcbba141f82c19463b583a2ae252891a3c21a438487e0cf4a31db1"
+   }
+  },
+  {
+   "id": "INV34-002847",
+   "file": "core/text_utils.py",
+   "line": 20,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "core/text_utils.py:20 `def wrap_html(text, width=0):` in `wrap_html`. wrap_html is used for display text; width=0 is an unused layout hint, not a numeric default. safe_float/safe_int expose an explicit caller-supplied default and have no direct numeric-engineering consumers; fmt_num calls safe_float with default=None so missing report values remain an em dash. wrap_text/wrap_html width is presentation-only and these helpers are not a numeric ingestion boundary.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/text_utils.py",
+    "line": 20,
+    "symbol": "wrap_html",
+    "expression": "def wrap_html(text, width=0):",
+    "source_sha256": "4b4bfecff79b17a0153e7d57d73f95fffb3e861bf4e0e5e4704b45e4a4d2e656",
+    "context_fingerprint": "324afb68d051333f6aea57638943ae2845be0ba6897a504f68c2a71ac4d5f418"
+   }
+  },
+  {
+   "id": "INV34-002848",
+   "file": "core/text_utils.py",
+   "line": 16,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "core/text_utils.py:16 `def wrap_text(text, width=0):` in `wrap_text`. wrap_text is used for text normalization in import descriptions; width=0 does not supply a measurement. safe_float/safe_int expose an explicit caller-supplied default and have no direct numeric-engineering consumers; fmt_num calls safe_float with default=None so missing report values remain an em dash. wrap_text/wrap_html width is presentation-only and these helpers are not a numeric ingestion boundary.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/text_utils.py",
+    "line": 16,
+    "symbol": "wrap_text",
+    "expression": "def wrap_text(text, width=0):",
+    "source_sha256": "4b4bfecff79b17a0153e7d57d73f95fffb3e861bf4e0e5e4704b45e4a4d2e656",
+    "context_fingerprint": "3c638773181596a83a8a07aef6c8bc99c3e6165cd4d8945881aa2b585f30253c"
+   }
+  },
+  {
+   "id": "INV34-002853",
+   "file": "core/time_utils.py",
+   "line": 197,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "core/time_utils.py:197 `def __init__(self, hour: int, minute: int = 0):` in `DrillTime.__init__`. DrillTime's default minute=0 means the natural start of the specified hour; callers can pass the minute explicitly. DrillTime.minute defaults to the conventional start-of-hour value; from_string special-cases only 24:00 and validates other wall-clock components. The 24:00 representation is preserved for DDR boundaries and subtraction computes forward elapsed hours modulo one 24-hour reporting cycle.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/time_utils.py",
+    "line": 197,
+    "symbol": "DrillTime.__init__",
+    "expression": "def __init__(self, hour: int, minute: int = 0):",
+    "source_sha256": "4ec27bc967e006cce3604ca79b2a172b2235c9061152a4af514c4a1d77627ce2",
+    "context_fingerprint": "920eb74ad5bb1c58c85e492fc1f4bed898d4164eabd9f0f34e0653167aff5481"
+   }
+  },
+  {
+   "id": "INV34-002864",
+   "file": "core/time_utils.py",
+   "line": 226,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "core/time_utils.py:226 `if not (0 <= hour <= 23 and 0 <= minute <= 59):` in `DrillTime.from_string`. from_string accepts 24:00 via the explicit special case; this guard rejects invalid clock values outside the DDR day-boundary convention. DrillTime.minute defaults to the conventional start-of-hour value; from_string special-cases only 24:00 and validates other wall-clock components. The 24:00 representation is preserved for DDR boundaries and subtraction computes forward elapsed hours modulo one 24-hour reporting cycle.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/time_utils.py",
+    "line": 226,
+    "symbol": "DrillTime.from_string",
+    "expression": "if not (0 <= hour <= 23 and 0 <= minute <= 59):",
+    "source_sha256": "4ec27bc967e006cce3604ca79b2a172b2235c9061152a4af514c4a1d77627ce2",
+    "context_fingerprint": "23a22ce6a206578550f832d0c9f51656eef959c5bce8c27cd67ac65af033b9b4"
+   }
+  },
+  {
+   "id": "INV34-002900",
+   "file": "core/universal_import.py",
+   "line": 575,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "core/universal_import.py:575 `def compact_context(snapshot: Dict[str, Any], limit=80) -> Dict[str, Any]:` in `WorkbookScanner.compact_context`. The 80-item cap bounds AI context size; omitted tables are still present in the source snapshot and are not converted into facts. compact_context's limit=80 is a bounded AI context/payload control; the compacted snapshot remains metadata and does not canonicalize or persist source measurements.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/universal_import.py",
+    "line": 575,
+    "symbol": "WorkbookScanner.compact_context",
+    "expression": "def compact_context(snapshot: Dict[str, Any], limit=80) -> Dict[str, Any]:",
+    "source_sha256": "5d9a026218a8b7e99863df284d960b3007c077fffd75de315fdf5ee3904f50a6",
+    "context_fingerprint": "5674991b7f9ebbdc8871264d28e90d7be2e5ff7450f5426979503f766d111dac"
+   }
+  },
+  {
+   "id": "INV34-003070",
+   "file": "core/wellbore_schematic_engine.py",
+   "line": 484,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "core/wellbore_schematic_engine.py:484 `return min(candidates, key=lambda c: c.od_inch)` in `WellboreSchematicRenderer._find_outer_casing`. Among valid outer casings the nearest enclosing one is the smallest OD greater than the inner casing; no candidate returns None. Outer casing selection filters for a larger OD and containing depth interval, then chooses the smallest valid larger diameter (nearest containing casing). No candidate produces None; no missing geometry is set to zero.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/wellbore_schematic_engine.py",
+    "line": 484,
+    "symbol": "WellboreSchematicRenderer._find_outer_casing",
+    "expression": "return min(candidates, key=lambda c: c.od_inch)",
+    "source_sha256": "f253652bc2cebb40c2eca04b0b843dcd436d1c0045f22bcd8ee6d8b70bf0b2bc",
+    "context_fingerprint": "fb5a76e0c68d58404167321e00ed821d1d800aaab6b5004c8ef51dfc8913c74f"
+   }
+  },
+  {
+   "id": "INV34-009654",
+   "file": "core/excel_intelligence.py",
+   "line": 980,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "core/excel_intelligence.py:980 `end_row = actual_start` in `DynamicTableExtractor.find_table_by_template`. end_row starts at actual_start as the inclusive lower bound before the row-classification scan grows it. Candidate scoring is bounded confidence, while the extraction pipeline carries actual_sheet to the dynamic table extractor and source-IR updates are guarded by (sheet, cell). The three resolver sites were genuine: a named-template mismatch or ambiguous partial hint previously selected the first sheet, and a reproducible two-sheet workbook produced accepted canonical well_info.name='WRONG-WELL'. The minimal fix uses exact name first, a unique partial match only, and None for missing/ambiguous names; generic unnamed sheet_1 compatibility remains. Regression asserts no canonical value/provenance is emitted.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/excel_intelligence.py",
+    "line": 980,
+    "symbol": "DynamicTableExtractor.find_table_by_template",
+    "expression": "end_row = actual_start",
+    "source_sha256": "6a3280ecb3e29ccfdefab1d075cc1f346ec933c0077f4d4d1061b9dc08978135",
+    "context_fingerprint": "11f45da6d763ad140976e0f87f0092c54227cb6d0d17db5afd3567ac1399cd55"
+   }
+  },
+  {
+   "id": "INV34-009661",
+   "file": "core/excel_intelligence.py",
+   "line": 1457,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "core/excel_intelligence.py:1457 `if not actual_sheet:` in `ExcelIntelligence.extract`. Unresolved named sheet is skipped rather than reading unrelated sheet data; this row is part of the no-fabricated-cross-sheet contract. (Whether to surface a missing-sheet review item is a separate residual.) Candidate scoring is bounded confidence, while the extraction pipeline carries actual_sheet to the dynamic table extractor and source-IR updates are guarded by (sheet, cell). The three resolver sites were genuine: a named-template mismatch or ambiguous partial hint previously selected the first sheet, and a reproducible two-sheet workbook produced accepted canonical well_info.name='WRONG-WELL'. The minimal fix uses exact name first, a unique partial match only, and None for missing/ambiguous names; generic unnamed sheet_1 compatibility remains. Regression asserts no canonical value/provenance is emitted.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/excel_intelligence.py",
+    "line": 1457,
+    "symbol": "ExcelIntelligence.extract",
+    "expression": "if not actual_sheet:",
+    "source_sha256": "6a3280ecb3e29ccfdefab1d075cc1f346ec933c0077f4d4d1061b9dc08978135",
+    "context_fingerprint": "9346d92708c9bca7b7b4fd91c1b7b8dcf69606780b437f24c3010d2225a4baa0"
+   }
+  },
+  {
+   "id": "INV34-009669",
+   "file": "core/excel_intelligence.py",
+   "line": 1523,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "core/excel_intelligence.py:1523 `section_data, actual_sheet` in `ExcelIntelligence.extract`. The resolved actual sheet is passed to the table extractor, keeping table discovery tied to the source worksheet. Candidate scoring is bounded confidence, while the extraction pipeline carries actual_sheet to the dynamic table extractor and source-IR updates are guarded by (sheet, cell). The three resolver sites were genuine: a named-template mismatch or ambiguous partial hint previously selected the first sheet, and a reproducible two-sheet workbook produced accepted canonical well_info.name='WRONG-WELL'. The minimal fix uses exact name first, a unique partial match only, and None for missing/ambiguous names; generic unnamed sheet_1 compatibility remains. Regression asserts no canonical value/provenance is emitted.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/excel_intelligence.py",
+    "line": 1523,
+    "symbol": "ExcelIntelligence.extract",
+    "expression": "section_data, actual_sheet",
+    "source_sha256": "6a3280ecb3e29ccfdefab1d075cc1f346ec933c0077f4d4d1061b9dc08978135",
+    "context_fingerprint": "db21adb568d7351cdc19c7bbfb6331852c79cbf9699c5cbfcb5cb3259df34859"
+   }
+  },
+  {
+   "id": "INV34-009675",
+   "file": "core/excel_intelligence.py",
+   "line": 1712,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "core/excel_intelligence.py:1712 `actual_sheet: str) -> None:` in `ExcelIntelligence._store_scalar`. actual_sheet is the method's source sheet identity used when recording scalar extraction/provenance. Candidate scoring is bounded confidence, while the extraction pipeline carries actual_sheet to the dynamic table extractor and source-IR updates are guarded by (sheet, cell). The three resolver sites were genuine: a named-template mismatch or ambiguous partial hint previously selected the first sheet, and a reproducible two-sheet workbook produced accepted canonical well_info.name='WRONG-WELL'. The minimal fix uses exact name first, a unique partial match only, and None for missing/ambiguous names; generic unnamed sheet_1 compatibility remains. Regression asserts no canonical value/provenance is emitted.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/excel_intelligence.py",
+    "line": 1712,
+    "symbol": "ExcelIntelligence._store_scalar",
+    "expression": "actual_sheet: str) -> None:",
+    "source_sha256": "6a3280ecb3e29ccfdefab1d075cc1f346ec933c0077f4d4d1061b9dc08978135",
+    "context_fingerprint": "7dead50f9a7f94b3de5ee5c336d3bf9d692d0d33b1be77ba666e93094bc2e7dd"
+   }
+  },
+  {
+   "id": "INV34-009680",
+   "file": "core/excel_intelligence.py",
+   "line": 1847,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "core/excel_intelligence.py:1847 `if raw_cell.location.sheet == actual_sheet and raw_cell.location.cell == result.cell` in `ExcelIntelligence._store_scalar`. Raw IR lookup requires both source sheet and cell, preventing same-address cells on other sheets from being treated as the extracted value. Candidate scoring is bounded confidence, while the extraction pipeline carries actual_sheet to the dynamic table extractor and source-IR updates are guarded by (sheet, cell). The three resolver sites were genuine: a named-template mismatch or ambiguous partial hint previously selected the first sheet, and a reproducible two-sheet workbook produced accepted canonical well_info.name='WRONG-WELL'. The minimal fix uses exact name first, a unique partial match only, and None for missing/ambiguous names; generic unnamed sheet_1 compatibility remains. Regression asserts no canonical value/provenance is emitted.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/excel_intelligence.py",
+    "line": 1847,
+    "symbol": "ExcelIntelligence._store_scalar",
+    "expression": "if raw_cell.location.sheet == actual_sheet and raw_cell.location.cell == result.cell",
+    "source_sha256": "6a3280ecb3e29ccfdefab1d075cc1f346ec933c0077f4d4d1061b9dc08978135",
+    "context_fingerprint": "98374857778fd2c4fb3111e48b1f246e0411e5ba1b2ecd9b2c49a386952ffdf5"
+   }
+  },
+  {
+   "id": "INV34-009684",
+   "file": "core/excel_intelligence.py",
+   "line": 1903,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "core/excel_intelligence.py:1903 `raw_cell.location.sheet == actual_sheet` in `ExcelIntelligence._store_scalar`. Normalized IR value update is guarded by the same sheet+cell pair; no sibling worksheet cell is rewritten. Candidate scoring is bounded confidence, while the extraction pipeline carries actual_sheet to the dynamic table extractor and source-IR updates are guarded by (sheet, cell). The three resolver sites were genuine: a named-template mismatch or ambiguous partial hint previously selected the first sheet, and a reproducible two-sheet workbook produced accepted canonical well_info.name='WRONG-WELL'. The minimal fix uses exact name first, a unique partial match only, and None for missing/ambiguous names; generic unnamed sheet_1 compatibility remains. Regression asserts no canonical value/provenance is emitted.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/excel_intelligence.py",
+    "line": 1903,
+    "symbol": "ExcelIntelligence._store_scalar",
+    "expression": "raw_cell.location.sheet == actual_sheet",
+    "source_sha256": "6a3280ecb3e29ccfdefab1d075cc1f346ec933c0077f4d4d1061b9dc08978135",
+    "context_fingerprint": "5ca958bb2fb8fe043a04923695cf703779270f8527584f66b22457e7563516dd"
+   }
+  },
+  {
+   "id": "INV34-009687",
+   "file": "core/excel_intelligence.py",
+   "line": 2022,
+   "classification": "GENUINE_DEFECT",
+   "evidence": "core/excel_intelligence.py:2022 `for actual_name in self.cell_cache.keys():` in `ExcelIntelligence._resolve_sheet`. The resolver now evaluates a candidate list and only returns exact or unique partial matches; see regression and source reconstruction proof. Candidate scoring is bounded confidence, while the extraction pipeline carries actual_sheet to the dynamic table extractor and source-IR updates are guarded by (sheet, cell). The three resolver sites were genuine: a named-template mismatch or ambiguous partial hint previously selected the first sheet, and a reproducible two-sheet workbook produced accepted canonical well_info.name='WRONG-WELL'. The minimal fix uses exact name first, a unique partial match only, and None for missing/ambiguous names; generic unnamed sheet_1 compatibility remains. Regression asserts no canonical value/provenance is emitted.",
+   "defect": true,
+   "remaining_question": null,
+   "site": {
+    "file": "core/excel_intelligence.py",
+    "line": 2022,
+    "symbol": "ExcelIntelligence._resolve_sheet",
+    "expression": "for actual_name in self.cell_cache.keys():",
+    "source_sha256": "6a3280ecb3e29ccfdefab1d075cc1f346ec933c0077f4d4d1061b9dc08978135",
+    "context_fingerprint": "4e16e48c4ea06caa4be08683877eb2a51da8f0c8aa1ce92eb8cf71287a1a4265"
+   }
+  },
+  {
+   "id": "INV34-009688",
+   "file": "core/excel_intelligence.py",
+   "line": 2023,
+   "classification": "GENUINE_DEFECT",
+   "evidence": "core/excel_intelligence.py:2023 `if hint in actual_name.lower() or actual_name.lower() in hint:` in `ExcelIntelligence._resolve_sheet`. The historic first-match substring rule admitted ambiguous 'Operations' sheets; current implementation refuses multiple partial candidates. Candidate scoring is bounded confidence, while the extraction pipeline carries actual_sheet to the dynamic table extractor and source-IR updates are guarded by (sheet, cell). The three resolver sites were genuine: a named-template mismatch or ambiguous partial hint previously selected the first sheet, and a reproducible two-sheet workbook produced accepted canonical well_info.name='WRONG-WELL'. The minimal fix uses exact name first, a unique partial match only, and None for missing/ambiguous names; generic unnamed sheet_1 compatibility remains. Regression asserts no canonical value/provenance is emitted.",
+   "defect": true,
+   "remaining_question": null,
+   "site": {
+    "file": "core/excel_intelligence.py",
+    "line": 2023,
+    "symbol": "ExcelIntelligence._resolve_sheet",
+    "expression": "if hint in actual_name.lower() or actual_name.lower() in hint:",
+    "source_sha256": "6a3280ecb3e29ccfdefab1d075cc1f346ec933c0077f4d4d1061b9dc08978135",
+    "context_fingerprint": "8dffb738de47a2592ed4bd625a471f4da4ce0fa8ccaa5828e08af48bd976e28c"
+   }
+  },
+  {
+   "id": "INV34-009689",
+   "file": "core/excel_intelligence.py",
+   "line": 2024,
+   "classification": "GENUINE_DEFECT",
+   "evidence": "core/excel_intelligence.py:2024 `return actual_name` in `ExcelIntelligence._resolve_sheet`. Resolver now returns None unless the partial candidate is unique; previous unconditional return could bind wrong worksheet. Candidate scoring is bounded confidence, while the extraction pipeline carries actual_sheet to the dynamic table extractor and source-IR updates are guarded by (sheet, cell). The three resolver sites were genuine: a named-template mismatch or ambiguous partial hint previously selected the first sheet, and a reproducible two-sheet workbook produced accepted canonical well_info.name='WRONG-WELL'. The minimal fix uses exact name first, a unique partial match only, and None for missing/ambiguous names; generic unnamed sheet_1 compatibility remains. Regression asserts no canonical value/provenance is emitted.",
+   "defect": true,
+   "remaining_question": null,
+   "site": {
+    "file": "core/excel_intelligence.py",
+    "line": 2024,
+    "symbol": "ExcelIntelligence._resolve_sheet",
+    "expression": "return actual_name",
+    "source_sha256": "6a3280ecb3e29ccfdefab1d075cc1f346ec933c0077f4d4d1061b9dc08978135",
+    "context_fingerprint": "c13ac016bd0b078c5fbe79ac116f528bea22e684228ca69e5943fc437f133003"
+   }
+  },
+  {
+   "id": "INV34-009764",
+   "file": "core/mud_ledger.py",
+   "line": 207,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "core/mud_ledger.py:207 `usages = [float(m.used or 0) for m in mats_sorted]` in `MudChemicalLedger.get_history`. BulkMaterials.used is explicitly defaulted to 0.0 for no movement; stock unknownness is held separately in nullable opening/closing fields. ",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/mud_ledger.py",
+    "line": 207,
+    "symbol": "MudChemicalLedger.get_history",
+    "expression": "usages = [float(m.used or 0) for m in mats_sorted]",
+    "source_sha256": "063aa2c57bbfaefda9eea58d63ac3503b8e13e1f9422cae2729b6233cca8be0b",
+    "context_fingerprint": "1eed96d6ec8aa0fe834bfece5f187571480b78035e3d1d3a1602d2b397fb0540"
+   }
+  },
+  {
+   "id": "INV34-009765",
+   "file": "core/mud_ledger.py",
+   "line": 209,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "core/mud_ledger.py:209 `received = [float(m.received or 0) for m in mats_sorted]` in `MudChemicalLedger.get_history`. BulkMaterials.received is likewise movement-default 0.0 by model contract; this does not coerce nullable stock. ",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/mud_ledger.py",
+    "line": 209,
+    "symbol": "MudChemicalLedger.get_history",
+    "expression": "received = [float(m.received or 0) for m in mats_sorted]",
+    "source_sha256": "063aa2c57bbfaefda9eea58d63ac3503b8e13e1f9422cae2729b6233cca8be0b",
+    "context_fingerprint": "229b06cf4488f79fce8a67281bfc2b6361706b7770000e24263a9fca03b96ca3"
+   }
+  },
+  {
+   "id": "INV34-009768",
+   "file": "core/operations_intelligence.py",
+   "line": 50,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "core/operations_intelligence.py:50 `depths = [float(item.depth_2400 or 0) for item in reports if item.depth_2400 is not None]` in `OperationsIntelligenceService.analyze_well`. The comprehension first filters depth_2400 is not None, so explicit depth 0 remains zero and missing depth is excluded; the `or 0` is redundant only. ",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/operations_intelligence.py",
+    "line": 50,
+    "symbol": "OperationsIntelligenceService.analyze_well",
+    "expression": "depths = [float(item.depth_2400 or 0) for item in reports if item.depth_2400 is not None]",
+    "source_sha256": "aeb313cd7d99e6b169076fdace72c6bc650547235faab9cc1ae2fdc0c700b0ad",
+    "context_fingerprint": "ee0a086f83eb6acc96e50db2b340c1be02856f02e4f2a91c767b1e8b582571f9"
+   }
+  },
+  {
+   "id": "INV34-009849",
+   "file": "core/report_engine.py",
+   "line": 2027,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "core/report_engine.py:2027 `from core.actual_vs_plan import activity_plan_totals` in `PlanReportEngine._collect_data`. PlanReportEngine selects the one active well plan and queries activities by well_id AND active plan_id before totals; this is plan-scoped whole-well output, not a DDR snapshot. ",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/report_engine.py",
+    "line": 2027,
+    "symbol": "PlanReportEngine._collect_data",
+    "expression": "from core.actual_vs_plan import activity_plan_totals",
+    "source_sha256": "b14943e80b71c7d29d3e5c43f7a5fbcf150c6854bd68bb8f5c4dcf90bdf88b0c",
+    "context_fingerprint": "66844e6b8b0e72661dda6cd8ffc630cdc5e9e362cc310214a8be9b0809cc138f"
+   }
+  },
+  {
+   "id": "INV34-009935",
+   "file": "core/universal_import.py",
+   "line": 352,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "core/universal_import.py:352 `row_density = actual_data / max(1, total_possible)` in `WorkbookScanner.detect_tables`. Density is a dimensionless diagnostic ratio, with denominator floored at one for empty shape; it is not an engineering zero. compact_context's limit=80 is a bounded AI context/payload control; the compacted snapshot remains metadata and does not canonicalize or persist source measurements.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "core/universal_import.py",
+    "line": 352,
+    "symbol": "WorkbookScanner.detect_tables",
+    "expression": "row_density = actual_data / max(1, total_possible)",
+    "source_sha256": "5d9a026218a8b7e99863df284d960b3007c077fffd75de315fdf5ee3904f50a6",
+    "context_fingerprint": "9f0cf6a00a81a86459a899da1086dbe81c1c052824acddb7aed9e5d3de965b59"
+   }
+  },
+  {
+   "id": "INV34-009953",
+   "file": "dialogs/calculator_dialog.py",
+   "line": 211,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "dialogs/calculator_dialog.py:211 `self.shoe_tvd.setValue(0)` in `DrillingCalculatorDialog._create_kill_sheet_tab`. The UI explicitly labels zero shoe TVD as skip-MAASP; the backend's required-field gate and MAASP result handling remain distinct. Shoe TVD zero is explicitly labeled by the UI as '0 = skip MAASP'; the core MAASP engine result is checked. This is a deliberate optional-calculation sentinel, not a reported zero depth used in the formula.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "dialogs/calculator_dialog.py",
+    "line": 211,
+    "symbol": "DrillingCalculatorDialog._create_kill_sheet_tab",
+    "expression": "self.shoe_tvd.setValue(0)",
+    "source_sha256": "49205c06cc2b866c23454e95b78aa56f6d1245e1fc8fc2fa69b152b8c8f889a5",
+    "context_fingerprint": "ac19437a0b7756cc72faffb00b977a404e0478b70f33dc132a4741b44a319835"
+   }
+  },
+  {
+   "id": "INV34-009978",
+   "file": "dialogs/hierarchy_dialogs.py",
+   "line": 908,
+   "classification": "VERIFIED-CORRECT",
+   "evidence": "dialogs/hierarchy_dialogs.py:908 `self.water_depth_spin.setValue(0.0)` in `NewWellDialog.on_environment_changed`. On non-offshore environment the water-depth control is disabled and reset to zero as not-applicable domain state. The environment-change handler sets water depth to 0.0 only when the well is classified as non-offshore and disables the input; this is a physical non-applicable value rather than a missing offshore measurement.",
+   "defect": false,
+   "remaining_question": null,
+   "site": {
+    "file": "dialogs/hierarchy_dialogs.py",
+    "line": 908,
+    "symbol": "NewWellDialog.on_environment_changed",
+    "expression": "self.water_depth_spin.setValue(0.0)",
+    "source_sha256": "ae4cafcb940cc4938ec8514f56b7a60744acddde6366298290a7a1103c2c3737",
+    "context_fingerprint": "07c05a1d192d250e588a8b967105af4582a8115a90a75f3b1381697c67970fbe"
+   }
+  }
+ ]
+}

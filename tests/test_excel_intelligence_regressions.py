@@ -53,6 +53,7 @@ def test_template_sheet_ambiguous_partial_match_is_not_first_match():
 
     assert engine._resolve_sheet("sheet_1_Operations") is None
     assert engine._resolve_sheet("sheet_1_") is None
+    assert engine._resolve_sheet("sheet_1") == "Daily Operations"
 
 
 def test_formula_and_cached_views_preserve_date_and_provenance():
