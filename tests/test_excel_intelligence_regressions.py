@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from openpyxl import load_workbook
+from openpyxl import Workbook, load_workbook
 
 from core.excel_intelligence import ExcelIntelligence
 from core.import_ir import raw_document_from_workbook
@@ -18,6 +18,41 @@ from core.import_ir import raw_document_from_workbook
 REPO = Path(__file__).resolve().parents[1]
 FIXTURE = REPO / "08-DDR OEOC-208 AZNS-207 2024-Oct-22.xlsx"
 TEMPLATE = REPO / "templates" / "OEOC_DDR_v3.json"
+
+
+def test_template_sheet_mismatch_does_not_extract_from_first_unrelated_sheet():
+    """A stale explicit template must not turn another sheet into accepted facts."""
+    workbook = Workbook()
+    first = workbook.active
+    first.title = "Actual Operations"
+    first["B1"] = "WRONG-WELL"
+    second = workbook.create_sheet("Cost Data")
+    second["B1"] = "WRONG-COST"
+    template = {
+        "sheet_1_Daily_Ops": {
+            "Header": [
+                {"field": "Well Name", "row": 1, "col": 2,
+                 "canonical": "well_info.name"},
+            ]
+        }
+    }
+
+    report = ExcelIntelligence(workbook, template).extract()
+
+    assert "well_info" not in report.canonical_json
+    assert "well_info.name" not in report.field_provenance
+
+
+def test_template_sheet_ambiguous_partial_match_is_not_first_match():
+    workbook = Workbook()
+    workbook.active.title = "Daily Operations"
+    workbook.active["A1"] = "daily data"
+    weekly = workbook.create_sheet("Weekly Operations")
+    weekly["A1"] = "weekly data"
+    engine = ExcelIntelligence(workbook, {})
+
+    assert engine._resolve_sheet("sheet_1_Operations") is None
+    assert engine._resolve_sheet("sheet_1_") is None
 
 
 def test_formula_and_cached_views_preserve_date_and_provenance():

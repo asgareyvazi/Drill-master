@@ -2018,10 +2018,27 @@ class ExcelIntelligence:
     def _resolve_sheet(self, sheet_key: str) -> Optional[str]:
         parts = sheet_key.split("_", 2)
         if len(parts) >= 3:
-            hint = parts[2].replace("_", " ").lower()
-            for actual_name in self.cell_cache.keys():
-                if hint in actual_name.lower() or actual_name.lower() in hint:
-                    return actual_name
+            hint = parts[2].replace("_", " ").strip().casefold()
+            if not hint:
+                return None
+            names = list(self.cell_cache)
+            exact = [name for name in names if name.strip().casefold() == hint]
+            if len(exact) == 1:
+                return exact[0]
+            if exact:
+                return None
+            partial = [
+                name for name in names
+                if hint in name.strip().casefold() or name.strip().casefold() in hint
+            ]
+            # A partial name is a useful compatibility fallback only if it
+            # identifies exactly one sheet. Never bind a named template to
+            # the first workbook sheet merely because its hint is absent or
+            # ambiguous: that can turn unrelated source cells into accepted
+            # canonical values.
+            return partial[0] if len(partial) == 1 else None
+        # Legacy generic keys (for example ``sheet_1``) intentionally mean the
+        # workbook's first sheet. Named keys above must resolve by identity.
         if self.cell_cache:
             return list(self.cell_cache.keys())[0]
         return None
