@@ -189,7 +189,27 @@
     "full_local_pytest": "BLOCKED during collection: 18 Qt-dependent modules could not import because libGL.so.1 is unavailable; no full-suite PASS is claimed.",
     "ruff": "ruff==0.16.6: E722/F821 repository gate passed; current lint debt 5337 <= ceiling 5375 (not lint-clean).",
     "compileall": "release compile target set passed locally.",
-    "exact_head_ci": "Required on Python 3.11/3.12/3.13 with real Qt; result is external to this source artifact and is not claimed here.",
+    "local_verify_release": {
+      "command": "QT_QPA_PLATFORM=offscreen DRILLMASTER_AI_IMPORT=0 .venv/bin/python verify_release.py --expected-sha 231ce928379cbe7f33028a8d72bb469d1776ab4d",
+      "result": "BLOCKED_BY_SANDBOX_OS_LIBRARY",
+      "passed_before_block": [
+        "exact clean HEAD/branch and diff checks",
+        "locked dependency validation and pip check",
+        "version/resource validation",
+        "ruff E722/F821 and lint-debt gate",
+        "compileall"
+      ],
+      "blocked_at": "pytest collection: 18 Qt-dependent modules fail to import because local libGL.so.1 is unavailable"
+    },
+    "exact_head_ci": {
+      "verified_source_sha": "231ce928379cbe7f33028a8d72bb469d1776ab4d",
+      "run_id": 36573541162,
+      "conclusion": "success",
+      "matrix": ["3.11", "3.12", "3.13"],
+      "real_qt_system_libraries": true,
+      "url": "https://github.com/asgareyvazi/Drill-master/actions/runs/36573541162",
+      "scope_note": "The exact-source release gate, full pytest accounting, wheel verification, and real-Qt assertions passed for the source/test commit. This evidence update records the run; its own exact-HEAD gate is independently required."
+    },
     "production_acceptance": "Not claimed."
   }
 }
