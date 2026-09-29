@@ -461,7 +461,7 @@
      "test": null
     }
    ],
-   "evidence_commit": null,
+   "evidence_commit": "01e1edb5793b04aa72424e6dc1e17045bd3ddd08",
    "commit": null,
    "tests": {
     "passed": [
@@ -505,7 +505,7 @@
   "D": 65,
   "C": 52
  },
- "generated_utc": "2026-09-29T08:00:20+00:00",
+ "generated_utc": "2026-09-29T08:00:47+00:00",
  "recovery_bundles": [
   {
    "file": "/home/user/recovery/drillmaster-115fc09.bundle",
