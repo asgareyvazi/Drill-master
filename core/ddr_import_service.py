@@ -10,8 +10,12 @@ import logging
 from datetime import date as dt_date
 from typing import Optional
 from core.value_normalizer import ValueNormalizer
+from core.canonical_schema import FIELD_SPECS
 from core.text_utils import wrap_text
-from core.import_quality import ImportValidator, find_duplicates, TimeLogValidator, ReviewItem
+from core.import_quality import (
+    ImportValidator, find_duplicates, TimeLogValidator, ReviewItem,
+    unresolved_review_items,
+)
 from core.import_diagnostics import PersistenceIssue, ImportStatus, determine_import_status
 
 logger = logging.getLogger(__name__)
@@ -115,6 +119,101 @@ def _enrich_record_reviews(items: list, records: list, entity: str) -> list:
     return items
 
 
+def _source_fingerprint(source_snapshot: dict) -> str:
+    """Fingerprint source evidence, not mutable review decisions/corrections."""
+    import hashlib
+
+    metadata = source_snapshot.get("metadata") or {}
+    raw_ir = metadata.get("raw_ir") if isinstance(metadata, dict) else None
+    if isinstance(raw_ir, dict) and (raw_ir.get("cell_values") or raw_ir.get("cells")):
+        identity = {"raw_ir": raw_ir}
+    else:
+        # Non-document callers still receive deterministic payload idempotency.
+        identity = source_snapshot
+    encoded = json.dumps(identity, sort_keys=True, ensure_ascii=False, default=str).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _strip_unaccepted_review_proposals(extracted: dict) -> None:
+    """Fail closed: proposed values require an explicit ACCEPT/CONFIRMED.
+
+    The preview is not the only service caller.  This persistence-boundary
+    guard removes rejected and unresolved scalar/table proposals even when a
+    caller bypasses the dialog or sends an incomplete review payload.
+    """
+    metadata = extracted.get("metadata") or {}
+    review_rows = metadata.get("review_matrix") or []
+    accepted = {"ACCEPT", "CONFIRMED"}
+    storage_by_section = {
+        "time_log": "time_logs_24h",
+        "time_log_morning": "time_logs_morning",
+        "survey": "surveys",
+        "bha": "bha_components",
+        "mud_chemical": "bulk_materials",
+        "bop": "bop_components",
+        "formation": "formation_data",
+        "service": "service_companies",
+    }
+
+    def remove_value(record, key, field_path):
+        if not isinstance(record, dict):
+            return
+        record.pop(key, None)
+        record.pop(f"{key}_source", None)
+        for metadata_key in ("_source_cells", "_source_rows", "_source_columns"):
+            values = record.get(metadata_key)
+            if isinstance(values, dict):
+                values.pop(field_path, None)
+
+    for item in review_rows:
+        if not isinstance(item, dict):
+            continue
+        decision = str(item.get("decision", "REVIEW") or "REVIEW").strip().upper()
+        if decision in accepted:
+            continue
+        field_path = str(item.get("target_field") or item.get("canonical_field") or "")
+        if "." not in field_path:
+            continue
+        section, key = field_path.split(".", 1)
+        storage = storage_by_section.get(section, section)
+        table_name = str(item.get("detected_table") or "scalar")
+        source_location = item.get("source_location") if isinstance(item.get("source_location"), dict) else {}
+        source_row = item.get("row") or source_location.get("row")
+        source_cell = str(item.get("source_cell") or source_location.get("cell") or "")
+        source_sheet = str(item.get("sheet") or source_location.get("sheet") or "")
+
+        # Row-oriented review must mutate the canonical row, not a fabricated
+        # scalar section with the same dotted field name.
+        rows = extracted.get(table_name) if table_name not in {"", "scalar"} else None
+        if not isinstance(rows, list):
+            rows = extracted.get(storage)
+        if isinstance(rows, list):
+            matched = []
+            for record in rows:
+                if not isinstance(record, dict):
+                    continue
+                source_cells = record.get("_source_cells") or {}
+                cell_match = bool(source_cell and source_cells.get(field_path) == source_cell)
+                row_match = bool(source_row is not None and record.get("_source_row") == source_row)
+                sheet_match = not source_sheet or record.get("_source_sheet") in (None, "", source_sheet)
+                if (cell_match or row_match) and sheet_match:
+                    matched.append(record)
+            if not matched and len(rows) == 1 and table_name == "scalar":
+                # Legacy scalar list sections have one record and no row map.
+                matched = [record for record in rows if isinstance(record, dict)]
+            if not matched and table_name not in {"", "scalar"}:
+                # Cannot prove which record owns the proposal: remove that
+                # field from every row rather than persist an unreviewed fact.
+                matched = [record for record in rows if isinstance(record, dict)]
+            for record in matched:
+                remove_value(record, key, field_path)
+            continue
+
+        section_data = extracted.get(storage)
+        if isinstance(section_data, dict):
+            remove_value(section_data, key, field_path)
+
+
 class DDRImportService:
     def __init__(self, db_manager=None, well_id=None):
         self.db = db_manager
@@ -125,6 +224,50 @@ class DDRImportService:
         result = self._do_import(extracted)
         result["outcome_status"] = public_status(result["status"])
         return result
+
+    def _find_existing_import_well(self, well_info, session):
+        """Read-only well identity lookup used before source-idempotency checks."""
+        from core.database import Well
+        from core.combo_identity import ComboOption, resolve_options
+
+        name_candidates = (
+            "name", "well_name", "well", "well_number", "well_id",
+            "well_number_text", "نام چاه", "well designation", "wellname",
+        )
+        name = next((
+            str((well_info or {}).get(key)).strip()
+            for key in name_candidates
+            if (well_info or {}).get(key) and str((well_info or {}).get(key)).strip()
+        ), "")
+        code = self._safe_text((well_info or {}).get("code"), "") or self._safe_text(
+            (well_info or {}).get("well_code"), ""
+        )
+        if not name and not code:
+            return None
+
+        fallback = session.get(Well, self.well_id) if self.well_id else None
+        query = session.query(Well)
+        if fallback:
+            query = query.filter(Well.project_id == fallback.project_id)
+        local_options = [ComboOption(w.id, w.name, w.code) for w in query.all()]
+        local = resolve_options(code or name, local_options, field="well.identity")
+        if local.accepted:
+            return local.identity
+        if local.method == "ambiguous":
+            raise ValueError("Well identity is ambiguous in the selected project; select a unique well/code")
+
+        # Check global identity read-only before a create attempt. This allows
+        # a source fingerprint to find its existing report before a unique
+        # well-code constraint can turn a retry into an uncontrolled rollback.
+        global_options = [
+            ComboOption(w.id, w.name, w.code) for w in session.query(Well).all()
+        ]
+        global_match = resolve_options(code or name, global_options, field="well.identity")
+        if global_match.accepted:
+            return global_match.identity
+        if global_match.method == "ambiguous":
+            raise ValueError("Well identity is ambiguous across projects; select a unique well/code")
+        return None
 
     def _resolve_import_well(self, well_info, session=None):
         """Resolve workbook well with universal aliases."""
@@ -145,18 +288,16 @@ class DDRImportService:
         owns_session = session is None
         session = session or self.db.create_session()
         try:
-            from core.combo_identity import ComboOption, resolve_options
             fallback = session.get(Well, self.well_id) if self.well_id else None
-            query = session.query(Well)
-            if fallback:
-                query = query.filter(Well.project_id == fallback.project_id)
-            options = [ComboOption(w.id, w.name, w.code) for w in query.all()]
-            resolution = resolve_options(code or name, options, field="well.identity")
-            if resolution.accepted:
-                self.well_id = resolution.identity
+            existing_id = self._find_existing_import_well(well_info, session)
+            if existing_id is not None:
+                existing = session.get(Well, existing_id)
+                if fallback and existing and existing.project_id != fallback.project_id:
+                    raise ValueError(
+                        "Source well identity belongs to another project; select the matching well/project"
+                    )
+                self.well_id = existing_id
                 return self.well_id
-            if resolution.method == "ambiguous":
-                raise ValueError("Well identity is ambiguous in the selected project; select a unique well/code")
             project_ids = [r[0] for r in session.query(Project.id).all()]
             if fallback:
                 project_id = fallback.project_id
@@ -194,9 +335,12 @@ class DDRImportService:
         """Core import logic with atomic transaction and no fake defaults."""
         from copy import deepcopy
         extracted = deepcopy(extracted)
-        import hashlib
         source_snapshot = json.loads(json.dumps(extracted, sort_keys=True, default=str))
-        source_fingerprint = hashlib.sha256(json.dumps(source_snapshot, sort_keys=True).encode("utf-8")).hexdigest()
+        source_fingerprint = _source_fingerprint(source_snapshot)
+        # Keep the unmodified proposal set in the audit snapshot above, but
+        # never let REVIEW/REJECT rows reach ORM construction as canonical facts.
+        _strip_unaccepted_review_proposals(extracted)
+        selected_well_id = self.well_id
         results = {
             "imported": 0,
             "failed": 0,
@@ -234,6 +378,26 @@ class DDRImportService:
         stage = "validation"
 
         try:
+            # Source identity is checked before validation or well mutation.
+            # Review edits can change canonical proposals, but they must not
+            # turn a retry of an already-imported source into a new report or
+            # a conflicting Well insert.
+            identity_well_id = self._find_existing_import_well(
+                extracted.get("well_info", {}), session
+            )
+            duplicate_scope = identity_well_id or selected_well_id
+            previous = self.db.find_import_audit(
+                source_fingerprint, session=session, well_id=duplicate_scope
+            )
+            if previous:
+                prior_result = dict(previous["result"])
+                prior_result.update(imported=0, reimport=True)
+                prior_result["details"] = [
+                    "Identical source already imported for the selected well; existing report retained without duplicate records"
+                ]
+                self.well_id = prior_result.get("well_id", duplicate_scope)
+                return prior_result
+
             from core.database import Section
             report_data = extracted.get("daily_report", {})
             quality = ImportValidator.validate_rows([report_data], "daily_report", "Daily Report")
@@ -257,7 +421,11 @@ class DDRImportService:
                 _canonical_review_row(item)
                 for item in results["import_report"].get("review", [])
             ]
-            results["review"] = len(results["import_report"].get("review", []))
+            # The audit retains every accepted/rejected review observation,
+            # but public status reflects only decisions that remain pending.
+            results["review"] = len(
+                unresolved_review_items(results["import_report"].get("review", []))
+            )
             results["review_items"].extend(results["import_report"].get("review", []))
 
             # Every collected validation error participates in final status.
@@ -1284,6 +1452,67 @@ class DDRImportService:
                 for r in rep.field_results
                 if r.status != "OK" or r.certainty == "LOW" or rep.source_tokens.get(r.canonical_field, {}).get("review", False)
             ]
+            if not template:
+                # A generic table header is only structural evidence. Surface
+                # every populated cell as a row-scoped proposal so neither
+                # the service nor the preview silently accepts table data.
+                for table in rep.table_results:
+                    canonical_rows = extracted.get(table.name, [])
+                    for record in table.records:
+                        source_row = record.get("_source_row")
+                        source_cells = record.get("_source_cells") or {}
+                        canonical_row = next(
+                            (candidate for candidate in canonical_rows
+                             if isinstance(candidate, dict) and candidate.get("_source_row") == source_row),
+                            {},
+                        )
+                        for field_path, original_value in record.items():
+                            if str(field_path).startswith("_") or original_value in (None, "") or "." not in str(field_path):
+                                continue
+                            key = str(field_path).split(".")[-1]
+                            source_cell = str(source_cells.get(field_path) or "")
+                            try:
+                                source_column = int(source_cell.split("C", 1)[1])
+                            except (IndexError, ValueError):
+                                source_column = 0
+                            try:
+                                row_number = int(source_cell.split("R", 1)[1].split("C", 1)[0])
+                            except (IndexError, ValueError):
+                                row_number = int(source_row or 0)
+                            spec = FIELD_SPECS.get(field_path)
+                            proposed = canonical_row.get(key)
+                            review_rows.append({
+                                "file": Path(path).name,
+                                "sheet": table.sheet,
+                                "row": row_number,
+                                "column": source_column,
+                                "source_location": {
+                                    "file": Path(path).name,
+                                    "sheet": table.sheet,
+                                    "row": row_number,
+                                    "column": source_column,
+                                    "cell": source_cell,
+                                    "table": table.name,
+                                    "cells": {field_path: source_cell},
+                                },
+                                "detected_table": table.name,
+                                "source_cell": source_cell,
+                                "entity": field_path.split(".", 1)[0],
+                                "mapping_method": "generic-semantic-table",
+                                "classification": "generic-table-candidate",
+                                "original_value": original_value,
+                                "normalized_value": proposed,
+                                "value": proposed,
+                                "unit": spec.unit if spec else "",
+                                "target_field": field_path,
+                                "canonical_field": field_path,
+                                "confidence": table.confidence,
+                                "certainty": "MEDIUM",
+                                "status": "REVIEW_REQUIRED",
+                                "expected_type": spec.quantity if spec else "canonical value",
+                                "decision": "REVIEW",
+                                "reason": "Generic table structure is heuristic; confirm this row value before import.",
+                            })
             extracted["metadata"] = {
                 "template": (template or {}).get("name", ""),
                 "template_version": rep.template_version,

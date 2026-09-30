@@ -236,6 +236,120 @@ class ReviewItem:
         return cls(**{key: value for key, value in payload.items() if key in allowed})
 
 
+FINAL_REVIEW_DECISIONS = frozenset({"ACCEPT", "CONFIRMED", "REJECT", "IGNORED"})
+
+
+def unresolved_review_items(items):
+    """Return review rows that still lack an explicit operator decision.
+
+    This small pure helper is shared by preview confirmation and persistence,
+    so UI state cannot accidentally make an unreviewed proposal authoritative.
+    It accepts serialized mappings and ReviewItem instances.
+    """
+    pending = []
+    for item in items or ():
+        if not isinstance(item, (ReviewItem, Mapping)):
+            continue
+        decision = item.decision if isinstance(item, ReviewItem) else item.get("decision", "REVIEW")
+        if str(decision or "REVIEW").strip().upper() not in FINAL_REVIEW_DECISIONS:
+            pending.append(item)
+    return pending
+
+
+def apply_review_decisions(extracted, review_items):
+    """Apply accepted/rejected values to their actual canonical storage row.
+
+    Kept free of Qt so the import boundary can regression-test row ownership,
+    edits, rejections, and canonical type validation without a desktop runtime.
+    """
+    from core.canonical_mapper import normalize_canonical_value
+
+    storage_by_section = {
+        "time_log": "time_logs_24h",
+        "time_log_morning": "time_logs_morning",
+        "survey": "surveys",
+        "bha": "bha_components",
+        "mud_chemical": "bulk_materials",
+        "bop": "bop_components",
+        "formation": "formation_data",
+        "service": "service_companies",
+    }
+    for item in review_items or ():
+        payload = item.to_dict() if isinstance(item, ReviewItem) else item
+        if not isinstance(payload, dict):
+            continue
+        field_path = str(payload.get("target_field") or payload.get("canonical_field") or "")
+        if "." not in field_path:
+            continue
+        section, key = field_path.split(".", 1)
+        storage = storage_by_section.get(section, section)
+        decision = str(payload.get("decision", "REVIEW") or "REVIEW").upper()
+        if decision not in FINAL_REVIEW_DECISIONS:
+            continue
+        accepted = decision in {"ACCEPT", "CONFIRMED"}
+        normalized = payload.get("normalized_value", payload.get("value"))
+        if accepted and normalized not in (None, ""):
+            typed = normalize_canonical_value(normalized, field_path)
+            if typed.needs_review:
+                payload["decision"] = "REVIEW"
+                payload["review_state"] = "unreviewed"
+                payload["status"] = "REVIEW_REQUIRED"
+                payload["reason"] = typed.review_reason or "Edited value failed canonical validation."
+                accepted = False
+            else:
+                normalized = typed.normalized_value
+                payload["normalized_value"] = normalized
+                payload["value"] = normalized
+                payload["proposed_value"] = normalized
+
+        table_name = str(payload.get("detected_table") or "scalar")
+        location = payload.get("source_location") if isinstance(payload.get("source_location"), Mapping) else {}
+        source_row = payload.get("row") or location.get("row")
+        source_cell = str(payload.get("source_cell") or location.get("cell") or "")
+        source_sheet = str(payload.get("sheet") or location.get("sheet") or "")
+        rows = extracted.get(table_name) if table_name not in {"", "scalar"} else None
+        if not isinstance(rows, list):
+            rows = extracted.get(storage)
+        if isinstance(rows, list):
+            matched = []
+            for record in rows:
+                if not isinstance(record, dict):
+                    continue
+                cells = record.get("_source_cells") or {}
+                cell_match = bool(source_cell and cells.get(field_path) == source_cell)
+                row_match = bool(source_row is not None and record.get("_source_row") == source_row)
+                sheet_match = not source_sheet or record.get("_source_sheet") in (None, "", source_sheet)
+                if (cell_match or row_match) and sheet_match:
+                    matched.append(record)
+            if not matched and len(rows) == 1 and table_name == "scalar":
+                matched = [record for record in rows if isinstance(record, dict)]
+            if not matched and table_name not in {"", "scalar"}:
+                if accepted:
+                    payload["decision"] = "REVIEW"
+                    payload["review_state"] = "unreviewed"
+                    payload["status"] = "REVIEW_REQUIRED"
+                    payload["reason"] = "Table row ownership is not proven; candidate retained for review."
+                    accepted = False
+                matched = [record for record in rows if isinstance(record, dict)]
+            for record in matched:
+                if accepted and normalized not in (None, ""):
+                    record[key] = normalized
+                else:
+                    record.pop(key, None)
+                    record.pop(f"{key}_source", None)
+            continue
+
+        section_data = extracted.get(storage)
+        if not isinstance(section_data, dict):
+            continue
+        if accepted and normalized not in (None, ""):
+            section_data[key] = normalized
+        else:
+            section_data.pop(key, None)
+            section_data.pop(f"{key}_source", None)
+    return extracted
+
+
 class ImportReviewMatrix:
     """Complete Review Matrix before DB save."""
 

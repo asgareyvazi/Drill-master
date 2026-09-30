@@ -28,7 +28,10 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Signal, Qt, QDir
 from PySide6.QtGui import QColor
 
-from core.import_quality import ImportValidator, find_duplicates, TimeLogValidator
+from core.import_quality import (
+    ImportValidator, find_duplicates, TimeLogValidator, unresolved_review_items,
+    apply_review_decisions,
+)
 from core.import_diagnostics import (
     PersistenceIssue, ImportStatus,
 )
@@ -415,6 +418,23 @@ class ImportPreviewDialog(QDialog):
         self._set_decision(row, "IGNORED")
 
     def _confirm(self):
+        # A proposal marked REVIEW is not an operator decision. Block the
+        # transition to persistence until every row has a final decision.
+        self.get_decisions()
+        pending = unresolved_review_items(self._row_payloads)
+        if pending:
+            examples = [
+                str(item.get("target_field") or item.get("canonical_field") or "unmapped field")
+                for item in pending[:5] if isinstance(item, dict)
+            ]
+            suffix = " and more" if len(pending) > len(examples) else ""
+            QMessageBox.warning(
+                self,
+                "Review Required",
+                f"Resolve every review row before import ({len(pending)} pending): "
+                + ", ".join(examples) + suffix,
+            )
+            return
         # Check if any critical errors remain
         report = self.import_report or {}
         if report.get("errors", 0) > 0:
@@ -456,33 +476,9 @@ class ImportPreviewDialog(QDialog):
         return decisions
 
     def apply_review_changes(self, extracted: dict) -> dict:
-        """Apply confirmed scalar edits/rejections to the canonical payload.
-
-        Row-oriented edits remain in the review export for manual handling;
-        scalar canonical fields can be safely applied by their dotted path.
-        """
+        """Apply UI decisions through the Qt-free canonical review boundary."""
         self.get_decisions()
-        for payload in self._row_payloads:
-            if not payload:
-                continue
-            field_path = payload.get("target_field") or payload.get("canonical_field") or ""
-            if "." not in field_path:
-                continue
-            section, key = field_path.split(".", 1)
-            section_data = extracted.setdefault(section, {})
-            decision = str(payload.get("decision", "REVIEW")).upper()
-            if decision in {"REJECT", "IGNORED"}:
-                section_data.pop(key, None)
-                section_data.pop(f"{key}_source", None)
-                continue
-            if decision not in {"ACCEPT", "CONFIRMED"}:
-                continue
-            normalized = payload.get("normalized_value", payload.get("value"))
-            # Empty UI text is not a value.  Keep the original canonical state
-            # rather than inventing an empty string.
-            if normalized not in (None, ""):
-                section_data[key] = normalized
-        return extracted
+        return apply_review_decisions(extracted, self._row_payloads)
 
 
 class ExcelImportDialog(QDialog, DDRImportService):

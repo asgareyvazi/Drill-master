@@ -600,7 +600,7 @@ class FieldExtractor:
         candidates = []
         preferred_authoritative = False
         preferred_anchor_missing = False
-        right_columns = tuple(range(col + 1, col + 8))
+        right_columns = (col + 1,)
         if self.merge.is_merged(row, col):
             # A merged label owns its full visual width. Only inspect the first
             # cell after that label; scanning farther can cross into an
@@ -820,9 +820,27 @@ class FieldExtractor:
         # mapping method without pretending its numeric score is 0.99; typed
         # and engineering-invalid values always remain reviewable.
         decision = confidence_decision(best.final_score, critical)
+        verified_template_anchor = preferred_authoritative or (
+            best.source == "merge_cell"
+            and best.row == row
+            and (
+                best.col == col
+                or best.reason.startswith("Value right of merge-label")
+            )
+        )
+        if verified_template_anchor and validation in {"valid", "missing"}:
+            # A value selected through a repository-verified template anchor
+            # is deterministic mapping evidence. Retain its measured score,
+            # but do not classify it as confidence-review solely because the
+            # generic spatial threshold expects 0.95/0.99.
+            decision = "ACCEPT"
         if validation not in {"valid", "missing"} and status == "OK":
             status = "REVIEW_REQUIRED"
-        elif decision == "REJECT" and status == "OK" and not preferred_authoritative:
+        elif decision != "ACCEPT" and status == "OK":
+            # A confidence-tier REVIEW/REJECT is not an accepted fact, even
+            # when an explicit template coordinate selected the candidate.
+            # Surface it in the persisted review matrix rather than only in a
+            # summary counter.
             status = "REVIEW_REQUIRED"
 
         return ExtractionResult(
@@ -1342,11 +1360,12 @@ class ExcelIntelligence:
     })
 
     def extract_generic(self) -> ImportReport:
-        """Extract an unknown workbook using semantic labels from the common IR.
+        """Extract generic-workbook proposals without treating proximity as truth.
 
-        This is deliberately conservative: it maps only an unambiguous label
-        with a nearby value and leaves ambiguous/unresolved content for review.
-        It never depends on a filename, company name, sheet name, or MinerU.
+        No generic workbook has template authority.  Every field candidate is
+        therefore surfaced for operator review, and only an adjacent value is
+        considered. Repeated labels, multiple nearby values, and unresolved
+        labels remain explicit conflicts rather than first-match guesses.
         """
         started = time.time()
         report = ImportReport(
@@ -1355,113 +1374,212 @@ class ExcelIntelligence:
             raw_document=self.raw_document,
         )
         canonical = {}
-        from core.semantic_tables import detect_tables
+        from core.semantic_tables import detect_tables, header_key
+
+        canonical_header_keys = {
+            header_key(alias)
+            for spec in FIELD_SPECS.values()
+            for alias in spec.aliases
+            if header_key(alias)
+        }
         tables, consumed = detect_tables(self.cell_cache)
         for sheet, storage, mapping, first, last, rows in tables:
-            normalized = self._normalize_table_records(rows, storage, source_sheet=sheet,
-                source_file=self.raw_document.source_file, activity_catalog=self.activity_catalog)
-            canonical.setdefault(storage, []).extend(normalized)
-            report.table_results.append(TableExtraction(name=storage, sheet=sheet, start_row=first, end_row=last,
-                columns=[{"canonical": p, "col": c} for p, c in mapping.items()], records=rows, row_count=len(rows), confidence=0.8))
+            normalized_rows = self._normalize_table_records(
+                rows, storage, source_sheet=sheet,
+                source_file=self.raw_document.source_file,
+                activity_catalog=self.activity_catalog,
+            )
+            canonical.setdefault(storage, []).extend(normalized_rows)
+            report.table_results.append(TableExtraction(
+                name=storage, sheet=sheet, start_row=first, end_row=last,
+                columns=[{"canonical": path, "col": col} for path, col in mapping.items()],
+                records=rows, row_count=len(rows), confidence=0.8,
+            ))
         report.tables_detected = len(tables)
-        report.total_rows_extracted = sum(len(t[-1]) for t in tables)
-        seen = set()
+        report.total_rows_extracted = sum(len(table[-1]) for table in tables)
+        # Generic header recognition identifies row/column candidates, not
+        # authoritative business values. Count every populated table cell as
+        # requiring the same explicit review as generic scalar candidates.
+        report.fields_detected += sum(
+            1
+            for _sheet, _storage, _mapping, _first, _last, rows in tables
+            for record in rows
+            for path, value in record.items()
+            if not str(path).startswith("_") and value not in (None, "")
+        )
+        report.fields_review = report.fields_detected
+
+        raw_cells = {
+            (cell.location.sheet or "", cell.location.row, cell.location.column): cell
+            for cell in self.raw_document.cells
+        }
+        observations = {}
         for raw_cell in self.raw_document.cells:
-            if (raw_cell.location.sheet, raw_cell.location.row, raw_cell.location.column) in consumed:
+            loc = raw_cell.location
+            sheet = loc.sheet or ""
+            row = loc.row or 0
+            col = loc.column if isinstance(loc.column, int) else 0
+            if (sheet, row, col) in consumed:
                 continue
-            value = raw_cell.value
-            if value in (None, "") or not isinstance(value, str):
+            if not isinstance(raw_cell.value, str) or not raw_cell.value.strip():
                 continue
-            label = str(value).strip()
-            sheet = raw_cell.location.sheet or ""
+            label = raw_cell.value.strip()
             nearby_values = [
-                str(item).strip()
-                for (candidate_row, candidate_col), item in self.cell_cache.get(sheet, {}).items()
-                if abs(candidate_row - (raw_cell.location.row or 0)) <= 2
-                and abs(candidate_col - (raw_cell.location.column or 0)) <= 3
-                and item not in (None, "")
+                str(value).strip()
+                for (r, c), value in self.cell_cache.get(sheet, {}).items()
+                if abs(r - row) <= 2 and abs(c - col) <= 2 and value not in (None, "")
             ]
             context = " ".join(
                 [f"{sheet} {raw_cell.table or ''} {raw_cell.section_title or ''}"]
                 + nearby_values
             )
             field_path = resolve_canonical_field(label, context)
-            if not field_path or field_path in seen:
+            if not field_path:
                 continue
-            row = raw_cell.location.row or 0
-            column = raw_cell.location.column if isinstance(raw_cell.location.column, int) else 0
-            cells = self.cell_cache.get(sheet, {})
-            candidate = None
-            for distance in range(1, 8):
-                for position in ((row, column + distance), (row + distance, column)):
-                    candidate = cells.get(position)
-                    if candidate not in (None, "") and str(candidate).strip().lower() != label.lower():
-                        break
-                if candidate not in (None, "") and str(candidate).strip().lower() != label.lower():
+
+            # Generic proximity is only a candidate generator. The old
+            # seven-cell horizontal scan could borrow unrelated product codes
+            # or values from another field; limit the search to a small,
+            # local neighborhood and retain every competing candidate.
+            candidate_cells = []
+            candidate_groups = (
+                ((row, col + 1), (row + 1, col)),
+                ((row, col + 2), (row + 2, col)),
+            )
+            for candidate_group in candidate_groups:
+                for candidate_row, candidate_col in candidate_group:
+                    value = self.cell_cache.get(sheet, {}).get((candidate_row, candidate_col))
+                    if value in (None, ""):
+                        continue
+                    # Use the candidate cell's own label identity, not the
+                    # source label's contextual resolver (which can otherwise
+                    # misclassify a section heading as a repeated alias).
+                    if isinstance(value, str) and (
+                        resolve_canonical_field(value.strip(), "")
+                        or header_key(value) in canonical_header_keys
+                    ):
+                        continue
+                    candidate_raw = raw_cells.get((sheet, candidate_row, candidate_col))
+                    candidate_cells.append({
+                        "value": value,
+                        "row": candidate_row,
+                        "column": candidate_col,
+                        "cell": candidate_raw.location.cell if candidate_raw else f"R{candidate_row}C{candidate_col}",
+                        "sheet": sheet,
+                        "direction": "right" if candidate_row == row else "below",
+                    })
+                if candidate_cells:
                     break
-            if candidate in (None, ""):
-                report.fields_unresolved += 1
-                continue
-            normalized = normalize_canonical_value(candidate, field_path)
+            observations.setdefault(field_path, []).append({
+                "label": label,
+                "sheet": sheet,
+                "row": row,
+                "column": col,
+                "cell": loc.cell,
+                "candidates": candidate_cells,
+            })
+
+        for field_path, field_observations in observations.items():
             spec = FIELD_SPECS.get(field_path)
-            confidence = 0.82
-            status = "OK" if normalized.validation_state in {"valid", "missing"} else "REVIEW_REQUIRED"
+            first_observation = field_observations[0]
+            all_candidates = [
+                candidate
+                for observation in field_observations
+                for candidate in observation["candidates"]
+            ]
+            conflict = len(field_observations) != 1 or len(all_candidates) > 1
+            chosen = all_candidates[0] if len(all_candidates) == 1 and not conflict else None
+            if chosen is not None:
+                normalized = normalize_canonical_value(chosen["value"], field_path)
+                proposal = normalized.normalized_value if normalized.ok else None
+                validation = normalized.validation_state
+                reason = (
+                    "Generic label/value proximity is a proposal only; operator confirmation is required."
+                    if normalized.ok or normalized.missing
+                    else normalized.review_reason or "Candidate failed canonical validation."
+                )
+                original_value = chosen["value"]
+                source_cell = chosen["cell"]
+                source_row = chosen["row"]
+                source_column = chosen["column"]
+                source_sheet = chosen["sheet"]
+            else:
+                normalized = None
+                proposal = None
+                validation = "ambiguous" if conflict else "unresolved"
+                reason = (
+                    "Repeated canonical labels or multiple nearby values make this mapping ambiguous."
+                    if conflict
+                    else "Canonical label has no adjacent source value."
+                )
+                original_value = None
+                source_cell = first_observation["cell"]
+                source_row = first_observation["row"]
+                source_column = first_observation["column"]
+                source_sheet = first_observation["sheet"]
+
+            status = "CONFLICT" if conflict else "REVIEW_REQUIRED"
+            candidate_metadata = [dict(candidate) for candidate in all_candidates]
             result = ExtractionResult(
                 canonical_field=field_path,
-                value=normalized.normalized_value,
-                original_value=normalized.original_value,
+                value=proposal,
+                original_value=original_value,
                 status=status,
-                confidence=confidence,
-                certainty=mapping_certainty(confidence, "label_match"),
+                confidence=0.82 if chosen is not None else 0.0,
+                certainty=mapping_certainty(0.82, "label_match") if chosen is not None else "LOW",
                 source="generic-semantic",
-                cell=f"{sheet}!R{row}C{column}",
-                row=row,
-                col=column,
-                sheet=sheet,
-                original_label=label,
-                reason=normalized.review_reason,
-                validation=normalized.validation_state,
-                data_type=normalized.expected_type,
+                cell=source_cell,
+                row=source_row,
+                col=source_column,
+                sheet=source_sheet,
+                original_label=first_observation["label"],
+                reason=reason,
+                candidates=candidate_metadata,
+                validation=validation,
+                data_type=normalized.expected_type if normalized else (spec.quantity if spec else ""),
                 canonical_unit=spec.unit if spec else "",
                 engineering_bounds=get_engineering_bounds(field_path),
             )
             report.field_results.append(result)
             report.fields_detected += 1
-            if status == "OK":
-                report.fields_accepted += 1
-            else:
-                report.fields_review += 1
-                report.source_tokens[field_path] = {
-                    "original_value": candidate,
-                    "normalized_value": normalized.normalized_value,
-                    "sheet": sheet,
-                    "cell": result.cell,
-                    "expected_type": normalized.expected_type,
-                    "status": "REVIEW",
-                }
+            report.fields_review += 1
+            if chosen is None:
+                report.fields_unresolved += 1
+            report.source_tokens[field_path] = {
+                "original_value": original_value,
+                "normalized_value": proposal,
+                "sheet": source_sheet,
+                "cell": source_cell,
+                "expected_type": result.data_type,
+                "status": "MAPPING_CONFLICT" if conflict else "REVIEW",
+                "review": True,
+                "candidates": candidate_metadata,
+            }
+
             section, key = field_path.split(".", 1)
             storage_section = {
                 "time_log": "time_logs_24h",
                 "time_log_morning": "time_logs_morning",
             }.get(section, section)
             if storage_section in {"time_logs_24h", "time_logs_morning"}:
-                canonical.setdefault(storage_section, [{}])[0][key] = normalized.normalized_value
+                canonical.setdefault(storage_section, [{}])[0][key] = proposal
             else:
-                canonical.setdefault(storage_section, {})[key] = normalized.normalized_value
+                canonical.setdefault(storage_section, {})[key] = proposal
             report.field_provenance[field_path] = {
                 "source_file": self.raw_document.source_file,
-                "source_sheet": sheet,
-                "source_cell": result.cell,
-                "source_row": row,
-                "source_column": column,
-                "original_value": candidate,
-                "normalized_value": normalized.normalized_value,
+                "source_sheet": source_sheet,
+                "source_cell": source_cell,
+                "source_row": source_row,
+                "source_column": source_column,
+                "original_value": original_value,
+                "normalized_value": proposal,
                 "extraction_method": "generic-semantic",
-                "confidence": confidence,
-                "validation_state": normalized.validation_state,
-                "review_state": "accepted" if status == "OK" else "review",
+                "confidence": result.confidence,
+                "validation_state": validation,
+                "review_state": "review",
+                "candidate_sources": candidate_metadata,
             }
-            seen.add(field_path)
+
         report.canonical_json = canonical
         report.extraction_time_ms = (time.time() - started) * 1000
         return report
@@ -1501,27 +1619,21 @@ class ExcelIntelligence:
                         result = extractor.extract(field_def, canonical_path, actual_sheet)
                         report.field_results.append(result)
 
-                        # Apply confidence policy
-                        spec = FIELD_SPECS.get(canonical_path)
-                        critical = spec.critical if spec else False
-                        decision = confidence_decision(result.confidence, critical)
+                        # FieldExtractor owns the final status decision after
+                        # applying confidence, template-anchor authority, and
+                        # engineering validation. Do not recompute a second,
+                        # conflicting confidence decision here.
                         if result.status in {"OK", "REVIEW_REQUIRED"}:
                             report.fields_detected += 1
 
                         if result.status == "OK":
-                            if decision == "ACCEPT":
-                                report.fields_accepted += 1
-                            elif decision == "REVIEW":
-                                report.fields_review += 1
-                            else:
-                                report.fields_rejected += 1
+                            report.fields_accepted += 1
                             self._store_scalar(report, canonical, canonical_path, result, actual_sheet)
                             if canonical_path in report.source_tokens:
                                 # Typed normalization rejected the candidate;
                                 # keep the record as NULL but force explicit
                                 # review instead of silently accepting it.
-                                if decision == "ACCEPT":
-                                    report.fields_accepted = max(0, report.fields_accepted - 1)
+                                report.fields_accepted = max(0, report.fields_accepted - 1)
                                 result.status = "REVIEW_REQUIRED"
                                 report.fields_review += 1
                         elif result.status == "REVIEW_REQUIRED":

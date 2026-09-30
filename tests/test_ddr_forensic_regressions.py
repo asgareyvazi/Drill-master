@@ -269,7 +269,27 @@ def test_real_workbook_actual_application_service_and_disk_reload(db):
         audit = json.loads(session.query(AuditLog).filter_by(action="ddr_import").one().details)
         assert audit["source"]["metadata"]["raw_ir"]
         assert audit["result"]["review_items"]
-    again = service.import_records(extracted)
+    # Re-import under the same selected well must hit the source audit before
+    # source well metadata can trigger a duplicate identity insert.
+    retry = DDRImportService(db, 1)
+    retry._resolve_import_well = lambda *_args, **_kwargs: pytest.fail(
+        "duplicate source lookup must precede well resolution"
+    )
+    retry_payload = copy.deepcopy(extracted)
+    retry_payload["metadata"]["review_matrix"][0]["decision"] = "REJECT"
+    # Simulate a changed rejection that removes the required date proposal;
+    # source-level idempotency must run before that mutable review state causes
+    # validation to fail or attempts another well mutation.
+    retry_payload.setdefault("daily_report", {})["report_date"] = None
+    retry_payload["metadata"]["review_matrix"].append({
+        "target_field": "daily_report.report_date",
+        "canonical_field": "daily_report.report_date",
+        "decision": "REJECT",
+        "detected_table": "scalar",
+    })
+    # Review-state edits change the audit snapshot, not the source document
+    # identity used for idempotency.
+    again = retry.import_records(retry_payload)
     assert again["reimport"] and again["imported"] == 0 and again["report_id"] == rid
     with db.session_scope() as session:
         assert before_counts == {model.__name__: session.query(model).count() for model in (DailyReport, BHAReport, SurveyPoint, ServiceCompanyPOB, BOPComponent)}
@@ -349,6 +369,10 @@ def test_generic_multiformat_table_pipeline(db, tmp_path, padding, reorder):
     assert extraction.template_version == "generic-ir"
     assert len(payload["surveys"]) == 2
     assert len(payload["bha_components"]) == 1
+    # Generic semantic extraction is proposal-only. Model an explicit operator
+    # confirmation before testing canonical persistence.
+    for item in payload["metadata"]["review_matrix"]:
+        item["decision"] = "ACCEPT"
     result = service.import_records(payload)
     assert result["failed"] == 0 and result["report_id"], result
     rows = db.load_survey_points(report_id=result["report_id"])
@@ -375,6 +399,36 @@ def test_import_fingerprint_is_scoped_to_target_well(db):
     db.save_import_audit(1, "same-source", {}, {"well_id": 1, "report_id": 1})
     assert db.find_import_audit("same-source", well_id=1)
     assert db.find_import_audit("same-source", well_id=99999) is None
+
+
+def test_same_source_different_selected_wells_have_independent_sqlite_idempotency(db):
+    with db.session_scope() as session:
+        other = Well(name="Second Audit Well", code="AW-2", project_id=1)
+        session.add(other)
+        session.flush()
+        other_well_id = other.id
+
+    payload = {
+        "daily_report": {"report_date": date(2026, 9, 30), "report_number": 77},
+        "metadata": {"source_document": "same-source.xlsx"},
+    }
+    first = DDRImportService(db, 1).import_records(payload)
+    assert first["report_id"] and not first.get("reimport"), first
+
+    # The same source fingerprint in another selected-well scope is not a
+    # duplicate of the first well. Its own retry is idempotent and does not
+    # create another report or attempt to create/resolve a Well.
+    second_service = DDRImportService(db, other_well_id)
+    second = second_service.import_records(payload)
+    assert second["report_id"] and second["report_id"] != first["report_id"], second
+    assert second["well_id"] == other_well_id and not second.get("reimport"), second
+    retry = DDRImportService(db, other_well_id)
+    retry._resolve_import_well = lambda *_args, **_kwargs: pytest.fail(
+        "same-source retry must be detected before well resolution"
+    )
+    again = retry.import_records(payload)
+    assert again.get("reimport") is True
+    assert again["report_id"] == second["report_id"]
 
 
 def test_derived_cleanup_keeps_manual_points_and_resets_code_usage(db):

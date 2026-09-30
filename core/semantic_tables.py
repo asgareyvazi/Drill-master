@@ -1,8 +1,10 @@
 """Conservative section/header table detection for the generic Excel IR path.
 
-No workbook names, sheet positions, or source coordinates are catalogued here.
-Canonical field aliases identify columns; section-specific minimum signatures
-prevent a single generic 'Name' or 'Type' cell from defining a table.
+A generic workbook has no template authority.  Header aliases can identify a
+candidate table only when the required columns occupy one contiguous column
+cluster; aliases on opposite sides of blank columns must not be stitched into
+one canonical record.  Ambiguous/unsupported layouts are deliberately left
+for review rather than guessed.
 """
 import re
 from core.canonical_schema import FIELD_SPECS
@@ -23,65 +25,123 @@ def header_key(value):
     return re.sub(r"[^a-z0-9]+", "", text)
 
 
+def _header_aliases(section):
+    specs = {path: spec for path, spec in FIELD_SPECS.items() if path.startswith(section + ".")}
+    aliases = {}
+    for path, spec in specs.items():
+        for alias in spec.aliases:
+            key = header_key(alias)
+            if key:
+                aliases.setdefault(key, set()).add(path)
+    return aliases
+
+
+def _clusters(entries):
+    """Partition (column, canonical path, header row) by every blank column.
+
+    A missing header column is not evidence that two tables belong together.
+    This may decline sparse-but-valid generic tables; explicit templates remain
+    the path for layouts whose column ownership cannot be inferred safely.
+    """
+    clusters, current, last_col = [], [], None
+    for entry in sorted(entries, key=lambda item: item[0]):
+        col = entry[0]
+        if current and col > last_col + 1:
+            clusters.append(current)
+            current = []
+        current.append(entry)
+        last_col = col
+    if current:
+        clusters.append(current)
+    return clusters
+
+
 def detect_tables(cells_by_sheet):
-    """Return detected row maps plus cells consumed as table presentation."""
+    """Return structurally bounded table rows and cells owned by those tables.
+
+    Headers may occupy one or two rows.  Duplicate mappings, missing
+    signatures, side-by-side signatures, blank row boundaries, and partial
+    records are never promoted into a complete canonical table.
+    """
     found, consumed = [], set()
     for sheet, cells in cells_by_sheet.items():
-        last_row = max((r for r, c in cells), default=0)
+        last_row = max((row for row, _col in cells), default=0)
         for section, (required, storage) in SIGNATURES.items():
-            specs = {path: spec for path, spec in FIELD_SPECS.items() if path.startswith(section + ".")}
-            headers = {}
-            for path, spec in specs.items():
-                for alias in spec.aliases:
-                    key = header_key(alias)
-                    if key:
-                        headers.setdefault(key, set()).add(path)
-            skip_until = 0
+            aliases = _header_aliases(section)
             for row in range(1, last_row + 1):
-                if row <= skip_until:
-                    continue
-                mapping = {}
-                header_end = row
-                # One/two-row headers, including unit-only second lines.
-                for header_row in (row, row + 1):
-                    for (r, col), value in cells.items():
-                        if r != header_row:
+                # Cells already owned by a previously detected table cannot
+                # start another interpretation of the same source structure.
+                selected = None
+                for header_end in (row, row + 1):
+                    header_entries = []
+                    for (cell_row, col), value in cells.items():
+                        if not row <= cell_row <= header_end or (sheet, cell_row, col) in consumed:
                             continue
-                        candidates = headers.get(header_key(value), set())
-                        if len(candidates) == 1:
-                            path = next(iter(candidates))
-                            mapping.setdefault(path, col)
-                    if required.issubset({p.split(".")[-1] for p in mapping}):
-                        header_end = header_row
+                        paths = aliases.get(header_key(value), set())
+                        if len(paths) == 1:
+                            header_entries.append((col, next(iter(paths)), cell_row))
+                    for cluster in _clusters(header_entries):
+                        mapping = {}
+                        duplicate_path = False
+                        for col, path, _header_row in cluster:
+                            previous = mapping.get(path)
+                            if previous is not None and previous != col:
+                                duplicate_path = True
+                                break
+                            mapping[path] = col
+                        if duplicate_path:
+                            continue
+                        if not required.issubset({path.rsplit(".", 1)[-1] for path in mapping}):
+                            continue
+                        if section == "mud_chemical" and not any(
+                            path.endswith((".used", ".received", ".on_hand")) for path in mapping
+                        ):
+                            continue
+                        selected = (mapping, header_end, cluster)
                         break
-                if not required.issubset({p.split(".")[-1] for p in mapping}):
+                    if selected is not None:
+                        break
+                if selected is None:
                     continue
-                if section == "mud_chemical" and not any(p.endswith((".used", ".received", ".on_hand")) for p in mapping):
-                    continue
-                records, blanks = [], 0
-                end = header_end
-                for data_row in range(header_end + 1, last_row + 1):
+
+                mapping, header_end, header_cluster = selected
+                records, end = [], header_end
+                data_row = header_end + 1
+                while data_row <= last_row:
                     values = {path: cells.get((data_row, col)) for path, col in mapping.items()}
-                    present = [v for v in values.values() if v not in (None, "")]
+                    present = [(path, value) for path, value in values.items() if value not in (None, "")]
                     if not present:
-                        blanks += 1
-                        if blanks >= 3:
-                            break
-                        continue
-                    blanks = 0
-                    if all(isinstance(v, str) and (header_key(v) in headers or v.startswith("=")) for v in present):
-                        continue
-                    # A section title, rather than a populated multi-column
-                    # record, terminates the table. Malformed numeric rows
-                    # with multiple supplied fields remain reviewable.
-                    if len(present) < 2:
+                        # A blank row is a hard section boundary.  Do not jump
+                        # over it into a different vertical table.
                         break
-                    values["_source_row"] = data_row
-                    values["_source_cells"] = {p: f"R{data_row}C{c}" for p, c in mapping.items()}
-                    records.append(values)
+                    if all(
+                        isinstance(value, str)
+                        and (header_key(value) in aliases or value.startswith("="))
+                        for _path, value in present
+                    ):
+                        # Repeated header within a continued table.
+                        data_row += 1
+                        continue
+                    if len(present) < 2:
+                        # A partial row is not a complete record.  Its cells
+                        # remain in the lossless IR for review; do not let the
+                        # next section be absorbed as a table continuation.
+                        break
+                    record = dict(values)
+                    record["_source_row"] = data_row
+                    record["_source_cells"] = {
+                        path: f"R{data_row}C{col}" for path, col in mapping.items()
+                    }
+                    records.append(record)
                     end = data_row
-                if records:
-                    found.append((sheet, storage, mapping, header_end + 1, end, records))
-                    consumed.update((sheet, r, c) for r in range(row, end + 1) for c in mapping.values())
-                    skip_until = end
+                    data_row += 1
+
+                if not records:
+                    continue
+                found.append((sheet, storage, mapping, header_end + 1, end, records))
+                min_col, max_col = min(mapping.values()), max(mapping.values())
+                for owned_row in range(row, end + 1):
+                    for col in range(min_col, max_col + 1):
+                        if (owned_row, col) in cells:
+                            consumed.add((sheet, owned_row, col))
     return found, consumed
