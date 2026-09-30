@@ -1,0 +1,95 @@
+{
+  "schema": "m36-w16-integration-acceptance",
+  "as_of": "2026-09-30",
+  "branch": "arena/01a0ec23-drill-master",
+  "baseline_head": "2e54f4fe7bac645b7fbc5745e753f62bac79f789",
+  "implementation_commit": "ea12f63495172fe3ba4d98b6fc4599860736f85e",
+  "mission_continuity": {
+    "w15_sha": "2e54f4fe7bac645b7fbc5745e753f62bac79f789",
+    "w15_exact_head_ci_run": 36691272441,
+    "w15_exact_head_ci_conclusion": "success",
+    "w15_matrix": ["3.11", "3.12", "3.13"],
+    "w15_preexisting_worktree_recovery": "The stale local 7f0186e checkout carried changes which were stashed before a safe fast-forward. Tracked changes and all 42 formerly-untracked paths were byte-identical to the pushed 2e54f4f tree; the recovery stash was retained.",
+    "w15_unresolved_owner_decisions": [
+      "NEW-P6-007",
+      "NEW-P6-008",
+      "NEW-P6-015",
+      "NEW-P6-020",
+      "NEW-P6-023",
+      "NEW-P6-024"
+    ],
+    "production_acceptance": false
+  },
+  "finding": {
+    "id": "W16-001",
+    "source_file": "core/excel_intelligence.py",
+    "symbol": "FieldExtractor.extract",
+    "severity": "MEDIUM",
+    "scope": "Confirmed for merged template-label anchors when a separate horizontal table occupies the same source row; broader applicability depends on workbook layout.",
+    "root_cause": "When an anchored merged label had no value in its own merged-width-adjacent cell, the preferred-cell strategy scanned as far as seven columns right. Text-valued fields accepted the first non-empty string without a typed-value boundary, crossing into a neighboring table.",
+    "current_behavior_before": "In the tracked OEOC DDR, K71:L71 is the merged Weather Data label 'Wind Direction'; M71 is blank, while N71:O71 is the first Cement Additives material. The extractor incorrectly accepted 'FLC-DA9 / FLC-DA413' from N71 as safety.wind_direction with status OK and persisted it as canonical data.",
+    "expected_behavior": "A merged label may inspect only the first source cell after the label's merged extent. If that cell is empty, the field remains unresolved and reviewable; a neighboring table's source value remains assigned to that table only.",
+    "implementation": "MergeCellAnalyzer.bounds reconstructs merged-range extents. FieldExtractor.extract limits rightward search from a merged label to the first cell after its merged extent, preserving the existing wider search for unmerged anchors.",
+    "user_impact": "A cement additive could be shown and persisted as a weather-direction observation, contaminating safety/report data and source-to-domain lineage.",
+    "regression_tests": [
+      "tests/test_excel_intelligence_regressions.py::test_text_field_does_not_borrow_value_from_adjacent_merged_table",
+      "tests/test_review_contract_certification.py::test_real_workbook_golden_shape_and_semantic_validation",
+      "tests/test_review_contract_certification.py::test_real_workbook_review_items_have_complete_lineage_and_keep_ambiguity"
+    ],
+    "mutation_validation": {
+      "mutation": "Restore the pre-fix seven-column scan for a merged text label.",
+      "observed_failure": "The new real-workbook regression failed before the production fix: safety.wind_direction equaled 'FLC-DA9 / FLC-DA413' instead of remaining unresolved.",
+      "restored_state": "Merged-label search is bounded; the focused regression passes and the first cement-additive row remains unchanged."
+    }
+  },
+  "acceptance_harness": {
+    "excel": {
+      "source_file": "08-DDR OEOC-208 AZNS-207 2024-Oct-22.xlsx",
+      "source_sha256": "37a6d96a6f154a9583590f52f9fb7cd92630f01d0a2abec2a9424877c1e4ef7a",
+      "test": "tests/test_ddr_acceptance.py::test_real_ddr_excel_canonical_ir_review_and_atomic_db",
+      "exercise": "Real workbook -> production DDRImportService extraction -> raw IR and scalar/table provenance checks -> non-accepted review-item round-trip -> production import service -> daily-report/mud semantic persistence checks -> import-audit source/review lineage checks.",
+      "result": "PASS; run against the tracked source workbook, not a synthetic stand-in."
+    },
+    "pdf_mineru": {
+      "harness": "tests/test_ddr_acceptance.py::test_real_ddr_pdf_mineru_common_ir_review_and_atomic_db and tests/test_mineru_real_integration.py::test_real_mineru_parse_and_normalize",
+      "result": "NOT_RUN: no real DDR PDF / externally installed real MinerU run was available.",
+      "acceptance_claim": false
+    }
+  },
+  "validation": {
+    "focused_after_fix": {
+      "tests": 10,
+      "passed": 10,
+      "skipped": 0,
+      "failed": 0
+    },
+    "real_excel_acceptance_and_source_regression": {
+      "tests": 2,
+      "passed": 2,
+      "skipped": 0,
+      "failed": 0
+    },
+    "broad_integration_selection": {
+      "passed": 515,
+      "skipped": 6,
+      "failed_local_qt_cases": 4,
+      "local_qt_failure": "Subprocess widget/history assertions could not import PySide6 because libGL.so.1 is unavailable. These are local-environment failures, not recorded as passes; real-Qt exact-head CI is required.",
+      "scope_note": "Included import/DDR, scope, report lifecycle, time, inventory, cost, release/package structure, chart fallback, worker, and engineering/history families."
+    },
+    "source_checks": {
+      "ruff_e722_f821": "PASS",
+      "ruff_lint_debt": 5338,
+      "ruff_debt_ceiling": 5375,
+      "compileall": "PASS",
+      "git_diff_check": "PASS"
+    },
+    "external_acceptance": {
+      "real_ddr_xlsx": "The tracked OEOC workbook was exercised by the opt-in end-to-end Excel import test; this is source-corpus integration evidence, not operator/production acceptance.",
+      "real_ddr_pdf": "NOT_RUN",
+      "real_mineru": "NOT_RUN",
+      "windows_bundle": "NOT_RUN",
+      "production_database": "NOT_RUN"
+    }
+  },
+  "evidence_boundary": "This record documents one confirmed extraction defect and repository-side acceptance harness hardening. It is not a blanket semantic certification, Windows/PDF/MinerU acceptance, production database acceptance, or business-owner policy closure. Exact-final-SHA release verification and CI are assessed separately after the final evidence commit."
+}
