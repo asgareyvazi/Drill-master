@@ -135,7 +135,8 @@ _CHILD = textwrap.dedent(
     # history reconstruction without claiming missing values were zero.
     tab._wc_save_calculation()
     assert repo.count() == 2
-    partial = repo.all()[1]
+    # Repository history is newest-first; the just-saved partial run is first.
+    partial = repo.all()[0]
     provenance = partial.input_snapshot["provenance"]
     assert provenance["scope"] == "SCREENING"
     assert provenance["geometry_assumption_used"] is True
