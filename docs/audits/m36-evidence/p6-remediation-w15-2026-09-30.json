@@ -118,6 +118,12 @@
       "failed": 0,
       "skip_reason": "Local Qt runtime imports are blocked by missing system libGL.so.1; the skipped cases require real Qt. Exact-HEAD CI with real Qt is required for those assertions."
     },
+    "wheel_package_smoke": {
+      "wheel_build_and_contents": "PASS",
+      "isolated_install": "PASS",
+      "entrypoint_package_smoke": "BLOCKED: app import requires missing system libGL.so.1",
+      "run_scope": "The tracked-source wheel was built and installed at the code commit immediately preceding this evidence-only update; the application/package source is unchanged."
+    },
     "full_suite": {
       "outcome": "BLOCKED_DURING_COLLECTION",
       "collection_errors": 18,
