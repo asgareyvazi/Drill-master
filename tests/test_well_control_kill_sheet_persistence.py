@@ -91,7 +91,9 @@ def _inputs(raw=None):
 def _save(repo, raw=None, label="run"):
     inp = _inputs(raw)
     res = compute_kill_sheet(inp)
-    snap = build_snapshot(inputs=inp, method=WellControlEngine.METHOD)
+    snap = build_snapshot(
+        inputs=inp, method=WellControlEngine.METHOD, result=res
+    )
     # The historical claim is the WHOLE correctness-relevant result (res.values),
     # not the diagnostic-carrying as_dict() (which includes success/method/etc.).
     cid = repo.save_run(
@@ -169,6 +171,53 @@ def test_verify_match_on_clean_reload():
     assert outcome.all_differences == []
 
 
+def test_partial_no_pipe_result_and_scope_survive_persistence():
+    repo = WellControlKillSheetRepository(_mem_db())
+    raw = {**RAW, "pipes_m": []}
+    inp = _inputs(raw)
+    result = compute_kill_sheet(inp)
+    snapshot = build_snapshot(
+        inputs=inp, method=WellControlEngine.METHOD, result=result
+    )
+    cid = repo.save_run(
+        snapshot=snapshot,
+        result=result.values,
+        method=WellControlEngine.METHOD,
+        label="partial geometry",
+    )
+
+    saved = repo.get(cid)
+    assert saved is not None
+    assert saved.result["total_string_vol_bbl"] is None
+    assert saved.result["total_ann_vol_bbl"] is None
+    assert saved.result["stk_total"] is None
+    assert saved.summary["total_well_vol_bbl"] is None
+    assert saved.summary["stk_total"] is None
+    assert saved.input_snapshot["provenance"]["scope"] == "SCREENING"
+    assert saved.input_snapshot["provenance"]["geometry_assumption_used"] is True
+    assert any("5-in pipe OD" in item
+               for item in saved.input_snapshot["provenance"]["assumptions"])
+    assert saved.verify(current_method=WellControlEngine.METHOD).status == VERIFY_MATCH
+
+
+def test_legacy_v1_snapshot_reconstructs_but_discloses_absent_provenance():
+    inp = _inputs({**RAW, "pipes_m": []})
+    canonical = inp.as_dict()
+    canonical.pop("display")
+    canonical.pop("missing_inputs", None)
+    canonical.pop("invalid_inputs", None)
+    legacy = {
+        "schema_version": 1,
+        "method": WellControlEngine.METHOD,
+        "canonical_inputs": canonical,
+    }
+    result = recalculate_from_snapshot(legacy)
+    assert result.success
+    assert result.total_string_vol_bbl is None
+    assert result.stk_total is None
+    assert legacy.get("provenance") is None
+
+
 # --------------------------------------------------------------------------
 # Whole-result verification catches drift (T&D false-MATCH lesson)
 # --------------------------------------------------------------------------
@@ -240,6 +289,15 @@ def test_not_reproducible_when_snapshot_forces_engine_failure():
     saved = repo.get(cid)
     # zero mud weight -> kill_mw engine rejects it -> composite cannot run
     saved.input_snapshot["canonical_inputs"]["mw_ppg"] = 0.0
+    outcome = saved.verify(current_method=WellControlEngine.METHOD)
+    assert outcome.status == VERIFY_NOT_REPRODUCIBLE
+
+
+def test_nonfinite_canonical_geometry_is_not_replayed_as_a_numeric_result():
+    repo = WellControlKillSheetRepository(_mem_db())
+    cid, _ = _save(repo)
+    saved = repo.get(cid)
+    saved.input_snapshot["canonical_inputs"]["casing_id_in"] = float("nan")
     outcome = saved.verify(current_method=WellControlEngine.METHOD)
     assert outcome.status == VERIFY_NOT_REPRODUCIBLE
 

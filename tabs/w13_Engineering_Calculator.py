@@ -1722,36 +1722,57 @@ class EngineeringCalculatorTab(DrillTabBase):
         self.hy_warn.setText("⚠️ " + "\n⚠️ ".join(r.warnings) if r.warnings else "")
 
     def _draw_ecd(self, profile):
-        """رسم نمودار ECD"""
+        """Render a fresh ECD chart, with a Qt-safe static Agg fallback."""
+        def show_status(message):
+            safe_replace_chart(self.hy_ecd_w, QLabel(message))
+
+        # Clear any previous chart before handling empty/failed results; a stale
+        # ECD profile must not look like the result of the latest calculation.
+        show_status("ECD profile unavailable" if not profile else "Rendering ECD…")
         if not profile:
             return
         try:
-            import matplotlib
-            matplotlib.use('Qt5Agg')
-            import matplotlib.pyplot as plt
-            from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+            from matplotlib.figure import Figure
+            from core.matplotlib_widgets import (
+                AggFigureCanvasWidget,
+                select_figure_canvas,
+            )
 
             depths = [p[0] for p in profile]
             ecds = [p[1] for p in profile]
 
-            fig, ax = plt.subplots(figsize=(5, 3), facecolor='#f8f9fa')
-            ax.set_facecolor('#f8f9fa')
-            ax.plot(ecds, depths, 'b-o', lw=2, ms=3, label='ECD')
+            fig = Figure(figsize=(5, 3), facecolor="#f8f9fa")
+            ax = fig.subplots()
+            ax.set_facecolor("#f8f9fa")
+            ax.plot(ecds, depths, "b-o", lw=2, ms=3, label="ECD")
             mw_ppg = self.hy_mw.value() / 7.48
-            ax.axvline(x=mw_ppg, color='green', ls='--', lw=1, label=f'MW={mw_ppg:.2f}')
+            ax.axvline(
+                x=mw_ppg, color="green", ls="--", lw=1,
+                label=f"MW={mw_ppg:.2f}",
+            )
             ax.set_xlabel("ECD (ppg)")
             ax.set_ylabel("Depth (m)")
-            ax.set_title("ECD vs Depth", fontweight='bold')
+            ax.set_title("ECD vs Depth", fontweight="bold")
             ax.invert_yaxis()
             ax.grid(True, alpha=0.3)
             ax.legend(fontsize=7)
             fig.tight_layout()
 
-            canvas = FigureCanvas(fig)
+            canvas_type, qt_backend_available = select_figure_canvas()
+            if canvas_type is None:
+                raise RuntimeError("No Matplotlib canvas backend is available")
+            try:
+                canvas = canvas_type(fig)
+            except Exception:
+                if not qt_backend_available:
+                    raise
+                # A Qt backend may import yet fail to initialize in a restricted
+                # runtime. Agg still paints through a real QWidget.
+                canvas = AggFigureCanvasWidget(fig)
             safe_replace_chart(self.hy_ecd_w, canvas)
-            plt.close(fig)
         except Exception as e:
             logger.error(f"ECD chart: {e}")
+            show_status("ECD chart unavailable")
 
     # ========== Surge/Swab Dialog ==========
 
@@ -4095,7 +4116,10 @@ class EngineeringCalculatorTab(DrillTabBase):
         self.wc_pipe_table.doubleClicked.connect(self._wc_edit_pipe)
         ds_lay.addWidget(self.wc_pipe_table)
 
-        self.wc_string_summary = QLabel("String: 0 bbl | Annular: 0 bbl")
+        self.wc_string_summary = QLabel(
+            "String: NOT ASSESSED | Annular: NOT ASSESSED "
+            "(drill-string geometry not recorded)"
+        )
         self.wc_string_summary.setStyleSheet("font-weight: bold; color: #3498db; padding: 3px;")
         ds_lay.addWidget(self.wc_string_summary)
         ks_layout.addWidget(g_ds)
@@ -4376,6 +4400,12 @@ class EngineeringCalculatorTab(DrillTabBase):
         hole = self._wc_value(self.wc_hole_size)
         shoe_md = self._wc_value(self.wc_shoe_md)
         ann_known = csg_id is not None and hole is not None and shoe_md is not None
+        if not self.wc_pipes:
+            self.wc_string_summary.setText(
+                "String: NOT ASSESSED | Annular: NOT ASSESSED | Total: NOT ASSESSED "
+                "(drill-string geometry not recorded)"
+            )
+            return
 
         for p in self.wc_pipes:
             row = self.wc_pipe_table.rowCount()
@@ -4403,6 +4433,8 @@ class EngineeringCalculatorTab(DrillTabBase):
                 ann_vol = (A.calc_annular_capacity_bbl_ft(ann_id, od)
                            * 3.28084 * L)
                 total_ann += ann_vol
+            else:
+                ann_known = False
 
         if ann_known:
             self.wc_string_summary.setText(
@@ -4410,9 +4442,12 @@ class EngineeringCalculatorTab(DrillTabBase):
                 f"Total: {total_string + total_ann:.2f} bbl"
             )
         else:
+            annular_note = (
+                "annular geometry not assessable from the recorded pipe/casing values"
+            )
             self.wc_string_summary.setText(
                 f"String: {total_string:.2f} bbl | Annular: — "
-                "(hole size / casing / shoe depth not recorded)"
+                f"({annular_note})"
             )
     
     # ========== Well Control Methods ==========
@@ -4495,10 +4530,43 @@ class EngineeringCalculatorTab(DrillTabBase):
         kick_note = res.kick_note
         schedule = res.choke_schedule
 
+        def _assessed(value, precision=1):
+            return (
+                "NOT ASSESSED"
+                if value is None else f"{value:.{precision}f}"
+            )
+
+        string_vol_text = _assessed(total_string_vol, 2)
+        annular_vol_text = _assessed(total_ann_vol, 2)
+        well_vol_text = _assessed(res.total_well_vol_bbl, 2)
+        strokes_to_bit_text = _assessed(stk_to_bit, 0)
+        strokes_annular_text = _assessed(stk_annular, 0)
+        strokes_total_text = _assessed(stk_total, 0)
+        kick_height_text = (
+            f"{kick_height:.0f} ft (estimated)"
+            if kick_height is not None and pit_gain > 0
+            else "0 ft (no pit gain recorded)"
+            if kick_height == 0 and pit_gain == 0
+            else "NOT ASSESSED"
+        )
+        if res.scope != "COMPLETE":
+            scope_text = f"{res.scope} — review warnings before operational use"
+        else:
+            scope_text = "COMPLETE"
+        if kick_type == "Gas Kick":
+            kick_safety_text = "⚠️ GAS KICK - Monitor gas migration rate"
+        elif kick_type == "NOT ASSESSED":
+            kick_safety_text = "⚠️ Kick type NOT ASSESSED"
+        elif pit_gain == 0:
+            kick_safety_text = "NOT ASSESSED — no pit gain recorded"
+        else:
+            kick_safety_text = f"✅ {kick_type}"
+
         # Build report
         text = f"""╔═════════════════════════════════════════════════════════╗
     ║                    KILL SHEET                           ║
     ║              {method} Method                       ║
+    ║ Scope: {scope_text}
     ╠═════════════════════════════════════════════════════════╣
     ║ WELL DATA:
     ║   Well Type:      {self.wc_well_type.currentText()}
@@ -4515,7 +4583,7 @@ class EngineeringCalculatorTab(DrillTabBase):
 
         text += f"""
     ║   {'─' * 50}
-    ║   {'TOTAL STRING:':<25} {'':<8} → {total_string_vol:>8.2f} bbl
+    ║   {'TOTAL STRING:':<25} {'':<8} → {string_vol_text:>8} bbl
     ╠═════════════════════════════════════════════════════════╣
     ║ ANNULAR VOLUMES:"""
 
@@ -4524,8 +4592,8 @@ class EngineeringCalculatorTab(DrillTabBase):
 
         text += f"""
     ║   {'─' * 50}
-    ║   {'TOTAL ANNULAR:':<25} {'':<8} → {total_ann_vol:>8.2f} bbl
-    ║   {'TOTAL WELL:':<25} {'':<8} → {total_string_vol + total_ann_vol:>8.2f} bbl
+    ║   {'TOTAL ANNULAR:':<25} {'':<8} → {annular_vol_text:>8} bbl
+    ║   {'TOTAL WELL:':<25} {'':<8} → {well_vol_text:>8} bbl
     ╠═════════════════════════════════════════════════════════╣
     ║ MUD & KICK DATA:
     ║   Current MW:     {mw_pcf:.1f} pcf ({mw_ppg:.2f} ppg)
@@ -4533,7 +4601,7 @@ class EngineeringCalculatorTab(DrillTabBase):
     ║   SICP:           {sicp:.0f} psi
     ║   Pit Gain:       {pit_gain:.0f} bbl
     ║   Kick Type:      {kick_type}
-    ║   Kick Height:    {kick_height:.0f} ft (estimated){kick_note}
+    ║   Kick Height:    {kick_height_text}{kick_note}
     ║   Frac Gradient:  {frac_grad:.4f} psi/ft
     ╠═════════════════════════════════════════════════════════╣
     ║ PUMP DATA:
@@ -4551,9 +4619,9 @@ class EngineeringCalculatorTab(DrillTabBase):
     ║   └─────────────────────────────────────────────┘
     ╠═════════════════════════════════════════════════════════╣
     ║ STROKES:
-    ║   Surface → Bit:       {stk_to_bit:.0f} strokes
-    ║   Bit → Surface:       {stk_annular:.0f} strokes
-    ║   Total Circulation:   {stk_total:.0f} strokes
+    ║   Surface → Bit:       {strokes_to_bit_text} strokes
+    ║   Bit → Surface:       {strokes_annular_text} strokes
+    ║   Total Circulation:   {strokes_total_text} strokes
     ╠═════════════════════════════════════════════════════════╣"""
 
         if method == "Driller's":
@@ -4565,21 +4633,21 @@ class EngineeringCalculatorTab(DrillTabBase):
     ║   • Hold SIDPP constant at: {sidpp:.0f} psi
     ║   • Starting choke pressure: {icp:.0f} psi (ICP)
     ║   • Continue until kick is circulated out
-    ║   • Total strokes: {stk_total:.0f}
+    ║   • Total strokes: {strokes_total_text}
     ║
     ║ 2nd CIRCULATION (circulate kill mud):
     ║   • Weight up mud to: {kmw_ppg:.2f} ppg ({kmw_pcf:.1f} pcf)
     ║   • Start at ICP: {icp:.0f} psi
-    ║   • Reduce to FCP: {fcp:.0f} psi over {stk_to_bit:.0f} strokes
-    ║   • Hold FCP constant for remaining {stk_annular:.0f} strokes"""
+    ║   • Reduce to FCP: {fcp:.0f} psi over {strokes_to_bit_text} strokes
+    ║   • Hold FCP constant for remaining {strokes_annular_text} strokes"""
         else:
             text += f"""
     ║ WAIT & WEIGHT METHOD PROCEDURE:
     ║ ───────────────────────────────
     ║ • Weight up mud to: {kmw_ppg:.2f} ppg BEFORE circulating
     ║ • Start pumping at ICP: {icp:.0f} psi
-    ║ • Reduce to FCP: {fcp:.0f} psi over {stk_to_bit:.0f} strokes
-    ║ • Hold FCP at {fcp:.0f} psi for remaining {stk_annular:.0f} strokes
+    ║   • Reduce to FCP: {fcp:.0f} psi over {strokes_to_bit_text} strokes
+    ║   • Hold FCP at {fcp:.0f} psi for remaining {strokes_annular_text} strokes
     ║ • Kill in ONE circulation"""
 
         text += f"""
@@ -4588,16 +4656,23 @@ class EngineeringCalculatorTab(DrillTabBase):
     ║ ─────────────────────────────────────────
     ║  Strokes    │  Choke Press (psi)  │  % Complete
     ║ ────────────│─────────────────────│─────────────"""
+        if not schedule:
+            text += "\n║   NOT ASSESSED — pump-stroke geometry is incomplete."
 
         for strokes, pressure, pct in schedule:
             marker = " ◄── START" if pct == 0 else " ◄── END (FCP)" if pct == 100 else ""
             text += f"\n║  {strokes:>8}   │  {pressure:>8.0f}            │  {pct:>4}%{marker}"
 
+        if res.warnings:
+            text += "\n║ CALCULATION SCOPE / WARNINGS:"
+            for warning in res.warnings:
+                text += f"\n║   ⚠ {warning}"
+
         text += f"""
     ╠═════════════════════════════════════════════════════════╣
     ║ SAFETY CHECKS:
     ║   {'✅' if maasp > 500 else '⚠️'} MAASP: {maasp:.0f} psi {'(adequate)' if maasp > 500 else '(LOW - CAUTION!)'}
-    ║   {'⚠️ GAS KICK - Monitor gas migration rate' if kick_type == 'Gas Kick' else '✅ ' + kick_type}
+    ║   {kick_safety_text}
     ║   {'⚠️ Directional well - TVD ≠ MD' if self.wc_well_type.currentText() != 'Vertical' else '✅ Vertical well'}
     ║   {'⚠️ Pit gain > 20 bbl - large kick!' if pit_gain > 20 else '✅ Pit gain acceptable'}
     ╠═════════════════════════════════════════════════════════╣
@@ -4649,7 +4724,9 @@ class EngineeringCalculatorTab(DrillTabBase):
                 build_snapshot,
             )
             from core.engineering.engines.well_control import WellControlEngine
-            snapshot = build_snapshot(inputs=inp, method=WellControlEngine.METHOD)
+            snapshot = build_snapshot(
+                inputs=inp, method=WellControlEngine.METHOD, result=res
+            )
             calc_id = repo.save_run(
                 snapshot=snapshot,
                 result=res.values,
@@ -4662,13 +4739,17 @@ class EngineeringCalculatorTab(DrillTabBase):
             QMessageBox.critical(self, "Save Calculation",
                                  f"Could not save calculation:\n{exc}")
             return
+        stroke_summary = (
+            f"{res.stk_total:.0f} strokes"
+            if res.stk_total is not None else "strokes NOT ASSESSED"
+        )
         QMessageBox.information(
             self, "Calculation saved",
             f"Saved Well Control Kill Sheet run #{calc_id}.\n"
-            f"Kill MW {res.kill_mw_ppg:.2f} ppg | MAASP {res.maasp_psi:.0f} psi "
-            f"| {res.stk_total:.0f} strokes.\n"
+            f"Scope: {res.scope}. Kill MW {res.kill_mw_ppg:.2f} ppg | "
+            f"MAASP {res.maasp_psi:.0f} psi | {stroke_summary}.\n"
             f"{self._save_attribution_line()}"
-            "Inputs and full composite result were stored for reproducibility.")
+            "Inputs, result, scope, assumptions, and warnings were stored for reproducibility.")
 
     def _wc_open_history(self):
         """Open the read-only kill-sheet calculation-history browser."""

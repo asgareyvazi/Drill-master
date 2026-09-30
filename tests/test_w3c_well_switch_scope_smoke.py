@@ -8,7 +8,10 @@ import textwrap
 
 import pytest
 
-pytest.importorskip("PySide6")
+try:
+    from PySide6.QtWidgets import QApplication  # noqa: F401
+except ImportError as exc:  # pragma: no cover - host Qt runtime dependent
+    pytest.skip(f"Qt runtime unavailable: {exc}", allow_module_level=True)
 
 
 _CHILD = textwrap.dedent(
@@ -42,10 +45,11 @@ _CHILD = textwrap.dedent(
     db.save_casing_report({"well_id": well_id, "section_id": section_a_id,
                            "report_date": date(2026, 9, 1), "report_name": "A casing"})
 
-    from PySide6.QtWidgets import QApplication
+    from PySide6.QtWidgets import QApplication, QWidget
     app = QApplication.instance() or QApplication([])
     from tabs.w3c_section_data import SectionDataWidget
-    widget = SectionDataWidget(db)
+    parent = QWidget()
+    widget = SectionDataWidget(db, parent=parent)
     assert widget._tabs_ready
     widget.current_well_id = well_id
     widget.current_section_id = section_a_id
@@ -87,6 +91,9 @@ _CHILD = textwrap.dedent(
     assert widget.casing_tally_tab.tally_table.rowCount() == 0
     assert widget.casing_tally_tab.summary_text.toPlainText() == ""
     assert widget.bit_tab.bit_table.rowCount() == 0
+    widget.close()
+    parent.close()
+    app.processEvents()
     print("W3C_SECTION_SCOPE_OK")
     """
 )

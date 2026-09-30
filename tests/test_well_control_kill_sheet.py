@@ -181,7 +181,7 @@ CASES = [
             {"type": "DP", "od": 3.5, "id": 2.764, "length": 1500.0},
         ],
     ),
-    # (4) empty pipe list -> zero volumes / no schedule
+    # (4) empty pipe list -> pipe-dependent volumes/strokes are unknown
     dict(
         tvd_m=2500, md_m=2500, shoe_tvd_m=2000, hole_size_in=8.5,
         casing_id_in=8.681, casing_od_in=9.625, mw_pcf=95.0,
@@ -205,12 +205,28 @@ def test_matches_original_handler_math(raw):
     assert res.icp_psi == pytest.approx(oracle["icp"], abs=0, rel=0)
     assert res.fcp_psi == pytest.approx(oracle["fcp"], abs=0, rel=0)
     assert res.maasp_psi == pytest.approx(oracle["maasp"], abs=0, rel=0)
-    assert res.total_string_vol_bbl == pytest.approx(oracle["total_string_vol"], abs=0, rel=0)
-    assert res.total_ann_vol_bbl == pytest.approx(oracle["total_ann_vol"], abs=0, rel=0)
-    assert res.stk_to_bit == pytest.approx(oracle["stk_to_bit"], abs=0, rel=0)
-    assert res.stk_annular == pytest.approx(oracle["stk_annular"], abs=0, rel=0)
-    assert res.kick_height_ft == pytest.approx(oracle["kick_height"], abs=0, rel=0)
-    assert res.choke_schedule == oracle["schedule"]
+    if raw["pipes_m"]:
+        # Preserve the M36 arithmetic exactly for complete pipe geometry.
+        assert res.total_string_vol_bbl == pytest.approx(oracle["total_string_vol"], abs=0, rel=0)
+        assert res.total_ann_vol_bbl == pytest.approx(oracle["total_ann_vol"], abs=0, rel=0)
+        assert res.stk_to_bit == pytest.approx(oracle["stk_to_bit"], abs=0, rel=0)
+        assert res.stk_annular == pytest.approx(oracle["stk_annular"], abs=0, rel=0)
+        assert res.kick_height_ft == pytest.approx(oracle["kick_height"], abs=0, rel=0)
+        assert res.choke_schedule == oracle["schedule"]
+        assert res.scope == "COMPLETE"
+    else:
+        # The historical numeric oracle's empty loops returned zeros; zeros are
+        # not a measurement of missing pipe-dependent volumes or strokes.
+        assert res.total_string_vol_bbl is None
+        assert res.total_ann_vol_bbl is None
+        assert res.total_well_vol_bbl is None
+        assert res.stk_to_bit is None
+        assert res.stk_annular is None
+        assert res.stk_total is None
+        assert res.kick_height_ft == pytest.approx(oracle["kick_height"])
+        assert res.choke_schedule == []
+        assert res.scope == "SCREENING"
+        assert res.geometry_assumption_used
 
 
 def test_legacy_missing_pipe_geometry_kick_height_is_explicitly_labelled():
@@ -231,7 +247,9 @@ def test_legacy_missing_pipe_geometry_kick_height_is_explicitly_labelled():
     )
     assert no_kick_result.success
     assert no_kick_result.kick_note == ""
-    assert not no_kick_result.warnings
+    assert not no_kick_result.geometry_assumption_used
+    assert not any("assumed 5-in" in warning for warning in no_kick_result.warnings)
+    assert any("geometry is missing" in warning for warning in no_kick_result.warnings)
 
 
 def test_unit_conversion_single_owner():
@@ -302,10 +320,78 @@ def test_missing_frac_gradient_fails_at_maasp():
     assert "ENGINE_FAILED" in res.error
 
 
-def test_empty_string_has_no_schedule_and_zero_volumes():
+def test_empty_string_has_unknown_pipe_volumes_and_strokes_not_measured_zeros():
     inp = build_canonical_kill_sheet_inputs(**_raw_to_kwargs(CASES[3]))
     res = compute_kill_sheet(inp)
     assert res.success
-    assert res.total_string_vol_bbl == 0
-    assert res.total_ann_vol_bbl == 0
+    assert res.total_string_vol_bbl is None
+    assert res.total_ann_vol_bbl is None
+    assert res.total_well_vol_bbl is None
+    assert res.stk_to_bit is None
+    assert res.stk_annular is None
+    assert res.stk_total is None
+    assert res.kick_height_ft is not None  # screening estimate is separate
+    assert res.geometry_assumption_used is True
+    assert res.scope == "SCREENING"
     assert res.choke_schedule == []
+    assert any("not assessed" in warning for warning in res.warnings)
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["sidpp_psi", "sicp_psi", "pit_gain_bbl", "scr1_psi", "pump_output_bbl_stk"],
+)
+def test_negative_operational_inputs_fail_instead_of_producing_a_success(field):
+    raw = {**CASES[0], field: -1.0}
+    result = compute_kill_sheet(
+        build_canonical_kill_sheet_inputs(**_raw_to_kwargs(raw))
+    )
+    assert not result.success
+    assert "INPUT_INVALID" in result.error
+    assert field in result.error
+
+
+def test_zero_pump_output_keeps_known_volumes_but_not_zero_strokes():
+    raw = {**CASES[0], "pump_output_bbl_stk": 0.0}
+    res = compute_kill_sheet(
+        build_canonical_kill_sheet_inputs(**_raw_to_kwargs(raw))
+    )
+    assert res.success
+    assert res.total_string_vol_bbl > 0
+    assert res.total_ann_vol_bbl > 0
+    assert res.stk_to_bit is None
+    assert res.stk_annular is None
+    assert res.stk_total is None
+    assert res.choke_schedule == []
+    assert res.scope == "PARTIAL"
+    assert any("Pump output must be positive" in warning for warning in res.warnings)
+
+
+def test_invalid_pipe_geometry_fails_instead_of_becoming_zero_volume():
+    raw = {**CASES[0], "pipes_m": [{"type": "DP", "od": 0, "id": 0, "length": 0}]}
+    inp = build_canonical_kill_sheet_inputs(**_raw_to_kwargs(raw))
+    assert inp.invalid_inputs
+    res = compute_kill_sheet(inp)
+    assert not res.success
+    assert "invalid kill-sheet inputs" in res.error
+
+
+def test_failed_kick_engine_result_does_not_become_zero_height(monkeypatch):
+    from types import SimpleNamespace
+    from core.engineering.engines import well_control as well_control_module
+
+    monkeypatch.setattr(
+        well_control_module.WellControlEngine,
+        "kick_volume",
+        lambda **kwargs: SimpleNamespace(
+            success=False, error="injected failure", values={}, warnings=[]
+        ),
+    )
+    res = compute_kill_sheet(
+        build_canonical_kill_sheet_inputs(**_raw_to_kwargs(CASES[0]))
+    )
+    assert res.success
+    assert res.kick_height_ft is None
+    assert res.kick_type == "NOT ASSESSED"
+    assert res.scope == "PARTIAL"
+    assert any("injected failure" in warning for warning in res.warnings)

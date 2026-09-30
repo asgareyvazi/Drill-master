@@ -191,6 +191,7 @@
     "compileall": "release compile target set passed locally.",
     "local_verify_release": {
       "command": "QT_QPA_PLATFORM=offscreen DRILLMASTER_AI_IMPORT=0 .venv/bin/python verify_release.py --expected-sha 231ce928379cbe7f33028a8d72bb469d1776ab4d",
+      "verified_head_interpretation": "The historical local verification targeted 231ce928379cbe7f33028a8d72bb469d1776ab4d. The recorded result says verify_repository's exact clean HEAD/branch/diff checks passed before pytest collection; verify_release.py checks the full expected SHA before those checks, so this record identifies the local attempt as 231ce, not 9a788. Raw terminal stdout is not retained. This is a historical source-gate attempt only; it does not establish local verification on the later evidence-only 9a788bef63f9af3c22ef1a6eda403931b0c8757e head.",
       "result": "BLOCKED_BY_SANDBOX_OS_LIBRARY",
       "passed_before_block": [
         "exact clean HEAD/branch and diff checks",

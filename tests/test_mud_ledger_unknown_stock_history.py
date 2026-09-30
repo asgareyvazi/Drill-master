@@ -17,9 +17,10 @@ state that the sibling method already handles on purpose.
 
 The fix keeps the unknown unknown: the ``stock_trend`` series stays aligned
 with ``dates`` (one sample per reported day) and carries ``None`` where the
-closing is unknown, ``closing_stock``/``days_remaining`` are ``None`` rather
+closing is unknown. ``closing_stock``/``days_remaining`` remain ``None`` rather
 than a fabricated 0.0 ("stock exhausted today"), while an *explicit* zero stock
-stays a real ``0.0`` fact.
+stays a real ``0.0`` fact. Zero observed use is separately represented as
+``NO_DEPLETION_RATE_OBSERVED`` with no days-remaining forecast.
 
 Every test uses the real production code (``MudChemicalLedger``,
 ``AIToolRegistry.call_tool``) against an isolated in-memory database.
@@ -115,6 +116,11 @@ def test_history_keeps_unknown_stock_unknown(env):
     assert entry["closing_stock"] == 30.0
     assert entry["consumption_rate"] == 7.5
     assert entry["days_remaining"] == 4.0
+    assert entry["days_remaining_status"] == "CALCULATED"
+    assert entry["runway_scope"] == "whole_well_ledger_history"
+    assert entry["consumption_observations"] == 2
+    assert entry["consumption_window_start"] == "2024-10-01"
+    assert entry["consumption_window_end"] == "2024-10-02"
 
 
 def test_history_unknown_last_stock_has_no_runway(env):
@@ -128,6 +134,7 @@ def test_history_unknown_last_stock_has_no_runway(env):
     assert entry["stock_trend"] == [None, None]
     assert entry["closing_stock"] is None
     assert entry["days_remaining"] is None          # unknown, never 0.0
+    assert entry["days_remaining_status"] == "UNKNOWN_STOCK"
     assert entry["received_vs_used"] == {"total_received": 0.0, "total_used": 10.0}
 
 
@@ -143,9 +150,10 @@ def test_history_explicit_zero_stays_a_fact(env):
     # from the previous closing (0.0) - an explicit zero, not an unknown.
     assert entry["stock_trend"] == [0.0, 0.0]
     assert entry["closing_stock"] == 0.0
-    # No consumption at all: the pre-existing "no consumption -> 0" rule stands
-    # (changing it would be a separate product decision, not this fix).
+    # Positive recorded usage with explicit zero closing stock truthfully gives
+    # zero days remaining. It is distinct from zero observed usage.
     assert entry["days_remaining"] == 0
+    assert entry["days_remaining_status"] == "CALCULATED"
 
 
 def test_ai_tool_check_mud_ledger_reports_entries_and_alerts(env):
@@ -162,8 +170,24 @@ def test_ai_tool_check_mud_ledger_reports_entries_and_alerts(env):
     # stored opening (10) and a real over-consumption (40) -> -30.0, which is
     # a declared fact and must stay visible (never smoothed to None/0).
     assert result["history"]["Barite"]["stock_trend"] == [None, -30.0]
+    assert result["history"]["Barite"]["days_remaining_status"] == "INVALID_STOCK"
     # The known row still raises its designed alert; the unknown row does not.
     assert "Unusual Consumption" in [a["type"] for a in result["alerts"]]
+
+
+def test_zero_usage_runway_is_null_and_explicit_through_ai_consumer(env):
+    manager, well_id = env
+    _add_row(manager, well_id, date(2024, 10, 1), 40.0, 0.0, 0.0)
+    _add_row(manager, well_id, date(2024, 10, 2), 40.0, 0.0, 0.0)
+
+    result = AIToolRegistry(manager).call_tool("check_mud_ledger", well_id=well_id)
+    history = result["history"]["Barite"]
+    assert result["success"] is True
+    assert history["closing_stock"] == 40.0
+    assert history["consumption_rate"] == 0.0
+    assert history["days_remaining"] is None
+    assert history["days_remaining_status"] == "NO_DEPLETION_RATE_OBSERVED"
+    assert history["consumption_rate_status"] == "KNOWN_ZERO"
 
 
 def test_check_continuity_ignores_unknown_stock(env):

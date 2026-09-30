@@ -654,20 +654,58 @@ class MudLedgerEngine:
                 continue
             history.setdefault(product, []).append(row)
 
+        from core.mud_runway_semantics import assess_mud_runway
+
         result = {}
         for product, rows in history.items():
             rows_sorted = sorted(rows, key=lambda x: x.get("date", ""))
-            usages = [float(r.get("used", 0) or 0) for r in rows_sorted]
-            stocks = [float(r.get("closing", r.get("current_stock", 0)) or 0) for r in rows_sorted]
-            avg_consumption = sum(usages) / len(usages) if usages else 0
-            last_stock = stocks[-1] if stocks else 0
-            days_remaining = last_stock / avg_consumption if avg_consumption > 0 else 0
+            usages = []
+            for row in rows_sorted:
+                raw_used = row.get("used", 0)
+                if raw_used is None:
+                    raw_used = 0  # established daily-movement convention
+                try:
+                    usages.append(float(raw_used))
+                except (TypeError, ValueError, OverflowError):
+                    usages.append(float("nan"))
 
+            raw_stocks = [
+                row["closing"] if "closing" in row else row.get("current_stock")
+                for row in rows_sorted
+            ]
+            stocks = []
+            for stock in raw_stocks:
+                try:
+                    number = float(stock) if stock is not None else None
+                except (TypeError, ValueError, OverflowError):
+                    number = None
+                stocks.append(number if number is not None and math.isfinite(number) else None)
+
+            avg_consumption = sum(usages) / len(usages) if usages else None
+            last_stock = raw_stocks[-1] if raw_stocks else None
+            runway = assess_mud_runway(
+                last_stock, avg_consumption, rate_observed=bool(usages)
+            )
+            dates = [row.get("date") for row in rows_sorted]
             result[product] = {
                 "daily_usage": usages,
                 "stock_trend": stocks,
-                "consumption_rate": round(avg_consumption, 2),
-                "days_remaining": round(days_remaining, 2),
+                "runway_scope": "input_rows_history",
+                "consumption_observations": len(usages),
+                "consumption_window_start": dates[0] if dates else None,
+                "consumption_window_end": dates[-1] if dates else None,
+                "consumption_rate": (
+                    round(avg_consumption, 2)
+                    if avg_consumption is not None and math.isfinite(avg_consumption)
+                    else None
+                ),
+                **{
+                    **runway,
+                    "days_remaining": (
+                        round(runway["days_remaining"], 2)
+                        if runway["days_remaining"] is not None else None
+                    ),
+                },
                 "received_vs_used": {
                     "total_received": sum(float(r.get("received", 0) or 0) for r in rows_sorted),
                     "total_used": sum(usages),

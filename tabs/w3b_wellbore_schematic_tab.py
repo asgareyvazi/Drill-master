@@ -16,7 +16,7 @@ from core.base_tab import DrillTabBase
 from core.wellbore_schematic_engine import (
     WellboreSchematic, WellboreSchematicRenderer, SchematicConfig,
     SchematicAutoBuilder, CasingData, FormationLayer, CompletionItem,
-    ElementType, SchematicColors,
+    ElementType, SchematicColors, completion_od_status,
 )
 
 logger = logging.getLogger(__name__)
@@ -978,6 +978,15 @@ class WellboreSchematicTab(DrillTabBase):
                         {
                             "type": i.element_type.value,
                             "depth": i.depth_m,
+                            "od_inch": (
+                                i.od_inch
+                                if completion_od_status(
+                                    i.od_inch, i.od_source_status
+                                ) == "RECORDED" else None
+                            ),
+                            "od_status": completion_od_status(
+                                i.od_inch, i.od_source_status
+                            ),
                             "length": i.length_m,
                         }
                         for i in self.schematic.completion
@@ -1105,7 +1114,7 @@ class CompletionItemDialog(QDialog):
         self._item = CompletionItem(
             element_type=self.etype,
             depth_m=self.depth_spin.value(),
-            od_inch=self.od_spin.value(),
+            od_inch=(self.od_spin.value() if self.od_spin.value() > 0 else None),
             length_m=self.length_spin.value(),
             label=self.label_edit.text(),
         )

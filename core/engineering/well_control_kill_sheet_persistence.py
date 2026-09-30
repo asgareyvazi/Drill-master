@@ -49,13 +49,13 @@ from core.engineering.well_control_kill_sheet import (
     compute_kill_sheet,
 )
 
-# Bump ONLY when the snapshot's meaning changes in a way affecting
-# reconstruction. v1 = frozen canonical WellControlKillSheetInputs.as_dict().
-SNAPSHOT_SCHEMA_VERSION = 1
+# v1 froze canonical inputs. v2 retains operator-visible calculation scope,
+# screening assumptions, and warnings alongside the unchanged input snapshot.
+SNAPSHOT_SCHEMA_VERSION = 2
 
 
 def build_snapshot(
-    *, inputs: WellControlKillSheetInputs, method: str
+    *, inputs: WellControlKillSheetInputs, method: str, result: Any = None
 ) -> Dict[str, Any]:
     """Build the deterministic historical snapshot for one kill-sheet run.
 
@@ -65,14 +65,27 @@ def build_snapshot(
     echo of raw UI units from the reproducible payload's identity role — it is
     presentation-only — but keep it under a separate ``display`` key so history
     can render the operator's original numbers without it ever feeding a formula.
+    When a result is supplied, its scope, assumption flags/text, and warnings are
+    frozen as provenance; they do not alter the canonical input reconstruction.
     """
     payload = inputs.as_dict()
     display = payload.pop("display", {})
+    provenance = None
+    if result is not None:
+        provenance = {
+            "scope": getattr(result, "scope", "NOT_ASSESSED"),
+            "geometry_assumption_used": bool(
+                getattr(result, "geometry_assumption_used", False)
+            ),
+            "assumptions": list(getattr(result, "assumptions", ()) or ()),
+            "warnings": list(getattr(result, "warnings", ()) or ()),
+        }
     return {
         "schema_version": SNAPSHOT_SCHEMA_VERSION,
         "method": method,
         "canonical_inputs": payload,
         "display": display,
+        "provenance": provenance,
     }
 
 

@@ -1,0 +1,150 @@
+{
+  "schema": "m36-p6-remediation-w15",
+  "as_of": "2026-09-30",
+  "branch": "arena/01a0ec23-drill-master",
+  "reconciled_base_head": "9a788bef63f9af3c22ef1a6eda403931b0c8757e",
+  "scope": {
+    "target_findings": [
+      "NEW-P6-007",
+      "NEW-P6-008",
+      "NEW-P6-015",
+      "NEW-P6-020",
+      "NEW-P6-023",
+      "NEW-P6-024"
+    ],
+    "inventory_repeated": false,
+    "m36_kill_sheet_formula_arithmetic_changed": false,
+    "runway_formula": "unchanged; W15 changes the zero/no-positive-rate result from fabricated 0.0 days to null plus explicit status",
+    "p6_adjudication_is_not_domain_policy_resolution": true
+  },
+  "findings": [
+    {
+      "id": "NEW-P6-007",
+      "status": "TECHNICALLY_BOUNDED_OWNER_POLICY_OPEN",
+      "technical_disposition": "Missing required inputs, malformed/nonfinite raw values, invalid pipe records, selected negative operational inputs, and failed engine results do not become fabricated numeric zero; the calculation fails or marks the affected result NOT ASSESSED. Zero pump output retains known volumes but gives null strokes and PARTIAL scope. With no drill-string geometry, string/annular volumes and pipe-dependent strokes are null and explicitly NOT ASSESSED. The historical 5-in OD assumption is limited to kick-height screening, labeled in result text, warnings, assumptions, saved provenance, and history. Partial/screening output remains distinguishable from COMPLETE.",
+      "owner_decision_open": "Whether the legacy 5-in kick-height screening estimate should remain available or be refused without recorded geometry is still a well-control/domain-owner decision; no operational acceptance is inferred.",
+      "consumer_review": {
+        "w13": "The synchronous UI clears its last result before recomputation, replaces failed output, and permits persistence only for successful results; incomplete geometry is visible as screening, not zero volume/strokes.",
+        "persistence": "Snapshot schema v2 retains scope, assumption flag/text, and warnings; historical v1 records remain readable and disclose provenance as not recorded.",
+        "reports_and_ai": "No in-repository W13 kill-sheet report/export or AI consumer was found; the W13 calculation/history UI is the current consumer. No worker-based calculation path was found."
+      },
+      "regressions": [
+        "tests/test_well_control_kill_sheet.py",
+        "tests/test_well_control_kill_sheet_persistence.py",
+        "tests/test_well_control_kill_sheet_save_widget_smoke.py"
+      ]
+    },
+    {
+      "id": "NEW-P6-008",
+      "status": "CONSERVATIVE_NULL_RUNWAY_IMPLEMENTED_OWNER_POLICY_OPEN",
+      "technical_disposition": "Mud-ledger runway is null with an explicit status when stock is unknown/invalid, the rate is invalid/unknown, or no positive mean-use rate was observed. The helper distinguishes an empty history, although current grouped consumers only emit materials that have history rows. Known zero use is reported as KNOWN_ZERO and NO_DEPLETION_RATE_OBSERVED, not zero days or an infinite forecast. A known zero stock with positive observed use remains a calculated 0-day runway. The aggregate states its history scope and date window.",
+      "cross_domain_evidence_boundary": "W7 Fuel/Water's documented no-positive-burn => unknown runway rule is corroborating evidence only. It was not copied as authority for a mud-chemical policy. The technical mitigation avoids a fabricated stockout/indefinite forecast; whether mud-specific owners require another interpretation remains open.",
+      "consumer_review": {
+        "ai": "AIToolRegistry.check_mud_ledger returns the same status-bearing whole-ledger history; a user-visible descriptor states null/status behavior.",
+        "legacy_engine": "MudLedgerEngine.build_history uses the same nullable helper and labels the input-row history scope separately.",
+        "persistence": "Existing ledger records remain the source; no schema migration or invented balance formula was added."
+      },
+      "regressions": [
+        "tests/test_mud_runway_semantics.py",
+        "tests/test_mud_ledger_unknown_stock_history.py",
+        "tests/test_fuel_water_truth.py"
+      ]
+    },
+    {
+      "id": "NEW-P6-015",
+      "status": "UNKNOWN_INVALID_PRESENTATION_AND_PERSISTENCE_HARDENED_OWNER_PRESENTATION_DECISION_OPEN",
+      "technical_disposition": "Completion OD missing, explicitly nonpositive, nonfinite, or unparseable no longer fabricates scaled geometry. A depth-positioned fixed-size symbol is annotated as OD not recorded or OD invalid/unusable and symbol not to scale. Manual empty OD is stored as None. The saved schematic JSON preserves OD status separately from numeric OD and the public database getter returns that persisted distinction.",
+      "consumer_review": {
+        "w3b": "The schematic builder reads source DownholeEquipment data; the persisted schematic JSON is available through get_wellbore_schematic but no UI rehydration caller was found.",
+        "exports": "The renderer is the affected visual consumer; no separate completion-OD AI or report/export consumer was found in-repository.",
+        "matplotlib": "Completion rendering uses the Qt painter, not Matplotlib. W13's separate ECD chart now has a QWidget Agg fallback and replaces stale/empty output with a status label."
+      },
+      "owner_decision_open": "Whether unknown/invalid OD markers should be shown or omitted remains a presentation policy decision.",
+      "regressions": [
+        "tests/test_completion_od_unknown_geometry.py",
+        "tests/test_completion_od_persistence.py",
+        "tests/test_w13_ecd_chart_fallback.py",
+        "tests/test_matplotlib_fallback_widget.py"
+      ]
+    },
+    {
+      "id": "NEW-P6-020",
+      "status": "EXISTING_MOVEMENT_TRUTH_PRESERVED_OWNER_BALANCE_POLICY_OPEN",
+      "technical_disposition": "The cement form and report JSON preserve SQL NULL versus explicit numeric zero for movement and inventory fields. A derived movement is only available when its source movement fields are known, does not overwrite imported on_hand inventory, and is not mislabeled as a closing-stock balance. Section/well switching remains isolated by the W3c consumer tests.",
+      "owner_decision_open": "The correct opening/closing balance equation, treatment of backload, and participation of historical imported on_hand values remain undefined by the current domain evidence; no balance formula was invented.",
+      "regressions": [
+        "tests/test_cement_report_null_roundtrip.py",
+        "tests/test_w3c_well_switch_scope_smoke.py"
+      ]
+    },
+    {
+      "id": "NEW-P6-023",
+      "status": "OWNER_CONTRACT_DECISION_OPEN_UNCHANGED",
+      "technical_disposition": "SafetyValidator has no in-repository caller; its last_rams_test branch remains a no-op. The active W8 SafetyWidget independently has configurable interval behavior and an explicit NOT ASSESSED response for missing required test dates. No new validator interval, wiring, or external authority was invented.",
+      "owner_decision_open": "Whether the standalone validator should own an interval rule and how it should be wired requires an explicit owner contract.",
+      "regressions": []
+    },
+    {
+      "id": "NEW-P6-024",
+      "status": "TECHNICAL_FAILURE_VS_EMPTY_DISTINGUISHED_OWNER_REPORT_POLICY_OPEN",
+      "technical_disposition": "EOWR's whole-well CostRecord query distinguishes successful empty results (available/no-records) from query failure (None/query-failed); failed cost aggregation is null, and the HTML report and Excel Summary state that costs are unavailable rather than zero. A Cost worksheet with no records is accompanied by the explicit Summary status. No AI consumer of EOWR data was found; Operations Intelligence is a separate cost consumer.",
+      "consumer_review": {
+        "pdf": "EOWR PDF generation uses the same cost-labeled HTML body; the PDF-rendering pathway was not exercised in this focused test.",
+        "ai": "No EOWR-to-AI consumer was found; Operations Intelligence separately queries cost records."
+      },
+      "owner_decision_open": "Whether a cost-query failure should fail the entire EOWR rather than produce a report with explicit unavailable cost status is an owner/consumer contract decision.",
+      "fault_injection": "The regression injects an exception only for the EOWR CostRecord query and asserts collected data, HTML, and exported Excel Summary semantics.",
+      "regressions": [
+        "tests/test_eowr_cost_query_status.py",
+        "tests/test_cost_truth_boundary.py"
+      ]
+    }
+  ],
+  "validation": {
+    "source_checks": {
+      "requirements_lock": "PASS",
+      "pip_check": "PASS",
+      "ruff_version": "0.16.6",
+      "ruff_e722_f821": "PASS",
+      "ruff_lint_debt": 5338,
+      "ruff_debt_ceiling": 5375,
+      "ruff_clean": false,
+      "compileall": "PASS"
+    },
+    "focused_and_integration": {
+      "command_scope": "kill-sheet core/persistence/UI smoke, mud-ledger and W7 runway truth, completion OD render/persistence, cement NULL round-trip, W3c scope, EOWR cost failure/empty, cost truth, Matplotlib fallback, and W13 integration",
+      "passed": 120,
+      "skipped": 7,
+      "failed": 0,
+      "skip_reason": "Local Qt runtime imports are blocked by missing system libGL.so.1; the skipped cases require real Qt. Exact-HEAD CI with real Qt is required for those assertions."
+    },
+    "full_suite": {
+      "outcome": "BLOCKED_DURING_COLLECTION",
+      "collection_errors": 18,
+      "cause": "PySide6-dependent modules cannot import because libGL.so.1 is absent in the local OS image. No full-suite PASS is claimed."
+    },
+    "local_environment": {
+      "release_dependency_lock_installed": true,
+      "qt_runtime_blocker": "libGL.so.1 missing",
+      "system_package_repair": "apt repositories were unreachable; libgl1 could not be installed",
+      "production_acceptance": false
+    },
+    "external_acceptance": {
+      "real_ddr_xlsx_pdf": "NOT_RUN",
+      "real_mineru": "NOT_RUN",
+      "windows_bundle": "NOT_RUN",
+      "production_database": "NOT_RUN"
+    }
+  },
+  "historical_release_context": {
+    "w14_local_attempt_sha": "231ce928379cbe7f33028a8d72bb469d1776ab4d",
+    "w14_local_raw_terminal_transcript_retained": false,
+    "w14_local_attempt_scope": "Historical source gate passed exact identity/dependency/resource/lint/compile checks and blocked during pytest collection on missing libGL.so.1; it is not evidence for local verification on 9a788 or this W15 source.",
+    "ci_9a788_run_id": 36574417007,
+    "ci_9a788_matrix": ["3.11", "3.12", "3.13"],
+    "ci_9a788_real_qt": true,
+    "ci_9a788_is_w15_verification": false,
+    "production_acceptance": false
+  },
+  "evidence_boundary": "This record is targeted W15 evidence, not a progress report, exhaustive inventory, release certification, or production acceptance. Final-SHA source gate, wheel/package smoke, and exact-final-SHA CI must be assessed separately after the final commit."
+}

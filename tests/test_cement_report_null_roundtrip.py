@@ -25,12 +25,13 @@ def test_untouched_null_restores_source_but_explicit_zero_remains_value():
 
 def test_unchanged_cement_nulls_round_trip_and_explicit_zero_is_saved():
     try:
-        from PySide6.QtWidgets import QApplication
+        from PySide6.QtWidgets import QApplication, QWidget
     except ImportError as exc:  # pragma: no cover - depends on host Qt libraries
         pytest.skip(f"Qt runtime unavailable: {exc}")
 
     app = QApplication.instance() or QApplication([])
     db = _mgr()
+    host_widget = QWidget()
     section_widget = None
     try:
         project_id = _base(db)
@@ -57,7 +58,7 @@ def test_unchanged_cement_nulls_round_trip_and_explicit_zero_is_saved():
         # application; the tabs' constructors receive QWidget parents here.
         from tabs.w3c_section_data import SectionDataWidget
 
-        section_widget = SectionDataWidget(db)
+        section_widget = SectionDataWidget(db, parent=host_widget)
         section_widget.on_well_changed(well_id, {})
         section_widget.on_section_changed(section_id, {})
         tab = section_widget.cement_tab
@@ -104,6 +105,53 @@ def test_unchanged_cement_nulls_round_trip_and_explicit_zero_is_saved():
         assert material["net_movement"] == 7
         assert material["backload"] == 2
 
+        # NULL movement inputs and inventory stay unknown through the actual
+        # widget -> report JSON -> widget round trip; they do not become zero.
+        tab.add_material_row(
+            material="Unknown additive", received=None, consumed=4,
+            backload=None, inventory=None, unit="kg",
+        )
+        unknown_row = 1
+        assert tab.materials_table.cellWidget(unknown_row, 6).text() == ""
+        assert tab.materials_table.cellWidget(unknown_row, 6).property(
+            "net_movement_value"
+        ) is None
+        assert tab.save_data()
+        saved_materials = db.get_cement_report(section_id=section_id)["materials_json"]
+        materials = json.loads(saved_materials)
+        assert materials[unknown_row]["received"] is None
+        assert materials[unknown_row]["consumed"] == 4
+        assert materials[unknown_row]["inventory"] is None
+        assert materials[unknown_row]["net_movement"] is None
+        assert materials[unknown_row]["backload"] is None
+
+        # Explicit numeric zero is still a recorded zero, distinct from NULL.
+        tab.add_material_row(
+            material="Zero movement", received=0, consumed=0,
+            backload=0, inventory=0, unit="kg",
+        )
+        zero_row = 2
+        assert tab.materials_table.cellWidget(zero_row, 6).text() == "0"
+        assert tab.materials_table.cellWidget(zero_row, 6).property(
+            "net_movement_value"
+        ) == 0
+        assert tab.save_data()
+        saved_materials = db.get_cement_report(section_id=section_id)["materials_json"]
+        materials = json.loads(saved_materials)
+        assert materials[zero_row]["received"] == 0
+        assert materials[zero_row]["consumed"] == 0
+        assert materials[zero_row]["inventory"] == 0
+        assert materials[zero_row]["net_movement"] == 0
+
+        # Reload from the persisted production record and retain the NULL/zero
+        # boundary; no synthetic parent or fake DB report is involved.
+        tab.load_data()
+        assert tab.materials_table.cellWidget(unknown_row, 6).text() == ""
+        assert tab.materials_table.cellWidget(unknown_row, 6).property(
+            "net_movement_value"
+        ) is None
+        assert tab.materials_table.cellWidget(zero_row, 6).text() == "0"
+
         db.save_casing_report({
             "well_id": well_id,
             "section_id": section_id,
@@ -145,5 +193,7 @@ def test_unchanged_cement_nulls_round_trip_and_explicit_zero_is_saved():
         if section_widget is not None:
             section_widget.close()
             section_widget.deleteLater()
+        host_widget.close()
+        host_widget.deleteLater()
         db.close()
         app.processEvents()

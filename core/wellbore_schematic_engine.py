@@ -100,10 +100,42 @@ class CompletionItem:
     """یک المنت Completion."""
     element_type: ElementType
     depth_m: float
-    od_inch: float = 0.0
+    # Missing geometry is None; explicit nonpositive/non-finite source values
+    # remain distinguishable from absent source data via od_source_status.
+    od_inch: Optional[float] = None
     length_m: float = 1.0
     label: str = ""
     color: str = ""
+    od_source_status: str = ""
+
+
+def completion_od_status(value, source_status="") -> str:
+    """Classify persisted completion OD without conflating unknown and zero."""
+    if source_status == "INVALID_SOURCE":
+        return "INVALID"
+    if value is None:
+        return "NOT_RECORDED"
+    try:
+        number = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return "INVALID"
+    return "RECORDED" if math.isfinite(number) and number > 0 else "INVALID"
+
+
+def completion_od_annotation(item: CompletionItem) -> str:
+    """User-visible non-scale annotation for an unrecorded completion OD."""
+    status = completion_od_status(item.od_inch, item.od_source_status)
+    od_note = "OD not recorded" if status == "NOT_RECORDED" else "OD invalid/unusable"
+    label = item.label or {
+        ElementType.PACKER: "Packer",
+        ElementType.PERFORATIONS: "Perforations",
+        ElementType.BRIDGE_PLUG: "Bridge Plug",
+        ElementType.SAND_SCREEN: "Sand Screen",
+    }.get(item.element_type, "Completion")
+    return (
+        f"{label} @ {item.depth_m:.0f}m — {od_note}; "
+        "symbol not to scale"
+    )
 
 
 @dataclass
@@ -792,7 +824,7 @@ class WellboreSchematicRenderer:
     def _has_recorded_od(value):
         try:
             return math.isfinite(float(value)) and float(value) > 0
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, OverflowError):
             return False
 
     def _draw_unknown_od_marker(self, painter: QPainter, item: CompletionItem):
@@ -806,21 +838,13 @@ class WellboreSchematicRenderer:
         painter.drawEllipse(QRectF(cx - 5, y - 5, 10, 10))
         painter.drawLine(int(cx - 3), int(y), int(cx + 3), int(y))
 
-        labels = {
-            ElementType.PACKER: "Packer",
-            ElementType.PERFORATIONS: "Perforations",
-            ElementType.BRIDGE_PLUG: "Bridge Plug",
-            ElementType.SAND_SCREEN: "Sand Screen",
-        }
         font = QFont(self.config.font_family, self.config.font_size - 1)
         painter.setFont(font)
         painter.setPen(color)
-        label = item.label or labels.get(item.element_type, "Completion")
         # Provenance warning is mandatory even when general diagram labels are
         # disabled; otherwise the small glyph could be mistaken for scaled OD.
         painter.drawText(
-            int(cx + 12), int(y + 4),
-            f"{label} @ {item.depth_m:.0f}m — OD not recorded; symbol not to scale",
+            int(cx + 12), int(y + 4), completion_od_annotation(item)
         )
 
     def _draw_packer(self, painter: QPainter, item: CompletionItem):
@@ -1521,7 +1545,7 @@ def _to_float(value):
         return None
     try:
         number = float(value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return None
     return number if math.isfinite(number) else None
 
@@ -1931,7 +1955,12 @@ class SchematicAutoBuilder:
                                 continue
                             # Geometry/metadata: only what the source
                             # reports — no 4.5"/2.0m/"Tubing" defaults.
-                            od = _to_float(it.get("od_inch"))
+                            raw_od = it.get("od_inch")
+                            od = _to_float(raw_od)
+                            od_source_status = (
+                                "INVALID_SOURCE"
+                                if raw_od is not None and od is None else ""
+                            )
                             length = _to_float(it.get("length_m"))
                             label = str(
                                 it.get("name") or it.get("type") or ""
@@ -1941,10 +1970,11 @@ class SchematicAutoBuilder:
                                 CompletionItem(
                                     element_type=elem_type,
                                     depth_m=depth,
-                                    od_inch=od if od is not None else 0.0,
+                                    od_inch=od,
                                     length_m=length if length is not None else 0.0,
                                     label=label,
-                                    color=str(it.get("color") or "")
+                                    color=str(it.get("color") or ""),
+                                    od_source_status=od_source_status
                                 )
                             )
 

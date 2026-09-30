@@ -93,9 +93,9 @@ class AIToolRegistry:
                 "engine": "UnitManager",
             },
             "check_mud_ledger": {
-                "description": "Check mud chemical ledger: Opening, Received, Used, Returned, Adjusted, Closing",
+                "description": "Check the selected well's mud chemical ledger and whole-ledger-history runway: Opening, Received, Used, Returned, Adjusted, Closing; runway is unknown unless known closing stock and a positive observed mean-usage rate support it",
                 "required_inputs": ["well_id"],
-                "formula": "Closing = Opening + Received + Adjusted - Used - Returned, Opening(day+1)=Closing(day)",
+                "formula": "Closing = Opening + Received + Adjusted - Used - Returned, Opening(day+1)=Closing(day); zero observed usage returns days_remaining=null with NO_DEPLETION_RATE_OBSERVED, not zero days or an infinite forecast",
                 "alerts": "Negative Stock, Low Stock, Unusual Consumption, No Movement, Duplicate Material, Unit Mismatch",
                 "engine": "MudChemicalLedger",
             },

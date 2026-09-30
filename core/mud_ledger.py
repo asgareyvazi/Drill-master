@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import List, Dict, Optional
 from datetime import date
 import logging
+import math
 
 logger = logging.getLogger(__name__)
 
@@ -217,26 +218,34 @@ class MudChemicalLedger:
             received = [float(m.received or 0) for m in mats_sorted]
             dates = [m.date.isoformat() if hasattr(m.date, "isoformat") else str(m.date) for m in mats_sorted]
 
-            avg_consumption = sum(usages) / len(usages) if usages else 0
-            last_stock = stocks[-1] if stocks else 0
-            # Unknown last stock -> unknown runway. Reporting 0.0 here would
-            # read as "stock exhausted today", which is exactly the fabricated
-            # judgment the trichotomy forbids.
-            if last_stock is None:
-                days_remaining = None
-            elif avg_consumption > 0:
-                days_remaining = last_stock / avg_consumption
-            else:
-                days_remaining = 0
+            avg_consumption = sum(usages) / len(usages) if usages else None
+            last_stock = stocks[-1] if stocks else None
+            from core.mud_runway_semantics import assess_mud_runway
+            runway = assess_mud_runway(
+                last_stock, avg_consumption, rate_observed=bool(usages)
+            )
 
             result[material] = {
                 "dates": dates,
                 "daily_usage_chart": usages,
                 "stock_trend": stocks,
                 "received_trend": received,
-                "consumption_rate": round(avg_consumption, 2),
-                "days_remaining": (round(days_remaining, 2)
-                                   if days_remaining is not None else None),
+                "runway_scope": "whole_well_ledger_history",
+                "consumption_observations": len(usages),
+                "consumption_window_start": dates[0] if dates else None,
+                "consumption_window_end": dates[-1] if dates else None,
+                "consumption_rate": (
+                    round(avg_consumption, 2)
+                    if avg_consumption is not None and math.isfinite(avg_consumption)
+                    else None
+                ),
+                **{
+                    **runway,
+                    "days_remaining": (
+                        round(runway["days_remaining"], 2)
+                        if runway["days_remaining"] is not None else None
+                    ),
+                },
                 "received_vs_used": {
                     "total_received": round(sum(received), 2),
                     "total_used": round(sum(usages), 2),

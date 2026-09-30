@@ -19,7 +19,8 @@ from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QColor, QPainter, QPixmap
 from core.wellbore_schematic_engine import (
     CompletionItem, ElementType, SchematicConfig,
-    WellboreSchematic, WellboreSchematicRenderer,
+    WellboreSchematic, WellboreSchematicRenderer, completion_od_annotation,
+    completion_od_status,
 )
 from tabs.w3b_wellbore_schematic_tab import CompletionItemDialog
 
@@ -28,13 +29,20 @@ dialog = CompletionItemDialog(ElementType.PACKER, 1000)
 assert dialog.od_spin.value() == 0
 assert dialog.od_spin.specialValueText() == "Not recorded"
 dialog._on_ok()
-assert dialog.get_item().od_inch == 0
+assert dialog.get_item().od_inch is None
+assert completion_od_status(dialog.get_item().od_inch) == "NOT_RECORDED"
 items = [
     CompletionItem(ElementType.PACKER, 100, od_inch=0),
     CompletionItem(ElementType.PERFORATIONS, 200, od_inch=None),
     CompletionItem(ElementType.BRIDGE_PLUG, 300, od_inch=float("nan")),
     CompletionItem(ElementType.SAND_SCREEN, 400, od_inch=-1),
 ]
+assert [completion_od_status(item.od_inch) for item in items] == [
+    "INVALID", "NOT_RECORDED", "INVALID", "INVALID"
+]
+assert "OD invalid/unusable" in completion_od_annotation(items[0])
+assert "OD not recorded" in completion_od_annotation(items[1])
+assert all("symbol not to scale" in completion_od_annotation(item) for item in items)
 schematic = WellboreSchematic(
     well_name="Test", total_depth_m=1000, completion=items,
     show_tubing=False, show_wellhead=False, show_xmas_tree=False,

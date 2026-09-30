@@ -72,7 +72,7 @@ def _num(value: Any) -> Optional[float]:
         return None
     try:
         f = float(value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return None
     if f != f or f in (float("inf"), float("-inf")):
         return None
@@ -147,6 +147,7 @@ class WellControlKillSheetInputs:
     # preserved), so without this the engine cannot tell "recorded zero" from
     # "never entered" and a kill sheet could be computed from missing SIDPP/SCR.
     missing_inputs: Tuple[str, ...] = ()
+    invalid_inputs: Tuple[str, ...] = ()
 
     def as_dict(self) -> Dict[str, Any]:
         d = {
@@ -169,6 +170,8 @@ class WellControlKillSheetInputs:
             "well_type": self.well_type,
             "pipes": [p.as_dict() for p in self.pipes],
             "display": dict(self.display),
+            "missing_inputs": list(self.missing_inputs),
+            "invalid_inputs": list(self.invalid_inputs),
         }
         return d
 
@@ -203,6 +206,8 @@ class WellControlKillSheetInputs:
             well_type=str(data["well_type"]),
             pipes=pipes,
             display=dict(data.get("display", {})),
+            missing_inputs=tuple(data.get("missing_inputs", ())),
+            invalid_inputs=tuple(data.get("invalid_inputs", ())),
         )
 
 
@@ -241,10 +246,29 @@ def build_canonical_kill_sheet_inputs(
     canonical-foot :class:`PipeSegment` records.
     """
     seg: List[PipeSegment] = []
-    for p in pipes_m or ():
-        od = _num(p.get("od")) or 0.0
-        pid = _num(p.get("id")) or 0.0
-        length_m = _num(p.get("length")) or 0.0
+    invalid_inputs: List[str] = []
+    try:
+        raw_pipes = tuple(pipes_m or ())
+    except TypeError:
+        raw_pipes = ()
+        invalid_inputs.append("pipes_m must be a sequence of pipe records")
+    for index, p in enumerate(raw_pipes):
+        if not isinstance(p, Mapping):
+            invalid_inputs.append(f"pipes_m[{index}] is not a pipe record")
+            continue
+        od = _num(p.get("od"))
+        pid = _num(p.get("id"))
+        length_m = _num(p.get("length"))
+        if od is None or pid is None or length_m is None:
+            invalid_inputs.append(
+                f"pipes_m[{index}] requires finite OD, ID, and length"
+            )
+            continue
+        if od <= 0 or pid <= 0 or length_m <= 0 or pid >= od:
+            invalid_inputs.append(
+                f"pipes_m[{index}] requires positive length and 0 < ID < OD"
+            )
+            continue
         seg.append(
             PipeSegment(
                 type=str(p.get("type", "")),
@@ -283,11 +307,15 @@ def build_canonical_kill_sheet_inputs(
         "mw_pcf": mw_pcf,
         "casing_od_in": casing_od_in,
         "casing_id_in": casing_id_in,
-        "pipes_m": [dict(p) for p in (pipes_m or ())],
+        "pipes_m": [
+            dict(p) if isinstance(p, Mapping) else {"invalid_record": repr(p)}
+            for p in raw_pipes
+        ],
     }
 
     return WellControlKillSheetInputs(
         missing_inputs=missing_inputs,
+        invalid_inputs=tuple(invalid_inputs),
         tvd_ft=(_num(tvd_m) or 0.0) * FT_PER_M,
         md_ft=(_num(md_m) or 0.0) * FT_PER_M,
         shoe_tvd_ft=(_num(shoe_tvd_m) or 0.0) * FT_PER_M,
@@ -339,18 +367,18 @@ class KillSheetResult:
     fcp_psi: float = 0.0
     maasp_psi: float = 0.0
     # volumes
-    total_string_vol_bbl: float = 0.0
-    total_ann_vol_bbl: float = 0.0
-    total_well_vol_bbl: float = 0.0
+    total_string_vol_bbl: Optional[float] = None
+    total_ann_vol_bbl: Optional[float] = None
+    total_well_vol_bbl: Optional[float] = None
     string_detail: List[Tuple[str, float, float]] = field(default_factory=list)
     ann_detail: List[Tuple[str, float, float]] = field(default_factory=list)
     # strokes
-    stk_to_bit: float = 0.0
-    stk_annular: float = 0.0
-    stk_total: float = 0.0
+    stk_to_bit: Optional[float] = None
+    stk_annular: Optional[float] = None
+    stk_total: Optional[float] = None
     # kick geometry
     kick_type: str = "n/a (enter pit gain + drill string)"
-    kick_height_ft: float = 0.0
+    kick_height_ft: Optional[float] = None
     kick_note: str = ""
     # schedule: list of (strokes, pressure_psi, pct_complete)
     choke_schedule: List[Tuple[int, float, int]] = field(default_factory=list)
@@ -358,6 +386,9 @@ class KillSheetResult:
     method: str = ""
     engine_method: str = WellControlEngine.METHOD
     warnings: List[str] = field(default_factory=list)
+    scope: str = "NOT_ASSESSED"
+    geometry_assumption_used: bool = False
+    assumptions: List[str] = field(default_factory=list)
 
     def as_dict(self) -> Dict[str, Any]:
         return {
@@ -387,6 +418,9 @@ class KillSheetResult:
             "method": self.method,
             "engine_method": self.engine_method,
             "warnings": list(self.warnings),
+            "scope": self.scope,
+            "geometry_assumption_used": self.geometry_assumption_used,
+            "assumptions": list(self.assumptions),
         }
 
     # Correctness-relevant projection of the WHOLE result (mission §12/§13/§14).
@@ -446,6 +480,58 @@ def compute_kill_sheet(inp: WellControlKillSheetInputs) -> KillSheetResult:
             error=(f"{KILL_INPUT_INVALID}: missing required kill-sheet inputs: "
                    + ", ".join(inp.missing_inputs)),
         )
+    if inp.invalid_inputs:
+        return KillSheetResult(
+            success=False,
+            error=(f"{KILL_INPUT_INVALID}: invalid kill-sheet inputs: "
+                   + ", ".join(inp.invalid_inputs)),
+        )
+    canonical_values = {
+        "tvd_ft": inp.tvd_ft,
+        "md_ft": inp.md_ft,
+        "shoe_tvd_ft": inp.shoe_tvd_ft,
+        "hole_size_in": inp.hole_size_in,
+        "casing_id_in": inp.casing_id_in,
+        "mw_ppg": inp.mw_ppg,
+        "frac_gradient_psi_ft": inp.frac_gradient_psi_ft,
+        "sidpp_psi": inp.sidpp_psi,
+        "sicp_psi": inp.sicp_psi,
+        "pit_gain_bbl": inp.pit_gain_bbl,
+        "scr1_psi": inp.scr1_psi,
+        "pump_output_bbl_stk": inp.pump_output_bbl_stk,
+    }
+    bad_values = [name for name, value in canonical_values.items()
+                  if _num(value) is None]
+    for index, pipe in enumerate(inp.pipes):
+        if (
+            _num(pipe.od_in) is None or _num(pipe.id_in) is None
+            or _num(pipe.length_ft) is None or pipe.od_in <= 0
+            or pipe.id_in <= 0 or pipe.id_in >= pipe.od_in
+            or pipe.length_ft <= 0
+        ):
+            bad_values.append(f"pipes[{index}] geometry")
+    if bad_values:
+        return KillSheetResult(
+            success=False,
+            error=(f"{KILL_INPUT_INVALID}: invalid canonical values: "
+                   + ", ".join(bad_values)),
+        )
+    negative_values = [
+        name for name, value in {
+            "sidpp_psi": inp.sidpp_psi,
+            "sicp_psi": inp.sicp_psi,
+            "pit_gain_bbl": inp.pit_gain_bbl,
+            "scr1_psi": inp.scr1_psi,
+            "pump_output_bbl_stk": inp.pump_output_bbl_stk,
+        }.items()
+        if value < 0
+    ]
+    if negative_values:
+        return KillSheetResult(
+            success=False,
+            error=(f"{KILL_INPUT_INVALID}: values cannot be negative: "
+                   + ", ".join(negative_values)),
+        )
 
     mw_ppg = inp.mw_ppg
     mw_pcf = mw_ppg * PCF_PER_PPG
@@ -464,6 +550,7 @@ def compute_kill_sheet(inp: WellControlKillSheetInputs) -> KillSheetResult:
     string_detail: List[Tuple[str, float, float]] = []
     ann_detail: List[Tuple[str, float, float]] = []
 
+    annulus_assessable = bool(inp.pipes)
     for p in inp.pipes:
         od = p.od_in
         id_ = p.id_in
@@ -482,6 +569,8 @@ def compute_kill_sheet(inp: WellControlKillSheetInputs) -> KillSheetResult:
                 ann = A.calc_annular_capacity_bbl_ft(ann_id_val, od) * L_ft
                 total_ann_vol += ann
                 ann_detail.append((f"{ptype} in CSG", L_ft / FT_PER_M, ann))
+            else:
+                annulus_assessable = False
 
     # --- kill weight (engine) ---------------------------------------------
     kmw_r = WC.kill_mw(mw_ppg, sidpp, inp.tvd_ft)
@@ -509,25 +598,68 @@ def compute_kill_sheet(inp: WellControlKillSheetInputs) -> KillSheetResult:
         return KillSheetResult(success=False, error=f"{KILL_ENGINE_FAILED}: {maasp_r.error}")
     maasp = maasp_r.value
 
+    # A missing drill-string program is not a zero-volume string. Preserve the
+    # historical accumulator arithmetic above for recorded segments, then
+    # expose pipe-dependent quantities as unknown when the geometry is absent.
+    pipe_geometry_available = bool(inp.pipes)
+    string_volume = total_string_vol if pipe_geometry_available else None
+    annular_volume = (
+        total_ann_vol if annulus_assessable else None
+    )
+    well_volume = (
+        total_string_vol + total_ann_vol
+        if pipe_geometry_available and annulus_assessable else None
+    )
+
+    warnings: List[str] = []
+    if not pipe_geometry_available:
+        warnings.append(
+            "Drill-string geometry is missing; string/annular volumes and "
+            "pipe-dependent strokes are not assessed."
+        )
+    if pipe_geometry_available and not annulus_assessable:
+        warnings.append(
+            "Annular volume is not assessed for at least one segment because "
+            "the simplified casing-ID geometry does not clear its pipe OD."
+        )
+
     # --- strokes -----------------------------------------------------------
-    stk_to_bit = total_string_vol / pump_output if pump_output > 0 else 0
-    stk_annular = total_ann_vol / pump_output if pump_output > 0 else 0
-    stk_total = stk_to_bit + stk_annular
+    stk_to_bit = (
+        total_string_vol / pump_output
+        if pipe_geometry_available and pump_output > 0 else None
+    )
+    stk_annular = (
+        total_ann_vol / pump_output
+        if annulus_assessable and pump_output > 0 else None
+    )
+    stk_total = (
+        stk_to_bit + stk_annular
+        if stk_to_bit is not None and stk_annular is not None else None
+    )
+    if pump_output <= 0:
+        warnings.append(
+            "Pump output must be positive; pump strokes are not assessed."
+        )
 
     # --- kick height / type (engine kick_volume) ---------------------------
     kick_type = "n/a (enter pit gain + drill string)"
-    kick_height = 0.0
+    kick_height = 0.0 if pit_gain == 0 else None
     kick_note = ""
-    warnings: List[str] = []
+    geometry_assumption_used = False
+    assumptions: List[str] = []
     last_pipe_od = inp.pipes[-1].od_in if inp.pipes else 5
     if pit_gain > 0 and not inp.pipes:
-        kick_note = (
-            " ⚠ ASSUMPTION: 5-in pipe OD used because drill-string geometry "
-            "was not entered"
+        geometry_assumption_used = True
+        assumption = (
+            "5-in pipe OD is assumed for kick-height screening only; it does "
+            "not supply drill-string volume or pump-stroke geometry."
         )
+        assumptions.append(assumption)
+        kick_note = f" ⚠ ASSUMPTION: {assumption}"
         warnings.append(
             "Kick-height screening uses assumed 5-in pipe OD; no drill-string "
-            "geometry was provided."
+            "geometry was provided. This assumption does not support pipe "
+            "volume or pump-stroke calculations."
         )
     ann_cap_ft = A.calc_annular_capacity_bbl_ft(hole, last_pipe_od)
     if pit_gain > 0 and ann_cap_ft > 0:
@@ -538,8 +670,8 @@ def compute_kill_sheet(inp: WellControlKillSheetInputs) -> KillSheetResult:
             sidpp_psi=sidpp,
             sicp_psi=sicp,
         )
-        if kv.success:
-            kick_height = kv.values.get("kick_height_ft") or 0.0
+        if kv.success and kv.values.get("kick_height_ft") is not None:
+            kick_height = kv.values["kick_height_ft"]
             kind = kv.values.get("kick_type")
             kick_type = {
                 "gas": "Gas Kick",
@@ -551,11 +683,27 @@ def compute_kill_sheet(inp: WellControlKillSheetInputs) -> KillSheetResult:
             if kv.warnings:
                 kick_note += " \u26a0 " + "; ".join(kv.warnings)[:80]
                 warnings.extend(kv.warnings)
+        else:
+            kick_type = "NOT ASSESSED"
+            warning = (
+                f"Kick-height/type calculation was not successful: "
+                f"{getattr(kv, 'error', '') or 'no finite height returned'}."
+            )
+            warnings.append(warning)
+            kick_note += " ⚠ " + warning
+    elif pit_gain > 0:
+        kick_type = "NOT ASSESSED"
+        warning = (
+            "Kick height/type is not assessed because the supplied annular "
+            "geometry is invalid or nonpositive."
+        )
+        warnings.append(warning)
+        kick_note += " ⚠ " + warning
 
     # --- choke schedule (linear ICP -> FCP) --------------------------------
     schedule: List[Tuple[int, float, int]] = []
     intervals = CHOKE_SCHEDULE_INTERVALS
-    if stk_to_bit > 0:
+    if stk_to_bit is not None and stk_to_bit > 0:
         step = stk_to_bit / intervals
         dp = (icp - fcp) / intervals
         for i in range(intervals + 1):
@@ -563,6 +711,10 @@ def compute_kill_sheet(inp: WellControlKillSheetInputs) -> KillSheetResult:
             pressure = round(icp - i * dp, 1)
             schedule.append((strokes, pressure, round(i / intervals * 100)))
 
+    scope = (
+        "SCREENING" if geometry_assumption_used
+        else "PARTIAL" if warnings else "COMPLETE"
+    )
     return KillSheetResult(
         success=True,
         kill_mw_ppg=kmw_ppg,
@@ -574,11 +726,11 @@ def compute_kill_sheet(inp: WellControlKillSheetInputs) -> KillSheetResult:
         icp_psi=icp,
         fcp_psi=fcp,
         maasp_psi=maasp,
-        total_string_vol_bbl=total_string_vol,
-        total_ann_vol_bbl=total_ann_vol,
-        total_well_vol_bbl=total_string_vol + total_ann_vol,
-        string_detail=string_detail,
-        ann_detail=ann_detail,
+        total_string_vol_bbl=string_volume,
+        total_ann_vol_bbl=annular_volume,
+        total_well_vol_bbl=well_volume,
+        string_detail=string_detail if pipe_geometry_available else [],
+        ann_detail=ann_detail if annulus_assessable else [],
         stk_to_bit=stk_to_bit,
         stk_annular=stk_annular,
         stk_total=stk_total,
@@ -588,4 +740,7 @@ def compute_kill_sheet(inp: WellControlKillSheetInputs) -> KillSheetResult:
         choke_schedule=schedule,
         method=inp.method,
         warnings=warnings,
+        scope=scope,
+        geometry_assumption_used=geometry_assumption_used,
+        assumptions=assumptions,
     )

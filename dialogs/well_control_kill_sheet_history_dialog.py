@@ -211,6 +211,8 @@ class WellControlKillSheetHistoryDialog(QDialog):
     def _describe(self, s) -> str:
         ci = s.canonical_inputs
         res = s.result or {}
+        snapshot = getattr(s, "input_snapshot", {}) or {}
+        provenance = snapshot.get("provenance")
         pipes = ci.get("pipes", []) or []
         pipe_lines = [
             f"    {p.get('type', ''):<12} OD {_fmt(p.get('od_in'), 3)}  "
@@ -225,6 +227,18 @@ class WellControlKillSheetHistoryDialog(QDialog):
             f"  Method          : {s.method}",
             f"  Kill method     : {ci.get('method', '—')}",
             f"  Snapshot schema : v{s.snapshot_schema_version}",
+            f"  Result scope    : {provenance.get('scope', 'NOT RECORDED IN SNAPSHOT') if provenance else 'NOT RECORDED IN SNAPSHOT'}",
+            f"  5-in assumption : {provenance.get('geometry_assumption_used', 'not recorded') if provenance else 'not recorded'}",
+            "  Assumptions     : " + (
+                "; ".join(provenance.get("assumptions", []) or [])
+                if provenance else "not recorded in this historical snapshot"
+            ),
+            "  Warnings        : " + (
+                "; ".join(provenance.get("warnings", []) or [])
+                if provenance and provenance.get("warnings")
+                else "none recorded" if provenance
+                else "not recorded in this historical snapshot"
+            ),
             "",
             "INPUT (frozen, canonical — reconstructs the composite without any external state)",
             f"  TVD / MD        : {_fmt(ci.get('tvd_ft'), 0, ' ft')} / {_fmt(ci.get('md_ft'), 0, ' ft')}",

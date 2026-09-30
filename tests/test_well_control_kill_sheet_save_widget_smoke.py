@@ -20,7 +20,10 @@ import textwrap
 
 import pytest
 
-pytest.importorskip("PySide6")
+try:
+    from PySide6.QtWidgets import QApplication  # noqa: F401
+except ImportError as exc:  # pragma: no cover - host Qt runtime dependent
+    pytest.skip(f"Qt runtime unavailable: {exc}", allow_module_level=True)
 
 
 _CHILD = textwrap.dedent(
@@ -99,29 +102,57 @@ _CHILD = textwrap.dedent(
     tab._wc_calc_kill()
     failed_recalc = tab._wc_last_kill_result
     assert failed_recalc is not None and not failed_recalc.success
+    failed_text = tab.wc_result.toPlainText()
+    assert failed_text.startswith("❌ ")
+    assert failed_recalc.error in failed_text
+    assert "KILL SHEET" not in failed_text, "failed recompute must replace stale success text"
     tab._wc_save_calculation()
     assert repo.count() == 1, "a failed recomputation must not save stale success"
     reloaded = repo.get(saved.id)
     assert reloaded.result["kill_mw_ppg"] == stored_kill_mw, "history must not change"
     assert repo.count() == 1, "recompute alone must not persist a new run"
 
-    # Missing pipe geometry still follows the documented legacy 5-in estimate,
-    # but the real W13 result card must expose it as an assumption rather than
-    # presenting the kick height as measured geometry.
+    # Missing pipe geometry still follows the documented 5-in kick-height
+    # screening estimate, but it must not turn missing volume/stroke geometry
+    # into numeric zero in the real W13 procedure.
     tab.wc_mw.setValue(90.0)
     tab.wc_pipes = []
     tab._wc_calc_kill()
     assumed = tab._wc_last_kill_result
     assert assumed.success
+    assert assumed.total_string_vol_bbl is None
+    assert assumed.total_ann_vol_bbl is None
+    assert assumed.stk_total is None
     assert "ASSUMPTION: 5-in pipe OD" in assumed.kick_note
-    assert "ASSUMPTION: 5-in pipe OD" in tab.wc_result.toPlainText()
+    rendered = tab.wc_result.toPlainText()
+    assert "ASSUMPTION: 5-in pipe OD" in rendered
+    assert "Scope: SCREENING" in rendered
+    assert "NOT ASSESSED" in rendered
+    assert "Total Circulation:   0 strokes" not in rendered
+    assert "NOT ASSESSED — pump-stroke geometry is incomplete" in rendered
+
+    # Partial outcomes can be saved, and scope/assumption provenance survives
+    # history reconstruction without claiming missing values were zero.
+    tab._wc_save_calculation()
+    assert repo.count() == 2
+    partial = repo.all()[1]
+    provenance = partial.input_snapshot["provenance"]
+    assert provenance["scope"] == "SCREENING"
+    assert provenance["geometry_assumption_used"] is True
+    assert any("5-in pipe OD" in item for item in provenance["assumptions"])
+    assert partial.result["total_string_vol_bbl"] is None
+    assert partial.result["stk_total"] is None
+    assert partial.verify(current_method=WellControlEngine.METHOD).status == "MATCH"
 
     # History dialog constructs + lists from persisted records (read-only).
     from dialogs.well_control_kill_sheet_history_dialog import (
         WellControlKillSheetHistoryDialog)
     dlg = WellControlKillSheetHistoryDialog(
         repo, current_method=WellControlEngine.METHOD)
-    assert dlg.table.rowCount() == 1
+    assert dlg.table.rowCount() == 2
+    history_text = dlg._describe(partial)
+    assert "SCREENING" in history_text
+    assert "5-in pipe OD" in history_text
 
     print("WC_SAVE_SMOKE_OK")
     """
