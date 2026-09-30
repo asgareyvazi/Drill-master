@@ -105,7 +105,7 @@ def test_real_workbook_golden_shape_and_semantic_validation():
     # ``ImportReport.validation_errors`` counts source-level review states;
     # canonical validation must still have no typed/bounds errors.
     assert report.validation_errors == 8  # weather labels no longer masquerade as invalid measurements
-    assert report.fields_detected == 137  # three weather labels + Received Items heading are not source values
+    assert report.fields_detected == 136  # missing weather values are unresolved; nearby cement text is not borrowed
 
     validation = validate_canonical_payload(report.canonical_json)
     assert validation.valid, validation.errors
@@ -114,9 +114,15 @@ def test_real_workbook_golden_shape_and_semantic_validation():
 def test_real_workbook_review_items_have_complete_lineage_and_keep_ambiguity():
     report = _report()
     rows = _review_rows(report)
-    assert len(rows) == 30  # known density resolved; missing Received Items is now explicit
+    assert len(rows) == 31  # known density resolved; missing fields and weather source remain explicit
     assert not any(item.field == "mud_report.mw" for item in rows)
     assert any(item.field == "daily_report.received_items" for item in rows)
+    wind_direction = next(item for item in rows if item.field == "safety.wind_direction")
+    assert wind_direction.source_cell == "K71"
+    assert wind_direction.normalized_value is None
+    assert wind_direction.review_state == "unreviewed"
+    assert report.canonical_json["safety"].get("wind_direction") is None
+    assert report.canonical_json["cement_additives"][0]["material_type"] == "FLC-DA9 / FLC-DA413"
     assert rows
     for item in rows:
         assert item.file

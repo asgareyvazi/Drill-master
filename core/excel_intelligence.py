@@ -260,6 +260,27 @@ class MergeCellAnalyzer:
     def is_merged(self, row: int, col: int) -> bool:
         return (row, col) in self._merge_map
 
+    def bounds(self, row: int, col: int) -> Tuple[int, int, int, int]:
+        """Return the full merged range, or the cell's own bounds.
+
+        The anchor tuple is shared by every member of a merged range, so the
+        extents can be reconstructed for both openpyxl workbooks and IR-backed
+        merge maps without retaining a second copy of the merge metadata.
+        """
+        entry = self._merge_map.get((row, col))
+        if entry is None:
+            return row, col, row, col
+        anchor = entry[:2]
+        members = [
+            (member_row, member_col)
+            for (member_row, member_col), member_entry in self._merge_map.items()
+            if member_entry[:2] == anchor
+        ]
+        if not members:
+            return row, col, row, col
+        rows, cols = zip(*members)
+        return min(rows), min(cols), max(rows), max(cols)
+
 
 # ==================== Label Detector ====================
 
@@ -579,6 +600,13 @@ class FieldExtractor:
         candidates = []
         preferred_authoritative = False
         preferred_anchor_missing = False
+        right_columns = tuple(range(col + 1, col + 8))
+        if self.merge.is_merged(row, col):
+            # A merged label owns its full visual width. Only inspect the first
+            # cell after that label; scanning farther can cross into an
+            # adjacent table and turn an unrelated value into a plausible
+            # text field (for example, a cement additive as wind direction).
+            right_columns = (self.merge.bounds(row, col)[3] + 1,)
 
         # Strategy 1: Preferred cell — the template anchor is authoritative
         # when it contains a value (including an explicit placeholder such as
@@ -599,9 +627,9 @@ class FieldExtractor:
                     reason=f"Template preferred cell {self._col_letter(col)}{row}",
                 ))
             else:
-                # Preferred cell has a label — look for value to the right
-                for dc in range(1, 8):
-                    right_val = self.cells.get((row, col + dc))
+                # Preferred cell has a label — look for its value to the right.
+                for right_col in right_columns:
+                    right_val = self.cells.get((row, right_col))
                     if right_val is not None and str(right_val).strip():
                         if looks_like_label(right_val):
                             break  # next header is a structural boundary
@@ -611,7 +639,7 @@ class FieldExtractor:
                             preferred_authoritative = True
                             candidates.append(Candidate(
                                 value=right_val, source="preferred_cell",
-                                row=row, col=col+dc, sheet=sheet,
+                                row=row, col=right_col, sheet=sheet,
                                 raw_score=0.85,
                                 reason=f"Value right of label at {self._col_letter(col)}{row}",
                             ))
@@ -634,8 +662,8 @@ class FieldExtractor:
                     reason=f"Merged cell at {self._col_letter(col)}{row}",
                 ))
             else:
-                for dc in range(1, 8):
-                    right_val = self.cells.get((row, col + dc))
+                for right_col in right_columns:
+                    right_val = self.cells.get((row, right_col))
                     if right_val is not None and str(right_val).strip():
                         if looks_like_label(right_val):
                             break  # next header is a structural boundary
@@ -644,7 +672,7 @@ class FieldExtractor:
                         if not looks_like_label(right_val):
                             candidates.append(Candidate(
                                 value=right_val, source="merge_cell",
-                                row=row, col=col+dc, sheet=sheet,
+                                row=row, col=right_col, sheet=sheet,
                                 raw_score=0.63,
                                 reason=f"Value right of merge-label at {self._col_letter(col)}{row}",
                             ))

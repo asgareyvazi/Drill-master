@@ -1,7 +1,7 @@
-"""Portable regressions for formula-backed DDR date extraction.
+"""Portable regressions for source-boundary DDR extraction.
 
 The fixture is a generic OEOC-style workbook, not a certification claim for
-any particular report.  Real OEOC acceptance remains environment-gated.
+any particular report. Real OEOC acceptance remains separately gated.
 """
 
 from __future__ import annotations
@@ -129,6 +129,31 @@ def test_repository_workbook_contains_meaningful_semantic_evidence():
     assert daily_report.get("depth_2400") == 225.0
     assert time_logs and any(row.get("activity_description") for row in time_logs)
     assert surveys and surveys[0].get("md") == 50.0
+
+
+def test_text_field_does_not_borrow_value_from_adjacent_merged_table():
+    """An absent weather measurement must not consume adjacent cement stock text."""
+    template = json.loads(TEMPLATE.read_text(encoding="utf-8"))
+    workbook = load_workbook(FIXTURE, data_only=False, read_only=False)
+    try:
+        report = ExcelIntelligence(
+            workbook,
+            template,
+            source_file=str(FIXTURE.resolve()),
+        ).extract()
+    finally:
+        workbook.close()
+
+    wind = next(result for result in report.field_results if result.canonical_field == "safety.wind_direction")
+    assert wind.value is None
+    assert wind.status == "UNRESOLVED"
+    assert wind.cell == "K71"
+    assert report.canonical_json["safety"].get("wind_direction") is None
+    # N71 is the first cement-additive material, not a weather value.
+    assert report.canonical_json["cement_additives"][0]["material_type"] == "FLC-DA9 / FLC-DA413"
+    # The unresolved extraction retains the label anchor; it does not claim
+    # that the neighboring material cell supplied a wind observation.
+    assert (wind.sheet, wind.row, wind.col) == ("DDR Data", 71, 11)
 
 
 def test_invalid_formula_duplicate_cannot_erase_valid_date_components():

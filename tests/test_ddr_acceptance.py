@@ -102,6 +102,9 @@ def _assert_ir_details(raw_document):
     assert len(restored.tables) == len(raw_document.tables)
     for cell in restored.cells[:25]:
         assert cell.location.file == raw_document.source_file
+        assert cell.location.sheet
+        assert cell.location.row is not None
+        assert cell.location.column is not None
         assert cell.original_value == cell.value
 
 
@@ -117,6 +120,44 @@ def _assert_review_contract(rows):
         assert restored.original_value == item.original_value
         assert restored.normalized_value == item.normalized_value
         assert restored.file == item.file
+        assert restored.file and restored.source_document
+        assert restored.source_location
+        assert restored.decision not in {"ACCEPT", "CONFIRMED"}
+        assert restored.review_state != "accepted"
+        assert restored.status
+        assert restored.expected_type
+
+
+def _assert_canonical_provenance(report, source: Path):
+    source_file = str(source.resolve())
+    for canonical_field, provenance in report.field_provenance.items():
+        assert provenance.get("source_file") == source_file, canonical_field
+        assert provenance.get("source_sheet"), canonical_field
+        assert provenance.get("source_cell"), canonical_field
+        assert provenance.get("source_row") is not None, canonical_field
+        assert provenance.get("source_column") is not None, canonical_field
+        assert "original_value" in provenance, canonical_field
+        assert "normalized_value" in provenance, canonical_field
+        assert provenance.get("extraction_method"), canonical_field
+        assert provenance.get("confidence") is not None, canonical_field
+        assert provenance.get("validation_state"), canonical_field
+        assert provenance.get("review_state") in {"accepted", "review"}, canonical_field
+
+    for table_name, rows in report.canonical_json.items():
+        if not isinstance(rows, list):
+            continue
+        for index, row in enumerate(rows):
+            if not isinstance(row, dict):
+                continue
+            assert row.get("_source_file") == source_file, f"{table_name}[{index}]"
+            assert row.get("_source_sheet"), f"{table_name}[{index}]"
+            assert row.get("_source_row") is not None, f"{table_name}[{index}]"
+            assert row.get("_source_cells"), f"{table_name}[{index}]"
+            location = row.get("_source_location") or {}
+            assert location.get("file") == source_file, f"{table_name}[{index}]"
+            assert location.get("sheet") == row["_source_sheet"], f"{table_name}[{index}]"
+            assert location.get("row") == row["_source_row"], f"{table_name}[{index}]"
+            assert location.get("cells") == row["_source_cells"], f"{table_name}[{index}]"
 
 
 @pytest.mark.integration
@@ -126,12 +167,12 @@ def test_real_ddr_excel_canonical_ir_review_and_atomic_db():
         pytest.fail(f"Canonical OEOC template is missing: {TEMPLATE_PATH}")
 
     from openpyxl import load_workbook
-    from core.excel_intelligence import ExcelIntelligence
+    from core.ddr_import_service import DDRImportService
+    from core.database import AuditLog, DailyReport
 
-    workbook = load_workbook(source, data_only=False, read_only=False)
-    cached_workbook = load_workbook(source, data_only=True, read_only=False)
+    template = json.loads(TEMPLATE_PATH.read_text(encoding="utf-8"))
+    workbook = load_workbook(source, data_only=True, read_only=False)
     try:
-        template = json.loads(TEMPLATE_PATH.read_text(encoding="utf-8"))
         expected_sheets = {
             part.replace("_", " ").lower()
             for key in template
@@ -144,56 +185,25 @@ def test_real_ddr_excel_canonical_ir_review_and_atomic_db():
                 "The supplied DDR workbook does not match the canonical OEOC "
                 f"template; sheets={sorted(actual_sheets)}"
             )
-        report = ExcelIntelligence(
-            workbook,
-            template,
-            source_file=str(source.resolve()),
-            cached_workbook=cached_workbook,
-        ).extract()
     finally:
         workbook.close()
-        cached_workbook.close()
+
+    manager = _db_manager()
+    well_id, _seed_report_id = _seed_report(manager)
+    service = DDRImportService(manager, well_id)
+    report, payload = service.extract_file(str(source.resolve()), template=template)
 
     assert report.raw_document is not None
     _assert_ir_details(report.raw_document)
     assert report.raw_document.metadata.get("engine") == "Excel"
     assert report.canonical_json, "Real Excel produced no canonical data"
-
-    review_rows = []
-    for result in report.field_results:
-        if result.status != "OK" or result.certainty == "LOW" or report.source_tokens.get(result.canonical_field, {}).get("review", False):
-            source_token = report.source_tokens.get(result.canonical_field, {})
-            review_rows.append(
-                {
-                    "file": source.name,
-                    "sheet": result.sheet,
-                    "source_cell": result.cell,
-                    "original_value": source_token.get("original_value", result.original_value),
-                    "normalized_value": source_token.get("normalized_value", result.normalized_value),
-                    "target_field": result.canonical_field,
-                    "confidence": result.confidence,
-                    "decision": "REVIEW",
-                    "validation_state": result.validation or "unvalidated",
-                    "review_state": "unreviewed",
-                }
-            )
-    _assert_review_contract(review_rows)
-
-    manager = _db_manager()
-    well_id, report_id = _seed_report(manager)
-    persisted = manager.save_imported_multi_tab_data_atomic(
-        well_id, report_id, dict(report.canonical_json)
-    )
-    assert persisted.get("failed") == 0, persisted
-    assert persisted.get("imported", 0) > 0, persisted
+    _assert_canonical_provenance(report, source)
+    _assert_review_contract(payload["metadata"]["review_matrix"])
 
     # The known historical crash token must never become a float conversion
-    # exception.  If it exists in source, the extractor must preserve it as a
-    # review token/NULL, not invent zero.
+    # exception. If present, preserve it as a status-bearing review token.
     for token in report.source_tokens.values():
         if token.get("status") == "SOURCE_UNIT_PENDING":
-            # Numeric magnitude survives a unit-resolution review. It is not
-            # an invalid numeric token and must not be silently discarded.
             import math
             assert math.isfinite(float(token["normalized_value"]))
             assert token["normalized_value"] == token["original_value"]
@@ -204,6 +214,40 @@ def test_real_ddr_excel_canonical_ir_review_and_atomic_db():
             assert token["review"] is False
         else:
             assert token.get("normalized_value") is None
+
+    # Exercise the same service/orchestration path used by the desktop import,
+    # not just the low-level table writer. Reviews, domain rows, and source
+    # snapshots must share the transaction/audit boundary.
+    imported = service.import_records(payload)
+    assert imported.get("failed") == 0, imported
+    assert imported.get("report_id")
+    assert imported.get("imported", 0) > 0
+    assert imported.get("status") in {"ACCEPT", "REVIEW_REQUIRED"}
+
+    expected_date = report.canonical_json["daily_report"]["report_date"]
+    with manager.session_scope() as session:
+        saved_report = session.get(DailyReport, imported["report_id"])
+        assert saved_report is not None
+        assert saved_report.report_date.isoformat() == expected_date
+        audit_rows = session.query(AuditLog).filter_by(
+            action="ddr_import",
+            entity_type="daily_report",
+            entity_id=imported["report_id"],
+        ).all()
+        assert len(audit_rows) == 1
+        audit = json.loads(audit_rows[0].details)
+        assert audit["source"]["metadata"]["raw_ir"]["source_file"] == str(source.resolve())
+        assert audit["source"]["metadata"]["field_provenance"]
+        assert audit["result"].get("review_items", []) == imported.get("review_items", [])
+
+    mud_source = report.canonical_json.get("mud_report") or {}
+    if mud_source.get("mw") is not None:
+        from core.mud_records import mud_density_pcf
+        expected_mud, _lineage = mud_density_pcf(dict(mud_source))
+        saved_mud = manager.get_mud_report(report_id=imported["report_id"])
+        assert saved_mud is not None
+        assert saved_mud["mw"] == pytest.approx(expected_mud["mw"])
+    manager.close()
 
 
 @pytest.mark.integration
