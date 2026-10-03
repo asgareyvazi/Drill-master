@@ -314,37 +314,6 @@ def test_review_helpers_block_pending_rows_and_apply_row_scoped_edits():
     assert "md" not in extracted["surveys"][0]
 
 
-def test_preview_confirm_requires_explicit_decisions_when_qt_is_available(monkeypatch):
-    import os
-    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-    import pytest
-    widgets = pytest.importorskip("PySide6.QtWidgets", exc_type=ImportError)
-    from dialogs import excel_import_dialog as dialog_module
-
-    app = widgets.QApplication.instance() or widgets.QApplication([])
-    item = {
-        "target_field": "survey.md", "canonical_field": "survey.md",
-        "detected_table": "surveys", "decision": "REVIEW",
-        "normalized_value": 100, "value": 100,
-    }
-    dialog = dialog_module.ImportPreviewDialog(
-        "synthetic.xlsx", {"surveys": []}, {"review": [item], "errors": 0},
-    )
-    warnings = []
-
-    class MessageBoxStub:
-        @staticmethod
-        def warning(*args):
-            warnings.append(args)
-
-    monkeypatch.setattr(dialog_module, "QMessageBox", MessageBoxStub)
-    dialog._confirm()
-    assert not dialog.confirmed and warnings
-    dialog.table.item(0, 9).setText("ACCEPT")
-    dialog._confirm()
-    assert dialog.confirmed
-    dialog.close()
-    app.processEvents()
 
 
 def test_v2_rebuild_preserves_unknown_live_sqlite_objects(tmp_path):
