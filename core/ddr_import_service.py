@@ -14,7 +14,7 @@ from core.canonical_schema import FIELD_SPECS
 from core.text_utils import wrap_text
 from core.import_quality import (
     ImportValidator, find_duplicates, TimeLogValidator, ReviewItem,
-    unresolved_review_items,
+    build_review_manifest, restore_missing_review_rows, unresolved_review_items,
 )
 from core.import_diagnostics import PersistenceIssue, ImportStatus, determine_import_status
 
@@ -337,6 +337,10 @@ class DDRImportService:
         extracted = deepcopy(extracted)
         source_snapshot = json.loads(json.dumps(extracted, sort_keys=True, default=str))
         source_fingerprint = _source_fingerprint(source_snapshot)
+        # A review row dropped between extraction and persistence is not an
+        # implicit acceptance. Restore it from the producer-side manifest so
+        # the source proposal is stripped and remains auditable as pending.
+        restore_missing_review_rows(extracted.get("metadata") or {})
         # Keep the unmodified proposal set in the audit snapshot above, but
         # never let REVIEW/REJECT rows reach ORM construction as canonical facts.
         _strip_unaccepted_review_proposals(extracted)
@@ -1517,6 +1521,7 @@ class DDRImportService:
                 "template": (template or {}).get("name", ""),
                 "template_version": rep.template_version,
                 "review_matrix": review_rows,
+                "review_manifest": build_review_manifest(review_rows),
                 "source_tokens": rep.source_tokens,
                 "field_provenance": rep.field_provenance,
                 "duplicate_mappings": rep.duplicate_mappings,

@@ -30,7 +30,7 @@ from PySide6.QtGui import QColor
 
 from core.import_quality import (
     ImportValidator, find_duplicates, TimeLogValidator, unresolved_review_items,
-    apply_review_decisions,
+    build_review_manifest, apply_review_decisions,
 )
 from core.import_diagnostics import (
     PersistenceIssue, ImportStatus,
@@ -704,6 +704,7 @@ class ExcelImportDialog(QDialog, DDRImportService):
             "fields_extracted": normalized.fields_extracted,
             "warnings": normalized.warnings,
             "review_matrix": review_rows,
+            "review_manifest": build_review_manifest(review_rows),
             "mineru_provenance": normalized.provenance,
             "raw_ir": normalized.raw_document.to_dict(include_cells=True) if normalized.raw_document is not None else None,
             "output_dir": parse_result.document.output_dir,

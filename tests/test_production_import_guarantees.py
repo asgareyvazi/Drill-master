@@ -159,7 +159,7 @@ def test_unresolved_scalar_and_table_proposals_are_not_persisted(tmp_path):
         DailyReport, SurveyPoint, SafetyReport,
     )
     from core.ddr_import_service import DDRImportService
-    from core.import_quality import unresolved_review_items
+    from core.import_quality import apply_review_decisions, unresolved_review_items
 
     manager = DatabaseManager()
     manager.engine = create_engine(
@@ -221,9 +221,21 @@ def test_unresolved_scalar_and_table_proposals_are_not_persisted(tmp_path):
     report_date_review["decision"] = "ACCEPT"
     pending = unresolved_review_items(payload["metadata"]["review_matrix"])
     assert len(pending) == 4
+    # Fault injection: simulate a preview/client dropping one required row.
+    # The source-side manifest must restore it as pending, never as acceptance.
+    payload["metadata"]["review_matrix"] = [
+        item for item in payload["metadata"]["review_matrix"]
+        if item.get("target_field") != "safety.wind_direction"
+    ]
 
     result = service.import_records(payload)
     assert result["report_id"] and result["status"] == "REVIEW_REQUIRED", result
+    assert result["review"] >= len(pending)
+    assert any(
+        item.get("target_field") == "safety.wind_direction"
+        and item.get("decision") == "REVIEW"
+        for item in result["review_items"]
+    )
     with manager.session_scope() as active:
         assert active.query(DailyReport).filter_by(id=result["report_id"]).count() == 1
         assert active.query(SurveyPoint).filter_by(report_id=result["report_id"]).count() == 0
@@ -235,8 +247,9 @@ def test_unresolved_scalar_and_table_proposals_are_not_persisted(tmp_path):
     resolved_reviews = [{
         "target_field": "daily_report.report_date", "canonical_field": "daily_report.report_date",
         "decision": "ACCEPT", "detected_table": "scalar",
+        "normalized_value": date(2026, 10, 1), "value": date(2026, 10, 1),
     }]
-    for field, column in (("survey.md", 1), ("survey.inc", 2), ("survey.azi", 3)):
+    for field, column, value in (("survey.md", 1, 100), ("survey.inc", 2, 5), ("survey.azi", 3, 200)):
         cell = f"R2C{column}"
         resolved_reviews.append({
             "target_field": field, "canonical_field": field,
@@ -244,12 +257,14 @@ def test_unresolved_scalar_and_table_proposals_are_not_persisted(tmp_path):
             "row": 2, "column": column, "sheet": "Measurements",
             "source_cell": cell,
             "source_location": {"sheet": "Measurements", "row": 2, "column": column, "cell": cell},
+            "normalized_value": value, "value": value,
         })
     resolved_reviews.append({
         "target_field": "safety.wind_direction", "canonical_field": "safety.wind_direction",
         "decision": "REJECT", "detected_table": "scalar",
+        "normalized_value": "NNE", "value": "NNE",
     })
-    resolved = DDRImportService(manager, well_id).import_records({
+    resolved_payload = {
         "daily_report": {"report_date": date(2026, 10, 1)},
         "surveys": [{
             "md": 100, "inc": 5, "azi": 200,
@@ -257,8 +272,18 @@ def test_unresolved_scalar_and_table_proposals_are_not_persisted(tmp_path):
             "_source_cells": {"survey.md": "R2C1", "survey.inc": "R2C2", "survey.azi": "R2C3"},
         }],
         "safety": {"wind_direction": "NNE"},
-        "metadata": {"review_matrix": resolved_reviews},
-    })
+        "metadata": {
+            "review_matrix": [
+                {**item, "decision": "REVIEW", "review_state": "unreviewed"}
+                for item in resolved_reviews
+            ],
+        },
+    }
+    apply_review_decisions(resolved_payload, resolved_reviews)
+    assert [item["decision"] for item in resolved_payload["metadata"]["review_matrix"]] == [
+        item["decision"] for item in resolved_reviews
+    ]
+    resolved = DDRImportService(manager, well_id).import_records(resolved_payload)
     assert resolved["report_id"] and resolved["status"] == "ACCEPT", resolved
     with manager.session_scope() as active:
         assert active.query(SurveyPoint).filter_by(report_id=resolved["report_id"]).count() == 1

@@ -256,6 +256,104 @@ def unresolved_review_items(items):
     return pending
 
 
+def review_row_identity(item):
+    """Identify a proposal by source cell, or by row and field when cell is absent."""
+    payload = item.to_dict() if isinstance(item, ReviewItem) else item
+    if not isinstance(payload, Mapping):
+        return None
+    location = payload.get("source_location")
+    location = location if isinstance(location, Mapping) else {}
+    values = (
+        payload.get("detected_table") or location.get("table") or payload.get("source_table"),
+        payload.get("sheet") or location.get("sheet") or payload.get("source_sheet"),
+        payload.get("page") or location.get("page"),
+        payload.get("row") or location.get("row"),
+        payload.get("column") or location.get("column"),
+        payload.get("source_cell") or location.get("cell") or location.get("address"),
+    )
+    normalized = tuple(str(value).strip() if value not in (None, "") else "" for value in values)
+    field_path = payload.get("target_field") or payload.get("canonical_field") or payload.get("field")
+    if normalized[-1]:
+        # A cell is the stable source identity even when the operator remaps it.
+        return normalized
+    # Row-only and sheet-only proposals can contain several different fields;
+    # include the current field so one retained row cannot mask another missing one.
+    return (*normalized[:-1], str(field_path or "").strip())
+
+
+def build_review_manifest(items):
+    """Snapshot proposals requiring a decision so dropped UI rows are detectable."""
+    manifest = []
+    for item in unresolved_review_items(items):
+        payload = item.to_dict() if isinstance(item, ReviewItem) else dict(item)
+        payload["decision"] = "REVIEW"
+        payload["review_state"] = "unreviewed"
+        manifest.append(payload)
+    return manifest
+
+
+def restore_missing_review_rows(metadata):
+    """Restore omitted proposals as pending rows using the producer's manifest."""
+    if not isinstance(metadata, dict):
+        return 0
+    manifest = metadata.get("review_manifest")
+    if not isinstance(manifest, list):
+        return 0
+    rows = metadata.get("review_matrix")
+    if not isinstance(rows, list):
+        rows = []
+        metadata["review_matrix"] = rows
+    present = {}
+    for row in rows:
+        identity = review_row_identity(row)
+        if identity is not None:
+            present[identity] = present.get(identity, 0) + 1
+    restored = 0
+    for proposal in manifest:
+        identity = review_row_identity(proposal)
+        if identity is None or present.get(identity, 0):
+            continue
+        pending = dict(proposal)
+        pending["decision"] = "REVIEW"
+        pending["review_state"] = "unreviewed"
+        pending["reason"] = (
+            str(pending.get("reason") or "Review decision required.")
+            + " Review row was missing from the submitted preview; explicit confirmation is required."
+        )
+        rows.append(pending)
+        present[identity] = 1
+        restored += 1
+    return restored
+
+
+def _sync_review_matrix(extracted, review_items):
+    """Copy decisions/edits back to the canonical metadata consumed by storage."""
+    metadata = extracted.get("metadata")
+    if not isinstance(metadata, dict):
+        return
+    rows = metadata.get("review_matrix")
+    if not isinstance(rows, list):
+        return
+    submitted = {}
+    for item in review_items or ():
+        payload = item.to_dict() if isinstance(item, ReviewItem) else item
+        identity = review_row_identity(payload)
+        if identity is not None:
+            submitted[identity] = payload
+    mutable = (
+        "target_field", "canonical_field", "decision", "review_state",
+        "normalized_value", "value", "proposed_value", "user_correction",
+        "unit", "normalized_unit", "status", "validation_state", "reason", "resolution",
+    )
+    for row in rows:
+        payload = submitted.get(review_row_identity(row))
+        if not isinstance(payload, Mapping):
+            continue
+        for name in mutable:
+            if name in payload:
+                row[name] = payload[name]
+
+
 def apply_review_decisions(extracted, review_items):
     """Apply accepted/rejected values to their actual canonical storage row.
 
@@ -347,6 +445,7 @@ def apply_review_decisions(extracted, review_items):
         else:
             section_data.pop(key, None)
             section_data.pop(f"{key}_source", None)
+    _sync_review_matrix(extracted, review_items)
     return extracted
 
 

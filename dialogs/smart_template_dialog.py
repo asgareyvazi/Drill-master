@@ -27,7 +27,7 @@ from PySide6.QtCore import *
 from PySide6.QtGui import *
 from openpyxl import load_workbook
 from openpyxl.utils import get_column_letter
-from core.import_quality import decision_for_confidence
+from core.import_quality import build_review_manifest, decision_for_confidence
 from core.value_normalizer import ValueNormalizer
 from core.ai_import_mapper import AIImportMapper, model_catalog, get_selected_model, set_selected_model
 from core.universal_import import WorkbookScanner
@@ -3239,6 +3239,7 @@ class SmartTemplateDialog(QDialog):
                         "decision": record.get("decision", "ACCEPT"),
                         "transform": record.get("transform", "table-mapping"),
                     })
+        result["metadata"]["review_manifest"] = build_review_manifest(matrix)
         return result
 
     def _clean_value_for_field(self, field_path: str, value):
