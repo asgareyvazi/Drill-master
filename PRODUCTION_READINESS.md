@@ -1,14 +1,31 @@
 # Production readiness and final import consistency gate
 
-> **Current evidence — 2026-09-27: [Mission 33 semantic audit](M33_SEMANTIC_AUDIT.md).** Inventory **8934** occurrences adjudicated from the current source: **3712 verified-correct**, **2264 intentional-by-design**, **51 defect-fixed**, **49 removed-with-evidence**, **17 external-acceptance-only**, **2837 under-review** and **4 evidence-incomplete** (the last two stop release certification for repository-verifiable items). This tree is **NOT RELEASE-CERTIFIABLE** — see [M33_RELEASE_CERTIFICATION.md](M33_RELEASE_CERTIFICATION.md). Earlier counts, SHAs and acceptance statements anywhere below are historical or unverified, not current certification.
+> **Canonical release-status authority.** This file separates repository verification from external acceptance. A static document cannot contain its own commit SHA; obtain the current exact identity with `git rev-parse HEAD` and count CI only when the workflow `head_sha` is identical.
+
+## Current release status — M36 closure baseline / M37 hardening
+
+- **Repository:** `asgareyvazi/Drill-master`; release branch `arena/01a0ec23-drill-master`; base/default branch `drill-Master`.
+- **M37 starting baseline SHA:** `385cf63d833649bd41f932112828c8e2aa66328a` (M36 closure commit). This is a baseline, not a claim that later commits inherit its CI.
+- **Exact-SHA Source release gate for that baseline:** run [37184840618](https://github.com/asgareyvazi/Drill-master/actions/runs/37184840618), Python 3.11/3.12/3.13 all PASS, including exact-source, locked dependencies, tests, and wheel verification. For any later candidate, inspect the [branch workflow runs](https://github.com/asgareyvazi/Drill-master/actions/workflows/ci.yml?query=branch%3Aarena%2F01a0ec23-drill-master) and require a successful run whose full `head_sha` equals current `git rev-parse HEAD`.
+- **M36/P6:** 1,224 original records = 2 pre-P6 fixed + 1,222 adjudicated in batches 002–029 + 0 current OPEN. Structural and Git-history reconciliation pass; 332/334 source-hash contexts match.
+- **W5 provenance:** `PROVENANCE_EXTERNAL_SOURCE_UNAVAILABLE` for `tabs/w5_Equipment_Widget.py`, SHA-256 `7cbe07214dbeb8cd3b8bb4668ec54040eec4e2e740e4e2188d24fd8c73758359`. Exact source and affected evidence remain unchanged; details are recorded in [`m36-master-ledger.json`](docs/audits/m36-evidence/m36-master-ledger.json).
+- **Owner decisions:** `NEW-P6-007`, `-008`, `-015`, `-020`, `-023`, and `-024` remain open and separate from register arithmetic.
+- **Real DDR XLSX:** PASS is recorded for the repository-tracked OEOC source in [`w16-integration-acceptance-2026-09-30.json`](docs/audits/m36-evidence/w16-integration-acceptance-2026-09-30.json); this is source-corpus integration evidence, not operator or production-database acceptance.
+- **Real DDR PDF / external MinerU:** NOT RUN. **Windows bundle/installer and clean-machine install:** NOT RUN. **Production database and operator/business acceptance:** NOT RUN.
+- **Engineering scope:** Casing is PARTIAL (not full API TR 5C3); Torque & Drag is PARTIAL / SCREENING; Anti-Collision is PARTIAL / SCREENING; production T&D and cement lab design are NOT_IMPLEMENTED. `EngineeringResult.scope` and current engine contracts remain authoritative.
+- **Release scope:** repository source/tests/package verification only. A green source gate is not Windows, MinerU/PDF, production-database, or business acceptance.
+
+The exact candidate SHA is deliberately resolved from Git rather than copied into
+multiple documents. For a release decision, require `git status --porcelain` to
+be empty and verify the successful Source release gate's `head_sha` equals
+`git rev-parse HEAD` on this branch.
 
 ## Historical readiness records
 
-The dated material below is retained for provenance. Its uses of “current”,
-“verified”, and “release posture” refer to those historical dates. The Mission 29
-boundary above is the current status. In particular, the supported exact runtime
-lock requires Python 3.11–3.13; broad package metadata is not proof that this lock
-installs on Python 3.10. No hosted Actions success is claimed.
+The dated material below is retained for provenance. Its test counts, branch
+names, CI claims, and “current” or “release posture” wording describe only the
+recorded 2026 dates. They do not override the current release status above.
+
 
 **Audit date:** 2026-09-08 — **re-verified:** 2026-09-09
 (`docs/audits/2026-09-09/` holds the current forensic evidence and acceptance

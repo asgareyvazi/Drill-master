@@ -1,4 +1,6 @@
-# DrillMaster implementation status - Intelligence Platform P0 Complete
+# Historical implementation-status snapshot — Intelligence Platform P0
+
+> The percentages, branch names, and “complete” labels below are date-bound estimates, not current project or release status. The single current status authority is [PRODUCTION_READINESS.md](../PRODUCTION_READINESS.md).
 
 Percentages are engineering estimates of implemented and verified scope, not a claim of production certification.
 

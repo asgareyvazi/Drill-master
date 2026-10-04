@@ -1,6 +1,6 @@
 # DrillMaster
 
-> **Current evidence — 2026-09-27: [Mission 33 semantic audit](M33_SEMANTIC_AUDIT.md).** Inventory **8934** occurrences adjudicated from the current source: **3712 verified-correct**, **2264 intentional-by-design**, **51 defect-fixed**, **49 removed-with-evidence**, **17 external-acceptance-only**, **2837 under-review** and **4 evidence-incomplete** (the last two stop release certification for repository-verifiable items). This tree is **NOT RELEASE-CERTIFIABLE** — see [M33_RELEASE_CERTIFICATION.md](M33_RELEASE_CERTIFICATION.md). Earlier counts, SHAs and acceptance statements anywhere below are historical or unverified, not current certification.
+> **Current release-status authority:** [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md). It separates repository verification from Windows, PDF/MinerU, production-database, and operator acceptance.
 
 
 
@@ -10,25 +10,27 @@ calculations. The UI routes calculations through the canonical engineering
 facade and `EngineeringResult`; it is not a replacement for field or
 regulatory engineering review.
 
-## Release-candidate status
+## Release and acceptance scope
 
-The repository contains a reproducible PyInstaller one-folder build and an
-Inno Setup installer definition. End users should install the generated
-`DrillMaster-1.0.0-Setup.exe`; they should not need Python, pip, Git, source
-code, or developer tools. See [DEPLOYMENT.md](DEPLOYMENT.md) for the exact
-Windows build and clean-machine procedure.
+The repository contains PyInstaller one-folder and Inno Setup build definitions.
+The Linux Source release gate verifies source, locked dependencies, tests, and a
+wheel; it does **not** execute a Windows EXE or installer. Windows clean-machine,
+upgrade/uninstall, real MinerU/PDF, production-database, and operator acceptance
+remain unrun. Do not treat packaging definitions as acceptance evidence. The
+single current status source is [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md);
+see [DEPLOYMENT.md](DEPLOYMENT.md) for the intended Windows procedure.
 
 The package does not bundle external AI models, licensed engineering packages,
 field-certification data, or optional document-processing binaries.
 
 ## End-user installation
 
-On a clean Windows x64 machine, run `DrillMaster-1.0.0-Setup.exe`. The
-installer places the executable under Program Files and creates Start Menu and
-optional desktop shortcuts. The SQLite database and all mutable settings stay
-outside Program Files. Upgrades replace application files only; uninstall
-removes installed application files but does not remove the user data
-directory, database, logs, or backups.
+The intended clean-machine workflow is to run `DrillMaster-1.0.0-Setup.exe`.
+The Inno Setup definition targets Program Files and Start Menu shortcuts while
+keeping mutable user data outside the install tree; upgrade/uninstall retention
+is defined by that packaging configuration. Clean-machine installation,
+upgrade, and uninstall behavior have not yet been exercised on Windows and
+remain external acceptance steps.
 
 At first run, DrillMaster opens a secure bootstrap dialog when no database
 exists and no bootstrap environment credentials are supplied. Create a unique
@@ -42,7 +44,7 @@ Production starts with no demo company, project, or well.
 Only the build machine needs these tools:
 
 - Windows x64
-- Python 3.11
+- Python 3.12 x64 by default (`packaging/build_windows.ps1` accepts an explicit interpreter override)
 - Internet or an internal package mirror for the pinned wheels
 - Inno Setup 6 (`ISCC.exe`) for the installer; PyInstaller is installed by
   the build script
@@ -181,33 +183,38 @@ fallback are disabled. CSV/PDF conversion helpers, WITSML placeholders,
 legacy XLS, and the Smart Template manual UI are explicitly bounded legacy or
 unsupported routes; they are not alternate automatic persistence architectures.
 
-Real-document certification is environment-gated. Set
-`DRILLMASTER_TEST_DDR_XLSX` and `DRILLMASTER_TEST_DDR_PDF` to run the real DDR
-acceptance tests. They skip explicitly when paths or MinerU are unavailable.
-AZNS-12 production asset not present in repository/workspace. The user's
-Windows MinerU/PDF and Python 3.12/package runtime were not available in this
-Linux checkout, so Windows acceptance is **BLOCKED**, not PASS. See
-`docs/WINDOWS_ACCEPTANCE.md` for the exact PowerShell sequence.
+Real-document tests are environment-gated. The tracked OEOC workbook
+acceptance is recorded PASS in the M36 W16 evidence; it is repository
+source-corpus evidence, not a Windows/operator or production-database sign-off.
+PDF and external MinerU runs remain NOT RUN. The CI matrix includes Python
+3.11–3.13 on Linux; that does not constitute Windows/Python packaging
+acceptance. Set `DRILLMASTER_TEST_DDR_XLSX` and `DRILLMASTER_TEST_DDR_PDF` to
+exercise opt-in document tests. See `docs/WINDOWS_ACCEPTANCE.md` for the
+unexecuted Windows acceptance sequence.
 
 ## Engineering and import limitations
 
-- Anti-Collision remains **PARTIAL / SCREENING** and must not be represented as
-  a validated uncertainty or separation-standard implementation.
-- Missing engineering inputs produce an explicit failure, unsupported, or
-  `MISSING_INPUT` result; the application does not invent field values.
-- Import results preserve source lineage and require review/confirmation before
-  persistence. Company-specific mappings are JSON templates, not hidden Python
-  logic.
-- ISCWSA/API TR 5C3 compliance, field certification, pore-pressure prediction,
-  laboratory slurry design, connection qualification, cost forecasting, and
-  production surveillance are outside the evidence-backed scope of this
-  release candidate.
+- Anti-Collision is **PARTIAL / SCREENING**; it is not an ISCWSA uncertainty or
+  separation-standard implementation.
+- Casing is **PARTIAL** (not full API TR 5C3); Torque & Drag is **PARTIAL /
+  SCREENING**. Production T&D and cement laboratory design are
+  **NOT_IMPLEMENTED**.
+- Engineering outputs retain explicit scope, warnings, and missing-input
+  semantics; a partial/screening result is not field certification.
+- Canonical import results preserve source lineage and keep unresolved review
+  proposals separate from explicit operator decisions. Company mappings are
+  JSON templates, not hidden Python policy.
+- Field certification, pore-pressure prediction, connection qualification,
+  cost forecasting, and production surveillance remain outside the
+  evidence-backed scope.
 
 ## Development and release validation
 
-Project metadata declares Python 3.10–3.13 with ranged dependencies. The
-**release lock requires Python 3.11–3.13** (`contourpy==1.3.3` excludes 3.10).
-This audit executed Python 3.11 only; wheel resolution is not runtime acceptance.
+Project metadata permits Python 3.10–3.13, but the locked Source release gate
+is exercised on Python 3.11–3.13. Metadata allowance is not a support or
+acceptance claim for Python 3.10. The canonical release status records the
+last exact-SHA CI baseline and external acceptance boundaries.
+
 For a locked development environment:
 
 ```bash
@@ -224,25 +231,16 @@ Run from the repository root:
 
 ```bash
 QT_QPA_PLATFORM=offscreen python -m pytest -ra
-python verify_release.py
+python verify_release.py --expected-sha "$(git rev-parse HEAD)"
 python -m compileall -q core dialogs tabs tests
 python -m py_compile app.py run.py main_window.py verify_release.py
-python -m pip wheel . --no-deps --wheel-dir dist
 git diff --check
 ```
 
-On headless Linux the test suite uses the offscreen Qt platform; if the system
-lacks the Qt runtime libraries (minimal sandboxes), source
-`tools/qt_headless_env.sh` first (it builds no-op stubs — see TESTING.md).
-The source workflow `.github/workflows/ci.yml` is supplied for Python
-3.11–3.13 with real system Qt libraries. **No GitHub Actions pass is claimed**;
-current execution evidence and remaining blockers are in
-[`M27 independent re-audit`](docs/audits/2026-09-22_M27_INDEPENDENT_REAUDIT.md).
-
-`verify_release.py` checks Git SHA/worktree, runtime pins, pip consistency,
-required resources, blocking E722/F821 findings, the pinned lint-debt ratchet,
-compilation, pytest collection/execution accounting (including unexpected
-xfail/xpass), and a real Python wheel build/resource check. It rejects dirty
-worktrees by default; `--allow-dirty` explicitly denotes a development run.
-It does **not** certify Windows, a frozen executable, or production documents.
-The Windows EXE smoke is separately invoked by `packaging/build_windows.ps1`.
+The Source release workflow runs against real Qt system libraries and validates
+the exact GitHub source SHA, locked dependencies, full pytest suite, lint gates,
+compilation, and wheel contents. A pass applies only when the run's `head_sha`
+equals the commit being assessed. It does not certify Windows, a frozen EXE,
+installer behavior, external MinerU/PDF, production data, or operator acceptance.
+See [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md) for the current
+repository/external status boundary.

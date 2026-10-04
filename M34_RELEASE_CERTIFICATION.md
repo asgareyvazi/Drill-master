@@ -1,5 +1,7 @@
 # M34 — Release Certification
 
+> **Historical Mission 34 record.** Its branch identity and verdict are preserved for that mission and are not current. Current release status: [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md).
+
 **Mission 34 · branch `arena/01a0c945-drill-master` · HEAD `c28bbef37cbac9de7abcfa693e7e21f678fa74ab` · tree
 `7e16996cdcc1bce4a79fed8823371c20c74eef15`.**
 

@@ -1,5 +1,7 @@
 # M35 — FINAL REPORT (release-certification recovery)
 
+> **Historical Mission 35 record.** Its Git identity and verdicts describe the recorded M35 session, not the current branch. Current release status: [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md).
+
 Continuation of the M35 mission on `arena/01a0c945-drill-master`. Everything below was re-derived
 from the actual repository in this session; no earlier report was trusted where the repository could
 be checked directly. Sections follow the mandated recovery-report outline (§20).

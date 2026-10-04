@@ -1,12 +1,13 @@
 # DrillMaster Engineering Capability Status
 
-> **Current evidence — 2026-09-27: [Mission 33 semantic audit](M33_SEMANTIC_AUDIT.md).** Inventory **8934** occurrences adjudicated from the current source: **3712 verified-correct**, **2264 intentional-by-design**, **51 defect-fixed**, **49 removed-with-evidence**, **17 external-acceptance-only**, **2837 under-review** and **4 evidence-incomplete** (the last two stop release certification for repository-verifiable items). This tree is **NOT RELEASE-CERTIFIABLE** — see [M33_RELEASE_CERTIFICATION.md](M33_RELEASE_CERTIFICATION.md). Earlier counts, SHAs and acceptance statements anywhere below are historical or unverified, not current certification.
+> **Capability scope reference:** labels below are bounded implementation claims, not production/operator acceptance. Current repository and release status: [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md).
 
-Capability scope is maintained on `arena/01a0c945-drill-master`; the
-domain-by-domain labels below reflect the current engine implementations on
-this branch (the original Engineering Capability Completion work was verified
-on the predecessor `arena/01a07094-drill-master`). `EngineeringResult.scope`
-is authoritative for runtime calculations.
+The labels below are a conservative capability-scope reference, not a branch
+identity or production-acceptance claim. Their original verification occurred
+on `arena/01a0c945-drill-master` and its predecessor `arena/01a07094-drill-master`;
+those names are historical. For a current calculation, the checked-out engine
+and its returned `EngineeringResult.scope` are authoritative. Current release
+and acceptance status is maintained in [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md).
 
 | Domain | Status | Canonical implementation | Methodology and limitations |
 |---|---|---|---|

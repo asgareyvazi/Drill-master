@@ -1,14 +1,16 @@
 # DrillMaster Windows deployment and release runbook
 
-> **Current evidence — 2026-09-27: [Mission 33 semantic audit](M33_SEMANTIC_AUDIT.md).** Inventory **8934** occurrences adjudicated from the current source: **3712 verified-correct**, **2264 intentional-by-design**, **51 defect-fixed**, **49 removed-with-evidence**, **17 external-acceptance-only**, **2837 under-review** and **4 evidence-incomplete** (the last two stop release certification for repository-verifiable items). This tree is **NOT RELEASE-CERTIFIABLE** — see [M33_RELEASE_CERTIFICATION.md](M33_RELEASE_CERTIFICATION.md). Earlier counts, SHAs and acceptance statements anywhere below are historical or unverified, not current certification.
+> **Current release-status authority:** [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md). Build and Windows acceptance are separate; Linux CI does not certify a Windows installation.
 
-This repository builds a Windows x64 one-folder application with PyInstaller
-and an Inno Setup installer. The end-user installation does not require
-Python, pip, Git, the repository, or developer tools.
+This repository defines a Windows x64 one-folder build and Inno Setup
+installer. The intended installed application does not require Python, pip,
+Git, the source repository, or developer tools; this packaging intent is not
+proof of a successful Windows installation.
 
-> Status: Windows build/EXE/installer acceptance is **NOT VERIFIED** by this
-> Linux audit. See [independent M27 evidence](docs/audits/2026-09-22_M27_INDEPENDENT_REAUDIT.md).
-> A Python wheel or fake-bundle structural test is not Windows acceptance.
+> **Acceptance status:** Windows EXE, installer, clean-machine, upgrade, and
+> uninstall checks remain NOT RUN. The current source-release status is in
+> [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md). A Python wheel or static
+> bundle test is not Windows acceptance.
 
 ## Build prerequisites
 
@@ -28,9 +30,9 @@ requirements-build.txt
 
 Do not install optional AI/document packages for the core build.
 
-## Reproducible build
+## Build procedure (Windows execution required)
 
-From the repository root in PowerShell:
+The following command is the documented build path; it has not been run in this Linux environment. From the repository root in PowerShell:
 
 ```powershell
 .\packaging\build_windows.ps1

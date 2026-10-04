@@ -1,5 +1,7 @@
 # M35 — RELEASE-CERTIFICATION RECOVERY
 
+> **Historical Mission 35 record.** Its Git identity and verdicts describe the recorded M35 session, not the current branch. Current release status: [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md).
+
 Forensic first, implementation second. Every statement below was re-derived in this session; no M34
 number was accepted because it appeared in a report. Where M34 is contradicted or narrowed, it is
 said explicitly.

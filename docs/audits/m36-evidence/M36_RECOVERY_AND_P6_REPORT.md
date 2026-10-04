@@ -1,5 +1,7 @@
 # M36 — RECOVERY AND P6 CONTINUATION REPORT
 
+> **Historical M36 recovery record.** Its local-ref observations describe the recorded recovery session, not current Git state. Current release status: [PRODUCTION_READINESS.md](../../../PRODUCTION_READINESS.md); the machine-readable M36/P6 ledger remains authoritative for its accounting/provenance result.
+
 Written from the actual repository state, not from prior reports. Every claim below was checked with
 a Git command or a source read in this session.
 

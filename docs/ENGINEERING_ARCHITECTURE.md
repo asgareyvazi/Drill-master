@@ -1,6 +1,6 @@
 # Engineering architecture (audit)
 
-> **Current evidence — 2026-09-27: [Mission 33 semantic audit](../M33_SEMANTIC_AUDIT.md).** Inventory **8934** occurrences adjudicated from the current source: **3712 verified-correct**, **2264 intentional-by-design**, **51 defect-fixed**, **49 removed-with-evidence**, **17 external-acceptance-only**, **2837 under-review** and **4 evidence-incomplete** (the last two stop release certification for repository-verifiable items). This tree is **NOT RELEASE-CERTIFIABLE** — see [M33_RELEASE_CERTIFICATION.md](../M33_RELEASE_CERTIFICATION.md). Earlier counts, SHAs and acceptance statements anywhere below are historical or unverified, not current certification.
+> **Current release-status authority:** [PRODUCTION_READINESS.md](../PRODUCTION_READINESS.md). This page states engineering design contracts, not release certification.
 
 **Date:** 2026-08-31  
 **Rule:** ONE ENGINE → ONE FORMULA → ONE RESULT  
