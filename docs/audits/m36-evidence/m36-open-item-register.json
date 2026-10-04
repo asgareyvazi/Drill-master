@@ -1,6 +1,6 @@
 {
  "schema": "m36-open-item-register",
- "generated_utc": "2026-09-29T10:17:13+00:00",
+ "generated_utc": "2026-10-04T05:29:48+00:00",
  "source_register": "docs/audits/m35-evidence/m35-open-item-register.json",
  "source_sha256_declared": "d81a77bda0330c75493f4081c4a02e4d106fe7602e49c14f0c67d12977658a6b",
  "totals": {
@@ -2286,7 +2286,7 @@
    "p6_batch": "p6-batch-017",
    "p6_remaining_question": null,
    "p6_defect": true,
-   "p6_commit": "4c543e8"
+   "p6_commit": "4c543e8afe78250779f9164a1792df33cd5b2df1"
   },
   {
    "id": "INV34-001116",
@@ -4122,7 +4122,7 @@
    "p6_batch": "p6-batch-005",
    "p6_remaining_question": "none for this defect; the sheet now refuses with the input named in the error message",
    "p6_defect": true,
-   "p6_commit": "ff2000a"
+   "p6_commit": "ff2000ade708f4732792c0c9ca953b64fd409074"
   },
   {
    "id": "INV34-001752",
@@ -6442,7 +6442,7 @@
    "p6_batch": "p6-batch-025",
    "p6_remaining_question": null,
    "p6_defect": true,
-   "p6_commit": null
+   "p6_commit": "e6a1ffb23a7641d09ad0a94e693b879de45ec612"
   },
   {
    "id": "INV34-002199",
@@ -7598,7 +7598,7 @@
    "p6_batch": "p6-batch-013",
    "p6_remaining_question": null,
    "p6_defect": true,
-   "p6_commit": "0699e50"
+   "p6_commit": "0699e508e841f213da92d6e1144098c40245fd3d"
   },
   {
    "id": "INV34-002458",
@@ -10734,7 +10734,7 @@
    "p6_batch": "p6-batch-015",
    "p6_remaining_question": null,
    "p6_defect": true,
-   "p6_commit": "fd51a54"
+   "p6_commit": "fd51a5409be879ea405fd3caecd64166f55a8c91"
   },
   {
    "id": "INV34-003571",
@@ -15586,7 +15586,7 @@
    "p6_batch": "p6-batch-024",
    "p6_remaining_question": null,
    "p6_defect": true,
-   "p6_commit": null
+   "p6_commit": "6c07d3a2ed4782bb5dd707f43b0d78635dead162"
   },
   {
    "id": "INV34-005714",
@@ -16558,7 +16558,7 @@
    "p6_batch": "p6-batch-003",
    "p6_remaining_question": null,
    "p6_defect": true,
-   "p6_commit": "c2e0016"
+   "p6_commit": "c2e001619ee73c58cadfc85b72a2975ae540f28a"
   },
   {
    "id": "INV34-006022",
@@ -19450,7 +19450,7 @@
    "p6_batch": "p6-batch-024",
    "p6_remaining_question": null,
    "p6_defect": true,
-   "p6_commit": null
+   "p6_commit": "dc0ad4b08e3c94bf87419114aa55c74c450dd8f3"
   },
   {
    "id": "INV34-006848",
@@ -32046,7 +32046,7 @@
    "p6_batch": "p6-batch-021",
    "p6_remaining_question": null,
    "p6_defect": true,
-   "p6_commit": null
+   "p6_commit": "9a7b64f59fd3e95a135f0be3572053206bc4d4d5"
   },
   {
    "id": "INV34-009688",
@@ -32074,7 +32074,7 @@
    "p6_batch": "p6-batch-021",
    "p6_remaining_question": null,
    "p6_defect": true,
-   "p6_commit": null
+   "p6_commit": "9a7b64f59fd3e95a135f0be3572053206bc4d4d5"
   },
   {
    "id": "INV34-009689",
@@ -32102,7 +32102,7 @@
    "p6_batch": "p6-batch-021",
    "p6_remaining_question": null,
    "p6_defect": true,
-   "p6_commit": null
+   "p6_commit": "9a7b64f59fd3e95a135f0be3572053206bc4d4d5"
   },
   {
    "id": "INV34-009696",

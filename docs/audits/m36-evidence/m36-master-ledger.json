@@ -15,8 +15,20 @@
    "defects_fixed": [],
    "commit": null,
    "tests": "ledger/register validation (no production change)",
-   "evidence_commit": "3b60dfd",
-   "new_findings": []
+   "evidence_commit": "3b60dfd250bc11b70392f166a7012ae2cdf693ce",
+   "new_findings": [],
+   "head": null,
+   "head_commit": null,
+   "source_tree": null,
+   "head_provenance": "not recorded in original batch payload; not inferred",
+   "staleness": {
+    "checked": 45,
+    "stale": 0
+   },
+   "production_commits": [],
+   "payload_latest_commit": "3b60dfd250bc11b70392f166a7012ae2cdf693ce",
+   "payload_latest_commit_subject": "audit: adjudicate semantic findings batch 002 (45 HIGH records, class A)",
+   "supplemental_test_evidence_commits": []
   },
   {
    "batch": "p6-batch-003",
@@ -34,8 +46,31 @@
    ],
    "commit": "c2e0016",
    "tests": "tests/test_bulk_stock_three_state_smoke.py PASS; tests/test_inventory_live_calc_smoke.py PASS; tests/test_permission_failclosed_regression.py PASS; full suite 1828 results, 0 failures, 6 documented skips (post-fix, this worktree)",
-   "evidence_commit": "2f61e6f",
-   "new_findings": []
+   "evidence_commit": "2f61e6f478bd6fa1e9ac3c427f300c28cf3d7ed1",
+   "new_findings": [],
+   "head": "c2e0016",
+   "head_commit": "c2e001619ee73c58cadfc85b72a2975ae540f28a",
+   "source_tree": "5f357cb3131dc7c482442bdf97fb803005c8d5a7",
+   "head_provenance": "verified recorded head resolves in Git; tree hash recorded",
+   "staleness": {
+    "checked": 45,
+    "stale": 0,
+    "re_anchored": 4,
+    "method": "recorded text must be identical (whitespace-insensitive) to the current line; the four moved records are proven against the previous blob of their fix commit and re-anchored inside the recorded symbol"
+   },
+   "production_commits": [
+    {
+     "sha": "c2e001619ee73c58cadfc85b72a2975ae540f28a",
+     "scope": "production_fix",
+     "register_ids": [
+      "INV34-006021"
+     ],
+     "new_p6_ids": []
+    }
+   ],
+   "payload_latest_commit": "2f61e6f478bd6fa1e9ac3c427f300c28cf3d7ed1",
+   "payload_latest_commit_subject": "audit: adjudicate semantic findings batch 003 (45 HIGH records, class A)",
+   "supplemental_test_evidence_commits": []
   },
   {
    "batch": "p6-batch-004",
@@ -61,9 +96,52 @@
      "test": "tests/test_mud_ledger_unknown_stock_history.py - 5 tests over the facade and the AI-tool path (success=True, entries+alerts preserved, unknown last stock -> days_remaining None, explicit zero stays 0.0)"
     }
    ],
-   "evidence_commit": "a375b06",
+   "evidence_commit": "a375b06532e14c9dfbf4ae9e2b5c532ee6c3ea84",
    "commit": "3f0cf3e",
-   "tests": "focused ledger/inventory/bulk/mud slice: 163 tests, 0 failures, 0 errors, 0 skipped (24.795 s, JUnit /tmp/mudslice.xml); the new regression file is 5/5 and mutation-validated (pre-fix code -> TypeError; unknown->0.0 -> 'assert [0.0, -30.0] == [None, -30.0]'; reverted continuity guard -> TypeError at core/mud_ledger.py:267 - each mutation fails, restored byte-identical 183a6cf5...6de828f); ruff clean on core/mud_ledger.py and the new test file"
+   "tests": "focused ledger/inventory/bulk/mud slice: 163 tests, 0 failures, 0 errors, 0 skipped (24.795 s, JUnit /tmp/mudslice.xml); the new regression file is 5/5 and mutation-validated (pre-fix code -> TypeError; unknown->0.0 -> 'assert [0.0, -30.0] == [None, -30.0]'; reverted continuity guard -> TypeError at core/mud_ledger.py:267 - each mutation fails, restored byte-identical 183a6cf5...6de828f); ruff clean on core/mud_ledger.py and the new test file",
+   "head": "3f0cf3e",
+   "head_commit": "3f0cf3eb7c82fe94e5e18e5ac2ca74d46063d997",
+   "source_tree": "66a990ed6b26879a17197416b3771201770e3fc2",
+   "head_provenance": "verified recorded head resolves in Git; tree hash recorded",
+   "staleness": {
+    "checked": 45,
+    "stale": 0,
+    "re_anchored": 3,
+    "method": "recorded text must match the current line exactly; for a file this batch cycle changed (w7 via c2e0016, core/mud_ledger.py via 3f0cf3e) the recorded text is first verified against <commit>^ at the recorded line, then the record is re-anchored through the line map derived from the real diff (difflib equal-blocks), and the recorded line itself must either be unchanged (re-anchored) or declared SELF_FIXED (the fix that this record found); nothing is skipped or hand-adjusted",
+    "re_anchored_items": [
+     {
+      "id": "INV34-002209",
+      "file": "core/mud_ledger.py",
+      "recorded_line": 209,
+      "current_line": 217
+     },
+     {
+      "id": "INV34-006213",
+      "file": "tabs/w7_logistics_Widget.py",
+      "recorded_line": 1182,
+      "current_line": 1200
+     },
+     {
+      "id": "INV34-008456",
+      "file": "tabs/w7_logistics_Widget.py",
+      "recorded_line": 1183,
+      "current_line": 1201
+     }
+    ]
+   },
+   "production_commits": [
+    {
+     "sha": "3f0cf3eb7c82fe94e5e18e5ac2ca74d46063d997",
+     "scope": "production_fix",
+     "register_ids": [],
+     "new_p6_ids": [
+      "NEW-P6-001"
+     ]
+    }
+   ],
+   "payload_latest_commit": "a375b06532e14c9dfbf4ae9e2b5c532ee6c3ea84",
+   "payload_latest_commit_subject": "audit(m36-p6): adjudicate p6-batch-004 (45 HIGH records, 36 sites)",
+   "supplemental_test_evidence_commits": []
   },
   {
    "batch": "p6-batch-005",
@@ -80,9 +158,190 @@
     "INV34-001751 / INV34-007524 - core/engineering/well_control_kill_sheet.py:290 (`casing_id_in=_num(casing_id_in) or 0.0`): a required, consumed input was missing from the builder's required_raw gate, so an unfilled casing-ID field (the widget sentinel reads back as None) silently removed the annular volume - and the annular displacement strokes derived from it - from a sheet that still reported success. Fixed in ff2000a; regression tests/test_kill_sheet_casing_id_gate.py (mutation-killed: reverting the gate yields 'assert () == (\"casing_id_in\",)', a truthiness-based gate also fails). One statement, one defect, two register records."
    ],
    "new_findings": [],
-   "evidence_commit": "e205008",
+   "evidence_commit": "e2050084d53c809cbab0edb674fea3da8fc83d10",
    "commit": "ff2000a",
-   "tests": "focused kill-sheet suite (this file + test_well_control_kill_sheet{,_cross_process,_persistence} + test_well_control_icp_fcp_consolidation) 45 tests PASS after the fix; the new regression file is 3/3 and mutation-validated (gate removed and truthiness gate both fail, restored byte-identical 30d03000...5eb5f20fe); ruff clean on both changed files"
+   "tests": "focused kill-sheet suite (this file + test_well_control_kill_sheet{,_cross_process,_persistence} + test_well_control_icp_fcp_consolidation) 45 tests PASS after the fix; the new regression file is 3/3 and mutation-validated (gate removed and truthiness gate both fail, restored byte-identical 30d03000...5eb5f20fe); ruff clean on both changed files",
+   "head": "ff2000a",
+   "head_commit": "ff2000ade708f4732792c0c9ca953b64fd409074",
+   "source_tree": "12177dfb6e17dfdf58e587b1963df6f460466e6e",
+   "head_provenance": "verified recorded head resolves in Git; tree hash recorded",
+   "staleness": {
+    "checked": 45,
+    "stale": 0,
+    "re_anchored": 26,
+    "method": "recorded text must match the current line; the kill-sheet records (whose gate this batch itself completed in ff2000a) are first verified against ff2000a^ and then re-anchored through the line map derived from the real diff (difflib equal-blocks); no record is skipped, renumbered by hand or accepted on a snippet alone",
+    "re_anchored_items": [
+     {
+      "id": "INV34-001751",
+      "file": "core/engineering/well_control_kill_sheet.py",
+      "recorded_line": 290,
+      "current_line": 295
+     },
+     {
+      "id": "INV34-001752",
+      "file": "core/engineering/well_control_kill_sheet.py",
+      "recorded_line": 292,
+      "current_line": 297
+     },
+     {
+      "id": "INV34-001753",
+      "file": "core/engineering/well_control_kill_sheet.py",
+      "recorded_line": 289,
+      "current_line": 294
+     },
+     {
+      "id": "INV34-001755",
+      "file": "core/engineering/well_control_kill_sheet.py",
+      "recorded_line": 291,
+      "current_line": 296
+     },
+     {
+      "id": "INV34-001759",
+      "file": "core/engineering/well_control_kill_sheet.py",
+      "recorded_line": 295,
+      "current_line": 300
+     },
+     {
+      "id": "INV34-001760",
+      "file": "core/engineering/well_control_kill_sheet.py",
+      "recorded_line": 300,
+      "current_line": 305
+     },
+     {
+      "id": "INV34-001761",
+      "file": "core/engineering/well_control_kill_sheet.py",
+      "recorded_line": 296,
+      "current_line": 301
+     },
+     {
+      "id": "INV34-001762",
+      "file": "core/engineering/well_control_kill_sheet.py",
+      "recorded_line": 297,
+      "current_line": 302
+     },
+     {
+      "id": "INV34-001763",
+      "file": "core/engineering/well_control_kill_sheet.py",
+      "recorded_line": 298,
+      "current_line": 303
+     },
+     {
+      "id": "INV34-001764",
+      "file": "core/engineering/well_control_kill_sheet.py",
+      "recorded_line": 299,
+      "current_line": 304
+     },
+     {
+      "id": "INV34-001765",
+      "file": "core/engineering/well_control_kill_sheet.py",
+      "recorded_line": 288,
+      "current_line": 293
+     },
+     {
+      "id": "INV34-001766",
+      "file": "core/engineering/well_control_kill_sheet.py",
+      "recorded_line": 294,
+      "current_line": 299
+     },
+     {
+      "id": "INV34-001767",
+      "file": "core/engineering/well_control_kill_sheet.py",
+      "recorded_line": 293,
+      "current_line": 298
+     },
+     {
+      "id": "INV34-007522",
+      "file": "core/engineering/well_control_kill_sheet.py",
+      "recorded_line": 288,
+      "current_line": 293
+     },
+     {
+      "id": "INV34-007523",
+      "file": "core/engineering/well_control_kill_sheet.py",
+      "recorded_line": 289,
+      "current_line": 294
+     },
+     {
+      "id": "INV34-007524",
+      "file": "core/engineering/well_control_kill_sheet.py",
+      "recorded_line": 290,
+      "current_line": 295
+     },
+     {
+      "id": "INV34-007525",
+      "file": "core/engineering/well_control_kill_sheet.py",
+      "recorded_line": 291,
+      "current_line": 296
+     },
+     {
+      "id": "INV34-007526",
+      "file": "core/engineering/well_control_kill_sheet.py",
+      "recorded_line": 292,
+      "current_line": 297
+     },
+     {
+      "id": "INV34-007527",
+      "file": "core/engineering/well_control_kill_sheet.py",
+      "recorded_line": 293,
+      "current_line": 298
+     },
+     {
+      "id": "INV34-007528",
+      "file": "core/engineering/well_control_kill_sheet.py",
+      "recorded_line": 294,
+      "current_line": 299
+     },
+     {
+      "id": "INV34-007529",
+      "file": "core/engineering/well_control_kill_sheet.py",
+      "recorded_line": 295,
+      "current_line": 300
+     },
+     {
+      "id": "INV34-007530",
+      "file": "core/engineering/well_control_kill_sheet.py",
+      "recorded_line": 296,
+      "current_line": 301
+     },
+     {
+      "id": "INV34-007531",
+      "file": "core/engineering/well_control_kill_sheet.py",
+      "recorded_line": 297,
+      "current_line": 302
+     },
+     {
+      "id": "INV34-007532",
+      "file": "core/engineering/well_control_kill_sheet.py",
+      "recorded_line": 298,
+      "current_line": 303
+     },
+     {
+      "id": "INV34-007533",
+      "file": "core/engineering/well_control_kill_sheet.py",
+      "recorded_line": 299,
+      "current_line": 304
+     },
+     {
+      "id": "INV34-007534",
+      "file": "core/engineering/well_control_kill_sheet.py",
+      "recorded_line": 300,
+      "current_line": 305
+     }
+    ]
+   },
+   "production_commits": [
+    {
+     "sha": "ff2000ade708f4732792c0c9ca953b64fd409074",
+     "scope": "production_fix",
+     "register_ids": [
+      "INV34-001751"
+     ],
+     "new_p6_ids": []
+    }
+   ],
+   "payload_latest_commit": "e2050084d53c809cbab0edb674fea3da8fc83d10",
+   "payload_latest_commit_subject": "audit(m36-p6): adjudicate p6-batch-005 (45 HIGH records, 29 sites)",
+   "supplemental_test_evidence_commits": []
   },
   {
    "batch": "p6-batch-006",
@@ -96,9 +355,24 @@
    },
    "defects_fixed": [],
    "new_findings": [],
-   "evidence_commit": "2c82455",
+   "evidence_commit": "2c8245595626a028843fee801b403a3bc2b6b4a4",
    "commit": null,
-   "tests": "no production change in this batch; the full suite was re-run on the 3f0cf3e fix (1 831 tests / 0 failures / 0 errors / 4 skipped) and the focused slices before it, as recorded in P6_PROGRESS.md"
+   "tests": "no production change in this batch; the full suite was re-run on the 3f0cf3e fix (1 831 tests / 0 failures / 0 errors / 4 skipped) and the focused slices before it, as recorded in P6_PROGRESS.md",
+   "head": "e205008",
+   "head_commit": "e2050084d53c809cbab0edb674fea3da8fc83d10",
+   "source_tree": "d93c12845eca45b728f5bf0ab31b967d2ec3bc4d",
+   "head_provenance": "verified recorded head resolves in Git; tree hash recorded",
+   "staleness": {
+    "checked": 45,
+    "stale": 0,
+    "re_anchored": 0,
+    "method": "every record's recorded text must match the current line exactly; no file in this batch changed since the register was built, so no record needed re-anchoring",
+    "re_anchored_items": []
+   },
+   "production_commits": [],
+   "payload_latest_commit": "2c8245595626a028843fee801b403a3bc2b6b4a4",
+   "payload_latest_commit_subject": "audit(m36-p6): adjudicate p6-batch-006 (45 HIGH records, 42 sites, class D)",
+   "supplemental_test_evidence_commits": []
   },
   {
    "batch": "p6-batch-007",
@@ -122,9 +396,24 @@
      "test": null
     }
    ],
-   "evidence_commit": "ca2bb1e",
+   "evidence_commit": "ca2bb1ec1a2b1a4ebf9b5712b866c8bd3e3a5cdf",
    "commit": null,
-   "tests": "no production change in this batch; the full suite evidence recorded in P6_PROGRESS.md (1 831 tests / 0 failures / 0 errors / 4 skipped on the 3f0cf3e tree) stands for this batch too - every site read here is untracked by this session's changes"
+   "tests": "no production change in this batch; the full suite evidence recorded in P6_PROGRESS.md (1 831 tests / 0 failures / 0 errors / 4 skipped on the 3f0cf3e tree) stands for this batch too - every site read here is untracked by this session's changes",
+   "head": "2c82455",
+   "head_commit": "2c8245595626a028843fee801b403a3bc2b6b4a4",
+   "source_tree": "a236c950eca978d516f4f20f348f98b51943c3cb",
+   "head_provenance": "verified recorded head resolves in Git; tree hash recorded",
+   "staleness": {
+    "checked": 45,
+    "stale": 0,
+    "re_anchored": 0,
+    "method": "every record's recorded text must match the current line exactly; no file in this batch was changed by this session (verified: the batch touches only files untouched since the register was built), so no record needed re-anchoring",
+    "re_anchored_items": []
+   },
+   "production_commits": [],
+   "payload_latest_commit": "ca2bb1ec1a2b1a4ebf9b5712b866c8bd3e3a5cdf",
+   "payload_latest_commit_subject": "audit(m36-p6): adjudicate p6-batch-007 (45 HIGH records, 44 sites, class E/D)",
+   "supplemental_test_evidence_commits": []
   },
   {
    "batch": "p6-batch-008",
@@ -138,9 +427,24 @@
    },
    "defects_fixed": [],
    "new_findings": [],
-   "evidence_commit": "9fc5538",
+   "evidence_commit": "9fc553884facaa8b2e8cd67b062253c2bef58d98",
    "commit": null,
-   "tests": "no production change in this batch; the full suite evidence recorded in P6_PROGRESS.md (1 831 tests / 0 failures / 0 errors / 4 skipped on the 3f0cf3e tree) stands for this batch too - every site read here is untracked by this session's changes"
+   "tests": "no production change in this batch; the full suite evidence recorded in P6_PROGRESS.md (1 831 tests / 0 failures / 0 errors / 4 skipped on the 3f0cf3e tree) stands for this batch too - every site read here is untracked by this session's changes",
+   "head": "ca2bb1e",
+   "head_commit": "ca2bb1ec1a2b1a4ebf9b5712b866c8bd3e3a5cdf",
+   "source_tree": "a7da94d0d91ef07cf62e6724e31ebc240be8fe3f",
+   "head_provenance": "verified recorded head resolves in Git; tree hash recorded",
+   "staleness": {
+    "checked": 45,
+    "stale": 0,
+    "re_anchored": 0,
+    "method": "every record's recorded text must match the current line exactly; no file in this batch was changed by this session (verified: the batch touches only files untouched since the register was built), so no record needed re-anchoring",
+    "re_anchored_items": []
+   },
+   "production_commits": [],
+   "payload_latest_commit": "9fc553884facaa8b2e8cd67b062253c2bef58d98",
+   "payload_latest_commit_subject": "audit(m36-p6): adjudicate p6-batch-008 (45 HIGH records, 42 sites, class E)",
+   "supplemental_test_evidence_commits": []
   },
   {
    "batch": "p6-batch-009",
@@ -154,9 +458,49 @@
    },
    "defects_fixed": [],
    "new_findings": [],
-   "evidence_commit": "9655321",
+   "evidence_commit": "9655321401499fb1d76949c3e820ea506d1559c7",
    "commit": null,
-   "tests": "no production change in this batch; the full suite evidence recorded in P6_PROGRESS.md (1 831 tests / 0 failures / 0 errors / 4 skipped on the 3f0cf3e tree) stands for this batch too - the only production files this session has written are core/engineering/well_control_kill_sheet.py, core/mud_ledger.py and tabs/w7_logistics_Widget.py, none of which this batch edits"
+   "tests": "no production change in this batch; the full suite evidence recorded in P6_PROGRESS.md (1 831 tests / 0 failures / 0 errors / 4 skipped on the 3f0cf3e tree) stands for this batch too - the only production files this session has written are core/engineering/well_control_kill_sheet.py, core/mud_ledger.py and tabs/w7_logistics_Widget.py, none of which this batch edits",
+   "head": "9fc5538",
+   "head_commit": "9fc553884facaa8b2e8cd67b062253c2bef58d98",
+   "source_tree": "674c91c58bae861544fd60743c931ff0b6f14c1a",
+   "head_provenance": "verified recorded head resolves in Git; tree hash recorded",
+   "staleness": {
+    "checked": 45,
+    "stale": 0,
+    "re_anchored": 4,
+    "method": "every record's recorded text must match the current line exactly; where it does not, the recorded text must match c2e0016^ at that line (the pre-fix revision of tabs/w7_logistics_Widget.py, whose line numbers the register carries) and the difflib map against c2e0016 must land on the same text inside the symbol's AST range - otherwise the batch refuses to apply",
+    "re_anchored_items": [
+     {
+      "id": "INV34-006143",
+      "file": "tabs/w7_logistics_Widget.py",
+      "register_line": 1249,
+      "current_line": 1267
+     },
+     {
+      "id": "INV34-006205",
+      "file": "tabs/w7_logistics_Widget.py",
+      "register_line": 1725,
+      "current_line": 1743
+     },
+     {
+      "id": "INV34-006212",
+      "file": "tabs/w7_logistics_Widget.py",
+      "register_line": 999,
+      "current_line": 1017
+     },
+     {
+      "id": "INV34-008442",
+      "file": "tabs/w7_logistics_Widget.py",
+      "register_line": 999,
+      "current_line": 1017
+     }
+    ]
+   },
+   "production_commits": [],
+   "payload_latest_commit": "9655321401499fb1d76949c3e820ea506d1559c7",
+   "payload_latest_commit_subject": "audit(m36-p6): adjudicate p6-batch-009 (45 HIGH records, 41 sites, class E)",
+   "supplemental_test_evidence_commits": []
   },
   {
    "batch": "p6-batch-010",
@@ -170,9 +514,24 @@
    },
    "defects_fixed": [],
    "new_findings": [],
-   "evidence_commit": "5a17ee1",
+   "evidence_commit": "5a17ee184b44324d0f04bc2f673133334d166fb4",
    "commit": null,
-   "tests": "no production change in this batch; the full suite evidence recorded in P6_PROGRESS.md (1 831 tests / 0 failures / 0 errors / 4 skipped on the 3f0cf3e tree) stands for this batch too - this batch edits no production file at all"
+   "tests": "no production change in this batch; the full suite evidence recorded in P6_PROGRESS.md (1 831 tests / 0 failures / 0 errors / 4 skipped on the 3f0cf3e tree) stands for this batch too - this batch edits no production file at all",
+   "head": "9655321",
+   "head_commit": "9655321401499fb1d76949c3e820ea506d1559c7",
+   "source_tree": "ad5761c6ca6bb2d1fc0ac96d718962f4111b1cc5",
+   "head_provenance": "verified recorded head resolves in Git; tree hash recorded",
+   "staleness": {
+    "checked": 9,
+    "stale": 0,
+    "re_anchored": 0,
+    "method": "every record's recorded text must match the current line exactly; where it does not, the recorded text must match c2e0016^ at that line (the pre-fix revision of tabs/w7_logistics_Widget.py, whose line numbers the register carries) and the difflib map against c2e0016 must land on the same text inside the symbol's AST range - otherwise the batch refuses to apply",
+    "re_anchored_items": []
+   },
+   "production_commits": [],
+   "payload_latest_commit": "5a17ee184b44324d0f04bc2f673133334d166fb4",
+   "payload_latest_commit_subject": "audit(m36-p6): adjudicate p6-batch-010 - HIGH priority closed (HIGH 9 -> 0)",
+   "supplemental_test_evidence_commits": []
   },
   {
    "batch": "p6-batch-011",
@@ -186,9 +545,24 @@
    },
    "defects_fixed": [],
    "new_findings": [],
-   "evidence_commit": "86bde32",
+   "evidence_commit": "86bde32bcf472c0867e2badf5cff601bfb8649ff",
    "commit": null,
-   "tests": "no production change in this batch; the full suite evidence recorded in the final phase-1 report (1 834 / 0 failures / 0 errors / 4 skipped on the 1d44cb5 tree) stands for this batch too - this batch edits no production file"
+   "tests": "no production change in this batch; the full suite evidence recorded in the final phase-1 report (1 834 / 0 failures / 0 errors / 4 skipped on the 1d44cb5 tree) stands for this batch too - this batch edits no production file",
+   "head": "1d44cb5",
+   "head_commit": "1d44cb56d2d1a5704e2fed2eae8f59962c5f5664",
+   "source_tree": "719849b4ea523834e541b71415f36a11db6f990c",
+   "head_provenance": "verified recorded head resolves in Git; tree hash recorded",
+   "staleness": {
+    "checked": 45,
+    "stale": 0,
+    "re_anchored": 0,
+    "method": "every record's recorded text must match the current line exactly; where it does not, the recorded text must match c2e0016^ at that line (the pre-fix revision of tabs/w7_logistics_Widget.py, whose line numbers the register carries) and the difflib map against c2e0016 must land on the same text inside the symbol's AST range - otherwise the batch refuses to apply",
+    "re_anchored_items": []
+   },
+   "production_commits": [],
+   "payload_latest_commit": "86bde32bcf472c0867e2badf5cff601bfb8649ff",
+   "payload_latest_commit_subject": "chore(p6): adjudicate medium batch 011 (45 records, class A persistence surface)",
+   "supplemental_test_evidence_commits": []
   },
   {
    "batch": "p6-batch-012",
@@ -202,9 +576,24 @@
    },
    "defects_fixed": [],
    "new_findings": [],
-   "evidence_commit": "da5ffb3",
+   "evidence_commit": "da5ffb32bad39b545c525f8050781ff8a3b69652",
    "commit": null,
-   "tests": "no production change in this batch; the full suite evidence recorded in the final phase-1 report (1 834 / 0 failures / 0 errors / 4 skipped on the 1d44cb5 tree) stands for this batch too - this batch edits no production file"
+   "tests": "no production change in this batch; the full suite evidence recorded in the final phase-1 report (1 834 / 0 failures / 0 errors / 4 skipped on the 1d44cb5 tree) stands for this batch too - this batch edits no production file",
+   "head": "86bde32",
+   "head_commit": "86bde32bcf472c0867e2badf5cff601bfb8649ff",
+   "source_tree": "ed524935ab3722ce150f67dde063a421193287d7",
+   "head_provenance": "verified recorded head resolves in Git; tree hash recorded",
+   "staleness": {
+    "checked": 45,
+    "stale": 0,
+    "re_anchored": 0,
+    "method": "every record's recorded text must match the current line exactly; where it does not, the recorded text must match c2e0016^ at that line (the pre-fix revision of tabs/w7_logistics_Widget.py, whose line numbers the register carries) and the difflib map against c2e0016 must land on the same text inside the symbol's AST range - otherwise the batch refuses to apply",
+    "re_anchored_items": []
+   },
+   "production_commits": [],
+   "payload_latest_commit": "da5ffb32bad39b545c525f8050781ff8a3b69652",
+   "payload_latest_commit_subject": "chore(p6): adjudicate medium batch 012 (45 records, class A persistence surface)",
+   "supplemental_test_evidence_commits": []
   },
   {
    "batch": "p6-batch-013",
@@ -238,9 +627,33 @@
      "test": null
     }
    ],
-   "evidence_commit": "a9f7595",
+   "evidence_commit": "a9f759561a4b31e65ca40ca5176330dd6e2596a2",
    "commit": null,
-   "tests": "defect fix commit 0699e50: new regression file 4 passed; related suites (12 files incl. the regression, the profile-engine and DDR forensics and the time-log/inventory semantics suites) 343 passed / 0 failed / 0 errors / 0 skipped in 49.535 s; mutation validation with `hrs = 0.0` reintroduced -> 3 of 4 new tests fail, restored byte-identical (sha256 f77253848055e1c1..58fb45f9) -> 4/4; compileall OK; ruff unchanged for the touched files (45 concise lines before and after), ratchet population 5 338 <= ceiling 5 375. The other 44 records change no production file; the phase-1 full-suite gate (1 834 / 0 failures / 0 errors / 4 skipped, 1d44cb5 tree) plus that related run cover them; the phase-end full suite will re-run on the final tree"
+   "tests": "defect fix commit 0699e50: new regression file 4 passed; related suites (12 files incl. the regression, the profile-engine and DDR forensics and the time-log/inventory semantics suites) 343 passed / 0 failed / 0 errors / 0 skipped in 49.535 s; mutation validation with `hrs = 0.0` reintroduced -> 3 of 4 new tests fail, restored byte-identical (sha256 f77253848055e1c1..58fb45f9) -> 4/4; compileall OK; ruff unchanged for the touched files (45 concise lines before and after), ratchet population 5 338 <= ceiling 5 375. The other 44 records change no production file; the phase-1 full-suite gate (1 834 / 0 failures / 0 errors / 4 skipped, 1d44cb5 tree) plus that related run cover them; the phase-end full suite will re-run on the final tree",
+   "head": "0699e50",
+   "head_commit": "0699e508e841f213da92d6e1144098c40245fd3d",
+   "source_tree": "38217a312d2311305cf6e9106acdc6e84018e468",
+   "head_provenance": "verified recorded head resolves in Git; tree hash recorded",
+   "staleness": {
+    "checked": 45,
+    "stale": 0,
+    "re_anchored": 0,
+    "method": "every record's recorded text must match the current line exactly; where it does not, the recorded text must match c2e0016^ at that line (the pre-fix revision of tabs/w7_logistics_Widget.py, whose line numbers the register carries) and the difflib map against c2e0016 must land on the same text inside the symbol's AST range - otherwise the batch refuses to apply",
+    "re_anchored_items": []
+   },
+   "production_commits": [
+    {
+     "sha": "0699e508e841f213da92d6e1144098c40245fd3d",
+     "scope": "production_fix",
+     "register_ids": [
+      "INV34-002457"
+     ],
+     "new_p6_ids": []
+    }
+   ],
+   "payload_latest_commit": "a9f759561a4b31e65ca40ca5176330dd6e2596a2",
+   "payload_latest_commit_subject": "chore(p6): adjudicate medium batch 013 (45 records); register one defect fix and one new finding",
+   "supplemental_test_evidence_commits": []
   },
   {
    "batch": "p6-batch-014",
@@ -254,9 +667,24 @@
    },
    "defects_fixed": [],
    "new_findings": [],
-   "evidence_commit": "3da68f0",
+   "evidence_commit": "3da68f0888441d265f52791daba752f21bac7348",
    "commit": null,
-   "tests": "no production file changes in this batch (all 45 records adjudicated as INTENTIONAL 15 / DUPLICATE 23 / VERIFIED-CORRECT 7; 0 defects), so the evidence is (a) the phase-1 full-suite gate on the pre-batch tree (1 834 passed / 0 failures / 0 errors / 4 skipped, 317.146 s) and (b) a fresh related run on the current tree covering every module the batch quotes: 346 passed / 0 failed / 0 errors / 0 skipped in 94.954 s (/tmp/p6-014-related.xml; includes the cement/mse/mud-volume/torque-drag/kill-sheet persistence, cross-process, history and save-widget suites, the calculation-verification core, the casing-id gate, the save-outcome consumers and the import-pipeline suites).  compileall and the phase-end full suite re-run on the final tree"
+   "tests": "no production file changes in this batch (all 45 records adjudicated as INTENTIONAL 15 / DUPLICATE 23 / VERIFIED-CORRECT 7; 0 defects), so the evidence is (a) the phase-1 full-suite gate on the pre-batch tree (1 834 passed / 0 failures / 0 errors / 4 skipped, 317.146 s) and (b) a fresh related run on the current tree covering every module the batch quotes: 346 passed / 0 failed / 0 errors / 0 skipped in 94.954 s (/tmp/p6-014-related.xml; includes the cement/mse/mud-volume/torque-drag/kill-sheet persistence, cross-process, history and save-widget suites, the calculation-verification core, the casing-id gate, the save-outcome consumers and the import-pipeline suites).  compileall and the phase-end full suite re-run on the final tree",
+   "head": "10fdd8a",
+   "head_commit": "10fdd8a393a33d483619907dcc24e9c1b2d053ae",
+   "source_tree": "9dec4d0d0ab0e1372dab5df65e762a6cda9b25b1",
+   "head_provenance": "verified recorded head resolves in Git; tree hash recorded",
+   "staleness": {
+    "checked": 45,
+    "stale": 0,
+    "re_anchored": 0,
+    "method": "every record's recorded text must match the line at its current position in the working tree; no record needed re-anchoring, which is the expected state at the head of the batch-013 commit (working tree at head 10fdd8a; batch-013 evidence commit a9f7595, its fix 0699e50), whose only production edit touched core/profile_import_engine.py",
+    "re_anchored_items": []
+   },
+   "production_commits": [],
+   "payload_latest_commit": "3da68f0888441d265f52791daba752f21bac7348",
+   "payload_latest_commit_subject": "P6 phase 2 batch-014: 45 MEDIUM records adjudicated (class A)",
+   "supplemental_test_evidence_commits": []
   },
   {
    "batch": "p6-batch-015",
@@ -280,9 +708,40 @@
     }
    ],
    "new_findings": [],
-   "evidence_commit": "0c82fb4",
+   "evidence_commit": "0c82fb49faffa6cdd8fd2bb4c0d3eb799c3bc273",
    "commit": null,
-   "tests": "defect fix commit fd51a54: new regression file 5 passed / 0 failed / 0 errors / 0 skipped in 0.607 s; with the bug reintroduced 3 of the 5 fail, then restored byte-identical (sha256 809186f7a5700f3d27b159f288c81fec6263a424125f3ce2ae8b67b44bf44e3a) -> 5/5; related run (7 files: the new regression, the M29 planning UI, planning context/material/presentation, M28 finance-safety and the P0 phase-1 regressions) 50 passed / 0 failed / 0 errors / 0 skipped in 9.419 s (/tmp/p6-015-related.xml); compileall OK; ruff on the changed file 151 -> 151 findings (no debt increase) and the new test file is clean.  The other 44 records change no production file; the phase-end full suite re-runs on the final tree"
+   "tests": "defect fix commit fd51a54: new regression file 5 passed / 0 failed / 0 errors / 0 skipped in 0.607 s; with the bug reintroduced 3 of the 5 fail, then restored byte-identical (sha256 809186f7a5700f3d27b159f288c81fec6263a424125f3ce2ae8b67b44bf44e3a) -> 5/5; related run (7 files: the new regression, the M29 planning UI, planning context/material/presentation, M28 finance-safety and the P0 phase-1 regressions) 50 passed / 0 failed / 0 errors / 0 skipped in 9.419 s (/tmp/p6-015-related.xml); compileall OK; ruff on the changed file 151 -> 151 findings (no debt increase) and the new test file is clean.  The other 44 records change no production file; the phase-end full suite re-runs on the final tree",
+   "head": "fd51a54",
+   "head_commit": "fd51a5409be879ea405fd3caecd64166f55a8c91",
+   "source_tree": "2267bf167c5e43862ec7baba4535ff6f2bebc79c",
+   "head_provenance": "verified recorded head resolves in Git; tree hash recorded",
+   "staleness": {
+    "checked": 45,
+    "stale": 0,
+    "re_anchored": 1,
+    "method": "every record's recorded text must match the line at its recorded position; the one exception is dialogs/planning_dialog.py, whose line numbers shifted by +2 in this batch's own fix (fd51a54) - there the recorded text is verified against fd51a54^ at the recorded line and re-anchored through difflib inside the symbol's AST range, which is what the staleness block reports",
+    "re_anchored_items": [
+     {
+      "id": "INV34-003569",
+      "file": "dialogs/planning_dialog.py",
+      "register_line": 483,
+      "current_line": 485
+     }
+    ]
+   },
+   "production_commits": [
+    {
+     "sha": "fd51a5409be879ea405fd3caecd64166f55a8c91",
+     "scope": "production_fix",
+     "register_ids": [
+      "INV34-003569"
+     ],
+     "new_p6_ids": []
+    }
+   ],
+   "payload_latest_commit": "0c82fb49faffa6cdd8fd2bb4c0d3eb799c3bc273",
+   "payload_latest_commit_subject": "P6 phase 2 batch-015: 45 MEDIUM records adjudicated, one fabricated-zero defect fixed",
+   "supplemental_test_evidence_commits": []
   },
   {
    "batch": "p6-batch-016",
@@ -296,9 +755,131 @@
    },
    "defects_fixed": [],
    "new_findings": [],
-   "evidence_commit": "1e78cfd",
+   "evidence_commit": "1e78cfd72c72d7956f66f2fefe306fa52050d009",
    "commit": null,
-   "tests": "no production file changed in this batch, so no new regression is owed; the batch's script ran with the provenance gates active (see `staleness`), compileall OK, and the phase-end full suite re-runs on the final tree.  The prior gates remain the batch-015 evidence: fix regression 5/0/0/0 in 0.607 s, related 7-file run 50/0/0/0 in 9.419 s"
+   "tests": "no production file changed in this batch, so no new regression is owed; the batch's script ran with the provenance gates active (see `staleness`), compileall OK, and the phase-end full suite re-runs on the final tree.  The prior gates remain the batch-015 evidence: fix regression 5/0/0/0 in 0.607 s, related 7-file run 50/0/0/0 in 9.419 s",
+   "head": "9dd8441",
+   "head_commit": "9dd8441bf99b1c1fa6297f29a6d3c985c403507d",
+   "source_tree": "f63de852cd0db4c992ca5cfed970126a55ec5c85",
+   "head_provenance": "verified recorded head resolves in Git; tree hash recorded",
+   "staleness": {
+    "checked": 45,
+    "stale": 12,
+    "re_anchored": 12,
+    "method": "every record's declared source_sha256 selects the tree its line number belongs to: the current file when the hash matches, otherwise a hash-verified provenance tree (tabs/w7_logistics_Widget.py -> c2e0016^, whose insertion moved its lines; tabs/w5_Equipment_Widget.py -> 9f45cc4 with its permission hunk reversed, a tree that exists in no commit).  The recorded text must match at the recorded line of that tree, and the difflib map tree->current must land on the same text inside the symbol's AST range.  In addition, every record's context fingerprint was re-derived from its M34 identity (path|kind|symbol|pattern|ordinal, tools/m34/common.py), so the 'same site' claim rests on content, not on line arithmetic.",
+    "re_anchored_items": [
+     {
+      "id": "INV34-005838",
+      "file": "tabs/w5_Equipment_Widget.py",
+      "register_line": 941,
+      "current_line": 951,
+      "tree": "provenance tree = 9f45cc4 with hunk(s) [7] of `git diff 9f45cc4^ 9f45cc4 -- tabs/w5_Equipment_Widget.py` reversed; sha256 == the record's source_sha256"
+     },
+     {
+      "id": "INV34-005840",
+      "file": "tabs/w5_Equipment_Widget.py",
+      "register_line": 902,
+      "current_line": 912,
+      "tree": "provenance tree = 9f45cc4 with hunk(s) [7] of `git diff 9f45cc4^ 9f45cc4 -- tabs/w5_Equipment_Widget.py` reversed; sha256 == the record's source_sha256"
+     },
+     {
+      "id": "INV34-005895",
+      "file": "tabs/w5_Equipment_Widget.py",
+      "register_line": 1079,
+      "current_line": 1089,
+      "tree": "provenance tree = 9f45cc4 with hunk(s) [7] of `git diff 9f45cc4^ 9f45cc4 -- tabs/w5_Equipment_Widget.py` reversed; sha256 == the record's source_sha256"
+     },
+     {
+      "id": "INV34-005897",
+      "file": "tabs/w5_Equipment_Widget.py",
+      "register_line": 778,
+      "current_line": 788,
+      "tree": "provenance tree = 9f45cc4 with hunk(s) [7] of `git diff 9f45cc4^ 9f45cc4 -- tabs/w5_Equipment_Widget.py` reversed; sha256 == the record's source_sha256"
+     },
+     {
+      "id": "INV34-006016",
+      "file": "tabs/w7_logistics_Widget.py",
+      "register_line": 1159,
+      "current_line": 1177,
+      "tree": "provenance tree = c2e0016^ (the line numbers of this file moved in c2e0016); sha256 == the record's source_sha256"
+     },
+     {
+      "id": "INV34-006136",
+      "file": "tabs/w7_logistics_Widget.py",
+      "register_line": 1138,
+      "current_line": 1156,
+      "tree": "provenance tree = c2e0016^ (the line numbers of this file moved in c2e0016); sha256 == the record's source_sha256"
+     },
+     {
+      "id": "INV34-006137",
+      "file": "tabs/w7_logistics_Widget.py",
+      "register_line": 1186,
+      "current_line": 1204,
+      "tree": "provenance tree = c2e0016^ (the line numbers of this file moved in c2e0016); sha256 == the record's source_sha256"
+     },
+     {
+      "id": "INV34-006141",
+      "file": "tabs/w7_logistics_Widget.py",
+      "register_line": 904,
+      "current_line": 922,
+      "tree": "provenance tree = c2e0016^ (the line numbers of this file moved in c2e0016); sha256 == the record's source_sha256"
+     },
+     {
+      "id": "INV34-006142",
+      "file": "tabs/w7_logistics_Widget.py",
+      "register_line": 960,
+      "current_line": 978,
+      "tree": "provenance tree = c2e0016^ (the line numbers of this file moved in c2e0016); sha256 == the record's source_sha256"
+     },
+     {
+      "id": "INV34-008438",
+      "file": "tabs/w7_logistics_Widget.py",
+      "register_line": 904,
+      "current_line": 922,
+      "tree": "provenance tree = c2e0016^ (the line numbers of this file moved in c2e0016); sha256 == the record's source_sha256"
+     },
+     {
+      "id": "INV34-008453",
+      "file": "tabs/w7_logistics_Widget.py",
+      "register_line": 1138,
+      "current_line": 1156,
+      "tree": "provenance tree = c2e0016^ (the line numbers of this file moved in c2e0016); sha256 == the record's source_sha256"
+     },
+     {
+      "id": "INV34-008454",
+      "file": "tabs/w7_logistics_Widget.py",
+      "register_line": 1145,
+      "current_line": 1163,
+      "tree": "provenance tree = c2e0016^ (the line numbers of this file moved in c2e0016); sha256 == the record's source_sha256"
+     }
+    ],
+    "provenance_trees": {
+     "tabs/w2_Daily_Report.py": "current tree: sha256(file) == the record's source_sha256",
+     "tabs/w3b_wellbore_schematic_tab.py": "current tree: sha256(file) == the record's source_sha256",
+     "tabs/w3c_section_data.py": "current tree: sha256(file) == the record's source_sha256",
+     "tabs/w5_Equipment_Widget.py": "provenance tree = 9f45cc4 with hunk(s) [7] of `git diff 9f45cc4^ 9f45cc4 -- tabs/w5_Equipment_Widget.py` reversed; sha256 == the record's source_sha256",
+     "tabs/w7_logistics_Widget.py": "provenance tree = c2e0016^ (the line numbers of this file moved in c2e0016); sha256 == the record's source_sha256",
+     "tabs/w6_Trajectory_Widget.py": "current tree: sha256(file) == the record's source_sha256"
+    },
+    "fingerprint_proof": {
+     "checked": 45,
+     "verified": 44,
+     "records_without_a_reproducible_fingerprint": [],
+     "records_without_a_reproducing_fingerprint_but_hash_anchored": [
+      "INV34-008346"
+     ],
+     "symbol_forms_that_reproduced": {
+      "short": 43,
+      "MISMATCH": 1,
+      "qualified": 1
+     },
+     "method": "sha256(\"path|kind|symbol|norm(pattern)|0\") == the record's context_fingerprint, tried with both symbol forms that occur in the recorded identities; 44 of 45 reproduce (43 with the symbol's last component, 1 - the M34-NEW record INV34-010274 - with the qualified symbol).  The one record without a reproducing fingerprint (INV34-008346) is a carried M32 record whose M33-era fingerprint was generated from a text form that is recovered nowhere in the shipped tooling; it is anchored instead by its file's byte-identical sha256, so its recorded line *is* the current line."
+    }
+   },
+   "production_commits": [],
+   "payload_latest_commit": "1e78cfd72c72d7956f66f2fefe306fa52050d009",
+   "payload_latest_commit_subject": "audit(m36-p6): adjudicate medium batch 016 (class A UI truthiness surface, 45 records)",
+   "supplemental_test_evidence_commits": []
   },
   {
    "batch": "p6-batch-017",
@@ -329,9 +910,161 @@
     }
    ],
    "new_findings": [],
-   "evidence_commit": "9f259e2",
+   "evidence_commit": "9f259e2c7a9830a5bf04be3b66d2454d280a5b02",
    "commit": null,
-   "tests": "the batch's defect fix was verified: new regression 15 passed / 0 failed / 0 errors / 0 skipped in 1.419 s (/tmp/p6-017-fix.xml); mutation validation with the pre-fix coercion reintroduced -> 8 failures, restored byte-identical (sha256 61eea36f811dbbd9aeb4bb29d1367ae6ea4610c1b5da0da5e4463c60a0405d81) and 15/15 green again; related 11-file run 234 passed / 0 failed / 0 errors / 0 skipped in 61.143 s (/tmp/p6-017-related.xml); compileall OK; ruff core/database.py 14 -> 14 findings and the new test file clean (repo total 5578 == the HEAD clone, no debt increase); the batch script itself runs with the provenance gates active (see `staleness`)"
+   "tests": "the batch's defect fix was verified: new regression 15 passed / 0 failed / 0 errors / 0 skipped in 1.419 s (/tmp/p6-017-fix.xml); mutation validation with the pre-fix coercion reintroduced -> 8 failures, restored byte-identical (sha256 61eea36f811dbbd9aeb4bb29d1367ae6ea4610c1b5da0da5e4463c60a0405d81) and 15/15 green again; related 11-file run 234 passed / 0 failed / 0 errors / 0 skipped in 61.143 s (/tmp/p6-017-related.xml); compileall OK; ruff core/database.py 14 -> 14 findings and the new test file clean (repo total 5578 == the HEAD clone, no debt increase); the batch script itself runs with the provenance gates active (see `staleness`)",
+   "head": "4c543e8",
+   "head_commit": "4c543e8afe78250779f9164a1792df33cd5b2df1",
+   "source_tree": "8a26d8b8b9d9af19f04f840b73e0c884f245d3a0",
+   "head_provenance": "verified recorded head resolves in Git; tree hash recorded",
+   "staleness": {
+    "checked": 45,
+    "stale": 15,
+    "re_anchored": 15,
+    "method": "every record's declared source_sha256 selects the tree its line number belongs to: the current file when the hash matches, otherwise a hash-verified provenance tree (tabs/w7_logistics_Widget.py -> c2e0016^, whose insertion moved its lines; tabs/w5_Equipment_Widget.py -> 9f45cc4 with its permission hunk reversed, a tree that exists in no commit).  The recorded text must match at the recorded line of that tree, and the difflib map tree->current must land on the same text inside the symbol's AST range (for the one record the register leaves without a symbol - INV34-009050, a class attribute declaration - the scope is the enclosing class).  In addition, every record's context fingerprint was re-derived from its M34 identity (path|kind|symbol|pattern|ordinal, tools/m34/common.py), so the 'same site' claim rests on content, not on line arithmetic.",
+    "re_anchored_items": [
+     {
+      "id": "INV34-001111",
+      "file": "core/database.py",
+      "register_line": 4111,
+      "current_line": 4116,
+      "tree": "provenance tree = 4c543e8^ (the line numbers of this file moved in 4c543e8); sha256 == the record's source_sha256"
+     },
+     {
+      "id": "INV34-006203",
+      "file": "tabs/w7_logistics_Widget.py",
+      "register_line": 1585,
+      "current_line": 1603,
+      "tree": "provenance tree = c2e0016^ (the line numbers of this file moved in c2e0016); sha256 == the record's source_sha256"
+     },
+     {
+      "id": "INV34-006206",
+      "file": "tabs/w7_logistics_Widget.py",
+      "register_line": 1710,
+      "current_line": 1728,
+      "tree": "provenance tree = c2e0016^ (the line numbers of this file moved in c2e0016); sha256 == the record's source_sha256"
+     },
+     {
+      "id": "INV34-006207",
+      "file": "tabs/w7_logistics_Widget.py",
+      "register_line": 1707,
+      "current_line": 1725,
+      "tree": "provenance tree = c2e0016^ (the line numbers of this file moved in c2e0016); sha256 == the record's source_sha256"
+     },
+     {
+      "id": "INV34-006908",
+      "file": "core/database.py",
+      "register_line": 4111,
+      "current_line": 4116,
+      "tree": "provenance tree = 4c543e8^ (the line numbers of this file moved in 4c543e8); sha256 == the record's source_sha256"
+     },
+     {
+      "id": "INV34-006927",
+      "file": "core/database.py",
+      "register_line": 4368,
+      "current_line": 4379,
+      "tree": "provenance tree = 4c543e8^ (the line numbers of this file moved in 4c543e8); sha256 == the record's source_sha256"
+     },
+     {
+      "id": "INV34-008457",
+      "file": "tabs/w7_logistics_Widget.py",
+      "register_line": 1189,
+      "current_line": 1207,
+      "tree": "provenance tree = c2e0016^ (the line numbers of this file moved in c2e0016); sha256 == the record's source_sha256"
+     },
+     {
+      "id": "INV34-008464",
+      "file": "tabs/w7_logistics_Widget.py",
+      "register_line": 1585,
+      "current_line": 1603,
+      "tree": "provenance tree = c2e0016^ (the line numbers of this file moved in c2e0016); sha256 == the record's source_sha256"
+     },
+     {
+      "id": "INV34-008465",
+      "file": "tabs/w7_logistics_Widget.py",
+      "register_line": 1606,
+      "current_line": 1624,
+      "tree": "provenance tree = c2e0016^ (the line numbers of this file moved in c2e0016); sha256 == the record's source_sha256"
+     },
+     {
+      "id": "INV34-009138",
+      "file": "core/database.py",
+      "register_line": 4395,
+      "current_line": 4406,
+      "tree": "provenance tree = 4c543e8^ (the line numbers of this file moved in 4c543e8); sha256 == the record's source_sha256"
+     },
+     {
+      "id": "INV34-009139",
+      "file": "core/database.py",
+      "register_line": 4419,
+      "current_line": 4430,
+      "tree": "provenance tree = 4c543e8^ (the line numbers of this file moved in 4c543e8); sha256 == the record's source_sha256"
+     },
+     {
+      "id": "INV34-009141",
+      "file": "core/database.py",
+      "register_line": 4424,
+      "current_line": 4435,
+      "tree": "provenance tree = 4c543e8^ (the line numbers of this file moved in 4c543e8); sha256 == the record's source_sha256"
+     },
+     {
+      "id": "INV34-009147",
+      "file": "core/database.py",
+      "register_line": 4437,
+      "current_line": 4448,
+      "tree": "provenance tree = 4c543e8^ (the line numbers of this file moved in 4c543e8); sha256 == the record's source_sha256"
+     },
+     {
+      "id": "INV34-009150",
+      "file": "core/database.py",
+      "register_line": 4443,
+      "current_line": 4454,
+      "tree": "provenance tree = 4c543e8^ (the line numbers of this file moved in 4c543e8); sha256 == the record's source_sha256"
+     },
+     {
+      "id": "INV34-009151",
+      "file": "core/database.py",
+      "register_line": 4444,
+      "current_line": 4455,
+      "tree": "provenance tree = 4c543e8^ (the line numbers of this file moved in 4c543e8); sha256 == the record's source_sha256"
+     }
+    ],
+    "provenance_trees": {
+     "core/database.py": "provenance tree = 4c543e8^ (the line numbers of this file moved in 4c543e8); sha256 == the record's source_sha256",
+     "tabs/w7_logistics_Widget.py": "provenance tree = c2e0016^ (the line numbers of this file moved in c2e0016); sha256 == the record's source_sha256",
+     "tabs/w8_Safety_Widget.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_integration.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_ownership_parent_edits.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_p0_atomic_import.py": "current tree: sha256(file) == the record's source_sha256",
+     "tabs/w9_Services_Widget.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_operations.py": "current tree: sha256(file) == the record's source_sha256",
+     "tools/certify_ddr_lifecycle.py": "current tree: sha256(file) == the record's source_sha256"
+    },
+    "fingerprint_proof": {
+     "checked": 45,
+     "verified": 45,
+     "records_without_a_reproducible_fingerprint": [],
+     "records_without_a_reproducing_fingerprint_but_hash_anchored": [],
+     "symbol_forms_that_reproduced": {
+      "short": 37,
+      "qualified": 8
+     },
+     "method": "sha256(\"path|kind|symbol|norm(pattern)|0\") == the record's context_fingerprint, tried with both symbol forms that occur in the recorded identities; 44 of 45 reproduce (43 with the symbol's last component, 1 - the M34-NEW record INV34-010274 - with the qualified symbol).  The one record without a reproducing fingerprint (INV34-008346) is a carried M32 record whose M33-era fingerprint was generated from a text form that is recovered nowhere in the shipped tooling; it is anchored instead by its file's byte-identical sha256, so its recorded line *is* the current line."
+    }
+   },
+   "production_commits": [
+    {
+     "sha": "4c543e8afe78250779f9164a1792df33cd5b2df1",
+     "scope": "production_fix",
+     "register_ids": [
+      "INV34-001111"
+     ],
+     "new_p6_ids": []
+    }
+   ],
+   "payload_latest_commit": "9f259e2c7a9830a5bf04be3b66d2454d280a5b02",
+   "payload_latest_commit_subject": "audit(m36-p6): adjudicate medium batch 017 (class A/B, 45 records over 43 sites)",
+   "supplemental_test_evidence_commits": []
   },
   {
    "batch": "p6-batch-018",
@@ -345,9 +1078,190 @@
    },
    "defects_fixed": [],
    "new_findings": [],
-   "evidence_commit": "b562c39",
+   "evidence_commit": "b562c3955e70ee139407e95c0dcfc7ce100f8083",
    "commit": null,
-   "tests": "no production code was changed in this batch, so no new regression was written and no mutation validation applies; the batch script itself runs with the provenance and fingerprint gates active (see `staleness`), i.e. all 45 records were re-anchored and re-identified against the hash-verified tree before any classification was written"
+   "tests": "no production code was changed in this batch, so no new regression was written and no mutation validation applies; the batch script itself runs with the provenance and fingerprint gates active (see `staleness`), i.e. all 45 records were re-anchored and re-identified against the hash-verified tree before any classification was written",
+   "head": "1a0c93a",
+   "head_commit": "1a0c93a395a10c776f3dad9661204007f158dc19",
+   "source_tree": "d8b529465afcadfabb39247421c47d1ac99e15c6",
+   "head_provenance": "verified recorded head resolves in Git; tree hash recorded",
+   "staleness": {
+    "checked": 45,
+    "stale": 18,
+    "re_anchored": 18,
+    "method": "every record's declared source_sha256 selects the tree its line number belongs to: the current file when the hash matches, otherwise a hash-verified provenance tree.  For this batch all 18 core/database.py records belong to `4c543e8^` (sha256 578d6a9c3eb83c405d7c3fb5d532416c2612137117a7bfa6d8d32b83562e54c2 - the tree before batch-017's own fix inserted its docstring and guard, a uniform +11 shift), and the other 13 files are byte-identical to the recorded tree, so 27 records are anchored in the current tree.  The recorded text must match at the recorded line of that tree, and the difflib map tree->current must land on the same text inside the symbol's AST range (for the six records the register leaves without a symbol - the `pass` statements that are class bodies - the scope is the enclosing class found by AST).  In addition, every record's context fingerprint was re-derived from its M34 identity (path|kind|symbol|pattern|ordinal, tools/m34/common.py), so the 'same site' claim rests on content, not on line arithmetic.",
+    "re_anchored_items": [
+     {
+      "id": "INV34-000699",
+      "file": "core/database.py",
+      "register_line": 4669,
+      "current_line": 4680,
+      "tree": "provenance tree = 4c543e8^ (the line numbers of this file moved in 4c543e8); sha256 == the record's source_sha256"
+     },
+     {
+      "id": "INV34-000736",
+      "file": "core/database.py",
+      "register_line": 10354,
+      "current_line": 10365,
+      "tree": "provenance tree = 4c543e8^ (the line numbers of this file moved in 4c543e8); sha256 == the record's source_sha256"
+     },
+     {
+      "id": "INV34-000770",
+      "file": "core/database.py",
+      "register_line": 9285,
+      "current_line": 9296,
+      "tree": "provenance tree = 4c543e8^ (the line numbers of this file moved in 4c543e8); sha256 == the record's source_sha256"
+     },
+     {
+      "id": "INV34-000772",
+      "file": "core/database.py",
+      "register_line": 9247,
+      "current_line": 9258,
+      "tree": "provenance tree = 4c543e8^ (the line numbers of this file moved in 4c543e8); sha256 == the record's source_sha256"
+     },
+     {
+      "id": "INV34-000786",
+      "file": "core/database.py",
+      "register_line": 10267,
+      "current_line": 10278,
+      "tree": "provenance tree = 4c543e8^ (the line numbers of this file moved in 4c543e8); sha256 == the record's source_sha256"
+     },
+     {
+      "id": "INV34-000790",
+      "file": "core/database.py",
+      "register_line": 9551,
+      "current_line": 9562,
+      "tree": "provenance tree = 4c543e8^ (the line numbers of this file moved in 4c543e8); sha256 == the record's source_sha256"
+     },
+     {
+      "id": "INV34-000798",
+      "file": "core/database.py",
+      "register_line": 6002,
+      "current_line": 6013,
+      "tree": "provenance tree = 4c543e8^ (the line numbers of this file moved in 4c543e8); sha256 == the record's source_sha256"
+     },
+     {
+      "id": "INV34-000802",
+      "file": "core/database.py",
+      "register_line": 5933,
+      "current_line": 5944,
+      "tree": "provenance tree = 4c543e8^ (the line numbers of this file moved in 4c543e8); sha256 == the record's source_sha256"
+     },
+     {
+      "id": "INV34-000807",
+      "file": "core/database.py",
+      "register_line": 4511,
+      "current_line": 4522,
+      "tree": "provenance tree = 4c543e8^ (the line numbers of this file moved in 4c543e8); sha256 == the record's source_sha256"
+     },
+     {
+      "id": "INV34-000808",
+      "file": "core/database.py",
+      "register_line": 6281,
+      "current_line": 6292,
+      "tree": "provenance tree = 4c543e8^ (the line numbers of this file moved in 4c543e8); sha256 == the record's source_sha256"
+     },
+     {
+      "id": "INV34-000810",
+      "file": "core/database.py",
+      "register_line": 5767,
+      "current_line": 5778,
+      "tree": "provenance tree = 4c543e8^ (the line numbers of this file moved in 4c543e8); sha256 == the record's source_sha256"
+     },
+     {
+      "id": "INV34-000825",
+      "file": "core/database.py",
+      "register_line": 6352,
+      "current_line": 6363,
+      "tree": "provenance tree = 4c543e8^ (the line numbers of this file moved in 4c543e8); sha256 == the record's source_sha256"
+     },
+     {
+      "id": "INV34-000839",
+      "file": "core/database.py",
+      "register_line": 5830,
+      "current_line": 5841,
+      "tree": "provenance tree = 4c543e8^ (the line numbers of this file moved in 4c543e8); sha256 == the record's source_sha256"
+     },
+     {
+      "id": "INV34-000857",
+      "file": "core/database.py",
+      "register_line": 9839,
+      "current_line": 9850,
+      "tree": "provenance tree = 4c543e8^ (the line numbers of this file moved in 4c543e8); sha256 == the record's source_sha256"
+     },
+     {
+      "id": "INV34-000912",
+      "file": "core/database.py",
+      "register_line": 6062,
+      "current_line": 6073,
+      "tree": "provenance tree = 4c543e8^ (the line numbers of this file moved in 4c543e8); sha256 == the record's source_sha256"
+     },
+     {
+      "id": "INV34-001106",
+      "file": "core/database.py",
+      "register_line": 7785,
+      "current_line": 7796,
+      "tree": "provenance tree = 4c543e8^ (the line numbers of this file moved in 4c543e8); sha256 == the record's source_sha256"
+     },
+     {
+      "id": "INV34-006940",
+      "file": "core/database.py",
+      "register_line": 4669,
+      "current_line": 4680,
+      "tree": "provenance tree = 4c543e8^ (the line numbers of this file moved in 4c543e8); sha256 == the record's source_sha256"
+     },
+     {
+      "id": "INV34-009313",
+      "file": "core/database.py",
+      "register_line": 7804,
+      "current_line": 7815,
+      "tree": "provenance tree = 4c543e8^ (the line numbers of this file moved in 4c543e8); sha256 == the record's source_sha256"
+     }
+    ],
+    "provenance_trees": {
+     "core/database.py": "provenance tree = 4c543e8^ (the line numbers of this file moved in 4c543e8); sha256 == the record's source_sha256",
+     "core/import_ir.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/import_quality.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/repositories/drill_pipe_reference_repository.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/repositories/safety_repository.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/import_diagnostics.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/repositories/cost_repository.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/repositories/logistics_repository.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/repositories/service_repository.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/repositories/well_repository.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/import_adapters/pdf_tables.py": "current tree: sha256(file) == the record's source_sha256",
+     "dialogs/report_history_dialog.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_casing_persistence.py": "current tree: sha256(file) == the record's source_sha256"
+    },
+    "fingerprint_proof": {
+     "checked": 45,
+     "verified": 44,
+     "records_without_a_reproducible_fingerprint": [],
+     "records_without_a_reproducing_fingerprint_but_hash_anchored": [
+      "INV34-000786"
+     ],
+     "symbol_forms_that_reproduced": {
+      "short": 34,
+      "qualified": 4,
+      "MISMATCH": 1,
+      "enclosing-scope:CostRepository": 1,
+      "enclosing-scope:EquipmentRepository": 1,
+      "enclosing-scope:LogisticsRepository": 1,
+      "enclosing-scope:FuelRepository": 1,
+      "enclosing-scope:SafetyRepository": 1,
+      "enclosing-scope:ServiceRepository": 1
+     },
+     "expression_forms_that_reproduced": {
+      "m34-pattern": 43,
+      "ast-segment": 1
+     },
+     "method": "sha256(\"path|kind|symbol|norm(expression)|0\") == the record's context_fingerprint, with three symbol forms (the symbol's last component, the qualified symbol, and - for the six symbol-less repository records - the enclosing class found by AST) and two expression forms (the M34 ledger's `pattern`, and for a pattern the sweep truncated to 200 characters, the statement's own AST segments).  44 of 45 reproduce this way; the single exception (INV34-000786) is a carried M32 record whose line drifted inside its own lifetime (its fingerprint was generated from a text form that survives nowhere in the shipped tooling), and it is anchored instead by the hash-verified provenance tree, the recorded text at the recorded line and the record's AST scope - both of its surviving readings were adjudicated by reading the source."
+    }
+   },
+   "production_commits": [],
+   "payload_latest_commit": "b562c3955e70ee139407e95c0dcfc7ce100f8083",
+   "payload_latest_commit_subject": "audit(m36-p6): adjudicate medium batch 018 (class B, 45 records over 43 sites)",
+   "supplemental_test_evidence_commits": []
   },
   {
    "batch": "p6-batch-019",
@@ -360,9 +1274,69 @@
    },
    "defects_fixed": [],
    "new_findings": [],
-   "evidence_commit": null,
+   "evidence_commit": "ddc7066db5a4b9cf73cff5c8c8fc354c9abec742",
    "commit": null,
-   "tests": "no production code was changed in this batch, so no new regression was written and no mutation validation applies; the batch script ran with the provenance and fingerprint gates active (see `staleness`) - all 45 records were hash-anchored and re-identified against the current tree before any classification was written"
+   "tests": "no production code was changed in this batch, so no new regression was written and no mutation validation applies; the batch script ran with the provenance and fingerprint gates active (see `staleness`) - all 45 records were hash-anchored and re-identified against the current tree before any classification was written",
+   "head": "179b57f",
+   "head_commit": "179b57f04a347f9b2aab9e43af0d624748abce3c",
+   "source_tree": "5b280328203ec291a5d2c78d75ca6603d144a973",
+   "head_provenance": "verified recorded head resolves in Git; tree hash recorded",
+   "staleness": {
+    "checked": 45,
+    "stale": 0,
+    "re_anchored": 0,
+    "method": "every record's declared source_sha256 selects the tree its line number belongs to: for this batch every one of the 16 files is byte-identical to the recorded tree (sha256(file) == source_sha256), so all 45 records are anchored in the current tree with no re-anchoring and no reconstruction.  The recorded text must match at the recorded line inside the symbol's AST range (for the one record the register leaves without a symbol - the DailyReport.forecast column line - the scope is the enclosing class found by AST).  In addition, every record's context fingerprint was re-derived under the path|kind|symbol|norm(expression)|ordinal contract (tools/m34/common.py), so the 'same site' claim rests on content, not on line arithmetic.",
+    "re_anchored_items": [],
+    "provenance_trees": {
+     "core/actual_vs_plan.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/cache_manager.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/common_widgets.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/cost_semantics.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/engineering/bridge.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/engineering/core.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_engineering_data_semantics.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_inventory_zero_semantics.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_ownership_parent_edits.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_p0_well_identity.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_real_oeoc_golden.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_wellbore_discriminator_import.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_wellbore_schema_v3.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/engineering/drill_pipe.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/db_models.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/editor_state.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_casing_persistence.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_cement_persistence.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_ddr_regression.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_import_to_selection_m25.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_report_scope_metadata_m25.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_torque_drag_persistence.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_w12_milestones_m25.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_w12_scope_leakage_m25.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_w12_wellbore_scope.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_wellbore_identity_conflict_m25.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_wellbore_scope_display.py": "current tree: sha256(file) == the record's source_sha256"
+    },
+    "fingerprint_proof": {
+     "checked": 45,
+     "verified": 45,
+     "records_without_a_reproducible_fingerprint": [],
+     "records_without_a_reproducing_fingerprint_but_hash_anchored": [],
+     "symbol_forms_that_reproduced": {
+      "short": 40,
+      "empty-symbol": 1,
+      "qualified": 4
+     },
+     "expression_forms_that_reproduced": {
+      "ast-segment": 21,
+      "recorded-line": 24
+     },
+     "method": "ledger-free: recorded-line + AST-segment expression forms (the 11 MB M34 ledger is not tracked in the repository)  fingerprint = sha256(\"path|kind|symbol|norm(expression)|ordinal\"); four symbol forms are tried (the symbol's last component, the qualified symbol, the enclosing AST scope for the symbol-less column record, and the empty component for the M32/M33-era symbol-less identity) and the expression forms are the M34 ledger's pattern when the ledger is present locally, the register's own recorded line text, and the statement's AST segments from the hash-verified tree."
+    }
+   },
+   "production_commits": [],
+   "payload_latest_commit": "ddc7066db5a4b9cf73cff5c8c8fc354c9abec742",
+   "payload_latest_commit_subject": "audit(m36-p6): adjudicate p6-batch-019 (45 records, 0 defects)",
+   "supplemental_test_evidence_commits": []
   },
   {
    "batch": "p6-batch-020",
@@ -403,9 +1377,158 @@
      "test": null
     }
    ],
-   "evidence_commit": null,
+   "evidence_commit": "7f0186e3e6ac966f1fe9cbd804785129b9246fbe",
    "commit": null,
-   "tests": "no production code was changed in this batch, so no new regression was written and no mutation validation applies; the evidence-cited suites were executed (kill-sheet gate, casing absent-load semantics, single-source guard, extended engineering, anti-collision, torque-drag persistence, MSE, drill-pipe spec/import, engineering core/ground truth) - see the batch ledger entry for the exact counts; the batch script itself ran with the provenance and fingerprint gates active"
+   "tests": "no production code was changed in this batch, so no new regression was written and no mutation validation applies; the evidence-cited suites were executed (kill-sheet gate, casing absent-load semantics, single-source guard, extended engineering, anti-collision, torque-drag persistence, MSE, drill-pipe spec/import, engineering core/ground truth) - see the batch ledger entry for the exact counts; the batch script itself ran with the provenance and fingerprint gates active",
+   "head": "ddc7066",
+   "head_commit": "ddc7066db5a4b9cf73cff5c8c8fc354c9abec742",
+   "source_tree": "0d317a7677d6f2073deff0dfeb6278acdaa10302",
+   "head_provenance": "verified recorded head resolves in Git; tree hash recorded",
+   "staleness": {
+    "checked": 45,
+    "stale": 15,
+    "re_anchored": 15,
+    "method": "every record's declared source_sha256 selects the tree its line numbers belong to: 8 of the 9 files are byte-identical to the current tree; the well_control_kill_sheet.py records (15) belong to the tree at commit fd18a2b, whose blob sha256 was proven equal to the declared source_sha256, and their lines were re-anchored into the current tree with difflib (the file gained the casing-id gate comment at ff2000a, a +5 shift inside the same function).  The recorded text must match at the recorded line of its tree inside the symbol's AST range; in addition every record's context fingerprint was re-derived under the path|kind|symbol|norm(expression)|ordinal contract.",
+    "re_anchored_items": [
+     {
+      "id": "INV34-009628",
+      "file": "core/engineering/well_control_kill_sheet.py",
+      "register_line": 286,
+      "current_line": 291,
+      "tree": "provenance tree = fd18a2b (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)"
+     },
+     {
+      "id": "INV34-009629",
+      "file": "core/engineering/well_control_kill_sheet.py",
+      "register_line": 287,
+      "current_line": 292,
+      "tree": "provenance tree = fd18a2b (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)"
+     },
+     {
+      "id": "INV34-009630",
+      "file": "core/engineering/well_control_kill_sheet.py",
+      "register_line": 288,
+      "current_line": 293,
+      "tree": "provenance tree = fd18a2b (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)"
+     },
+     {
+      "id": "INV34-009631",
+      "file": "core/engineering/well_control_kill_sheet.py",
+      "register_line": 289,
+      "current_line": 294,
+      "tree": "provenance tree = fd18a2b (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)"
+     },
+     {
+      "id": "INV34-009632",
+      "file": "core/engineering/well_control_kill_sheet.py",
+      "register_line": 290,
+      "current_line": 295,
+      "tree": "provenance tree = fd18a2b (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)"
+     },
+     {
+      "id": "INV34-009633",
+      "file": "core/engineering/well_control_kill_sheet.py",
+      "register_line": 291,
+      "current_line": 296,
+      "tree": "provenance tree = fd18a2b (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)"
+     },
+     {
+      "id": "INV34-009634",
+      "file": "core/engineering/well_control_kill_sheet.py",
+      "register_line": 292,
+      "current_line": 297,
+      "tree": "provenance tree = fd18a2b (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)"
+     },
+     {
+      "id": "INV34-009635",
+      "file": "core/engineering/well_control_kill_sheet.py",
+      "register_line": 293,
+      "current_line": 298,
+      "tree": "provenance tree = fd18a2b (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)"
+     },
+     {
+      "id": "INV34-009636",
+      "file": "core/engineering/well_control_kill_sheet.py",
+      "register_line": 294,
+      "current_line": 299,
+      "tree": "provenance tree = fd18a2b (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)"
+     },
+     {
+      "id": "INV34-009637",
+      "file": "core/engineering/well_control_kill_sheet.py",
+      "register_line": 295,
+      "current_line": 300,
+      "tree": "provenance tree = fd18a2b (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)"
+     },
+     {
+      "id": "INV34-009638",
+      "file": "core/engineering/well_control_kill_sheet.py",
+      "register_line": 296,
+      "current_line": 301,
+      "tree": "provenance tree = fd18a2b (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)"
+     },
+     {
+      "id": "INV34-009639",
+      "file": "core/engineering/well_control_kill_sheet.py",
+      "register_line": 297,
+      "current_line": 302,
+      "tree": "provenance tree = fd18a2b (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)"
+     },
+     {
+      "id": "INV34-009640",
+      "file": "core/engineering/well_control_kill_sheet.py",
+      "register_line": 298,
+      "current_line": 303,
+      "tree": "provenance tree = fd18a2b (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)"
+     },
+     {
+      "id": "INV34-009641",
+      "file": "core/engineering/well_control_kill_sheet.py",
+      "register_line": 299,
+      "current_line": 304,
+      "tree": "provenance tree = fd18a2b (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)"
+     },
+     {
+      "id": "INV34-009642",
+      "file": "core/engineering/well_control_kill_sheet.py",
+      "register_line": 300,
+      "current_line": 305,
+      "tree": "provenance tree = fd18a2b (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)"
+     }
+    ],
+    "provenance_trees": {
+     "core/engineering/drill_pipe.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/engineering/engines/anti_collision.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/engineering/engines/casing.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/engineering/engines/fishing.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/engineering/engines/torque_drag.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/engineering/extended.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/engineering/result.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/engineering/engines/mse.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/engineering/well_control_kill_sheet.py": "provenance tree = fd18a2b (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)"
+    },
+    "fingerprint_proof": {
+     "checked": 45,
+     "verified": 45,
+     "records_without_a_reproducible_fingerprint": [],
+     "records_without_a_reproducing_fingerprint_but_hash_anchored": [],
+     "symbol_forms_that_reproduced": {
+      "short": 42,
+      "enclosing-scope:ExtendedEngineeringError": 1,
+      "enclosing-scope:EngineeringError": 1,
+      "qualified": 1
+     },
+     "expression_forms_that_reproduced": {
+      "ast-segment": 19,
+      "recorded-line": 26
+     },
+     "method": "ledger-free: recorded-line + AST-segment expression forms (the 11 MB M34 ledger is not tracked in the repository)"
+    }
+   },
+   "production_commits": [],
+   "payload_latest_commit": "7f0186e3e6ac966f1fe9cbd804785129b9246fbe",
+   "payload_latest_commit_subject": "audit(m36-p6): adjudicate p6-batch-020 (45 records, 0 defects, 3 new findings)",
+   "supplemental_test_evidence_commits": []
   },
   {
    "batch": "p6-batch-021",
@@ -484,7 +1607,130 @@
      "2 tests in tests/test_m30_semantic_regressions.py require system libGL.so.1; apt package installation was attempted but sandbox network could not reach Debian package indexes."
     ],
     "mutation": "The two added sheet-binding tests were both run against a runtime mutation restoring the previous resolver; both failed as expected. Production code was unchanged during mutation validation."
-   }
+   },
+   "head": "9a7b64f59fd3e95a135f0be3572053206bc4d4d5",
+   "head_commit": "9a7b64f59fd3e95a135f0be3572053206bc4d4d5",
+   "source_tree": "1db07e22624f0b6d3cf2ed67225ca21ed558f5ff",
+   "head_provenance": "verified recorded head resolves in Git; tree hash recorded",
+   "staleness": {
+    "checked": 45,
+    "stale": 7,
+    "re_anchored": 7,
+    "method": "45 fingerprints recomputed ledger-free from the hash-verified source expression/symbol; 42 unchanged records passed the existing AST/hash checker, with the original source files recovered by exact file SHA from Git history. Three resolver records were explicitly reconstructed across fix 9a7b64f: prior line/expression, current line/expression, hash, fingerprint, symbol, and behavior regression are retained in the list below. The 11 MB M34 fingerprint ledger is absent; the reproducible fallback contract is recorded.",
+    "re_anchored_items": [
+     [
+      "INV34-001770",
+      "core/engineering/well_control_kill_sheet.py",
+      499,
+      504,
+      "provenance tree = fd18a2bca5b849356c50f9da19c278ecdd8f9967 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)"
+     ],
+     [
+      "INV34-001771",
+      "core/engineering/well_control_kill_sheet.py",
+      517,
+      522,
+      "provenance tree = fd18a2bca5b849356c50f9da19c278ecdd8f9967 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)"
+     ],
+     [
+      "INV34-003070",
+      "core/wellbore_schematic_engine.py",
+      484,
+      485,
+      "provenance tree = 95dd63186ccda8d3cff41ac9632c8c2886639aa4 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)"
+     ],
+     [
+      "INV34-009765",
+      "core/mud_ledger.py",
+      209,
+      217,
+      "provenance tree = 95dd63186ccda8d3cff41ac9632c8c2886639aa4 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)"
+     ],
+     {
+      "id": "INV34-009687",
+      "file": "core/excel_intelligence.py",
+      "previous_site": "core/excel_intelligence.py:2022",
+      "previous_source_line": "for actual_name in self.cell_cache.keys():",
+      "current_site": "core/excel_intelligence.py:2024",
+      "current_source_line": "names = list(self.cell_cache)",
+      "tree": "7f0186e3e6ac966f1fe9cbd804785129b9246fbe",
+      "reason": "historic loop is now an explicit snapshot of available sheet names",
+      "proof": "declared source_sha256 and context_fingerprint verified; current AST symbol is ExcelIntelligence._resolve_sheet; behavioral regression proves named missing/ambiguous keys do not select first sheet"
+     },
+     {
+      "id": "INV34-009688",
+      "file": "core/excel_intelligence.py",
+      "previous_site": "core/excel_intelligence.py:2023",
+      "previous_source_line": "if hint in actual_name.lower() or actual_name.lower() in hint:",
+      "current_site": "core/excel_intelligence.py:2032",
+      "current_source_line": "if hint in name.strip().casefold() or name.strip().casefold() in hint",
+      "tree": "7f0186e3e6ac966f1fe9cbd804785129b9246fbe",
+      "reason": "historic first-match predicate is now filtered into a candidate list; only a unique candidate resolves",
+      "proof": "declared source_sha256 and context_fingerprint verified; current AST symbol is ExcelIntelligence._resolve_sheet; behavioral regression proves named missing/ambiguous keys do not select first sheet"
+     },
+     {
+      "id": "INV34-009689",
+      "file": "core/excel_intelligence.py",
+      "previous_site": "core/excel_intelligence.py:2024",
+      "previous_source_line": "return actual_name",
+      "current_site": "core/excel_intelligence.py:2039",
+      "current_source_line": "return partial[0] if len(partial) == 1 else None",
+      "tree": "7f0186e3e6ac966f1fe9cbd804785129b9246fbe",
+      "reason": "historic unconditional return now refuses ambiguous/missing named sheets",
+      "proof": "declared source_sha256 and context_fingerprint verified; current AST symbol is ExcelIntelligence._resolve_sheet; behavioral regression proves named missing/ambiguous keys do not select first sheet"
+     }
+    ],
+    "provenance_trees": {
+     "core/engineering/well_control_kill_sheet.py": "provenance tree = fd18a2bca5b849356c50f9da19c278ecdd8f9967 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+     "core/excel_intelligence.py": "provenance tree = 7f0186e3e6ac966f1fe9cbd804785129b9246fbe (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+     "core/fuel_water_semantics.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/hydraulics_engine.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/lineage.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/operational_time.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/performance.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/save_outcome.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/standards.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/text_utils.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/time_utils.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/universal_import.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/wellbore_schematic_engine.py": "provenance tree = 95dd63186ccda8d3cff41ac9632c8c2886639aa4 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+     "core/mud_ledger.py": "provenance tree = 95dd63186ccda8d3cff41ac9632c8c2886639aa4 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+     "core/operations_intelligence.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/report_engine.py": "current tree: sha256(file) == the record's source_sha256",
+     "dialogs/calculator_dialog.py": "current tree: sha256(file) == the record's source_sha256",
+     "dialogs/hierarchy_dialogs.py": "current tree: sha256(file) == the record's source_sha256"
+    },
+    "fingerprint_proof": {
+     "checked": 45,
+     "verified": 45,
+     "records_without_a_reproducible_fingerprint": [],
+     "records_without_a_reproducing_fingerprint_but_hash_anchored": [],
+     "symbol_forms_that_reproduced": {
+      "short": 32,
+      "qualified": 13
+     },
+     "expression_forms_that_reproduced": {
+      "ast-segment": 29,
+      "recorded-line": 16
+     },
+     "method": "ledger-free: recorded-line + AST-segment expression forms (the 11 MB M34 ledger is not tracked in the repository)"
+    }
+   },
+   "production_commits": [
+    {
+     "sha": "9a7b64f59fd3e95a135f0be3572053206bc4d4d5",
+     "scope": "production_fix",
+     "register_ids": [
+      "INV34-009687",
+      "INV34-009688",
+      "INV34-009689"
+     ],
+     "new_p6_ids": []
+    }
+   ],
+   "payload_latest_commit": "01e1edb5793b04aa72424e6dc1e17045bd3ddd08",
+   "payload_latest_commit_subject": "audit(m36-p6): adjudicate medium batch 021",
+   "supplemental_test_evidence_commits": []
   },
   {
    "batch": "p6-batch-022",
@@ -571,7 +1817,7 @@
      "test": null
     }
    ],
-   "evidence_commit": null,
+   "evidence_commit": "db5fbbb3ddc543f8e93317237fe357f3db087324",
    "commit": null,
    "tests": {
     "passed": [
@@ -590,7 +1836,327 @@
      "2 cement/casing history-viewmodel test modules fail at collection for missing libGL.so.1."
     ],
     "mutation": "Production/UI regression tests are committed, but their native Qt execution is blocked locally. AST execution of the actual current and pre-fix methods/expressions proved the targeted reset/unknown behavior and the pre-fix/direct-value mutations violate expectations. Exact-HEAD CI must run the isolated UI tests."
-   }
+   },
+   "head": "6c07d3a",
+   "head_commit": "6c07d3a2ed4782bb5dd707f43b0d78635dead162",
+   "source_tree": "f3a2fa661549d5d8a3beb5467124db13cf817f47",
+   "head_provenance": "verified recorded head resolves in Git; tree hash recorded",
+   "staleness": {
+    "checked": 45,
+    "stale": 17,
+    "re_anchored": 17,
+    "method": "All 45 records were verified against declared file SHA, recorded source expression, enclosing symbol and context fingerprint. 39 unchanged-expression records passed the shared AST/hash checker (the one non-reproducing fingerprint is source-hash anchored); six rewritten expressions were explicitly reconstructed with former/current site, exact hashes/fingerprints, current symbols and behavioral checks.",
+    "re_anchored_items": [
+     {
+      "id": "INV34-005574",
+      "file": "tabs/w3c_section_data.py",
+      "previous_site": "tabs/w3c_section_data.py:366",
+      "previous_source_line": "def sv(k,d=0):",
+      "current_site": "tabs/w3c_section_data.py:382",
+      "current_source_line": "def sv(k,d=0):",
+      "tree": "provenance tree = 7f0186e3e6ac966f1fe9cbd804785129b9246fbe (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+      "source_sha256": "5038a740761be06f65b9c81076482aff3f58e2e85b737d600e4f3fda5b8eaf27",
+      "context_fingerprint": "fa367521b73f80b3cd5e8afc5703a46b22fbfbdf3d65171c3ab071a1faaeec63",
+      "reason": "Only preceding comments/lines changed; shared line-map plus exact source expression and enclosing symbol verified the new site."
+     },
+     {
+      "id": "INV34-005588",
+      "file": "tabs/w3c_section_data.py",
+      "previous_site": "tabs/w3c_section_data.py:198",
+      "previous_source_line": "def sv(k,d=0):",
+      "current_site": "tabs/w3c_section_data.py:206",
+      "current_source_line": "def sv(k,d=0):",
+      "tree": "provenance tree = 7f0186e3e6ac966f1fe9cbd804785129b9246fbe (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+      "source_sha256": "5038a740761be06f65b9c81076482aff3f58e2e85b737d600e4f3fda5b8eaf27",
+      "context_fingerprint": "fa367521b73f80b3cd5e8afc5703a46b22fbfbdf3d65171c3ab071a1faaeec63",
+      "reason": "Only preceding comments/lines changed; shared line-map plus exact source expression and enclosing symbol verified the new site."
+     },
+     {
+      "id": "INV34-006015",
+      "file": "tabs/w7_logistics_Widget.py",
+      "previous_site": "tabs/w7_logistics_Widget.py:993",
+      "previous_source_line": "def _val(key, default=0.0):",
+      "current_site": "tabs/w7_logistics_Widget.py:1011",
+      "current_source_line": "def _val(key, default=0.0):",
+      "tree": "provenance tree = fd18a2bca5b849356c50f9da19c278ecdd8f9967 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+      "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+      "context_fingerprint": "a1433e3cf754df15302697595e5198f60715918796e66d95edbad756a3d520aa",
+      "reason": "Only preceding comments/lines changed; shared line-map plus exact source expression and enclosing symbol verified the new site."
+     },
+     {
+      "id": "INV34-010300",
+      "file": "tabs/w7_logistics_Widget.py",
+      "previous_site": "tabs/w7_logistics_Widget.py:1073",
+      "previous_source_line": "self.fuel_consumed.setValue(0)",
+      "current_site": "tabs/w7_logistics_Widget.py:1095",
+      "current_source_line": "self.fuel_consumed.setValue(0)",
+      "tree": "provenance tree = fd18a2bca5b849356c50f9da19c278ecdd8f9967 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+      "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+      "context_fingerprint": "6ca30275a482a33119efc78dc4eca8e126760f12a961251a129345f9acf528d1",
+      "reason": "Only preceding comments/lines changed; shared line-map plus exact source expression and enclosing symbol verified the new site."
+     },
+     {
+      "id": "INV34-010302",
+      "file": "tabs/w7_logistics_Widget.py",
+      "previous_site": "tabs/w7_logistics_Widget.py:1075",
+      "previous_source_line": "self.fuel_received.setValue(0)",
+      "current_site": "tabs/w7_logistics_Widget.py:1097",
+      "current_source_line": "self.fuel_received.setValue(0)",
+      "tree": "provenance tree = fd18a2bca5b849356c50f9da19c278ecdd8f9967 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+      "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+      "context_fingerprint": "79cf43e8ed75fac1693200d0482cfc2bd96d87e422e1ae54da410a9d34db1a12",
+      "reason": "Only preceding comments/lines changed; shared line-map plus exact source expression and enclosing symbol verified the new site."
+     },
+     {
+      "id": "INV34-010303",
+      "file": "tabs/w7_logistics_Widget.py",
+      "previous_site": "tabs/w7_logistics_Widget.py:1076",
+      "previous_source_line": "self.water_consumed.setValue(0)",
+      "current_site": "tabs/w7_logistics_Widget.py:1098",
+      "current_source_line": "self.water_consumed.setValue(0)",
+      "tree": "provenance tree = fd18a2bca5b849356c50f9da19c278ecdd8f9967 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+      "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+      "context_fingerprint": "a200e053a927a766255aa2337a0ac44115cea69188a147ce16184457182ee741",
+      "reason": "Only preceding comments/lines changed; shared line-map plus exact source expression and enclosing symbol verified the new site."
+     },
+     {
+      "id": "INV34-010305",
+      "file": "tabs/w7_logistics_Widget.py",
+      "previous_site": "tabs/w7_logistics_Widget.py:1078",
+      "previous_source_line": "self.water_received.setValue(0)",
+      "current_site": "tabs/w7_logistics_Widget.py:1100",
+      "current_source_line": "self.water_received.setValue(0)",
+      "tree": "provenance tree = fd18a2bca5b849356c50f9da19c278ecdd8f9967 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+      "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+      "context_fingerprint": "bd0b987d93fc17fcfb33f9a061485f2405ab29a6e0efeafc7762a6bc37982f01",
+      "reason": "Only preceding comments/lines changed; shared line-map plus exact source expression and enclosing symbol verified the new site."
+     },
+     {
+      "id": "INV34-010306",
+      "file": "tabs/w7_logistics_Widget.py",
+      "previous_site": "tabs/w7_logistics_Widget.py:1079",
+      "previous_source_line": "self.dw_consumed.setValue(0)",
+      "current_site": "tabs/w7_logistics_Widget.py:1101",
+      "current_source_line": "self.dw_consumed.setValue(0)",
+      "tree": "provenance tree = fd18a2bca5b849356c50f9da19c278ecdd8f9967 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+      "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+      "context_fingerprint": "09dc747e57c6f2499ae7ca24ff2329c969e80be55116cc7cc30b4aa3da95ca99",
+      "reason": "Only preceding comments/lines changed; shared line-map plus exact source expression and enclosing symbol verified the new site."
+     },
+     {
+      "id": "INV34-010308",
+      "file": "tabs/w7_logistics_Widget.py",
+      "previous_site": "tabs/w7_logistics_Widget.py:1081",
+      "previous_source_line": "self.dw_received.setValue(0)",
+      "current_site": "tabs/w7_logistics_Widget.py:1103",
+      "current_source_line": "self.dw_received.setValue(0)",
+      "tree": "provenance tree = fd18a2bca5b849356c50f9da19c278ecdd8f9967 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+      "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+      "context_fingerprint": "e4ae4c12e87f86272007a8b7f872542391a6b73175a6fe54aa1e4f8f66d378da",
+      "reason": "Only preceding comments/lines changed; shared line-map plus exact source expression and enclosing symbol verified the new site."
+     },
+     {
+      "id": "INV34-010309",
+      "file": "tabs/w7_logistics_Widget.py",
+      "previous_site": "tabs/w7_logistics_Widget.py:1082",
+      "previous_source_line": "self.fuel_camp_consumed.setValue(0)",
+      "current_site": "tabs/w7_logistics_Widget.py:1104",
+      "current_source_line": "self.fuel_camp_consumed.setValue(0)",
+      "tree": "provenance tree = fd18a2bca5b849356c50f9da19c278ecdd8f9967 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+      "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+      "context_fingerprint": "2ca7e27a27127e4fa39be892c58b083e0026c92c35c46d7a2e7650284e1d7f42",
+      "reason": "Only preceding comments/lines changed; shared line-map plus exact source expression and enclosing symbol verified the new site."
+     },
+     {
+      "id": "INV34-010311",
+      "file": "tabs/w7_logistics_Widget.py",
+      "previous_site": "tabs/w7_logistics_Widget.py:1084",
+      "previous_source_line": "self.fuel_camp_received.setValue(0)",
+      "current_site": "tabs/w7_logistics_Widget.py:1106",
+      "current_source_line": "self.fuel_camp_received.setValue(0)",
+      "tree": "provenance tree = fd18a2bca5b849356c50f9da19c278ecdd8f9967 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+      "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+      "context_fingerprint": "f7f381aec25c0b4cf6b12ed6890857f48d3dd83d85ff81403a17a2589ae83636",
+      "reason": "Only preceding comments/lines changed; shared line-map plus exact source expression and enclosing symbol verified the new site."
+     },
+     {
+      "id": "INV34-010301",
+      "file": "tabs/w7_logistics_Widget.py",
+      "previous_site": "tabs/w7_logistics_Widget.py:1074",
+      "previous_source_line": "self.fuel_stock.setValue(0)",
+      "current_site": "tabs/w7_logistics_Widget.py:1096",
+      "current_source_line": "_set_stock_value(self.fuel_stock, None)",
+      "tree": "fd18a2bca5b849356c50f9da19c278ecdd8f9967",
+      "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+      "context_fingerprint": "ce192c843c0f45468d7868e7d845d2aa97fb721f89fd6c3f97fdcbcb54d32e89",
+      "fingerprint_proof": [
+       "qualified",
+       "recorded-line"
+      ],
+      "reason": "clear_fields now uses the nullable-stock unknown sentinel",
+      "proof": "former bytes match source_sha256; recorded context_fingerprint reproduces from the former AST/source line; current expression and enclosing symbol were checked exactly"
+     },
+     {
+      "id": "INV34-010304",
+      "file": "tabs/w7_logistics_Widget.py",
+      "previous_site": "tabs/w7_logistics_Widget.py:1077",
+      "previous_source_line": "self.water_stock.setValue(0)",
+      "current_site": "tabs/w7_logistics_Widget.py:1099",
+      "current_source_line": "_set_stock_value(self.water_stock, None)",
+      "tree": "fd18a2bca5b849356c50f9da19c278ecdd8f9967",
+      "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+      "context_fingerprint": "0dd1119640b43419da06dbc217f359753e49719eebbabe5da3b0548391fe6c57",
+      "fingerprint_proof": [
+       "qualified",
+       "recorded-line"
+      ],
+      "reason": "clear_fields now uses the nullable-stock unknown sentinel",
+      "proof": "former bytes match source_sha256; recorded context_fingerprint reproduces from the former AST/source line; current expression and enclosing symbol were checked exactly"
+     },
+     {
+      "id": "INV34-010307",
+      "file": "tabs/w7_logistics_Widget.py",
+      "previous_site": "tabs/w7_logistics_Widget.py:1080",
+      "previous_source_line": "self.dw_stock.setValue(0)",
+      "current_site": "tabs/w7_logistics_Widget.py:1102",
+      "current_source_line": "_set_stock_value(self.dw_stock, None)",
+      "tree": "fd18a2bca5b849356c50f9da19c278ecdd8f9967",
+      "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+      "context_fingerprint": "b835a89fd14d44fbe4aebc387e95fef4e72a267a672f81c91299a19ff126252d",
+      "fingerprint_proof": [
+       "qualified",
+       "recorded-line"
+      ],
+      "reason": "clear_fields now uses the nullable-stock unknown sentinel",
+      "proof": "former bytes match source_sha256; recorded context_fingerprint reproduces from the former AST/source line; current expression and enclosing symbol were checked exactly"
+     },
+     {
+      "id": "INV34-010310",
+      "file": "tabs/w7_logistics_Widget.py",
+      "previous_site": "tabs/w7_logistics_Widget.py:1083",
+      "previous_source_line": "self.fuel_camp_stock.setValue(0)",
+      "current_site": "tabs/w7_logistics_Widget.py:1105",
+      "current_source_line": "_set_stock_value(self.fuel_camp_stock, None)",
+      "tree": "fd18a2bca5b849356c50f9da19c278ecdd8f9967",
+      "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+      "context_fingerprint": "5e09745133030e6a7f76706be9e2e739f3e0b106d85080461f54171a06e6cd57",
+      "fingerprint_proof": [
+       "qualified",
+       "recorded-line"
+      ],
+      "reason": "clear_fields now uses the nullable-stock unknown sentinel",
+      "proof": "former bytes match source_sha256; recorded context_fingerprint reproduces from the former AST/source line; current expression and enclosing symbol were checked exactly"
+     },
+     {
+      "id": "INV34-010318",
+      "file": "tabs/w9_Services_Widget.py",
+      "previous_site": "tabs/w9_Services_Widget.py:111",
+      "previous_source_line": "self.requested_qty_input.setValue(0)",
+      "current_site": "tabs/w9_Services_Widget.py:116",
+      "current_source_line": "self.requested_qty_input.setValue(_REQUEST_QUANTITY_UNKNOWN)",
+      "tree": "7f0186e3e6ac966f1fe9cbd804785129b9246fbe",
+      "source_sha256": "68b15111c31170d6dc02cc1e08b1d8e9fba346ba3078cdbc0c724d8f312d6f04",
+      "context_fingerprint": "c9e091bdffc0bfbb9a3592ced4f1f884eb3d8ead533e1c822003f6fd44156248",
+      "fingerprint_proof": [
+       "qualified",
+       "recorded-line"
+      ],
+      "reason": "the UI now displays an explicit unknown sentinel and maps it to NULL",
+      "proof": "former bytes match source_sha256; recorded context_fingerprint reproduces from the former AST/source line; current expression and enclosing symbol were checked exactly"
+     },
+     {
+      "id": "INV34-010319",
+      "file": "tabs/w9_Services_Widget.py",
+      "previous_site": "tabs/w9_Services_Widget.py:392",
+      "previous_source_line": "self.requested_qty_input.setValue(0)",
+      "current_site": "tabs/w9_Services_Widget.py:401",
+      "current_source_line": "self.requested_qty_input.setValue(_REQUEST_QUANTITY_UNKNOWN)",
+      "tree": "7f0186e3e6ac966f1fe9cbd804785129b9246fbe",
+      "source_sha256": "68b15111c31170d6dc02cc1e08b1d8e9fba346ba3078cdbc0c724d8f312d6f04",
+      "context_fingerprint": "6fe1ffe87e2d3195d1468667f71cce50f6082796424babc9b4c208cdbf30639c",
+      "fingerprint_proof": [
+       "qualified",
+       "recorded-line"
+      ],
+      "reason": "clearing the request form restores unknown, not zero",
+      "proof": "former bytes match source_sha256; recorded context_fingerprint reproduces from the former AST/source line; current expression and enclosing symbol were checked exactly"
+     }
+    ],
+    "provenance_trees": {
+     "main_window.py": "current tree: sha256(file) == the record's source_sha256",
+     "tabs/w13_Engineering_Calculator.py": "current tree: sha256(file) == the record's source_sha256",
+     "tabs/w3_drilling_report.py": "current tree: sha256(file) == the record's source_sha256",
+     "tabs/w3c_section_data.py": "provenance tree = 7f0186e3e6ac966f1fe9cbd804785129b9246fbe (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+     "tabs/w7_logistics_Widget.py": "provenance tree = fd18a2bca5b849356c50f9da19c278ecdd8f9967 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+     "tests/test_cost_truth_boundary.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_m29_release_closure.py": "current tree: sha256(file) == the record's source_sha256",
+     "dialogs/hierarchy_dialogs.py": "current tree: sha256(file) == the record's source_sha256",
+     "tabs/w10_Planning_Widget.py": "current tree: sha256(file) == the record's source_sha256",
+     "tabs/w12_Analysis.py": "current tree: sha256(file) == the record's source_sha256",
+     "tabs/w14_Procedure_Widget.py": "current tree: sha256(file) == the record's source_sha256",
+     "tabs/w1_well_info.py": "current tree: sha256(file) == the record's source_sha256",
+     "tabs/w3b_wellbore_schematic_tab.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_engineering_completion.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_m28_finance_safety_plan.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_m30_semantic_regressions.py": "current tree: sha256(file) == the record's source_sha256"
+    },
+    "fingerprint_proof": {
+     "checked": 45,
+     "verified": 44,
+     "records_without_a_reproducible_fingerprint": [],
+     "records_without_a_reproducing_fingerprint_but_hash_anchored": [
+      "INV34-005394"
+     ],
+     "symbol_forms_that_reproduced": {
+      "short": 12,
+      "MISMATCH": 1,
+      "qualified": 22,
+      "empty-symbol": 4
+     },
+     "expression_forms_that_reproduced": {
+      "ast-segment": 9,
+      "recorded-line": 29
+     },
+     "method": "ledger-free: recorded-line + AST-segment expression forms (the 11 MB M34 ledger is not tracked in the repository)"
+    }
+   },
+   "production_commits": [
+    {
+     "sha": "4849e03a6cb9571bf82909732aeba3ec0c07483e",
+     "scope": "production_fix",
+     "register_ids": [
+      "INV34-010301",
+      "INV34-010304",
+      "INV34-010307",
+      "INV34-010310"
+     ],
+     "new_p6_ids": []
+    },
+    {
+     "sha": "219dc06e5cafa30ec5e38bf48feefe95c1c4e12c",
+     "scope": "production_fix",
+     "register_ids": [
+      "INV34-010318",
+      "INV34-010319"
+     ],
+     "new_p6_ids": [
+      "NEW-P6-011"
+     ]
+    },
+    {
+     "sha": "6c07d3a2ed4782bb5dd707f43b0d78635dead162",
+     "scope": "production_fix",
+     "register_ids": [
+      "INV34-005709"
+     ],
+     "new_p6_ids": [
+      "NEW-P6-012"
+     ]
+    }
+   ],
+   "payload_latest_commit": "db5fbbb3ddc543f8e93317237fe357f3db087324",
+   "payload_latest_commit_subject": "record(m36-p6): finalize batch 022 evidence",
+   "supplemental_test_evidence_commits": []
   },
   {
    "batch": "p6-batch-023",
@@ -624,7 +2190,7 @@
      "test": null
     }
    ],
-   "evidence_commit": null,
+   "evidence_commit": "dc0ad4b08e3c94bf87419114aa55c74c450dd8f3",
    "commit": null,
    "tests": {
     "passed": [
@@ -638,7 +2204,181 @@
      "A mixed batch23 regression run reported eight UI failures (five W13/M31 widget tests and three real-user W12/W10 tests), each before assertions due missing libGL.so.1."
     ],
     "mutation": "No production code changed in this batch; existing tests exercise bore ownership, missing-source behavior, time validation and inventory unknown/zero semantics. Qt-only schematic render assertions remain unverified locally because libGL.so.1 is missing."
-   }
+   },
+   "head": "db5fbbb",
+   "head_commit": "db5fbbb3ddc543f8e93317237fe357f3db087324",
+   "source_tree": "f35e6acd96133f9ce1ddb41c40148f5a4a6c2b7b",
+   "head_provenance": "verified recorded head resolves in Git; tree hash recorded",
+   "staleness": {
+    "checked": 45,
+    "stale": 11,
+    "re_anchored": 11,
+    "method": "All 45 source SHA, source-line, AST symbol and context fingerprints were verified; 11 schematic-engine records were re-anchored across known source-tree changes by exact line mapping. No fingerprint was unreproduced.",
+    "re_anchored_items": [
+     {
+      "id": "INV34-003047",
+      "file": "core/wellbore_schematic_engine.py",
+      "previous_site": "core/wellbore_schematic_engine.py:884",
+      "previous_source_line": "od_px = self.od_to_pixels(item.od_inch or 6.0) / 2",
+      "current_site": "core/wellbore_schematic_engine.py:885",
+      "current_source_line": "od_px = self.od_to_pixels(item.od_inch or 6.0) / 2",
+      "tree": "provenance tree = 95dd63186ccda8d3cff41ac9632c8c2886639aa4 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+      "source_sha256": "f253652bc2cebb40c2eca04b0b843dcd436d1c0045f22bcd8ee6d8b70bf0b2bc",
+      "context_fingerprint": "75a7a687866dbd81c6962da36089c1507e065e2a33c5c10c422f8d55eaa9545b",
+      "reason": "Prior edits shifted the renderer source; shared line map, exact expression, source hash/fingerprint and enclosing AST symbol verified the current site."
+     },
+     {
+      "id": "INV34-003048",
+      "file": "core/wellbore_schematic_engine.py",
+      "previous_site": "core/wellbore_schematic_engine.py:787",
+      "previous_source_line": "od_px = self.od_to_pixels(item.od_inch or 4.5) / 2",
+      "current_site": "core/wellbore_schematic_engine.py:788",
+      "current_source_line": "od_px = self.od_to_pixels(item.od_inch or 4.5) / 2",
+      "tree": "provenance tree = 95dd63186ccda8d3cff41ac9632c8c2886639aa4 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+      "source_sha256": "f253652bc2cebb40c2eca04b0b843dcd436d1c0045f22bcd8ee6d8b70bf0b2bc",
+      "context_fingerprint": "fa9c15c80d20ccd39014325d759ef444df3f58d733dc266ba991d0d823af8b10",
+      "reason": "Prior edits shifted the renderer source; shared line map, exact expression, source hash/fingerprint and enclosing AST symbol verified the current site."
+     },
+     {
+      "id": "INV34-003049",
+      "file": "core/wellbore_schematic_engine.py",
+      "previous_site": "core/wellbore_schematic_engine.py:834",
+      "previous_source_line": "casing_od_px = self.od_to_pixels(item.od_inch or 7.0) / 2",
+      "current_site": "core/wellbore_schematic_engine.py:835",
+      "current_source_line": "casing_od_px = self.od_to_pixels(item.od_inch or 7.0) / 2",
+      "tree": "provenance tree = 95dd63186ccda8d3cff41ac9632c8c2886639aa4 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+      "source_sha256": "f253652bc2cebb40c2eca04b0b843dcd436d1c0045f22bcd8ee6d8b70bf0b2bc",
+      "context_fingerprint": "0972c99c64ca30da3975ba5f5b52a11d37d54473917203ed8511b784cec4a04b",
+      "reason": "Prior edits shifted the renderer source; shared line map, exact expression, source hash/fingerprint and enclosing AST symbol verified the current site."
+     },
+     {
+      "id": "INV34-003050",
+      "file": "core/wellbore_schematic_engine.py",
+      "previous_site": "core/wellbore_schematic_engine.py:959",
+      "previous_source_line": "od_px = self.od_to_pixels(item.od_inch or 4.0) / 2",
+      "current_site": "core/wellbore_schematic_engine.py:960",
+      "current_source_line": "od_px = self.od_to_pixels(item.od_inch or 4.0) / 2",
+      "tree": "provenance tree = 95dd63186ccda8d3cff41ac9632c8c2886639aa4 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+      "source_sha256": "f253652bc2cebb40c2eca04b0b843dcd436d1c0045f22bcd8ee6d8b70bf0b2bc",
+      "context_fingerprint": "4eb1b62efd590a8d40943b5161b5013aab2d81883f3a74207c81ecb6c3ca6b97",
+      "reason": "Prior edits shifted the renderer source; shared line map, exact expression, source hash/fingerprint and enclosing AST symbol verified the current site."
+     },
+     {
+      "id": "INV34-003088",
+      "file": "core/wellbore_schematic_engine.py",
+      "previous_site": "core/wellbore_schematic_engine.py:1709",
+      "previous_source_line": "if not casing_report:",
+      "current_site": "core/wellbore_schematic_engine.py:1719",
+      "current_source_line": "if not casing_report:",
+      "tree": "provenance tree = 95dd63186ccda8d3cff41ac9632c8c2886639aa4 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+      "source_sha256": "f253652bc2cebb40c2eca04b0b843dcd436d1c0045f22bcd8ee6d8b70bf0b2bc",
+      "context_fingerprint": "a3759318d8818dd2d2431ffe11c30aac887b7842954e942d6a6baa8a2d9c9fbf",
+      "reason": "Prior edits shifted the renderer source; shared line map, exact expression, source hash/fingerprint and enclosing AST symbol verified the current site."
+     },
+     {
+      "id": "INV34-003090",
+      "file": "core/wellbore_schematic_engine.py",
+      "previous_site": "core/wellbore_schematic_engine.py:1799",
+      "previous_source_line": "if not formation_report:",
+      "current_site": "core/wellbore_schematic_engine.py:1809",
+      "current_source_line": "if not formation_report:",
+      "tree": "provenance tree = 95dd63186ccda8d3cff41ac9632c8c2886639aa4 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+      "source_sha256": "f253652bc2cebb40c2eca04b0b843dcd436d1c0045f22bcd8ee6d8b70bf0b2bc",
+      "context_fingerprint": "8179a4ab9d081dd95e0ec4c4f38036c21adc5cddd9fa706b042456b0f97de97b",
+      "reason": "Prior edits shifted the renderer source; shared line map, exact expression, source hash/fingerprint and enclosing AST symbol verified the current site."
+     },
+     {
+      "id": "INV34-003091",
+      "file": "core/wellbore_schematic_engine.py",
+      "previous_site": "core/wellbore_schematic_engine.py:1662",
+      "previous_source_line": "if not report:",
+      "current_site": "core/wellbore_schematic_engine.py:1672",
+      "current_source_line": "if not report:",
+      "tree": "provenance tree = 95dd63186ccda8d3cff41ac9632c8c2886639aa4 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+      "source_sha256": "f253652bc2cebb40c2eca04b0b843dcd436d1c0045f22bcd8ee6d8b70bf0b2bc",
+      "context_fingerprint": "c7c760e8bd7c2b533110eb811b0aa4f75d52b5c6a1e2c9dfed3a12b4ba84c28d",
+      "reason": "Prior edits shifted the renderer source; shared line map, exact expression, source hash/fingerprint and enclosing AST symbol verified the current site."
+     },
+     {
+      "id": "INV34-003095",
+      "file": "core/wellbore_schematic_engine.py",
+      "previous_site": "core/wellbore_schematic_engine.py:1688",
+      "previous_source_line": "if not report:",
+      "current_site": "core/wellbore_schematic_engine.py:1698",
+      "current_source_line": "if not report:",
+      "tree": "provenance tree = 95dd63186ccda8d3cff41ac9632c8c2886639aa4 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+      "source_sha256": "f253652bc2cebb40c2eca04b0b843dcd436d1c0045f22bcd8ee6d8b70bf0b2bc",
+      "context_fingerprint": "8064274424726c8720cd968d34efe104688b6c90e3dbb1097fd6fffa89546587",
+      "reason": "Prior edits shifted the renderer source; shared line map, exact expression, source hash/fingerprint and enclosing AST symbol verified the current site."
+     },
+     {
+      "id": "INV34-003101",
+      "file": "core/wellbore_schematic_engine.py",
+      "previous_site": "core/wellbore_schematic_engine.py:616",
+      "previous_source_line": "if casing.name else",
+      "current_site": "core/wellbore_schematic_engine.py:617",
+      "current_source_line": "if casing.name else",
+      "tree": "provenance tree = 95dd63186ccda8d3cff41ac9632c8c2886639aa4 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+      "source_sha256": "f253652bc2cebb40c2eca04b0b843dcd436d1c0045f22bcd8ee6d8b70bf0b2bc",
+      "context_fingerprint": "b315d3ac0fea969a4af6a8030153720622bbfd3ac6c50eeab3da167540e7cdb9",
+      "reason": "Prior edits shifted the renderer source; shared line map, exact expression, source hash/fingerprint and enclosing AST symbol verified the current site."
+     },
+     {
+      "id": "INV34-003103",
+      "file": "core/wellbore_schematic_engine.py",
+      "previous_site": "core/wellbore_schematic_engine.py:641",
+      "previous_source_line": "if not self.schematic.casings:",
+      "current_site": "core/wellbore_schematic_engine.py:642",
+      "current_source_line": "if not self.schematic.casings:",
+      "tree": "provenance tree = 95dd63186ccda8d3cff41ac9632c8c2886639aa4 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+      "source_sha256": "f253652bc2cebb40c2eca04b0b843dcd436d1c0045f22bcd8ee6d8b70bf0b2bc",
+      "context_fingerprint": "c90acb2b4a53314d1f0cc44920618119330a8cb32d14fea67b8c55f87b29c118",
+      "reason": "Prior edits shifted the renderer source; shared line map, exact expression, source hash/fingerprint and enclosing AST symbol verified the current site."
+     },
+     {
+      "id": "INV34-003114",
+      "file": "core/wellbore_schematic_engine.py",
+      "previous_site": "core/wellbore_schematic_engine.py:263",
+      "previous_source_line": "if self.config.dark_mode:",
+      "current_site": "core/wellbore_schematic_engine.py:264",
+      "current_source_line": "if self.config.dark_mode:",
+      "tree": "provenance tree = 95dd63186ccda8d3cff41ac9632c8c2886639aa4 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+      "source_sha256": "f253652bc2cebb40c2eca04b0b843dcd436d1c0045f22bcd8ee6d8b70bf0b2bc",
+      "context_fingerprint": "1f2b54c0199234be181a91445be5fa6db8f28d2e615943bfd948c857ee7c9118",
+      "reason": "Prior edits shifted the renderer source; shared line map, exact expression, source hash/fingerprint and enclosing AST symbol verified the current site."
+     }
+    ],
+    "provenance_trees": {
+     "core/wellbore_schematic_engine.py": "provenance tree = 95dd63186ccda8d3cff41ac9632c8c2886639aa4 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+     "tabs/w13_Engineering_Calculator.py": "current tree: sha256(file) == the record's source_sha256",
+     "tabs/w2_Daily_Report.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_scope_attribution.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_wellbore_section_performance.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/inventory_semantics.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_m31_scenarios.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_operations.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_real_user_acceptance_regressions.py": "current tree: sha256(file) == the record's source_sha256"
+    },
+    "fingerprint_proof": {
+     "checked": 45,
+     "verified": 45,
+     "records_without_a_reproducible_fingerprint": [],
+     "records_without_a_reproducing_fingerprint_but_hash_anchored": [],
+     "symbol_forms_that_reproduced": {
+      "short": 43,
+      "empty-symbol": 2
+     },
+     "expression_forms_that_reproduced": {
+      "ast-segment": 28,
+      "recorded-line": 17
+     },
+     "method": "ledger-free: recorded-line + AST-segment expression forms (the 11 MB M34 ledger is not tracked in the repository)"
+    }
+   },
+   "production_commits": [],
+   "payload_latest_commit": "dc0ad4b08e3c94bf87419114aa55c74c450dd8f3",
+   "payload_latest_commit_subject": "fix: harden integrity checks and nullable section reports",
+   "supplemental_test_evidence_commits": []
   },
   {
    "batch": "p6-batch-024",
@@ -688,7 +2428,7 @@
      "test": null
     }
    ],
-   "evidence_commit": null,
+   "evidence_commit": "dc0ad4b08e3c94bf87419114aa55c74c450dd8f3",
    "commit": null,
    "tests": {
     "passed": [
@@ -704,7 +2444,170 @@
      "The new Cement/Casing nullable round-trip integration test is collected but skipped locally for the same missing libGL.so.1; exact-HEAD GitHub CI with real Qt libraries must execute it."
     ],
     "mutation": "Orphan regression was run before the fix: the clean case had no evidence and the injected orphan incorrectly returned 100/good; after the fix, clean/orphan/query-failure tests pass. The SQL-NULL UI mutation is source-proven (old widget fallback flowed into save) and the new Qt regression asserts unchanged NULL plus explicit zero; local runtime is blocked, so CI is required before treating that path as executed."
-   }
+   },
+   "head": "db5fbbb",
+   "head_commit": "db5fbbb3ddc543f8e93317237fe357f3db087324",
+   "source_tree": "f35e6acd96133f9ce1ddb41c40148f5a4a6c2b7b",
+   "head_provenance": "verified recorded head resolves in Git; tree hash recorded",
+   "staleness": {
+    "checked": 45,
+    "stale": 8,
+    "re_anchored": 8,
+    "method": "All source hashes, recorded lines, enclosing symbols and current mappings were verified. The ledger-free context-fingerprint check reproduced 41/45; four hash-anchored fingerprints did not reproduce because the 11.4 MB M34 item ledger named by its manifest is absent. Two changed source expressions were manually re-anchored with their original fingerprint proof plus current method/expression verification. The four unreproduced fingerprints are explicitly listed and are not claimed as verified.",
+    "re_anchored_items": [
+     {
+      "id": "INV34-005706",
+      "file": "tabs/w3c_section_data.py",
+      "previous_site": "tabs/w3c_section_data.py:129",
+      "current_site": "tabs/w3c_section_data.py:192",
+      "tree": "provenance tree = 7f0186e3e6ac966f1fe9cbd804785129b9246fbe (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+      "source_sha256": "5038a740761be06f65b9c81076482aff3f58e2e85b737d600e4f3fda5b8eaf27",
+      "context_fingerprint": "70c47438d174f126719630f30d6c4aaaa151687a79089608663bbe90fa66b7a7",
+      "reason": "Exact source expression, original hash and fingerprint verified; line map verified current scope."
+     },
+     {
+      "id": "INV34-005715",
+      "file": "tabs/w3c_section_data.py",
+      "previous_site": "tabs/w3c_section_data.py:1169",
+      "current_site": "tabs/w3c_section_data.py:1312",
+      "tree": "provenance tree = 7f0186e3e6ac966f1fe9cbd804785129b9246fbe (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+      "source_sha256": "5038a740761be06f65b9c81076482aff3f58e2e85b737d600e4f3fda5b8eaf27",
+      "context_fingerprint": "2c295be8a988c4261a62f50297ee99bf466e5af8929a0c9e5a78ac2faac89fcf",
+      "reason": "Exact source expression, original hash and fingerprint verified; line map verified current scope."
+     },
+     {
+      "id": "INV34-005717",
+      "file": "tabs/w3c_section_data.py",
+      "previous_site": "tabs/w3c_section_data.py:1468",
+      "current_site": "tabs/w3c_section_data.py:1611",
+      "tree": "provenance tree = 7f0186e3e6ac966f1fe9cbd804785129b9246fbe (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+      "source_sha256": "5038a740761be06f65b9c81076482aff3f58e2e85b737d600e4f3fda5b8eaf27",
+      "context_fingerprint": "70594f8a925f23f36231ad838fb5f1cdc302a62cf5fa2b6a0f0e3736915789a9",
+      "reason": "Exact source expression, original hash and fingerprint verified; line map verified current scope."
+     },
+     {
+      "id": "INV34-008336",
+      "file": "tabs/w3c_section_data.py",
+      "previous_site": "tabs/w3c_section_data.py:740",
+      "current_site": "tabs/w3c_section_data.py:883",
+      "tree": "provenance tree = 7f0186e3e6ac966f1fe9cbd804785129b9246fbe (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+      "source_sha256": "5038a740761be06f65b9c81076482aff3f58e2e85b737d600e4f3fda5b8eaf27",
+      "context_fingerprint": "b7d0c47ef7707e27fb3dd5558aad78f1a490ab8a2c51cfc044bcaf5e13015065",
+      "reason": "Exact source expression, original hash and fingerprint verified; line map verified current scope."
+     },
+     {
+      "id": "INV34-008358",
+      "file": "tabs/w3c_section_data.py",
+      "previous_site": "tabs/w3c_section_data.py:1468",
+      "current_site": "tabs/w3c_section_data.py:1611",
+      "tree": "provenance tree = 7f0186e3e6ac966f1fe9cbd804785129b9246fbe (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+      "source_sha256": "5038a740761be06f65b9c81076482aff3f58e2e85b737d600e4f3fda5b8eaf27",
+      "context_fingerprint": "4b4b89c0c3df2c3f294c7ae09806af14af3b2d918669207a98781c25274d7a75",
+      "reason": "Exact source expression, original hash and fingerprint verified; line map verified current scope."
+     },
+     {
+      "id": "INV34-008359",
+      "file": "tabs/w3c_section_data.py",
+      "previous_site": "tabs/w3c_section_data.py:1472",
+      "current_site": "tabs/w3c_section_data.py:1615",
+      "tree": "provenance tree = 7f0186e3e6ac966f1fe9cbd804785129b9246fbe (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+      "source_sha256": "5038a740761be06f65b9c81076482aff3f58e2e85b737d600e4f3fda5b8eaf27",
+      "context_fingerprint": "5fc2f4b8526efd8cfd5c3b578646937e3baadb956ed87a7879135b3bcdc5695b",
+      "reason": "Exact source expression, original hash and fingerprint verified; line map verified current scope."
+     },
+     {
+      "id": "INV34-006841",
+      "file": "core/data_quality.py",
+      "previous_site": "core/data_quality.py:156",
+      "previous_source_line": "pass",
+      "current_site": "core/data_quality.py:153",
+      "current_source_line": "violations = session.execute(text(\"PRAGMA foreign_key_check\")).fetchall()",
+      "tree": "provenance tree = 7f0186e3e6ac966f1fe9cbd804785129b9246fbe (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+      "source_sha256": "0151a92768ec15d1d26c3e81890c5cd2aad2479b12b97b3c00d2eff92a7ba9cc",
+      "context_fingerprint": "56d17522ca0424891d05cf3ec627a4e417e921d5c9c585f4c56953e043ead04c",
+      "fingerprint_proof": [
+       "short",
+       "recorded-line"
+      ],
+      "reason": "Original source hash/line/symbol/fingerprint are verified in the recorded tree; source expression changed in a reviewed fix and the current consumer anchor is manually re-attested."
+     },
+     {
+      "id": "INV34-005709",
+      "file": "tabs/w3c_section_data.py",
+      "previous_site": "tabs/w3c_section_data.py:193",
+      "previous_source_line": "data = self.db_manager.get_cement_report(well_id=self.current_well) if self.db_manager else None",
+      "current_site": "tabs/w3c_section_data.py:259",
+      "current_source_line": "data = (",
+      "tree": "provenance tree = 7f0186e3e6ac966f1fe9cbd804785129b9246fbe (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+      "source_sha256": "5038a740761be06f65b9c81076482aff3f58e2e85b737d600e4f3fda5b8eaf27",
+      "context_fingerprint": "2c80fb757525c5e4f5d319191a95da9698b0222715552d7f668a55f6c21f58a9",
+      "fingerprint_proof": [
+       "short",
+       "ast-segment"
+      ],
+      "reason": "Original source hash/line/symbol/fingerprint are verified in the recorded tree; source expression changed in a reviewed fix and the current consumer anchor is manually re-attested."
+     }
+    ],
+    "provenance_trees": {
+     "core/ai_import_mapper.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/company_mapping.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/database_reset.py": "current tree: sha256(file) == the record's source_sha256",
+     "tabs/w3_drilling_report.py": "current tree: sha256(file) == the record's source_sha256",
+     "tabs/w3b_wellbore_schematic_tab.py": "current tree: sha256(file) == the record's source_sha256",
+     "tabs/w3c_section_data.py": "provenance tree = 7f0186e3e6ac966f1fe9cbd804785129b9246fbe (blob sha256 equals all seven recorded source hashes; later section-scope change is in 6c07d3)",
+     "app.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/base_tab.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/canonical_mapper.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/canonical_schema.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/ddr_import_service.py": "current tree: sha256(file) == the record's source_sha256",
+     "tabs/w2_Daily_Report.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/data_quality.py": "provenance tree = 7f0186e3e6ac966f1fe9cbd804785129b9246fbe (blob sha256 equals the recorded source hash; current working source includes the reviewed fix)"
+    },
+    "m34_fingerprint_ledger": {
+     "manifest": "docs/audits/m34-evidence/M34_INVENTORY_LEDGER.json",
+     "expected_path": "docs/audits/m34-evidence/m34-ledger.json",
+     "expected_sha256": "d81a77bda0330c75493f4081c4a02e4d106fe7602e49c14f0c67d12977658a6b",
+     "expected_bytes": 11394989,
+     "present_in_workspace": false,
+     "effect": "The ledger-free recorded-line/AST proof reproduces 41/45 P6 fingerprints; four remain hash/line/symbol-anchored but their original M34 pattern cannot be recovered or fingerprint-reproduced here."
+    },
+    "fingerprint_proof": {
+     "checked": 45,
+     "verified": 41,
+     "records_without_a_reproducible_fingerprint": [],
+     "records_without_a_reproducing_fingerprint_but_hash_anchored": [
+      "INV34-005449",
+      "INV34-005478",
+      "INV34-005479",
+      "INV34-008311"
+     ],
+     "symbol_forms_that_reproduced": {
+      "short": 39,
+      "MISMATCH": 4
+     },
+     "expression_forms_that_reproduced": {
+      "ast-segment": 17,
+      "recorded-line": 22
+     },
+     "method": "ledger-free: recorded-line + AST-segment expression forms (the 11 MB M34 ledger is not tracked in the repository); two source-changed records were separately proven by the same recorded-line/AST method"
+    }
+   },
+   "production_commits": [
+    {
+     "sha": "dc0ad4b08e3c94bf87419114aa55c74c450dd8f3",
+     "scope": "production_fix",
+     "register_ids": [
+      "INV34-006841"
+     ],
+     "new_p6_ids": [
+      "NEW-P6-017",
+      "NEW-P6-018"
+     ]
+    }
+   ],
+   "payload_latest_commit": "dc0ad4b08e3c94bf87419114aa55c74c450dd8f3",
+   "payload_latest_commit_subject": "fix: harden integrity checks and nullable section reports",
+   "supplemental_test_evidence_commits": []
   },
   {
    "batch": "p6-batch-025",
@@ -727,7 +2630,7 @@
     }
    ],
    "new_findings": [],
-   "evidence_commit": null,
+   "evidence_commit": "e6a1ffb23a7641d09ad0a94e693b879de45ec612",
    "commit": null,
    "tests": {
     "passed": [
@@ -740,7 +2643,91 @@
      "No MinerU installation, CUDA/GPU backend, operator DDR corpus, or production OCR acceptance was exercised; these are environment/domain acceptance gates, not source-test claims."
     ],
     "mutation": "The persisted timeout-zero regression failed before the fix (600 seconds instead of 1); both persisted integer zero and environment string zero now pass. Existing MinerU adapter tests run without a real MinerU installation and do not establish OCR/real-DDR acceptance."
-   }
+   },
+   "head": "dc0ad4b",
+   "head_commit": "dc0ad4b08e3c94bf87419114aa55c74c450dd8f3",
+   "source_tree": "08dfa494b96b8e3d45bd31cf4fb8fb4b3f17c2d2",
+   "head_provenance": "verified recorded head resolves in Git; tree hash recorded",
+   "staleness": {
+    "checked": 45,
+    "stale": 1,
+    "re_anchored": 1,
+    "method": "All hashes resolve to their recorded trees; recorded lines, enclosing symbols and current mappings were verified. Context fingerprints were checked ledger-free and are reported with any hash-anchored non-reproductions. The timeout line was manually re-anchored with original fingerprint proof plus current method/expression verification.",
+    "re_anchored_items": [
+     {
+      "id": "INV34-002162",
+      "file": "core/mineru_engine.py",
+      "previous_site": "core/mineru_engine.py:174",
+      "previous_source_line": "timeout_seconds = max(1, int(timeout_value)) if timeout_value else 600",
+      "current_site": "core/mineru_engine.py:174",
+      "current_source_line": "timeout_seconds = max(1, int(timeout_value)) if timeout_value is not None else 600",
+      "tree": "provenance tree = 7f0186e3e6ac966f1fe9cbd804785129b9246fbe (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+      "source_sha256": "d6e3e753a7af271fc15410ae8114770a7665d75db554b33f90337f2828d14c3f",
+      "context_fingerprint": "e2e43e79974706f722974e9c6c1f9d97ed90c10c39fc99aab1793b0612f8948c",
+      "fingerprint_proof": [
+       "short",
+       "ast-segment"
+      ],
+      "reason": "Original source hash/line/symbol/fingerprint verified; the falsy timeout branch is changed and current code is mapped within the same config method."
+     }
+    ],
+    "provenance_trees": {
+     "core/document_import.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/error_handler.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/excel_intelligence.py": "provenance tree = 7f0186e3e6ac966f1fe9cbd804785129b9246fbe (blob sha256 equals the twelve recorded source hashes; current line map was verified)",
+     "core/excel_normalizer.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/functions.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/lineage.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/mapping_store.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/mineru_engine.py": "provenance tree = 7f0186e3e6ac966f1fe9cbd804785129b9246fbe (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+     "core/ddr_import_service.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/editor_state.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/fuel_water_semantics.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/editor_bindings.py": "current tree: sha256(file) == the record's source_sha256"
+    },
+    "m34_fingerprint_ledger": {
+     "manifest": "docs/audits/m34-evidence/M34_INVENTORY_LEDGER.json",
+     "expected_path": "docs/audits/m34-evidence/m34-ledger.json",
+     "expected_sha256": "d81a77bda0330c75493f4081c4a02e4d106fe7602e49c14f0c67d12977658a6b",
+     "expected_bytes": 11394989,
+     "present_in_workspace": false,
+     "effect": "The ledger-free proof was used; the unavailable original patterns are not claimed or fabricated."
+    },
+    "fingerprint_proof": {
+     "checked": 45,
+     "verified": 45,
+     "records_without_a_reproducible_fingerprint": [],
+     "records_without_a_reproducing_fingerprint_but_hash_anchored": [],
+     "symbol_forms_that_reproduced": {
+      "short": 38,
+      "enclosing-scope:DatabaseError": 1,
+      "enclosing-scope:ValidationError": 1,
+      "enclosing-scope:DataImportError": 1,
+      "enclosing-scope:ExcelNormalizationError": 1,
+      "qualified": 2
+     },
+     "expression_forms_that_reproduced": {
+      "ast-segment": 25,
+      "recorded-line": 19
+     },
+     "method": "ledger-free: recorded-line + AST-segment expression forms (the 11 MB M34 ledger is not tracked in the repository); changed timeout source was separately checked in the original tree and re-anchored to its current method"
+    }
+   },
+   "production_commits": [
+    {
+     "sha": "e6a1ffb23a7641d09ad0a94e693b879de45ec612",
+     "scope": "production_fix",
+     "register_ids": [
+      "INV34-002162"
+     ],
+     "new_p6_ids": [
+      "NEW-P6-021"
+     ]
+    }
+   ],
+   "payload_latest_commit": "e6a1ffb23a7641d09ad0a94e693b879de45ec612",
+   "payload_latest_commit_subject": "fix: normalize explicit MinerU timeout zero",
+   "supplemental_test_evidence_commits": []
   },
   {
    "batch": "p6-batch-026",
@@ -782,7 +2769,7 @@
      "test": null
     }
    ],
-   "evidence_commit": null,
+   "evidence_commit": "d07fba898a89cd8713a769ae1a66bcb82fbd6982",
    "commit": null,
    "tests": {
     "passed": [
@@ -794,7 +2781,72 @@
      "Six Qt-backed tests failed before exercising assertions because PySide6 could not load missing system library libGL.so.1: tests/test_bulk_stock_three_state_smoke.py (1), tests/test_history_well_scope.py (2), tests/test_whole_well_scope_labels_m25.py (1), and tests/test_m28_finance_safety_plan.py (2). Selection-manager module reported 17 skips. No GUI/Qt end-to-end workflow, production database, real DDR report corpus, or safety-widget deployment acceptance is claimed."
     ],
     "mutation": "Temporarily restored the original `and current != 0` condition and reran tests/test_bulk_validator_zero.py: the explicit-zero mismatch regression failed (1 failed, 1 passed); the production fix was restored and the focused tests pass."
-   }
+   },
+   "head": "e6a1ffb23a7641d09ad0a94e693b879de45ec612",
+   "head_commit": "e6a1ffb23a7641d09ad0a94e693b879de45ec612",
+   "source_tree": "7882860768d4e7be1dc64b02c12a5bb52f75d154",
+   "head_provenance": "verified recorded head resolves in Git; tree hash recorded",
+   "staleness": {
+    "checked": 45,
+    "stale": 0,
+    "re_anchored": 0,
+    "method": "All recorded source hashes were resolved to provenance tree 7f0186e3e6ac966f1fe9cbd804785129b9246fbe; recorded lines/symbols were checked, and changed-current-file mappings were verified by the ledger-aware provenance helper. The manifest-listed M34 item ledger is absent, so only reproducible source fingerprints are asserted.",
+    "re_anchored_items": [],
+    "provenance_trees": {
+     "core/mineru_engine.py": "provenance tree = 7f0186e3e6ac966f1fe9cbd804785129b9246fbe (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+     "core/operations_intelligence.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/report_engine.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/scope_attribution.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/selection_manager.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/standards.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/unit_manager.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/universal_import.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/validators.py": "provenance tree = 7f0186e3e6ac966f1fe9cbd804785129b9246fbe (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+     "core/value_normalizer.py": "current tree: sha256(file) == the record's source_sha256",
+     "dialogs/casing_history_dialog.py": "current tree: sha256(file) == the record's source_sha256",
+     "dialogs/cement_history_dialog.py": "current tree: sha256(file) == the record's source_sha256",
+     "dialogs/engineering_dialogs.py": "current tree: sha256(file) == the record's source_sha256",
+     "dialogs/hierarchy_dialogs.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/rag_search.py": "current tree: sha256(file) == the record's source_sha256",
+     "core/report_lifecycle.py": "current tree: sha256(file) == the record's source_sha256",
+     "dialogs/excel_import_dialog.py": "current tree: sha256(file) == the record's source_sha256"
+    },
+    "m34_fingerprint_ledger": {
+     "manifest": "docs/audits/m34-evidence/M34_INVENTORY_LEDGER.json",
+     "expected_path": "docs/audits/m34-evidence/m34-ledger.json",
+     "expected_sha256": "d81a77bda0330c75493f4081c4a02e4d106fe7602e49c14f0c67d12977658a6b",
+     "expected_bytes": 11394989,
+     "present_in_workspace": false,
+     "effect": "Missing item ledger prevents reproduction of some historical context fingerprints; source hash, line and symbol evidence is kept distinct and no fingerprint result is fabricated."
+    },
+    "fingerprint_proof": {
+     "checked": 45,
+     "verified": 45,
+     "records_without_a_reproducible_fingerprint": [],
+     "records_without_a_reproducing_fingerprint_but_hash_anchored": [],
+     "symbol_forms_that_reproduced": {
+      "short": 45
+     },
+     "expression_forms_that_reproduced": {
+      "ast-segment": 29,
+      "recorded-line": 16
+     },
+     "method": "ledger-free: recorded-line + AST-segment expression forms (the 11 MB M34 ledger is not tracked in the repository)"
+    }
+   },
+   "production_commits": [
+    {
+     "sha": "d07fba898a89cd8713a769ae1a66bcb82fbd6982",
+     "scope": "production_fix",
+     "register_ids": [],
+     "new_p6_ids": [
+      "NEW-P6-022"
+     ]
+    }
+   ],
+   "payload_latest_commit": "d07fba898a89cd8713a769ae1a66bcb82fbd6982",
+   "payload_latest_commit_subject": "fix: validate explicit zero bulk closing stock",
+   "supplemental_test_evidence_commits": []
   },
   {
    "batch": "p6-batch-027",
@@ -827,7 +2879,7 @@
      "test": null
     }
    ],
-   "evidence_commit": null,
+   "evidence_commit": "aae13dc447b2d73e2f0ba4014c020368326aea7e",
    "commit": null,
    "tests": {
     "passed": [
@@ -837,7 +2889,74 @@
      "Qt dependency limitation: 3 history-viewmodel test modules failed collection, 2 history projection tests failed, and 11 dialog/Planning UI smoke tests failed before assertions because PySide6 cannot load missing libGL.so.1. The blocked tests were: tests/test_mse_history_viewmodel.py, tests/test_mud_volume_history_viewmodel.py, tests/test_well_control_kill_sheet_history_viewmodel.py; tests/test_torque_drag_history.py::test_history_rows_projection_and_ordering and ::test_history_rows_empty_when_no_runs; tests/test_report_history_ui.py (4), tests/test_m29_planning_ui.py (1), tests/test_planning_context_isolation.py (1), tests/test_planning_material_persistence.py (1), tests/test_planning_table_presentation.py (1), tests/test_torque_drag_history_widget_smoke.py (1), tests/test_torque_drag_save_widget_smoke.py (1), tests/test_well_control_kill_sheet_save_widget_smoke.py (1). No packaged Windows executable was built or run."
     ],
     "mutation": "No production code was changed in this batch; no mutation validation applies."
-   }
+   },
+   "head": "d07fba898a89cd8713a769ae1a66bcb82fbd6982",
+   "head_commit": "d07fba898a89cd8713a769ae1a66bcb82fbd6982",
+   "source_tree": "cc0cbcc40787a24ec8433f44d3fd311fb548c780",
+   "head_provenance": "verified recorded head resolves in Git; tree hash recorded",
+   "staleness": {
+    "checked": 45,
+    "stale": 1,
+    "re_anchored": 1,
+    "method": "Recorded SHA-256 file blobs, source lines, enclosing symbols and current expression mappings verified; dialogs/planning_dialog.py is anchored to fd18a2bca5b849356c50f9da19c278ecdd8f9967 and the changed IADC line re-anchored. The M34 item ledger is absent, so two context fingerprints remain explicitly non-reproduced while their source hash/line/symbol anchors verify.",
+    "re_anchored_items": [
+     {
+      "id": "INV34-003565",
+      "file": "dialogs/planning_dialog.py",
+      "previous_site": "dialogs/planning_dialog.py:1051",
+      "current_site": "dialogs/planning_dialog.py:1053",
+      "tree": "provenance tree = fd18a2bca5b849356c50f9da19c278ecdd8f9967 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+      "source_sha256": "adb5875bb751af734d517e688649453953304d0ec5d4bc27b87a4b21024221c4",
+      "context_fingerprint": "846355d79391b71479c3ffc4576daf11af035cfd2a9b93dd70b86239b7b4f1a4",
+      "reason": "Original tree blob/hash, recorded line and enclosing symbol were verified; current expression mapped within the same method."
+     }
+    ],
+    "provenance_trees": {
+     "dialogs/hierarchy_dialogs.py": "current tree: sha256(file) == the record's source_sha256",
+     "dialogs/mse_history_dialog.py": "current tree: sha256(file) == the record's source_sha256",
+     "dialogs/mud_volume_history_dialog.py": "current tree: sha256(file) == the record's source_sha256",
+     "dialogs/planning_dialog.py": "provenance tree = fd18a2bca5b849356c50f9da19c278ecdd8f9967 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+     "dialogs/report_history_dialog.py": "current tree: sha256(file) == the record's source_sha256",
+     "dialogs/smart_template_dialog.py": "current tree: sha256(file) == the record's source_sha256",
+     "dialogs/torque_drag_history_dialog.py": "current tree: sha256(file) == the record's source_sha256",
+     "dialogs/well_control_kill_sheet_history_dialog.py": "current tree: sha256(file) == the record's source_sha256",
+     "main_window.py": "current tree: sha256(file) == the record's source_sha256",
+     "packaging/package_smoke.py": "current tree: sha256(file) == the record's source_sha256",
+     "tabs/w10_Planning_Widget.py": "current tree: sha256(file) == the record's source_sha256",
+     "dialogs/startup_dialog.py": "current tree: sha256(file) == the record's source_sha256"
+    },
+    "m34_fingerprint_ledger": {
+     "manifest": "docs/audits/m34-evidence/M34_INVENTORY_LEDGER.json",
+     "expected_path": "docs/audits/m34-evidence/m34-ledger.json",
+     "expected_sha256": "d81a77bda0330c75493f4081c4a02e4d106fe7602e49c14f0c67d12977658a6b",
+     "expected_bytes": 11394989,
+     "present_in_workspace": false,
+     "effect": "Two original context patterns could not be reproduced. Their source files matched recorded hashes, so line/symbol scope is still anchored and the uncertainty is listed separately."
+    },
+    "fingerprint_proof": {
+     "checked": 45,
+     "verified": 43,
+     "records_without_a_reproducible_fingerprint": [],
+     "records_without_a_reproducing_fingerprint_but_hash_anchored": [
+      "INV34-004316",
+      "INV34-004317"
+     ],
+     "symbol_forms_that_reproduced": {
+      "short": 41,
+      "MISMATCH": 2,
+      "qualified": 2
+     },
+     "expression_forms_that_reproduced": {
+      "ast-segment": 20,
+      "recorded-line": 23
+     },
+     "method": "ledger-free: recorded-line + AST-segment expression forms (the 11 MB M34 ledger is not tracked in the repository)"
+    }
+   },
+   "production_commits": [],
+   "payload_latest_commit": "aae13dc447b2d73e2f0ba4014c020368326aea7e",
+   "payload_latest_commit_subject": "audit: adjudicate P6 batch 027",
+   "supplemental_test_evidence_commits": []
   },
   {
    "batch": "p6-batch-028",
@@ -876,7 +2995,108 @@
      "Two Qt subprocess UI tests failed before assertions because PySide6 cannot load missing libGL.so.1: tests/test_bulk_stock_three_state_smoke.py::test_w7_bulk_stock_three_state_in_subprocess and tests/test_w7_null_zero_ui_smoke.py::test_w7_null_zero_ui_smoke_in_subprocess. No GUI display/persistence integration test is claimed in this batch."
     ],
     "mutation": "Replaced summarize_bulk_display_rows temporarily with the original row-wide `try/except ValueError: continue` aggregation. Three regression cases failed (unknown stock and independent movements; blank stock; malformed/nonfinite values), 1 passed; restored fix then all 4 tests passed."
-   }
+   },
+   "head": "aae13dc",
+   "head_commit": "aae13dc447b2d73e2f0ba4014c020368326aea7e",
+   "source_tree": "273cca9a09cda1d56b44874a75bcc8d8e1a22bd2",
+   "head_provenance": "verified recorded head resolves in Git; tree hash recorded",
+   "staleness": {
+    "checked": 45,
+    "stale": 3,
+    "re_anchored": 3,
+    "method": "All recorded file hashes, lines, symbols and fingerprints were verified against current or fd18 provenance trees. Three changed/stale sites were mapped: two prior W7 guard lines and the fixed bulk-summary site. Four original context fingerprints are not reproducible without the unavailable M34 ledger; their source hash/line/symbol anchors were verified.",
+    "re_anchored_items": [
+     {
+      "id": "INV34-006134",
+      "file": "tabs/w7_logistics_Widget.py",
+      "previous_site": "tabs/w7_logistics_Widget.py:979",
+      "current_site": "tabs/w7_logistics_Widget.py:997",
+      "tree": "provenance tree = fd18a2bca5b849356c50f9da19c278ecdd8f9967 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+      "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+      "context_fingerprint": "a5d6f4b2fda8755b39cebbf444dcac05c28ff4b12db4a3bed70cbac9e232c5fd",
+      "reason": "Exact source tree/hash and recorded fingerprint were checked; current expression mapped in the same method."
+     },
+     {
+      "id": "INV34-008441",
+      "file": "tabs/w7_logistics_Widget.py",
+      "previous_site": "tabs/w7_logistics_Widget.py:979",
+      "current_site": "tabs/w7_logistics_Widget.py:997",
+      "tree": "provenance tree = fd18a2bca5b849356c50f9da19c278ecdd8f9967 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+      "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+      "context_fingerprint": "24b6b3a96eba6b04fbc22d6f30802c71f0e8c6155c4aa382c3c0a325949f32b6",
+      "reason": "Exact source tree/hash and recorded fingerprint were checked; current expression mapped in the same method."
+     },
+     {
+      "id": "INV34-006210",
+      "file": "tabs/w7_logistics_Widget.py",
+      "previous_site": "tabs/w7_logistics_Widget.py:1122",
+      "previous_source_line": "except ValueError:",
+      "current_site": "tabs/w7_logistics_Widget.py:1146",
+      "current_source_line": "totals = summarize_bulk_display_rows(display_rows)",
+      "tree": "provenance tree = fd18a2bca5b849356c50f9da19c278ecdd8f9967 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+      "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+      "context_fingerprint": "3641de90973389e727cae715093d887c1b83286c3c6699ffa24d90c1662fe6fa",
+      "fingerprint_proof": [
+       "short",
+       "ast-segment"
+      ],
+      "reason": "Original exception/hash/fingerprint verified in fd18 tree; the unsafe row-wide skip was replaced by a per-column unknown-aware helper and current call is mapped within the same UI method."
+     }
+    ],
+    "provenance_trees": {
+     "tabs/w10_Planning_Widget.py": "current tree: sha256(file) == the record's source_sha256",
+     "tabs/w12_Analysis.py": "current tree: sha256(file) == the record's source_sha256",
+     "tabs/w14_Procedure_Widget.py": "current tree: sha256(file) == the record's source_sha256",
+     "tabs/w15_Reference_Tables.py": "current tree: sha256(file) == the record's source_sha256",
+     "tabs/w1_well_info.py": "current tree: sha256(file) == the record's source_sha256",
+     "tabs/w4_Downhole_Widget.py": "current tree: sha256(file) == the record's source_sha256",
+     "tabs/w6_Trajectory_Widget.py": "current tree: sha256(file) == the record's source_sha256",
+     "tabs/w7_logistics_Widget.py": "provenance tree = fd18a2bca5b849356c50f9da19c278ecdd8f9967 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)"
+    },
+    "m34_fingerprint_ledger": {
+     "manifest": "docs/audits/m34-evidence/M34_INVENTORY_LEDGER.json",
+     "expected_path": "docs/audits/m34-evidence/m34-ledger.json",
+     "expected_sha256": "d81a77bda0330c75493f4081c4a02e4d106fe7602e49c14f0c67d12977658a6b",
+     "expected_bytes": 11394989,
+     "present_in_workspace": false,
+     "effect": "Four fingerprints in W12/W1/W4 import fallback sites did not reproduce ledger-free. Exact file hash and site/symbol evidence is retained and no pattern is fabricated."
+    },
+    "fingerprint_proof": {
+     "checked": 45,
+     "verified": 41,
+     "records_without_a_reproducible_fingerprint": [],
+     "records_without_a_reproducing_fingerprint_but_hash_anchored": [
+      "INV34-004589",
+      "INV34-004591",
+      "INV34-005180",
+      "INV34-005829"
+     ],
+     "symbol_forms_that_reproduced": {
+      "short": 40,
+      "MISMATCH": 4
+     },
+     "expression_forms_that_reproduced": {
+      "ast-segment": 23,
+      "recorded-line": 17
+     },
+     "method": "ledger-free: recorded-line + AST-segment expression forms (the 11 MB M34 ledger is not tracked in the repository); changed bulk summary was separately proven in original tree and re-anchored to its current helper call"
+    }
+   },
+   "production_commits": [
+    {
+     "sha": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29",
+     "scope": "production_fix",
+     "register_ids": [
+      "INV34-006210"
+     ],
+     "new_p6_ids": [
+      "NEW-P6-027"
+     ]
+    }
+   ],
+   "payload_latest_commit": "bf7ec7453faf726d95c2a3feff22c11c013e502d",
+   "payload_latest_commit_subject": "docs: stamp P6 batch 028-029 commit evidence",
+   "supplemental_test_evidence_commits": []
   },
   {
    "batch": "p6-batch-029",
@@ -899,7 +3119,7 @@
     }
    ],
    "new_findings": [],
-   "evidence_commit": "994f9cf",
+   "evidence_commit": "994f9cfb065dc64d75507d806f2f08491240703b",
    "commit": "994f9cf",
    "tests": {
     "passed": [
@@ -952,130 +3172,652 @@
      ],
      "result": "BLOCKED_BY_SANDBOX_OS_LIBRARY; not a passing release gate or production-readiness claim"
     }
-   }
+   },
+   "head": "ea3c3b0",
+   "head_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29",
+   "source_tree": "f430d3354d0519a3c502929c8f2a1c8a9c160baf",
+   "head_provenance": "verified recorded head resolves in Git; tree hash recorded",
+   "staleness": {
+    "checked": 43,
+    "stale": 9,
+    "re_anchored": 9,
+    "method": "All record source hashes, original lines, symbols and fingerprints were checked against current or exact historical trees. Nine changed sites were re-anchored: duplicate W7 summary exception, paired W7 loader/selection guards, paired W9 guards, and the repeated same-method W7/W9 sites. Two fingerprints did not reproduce without the missing M34 ledger; hash/line/symbol evidence remains.",
+    "re_anchored_items": [
+     {
+      "id": "INV34-006132",
+      "file": "tabs/w7_logistics_Widget.py",
+      "previous_site": "tabs/w7_logistics_Widget.py:1204",
+      "current_site": "tabs/w7_logistics_Widget.py:1231",
+      "tree": "provenance tree = fd18a2bca5b849356c50f9da19c278ecdd8f9967 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+      "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+      "context_fingerprint": "2f6e0377b5cfd9f9e9be5f6ec6566b67c02c4adbacbf779622d2b575d646027a",
+      "reason": "Exact hash tree and original fingerprint verified; mapped to the corresponding current method expression."
+     },
+     {
+      "id": "INV34-006161",
+      "file": "tabs/w7_logistics_Widget.py",
+      "previous_site": "tabs/w7_logistics_Widget.py:1823",
+      "current_site": "tabs/w7_logistics_Widget.py:1850",
+      "tree": "provenance tree = fd18a2bca5b849356c50f9da19c278ecdd8f9967 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+      "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+      "context_fingerprint": "e9a86bb2fdd1b5fb24e8f4194b9d93e80dc257c9fc8b705dfe5abe2b4de27796",
+      "reason": "Exact hash tree and original fingerprint verified; mapped to the corresponding current method expression."
+     },
+     {
+      "id": "INV34-008460",
+      "file": "tabs/w7_logistics_Widget.py",
+      "previous_site": "tabs/w7_logistics_Widget.py:1204",
+      "current_site": "tabs/w7_logistics_Widget.py:1231",
+      "tree": "provenance tree = fd18a2bca5b849356c50f9da19c278ecdd8f9967 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+      "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+      "context_fingerprint": "211c409a413967c9b9169874a8782e3fccf25fdf55d1814e09382ac825889866",
+      "reason": "Exact hash tree and original fingerprint verified; mapped to the corresponding current method expression."
+     },
+     {
+      "id": "INV34-008470",
+      "file": "tabs/w7_logistics_Widget.py",
+      "previous_site": "tabs/w7_logistics_Widget.py:1823",
+      "current_site": "tabs/w7_logistics_Widget.py:1850",
+      "tree": "provenance tree = fd18a2bca5b849356c50f9da19c278ecdd8f9967 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+      "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+      "context_fingerprint": "33768e934f8f02f22fcd96e4cd94764d2baa4e4d5cebe577991998a6e2bc70d1",
+      "reason": "Exact hash tree and original fingerprint verified; mapped to the corresponding current method expression."
+     },
+     {
+      "id": "INV34-008481",
+      "file": "tabs/w9_Services_Widget.py",
+      "previous_site": "tabs/w9_Services_Widget.py:228",
+      "current_site": "tabs/w9_Services_Widget.py:233",
+      "tree": "provenance tree = 95dd63186ccda8d3cff41ac9632c8c2886639aa4 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+      "source_sha256": "68b15111c31170d6dc02cc1e08b1d8e9fba346ba3078cdbc0c724d8f312d6f04",
+      "context_fingerprint": "2429177dd39fc09b67045267743a0fc5b694964c41aa9197b2ca0d238eddf080",
+      "reason": "Exact hash tree and original fingerprint verified; mapped to the corresponding current method expression."
+     },
+     {
+      "id": "INV34-008482",
+      "file": "tabs/w9_Services_Widget.py",
+      "previous_site": "tabs/w9_Services_Widget.py:251",
+      "current_site": "tabs/w9_Services_Widget.py:256",
+      "tree": "provenance tree = 95dd63186ccda8d3cff41ac9632c8c2886639aa4 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+      "source_sha256": "68b15111c31170d6dc02cc1e08b1d8e9fba346ba3078cdbc0c724d8f312d6f04",
+      "context_fingerprint": "3c059990251b42b885da7d5dff14bdf17d12a4f330495e159aeff0ef65eb132f",
+      "reason": "Exact hash tree and original fingerprint verified; mapped to the corresponding current method expression."
+     },
+     {
+      "id": "INV34-008483",
+      "file": "tabs/w9_Services_Widget.py",
+      "previous_site": "tabs/w9_Services_Widget.py:278",
+      "current_site": "tabs/w9_Services_Widget.py:284",
+      "tree": "provenance tree = 95dd63186ccda8d3cff41ac9632c8c2886639aa4 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+      "source_sha256": "68b15111c31170d6dc02cc1e08b1d8e9fba346ba3078cdbc0c724d8f312d6f04",
+      "context_fingerprint": "36d60a95b6eb6114ac100be02aa146ae279f63deb932275d989416e435e3a9c2",
+      "reason": "Exact hash tree and original fingerprint verified; mapped to the corresponding current method expression."
+     },
+     {
+      "id": "INV34-008914",
+      "file": "tabs/w7_logistics_Widget.py",
+      "previous_site": "tabs/w7_logistics_Widget.py:2016",
+      "current_site": "tabs/w7_logistics_Widget.py:2043",
+      "tree": "provenance tree = fd18a2bca5b849356c50f9da19c278ecdd8f9967 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+      "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+      "context_fingerprint": "9975fc5efb028b9d2bdb70797a9ed3dc1fb353b8c191e404d0833adecc2e50b8",
+      "reason": "Exact hash tree and original fingerprint verified; mapped to the corresponding current method expression."
+     },
+     {
+      "id": "INV34-006214",
+      "file": "tabs/w7_logistics_Widget.py",
+      "previous_site": "tabs/w7_logistics_Widget.py:1122",
+      "previous_source_line": "except ValueError:",
+      "current_site": "tabs/w7_logistics_Widget.py:1146",
+      "current_source_line": "totals = summarize_bulk_display_rows(display_rows)",
+      "tree": "provenance tree = fd18a2bca5b849356c50f9da19c278ecdd8f9967 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+      "source_sha256": "c5aee6d24201b7eb9c4b34114e8e7dff1fe6ab1324ff6c674ea8734f1218db71",
+      "context_fingerprint": "3641de90973389e727cae715093d887c1b83286c3c6699ffa24d90c1662fe6fa",
+      "fingerprint_proof": [
+       "short",
+       "ast-segment"
+      ],
+      "reason": "Original historical source/hash/fingerprint verified; duplicate source site already maps to the replacement helper call in the same method."
+     }
+    ],
+    "provenance_trees": {
+     "tabs/w7_logistics_Widget.py": "provenance tree = fd18a2bca5b849356c50f9da19c278ecdd8f9967 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+     "tests/conftest.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/create_fixtures.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_credential_lifecycle.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_ddr_regression.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_golden_ddr.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_m29_release_closure.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_r18_r19_save_preservation.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_real_world_import.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_review_contract_certification.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_wellbore_section_performance.py": "provenance tree = 4a55288ed7f98a255b8af21eb6d618f11a3698c1 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+     "verify_release.py": "current tree: sha256(file) == the record's source_sha256",
+     "tabs/w9_Services_Widget.py": "provenance tree = 95dd63186ccda8d3cff41ac9632c8c2886639aa4 (blob sha256 == the record's source_sha256; the file moved in ff2000a which added the casing-id gate comment)",
+     "tests/test_casing_persistence.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_cement_persistence.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_ddr_acceptance.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_p0_phase1_regressions.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_real_oeoc_golden.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_torque_drag_persistence.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_w12_milestones_m25.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_w12_scope_leakage_m25.py": "current tree: sha256(file) == the record's source_sha256",
+     "tests/test_w12_wellbore_scope.py": "current tree: sha256(file) == the record's source_sha256",
+     "tools/certify_ddr.py": "current tree: sha256(file) == the record's source_sha256",
+     "tools/certify_ddr_lifecycle.py": "current tree: sha256(file) == the record's source_sha256",
+     "tools/real_user_acceptance.py": "current tree: sha256(file) == the record's source_sha256",
+     "tools/static_audit.py": "current tree: sha256(file) == the record's source_sha256"
+    },
+    "m34_fingerprint_ledger": {
+     "manifest": "docs/audits/m34-evidence/M34_INVENTORY_LEDGER.json",
+     "expected_path": "docs/audits/m34-evidence/m34-ledger.json",
+     "expected_sha256": "d81a77bda0330c75493f4081c4a02e4d106fe7602e49c14f0c67d12977658a6b",
+     "expected_bytes": 11394989,
+     "present_in_workspace": false,
+     "effect": "Two fingerprints (fixture import fallbacks) did not reproduce ledger-free; source hash/line/symbol evidence is retained."
+    },
+    "fingerprint_proof": {
+     "checked": 43,
+     "verified": 41,
+     "records_without_a_reproducible_fingerprint": [],
+     "records_without_a_reproducing_fingerprint_but_hash_anchored": [
+      "INV34-006381",
+      "INV34-006609"
+     ],
+     "symbol_forms_that_reproduced": {
+      "short": 33,
+      "MISMATCH": 2,
+      "enclosing-scope:Boom": 3,
+      "enclosing-scope:Stub": 3,
+      "qualified": 1
+     },
+     "expression_forms_that_reproduced": {
+      "ast-segment": 13,
+      "recorded-line": 27
+     },
+     "method": "ledger-free: recorded-line + AST-segment expression forms (the 11 MB M34 ledger is not tracked in the repository); duplicate W7 summary exception separately verified in its historical tree and linked to the fixed helper call"
+    }
+   },
+   "production_commits": [
+    {
+     "sha": "994f9cfb065dc64d75507d806f2f08491240703b",
+     "scope": "test_fixture_only",
+     "register_ids": [],
+     "new_p6_ids": [
+      "NEW-P6-028"
+     ]
+    }
+   ],
+   "payload_latest_commit": "6851b934b6dac9ca056d2cb58875cdcb741c824c",
+   "payload_latest_commit_subject": "docs: record exact-HEAD source gate outcome",
+   "supplemental_test_evidence_commits": [
+    {
+     "sha": "6851b934b6dac9ca056d2cb58875cdcb741c824c",
+     "scope": "records the exact-HEAD source_release_gate result in p6-batch-029.json",
+     "commit_checked": "bf7ec7453faf726d95c2a3feff22c11c013e502d",
+     "result": "BLOCKED_BY_SANDBOX_OS_LIBRARY; not a passing release gate or production-readiness claim",
+     "details": "Gate passed listed static/dependency/compile checks, then pytest collection was blocked by missing libGL.so.1; full pytest and wheel smoke were not run."
+    }
+   ]
   }
  ],
- "start_open": 1224,
- "start_high": 371,
+ "start_open": 1222,
+ "start_high": 369,
  "arithmetic": {
-  "register_open_at_p6_start": 1224,
-  "defect_fixed_by_p6": 2,
+  "register_records_at_p6_start": 1224,
+  "pre_p6_defect_fixed_records": 2,
+  "open_records_at_p6_start": 1222,
+  "open_by_priority_at_p6_start": {
+   "MEDIUM": 853,
+   "HIGH": 369
+  },
   "adjudicated_by_p6_batches": 1222,
   "current_open": 0,
+  "batch_record_counts": {
+   "p6-batch-002": 45,
+   "p6-batch-003": 45,
+   "p6-batch-004": 45,
+   "p6-batch-005": 45,
+   "p6-batch-006": 45,
+   "p6-batch-007": 45,
+   "p6-batch-008": 45,
+   "p6-batch-009": 45,
+   "p6-batch-010": 9,
+   "p6-batch-011": 45,
+   "p6-batch-012": 45,
+   "p6-batch-013": 45,
+   "p6-batch-014": 45,
+   "p6-batch-015": 45,
+   "p6-batch-016": 45,
+   "p6-batch-017": 45,
+   "p6-batch-018": 45,
+   "p6-batch-019": 45,
+   "p6-batch-020": 45,
+   "p6-batch-021": 45,
+   "p6-batch-022": 45,
+   "p6-batch-023": 45,
+   "p6-batch-024": 45,
+   "p6-batch-025": 45,
+   "p6-batch-026": 45,
+   "p6-batch-027": 45,
+   "p6-batch-028": 45,
+   "p6-batch-029": 43
+  },
   "check": true,
-  "note": "every record is either OPEN or carries a terminal evidence-backed classification; the fixed sites are subtracted separately so nothing disappears"
+  "errors": [],
+  "formula": "register_records_at_p6_start = pre_p6_defect_fixed_records + adjudicated_by_p6_batches + current_open",
+  "note": "The two pre-P6 DEFECT-FIXED records are not batch adjudications. Batch classifications including DOMAIN_DECISION_REQUIRED are terminal register dispositions; secondary NEW-P6 findings and owner decisions are a separate namespace."
  },
  "open_by_priority": {},
  "open_by_class": {},
- "generated_utc": "2026-09-29T10:17:13+00:00",
+ "generated_utc": "2026-10-04T05:43:33+00:00",
  "recovery_bundles": [
   {
    "file": "/home/user/recovery/drillmaster-115fc09.bundle",
    "sha256": "2b41f3465e0f376b9f9b7484c56c3c541bbc4fa10ae2f7df1d4ef847411146f5",
    "captured_head": "115fc09",
-   "verified": "clone verified in this session"
+   "historical_verification_claim": "clone verified in this session",
+   "current_verification_status": "NOT_VERIFIED",
+   "current_verification_note": "Referenced external bundle path is unavailable in this checkout; digest and bundle contents were not independently checked.",
+   "current_verification_as_of": "2026-10-04"
   },
   {
    "file": "/home/user/recovery/drillmaster-1d44cb5.bundle",
    "sha256": "9352a514b41e10dc9256a36afe3ea0b2251ecec27a6c868602594e3965b759d0",
    "captured_head": "1d44cb5",
-   "verified": "clone verified in this session"
+   "historical_verification_claim": "clone verified in this session",
+   "current_verification_status": "NOT_VERIFIED",
+   "current_verification_note": "Referenced external bundle path is unavailable in this checkout; digest and bundle contents were not independently checked.",
+   "current_verification_as_of": "2026-10-04"
   },
   {
    "file": "/home/user/recovery/drillmaster-1e78cfd.bundle",
    "sha256": "d5377dd05b5a49152260e59200a2bebfd293c022a1d5a26c7226fde68b4a1a4a",
    "captured_head": "1e78cfd",
-   "verified": "clone verified in this session"
+   "historical_verification_claim": "clone verified in this session",
+   "current_verification_status": "NOT_VERIFIED",
+   "current_verification_note": "Referenced external bundle path is unavailable in this checkout; digest and bundle contents were not independently checked.",
+   "current_verification_as_of": "2026-10-04"
   },
   {
    "file": "/home/user/recovery/drillmaster-2f61e6f.bundle",
    "sha256": "5cb8762ae153151f61e3d29a2505b0910ecc5d2cf53f9a94ce0729f0d73032b5",
    "captured_head": "2f61e6f",
-   "verified": "clone verified in this session"
+   "historical_verification_claim": "clone verified in this session",
+   "current_verification_status": "NOT_VERIFIED",
+   "current_verification_note": "Referenced external bundle path is unavailable in this checkout; digest and bundle contents were not independently checked.",
+   "current_verification_as_of": "2026-10-04"
   },
   {
    "file": "/home/user/recovery/drillmaster-3b60dfd.bundle",
    "sha256": "702d83e495a4bd32b9d592b340e91671d44e66720988bd51b0bc9ab9f7b26ee9",
    "captured_head": "3b60dfd",
-   "verified": "clone verified in this session"
+   "historical_verification_claim": "clone verified in this session",
+   "current_verification_status": "NOT_VERIFIED",
+   "current_verification_note": "Referenced external bundle path is unavailable in this checkout; digest and bundle contents were not independently checked.",
+   "current_verification_as_of": "2026-10-04"
   },
   {
    "file": "/home/user/recovery/drillmaster-5a17ee1.bundle",
    "sha256": "1fe4c4fc105ed2ea9dfe7d697f12aeac26abf7a3cab21fa4a6c25b3c034a70e1",
    "captured_head": "5a17ee1",
-   "verified": "clone verified in this session"
+   "historical_verification_claim": "clone verified in this session",
+   "current_verification_status": "NOT_VERIFIED",
+   "current_verification_note": "Referenced external bundle path is unavailable in this checkout; digest and bundle contents were not independently checked.",
+   "current_verification_as_of": "2026-10-04"
   },
   {
    "file": "/home/user/recovery/drillmaster-66e6d24.bundle",
    "sha256": "04fae8e51689ae33600bbfffb8437acff646e3bc43ca1c88862cc76cceb549fc",
    "captured_head": "66e6d24",
-   "verified": "clone verified in this session"
+   "historical_verification_claim": "clone verified in this session",
+   "current_verification_status": "NOT_VERIFIED",
+   "current_verification_note": "Referenced external bundle path is unavailable in this checkout; digest and bundle contents were not independently checked.",
+   "current_verification_as_of": "2026-10-04"
   },
   {
    "file": "/home/user/recovery/drillmaster-report.bundle",
    "sha256": "8cd55b2e8baa71382f5b47f74f4327155148f7e463f4bf2e3c55be37a7765562",
    "captured_head": "69c8553",
-   "verified": "clone verified in this session"
+   "historical_verification_claim": "clone verified in this session",
+   "current_verification_status": "NOT_VERIFIED",
+   "current_verification_note": "Referenced external bundle path is unavailable in this checkout; digest and bundle contents were not independently checked.",
+   "current_verification_as_of": "2026-10-04"
   },
   {
    "file": "/home/user/recovery/drillmaster-6f8663f.bundle",
    "sha256": "f03748244d5403024ba9249f49ce4058bd45009c24972064981d40474b18a08b",
    "captured_head": "6f8663f",
-   "verified": "clone verified in this session"
+   "historical_verification_claim": "clone verified in this session",
+   "current_verification_status": "NOT_VERIFIED",
+   "current_verification_note": "Referenced external bundle path is unavailable in this checkout; digest and bundle contents were not independently checked.",
+   "current_verification_as_of": "2026-10-04"
   },
   {
    "file": "/home/user/recovery/drillmaster-8169244.bundle",
    "sha256": "4e4de85060978f7e257790fe457b2d6565aa4d2546b34283f22f1bb0b9a2e2a3",
    "captured_head": "8169244",
-   "verified": "clone verified in this session"
+   "historical_verification_claim": "clone verified in this session",
+   "current_verification_status": "NOT_VERIFIED",
+   "current_verification_note": "Referenced external bundle path is unavailable in this checkout; digest and bundle contents were not independently checked.",
+   "current_verification_as_of": "2026-10-04"
   },
   {
    "file": "/home/user/recovery/drillmaster-9f259e2.bundle",
    "sha256": "100905d0a3c9cf15fc8130362fa07b59e38fb24d96091894cd6f15bbe8180925",
    "captured_head": "9f259e2",
-   "verified": "clone verified in this session"
+   "historical_verification_claim": "clone verified in this session",
+   "current_verification_status": "NOT_VERIFIED",
+   "current_verification_note": "Referenced external bundle path is unavailable in this checkout; digest and bundle contents were not independently checked.",
+   "current_verification_as_of": "2026-10-04"
   },
   {
    "file": "/home/user/recovery/drillmaster-a375b06.bundle",
    "sha256": "22dc2b89aa6d5915d233d1890fd325ec1df65cae2c6c3a6849e1dce322a8b17b",
    "captured_head": "a375b06",
-   "verified": "clone verified in this session"
+   "historical_verification_claim": "clone verified in this session",
+   "current_verification_status": "NOT_VERIFIED",
+   "current_verification_note": "Referenced external bundle path is unavailable in this checkout; digest and bundle contents were not independently checked.",
+   "current_verification_as_of": "2026-10-04"
   },
   {
    "file": "/home/user/recovery/drillmaster-acb6279.bundle",
    "sha256": "c83382fdfece3d72a1295242a87371af6429315b519ec6addd7fc602afec2cd4",
    "captured_head": "acb6279",
-   "verified": "clone verified in this session"
+   "historical_verification_claim": "clone verified in this session",
+   "current_verification_status": "NOT_VERIFIED",
+   "current_verification_note": "Referenced external bundle path is unavailable in this checkout; digest and bundle contents were not independently checked.",
+   "current_verification_as_of": "2026-10-04"
   },
   {
    "file": "/home/user/recovery/drillmaster-b562c39.bundle",
    "sha256": "9cc297c3ca756145445c3eb12c634e07f10df77684afdf8f47678eff8b54b396",
    "captured_head": "b562c39",
-   "verified": "clone verified in this session"
+   "historical_verification_claim": "clone verified in this session",
+   "current_verification_status": "NOT_VERIFIED",
+   "current_verification_note": "Referenced external bundle path is unavailable in this checkout; digest and bundle contents were not independently checked.",
+   "current_verification_as_of": "2026-10-04"
   },
   {
    "file": "/home/user/recovery/drillmaster-b6e518f.bundle",
    "sha256": "3c61dced7f5fb21dad02a6087325a864f6a9f21051b2374488cd007712f6ce5e",
    "captured_head": "b6e518f",
-   "verified": "clone verified in this session"
+   "historical_verification_claim": "clone verified in this session",
+   "current_verification_status": "NOT_VERIFIED",
+   "current_verification_note": "Referenced external bundle path is unavailable in this checkout; digest and bundle contents were not independently checked.",
+   "current_verification_as_of": "2026-10-04"
   },
   {
    "file": "/home/user/recovery/drillmaster-bbb5117.bundle",
    "sha256": "fe121fec39d2e90680b726f9a7217e7ca57867ce0f6e0297de69d0f8ebaff838",
    "captured_head": "bbb5117",
-   "verified": "clone verified in this session"
+   "historical_verification_claim": "clone verified in this session",
+   "current_verification_status": "NOT_VERIFIED",
+   "current_verification_note": "Referenced external bundle path is unavailable in this checkout; digest and bundle contents were not independently checked.",
+   "current_verification_as_of": "2026-10-04"
   },
   {
    "file": "/home/user/recovery/drillmaster-ddf961f.bundle",
    "sha256": "935fd858ae38b11aacee52345fa28fb0393ca4eeab7fb7febdd0f72d2f7e07f3",
    "captured_head": "ddf961f",
-   "verified": "clone verified in this session"
+   "historical_verification_claim": "clone verified in this session",
+   "current_verification_status": "NOT_VERIFIED",
+   "current_verification_note": "Referenced external bundle path is unavailable in this checkout; digest and bundle contents were not independently checked.",
+   "current_verification_as_of": "2026-10-04"
   },
   {
    "file": "/home/user/recovery/drillmaster-eb95f1e.bundle",
    "sha256": "fcef90a5a46b279ea7c93988d22a79c614b19a9766ca280e7f81e1a0f2d2a67e",
    "captured_head": "eb95f1e",
-   "verified": "clone verified in this session"
+   "historical_verification_claim": "clone verified in this session",
+   "current_verification_status": "NOT_VERIFIED",
+   "current_verification_note": "Referenced external bundle path is unavailable in this checkout; digest and bundle contents were not independently checked.",
+   "current_verification_as_of": "2026-10-04"
   }
- ]
+ ],
+ "register_records_at_p6_start": 1224,
+ "start_by_priority": {
+  "HIGH": 369,
+  "MEDIUM": 853
+ },
+ "start_medium": 853,
+ "secondary_finding_summary": {
+  "count": 20,
+  "ids": [
+   "NEW-P6-001",
+   "NEW-P6-002",
+   "NEW-P6-003",
+   "NEW-P6-004",
+   "NEW-P6-005",
+   "NEW-P6-006",
+   "NEW-P6-007",
+   "NEW-P6-008",
+   "NEW-P6-009",
+   "NEW-P6-010",
+   "NEW-P6-013",
+   "NEW-P6-014",
+   "NEW-P6-015",
+   "NEW-P6-016",
+   "NEW-P6-019",
+   "NEW-P6-020",
+   "NEW-P6-023",
+   "NEW-P6-024",
+   "NEW-P6-025",
+   "NEW-P6-026"
+  ],
+  "register_ids_overlap": false,
+  "scope": "secondary NEW-P6 findings; excluded from original-register conservation arithmetic",
+  "owner_decision_findings_open": {
+   "NEW-P6-007": "TECHNICALLY_BOUNDED_OWNER_POLICY_OPEN",
+   "NEW-P6-008": "CONSERVATIVE_NULL_RUNWAY_IMPLEMENTED_OWNER_POLICY_OPEN",
+   "NEW-P6-015": "UNKNOWN_INVALID_PRESENTATION_AND_PERSISTENCE_HARDENED_OWNER_PRESENTATION_DECISION_OPEN",
+   "NEW-P6-020": "EXISTING_MOVEMENT_TRUTH_PRESERVED_OWNER_BALANCE_POLICY_OPEN",
+   "NEW-P6-023": "OWNER_CONTRACT_DECISION_OPEN_UNCHANGED",
+   "NEW-P6-024": "TECHNICAL_FAILURE_VS_EMPTY_DISTINGUISHED_OWNER_REPORT_POLICY_OPEN"
+  },
+  "owner_status_source": "p6-remediation-w15-2026-09-30.json"
+ },
+ "defect_fix_reconciliation": {
+  "genuine_defect_register_records": 18,
+  "records_with_explicit_register_id_in_defects_fixed_metadata": 15,
+  "cross_linked_through_secondary_finding": [
+   {
+    "record_id": "INV34-002162",
+    "batch": "p6-batch-025",
+    "finding_id": "NEW-P6-021",
+    "fix_commit": "e6a1ffb23a7641d09ad0a94e693b879de45ec612",
+    "test": "tests/test_mineru_timeout_zero.py"
+   },
+   {
+    "record_id": "INV34-005709",
+    "batch": "p6-batch-024",
+    "finding_id": "NEW-P6-012",
+    "fix_commit": "6c07d3a2ed4782bb5dd707f43b0d78635dead162",
+    "test": "tests/test_w3c_well_switch_scope_smoke.py"
+   },
+   {
+    "record_id": "INV34-006841",
+    "batch": "p6-batch-024",
+    "finding_id": "NEW-P6-017",
+    "fix_commit": "dc0ad4b08e3c94bf87419114aa55c74c450dd8f3",
+    "test": "tests/test_data_quality_orphan_integrity.py"
+   }
+  ],
+  "by_record": {
+   "INV34-001111": {
+    "batch": "p6-batch-017",
+    "fix_commit": "4c543e8afe78250779f9164a1792df33cd5b2df1",
+    "regression_test": "tests/test_coerce_model_values_finite.py",
+    "linkage": "direct"
+   },
+   "INV34-001751": {
+    "batch": "p6-batch-005",
+    "fix_commit": "ff2000ade708f4732792c0c9ca953b64fd409074",
+    "regression_test": "tests/test_kill_sheet_casing_id_gate.py",
+    "linkage": "direct"
+   },
+   "INV34-002162": {
+    "batch": "p6-batch-025",
+    "fix_commit": "e6a1ffb23a7641d09ad0a94e693b879de45ec612",
+    "regression_test": "tests/test_mineru_timeout_zero.py",
+    "linkage": "secondary-finding NEW-P6-021"
+   },
+   "INV34-002457": {
+    "batch": "p6-batch-013",
+    "fix_commit": "0699e508e841f213da92d6e1144098c40245fd3d",
+    "regression_test": "tests/test_profile_time_log_unknown_duration.py",
+    "linkage": "direct"
+   },
+   "INV34-003569": {
+    "batch": "p6-batch-015",
+    "fix_commit": "fd51a5409be879ea405fd3caecd64166f55a8c91",
+    "regression_test": "tests/test_plan_import_unknown_cells.py",
+    "linkage": "direct"
+   },
+   "INV34-005709": {
+    "batch": "p6-batch-024",
+    "fix_commit": "6c07d3a2ed4782bb5dd707f43b0d78635dead162",
+    "regression_test": "tests/test_w3c_well_switch_scope_smoke.py",
+    "linkage": "secondary-finding NEW-P6-012"
+   },
+   "INV34-006021": {
+    "batch": "p6-batch-003",
+    "fix_commit": "c2e001619ee73c58cadfc85b72a2975ae540f28a",
+    "regression_test": "tests/test_bulk_stock_three_state_smoke.py",
+    "linkage": "direct"
+   },
+   "INV34-006210": {
+    "batch": "p6-batch-028",
+    "fix_commit": "ea3c3b0e200b1e9adc4d5e73f5e1f5e13bf3bb29",
+    "regression_test": "tests/test_bulk_display_totals.py",
+    "linkage": "direct"
+   },
+   "INV34-006841": {
+    "batch": "p6-batch-024",
+    "fix_commit": "dc0ad4b08e3c94bf87419114aa55c74c450dd8f3",
+    "regression_test": "tests/test_data_quality_orphan_integrity.py",
+    "linkage": "secondary-finding NEW-P6-017"
+   },
+   "INV34-009687": {
+    "batch": "p6-batch-021",
+    "fix_commit": "9a7b64f59fd3e95a135f0be3572053206bc4d4d5",
+    "regression_test": "tests/test_excel_intelligence_regressions.py",
+    "linkage": "direct grouped fix"
+   },
+   "INV34-009688": {
+    "batch": "p6-batch-021",
+    "fix_commit": "9a7b64f59fd3e95a135f0be3572053206bc4d4d5",
+    "regression_test": "tests/test_excel_intelligence_regressions.py",
+    "linkage": "direct grouped fix"
+   },
+   "INV34-009689": {
+    "batch": "p6-batch-021",
+    "fix_commit": "9a7b64f59fd3e95a135f0be3572053206bc4d4d5",
+    "regression_test": "tests/test_excel_intelligence_regressions.py",
+    "linkage": "direct grouped fix"
+   },
+   "INV34-010301": {
+    "batch": "p6-batch-022",
+    "fix_commit": "4849e03a6cb9571bf82909732aeba3ec0c07483e",
+    "regression_test": "tests/test_w7_null_zero_ui_smoke.py",
+    "linkage": "direct grouped fix"
+   },
+   "INV34-010304": {
+    "batch": "p6-batch-022",
+    "fix_commit": "4849e03a6cb9571bf82909732aeba3ec0c07483e",
+    "regression_test": "tests/test_w7_null_zero_ui_smoke.py",
+    "linkage": "direct grouped fix"
+   },
+   "INV34-010307": {
+    "batch": "p6-batch-022",
+    "fix_commit": "4849e03a6cb9571bf82909732aeba3ec0c07483e",
+    "regression_test": "tests/test_w7_null_zero_ui_smoke.py",
+    "linkage": "direct grouped fix"
+   },
+   "INV34-010310": {
+    "batch": "p6-batch-022",
+    "fix_commit": "4849e03a6cb9571bf82909732aeba3ec0c07483e",
+    "regression_test": "tests/test_w7_null_zero_ui_smoke.py",
+    "linkage": "direct grouped fix"
+   },
+   "INV34-010318": {
+    "batch": "p6-batch-022",
+    "fix_commit": "219dc06e5cafa30ec5e38bf48feefe95c1c4e12c",
+    "regression_test": "tests/test_w9_material_request_unknown_quantity.py",
+    "linkage": "direct grouped fix"
+   },
+   "INV34-010319": {
+    "batch": "p6-batch-022",
+    "fix_commit": "219dc06e5cafa30ec5e38bf48feefe95c1c4e12c",
+    "regression_test": "tests/test_w9_material_request_unknown_quantity.py",
+    "linkage": "direct grouped fix"
+   }
+  },
+  "batch_defects_fixed_entries": 17,
+  "interpretation": "17 batch-level defects_fixed entries are not one-to-one: entries can group multiple register records, link a register defect through a NEW-P6 fix, or document a secondary/test-only fix. The original register has 18 GENUINE_DEFECT records; every one is mapped above to a fix commit and focused regression. This is separate from the two pre-P6 DEFECT-FIXED records."
+ },
+ "source_site_overlap_summary": {
+  "batch_item_ids_unique": true,
+  "record_id_overlap_across_batches": 0,
+  "repeated_file_line_groups_within_or_across_batches": 92,
+  "additional_records_at_repeated_file_line_groups": 120,
+  "repeated_file_line_groups_spanning_multiple_batches": 27,
+  "additional_records_at_cross_batch_file_line_groups": 44,
+  "interpretation": "Batch record totals count unique register IDs. Repeated source locations are retained as distinct register records and individually classified; per-batch site counts are local unique (file,line) pairs and must not be summed as a global distinct-site count."
+ },
+ "source_hash_reconciliation": {
+  "batch_file_hash_contexts_checked": 334,
+  "batch_file_hash_contexts_matched_in_available_evidence_ancestry": 332,
+  "unmatched_contexts": [
+   {
+    "batch": "p6-batch-003",
+    "file": "tabs/w5_Equipment_Widget.py",
+    "source_sha256": "7cbe07214dbeb8cd3b8bb4668ec54040eec4e2e740e4e2188d24fd8c73758359",
+    "record_ids": [
+     "INV34-005839",
+     "INV34-005886"
+    ],
+    "status": "NOT_FOUND_IN_AVAILABLE_ANCESTRY"
+   },
+   {
+    "batch": "p6-batch-016",
+    "file": "tabs/w5_Equipment_Widget.py",
+    "source_sha256": "7cbe07214dbeb8cd3b8bb4668ec54040eec4e2e740e4e2188d24fd8c73758359",
+    "record_ids": [
+     "INV34-005838",
+     "INV34-005840",
+     "INV34-005895",
+     "INV34-005897",
+     "INV34-005899",
+     "INV34-005900"
+    ],
+    "status": "NOT_FOUND_IN_AVAILABLE_ANCESTRY"
+   }
+  ],
+  "pre_p6_fixed_source_anchor": {
+   "file": "tabs/w5_Equipment_Widget.py",
+   "source_sha256": "7cbe07214dbeb8cd3b8bb4668ec54040eec4e2e740e4e2188d24fd8c73758359",
+   "record_ids": [
+    "INV34-005842",
+    "INV34-008380"
+   ],
+   "status": "NOT_FOUND_IN_AVAILABLE_ANCESTRY",
+   "fixed_commit": "9f45cc49a7da0cb89ce65badd600fab6f119d5f9"
+  },
+  "truncated_source_line_prefix_match": {
+   "batch": "p6-batch-016",
+   "record_id": "INV34-008346",
+   "file": "tabs/w3c_section_data.py",
+   "line": 864,
+   "status": "SOURCE_HASH_MATCHED_LINE_IS_RECORDED_AS_PREFIX"
+  },
+  "recovery_bundle_boundary": "The ledger references external recovery bundles under /home/user/recovery; that directory is absent in this checkout, so bundle bytes and listed SHA-256 values were not independently re-verified."
+ },
+ "recovery_bundle_inventory_status": {
+  "referenced_bundles": 18,
+  "directory_available": false,
+  "current_status": "NOT_VERIFIED",
+  "as_of": "2026-10-04",
+  "note": "Historical verification claims are retained separately; no current verification is asserted."
+ }
 }
