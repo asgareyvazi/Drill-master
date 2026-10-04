@@ -3794,6 +3794,54 @@
     "status": "NOT_FOUND_IN_AVAILABLE_ANCESTRY"
    }
   ],
+  "external_provenance_status": {
+   "status": "PROVENANCE_EXTERNAL_SOURCE_UNAVAILABLE",
+   "as_of": "2026-10-04",
+   "file": "tabs/w5_Equipment_Widget.py",
+   "expected_sha256": "7cbe07214dbeb8cd3b8bb4668ec54040eec4e2e740e4e2188d24fd8c73758359",
+   "unmatched_batch_context_count": 2,
+   "checked_batch_context_count": 334,
+   "matched_batch_context_count": 332,
+   "affected_batches": ["p6-batch-003", "p6-batch-016"],
+   "affected_batch_record_ids": [
+    "INV34-005839",
+    "INV34-005886",
+    "INV34-005838",
+    "INV34-005840",
+    "INV34-005895",
+    "INV34-005897",
+    "INV34-005899",
+    "INV34-005900"
+   ],
+   "affected_pre_p6_fixed_anchor_record_ids": ["INV34-005842", "INV34-008380"],
+   "recovery_sources_searched": {
+    "local_git": {
+     "all_refs_and_reflogs": true,
+     "advertised_and_fetched_git_objects": 3732,
+     "blob_objects_sha256_scanned": 2001,
+     "matching_blob_count": 0,
+     "unreachable_objects_found": 0,
+     "w5_path_history_commits": 9,
+     "distinct_w5_content_sha256": 8,
+     "target_digest_in_w5_path_history": false,
+     "tags_found": 0,
+     "local_bundle_or_archive_files_found": 0
+    },
+    "github": {
+     "branches_searched": 8,
+     "pull_request_head_refs_searched": 4,
+     "pull_request_discussions_searched": 4,
+     "issues_found": 0,
+     "tags_found": 0,
+     "releases_found": 0,
+     "actions_artifacts_found": 0
+    },
+    "repository_artifact_search": "Current repository tree, all fetched Git blobs, local bundle/archive locations, release assets, and Actions artifacts contained no authoritative matching snapshot."
+   },
+   "recovery_result": "No authoritative source matching the expected SHA-256 was available in the searched local or GitHub repository-side sources. The current W5 source and fix commits are not evidence of the historical snapshot.",
+   "historical_batch_and_anchor_evidence_altered": false,
+   "hash_inferred_or_fabricated": false
+  },
   "pre_p6_fixed_source_anchor": {
    "file": "tabs/w5_Equipment_Widget.py",
    "source_sha256": "7cbe07214dbeb8cd3b8bb4668ec54040eec4e2e740e4e2188d24fd8c73758359",
