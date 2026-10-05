@@ -60,6 +60,13 @@ class TestCandidateScorer:
         score_text = CandidateScorer.score_candidate(c_text, "mud_report.mw")
         assert score_num > score_text
 
+    def test_pcf_candidate_uses_canonical_density_bound(self):
+        """Candidate plausibility must match the PCF field's declared range."""
+        within = Candidate(value=180.0, source="preferred_cell", row=3, col=5)
+        above = Candidate(value=190.0, source="preferred_cell", row=3, col=5)
+        assert CandidateScorer.score_candidate(within, "mud_report.mw") > CandidateScorer.score_candidate(
+            above, "mud_report.mw")
+
     def test_already_assigned_penalty(self):
         """Already-assigned cell should get penalty."""
         c = Candidate(value="test", source="spatial", row=3, col=5)
@@ -130,12 +137,12 @@ class TestFieldExtractor:
         result = ext.extract({"row": 3, "col": 5, "field": "MD"}, "survey.md")
         assert "engineering_violation" in result.validation or "below_minimum" in result.validation
 
-    def test_engineering_validation_mw_zero(self):
-        """MW = 0 should be flagged."""
+    def test_mud_density_bounds_wait_for_explicit_source_unit(self):
+        """Raw density validation waits until the companion unit is resolved."""
         cells = {(3, 5): 0}
         ext = self._make_extractor(cells)
         result = ext.extract({"row": 3, "col": 5, "field": "MW"}, "mud_report.mw")
-        assert result.validation != "valid"
+        assert result.validation == "valid"  # unit-aware extraction resolves/reviews it later
 
     def test_engineering_validation_inclination_range(self):
         """Inclination > 180 should be flagged."""
@@ -178,7 +185,7 @@ class TestCanonicalSchemaIntegration:
 
         min_val, max_val = get_engineering_bounds("mud_report.mw")
         assert min_val == 0
-        assert max_val == 25
+        assert max_val == 187.01298639122953
 
     def test_no_independent_alias_dicts(self):
         """FieldExtractor must use canonical schema aliases, not private dicts."""

@@ -157,7 +157,12 @@ class OperationsIntelligenceService:
                 "cost_currency_status": cost_summary["status"],
                 "cost_groups": cost_summary["groups"],
                 "plan_variance": plan_variance,
-                "mud_trend": {"mw": mw_trend[-5:], "pv": pv_trend[-5:]},
+                "mud_trend": {
+                    "mw": mw_trend[-5:],
+                    "mw_unit": "PCF",
+                    "mw_source": "MudReport sample",
+                    "pv": pv_trend[-5:],
+                },
                 "torque_trend": torques[-5:],
                 "wob_trend": wobs[-5:],
                 "rpm_trend": rpms[-5:],

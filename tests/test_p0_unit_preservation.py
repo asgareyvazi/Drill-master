@@ -10,14 +10,14 @@ from core.unit_manager import UnitManager
 
 
 class UnitPreservationTests(unittest.TestCase):
-    def test_sg_to_ppg(self):
-        # 1.50 SG → 12.52 ppg
-        record = UnitManager.create_record("mud_report.mw", "density", "sg", 1.5, "ppg")
-        self.assertAlmostEqual(record.normalized_value, 12.518, places=2)
+    def test_sg_to_mud_sample_pcf(self):
+        # 1.50 SG → approximately 93.64 pcf for the PCF-native MudReport field.
+        record = UnitManager.create_record("mud_report.mw", "density", "sg", 1.5, "pcf")
+        self.assertAlmostEqual(record.normalized_value, 93.64194, places=4)
         self.assertEqual(record.original_value, 1.5)
         self.assertEqual(record.source_unit, "sg")
-        self.assertEqual(record.canonical_unit, "ppg")
-        self.assertIn("SG", record.conversion_rule)
+        self.assertEqual(record.canonical_unit, "pcf")
+        self.assertIn("sg->pcf", record.conversion_rule)
 
     def test_ft_to_m(self):
         record = UnitManager.create_record("survey.md", "depth", "ft", 1000, "m")

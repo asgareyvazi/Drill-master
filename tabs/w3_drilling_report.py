@@ -380,15 +380,14 @@ class DrillingParametersTab(QWidget):
         bit_layout.addWidget(self.bit_rerun, 0, 3)
 
         bit_layout.addWidget(QLabel("Bit Size (in):"), 1, 0)
-        self.bit_size = QDoubleSpinBox()
-        self.bit_size.setRange(0, 50)
+        self.bit_size = _optional_input_spin(QDoubleSpinBox(), 50)
         self.bit_size.setDecimals(3)
-        self.bit_size.setValue(0)
         bit_layout.addWidget(self.bit_size, 1, 1)
 
         bit_layout.addWidget(QLabel("Bit Type:"), 1, 2)
         self.bit_type = QComboBox()
         self.bit_type.addItems(["PDC", "Tricone", "Impregnated", "Diamond"])
+        self.bit_type.setCurrentIndex(-1)
         bit_layout.addWidget(self.bit_type, 1, 3)
 
         bit_layout.addWidget(QLabel("Manufacturer:"), 2, 0)
@@ -454,26 +453,23 @@ class DrillingParametersTab(QWidget):
         depth_layout = QGridLayout()
 
         depth_layout.addWidget(QLabel("Depth In (m):"), 0, 0)
-        self.depth_in = QDoubleSpinBox()
-        self.depth_in.setRange(0, 20000)
+        self.depth_in = _optional_input_spin(QDoubleSpinBox(), 20000)
         self.depth_in.setDecimals(2)
         depth_layout.addWidget(self.depth_in, 0, 1)
 
         depth_layout.addWidget(QLabel("Depth Out (m):"), 0, 2)
-        self.depth_out = QDoubleSpinBox()
-        self.depth_out.setRange(0, 20000)
+        self.depth_out = _optional_input_spin(QDoubleSpinBox(), 20000)
         self.depth_out.setDecimals(2)
         depth_layout.addWidget(self.depth_out, 0, 3)
 
         depth_layout.addWidget(QLabel("Bit Drilled (m):"), 1, 0)
-        self.bit_drilled = QDoubleSpinBox()
+        self.bit_drilled = _calc_spin(QDoubleSpinBox(), 50000)
         self.bit_drilled.setReadOnly(True)
         self.bit_drilled.setDecimals(2)
         depth_layout.addWidget(self.bit_drilled, 1, 1)
 
         depth_layout.addWidget(QLabel("Cumulative (m):"), 1, 2)
-        self.cum_drilled = QDoubleSpinBox()
-        self.cum_drilled.setRange(0, 50000)
+        self.cum_drilled = _optional_input_spin(QDoubleSpinBox(), 50000)
         self.cum_drilled.setDecimals(2)
         depth_layout.addWidget(self.cum_drilled, 1, 3)
 
@@ -483,8 +479,7 @@ class DrillingParametersTab(QWidget):
         depth_layout.addWidget(self.hours_on_bottom, 2, 1)
 
         depth_layout.addWidget(QLabel("Cumulative Hours:"), 2, 2)
-        self.cum_hours = QDoubleSpinBox()
-        self.cum_hours.setRange(0, 10000)
+        self.cum_hours = _optional_input_spin(QDoubleSpinBox(), 10000)
         self.cum_hours.setDecimals(1)
         depth_layout.addWidget(self.cum_hours, 2, 3)
 
@@ -496,14 +491,12 @@ class DrillingParametersTab(QWidget):
         params_layout = QGridLayout()
 
         params_layout.addWidget(QLabel("WOB Min (klb):"), 0, 0)
-        self.wob_min = QDoubleSpinBox()
-        self.wob_min.setRange(0, 100)
+        self.wob_min = _optional_input_spin(QDoubleSpinBox(), 100)
         self.wob_min.setDecimals(1)
         params_layout.addWidget(self.wob_min, 0, 1)
 
         params_layout.addWidget(QLabel("WOB Max (klb):"), 0, 2)
-        self.wob_max = QDoubleSpinBox()
-        self.wob_max.setRange(0, 100)
+        self.wob_max = _optional_input_spin(QDoubleSpinBox(), 100)
         self.wob_max.setDecimals(1)
         params_layout.addWidget(self.wob_max, 0, 3)
 
@@ -518,26 +511,22 @@ class DrillingParametersTab(QWidget):
         params_layout.addWidget(self.rpm_max, 1, 3)
 
         params_layout.addWidget(QLabel("Torque Min (klb.ft):"), 2, 0)
-        self.torque_min = QDoubleSpinBox()
-        self.torque_min.setRange(0, 100)
+        self.torque_min = _optional_input_spin(QDoubleSpinBox(), 100)
         self.torque_min.setDecimals(1)
         params_layout.addWidget(self.torque_min, 2, 1)
 
         params_layout.addWidget(QLabel("Torque Max (klb.ft):"), 2, 2)
-        self.torque_max = QDoubleSpinBox()
-        self.torque_max.setRange(0, 100)
+        self.torque_max = _optional_input_spin(QDoubleSpinBox(), 100)
         self.torque_max.setDecimals(1)
         params_layout.addWidget(self.torque_max, 2, 3)
 
         params_layout.addWidget(QLabel("SPP Min (psi):"), 3, 0)
-        self.pump_pressure_min = QDoubleSpinBox()
-        self.pump_pressure_min.setRange(0, 5000)
+        self.pump_pressure_min = _optional_input_spin(QDoubleSpinBox(), 5000)
         self.pump_pressure_min.setDecimals(0)
         params_layout.addWidget(self.pump_pressure_min, 3, 1)
 
         params_layout.addWidget(QLabel("SPP Max (psi):"), 3, 2)
-        self.pump_pressure_max = QDoubleSpinBox()
-        self.pump_pressure_max.setRange(0, 5000)
+        self.pump_pressure_max = _optional_input_spin(QDoubleSpinBox(), 5000)
         self.pump_pressure_max.setDecimals(0)
         params_layout.addWidget(self.pump_pressure_max, 3, 3)
 
@@ -549,38 +538,32 @@ class DrillingParametersTab(QWidget):
         pump_layout = QGridLayout()
 
         pump_layout.addWidget(QLabel("Flow Rate Min (gpm):"), 0, 0)
-        self.pump_output_min = QDoubleSpinBox()
-        self.pump_output_min.setRange(0, 5000)
+        self.pump_output_min = _optional_input_spin(QDoubleSpinBox(), 5000)
         self.pump_output_min.setDecimals(0)
         pump_layout.addWidget(self.pump_output_min, 0, 1)
 
         pump_layout.addWidget(QLabel("Flow Rate Max (gpm):"), 0, 2)
-        self.pump_output_max = QDoubleSpinBox()
-        self.pump_output_max.setRange(0, 5000)
+        self.pump_output_max = _optional_input_spin(QDoubleSpinBox(), 5000)
         self.pump_output_max.setDecimals(0)
         pump_layout.addWidget(self.pump_output_max, 0, 3)
 
         pump_layout.addWidget(QLabel("Pump 1 SPM:"), 1, 0)
-        self.pump1_spm = QDoubleSpinBox()
-        self.pump1_spm.setRange(0, 200)
+        self.pump1_spm = _optional_input_spin(QDoubleSpinBox(), 200)
         self.pump1_spm.setDecimals(1)
         pump_layout.addWidget(self.pump1_spm, 1, 1)
 
         pump_layout.addWidget(QLabel("Pump 1 SPP (psi):"), 1, 2)
-        self.pump1_spp = QDoubleSpinBox()
-        self.pump1_spp.setRange(0, 5000)
+        self.pump1_spp = _optional_input_spin(QDoubleSpinBox(), 5000)
         self.pump1_spp.setDecimals(0)
         pump_layout.addWidget(self.pump1_spp, 1, 3)
 
         pump_layout.addWidget(QLabel("Pump 2 SPM:"), 2, 0)
-        self.pump2_spm = QDoubleSpinBox()
-        self.pump2_spm.setRange(0, 200)
+        self.pump2_spm = _optional_input_spin(QDoubleSpinBox(), 200)
         self.pump2_spm.setDecimals(1)
         pump_layout.addWidget(self.pump2_spm, 2, 1)
 
         pump_layout.addWidget(QLabel("Pump 2 SPP (psi):"), 2, 2)
-        self.pump2_spp = QDoubleSpinBox()
-        self.pump2_spp.setRange(0, 5000)
+        self.pump2_spp = _optional_input_spin(QDoubleSpinBox(), 5000)
         self.pump2_spp.setDecimals(0)
         pump_layout.addWidget(self.pump2_spp, 2, 3)
         # Pump 3
@@ -724,11 +707,14 @@ class DrillingParametersTab(QWidget):
             for row in range(self.nozzle_table.rowCount()):
                 size_widget = self.nozzle_table.cellWidget(row, 1)
                 qty_widget = self.nozzle_table.cellWidget(row, 2)
-                if size_widget and qty_widget:
+                if size_widget and qty_widget and hasattr(size_widget, "value"):
                     nozzles_data.append({
                         'size_32nd': size_widget.value(),
                         'quantity': qty_widget.value()
                     })
+            if not nozzles_data:
+                _set_calc(self.tfa_value, None)
+                return
             tfa = DrillingManager.calculate_tfa(nozzles_data)
             _set_calc(self.tfa_value, tfa)
         except Exception as e:
@@ -737,19 +723,28 @@ class DrillingParametersTab(QWidget):
     # ============ Calculation Methods ============
     def calculate_bit_drilled(self):
         try:
-            bit_drilled = self.depth_out.value() - self.depth_in.value()
+            depth_in = _optional_input_value(self.depth_in)
+            depth_out = _optional_input_value(self.depth_out)
+            if depth_in is None or depth_out is None:
+                _set_calc(self.bit_drilled, None)
+                self.calculate_rop()
+                return
+            bit_drilled = depth_out - depth_in
             if bit_drilled < 0:
                 bit_drilled = 0
-            self.bit_drilled.setValue(round(bit_drilled, 2))
+            _set_calc(self.bit_drilled, round(bit_drilled, 2))
             self.calculate_rop()
         except Exception as e:
             logger.error(f"Error calculating bit drilled: {e}")
 
     def calculate_rop(self):
         try:
-            depth_in = self.depth_in.value()
-            depth_out = self.depth_out.value()
-            hours = self.hours_on_bottom.value()
+            depth_in = _optional_input_value(self.depth_in)
+            depth_out = _optional_input_value(self.depth_out)
+            hours = _optional_input_value(self.hours_on_bottom)
+            if depth_in is None or depth_out is None or hours is None:
+                _set_calc(self.avg_rop, None)
+                return
             rop = DrillingManager.calculate_rop(depth_in, depth_out, hours)
             _set_calc(self.avg_rop, rop)
         except Exception as e:
@@ -757,9 +752,19 @@ class DrillingParametersTab(QWidget):
 
     def calculate_hsi(self):
         try:
-            pump_pressure = (self.pump_pressure_min.value() + self.pump_pressure_max.value()) / 2
-            flow_rate = (self.pump_output_min.value() + self.pump_output_max.value()) / 2
-            bit_size = self.bit_size.value()
+            inputs = (
+                _optional_input_value(self.pump_pressure_min),
+                _optional_input_value(self.pump_pressure_max),
+                _optional_input_value(self.pump_output_min),
+                _optional_input_value(self.pump_output_max),
+                _optional_input_value(self.bit_size),
+            )
+            if any(value is None for value in inputs):
+                _set_calc(self.hsi, None)
+                return
+            pressure_min, pressure_max, flow_min, flow_max, bit_size = inputs
+            pump_pressure = (pressure_min + pressure_max) / 2
+            flow_rate = (flow_min + flow_max) / 2
             hsi_val = DrillingManager.calculate_hsi(pump_pressure, flow_rate, bit_size)
             _set_calc(self.hsi, hsi_val)
         except Exception as e:
@@ -849,8 +854,16 @@ class DrillingParametersTab(QWidget):
 
     def calculate_annular_velocity(self):
         try:
-            flow_rate = (self.pump_output_min.value() + self.pump_output_max.value()) / 2
-            bit_size = self.bit_size.value()
+            flow_min = _optional_input_value(self.pump_output_min)
+            flow_max = _optional_input_value(self.pump_output_max)
+            bit_size = _optional_input_value(self.bit_size)
+            if flow_min is None or flow_max is None or bit_size is None:
+                _set_calc(self.annular_velocity, None)
+                self.annular_velocity.setToolTip(
+                    "NOT ASSESSED — flow rate and bit size must be recorded."
+                )
+                return
+            flow_rate = (flow_min + flow_max) / 2
             pipe_od, source_error = self._current_report_pipe_od()
             if source_error:
                 _set_calc(self.annular_velocity, None)
@@ -916,9 +929,9 @@ class DrillingParametersTab(QWidget):
         logger.debug(f"IADC code changed to: {text}")
 
     def update_cumulative_info(self):
-        cum_drilled = self.cum_drilled.value()
-        cum_hours = self.cum_hours.value()
-        if cum_hours > 0:
+        cum_drilled = _optional_input_value(self.cum_drilled)
+        cum_hours = _optional_input_value(self.cum_hours)
+        if cum_drilled is not None and cum_hours is not None and cum_hours > 0:
             cum_rop = cum_drilled / cum_hours
             logger.debug(f"Cumulative ROP: {cum_rop:.2f} m/hr, Total Drilled: {cum_drilled} m, Total Hours: {cum_hours} h")
         else:
@@ -971,32 +984,32 @@ class DrillingParametersTab(QWidget):
         return {
             "bit_no": self.bit_no.text(),
             "bit_rerun": self.bit_rerun.value(),
-            "bit_size": self.bit_size.value(),
+            "bit_size": _optional_input_value(self.bit_size),
             "bit_type": self.bit_type.currentText(),
             "manufacturer": self.bit_manufacturer.text(),
             "iadc_code": self.iadc_code.text(),
             "nozzles_json": json.dumps(nozzles_data, indent=2),
             "tfa": _calc_value(self.tfa_value),
-            "depth_in": self.depth_in.value(),
-            "depth_out": self.depth_out.value(),
-            "bit_drilled": self.bit_drilled.value(),
-            "cum_drilled": self.cum_drilled.value(),
+            "depth_in": _optional_input_value(self.depth_in),
+            "depth_out": _optional_input_value(self.depth_out),
+            "bit_drilled": _calc_value(self.bit_drilled),
+            "cum_drilled": _optional_input_value(self.cum_drilled),
             "hours_on_bottom": _optional_input_value(self.hours_on_bottom),
-            "cum_hours": self.cum_hours.value(),
-            "wob_min": self.wob_min.value(),
-            "wob_max": self.wob_max.value(),
+            "cum_hours": _optional_input_value(self.cum_hours),
+            "wob_min": _optional_input_value(self.wob_min),
+            "wob_max": _optional_input_value(self.wob_max),
             "rpm_min": _optional_input_value(self.rpm_min),
             "rpm_max": _optional_input_value(self.rpm_max),
-            "torque_min": self.torque_min.value(),
-            "torque_max": self.torque_max.value(),
-            "pump_pressure_min": self.pump_pressure_min.value(),
-            "pump_pressure_max": self.pump_pressure_max.value(),
-            "pump_output_min": self.pump_output_min.value(),
-            "pump_output_max": self.pump_output_max.value(),
-            "pump1_spm": self.pump1_spm.value(),
-            "pump1_spp": self.pump1_spp.value(),
-            "pump2_spm": self.pump2_spm.value(),
-            "pump2_spp": self.pump2_spp.value(),
+            "torque_min": _optional_input_value(self.torque_min),
+            "torque_max": _optional_input_value(self.torque_max),
+            "pump_pressure_min": _optional_input_value(self.pump_pressure_min),
+            "pump_pressure_max": _optional_input_value(self.pump_pressure_max),
+            "pump_output_min": _optional_input_value(self.pump_output_min),
+            "pump_output_max": _optional_input_value(self.pump_output_max),
+            "pump1_spm": _optional_input_value(self.pump1_spm),
+            "pump1_spp": _optional_input_value(self.pump1_spp),
+            "pump2_spm": _optional_input_value(self.pump2_spm),
+            "pump2_spp": _optional_input_value(self.pump2_spp),
             "pump_liner_size": self.pump_liner_size.text().strip() or None,
             "avg_rop": _calc_value(self.avg_rop),
             "hsi": _calc_value(self.hsi),
@@ -1021,7 +1034,7 @@ class DrillingParametersTab(QWidget):
         
     @editor_loaded()
     def load_from_dict(self, data: dict):
-        def safe_val(key, default=0):
+        def safe_val(key, default=None):
             v = data.get(key)
             if v is None:
                 return default
@@ -1031,14 +1044,17 @@ class DrillingParametersTab(QWidget):
                 return default
 
         def safe_opt(key):
-            """Stored value, or None when the report holds no recorded number."""
+            """Stored number or unknown; reject corrupt/non-finite source data."""
             v = data.get(key)
             if v is None:
                 return None
             try:
-                return float(v)
-            except (ValueError, TypeError):
-                return None
+                value = float(v)
+            except (ValueError, TypeError, OverflowError) as exc:
+                raise ValueError(f"Drilling field {key!r} contains an invalid numeric value") from exc
+            if not math.isfinite(value):
+                raise ValueError(f"Drilling field {key!r} contains a non-finite value")
+            return value
 
         def safe_str(key, default=""):
             v = data.get(key)
@@ -1046,9 +1062,10 @@ class DrillingParametersTab(QWidget):
 
         self.bit_no.setText(safe_str("bit_no"))
         self.bit_rerun.setValue(int(safe_val("bit_rerun", 1)))
-        self.bit_size.setValue(safe_val("bit_size", 0))
+        _set_optional_input(self.bit_size, safe_opt("bit_size"))
 
         bit_type = data.get("bit_type", "")
+        self.bit_type.setCurrentIndex(-1)
         if bit_type:
             value = str(bit_type)
             index = self.bit_type.findText(value)
@@ -1063,8 +1080,8 @@ class DrillingParametersTab(QWidget):
         self.iadc_code.setText(safe_str("iadc_code"))
 
         nozzles_json = data.get("nozzles_json")
+        self.nozzle_table.setRowCount(0)
         if nozzles_json:
-            self.nozzle_table.setRowCount(0)
             try:
                 nozzles_data = json.loads(nozzles_json) if isinstance(nozzles_json, str) else nozzles_json
                 for nozzle in nozzles_data:
@@ -1077,26 +1094,26 @@ class DrillingParametersTab(QWidget):
                 pass
 
         _set_calc(self.tfa_value, safe_opt("tfa"))
-        self.depth_in.setValue(safe_val("depth_in"))
-        self.depth_out.setValue(safe_val("depth_out"))
-        self.bit_drilled.setValue(safe_val("bit_drilled"))
-        self.cum_drilled.setValue(safe_val("cum_drilled"))
+        _set_optional_input(self.depth_in, safe_opt("depth_in"))
+        _set_optional_input(self.depth_out, safe_opt("depth_out"))
+        _set_calc(self.bit_drilled, safe_opt("bit_drilled"))
+        _set_optional_input(self.cum_drilled, safe_opt("cum_drilled"))
         _set_optional_input(self.hours_on_bottom, safe_opt("hours_on_bottom"))
-        self.cum_hours.setValue(safe_val("cum_hours"))
-        self.wob_min.setValue(safe_val("wob_min"))
-        self.wob_max.setValue(safe_val("wob_max"))
+        _set_optional_input(self.cum_hours, safe_opt("cum_hours"))
+        _set_optional_input(self.wob_min, safe_opt("wob_min"))
+        _set_optional_input(self.wob_max, safe_opt("wob_max"))
         _set_optional_input(self.rpm_min, safe_opt("rpm_min"))
         _set_optional_input(self.rpm_max, safe_opt("rpm_max"))
-        self.torque_min.setValue(safe_val("torque_min"))
-        self.torque_max.setValue(safe_val("torque_max"))
-        self.pump_pressure_min.setValue(safe_val("pump_pressure_min"))
-        self.pump_pressure_max.setValue(safe_val("pump_pressure_max"))
-        self.pump_output_min.setValue(safe_val("pump_output_min"))
-        self.pump_output_max.setValue(safe_val("pump_output_max"))
-        self.pump1_spm.setValue(safe_val("pump1_spm"))
-        self.pump1_spp.setValue(safe_val("pump1_spp"))
-        self.pump2_spm.setValue(safe_val("pump2_spm"))
-        self.pump2_spp.setValue(safe_val("pump2_spp"))
+        _set_optional_input(self.torque_min, safe_opt("torque_min"))
+        _set_optional_input(self.torque_max, safe_opt("torque_max"))
+        _set_optional_input(self.pump_pressure_min, safe_opt("pump_pressure_min"))
+        _set_optional_input(self.pump_pressure_max, safe_opt("pump_pressure_max"))
+        _set_optional_input(self.pump_output_min, safe_opt("pump_output_min"))
+        _set_optional_input(self.pump_output_max, safe_opt("pump_output_max"))
+        _set_optional_input(self.pump1_spm, safe_opt("pump1_spm"))
+        _set_optional_input(self.pump1_spp, safe_opt("pump1_spp"))
+        _set_optional_input(self.pump2_spm, safe_opt("pump2_spm"))
+        _set_optional_input(self.pump2_spp, safe_opt("pump2_spp"))
         self.pump_liner_size.setText(safe_str("pump_liner_size"))
         _set_calc(self.avg_rop, safe_opt("avg_rop"))
         _set_calc(self.hsi, safe_opt("hsi"))
@@ -1108,32 +1125,32 @@ class DrillingParametersTab(QWidget):
     def clear_form(self):
         self.bit_no.clear()
         self.bit_rerun.setValue(1)
-        self.bit_size.setValue(0)
+        _set_optional_input(self.bit_size, None)
         self.bit_type.setCurrentIndex(-1)
         self.bit_manufacturer.clear()
         self.iadc_code.clear()
         self.nozzle_table.setRowCount(0)
         self.tfa_value.setValue(self.tfa_value.minimum())
-        self.depth_in.setValue(0)
-        self.depth_out.setValue(0)
-        self.bit_drilled.setValue(0)
-        self.cum_drilled.setValue(0)
+        _set_optional_input(self.depth_in, None)
+        _set_optional_input(self.depth_out, None)
+        _set_calc(self.bit_drilled, None)
+        _set_optional_input(self.cum_drilled, None)
         _set_optional_input(self.hours_on_bottom, None)
-        self.cum_hours.setValue(0)
-        self.wob_min.setValue(0)
-        self.wob_max.setValue(0)
+        _set_optional_input(self.cum_hours, None)
+        _set_optional_input(self.wob_min, None)
+        _set_optional_input(self.wob_max, None)
         _set_optional_input(self.rpm_min, None)
         _set_optional_input(self.rpm_max, None)
-        self.torque_min.setValue(0)
-        self.torque_max.setValue(0)
-        self.pump_pressure_min.setValue(0)
-        self.pump_pressure_max.setValue(0)
-        self.pump_output_min.setValue(0)
-        self.pump_output_max.setValue(0)
-        self.pump1_spm.setValue(0)
-        self.pump1_spp.setValue(0)
-        self.pump2_spm.setValue(0)
-        self.pump2_spp.setValue(0)
+        _set_optional_input(self.torque_min, None)
+        _set_optional_input(self.torque_max, None)
+        _set_optional_input(self.pump_pressure_min, None)
+        _set_optional_input(self.pump_pressure_max, None)
+        _set_optional_input(self.pump_output_min, None)
+        _set_optional_input(self.pump_output_max, None)
+        _set_optional_input(self.pump1_spm, None)
+        _set_optional_input(self.pump1_spp, None)
+        _set_optional_input(self.pump2_spm, None)
+        _set_optional_input(self.pump2_spp, None)
         self.pump_liner_size.clear()
         self.avg_rop.setValue(self.avg_rop.minimum())
         self.hsi.setValue(self.hsi.minimum())
@@ -1145,7 +1162,9 @@ class DrillingParametersTab(QWidget):
         errors = []
         if not self.bit_no.text().strip():
             errors.append("Bit No is required")
-        if self.depth_out.value() <= self.depth_in.value():
+        depth_in = _optional_input_value(self.depth_in)
+        depth_out = _optional_input_value(self.depth_out)
+        if depth_in is not None and depth_out is not None and depth_out <= depth_in:
             errors.append("Depth Out must be greater than Depth In")
         return errors
 
@@ -1192,39 +1211,32 @@ class MudReportTab(QWidget):
         properties_layout.addWidget(self.sample_time, 0, 3)
 
         properties_layout.addWidget(QLabel("MW (pcf):"), 1, 0)
-        self.mw = QDoubleSpinBox()
-        self.mw.setRange(0, 200)
+        self.mw = _optional_input_spin(QDoubleSpinBox(), 187.01298639122953)
         self.mw.setDecimals(1)
-        self.mw.setValue(65.0)
         properties_layout.addWidget(self.mw, 1, 1)
 
         properties_layout.addWidget(QLabel("PV (cp):"), 1, 2)
-        self.pv = QDoubleSpinBox()
-        self.pv.setRange(0, 200)
+        self.pv = _optional_input_spin(QDoubleSpinBox(), 200)
         self.pv.setDecimals(1)
         properties_layout.addWidget(self.pv, 1, 3)
 
         properties_layout.addWidget(QLabel("YP (lb/100ft²):"), 2, 0)
-        self.yp = QDoubleSpinBox()
-        self.yp.setRange(0, 100)
+        self.yp = _optional_input_spin(QDoubleSpinBox(), 100)
         self.yp.setDecimals(1)
         properties_layout.addWidget(self.yp, 2, 1)
 
         properties_layout.addWidget(QLabel("Funnel Viscosity (sec/qt):"), 2, 2)
-        self.funnel_vis = QDoubleSpinBox()
-        self.funnel_vis.setRange(0, 200)
+        self.funnel_vis = _optional_input_spin(QDoubleSpinBox(), 200)
         self.funnel_vis.setDecimals(1)
         properties_layout.addWidget(self.funnel_vis, 2, 3)
 
         properties_layout.addWidget(QLabel("Gel 10s:"), 3, 0)
-        self.gel_10s = QDoubleSpinBox()
-        self.gel_10s.setRange(0, 100)
+        self.gel_10s = _optional_input_spin(QDoubleSpinBox(), 100)
         self.gel_10s.setDecimals(1)
         properties_layout.addWidget(self.gel_10s, 3, 1)
 
         properties_layout.addWidget(QLabel("Gel 10m:"), 3, 2)
-        self.gel_10m = QDoubleSpinBox()
-        self.gel_10m.setRange(0, 100)
+        self.gel_10m = _optional_input_spin(QDoubleSpinBox(), 100)
         self.gel_10m.setDecimals(1)
         properties_layout.addWidget(self.gel_10m, 3, 3)
 
@@ -1232,33 +1244,28 @@ class MudReportTab(QWidget):
         fl_widget = QWidget()
         fl_layout = QHBoxLayout(fl_widget)
         fl_layout.setContentsMargins(0, 0, 0, 0)
-        self.fl = QDoubleSpinBox()
-        self.fl.setRange(0, 50)
+        self.fl = _optional_input_spin(QDoubleSpinBox(), 50)
         self.fl.setDecimals(1)
         self.fl_nc = QCheckBox("N.C")
         self.fl_nc.toggled.connect(lambda checked: self.fl.setEnabled(not checked))
+        self.fl_nc.setChecked(True)
         fl_layout.addWidget(self.fl)
         fl_layout.addWidget(self.fl_nc)
         properties_layout.addWidget(fl_widget, 4, 1)
 
         properties_layout.addWidget(QLabel("Cake Thickness (mm):"), 4, 2)
-        self.cake_thickness = QDoubleSpinBox()
-        self.cake_thickness.setRange(0, 20)
+        self.cake_thickness = _optional_input_spin(QDoubleSpinBox(), 20)
         self.cake_thickness.setDecimals(1)
         properties_layout.addWidget(self.cake_thickness, 4, 3)
 
         properties_layout.addWidget(QLabel("pH:"), 5, 0)
-        self.ph = QDoubleSpinBox()
-        self.ph.setRange(0, 14)
+        self.ph = _optional_input_spin(QDoubleSpinBox(), 14)
         self.ph.setDecimals(1)
-        self.ph.setValue(9.5)
         properties_layout.addWidget(self.ph, 5, 1)
 
         properties_layout.addWidget(QLabel("Temperature (°C):"), 5, 2)
-        self.temperature = QDoubleSpinBox()
-        self.temperature.setRange(0, 200)
+        self.temperature = _optional_input_spin(QDoubleSpinBox(), 200)
         self.temperature.setDecimals(1)
-        self.temperature.setValue(25.0)
         properties_layout.addWidget(self.temperature, 5, 3)
 
         properties_group.setLayout(properties_layout)
@@ -1269,26 +1276,22 @@ class MudReportTab(QWidget):
         solids_layout = QGridLayout()
 
         solids_layout.addWidget(QLabel("Solids (%):"), 0, 0)
-        self.solid_percent = QDoubleSpinBox()
-        self.solid_percent.setRange(0, 100)
+        self.solid_percent = _optional_input_spin(QDoubleSpinBox(), 100)
         self.solid_percent.setDecimals(1)
         solids_layout.addWidget(self.solid_percent, 0, 1)
 
         solids_layout.addWidget(QLabel("Oil (%):"), 0, 2)
-        self.oil_percent = QDoubleSpinBox()
-        self.oil_percent.setRange(0, 100)
+        self.oil_percent = _optional_input_spin(QDoubleSpinBox(), 100)
         self.oil_percent.setDecimals(1)
         solids_layout.addWidget(self.oil_percent, 0, 3)
 
         solids_layout.addWidget(QLabel("Water (%):"), 1, 0)
-        self.water_percent = QDoubleSpinBox()
-        self.water_percent.setRange(0, 100)
+        self.water_percent = _optional_input_spin(QDoubleSpinBox(), 100)
         self.water_percent.setDecimals(1)
         solids_layout.addWidget(self.water_percent, 1, 1)
 
         solids_layout.addWidget(QLabel("Chloride (ppm):"), 1, 2)
-        self.chloride = QDoubleSpinBox()
-        self.chloride.setRange(0, 50000)
+        self.chloride = _optional_input_spin(QDoubleSpinBox(), 50000)
         self.chloride.setDecimals(0)
         solids_layout.addWidget(self.chloride, 1, 3)
 
@@ -1300,38 +1303,32 @@ class MudReportTab(QWidget):
         extra_layout = QGridLayout()
 
         extra_layout.addWidget(QLabel("Calcium (ppm):"), 0, 0)
-        self.calcium = QDoubleSpinBox()
-        self.calcium.setRange(0, 100000)
+        self.calcium = _optional_input_spin(QDoubleSpinBox(), 100000)
         self.calcium.setDecimals(0)
         extra_layout.addWidget(self.calcium, 0, 1)
 
         extra_layout.addWidget(QLabel("KCl (ppb):"), 0, 2)
-        self.kcl = QDoubleSpinBox()
-        self.kcl.setRange(0, 100000)
+        self.kcl = _optional_input_spin(QDoubleSpinBox(), 100000)
         self.kcl.setDecimals(1)
         extra_layout.addWidget(self.kcl, 0, 3)
 
         extra_layout.addWidget(QLabel("MBT (lb/bbl):"), 1, 0)
-        self.mbt = QDoubleSpinBox()
-        self.mbt.setRange(0, 1000)
+        self.mbt = _optional_input_spin(QDoubleSpinBox(), 1000)
         self.mbt.setDecimals(1)
         extra_layout.addWidget(self.mbt, 1, 1)
 
         extra_layout.addWidget(QLabel("P_F/M_F (ml):"), 1, 2)
-        self.pf_mf = QDoubleSpinBox()
-        self.pf_mf.setRange(0, 1000)
+        self.pf_mf = _optional_input_spin(QDoubleSpinBox(), 1000)
         self.pf_mf.setDecimals(1)
         extra_layout.addWidget(self.pf_mf, 1, 3)
 
         extra_layout.addWidget(QLabel("Total Hardness (ppm):"), 2, 0)
-        self.total_hardness = QDoubleSpinBox()
-        self.total_hardness.setRange(0, 100000)
+        self.total_hardness = _optional_input_spin(QDoubleSpinBox(), 100000)
         self.total_hardness.setDecimals(0)
         extra_layout.addWidget(self.total_hardness, 2, 1)
 
         extra_layout.addWidget(QLabel("Flowline Temp (°C):"), 2, 2)
-        self.flowline_temp = QDoubleSpinBox()
-        self.flowline_temp.setRange(0, 200)
+        self.flowline_temp = _optional_input_spin(QDoubleSpinBox(), 200)
         self.flowline_temp.setDecimals(1)
         extra_layout.addWidget(self.flowline_temp, 2, 3)
 
@@ -1353,26 +1350,22 @@ class MudReportTab(QWidget):
         volumes_layout = QGridLayout()
 
         volumes_layout.addWidget(QLabel("Volume in Hole (bbl):"), 0, 0)
-        self.volume_hole = QDoubleSpinBox()
-        self.volume_hole.setRange(0, 10000)
+        self.volume_hole = _optional_input_spin(QDoubleSpinBox(), 10000)
         self.volume_hole.setDecimals(1)
         volumes_layout.addWidget(self.volume_hole, 0, 1)
 
         volumes_layout.addWidget(QLabel("Total Circulated (bbl):"), 0, 2)
-        self.total_circulated = QDoubleSpinBox()
-        self.total_circulated.setRange(0, 20000)
+        self.total_circulated = _optional_input_spin(QDoubleSpinBox(), 20000)
         self.total_circulated.setDecimals(1)
         volumes_layout.addWidget(self.total_circulated, 0, 3)
 
         volumes_layout.addWidget(QLabel("Downhole Loss (bbl):"), 1, 0)
-        self.loss_downhole = QDoubleSpinBox()
-        self.loss_downhole.setRange(0, 5000)
+        self.loss_downhole = _optional_input_spin(QDoubleSpinBox(), 5000)
         self.loss_downhole.setDecimals(1)
         volumes_layout.addWidget(self.loss_downhole, 1, 1)
 
         volumes_layout.addWidget(QLabel("Surface Loss (bbl):"), 1, 2)
-        self.loss_surface = QDoubleSpinBox()
-        self.loss_surface.setRange(0, 5000)
+        self.loss_surface = _optional_input_spin(QDoubleSpinBox(), 5000)
         self.loss_surface.setDecimals(1)
         volumes_layout.addWidget(self.loss_surface, 1, 3)
 
@@ -1553,17 +1546,23 @@ class MudReportTab(QWidget):
     # ============ Update helper methods (for live calculations) ============
     def check_percentages_total(self):
         from core.validators import MudValidator
-        if getattr(self, "_composition_missing", set()):
-            return  # incomplete composition is reported once on save, not while loading
-        result = MudValidator.validate({key: getattr(self, key).value() for key in ("solid_percent", "oil_percent", "water_percent")})
+        composition = {key: _optional_input_value(getattr(self, key))
+                       for key in ("solid_percent", "oil_percent", "water_percent")}
+        if getattr(self, "_composition_missing", set()) or not any(value is not None for value in composition.values()):
+            return  # incomplete/unknown composition is reported once on save
+        result = MudValidator.validate(composition)
         for issue in result.warnings:
             logger.warning(str(issue))
 
     def update_mud_volumes(self):
         from core.engineering.engines.mud_volume import MudVolumeEngine
-        volume_in_hole = self.volume_hole.value()
-        total_circulated = self.total_circulated.value()
-        loss = self.loss_downhole.value() + self.loss_surface.value()
+        volume_in_hole = _optional_input_value(self.volume_hole)
+        total_circulated = _optional_input_value(self.total_circulated)
+        downhole = _optional_input_value(self.loss_downhole)
+        surface = _optional_input_value(self.loss_surface)
+        if None in (volume_in_hole, total_circulated, downhole, surface):
+            return  # missing is not a zero-volume measurement
+        loss = downhole + surface
         r = MudVolumeEngine.balance(
             active_volume_bbl=volume_in_hole,
             additions_bbl=max(0.0, total_circulated - volume_in_hole) if total_circulated > volume_in_hole else 0.0,
@@ -1576,30 +1575,30 @@ class MudReportTab(QWidget):
             logger.debug(f"Mud volume balance: {r.error}")
 
     def update_mud_losses(self):
-        downhole = self.loss_downhole.value()
-        surface = self.loss_surface.value()
+        downhole = _optional_input_value(self.loss_downhole)
+        surface = _optional_input_value(self.loss_surface)
+        if downhole is None or surface is None:
+            return
         total_loss = downhole + surface
-        if total_loss > 0:
-            logger.debug(f"Mud losses: Downhole={downhole:.1f} bbl, Surface={surface:.1f} bbl, Total={total_loss:.1f} bbl")
-        else:
-            logger.debug("No mud losses reported.")
+        logger.debug(f"Mud losses: Downhole={downhole:.1f} bbl, Surface={surface:.1f} bbl, Total={total_loss:.1f} bbl")
 
     def update_mud_properties(self):
-        # محاسبه نسبت YP/PV و غیره
-        pv = self.pv.value()
-        yp = self.yp.value()
-        if pv > 0:
+        # Derived ratio is unavailable until both source measurements exist.
+        pv = _optional_input_value(self.pv)
+        yp = _optional_input_value(self.yp)
+        if pv is not None and yp is not None and pv > 0:
             yp_pv_ratio = yp / pv
             logger.debug(f"YP/PV ratio: {yp_pv_ratio:.2f}")
 
     def update_ph_balance(self):
-        ph = self.ph.value()
-        if ph < 8.0 or ph > 11.0:
+        ph = _optional_input_value(self.ph)
+        if ph is not None and (ph < 8.0 or ph > 11.0):
             logger.warning(f"pH {ph} outside typical range")
 
     def update_temperature_effects(self):
-        temp = self.temperature.value()
-        logger.debug(f"Temperature changed to {temp}°C")
+        temp = _optional_input_value(self.temperature)
+        if temp is not None:
+            logger.debug(f"Temperature changed to {temp}°C")
 
     def update_mud_formulation(self, mud_type):
         logger.info(f"Mud type changed to {mud_type}")
@@ -1635,32 +1634,32 @@ class MudReportTab(QWidget):
             "report_date": report["report_date"],
             "mud_type": self.mud_type.currentText(),
             "sample_time": self.sample_time.time().toPython(),
-            "mw": self.mw.value(),
-            "pv": self.pv.value(),
-            "yp": self.yp.value(),
-            "funnel_vis": self.funnel_vis.value(),
-            "gel_10s": self.gel_10s.value(),
-            "gel_10m": self.gel_10m.value(),
+            "mw": _optional_input_value(self.mw),
+            "pv": _optional_input_value(self.pv),
+            "yp": _optional_input_value(self.yp),
+            "funnel_vis": _optional_input_value(self.funnel_vis),
+            "gel_10s": _optional_input_value(self.gel_10s),
+            "gel_10m": _optional_input_value(self.gel_10m),
             # N.C is preserved as None (never coerced to 0); a real zero
             # stays 0.0 — the two remain distinguishable.
-            "fl": None if self.fl_nc.isChecked() else self.fl.value(),
-            "cake_thickness": self.cake_thickness.value(),
-            "ph": self.ph.value(),
-            "temperature": self.temperature.value(),
-            "solid_percent": self.solid_percent.value(),
-            "oil_percent": self.oil_percent.value(),
-            "water_percent": self.water_percent.value(),
-            "chloride": self.chloride.value(),
-            "calcium": self.calcium.value(),
-            "kcl": self.kcl.value(),
-            "mbt": self.mbt.value(),
-            "pf_mf": self.pf_mf.value(),
-            "total_hardness": self.total_hardness.value(),
-            "flowline_temp": self.flowline_temp.value(),
-            "volume_hole": self.volume_hole.value(),
-            "total_circulated": self.total_circulated.value(),
-            "loss_downhole": self.loss_downhole.value(),
-            "loss_surface": self.loss_surface.value(),
+            "fl": None if self.fl_nc.isChecked() else _optional_input_value(self.fl),
+            "cake_thickness": _optional_input_value(self.cake_thickness),
+            "ph": _optional_input_value(self.ph),
+            "temperature": _optional_input_value(self.temperature),
+            "solid_percent": _optional_input_value(self.solid_percent),
+            "oil_percent": _optional_input_value(self.oil_percent),
+            "water_percent": _optional_input_value(self.water_percent),
+            "chloride": _optional_input_value(self.chloride),
+            "calcium": _optional_input_value(self.calcium),
+            "kcl": _optional_input_value(self.kcl),
+            "mbt": _optional_input_value(self.mbt),
+            "pf_mf": _optional_input_value(self.pf_mf),
+            "total_hardness": _optional_input_value(self.total_hardness),
+            "flowline_temp": _optional_input_value(self.flowline_temp),
+            "volume_hole": _optional_input_value(self.volume_hole),
+            "total_circulated": _optional_input_value(self.total_circulated),
+            "loss_downhole": _optional_input_value(self.loss_downhole),
+            "loss_surface": _optional_input_value(self.loss_surface),
             "summary": self.mud_summary.toPlainText(),
             "chemicals_json": json.dumps(chemicals),
         }
@@ -1744,14 +1743,17 @@ class MudReportTab(QWidget):
         
     @editor_loaded()
     def load_from_dict(self, data: dict):
-        def safe_val(key, default=0):
+        def safe_val(key):
             v = data.get(key)
             if v is None:
-                return default
+                return None
             try:
-                return float(v)
-            except (ValueError, TypeError):
-                return default
+                value = float(v)
+            except (ValueError, TypeError, OverflowError) as exc:
+                raise ValueError(f"Mud field {key!r} contains an invalid numeric value") from exc
+            if not math.isfinite(value):
+                raise ValueError(f"Mud field {key!r} contains a non-finite value")
+            return value
 
         mud_type = str(data.get("mud_type", "") or "")
         self.mud_type.setCurrentIndex(-1)
@@ -1761,42 +1763,42 @@ class MudReportTab(QWidget):
             self.mud_type.setEditable(True)
             self.mud_type.setCurrentIndex(-1)
             self.mud_type.setCurrentText(mud_type)
-        self.mw.setValue(safe_val("mw", 65.0))
-        self.pv.setValue(safe_val("pv"))
-        self.yp.setValue(safe_val("yp"))
-        self.funnel_vis.setValue(safe_val("funnel_vis"))
-        self.gel_10s.setValue(safe_val("gel_10s"))
-        self.gel_10m.setValue(safe_val("gel_10m"))
+        _set_optional_input(self.mw, safe_val("mw"))
+        _set_optional_input(self.pv, safe_val("pv"))
+        _set_optional_input(self.yp, safe_val("yp"))
+        _set_optional_input(self.funnel_vis, safe_val("funnel_vis"))
+        _set_optional_input(self.gel_10s, safe_val("gel_10s"))
+        _set_optional_input(self.gel_10m, safe_val("gel_10m"))
         fl_val = data.get("fl")
         if fl_val is None:
             # Missing/N.C: show the N.C marker instead of pretending 0.
             self.fl_nc.setChecked(True)
-            self.fl.setValue(0)
+            _set_optional_input(self.fl, None)
         else:
             self.fl_nc.setChecked(False)
-            self.fl.setValue(safe_val("fl"))
-        self.cake_thickness.setValue(safe_val("cake_thickness"))
-        self.ph.setValue(safe_val("ph", 9.5))
-        self.temperature.setValue(safe_val("temperature", 25.0))
+            _set_optional_input(self.fl, safe_val("fl"))
+        _set_optional_input(self.cake_thickness, safe_val("cake_thickness"))
+        _set_optional_input(self.ph, safe_val("ph"))
+        _set_optional_input(self.temperature, safe_val("temperature"))
         self._composition_missing = {key for key in ("solid_percent", "oil_percent", "water_percent") if data.get(key) is None}
         for key in ("solid_percent", "oil_percent", "water_percent"):
             widget = getattr(self, key)
             blocker = QSignalBlocker(widget)
-            widget.setValue(safe_val(key))
+            _set_optional_input(widget, safe_val(key))
             widget.setToolTip("Not supplied in source" if key in self._composition_missing else "")
             del blocker
         self.check_percentages_total()
-        self.chloride.setValue(safe_val("chloride"))
-        self.calcium.setValue(safe_val("calcium"))
-        self.kcl.setValue(safe_val("kcl"))
-        self.mbt.setValue(safe_val("mbt"))
-        self.pf_mf.setValue(safe_val("pf_mf"))
-        self.total_hardness.setValue(safe_val("total_hardness"))
-        self.flowline_temp.setValue(safe_val("flowline_temp"))
-        self.volume_hole.setValue(safe_val("volume_hole"))
-        self.total_circulated.setValue(safe_val("total_circulated"))
-        self.loss_downhole.setValue(safe_val("loss_downhole"))
-        self.loss_surface.setValue(safe_val("loss_surface"))
+        _set_optional_input(self.chloride, safe_val("chloride"))
+        _set_optional_input(self.calcium, safe_val("calcium"))
+        _set_optional_input(self.kcl, safe_val("kcl"))
+        _set_optional_input(self.mbt, safe_val("mbt"))
+        _set_optional_input(self.pf_mf, safe_val("pf_mf"))
+        _set_optional_input(self.total_hardness, safe_val("total_hardness"))
+        _set_optional_input(self.flowline_temp, safe_val("flowline_temp"))
+        _set_optional_input(self.volume_hole, safe_val("volume_hole"))
+        _set_optional_input(self.total_circulated, safe_val("total_circulated"))
+        _set_optional_input(self.loss_downhole, safe_val("loss_downhole"))
+        _set_optional_input(self.loss_surface, safe_val("loss_surface"))
         self.mud_summary.setPlainText(str(data.get("summary", "") or ""))
 
         pit_json = data.get("pit_volumes_json")

@@ -340,9 +340,17 @@ SQLite with `check_same_thread=False` and `StaticPool` ensures single-connection
 - **Recovery:** stop the application, restore a verified backup, and restart;
   deployments must perform and record a restore drill
 - **Schema:** startup migrations are recorded in `schema_version` (current
-  version `2`).  Additive upgrades are followed by an idempotent SQLite
+  version `4`). Additive upgrades are followed by an idempotent SQLite
   nullability-contract audit/rebuild for legacy `NOT NULL` columns where the
   ORM explicitly allows `NULL`; migration errors fail initialization.
+- **v3 → v4:** adds nullable `daily_reports.mw_pcf`, the DDR Remark header MW
+  (PCF) reading. Existing rows remain `NULL`; the migration never copies from
+  the distinct mud-sample `mud_reports.mw` or `daily_reports.mud_weight_in/out`.
+- **Density semantics:** `MudReport.mw` is the mud-sample value in canonical
+  PCF. Source-unit resolution is deterministic and explicit; source unit,
+  canonical value/unit, and conversion lineage are retained in the immutable
+  `ddr_import` audit record. The DDR header field `DailyReport.mw_pcf` remains
+  a separate measurement.
 
 ## 6.1 Import transaction boundary
 

@@ -36,6 +36,12 @@ def _write_records(sheet, records, fields=None):
         sheet.append([_excel_value(row.get(field)) for field in fields])
 
 
+def _quality_label(summary):
+    """Format quality without turning missing/unknown into a numeric zero."""
+    score = (summary or {}).get("score")
+    status = (summary or {}).get("status", "unknown")
+    return "Not assessed — unknown" if score is None else f"{score}% - {status}"
+
 
 class ProfessionalExportMetadata:
     """Builds professional export metadata as per spec."""
@@ -43,16 +49,24 @@ class ProfessionalExportMetadata:
     @staticmethod
     def build(db_manager, well_id: int, section_id: int = None, report_id: int = None) -> Dict[str, Any]:
         well = db_manager.get_well_by_id(well_id) or {}
-        section = {}
-        if section_id:
-            sections = db_manager.get_sections_by_well(well_id)
-            section = next((s for s in sections if s["id"] == section_id), {})
-
-        report = db_manager.get_daily_report_by_id(report_id) if report_id else {}
-        if report_id and (not report or report.get("well_id") != well_id):
-            raise ValueError("Export report must belong to the selected well")
         if not well:
             raise ValueError("Export well does not exist")
+
+        report = db_manager.get_daily_report_by_id(report_id) if report_id is not None else {}
+        if report_id is not None and (not report or report.get("well_id") != well_id):
+            raise ValueError("Export report must belong to the selected well")
+        report_section_id = report.get("section_id") if report else None
+        if report_id is not None and section_id is not None and section_id != report_section_id:
+            raise ValueError("Export section must match the selected report's section")
+        if section_id is None and report_section_id is not None:
+            section_id = report_section_id
+
+        section = {}
+        if section_id is not None:
+            sections = db_manager.get_sections_by_well(well_id)
+            section = next((s for s in sections if s["id"] == section_id), {})
+            if not section:
+                raise ValueError("Export section must belong to the selected well")
 
         # Get hierarchy for company/project
         company_name = ""
@@ -72,7 +86,10 @@ class ProfessionalExportMetadata:
         try:
             from core.data_quality import DataQualityService
             dq_service = DataQualityService(db_manager)
-            dq_summary = dq_service.summary(report_id) if report_id else {"score": 0, "status": "unknown"}
+            dq_summary = (dq_service.summary(report_id) if report_id is not None else {
+                "score": None, "status": "unknown", "unknown_metrics": ["report-scoped quality"],
+                "reason": "No report was selected; well-level quality is shown on the Data Quality sheet.",
+            })
         except Exception:
             raise
 
@@ -101,7 +118,12 @@ class ProfessionalExportMetadata:
             "Generated At UTC": now_utc.isoformat(),
             "Timezone": "UTC",
             "Units": "Mixed field units: Mud.mw is pcf; lengths m/in, pressures psi, flow gpm; see column labels",
-            "Data Quality": f"{dq_summary.get('score',0)}% - {dq_summary.get('status','')}",
+            "Data Quality": _quality_label(dq_summary),
+            "Record Scope": (
+                "Selected daily report; Cost and other models without report_id remain whole-well scoped."
+                if report_id is not None else
+                "Whole well; scalar record getters return the latest available record, while collection sheets return well-scoped records."
+            ),
             "Audit ID": f"AUDIT-{well_id}-{report_id or 0}-{now_utc.strftime('%Y%m%d%H%M%S')}",
             "Data Quality Detail": dq_summary,
             "Audit Logs": audit_logs,
@@ -155,7 +177,7 @@ class ProfessionalExcelExport:
             ws["A1"] = "DrillMaster - Professional Export - Intelligence Platform"
             ws["A1"].font = Font(bold=True, size=14)
             row = 3
-            for key in ["Company", "Project", "Field", "Well", "Section", "Report Number", "Report Date", "Revision", "Status", "Prepared By", "Checked By", "Approved By", "Generated At UTC", "Timezone", "Units", "Data Quality", "Audit ID"]:
+            for key in ["Company", "Project", "Field", "Well", "Section", "Report Number", "Report Date", "Revision", "Status", "Prepared By", "Checked By", "Approved By", "Generated At UTC", "Timezone", "Units", "Data Quality", "Record Scope", "Audit ID"]:
                 ws.cell(row=row, column=1, value=key).font = Font(bold=True)
                 ws.cell(row=row, column=2, value=_excel_value(metadata.get(key)))
                 row += 1
@@ -166,7 +188,8 @@ class ProfessionalExcelExport:
             if report:
                 headers = list(report.keys())
                 for c, h in enumerate(headers, 1):
-                    ws2.cell(row=1, column=c, value=h).font = header_font
+                    display_header = "mw_pcf (PCF)" if h == "mw_pcf" else h
+                    ws2.cell(row=1, column=c, value=display_header).font = header_font
                     ws2.cell(row=1, column=c).fill = header_fill
                 for c, h in enumerate(headers, 1):
                     ws2.cell(row=2, column=c, value=_excel_value(report.get(h)))
@@ -201,7 +224,10 @@ class ProfessionalExcelExport:
             try:
                 mud = self.db.get_mud_report(report_id=report_id) if report_id else self.db.get_mud_report(well_id=well_id)
                 if mud:
-                    _write_records(ws4, [mud])
+                    mud_export = dict(mud)
+                    if "mw" in mud_export:
+                        mud_export["mw (PCF)"] = mud_export.pop("mw")
+                    _write_records(ws4, [mud_export])
                     from core.domain_records import collection_value
                     _write_records(wb.create_sheet("Mud Chemicals"), collection_value(mud.get("chemicals_json"), "chemicals"))
             except Exception:
@@ -323,44 +349,47 @@ class ProfessionalExcelExport:
                 raise
 
             # 12. Cost
+            # CostRecord has no report_id: cost rows are well-scoped even when
+            # a daily report is selected. Keep that scope visible in the sheet.
             ws12 = wb.create_sheet("Cost")
-            try:
-                costs = self.db.get_cost_records(well_id)
-                if costs:
-                    headers = list(costs[0].keys()) if costs else []
+            costs = self.db.get_cost_records(well_id)
+            if costs:
+                headers = list(costs[0].keys()) + ["Export Scope"]
+                for c, h in enumerate(headers, 1):
+                    ws12.cell(row=1, column=c, value=h).font = header_font
+                    ws12.cell(row=1, column=c).fill = header_fill
+                for r, cost in enumerate(costs, 2):
                     for c, h in enumerate(headers, 1):
-                        ws12.cell(row=1, column=c, value=h).font = header_font
-                        ws12.cell(row=1, column=c).fill = header_fill
-                    for r, cost in enumerate(costs, 2):
-                        for c, h in enumerate(headers, 1):
-                            ws12.cell(row=r, column=c, value=_excel_value(cost.get(h)))
-            except Exception:
-                raise
+                        value = ("Whole well — CostRecord has no report_id"
+                                 if h == "Export Scope" else _excel_value(cost.get(h)))
+                        ws12.cell(row=r, column=c, value=value)
+            else:
+                ws12.cell(row=1, column=1, value="No cost records returned for whole-well scope")
 
             # 13. Data Quality
             ws13 = wb.create_sheet("Data Quality")
-            try:
-                from core.data_quality import DataQualityService
-                dq = DataQualityService(self.db)
-                summary = dq.summary(report_id) if report_id else dq.for_well(well_id)
-                if isinstance(summary, dict):
-                    ws13.cell(row=1, column=1, value="Metric").font = header_font
-                    ws13.cell(row=1, column=1).fill = header_fill
-                    ws13.cell(row=1, column=2, value="Value").font = header_font
-                    ws13.cell(row=1, column=2).fill = header_fill
-                    ws13.cell(row=1, column=3, value="Status").font = header_font
-                    ws13.cell(row=1, column=3).fill = header_fill
-                    ws13.cell(row=1, column=4, value="Detail").font = header_font
-                    ws13.cell(row=1, column=4).fill = header_fill
-                    for r, m in enumerate(summary.get("metrics", []), 2):
-                        ws13.cell(row=r, column=1, value=m.get("name", ""))
-                        ws13.cell(row=r, column=2, value=m.get("value", ""))
-                        ws13.cell(row=r, column=3, value=m.get("status", ""))
-                        ws13.cell(row=r, column=4, value=m.get("detail", ""))
-                    ws13.cell(row=len(summary.get("metrics", [])) + 3, column=1, value="Overall Score").font = Font(bold=True)
-                    ws13.cell(row=len(summary.get("metrics", [])) + 3, column=2, value=summary.get("score", 0))
-            except Exception:
-                raise
+            from core.data_quality import DataQualityService
+            dq = DataQualityService(self.db)
+            scope = "Report" if report_id is not None else "Well"
+            summary = dq.summary(report_id) if report_id is not None else dq.for_well(well_id)
+            if isinstance(summary, dict):
+                quality_metrics = summary.get("metrics", [])
+                overall_score = summary.get("score")
+            else:
+                from dataclasses import asdict
+                quality_metrics = [asdict(metric) for metric in summary]
+                overall_score = None  # mixed well-level metrics are not averaged here
+            headers = ["Scope", "Metric", "Value", "Status", "Detail"]
+            for c, h in enumerate(headers, 1):
+                ws13.cell(row=1, column=c, value=h).font = header_font
+                ws13.cell(row=1, column=c).fill = header_fill
+            for r, metric in enumerate(quality_metrics, 2):
+                values = [scope, metric.get("name", ""), metric.get("value"),
+                          metric.get("status", ""), metric.get("detail", "")]
+                for c, value in enumerate(values, 1):
+                    ws13.cell(row=r, column=c, value=value)
+            ws13.cell(row=len(quality_metrics) + 3, column=1, value=f"{scope} Overall Score").font = Font(bold=True)
+            ws13.cell(row=len(quality_metrics) + 3, column=2, value=overall_score)
 
             # 14. Validation
             ws14 = wb.create_sheet("Validation")
@@ -423,7 +452,7 @@ class ProfessionalExcelExport:
             # Explicit raw/audit sheet, chunked losslessly below Excel's cell limit.
             # Do not truncate lineage to 1000/32000 characters or claim an empty
             # 'Raw Data' sheet contains the original source.
-            ws16.append(["Entity", "Record ID", "JSON chunk (concatenate in row order)"])
+            ws16.append(["Entity", "Scope", "Record ID", "JSON chunk (concatenate in row order)"])
             with self.db.session_scope() as session:
                 for mapper in sorted(models.Base.registry.mappers, key=lambda m: m.class_.__name__):
                     model = mapper.class_
@@ -431,18 +460,26 @@ class ProfessionalExcelExport:
                         query = session.query(model).filter(model.well_id == well_id)
                         if report_id is not None:
                             query = query.filter(model.id == report_id)
+                        record_scope = "selected report" if report_id is not None else "whole well"
                     elif hasattr(model, "report_id"):
                         query = session.query(model).join(models.DailyReport, model.report_id == models.DailyReport.id).filter(models.DailyReport.well_id == well_id)
                         if report_id is not None:
                             query = query.filter(model.report_id == report_id)
+                            record_scope = "selected report"
+                        else:
+                            record_scope = "whole well"
+                    elif model is models.CostRecord:
+                        query = session.query(model).filter(model.well_id == well_id)
+                        record_scope = "whole well; CostRecord has no report_id"
                     elif model is models.AuditLog and report_id is not None:
                         query = session.query(model).filter(model.entity_type == "daily_report", model.entity_id == report_id)
+                        record_scope = "selected report audit"
                     else:
                         continue
                     for record in query.order_by(model.id).all():
                         raw = json.dumps({col.name: getattr(record, col.name) for col in model.__table__.columns}, ensure_ascii=False, default=str)
                         for start in range(0, len(raw), 30000):
-                            ws16.append([model.__name__, record.id, raw[start:start + 30000]])
+                            ws16.append([model.__name__, record_scope, record.id, raw[start:start + 30000]])
             for sheet in wb:
                 sheet.freeze_panes = "A2"
                 for row in sheet:
@@ -496,7 +533,7 @@ body {{ font-family: Arial, Helvetica, sans-serif; font-size: 9pt; color: #2c3e5
 <div class="header">
 <h1>📋 DrillMaster Professional Report - {metadata.get('Well','')} </h1>
 <div class="meta">
-Company: {metadata.get('Company','')} | Project: {metadata.get('Project','')} | Field: {metadata.get('Field','')} | Well: {metadata.get('Well','')} | Section: {metadata.get('Section','')} | Report #{metadata.get('Report Number','')} | Date: {metadata.get('Report Date','')} | Revision: {metadata.get('Revision','')} | Status: {metadata.get('Status','')} | Generated: {metadata.get('Generated At UTC','')} | Timezone: {metadata.get('Timezone','')} | Units: {metadata.get('Units','')} | Data Quality: {metadata.get('Data Quality','')} | Audit ID: {metadata.get('Audit ID','')}
+Company: {metadata.get('Company','')} | Project: {metadata.get('Project','')} | Field: {metadata.get('Field','')} | Well: {metadata.get('Well','')} | Section: {metadata.get('Section','')} | Report #{metadata.get('Report Number','')} | Date: {metadata.get('Report Date','')} | Revision: {metadata.get('Revision','')} | Status: {metadata.get('Status','')} | Scope: {metadata.get('Record Scope','')} | Generated: {metadata.get('Generated At UTC','')} | Timezone: {metadata.get('Timezone','')} | Units: {metadata.get('Units','')} | Data Quality: {metadata.get('Data Quality','')} | Audit ID: {metadata.get('Audit ID','')}
 </div>
 </div>
 

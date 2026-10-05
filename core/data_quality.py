@@ -39,25 +39,31 @@ class DataQualityService:
         present_required = sum(report.get(k) not in (None, "") for k in required) if report else 0
         present_recommended = sum(report.get(k) not in (None, "") for k in recommended) if report else 0
 
-        score_required = round(present_required / len(required) * 100, 1) if report else 0.0
+        score_required = round(present_required / len(required) * 100, 1) if report else None
         metrics.append(
             QualityMetric(
                 name="Report completeness (required)",
                 value=score_required,
-                status="good" if score_required >= 100 else "critical",
-                detail=f"{present_required}/{len(required)} required fields: {', '.join(required)}",
-                confidence=1.0,
-                evidence={"present": present_required, "total": len(required), "missing": [k for k in required if not report or report.get(k) in (None, "")]},
+                status=("unknown" if score_required is None else "good" if score_required >= 100 else "critical"),
+                detail=(f"{present_required}/{len(required)} required fields: {', '.join(required)}"
+                        if report else "Report lookup returned no row; completeness was not assessed"),
+                confidence=1.0 if report else 0.0,
+                evidence={"report_found": report is not None, "present": present_required if report else None,
+                          "total": len(required) if report else None,
+                          "missing": [k for k in required if report.get(k) in (None, "")] if report else None},
             )
         )
 
-        score_recommended = round(present_recommended / len(recommended) * 100, 1) if report else 0.0
+        score_recommended = round(present_recommended / len(recommended) * 100, 1) if report else None
         metrics.append(
             QualityMetric(
                 name="Report completeness (recommended)",
                 value=score_recommended,
-                status="good" if score_recommended >= 80 else "warning",
-                detail=f"{present_recommended}/{len(recommended)} recommended fields",
+                status=("unknown" if score_recommended is None else "good" if score_recommended >= 80 else "warning"),
+                detail=(f"{present_recommended}/{len(recommended)} recommended fields"
+                        if report else "Report lookup returned no row; completeness was not assessed"),
+                confidence=1.0 if report else 0.0,
+                evidence={"report_found": report is not None},
             )
         )
 
@@ -86,7 +92,24 @@ class DataQualityService:
         # duration makes the total unknown: the missing hours are neither zero nor
         # a subtotal, so the metric reports "unknown" instead of a fabricated 0 h.
         unrecorded = sum(1 for log in logs if log.duration is None)
-        if unrecorded:
+        if not report:
+            metrics.append(
+                QualityMetric(
+                    name="24h time coverage", value=None, status="unknown", confidence=0.0,
+                    detail="Report lookup returned no row; time coverage was not assessed",
+                    evidence={"report_found": False, "total_hours": None, "entries": None},
+                )
+            )
+        elif not logs:
+            metrics.append(
+                QualityMetric(
+                    name="24h time coverage", value=None, status="unknown", confidence=0.0,
+                    detail="No time-log entries were returned; coverage is unknown, not 0 hours",
+                    evidence={"report_found": True, "query_completed": True,
+                              "total_hours": None, "entries": 0, "unrecorded_entries": 0},
+                )
+            )
+        elif unrecorded:
             metrics.append(
                 QualityMetric(
                     name="24h time coverage",
@@ -113,33 +136,56 @@ class DataQualityService:
                 )
             )
 
-        # Unit consistency
+        # Unit consistency. MudReport.mw is PCF-native; retain the former
+        # 5–30 ppg quality range by converting its endpoints, not by comparing
+        # pcf values against ppg thresholds. NULL is unknown; explicit zero is
+        # a measured value and is checked against the range.
         if report:
             from core.database import MudReport, DrillingParameters
+            from core.unit_manager import UnitManager
             session = self.db.create_session()
             try:
                 mud = session.query(MudReport).filter_by(report_id=report_id).first()
                 params = session.query(DrillingParameters).filter_by(report_id=report_id).first()
 
+                lower_mw = UnitManager.convert(5.0, "density", "ppg", "pcf")
+                upper_mw = UnitManager.convert(30.0, "density", "ppg", "pcf")
                 unit_score = 100
                 unit_issues = []
-                if mud and mud.mw and (mud.mw < 5 or mud.mw > 30):  # ppg range 5-30
-                    unit_score -= 20
-                    unit_issues.append(f"MW {mud.mw} outside typical ppg range")
-                if params and params.bit_size and (params.bit_size < 1 or params.bit_size > 50):
-                    unit_score -= 20
-                    unit_issues.append(f"Bit size {params.bit_size} outside typical inch range")
+                assessed = []
+                if mud is not None and mud.mw is not None:
+                    assessed.append("mud_report.mw")
+                    if mud.mw < lower_mw or mud.mw > upper_mw:
+                        unit_score -= 20
+                        unit_issues.append(
+                            f"MW {mud.mw} pcf outside converted typical range {lower_mw:.2f}–{upper_mw:.2f} pcf"
+                        )
+                if params is not None and params.bit_size is not None:
+                    assessed.append("drilling_parameters.bit_size")
+                    if params.bit_size < 1 or params.bit_size > 50:
+                        unit_score -= 20
+                        unit_issues.append(f"Bit size {params.bit_size} outside typical inch range")
 
                 metrics.append(
                     QualityMetric(
                         name="Unit consistency",
-                        value=unit_score,
-                        status="good" if unit_score >= 80 else "warning",
-                        detail="; ".join(unit_issues) if unit_issues else "Units within expected ranges",
+                        value=unit_score if assessed else None,
+                        status=("unknown" if not assessed else "warning" if unit_issues else "good"),
+                        detail=("; ".join(unit_issues) if unit_issues else
+                                f"Units within expected ranges; assessed: {', '.join(assessed)}" if assessed else
+                                "No mud-weight or bit-size value recorded; consistency is unknown"),
+                        confidence=1.0 if assessed else 0.0,
+                        evidence={"assessed_fields": assessed, "pcf_mud_range": [lower_mw, upper_mw]},
                     )
                 )
             finally:
                 session.close()
+        else:
+            metrics.append(
+                QualityMetric("Unit consistency", None, "unknown",
+                              "Report lookup returned no row; unit consistency was not assessed",
+                              confidence=0.0, evidence={"report_found": False})
+            )
 
         # Orphan check
         if report:
@@ -205,7 +251,11 @@ class DataQualityService:
         try:
             reports = session.query(DailyReport).filter_by(well_id=well_id).all()
             if not reports:
-                return [QualityMetric("Well completeness", 0, "critical", "No reports")]
+                return [QualityMetric(
+                    "Well completeness", None, "unknown",
+                    "No reports returned; completeness was not assessed",
+                    confidence=0.0, evidence={"reports": 0, "query_completed": True},
+                )]
 
             total_reports = len(reports)
             missing_depths = sum(1 for r in reports if r.depth_2400 is None)
@@ -222,17 +272,25 @@ class DataQualityService:
 
             # Average quality across reports
             all_scores = []
+            unknown_scores = 0
             for r in reports[:10]:  # sample 10
                 summary = self.summary(r.id)
-                all_scores.append(summary.get("score", 0))
+                score = summary.get("score")
+                if score is None:
+                    unknown_scores += 1
+                else:
+                    all_scores.append(score)
 
-            avg_score = round(sum(all_scores) / len(all_scores), 1) if all_scores else 0
+            avg_score = round(sum(all_scores) / len(all_scores), 1) if all_scores else None
             metrics.append(
                 QualityMetric(
                     name="Average report quality",
                     value=avg_score,
-                    status="good" if avg_score >= 80 else "warning",
-                    detail=f"Sample of {len(all_scores)} reports",
+                    status=("unknown" if avg_score is None else "good" if avg_score >= 80 else "warning"),
+                    detail=f"Sample of {len(all_scores)} scored reports; {unknown_scores} unknown",
+                    confidence=(len(all_scores) / min(total_reports, 10)),
+                    evidence={"sampled_reports": min(total_reports, 10),
+                              "scored_reports": len(all_scores), "unknown_reports": unknown_scores},
                 )
             )
 
@@ -274,7 +332,13 @@ class DataQualityService:
                         )
                     )
             except Exception as exc:  # pragma: no cover - defensive
-                logger.error("Scope-attribution coverage failed: %s", exc)
+                logger.exception("Scope-attribution coverage failed")
+                for metric_name in ("Wellbore attribution", "Section attribution"):
+                    metrics.append(QualityMetric(
+                        name=metric_name, value=None, status="unknown",
+                        detail=f"Scope-attribution query failed: {exc}",
+                        confidence=0.0, evidence={"well_id": well_id, "query_failed": True},
+                    ))
 
             return metrics
         finally:

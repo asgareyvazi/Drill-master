@@ -114,11 +114,11 @@ class TestFullImportPipeline:
         })
         report_id = report["id"]
         
-        # Convert MW from SG to ppg
+        # Convert source SG into the PCF-native MudReport field.
         mw_sg = 1.50
-        record = UnitManager.create_record("mud_report.mw", "density", "sg", mw_sg, "ppg")
+        record = UnitManager.create_record("mud_report.mw", "density", "sg", mw_sg, "pcf")
         assert record.normalized_value is not None
-        assert abs(record.normalized_value - 12.52) < 0.1  # 1.50 * 8.3454 ≈ 12.52
+        assert abs(record.normalized_value - 93.64) < 0.1
         
         # Save mud report
         mud_id = db.save_mud_report({
@@ -135,7 +135,7 @@ class TestFullImportPipeline:
         # Retrieve and verify
         mud = db.get_mud_report(well_id=well_id)
         assert mud is not None
-        assert abs(mud["mw"] - 12.52) < 0.1
+        assert abs(mud["mw"] - 93.64) < 0.1
     
     def test_drilling_parameters(self, db, well_with_section):
         """Save and retrieve drilling parameters."""

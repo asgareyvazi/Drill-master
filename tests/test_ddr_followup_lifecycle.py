@@ -190,12 +190,41 @@ def test_real_golden_source_reviews_and_domain_roundtrip(db):
     extraction, payload = service.extract_file(str(path))
     # Known source density is not discarded by the ReviewItem boundary.
     assert extraction.source_tokens["mud_report.mw"]["normalized_value"] == 71
+    mw_provenance = extraction.field_provenance["mud_report.mw"]
+    assert mw_provenance["original_value"] == 71
+    assert mw_provenance["normalized_value"] == 71
+    assert mw_provenance["source_unit"].lower() == "pcf"
+    assert mw_provenance["normalized_unit"] == "pcf"
+    header_provenance = extraction.field_provenance["daily_report.mw_pcf"]
+    assert header_provenance["normalized_value"] == 70
+    assert header_provenance["source_unit"] == "pcf"
+    assert header_provenance["normalized_unit"] == "pcf"
     assert not any(r["canonical_field"] == "mud_report.mw" for r in payload["metadata"]["review_matrix"])
     result = service.import_records(payload)
     assert result["failed"] == 0
     rid, wid = result["report_id"], result["well_id"]
+    report = db.get_daily_report_by_id(rid)
     mud = db.get_mud_report(report_id=rid)
-    assert mud["mw"] == 71 and mud["water_percent"] is None and mud["kcl"] is None
+    # DDR Remark MW (PCF)=70 is a distinct header measurement from the mud
+    # sample MW=71 PCF; both survive the actual workbook import round trip.
+    assert report["mw_pcf"] == 70 and mud["mw"] == 71
+    assert mud["water_percent"] is None and mud["kcl"] is None
+    lineage = result["unit_lineage"]["mud_report.mw"]
+    assert lineage["source_unit"].lower() == "pcf" and lineage["normalized_unit"] == "pcf"
+    assert lineage["normalized_value"] == 71
+    from core.database import AuditLog
+    with db.session_scope() as session:
+        audit = session.query(AuditLog).filter_by(
+            action="ddr_import", entity_type="daily_report", entity_id=rid,
+        ).order_by(AuditLog.timestamp.desc()).first()
+        assert audit is not None
+        audit_details = json.loads(audit.details)
+    saved_lineage = audit_details["result"]["unit_lineage"]["mud_report.mw"]
+    assert saved_lineage["source_unit"].lower() == "pcf"
+    assert saved_lineage["normalized_unit"] == "pcf"
+    saved_provenance = audit_details["source"]["metadata"]["field_provenance"]["mud_report.mw"]
+    assert saved_provenance["original_value"] == 71
+    assert saved_provenance["source_unit"].lower() == "pcf"
     original = json.loads(mud["chemicals_json"])
     # Manual named edit does not change the imported measurements or metadata.
     mud["summary"] = "Reviewed without inventing measurements"

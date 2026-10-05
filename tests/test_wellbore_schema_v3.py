@@ -369,7 +369,7 @@ def _build_v2_database(dbp):
         if table.name in ("sections", "daily_reports"):
             op, cl = sql.index("("), sql.rindex(")")
             head, body, tail = sql[:op], sql[op + 1 : cl], sql[cl + 1 :]
-            clauses = [c for c in split_top(body) if "wellbore_id" not in c]
+            clauses = [c for c in split_top(body) if "wellbore_id" not in c and not (table.name == "daily_reports" and "mw_pcf" in c)]
             sql = head + "(" + ",".join(clauses) + ")" + tail
         con.execute(sql)
     con.execute(
@@ -413,6 +413,8 @@ class TestNonDestructiveMigration:
         con = sqlite3.connect(dbp)
         pre_cols = [r[1] for r in con.execute("PRAGMA table_info(sections)").fetchall()]
         assert "wellbore_id" not in pre_cols
+        pre_report_cols = [r[1] for r in con.execute("PRAGMA table_info(daily_reports)").fetchall()]
+        assert "mw_pcf" not in pre_report_cols
         assert con.execute(
             "SELECT name FROM sqlite_master WHERE name='wellbores'"
         ).fetchone() is None
@@ -425,7 +427,7 @@ class TestNonDestructiveMigration:
         con = sqlite3.connect(dbp)
         try:
             # Version advanced.
-            assert con.execute("SELECT MAX(version) FROM schema_version").fetchone()[0] == 3
+            assert con.execute("SELECT MAX(version) FROM schema_version").fetchone()[0] == 4
             # New table + columns exist.
             assert con.execute(
                 "SELECT name FROM sqlite_master WHERE name='wellbores'"
@@ -434,6 +436,8 @@ class TestNonDestructiveMigration:
             dr_cols = [r[1] for r in con.execute("PRAGMA table_info(daily_reports)").fetchall()]
             assert "wellbore_id" in sec_cols
             assert "wellbore_id" in dr_cols
+            assert "mw_pcf" in dr_cols
+            assert con.execute("SELECT mw_pcf FROM daily_reports").fetchone()[0] is None
             # No data loss.
             assert con.execute("SELECT name FROM wells").fetchone()[0] == "AZNS 12"
             assert con.execute("SELECT COUNT(*) FROM daily_reports").fetchone()[0] == 1
@@ -462,7 +466,7 @@ class TestNonDestructiveMigration:
         con = sqlite3.connect(dbp)
         try:
             versions = [r[0] for r in con.execute("SELECT version FROM schema_version").fetchall()]
-            assert max(versions) == 3
+            assert max(versions) == 4
             # Physical wellbore FK is installed exactly once (not duplicated).
             for table in ("sections", "daily_reports"):
                 wb_fks = [
@@ -534,7 +538,7 @@ class TestNonDestructiveMigration:
 # 6. Fresh v3 schema shape
 # --------------------------------------------------------------------------
 class TestFreshSchema:
-    def test_fresh_database_is_v3(self, tmp_path, monkeypatch):
+    def test_fresh_database_is_v4_with_v3_wellbore_structure(self, tmp_path, monkeypatch):
         dbp = str(tmp_path / "fresh.sqlite")
         monkeypatch.setenv("DRILLMASTER_ENV", "test")
         monkeypatch.setenv("DRILLMASTER_DB_PATH", dbp)
@@ -545,7 +549,7 @@ class TestFreshSchema:
 
         con = sqlite3.connect(dbp)
         try:
-            assert con.execute("SELECT MAX(version) FROM schema_version").fetchone()[0] == 3
+            assert con.execute("SELECT MAX(version) FROM schema_version").fetchone()[0] == 4
             assert con.execute(
                 "SELECT name FROM sqlite_master WHERE name='wellbores'"
             ).fetchone() is not None

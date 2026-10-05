@@ -252,9 +252,9 @@ class TestEndToEndImport:
         assert report is not None
         report_id = report["id"]
         
-        # Save mud report with unit conversion
+        # Save mud report with explicit source-to-PCF conversion.
         mw_sg = 1.22
-        record = UnitManager.create_record("mud_report.mw", "density", "sg", mw_sg, "ppg")
+        record = UnitManager.create_record("mud_report.mw", "density", "sg", mw_sg, "pcf")
         
         mud_id = db.save_mud_report({
             "well_id": well_id,
@@ -285,7 +285,7 @@ class TestEndToEndImport:
         
         retrieved_mud = db.get_mud_report(well_id=well_id)
         assert retrieved_mud is not None
-        assert abs(retrieved_mud["mw"] - 10.18) < 0.1  # 1.22 SG ≈ 10.18 ppg
+        assert abs(retrieved_mud["mw"] - 76.16) < 0.1  # 1.22 SG ≈ 76.16 pcf
         
         retrieved_dp = db.get_drilling_parameters(well_id=well_id)
         assert retrieved_dp is not None

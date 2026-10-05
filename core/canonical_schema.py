@@ -31,7 +31,14 @@ class FieldSpec:
     def __post_init__(self) -> None:
         # Default engineering bounds per quantity when not given explicitly.
         if self.min_val is None and self.max_val is None:
-            bounds = _DEFAULT_BOUNDS.get(self.quantity)
+            if self.quantity == "density":
+                # Preserve the pre-existing 0–25 ppg physical envelope in the
+                # declared unit.  PCF values use the UnitManager-equivalent
+                # endpoint rather than inheriting a ppg numeric bound.
+                unit = (self.unit or "").strip().lower()
+                bounds = (0.0, 187.01298639122953) if unit == "pcf" else _DEFAULT_BOUNDS.get(self.quantity)
+            else:
+                bounds = _DEFAULT_BOUNDS.get(self.quantity)
             if bounds:
                 object.__setattr__(self, "min_val", bounds[0])
                 object.__setattr__(self, "max_val", bounds[1])
@@ -61,17 +68,17 @@ _DEFAULT_BOUNDS: Dict[str, Tuple[Optional[float], Optional[float]]] = {
 def _F(path, quantity="text", unit="", critical=False, aliases=(), bounds=None):
     """Compact FieldSpec constructor.
 
-    Density bounds are expressed in the declared source/canonical unit.  The
-    historical default of 25 is appropriate for ppg/SG-like densities but is
-    invalid for pcf (the real workbook legitimately contains values around
-    70).  Keep this correction in the single registry rather than adding an
-    importer-specific exception.
+    Density bounds are expressed in the declared unit. The historical upper
+    limit of 25 ppg is converted to its equivalent PCF endpoint so the real
+    workbook's PCF measurements are validated in the correct unit. Keep this
+    correction in the shared registry rather than adding an importer-specific
+    exception.
     """
     min_val = max_val = None
     if bounds:
         min_val, max_val = bounds
     elif str(unit).lower() == "pcf":
-        min_val, max_val = 0.0, 200.0
+        min_val, max_val = 0.0, 187.01298639122953
     return FieldSpec(path, quantity, unit, critical, tuple(aliases), min_val, max_val)
 
 
@@ -184,7 +191,12 @@ FIELD_SPECS: Dict[str, FieldSpec] = {
 
         # ---------------- Mud Report ----------------
         _F("mud_report.mud_type", "text", "", False, ["mud type"]),
-        _F("mud_report.mw", "density", "ppg", True, ["mud weight", "mw", "mud wt", "mudweight", "density", "1.50 sg", "sg"], bounds=(0.0, 25.0)),
+        # This canonical import value is normalized to pcf because MudReport.mw,
+        # the W3 editor, report consumers, and the legacy DB field are PCF-native.
+        # Preserve the prior 0–25 ppg physical range by converting its upper
+        # bound with the existing UnitManager factor; do not apply it to raw
+        # magnitudes until the explicit source unit has been resolved.
+        _F("mud_report.mw", "density", "pcf", True, ["mud weight", "mw", "mud wt", "mudweight", "density", "1.50 sg", "sg"], bounds=(0.0, 187.01298639122953)),
         _F("mud_report.mw_unit", "text", "", False, ["mw unit", "unit"]),
         _F("mud_report.mw_original", "number", "", False, ["mw original"]),
         _F("mud_report.funnel_vis", "viscosity", "sec/qt", False, ["funnel vis", "funnel viscosity"]),

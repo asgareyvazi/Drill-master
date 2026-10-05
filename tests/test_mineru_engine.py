@@ -10,6 +10,8 @@ from __future__ import annotations
 from pathlib import Path
 import subprocess
 
+import pytest
+
 from core.mineru_engine import (
     DocumentNormalizer,
     MinerUAdapter,
@@ -60,7 +62,8 @@ def test_pdf_numeric_unit_requires_matching_explicit_header_unit():
         )],
     )
     normalized = DocumentNormalizer().normalize(document)
-    assert normalized.canonical_data["mud_report"]["mw"] == 10.2
+    assert normalized.canonical_data["mud_report"]["mw"] == pytest.approx(10.2 / 0.133680556)
+    assert normalized.canonical_data["mud_report"]["mw_unit"] == "PCF"
     assert normalized.validation.valid is True
 
 
@@ -335,9 +338,12 @@ def test_no_fabricated_values_and_invalid_canonical_data_rejected():
     assert normalized.validation.warnings
     assert any(item.get("value") == "unclear" for item in normalized.warnings)
 
-    invalid = validate_canonical_payload({"mud_report": {"mw": 30.0}})
+    invalid = validate_canonical_payload({"mud_report": {"mw": 188.0, "mw_unit": "PCF"}})
     assert invalid.valid is False
     assert invalid.errors[0]["field"] == "mud_report.mw"
+    zero = validate_canonical_payload({"mud_report": {"mw": 0.0, "mw_unit": "PCF"}})
+    assert zero.valid is False
+    assert zero.errors[0]["message"] == "Mud weight must be greater than zero."
     invalid_table = validate_canonical_payload({"surveys": [{"md": -1.0}]})
     assert invalid_table.valid is False
     assert invalid_table.errors[0]["field"] == "survey.md"

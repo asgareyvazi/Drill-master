@@ -356,6 +356,12 @@ table {{
     <td class="label">Geologist</td><td class="value">{geologist}</td>
     <td class="label">Toolpusher</td><td class="value">{toolpusher}</td>
 </tr>
+<tr>
+    <td class="label">DDR Header MW (PCF)</td><td class="value">{fmt_num(r.get('mw_pcf'), 1)}</td>
+    <td class="label">Mud Properties MW (PCF)</td><td class="value">{fmt_num(mud.get('mw'), 1) if mud else ''}</td>
+    <td class="label">Measurement Scope</td><td class="value">Header remark and mud sample are separate readings</td>
+    <td class="label"></td><td class="value"></td>
+</tr>
 </table>"""
 
         # Depth Summary
@@ -580,7 +586,9 @@ table {{
                 ("Depth 00:00", _cell(r.get("depth_0000"))),
                 ("Depth 06:00", _cell(r.get("depth_0600"))),
                 ("Depth 24:00", _cell(r.get("depth_2400"))),
+                ("DDR Header MW (PCF)", _cell(r.get("mw_pcf"))),
                 ("Status", r.get("status", "")),
+                ("Measurement Scope", "Header remark MW and Mud Properties MW are separate readings"),
                 ("Summary", r.get("summary", "")),
             ]
             for i, (k, v) in enumerate(rows):
@@ -1089,7 +1097,7 @@ h3 {{
         html += '<div class="page-break"></div><h1>4. Daily Reports Summary</h1>'
         if daily_reports:
             html += """<table class="table">
-<tr><th>Date</th><th>Report #</th><th>Rig Day</th><th>Depth 24:00</th><th>Progress</th><th>Status</th><th>Summary</th></tr>"""
+<tr><th>Date</th><th>Report #</th><th>Rig Day</th><th>Depth 24:00 (m)</th><th>Progress (m)</th><th>DDR Header MW (PCF)</th><th>Status</th><th>Summary</th></tr>"""
             for r in daily_reports:
                 d0, d24 = r.depth_0000, r.depth_2400
                 progress = d24 - d0 if d24 is not None and d0 is not None else None
@@ -1100,6 +1108,7 @@ h3 {{
 <td>{safe_str(r.rig_day)}</td>
 <td>{fmt_num(d24, 1, default=None)}</td>
 <td>{fmt_num(progress, 1, default=None)}</td>
+<td>{fmt_num(r.mw_pcf, 1, default=None)}</td>
 <td>{safe_str(r.status)}</td>
 <td>{summary}</td>
 </tr>"""
@@ -1129,7 +1138,7 @@ h3 {{
         html += "<h1>6. Mud Summary</h1>"
         if mud_reports:
             html += """<table class="table">
-<tr><th>Date</th><th>Type</th><th>MW</th><th>PV</th><th>YP</th><th>FL</th><th>pH</th><th>Temp</th><th>Loss DH</th></tr>"""
+<tr><th>Date</th><th>Type</th><th>Mud Sample MW (PCF)</th><th>PV (cp)</th><th>YP</th><th>FL</th><th>pH</th><th>Temp (°C)</th><th>Loss DH (bbl)</th></tr>"""
             for m in mud_reports:
                 html += f"""<tr>
 <td>{safe_str(m.report_date)}</td>
@@ -1344,7 +1353,17 @@ East: {fmt_num(last.east, 2, default=None)} m | HD: {fmt_num(last.hd, 2, default
         ws = wb.create_sheet(sheet_name[:31])
 
         from core.professional_export import _write_records
-        _write_records(ws, [obj if isinstance(obj, dict) else {col.name: getattr(obj, col.name) for col in obj.__table__.columns} for obj in objects])
+        records = [obj if isinstance(obj, dict) else {col.name: getattr(obj, col.name) for col in obj.__table__.columns} for obj in objects]
+        unit_headers = {
+            "DailyReports": {"mw_pcf": "DDR Header MW (PCF)"},
+            "MudReports": {"mw": "Mud Sample MW (PCF)"},
+        }.get(sheet_name, {})
+        if unit_headers:
+            records = [
+                {unit_headers.get(key, key): value for key, value in record.items()}
+                for record in records
+            ]
+        _write_records(ws, records)
 
 class NPTReportEngine:
     """موتور تولید NPT Summary Report حرفه‌ای"""

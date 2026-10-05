@@ -1211,8 +1211,10 @@ class DocumentNormalizer:
 
     _UNIT_ALIASES = {
         "ppg": "ppg", "lb/gal": "ppg", "lbgal": "ppg",
+        "pcf": "pcf", "lb/ft3": "lb/ft3", "lb/ft³": "lb/ft3",
+        "kg/m3": "kg/m3", "kg/m³": "kg/m3", "g/cm3": "g/cm3",
         "sg": "sg", "m": "m", "meter": "m", "meters": "m",
-        "ft": "ft", "feet": "ft", "in": "in", "inch": "in", "inches": "in",
+        "ft": "ft", "feet": "ft", "in": "in", "inch": "in", "inches": "inches",
         "psi": "psi", "bar": "bar", "kpa": "kpa", "mpa": "mpa",
         "deg": "deg", "degree": "deg", "degrees": "deg", "°": "deg",
         "rpm": "rpm", "gpm": "gpm", "lpm": "lpm", "bbl": "bbl",
@@ -1228,12 +1230,12 @@ class DocumentNormalizer:
         # Prefer a unit in the value, then a parenthesized/bracketed or
         # trailing unit in its header. Bare numeric values have no unit.
         value_match = re.search(
-            r"[-+]?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?\s*([a-z°/²-]+)\s*$",
+            r"[-+]?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?\s*([a-z°/²][a-z0-9°/²-]*)\s*$",
             text,
             re.IGNORECASE,
         )
         header_match = re.search(
-            r"(?:\(|\[|,|\s)([a-z°/²]+(?:/[a-z0-9²]+)?)\s*(?:\)|\])?\s*$",
+            r"(?:\(|\[|,|\s)([a-z0-9°/²]+(?:/[a-z0-9²]+)?)\s*(?:\)|\])?\s*$",
             header_text,
             re.IGNORECASE,
         )
@@ -1245,12 +1247,12 @@ class DocumentNormalizer:
     def _normalize_document_value(cls, value: Any, field_path: str, header: str = "") -> CanonicalValue:
         spec = FIELD_SPECS.get(field_path)
         result = normalize_canonical_value(value, field_path)
-        # Density values are especially dangerous: a bare 10.2 can be ppg,
-        # SG, or another source unit.  Other canonical units retain the
-        # established contextual mappings used by existing PDF tables; they
-        # still undergo typed normalization and validation.
-        if spec is None or spec.unit != "ppg" or result.missing:
+        if spec is None or field_path != "mud_report.mw" or result.missing:
             return result
+
+        # Unlike the old ppg-only validation, PDF/ MinerU input is normalized
+        # through the shared unit boundary. A magnitude without an explicit
+        # unit stays reviewable; no numerical magnitude heuristic is used.
         source_unit = cls._explicit_unit(value, header)
         if source_unit is None:
             return CanonicalValue(
@@ -1258,28 +1260,49 @@ class DocumentNormalizer:
                 value,
                 None,
                 expected_type=result.expected_type,
-                unit=spec.unit,
+                unit="pcf",
                 validation_state="needs_review",
                 review_reason=(
-                    f"No explicit source unit for {field_path}; the canonical "
-                    f"unit {spec.unit} was not assumed"
+                    f"No explicit source unit for {field_path}; pcf was not assumed"
                 ),
             )
-        expected_unit = cls._UNIT_ALIASES.get(str(spec.unit).lower(), str(spec.unit).lower())
-        if source_unit != expected_unit:
+        if not result.ok:
+            return result
+        from core.canonical_schema import get_engineering_bounds
+        from core.unit_manager import UnitManager
+        unit_record = UnitManager.create_record(
+            field_path, "density", source_unit, result.value, "pcf"
+        )
+        normalized = unit_record.normalized_value
+        lower, upper = get_engineering_bounds(field_path)
+        if normalized is None:
+            reason = f"Cannot convert explicit mud-density source unit {source_unit!r} to pcf"
+        elif normalized <= 0:
+            reason = "Mud weight must be greater than zero pcf"
+        elif lower is not None and normalized < lower or upper is not None and normalized > upper:
+            reason = f"Converted mud weight {normalized!r} pcf is outside canonical bounds {lower}–{upper} pcf"
+        else:
             return CanonicalValue(
                 field_path,
                 value,
-                None,
+                normalized,
                 expected_type=result.expected_type,
-                unit=spec.unit,
-                validation_state="needs_review",
-                review_reason=(
-                    f"Source unit {source_unit} does not match canonical unit "
-                    f"{spec.unit}; conversion is not inferred"
-                ),
+                unit="pcf",
+                validation_state="valid",
+                source_unit=source_unit,
+                conversion_rule=unit_record.conversion_rule,
             )
-        return result
+        return CanonicalValue(
+            field_path,
+            value,
+            None,
+            expected_type=result.expected_type,
+            unit="pcf",
+            validation_state="needs_review",
+            review_reason=reason,
+            source_unit=source_unit,
+            conversion_rule=unit_record.conversion_rule,
+        )
 
     @staticmethod
     def _update_raw_cell_state(raw_document, table_index: int, row_number: int,
@@ -1470,6 +1493,11 @@ class DocumentNormalizer:
                                     else "valid" if normalization is None or normalization.ok
                                     else "needs_review"
                                 ),
+                                **({
+                                    "source_unit": normalization.source_unit,
+                                    "normalized_unit": normalization.unit,
+                                    "conversion_rule": normalization.conversion_rule,
+                                } if normalization is not None and field_path == "mud_report.mw" else {}),
                                 **item_provenance,
                             }
                         )
@@ -1581,12 +1609,26 @@ class DocumentNormalizer:
                         else "valid" if normalization is None or normalization.ok
                         else "needs_review"
                     ),
+                    **({
+                        "source_unit": normalization.source_unit,
+                        "normalized_unit": normalization.unit,
+                        "conversion_rule": normalization.conversion_rule,
+                    } if normalization is not None and field_path == "mud_report.mw" else {}),
                     **block.provenance.to_dict(),
                 }
             )
 
+        # Mark the normalized mud sample as PCF-native in the canonical
+        # payload; the source unit and conversion rule remain in provenance.
+        mud_payload = canonical.get("mud_report")
+        mud_lineage = next((item for item in provenance
+                            if item.get("canonical_field") == "mud_report.mw"
+                            and item.get("normalization_state") == "valid"), None)
+        if isinstance(mud_payload, dict) and mud_payload.get("mw") is not None and mud_lineage:
+            mud_payload["mw_unit"] = "PCF"
+
         # Assemble a report date from explicit PDF form components before the
-        # persistence boundary.  The source components remain in the record.
+        # persistence boundary. The source components remain in the record.
         daily_report = canonical.get("daily_report")
         if isinstance(daily_report, dict) and not daily_report.get("report_date"):
             try:
@@ -1754,9 +1796,6 @@ def validate_canonical_payload(canonical: Mapping[str, Any]) -> CanonicalValidat
     """
     errors: list[dict[str, Any]] = []
     warnings: list[dict[str, Any]] = []
-    mud_unit = ""
-    if isinstance(canonical.get("mud_report"), Mapping):
-        mud_unit = str(canonical["mud_report"].get("mw_unit", "") or "").strip().lower()
     numeric_quantities = {
         "integer", "number", "length", "density", "pressure", "force", "rpm",
         "torque", "rate", "flow_rate", "volume", "viscosity", "temperature",
@@ -1795,11 +1834,11 @@ def validate_canonical_payload(canonical: Mapping[str, Any]) -> CanonicalValidat
             errors.append({"level": "error", "field": field_path, "value": value, "message": "Expected an integer."})
             return
         if isinstance(value, (int, float)) and not isinstance(value, bool):
-            # ``mud_report.mw`` is a source-unit value until the explicit
-            # UnitManager boundary.  Its ppg destination bound cannot be
-            # applied to a PCF/SG source token.
-            if field_path == "mud_report.mw" and mud_unit in {"pcf", "sg"}:
-                return
+            if field_path == "mud_report.mw" and value <= 0:
+                errors.append({
+                    "level": "error", "field": field_path, "value": value,
+                    "message": "Mud weight must be greater than zero.",
+                })
             if spec.min_val is not None and value < spec.min_val:
                 errors.append({"level": "error", "field": field_path, "value": value, "message": f"Value is below minimum {spec.min_val}."})
             if spec.max_val is not None and value > spec.max_val:

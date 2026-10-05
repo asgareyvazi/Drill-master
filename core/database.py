@@ -358,6 +358,9 @@ class DailyReport(Base):
     pressure = Column(Float)
     mud_weight_in = Column(Float)
     mud_weight_out = Column(Float)
+    # Separate DDR header remark measurement (MW (PCF)); this is not the
+    # MudReport table's Data-tab mud-weight sample and must not be merged with it.
+    mw_pcf = Column(Float)
     bit_number = Column(String(50))
     equipment_data = Column(JSON, nullable=True)
     header_snapshot = Column(JSON, nullable=True)
@@ -2574,11 +2577,10 @@ class DatabaseManager:
         self.engine = None
         self.Session = None
         self.last_diagnostic = None
-        # v3 adds the Wellbore entity plus nullable sections.wellbore_id and
-        # daily_reports.wellbore_id. The wellbores table is created by the
-        # generic "missing table" step; the two columns are added by the
-        # explicit v2->v3 upgrade block in _apply_safe_schema_upgrades.
-        self.schema_version = 3
+        # v3 adds wellbore attribution. v4 adds the distinct nullable DDR
+        # header `mw_pcf` measurement; the non-destructive v3->v4 upgrade is
+        # applied in _apply_safe_schema_upgrades.
+        self.schema_version = 4
 
         # Mutable database state belongs in the OS user-data directory, not
         # beside the installed package. Tests and operators can override this
@@ -3258,6 +3260,23 @@ class DatabaseManager:
                 for table_name in ("sections", "daily_reports"):
                     if self._raw_table_exists(raw, table_name):
                         self._install_wellbore_foreign_key(raw, table_name)
+            if version in (None, 1, 2, 3):
+                # v4 keeps the distinct DDR header MW (PCF) source measurement
+                # without backfilling from MudReport.mw or mud_weight_in/out.
+                # Existing reports remain NULL (unknown) until explicit source
+                # evidence is imported or entered.
+                table_name, column_name = "daily_reports", "mw_pcf"
+                if self._raw_table_exists(raw, table_name):
+                    columns = {
+                        row[1] for row in raw.execute(
+                            f"PRAGMA table_info({self._quote_sqlite_identifier(table_name)})"
+                        ).fetchall()
+                    }
+                    if column_name not in columns:
+                        raw.execute(
+                            f"ALTER TABLE {self._quote_sqlite_identifier(table_name)} "
+                            f"ADD COLUMN {self._quote_sqlite_identifier(column_name)} FLOAT"
+                        )
             # Verify and repair nullable contracts on every startup, including
             # v2 databases whose live schema was changed by an old installer.
             self._migrate_nullable_contracts(connection=raw)
@@ -4065,6 +4084,7 @@ class DatabaseManager:
                     "report_title": r.report_title,
                     "rig_day": r.rig_day,
                     "depth_2400": r.depth_2400,
+                    "mw_pcf": r.mw_pcf,
                     "summary": r.summary,
                     "status": r.status,
                     "well_id": r.well_id,
@@ -4213,6 +4233,7 @@ class DatabaseManager:
                     "report_title": r.report_title,
                     "rig_day": r.rig_day,
                     "depth_2400": r.depth_2400,
+                    "mw_pcf": r.mw_pcf,
                     "summary": (r.summary[:100] + "..." if r.summary and len(r.summary) > 100 else (r.summary or "")),
                     "status": r.status,
                 }

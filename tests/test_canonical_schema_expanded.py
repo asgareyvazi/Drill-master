@@ -93,7 +93,7 @@ class TestExpandedSchema:
         spec = get_field_spec("mud_report.mw")
         assert spec is not None
         assert spec.quantity == "density"
-        assert spec.unit == "ppg"
+        assert spec.unit == "pcf"
         assert spec.critical is True
 
         unknown = get_field_spec("nonexistent.field")

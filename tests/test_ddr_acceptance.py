@@ -209,8 +209,12 @@ def test_real_ddr_excel_canonical_ir_review_and_atomic_db():
             assert token["normalized_value"] == token["original_value"]
             assert token["review"] is True
         elif token.get("status") == "SOURCE_UNIT_RESOLVED":
-            assert token["source_unit"] in {"pcf", "sg", "ppg"}
-            assert token["normalized_value"] == token["original_value"]
+            assert token["source_unit"]
+            from core.mud_records import mud_density_pcf
+            expected, _lineage = mud_density_pcf({
+                "mw": token["original_value"], "mw_unit": token["source_unit"],
+            })
+            assert token["normalized_value"] == pytest.approx(expected["mw"])
             assert token["review"] is False
         else:
             assert token.get("normalized_value") is None

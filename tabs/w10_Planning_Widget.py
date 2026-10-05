@@ -2120,7 +2120,7 @@ class MudParamsTab(QWidget):
         control_layout = QHBoxLayout()
         control_layout.addWidget(QLabel("Parameter:"))
         self.param_combo = QComboBox()
-        self.param_combo.addItems(["MW (pcf)", "PV (cp)", "YP", "Gel 10s", "Gel 10m", "pH", "Temperature"])
+        self.param_combo.addItems(["Mud Sample MW (PCF)", "PV (cp)", "YP", "Gel 10s", "Gel 10m", "pH", "Temperature"])
         self.param_combo.currentTextChanged.connect(self.update_chart)
         control_layout.addWidget(self.param_combo)
         
@@ -2135,7 +2135,7 @@ class MudParamsTab(QWidget):
         layout.addWidget(self.chart_widget)
         
         self.data_table = QTableWidget(0, 7)
-        self.data_table.setHorizontalHeaderLabels(["Depth", "MW", "PV", "YP", "Gel10s", "Gel10m", "pH"])
+        self.data_table.setHorizontalHeaderLabels(["Depth (m)", "MW (PCF)", "PV (cp)", "YP (lb/100ft²)", "Gel 10s", "Gel 10m", "pH"])
         self.data_table.setMaximumHeight(200)
         layout.addWidget(self.data_table)
     
@@ -2204,7 +2204,7 @@ class MudParamsTab(QWidget):
         try:
             
             param_map = {
-                "MW (pcf)": ('mw', 'MW (pcf)', '#3498db'),
+                "Mud Sample MW (PCF)": ('mw', 'Mud Sample MW (PCF)', '#3498db'),
                 "PV (cp)": ('pv', 'PV (cp)', '#e74c3c'),
                 "YP": ('yp', 'YP (lb/100ft²)', '#2ecc71'),
                 "Gel 10s": ('gel_10s', 'Gel 10s', '#f39c12'),
@@ -2212,7 +2212,9 @@ class MudParamsTab(QWidget):
                 "pH": ('ph', 'pH', '#1abc9c'),
                 "Temperature": ('temp', 'Temperature (°C)', '#e67e22'),
             }
-            key, label, color = param_map.get(self.param_combo.currentText(), ('mw', 'MW', '#3498db'))
+            key, label, color = param_map.get(
+                self.param_combo.currentText(),
+                ('mw', 'Mud Sample MW (PCF)', '#3498db'))
             
             values = [d[key] for d in self.mud_data]
             depths = [d['depth'] for d in self.mud_data]

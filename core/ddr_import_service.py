@@ -711,8 +711,32 @@ class DDRImportService:
             # representation remains in immutable audit; all explicit units
             # reach the same domain unit, including suffix-bearing strings.
             from core.mud_records import mud_density_pcf
-            mud_data, density_lineage = mud_density_pcf(mud_data)
+            try:
+                mud_data, density_lineage = mud_density_pcf(mud_data)
+            except (TypeError, ValueError, OverflowError) as exc:
+                # Unit ambiguity is a field-level review, not a reason to abort
+                # an otherwise valid report transaction. Never persist the raw
+                # magnitude into the PCF-native MudReport column.
+                original_mw = mud_data.get("mw")
+                mud_data["mw_source"] = original_mw
+                mud_data["mw"] = None
+                density_lineage = None
+                results["review_items"].append(_canonical_review_row({
+                    "entity": "mud_report",
+                    "field": "mud_report.mw",
+                    "original_value": original_mw,
+                    "normalized_value": None,
+                    "expected_type": "density with explicit source unit",
+                    "status": ImportStatus.REVIEW_REQUIRED.value,
+                    "decision": "REVIEW",
+                    "reason": str(exc),
+                    "source_document": (extracted.get("metadata") or {}).get("source_file", ""),
+                    "mapping_method": "mud-density-unit-resolution",
+                    "classification": "unit-review",
+                }))
+                results["review"] = results.get("review", 0) + 1
             if density_lineage:
+                results.setdefault("unit_lineage", {})["mud_report.mw"] = density_lineage
                 results["details"].append("Density converted to PCF using the existing UnitManager")
 
             self._save_mud_report(mud_data, report_id, dr["report_date"],

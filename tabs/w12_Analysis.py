@@ -951,7 +951,7 @@ class AnalysisWidget(DrillTabBase):
         
         # Today's Summary Panel (gradient background)
         today_widget = QWidget()
-        today_widget.setMinimumHeight(200)
+        today_widget.setMinimumHeight(280)
         today_widget.setStyleSheet("""
             QWidget {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
@@ -973,7 +973,9 @@ class AnalysisWidget(DrillTabBase):
             ("⏱️", "Hours Today", "hours"),
             ("📅", "Rig Day", "days"),
             ("📉", "Today's NPT", "npt_hours"),
-            ("🌡️", "MW In/Out", "mw_pcf"),
+            ("🌡️", "MW In/Out (PCF)", "mw_in_out"),
+            ("🧪", "DDR Header MW (PCF)", "mw_header_pcf"),
+            ("🧪", "Mud Sample MW (PCF)", "mw_sample_pcf"),
         ]
         
         self.today_indicators = {}
@@ -1417,6 +1419,8 @@ class AnalysisWidget(DrillTabBase):
             'npt_hours': npt_hours,
             'mw_in': report.mud_weight_in,
             'mw_out': report.mud_weight_out,
+            'mw_header_pcf': report.mw_pcf,
+            'mw_sample_pcf': mud.mw if mud else None,
             'mud_weight': mud.mw if mud else None,
             'main_activity': None,  # no authoritative activity classification on this header
             'wob': _mid(dr.wob_min, dr.wob_max) if dr else None,
@@ -2063,9 +2067,11 @@ class AnalysisWidget(DrillTabBase):
             self.today_indicators['days'].setText(
                 "—" if today['rig_day'] is None else str(today['rig_day']))
             self.today_indicators['npt_hours'].setText(fmt_num(today['npt_hours'], 1, default=None))
-            self.today_indicators['mw_pcf'].setText(
+            self.today_indicators['mw_in_out'].setText(
                 f"{fmt_num(today['mw_in'], 1, default=None)}/"
                 f"{fmt_num(today['mw_out'], 1, default=None)}")
+            self.today_indicators['mw_header_pcf'].setText(fmt_num(today['mw_header_pcf'], 1, default=None))
+            self.today_indicators['mw_sample_pcf'].setText(fmt_num(today['mw_sample_pcf'], 1, default=None))
         else:
             for indicator in self.today_indicators.values():
                 indicator.setText("—")

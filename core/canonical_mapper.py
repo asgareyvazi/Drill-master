@@ -26,6 +26,8 @@ class CanonicalValue:
     unit: str = ""
     validation_state: str = "valid"
     review_reason: str = ""
+    source_unit: str = ""
+    conversion_rule: str = ""
 
     @property
     def needs_review(self) -> bool:

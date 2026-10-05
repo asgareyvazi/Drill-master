@@ -92,6 +92,9 @@ def test_planning_mutations_null_charts_and_active_revision():
         import tabs.w10_Planning_Widget as planning_module
         from tabs.w10_Planning_Widget import MudParamsTab
         mud_tab=MudParamsTab(db)
+        assert mud_tab.data_table.horizontalHeaderItem(1).text()=='MW (PCF)'
+        assert mud_tab.param_combo.currentText()=='Mud Sample MW (PCF)'
+        assert mud_tab.data_table.horizontalHeaderItem(0).text()=='Depth (m)'
         mud_tab.data_table.setRowCount(1); mud_tab.mud_data=[{'depth': 123}]
         mud_tab.set_current_well(None)
         assert mud_tab.data_table.rowCount()==0 and mud_tab.mud_data==[]

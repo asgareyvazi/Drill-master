@@ -85,7 +85,7 @@ def test_migration_provisions_table_on_existing_db(tmp_path):
         m.engine = create_engine("sqlite:///{db.as_posix()}")
         Base.metadata.create_all(m.engine)
         m.Session = sessionmaker(bind=m.engine)
-        m.schema_version = 3
+        m.schema_version = 4
         with m.engine.begin() as c:
             c.execute(text("DROP TABLE mud_volume_calculations"))
         present_before = "mud_volume_calculations" in inspect(m.engine).get_table_names()

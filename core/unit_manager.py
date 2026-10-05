@@ -400,8 +400,10 @@ class UnitManager:
     def create_record(cls, field: str, quantity: str, source_unit: str, original_value: Any, target_unit: Optional[str] = None) -> UnitRecord:
         """Create a full preservation record: Original + Normalized + Canonical.
 
-        Example:
-            1.50 SG → UnitRecord(field="mud_report.mw", quantity="density", source="sg", canonical="ppg", original=1.5, normalized=12.52, rule="sg->ppg *8.3454")
+        Density targets are field-specific: engineering calculations commonly
+        use ppg, while the mud-sample field ``mud_report.mw`` is PCF-native and
+        callers must pass ``target_unit="pcf"`` for that field. The generic
+        density default remains ppg only when no target is supplied.
 
         Never invents missing values - if original is None, normalized is None.
         """

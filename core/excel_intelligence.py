@@ -479,6 +479,8 @@ class CandidateScorer:
                 val = float(str(candidate.value).replace(',', ''))
                 if spec.unit == "ppg" and 5 < val < 25:
                     unit_score = 1.0
+                elif spec.unit == "pcf" and 30 < val <= (spec.max_val if spec.max_val is not None else 200):
+                    unit_score = 1.0
                 elif spec.unit == "m" and 0 < val < 10000:
                     unit_score = 1.0
                 elif spec.unit == "in" and 0 < val < 50:
@@ -878,6 +880,13 @@ class FieldExtractor:
                 num_val = float(str(value).replace(',', ''))
             except (ValueError, TypeError):
                 return "invalid_type"
+
+            # Mud weight arrives before its companion unit field may have been
+            # visited. Its raw magnitude can legitimately exceed the canonical
+            # pcf range (e.g. kg/m3); normalize and bound it only after explicit
+            # unit context is resolved in ExcelIntelligence.extract().
+            if canonical == "mud_report.mw":
+                return "valid"
 
             # Engineering bounds from canonical schema
             min_val, max_val = get_engineering_bounds(canonical)
@@ -1786,28 +1795,138 @@ class ExcelIntelligence:
                     "components": components,
                 }
 
-        # Resolve source-unit context after all scalar anchors have been
-        # visited.  DDR layouts may place MW Unit below Mud Weight; preserve a
-        # numeric PCF/SG source token for the explicit UnitManager conversion
-        # instead of treating it as ppg or discarding it as out-of-range.
+        # Resolve the companion unit only after all scalar anchors have been
+        # visited: OEOC places MW Unit on the row below Mud Weight. The
+        # canonical payload is pcf; the untouched source magnitude/unit remain
+        # in source_tokens, field_provenance, and the raw-cell IR.
         mud_values = canonical.get("mud_report")
-        source_mw = report.source_tokens.get("mud_report.mw")
-        source_unit = str(mud_values.get("mw_unit", "") if isinstance(mud_values, dict) else "").strip().lower()
-        if isinstance(mud_values, dict) and source_mw and source_unit in {"pcf", "sg", "ppg"}:
-            if source_mw.get("status") == "ENGINEERING_REVIEW" and source_mw.get("original_value") not in (None, ""):
-                mud_values["mw"] = source_mw["original_value"]
-                source_mw["normalized_value"] = source_mw["original_value"]
-                source_mw["status"] = "SOURCE_UNIT_RESOLVED"
-                source_mw["source_unit"] = source_unit
-                source_mw["review"] = False
-                for field_result in report.field_results:
-                    if field_result.canonical_field == "mud_report.mw":
-                        field_result.status = "OK"
-                        field_result.validation = "valid"
-                        field_result.value = mud_values["mw"]
-                        field_result.normalized_value = mud_values["mw"]
-                        field_result.reason = "Density source unit resolved from explicit unit field"
+        if isinstance(mud_values, dict) and mud_values.get("mw") not in (None, ""):
+            import re
+            from core.mud_records import mud_density_pcf
+            from core.unit_manager import UnitManager
+
+            canonical_path = "mud_report.mw"
+            provenance = report.field_provenance.get(canonical_path, {})
+            field_result = next((result for result in report.field_results
+                                 if result.canonical_field == canonical_path
+                                 and result.cell == provenance.get("source_cell")), None)
+            source_token = report.source_tokens.get(canonical_path, {})
+            original = provenance.get("original_value", source_token.get("original_value", mud_values.get("mw")))
+            source_unit = str(mud_values.get("mw_unit") or "").strip()
+            if not source_unit and isinstance(original, str):
+                _magnitude, suffix = UnitManager.detect_unit(original)
+                source_unit = suffix
+            if not source_unit:
+                label = " ".join(str(item or "") for item in (
+                    provenance.get("source_header"),
+                    field_result.original_label if field_result else "",
+                ))
+                match = re.search(r"(?<![A-Za-z])(pcf|lb/ft(?:3|³)|ppg|lb/gal|sg|kg/m3)(?![A-Za-z])", label, re.I)
+                source_unit = match.group(1) if match else ""
+
+            try:
+                normalized_mud, density_lineage = mud_density_pcf({"mw": original, "mw_unit": source_unit})
+            except (TypeError, ValueError, OverflowError) as exc:
+                mud_values["mw_source"] = original
+                mud_values["mw"] = None
+                if source_unit:
+                    mud_values["mw_unit"] = source_unit
+                else:
+                    mud_values.pop("mw_unit", None)
+                review = {
+                    "original_value": original,
+                    "normalized_value": None,
+                    "source_unit": source_unit or None,
+                    "cell": provenance.get("source_cell", ""),
+                    "sheet": provenance.get("source_sheet", ""),
+                    "expected_type": "density",
+                    "status": "SOURCE_UNIT_REQUIRED" if not source_unit else "ENGINEERING_REVIEW",
+                    "review": True,
+                    "reason": str(exc),
+                }
+                report.source_tokens[canonical_path] = review
+                provenance.update({
+                    "original_value": original,
+                    "normalized_value": None,
+                    "source_unit": source_unit or None,
+                    "normalized_unit": None,
+                    "validation_state": "needs_review",
+                    "review_state": "review",
+                    "unit_resolution_error": str(exc),
+                })
+                if field_result is not None:
+                    was_accepted = field_result.status == "OK"
+                    field_result.value = None
+                    field_result.normalized_value = None
+                    field_result.canonical_unit = "pcf"
+                    field_result.validation = "unit_required" if not source_unit else "invalid_unit_conversion"
+                    field_result.status = "REVIEW_REQUIRED"
+                    field_result.reason = str(exc)
+                    if was_accepted:
+                        report.fields_accepted = max(0, report.fields_accepted - 1)
+                        report.fields_review += 1
+                for raw_cell in report.raw_document.cells if report.raw_document is not None else ():
+                    if raw_cell.location.sheet == provenance.get("source_sheet") and raw_cell.location.cell == provenance.get("source_cell"):
+                        raw_cell.normalized_value = None
+                        raw_cell.normalized_unit = None
+                        raw_cell.validation_state = "needs_review"
+                        raw_cell.review_state = "review"
+                        break
+            else:
+                mud_values["mw"] = normalized_mud["mw"]
+                mud_values["mw_unit"] = "PCF"
+                report.source_tokens[canonical_path] = {
+                    "original_value": original,
+                    "normalized_value": normalized_mud["mw"],
+                    "source_unit": density_lineage["source_unit"],
+                    "normalized_unit": "pcf",
+                    "conversion_rule": density_lineage["conversion_rule"],
+                    "unit_record": density_lineage,
+                    "cell": provenance.get("source_cell", ""),
+                    "sheet": provenance.get("source_sheet", ""),
+                    "expected_type": "density",
+                    "status": "SOURCE_UNIT_RESOLVED",
+                    "review": False,
+                }
                 mud_values.pop("mw_source", None)
+                provenance.update({
+                    "original_value": original,
+                    "normalized_value": normalized_mud["mw"],
+                    "source_unit": density_lineage["source_unit"],
+                    "normalized_unit": "pcf",
+                    "conversion_rule": density_lineage["conversion_rule"],
+                    "unit_record": density_lineage,
+                    "validation_state": "valid",
+                })
+                if field_result is not None and field_result.validation in {"valid", "missing"}:
+                    field_result.value = normalized_mud["mw"]
+                    field_result.normalized_value = normalized_mud["mw"]
+                    field_result.canonical_unit = "pcf"
+                    field_result.validation = "valid"
+                    if field_result.status == "OK":
+                        field_result.reason = "Explicit source density converted to canonical pcf"
+                if field_result is not None:
+                    provenance["review_state"] = "accepted" if field_result.status == "OK" else "review"
+                for raw_cell in report.raw_document.cells if report.raw_document is not None else ():
+                    if raw_cell.location.sheet == provenance.get("source_sheet") and raw_cell.location.cell == provenance.get("source_cell"):
+                        raw_cell.normalized_value = normalized_mud["mw"]
+                        raw_cell.normalized_unit = "pcf"
+                        raw_cell.validation_state = "valid"
+                        raw_cell.review_state = "accepted" if field_result is None or field_result.status == "OK" else "review"
+                        break
+                if UnitManager.normalize(density_lineage["source_unit"]) != "pcf":
+                    report.unit_conversions += 1
+
+        # The DDR Remark header field has its own explicit PCF semantic and
+        # persistence slot. It is not the mud-sample value normalized above.
+        header_mw = (canonical.get("daily_report") or {}).get("mw_pcf")
+        header_provenance = report.field_provenance.get("daily_report.mw_pcf")
+        if header_mw not in (None, "") and header_provenance is not None:
+            header_provenance.update({
+                "source_unit": "pcf",
+                "normalized_unit": "pcf",
+                "conversion_rule": "pcf->pcf identity (DDR header field mapping)",
+            })
 
         report.canonical_json = canonical
         report.extraction_time_ms = (time.time() - start_time) * 1000

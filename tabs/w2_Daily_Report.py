@@ -262,6 +262,17 @@ class DailyReportWidget(DrillTabBase):
         self.depth_2400.setSuffix(" m")
         header_layout.addWidget(self.depth_2400, 3, 1)
 
+        # Distinct DDR Remark MW (PCF), not the Mud Properties sample MW.
+        header_layout.addWidget(QLabel("🧪 DDR Header MW (PCF):"), 3, 2)
+        self.mw_pcf = QDoubleSpinBox()
+        self.mw_pcf.setRange(-1, 187.01298639122953)
+        self.mw_pcf.setSpecialValueText("Not recorded")
+        self.mw_pcf.setToolTip("DDR header remark measurement; distinct from W3 Mud Properties MW.")
+        self.mw_pcf.setValue(-1)
+        self.mw_pcf.setDecimals(1)
+        self.mw_pcf.setSuffix(" pcf")
+        header_layout.addWidget(self.mw_pcf, 3, 3)
+
         header_group.setLayout(header_layout)
         main_layout.addWidget(header_group)
         
@@ -1182,6 +1193,7 @@ class DailyReportWidget(DrillTabBase):
             "depth_0000": self._depth_value("depth_0000"),
             "depth_0600": self._depth_value("depth_0600"),
             "depth_2400": self._depth_value("depth_2400"),
+            "mw_pcf": None if self.mw_pcf.value() <= self.mw_pcf.minimum() else self.mw_pcf.value(),
             "summary": self.summary_text.toPlainText(),
             "status": self.status_combo.currentText(),
             "created_by": (
@@ -1622,6 +1634,7 @@ class DailyReportWidget(DrillTabBase):
             self.depth_0000.setValue(report_data.get("depth_0000") if report_data.get("depth_0000") is not None else -1)
             self.depth_0600.setValue(report_data.get("depth_0600") if report_data.get("depth_0600") is not None else -1)
             self.depth_2400.setValue(report_data.get("depth_2400") if report_data.get("depth_2400") is not None else -1)
+            self.mw_pcf.setValue(report_data.get("mw_pcf") if report_data.get("mw_pcf") is not None else self.mw_pcf.minimum())
             import textwrap
             raw_summary = report_data.get("summary", "") or ""
             if len(raw_summary) > 150:
@@ -1647,7 +1660,7 @@ class DailyReportWidget(DrillTabBase):
             self._loaded_report_display = self._collect_report_data(well_id, section_id)
             from core.editor_state import reset_form_edit_tracking
             reset_form_edit_tracking(self,
-                          [(key, getattr(self, key)) for key in ("report_date", "report_number", "rig_day", "depth_0000", "depth_0600", "depth_2400")])
+                          [(key, getattr(self, key)) for key in ("report_date", "report_number", "rig_day", "depth_0000", "depth_0600", "depth_2400", "mw_pcf")])
             self._update_workflow_controls()
             self.status_manager.show_success("DailyReport", f"Report #{report_data.get('report_number', '')} loaded")
         except Exception as e:
@@ -2048,6 +2061,7 @@ class DailyReportWidget(DrillTabBase):
         self.depth_0000.setValue(-1)
         self.depth_0600.setValue(-1)
         self.depth_2400.setValue(-1)
+        self.mw_pcf.setValue(self.mw_pcf.minimum())
         self.summary_text.clear()
         self.status_combo.setCurrentText("Draft")
         self.time_24_table.setRowCount(0)
@@ -2104,6 +2118,8 @@ class DailyReportWidget(DrillTabBase):
             <p><strong>Depth @ 00:00:</strong> {fmt_num(self._depth_value("depth_0000"), 1, default=None)} m</p>
             <p><strong>Depth @ 06:00:</strong> {fmt_num(self._depth_value("depth_0600"), 1, default=None)} m</p>
             <p><strong>Depth @ 24:00:</strong> {fmt_num(self._depth_value("depth_2400"), 1, default=None)} m</p>
+            <p><strong>DDR Header MW (PCF):</strong> {fmt_num(None if self.mw_pcf.value() <= self.mw_pcf.minimum() else self.mw_pcf.value(), 1, default=None)}</p>
+            <p><em>This header remark measurement is distinct from W3 Mud Properties MW (PCF).</em></p>
             <h2>Summary</h2>
             <p>{self.summary_text.toPlainText()}</p>
         </body>

@@ -127,7 +127,7 @@ The default database is a per-user SQLite file. On first initialization the
 schema is created and `schema_version` is recorded. Existing databases receive
 only the additive, idempotent migrations in `DatabaseManager`; migration
 errors fail startup rather than allowing a partially upgraded database to run.
-The current schema version is `2`. Future schema versions are rejected before startup or import; v1-to-v2 migration runs atomically and verifies the live SQLite contract before imports are enabled.
+The current schema version is `4`. Future schema versions are rejected before startup or import; migrations are additive and verified before imports are enabled. The v3-to-v4 migration adds nullable `daily_reports.mw_pcf` for the DDR header remark MW (PCF) and deliberately does not backfill from `mud_reports.mw` or `mud_weight_in/out`; legacy header readings remain unknown (`NULL`). Mud-sample `MudReport.mw` is a distinct PCF-domain measurement. Imports require a resolvable explicit source unit and retain source/canonical unit lineage in the immutable DDR import audit.
 
 Use the in-application Backup action or configured automatic backup. The
 backup uses SQLite's backup API, includes WAL state, and retains ten automatic
