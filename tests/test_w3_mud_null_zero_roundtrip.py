@@ -54,19 +54,27 @@ _CHILD = textwrap.dedent(
         getattr(tab, key).setValue(0.0)
     tab.fl_nc.setChecked(False)
     tab.fl.setValue(0.0)
-    assert tab.save_data_for_report(1)
+    # These explicit values are persisted but pH 0 / zero-total composition
+    # correctly leave a review-required outcome; warnings are not success.
+    assert not tab.save_data_for_report(1)
+    assert tab.last_save_outcome.status == "REVIEW_REQUIRED"
+    assert tab.last_save_outcome.saved == 1
     assert all(db.saved[key] == 0.0 for key in ("mw", "pv", "ph", "temperature", "solid_percent", "oil_percent", "water_percent", "fl"))
 
     persisted = dict(db.saved)
     tab.load_from_dict(persisted)
-    assert tab.save_data_for_report(1)
+    assert not tab.save_data_for_report(1)
+    assert tab.last_save_outcome.status == "REVIEW_REQUIRED"
+    assert tab.last_save_outcome.saved == 1
     assert all(db.saved[key] == 0.0 for key in ("mw", "pv", "ph", "temperature", "solid_percent", "oil_percent", "water_percent", "fl"))
     assert all(db.saved[key] is None for key in ("yp", "funnel_vis", "gel_10s", "gel_10m", "cake_thickness", "chloride", "calcium", "kcl", "mbt", "pf_mf", "total_hardness", "flowline_temp", "volume_hole", "total_circulated", "loss_downhole", "loss_surface"))
 
     # Clearing a real value explicitly returns it to unknown; an unchanged
     # loaded zero never gets rewritten as NULL.
     tab.mw.setValue(tab.mw.minimum())
-    assert tab.save_data_for_report(1)
+    assert not tab.save_data_for_report(1)
+    assert tab.last_save_outcome.status == "REVIEW_REQUIRED"
+    assert tab.last_save_outcome.saved == 1
     assert db.saved["mw"] is None and db.saved["pv"] == 0.0
 
     # Corrupt/non-finite persisted values are rejected, not converted into the

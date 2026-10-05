@@ -371,7 +371,8 @@ def test_downhole_null_empty_corrupt_switch_clear(production_db):
     obj.load_all_data_from_db()
     assert obj.bha_table.rowCount() == 0
     db.generic_save(BHAReport, {"id": identity, "bha_data_json": "malformed JSON"})
-    with pytest.raises(ValueError): obj.load_all_data_from_db()
+    with pytest.raises(ValueError):
+        obj.load_all_data_from_db()
     assert obj._downhole_loaded_context is None and not obj.save_context_ready()
     obj.on_selection_cleared()
     assert obj.bha_table.rowCount() == obj.formation_table.rowCount() == obj.equipment_table.rowCount() == 0
@@ -418,7 +419,12 @@ def test_professional_export_scope_nulls_lineage_and_failures(production_db, tmp
     assert wb["Survey"].max_row == 2 and wb["Survey"].cell(2, 3).value is None
     assert wb["BHA"].max_row == 2
     assert all("_provenance" not in str(c.value) for row in wb["BHA"] for c in row)
-    chunks = [row[2] for row in wb["Raw Data"].iter_rows(min_row=3, values_only=True) if row[0] == "BHAReport"]
+    raw_sheet = wb["Raw Data"]
+    raw_headers = next(raw_sheet.iter_rows(min_row=2, max_row=2, values_only=True))
+    entity_col = raw_headers.index("Entity")
+    chunk_col = raw_headers.index("JSON chunk (concatenate in row order)")
+    chunks = [row[chunk_col] for row in raw_sheet.iter_rows(min_row=3, values_only=True)
+              if row[entity_col] == "BHAReport"]
     raw = json.loads("".join(chunks))
     assert len(raw["bha_data_json"][0]["_provenance"]["source_record"]["note"]) == 40000
     wb.close()
@@ -484,7 +490,8 @@ def test_downhole_totals_do_not_fabricate_missing_measurements(production_db):
     equipment.load_data([{"equipment_name": "MWD", "rotation_hours": 0}])
     assert equipment.calculate_hours() == {"sliding": None, "rotation": 0, "pumping": None, "total": None}
     equipment.table.item(0, 6).setText("invalid")
-    with pytest.raises(ValueError): equipment.calculate_hours()
+    with pytest.raises(ValueError):
+        equipment.calculate_hours()
 
 
 def test_unknown_service_date_does_not_mean_up_to_date():

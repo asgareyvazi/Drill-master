@@ -44,13 +44,13 @@ class TestCandidateScorer:
     def test_label_right_direction_bonus(self):
         """Value to the right of label should score higher."""
         c_right = Candidate(value="AZNS-207", source="label_match", row=3, col=23,
-                           label_row=3, label_col=18, distance=5, direction="right")
+                           label_row=3, label_col=18, distance=2, direction="right")
         c_below = Candidate(value="AZNS-207", source="label_match", row=5, col=18,
                            label_row=3, label_col=18, distance=2, direction="below")
         score_right = CandidateScorer.score_candidate(c_right, "well_info.name")
         score_below = CandidateScorer.score_candidate(c_below, "well_info.name")
-        # Right direction should score higher despite greater distance
-        assert score_right > 0
+        # At equal distance, the right-of-label relationship scores higher.
+        assert score_right > score_below > 0
 
     def test_numeric_field_bonus(self):
         """Numeric value for numeric field should get bonus."""
@@ -138,11 +138,17 @@ class TestFieldExtractor:
         assert "engineering_violation" in result.validation or "below_minimum" in result.validation
 
     def test_mud_density_bounds_wait_for_explicit_source_unit(self):
-        """Raw density validation waits until the companion unit is resolved."""
-        cells = {(3, 5): 0}
+        """Positive raw magnitude waits for the companion density unit."""
+        cells = {(3, 5): 71}
         ext = self._make_extractor(cells)
         result = ext.extract({"row": 3, "col": 5, "field": "MW"}, "mud_report.mw")
         assert result.validation == "valid"  # unit-aware extraction resolves/reviews it later
+
+    def test_zero_mud_density_is_invalid_before_unit_resolution(self):
+        cells = {(3, 5): 0}
+        ext = self._make_extractor(cells)
+        result = ext.extract({"row": 3, "col": 5, "field": "MW"}, "mud_report.mw")
+        assert result.validation == "engineering_violation(mw<=0)"
 
     def test_engineering_validation_inclination_range(self):
         """Inclination > 180 should be flagged."""

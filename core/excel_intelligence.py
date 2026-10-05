@@ -882,11 +882,12 @@ class FieldExtractor:
                 return "invalid_type"
 
             # Mud weight arrives before its companion unit field may have been
-            # visited. Its raw magnitude can legitimately exceed the canonical
-            # pcf range (e.g. kg/m3); normalize and bound it only after explicit
-            # unit context is resolved in ExcelIntelligence.extract().
+            # visited. Its positive raw magnitude can exceed the canonical PCF
+            # range (e.g. kg/m3), so defer upper-bound conversion until explicit
+            # unit context is resolved; non-positive density is invalid in every
+            # supported source unit and remains an immediate review.
             if canonical == "mud_report.mw":
-                return "valid"
+                return "engineering_violation(mw<=0)" if num_val <= 0 else "valid"
 
             # Engineering bounds from canonical schema
             min_val, max_val = get_engineering_bounds(canonical)

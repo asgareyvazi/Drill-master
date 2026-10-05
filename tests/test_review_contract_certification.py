@@ -103,8 +103,10 @@ def test_real_workbook_golden_shape_and_semantic_validation():
     assert report.total_rows_extracted == 147
     assert report.rejected_rows == 10  # each rejected source row counted once, not twice
     # ``ImportReport.validation_errors`` counts source-level review states;
-    # canonical validation must still have no typed/bounds errors.
-    assert report.validation_errors == 8  # weather labels no longer masquerade as invalid measurements
+    # canonical validation must still have no typed/bounds errors. The count is
+    # seven because unit-aware canonicalization no longer marks the valid source
+    # MW as out of bounds before converting its explicit unit to pcf.
+    assert report.validation_errors == 7
     assert report.fields_detected == 136  # missing weather values are unresolved; nearby cement text is not borrowed
 
     validation = validate_canonical_payload(report.canonical_json)

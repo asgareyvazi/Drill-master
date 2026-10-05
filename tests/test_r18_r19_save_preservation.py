@@ -390,10 +390,15 @@ def test_legacy_excel_contains_both_names_and_lossless_raw_archive(legacy, tmp_p
     assert [row[0] for row in wb["BHA"].iter_rows(min_row=2, values_only=True)] == [
         name for name, rows in LEGACY.items() for row in rows
     ]
+    raw_sheet = wb["Raw Data"]
+    raw_headers = next(raw_sheet.iter_rows(min_row=2, max_row=2, values_only=True))
+    entity_col = raw_headers.index("Entity")
+    record_id_col = raw_headers.index("Record ID")
+    chunk_col = raw_headers.index("JSON chunk (concatenate in row order)")
     chunks = [
-        row[2]
-        for row in wb["Raw Data"].iter_rows(min_row=3, values_only=True)
-        if row[0] == "BHAReport" and row[1] == identity
+        row[chunk_col]
+        for row in raw_sheet.iter_rows(min_row=3, values_only=True)
+        if row[entity_col] == "BHAReport" and row[record_id_col] == identity
     ]
     assert json.loads("".join(chunks))["bha_data_json"] == original
     wb.close()
