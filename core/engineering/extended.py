@@ -8,12 +8,9 @@ Formulas sourced from industry references and open-source drilling engineering r
 - 3D-directional-drilling-engine (ejbo2001): vectorized MCM, inclination/azimuth from sensors
 - DrillingEngineeringOperations (BillyFrcs): ECD, pressure loss, hoisting
 
-Every calculation has:
-- Published formula reference
-- Required inputs with units
-- Output with unit
-- Assumptions and limitations
-- Error conditions
+Engineering correlations are simplified screening estimates unless a result
+states otherwise. Reference provenance and unit conventions are recorded where
+identifiable; no standards-compliance certification is implied.
 """
 
 import math
@@ -280,68 +277,104 @@ class MudEngineering:
 class HydraulicsExtended:
     """Extended hydraulics calculations.
     
-    References:
-    - Bourgoyne et al., Applied Drilling Engineering
-    - API RP 13D (Rheology and Hydraulics)
+    Reference basis for the simplified Bingham field-unit equations:
+    Boyun Guo and Gefei Liu, “Mud Hydraulics Fundamentals,” Applied Drilling
+    Circulation Systems: Hydraulics, Calculations, and Models (2011), Chapter 2,
+    pp. 19–59, Eqs. 2.58–2.59. These are estimates; no API compliance is claimed.
     """
 
     @staticmethod
     def pressure_loss_annular(mw_ppg: float, pv_cp: float, yp_lbf100ft2: float,
                                flow_rate_gpm: float, hole_id_in: float,
                                pipe_od_in: float, length_ft: float) -> Dict:
-        """Calculate annular pressure loss using Bingham Plastic model.
+        """Estimate laminar annular pressure loss using Bingham Plastic.
         
-        Formula: ΔP = (YP × L) / (225 × (Dh - Dp)) + (PV × L × V) / (1000 × (Dh - Dp)²)
-        where V = 24.51 × Q / (Dh² - Dp²)
+        Uses the canonical simplified Bingham annular correlation.  The
+        calculated annular velocity is ft/min for display and is converted to
+        ft/s before the pressure-loss engine is called.
         
         Returns pressure loss in psi.
         """
-        dh = hole_id_in
-        dp = pipe_od_in
-        gap = dh - dp
-        
-        if gap <= 0:
-            raise ExtendedEngineeringError("Hole ID must be > Pipe OD")
-        
-        # Annular velocity ft/min
-        v_annular = 24.51 * flow_rate_gpm / (dh**2 - dp**2)
-        
-        # Bingham Plastic annular pressure loss
-        p_yield = (yp_lbf100ft2 * length_ft) / (225 * gap)
-        p_viscous = (pv_cp * length_ft * v_annular) / (1000 * gap**2)
-        total_psi = p_yield + p_viscous
+        from core.hydraulics_engine import AdvancedHydraulicsEngine
+
+        values = (mw_ppg, pv_cp, yp_lbf100ft2, flow_rate_gpm, hole_id_in, pipe_od_in, length_ft)
+        if any(not isinstance(value, (int, float)) or isinstance(value, bool) or not math.isfinite(value)
+               for value in values):
+            raise ExtendedEngineeringError("Bingham annular inputs must be finite real numbers")
+        if mw_ppg <= 0 or pv_cp <= 0 or yp_lbf100ft2 < 0 or flow_rate_gpm <= 0 or length_ft <= 0:
+            raise ExtendedEngineeringError("Bingham annular inputs require positive MW, PV, flow and length; YP nonnegative")
+        if hole_id_in <= pipe_od_in or pipe_od_in <= 0:
+            raise ExtendedEngineeringError("Hole ID must be greater than positive pipe OD")
+
+        gap = hole_id_in - pipe_od_in
+        velocity_fps = AdvancedHydraulicsEngine._calc_annular_velocity(
+            flow_rate_gpm, hole_id_in, pipe_od_in
+        )
+        v_annular = velocity_fps * 60.0
+        engine = AdvancedHydraulicsEngine()
+        engine.mud.mw_pcf = mw_ppg * 7.48052
+        engine.mud.pv = pv_cp
+        engine.mud.yp = yp_lbf100ft2
+        regime = engine._determine_flow_regime(velocity_fps, gap, is_annular=True)
+        total_psi = engine._bingham_annular_loss(
+            velocity_fps, gap, hole_id_in, pipe_od_in, length_ft,
+            mw_ppg, pv_cp, yp_lbf100ft2,
+        )
+        components = (
+            AdvancedHydraulicsEngine.bingham_laminar_annular_loss_components(
+                pv_cp, yp_lbf100ft2, velocity_fps, gap, length_ft
+            )
+            if regime != "Turbulent" else {"viscous_psi": None, "yield_psi": None}
+        )
+        p_yield = components["yield_psi"]
+        p_viscous = components["viscous_psi"]
         
         return {
-            "pressure_loss_psi": round(total_psi, 1),
+            "pressure_loss_psi": total_psi,
             "annular_velocity_ftmin": round(v_annular, 1),
-            "p_yield_component_psi": round(p_yield, 1),
-            "p_viscous_component_psi": round(p_viscous, 1),
-            "formula": "ΔP = YP×L/(225×(Dh-Dp)) + PV×L×V/(1000×(Dh-Dp)²)",
+            "p_yield_component_psi": p_yield,
+            "p_viscous_component_psi": p_viscous,
+            "flow_regime": regime,
+            "scope": "SCREENING",
+            "warnings": ["Simplified Bingham correlation; not API compliance or a field-grade hydraulics design."],
+            "formula": "Canonical simplified Bingham annular estimate with laminar/turbulent branch; velocity is converted from ft/min to ft/s.",
         }
 
     @staticmethod
     def pressure_loss_pipe(mw_ppg: float, pv_cp: float, yp_lbf100ft2: float,
                             flow_rate_gpm: float, pipe_id_in: float,
                             length_ft: float) -> Dict:
-        """Calculate pipe (inside drillstring) pressure loss.
+        """Estimate laminar pipe pressure loss inside the drillstring.
         
-        Formula: ΔP = (PV × L × V) / (18750 × D²) + (YP × L) / (225 × D)
-        where V = 24.51 × Q / D²
+        Uses the canonical simplified Bingham pipe correlation. The velocity
+        is converted from ft/min to ft/s before pressure is evaluated.
         """
-        d = pipe_id_in
-        if d <= 0:
-            raise ExtendedEngineeringError("Pipe ID must be > 0")
-        
-        v_pipe = 24.51 * flow_rate_gpm / d**2
-        
-        p_viscous = (pv_cp * length_ft * v_pipe) / (18750 * d**2)
-        p_yield = (yp_lbf100ft2 * length_ft) / (225 * d)
-        total_psi = p_viscous + p_yield
-        
+        from core.hydraulics_engine import AdvancedHydraulicsEngine
+
+        values = (mw_ppg, pv_cp, yp_lbf100ft2, flow_rate_gpm, pipe_id_in, length_ft)
+        if any(not isinstance(value, (int, float)) or isinstance(value, bool) or not math.isfinite(value)
+               for value in values):
+            raise ExtendedEngineeringError("Bingham pipe inputs must be finite real numbers")
+        if mw_ppg <= 0 or pv_cp <= 0 or yp_lbf100ft2 < 0 or flow_rate_gpm <= 0 or length_ft <= 0 or pipe_id_in <= 0:
+            raise ExtendedEngineeringError("Bingham pipe inputs require positive MW, PV, flow, ID and length; YP nonnegative")
+
+        velocity_fps = AdvancedHydraulicsEngine._calc_velocity(flow_rate_gpm, pipe_id_in)
+        v_pipe = velocity_fps * 60.0
+        engine = AdvancedHydraulicsEngine()
+        engine.mud.mw_pcf = mw_ppg * 7.48052
+        engine.mud.pv = pv_cp
+        engine.mud.yp = yp_lbf100ft2
+        regime = engine._determine_flow_regime(velocity_fps, pipe_id_in, is_annular=False)
+        total_psi = engine._bingham_pipe_loss(
+            velocity_fps, pipe_id_in, length_ft, mw_ppg, pv_cp, yp_lbf100ft2
+        )
         return {
-            "pressure_loss_psi": round(total_psi, 1),
+            "pressure_loss_psi": total_psi,
             "pipe_velocity_ftmin": round(v_pipe, 1),
-            "formula": "ΔP = PV×L×V/(18750×D²) + YP×L/(225×D)",
+            "flow_regime": regime,
+            "scope": "SCREENING",
+            "warnings": ["Simplified Bingham correlation; not API compliance or a field-grade hydraulics design."],
+            "formula": "Canonical simplified Bingham pipe estimate with laminar/turbulent branch; velocity is converted from ft/min to ft/s.",
         }
 
     @staticmethod
@@ -351,14 +384,17 @@ class HydraulicsExtended:
         
         Formula: ΔP_bit = (MW × Q²) / (10858 × TFA²)
         """
-        if tfa_in2 <= 0:
-            raise ExtendedEngineeringError("TFA must be > 0")
-        
-        delta_p = (mw_ppg * flow_rate_gpm**2) / (10858 * tfa_in2**2)
-        
+        from core.hydraulics_engine import AdvancedHydraulicsEngine
+
+        try:
+            delta_p = AdvancedHydraulicsEngine.calc_bit_pressure_drop(
+                flow_rate_gpm, mw_ppg, tfa_in2
+            )
+        except (TypeError, ValueError) as exc:
+            raise ExtendedEngineeringError(str(exc)) from exc
         return {
             "nozzle_pressure_drop_psi": round(delta_p, 1),
-            "formula": "ΔP_bit = MW × Q² / (10858 × TFA²)",
+            "formula": "Canonical simplified bit-nozzle pressure-drop calculation; see AdvancedHydraulicsEngine.",
         }
 
     @staticmethod
@@ -367,15 +403,16 @@ class HydraulicsExtended:
         
         Formula: V_jet = Q × 0.3208 / TFA (ft/s)
         """
-        if tfa_in2 <= 0:
-            raise ExtendedEngineeringError("TFA must be > 0")
-        
-        v_jet = flow_rate_gpm * 0.3208 / tfa_in2
-        
+        from core.hydraulics_engine import AdvancedHydraulicsEngine
+
+        try:
+            v_jet = AdvancedHydraulicsEngine.calc_jet_velocity(flow_rate_gpm, tfa_in2)
+        except (TypeError, ValueError) as exc:
+            raise ExtendedEngineeringError(str(exc)) from exc
         return {
             "jet_velocity_fps": round(v_jet, 1),
-            "jet_velocity_ftmin": round(v_jet * 60, 1),
-            "formula": "V_jet = Q × 0.3208 / TFA",
+            "jet_velocity_ftmin": round(v_jet * 60.0, 1),
+            "formula": "Canonical simplified nozzle velocity; see AdvancedHydraulicsEngine.",
         }
 
     @staticmethod
@@ -386,12 +423,19 @@ class HydraulicsExtended:
         Formula: F = 0.000516 × MW × Q × V_jet (lbf)
         Or: F = Q × √(MW × ΔP / 10858) (simplified)
         """
-        v_jet = flow_rate_gpm * math.sqrt(mw_ppg * nozzle_pressure_drop_psi / 10858)
-        force = 0.000516 * mw_ppg * flow_rate_gpm * v_jet
-        
+        from core.hydraulics_engine import AdvancedHydraulicsEngine
+
+        try:
+            tfa = AdvancedHydraulicsEngine.calc_tfa_from_pressure_drop(
+                flow_rate_gpm, mw_ppg, nozzle_pressure_drop_psi
+            )
+            velocity = AdvancedHydraulicsEngine.calc_jet_velocity(flow_rate_gpm, tfa)
+            force = AdvancedHydraulicsEngine.calc_impact_force(mw_ppg, flow_rate_gpm, velocity)
+        except (TypeError, ValueError) as exc:
+            raise ExtendedEngineeringError(str(exc)) from exc
         return {
             "impact_force_lbf": round(force, 1),
-            "formula": "F = 0.000516 × MW × Q × V_jet",
+            "formula": "Canonical simplified bit impact force; TFA and jet velocity are derived from supplied Q, MW and ΔP.",
         }
 
 
@@ -407,27 +451,74 @@ class WellControlExtended:
 
     @staticmethod
     def kick_tolerance(mw_ppg: float, tvd_ft: float, shoe_tvd_ft: float,
-                       lot_pressure_psi: float, influx_gradient_ppg: float = 0.1) -> Dict:
-        """Calculate kick tolerance.
-        
-        Formula: KT = (FPP - Current_P_bottom) / (0.052 × TVD)
-        where FPP = LOT / (0.052 × Shoe_TVD) + MW
+                       lot_pressure_psi: float, influx_gradient_ppg: float | None = None,
+                       formation_emw_ppg: float | None = None,
+                       annular_capacity_bbl_ft: float | None = None,
+                       bha_annular_capacity_bbl_ft: float | None = None,
+                       bha_length_ft: float | None = None,
+                       influx_gradient_psi_ft: float | None = None) -> Dict:
+        """Compatibility adapter to the canonical, geometry-aware kick-tolerance engine.
+
+        The legacy four-input form is intentionally not computed: it lacks an
+        explicit influx gradient and annular capacity and cannot produce a
+        defensible kick-tolerance volume. ``influx_gradient_psi_ft`` uses the
+        canonical psi/ft convention; the legacy ppg-equivalent argument is
+        converted explicitly by 0.052 psi/ft per ppg.
         """
-        fpp_ppg = lot_pressure_psi / (0.052 * shoe_tvd_ft) + mw_ppg
-        current_bottom_psi = 0.052 * mw_ppg * tvd_ft
-        max_bottom_psi = 0.052 * fpp_ppg * shoe_tvd_ft
-        
-        # Kick tolerance in equivalent mud weight
-        kt_ppg = fpp_ppg - mw_ppg
-        
-        # Maximum kick height
-        max_kick_height_ft = kt_ppg * tvd_ft / (mw_ppg - influx_gradient_ppg) if (mw_ppg - influx_gradient_ppg) > 0 else 0
-        
+        from core.engineering.engines.well_control import WellControlEngine
+
+        def invalid_input(error):
+            return {
+                "status": "INVALID_INPUT", "scope": "NOT_ASSESSED",
+                "error": error, "warnings": [], "values": {},
+                "kick_tolerance_bbl": None, "kick_tolerance_ppg": None,
+                "fracture_pressure_ppg": None, "max_kick_height_ft": None,
+                "formula": "",
+            }
+
+        if influx_gradient_psi_ft is not None and influx_gradient_ppg is not None:
+            return invalid_input(
+                "Specify influx_gradient_psi_ft or legacy influx_gradient_ppg, not both"
+            )
+        legacy_influx_psi_ft = None
+        if influx_gradient_ppg is not None:
+            if isinstance(influx_gradient_ppg, bool):
+                return invalid_input("influx_gradient_ppg must be finite and nonnegative")
+            try:
+                legacy_ppg_value = float(influx_gradient_ppg)
+            except (TypeError, ValueError, OverflowError):
+                legacy_ppg_value = math.nan
+            if not math.isfinite(legacy_ppg_value) or legacy_ppg_value < 0:
+                return invalid_input("influx_gradient_ppg must be finite and nonnegative")
+            legacy_influx_psi_ft = 0.052 * legacy_ppg_value
+        influx_psi_ft = (
+            influx_gradient_psi_ft
+            if influx_gradient_psi_ft is not None
+            else legacy_influx_psi_ft
+        )
+        result = WellControlEngine.kick_tolerance(
+            mw_ppg=mw_ppg,
+            shoe_tvd_ft=shoe_tvd_ft,
+            current_tvd_ft=tvd_ft,
+            lot_pressure_psi=lot_pressure_psi,
+            influx_gradient_psi_ft=influx_psi_ft,
+            formation_emw_ppg=formation_emw_ppg,
+            annular_capacity_bbl_ft=annular_capacity_bbl_ft,
+            bha_annular_capacity_bbl_ft=bha_annular_capacity_bbl_ft,
+            bha_length_ft=bha_length_ft,
+        )
+        values = result.values or {}
         return {
-            "kick_tolerance_ppg": round(kt_ppg, 2),
-            "fracture_pressure_ppg": round(fpp_ppg, 2),
-            "max_kick_height_ft": round(max_kick_height_ft, 0),
-            "formula": "KT = FPP - MW, FPP = LOT/(0.052×Shoe_TVD) + MW",
+            "status": "OK" if result.success else result.validation_status.upper(),
+            "scope": result.scope if result.success else "NOT_ASSESSED",
+            "error": result.error,
+            "warnings": result.warnings,
+            "values": values,
+            "kick_tolerance_bbl": values.get("kick_tolerance_bbl"),
+            "kick_tolerance_ppg": values.get("max_kick_intensity_ppg"),
+            "fracture_pressure_ppg": values.get("frac_mw_ppg"),
+            "max_kick_height_ft": values.get("max_kick_height_ft"),
+            "formula": result.formula,
         }
 
     @staticmethod

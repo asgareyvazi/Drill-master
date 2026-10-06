@@ -192,12 +192,14 @@ class TestW13DelegationParity:
         v = self.E.calc_jet_velocity(400, [13, 13, 14])
         tfa = BitEngine.calculate_tfa([13, 13, 14])
         assert v == round(AdvancedHydraulicsEngine.calc_jet_velocity(400, tfa), 2)
-        assert self.E.calc_jet_velocity(400, []) == 0.0
+        with pytest.raises(ValueError, match="nozzle sizes are required"):
+            self.E.calc_jet_velocity(400, [])
 
     def test_tfa_from_pressure_delegates(self):
         assert self.E.calc_tfa_from_pressure(400, 12, 707.3) == round(
             AdvancedHydraulicsEngine.calc_tfa_from_pressure_drop(400, 12, 707.3), 4)
-        assert self.E.calc_tfa_from_pressure(400, 12, 0) == 0
+        with pytest.raises(ValueError, match="delta_p_psi must be > 0"):
+            self.E.calc_tfa_from_pressure(400, 12, 0)
 
     def test_buoyancy_result_path_does_not_feed_failure_zero_to_landing(self):
         from core.engineering.engines.torque_drag import TorqueDragEngine

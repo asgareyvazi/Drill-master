@@ -47,7 +47,7 @@ from core.repositories.well_control_kill_sheet_repository import (  # noqa: E402
 )
 
 RAW = dict(
-    tvd_m=3000, md_m=3200, shoe_tvd_m=2000, hole_size_in=8.5,
+    tvd_m=3000, md_m=3200, shoe_tvd_m=2000, shoe_md_m=2000, hole_size_in=8.5,
     casing_id_in=8.835, casing_od_in=9.625, mw_pcf=90.0,
     frac_gradient_psi_ft=0.8, sidpp_psi=500, sicp_psi=700, pit_gain_bbl=10,
     scr1_psi=800, scr1_spm=30, scr2_psi=600, scr2_spm=25,
@@ -55,18 +55,18 @@ RAW = dict(
     pipes_m=[
         {"type": "DP", "od": 5.0, "id": 4.276, "length": 2800.0},
         {"type": "HWDP", "od": 5.0, "id": 3.0, "length": 200.0},
-        {"type": "DC", "od": 6.5, "id": 2.8125, "length": 150.0},
+        {"type": "DC", "od": 6.5, "id": 2.8125, "length": 200.0},
     ],
 )
 
 RAW2 = dict(
-    tvd_m=4200, md_m=4800, shoe_tvd_m=3500, hole_size_in=12.25,
+    tvd_m=4200, md_m=4800, shoe_tvd_m=3500, shoe_md_m=3500, hole_size_in=12.25,
     casing_id_in=12.415, casing_od_in=13.375, mw_pcf=112.0,
     frac_gradient_psi_ft=0.95, sidpp_psi=820, sicp_psi=1100, pit_gain_bbl=32,
     scr1_psi=1200, scr1_spm=40, scr2_psi=900, scr2_spm=32,
     pump_output_bbl_stk=0.117, method="Driller's", well_type="Deviated",
     pipes_m=[
-        {"type": "DP", "od": 5.5, "id": 4.778, "length": 4400.0},
+        {"type": "DP", "od": 5.5, "id": 4.778, "length": 4580.0},
         {"type": "DC", "od": 8.0, "id": 3.0, "length": 220.0},
     ],
 )
@@ -193,10 +193,10 @@ def test_partial_no_pipe_result_and_scope_survive_persistence():
     assert saved.result["stk_total"] is None
     assert saved.summary["total_well_vol_bbl"] is None
     assert saved.summary["stk_total"] is None
-    assert saved.input_snapshot["provenance"]["scope"] == "SCREENING"
-    assert saved.input_snapshot["provenance"]["geometry_assumption_used"] is True
-    assert any("5-in pipe OD" in item
-               for item in saved.input_snapshot["provenance"]["assumptions"])
+    assert saved.input_snapshot["provenance"]["scope"] == "PARTIAL"
+    assert saved.input_snapshot["provenance"]["geometry_assumption_used"] is False
+    assert not any("5-in pipe OD" in item
+                    for item in saved.input_snapshot["provenance"]["assumptions"])
     assert saved.verify(current_method=WellControlEngine.METHOD).status == VERIFY_MATCH
 
 

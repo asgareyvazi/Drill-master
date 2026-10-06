@@ -23,10 +23,11 @@ class PipeSegment:
     """یک بخش از رشته حفاری"""
     name: str = ""           # e.g., "5\" DP", "6.5\" DC", "MWD"
     pipe_type: str = "DP"    # DP, HWDP, DC, MWD, Motor, Stabilizer, Sub
-    od: float = 5.0          # inch
-    id: float = 4.276        # inch
+    # Zero dimensions/length mark unprovided geometry; callers must supply them.
+    od: float = 0.0          # inch
+    id: float = 0.0          # inch
     length: float = 0.0      # meters
-    weight_ppf: float = 19.5 # lb/ft
+    weight_ppf: float = 0.0  # lb/ft
     tj_od: float = 0.0       # Tool Joint OD (inch) - for surge/swab
     
     @property
@@ -54,8 +55,9 @@ class CasingSection:
     """یک بخش از کیسینگ/چاه باز"""
     name: str = ""           # e.g., "13-3/8 CSG", "Open Hole"
     section_type: str = "casing"  # casing, liner, open_hole
-    od: float = 9.625        # inch (OD of casing / hole size)
-    id: float = 8.835        # inch (ID of casing / hole size for OH)
+    # Zero dimensions mark unprovided casing/open-hole geometry.
+    od: float = 0.0          # inch (OD of casing / hole size)
+    id: float = 0.0          # inch (ID of casing / hole size for OH)
     top_md: float = 0.0      # meters
     bottom_md: float = 0.0   # meters
     top_tvd: float = 0.0     # meters (for directional)
@@ -73,8 +75,8 @@ class CasingSection:
 @dataclass
 class BitNozzle:
     """نازل بیت"""
-    size_32nds: int = 16     # اندازه به 1/32 اینچ
-    quantity: int = 1
+    size_32nds: int = 0      # 1/32 in; zero means no supplied nozzle size
+    quantity: int = 0        # zero means no supplied nozzle count
     
     @property
     def diameter_inch(self) -> float:
@@ -94,17 +96,18 @@ class BitNozzle:
 @dataclass
 class MudProperties:
     """خواص گل حفاری"""
-    mw_pcf: float = 75.0     # وزن گل (pcf)
-    pv: float = 15.0         # ویسکوزیته پلاستیک (cp)
-    yp: float = 11.0         # نقطه تسلیم (lb/100ft²)
-    theta600: float = 45.0   # قرائت 600
-    theta300: float = 25.0   # قرائت 300
-    theta200: float = 18.0   # قرائت 200
-    theta100: float = 12.0   # قرائت 100
-    theta6: float = 4.0      # قرائت 6
-    theta3: float = 3.0      # قرائت 3
-    gel_10s: float = 5.0     # ژل 10 ثانیه
-    gel_10m: float = 12.0    # ژل 10 دقیقه
+    # Zero marks unprovided data; no plausible rheology is silently seeded.
+    mw_pcf: float = 0.0      # density (lb/ft³)
+    pv: float = 0.0          # plastic viscosity (cP)
+    yp: float | None = None   # yield point (lbf/100 ft²); None means not supplied
+    theta600: float = 0.0    # viscometer dial reading
+    theta300: float = 0.0
+    theta200: float = 0.0
+    theta100: float = 0.0
+    theta6: float | None = None
+    theta3: float | None = None
+    gel_10s: float = 0.0
+    gel_10m: float = 0.0
     
     @property
     def mw_ppg(self) -> float:
@@ -132,32 +135,113 @@ class MudProperties:
     
     @property
     def k_power_law(self) -> float:
-        """consistency index - Power Law"""
+        """Field-unit power-law consistency index from the Fann reading.
+
+        Guo and Liu, Eq. (2.11), use ``K = 510·theta300 / 511**n`` for
+        theta300 in dial units and the 300-rpm shear rate convention. The
+        leading factor is a field-unit conversion, not an extra shear-rate
+        multiplier. This implementation keeps the published 510 coefficient.
+        """
         n = self.n_power_law
-        if n <= 0:
-            return 1.0
-        return 511 * self.theta300 / (511 ** n)
+        if n <= 0 or self.theta300 <= 0:
+            return 0.0
+        return 510.0 * self.theta300 / (511 ** n)
     
     @property
-    def tau_y_hb(self) -> float:
-        """Yield stress for Herschel-Bulkley (approximate)"""
-        return max(0, 2 * self.theta3 - self.theta6)
+    def tau_y_hb(self) -> float | None:
+        """Approximate HB yield stress from explicit 3/6-rpm readings, if supplied."""
+        if self.theta3 is None or self.theta6 is None:
+            return None
+        return max(0.0, 2.0 * self.theta3 - self.theta6)
+
+    @staticmethod
+    def calculate_fann_rheology(*, theta600: float, theta300: float,
+                                theta3: float | None = None,
+                                theta6: float | None = None) -> Dict:
+        """Canonical Fann-derived Bingham, Power Law, and screening HB values.
+
+        Readings are dial units at the named rpm. Power-law K is the
+        field-unit ``equivalent cP`` convention (510 theta300 / 511**n), not
+        the dimensional SI consistency index. The HB yield estimate and
+        ``PV + 5*YP`` display indicator are explicitly screening-only.
+        """
+        readings = {"theta600": theta600, "theta300": theta300}
+        if theta3 is not None:
+            readings["theta3"] = theta3
+        if theta6 is not None:
+            readings["theta6"] = theta6
+        for name, value in readings.items():
+            if (
+                not isinstance(value, (int, float))
+                or isinstance(value, bool)
+                or not math.isfinite(value)
+                or value < 0
+            ):
+                raise ValueError(f"{name} must be a finite nonnegative dial reading")
+        if theta600 <= theta300 or theta300 <= 0:
+            raise ValueError("theta600 must exceed positive theta300")
+        pv = theta600 - theta300
+        yp = theta300 - pv
+        if yp < 0:
+            raise ValueError("Fann readings imply negative Bingham yield point")
+        n = 3.32 * math.log10(theta600 / theta300)
+        k = 510.0 * theta300 / (511.0 ** n) if n > 0 else None
+        tau_y = None
+        if theta3 is not None and theta6 is not None:
+            tau_y = max(0.0, 2.0 * theta3 - theta6)
+        return {
+            "theta600": theta600,
+            "theta300": theta300,
+            "theta3": theta3,
+            "theta6": theta6,
+            "pv_cp": pv,
+            "yp_lbf100ft2": yp,
+            "power_law_n": n,
+            "power_law_k_equivalent_cp": k,
+            "hb_yield_estimate_lbf100ft2": tau_y,
+            "screening_effective_viscosity_indicator_cp": pv + 5.0 * yp,
+            "units": {
+                "dial_readings": "Fann dial units at stated rpm",
+                "pv": "cP",
+                "yp": "lbf/100 ft^2",
+                "power_law_n": "dimensionless",
+                "power_law_k": "equivalent cP at the 511 s^-1 convention",
+                "hb_yield_estimate": "lbf/100 ft^2",
+                "effective_viscosity_indicator": "cP (heuristic, not constitutive viscosity)",
+            },
+            "formula": {
+                "pv": "theta600 - theta300",
+                "yp": "theta300 - PV",
+                "power_law_n": "3.32 log10(theta600/theta300)",
+                "power_law_k": "510 theta300 / 511^n",
+                "hb_yield_estimate": "max(0, 2 theta3 - theta6)",
+                "effective_viscosity_indicator": "PV + 5 YP (heuristic only)",
+            },
+            "scope": "SCREENING",
+            "assumptions": [
+                "Power-law K follows the stated equivalent-cP field convention.",
+                "HB yield and PV+5YP indicator are screening estimates, not full rheological solutions.",
+            ],
+        }
 
 
 @dataclass
 class SurfaceEquipment:
     """تجهیزات سطحی"""
-    standpipe_length_m: float = 50.0
-    standpipe_id_inch: float = 3.5
-    hose_length_m: float = 30.0
-    hose_id_inch: float = 4.0
-    swivel_id_inch: float = 2.5
-    kelly_length_m: float = 12.0
-    kelly_id_inch: float = 3.0
+    # Zero-valued dimensions indicate missing/unprovided geometry.
+    standpipe_length_m: float = 0.0
+    standpipe_id_inch: float = 0.0
+    hose_length_m: float = 0.0
+    hose_id_inch: float = 0.0
+    swivel_id_inch: float = 0.0
+    kelly_length_m: float = 0.0
+    kelly_id_inch: float = 0.0
     
-    # یا استفاده از ثابت API
+    # Legacy field names retained for compatibility. A user-entered empirical
+    # E factor is not evidence of API-standard provenance or compliance.
     use_api_constant: bool = False
-    api_surface_loss_constant: float = 0.0  # E factor
+    api_surface_loss_constant: float = 0.0
+    swivel_length_m: float = 0.0
 
 
 @dataclass 
@@ -172,38 +256,20 @@ class WellProfile:
     target_md: float = 0.0
     target_tvd: float = 0.0
     target_inc: float = 0.0
-    build_rate: float = 2.0      # °/30m
+    build_rate: float = 0.0      # °/30m; required for an explicit build-section profile
     
     # Survey points for complex wells: [(md, inc, azi), ...]
     survey_points: list = field(default_factory=list)
     
     def get_tvd_at_md(self, md: float) -> float:
         """محاسبه TVD در یک عمق MD مشخص"""
+        if not isinstance(md, (int, float)) or isinstance(md, bool) or not math.isfinite(md) or md < 0:
+            raise ValueError("measured depth must be finite and nonnegative")
         if self.well_type == "vertical":
             return md
-        
         if self.survey_points:
             return self._interpolate_tvd(md)
-        
-        # محاسبه ساده بر اساس KOP
-        if md <= self.kop_md:
-            return md  # بخش عمودی
-        
-        if self.eob_md > 0 and md <= self.eob_md:
-            # بخش build
-            arc_length = md - self.kop_md
-            radius = 30 / math.radians(self.build_rate) if self.build_rate > 0 else 10000
-            inc_rad = arc_length / radius
-            tvd = self.kop_tvd + radius * math.sin(inc_rad)
-            return tvd
-        
-        # بخش tangent
-        if self.eob_md > 0:
-            remaining = md - self.eob_md
-            tvd = self.eob_tvd + remaining * math.cos(math.radians(self.eob_inc))
-            return tvd
-        
-        return md
+        raise ValueError("directional TVD is unsupported without measured survey TVD points")
     
     def get_inc_at_md(self, md: float) -> float:
         """محاسبه Inclination در یک عمق MD"""
@@ -221,47 +287,60 @@ class WellProfile:
         return self.eob_inc if self.eob_inc > 0 else self.target_inc
     
     def _interpolate_tvd(self, md: float) -> float:
-        """درون‌یابی TVD از survey points"""
-        if not self.survey_points:
-            return md
-        
-        # پیدا کردن دو نقطه نزدیک
-        for i in range(len(self.survey_points) - 1):
-            md1 = self.survey_points[i][0]
-            md2 = self.survey_points[i + 1][0]
-            
+        """Linearly interpolate explicitly recorded survey TVD between stations."""
+        if len(self.survey_points) < 2:
+            raise ValueError("at least two survey stations with TVD are required")
+        normalized = []
+        for index, point in enumerate(self.survey_points):
+            if len(point) < 4:
+                raise ValueError(f"survey station {index + 1} is missing measured TVD")
+            station_md, station_tvd = point[0], point[3]
+            if any(
+                not isinstance(value, (int, float))
+                or isinstance(value, bool)
+                or not math.isfinite(value)
+                for value in (station_md, station_tvd)
+            ) or station_md < 0 or station_tvd < 0:
+                raise ValueError(f"survey station {index + 1} has invalid MD/TVD")
+            normalized.append((station_md, station_tvd))
+        if any(current[0] <= previous[0] for previous, current in zip(normalized, normalized[1:])):
+            raise ValueError("survey measured depths must be strictly increasing")
+        if md < normalized[0][0] or md > normalized[-1][0]:
+            raise ValueError("survey TVD does not cover requested measured depth")
+        for (md1, tvd1), (md2, tvd2) in zip(normalized, normalized[1:]):
             if md1 <= md <= md2:
-                # درون‌یابی خطی ساده
-                fraction = (md - md1) / (md2 - md1) if md2 != md1 else 0
-                tvd1 = self.survey_points[i][3] if len(self.survey_points[i]) > 3 else md1
-                tvd2 = self.survey_points[i+1][3] if len(self.survey_points[i+1]) > 3 else md2
+                fraction = (md - md1) / (md2 - md1)
                 return tvd1 + fraction * (tvd2 - tvd1)
-        
-        return md
+        return normalized[-1][1]
 
 
 @dataclass
 class HydraulicsResult:
     """نتایج محاسبات هیدرولیک"""
-    # فشارها
-    surface_loss_psi: float = 0.0
+    # Unassessed calculations keep engineering outputs unknown (None); assessed
+    # outputs are SCREENING and carry explicit assumptions/warnings.
+    scope: str = "NOT_ASSESSED"
+    assumptions: list = field(default_factory=list)
+
+    # Unsupported calculations carry unknown outputs, never numeric zero answers.
+    surface_loss_psi: float | None = None
     pipe_losses: list = field(default_factory=list)   # [(segment_name, loss_psi), ...]
     annulus_losses: list = field(default_factory=list) # [(segment_name, loss_psi), ...]
-    bit_loss_psi: float = 0.0
-    total_loss_psi: float = 0.0
+    bit_loss_psi: float | None = None
+    total_loss_psi: float | None = None
     
     # ECD
-    ecd_at_bit_ppg: float = 0.0
-    ecd_at_shoe_ppg: float = 0.0
+    ecd_at_bit_ppg: float | None = None
+    ecd_at_shoe_ppg: float | None = None
     ecd_profile: list = field(default_factory=list)  # [(depth_m, ecd_ppg), ...]
     
     # Bit hydraulics
-    tfa_in2: float = 0.0
-    bit_hhp: float = 0.0
-    hsi: float = 0.0
-    jet_velocity_fps: float = 0.0
-    impact_force_lbs: float = 0.0
-    percent_bit_hp: float = 0.0
+    tfa_in2: float | None = None
+    bit_hhp: float | None = None
+    hsi: float | None = None
+    jet_velocity_fps: float | None = None
+    impact_force_lbs: float | None = None
+    percent_bit_hp: float | None = None
     
     # Flow regime
     flow_regimes_pipe: list = field(default_factory=list)    # [(segment, "Laminar"/"Turbulent"), ...]
@@ -272,8 +351,8 @@ class HydraulicsResult:
     pipe_velocities: list = field(default_factory=list)
     
     # Critical flow rate (annular, deepest section)
-    critical_flow_rate_gpm: float = 0.0
-    critical_velocity_ft_min: float = 0.0
+    critical_flow_rate_gpm: float | None = None
+    critical_velocity_ft_min: float | None = None
     critical_section: str = ""
 
     # سایر
@@ -288,9 +367,12 @@ class HydraulicsResult:
 # ==================== Main Engine ====================
 
 class AdvancedHydraulicsEngine:
-    """
-    موتور محاسبات هیدرولیک پیشرفته
-    مرجع: Applied Drilling Engineering (Bourgoyne et al.)
+    """Simplified drilling-hydraulics correlations with explicit unit conventions.
+
+    The laminar Bingham equations follow Guo and Liu, “Mud Hydraulics
+    Fundamentals,” Applied Drilling Circulation Systems (2011), Chapter 2,
+    pp. 19–59, Eqs. 2.58–2.59, in US field units. Other branches are estimates;
+    this class does not claim API standards compliance.
     """
     
     # ثابت‌ها
@@ -304,21 +386,171 @@ class AdvancedHydraulicsEngine:
         self.mud = MudProperties()
         self.surface_equipment = SurfaceEquipment()
         self.well_profile = WellProfile()
-        self.flow_rate_gpm: float = 250.0
-        self.bit_depth_m: float = 3000.0
+        self.flow_rate_gpm: float = 0.0
+        self.bit_depth_m: float = 0.0
+        self.bit_diameter_in: float | None = None
         self.model: str = "bingham"  # bingham, power_law, herschel_bulkley
     
     def calculate(self) -> HydraulicsResult:
-        """محاسبه کامل هیدرولیک"""
+        """Calculate a hydraulics profile only when operating/geometry inputs exist."""
         result = HydraulicsResult()
         result.flow_rate_gpm = self.flow_rate_gpm
+        missing = []
+        invalid = []
+
+        def finite_number(value):
+            return (
+                isinstance(value, (int, float))
+                and not isinstance(value, bool)
+                and math.isfinite(value)
+            )
+
+        def require_positive(value, label):
+            if value is None:
+                missing.append(label)
+            elif not finite_number(value):
+                invalid.append(f"{label} must be a finite number")
+            elif value <= 0:
+                (missing if value == 0 else invalid).append(label)
+
+        require_positive(self.flow_rate_gpm, "positive pump flow rate")
+        require_positive(self.bit_depth_m, "positive bit measured depth")
+        require_positive(self.mud.mw_pcf, "positive mud density")
+        require_positive(self.mud.pv, "positive plastic viscosity")
+        if self.mud.yp is None:
+            missing.append("yield point")
+        elif not finite_number(self.mud.yp) or self.mud.yp < 0:
+            invalid.append("yield point must be finite and nonnegative")
+        if not self.pipe_segments:
+            missing.append("drill-string geometry")
+        for index, segment in enumerate(self.pipe_segments):
+            label = f"pipe segment {index + 1} OD/ID/length"
+            for value, part in ((segment.od, "OD"), (segment.id, "ID"), (segment.length, "length")):
+                require_positive(value, f"{label} {part}")
+            if finite_number(segment.od) and finite_number(segment.id) and segment.id >= segment.od:
+                invalid.append(f"{label} requires ID smaller than OD")
+
+        if not self.casing_sections:
+            missing.append("casing/open-hole interval geometry")
+        for index, section in enumerate(self.casing_sections):
+            label = f"bore section {index + 1} ID/top MD/bottom MD"
+            for value, part in ((section.id, "ID"), (section.top_md, "top MD"), (section.bottom_md, "bottom MD")):
+                if not finite_number(value):
+                    invalid.append(f"{label} {part} must be finite")
+                elif part == "ID" and value <= 0:
+                    (missing if value == 0 else invalid).append(f"{label} {part}")
+            if finite_number(section.top_md) and finite_number(section.bottom_md) and section.bottom_md <= section.top_md:
+                invalid.append(f"{label} must have positive interval length")
+
+        if not self.nozzles:
+            missing.append("bit nozzle geometry")
+        for index, nozzle in enumerate(self.nozzles):
+            if not finite_number(nozzle.size_32nds) or nozzle.size_32nds <= 0:
+                (missing if finite_number(nozzle.size_32nds) and nozzle.size_32nds == 0 else invalid).append(
+                    f"bit nozzle {index + 1} size must be positive and finite"
+                )
+            if not finite_number(nozzle.quantity) or nozzle.quantity <= 0:
+                (missing if finite_number(nozzle.quantity) and nozzle.quantity == 0 else invalid).append(
+                    f"bit nozzle {index + 1} quantity must be positive and finite"
+                )
+        if self.bit_diameter_in is not None:
+            require_positive(self.bit_diameter_in, "positive bit diameter")
+
+        if self.model not in {"bingham", "power_law", "herschel_bulkley"}:
+            invalid.append("unsupported rheology model")
+        if self.model in {"power_law", "herschel_bulkley"}:
+            require_positive(self.mud.theta300, "positive theta300")
+            require_positive(self.mud.theta600, "positive theta600")
+            if finite_number(self.mud.theta600) and finite_number(self.mud.theta300) and self.mud.theta600 <= self.mud.theta300:
+                invalid.append("theta600 must exceed theta300")
+        if self.model == "herschel_bulkley":
+            for value, label in ((self.mud.theta3, "theta3"), (self.mud.theta6, "theta6")):
+                if value is None:
+                    missing.append(label)
+                elif not finite_number(value) or value < 0:
+                    invalid.append(f"{label} must be finite and nonnegative")
+
+        surface = self.surface_equipment
+        surface_pairs = (
+            (surface.standpipe_length_m, surface.standpipe_id_inch, "standpipe"),
+            (surface.hose_length_m, surface.hose_id_inch, "hose"),
+            (surface.swivel_length_m, surface.swivel_id_inch, "swivel"),
+            (surface.kelly_length_m, surface.kelly_id_inch, "kelly"),
+        )
+        for length, diameter, name in surface_pairs:
+            for value in (length, diameter):
+                if not finite_number(value) or value < 0:
+                    invalid.append(f"{name} geometry must be finite and nonnegative")
+            if finite_number(length) and finite_number(diameter) and (length > 0) != (diameter > 0):
+                invalid.append(f"{name} requires both explicit length and ID")
+        factor = surface.api_surface_loss_constant
+        if not isinstance(surface.use_api_constant, bool):
+            invalid.append("empirical surface-factor selection must be boolean")
+        if not finite_number(factor) or factor < 0:
+            invalid.append("empirical surface factor must be finite and nonnegative")
+        if finite_number(factor) and factor > 0 and not surface.use_api_constant:
+            invalid.append("empirical surface factor requires explicit selection")
+        has_surface_geometry = any(
+            finite_number(length) and length > 0 and finite_number(diameter) and diameter > 0
+            for length, diameter, _ in surface_pairs
+        )
+        has_surface_factor = surface.use_api_constant and finite_number(factor) and factor > 0
+        if not has_surface_geometry and not has_surface_factor:
+            missing.append("surface-equipment geometry or an explicitly selected empirical factor")
+
+        profile = self.well_profile
+        if profile.well_type != "vertical" and not profile.survey_points:
+            missing.append("directional measured survey TVD")
+        if invalid:
+            result.errors.append("Hydraulics not assessed: invalid " + "; ".join(dict.fromkeys(invalid)) + ".")
+        if missing:
+            result.errors.append("Hydraulics not assessed: missing " + ", ".join(dict.fromkeys(missing)) + ".")
+        if result.errors:
+            return result
         
         try:
-            # 1. Surface losses
-            result.surface_loss_psi = self._calc_surface_losses()
-            
-            # 2. Build drill string depth map
+            # 1. Build drill-string depth map from supplied pipe and bore geometry.
             segments_with_depth = self._build_depth_map()
+            bit_depth_ft = self.bit_depth_m * 3.28084
+            uncovered = [item for item in segments_with_depth if item["uncovered_ft"] > 0.5]
+            if not segments_with_depth or abs(segments_with_depth[-1]["bot_ft"] - bit_depth_ft) > 0.5:
+                result.errors.append(
+                    "Hydraulics not assessed: supplied drill-string lengths do not reach the bit depth."
+                )
+                return result
+            if uncovered:
+                result.errors.append(
+                    "Hydraulics not assessed: casing/open-hole geometry does not cover the full drill-string interval."
+                )
+                return result
+            invalid_clearance = [
+                f"{item['segment'].name} in {csg.name}"
+                for item in segments_with_depth
+                for csg, _length in item["overlaps"]
+                if csg.id <= item["segment"].od
+            ]
+            if invalid_clearance:
+                result.errors.append(
+                    "Hydraulics not assessed: nonpositive annular clearance at "
+                    + ", ".join(invalid_clearance) + "."
+                )
+                return result
+            ordered_bores = sorted(self.casing_sections, key=lambda section: section.top_md)
+            if any(
+                current.top_md < previous.bottom_md - 1e-6
+                for previous, current in zip(ordered_bores, ordered_bores[1:])
+            ):
+                result.errors.append("Hydraulics not assessed: overlapping bore-section intervals are ambiguous.")
+                return result
+            supplied_string_ft = sum(segment.length_ft for segment in self.pipe_segments)
+            if supplied_string_ft > bit_depth_ft + 0.5:
+                result.errors.append(
+                    "Hydraulics not assessed: supplied drill-string length exceeds measured bit depth."
+                )
+                return result
+
+            # 2. Surface losses, after minimum required inputs were validated.
+            result.surface_loss_psi = self._calc_surface_losses()
             
             # 3. Pipe & Annulus losses for each segment
             total_pipe_loss = 0.0
@@ -400,16 +632,20 @@ class AdvancedHydraulicsEngine:
             result.tfa_in2 = round(tfa, 4)
             
             if tfa > 0:
-                bit_od = (max(seg.od for seg in self.pipe_segments)
-                          if self.pipe_segments else 8.5)
-                bh = self.calc_bit_hydraulics(
-                    self.flow_rate_gpm, self.mud.mw_ppg, tfa, bit_od
+                result.bit_loss_psi = self.calc_bit_pressure_drop(
+                    self.flow_rate_gpm, self.mud.mw_ppg, tfa
                 )
-                result.bit_loss_psi = bh["bit_pressure_drop_psi"]
-                result.bit_hhp = bh["bit_hhp"]
-                result.hsi = bh["hsi"]
-                result.jet_velocity_fps = bh["jet_velocity_fps"]
-                result.impact_force_lbs = bh["impact_force_lbs"]
+                result.bit_hhp = self.calc_bit_hhp(self.flow_rate_gpm, result.bit_loss_psi)
+                result.jet_velocity_fps = self.calc_jet_velocity(self.flow_rate_gpm, tfa)
+                result.impact_force_lbs = self.calc_impact_force(
+                    self.mud.mw_ppg, self.flow_rate_gpm, result.jet_velocity_fps
+                )
+                if self.bit_diameter_in is not None and self.bit_diameter_in > 0:
+                    result.hsi = self.calc_hsi(result.bit_hhp, self.bit_diameter_in)
+                else:
+                    result.warnings.append(
+                        "HSI not assessed: bit diameter was not supplied."
+                    )
             
             # 5. Total
             result.total_loss_psi = round(
@@ -428,16 +664,43 @@ class AdvancedHydraulicsEngine:
                 result.ecd_at_bit_ppg = result.ecd_profile[-1][1]
                 
                 # ECD at shoe
-                shoe_depth = max((c.bottom_md for c in self.casing_sections 
+                shoe_depth = max((c.bottom_md for c in self.casing_sections
                                   if c.section_type == "casing"), default=0)
                 for depth, ecd in result.ecd_profile:
                     if depth >= shoe_depth:
                         result.ecd_at_shoe_ppg = ecd
                         break
+            result.scope = "SCREENING"
+            result.assumptions.extend((
+                "Simplified drilling-hydraulics correlations; not a standards-compliance certification.",
+                "Surface loss includes only explicitly supplied component dimensions or a selected empirical factor.",
+            ))
+            result.warnings.extend(result.assumptions)
+            if self.model == "herschel_bulkley":
+                result.warnings.append(
+                    "Herschel-Bulkley pressure loss is a Power Law plus yield-stress screening approximation, not a full HB solver."
+                )
+            if not result.ecd_profile:
+                result.warnings.append("ECD profile not assessed because supplied geometry is incomplete.")
             
         except Exception as e:
             logger.error(f"Hydraulics calculation error: {e}")
             result.errors.append(str(e))
+            result.scope = "NOT_ASSESSED"
+            for name in (
+                "surface_loss_psi", "bit_loss_psi", "total_loss_psi",
+                "ecd_at_bit_ppg", "ecd_at_shoe_ppg", "tfa_in2", "bit_hhp",
+                "hsi", "jet_velocity_fps", "impact_force_lbs", "percent_bit_hp",
+                "critical_flow_rate_gpm", "critical_velocity_ft_min",
+            ):
+                setattr(result, name, None)
+            result.pipe_losses.clear()
+            result.annulus_losses.clear()
+            result.ecd_profile.clear()
+            result.pipe_velocities.clear()
+            result.annular_velocities.clear()
+            result.flow_regimes_pipe.clear()
+            result.flow_regimes_annulus.clear()
         
         return result
 
@@ -464,10 +727,10 @@ class AdvancedHydraulicsEngine:
                 se.hose_id_inch, se.hose_length_m * 3.28084, self.flow_rate_gpm
             )
         
-        # Swivel
-        if se.swivel_id_inch > 0:
+        # Swivel: require an explicit length; never substitute an assumed 5 ft.
+        if se.swivel_id_inch > 0 and se.swivel_length_m > 0:
             total += self._calc_pipe_pressure_loss(
-                se.swivel_id_inch, 5.0, self.flow_rate_gpm  # ~5 ft effective
+                se.swivel_id_inch, se.swivel_length_m * 3.28084, self.flow_rate_gpm
             )
         
         # Kelly
@@ -502,11 +765,89 @@ class AdvancedHydraulicsEngine:
         
         return 0.0
     
-    def _bingham_pipe_loss(self, v: float, d: float, L: float, 
+    @staticmethod
+    def bingham_laminar_pipe_loss_components(pv_cp: float, yp_lbf100ft2: float,
+                                            velocity_fps: float, diameter_in: float,
+                                            length_ft: float) -> Dict[str, float]:
+        """Simplified Bingham laminar pipe loss in psi (US field units).
+
+        Inputs: PV [cP], YP [lbf/100 ft²], mean velocity [ft/s],
+        inside diameter [in], and length [ft].  This drilling-hydraulics
+        correlation uses 1500 for the viscous term and 225 for the yield term;
+        it is an approximate model, not a general non-Newtonian pipe solver.
+        """
+        values = (pv_cp, yp_lbf100ft2, velocity_fps, diameter_in, length_ft)
+        if any(
+            not isinstance(value, (int, float))
+            or isinstance(value, bool)
+            or not math.isfinite(value)
+            for value in values
+        ):
+            raise ValueError("Bingham inputs must be finite real numbers")
+        if diameter_in <= 0 or length_ft < 0 or min(pv_cp, yp_lbf100ft2, velocity_fps) < 0:
+            raise ValueError("Bingham inputs must be nonnegative and diameter positive")
+        return {
+            "viscous_psi": pv_cp * velocity_fps * length_ft / (1500.0 * diameter_in**2),
+            "yield_psi": yp_lbf100ft2 * length_ft / (225.0 * diameter_in),
+        }
+
+    @staticmethod
+    def bingham_laminar_pipe_loss(pv_cp: float, yp_lbf100ft2: float,
+                                  velocity_fps: float, diameter_in: float,
+                                  length_ft: float) -> float:
+        """Total of the canonical Bingham laminar pipe components in psi."""
+        return sum(AdvancedHydraulicsEngine.bingham_laminar_pipe_loss_components(
+            pv_cp, yp_lbf100ft2, velocity_fps, diameter_in, length_ft
+        ).values())
+
+    @staticmethod
+    def bingham_laminar_annular_loss_components(pv_cp: float, yp_lbf100ft2: float,
+                                     velocity_fps: float, gap_in: float,
+                                     length_ft: float) -> float:
+        """Simplified concentric-annulus Bingham loss in psi (US field units).
+
+        The model uses radial clearance ``Dh-Dp`` [in], mean annular velocity
+        [ft/s], and the drilling correlation constants 1000 and 200.  This
+        approximation does not represent eccentricity, rotation, or local
+        restrictions.
+        """
+        values = (pv_cp, yp_lbf100ft2, velocity_fps, gap_in, length_ft)
+        if any(
+            not isinstance(value, (int, float))
+            or isinstance(value, bool)
+            or not math.isfinite(value)
+            for value in values
+        ):
+            raise ValueError("Bingham inputs must be finite real numbers")
+        if gap_in <= 0 or length_ft < 0 or min(pv_cp, yp_lbf100ft2, velocity_fps) < 0:
+            raise ValueError("Bingham inputs must be nonnegative and gap positive")
+        return {
+            "viscous_psi": pv_cp * velocity_fps * length_ft / (1000.0 * gap_in**2),
+            "yield_psi": yp_lbf100ft2 * length_ft / (200.0 * gap_in),
+        }
+
+    @staticmethod
+    def bingham_laminar_annular_loss(pv_cp: float, yp_lbf100ft2: float,
+                                     velocity_fps: float, gap_in: float,
+                                     length_ft: float) -> float:
+        """Total of the canonical Bingham laminar annular components in psi."""
+        return sum(AdvancedHydraulicsEngine.bingham_laminar_annular_loss_components(
+            pv_cp, yp_lbf100ft2, velocity_fps, gap_in, length_ft
+        ).values())
+
+    def _bingham_pipe_loss(self, v: float, d: float, L: float,
                             mw: float, pv: float, yp: float) -> float:
-        """Bingham Plastic Model - Pipe"""
-        if d <= 0 or mw <= 0:
-            return 0.0
+        """Simplified Bingham pipe estimate with laminar/turbulent branches."""
+        values = (v, d, L, mw, pv, yp)
+        if any(
+            not isinstance(value, (int, float))
+            or isinstance(value, bool)
+            or not math.isfinite(value)
+            for value in values
+        ):
+            raise ValueError("Bingham pipe inputs must be finite real numbers")
+        if d <= 0 or mw <= 0 or L < 0 or v < 0 or pv <= 0 or yp < 0:
+            raise ValueError("Bingham pipe inputs require positive ID, MW and PV; other inputs must be nonnegative")
         
         # Critical velocity
         vc = (1.08 * pv + 1.08 * math.sqrt(pv**2 + 12.34 * d**2 * yp * mw)) / (mw * d)
@@ -515,8 +856,10 @@ class AdvancedHydraulicsEngine:
             # Turbulent
             return mw**0.75 * v**1.75 * pv**0.25 * L / (1800 * d**1.25)
         else:
-            # Laminar
-            return (pv * v * L) / (1000 * d**2) + (yp * L) / (225 * d)
+            # Laminar. At YP=0 this reduces to the Newtonian pipe equation;
+            # the field-unit coefficient 1500 is consistent with Poiseuille's
+            # exact 1496.3 conversion for these input units.
+            return self.bingham_laminar_pipe_loss(pv, yp, v, d, L)
     
     def _power_law_pipe_loss(self, v: float, d: float, L: float, mw: float) -> float:
         """Power Law Model - Pipe"""
@@ -535,7 +878,7 @@ class AdvancedHydraulicsEngine:
             vc = 999
         
         if v >= vc:
-            # Turbulent (API RP 13D)
+            # Empirical turbulent branch; no API-compliance claim is made.
             return 3.6033e-4 * mw**0.8 * v**1.8 * pv**0.2 * L / (d**1.2)
         else:
             # Laminar
@@ -544,8 +887,6 @@ class AdvancedHydraulicsEngine:
     
     def _hb_pipe_loss(self, v: float, d: float, L: float, mw: float) -> float:
         """Herschel-Bulkley Model - Pipe (approximate)"""
-        n = self.mud.n_power_law
-        k = self.mud.k_power_law
         tau_y = self.mud.tau_y_hb
         
         if d <= 0:
@@ -584,16 +925,24 @@ class AdvancedHydraulicsEngine:
     
     def _bingham_annular_loss(self, v: float, gap: float, d_h: float, d_p: float,
                                 L: float, mw: float, pv: float, yp: float) -> float:
-        """Bingham Model - Annulus"""
-        if gap <= 0 or mw <= 0:
-            return 0.0
+        """Simplified Bingham annulus estimate with laminar/turbulent branches."""
+        values = (v, gap, d_h, d_p, L, mw, pv, yp)
+        if any(
+            not isinstance(value, (int, float))
+            or isinstance(value, bool)
+            or not math.isfinite(value)
+            for value in values
+        ):
+            raise ValueError("Bingham annular inputs must be finite real numbers")
+        if gap <= 0 or d_h <= d_p or d_p <= 0 or L < 0 or v < 0 or mw <= 0 or pv <= 0 or yp < 0:
+            raise ValueError("Bingham annular inputs have invalid dimensions or rheology")
         
         vc_a = (1.08 * pv + 1.08 * math.sqrt(pv**2 + 9.26 * gap**2 * yp * mw)) / (mw * gap)
         
         if v >= vc_a:
             return mw**0.75 * v**1.75 * pv**0.25 * L / (1396 * gap**1.25)
         else:
-            return (pv * v * L) / (1000 * gap**2) + (yp * L) / (200 * gap)
+            return self.bingham_laminar_annular_loss(pv, yp, v, gap, L)
     
     def _power_law_annular_loss(self, v: float, gap: float, d_h: float, d_p: float,
                                   L: float, mw: float, gpm: float) -> float:
@@ -628,13 +977,15 @@ class AdvancedHydraulicsEngine:
 
     # ==================== Helper Methods ====================
     
-    def _calc_velocity(self, gpm: float, id_inch: float) -> float:
+    @staticmethod
+    def _calc_velocity(gpm: float, id_inch: float) -> float:
         """سرعت سیال (ft/s)"""
         if id_inch <= 0:
             return 0.0
         return gpm / (2.448 * id_inch**2)
     
-    def _calc_annular_velocity(self, gpm: float, hole_id: float, pipe_od: float) -> float:
+    @staticmethod
+    def _calc_annular_velocity(gpm: float, hole_id: float, pipe_od: float) -> float:
         """سرعت آنولوس (ft/s)"""
         area = hole_id**2 - pipe_od**2
         if area <= 0:
@@ -694,33 +1045,17 @@ class AdvancedHydraulicsEngine:
                 if ov_len > 0:
                     overlaps.append((csg, ov_len))
             
-            # اگر بخشی خارج از همه کیسینگ‌ها هست (open hole)
+            # Unmapped depth remains unknown: never synthesize an open-hole ID
+            # from the largest pipe OD or another display/calculation default.
             covered_ft = sum(ov[1] for ov in overlaps)
-            remaining = (seg_bot - seg_top) - covered_ft
-            
-            if remaining > 1:
-                # ساخت open hole section مجازی
-                oh = CasingSection(
-                    name="Open Hole",
-                    section_type="open_hole",
-                    id=max(s.od for s in self.pipe_segments) + 2.0 if self.pipe_segments else 8.5,
-                    od=0,
-                    top_md=0,
-                    bottom_md=self.bit_depth_m,
-                )
-                # استفاده از hole size واقعی اگه موجوده
-                for csg in self.casing_sections:
-                    if csg.section_type == "open_hole":
-                        oh = csg
-                        break
-                
-                overlaps.append((oh, remaining))
+            remaining_ft = max(0.0, (seg_bot - seg_top) - covered_ft)
             
             segments_info.append({
                 'segment': seg,
                 'top_ft': seg_top,
                 'bot_ft': seg_bot,
                 'overlaps': overlaps,
+                'uncovered_ft': remaining_ft,
             })
             
             current_depth_ft = seg_bot
@@ -730,123 +1065,262 @@ class AdvancedHydraulicsEngine:
     # ==================== ECD Profile ====================
     
     def _calc_ecd_profile(self, result: HydraulicsResult) -> list:
-        """محاسبه ECD vs Depth"""
+        """Return geometry-weighted ECD at MD stations (US field units).
+
+        Cumulative annular friction is integrated over the explicitly supplied
+        pipe/casing intervals above each station. It is not distributed as a
+        linear fraction of total loss by measured depth. The denominator uses
+        trajectory TVD from the selected well profile.
+        """
         profile = []
         bit_depth_m = self.bit_depth_m
-        
         if bit_depth_m <= 0:
             return profile
-        
-        # Total annular pressure loss
-        total_ann_loss = sum(loss for _, loss in result.annulus_losses)
-        
-        # Calculate ECD at intervals
+
+        segments = self._build_depth_map()
+        if (
+            not segments
+            or abs(segments[-1]["bot_ft"] - bit_depth_m * 3.28084) > 0.5
+            or any(item["uncovered_ft"] > 0.5 for item in segments)
+        ):
+            return profile
+
         intervals = 20
         step = bit_depth_m / intervals
-        
-        cumulative_ann_loss = 0.0
-        
         for i in range(intervals + 1):
             depth_m = i * step
+            depth_ft = depth_m * 3.28084
             tvd_m = self.well_profile.get_tvd_at_md(depth_m)
             tvd_ft = tvd_m * 3.28084
-            
             if tvd_ft <= 0:
                 profile.append((round(depth_m, 1), self.mud.mw_ppg))
                 continue
-            
-            # Proportional annular loss
-            fraction = depth_m / bit_depth_m if bit_depth_m > 0 else 0
-            ann_loss_at_depth = total_ann_loss * fraction
-            
-            # ECD = MW + APL / (0.052 × TVD)
-            ecd = self.mud.mw_ppg + ann_loss_at_depth / (0.052 * tvd_ft)
-            
+
+            cumulative_ann_loss = 0.0
+            for item in segments:
+                seg = item["segment"]
+                for csg, _overlap_ft in item["overlaps"]:
+                    csg_top_ft = csg.top_md * 3.28084
+                    csg_bottom_ft = csg.bottom_md * 3.28084
+                    interval_top = max(item["top_ft"], csg_top_ft)
+                    interval_bottom = min(item["bot_ft"], csg_bottom_ft, depth_ft)
+                    interval_length = interval_bottom - interval_top
+                    if interval_length > 0:
+                        cumulative_ann_loss += self._calc_annular_pressure_loss(
+                            csg.id, seg.od, interval_length, self.flow_rate_gpm
+                        )
+
+            ecd = self.mud.mw_ppg + cumulative_ann_loss / (0.052 * tvd_ft)
             profile.append((round(depth_m, 1), round(ecd, 3)))
-        
         return profile
 
     # ==================== Surge/Swab ====================
     
-    def calc_surge_swab(self, trip_speed_fpm: float = 90, 
-                         operation: str = "POOH",
-                         pipe_open: bool = True) -> Dict:
+    def calc_surge_swab(self, trip_speed_fpm: float | None = None,
+                         operation: str | None = None,
+                         pipe_open: bool | None = None) -> Dict:
+        """Return a geometry-aware surge/swab *screening* calculation.
+
+        Trip and induced annular velocities are first expressed in ft/min using
+        the Moore-style displacement ratio and the 1.5 maximum-velocity factor.
+        They are converted to ft/s only when delegated to this engine's
+        canonical annular pressure-loss model. No separate shear-rate/pressure
+        equation or synthetic hole diameter is used.
         """
-        محاسبه Surge/Swab پیشرفته
-        - برای هر ترکیب لوله
-        - با توجه به well profile
-        """
-        bit_depth_ft = self.bit_depth_m * 3.28084
-        mw = self.mud.mw_ppg
-        n = self.mud.n_bingham
-        k = self.mud.k_bingham
-        
+        warnings = [
+            "Screening approximation: concentric annulus, 0.45 clinging factor, "
+            "1.5 maximum-velocity factor, and selected simplified rheology; not an operational guarantee."
+        ]
+        operation_label = {"RIH": "Surge", "POOH": "Swab"}.get(operation, "Not selected")
+        invalid = []
+        missing = []
+
+        def finite(value):
+            return (
+                isinstance(value, (int, float))
+                and not isinstance(value, bool)
+                and math.isfinite(value)
+            )
+
+        if trip_speed_fpm is None or trip_speed_fpm == 0:
+            missing.append("positive trip speed")
+        elif not finite(trip_speed_fpm) or trip_speed_fpm < 0:
+            invalid.append("trip speed must be finite and positive")
+        if operation is None:
+            missing.append("operation (RIH or POOH)")
+        elif operation not in {"RIH", "POOH"}:
+            invalid.append("operation must be RIH or POOH")
+        if pipe_open is None:
+            missing.append("open/closed pipe selection")
+        elif not isinstance(pipe_open, bool):
+            invalid.append("open/closed pipe selection must be boolean")
+
+        for value, label in (
+            (self.bit_depth_m, "positive bit measured depth"),
+            (self.mud.mw_pcf, "positive mud density"),
+        ):
+            if value is None or value == 0:
+                missing.append(label)
+            elif not finite(value) or value < 0:
+                invalid.append(f"{label} must be finite and positive")
+        if self.model not in {"bingham", "power_law", "herschel_bulkley"}:
+            invalid.append("unsupported rheology model")
+        if self.model == "bingham":
+            if not finite(self.mud.pv) or self.mud.pv <= 0:
+                (missing if finite(self.mud.pv) and self.mud.pv == 0 else invalid).append(
+                    "positive plastic viscosity"
+                )
+            if self.mud.yp is None:
+                missing.append("yield point")
+            elif not finite(self.mud.yp) or self.mud.yp < 0:
+                invalid.append("yield point must be finite and nonnegative")
+        else:
+            for value, label in ((self.mud.theta300, "theta300"), (self.mud.theta600, "theta600")):
+                if not finite(value) or value <= 0:
+                    (missing if finite(value) and value == 0 else invalid).append(f"positive {label}")
+            if finite(self.mud.theta300) and finite(self.mud.theta600) and self.mud.theta600 <= self.mud.theta300:
+                invalid.append("theta600 must exceed theta300")
+            if self.model == "herschel_bulkley":
+                for value, label in ((self.mud.theta3, "theta3"), (self.mud.theta6, "theta6")):
+                    if not finite(value) or value < 0:
+                        (missing if value is None or (finite(value) and value == 0) else invalid).append(
+                            f"nonnegative {label} reading"
+                        )
+
+        if not self.pipe_segments:
+            missing.append("drill-string geometry")
+        if not self.casing_sections:
+            missing.append("casing/open-hole interval geometry")
+        for index, segment in enumerate(self.pipe_segments):
+            for value, label in ((segment.od, "OD"), (segment.length, "length")):
+                if not finite(value) or value <= 0:
+                    (missing if finite(value) and value == 0 else invalid).append(
+                        f"pipe segment {index + 1} positive finite {label}"
+                    )
+            if pipe_open is True and (not finite(segment.id) or segment.id <= 0):
+                (missing if finite(segment.id) and segment.id == 0 else invalid).append(
+                    f"pipe segment {index + 1} ID for open-pipe displacement"
+                )
+            if pipe_open is True and finite(segment.id) and finite(segment.od) and segment.id >= segment.od:
+                invalid.append(f"pipe segment {index + 1} ID must be smaller than OD")
+        for index, section in enumerate(self.casing_sections):
+            for value, label in ((section.id, "ID"), (section.top_md, "top MD"), (section.bottom_md, "bottom MD")):
+                if not finite(value):
+                    invalid.append(f"bore section {index + 1} {label} must be finite")
+                elif label == "ID" and value <= 0:
+                    (missing if value == 0 else invalid).append(f"bore section {index + 1} positive ID")
+            if finite(section.top_md) and finite(section.bottom_md) and section.bottom_md <= section.top_md:
+                invalid.append(f"bore section {index + 1} must have positive interval length")
+        ordered_sections = sorted(self.casing_sections, key=lambda section: section.top_md if finite(section.top_md) else 0)
+        if any(
+            finite(previous.bottom_md) and finite(current.top_md)
+            and current.top_md < previous.bottom_md - 1e-6
+            for previous, current in zip(ordered_sections, ordered_sections[1:])
+        ):
+            invalid.append("bore-section intervals overlap")
+
+        profile = self.well_profile
+        if profile.well_type != "vertical" and not profile.survey_points:
+            missing.append("directional measured survey TVD")
+
+        if not invalid and not missing:
+            bit_depth_ft = self.bit_depth_m * 3.28084
+            supplied_length_ft = sum(segment.length_ft for segment in self.pipe_segments)
+            if supplied_length_ft < bit_depth_ft - 0.5:
+                missing.append("pipe program does not reach bit depth")
+            elif supplied_length_ft > bit_depth_ft + 0.5:
+                invalid.append("pipe program exceeds bit depth")
+            depth_map = self._build_depth_map()
+            if not depth_map or abs(depth_map[-1]["bot_ft"] - bit_depth_ft) > 0.5:
+                missing.append("pipe program does not reach bit depth")
+            if any(item["uncovered_ft"] > 0.5 for item in depth_map):
+                missing.append("casing/open-hole geometry does not cover the pipe interval")
+            for item in depth_map:
+                if any(section.id <= item["segment"].od for section, _length in item["overlaps"]):
+                    invalid.append(f"nonpositive annular clearance in {item['segment'].name or 'pipe segment'}")
+
+        if invalid or missing:
+            warnings.extend(f"Invalid: {item}." for item in dict.fromkeys(invalid))
+            warnings.extend(f"Missing: {item}." for item in dict.fromkeys(missing))
+            return {
+                "type": operation_label,
+                "scope": "NOT_ASSESSED",
+                "total_pressure_psi": None,
+                "equiv_mw_ppg": None,
+                "equiv_mw_pcf": None,
+                "segments": [],
+                "unassessed_segments": list(dict.fromkeys(invalid + missing)),
+                "warnings": warnings,
+                "trip_speed_fpm": trip_speed_fpm,
+                "pipe_status": "Open" if pipe_open is True else "Closed" if pipe_open is False else "Not selected",
+            }
+
         total_pressure = 0.0
         segment_results = []
-        
-        for seg in self.pipe_segments:
-            seg_len_ft = seg.length_ft
-            
-            # Find the hole/casing ID this segment is in
-            hole_id = 8.5  # default
-            for csg in self.casing_sections:
-                csg_top_ft = csg.top_md * 3.28084
-                csg_bot_ft = csg.bottom_md * 3.28084
-                if csg_top_ft <= bit_depth_ft - seg_len_ft <= csg_bot_ft:
-                    hole_id = csg.id
-                    break
-            
-            hs = hole_id
-            od = seg.od
-            id_ = seg.id
-            
-            if hs <= od:
-                continue
-            
-            # Clinging constant
-            if pipe_open:
-                K_c = 0.45 + (od**2 - id_**2) / (hs**2 - od**2 + id_**2)
-            else:
-                K_c = 0.45 + od**2 / (hs**2 - od**2)
-            
-            v_pipe = K_c * trip_speed_fpm / 60  # ft/s
-            v_max = 1.5 * v_pipe
-            
-            # Pressure loss
-            gap = hs - od
-            if gap <= 0:
-                continue
-            
-            gamma = (2.4 * v_max / gap) * ((2 * n + 1) / (3 * n))
-            
-            if gamma > 0 and n > 0:
-                P_seg = (gamma ** n) * (k * seg_len_ft / (300 * gap))
-            else:
-                P_seg = 0
-            
-            total_pressure += P_seg
-            segment_results.append({
-                "segment": seg.name,
-                "pressure_psi": round(P_seg, 2),
-                "velocity_fps": round(v_max, 2),
-            })
-        
-        # TVD at bit
-        tvd_ft = self.well_profile.get_tvd_at_md(self.bit_depth_m) * 3.28084
-        
-        if operation == "RIH":
-            equiv_mw = mw + total_pressure / (0.052 * tvd_ft) if tvd_ft > 0 else mw
-            label = "Surge"
-        else:
-            equiv_mw = mw - total_pressure / (0.052 * tvd_ft) if tvd_ft > 0 else mw
-            label = "Swab"
-        
+        for item in depth_map:
+            segment = item["segment"]
+            for section, overlap_ft in item["overlaps"]:
+                hole_id = section.id
+                pipe_od = segment.od
+                annular_area_factor = hole_id**2 - pipe_od**2
+                if pipe_open:
+                    displacement_area_factor = pipe_od**2 - segment.id**2
+                    displacement_flow_area_factor = annular_area_factor + segment.id**2
+                else:
+                    displacement_area_factor = pipe_od**2
+                    displacement_flow_area_factor = annular_area_factor
+                if displacement_flow_area_factor <= 0 or annular_area_factor <= 0:
+                    warnings.append(f"Invalid annular area in {segment.name or 'pipe segment'} vs {section.name}.")
+                    return {
+                        "type": operation_label,
+                        "scope": "NOT_ASSESSED", "total_pressure_psi": None,
+                        "equiv_mw_ppg": None, "equiv_mw_pcf": None,
+                        "segments": [], "unassessed_segments": ["nonpositive annular area"],
+                        "warnings": warnings, "trip_speed_fpm": trip_speed_fpm,
+                        "pipe_status": "Open" if pipe_open else "Closed",
+                    }
+                induced_velocity_fpm = (
+                    0.45 + displacement_area_factor / displacement_flow_area_factor
+                ) * trip_speed_fpm
+                maximum_velocity_fpm = 1.5 * induced_velocity_fpm
+                maximum_velocity_fps = maximum_velocity_fpm / 60.0
+                equivalent_flow_gpm = maximum_velocity_fps * 2.448 * annular_area_factor
+                pressure = self._calc_annular_pressure_loss(
+                    hole_id, pipe_od, overlap_ft, equivalent_flow_gpm
+                )
+                total_pressure += pressure
+                segment_results.append({
+                    "segment": f"{segment.name} in {section.name}",
+                    "pressure_psi": round(pressure, 2),
+                    "fluid_velocity_ft_min": round(induced_velocity_fpm, 2),
+                    "maximum_velocity_ft_min": round(maximum_velocity_fpm, 2),
+                })
+
+        try:
+            tvd_ft = self.well_profile.get_tvd_at_md(self.bit_depth_m) * 3.28084
+        except (TypeError, ValueError, OverflowError):
+            tvd_ft = 0.0
+        if not finite(tvd_ft) or tvd_ft <= 0:
+            return {
+                "type": operation_label,
+                "scope": "NOT_ASSESSED", "total_pressure_psi": None,
+                "equiv_mw_ppg": None, "equiv_mw_pcf": None,
+                "segments": [], "unassessed_segments": ["positive finite TVD is required"],
+                "warnings": warnings + ["Missing: positive finite TVD."],
+                "trip_speed_fpm": trip_speed_fpm,
+                "pipe_status": "Open" if pipe_open else "Closed",
+            }
+        sign = 1.0 if operation == "RIH" else -1.0
+        equiv_mw = self.mud.mw_ppg + sign * total_pressure / (0.052 * tvd_ft)
         return {
-            "type": label,
+            "type": operation_label,
+            "scope": "SCREENING",
             "total_pressure_psi": round(total_pressure, 1),
             "equiv_mw_ppg": round(equiv_mw, 3),
-            "equiv_mw_pcf": round(equiv_mw * 7.48, 2),
+            "equiv_mw_pcf": round(equiv_mw * 7.48052, 2),
             "segments": segment_results,
+            "unassessed_segments": [],
+            "warnings": warnings,
             "trip_speed_fpm": trip_speed_fpm,
             "pipe_status": "Open" if pipe_open else "Closed",
         }
@@ -859,13 +1333,24 @@ class AdvancedHydraulicsEngine:
     # Constants: 10858 (ΔP), 1714 (HHP), 3.117 (jet velocity), 1930 (IF).
     # ------------------------------------------------------------------
     @staticmethod
+    def _require_finite_engineering_inputs(**values) -> None:
+        for name, value in values.items():
+            if (
+                not isinstance(value, (int, float))
+                or isinstance(value, bool)
+                or not math.isfinite(value)
+            ):
+                raise ValueError(f"{name} must be a finite real number")
+
+    @staticmethod
     def calc_bit_pressure_drop(gpm: float, mw_ppg: float, tfa_in2: float) -> float:
         """Bit nozzle pressure drop (psi).
 
             ΔP = Q² × MW / (10858 × TFA²)      (Q in gpm, MW in ppg, TFA in in²)
         """
-        if gpm < 0:
-            raise ValueError("gpm cannot be negative")
+        AdvancedHydraulicsEngine._require_finite_engineering_inputs(gpm=gpm, mw_ppg=mw_ppg, tfa_in2=tfa_in2)
+        if gpm <= 0:
+            raise ValueError("gpm must be > 0")
         if mw_ppg <= 0:
             raise ValueError("mw_ppg must be > 0")
         if tfa_in2 <= 0:
@@ -879,8 +1364,11 @@ class AdvancedHydraulicsEngine:
 
             TFA = √(Q² × MW / (10858 × ΔP))
         """
-        if gpm < 0:
-            raise ValueError("gpm cannot be negative")
+        AdvancedHydraulicsEngine._require_finite_engineering_inputs(
+            gpm=gpm, mw_ppg=mw_ppg, delta_p_psi=delta_p_psi
+        )
+        if gpm <= 0:
+            raise ValueError("gpm must be > 0")
         if mw_ppg <= 0:
             raise ValueError("mw_ppg must be > 0")
         if delta_p_psi <= 0:
@@ -893,15 +1381,19 @@ class AdvancedHydraulicsEngine:
 
             HHP = Q × ΔP / 1714
         """
-        if gpm < 0 or pressure_drop_psi < 0:
-            raise ValueError("Flow and pressure drop cannot be negative")
+        AdvancedHydraulicsEngine._require_finite_engineering_inputs(
+            gpm=gpm, pressure_drop_psi=pressure_drop_psi
+        )
+        if gpm <= 0 or pressure_drop_psi <= 0:
+            raise ValueError("Flow and pressure drop must be positive")
         return gpm * pressure_drop_psi / 1714.0
 
     @staticmethod
     def calc_hsi(bit_hhp: float, bit_od_in: float) -> float:
         """Hydraulic horsepower per square inch of bit area."""
-        if bit_hhp < 0:
-            raise ValueError("bit_hhp cannot be negative")
+        AdvancedHydraulicsEngine._require_finite_engineering_inputs(bit_hhp=bit_hhp, bit_od_in=bit_od_in)
+        if bit_hhp <= 0:
+            raise ValueError("bit_hhp must be > 0")
         if bit_od_in <= 0:
             raise ValueError("bit_od_in must be > 0")
         area = math.pi / 4.0 * bit_od_in**2
@@ -910,6 +1402,9 @@ class AdvancedHydraulicsEngine:
     @staticmethod
     def calc_jet_velocity(gpm: float, tfa_in2: float) -> float:
         """Nozzle jet velocity (ft/s)."""
+        AdvancedHydraulicsEngine._require_finite_engineering_inputs(gpm=gpm, tfa_in2=tfa_in2)
+        if gpm <= 0:
+            raise ValueError("gpm must be > 0")
         if tfa_in2 <= 0:
             raise ValueError("TFA must be > 0")
         return gpm / (3.117 * tfa_in2)
@@ -921,8 +1416,11 @@ class AdvancedHydraulicsEngine:
 
             F = MW × Q × v / 1930
         """
-        if mw_ppg <= 0 or gpm < 0 or jet_velocity_fps < 0:
-            raise ValueError("MW must be > 0; flow and jet velocity cannot be negative")
+        AdvancedHydraulicsEngine._require_finite_engineering_inputs(
+            mw_ppg=mw_ppg, gpm=gpm, jet_velocity_fps=jet_velocity_fps
+        )
+        if mw_ppg <= 0 or gpm <= 0 or jet_velocity_fps <= 0:
+            raise ValueError("MW, flow and jet velocity must be positive")
         return mw_ppg * gpm * jet_velocity_fps / 1930.0
 
     @staticmethod
@@ -1008,7 +1506,7 @@ class AdvancedHydraulicsEngine:
 
         # Parasitic friction at the pump-test point (SPP minus bit loss).
         dpf_1 = 0.0
-        if prev_tfa > 0:
+        if prev_tfa > 0 and fr1 > 0 and spp1 > 0 and mw_ppg > 0:
             dpf_1 = spp1 - AdvancedHydraulicsEngine.calc_bit_pressure_drop(
                 fr1, mw_ppg, prev_tfa)
         a = dpf_1 / (fr1 ** n) if fr1 > 0 else 0.0
@@ -1101,6 +1599,10 @@ class AdvancedHydraulicsEngine:
         Below Qc the annulus is laminar (cuttings-bed risk); above Qc
         turbulent (better hole cleaning, higher ECD).
         """
+        AdvancedHydraulicsEngine._require_finite_engineering_inputs(
+            mw_ppg=mw_ppg, pv_cp=pv_cp, yp_lbf100ft2=yp_lbf100ft2,
+            hole_size_in=hole_size_in, pipe_od_in=pipe_od_in,
+        )
         gap = hole_size_in - pipe_od_in
         if hole_size_in <= 0 or pipe_od_in <= 0:
             raise ValueError("Hole size and pipe OD must be > 0")
@@ -1125,27 +1627,44 @@ class AdvancedHydraulicsEngine:
 
     @staticmethod
     def calc_annular_volume(hole_id: float, pipe_od: float, length_ft: float) -> float:
-        """حجم آنولوس (bbl)"""
+        """Annular volume (bbl), with positive dimensions and interval length."""
+        AdvancedHydraulicsEngine._require_finite_engineering_inputs(
+            hole_id=hole_id, pipe_od=pipe_od, length_ft=length_ft
+        )
+        if hole_id <= pipe_od or pipe_od <= 0 or length_ft <= 0:
+            raise ValueError("Annular volume requires hole ID > positive pipe OD and positive length")
         return (hole_id**2 - pipe_od**2) / 1029.4 * length_ft
 
     @staticmethod
     def calc_pipe_capacity_bbl(pipe_id: float, length_ft: float) -> float:
-        """ظرفیت لوله (bbl)"""
+        """Pipe volume (bbl), with positive ID and interval length."""
+        AdvancedHydraulicsEngine._require_finite_engineering_inputs(pipe_id=pipe_id, length_ft=length_ft)
+        if pipe_id <= 0 or length_ft <= 0:
+            raise ValueError("Pipe capacity requires positive ID and length")
         return pipe_id**2 / 1029.4 * length_ft
 
     @staticmethod
     def calc_annular_capacity_bbl_ft(hole_id: float, pipe_od: float) -> float:
         """Annular capacity (bbl/ft) — canonical (Dh² − Dp²)/1029.4."""
+        AdvancedHydraulicsEngine._require_finite_engineering_inputs(hole_id=hole_id, pipe_od=pipe_od)
+        if pipe_od <= 0 or hole_id <= pipe_od:
+            raise ValueError("Annular capacity requires hole ID > positive pipe OD")
         return (hole_id**2 - pipe_od**2) / 1029.4
 
     @staticmethod
     def calc_pipe_capacity_bbl_ft(pipe_id: float) -> float:
         """Pipe capacity (bbl/ft) — canonical ID²/1029.4."""
+        AdvancedHydraulicsEngine._require_finite_engineering_inputs(pipe_id=pipe_id)
+        if pipe_id <= 0:
+            raise ValueError("Pipe ID must be positive")
         return pipe_id**2 / 1029.4
 
     @staticmethod
     def calc_pipe_displacement_bbl_ft(pipe_od: float, pipe_id: float) -> float:
         """Pipe metal displacement (bbl/ft) — canonical (OD² − ID²)/1029.4."""
+        AdvancedHydraulicsEngine._require_finite_engineering_inputs(pipe_od=pipe_od, pipe_id=pipe_id)
+        if pipe_id <= 0 or pipe_od <= pipe_id:
+            raise ValueError("Pipe displacement requires OD > positive ID")
         return (pipe_od**2 - pipe_id**2) / 1029.4
 
     @staticmethod

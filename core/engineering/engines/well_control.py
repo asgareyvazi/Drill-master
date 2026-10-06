@@ -41,6 +41,7 @@ class WellControlEngine:
     @staticmethod
     def _frac_mw_ppg(
         shoe_tvd_ft: float,
+        current_mw_ppg: float,
         frac_mw_ppg=None,
         lot_pressure_psi=None,
         frac_gradient_psi_ft=None,
@@ -54,7 +55,8 @@ class WellControlEngine:
             pressure = require_number(lot_pressure_psi, "lot_pressure_psi")
             if pressure <= 0:
                 raise EngineeringError("lot_pressure_psi must be > 0")
-            return pressure / (PSI_PER_PPG_FT * shoe_tvd_ft)
+            # LOT surface pressure is added to existing mud hydrostatic head.
+            return current_mw_ppg + pressure / (PSI_PER_PPG_FT * shoe_tvd_ft)
         if frac_gradient_psi_ft not in (None, ""):
             gradient = require_number(frac_gradient_psi_ft, "frac_gradient_psi_ft")
             if gradient <= 0:
@@ -278,7 +280,9 @@ class WellControlEngine:
             if tvd < shoe:
                 warnings.append("Current TVD is shallower than shoe TVD — check inputs")
 
-            frac_mw = cls._frac_mw_ppg(shoe, frac_mw_ppg, lot_pressure_psi, frac_gradient_psi_ft)
+            frac_mw = cls._frac_mw_ppg(
+                shoe, mw, frac_mw_ppg, lot_pressure_psi, frac_gradient_psi_ft
+            )
             influx_g = cls._influx_gradient_psi_ft(influx_gradient_psi_ft, influx_emw_ppg)
 
             form_emw = optional_number(formation_emw_ppg, "formation_emw_ppg")

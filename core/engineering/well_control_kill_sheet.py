@@ -23,26 +23,23 @@ Only ``kill_mw``, ``maasp`` and ``kick_volume`` were actual
 ``WellControlEngine`` calls. Everything else was engineering logic living in the
 UI layer, i.e. the *real* input boundary was the handler, not the engine.
 
-This module makes the boundary honest and deterministic **without changing a
-single formula, constant, unit factor or safety cut-off** (mission primary
-directive). It provides:
+This module keeps the boundary deterministic while distinguishing supplied
+measurements from absent geometry. It provides:
 
-* :class:`WellControlKillSheetInputs` — a frozen, Qt-free canonical-unit input
-  object (mission §11). It captures the *exact* values consumed by the
-  computation, already in canonical oilfield units, plus the immutable pipe
-  program as a tuple of plain :class:`PipeSegment` records.
-* :func:`build_canonical_kill_sheet_inputs` — the **single owner** of every
-  raw→canonical unit conversion (mission §9). Handlers hand it raw UI numbers in
-  their native display units; nothing else in the stack converts units.
-* :func:`compute_kill_sheet` — the relocated composite computation. It reproduces
-  the handler's arithmetic byte-for-byte (verified by regression tests) and
-  returns a complete, serializable :class:`KillSheetResult`.
+* :class:`WellControlKillSheetInputs` — a frozen, Qt-free input object with
+  canonical units and immutable drill-string segments.
+* :func:`build_canonical_kill_sheet_inputs` — the owner of UI-to-engine unit
+  conversion and missing/invalid-input provenance.
+* :func:`compute_kill_sheet` — the composite kill-sheet computation. Pressure
+  formulas delegate to :class:`WellControlEngine`; volume calculations require
+  a complete pipe program and a measured casing-shoe MD before reporting totals.
+  Kick-height output is explicitly screening-only when it uses a single local
+  bottomhole annular capacity. Missing geometry does not receive a synthetic
+  pipe OD or casing/open-hole interval.
 
-The formulas, the "simplified annulus" assumption (annulus always uses the last
-casing ID), the linear 10-interval choke schedule and every numeric constant are
-preserved verbatim from the original handler. This module deliberately does NOT
-"fix" the simplified annulus or any other pre-existing modelling choice; doing so
-would change results and violate the mission's no-formula-change rule.
+The choke schedule remains a 10-interval linear interpolation. These results are
+not presented as an API standards-compliance certification; the calculation
+scope and geometry assumptions are returned with each result.
 """
 from __future__ import annotations
 
@@ -136,6 +133,9 @@ class WellControlKillSheetInputs:
     # method + descriptive
     method: str
     well_type: str
+    # Optional casing-shoe measured depth; required for geometry-split annular
+    # volume because shoe TVD alone cannot locate the interval on a deviated well.
+    shoe_md_ft: Optional[float] = None
     # drill string program (immutable)
     pipes: Tuple[PipeSegment, ...] = ()
     # descriptive echoes of the source display units (NOT consumed by any
@@ -154,6 +154,7 @@ class WellControlKillSheetInputs:
             "tvd_ft": self.tvd_ft,
             "md_ft": self.md_ft,
             "shoe_tvd_ft": self.shoe_tvd_ft,
+            "shoe_md_ft": self.shoe_md_ft,
             "hole_size_in": self.hole_size_in,
             "casing_id_in": self.casing_id_in,
             "mw_ppg": self.mw_ppg,
@@ -190,6 +191,7 @@ class WellControlKillSheetInputs:
             tvd_ft=float(data["tvd_ft"]),
             md_ft=float(data["md_ft"]),
             shoe_tvd_ft=float(data["shoe_tvd_ft"]),
+            shoe_md_ft=(float(data["shoe_md_ft"]) if data.get("shoe_md_ft") is not None else None),
             hole_size_in=float(data["hole_size_in"]),
             casing_id_in=float(data["casing_id_in"]),
             mw_ppg=float(data["mw_ppg"]),
@@ -216,6 +218,7 @@ def build_canonical_kill_sheet_inputs(
     tvd_m: float,
     md_m: float,
     shoe_tvd_m: float,
+    shoe_md_m: Optional[float] = None,
     hole_size_in: float,
     casing_id_in: float,
     casing_od_in: Optional[float] = None,
@@ -300,10 +303,15 @@ def build_canonical_kill_sheet_inputs(
     }
     missing_inputs = tuple(name for name, value in required_raw.items() if _num(value) is None)
 
+    shoe_md = _num(shoe_md_m)
+    if shoe_md is not None and (shoe_md < 0 or (_num(md_m) is not None and shoe_md > _num(md_m))):
+        invalid_inputs.append("shoe_md_m must be between zero and measured depth")
+
     display = {
         "tvd_m": tvd_m,
         "md_m": md_m,
         "shoe_tvd_m": shoe_tvd_m,
+        "shoe_md_m": shoe_md_m,
         "mw_pcf": mw_pcf,
         "casing_od_in": casing_od_in,
         "casing_id_in": casing_id_in,
@@ -319,6 +327,7 @@ def build_canonical_kill_sheet_inputs(
         tvd_ft=(_num(tvd_m) or 0.0) * FT_PER_M,
         md_ft=(_num(md_m) or 0.0) * FT_PER_M,
         shoe_tvd_ft=(_num(shoe_tvd_m) or 0.0) * FT_PER_M,
+        shoe_md_ft=shoe_md * FT_PER_M if shoe_md is not None else None,
         hole_size_in=_num(hole_size_in) or 0.0,
         casing_id_in=_num(casing_id_in) or 0.0,
         mw_ppg=(_num(mw_pcf) or 0.0) / PCF_PER_PPG,
@@ -462,12 +471,12 @@ KILL_ENGINE_FAILED = "ENGINE_FAILED"
 
 
 def compute_kill_sheet(inp: WellControlKillSheetInputs) -> KillSheetResult:
-    """Composite kill-sheet computation, relocated verbatim from the handler.
+    """Composite kill-sheet computation over canonical, provenance-aware inputs.
 
-    The arithmetic below is byte-for-byte identical to the historical
-    ``_wc_calc_kill`` handler (a regression test asserts equal engine outputs).
-    Only its *location* changed: it now consumes a canonical, Qt-free input
-    object instead of reading widgets and converting units inline.
+    The kill-weight, ICP/FCP, MAASP, kick classification, and schedule logic
+    delegate to the existing well-control engine or its documented screening
+    interpolation. Geometry-dependent totals require an MD-positioned pipe and
+    casing/open-hole program; unsupported totals remain ``None``.
     """
     A = AdvancedHydraulicsEngine
     WC = WellControlEngine
@@ -541,9 +550,6 @@ def compute_kill_sheet(inp: WellControlKillSheetInputs) -> KillSheetResult:
     pit_gain = inp.pit_gain_bbl
     scr1 = inp.scr1_psi
     pump_output = inp.pump_output_bbl_stk
-    hole = inp.hole_size_in
-    csg_id = inp.casing_id_in
-
     # --- string + annular volumes (canonical bbl/ft x ft) ------------------
     total_string_vol = 0.0
     total_ann_vol = 0.0
@@ -552,25 +558,40 @@ def compute_kill_sheet(inp: WellControlKillSheetInputs) -> KillSheetResult:
 
     annulus_assessable = bool(inp.pipes)
     for p in inp.pipes:
-        od = p.od_in
-        id_ = p.id_in
-        L_ft = p.length_ft
-        ptype = p.type
+        capacity = A.calc_pipe_capacity_bbl_ft(p.id_in) * p.length_ft
+        total_string_vol += capacity
+        string_detail.append((p.type, p.length_ft / FT_PER_M, capacity))
 
-        cap = A.calc_pipe_capacity_bbl_ft(id_) * L_ft
-        total_string_vol += cap
-        # detail lengths reported in metres to match the original kill sheet
-        string_detail.append((ptype, L_ft / FT_PER_M, cap))
-
-        # Annular (simplified: last casing ID for the whole string) — preserved
-        if L_ft > 0:
-            ann_id_val = csg_id
-            if ann_id_val > od:
-                ann = A.calc_annular_capacity_bbl_ft(ann_id_val, od) * L_ft
-                total_ann_vol += ann
-                ann_detail.append((f"{ptype} in CSG", L_ft / FT_PER_M, ann))
-            else:
-                annulus_assessable = False
+    pipe_program_ft = sum(p.length_ft for p in inp.pipes)
+    pipe_geometry_available = bool(inp.pipes) and abs(pipe_program_ft - inp.md_ft) <= 1.0
+    annulus_assessable = (
+        pipe_geometry_available
+        and inp.shoe_md_ft is not None
+        and 0 <= inp.shoe_md_ft <= inp.md_ft
+        and inp.hole_size_in > 0
+        and inp.casing_id_in > 0
+    )
+    if annulus_assessable:
+        depth_top_ft = 0.0
+        for p in inp.pipes:
+            depth_bottom_ft = depth_top_ft + p.length_ft
+            cased_length = max(0.0, min(depth_bottom_ft, inp.shoe_md_ft) - depth_top_ft)
+            open_length = max(0.0, depth_bottom_ft - max(depth_top_ft, inp.shoe_md_ft))
+            for zone_name, ann_id, zone_length in (
+                ("CSG", inp.casing_id_in, cased_length),
+                ("Open hole", inp.hole_size_in, open_length),
+            ):
+                if zone_length <= 0:
+                    continue
+                if ann_id <= p.od_in:
+                    annulus_assessable = False
+                    break
+                volume = A.calc_annular_capacity_bbl_ft(ann_id, p.od_in) * zone_length
+                total_ann_vol += volume
+                ann_detail.append((f"{p.type} in {zone_name}", zone_length / FT_PER_M, volume))
+            if not annulus_assessable:
+                break
+            depth_top_ft = depth_bottom_ft
 
     # --- kill weight (engine) ---------------------------------------------
     kmw_r = WC.kill_mw(mw_ppg, sidpp, inp.tvd_ft)
@@ -598,107 +619,95 @@ def compute_kill_sheet(inp: WellControlKillSheetInputs) -> KillSheetResult:
         return KillSheetResult(success=False, error=f"{KILL_ENGINE_FAILED}: {maasp_r.error}")
     maasp = maasp_r.value
 
-    # A missing drill-string program is not a zero-volume string. Preserve the
-    # historical accumulator arithmetic above for recorded segments, then
-    # expose pipe-dependent quantities as unknown when the geometry is absent.
-    pipe_geometry_available = bool(inp.pipes)
+    # Volumes are totals only when the entered pipe program reaches MD and the
+    # annular geometry is located by an explicitly supplied shoe MD. TVD cannot
+    # substitute for shoe MD in a directional/horizontal well.
     string_volume = total_string_vol if pipe_geometry_available else None
-    annular_volume = (
-        total_ann_vol if annulus_assessable else None
-    )
+    annular_volume = total_ann_vol if annulus_assessable else None
     well_volume = (
         total_string_vol + total_ann_vol
         if pipe_geometry_available and annulus_assessable else None
     )
 
     warnings: List[str] = []
-    if not pipe_geometry_available:
+    if not inp.pipes:
         warnings.append(
             "Drill-string geometry is missing; string/annular volumes and "
             "pipe-dependent strokes are not assessed."
         )
+    elif not pipe_geometry_available:
+        warnings.append(
+            "Pipe program length does not match measured depth; total string "
+            "volume and pipe-dependent strokes are not assessed."
+        )
     if pipe_geometry_available and not annulus_assessable:
         warnings.append(
-            "Annular volume is not assessed for at least one segment because "
-            "the simplified casing-ID geometry does not clear its pipe OD."
+            "Total annular volume is not assessed: a valid shoe measured depth, "
+            "casing ID, hole size, and positive clearance for every interval are required."
         )
 
     # --- strokes -----------------------------------------------------------
-    stk_to_bit = (
-        total_string_vol / pump_output
-        if pipe_geometry_available and pump_output > 0 else None
-    )
-    stk_annular = (
-        total_ann_vol / pump_output
-        if annulus_assessable and pump_output > 0 else None
-    )
-    stk_total = (
-        stk_to_bit + stk_annular
-        if stk_to_bit is not None and stk_annular is not None else None
-    )
+    stk_to_bit = string_volume / pump_output if string_volume is not None and pump_output > 0 else None
+    stk_annular = annular_volume / pump_output if annular_volume is not None and pump_output > 0 else None
+    stk_total = stk_to_bit + stk_annular if stk_to_bit is not None and stk_annular is not None else None
     if pump_output <= 0:
-        warnings.append(
-            "Pump output must be positive; pump strokes are not assessed."
-        )
+        warnings.append("Pump output must be positive; pump strokes are not assessed.")
 
     # --- kick height / type (engine kick_volume) ---------------------------
-    kick_type = "n/a (enter pit gain + drill string)"
+    kick_type = "NOT ASSESSED" if pit_gain > 0 else "n/a (no positive pit gain)"
     kick_height = 0.0 if pit_gain == 0 else None
     kick_note = ""
     geometry_assumption_used = False
     assumptions: List[str] = []
-    last_pipe_od = inp.pipes[-1].od_in if inp.pipes else 5
-    if pit_gain > 0 and not inp.pipes:
-        geometry_assumption_used = True
-        assumption = (
-            "5-in pipe OD is assumed for kick-height screening only; it does "
-            "not supply drill-string volume or pump-stroke geometry."
-        )
-        assumptions.append(assumption)
-        kick_note = f" ⚠ ASSUMPTION: {assumption}"
-        warnings.append(
-            "Kick-height screening uses assumed 5-in pipe OD; no drill-string "
-            "geometry was provided. This assumption does not support pipe "
-            "volume or pump-stroke calculations."
-        )
-    ann_cap_ft = A.calc_annular_capacity_bbl_ft(hole, last_pipe_od)
-    if pit_gain > 0 and ann_cap_ft > 0:
-        kv = WC.kick_volume(
-            pit_gain_bbl=pit_gain,
-            annular_capacity_bbl_ft=ann_cap_ft,
-            mw_ppg=mw_ppg,
-            sidpp_psi=sidpp,
-            sicp_psi=sicp,
-        )
-        if kv.success and kv.values.get("kick_height_ft") is not None:
-            kick_height = kv.values["kick_height_ft"]
-            kind = kv.values.get("kick_type")
-            kick_type = {
-                "gas": "Gas Kick",
-                "oil": "Oil Kick",
-                "oil_or_condensate": "Oil Kick",
-                "salt_water": "Salt Water Kick",
-                "saltwater": "Salt Water Kick",
-            }.get(kind, "Unknown")
-            if kv.warnings:
-                kick_note += " \u26a0 " + "; ".join(kv.warnings)[:80]
-                warnings.extend(kv.warnings)
-        else:
-            kick_type = "NOT ASSESSED"
-            warning = (
-                f"Kick-height/type calculation was not successful: "
-                f"{getattr(kv, 'error', '') or 'no finite height returned'}."
+    if pit_gain > 0 and pipe_geometry_available and annulus_assessable:
+        bottom_pipe = inp.pipes[-1]
+        bottom_annulus_id = inp.hole_size_in if inp.md_ft > inp.shoe_md_ft else inp.casing_id_in
+        ann_cap_ft = A.calc_annular_capacity_bbl_ft(bottom_annulus_id, bottom_pipe.od_in)
+        if ann_cap_ft > 0:
+            kv = WC.kick_volume(
+                pit_gain_bbl=pit_gain,
+                annular_capacity_bbl_ft=ann_cap_ft,
+                mw_ppg=mw_ppg,
+                sidpp_psi=sidpp,
+                sicp_psi=sicp,
             )
-            warnings.append(warning)
-            kick_note += " ⚠ " + warning
+            if kv.success and kv.values.get("kick_height_ft") is not None:
+                kick_height = kv.values["kick_height_ft"]
+                kind = kv.values.get("kick_type")
+                kick_type = {
+                    "gas": "Gas Kick",
+                    "oil": "Oil Kick",
+                    "oil_or_condensate": "Oil Kick",
+                    "salt_water": "Salt Water Kick",
+                    "saltwater": "Salt Water Kick",
+                }.get(kind, "Unknown")
+                geometry_assumption_used = True
+                assumption = (
+                    "Kick-height screening uses the supplied bottommost pipe and "
+                    "annular interval as a uniform local capacity; influx spanning "
+                    "multiple intervals is not modeled."
+                )
+                assumptions.append(assumption)
+                kick_note = f" ⚠ SCREENING: {assumption}"
+                warnings.append(assumption)
+                if kv.warnings:
+                    warnings.extend(kv.warnings)
+            else:
+                warning = (
+                    "Kick-height/type calculation was not successful: "
+                    f"{getattr(kv, 'error', '') or 'no finite height returned'}."
+                )
+                warnings.append(warning)
+                kick_note = f" ⚠ {warning}"
+        else:
+            warnings.append("Kick height/type is not assessed because bottomhole clearance is nonpositive.")
     elif pit_gain > 0:
-        kick_type = "NOT ASSESSED"
         warning = (
-            "Kick height/type is not assessed because the supplied annular "
-            "geometry is invalid or nonpositive."
+            "Kick height/type is not assessed because complete drill-string and "
+            "casing-shoe measured-depth geometry was not supplied."
         )
         warnings.append(warning)
-        kick_note += " ⚠ " + warning
+        kick_note = f" ⚠ {warning}"
 
     # --- choke schedule (linear ICP -> FCP) --------------------------------
     schedule: List[Tuple[int, float, int]] = []

@@ -271,10 +271,10 @@ class AddPipeDialog(EngineeringBaseDialog):
         g2 = QGroupBox("Dimensions & Properties")
         dim = QGridLayout(g2)
 
-        self.od = self._dspin(5.0, 0.1, 50, 3, " in")
-        self.id_ = self._dspin(4.276, 0.1, 50, 3, " in")
+        self.od = self._dspin(0, 0, 50, 3, " in")
+        self.id_ = self._dspin(0, 0, 50, 3, " in")
         self.length = self._dspin(0, 0, 20000, 1, " m")
-        self.weight = self._dspin(19.5, 0, 500, 1, " ppf")
+        self.weight = self._dspin(0, 0, 500, 1, " ppf")
         self.grade = QComboBox()
         self.grade.addItems(self.GRADES)
         self.grade.setEditable(True)
@@ -406,16 +406,18 @@ class AddPipeDialog(EngineeringBaseDialog):
                 self.calc_wt.setText("-- (enter length)")
             self.error.setText("")
         else:
-            self.error.setText("⚠️ OD must > ID")
+            for label in (self.calc_cap, self.calc_dis, self.calc_area, self.calc_wt):
+                label.setText("Not assessed: enter measured positive OD and ID")
+            self.error.setText("⚠️ Enter measured positive dimensions with OD > ID")
 
     def _load_data(self, d):
         idx = self.type_combo.findText(d.get('type', ''))
         if idx >= 0:
             self.type_combo.setCurrentIndex(idx)
-        self.od.setValue(d.get('od', 5))
-        self.id_.setValue(d.get('id', 4.276))
+        self.od.setValue(d.get('od', 0))
+        self.id_.setValue(d.get('id', 0))
         self.length.setValue(d.get('length', 0))
-        self.weight.setValue(d.get('weight', 19.5))
+        self.weight.setValue(d.get('weight', 0))
         if d.get('grade'):
             self.grade.setCurrentText(d['grade'])
         if d.get('connection'):
@@ -423,7 +425,9 @@ class AddPipeDialog(EngineeringBaseDialog):
 
     def _save(self):
         errors = []
-        if self.od.value() <= self.id_.value():
+        if self.od.value() <= 0 or self.id_.value() <= 0:
+            errors.append("Enter the measured positive OD and ID")
+        elif self.od.value() <= self.id_.value():
             errors.append("OD must > ID")
         if self.length.value() <= 0:
             errors.append("Length must > 0")
@@ -555,9 +559,9 @@ class AddCasingDialog(EngineeringBaseDialog):
         g2 = QGroupBox("Dimensions & Depth")
         dim = QGridLayout(g2)
 
-        self.od = self._dspin(9.625, 0.1, 50, 3, " in")
-        self.id_ = self._dspin(8.835, 0.1, 50, 3, " in")
-        self.wt = self._dspin(47, 0, 500, 1, " ppf")
+        self.od = self._dspin(0, 0, 50, 3, " in")
+        self.id_ = self._dspin(0, 0, 50, 3, " in")
+        self.wt = self._dspin(0, 0, 500, 1, " ppf")
         self.from_md = self._dspin(0, 0, 20000, 1, " m")
         self.to_md = self._dspin(0, 0, 20000, 1, " m")
         self.grade = QComboBox()
@@ -620,11 +624,16 @@ class AddCasingDialog(EngineeringBaseDialog):
         layout.addLayout(btns)
 
         self.od.valueChanged.connect(self._update_calc)
+        self.od.valueChanged.connect(self._sync_open_hole_id)
         self.id_.valueChanged.connect(self._update_calc)
         self.from_md.valueChanged.connect(self._update_calc)
         self.to_md.valueChanged.connect(self._update_calc)
         self._on_type_changed(self.type_combo.currentText())
         self._update_calc()
+
+    def _sync_open_hole_id(self, od):
+        if "Open" in self.type_combo.currentText() and self.id_.value() != od:
+            self.id_.setValue(od)
 
     def _on_type_changed(self, ctype):
         self.quick_combo.clear()
@@ -658,6 +667,8 @@ class AddCasingDialog(EngineeringBaseDialog):
             from core.hydraulics_engine import AdvancedHydraulicsEngine as A
             cap_m = A.calc_pipe_capacity_bbl_ft(id_) * 3.28084      # bbl/m
             self.calc_cap.setText(f"{cap_m:.5f} bbl/m")
+        else:
+            self.calc_cap.setText("Not assessed: measured ID required")
         if L > 0:
             self.calc_len.setText(f"{L:.1f} m ({L * 3.281:.0f} ft)")
         else:
@@ -667,8 +678,8 @@ class AddCasingDialog(EngineeringBaseDialog):
         idx = self.type_combo.findText(d.get('type', ''))
         if idx >= 0:
             self.type_combo.setCurrentIndex(idx)
-        self.od.setValue(d.get('od', 9.625))
-        self.id_.setValue(d.get('id', 8.835))
+        self.od.setValue(d.get('od', 0))
+        self.id_.setValue(d.get('id', 0))
         self.from_md.setValue(d.get('from', 0))
         self.to_md.setValue(d.get('to', 0))
 
@@ -677,7 +688,13 @@ class AddCasingDialog(EngineeringBaseDialog):
         if self.to_md.value() <= self.from_md.value():
             errors.append("To MD must > From MD")
         if self.od.value() <= 0:
-            errors.append("OD must > 0")
+            errors.append("Enter a measured positive OD / hole size")
+        if self.id_.value() <= 0:
+            errors.append("Enter a measured positive ID / open-hole diameter")
+        elif "Open" not in self.type_combo.currentText() and self.id_.value() >= self.od.value():
+            errors.append("Casing ID must be smaller than its OD")
+        elif "Open" in self.type_combo.currentText() and self.id_.value() != self.od.value():
+            errors.append("Open-hole ID must match the measured hole size")
         if errors:
             self.error.setText("⚠️ " + " | ".join(errors))
             return
@@ -720,13 +737,14 @@ class AddNozzleDialog(EngineeringBaseDialog):
         f1 = QFormLayout(g1)
 
         self.size = QComboBox()
+        self.size.addItem("-- Select measured nozzle size --", None)
         for s in self.STANDARD_SIZES:
             self.size.addItem(f"{s}/32\" ({s/32:.3f}\")", s)
-        self.size.setCurrentIndex(10)  # 16/32
+        self.size.setCurrentIndex(0)
         self.size.currentIndexChanged.connect(self._update_calc)
         f1.addRow("Nozzle Size:", self.size)
 
-        self.qty = self._ispin(1, 1, 10)
+        self.qty = self._ispin(0, 0, 10)
         self.qty.valueChanged.connect(self._update_calc)
         f1.addRow("Quantity:", self.qty)
 
@@ -747,33 +765,46 @@ class AddNozzleDialog(EngineeringBaseDialog):
         layout.addWidget(self.error)
 
         btns, save_btn = self._save_cancel_buttons("✅ Add Nozzle")
+        self.save_btn = save_btn
         save_btn.clicked.connect(self._save)
         layout.addLayout(btns)
 
         self._update_calc()
 
     def _update_calc(self):
-        size_32 = self.size.currentData() or 16
+        size_32 = self.size.currentData()
         qty = self.qty.value()
-        d = size_32 / 32.0
-        area_single = math.pi / 4 * d**2
-        area_total = area_single * qty
-        self.calc_diameter.setText(f"{d:.4f} in")
-        self.calc_area_single.setText(f"{area_single:.4f} in²")
-        self.calc_area_total.setText(f"{area_total:.4f} in² ({qty} nozzles)")
+        assessed = size_32 is not None and qty > 0
+        if assessed:
+            from core.engineering.core import BitEngine
+
+            d = size_32 / 32.0
+            area_single = BitEngine.calculate_tfa([size_32])
+            area_total = BitEngine.calculate_tfa([size_32] * qty)
+            self.calc_diameter.setText(f"{d:.4f} in")
+            self.calc_area_single.setText(f"{area_single:.4f} in²")
+            self.calc_area_total.setText(f"{area_total:.4f} in² ({qty} nozzles)")
+            self.error.setText("")
+        else:
+            for label in (self.calc_diameter, self.calc_area_single, self.calc_area_total):
+                label.setText("Not assessed: select nozzle size and quantity")
+            self.error.setText("Select the measured nozzle size and enter its quantity.")
+        self.save_btn.setEnabled(assessed)
 
     def _load_data(self, d):
-        s = d.get('size', 16)
+        s = d.get('size')
         idx = self.size.findData(s)
         if idx >= 0:
             self.size.setCurrentIndex(idx)
-        self.qty.setValue(d.get('qty', 1))
+        self.qty.setValue(d.get('qty', 0))
 
     def _save(self):
-        self.result = {
-            "size": self.size.currentData() or 16,
-            "qty": self.qty.value(),
-        }
+        size = self.size.currentData()
+        qty = self.qty.value()
+        if size is None or qty <= 0:
+            self.error.setText("Select the measured nozzle size and enter its quantity.")
+            return
+        self.result = {"size": size, "qty": qty}
         self.accept()
 
 

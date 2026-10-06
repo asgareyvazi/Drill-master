@@ -41,8 +41,6 @@ class DrillingCalculationEngine:
     def calc_tfa_from_pressure(gpm: float, mw: float, delta_p: float) -> float:
         """TFA from ΔP — canonical AdvancedHydraulicsEngine.calc_tfa_from_pressure_drop."""
         from core.hydraulics_engine import AdvancedHydraulicsEngine
-        if delta_p <= 0:
-            return 0
         return round(AdvancedHydraulicsEngine.calc_tfa_from_pressure_drop(gpm, mw, delta_p), 4)
 
     @staticmethod
@@ -58,11 +56,18 @@ class DrillingCalculationEngine:
         TFA is computed by the canonical BitEngine.calculate_tfa
         (Σ π/4·(size/32)²) — never re-implemented here.
         """
+        import math
         from core.hydraulics_engine import AdvancedHydraulicsEngine
         from core.engineering.core import BitEngine
-        sizes = [s for s in nozzle_sizes if s > 0]
-        if not sizes or gpm <= 0:
-            return 0.0
+        sizes = list(nozzle_sizes)
+        if not sizes:
+            raise ValueError("nozzle sizes are required")
+        if any(
+            not isinstance(size, (int, float)) or isinstance(size, bool)
+            or not math.isfinite(size) or size <= 0
+            for size in sizes
+        ):
+            raise ValueError("nozzle sizes must be finite and positive")
         tfa = BitEngine.calculate_tfa(sizes)
         return round(AdvancedHydraulicsEngine.calc_jet_velocity(gpm, tfa), 2)
 
@@ -1075,6 +1080,16 @@ class EngineeringCalculatorTab(DrillTabBase):
         self.hy_model.setStyleSheet("background: #2c3e50; color: white; padding: 4px; border-radius: 3px;")
         tb_lay.addWidget(QLabel("<span style='color:#bdc3c7'>Model:</span>"))
         tb_lay.addWidget(self.hy_model)
+        self.hy_confirm_defaults = QCheckBox(
+            "Confirm displayed mud, surface, model and well-profile values"
+        )
+        self.hy_confirm_defaults.setChecked(False)
+        self.hy_confirm_defaults.setToolTip(
+            "Displayed numeric values, the initial Bingham model and the initial Vertical selection "
+            "are UI seeds, not operator inputs, until this box is explicitly checked."
+        )
+        self.hy_confirm_defaults.setStyleSheet("color: #f8f9fa; padding: 2px 6px;")
+        tb_lay.addWidget(self.hy_confirm_defaults)
         tb_lay.addStretch()
 
         for text, icon, slot, color in [
@@ -1224,6 +1239,9 @@ class EngineeringCalculatorTab(DrillTabBase):
         # --- Nozzles (with dialog) ---
         g_nzl = QGroupBox("🔵 Bit Nozzles")
         nzl_lay = QVBoxLayout(g_nzl)
+        self.hy_bit_diameter = self._make_wc_spin(50, 2, " in")
+        nzl_lay.addWidget(QLabel("Bit diameter for HSI (optional; not inferred from drill-string OD):"))
+        nzl_lay.addWidget(self.hy_bit_diameter)
         nzl_btns = QHBoxLayout()
         add_nzl = QPushButton("➕ Add Nozzle")
         add_nzl.setStyleSheet("background: #27ae60; color: white; padding: 4px 10px; border-radius: 3px; border: none;")
@@ -1351,6 +1369,19 @@ class EngineeringCalculatorTab(DrillTabBase):
 
         splitter.setSizes([420, 600])
         layout.addWidget(splitter)
+
+        for widget in (
+            self.hy_mw, self.hy_pv, self.hy_yp, self.hy_t600, self.hy_t300,
+            self.hy_t6, self.hy_t3, self.hy_sp_l, self.hy_sp_id,
+            self.hy_hose_l, self.hy_hose_id, self.hy_bit_diameter,
+            self.hy_kop, self.hy_eob, self.hy_inc, self.hy_br, self.hy_bit_dep,
+        ):
+            widget.valueChanged.connect(self._hy_invalidate_results)
+        self.hy_model.currentTextChanged.connect(self._hy_invalidate_results)
+        self.hy_wt.currentTextChanged.connect(self._hy_invalidate_results)
+        self.hy_confirm_defaults.toggled.connect(self._hy_invalidate_results)
+        for table in (self.hy_pump_table, self.hy_pipe_table, self.hy_csg_table, self.hy_nzl_table):
+            table.itemChanged.connect(self._hy_invalidate_results)
         return tab
 
     # ========== Pump Methods (Dialog) ==========
@@ -1383,6 +1414,7 @@ class EngineeringCalculatorTab(DrillTabBase):
             self._hy_refresh_pump_table()
 
     def _hy_refresh_pump_table(self):
+        self._hy_invalidate_results()
         self.hy_pump_table.setRowCount(0)
         total_gpm = 0
         for p in self.hy_pumps:
@@ -1418,10 +1450,10 @@ class EngineeringCalculatorTab(DrillTabBase):
         # جمع‌آوری داده فعلی
         edit_data = {
             'type': self.hy_pipe_table.item(row, 0).text() if self.hy_pipe_table.item(row, 0) else "",
-            'od': float(self.hy_pipe_table.item(row, 1).text()) if self.hy_pipe_table.item(row, 1) else 5,
-            'id': float(self.hy_pipe_table.item(row, 2).text()) if self.hy_pipe_table.item(row, 2) else 4.276,
+            'od': float(self.hy_pipe_table.item(row, 1).text()) if self.hy_pipe_table.item(row, 1) else 0,
+            'id': float(self.hy_pipe_table.item(row, 2).text()) if self.hy_pipe_table.item(row, 2) else 0,
             'length': float(self.hy_pipe_table.item(row, 3).text()) if self.hy_pipe_table.item(row, 3) else 0,
-            'weight': float(self.hy_pipe_table.item(row, 4).text()) if self.hy_pipe_table.item(row, 4) else 19.5,
+            'weight': float(self.hy_pipe_table.item(row, 4).text()) if self.hy_pipe_table.item(row, 4) else 0,
         }
         from dialogs.engineering_dialogs import AddPipeDialog
         dlg = AddPipeDialog(self, edit_data=edit_data)
@@ -1432,6 +1464,7 @@ class EngineeringCalculatorTab(DrillTabBase):
                 self._hy_insert_pipe_row(data, row)
 
     def _hy_insert_pipe_row(self, data, position=-1):
+        self._hy_invalidate_results()
         row = self.hy_pipe_table.rowCount() if position == -1 else position
         self.hy_pipe_table.insertRow(row)
         self.hy_pipe_table.setItem(row, 0, QTableWidgetItem(data.get('type', '')))
@@ -1444,6 +1477,7 @@ class EngineeringCalculatorTab(DrillTabBase):
         row = self.hy_pipe_table.currentRow()
         if row >= 0:
             self.hy_pipe_table.removeRow(row)
+            self._hy_invalidate_results()
 
     # ========== Casing Methods (Dialog) ==========
 
@@ -1461,8 +1495,8 @@ class EngineeringCalculatorTab(DrillTabBase):
             return
         edit_data = {
             'type': self.hy_csg_table.item(row, 0).text() if self.hy_csg_table.item(row, 0) else "",
-            'od': float(self.hy_csg_table.item(row, 1).text()) if self.hy_csg_table.item(row, 1) else 9.625,
-            'id': float(self.hy_csg_table.item(row, 2).text()) if self.hy_csg_table.item(row, 2) else 8.835,
+            'od': float(self.hy_csg_table.item(row, 1).text()) if self.hy_csg_table.item(row, 1) else 0,
+            'id': float(self.hy_csg_table.item(row, 2).text()) if self.hy_csg_table.item(row, 2) else 0,
             'from': float(self.hy_csg_table.item(row, 3).text()) if self.hy_csg_table.item(row, 3) else 0,
             'to': float(self.hy_csg_table.item(row, 4).text()) if self.hy_csg_table.item(row, 4) else 0,
         }
@@ -1475,6 +1509,7 @@ class EngineeringCalculatorTab(DrillTabBase):
                 self._hy_insert_csg_row(data, row)
 
     def _hy_insert_csg_row(self, data, position=-1):
+        self._hy_invalidate_results()
         row = self.hy_csg_table.rowCount() if position == -1 else position
         self.hy_csg_table.insertRow(row)
         self.hy_csg_table.setItem(row, 0, QTableWidgetItem(data.get('type', '')))
@@ -1487,6 +1522,7 @@ class EngineeringCalculatorTab(DrillTabBase):
         row = self.hy_csg_table.currentRow()
         if row >= 0:
             self.hy_csg_table.removeRow(row)
+            self._hy_invalidate_results()
 
     # ========== Nozzle Methods (Dialog) ==========
 
@@ -1500,11 +1536,20 @@ class EngineeringCalculatorTab(DrillTabBase):
                 self._hy_update_tfa()
 
     def _hy_insert_nzl_row(self, data):
+        from core.engineering.core import BitEngine
+
+        size = data.get("size")
+        qty = data.get("qty")
+        if (
+            not isinstance(size, (int, float)) or isinstance(size, bool)
+            or not math.isfinite(size) or size <= 0
+            or not isinstance(qty, int) or isinstance(qty, bool) or qty <= 0
+        ):
+            self.hy_tfa_label.setText("TFA: not assessed; explicit nozzle size and quantity required")
+            return
+        area = BitEngine.calculate_tfa([size] * qty)
         row = self.hy_nzl_table.rowCount()
         self.hy_nzl_table.insertRow(row)
-        size = data.get('size', 16)
-        qty = data.get('qty', 1)
-        area = math.pi / 4 * (size / 32.0) ** 2 * qty
 
         self.hy_nzl_table.setItem(row, 0, QTableWidgetItem(str(row + 1)))
         self.hy_nzl_table.setItem(row, 1, QTableWidgetItem(f"{size}/32\""))
@@ -1523,15 +1568,29 @@ class EngineeringCalculatorTab(DrillTabBase):
             self._hy_update_tfa()
 
     def _hy_update_tfa(self):
-        total = 0
-        for row in range(self.hy_nzl_table.rowCount()):
-            item = self.hy_nzl_table.item(row, 3)
-            if item:
-                try:
-                    total += float(item.text())
-                except (TypeError, ValueError):
-                    pass  # non-numeric nozzle cell
-        self.hy_tfa_label.setText(f"TFA: {total:.4f} in²")
+        from core.engineering.core import BitEngine
+
+        sizes = []
+        try:
+            for row in range(self.hy_nzl_table.rowCount()):
+                size_item = self.hy_nzl_table.item(row, 1)
+                qty_item = self.hy_nzl_table.item(row, 2)
+                if size_item is None or qty_item is None:
+                    raise ValueError("nozzle size and quantity are missing")
+                size = float(size_item.text().split("/")[0])
+                qty = int(qty_item.text())
+                if not math.isfinite(size) or size <= 0 or qty <= 0:
+                    raise ValueError("nozzle size and quantity must be positive")
+                sizes.extend([size] * qty)
+            total = BitEngine.calculate_tfa(sizes) if sizes else None
+        except (TypeError, ValueError) as exc:
+            self.hy_tfa_label.setText(f"TFA: not assessed ({exc})")
+            self._hy_invalidate_results()
+            return
+        self.hy_tfa_label.setText(
+            f"TFA: {total:.4f} in²" if total is not None else "TFA: not supplied"
+        )
+        self._hy_invalidate_results()
   
     # ========== Collect & Calculate ==========
 
@@ -1554,8 +1613,11 @@ class EngineeringCalculatorTab(DrillTabBase):
 
         # Flow rate from pumps
         total_gpm = self._hy_get_total_gpm()
-        e.flow_rate_gpm = total_gpm if total_gpm > 0 else 250  # fallback
+        # An empty pump table is missing operating flow, not a request for the
+        # historical 250-gpm fallback.
+        e.flow_rate_gpm = total_gpm
         e.bit_depth_m = self.hy_bit_dep.value()
+        e.bit_diameter_in = self._wc_value(self.hy_bit_diameter)
 
         e.model = {0: "bingham", 1: "power_law", 2: "herschel_bulkley"}.get(
             self.hy_model.currentIndex(), "bingham"
@@ -1572,7 +1634,9 @@ class EngineeringCalculatorTab(DrillTabBase):
             hose_length_m=self.hy_hose_l.value(), hose_id_inch=self.hy_hose_id.value(),
         )
 
-        # Pipes from table
+        # Pipes from table. Keep malformed rows as invalid sentinels so the
+        # canonical engine rejects the submitted program rather than silently
+        # calculating with the remaining segments.
         e.pipe_segments = []
         for row in range(self.hy_pipe_table.rowCount()):
             try:
@@ -1581,15 +1645,15 @@ class EngineeringCalculatorTab(DrillTabBase):
                 id_ = float(self.hy_pipe_table.item(row, 2).text())
                 length = float(self.hy_pipe_table.item(row, 3).text())
                 wt = float(self.hy_pipe_table.item(row, 4).text())
-                if length > 0 and od > 0 and id_ > 0:
-                    e.pipe_segments.append(PipeSegment(
-                        name=f"{ptype} ({od:.3f}\")", pipe_type=ptype,
-                        od=od, id=id_, length=length, weight_ppf=wt
-                    ))
+                e.pipe_segments.append(PipeSegment(
+                    name=f"{ptype} ({od:.3f}\\\")", pipe_type=ptype,
+                    od=od, id=id_, length=length, weight_ppf=wt
+                ))
             except (AttributeError, TypeError, ValueError):
-                continue
+                e.pipe_segments.append(PipeSegment(name=f"Unparsed pipe row {row + 1}"))
 
-        # Casings from table
+        # Bore rows are also preserved when invalid; incomplete geometry must
+        # be rejected by the engine, not silently omitted from interval coverage.
         e.casing_sections = []
         for row in range(self.hy_csg_table.rowCount()):
             try:
@@ -1598,25 +1662,24 @@ class EngineeringCalculatorTab(DrillTabBase):
                 id_ = float(self.hy_csg_table.item(row, 2).text())
                 fr = float(self.hy_csg_table.item(row, 3).text())
                 to = float(self.hy_csg_table.item(row, 4).text())
-                if to > fr:
-                    st = "open_hole" if "Open" in ctype else "casing"
-                    e.casing_sections.append(CasingSection(
-                        name=ctype, section_type=st, od=od, id=id_,
-                        top_md=fr, bottom_md=to
-                    ))
+                section_type = "open_hole" if "Open" in ctype else "casing"
+                e.casing_sections.append(CasingSection(
+                    name=ctype, section_type=section_type, od=od, id=id_,
+                    top_md=fr, bottom_md=to
+                ))
             except (AttributeError, TypeError, ValueError):
-                continue
+                e.casing_sections.append(CasingSection(name=f"Unparsed bore row {row + 1}"))
 
-        # Nozzles from table
+        # Nozzle rows are preserved as invalid sentinels rather than dropped.
         e.nozzles = []
         for row in range(self.hy_nzl_table.rowCount()):
             try:
                 size_text = self.hy_nzl_table.item(row, 1).text()
-                size = int(size_text.split('/')[0])
+                size = int(size_text.split("/")[0])
                 qty = int(self.hy_nzl_table.item(row, 2).text())
                 e.nozzles.append(BitNozzle(size_32nds=size, quantity=qty))
             except (AttributeError, TypeError, ValueError, IndexError):
-                continue
+                e.nozzles.append(BitNozzle())
 
         # Well Profile
         wt = {0: "vertical", 1: "directional", 2: "horizontal", 3: "s_shape"}
@@ -1626,8 +1689,30 @@ class EngineeringCalculatorTab(DrillTabBase):
             eob_inc=self.hy_inc.value(), build_rate=self.hy_br.value(),
         )
 
+    def _hy_invalidate_results(self, *_args):
+        self._hy_clear_results("Not assessed: inputs changed; recalculate hydraulics.")
+
+    def _hy_clear_results(self, message="Not assessed: run a calculation with valid, confirmed inputs."):
+        """Remove stale hydraulics values and plots after input changes or failure."""
+        self.hy_result = None
+        for card in (self.hy_card_spp, self.hy_card_ecd, self.hy_card_bhp, self.hy_card_hsi):
+            self._update_card(card, "—", "")
+        self.hy_press_t.setRowCount(0)
+        self.hy_av_t.setRowCount(0)
+        self.hy_bit_lbl.setText(message)
+        self.hy_qc_lbl.setText(message)
+        self.hy_warn.setText(message)
+        self._draw_ecd([])
+
     def _hy_run_calc(self):
-        """اجرای محاسبات"""
+        """Run only after display-seeded values are explicitly confirmed."""
+        if not self.hy_confirm_defaults.isChecked():
+            self._hy_clear_results(
+                "Not assessed: confirm the displayed mud, surface-equipment, "
+                "rheology-model, well-profile and bit-depth inputs before calculation."
+            )
+            return
+        self._hy_clear_results("Calculation pending; previous output cleared.")
         try:
             self._hy_collect()
             r = self.adv_engine.calculate()
@@ -1635,15 +1720,30 @@ class EngineeringCalculatorTab(DrillTabBase):
             self._hy_display(r)
         except Exception as ex:
             logger.error(f"Hydraulics calc error: {ex}")
+            self._hy_clear_results(f"Not assessed: calculation failed: {ex}")
             QMessageBox.critical(self, "Error", f"Calculation failed:\n{str(ex)}")
 
     def _hy_display(self, r):
-        """نمایش نتایج"""
+        """Render assessed results; refuse numeric-looking zeros on missing inputs."""
+        if r.errors:
+            for card in (self.hy_card_spp, self.hy_card_ecd, self.hy_card_bhp, self.hy_card_hsi):
+                self._update_card(card, "—", "")
+            self.hy_warn.setText("<br>".join(r.errors))
+            self.hy_press_t.setRowCount(0)
+            self.hy_av_t.setRowCount(0)
+            self.hy_bit_lbl.setText("Not assessed: required operating or geometry inputs are missing.")
+            self.hy_qc_lbl.setText("Not assessed: required operating or geometry inputs are missing.")
+            self._draw_ecd([])
+            return
         # Cards
         self._update_card(self.hy_card_spp, f"{r.total_loss_psi:.0f}", "psi")
         self._update_card(self.hy_card_ecd, f"{r.ecd_at_bit_ppg:.2f}", "ppg")
         self._update_card(self.hy_card_bhp, f"{r.percent_bit_hp:.0f}", "%")
-        self._update_card(self.hy_card_hsi, f"{r.hsi:.2f}", "hp/in²")
+        self._update_card(
+            self.hy_card_hsi,
+            f"{r.hsi:.2f}" if self.adv_engine.bit_diameter_in else "—",
+            "hp/in²" if self.adv_engine.bit_diameter_in else "",
+        )
 
         # Pressure Table
         self.hy_press_t.setRowCount(0)
@@ -1691,7 +1791,7 @@ class EngineeringCalculatorTab(DrillTabBase):
             self.hy_av_t.setItem(row, 3, si)
 
         # Critical flow rate
-        if getattr(r, "critical_flow_rate_gpm", 0) > 0:
+        if (getattr(r, "critical_flow_rate_gpm", None) or 0) > 0:
             q_running = r.flow_rate_gpm
             status = ("🟢 Turbulent" if q_running >= r.critical_flow_rate_gpm
                       else "🟡 Laminar")
@@ -1705,11 +1805,15 @@ class EngineeringCalculatorTab(DrillTabBase):
             self.hy_qc_lbl.setText("No annular section available for Qc.")
 
         # Bit
+        hsi_label = (
+            f"<b>HSI:</b> {r.hsi:.2f} hp/in²"
+            if self.adv_engine.bit_diameter_in
+            else "<b>HSI:</b> not assessed (bit diameter missing)"
+        )
         self.hy_bit_lbl.setText(
             f"<b>TFA:</b> {r.tfa_in2:.4f} in² | "
             f"<b>ΔP:</b> {r.bit_loss_psi:.0f} psi | "
-            f"<b>HHP:</b> {r.bit_hhp:.1f} hp | "
-            f"<b>HSI:</b> {r.hsi:.2f} hp/in²<br>"
+            f"<b>HHP:</b> {r.bit_hhp:.1f} hp | {hsi_label}<br>"
             f"<b>Jet Vel:</b> {r.jet_velocity_fps:.0f} ft/s | "
             f"<b>IF:</b> {r.impact_force_lbs:.0f} lbs | "
             f"<b>Bit HP%:</b> {r.percent_bit_hp:.1f}%"
@@ -1719,7 +1823,9 @@ class EngineeringCalculatorTab(DrillTabBase):
         self._draw_ecd(r.ecd_profile)
 
         # Warnings
-        self.hy_warn.setText("⚠️ " + "\n⚠️ ".join(r.warnings) if r.warnings else "")
+        status = [f"Scope: {r.scope}"]
+        status.extend(r.warnings)
+        self.hy_warn.setText("⚠️ " + "\n⚠️ ".join(status))
 
     def _draw_ecd(self, profile):
         """Render a fresh ECD chart, with a Qt-safe static Agg fallback."""
@@ -1777,7 +1883,13 @@ class EngineeringCalculatorTab(DrillTabBase):
     # ========== Surge/Swab Dialog ==========
 
     def _hy_surge_dialog(self):
-        """دیالوگ Surge/Swab"""
+        """Show the screening surge/swab estimate only for confirmed inputs."""
+        if not self.hy_confirm_defaults.isChecked():
+            QMessageBox.warning(
+                self, "Inputs not confirmed",
+                "Confirm the displayed mud, rheology-model, surface and well-profile values before calculation.",
+            )
+            return
         self._hy_collect()
         dlg = QDialog(self)
         dlg.setWindowTitle("📉 Surge / Swab Calculator")
@@ -1785,10 +1897,12 @@ class EngineeringCalculatorTab(DrillTabBase):
         lay = QVBoxLayout(dlg)
 
         form = QFormLayout()
-        speed = self._make_dspin(90, 0, 300, 0, " ft/min")
+        speed = self._make_dspin(0, 0, 300, 0, " ft/min")
         op = QComboBox()
+        op.addItem("Select operation")
         op.addItems(["POOH (Swab)", "RIH (Surge)"])
         ps = QComboBox()
+        ps.addItem("Select pipe status")
         ps.addItems(["Open Pipe", "Closed Pipe"])
         form.addRow("Trip Speed:", speed)
         form.addRow("Operation:", op)
@@ -1803,16 +1917,19 @@ class EngineeringCalculatorTab(DrillTabBase):
         def calc():
             r = self.adv_engine.calc_surge_swab(
                 trip_speed_fpm=speed.value(),
-                operation="POOH" if op.currentIndex() == 0 else "RIH",
-                pipe_open=ps.currentIndex() == 0
+                operation=("POOH" if op.currentIndex() == 1 else "RIH" if op.currentIndex() == 2 else None),
+                pipe_open=(True if ps.currentIndex() == 1 else False if ps.currentIndex() == 2 else None),
             )
-            txt = f"═══ {r['type']} Analysis ═══\n"
+            txt = f"═══ {r['type']} Analysis — {r['scope']} ═══\n"
             txt += f"Speed: {r['trip_speed_fpm']} ft/min | Pipe: {r['pipe_status']}\n\n"
-            txt += f"Total ΔP: {r['total_pressure_psi']:.1f} psi\n"
-            txt += f"Equiv MW: {r['equiv_mw_ppg']:.3f} ppg ({r['equiv_mw_pcf']:.2f} pcf)\n"
-            txt += f"Original MW: {self.adv_engine.mud.mw_ppg:.3f} ppg\n\n"
-            for s in r.get('segments', []):
-                txt += f"  {s['segment']}: {s['pressure_psi']:.2f} psi\n"
+            if r["scope"] == "NOT_ASSESSED":
+                txt += "Not assessed: supplied pipe and casing/open-hole geometry do not cover the interval.\n"
+            else:
+                txt += f"Total ΔP: {r['total_pressure_psi']:.1f} psi\n"
+                txt += f"Equiv MW: {r['equiv_mw_ppg']:.3f} ppg ({r['equiv_mw_pcf']:.2f} pcf)\n"
+                for s in r.get('segments', []):
+                    txt += f"  {s['segment']}: {s['pressure_psi']:.2f} psi\n"
+            txt += "\n".join(r.get("warnings", []))
             rt.setText(txt)
 
         b = QPushButton("🔄 Calculate")
@@ -1828,6 +1945,9 @@ class EngineeringCalculatorTab(DrillTabBase):
         if not self.hy_result:
             QMessageBox.warning(self, "No Data", "Run calculation first.")
             return
+        if self.hy_result.errors:
+            QMessageBox.warning(self, "Not assessed", "\n".join(self.hy_result.errors))
+            return
         from datetime import datetime
         fn, _ = QFileDialog.getSaveFileName(
             self, "Export", f"hydraulics_{datetime.now().strftime('%Y%m%d')}.csv", "CSV (*.csv)"
@@ -1839,6 +1959,33 @@ class EngineeringCalculatorTab(DrillTabBase):
         t = r.total_loss_psi if r.total_loss_psi > 0 else 1
         with open(fn, 'w', newline='', encoding='utf-8') as f:
             w = csv.writer(f)
+            w.writerow(["Calculation scope", r.scope])
+            w.writerow(["Rheology model", self.adv_engine.model])
+            w.writerow(["Flow rate", f"{self.adv_engine.flow_rate_gpm:.3f} gpm"])
+            w.writerow(["Bit measured depth", f"{self.adv_engine.bit_depth_m:.3f} m"])
+            w.writerow(["Mud density", f"{self.adv_engine.mud.mw_pcf:.3f} pcf"])
+            w.writerow(["Plastic viscosity", f"{self.adv_engine.mud.pv:.3f} cP"])
+            w.writerow(["Yield point", f"{self.adv_engine.mud.yp:.3f} lbf/100 ft²"])
+            w.writerow(["Explicit surface equipment", "length (m), ID (in)"])
+            surface = self.adv_engine.surface_equipment
+            for name, length, diameter in (
+                ("Standpipe", surface.standpipe_length_m, surface.standpipe_id_inch),
+                ("Hose", surface.hose_length_m, surface.hose_id_inch),
+                ("Swivel", surface.swivel_length_m, surface.swivel_id_inch),
+                ("Kelly", surface.kelly_length_m, surface.kelly_id_inch),
+            ):
+                if length > 0 and diameter > 0:
+                    w.writerow([name, f"{length:.3f} m", f"{diameter:.3f} in"])
+            w.writerow(["Pipe segments", "OD (in), ID (in), length (m)"])
+            for segment in self.adv_engine.pipe_segments:
+                w.writerow([segment.name, f"{segment.od:.3f} in", f"{segment.id:.3f} in", f"{segment.length:.3f} m"])
+            w.writerow(["Bore sections", "ID (in), top MD (m), bottom MD (m), type"])
+            for section in self.adv_engine.casing_sections:
+                w.writerow([section.name, f"{section.id:.3f} in", f"{section.top_md:.3f} m",
+                            f"{section.bottom_md:.3f} m", section.section_type])
+            w.writerows([["Assumption", item] for item in r.assumptions])
+            w.writerows([["Warning", item] for item in r.warnings])
+            w.writerow([])
             w.writerow(["Component", "ΔP (psi)", "% Total"])
             w.writerow(["Surface", f"{r.surface_loss_psi:.1f}", f"{r.surface_loss_psi/t*100:.1f}%"])
             for n, l in r.pipe_losses:
@@ -1854,17 +2001,22 @@ class EngineeringCalculatorTab(DrillTabBase):
         self.show_success(f"Exported: {fn}")
 
     def _hy_print(self):
-        """چاپ نتایج"""
+        """Print assessed hydraulics results."""
         if not self.hy_result:
             QMessageBox.warning(self, "No Data", "Run calculation first.")
+            return
+        if self.hy_result.errors:
+            QMessageBox.warning(self, "Not assessed", "\n".join(self.hy_result.errors))
             return
         from PySide6.QtPrintSupport import QPrinter, QPrintDialog
         from PySide6.QtGui import QTextDocument
         r = self.hy_result
         html = f"""
         <h2>Hydraulics Report</h2>
-        <p>Model: {self.hy_model.currentText()} | MW: {self.hy_mw.value():.1f} pcf</p>
-        <p><b>Total SPP: {r.total_loss_psi:.0f} psi</b> | ECD: {r.ecd_at_bit_ppg:.3f} ppg | HSI: {r.hsi:.2f}</p>
+        <p><b>Scope: {r.scope}</b> | Model: {self.hy_model.currentText()} | Flow: {self.adv_engine.flow_rate_gpm:.1f} gpm | MW: {self.hy_mw.value():.1f} pcf</p>
+        <p>Bit MD: {self.adv_engine.bit_depth_m:.1f} m. Pressure loss totals include only the explicit geometry listed in this report.</p>
+        <p><b>Total SPP: {r.total_loss_psi:.0f} psi</b> | ECD: {r.ecd_at_bit_ppg:.3f} ppg | HSI: {f'{r.hsi:.2f}' if self.adv_engine.bit_diameter_in else 'not assessed'}</p>
+        <p>Assumptions and limitations: {'; '.join(r.assumptions + r.warnings) or 'None recorded'}</p>
         <h3>Pressure Breakdown</h3>
         <table border="1" cellpadding="4"><tr><th>Component</th><th>ΔP (psi)</th></tr>
         <tr><td>Surface</td><td>{r.surface_loss_psi:.1f}</td></tr>
@@ -1967,13 +2119,14 @@ class EngineeringCalculatorTab(DrillTabBase):
         g_input = QGroupBox("📊 Input Parameters")
         input_form = QFormLayout(g_input)
 
-        self.bit_gpm = self._make_dspin(250, 0, 5000, 0, " gpm")
-        self.bit_mw = self._make_dspin(90, 0, 200, 1, " pcf")
-        self.bit_od = self._make_dspin(8.5, 0, 50, 3, " in")
-        self.bit_wob = self._make_dspin(25, 0, 200, 1, " klbf")
-        self.bit_rpm = self._make_dspin(120, 0, 400, 0, " rpm")
-        self.bit_tq = self._make_dspin(8000, 0, 80000, 0, " ft-lbf")
-        self.bit_rop = self._make_dspin(30, 0, 500, 1, " ft/hr")
+        # No example operating values are treated as selected calculation inputs.
+        self.bit_gpm = self._make_dspin(0, 0, 5000, 0, " gpm")
+        self.bit_mw = self._make_dspin(0, 0, 200, 1, " pcf")
+        self.bit_od = self._make_dspin(0, 0, 50, 3, " in")
+        self.bit_wob = self._make_dspin(0, 0, 200, 1, " klbf")
+        self.bit_rpm = self._make_dspin(0, 0, 400, 0, " rpm")
+        self.bit_tq = self._make_dspin(0, 0, 80000, 0, " ft-lbf")
+        self.bit_rop = self._make_dspin(0, 0, 500, 1, " ft/hr")
 
         input_form.addRow("Flow Rate:", self.bit_gpm)
         input_form.addRow("Mud Weight:", self.bit_mw)
@@ -1982,6 +2135,10 @@ class EngineeringCalculatorTab(DrillTabBase):
         input_form.addRow("RPM:", self.bit_rpm)
         input_form.addRow("Torque:", self.bit_tq)
         input_form.addRow("ROP:", self.bit_rop)
+        for widget in (self.bit_gpm, self.bit_mw, self.bit_od):
+            widget.valueChanged.connect(self._bit_input_changed)
+        for widget in (self.bit_od, self.bit_wob, self.bit_rpm, self.bit_tq, self.bit_rop):
+            widget.valueChanged.connect(self._mse_input_changed)
 
         calc_btn = QPushButton("🔄 Calculate Bit Hydraulics")
         calc_btn.setStyleSheet("background: #e74c3c; color: white; font-weight: bold; padding: 8px; border-radius: 4px; border: none;")
@@ -2223,8 +2380,7 @@ class EngineeringCalculatorTab(DrillTabBase):
         if not run:
             QMessageBox.information(
                 self, "Save Calculation",
-                "Run a Bit Hydraulics calculation first so an MSE value is "
-                "available to save (Calculate Bit Hydraulics).")
+                "Run the independent MSE calculation first so a current value is available to save.")
             return
         repo = self._mse_repo()
         if repo is None:
@@ -2295,76 +2451,123 @@ class EngineeringCalculatorTab(DrillTabBase):
         self.bit_nozzles.clear()
         self._bit_refresh_nozzles()
 
-    def _bit_refresh_nozzles(self):
-        self.bit_nzl_table.setRowCount(0)
-        total_tfa = 0
-        nzl_summary_parts = []
+    def _bit_clear_hydraulic_outputs(self, message="Not assessed: nozzle inputs changed; recalculate."):
+        for label in (
+            self.bit_res_dp, self.bit_res_hhp, self.bit_res_hsi,
+            self.bit_res_jv, self.bit_res_if, self.bit_res_pct,
+        ):
+            if hasattr(label, "setText"):
+                label.setText(message)
 
-        for i, n in enumerate(self.bit_nozzles):
+    def _bit_refresh_nozzles(self):
+        from core.engineering.core import BitEngine
+
+        self._bit_clear_hydraulic_outputs()
+        self.bit_nzl_table.setRowCount(0)
+        all_sizes = []
+        nzl_summary_parts = []
+        try:
+            normalized = []
+            for nozzle in self.bit_nozzles:
+                size = nozzle.get("size")
+                qty = nozzle.get("qty")
+                if (
+                    not isinstance(size, (int, float)) or isinstance(size, bool)
+                    or not math.isfinite(size) or size <= 0
+                    or not isinstance(qty, int) or isinstance(qty, bool) or qty <= 0
+                ):
+                    raise ValueError("each nozzle needs an explicit positive size and integer quantity")
+                sizes = [size] * qty
+                area = BitEngine.calculate_tfa(sizes)
+                normalized.append((size, qty, area))
+                all_sizes.extend(sizes)
+            total_tfa = BitEngine.calculate_tfa(all_sizes) if all_sizes else None
+        except (TypeError, ValueError) as exc:
+            self.bit_tfa_label.setText(f"TFA not assessed: {exc}")
+            self.bit_nzl_summary.setText("")
+            return
+
+        for i, (size, qty, area) in enumerate(normalized):
             row = self.bit_nzl_table.rowCount()
             self.bit_nzl_table.insertRow(row)
-            size = n.get('size', 16)
-            qty = n.get('qty', 1)
-            area = math.pi / 4 * (size / 32.0) ** 2 * qty
-            total_tfa += area
-
             self.bit_nzl_table.setItem(row, 0, QTableWidgetItem(str(i + 1)))
             self.bit_nzl_table.setItem(row, 1, QTableWidgetItem(f"{size}/32\""))
             self.bit_nzl_table.setItem(row, 2, QTableWidgetItem(str(qty)))
             ai = QTableWidgetItem(f"{area:.4f}")
             ai.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
             self.bit_nzl_table.setItem(row, 3, ai)
-
             nzl_summary_parts.append(f"{qty}×{size}")
 
-        self.bit_tfa_label.setText(f"TFA: {total_tfa:.4f} in²")
-        if nzl_summary_parts:
-            self.bit_nzl_summary.setText(f"({' + '.join(nzl_summary_parts)}) /32\"")
-        else:
-            self.bit_nzl_summary.setText("")
+        self.bit_tfa_label.setText(
+            f"TFA: {total_tfa:.4f} in²" if total_tfa is not None else "TFA: not supplied"
+        )
+        self.bit_nzl_summary.setText(
+            f"({' + '.join(nzl_summary_parts)}) /32\"" if nzl_summary_parts else ""
+        )
 
     # ========== Bit - Calculate ==========
 
+    def _bit_input_changed(self, *_args):
+        """Invalidate hydraulics output when a consumed input changes."""
+        self._bit_clear_hydraulic_outputs("Not assessed: inputs changed; recalculate.")
+
+    def _mse_input_changed(self, *_args):
+        """Invalidate MSE independently when one of its own inputs changes."""
+        self.bit_res_mse.setText("Not assessed: MSE inputs changed; recalculate.")
+        self._mse_last_run = None
+
     def _bit_calculate(self):
         from core.hydraulics_engine import AdvancedHydraulicsEngine
+        from core.engineering.core import BitEngine
+
+        # Clear every prior value before a calculation that can fail.
+        for label in (
+            self.bit_res_dp, self.bit_res_hhp, self.bit_res_hsi,
+            self.bit_res_jv, self.bit_res_if, self.bit_res_pct,
+        ):
+            label.setText("—")
+        self._mse_calculate()  # MSE remains an independent calculation.
+
         gpm = self.bit_gpm.value()
         mw_pcf = self.bit_mw.value()
-        mw_ppg = mw_pcf / 7.48
+        mw_ppg = mw_pcf / 7.48052 if mw_pcf > 0 else 0.0
         bit_od = self.bit_od.value()
-
-        # TFA from nozzles (canonical BitEngine.calculate_tfa)
-        from core.engineering.core import BitEngine
         try:
+            if gpm <= 0 or mw_ppg <= 0 or bit_od <= 0:
+                raise ValueError("positive flow rate, mud weight and bit diameter are required")
+            if not self.bit_nozzles:
+                raise ValueError("explicit nozzle sizes and quantities are required")
             sizes = []
-            for n in self.bit_nozzles:
-                size = n.get('size', 16)
-                qty = n.get('qty', 1)
+            for nozzle in self.bit_nozzles:
+                size = nozzle.get("size")
+                qty = nozzle.get("qty")
+                if (
+                    not isinstance(size, (int, float)) or isinstance(size, bool)
+                    or not math.isfinite(size) or size <= 0
+                    or not isinstance(qty, int) or isinstance(qty, bool) or qty <= 0
+                ):
+                    raise ValueError("each nozzle needs an explicit positive size and integer quantity")
                 sizes.extend([size] * qty)
             tfa = BitEngine.calculate_tfa(sizes)
-        except Exception:
-            tfa = 0
-
-        if tfa <= 0:
-            self.bit_res_dp.setText("❌ Add nozzles first")
-            self.bit_reco.setText("")
+            bh = AdvancedHydraulicsEngine.calc_bit_hydraulics(gpm, mw_ppg, tfa, bit_od)
+        except (TypeError, ValueError) as exc:
+            message = f"Not assessed: {exc}"
+            for label in (
+                self.bit_res_dp, self.bit_res_hhp, self.bit_res_hsi,
+                self.bit_res_jv, self.bit_res_if, self.bit_res_pct,
+            ):
+                label.setText(message)
             return
 
-        bh = AdvancedHydraulicsEngine.calc_bit_hydraulics(gpm, mw_ppg, tfa, bit_od)
         self.bit_res_dp.setText(f"{bh['bit_pressure_drop_psi']:.0f} psi")
         self.bit_res_hhp.setText(f"{bh['bit_hhp']:.1f} HP")
         self.bit_res_hsi.setText(f"{bh['hsi']:.2f} hp/in²")
         self.bit_res_jv.setText(f"{bh['jet_velocity_fps']:.0f} ft/s")
         self.bit_res_if.setText(f"{bh['impact_force_lbs']:.0f} lbs")
-        total_nzl_count = sum(n.get('qty', 1) for n in self.bit_nozzles)
+        total_nzl_count = sum(nozzle["qty"] for nozzle in self.bit_nozzles)
         self.bit_res_pct.setText(
             f"{bh['jet_velocity_fps']:.0f} ft/s ({total_nzl_count} nozzles)")
 
-        # MSE is INDEPENDENT of bit hydraulics/nozzles (it consumes only
-        # WOB/RPM/torque/ROP/bit-diameter). Compute it via the standalone helper
-        # so the same code path serves both the full bit-hydraulics flow and the
-        # dedicated "Calculate MSE" button — the MSE result must never be gated
-        # behind nozzle presence.
-        self._mse_calculate()
 
         # Engineering recommendation (grounded field ranges; no invented inputs)
         reco = []
@@ -3395,6 +3598,9 @@ class EngineeringCalculatorTab(DrillTabBase):
                                  f"Could not open history:\n{exc}")
 
     def _mud_rheo(self):
+        """Read Fann readings, call the canonical rheology engine, and render results."""
+        from core.hydraulics_engine import MudProperties
+
         t600 = self.rh_t600.value()
         t300 = self.rh_t300.value()
         t200 = self.rh_t200.value()
@@ -3403,31 +3609,34 @@ class EngineeringCalculatorTab(DrillTabBase):
         t3 = self.rh_t3.value()
         gel10s = self.rh_gel10s.value()
         gel10m = self.rh_gel10m.value()
-        mw = self.rh_mw.value()
-        mw_ppg = mw / 7.48
+        mw_pcf = self.rh_mw.value()
+        mw_ppg = MudProperties(mw_pcf=mw_pcf).mw_ppg
 
-        # Bingham
-        pv = t600 - t300
-        yp = t300 - pv
+        try:
+            rheology = MudProperties.calculate_fann_rheology(
+                theta600=t600, theta300=t300, theta3=t3, theta6=t6
+            )
+        except (TypeError, ValueError) as exc:
+            self.rh_result.setText(f"Not assessed: {exc}")
+            return
 
-        # Power Law
-        if t300 > 0 and t600 > 0:
-            n = 3.32 * math.log10(t600 / t300)
-            k = t300 / (511 ** n) * 511
-        else:
-            n = 1.0
-            k = 1.0
-
-        # Herschel-Bulkley
-        tau_y = max(0, 2 * t3 - t6)
-
-        # Effective viscosity
-        eff_vis = pv + 5 * yp if pv > 0 else 0
+        pv = rheology["pv_cp"]
+        yp = rheology["yp_lbf100ft2"]
+        n = rheology["power_law_n"]
+        k = rheology["power_law_k_equivalent_cp"]
+        tau_y = rheology["hb_yield_estimate_lbf100ft2"]
+        effective_indicator = rheology["screening_effective_viscosity_indicator_cp"]
+        pv_yp_ratio = pv / yp if yp > 0 else None
+        gel_ratio = gel10m / gel10s if gel10s > 0 else None
+        k_text = f"{k:.4f} equivalent cP" if k is not None else "not assessed"
+        tau_text = f"{tau_y:.1f} lbf/100ft²" if tau_y is not None else "not assessed (need θ3 and θ6)"
+        ratio_text = f"{pv_yp_ratio:.2f}" if pv_yp_ratio is not None else "not assessed (YP is zero)"
+        gel_text = f"{gel_ratio:.2f}" if gel_ratio is not None else "not assessed (10s gel is zero)"
 
         text = f"""╔═══════════════════════════════════════════╗
     ║          RHEOLOGY ANALYSIS                ║
     ╠═══════════════════════════════════════════╣
-    ║ Mud Weight: {mw:.1f} pcf ({mw_ppg:.2f} ppg)
+    ║ Mud Weight: {mw_pcf:.1f} pcf ({mw_ppg:.3f} ppg)
     ╠═══════════════════════════════════════════╣
     ║ FANN READINGS:
     ║   θ600: {t600}  │  θ300: {t300}
@@ -3435,24 +3644,23 @@ class EngineeringCalculatorTab(DrillTabBase):
     ║   θ6:   {t6}    │  θ3:   {t3}
     ║   Gel 10s: {gel10s}  │  Gel 10m: {gel10m}
     ╠═══════════════════════════════════════════╣
-    ║ BINGHAM PLASTIC MODEL:
-    ║   PV:  {pv:.1f} cp
-    ║   YP:  {yp:.1f} lb/100ft²
-    ║   PV/YP Ratio: {pv/yp:.2f}
+    ║ BINGHAM PLASTIC MODEL (derived):
+    ║   PV:  {pv:.1f} cP
+    ║   YP:  {yp:.1f} lbf/100ft²
+    ║   PV/YP Ratio: {ratio_text}
     ╠═══════════════════════════════════════════╣
-    ║ POWER LAW MODEL:
-    ║   n (flow behavior):    {n:.4f}
-    ║   K (consistency):      {k:.4f}
+    ║ POWER LAW (screening convention):
+    ║   n (dimensionless): {n:.4f}
+    ║   K: {k_text} [K = 510 θ300 / 511^n]
     ╠═══════════════════════════════════════════╣
-    ║ HERSCHEL-BULKLEY MODEL:
-    ║   τ₀ (yield stress):    {tau_y:.1f}
+    ║ HERSCHEL-BULKLEY SCREENING ESTIMATE:
+    ║   τ₀ estimate: {tau_text}
     ╠═══════════════════════════════════════════╣
-    ║ ANALYSIS:
-    ║   Effective Viscosity:  {eff_vis:.1f} cp
-    ║   {'✅ Good PV/YP ratio' if 0.5 < pv/yp < 2 else '⚠️ Check PV/YP ratio'}
-    ║   {'✅ Good gel strength' if gel10m/gel10s < 3 else '⚠️ Progressive gels - check mud'}
-    ╚═══════════════════════════════════════════╝""" if yp > 0 else "⚠️ Invalid readings (YP must > 0)"
-
+    ║ PV + 5YP indicator: {effective_indicator:.1f} cP (heuristic only)
+    ║ Gel 10m/10s: {gel_text}
+    ╠═══════════════════════════════════════════╣
+    ║ Scope: SCREENING; not a full HB solution or standards certification.
+    ╚═══════════════════════════════════════════╝"""
         self.rh_result.setText(text)
 
     def _mud_lab(self):
@@ -4120,6 +4328,9 @@ class EngineeringCalculatorTab(DrillTabBase):
             "String: NOT ASSESSED | Annular: NOT ASSESSED "
             "(drill-string geometry not recorded)"
         )
+        self.wc_string_summary.setToolTip(
+            "Pipe program order is interpreted surface-to-bit. Confirm the row order before using calculated volumes."
+        )
         self.wc_string_summary.setStyleSheet("font-weight: bold; color: #3498db; padding: 3px;")
         ds_lay.addWidget(self.wc_string_summary)
         ks_layout.addWidget(g_ds)
@@ -4186,6 +4397,20 @@ class EngineeringCalculatorTab(DrillTabBase):
         self.wc_result.setMinimumHeight(400)
         self.wc_result.setStyleSheet("font-family: Consolas; font-size: 11px; background: #1e1e2e; color: #ecf0f1;")
         ks_layout.addWidget(self.wc_result)
+
+        for widget in (
+            self.wc_tvd, self.wc_md, self.wc_shoe_tvd, self.wc_shoe_md,
+            self.wc_hole_size, self.wc_last_csg, self.wc_last_csg_id,
+            self.wc_mw, self.wc_frac, self.wc_sidpp, self.wc_sicp,
+            self.wc_pit_gain, self.wc_scr1, self.wc_scr1_spm,
+            self.wc_scr2, self.wc_scr2_spm, self.wc_pump_output,
+        ):
+            widget.valueChanged.connect(self._wc_invalidate_kill_result)
+        self.wc_well_type.currentTextChanged.connect(self._wc_invalidate_kill_result)
+        for widget in (self.wc_md, self.wc_shoe_md, self.wc_hole_size, self.wc_last_csg_id):
+            widget.valueChanged.connect(self._wc_geometry_preview_changed)
+        self.wc_driller.toggled.connect(self._wc_invalidate_kill_result)
+        self.wc_ww.toggled.connect(self._wc_invalidate_kill_result)
 
         ks_scroll.setWidget(ks_container)
         ks_tab_layout = QVBoxLayout(ks_tab)
@@ -4391,15 +4616,38 @@ class EngineeringCalculatorTab(DrillTabBase):
             self.wc_pipes.pop(row)
             self._wc_refresh_pipe_table()
 
+    def _wc_geometry_preview_changed(self, *_args):
+        """Refresh the separate volume preview as geometry changes."""
+        self._wc_refresh_pipe_table()
+
+    def _wc_invalidate_kill_result(self, *_args):
+        """Clear calculated/exportable kill-sheet output after any input edit."""
+        self._wc_last_kill_inputs = None
+        self._wc_last_kill_result = None
+        if hasattr(self, "wc_result"):
+            self.wc_result.setText("Not assessed: inputs changed; recalculate the kill sheet.")
+
     def _wc_refresh_pipe_table(self):
+        self._wc_invalidate_kill_result()
         from core.hydraulics_engine import AdvancedHydraulicsEngine as A
         self.wc_pipe_table.setRowCount(0)
-        total_string = 0
-        total_ann = 0
+        total_string = 0.0
+        total_ann = 0.0
+        pipe_top_m = 0.0
         csg_id = self._wc_value(self.wc_last_csg_id)
         hole = self._wc_value(self.wc_hole_size)
         shoe_md = self._wc_value(self.wc_shoe_md)
-        ann_known = csg_id is not None and hole is not None and shoe_md is not None
+        measured_depth = self._wc_value(self.wc_md)
+        program_length = sum(float(p.get("length", 0) or 0) for p in self.wc_pipes)
+        program_complete = (
+            bool(self.wc_pipes) and measured_depth is not None
+            and abs(program_length - measured_depth) <= 0.3048
+        )
+        ann_known = (
+            program_complete and csg_id is not None and hole is not None
+            and shoe_md is not None and measured_depth is not None
+            and 0 <= shoe_md <= measured_depth
+        )
         if not self.wc_pipes:
             self.wc_string_summary.setText(
                 "String: NOT ASSESSED | Annular: NOT ASSESSED | Total: NOT ASSESSED "
@@ -4410,35 +4658,45 @@ class EngineeringCalculatorTab(DrillTabBase):
         for p in self.wc_pipes:
             row = self.wc_pipe_table.rowCount()
             self.wc_pipe_table.insertRow(row)
-            od = p.get('od', 0)
-            id_ = p.get('id', 0)
-            L = p.get('length', 0)
-            cap = A.calc_pipe_capacity_bbl_ft(id_) * 3.28084   # bbl/m
-            vol = cap * L
+            od = float(p.get("od", 0) or 0)
+            id_ = float(p.get("id", 0) or 0)
+            length_m = float(p.get("length", 0) or 0)
+            capacity_bbl_m = A.calc_pipe_capacity_bbl_ft(id_) * 3.28084 if id_ > 0 else 0.0
+            volume_bbl = capacity_bbl_m * length_m
+            total_string += volume_bbl
 
-            total_string += vol
-
-            self.wc_pipe_table.setItem(row, 0, QTableWidgetItem(p.get('type', '')))
+            self.wc_pipe_table.setItem(row, 0, QTableWidgetItem(p.get("type", "")))
             self.wc_pipe_table.setItem(row, 1, QTableWidgetItem(f"{od:.3f}\""))
             self.wc_pipe_table.setItem(row, 2, QTableWidgetItem(f"{id_:.3f}\""))
-            self.wc_pipe_table.setItem(row, 3, QTableWidgetItem(f"{L:.1f}"))
-            self.wc_pipe_table.setItem(row, 4, QTableWidgetItem(f"{cap:.5f}"))
-            vi = QTableWidgetItem(f"{vol:.2f}")
-            vi.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
-            self.wc_pipe_table.setItem(row, 5, vi)
+            self.wc_pipe_table.setItem(row, 3, QTableWidgetItem(f"{length_m:.1f}"))
+            self.wc_pipe_table.setItem(row, 4, QTableWidgetItem(f"{capacity_bbl_m:.5f}"))
+            vol_item = QTableWidgetItem(f"{volume_bbl:.2f}")
+            vol_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            self.wc_pipe_table.setItem(row, 5, vol_item)
 
-            # Annular volume (simplified)
-            ann_id = csg_id if (shoe_md is not None and L < shoe_md) else hole
-            if ann_known and ann_id > od:
-                ann_vol = (A.calc_annular_capacity_bbl_ft(ann_id, od)
-                           * 3.28084 * L)
-                total_ann += ann_vol
-            else:
-                ann_known = False
+            if ann_known:
+                pipe_bottom_m = pipe_top_m + length_m
+                cased_length_m = max(0.0, min(pipe_bottom_m, shoe_md) - pipe_top_m)
+                open_length_m = max(0.0, pipe_bottom_m - max(pipe_top_m, shoe_md))
+                for ann_id, zone_length_m in ((csg_id, cased_length_m), (hole, open_length_m)):
+                    if zone_length_m <= 0:
+                        continue
+                    if ann_id <= od:
+                        ann_known = False
+                        break
+                    total_ann += (
+                        A.calc_annular_capacity_bbl_ft(ann_id, od)
+                        * 3.28084 * zone_length_m
+                    )
+            pipe_top_m += length_m
 
+        if program_complete:
+            string_text = f"String: {total_string:.2f} bbl"
+        else:
+            string_text = "String: NOT ASSESSED (pipe program does not match measured depth)"
         if ann_known:
             self.wc_string_summary.setText(
-                f"String: {total_string:.2f} bbl | Annular: {total_ann:.2f} bbl | "
+                f"{string_text} | Annular: {total_ann:.2f} bbl | "
                 f"Total: {total_string + total_ann:.2f} bbl"
             )
         else:
@@ -4446,8 +4704,8 @@ class EngineeringCalculatorTab(DrillTabBase):
                 "annular geometry not assessable from the recorded pipe/casing values"
             )
             self.wc_string_summary.setText(
-                f"String: {total_string:.2f} bbl | Annular: — "
-                f"({annular_note})"
+                f"{string_text} | Annular: NOT ASSESSED "
+                "(requires complete pipe program, casing ID, hole size, and shoe MD)"
             )
     
     # ========== Well Control Methods ==========
@@ -4464,11 +4722,17 @@ class EngineeringCalculatorTab(DrillTabBase):
         )
         from core.text_utils import fmt_num
 
+        # Invalidate before reading widgets so exceptions cannot leave a stale
+        # result eligible for display, export, or persistence.
+        self._wc_last_kill_inputs = None
+        self._wc_last_kill_result = None
+        self.wc_result.setText("Not assessed: calculation pending.")
         method = "Driller's" if self.wc_driller.isChecked() else "Wait & Weight"
         inp = build_canonical_kill_sheet_inputs(
             tvd_m=self._wc_value(self.wc_tvd),
             md_m=self._wc_value(self.wc_md),
             shoe_tvd_m=self._wc_value(self.wc_shoe_tvd),
+            shoe_md_m=self._wc_value(self.wc_shoe_md),
             hole_size_in=self._wc_value(self.wc_hole_size),
             casing_id_in=self._wc_value(self.wc_last_csg_id),
             casing_od_in=self._wc_value(self.wc_last_csg),

@@ -45,12 +45,12 @@ def test_reconstruct_in_fresh_process(tmp_path):
         m.Session = sessionmaker(bind=m.engine, autoflush=False, autocommit=False)
         repo = WellControlKillSheetRepository(m)
         inp = build_canonical_kill_sheet_inputs(tvd_m=3000, md_m=3200, shoe_tvd_m=2000,
-            hole_size_in=8.5, casing_id_in=8.835, casing_od_in=9.625, mw_pcf=90.0,
+            shoe_md_m=2000, hole_size_in=8.5, casing_id_in=8.835, casing_od_in=9.625, mw_pcf=90.0,
             frac_gradient_psi_ft=0.8, sidpp_psi=500, sicp_psi=700, pit_gain_bbl=10,
             scr1_psi=800, scr1_spm=30, scr2_psi=600, scr2_spm=25,
             pump_output_bbl_stk=0.09, method="Wait & Weight", well_type="Vertical",
             pipes_m=[{{"type":"DP","od":5.0,"id":4.276,"length":2800.0}},
-                     {{"type":"DC","od":6.5,"id":2.8125,"length":150.0}}])
+                     {{"type":"DC","od":6.5,"id":2.8125,"length":400.0}}])
         res = compute_kill_sheet(inp)
         snap = build_snapshot(inputs=inp, method=WellControlEngine.METHOD)
         cid = repo.save_run(snapshot=snap, result=res.values,

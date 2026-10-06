@@ -38,7 +38,8 @@ each segment, which are frozen into the snapshot. Reconstruction therefore needs
 NO live catalog lookup and NO current UI state, so this record stores NO
 reference fingerprint (claiming catalog traceability would be misleading).
 
-No new engine, no formula change, canonical units preserved exactly.
+M40 updates geometry semantics and the snapshot version records that contract.
+Missing measured-depth geometry remains unsupported rather than reconstructed.
 """
 from __future__ import annotations
 
@@ -49,9 +50,9 @@ from core.engineering.well_control_kill_sheet import (
     compute_kill_sheet,
 )
 
-# v1 froze canonical inputs. v2 retains operator-visible calculation scope,
-# screening assumptions, and warnings alongside the unchanged input snapshot.
-SNAPSHOT_SCHEMA_VERSION = 2
+# v1 froze canonical inputs. v2 retained result scope/assumptions. v3 adds
+# casing-shoe MD to the input identity and geometry-aware volume semantics.
+SNAPSHOT_SCHEMA_VERSION = 3
 
 
 def build_snapshot(

@@ -74,13 +74,35 @@ class TestHydraulicsExtended:
 
 
 class TestWellControlExtended:
-    def test_kick_tolerance(self):
+    def test_legacy_kick_tolerance_inputs_do_not_fabricate_volume(self):
         result = WellControlExtended.kick_tolerance(
             mw_ppg=10.0, tvd_ft=10000, shoe_tvd_ft=5000,
             lot_pressure_psi=4000
         )
-        assert result["kick_tolerance_ppg"] > 0
-        assert result["fracture_pressure_ppg"] > 10.0
+        assert result["status"] == "MISSING_INPUT"
+        assert result["scope"] == "NOT_ASSESSED"
+        assert result["kick_tolerance_bbl"] is None
+        assert "influx" in result["error"].lower()
+
+    @pytest.mark.parametrize("influx_gradient_ppg", [True, -0.1, float("nan"), "bad"])
+    def test_kick_tolerance_rejects_invalid_legacy_gradient_without_raising(self, influx_gradient_ppg):
+        result = WellControlExtended.kick_tolerance(
+            mw_ppg=14.5, tvd_ft=10000, shoe_tvd_ft=6000,
+            lot_pressure_psi=468.0, influx_gradient_ppg=influx_gradient_ppg,
+        )
+        assert result["status"] == "INVALID_INPUT"
+        assert result["scope"] == "NOT_ASSESSED"
+        assert result["kick_tolerance_bbl"] is None
+
+    def test_kick_tolerance_compatibility_adapter_delegates_canonical_engine(self):
+        result = WellControlExtended.kick_tolerance(
+            mw_ppg=14.5, tvd_ft=10000, shoe_tvd_ft=6000,
+            lot_pressure_psi=(16.0 - 14.5) * 0.052 * 6000,
+            influx_gradient_psi_ft=0.1, formation_emw_ppg=15.0,
+            annular_capacity_bbl_ft=0.0459, bha_annular_capacity_bbl_ft=0.0226,
+        )
+        assert result["status"] == "OK"
+        assert result["kick_tolerance_bbl"] == pytest.approx(7.2, abs=0.05)
 
     def test_wait_weight(self):
         result = WellControlExtended.wait_weight_method(

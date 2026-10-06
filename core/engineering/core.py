@@ -387,21 +387,29 @@ class BitEngine:
 
     @staticmethod
     def calculate_tfa(nozzles: List[float]) -> float:
-        """Total Flow Area from nozzle sizes in 32nds of inch.
-
-        TFA = sum( pi/4 * (size/32)^2 )
-        """
-        if not nozzles:
+        """Total Flow Area from explicit positive nozzle sizes in 32nds of inch."""
+        if nozzles is None:
+            raise MissingInputError("nozzles")
+        if isinstance(nozzles, (str, bytes)):
+            raise EngineeringError("nozzles must be an iterable of explicit sizes")
+        try:
+            nozzle_sizes = list(nozzles)
+        except TypeError as exc:
+            raise EngineeringError("nozzles must be an iterable of explicit sizes") from exc
+        if not nozzle_sizes:
             raise MissingInputError("nozzles")
         tfa = 0.0
-        for n in nozzles:
+        for index, nozzle in enumerate(nozzle_sizes):
+            if isinstance(nozzle, bool):
+                raise EngineeringError(f"nozzle {index + 1} size must be finite and positive")
             try:
-                d = float(n) / 32.0
-                tfa += math.pi / 4 * d * d
-            except (TypeError, ValueError):
-                continue
-        if tfa == 0:
-            raise EngineeringError("TFA calculated as 0")
+                size_32nds = float(nozzle)
+            except (TypeError, ValueError) as exc:
+                raise EngineeringError(f"nozzle {index + 1} size must be finite and positive") from exc
+            if not math.isfinite(size_32nds) or size_32nds <= 0:
+                raise EngineeringError(f"nozzle {index + 1} size must be finite and positive")
+            diameter_in = size_32nds / 32.0
+            tfa += math.pi / 4.0 * diameter_in**2
         return tfa
 
     @staticmethod
@@ -524,12 +532,13 @@ class HydraulicsEngine:
 
     @staticmethod
     def calculate_pv_yp(theta600: float, theta300: float) -> Tuple[float, float]:
-        """PV = theta600 - theta300, YP = theta300 - PV"""
+        """Compatibility adapter to the canonical Fann rheology calculation."""
         if theta600 is None or theta300 is None:
             raise MissingInputError("theta600, theta300 required")
-        pv = float(theta600) - float(theta300)
-        yp = float(theta300) - pv
-        return pv, yp
+        from core.hydraulics_engine import MudProperties
+
+        result = MudProperties.calculate_fann_rheology(theta600=theta600, theta300=theta300)
+        return result["pv_cp"], result["yp_lbf100ft2"]
 
 
 # ==================== Well Control ====================

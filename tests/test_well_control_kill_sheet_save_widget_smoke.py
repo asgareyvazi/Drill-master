@@ -112,9 +112,8 @@ _CHILD = textwrap.dedent(
     assert reloaded.result["kill_mw_ppg"] == stored_kill_mw, "history must not change"
     assert repo.count() == 1, "recompute alone must not persist a new run"
 
-    # Missing pipe geometry still follows the documented 5-in kick-height
-    # screening estimate, but it must not turn missing volume/stroke geometry
-    # into numeric zero in the real W13 procedure.
+    # Missing pipe/annular geometry must not create a numerical kick-height
+    # estimate or turn missing volume/stroke geometry into numeric zero.
     tab.wc_mw.setValue(90.0)
     tab.wc_pipes = []
     tab._wc_calc_kill()
@@ -123,10 +122,12 @@ _CHILD = textwrap.dedent(
     assert assumed.total_string_vol_bbl is None
     assert assumed.total_ann_vol_bbl is None
     assert assumed.stk_total is None
-    assert "ASSUMPTION: 5-in pipe OD" in assumed.kick_note
+    assert assumed.kick_height_ft is None
+    assert assumed.kick_type == "NOT ASSESSED"
+    assert assumed.geometry_assumption_used is False
     rendered = tab.wc_result.toPlainText()
-    assert "ASSUMPTION: 5-in pipe OD" in rendered
-    assert "Scope: SCREENING" in rendered
+    assert "5-in pipe OD" not in rendered
+    assert "Scope: PARTIAL" in rendered
     assert "NOT ASSESSED" in rendered
     assert "Total Circulation:   0 strokes" not in rendered
     assert "NOT ASSESSED — pump-stroke geometry is incomplete" in rendered
@@ -138,9 +139,9 @@ _CHILD = textwrap.dedent(
     # Repository history is newest-first; the just-saved partial run is first.
     partial = repo.all()[0]
     provenance = partial.input_snapshot["provenance"]
-    assert provenance["scope"] == "SCREENING"
-    assert provenance["geometry_assumption_used"] is True
-    assert any("5-in pipe OD" in item for item in provenance["assumptions"])
+    assert provenance["scope"] == "PARTIAL"
+    assert provenance["geometry_assumption_used"] is False
+    assert not any("5-in pipe OD" in item for item in provenance["assumptions"])
     assert partial.result["total_string_vol_bbl"] is None
     assert partial.result["stk_total"] is None
     assert partial.verify(current_method=WellControlEngine.METHOD).status == "MATCH"
@@ -152,8 +153,8 @@ _CHILD = textwrap.dedent(
         repo, current_method=WellControlEngine.METHOD)
     assert dlg.table.rowCount() == 2
     history_text = dlg._describe(partial)
-    assert "SCREENING" in history_text
-    assert "5-in pipe OD" in history_text
+    assert "PARTIAL" in history_text
+    assert "5-in pipe OD" not in history_text
 
     print("WC_SAVE_SMOKE_OK")
     """

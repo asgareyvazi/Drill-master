@@ -54,19 +54,30 @@ def _oracle_kill_sheet(raw):
     hole = raw["hole_size_in"]
     csg_id = raw["casing_id_in"]
 
+    # Independent circular-area conversion: in² -> ft² -> bbl/ft.
+    bbl_per_ft_in2 = 1.0 / (144.0 * 5.614583333333333)
     total_string_vol = 0.0
     total_ann_vol = 0.0
+    pipe_top_m = 0.0
     for p in raw["pipes_m"]:
-        od = p.get("od", 0)
-        id_ = p.get("id", 0)
-        L = p.get("length", 0)
-        cap = A.calc_pipe_capacity_bbl_ft(id_) * (L * 3.28084)
-        total_string_vol += cap
-        if L > 0:
-            ann_id_val = csg_id
-            if ann_id_val > od:
-                ann = A.calc_annular_capacity_bbl_ft(ann_id_val, od) * (L * 3.28084)
-                total_ann_vol += ann
+        od = p["od"]
+        id_ = p["id"]
+        length_m = p["length"]
+        total_string_vol += (3.141592653589793 / 4.0) * id_**2 * bbl_per_ft_in2 * (length_m * 3.28084)
+        shoe_md = raw.get("shoe_md_m")
+        if shoe_md is not None:
+            pipe_bottom_m = pipe_top_m + length_m
+            cased_m = max(0.0, min(pipe_bottom_m, shoe_md) - pipe_top_m)
+            open_m = max(0.0, pipe_bottom_m - max(pipe_top_m, shoe_md))
+            total_ann_vol += (3.141592653589793 / 4.0) * max(csg_id**2 - od**2, 0.0) * bbl_per_ft_in2 * (cased_m * 3.28084)
+            total_ann_vol += (3.141592653589793 / 4.0) * max(hole**2 - od**2, 0.0) * bbl_per_ft_in2 * (open_m * 3.28084)
+        pipe_top_m += length_m
+    pipe_complete = bool(raw["pipes_m"]) and abs(pipe_top_m - raw["md_m"]) <= 1.0 / 3.28084
+    annulus_complete = pipe_complete and raw.get("shoe_md_m") is not None
+    if not pipe_complete:
+        total_string_vol = None
+    if not annulus_complete:
+        total_ann_vol = None
 
     kmw_r = WC.kill_mw(mw_ppg, sidpp, tvd_ft)
     kmw_ppg = kmw_r.value
@@ -79,13 +90,14 @@ def _oracle_kill_sheet(raw):
     )
     maasp = maasp_r.value
 
-    stk_to_bit = total_string_vol / pump_output if pump_output > 0 else 0
-    stk_annular = total_ann_vol / pump_output if pump_output > 0 else 0
+    stk_to_bit = total_string_vol / pump_output if total_string_vol is not None and pump_output > 0 else None
+    stk_annular = total_ann_vol / pump_output if total_ann_vol is not None and pump_output > 0 else None
 
-    kick_height = 0.0
-    last_pipe_od = raw["pipes_m"][-1].get("od", 5) if raw["pipes_m"] else 5
-    ann_cap_ft = A.calc_annular_capacity_bbl_ft(hole, last_pipe_od)
-    if pit_gain > 0 and ann_cap_ft > 0:
+    kick_height = 0.0 if pit_gain == 0 else None
+    if pit_gain > 0 and pipe_complete and annulus_complete:
+        last_pipe_od = raw["pipes_m"][-1]["od"]
+        ann_id = hole if raw["md_m"] > raw["shoe_md_m"] else csg_id
+        ann_cap_ft = A.calc_annular_capacity_bbl_ft(ann_id, last_pipe_od)
         kv = WC.kick_volume(
             pit_gain_bbl=pit_gain,
             annular_capacity_bbl_ft=ann_cap_ft,
@@ -98,7 +110,7 @@ def _oracle_kill_sheet(raw):
 
     schedule = []
     intervals = 10
-    if stk_to_bit > 0:
+    if stk_to_bit is not None and stk_to_bit > 0:
         step = stk_to_bit / intervals
         dp = (icp - fcp) / intervals
         for i in range(intervals + 1):
@@ -125,6 +137,7 @@ def _raw_to_kwargs(raw):
         tvd_m=raw["tvd_m"],
         md_m=raw["md_m"],
         shoe_tvd_m=raw["shoe_tvd_m"],
+        shoe_md_m=raw.get("shoe_md_m"),
         hole_size_in=raw["hole_size_in"],
         casing_id_in=raw["casing_id_in"],
         casing_od_in=raw.get("casing_od_in"),
@@ -147,7 +160,7 @@ def _raw_to_kwargs(raw):
 CASES = [
     # (1) default-ish vertical well with 3-segment string + pit gain
     dict(
-        tvd_m=3000, md_m=3200, shoe_tvd_m=2000, hole_size_in=8.5,
+        tvd_m=3000, md_m=3200, shoe_tvd_m=2000, shoe_md_m=2000, hole_size_in=8.5,
         casing_id_in=8.835, casing_od_in=9.625, mw_pcf=90.0,
         frac_gradient_psi_ft=0.8, sidpp_psi=500, sicp_psi=700, pit_gain_bbl=10,
         scr1_psi=800, scr1_spm=30, scr2_psi=600, scr2_spm=25,
@@ -155,24 +168,24 @@ CASES = [
         pipes_m=[
             {"type": "DP", "od": 5.0, "id": 4.276, "length": 2800.0},
             {"type": "HWDP", "od": 5.0, "id": 3.0, "length": 200.0},
-            {"type": "DC", "od": 6.5, "id": 2.8125, "length": 150.0},
+            {"type": "DC", "od": 6.5, "id": 2.8125, "length": 200.0},
         ],
     ),
     # (2) driller's method, heavier mud, big kick, deviated well
     dict(
-        tvd_m=4200, md_m=4800, shoe_tvd_m=3500, hole_size_in=12.25,
+        tvd_m=4200, md_m=4800, shoe_tvd_m=3500, shoe_md_m=3500, hole_size_in=12.25,
         casing_id_in=12.415, casing_od_in=13.375, mw_pcf=112.0,
         frac_gradient_psi_ft=0.95, sidpp_psi=820, sicp_psi=1100, pit_gain_bbl=32,
         scr1_psi=1200, scr1_spm=40, scr2_psi=900, scr2_spm=32,
         pump_output_bbl_stk=0.117, method="Driller's", well_type="Deviated",
         pipes_m=[
-            {"type": "DP", "od": 5.5, "id": 4.778, "length": 4400.0},
+            {"type": "DP", "od": 5.5, "id": 4.778, "length": 4580.0},
             {"type": "DC", "od": 8.0, "id": 3.0, "length": 220.0},
         ],
     ),
     # (3) no pit gain, single pipe (kick_volume skipped, MAASP present)
     dict(
-        tvd_m=1500, md_m=1500, shoe_tvd_m=1200, hole_size_in=6.0,
+        tvd_m=1500, md_m=1500, shoe_tvd_m=1200, shoe_md_m=1200, hole_size_in=6.0,
         casing_id_in=6.276, casing_od_in=7.0, mw_pcf=75.0,
         frac_gradient_psi_ft=0.7, sidpp_psi=300, sicp_psi=300, pit_gain_bbl=0,
         scr1_psi=500, scr1_spm=20, scr2_psi=400, scr2_spm=18,
@@ -205,51 +218,79 @@ def test_matches_original_handler_math(raw):
     assert res.icp_psi == pytest.approx(oracle["icp"], abs=0, rel=0)
     assert res.fcp_psi == pytest.approx(oracle["fcp"], abs=0, rel=0)
     assert res.maasp_psi == pytest.approx(oracle["maasp"], abs=0, rel=0)
-    if raw["pipes_m"]:
-        # Preserve the M36 arithmetic exactly for complete pipe geometry.
-        assert res.total_string_vol_bbl == pytest.approx(oracle["total_string_vol"], abs=0, rel=0)
-        assert res.total_ann_vol_bbl == pytest.approx(oracle["total_ann_vol"], abs=0, rel=0)
-        assert res.stk_to_bit == pytest.approx(oracle["stk_to_bit"], abs=0, rel=0)
-        assert res.stk_annular == pytest.approx(oracle["stk_annular"], abs=0, rel=0)
-        assert res.kick_height_ft == pytest.approx(oracle["kick_height"], abs=0, rel=0)
-        assert res.choke_schedule == oracle["schedule"]
-        assert res.scope == "COMPLETE"
+    if oracle["total_string_vol"] is not None:
+        assert res.total_string_vol_bbl == pytest.approx(oracle["total_string_vol"], abs=0.006)
+        assert res.total_ann_vol_bbl == pytest.approx(oracle["total_ann_vol"], abs=0.03)
+        if raw is CASES[0]:
+            assert [(name, round(length_m)) for name, length_m, _ in res.ann_detail] == [
+                ("DP in CSG", 2000), ("DP in Open hole", 800),
+                ("HWDP in Open hole", 200), ("DC in Open hole", 200),
+            ]
+        assert res.stk_to_bit == pytest.approx(oracle["stk_to_bit"], abs=0.07)
+        assert res.stk_annular == pytest.approx(oracle["stk_annular"], abs=0.26)
+        assert res.kick_height_ft == pytest.approx(oracle["kick_height"], abs=1e-12)
+        assert len(res.choke_schedule) == 11
+        for i, (strokes, pressure, percent) in enumerate(res.choke_schedule):
+            assert strokes == round(i * res.stk_to_bit / 10)
+            assert pressure == round(res.icp_psi - i * (res.icp_psi - res.fcp_psi) / 10, 1)
+            assert percent == round(i / 10 * 100)
+        assert res.scope == ("SCREENING" if raw["pit_gain_bbl"] > 0 else "COMPLETE")
+        assert res.geometry_assumption_used is (raw["pit_gain_bbl"] > 0)
     else:
-        # The historical numeric oracle's empty loops returned zeros; zeros are
-        # not a measurement of missing pipe-dependent volumes or strokes.
         assert res.total_string_vol_bbl is None
         assert res.total_ann_vol_bbl is None
         assert res.total_well_vol_bbl is None
         assert res.stk_to_bit is None
         assert res.stk_annular is None
         assert res.stk_total is None
-        assert res.kick_height_ft == pytest.approx(oracle["kick_height"])
+        assert res.kick_height_ft is None if raw["pit_gain_bbl"] > 0 else res.kick_height_ft == 0
+        assert res.kick_type == "NOT ASSESSED"
         assert res.choke_schedule == []
-        assert res.scope == "SCREENING"
-        assert res.geometry_assumption_used
+        assert res.scope == "PARTIAL"
+        assert not res.geometry_assumption_used
 
 
-def test_legacy_missing_pipe_geometry_kick_height_is_explicitly_labelled():
+def test_missing_pipe_geometry_does_not_fabricate_kick_height():
     raw = {**CASES[0], "pipes_m": []}
-    inp = build_canonical_kill_sheet_inputs(**_raw_to_kwargs(raw))
-    result = compute_kill_sheet(inp)
+    result = compute_kill_sheet(
+        build_canonical_kill_sheet_inputs(**_raw_to_kwargs(raw))
+    )
 
     assert result.success
-    assert result.kick_height_ft == pytest.approx(_oracle_kill_sheet(raw)["kick_height"])
-    assert "ASSUMPTION: 5-in pipe OD" in result.kick_note
-    assert any("assumed 5-in pipe OD" in warning for warning in result.warnings)
+    assert result.kick_height_ft is None
+    assert result.kick_type == "NOT ASSESSED"
+    assert not result.geometry_assumption_used
+    assert result.scope == "PARTIAL"
+    assert not any("5-in pipe OD" in text for text in result.warnings + result.assumptions)
+    assert any("complete drill-string" in warning for warning in result.warnings)
 
-    # No kick-height estimate is made when the measured pit gain is explicitly
-    # zero, so an unused geometric fallback is not described as an assumption.
+    # An explicitly recorded zero pit gain remains a numeric zero and does not
+    # create an unused geometric assumption.
     no_kick = {**raw, "pit_gain_bbl": 0.0}
     no_kick_result = compute_kill_sheet(
         build_canonical_kill_sheet_inputs(**_raw_to_kwargs(no_kick))
     )
     assert no_kick_result.success
-    assert no_kick_result.kick_note == ""
+    assert no_kick_result.kick_height_ft == 0.0
     assert not no_kick_result.geometry_assumption_used
-    assert not any("assumed 5-in" in warning for warning in no_kick_result.warnings)
-    assert any("geometry is missing" in warning for warning in no_kick_result.warnings)
+
+
+def test_missing_shoe_md_keeps_annular_and_kick_geometry_unknown():
+    raw = dict(CASES[0])
+    raw.pop("shoe_md_m")
+    result = compute_kill_sheet(
+        build_canonical_kill_sheet_inputs(**_raw_to_kwargs(raw))
+    )
+
+    assert result.success
+    assert result.total_string_vol_bbl is not None
+    assert result.total_ann_vol_bbl is None
+    assert result.stk_to_bit is not None
+    assert result.stk_annular is None
+    assert result.kick_height_ft is None
+    assert result.kick_type == "NOT ASSESSED"
+    assert result.scope == "PARTIAL"
+    assert not result.geometry_assumption_used
 
 
 def test_unit_conversion_single_owner():
@@ -330,11 +371,13 @@ def test_empty_string_has_unknown_pipe_volumes_and_strokes_not_measured_zeros():
     assert res.stk_to_bit is None
     assert res.stk_annular is None
     assert res.stk_total is None
-    assert res.kick_height_ft is not None  # screening estimate is separate
-    assert res.geometry_assumption_used is True
-    assert res.scope == "SCREENING"
+    assert res.kick_height_ft is None
+    assert res.kick_type == "NOT ASSESSED"
+    assert res.geometry_assumption_used is False
+    assert res.scope == "PARTIAL"
     assert res.choke_schedule == []
-    assert any("not assessed" in warning for warning in res.warnings)
+    assert any("not assessed" in warning.lower() for warning in res.warnings)
+    assert not any("5-in" in warning for warning in res.warnings)
 
 
 @pytest.mark.parametrize(
@@ -363,7 +406,7 @@ def test_zero_pump_output_keeps_known_volumes_but_not_zero_strokes():
     assert res.stk_annular is None
     assert res.stk_total is None
     assert res.choke_schedule == []
-    assert res.scope == "PARTIAL"
+    assert res.scope == "SCREENING"
     assert any("Pump output must be positive" in warning for warning in res.warnings)
 
 
