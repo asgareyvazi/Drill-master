@@ -6,9 +6,9 @@ This report records independent dimensional and numerical evidence, implementati
 
 ## 1. Verdict and current gate state
 
-**Candidate state while this report is being assembled: BLOCKED pending clean exact-SHA Source release verification.** The M40 baseline workflow does not certify M41 changes. Final status is to be updated only after commit, push, and a fresh successful workflow whose full `head_sha` matches the pushed branch tip.
+**M41 implementation source gate: PASS with explicit scope limitations.** Commit `98b8118cecad198d95859eecdea0f970e7c70f5f` was pushed to the fixed branch and passed the fresh Source release gate `37596431831` on Python 3.11, 3.12, and 3.13 with exact matching `head_sha`. This report-only evidence update is a subsequent commit; its exact-SHA workflow must also pass before the final branch tip is called verified. The M40 baseline workflow is not used as M41 evidence.
 
-The bounded engineering result may be reported as **CERTIFIED WITH EXPLICIT LIMITATIONS** only if all repository gates and exact-SHA CI pass. Any missing/failed exact-SHA evidence leaves the verdict **BLOCKED**.
+The bounded engineering result is **CERTIFIED WITH EXPLICIT LIMITATIONS** for the tested repository scope only. This is not standards compliance, field-loop validation, operational approval, or fitness for well-control decisions. A failed or missing exact-SHA gate on the final report commit leaves final branch status **BLOCKED**.
 
 ## 2. Branch, baseline, and ancestry reconciliation
 
@@ -150,9 +150,10 @@ Repository evidence recorded before commit (therefore not an exact-SHA release c
 - Ruff pinned tool 0.16.6: `ruff check --select E722,F821 .` — **PASS**. Full historical debt count **5338**, below unchanged ceiling **5375**; the debt scan exits 1 because it reports existing debt, so this is a ratchet pass, not lint-clean.
 - `python -m build --sdist --wheel` — **PASS**. Installing the wheel to an isolated target passed, but running its application smoke check is **BLOCKED in this sandbox** by missing system `libGL.so.1` imported by PySide6.
 - Full `pytest -q` — **NOT RUN TO COMPLETION**: collection stopped with 18 import errors, all caused by absent `libGL.so.1`; 2 tests were skipped. Installing system packages was attempted but network access to Debian repositories was unavailable. This is an environment limitation, not a test assertion failure. The complete CI runner remains necessary to resolve it.
-- Exact-SHA release gate, remote branch SHA, clean committed worktree, and Python 3.11/3.12/3.13 CI matrix: **PENDING**. Baseline run `37461409652` is not a substitute; bind the workflow `head_sha` to the actual final Git SHA after push.
+- Exact-SHA Source release gate **PASS** for implementation commit `98b8118cecad198d95859eecdea0f970e7c70f5f`: GitHub Actions run [37596431831](https://github.com/asgareyvazi/Drill-master/actions/runs/37596431831), exact `head_sha=98b8118cecad198d95859eecdea0f970e7c70f5f`; Python 3.11, 3.12, and 3.13 all succeeded, including complete tests and isolated wheel verification. Remote branch tip matched this SHA at verification. This paragraph documents the implementation candidate; the report-only commit that records these results requires its own fresh exact-SHA run.
+- Baseline run `37461409652` remains baseline-only and is not used as M41 evidence.
 
-The focused model-certification file and the expanded M40 regression file are `tests/test_hydraulics_m41_model_certification.py` and `tests/test_hydraulics_m40_regressions.py` respectively. Exact final Git and CI identity is reported from GitHub after the candidate is pushed; do not infer it from these pre-commit checks.
+The focused model-certification file and the expanded M40 regression file are `tests/test_hydraulics_m41_model_certification.py` and `tests/test_hydraulics_m40_regressions.py` respectively. The final report-commit SHA and its CI run are intentionally resolved from the branch/GitHub after that report update, to avoid treating this earlier candidate's run as proof for a later SHA.
 
 ## 14. Explicit limitations and external acceptance boundary
 
@@ -169,14 +170,16 @@ The focused model-certification file and the expanded M40 regression file are `t
 ```json
 {
   "mission": "M41 rheology and hydraulics model certification",
-  "verdict": "BLOCKED",
+  "verdict": "IMPLEMENTATION_PASS; REPORT_FOLLOWUP_CI_PENDING",
   "baseline_sha": "2f49bc0817425711cb994e1d8605a672a5aed7dd",
   "branch": "arena/01a0ec23-drill-master",
-  "head_sha": "PENDING",
-  "remote_head_sha": "PENDING",
-  "worktree_clean": false,
-  "exact_sha_ci_run_id": null,
-  "exact_sha_ci_head_sha": null,
+  "implementation_sha": "98b8118cecad198d95859eecdea0f970e7c70f5f",
+  "implementation_remote_sha": "98b8118cecad198d95859eecdea0f970e7c70f5f",
+  "implementation_worktree_clean_at_push": true,
+  "exact_sha_ci_run_id": 37596431831,
+  "exact_sha_ci_head_sha": "98b8118cecad198d95859eecdea0f970e7c70f5f",
+  "final_report_followup_sha": "PENDING_COMMIT",
+  "final_report_followup_ci_run_id": null,
   "python_matrix": ["3.11", "3.12", "3.13"],
   "hb_full_solver": false,
   "windows_installer_accepted": false,
