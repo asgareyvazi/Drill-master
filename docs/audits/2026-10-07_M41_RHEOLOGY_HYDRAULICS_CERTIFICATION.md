@@ -6,9 +6,9 @@ This report records independent dimensional and numerical evidence, implementati
 
 ## 1. Verdict and current gate state
 
-**M41 implementation source gate: PASS with explicit scope limitations.** Commit `98b8118cecad198d95859eecdea0f970e7c70f5f` was pushed to the fixed branch and passed the fresh Source release gate `37596431831` on Python 3.11, 3.12, and 3.13 with exact matching `head_sha`. This report-only evidence update is a subsequent commit; its exact-SHA workflow must also pass before the final branch tip is called verified. The M40 baseline workflow is not used as M41 evidence.
+**M41 implementation and report evidence: PASS with explicit scope limitations.** The implementation commit `98b8118cecad198d95859eecdea0f970e7c70f5f` passed Source release gate `37596431831`. The first report-evidence commit `15e90852ff77ad7f1928162e537499bd4147dea2` then passed a fresh exact-SHA Source release gate, run `37597388628`, on Python 3.11, 3.12, and 3.13. The exact-SHA identity of the final handoff tip is reported from the live GitHub record; if this audit file is revised again, a new exact-SHA run is required. The M40 baseline workflow is not used as M41 evidence.
 
-The bounded engineering result is **CERTIFIED WITH EXPLICIT LIMITATIONS** for the tested repository scope only. This is not standards compliance, field-loop validation, operational approval, or fitness for well-control decisions. A failed or missing exact-SHA gate on the final report commit leaves final branch status **BLOCKED**.
+The bounded engineering result is **CERTIFIED WITH EXPLICIT LIMITATIONS** for the tested repository scope only. This is not standards compliance, field-loop validation, operational approval, or fitness for well-control decisions. A failed or missing exact-SHA gate on the final branch tip leaves status **BLOCKED**.
 
 ## 2. Branch, baseline, and ancestry reconciliation
 
@@ -150,7 +150,8 @@ Repository evidence recorded before commit (therefore not an exact-SHA release c
 - Ruff pinned tool 0.16.6: `ruff check --select E722,F821 .` — **PASS**. Full historical debt count **5338**, below unchanged ceiling **5375**; the debt scan exits 1 because it reports existing debt, so this is a ratchet pass, not lint-clean.
 - `python -m build --sdist --wheel` — **PASS**. Installing the wheel to an isolated target passed, but running its application smoke check is **BLOCKED in this sandbox** by missing system `libGL.so.1` imported by PySide6.
 - Full `pytest -q` — **NOT RUN TO COMPLETION**: collection stopped with 18 import errors, all caused by absent `libGL.so.1`; 2 tests were skipped. Installing system packages was attempted but network access to Debian repositories was unavailable. This is an environment limitation, not a test assertion failure. The complete CI runner remains necessary to resolve it.
-- Exact-SHA Source release gate **PASS** for implementation commit `98b8118cecad198d95859eecdea0f970e7c70f5f`: GitHub Actions run [37596431831](https://github.com/asgareyvazi/Drill-master/actions/runs/37596431831), exact `head_sha=98b8118cecad198d95859eecdea0f970e7c70f5f`; Python 3.11, 3.12, and 3.13 all succeeded, including complete tests and isolated wheel verification. Remote branch tip matched this SHA at verification. This paragraph documents the implementation candidate; the report-only commit that records these results requires its own fresh exact-SHA run.
+- Exact-SHA Source release gate **PASS** for implementation commit `98b8118cecad198d95859eecdea0f970e7c70f5f`: GitHub Actions run [37596431831](https://github.com/asgareyvazi/Drill-master/actions/runs/37596431831), exact `head_sha=98b8118cecad198d95859eecdea0f970e7c70f5f`; Python 3.11, 3.12, and 3.13 all succeeded, including complete tests and isolated wheel verification.
+- Exact-SHA Source release gate **PASS** for report-evidence commit `15e90852ff77ad7f1928162e537499bd4147dea2`: GitHub Actions run [37597388628](https://github.com/asgareyvazi/Drill-master/actions/runs/37597388628), exact matching `head_sha`, all three Python jobs successful. Remote tip matched this SHA at verification. The final handoff tip may include this last audit-only update; its identity and exact run are verified live and surfaced in the completion message.
 - Baseline run `37461409652` remains baseline-only and is not used as M41 evidence.
 
 The focused model-certification file and the expanded M40 regression file are `tests/test_hydraulics_m41_model_certification.py` and `tests/test_hydraulics_m40_regressions.py` respectively. The final report-commit SHA and its CI run are intentionally resolved from the branch/GitHub after that report update, to avoid treating this earlier candidate's run as proof for a later SHA.
@@ -170,16 +171,18 @@ The focused model-certification file and the expanded M40 regression file are `t
 ```json
 {
   "mission": "M41 rheology and hydraulics model certification",
-  "verdict": "IMPLEMENTATION_PASS; REPORT_FOLLOWUP_CI_PENDING",
+  "verdict": "PASS_WITH_EXPLICIT_LIMITATIONS; FINAL_HANDOFF_SHA_VERIFIED_LIVE",
   "baseline_sha": "2f49bc0817425711cb994e1d8605a672a5aed7dd",
   "branch": "arena/01a0ec23-drill-master",
   "implementation_sha": "98b8118cecad198d95859eecdea0f970e7c70f5f",
   "implementation_remote_sha": "98b8118cecad198d95859eecdea0f970e7c70f5f",
   "implementation_worktree_clean_at_push": true,
-  "exact_sha_ci_run_id": 37596431831,
-  "exact_sha_ci_head_sha": "98b8118cecad198d95859eecdea0f970e7c70f5f",
-  "final_report_followup_sha": "PENDING_COMMIT",
-  "final_report_followup_ci_run_id": null,
+  "exact_sha_ci_run_id": 37597388628,
+  "exact_sha_ci_head_sha": "15e90852ff77ad7f1928162e537499bd4147dea2",
+  "report_evidence_commit_remote_sha": "15e90852ff77ad7f1928162e537499bd4147dea2",
+  "report_evidence_worktree_clean_at_push": true,
+  "final_handoff_sha": "Resolved from live branch/GitHub record in completion message",
+  "final_handoff_ci_run_id": "Resolved from live branch/GitHub record in completion message",
   "python_matrix": ["3.11", "3.12", "3.13"],
   "hb_full_solver": false,
   "windows_installer_accepted": false,
