@@ -436,6 +436,9 @@ def test_failed_backup_preserves_the_previous_good_backup(tmp_path, monkeypatch)
     destination = tmp_path / "backup.db"
     assert db.backup_to(destination) == str(destination)
     digest_before = hashlib.sha256(destination.read_bytes()).hexdigest()
+    # Close SQLite before deleting its file: Windows correctly refuses to
+    # unlink an open database, while POSIX would otherwise hide this fixture bug.
+    db.close()
     # source vanishes: a naive implementation would publish an empty database
     os.remove(db.db_path)
     assert db.backup_to(destination) is None

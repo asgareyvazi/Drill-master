@@ -49,7 +49,14 @@ jobs:
             [xml]$junit = Get-Content -LiteralPath $testReport -Raw
             foreach ($case in $junit.SelectNodes('//testcase[failure or error]')) {
               $identity = "$($case.classname).$($case.name)"
-              Write-Output "::error title=Windows regression failure::$identity"
+              $detail = $case.SelectSingleNode('failure')
+              if ($null -eq $detail) { $detail = $case.SelectSingleNode('error') }
+              $frameMatches = [regex]::Matches($detail.InnerText, 'File "([^"]+)", line (\d+), in ([^\r\n]+)')
+              $frame = if ($frameMatches.Count -gt 0) {
+                $lastFrame = $frameMatches[$frameMatches.Count - 1]
+                "$($lastFrame.Groups[1].Value):$($lastFrame.Groups[2].Value) in $($lastFrame.Groups[3].Value)"
+              } else { $detail.GetAttribute('type') }
+              Write-Output "::error title=Windows regression failure::$identity | $frame"
             }
           }
           if ($pytestExit -ne 0) { throw 'Windows release regression suite failed; failing test names are recorded as workflow annotations' }
