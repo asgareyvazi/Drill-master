@@ -4,7 +4,7 @@ This runbook is an executable procedure for Windows release engineering. A succe
 
 ## Automated Windows release gate
 
-The dedicated **Windows release validation** workflow runs on `windows-2022` for pushes, pull requests, and manual dispatch. It installs the pinned runtime/build dependencies and Inno Setup 6.4.3, runs the disposable database/import/auth/packaging regression suite, builds the one-folder portable bundle, executes `DrillMaster.exe --package-smoke` with temporary data/log paths, compiles the installer, and checks authoritative version, source SHA, and artifact SHA-256 values.
+The dedicated **Windows release validation** workflow runs on `windows-2022` for pushes, pull requests, and manual dispatch. It installs the pinned runtime/build dependencies and Inno Setup 6.7.1, runs the disposable database/import/auth/packaging regression suite, builds the one-folder portable bundle, executes `DrillMaster.exe --package-smoke` with temporary data/log paths, compiles the installer, and checks authoritative version, source SHA, and artifact SHA-256 values.
 
 From a clean checkout of the intended full commit SHA, a local equivalent is:
 
