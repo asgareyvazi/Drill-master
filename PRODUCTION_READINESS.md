@@ -2,9 +2,19 @@
 
 > **Canonical release-status authority.** This file separates repository verification from external acceptance. A static document cannot contain its own commit SHA; obtain the current exact identity with `git rev-parse HEAD` and count CI only when the workflow `head_sha` is identical.
 
-## Current release status — M36 closure baseline / M37 hardening
+## Current release status — M41 rheology/hydraulics certification
 
-- **Repository:** `asgareyvazi/Drill-master`; release branch `arena/01a0ec23-drill-master`; base/default branch `drill-Master`.
+- **Repository and branch:** `asgareyvazi/Drill-master`, release branch `arena/01a0ec23-drill-master`; default/base branch `drill-Master`.
+- **Required M41 baseline:** `2f49bc0817425711cb994e1d8605a672a5aed7dd` (M40 documentation follow-up). Baseline CI run [37461409652](https://github.com/asgareyvazi/Drill-master/actions/runs/37461409652) passed the source gate on Python 3.11/3.12/3.13, but it is not evidence for an M41 candidate.
+- **M41 candidate verification:** BLOCKED until the M41 implementation/docs are committed, pushed, and a fresh exact-SHA Source release gate passes. Do not infer M41 status from the baseline run. For the candidate, require the workflow's full `head_sha` to equal `git rev-parse HEAD` on this branch.
+- **Fann/Power Law contract:** M41 corrects the dimensional label: `K = 510·theta300/511^n` is reported in `cP·s^(n−1)` under the 300-rpm convention, with an explicit conversion to `(lbf/100 ft²)·s^n` before field pressure-loss and critical-velocity correlations. The legacy `power_law_k_equivalent_cp` output key remains for compatibility; it is not a plain-cP claim when `n != 1`. The M40 audit's earlier equivalent-cP wording is historical and is superseded by the M41 derivation.
+- **Model scope:** Bingham and Power Law remain simplified screening correlations. Herschel–Bulkley does not have a validated yield-corrected solver here; pressure loss and ECD are `NOT_ASSESSED`, not a Power-Law-plus-yield surrogate. Transition correlations, empirical surface factor, geometry assumptions, and ECD remain explicitly limited as documented in the M41 audit.
+- **M36/P6 and W5:** historical closure, `PROVENANCE_EXTERNAL_SOURCE_UNAVAILABLE`, 332/334 source-hash contexts, and the six open owner decisions are preserved; this M41 work does not adjudicate or rewrite them.
+- **External acceptance:** Windows executable/installer, clean-machine install, real PDF/MinerU execution, production database, and operator/business acceptance remain NOT RUN unless separately evidenced below.
+- **Release boundary:** source tests/static checks/package verification are repository evidence only; they do not establish external acceptance or standards compliance.
+
+## Historical release status — M36 closure baseline / M37 hardening (as recorded 2026-10-04)
+
 - **M37 starting baseline SHA:** `385cf63d833649bd41f932112828c8e2aa66328a` (M36 closure commit). This is a baseline, not a claim that later commits inherit its CI.
 - **Exact-SHA Source release gate for that baseline:** run [37184840618](https://github.com/asgareyvazi/Drill-master/actions/runs/37184840618), Python 3.11/3.12/3.13 all PASS, including exact-source, locked dependencies, tests, and wheel verification. For any later candidate, inspect the [branch workflow runs](https://github.com/asgareyvazi/Drill-master/actions/workflows/ci.yml?query=branch%3Aarena%2F01a0ec23-drill-master) and require a successful run whose full `head_sha` equals current `git rev-parse HEAD`.
 - **M36/P6:** 1,224 original records = 2 pre-P6 fixed + 1,222 adjudicated in batches 002–029 + 0 current OPEN. Structural and Git-history reconciliation pass; 332/334 source-hash contexts match.

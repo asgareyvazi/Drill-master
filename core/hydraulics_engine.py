@@ -15,6 +15,12 @@ from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)
 
+FANN_DIAL_STRESS_PA = 0.510
+FANN_REFERENCE_SHEAR_RATE_S = 511.0
+FANN_LOG_SLOPE_FACTOR = 3.32
+FIELD_STRESS_PA_PER_LBF100FT2 = 0.4788025898
+ANNULAR_VELOCITY_FPM_PER_GPM_IN2 = 24.51
+
 
 # ==================== Data Classes ====================
 
@@ -84,8 +90,12 @@ class BitNozzle:
     
     @property
     def area(self) -> float:
-        """مساحت یک نازل (in²)"""
-        return math.pi / 4 * self.diameter_inch ** 2
+        """Nozzle area in in² via the canonical BitEngine TFA formula."""
+        if self.size_32nds == 0:
+            return 0.0
+        from core.engineering.core import BitEngine
+
+        return BitEngine.calculate_tfa([self.size_32nds])
     
     @property
     def total_area(self) -> float:
@@ -113,39 +123,71 @@ class MudProperties:
     def mw_ppg(self) -> float:
         return self.mw_pcf / 7.48052
     
+    @staticmethod
+    def _power_law_parameters_from_fann(theta600: float, theta300: float) -> tuple[float, float]:
+        """Single owner for the supported Fann Power Law n and cP-based K."""
+        if any(
+            not isinstance(value, (int, float))
+            or isinstance(value, bool)
+            or not math.isfinite(value)
+            for value in (theta600, theta300)
+        ):
+            raise ValueError("Fann readings must be finite real numbers")
+        if theta300 <= 0 or theta600 <= theta300:
+            raise ValueError("Power Law requires theta600 > positive theta300")
+        n = FANN_LOG_SLOPE_FACTOR * math.log10(theta600 / theta300)
+        k_cp_s_nminus1 = (
+            1000.0 * FANN_DIAL_STRESS_PA * theta300
+            / (FANN_REFERENCE_SHEAR_RATE_S**n)
+        )
+        return n, k_cp_s_nminus1
+
+    @staticmethod
+    def _power_law_k_field_from_cp(k_cp_s_nminus1: float) -> float:
+        """Convert cP·s^(n−1) to (lbf/100 ft²)·s^n exactly once."""
+        return k_cp_s_nminus1 * 0.001 / FIELD_STRESS_PA_PER_LBF100FT2
+
     @property
     def n_bingham(self) -> float:
-        """flow behavior index - Bingham"""
+        """Deprecated compatibility index; share the canonical Fann slope."""
         if self.theta300 <= 0:
             return 1.0
-        return 3.32 * math.log10(self.theta600 / self.theta300)
+        return self.n_power_law
     
     @property
     def k_bingham(self) -> float:
         """consistency index - Bingham"""
         n = self.n_bingham
-        return self.theta300 / (511 ** n)
+        return self.theta300 / (FANN_REFERENCE_SHEAR_RATE_S ** n)
     
     @property
     def n_power_law(self) -> float:
-        """flow behavior index - Power Law"""
-        if self.theta300 <= 0:
-            return 1.0
-        return 3.32 * math.log10(self.theta600 / self.theta300)
+        """Fann 600/300 log-slope (dimensionless; 3.32 is the field approximation)."""
+        try:
+            return self._power_law_parameters_from_fann(self.theta600, self.theta300)[0]
+        except (TypeError, ValueError):
+            return 0.0
     
     @property
     def k_power_law(self) -> float:
-        """Field-unit power-law consistency index from the Fann reading.
+        """Fann power-law K in cP·s^(n−1), using the field convention.
 
-        Guo and Liu, Eq. (2.11), use ``K = 510·theta300 / 511**n`` for
-        theta300 in dial units and the 300-rpm shear rate convention. The
-        leading factor is a field-unit conversion, not an extra shear-rate
-        multiplier. This implementation keeps the published 510 coefficient.
+        The standard R1-B1-F1 stress calibration is about 0.510 Pa per dial
+        unit; multiplying by 1000 mPa/Pa gives 510 in the conventional numeric
+        expression K=510·theta300/511**n. The units are not cP for n != 1.
+        Pressure-loss equations that use field stress units must explicitly
+        convert K: cP·s^(n−1) × 0.001 Pa·s/cP ÷ 0.4788025898 Pa per
+        lbf/100 ft².
         """
-        n = self.n_power_law
-        if n <= 0 or self.theta300 <= 0:
+        try:
+            return self._power_law_parameters_from_fann(self.theta600, self.theta300)[1]
+        except (TypeError, ValueError):
             return 0.0
-        return 510.0 * self.theta300 / (511 ** n)
+
+    @property
+    def k_power_law_field(self) -> float:
+        """Convert cP·s^(n−1) to (lbf/100 ft²)·s^n for field loss equations."""
+        return self._power_law_k_field_from_cp(self.k_power_law)
     
     @property
     def tau_y_hb(self) -> float | None:
@@ -160,10 +202,10 @@ class MudProperties:
                                 theta6: float | None = None) -> Dict:
         """Canonical Fann-derived Bingham, Power Law, and screening HB values.
 
-        Readings are dial units at the named rpm. Power-law K is the
-        field-unit ``equivalent cP`` convention (510 theta300 / 511**n), not
-        the dimensional SI consistency index. The HB yield estimate and
-        ``PV + 5*YP`` display indicator are explicitly screening-only.
+        Readings are dial units at the named rpm. Power-law K uses the Fann
+        field convention 510*theta300/511**n, in cP·s^(n−1), not plain cP
+        unless n=1. The HB yield estimate and PV+5YP indicator are
+        explicitly screening-only. HB n/K are intentionally not inferred here.
         """
         readings = {"theta600": theta600, "theta300": theta300}
         if theta3 is not None:
@@ -184,8 +226,8 @@ class MudProperties:
         yp = theta300 - pv
         if yp < 0:
             raise ValueError("Fann readings imply negative Bingham yield point")
-        n = 3.32 * math.log10(theta600 / theta300)
-        k = 510.0 * theta300 / (511.0 ** n) if n > 0 else None
+        n, k = MudProperties._power_law_parameters_from_fann(theta600, theta300)
+        k_field = MudProperties._power_law_k_field_from_cp(k) if k is not None else None
         tau_y = None
         if theta3 is not None and theta6 is not None:
             tau_y = max(0.0, 2.0 * theta3 - theta6)
@@ -197,6 +239,9 @@ class MudProperties:
             "pv_cp": pv,
             "yp_lbf100ft2": yp,
             "power_law_n": n,
+            "power_law_k_cp_s_nminus1": k,
+            "power_law_k_field_stress_units": k_field,
+            # M40 key retained; its old 'equivalent cP' label was dimensionally incomplete.
             "power_law_k_equivalent_cp": k,
             "hb_yield_estimate_lbf100ft2": tau_y,
             "screening_effective_viscosity_indicator_cp": pv + 5.0 * yp,
@@ -205,7 +250,7 @@ class MudProperties:
                 "pv": "cP",
                 "yp": "lbf/100 ft^2",
                 "power_law_n": "dimensionless",
-                "power_law_k": "equivalent cP at the 511 s^-1 convention",
+                "power_law_k": "cP·s^(n-1) (Fann field convention; convert explicitly to SI or lbf/100 ft^2·s^n)",
                 "hb_yield_estimate": "lbf/100 ft^2",
                 "effective_viscosity_indicator": "cP (heuristic, not constitutive viscosity)",
             },
@@ -213,14 +258,15 @@ class MudProperties:
                 "pv": "theta600 - theta300",
                 "yp": "theta300 - PV",
                 "power_law_n": "3.32 log10(theta600/theta300)",
-                "power_law_k": "510 theta300 / 511^n",
+                "power_law_k": "510 theta300 / 511^n; 510 = 1000×0.510 Pa per dial unit, with 511 s^-1 reference shear rate",
                 "hb_yield_estimate": "max(0, 2 theta3 - theta6)",
                 "effective_viscosity_indicator": "PV + 5 YP (heuristic only)",
             },
             "scope": "SCREENING",
             "assumptions": [
-                "Power-law K follows the stated equivalent-cP field convention.",
-                "HB yield and PV+5YP indicator are screening estimates, not full rheological solutions.",
+                "Power-law K uses the Fann 510/511 convention and has units cP·s^(n-1), not plain cP unless n=1.",
+                "The legacy power_law_k_equivalent_cp key is retained; its old name omitted the n-dependent time unit.",
+                "HB yield and PV+5YP indicator are screening estimates; HB n/K and pressure loss are not assessed.",
             ],
         }
 
@@ -320,6 +366,9 @@ class HydraulicsResult:
     # Unassessed calculations keep engineering outputs unknown (None); assessed
     # outputs are SCREENING and carry explicit assumptions/warnings.
     scope: str = "NOT_ASSESSED"
+    model: str | None = None
+    surface_loss_method: str | None = None
+    surface_loss_factor: float | None = None
     assumptions: list = field(default_factory=list)
 
     # Unsupported calculations carry unknown outputs, never numeric zero answers.
@@ -357,7 +406,7 @@ class HydraulicsResult:
 
     # سایر
     pump_output_bbl_stroke: float = 0.0
-    flow_rate_gpm: float = 0.0
+    flow_rate_gpm: float | None = None
     
     # خطاها
     warnings: list = field(default_factory=list)
@@ -393,8 +442,20 @@ class AdvancedHydraulicsEngine:
     
     def calculate(self) -> HydraulicsResult:
         """Calculate a hydraulics profile only when operating/geometry inputs exist."""
-        result = HydraulicsResult()
-        result.flow_rate_gpm = self.flow_rate_gpm
+        result = HydraulicsResult(model=self.model)
+        if (
+            isinstance(self.flow_rate_gpm, (int, float))
+            and not isinstance(self.flow_rate_gpm, bool)
+            and math.isfinite(self.flow_rate_gpm)
+            and self.flow_rate_gpm > 0
+        ):
+            result.flow_rate_gpm = self.flow_rate_gpm
+        if self.model == "herschel_bulkley":
+            result.errors.append(
+                "Hydraulics not assessed: Herschel-Bulkley pressure loss is unsupported; "
+                "available Fann low-speed yield is only an estimate and no yield-corrected HB solver is implemented."
+            )
+            return result
         missing = []
         invalid = []
 
@@ -449,20 +510,24 @@ class AdvancedHydraulicsEngine:
                 (missing if finite_number(nozzle.size_32nds) and nozzle.size_32nds == 0 else invalid).append(
                     f"bit nozzle {index + 1} size must be positive and finite"
                 )
-            if not finite_number(nozzle.quantity) or nozzle.quantity <= 0:
+            if not finite_number(nozzle.quantity) or nozzle.quantity <= 0 or int(nozzle.quantity) != nozzle.quantity:
                 (missing if finite_number(nozzle.quantity) and nozzle.quantity == 0 else invalid).append(
-                    f"bit nozzle {index + 1} quantity must be positive and finite"
+                    f"bit nozzle {index + 1} quantity must be a positive integer"
                 )
         if self.bit_diameter_in is not None:
             require_positive(self.bit_diameter_in, "positive bit diameter")
 
-        if self.model not in {"bingham", "power_law", "herschel_bulkley"}:
+        if self.model not in {"bingham", "power_law"}:
             invalid.append("unsupported rheology model")
-        if self.model in {"power_law", "herschel_bulkley"}:
+        if self.model == "power_law":
             require_positive(self.mud.theta300, "positive theta300")
             require_positive(self.mud.theta600, "positive theta600")
             if finite_number(self.mud.theta600) and finite_number(self.mud.theta300) and self.mud.theta600 <= self.mud.theta300:
                 invalid.append("theta600 must exceed theta300")
+            if finite_number(self.mud.theta600) and finite_number(self.mud.theta300) and self.mud.theta300 > 0 and self.mud.theta600 > self.mud.theta300:
+                n = self.mud.n_power_law
+                if not 0 < n < 2:
+                    invalid.append("Fann Power Law n must be between 0 and 2 for the supported loss model")
         if self.model == "herschel_bulkley":
             for value, label in ((self.mud.theta3, "theta3"), (self.mud.theta6, "theta6")):
                 if value is None:
@@ -550,6 +615,15 @@ class AdvancedHydraulicsEngine:
                 return result
 
             # 2. Surface losses, after minimum required inputs were validated.
+            if self.surface_equipment.use_api_constant:
+                result.surface_loss_method = "empirical_E_factor_power_1.86_SCREENING"
+                result.surface_loss_factor = self.surface_equipment.api_surface_loss_constant
+                result.assumptions.append(
+                    "Surface loss uses the explicitly selected empirical E-factor convention; "
+                    "factor is not verified as a universal/API constant."
+                )
+            else:
+                result.surface_loss_method = "explicit_component_geometry_selected_rheology_SCREENING"
             result.surface_loss_psi = self._calc_surface_losses()
             
             # 3. Pipe & Annulus losses for each segment
@@ -612,23 +686,25 @@ class AdvancedHydraulicsEngine:
                                 f"Min recommended: 100 ft/min"
                             )
 
-                        # Critical (laminar→turbulent) flow rate for this
-                        # annulus — same correlation as _determine_flow_regime.
-                        # Overwritten per section so the deepest one (at the
-                        # bit) is reported.
+                        # Report a threshold for the selected model, using the
+                        # same velocity that selects the pressure-loss branch.
                         try:
-                            qc = self.calc_critical_flow_rate(
-                                self.mud.mw_ppg, self.mud.pv, self.mud.yp,
-                                csg.id, seg.od
+                            vc_fps = self._critical_velocity_fps(gap, is_annular=True)
+                            area_ft2 = self._annular_area_ft2(csg.id, seg.od)
+                            result.critical_flow_rate_gpm = round(
+                                vc_fps * 60.0 * area_ft2 * 7.48052, 1
                             )
-                            result.critical_flow_rate_gpm = qc["critical_flow_rate_gpm"]
-                            result.critical_velocity_ft_min = qc["critical_velocity_ft_min"]
+                            result.critical_velocity_ft_min = round(vc_fps * 60.0, 1)
                             result.critical_section = f"{seg.name} vs {csg.name}"
-                        except ValueError:
+                        except (ValueError, OverflowError):
                             pass
             
             # 4. Bit pressure loss
-            tfa = sum(n.total_area for n in self.nozzles)
+            from core.engineering.core import BitEngine
+
+            tfa = BitEngine.calculate_tfa_program(
+                [(nozzle.size_32nds, nozzle.quantity) for nozzle in self.nozzles]
+            )
             result.tfa_in2 = round(tfa, 4)
             
             if tfa > 0:
@@ -849,8 +925,11 @@ class AdvancedHydraulicsEngine:
         if d <= 0 or mw <= 0 or L < 0 or v < 0 or pv <= 0 or yp < 0:
             raise ValueError("Bingham pipe inputs require positive ID, MW and PV; other inputs must be nonnegative")
         
-        # Critical velocity
-        vc = (1.08 * pv + 1.08 * math.sqrt(pv**2 + 12.34 * d**2 * yp * mw)) / (mw * d)
+        # Shared Bingham threshold: regime and pressure branch cannot diverge.
+        vc = self._critical_velocity_fps(
+            d, is_annular=False, mw_ppg=mw, pv_cp=pv, yp_lbf100ft2=yp,
+            model="bingham",
+        )
         
         if v >= vc:
             # Turbulent
@@ -862,23 +941,34 @@ class AdvancedHydraulicsEngine:
             return self.bingham_laminar_pipe_loss(pv, yp, v, d, L)
     
     def _power_law_pipe_loss(self, v: float, d: float, L: float, mw: float) -> float:
-        """Power Law Model - Pipe"""
-        n = self.mud.n_power_law
-        k = self.mud.k_power_law
-        pv = self.mud.pv
-        
-        if d <= 0 or mw <= 0:
+        """Power Law pipe loss; K is converted to the field stress convention."""
+        values = (v, d, L, mw)
+        if any(
+            not isinstance(value, (int, float))
+            or isinstance(value, bool)
+            or not math.isfinite(value)
+            for value in values
+        ):
+            raise ValueError("Power Law pipe inputs must be finite real numbers")
+        if d <= 0 or mw <= 0 or L < 0 or v < 0:
+            raise ValueError("Power Law pipe requires positive ID/MW; velocity and length must be nonnegative")
+        if v == 0 or L == 0:
             return 0.0
+        n = self.mud.n_power_law
+        k = self.mud.k_power_law_field
+        pv = self.mud.pv
+        if not 0.0 < n < 2.0 or k <= 0:
+            raise ValueError("Power Law pipe requires 0 < n < 2 and positive consistency")
         
-        # Critical velocity
-        if (2 - n) != 0:
-            vc = ((58200.0 * k / mw) ** (1.0 / (2.0 - n))) / 60.0 * \
-                 ((1.6 / d) * ((3.0 * n + 1.0) / (4.0 * n))) ** (n / (2.0 - n))
-        else:
-            vc = 999
+        # Shared Power Law threshold: same dimensional K convention as loss.
+        vc = self._critical_velocity_fps(
+            d, is_annular=False, mw_ppg=mw, model="power_law"
+        )
         
         if v >= vc:
             # Empirical turbulent branch; no API-compliance claim is made.
+            if pv <= 0:
+                raise ValueError("Power Law turbulent branch requires positive PV")
             return 3.6033e-4 * mw**0.8 * v**1.8 * pv**0.2 * L / (d**1.2)
         else:
             # Laminar
@@ -886,17 +976,10 @@ class AdvancedHydraulicsEngine:
             return (gamma ** n) * (k * L / (300.0 * d))
     
     def _hb_pipe_loss(self, v: float, d: float, L: float, mw: float) -> float:
-        """Herschel-Bulkley Model - Pipe (approximate)"""
-        tau_y = self.mud.tau_y_hb
-        
-        if d <= 0:
-            return 0.0
-        
-        # Approximate: HB ≈ Power Law + Yield stress contribution
-        pl_loss = self._power_law_pipe_loss(v, d, L, mw)
-        yield_contrib = tau_y * L / (225 * d)
-        
-        return pl_loss + yield_contrib
+        """HB pipe loss is not implemented; never return a PL-plus-YP surrogate."""
+        raise NotImplementedError(
+            "Herschel-Bulkley pipe loss is unsupported without a yield-corrected laminar solver"
+        )
 
     # ==================== Annular Pressure Loss ====================
     
@@ -912,7 +995,10 @@ class AdvancedHydraulicsEngine:
         yp = self.mud.yp
         
         # Annular velocity (ft/s)
-        v_ann = gpm / (2.448 * (hole_id**2 - pipe_od**2))
+        area_factor = self._annular_area_factor_in2(hole_id, pipe_od)
+        if area_factor <= 0:
+            return 0.0
+        v_ann = self._calc_annular_velocity(gpm, hole_id, pipe_od)
         
         if self.model == "bingham":
             return self._bingham_annular_loss(v_ann, gap, hole_id, pipe_od, length_ft, mw, pv, yp)
@@ -937,7 +1023,10 @@ class AdvancedHydraulicsEngine:
         if gap <= 0 or d_h <= d_p or d_p <= 0 or L < 0 or v < 0 or mw <= 0 or pv <= 0 or yp < 0:
             raise ValueError("Bingham annular inputs have invalid dimensions or rheology")
         
-        vc_a = (1.08 * pv + 1.08 * math.sqrt(pv**2 + 9.26 * gap**2 * yp * mw)) / (mw * gap)
+        vc_a = self._critical_velocity_fps(
+            gap, is_annular=True, mw_ppg=mw, pv_cp=pv, yp_lbf100ft2=yp,
+            model="bingham",
+        )
         
         if v >= vc_a:
             return mw**0.75 * v**1.75 * pv**0.25 * L / (1396 * gap**1.25)
@@ -946,21 +1035,32 @@ class AdvancedHydraulicsEngine:
     
     def _power_law_annular_loss(self, v: float, gap: float, d_h: float, d_p: float,
                                   L: float, mw: float, gpm: float) -> float:
-        """Power Law Model - Annulus"""
-        n = self.mud.n_power_law
-        k = self.mud.k_power_law
-        pv = self.mud.pv
-        
-        if gap <= 0 or mw <= 0:
+        """Power Law annulus loss; convert cP·s^(n−1) to field stress K."""
+        values = (v, gap, d_h, d_p, L, mw, gpm)
+        if any(
+            not isinstance(value, (int, float))
+            or isinstance(value, bool)
+            or not math.isfinite(value)
+            for value in values
+        ):
+            raise ValueError("Power Law annular inputs must be finite real numbers")
+        if gap <= 0 or d_h <= d_p or d_p <= 0 or L < 0 or v < 0 or mw <= 0 or gpm < 0:
+            raise ValueError("Power Law annular inputs have invalid geometry, velocity, or density")
+        if v == 0 or L == 0 or gpm == 0:
             return 0.0
+        n = self.mud.n_power_law
+        k = self.mud.k_power_law_field
+        pv = self.mud.pv
+        if not 0.0 < n < 2.0 or k <= 0:
+            raise ValueError("Power Law annulus requires 0 < n < 2 and positive consistency")
         
-        if (2 - n) != 0:
-            vc_a = ((38780.0 * k / mw) ** (1.0 / (2.0 - n))) / 60.0 * \
-                   ((2.4 / gap) * ((2.0 * n + 1.0) / (3.0 * n))) ** (n / (2.0 - n))
-        else:
-            vc_a = 999
+        vc_a = self._critical_velocity_fps(
+            gap, is_annular=True, mw_ppg=mw, model="power_law"
+        )
         
         if v >= vc_a:
+            if pv <= 0:
+                raise ValueError("Power Law turbulent annulus branch requires positive PV")
             return 7.7e-5 * mw**0.8 * gpm**1.8 * pv**0.2 * L / \
                    (gap**3 * (d_h + d_p)**1.8)
         else:
@@ -969,11 +1069,10 @@ class AdvancedHydraulicsEngine:
     
     def _hb_annular_loss(self, v: float, gap: float, d_h: float, d_p: float,
                            L: float, mw: float, gpm: float) -> float:
-        """Herschel-Bulkley - Annulus (approximate)"""
-        tau_y = self.mud.tau_y_hb
-        pl_loss = self._power_law_annular_loss(v, gap, d_h, d_p, L, mw, gpm)
-        yield_contrib = tau_y * L / (200 * gap) if gap > 0 else 0
-        return pl_loss + yield_contrib
+        """HB annular loss is not implemented; return no surrogate result."""
+        raise NotImplementedError(
+            "Herschel-Bulkley annular loss is unsupported without a yield-corrected solver"
+        )
 
     # ==================== Helper Methods ====================
     
@@ -985,36 +1084,93 @@ class AdvancedHydraulicsEngine:
         return gpm / (2.448 * id_inch**2)
     
     @staticmethod
+    def _annular_area_factor_in2(hole_id_in: float, pipe_od_in: float) -> float:
+        """Canonical annular D_h²−D_p² factor in square inches."""
+        return hole_id_in**2 - pipe_od_in**2
+
+    @staticmethod
     def _calc_annular_velocity(gpm: float, hole_id: float, pipe_od: float) -> float:
-        """سرعت آنولوس (ft/s)"""
-        area = hole_id**2 - pipe_od**2
-        if area <= 0:
+        """Annular velocity in ft/s from explicit hole ID and pipe OD."""
+        area_factor = AdvancedHydraulicsEngine._annular_area_factor_in2(hole_id, pipe_od)
+        if area_factor <= 0:
             return 0.0
-        return gpm / (2.448 * area)
+        return gpm * ANNULAR_VELOCITY_FPM_PER_GPM_IN2 / (60.0 * area_factor)
     
+    @staticmethod
+    def _bingham_critical_velocity_fps(
+        mw_ppg: float, pv_cp: float, yp_lbf100ft2: float,
+        hydraulic_diameter_in: float, *, is_annular: bool,
+    ) -> float:
+        """Single owner for Bingham pipe/annulus transition-velocity estimate."""
+        if mw_ppg <= 0 or pv_cp <= 0 or yp_lbf100ft2 < 0 or hydraulic_diameter_in <= 0:
+            raise ValueError("Bingham transition requires positive MW/PV/diameter and nonnegative YP")
+        coefficient = 9.26 if is_annular else 12.34
+        return (1.08 * pv_cp + 1.08 * math.sqrt(
+            pv_cp**2 + coefficient * hydraulic_diameter_in**2 * yp_lbf100ft2 * mw_ppg
+        )) / (mw_ppg * hydraulic_diameter_in)
+
+    @staticmethod
+    def _annular_area_ft2(hole_id_in: float, pipe_od_in: float) -> float:
+        """Annular cross-sectional area from explicit diameters, converted to ft²."""
+        if hole_id_in <= pipe_od_in or pipe_od_in <= 0:
+            raise ValueError("Hole ID must exceed positive pipe OD")
+        return math.pi / 4.0 / 144.0 * AdvancedHydraulicsEngine._annular_area_factor_in2(
+            hole_id_in, pipe_od_in
+        )
+
+    def _critical_velocity_fps(
+        self,
+        hydraulic_diameter: float,
+        *,
+        is_annular: bool,
+        mw_ppg: float | None = None,
+        pv_cp: float | None = None,
+        yp_lbf100ft2: float | None = None,
+        model: str | None = None,
+    ) -> float:
+        """Critical-velocity estimate shared by regime labels and loss branches.
+
+        Optional rheology overrides retain the existing private-loss-method
+        signature's standalone-call behavior; regime reporting uses MudProperties.
+        """
+        if hydraulic_diameter <= 0:
+            return 0.0
+        mw = self.mud.mw_ppg if mw_ppg is None else mw_ppg
+        active_model = self.model if model is None else model
+        if mw <= 0:
+            return 0.0
+        if active_model == "bingham":
+            pv = self.mud.pv if pv_cp is None else pv_cp
+            yp = self.mud.yp if yp_lbf100ft2 is None else yp_lbf100ft2
+            if yp is None:
+                raise ValueError("Bingham regime requires positive PV and nonnegative YP")
+            return self._bingham_critical_velocity_fps(
+                mw, pv, yp, hydraulic_diameter, is_annular=is_annular
+            )
+        if active_model == "power_law":
+            n, k = self.mud.n_power_law, self.mud.k_power_law_field
+            if not 0.0 < n < 2.0 or k <= 0:
+                raise ValueError("Power Law transition requires 0 < n < 2 and positive field K")
+            if is_annular:
+                return ((38780.0 * k / mw) ** (1.0 / (2.0 - n))) / 60.0 * (
+                    (2.4 / hydraulic_diameter) * ((2.0 * n + 1.0) / (3.0 * n))
+                ) ** (n / (2.0 - n))
+            return ((58200.0 * k / mw) ** (1.0 / (2.0 - n))) / 60.0 * (
+                (1.6 / hydraulic_diameter) * ((3.0 * n + 1.0) / (4.0 * n))
+            ) ** (n / (2.0 - n))
+        raise ValueError("Herschel-Bulkley hydraulics is unsupported")
+
     def _determine_flow_regime(self, velocity_fps: float, hydraulic_diameter: float,
                                 is_annular: bool = False) -> str:
-        """تعیین رژیم جریان"""
+        """Classify flow using the same model-specific threshold as pressure loss."""
         if hydraulic_diameter <= 0:
             return "Unknown"
-        
-        mw = self.mud.mw_ppg
-        pv = self.mud.pv
-        yp = self.mud.yp
-        
-        if is_annular:
-            vc = (1.08 * pv + 1.08 * math.sqrt(pv**2 + 9.26 * hydraulic_diameter**2 * yp * mw)) / \
-                 (mw * hydraulic_diameter) if mw * hydraulic_diameter > 0 else 0
-        else:
-            vc = (1.08 * pv + 1.08 * math.sqrt(pv**2 + 12.34 * hydraulic_diameter**2 * yp * mw)) / \
-                 (mw * hydraulic_diameter) if mw * hydraulic_diameter > 0 else 0
-        
+        vc = self._critical_velocity_fps(hydraulic_diameter, is_annular=is_annular)
         if velocity_fps >= vc:
             return "Turbulent"
-        elif velocity_fps >= vc * 0.8:
+        if velocity_fps >= vc * 0.8:
             return "Transitional"
-        else:
-            return "Laminar"
+        return "Laminar"
     
     def _build_depth_map(self) -> list:
         """ساخت نقشه عمقی لوله‌ها با overlap کیسینگ"""
@@ -1064,6 +1220,18 @@ class AdvancedHydraulicsEngine:
 
     # ==================== ECD Profile ====================
     
+    @staticmethod
+    def _ecd_from_apl_ppg(mud_weight_ppg: float, annular_pressure_loss_psi: float, tvd_ft: float) -> float:
+        """Canonical field-unit ECD conversion for a specified TVD."""
+        AdvancedHydraulicsEngine._require_finite_engineering_inputs(
+            mud_weight_ppg=mud_weight_ppg,
+            annular_pressure_loss_psi=annular_pressure_loss_psi,
+            tvd_ft=tvd_ft,
+        )
+        if tvd_ft <= 0:
+            raise ValueError("TVD must be > 0 for ECD")
+        return mud_weight_ppg + annular_pressure_loss_psi / (0.052 * tvd_ft)
+
     def _calc_ecd_profile(self, result: HydraulicsResult) -> list:
         """Return geometry-weighted ECD at MD stations (US field units).
 
@@ -1110,7 +1278,7 @@ class AdvancedHydraulicsEngine:
                             csg.id, seg.od, interval_length, self.flow_rate_gpm
                         )
 
-            ecd = self.mud.mw_ppg + cumulative_ann_loss / (0.052 * tvd_ft)
+            ecd = self._ecd_from_apl_ppg(self.mud.mw_ppg, cumulative_ann_loss, tvd_ft)
             profile.append((round(depth_m, 1), round(ecd, 3)))
         return profile
 
@@ -1123,9 +1291,9 @@ class AdvancedHydraulicsEngine:
 
         Trip and induced annular velocities are first expressed in ft/min using
         the Moore-style displacement ratio and the 1.5 maximum-velocity factor.
-        They are converted to ft/s only when delegated to this engine's
-        canonical annular pressure-loss model. No separate shear-rate/pressure
-        equation or synthetic hole diameter is used.
+        The resulting maximum velocity is converted to equivalent flow using
+        the canonical annular-area/velocity conversion and delegated to this
+        engine's annular pressure-loss model. No synthetic hole diameter is used.
         """
         warnings = [
             "Screening approximation: concentric annulus, 0.45 clinging factor, "
@@ -1163,8 +1331,8 @@ class AdvancedHydraulicsEngine:
                 missing.append(label)
             elif not finite(value) or value < 0:
                 invalid.append(f"{label} must be finite and positive")
-        if self.model not in {"bingham", "power_law", "herschel_bulkley"}:
-            invalid.append("unsupported rheology model")
+        if self.model not in {"bingham", "power_law"}:
+            invalid.append("unsupported or unimplemented rheology model")
         if self.model == "bingham":
             if not finite(self.mud.pv) or self.mud.pv <= 0:
                 (missing if finite(self.mud.pv) and self.mud.pv == 0 else invalid).append(
@@ -1262,7 +1430,7 @@ class AdvancedHydraulicsEngine:
             for section, overlap_ft in item["overlaps"]:
                 hole_id = section.id
                 pipe_od = segment.od
-                annular_area_factor = hole_id**2 - pipe_od**2
+                annular_area_factor = self._annular_area_factor_in2(hole_id, pipe_od)
                 if pipe_open:
                     displacement_area_factor = pipe_od**2 - segment.id**2
                     displacement_flow_area_factor = annular_area_factor + segment.id**2
@@ -1283,8 +1451,10 @@ class AdvancedHydraulicsEngine:
                     0.45 + displacement_area_factor / displacement_flow_area_factor
                 ) * trip_speed_fpm
                 maximum_velocity_fpm = 1.5 * induced_velocity_fpm
-                maximum_velocity_fps = maximum_velocity_fpm / 60.0
-                equivalent_flow_gpm = maximum_velocity_fps * 2.448 * annular_area_factor
+                equivalent_flow_gpm = (
+                    maximum_velocity_fpm * annular_area_factor
+                    / ANNULAR_VELOCITY_FPM_PER_GPM_IN2
+                )
                 pressure = self._calc_annular_pressure_loss(
                     hole_id, pipe_od, overlap_ft, equivalent_flow_gpm
                 )
@@ -1311,7 +1481,9 @@ class AdvancedHydraulicsEngine:
                 "pipe_status": "Open" if pipe_open else "Closed",
             }
         sign = 1.0 if operation == "RIH" else -1.0
-        equiv_mw = self.mud.mw_ppg + sign * total_pressure / (0.052 * tvd_ft)
+        equiv_mw = self._ecd_from_apl_ppg(
+            self.mud.mw_ppg, sign * total_pressure, tvd_ft
+        )
         return {
             "type": operation_label,
             "scope": "SCREENING",
@@ -1612,13 +1784,11 @@ class AdvancedHydraulicsEngine:
             raise ValueError("MW and PV must be > 0")
         if yp_lbf100ft2 < 0:
             raise ValueError("Yield point cannot be negative")
-        vc_fps = (1.08 * pv_cp + 1.08 * math.sqrt(
-            pv_cp**2 + 9.26 * gap**2 * yp_lbf100ft2 * mw_ppg
-        )) / (mw_ppg * gap)
-        area_ft2 = math.pi / 4.0 * (
-            (hole_size_in / 12.0) ** 2 - (pipe_od_in / 12.0) ** 2
+        vc_fps = AdvancedHydraulicsEngine._bingham_critical_velocity_fps(
+            mw_ppg, pv_cp, yp_lbf100ft2, gap, is_annular=True
         )
-        qc_gpm = vc_fps * 60.0 * area_ft2 * 7.4805
+        area_ft2 = AdvancedHydraulicsEngine._annular_area_ft2(hole_size_in, pipe_od_in)
+        qc_gpm = vc_fps * 60.0 * area_ft2 * 7.48052
         return {
             "critical_velocity_ft_min": round(vc_fps * 60.0, 1),
             "critical_flow_rate_gpm": round(qc_gpm, 1),
@@ -1633,7 +1803,7 @@ class AdvancedHydraulicsEngine:
         )
         if hole_id <= pipe_od or pipe_od <= 0 or length_ft <= 0:
             raise ValueError("Annular volume requires hole ID > positive pipe OD and positive length")
-        return (hole_id**2 - pipe_od**2) / 1029.4 * length_ft
+        return AdvancedHydraulicsEngine._annular_area_factor_in2(hole_id, pipe_od) / 1029.4 * length_ft
 
     @staticmethod
     def calc_pipe_capacity_bbl(pipe_id: float, length_ft: float) -> float:
@@ -1649,7 +1819,7 @@ class AdvancedHydraulicsEngine:
         AdvancedHydraulicsEngine._require_finite_engineering_inputs(hole_id=hole_id, pipe_od=pipe_od)
         if pipe_od <= 0 or hole_id <= pipe_od:
             raise ValueError("Annular capacity requires hole ID > positive pipe OD")
-        return (hole_id**2 - pipe_od**2) / 1029.4
+        return AdvancedHydraulicsEngine._annular_area_factor_in2(hole_id, pipe_od) / 1029.4
 
     @staticmethod
     def calc_pipe_capacity_bbl_ft(pipe_id: float) -> float:

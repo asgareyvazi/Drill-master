@@ -111,15 +111,17 @@ def test_extended_annulus_converts_display_velocity_before_delegation():
 def test_power_law_consistency_uses_shear_stress_at_511_per_second():
     mud = MudProperties(theta600=45.0, theta300=25.0)
     n = 3.32 * math.log10(45.0 / 25.0)
-    expected_k = 510.0 * 25.0 / (511.0**n)
+    expected_k_cp = 510.0 * 25.0 / (511.0**n)
+    expected_k_field = expected_k_cp * 0.001 / 0.4788025898
     assert mud.n_power_law == pytest.approx(n)
-    assert mud.k_power_law == pytest.approx(expected_k)
+    assert mud.k_power_law == pytest.approx(expected_k_cp)
+    assert mud.k_power_law_field == pytest.approx(expected_k_field)
 
     engine = AdvancedHydraulicsEngine()
     engine.mud = mud
     velocity_fps, diameter_in, length_ft = 0.001, 4.0, 1000.0
     gamma = (96.0 * velocity_fps / diameter_in) * (3.0 * n + 1.0) / (4.0 * n)
-    expected_loss = gamma**n * expected_k * length_ft / (300.0 * diameter_in)
+    expected_loss = gamma**n * expected_k_field * length_ft / (300.0 * diameter_in)
     assert engine._power_law_pipe_loss(velocity_fps, diameter_in, length_ft, mw=10.0) == pytest.approx(
         expected_loss
     )
@@ -133,9 +135,15 @@ def test_fann_rheology_values_are_canonical_and_unit_labelled():
     assert result["pv_cp"] == pytest.approx(20.0)
     assert result["yp_lbf100ft2"] == pytest.approx(5.0)
     assert result["power_law_n"] == pytest.approx(n)
-    assert result["power_law_k_equivalent_cp"] == pytest.approx(510.0 * 25.0 / 511.0**n)
+    expected_k_cp = 510.0 * 25.0 / 511.0**n
+    assert result["power_law_k_cp_s_nminus1"] == pytest.approx(expected_k_cp)
+    assert result["power_law_k_equivalent_cp"] == expected_k_cp
+    assert "cP·s^(n-1)" in result["units"]["power_law_k"]
+    assert "510" in result["formula"]["power_law_k"]
+    assert result["power_law_k_field_stress_units"] == pytest.approx(
+        expected_k_cp * 0.001 / 0.4788025898
+    )
     assert result["hb_yield_estimate_lbf100ft2"] == pytest.approx(2.0)
-    assert "equivalent cP" in result["units"]["power_law_k"]
     assert result["scope"] == "SCREENING"
     with pytest.raises(ValueError, match="negative Bingham yield"):
         MudProperties.calculate_fann_rheology(theta600=100.0, theta300=30.0)
@@ -190,7 +198,7 @@ def test_power_law_annular_loss_ground_truth_at_laminar_velocity():
     gap = hole_id - pipe_od
     flow_gpm = velocity_fps * 2.448 * (hole_id**2 - pipe_od**2)
     n = 3.32 * math.log10(45.0 / 25.0)
-    k = 510.0 * 25.0 / 511.0**n
+    k = (510.0 * 25.0 / 511.0**n) * 0.001 / 0.4788025898
     # Independently expand the documented field-unit laminar annulus estimate.
     gamma = (144.0 * velocity_fps / gap) * (2.0 * n + 1.0) / (3.0 * n)
     expected = gamma**n * (k * length_ft / (300.0 * gap))
@@ -200,25 +208,19 @@ def test_power_law_annular_loss_ground_truth_at_laminar_velocity():
     assert actual == pytest.approx(expected, rel=1e-12)
 
 
-def test_herschel_bulkley_is_explicitly_an_approximation():
-    engine = AdvancedHydraulicsEngine()
+def test_herschel_bulkley_is_not_reported_as_a_calculated_hydraulics_model():
+    engine = _geometry_engine()
     engine.model = "herschel_bulkley"
-    engine.mud = MudProperties(
-        mw_pcf=74.8052, pv=10.0, yp=5.0,
-        theta600=45.0, theta300=25.0, theta3=3.0, theta6=4.0,
-    )
-    pl = engine._power_law_pipe_loss(0.001, 4.0, 1000.0, engine.mud.mw_ppg)
-    hb = engine._hb_pipe_loss(0.001, 4.0, 1000.0, engine.mud.mw_ppg)
-    assert hb == pytest.approx(pl + 2.0 * 1000.0 / (225.0 * 4.0))
-
-    complete = _geometry_engine()
-    complete.model = "herschel_bulkley"
-    complete.mud.theta3 = 3.0
-    complete.mud.theta6 = 4.0
-    result = complete.calculate()
-    assert result.errors == []
-    assert result.scope == "SCREENING"
-    assert any("not a full HB solver" in warning for warning in result.warnings)
+    result = engine.calculate()
+    assert result.scope == "NOT_ASSESSED"
+    assert result.errors
+    assert "unsupported" in result.errors[0]
+    assert result.total_loss_psi is None
+    assert result.ecd_profile == []
+    with pytest.raises(NotImplementedError, match="yield-corrected"):
+        engine._hb_pipe_loss(0.01, 4.0, 1000.0, engine.mud.mw_ppg)
+    with pytest.raises(NotImplementedError, match="yield-corrected"):
+        engine._hb_annular_loss(0.01, 4.0, 8.0, 4.0, 1000.0, engine.mud.mw_ppg, 100.0)
 
 
 def test_ecd_integrates_the_supplied_intervals_not_a_linear_depth_fraction():
@@ -435,9 +437,12 @@ def test_bit_hydraulics_ground_truth_and_inverse_tfa_consistency():
 
 def test_annular_velocity_and_critical_flow_match_independent_unit_conversion():
     hole_id, pipe_od, flow_gpm = 8.0, 4.0, 120.0
-    expected_velocity_fps = flow_gpm / (2.448 * (hole_id**2 - pipe_od**2))
+    area_m2 = math.pi / 4.0 * (hole_id**2 - pipe_od**2) * 0.0254**2
+    flow_m3_s = flow_gpm * 0.003785411784 / 60.0
+    expected_velocity_fps = flow_m3_s / area_m2 / 0.3048
     actual_velocity = AdvancedHydraulicsEngine._calc_annular_velocity(flow_gpm, hole_id, pipe_od)
-    assert actual_velocity == pytest.approx(expected_velocity_fps)
+    # The production 24.51 factor is a rounded field conversion; SI is oracle.
+    assert actual_velocity == pytest.approx(expected_velocity_fps, rel=1e-5)
 
     mw, pv, yp = 10.0, 15.0, 8.0
     gap = hole_id - pipe_od

@@ -398,18 +398,47 @@ class BitEngine:
             raise EngineeringError("nozzles must be an iterable of explicit sizes") from exc
         if not nozzle_sizes:
             raise MissingInputError("nozzles")
-        tfa = 0.0
-        for index, nozzle in enumerate(nozzle_sizes):
-            if isinstance(nozzle, bool):
+        normalized_sizes = []
+        for index, size in enumerate(nozzle_sizes):
+            if isinstance(size, bool):
                 raise EngineeringError(f"nozzle {index + 1} size must be finite and positive")
             try:
-                size_32nds = float(nozzle)
+                normalized_sizes.append(float(size))
             except (TypeError, ValueError) as exc:
                 raise EngineeringError(f"nozzle {index + 1} size must be finite and positive") from exc
-            if not math.isfinite(size_32nds) or size_32nds <= 0:
+        return BitEngine.calculate_tfa_program([(size, 1) for size in normalized_sizes])
+
+    @staticmethod
+    def calculate_tfa_program(nozzles: List[Tuple[float, int]]) -> float:
+        """TFA owner for size/count programs; sizes are explicit 32nds of inch."""
+        if nozzles is None:
+            raise MissingInputError("nozzles")
+        if isinstance(nozzles, (str, bytes)):
+            raise EngineeringError("nozzles must be an iterable of (size, quantity) pairs")
+        try:
+            entries = list(nozzles)
+        except TypeError as exc:
+            raise EngineeringError("nozzles must be an iterable of (size, quantity) pairs") from exc
+        if not entries:
+            raise MissingInputError("nozzles")
+        tfa = 0.0
+        for index, entry in enumerate(entries):
+            try:
+                size, quantity = entry
+            except (TypeError, ValueError) as exc:
+                raise EngineeringError(f"nozzle {index + 1} requires explicit size and quantity") from exc
+            if (
+                isinstance(size, bool) or not isinstance(size, (int, float))
+                or not math.isfinite(size) or size <= 0
+            ):
                 raise EngineeringError(f"nozzle {index + 1} size must be finite and positive")
-            diameter_in = size_32nds / 32.0
-            tfa += math.pi / 4.0 * diameter_in**2
+            if (
+                isinstance(quantity, bool) or not isinstance(quantity, (int, float))
+                or not math.isfinite(quantity) or quantity <= 0 or int(quantity) != quantity
+            ):
+                raise EngineeringError(f"nozzle {index + 1} quantity must be a positive integer")
+            diameter_in = size / 32.0
+            tfa += quantity * math.pi * diameter_in**2 / 4.0
         return tfa
 
     @staticmethod
@@ -418,9 +447,9 @@ class BitEngine:
         if not flow_rate_gpm or not pressure_drop_psi or not bit_size_in:
             raise MissingInputError("flow_rate, pressure_drop, bit_size required for HSI")
         from core.hydraulics_engine import AdvancedHydraulicsEngine
-        bit_area = math.pi / 4 * bit_size_in * bit_size_in
+
         hhp = AdvancedHydraulicsEngine.calc_bit_hhp(flow_rate_gpm, pressure_drop_psi)
-        return hhp / bit_area if bit_area else 0
+        return AdvancedHydraulicsEngine.calc_hsi(hhp, bit_size_in)
 
 
 @dataclass
@@ -512,11 +541,18 @@ class HydraulicsEngine:
         """
         if not flow_rate_gpm or not hole_id_in or not pipe_od_in:
             raise MissingInputError("flow_rate, hole_id, pipe_od required")
-        denom = hole_id_in**2 - pipe_od_in**2
-        if denom <= 0:
+        from core.hydraulics_engine import AdvancedHydraulicsEngine
+
+        AdvancedHydraulicsEngine._require_finite_engineering_inputs(
+            flow_rate_gpm=flow_rate_gpm, hole_id_in=hole_id_in, pipe_od_in=pipe_od_in
+        )
+        if flow_rate_gpm <= 0 or pipe_od_in <= 0:
+            raise EngineeringError("Flow rate and pipe OD must be > 0")
+        if hole_id_in <= pipe_od_in:
             raise EngineeringError("Hole ID must be > Pipe OD")
-        av = 24.51 * flow_rate_gpm / denom  # ft/min
-        return av
+        return AdvancedHydraulicsEngine._calc_annular_velocity(
+            flow_rate_gpm, hole_id_in, pipe_od_in
+        ) * 60.0
 
     @staticmethod
     def calculate_ecd(mw_ppg: float, annular_pressure_loss_psi: float, tvd_ft: float) -> float:
@@ -526,9 +562,11 @@ class HydraulicsEngine:
         """
         if mw_ppg is None or annular_pressure_loss_psi is None or tvd_ft is None:
             raise MissingInputError("mw, annular_pressure_loss, tvd required")
-        if tvd_ft <= 0:
-            raise EngineeringError("TVD must be >0 for ECD")
-        return mw_ppg + annular_pressure_loss_psi / (0.052 * tvd_ft)
+        from core.hydraulics_engine import AdvancedHydraulicsEngine
+
+        return AdvancedHydraulicsEngine._ecd_from_apl_ppg(
+            mw_ppg, annular_pressure_loss_psi, tvd_ft
+        )
 
     @staticmethod
     def calculate_pv_yp(theta600: float, theta300: float) -> Tuple[float, float]:

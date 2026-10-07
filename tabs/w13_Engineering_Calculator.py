@@ -1076,7 +1076,7 @@ class EngineeringCalculatorTab(DrillTabBase):
         tb_lay.setContentsMargins(8, 3, 8, 3)
 
         self.hy_model = QComboBox()
-        self.hy_model.addItems(["Bingham Plastic", "Power Law", "Herschel-Bulkley"])
+        self.hy_model.addItems(["Bingham Plastic", "Power Law", "Herschel-Bulkley (unsupported)"])
         self.hy_model.setStyleSheet("background: #2c3e50; color: white; padding: 4px; border-radius: 3px;")
         tb_lay.addWidget(QLabel("<span style='color:#bdc3c7'>Model:</span>"))
         tb_lay.addWidget(self.hy_model)
@@ -3623,12 +3623,12 @@ class EngineeringCalculatorTab(DrillTabBase):
         pv = rheology["pv_cp"]
         yp = rheology["yp_lbf100ft2"]
         n = rheology["power_law_n"]
-        k = rheology["power_law_k_equivalent_cp"]
+        k = rheology["power_law_k_cp_s_nminus1"]
         tau_y = rheology["hb_yield_estimate_lbf100ft2"]
         effective_indicator = rheology["screening_effective_viscosity_indicator_cp"]
         pv_yp_ratio = pv / yp if yp > 0 else None
         gel_ratio = gel10m / gel10s if gel10s > 0 else None
-        k_text = f"{k:.4f} equivalent cP" if k is not None else "not assessed"
+        k_text = f"{k:.6g} cP·s^(n−1)" if k is not None else "not assessed"
         tau_text = f"{tau_y:.1f} lbf/100ft²" if tau_y is not None else "not assessed (need θ3 and θ6)"
         ratio_text = f"{pv_yp_ratio:.2f}" if pv_yp_ratio is not None else "not assessed (YP is zero)"
         gel_text = f"{gel_ratio:.2f}" if gel_ratio is not None else "not assessed (10s gel is zero)"
@@ -3651,7 +3651,7 @@ class EngineeringCalculatorTab(DrillTabBase):
     ╠═══════════════════════════════════════════╣
     ║ POWER LAW (screening convention):
     ║   n (dimensionless): {n:.4f}
-    ║   K: {k_text} [K = 510 θ300 / 511^n]
+    ║   K: {k_text} [510 θ300 / 511^n]
     ╠═══════════════════════════════════════════╣
     ║ HERSCHEL-BULKLEY SCREENING ESTIMATE:
     ║   τ₀ estimate: {tau_text}
