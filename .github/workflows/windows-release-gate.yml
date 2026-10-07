@@ -42,8 +42,17 @@ jobs:
           $env:DRILLMASTER_DB_PATH = Join-Path $testRoot 'data\acceptance.db'
           $env:DRILLMASTER_LOG_DIR = Join-Path $testRoot 'logs'
           $env:DRILLMASTER_BACKUP_DIR = Join-Path $testRoot 'backups'
-          python -m pytest -ra -q tests/test_packaging_smoke.py tests/test_acceptance_report.py tests/test_release_smoke.py tests/test_credential_lifecycle.py tests/test_wellbore_schema_v3.py tests/test_wellbore_ownership_integrity.py tests/test_wellbore_discriminator_import.py tests/test_wellbore_identity_conflict_m25.py tests/test_p0_well_identity.py tests/test_history_well_scope.py tests/test_whole_well_scope_labels_m25.py tests/test_release_gate_and_w13.py tests/test_w13_ecd_chart_fallback.py tests/test_w13_fishing_result_ui.py tests/test_m38_domain_boundaries.py tests/test_m31_scenarios.py tests/test_well_centric_acceptance.py tests/test_production_import_guarantees.py tests/test_ddr_forensic_regressions.py tests/test_ddr_followup_lifecycle.py tests/test_database_migration_acceptance.py tests/test_backup_restore_acceptance.py tests/test_import_atomicity_acceptance.py tests/test_release_e2e.py --junitxml (Join-Path $testRoot 'windows-regressions.xml')
-          if ($LASTEXITCODE -ne 0) { throw 'Windows release regression suite failed' }
+          $testReport = Join-Path $testRoot 'windows-regressions.xml'
+          python -m pytest -ra -q tests/test_packaging_smoke.py tests/test_acceptance_report.py tests/test_release_smoke.py tests/test_credential_lifecycle.py tests/test_wellbore_schema_v3.py tests/test_wellbore_ownership_integrity.py tests/test_wellbore_discriminator_import.py tests/test_wellbore_identity_conflict_m25.py tests/test_p0_well_identity.py tests/test_history_well_scope.py tests/test_whole_well_scope_labels_m25.py tests/test_release_gate_and_w13.py tests/test_w13_ecd_chart_fallback.py tests/test_w13_fishing_result_ui.py tests/test_m38_domain_boundaries.py tests/test_m31_scenarios.py tests/test_well_centric_acceptance.py tests/test_production_import_guarantees.py tests/test_ddr_forensic_regressions.py tests/test_ddr_followup_lifecycle.py tests/test_database_migration_acceptance.py tests/test_backup_restore_acceptance.py tests/test_import_atomicity_acceptance.py tests/test_release_e2e.py "--junitxml=$testReport"
+          $pytestExit = $LASTEXITCODE
+          if (Test-Path -LiteralPath $testReport) {
+            [xml]$junit = Get-Content -LiteralPath $testReport -Raw
+            foreach ($case in $junit.SelectNodes('//testcase[failure or error]')) {
+              $identity = "$($case.classname).$($case.name)"
+              Write-Output "::error title=Windows regression failure::$identity"
+            }
+          }
+          if ($pytestExit -ne 0) { throw 'Windows release regression suite failed; failing test names are recorded as workflow annotations' }
       - name: Build portable bundle and installer; run frozen executable smoke
         id: build
         shell: pwsh
