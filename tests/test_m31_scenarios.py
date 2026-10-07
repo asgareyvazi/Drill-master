@@ -446,16 +446,23 @@ def test_failed_backup_preserves_the_previous_good_backup(tmp_path, monkeypatch)
     db.close()
 
 
-def test_permission_denied_destination_reports_failure(tmp_path):
+def test_permission_denied_destination_reports_failure(tmp_path, monkeypatch):
     db = _file_db(tmp_path)
-    locked = tmp_path / "locked"
-    locked.mkdir()
-    os.chmod(locked, 0o500)
+    destination = tmp_path / "backup.db"
+    destination.write_bytes(b"previous good backup")
+
+    def deny_promotion(*_args):
+        raise PermissionError("simulated destination denial")
+
+    # Filesystem chmod semantics differ across Windows and POSIX; inject the
+    # exact atomic-promotion failure instead of relying on host ACL behavior.
+    monkeypatch.setattr(os, "replace", deny_promotion)
     try:
-        assert db.backup_to(locked / "backup.db") is None
+        assert db.backup_to(destination) is None
+        assert destination.read_bytes() == b"previous good backup"
+        assert not list(tmp_path.glob(".drillmaster-backup-*.db"))
         assert db.backup_to(db.db_path) is None  # never overwrite the live database
     finally:
-        os.chmod(locked, 0o700)
         db.close()
 
 

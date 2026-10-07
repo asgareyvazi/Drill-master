@@ -51,12 +51,11 @@ jobs:
               $identity = "$($case.classname).$($case.name)"
               $detail = $case.SelectSingleNode('failure')
               if ($null -eq $detail) { $detail = $case.SelectSingleNode('error') }
-              $frameMatches = [regex]::Matches($detail.InnerText, 'File "([^"]+)", line (\d+), in ([^\r\n]+)')
-              $frame = if ($frameMatches.Count -gt 0) {
-                $lastFrame = $frameMatches[$frameMatches.Count - 1]
-                "$($lastFrame.Groups[1].Value):$($lastFrame.Groups[2].Value) in $($lastFrame.Groups[3].Value)"
-              } else { $detail.GetAttribute('type') }
-              Write-Output "::error title=Windows regression failure::$identity | $frame"
+              $sourceMatch = [regex]::Match($detail.InnerText, '(?m)^\s*([^\r\n]*\.py):(\d+):')
+              $exceptionMatch = [regex]::Match($detail.InnerText, '(?m)^\s*E\s+([A-Za-z_][A-Za-z0-9_]*(?:Error|Exception))')
+              $location = if ($sourceMatch.Success) { "$($sourceMatch.Groups[1].Value):$($sourceMatch.Groups[2].Value)" } else { 'source location unavailable' }
+              $exception = if ($exceptionMatch.Success) { $exceptionMatch.Groups[1].Value } else { 'test failure' }
+              Write-Output "::error title=Windows regression failure::$identity | $exception at $location"
             }
           }
           if ($pytestExit -ne 0) { throw 'Windows release regression suite failed; failing test names are recorded as workflow annotations' }
