@@ -1,80 +1,152 @@
 [CmdletBinding()]
 param(
     [switch]$PortableOnly,
-    [string]$Python = "py -3.12"
+    [string]$PythonLauncher = "py",
+    [string]$PythonVersion = "3.12",
+    [string]$OutputDir = "",
+    [string]$Python = ""
 )
 
 $ErrorActionPreference = "Stop"
 $Root = (Resolve-Path (Join-Path $PSScriptRoot ".." )).Path
 Set-Location $Root
 
-$version = (Select-String -Path (Join-Path $Root "core\version.py") -Pattern '__version__\s*=\s*"([^"]+)"').Matches[0].Groups[1].Value
-if ([string]::IsNullOrWhiteSpace($version)) {
-    throw "Could not read the authoritative version from core/version.py"
+# Preserve the former -Python "py -3.12" interface without evaluating an
+# arbitrary command string. New callers should pass launcher and minor version
+# separately.
+if (-not [string]::IsNullOrWhiteSpace($Python)) {
+    if ($Python -notmatch '^\s*(?<launcher>\S+)\s+-(?<version>3\.\d+)\s*$') {
+        throw 'Legacy -Python must be a launcher followed by a minor selector, such as "py -3.12"'
+    }
+    $PythonLauncher = $Matches.launcher
+    $PythonVersion = $Matches.version
+}
+
+if ($PythonVersion -notmatch '^3\.\d+$') {
+    throw "PythonVersion must be an explicit minor version such as 3.12"
+}
+
+$versionSource = Join-Path $Root "core\version.py"
+$versionMatch = Select-String -Path $versionSource -Pattern '^__version__\s*=\s*["'']([^"'']+)["'']$'
+if ($null -eq $versionMatch -or $versionMatch.Matches.Count -ne 1) {
+    throw "Could not read exactly one authoritative version from core/version.py"
+}
+$version = $versionMatch.Matches[0].Groups[1].Value
+
+$sourceSha = (& git -C $Root rev-parse HEAD).Trim()
+if ($LASTEXITCODE -ne 0 -or $sourceSha -notmatch '^[0-9a-f]{40}$') {
+    throw "A full Git source SHA is required to build a release artifact"
+}
+$dirty = & git -C $Root status --porcelain=v1 --untracked-files=all
+if ($LASTEXITCODE -ne 0 -or $dirty) {
+    throw "Refusing release build from a dirty worktree; commit the intended source first"
 }
 
 $buildVenv = Join-Path $Root ".windows-build-venv"
 $buildPython = Join-Path $buildVenv "Scripts\python.exe"
 if (-not (Test-Path $buildPython)) {
-    Invoke-Expression "$Python -m venv `"$buildVenv`""
+    & $PythonLauncher "-$PythonVersion" -m venv $buildVenv
     if ($LASTEXITCODE -ne 0) { throw "Build virtualenv creation failed" }
 }
 
-$requestedVersion = Invoke-Expression "$Python -c 'import sys; print(sys.version.split()[0])'"
-if ($LASTEXITCODE -ne 0) { throw "Requested Python is unavailable" }
+$requestedVersion = & $PythonLauncher "-$PythonVersion" -c 'import sys; print(sys.version.split()[0])'
+if ($LASTEXITCODE -ne 0) { throw "Requested Python $PythonVersion is unavailable" }
 $actualVersion = & $buildPython -c 'import sys; print(sys.version.split()[0])'
 if ($LASTEXITCODE -ne 0 -or $actualVersion -ne $requestedVersion) {
-    throw "Existing build virtualenv does not match requested Python. Remove .windows-build-venv and retry."
+    throw "Existing build virtualenv does not match requested Python. Remove .windows-build-venv only after preserving any needed local environment."
 }
 
-& $buildPython -m pip install --upgrade pip
-if ($LASTEXITCODE -ne 0) { throw "pip upgrade failed" }
-& $buildPython -m pip install -r requirements-lock.txt -r requirements-build.txt
+& $buildPython -m pip install --disable-pip-version-check -r requirements-lock.txt -r requirements-build.txt
 if ($LASTEXITCODE -ne 0) { throw "Locked dependency installation failed" }
 & $buildPython -m pip check
 if ($LASTEXITCODE -ne 0) { throw "Dependency consistency check failed" }
 
-Remove-Item (Join-Path $Root "build") -Recurse -Force -ErrorAction SilentlyContinue
-Remove-Item (Join-Path $Root "dist") -Recurse -Force -ErrorAction SilentlyContinue
-Remove-Item (Join-Path $Root "release") -Recurse -Force -ErrorAction SilentlyContinue
-
-& $buildPython -m PyInstaller --noconfirm --clean (Join-Path $Root "packaging\DrillMaster.spec")
-if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed" }
-$bundle = Join-Path $Root "dist\DrillMaster"
-$exe = Join-Path $bundle "DrillMaster.exe"
-if (-not (Test-Path $exe)) {
-    throw "PyInstaller did not create $exe"
+if ([string]::IsNullOrWhiteSpace($OutputDir)) {
+    $releaseRoot = Join-Path $Root "release"
+} else {
+    $releaseRoot = [System.IO.Path]::GetFullPath($OutputDir)
 }
-
-$releaseRoot = Join-Path $Root "release"
-$releaseBundle = Join-Path $releaseRoot "DrillMaster-$version"
-New-Item -ItemType Directory -Path $releaseRoot -Force | Out-Null
-Copy-Item $bundle $releaseBundle -Recurse -Force
-
-& $buildPython packaging\package_smoke.py --bundle-dir $releaseBundle --run
-if ($LASTEXITCODE -ne 0) {
-    throw "Packaged application smoke test failed"
-}
-
-if (-not $PortableOnly) {
-    $iscc = Get-Command ISCC.exe -ErrorAction SilentlyContinue
-    if ($null -eq $iscc) {
-        throw "Inno Setup 6 (ISCC.exe) is required. Use -PortableOnly to build the folder without an installer."
+if (Test-Path $releaseRoot) {
+    $existing = @(Get-ChildItem -LiteralPath $releaseRoot -Force -ErrorAction Stop)
+    if ($existing.Count -gt 0) {
+        throw "Refusing to delete or overwrite existing release output: $releaseRoot. Choose a new -OutputDir."
     }
-    & $iscc.Source "/DAppVersion=$version" "/DSourceDir=$releaseBundle" "/DOutputDir=$releaseRoot" (Join-Path $Root "packaging\DrillMaster.iss")
+} else {
+    New-Item -ItemType Directory -Path $releaseRoot -Force | Out-Null
+}
+
+$buildId = [guid]::NewGuid().ToString("N")
+$buildRoot = Join-Path ([System.IO.Path]::GetTempPath()) "DrillMaster-build-$sourceSha-$buildId"
+$buildWork = Join-Path $buildRoot "work"
+$buildDist = Join-Path $buildRoot "dist"
+New-Item -ItemType Directory -Path $buildWork, $buildDist -Force | Out-Null
+$oldBuildRoot = $env:DRILLMASTER_BUILD_ROOT
+$env:DRILLMASTER_BUILD_ROOT = $buildRoot
+
+try {
+    $buildLog = Join-Path $releaseRoot "pyinstaller-build.log"
+    & $buildPython -m PyInstaller --noconfirm --clean --workpath $buildWork --distpath $buildDist `
+        (Join-Path $Root "packaging\DrillMaster.spec") 2>&1 | Tee-Object -FilePath $buildLog
+    if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed; inspect $buildLog" }
+
+    $bundle = Join-Path $buildDist "DrillMaster"
+    $exe = Join-Path $bundle "DrillMaster.exe"
+    if (-not (Test-Path $exe)) {
+        throw "PyInstaller did not create $exe"
+    }
+
+    $releaseBundle = Join-Path $releaseRoot "DrillMaster-$version"
+    Copy-Item -LiteralPath $bundle -Destination $releaseBundle -Recurse
+    $smokeLog = Join-Path $releaseRoot "package-smoke.log"
+    & $buildPython packaging\package_smoke.py --bundle-dir $releaseBundle --run --log-path $smokeLog
     if ($LASTEXITCODE -ne 0) {
-        throw "Inno Setup failed"
+        throw "Packaged application smoke test failed; inspect $smokeLog"
     }
+
+    $installerPath = $null
+    $innoVersion = "NOT_BUILT"
+    if (-not $PortableOnly) {
+        $iscc = Get-Command ISCC.exe -ErrorAction SilentlyContinue
+        if ($null -eq $iscc) {
+            throw "Inno Setup 6 (ISCC.exe) is required. Use -PortableOnly to build the folder without an installer."
+        }
+        $innoVersion = (Get-Item -LiteralPath $iscc.Source).VersionInfo.FileVersion
+        & $iscc.Source "/DAppVersion=$version" "/DSourceDir=$releaseBundle" "/DOutputDir=$releaseRoot" `
+            (Join-Path $Root "packaging\DrillMaster.iss")
+        if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed" }
+        $installerPath = Join-Path $releaseRoot "DrillMaster-$version-Setup.exe"
+        if (-not (Test-Path $installerPath)) { throw "Inno Setup did not create $installerPath" }
+    }
+
+    $portableArchive = Join-Path $releaseRoot "DrillMaster-$version-windows-x64.zip"
+    Compress-Archive -LiteralPath $releaseBundle -DestinationPath $portableArchive -CompressionLevel Optimal
+    $pyinstallerVersion = (& $buildPython -m PyInstaller --version).Trim()
+    if ($LASTEXITCODE -ne 0) { throw "Could not resolve PyInstaller build version" }
+    $pipVersionLine = (& $buildPython -m pip --version).Trim()
+    if ($LASTEXITCODE -ne 0) { throw "Could not resolve pip build version" }
+    $pipVersion = $pipVersionLine.Split()[1]
+    $metadataArgs = @(
+        "packaging\release_metadata.py", "--release-root", $releaseRoot,
+        "--source-sha", $sourceSha, "--version", $version,
+        "--python-version", $actualVersion, "--pyinstaller-version", $pyinstallerVersion,
+        "--pip-version", $pipVersion, "--innosetup-version", $innoVersion, "--bundle-zip", $portableArchive
+    )
+    if ($installerPath) { $metadataArgs += @("--installer", $installerPath) }
+    & $buildPython @metadataArgs
+    if ($LASTEXITCODE -ne 0) { throw "Release metadata generation failed" }
+
+    Write-Host "Build complete: $releaseRoot"
+    Write-Host "Source SHA: $sourceSha"
+    Write-Host "Version: $version"
+    Write-Host "Portable bundle: $releaseBundle"
+    Write-Host "Portable archive: $portableArchive"
+    if ($installerPath) { Write-Host "Installer: $installerPath" }
 }
-
-Get-ChildItem $releaseRoot -File -Recurse |
-    Get-FileHash -Algorithm SHA256 |
-    ForEach-Object { "$($_.Hash.ToLower())  $($_.Path.Substring($releaseRoot.Length + 1))" } |
-    Set-Content (Join-Path $releaseRoot "SHA256SUMS.txt") -Encoding ascii
-
-Write-Host "Build complete: $releaseRoot"
-Write-Host "Version: $version"
-Write-Host "Portable bundle: $releaseBundle"
-if (-not $PortableOnly) {
-    Write-Host "Installer: $releaseRoot\DrillMaster-$version-Setup.exe"
+finally {
+    if ($null -eq $oldBuildRoot) {
+        Remove-Item Env:DRILLMASTER_BUILD_ROOT -ErrorAction SilentlyContinue
+    } else {
+        $env:DRILLMASTER_BUILD_ROOT = $oldBuildRoot
+    }
+    Remove-Item -LiteralPath $buildRoot -Recurse -Force -ErrorAction SilentlyContinue
 }

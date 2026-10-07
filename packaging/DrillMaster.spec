@@ -1,6 +1,7 @@
 # PyInstaller one-folder specification for the Windows DrillMaster desktop app.
 # Build from the repository root with packaging/build_windows.ps1.
 from pathlib import Path
+import os
 import sys
 
 
@@ -10,7 +11,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from core.version import __version__
 
 
-BUILD_ROOT = PROJECT_ROOT / "build"
+BUILD_ROOT = Path(os.environ.get("DRILLMASTER_BUILD_ROOT", PROJECT_ROOT / "build")).resolve()
 VERSION_FILE = BUILD_ROOT / "generated_version_info.txt"
 
 
