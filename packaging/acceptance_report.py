@@ -422,12 +422,29 @@ def build_report(*, metadata_path: Path, junit_path: Path, source_sha: str, ci: 
         "external_acceptance": external,
         "status_vocabulary": sorted(STATUS_VOCABULARY),
     }
-    automation_pass = (lifecycle_status == "PASS")
-    report["decision"] = (
-        "WINDOWS_AUTOMATION_PASS; INSTALLED_LIFECYCLE_PASS; SOURCE_GATE_AND_EXTERNAL_ACCEPTANCE_REMAIN_SEPARATE"
-        if automation_pass else
-        "WINDOWS_AUTOMATION_PASS; INSTALLED_LIFECYCLE_NOT_RUN; SOURCE_GATE_AND_EXTERNAL_ACCEPTANCE_REMAIN_SEPARATE"
-    )
+    # Three outcomes are distinct: the automation passed, a mandatory step did not run, or a
+    # step ran and failed.  Collapsing the last two into "did not run" once let a report carry
+    # WINDOWS_AUTOMATION_PASS while the installed-application smoke had failed.
+    mandatory = {"INSTALLED_LIFECYCLE": lifecycle_status,
+                 "FROZEN_SMOKE": str((report["repository_automation"]["frozen_executable_smoke"] or {}).get("status")),
+                 "INSTALLER_COMPILATION": str(report["repository_automation"]["installer_compilation"]["status"])}
+    blocked = {name: value for name, value in mandatory.items() if value not in {"PASS", "NOT_RUN", "NOT_VERIFIED"}}
+    unrun = {name: value for name, value in mandatory.items() if value in {"NOT_RUN", "NOT_VERIFIED"}}
+    if blocked:
+        verdict = "WINDOWS_AUTOMATION_FAIL"
+        detail = "; ".join(f"{name}_{value}" for name, value in sorted(blocked.items()))
+    elif unrun:
+        verdict = "WINDOWS_AUTOMATION_PASS"
+        detail = "; ".join(f"{name}_{value}" for name, value in sorted(unrun.items()))
+    else:
+        verdict = "WINDOWS_AUTOMATION_PASS"
+        detail = "; ".join(f"{name}_PASS" for name in sorted(mandatory))
+    report["decision"] = f"{verdict}; {detail}; SOURCE_GATE_AND_EXTERNAL_ACCEPTANCE_REMAIN_SEPARATE"
+    report["decision_basis"] = {"mandatory_statuses": mandatory,
+                                "blocking": sorted(blocked),
+                                "not_run": sorted(unrun),
+                                "note": "a signature state is deliberately absent here: whether the release is "
+                                        "signed is an owner decision recorded under repository_automation.code_signing"}
     report["identity"]["installed_lifecycle_status"] = lifecycle_status
     report["identity"]["signing_status"] = signing["status"]
     return report

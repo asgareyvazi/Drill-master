@@ -597,3 +597,42 @@ def test_artifact_verification_keeps_the_four_provenance_claims_apart(tmp_path):
     report["repository_automation"]["artifact_verification"].pop("independent_reverification")
     with pytest.raises(module.ReportError, match="artifact_independent_reverification"):
         module.verify_report_fields(report)
+
+
+def test_a_step_that_ran_and_failed_cannot_read_as_not_run(tmp_path):
+    """The gate's own failure mode: a lifecycle FAIL must not be published as PASS + NOT_RUN."""
+    module = _report_module()
+    root = _release_root(tmp_path)
+    _lifecycle_file(root, "FAIL", steps=[{"name": "installed_smoke", "status": "FAIL"}])
+    report = module.build_report(metadata_path=root / "release-metadata.json",
+                                 junit_path=_junit(tmp_path, PASSING_JUNIT), source_sha="a" * 40,
+                                 lifecycle_report_path=root / "installer-lifecycle.json",
+                                 require_lifecycle=True)
+    assert report["decision"].startswith("WINDOWS_AUTOMATION_FAIL")
+    assert "INSTALLED_LIFECYCLE_FAIL" in report["decision"]
+    assert "WINDOWS_AUTOMATION_PASS" not in report["decision"]
+    assert report["decision_basis"]["blocking"] == ["INSTALLED_LIFECYCLE"]
+    assert report["decision_basis"]["mandatory_statuses"]["FROZEN_SMOKE"] == "PASS"
+
+
+def test_an_unrun_mandatory_step_is_incomplete_rather_than_blocked(tmp_path):
+    """Not run and failed stay distinct: one is a gap in coverage, the other is a verdict."""
+    module = _report_module()
+    root = _release_root(tmp_path)
+    report = module.build_report(metadata_path=root / "release-metadata.json",
+                                 junit_path=_junit(tmp_path, PASSING_JUNIT), source_sha="a" * 40)
+    assert report["decision"].startswith("WINDOWS_AUTOMATION_PASS")
+    assert "INSTALLED_LIFECYCLE_NOT_RUN" in report["decision"]
+    assert report["decision_basis"]["not_run"] == ["INSTALLED_LIFECYCLE"]
+    assert report["decision_basis"]["blocking"] == []
+
+
+def test_a_full_pass_publishes_every_mandatory_dimension(tmp_path):
+    module = _report_module()
+    root = _release_root(tmp_path)
+    _lifecycle_file(root, "PASS")
+    report = module.build_report(metadata_path=root / "release-metadata.json",
+                                 junit_path=_junit(tmp_path, PASSING_JUNIT), source_sha="a" * 40,
+                                 lifecycle_report_path=root / "installer-lifecycle.json")
+    for name in ("INSTALLED_LIFECYCLE_PASS", "FROZEN_SMOKE_PASS", "INSTALLER_COMPILATION_PASS"):
+        assert name in report["decision"], name

@@ -68,10 +68,52 @@
         "tests/test_acceptance_report.py::test_report_accepts_the_document_the_generator_itself_publishes",
         "tests/test_windows_release_evidence.py::test_missing_artifact_or_manifest_entry_is_reported_without_inventing_a_state"
       ]
+    },
+    {
+      "id": "M42.3-6",
+      "name": "SMOKE_MARKER_REQUIRED_FROM_A_CHANNEL_THE_PRODUCT_DOES_NOT_HAVE",
+      "root_cause": "the M42.3 lifecycle tightening demanded the PACKAGE_SMOKE_OK marker from stdout, but the frozen windowed executable has no console and app.py emitted the marker nowhere, so the real Windows gate failed a build whose smoke had in fact passed; the marker existed only in the runbook wording, never in product code",
+      "fix": "run_package_smoke logs the marker into the application log and prints it when a stdout stream exists; the lifecycle step accepts the marker from stdout or the log, records success_marker_channel, and still refuses a run that produced no marker in either channel or a FATAL/Traceback marker in either",
+      "guards": [
+        "tests/test_windows_release_evidence.py::test_the_success_marker_is_accepted_from_either_channel_and_only_from_a_real_one",
+        "tests/test_windows_release_gate_contract.py::test_the_frozen_smoke_publishes_an_affirmative_marker_the_gate_can_read",
+        "tests/test_windows_release_evidence.py::test_a_clean_exit_without_the_success_marker_is_a_failure"
+      ],
+      "found_by": "the first exact-SHA Windows run of the recovered M42.2 signing correction, read from its published step annotation rather than inferred"
+    },
+    {
+      "id": "M42.3-7",
+      "name": "DECISION_FOLDED_A_FAILED_STEP_INTO_NOT_RUN_AND_PASS",
+      "root_cause": "acceptance_report computed the decision from a single boolean (lifecycle status == PASS) and rendered every other case as WINDOWS_AUTOMATION_PASS; INSTALLED_LIFECYCLE_NOT_RUN, so a lifecycle that ran and failed was published as a passing automation result with the failure mislabelled as an unrun step",
+      "fix": "the decision is derived from the three mandatory statuses (installed lifecycle, frozen smoke, installer compilation) with three distinct outcomes - all passed, a dimension not run, or a dimension blocked - and decision_basis records which statuses were blocking; a signature state remains outside the decision by design",
+      "guards": [
+        "tests/test_acceptance_report.py::test_a_step_that_ran_and_failed_cannot_read_as_not_run",
+        "tests/test_acceptance_report.py::test_an_unrun_mandatory_step_is_incomplete_rather_than_blocked",
+        "tests/test_acceptance_report.py::test_a_full_pass_publishes_every_mandatory_dimension"
+      ],
+      "found_by": "the repository-wide evidence audit in this mission, while asking whether any published field could overstate what its evidence proves"
+    },
+    {
+      "id": "M42.3-8",
+      "name": "SIGNING_QUERY_FAILURE_LEFT_NO_REASON_IN_THE_PUBLISHED_RECORD",
+      "root_cause": "run_powershell reported a failure as 'powershell exit N' with stdout only, and the markdown summary printed each file's status without its message, so an UNKNOWN aggregate on a Windows runner could not be attributed from the check run once the log and artifact blob endpoints were unreachable",
+      "fix": "the bounded stderr excerpt (PowerShell writes its reason there) is carried in status_message, and the published step summary prints it per file",
+      "guards": [
+        "tests/test_windows_release_gate_contract.py::test_a_query_failure_keeps_its_reason_visible_in_the_published_evidence"
+      ],
+      "found_by": "the Windows run's signing annotation reported UNKNOWN for both executables with no cause attached; the cause is now published so the next run is diagnosable without artifact access"
     }
   ],
   "signing_contract": {
-    "vocabulary": ["PASS", "UNSIGNED", "FAIL", "UNKNOWN", "NOT_VERIFIED", "NOT_RUN", "NOT_APPLICABLE"],
+    "vocabulary": [
+      "PASS",
+      "UNSIGNED",
+      "FAIL",
+      "UNKNOWN",
+      "NOT_VERIFIED",
+      "NOT_RUN",
+      "NOT_APPLICABLE"
+    ],
     "vocabulary_owner": "packaging/release_metadata.py",
     "examined_set": "the compiled installer in the release directory and the bundle executable extracted from the hash-verified portable archive; nothing else",
     "container_archives": "recorded NOT_APPLICABLE with their own digest, excluded from the aggregate",
@@ -86,9 +128,31 @@
   },
   "evidence_document_contract": {
     "manifest_schema": "drillmaster-release-artifacts/v2",
-    "required_fields": ["schema", "git_sha", "version", "platform", "python", "build_tools", "reproducible_build", "artifact_scope", "artifacts"],
-    "artifact_row_fields": ["filename", "sha256", "size_bytes"],
-    "refused": ["any other schema version", "unknown or missing fields at either level", "duplicate artifact rows", "non-hex or wrong-length digests", "negative or non-integer sizes", "an empty artifact list", "a build_tools block without the identity fields"],
+    "required_fields": [
+      "schema",
+      "git_sha",
+      "version",
+      "platform",
+      "python",
+      "build_tools",
+      "reproducible_build",
+      "artifact_scope",
+      "artifacts"
+    ],
+    "artifact_row_fields": [
+      "filename",
+      "sha256",
+      "size_bytes"
+    ],
+    "refused": [
+      "any other schema version",
+      "unknown or missing fields at either level",
+      "duplicate artifact rows",
+      "non-hex or wrong-length digests",
+      "negative or non-integer sizes",
+      "an empty artifact list",
+      "a build_tools block without the identity fields"
+    ],
     "backward_compatibility": "v1 manifests are refused with the reason that they recorded an unverified ISCC file version; no silent reinterpretation"
   },
   "internal_gates": [
@@ -144,13 +208,39 @@
   "preserved_boundaries": {
     "M36_P6_closure": "intact; not re-adjudicated by M42.3",
     "W5": "PROVENANCE_EXTERNAL_SOURCE_UNAVAILABLE with 332 / 334 source-hash contexts preserved as recorded",
-    "open_owner_decisions": ["NEW-P6-007", "NEW-P6-008", "NEW-P6-015", "NEW-P6-020", "NEW-P6-023", "NEW-P6-024"],
+    "open_owner_decisions": [
+      "NEW-P6-007",
+      "NEW-P6-008",
+      "NEW-P6-015",
+      "NEW-P6-020",
+      "NEW-P6-023",
+      "NEW-P6-024"
+    ],
     "engineering_scope": "casing PARTIAL not full API TR 5C3; torque and drag PARTIAL/SCREENING; anti-collision PARTIAL/SCREENING without ISCWSA covariance, magnetic-declination or survey-error modelling; cement module is not laboratory slurry design; fishing is bounded screening; production torque and drag and cement laboratory design NOT_IMPLEMENTED; no Herschel-Bulkley claim",
-    "documented_in": ["PRODUCTION_READINESS.md", "ENGINEERING_CAPABILITY_STATUS.md", "docs/audits/m42-1-release-closure.json", "docs/audits/m42-2-release-closure.json"]
+    "documented_in": [
+      "PRODUCTION_READINESS.md",
+      "ENGINEERING_CAPABILITY_STATUS.md",
+      "docs/audits/m42-1-release-closure.json",
+      "docs/audits/m42-2-release-closure.json"
+    ]
   },
   "environment_limitations": [
     "no Windows host and no pwsh here, so the lifecycle and signing steps are exercised against a scripted stand-in host and are never presented as Windows proof",
     "libGL.so.1 is absent from the Linux sandbox, so eight Qt widget tests fail here and pass on the Windows runner; this is recorded, not skipped",
     "Actions artifact blob endpoints are unreachable from this sandbox, so published artifacts cannot be re-downloaded and re-hashed here"
-  ]
+  ],
+  "local_evidence": {
+    "broad_linux_suite": "2114 collected, 1988 passed, 45 skipped, 63 failed and 18 module-level collection errors; every one of the 63 failures and 18 errors is the sandbox's missing system library libGL.so.1 imported by PySide6.QtGui, and no non-Qt test failed",
+    "windows_scope_locally": "the 27-module Windows scope runs 565 tests here: 552 passed, 8 failed (every one the sandbox's missing libGL.so.1), 4 skipped with explicit reasons - the real Windows bundle smoke, two Qt-runtime-dependent UI tests, and the non-ASCII path case under a non-UTF-8 POSIX locale",
+    "mutation_set": "24 entries, all caught, worktree verified byte-identical afterwards",
+    "ruff_debt": "5338 findings against a ceiling of 5375; the ceiling was not raised, and removing eight shadowed duplicate test definitions lowered the count",
+    "note": "local Linux counts are not the gate: the Windows scope on the runner has no libGL limitation, which is why its collected/passed figures differ from these and why the exact-SHA workflow pair is the only release evidence"
+  },
+  "observations": {
+    "run_38046979023": null,
+    "run_38046979037": null,
+    "note": "these are dated observations about a superseded commit and are recorded without run identifiers, because a committed run id would be a fabricated verification value; the release decision for any commit is made only by the gate pair whose head_sha equals that commit",
+    "windows_step_8_observation": "the Windows release validation run for the immediately preceding commit cleared steps 1-7 and 9-11 (Inno identity 6.7.1 read back from the installed package, the 27-module regression suite, build plus frozen smoke, the archive-bound signing step, report and upload) and failed step 8 on the marker-channel defect recorded as M42.3-6, while the signing step recorded UNKNOWN for both executables with no reason attached, recorded as M42.3-8",
+    "source_gate_observation": "the source release gate for that same commit succeeded for Python 3.11, 3.12 and 3.13"
+  }
 }

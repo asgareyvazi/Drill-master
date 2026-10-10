@@ -119,13 +119,20 @@ bundle path can never be confused with the outer archive.
 Two claims are deliberately kept apart.  The uninstall *process* exit code is one step (`silent_uninstall`); whether the
 application files actually disappeared is a second one (`install_files_removed`), because a zero exit code from an uninstaller that
 copies itself to a temp location and returns early is not deletion evidence.  A zero exit code from the installed executable is
-likewise not proof that it smoke-tested: `installed_smoke` additionally requires the `PACKAGE_SMOKE_OK` marker in the captured
-output and refuses a run carrying a `FATAL` or `Traceback` marker, so an executable that prints help and exits cleanly fails.
+likewise not proof that it smoke-tested: `installed_smoke` requires the `PACKAGE_SMOKE_OK` marker that `app.py:run_package_smoke()`
+emits into the application log *and* to stdout, and refuses a run carrying a `FATAL` or `Traceback` marker in either channel - an
+executable that prints help and exits 0 fails, and so does one that exits 0 silently.  The log channel is not a convenience: a
+frozen **windowed** build has no console, `print` is a no-op there, and requiring stdout alone turned a real green gate red on
+exactly that platform, which is why `success_marker_channel` records where the marker was found (`stdout`, `application-log` or
+`none`).
 The `--expected-sha256` argument is optional and, when supplied, must agree with the manifest (disagreement exits `2`); the
 manifest is the authority, so the lifecycle can never be run against an unbound binary.
 
 Diagnostics are bounded and redacted: secret-valued environment variables are stripped before anything is written, and log tails
-are truncated.  `acceptance-report.json` folds the result in as `installed_lifecycle_status` and refuses to publish `PASS` when the
+are truncated.  `acceptance-report.json` folds the result in as `installed_lifecycle_status` and its `decision` distinguishes three outcomes -
+every mandatory dimension passed, a mandatory dimension did not run, or a mandatory dimension ran and failed (`WINDOWS_AUTOMATION_FAIL;
+INSTALLED_LIFECYCLE_FAIL; ...`) - because publishing `WINDOWS_AUTOMATION_PASS; INSTALLED_LIFECYCLE_NOT_RUN` over a failed lifecycle was
+itself an overstatement, and `decision_basis` records which statuses were blocking and refuses to publish `PASS` when the
 evidence file is absent, when a step inside it did not pass, when the lifecycle did not verify the installer hash it executed, or
 when the recorded installer hash disagrees with the digest the report recomputes from the published artifact.
 

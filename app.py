@@ -699,6 +699,17 @@ def run_package_smoke() -> int:
                     ).scalar()
                     if schema_version != manager.schema_version:
                         return 1
+                    # An affirmative success marker, in the log as well as on stdout: a frozen
+                    # windowed executable has no console, so a caller that only reads stdout can
+                    # never distinguish "the smoke passed" from "the process exited 0 anyway".
+                    marker = f"PACKAGE_SMOKE_OK schema={schema_version} modules={len(required_modules)}"
+                    logger.info(marker)
+                    # A console-less windowed build leaves the standard output stream unset, and
+                    # print() is a documented no-op there, so this stays safe and is still useful
+                    # for a developer run from a console.  Nothing here may reference the sys
+                    # module: tests/test_credential_lifecycle.py execs this function in a
+                    # restricted namespace that supplies only os, Path and the logger.
+                    print(marker)
                 finally:
                     session.close()
             finally:

@@ -119,8 +119,11 @@ def run_powershell(script: str, target: Path, runner: Runner, timeout: int) -> d
     completed = runner(["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
                         "-Command", script], environment, None, timeout)
     output = (getattr(completed, "stdout", "") or "").strip()
+    error_text = (getattr(completed, "stderr", "") or "").strip()
     if completed.returncode != 0 or not output:
-        return {"error": f"powershell exit {completed.returncode}: {bound(output, 200)}"}
+        # The exit code alone cannot be acted on: PowerShell reports the reason on stderr.
+        return {"error": f"powershell exit {completed.returncode}: "
+                         f"{bound(error_text or output, 300)}"}
     try:
         payload = json.loads(output)
     except json.JSONDecodeError:
@@ -246,28 +249,34 @@ def run_lifecycle(*, installer: Path, expected_sha256: str, app_version: str, wo
             record("installed_smoke", "FAIL", f"{type(exc).__name__}: {exc}")
             return _finish(evidence, "FAIL", started)
         smoke_output = f"{getattr(smoke, 'stdout', '') or ''}{getattr(smoke, 'stderr', '') or ''}"
-        leaked = [value for value in secret_values if value and value in smoke_output]
+        # A frozen windowed executable has no console, so the application log is an equally
+        # authoritative channel for the marker; both are read, neither is assumed.
+        smoke_log_text = _tail(smoke_root / "logs" / "drillmaster.log", lines=400)
+        observed_output = f"{smoke_output}\n{smoke_log_text}"
+        leaked = [value for value in secret_values if value and value in observed_output]
         after = snapshot(install_dir)
         created = sorted(set(after) - set(before))
         changed = sorted(name for name in set(after) & set(before) if after[name] != before[name])
         log_written = (smoke_root / "logs" / "drillmaster.log").is_file()
-        # An exit code of 0 is not the same claim as "the smoke ran": a frozen executable
-        # that prints help and exits cleanly must never satisfy this step.
-        marker_found = "PACKAGE_SMOKE_OK" in smoke_output
-        fatal_found = bool(re.search(r"FATAL|Traceback \(most recent call last\)", smoke_output))
+        # An exit code of 0 is not the same claim as "the smoke ran": an executable that
+        # returns cleanly without completing the smoke must never satisfy this step.
+        marker_found = "PACKAGE_SMOKE_OK" in observed_output
+        fatal_found = bool(re.search(r"FATAL|Traceback \(most recent call last\)", observed_output))
         details = {"exit_code": smoke.returncode, "wrote_log_outside_install_dir": log_written,
                    "secret_leak_detected": bool(leaked), "new_files_in_install_dir": created[:20],
                    "changed_files_in_install_dir": changed[:20],
-                   "success_marker_found": marker_found, "fatal_marker_found": fatal_found}
-        evidence["diagnostics"]["installed_smoke_output"] = redact(smoke_output, secret_values)
+                   "success_marker_found": marker_found, "fatal_marker_found": fatal_found,
+                   "success_marker_channel": ("stdout" if "PACKAGE_SMOKE_OK" in smoke_output
+                                              else "application-log" if marker_found else "none")}
+        evidence["diagnostics"]["installed_smoke_output"] = redact(observed_output, secret_values)
         evidence["installed_smoke"] = details
         if (smoke.returncode != 0 or leaked or created or changed or not log_written
                 or not marker_found or fatal_found):
             record("installed_smoke", "FAIL", json.dumps(details, sort_keys=True))
             return _finish(evidence, "FAIL", started)
         record("installed_smoke", "PASS",
-               "exit 0; success marker present; no fatal marker; log written outside the install "
-               "directory; install tree unchanged")
+               f"exit 0; success marker via {details['success_marker_channel']}; no fatal marker; log written "
+               "outside the install directory; install tree unchanged")
 
         # 5. User data lives outside {app}; record the containment proof explicitly.
         containment = {
@@ -550,11 +559,12 @@ def render_markdown(report: dict, title: str) -> str:
         for item in files:
             signer = f"; signer: {item['signer']}" if item.get("signer") else ""
             digest = f"; sha256: {item['sha256'][:16]}..." if item.get("sha256") else ""
+            reason = f"; reason: {bound(str(item['status_message']), 160)}" if item.get("status_message") else ""
             origin = f"; from: {item['provenance']}" if item.get("provenance") else ""
             container = (f"; inside `{item['container_member']}` of {item['container_archive']} "
                          f"(sha256 {item['container_archive_sha256'][:16]}...)"
                          if item.get("container_member") else "")
-            lines.append(f"- `{item['filename']}` — {item['status']}{signer}{digest}{origin}{container}")
+            lines.append(f"- `{item['filename']}` — {item['status']}{signer}{digest}{origin}{container}{reason}")
     if report.get("policy"):
         lines += ["", f"Policy: {report['policy']}"]
     if report.get("prerequisite"):

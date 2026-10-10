@@ -37,6 +37,7 @@ class FakeHost:
     def __init__(self, *, install_exit_code: int = 0, uninstall_exit_code: int = 0,
                  product_version: str = "1.0.0.0", smoke_exit_code: int = 0,
                  smoke_output: str = "PACKAGE_SMOKE_OK", uninstall_removes: bool = True,
+                 smoke_marker_in: str = "both",
                  leak_value: str = "", write_into_install_dir: bool = False,
                  signature_status: str = "NotSigned", signer_subject: str = "",
                  keep_sentinel: bool = True, install_writes_exe: bool = True,
@@ -47,6 +48,7 @@ class FakeHost:
         self.product_version = product_version
         self.smoke_exit_code = smoke_exit_code
         self.smoke_output = smoke_output
+        self.smoke_marker_in = smoke_marker_in
         self.uninstall_removes = uninstall_removes
         self.leak_value = leak_value
         self.write_into_install_dir = write_into_install_dir
@@ -104,7 +106,13 @@ class FakeHost:
                 return SimpleNamespace(returncode=124, stdout="", stderr="")
             log_dir = Path((environment or {})["DRILLMASTER_LOG_DIR"])
             log_dir.mkdir(parents=True, exist_ok=True)
-            (log_dir / "drillmaster.log").write_text("INFO application smoke complete\n", encoding="utf-8")
+            log_lines = ["INFO application smoke complete"]
+            if self.smoke_marker_in in {"both", "log"}:
+                log_lines.insert(0, "INFO PACKAGE_SMOKE_OK schema=7 modules=17")
+            (log_dir / "drillmaster.log").write_text("\n".join(log_lines) + "\n", encoding="utf-8")
+            if self.smoke_marker_in not in {"both", "stdout"}:
+                # A windowed build has no console at all: nothing reaches stdout.
+                self.smoke_output = "application started"
             if self.write_into_install_dir:
                 # A frozen application writing next to itself is the regression guarded here.
                 (Path(argv[0]).parent / "drillmaster.db").write_bytes(b"leaked into the install tree")
@@ -197,8 +205,9 @@ def test_lifecycle_passes_only_when_install_run_and_uninstall_are_all_proven(tmp
     assert report["installed_smoke"] == {
         "exit_code": 0, "wrote_log_outside_install_dir": True, "secret_leak_detected": False,
         "new_files_in_install_dir": [], "changed_files_in_install_dir": [],
-        "success_marker_found": True, "fatal_marker_found": False,
+        "success_marker_found": True, "fatal_marker_found": False, "success_marker_channel": "stdout",
     }
+    assert _step(report, "installed_smoke")["detail"].startswith("exit 0; success marker via stdout")
     assert report["cleaned_up"] is True and not (tmp_path / "work").exists()
 
 
@@ -594,7 +603,8 @@ def test_install_succeeding_without_an_installed_executable_fails_the_lifecycle(
 
 def test_a_clean_exit_without_the_success_marker_is_a_failure(tmp_path):
     """An executable that exits 0 without running the smoke (help, early return) is rejected."""
-    _, report = _run(tmp_path, FakeHost(smoke_output="DrillMaster 1.0.0\nusage: --package-smoke"))
+    _, report = _run(tmp_path, FakeHost(smoke_marker_in="none",
+                                        smoke_output="DrillMaster 1.0.0\nusage: --package-smoke"))
     assert report["status"] == "FAIL"
     assert report["installed_smoke"]["success_marker_found"] is False
     assert _step(report, "installed_smoke")["status"] == "FAIL"
@@ -713,3 +723,13 @@ def test_a_file_version_disagreeing_with_the_product_version_fails_the_lifecycle
     assert report["status"] == "FAIL"
     step = _step(report, "installed_version")
     assert step["status"] == "FAIL" and "authoritative application version" in step["detail"]
+
+
+@pytest.mark.parametrize("channel, expected", [("log", "application-log"), ("stdout", "stdout"),
+                                               ("both", "stdout"), ("none", "none")])
+def test_the_success_marker_is_accepted_from_either_channel_and_only_from_a_real_one(tmp_path, channel, expected):
+    """A frozen windowed build has no console; its log is an equally authoritative channel."""
+    _, report = _run(tmp_path, FakeHost(smoke_marker_in=channel))
+    assert report["installed_smoke"]["success_marker_channel"] == expected
+    assert report["installed_smoke"]["success_marker_found"] is (channel != "none")
+    assert report["status"] == ("FAIL" if channel == "none" else "PASS")

@@ -132,6 +132,33 @@ def _unencoded_text_io(module: str) -> list[str]:
     return offenders
 
 
+def test_the_frozen_smoke_publishes_an_affirmative_marker_the_gate_can_read():
+    """The lifecycle gate requires a marker; the application therefore has to emit one.
+
+    A frozen windowed executable has no console, so the marker must reach the application
+    log as well as stdout - otherwise the gate can only trust an exit code, which is the
+    claim this guard exists to refuse.
+    """
+    source = (ROOT / "app.py").read_text(encoding="utf-8")
+    assert "PACKAGE_SMOKE_OK" in source
+    assert "logger.info(marker)" in source, "the marker must be written to the application log"
+    smoke = source[source.index("def run_package_smoke"):source.index("def main()")]
+    assert "print(marker)" in smoke
+    assert "sys." not in smoke, (
+        "run_package_smoke is executed in a restricted namespace by tests/test_credential_lifecycle.py, "
+        "which supplies only os/Path/DatabaseManager/logger; a new module-level reference there fails "
+        "the smoke for reasons unrelated to the product"
+    )
+
+
+def test_a_query_failure_keeps_its_reason_visible_in_the_published_evidence():
+    """UNKNOWN without a reason is undiagnosable once the artifact endpoints are unreachable."""
+    evidence = (ROOT / "packaging" / "windows_release_evidence.py").read_text(encoding="utf-8")
+    assert "bound(error_text or output, 300)" in evidence, ("powershell reports the reason on stderr; "
+                                                            "the record must carry it")
+    assert "reason: " in evidence, "the step summary must publish each file's status message"
+
+
 def test_signing_vocabulary_and_extraction_rules_are_declared_exactly_once():
     """Two definitions of one vocabulary is how a gate starts disagreeing with itself."""
     packaging = Path(__file__).resolve().parents[1] / "packaging"
