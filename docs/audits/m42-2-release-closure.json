@@ -1,0 +1,174 @@
+{
+  "schema": "drillmaster-release-closure/v2",
+  "mission": "M42.2",
+  "title": "Release provenance correction, installed-app lifecycle verification and final acceptance readiness",
+  "recorded_on": "2026-10-10",
+  "branch": "arena/01a0ec23-drill-master",
+  "repository": "asgareyvazi/Drill-master",
+  "baseline": {
+    "m42_1_final_sha": "64f7c82183b808f86af34a5c2663fc22c46eaa7f",
+    "m41_verified_baseline_sha": "a482a91efad2aa982c54e9b3769ef6f698e2e9ef",
+    "note": "Historical baselines. Neither is evidence for an M42.2 change; only a run whose head_sha equals the final candidate is.",
+    "app_version": "1.0.0"
+  },
+  "innosetup_provenance_defect": {
+    "classification": "EVIDENCE_ACCURACY_DEFECT",
+    "observed_in": "release-metadata.json and acceptance-report.json published by the M42.1 Windows gate at the baseline SHA above",
+    "published_value": "0.0.0.0",
+    "published_as": "build_tools.inno_setup, reported by the acceptance report as installer_compilation.inno_setup_version with status PASS",
+    "mechanism": "packaging/build_windows.ps1 recorded (Get-Item ISCC.exe).VersionInfo.FileVersion; the ISCC.exe delivered by the pinned Chocolatey package carries no VS_VERSIONINFO block, so PowerShell reports 0.0.0.0",
+    "root_cause": "the release tooling treated an executable resource as toolchain identity, and both generators validated only for absence (None/empty/NOT_BUILT) rather than for verifiability",
+    "reproduction": "Reproduced locally against the pre-fix code: release_metadata.write_manifest(..., innosetup_version='0.0.0.0') succeeded and acceptance_report.build_report() on the resulting directory reported installer_compilation.status=PASS with inno_setup_version=0.0.0.0. After the fix the same call raises before any manifest is written, and a manifest that only claims verification is refused by the report generator",
+    "product_code_affected": false,
+    "security_invariants_changed": false,
+    "regression_guard": [
+      "tests/test_packaging_smoke.py::test_release_metadata_refuses_unverified_innosetup_identities_for_a_published_installer",
+      "tests/test_acceptance_report.py::test_report_rejects_unverified_or_inconsistent_innosetup_identity",
+      "tests/test_windows_release_gate_contract.py::test_innosetup_version_has_a_single_pinned_source_of_truth",
+      "tests/test_windows_release_gate_contract.py::test_innosetup_identity_is_read_back_and_fail_closed"
+    ]
+  },
+  "toolchain_identity_policy": {
+    "single_source_of_truth": "packaging/inno_setup_version.txt",
+    "consumers_of_that_value": [
+      "choco install --version",
+      "workflow installed-version verification",
+      "build_windows.ps1 pin comparison",
+      "acceptance_report expected-version cross-check"
+    ],
+    "authoritative_identity": "installed package specification (%ProgramData%\\chocolatey\\lib\\innosetup\\innosetup.nuspec), falling back to a local package-manager query",
+    "caller_supplied_value": "recorded as operator-attested with innosetup_identity_verified=false; the acceptance report refuses to publish a release claim against it",
+    "diagnostic_field": "innosetup_compiler_file_version, which may legitimately be 0.0.0.0 or UNAVAILABLE and is never the published identity",
+    "rejected_values": [
+      "",
+      "0.0.0.0",
+      "NOT_BUILT with an installer present",
+      "00.00.00",
+      "6.7",
+      "6.7.x",
+      "latest",
+      "unknown"
+    ],
+    "drift_cases_that_fail": [
+      "installing the pinned version while publishing 0.0.0.0 fails in release_metadata.write_manifest",
+      "publishing NOT_BUILT while an installer exists fails in release_metadata.write_manifest",
+      "claiming a verified version with no successful installed-version verification fails in acceptance_report.read_innosetup_identity",
+      "an expected version that disagrees with the recorded one fails in acceptance_report.read_innosetup_identity"
+    ]
+  },
+  "manifest_schema": {
+    "before": "drillmaster-release-artifacts/v1",
+    "after": "drillmaster-release-artifacts/v2",
+    "changed_because": "the Inno Setup field's meaning changed from a raw executable resource to a verified installed-package identity, so the schema was versioned rather than silently redefined; v1 manifests are refused, not reinterpreted",
+    "added_fields": [
+      "build_tools.innosetup_package_version",
+      "build_tools.innosetup_compiler_file_version",
+      "build_tools.innosetup_version_source",
+      "build_tools.innosetup_identity_verified",
+      "artifacts[].size_bytes",
+      "reproducible_build",
+      "artifact_scope"
+    ],
+    "report_schema": "drillmaster-windows-acceptance/v2"
+  },
+  "artifact_verification": {
+    "shared_helper": "release_metadata.sha256_file streams 1 MiB blocks; acceptance_report imports it, so exactly one file-hashing implementation exists in the release tooling",
+    "checks": [
+      "per-artifact SHA-256 recomputation",
+      "per-artifact byte size",
+      "exact SHA256SUMS.txt line set",
+      "both outer artifacts present",
+      "source SHA binding",
+      "version and platform binding"
+    ],
+    "runner_side": "the workflow additionally re-hashes with Get-FileHash, requires the v2 schema, requires innosetup_identity_verified, and requires the recorded identity to equal the version it verified",
+    "environment_limitation": "Actions log and artifact blob endpoints are unreachable from the working sandbox, so the manifest identity and digests are also published as a job annotation; direct third-party download re-verification remains an operator action",
+    "regression_guard": [
+      "tests/test_acceptance_report.py::test_report_hashes_large_artifacts_by_streaming_not_whole_file_reads",
+      "tests/test_acceptance_report.py::test_report_detects_a_single_altered_byte_in_a_large_artifact",
+      "tests/test_acceptance_report.py::test_report_detects_a_recorded_size_disagreement"
+    ]
+  },
+  "installed_lifecycle": {
+    "step": "Installed-application lifecycle smoke (silent install, run, uninstall)",
+    "module": "packaging/windows_release_evidence.py",
+    "sequence": [
+      "verify_installer",
+      "silent_install",
+      "installed_files",
+      "installed_version",
+      "installed_smoke",
+      "data_outside_install_dir",
+      "silent_uninstall",
+      "install_files_removed",
+      "user_data_preserved"
+    ],
+    "isolation": [
+      "work root under RUNNER_TEMP, outside the repository",
+      "data/log/backup roots passed explicitly",
+      "bootstrap credential variables cleared before the installed executable runs",
+      "cleanup in a finally block including failure paths",
+      "installer hash verified against release metadata before execution"
+    ],
+    "proves": "the published installer installs silently, the installed executable is the built version, the installed application starts and writes nothing into its own directory, and uninstall removes application files while leaving data outside {app} in place",
+    "does_not_prove": [
+      "interactive clean-machine or UAC experience",
+      "upgrade over a previous version (never simulated by running one installer twice)",
+      "retention of a real operator profile or production database",
+      "operator or business acceptance"
+    ],
+    "operator_profile_or_production_database_touched": false,
+    "regression_guard": [
+      "tests/test_windows_release_evidence.py::test_lifecycle_passes_only_when_install_run_and_uninstall_are_all_proven",
+      "tests/test_windows_release_evidence.py::test_each_missing_proof_fails_the_lifecycle",
+      "tests/test_acceptance_report.py::test_installed_lifecycle_is_only_claimed_when_its_evidence_agrees"
+    ]
+  },
+  "signing": {
+    "method": "Windows Get-AuthenticodeSignature per published artifact",
+    "current_status": "UNSIGNED",
+    "key_material_handling": "no certificate, private key, PFX or password is read, printed or stored; only public signer subject when a signature exists",
+    "release_configuration_supports_signing": false,
+    "credentials_available_in_ci": false,
+    "prerequisite": "an owner-controlled code-signing certificate or hosted signing service plus a signing step in packaging/build_windows.ps1; unsigned builds do not fail the gate because that would misattribute an external decision to repository code"
+  },
+  "internal_gates": [
+    {
+      "gate": "source_release_gate",
+      "workflow_file": ".github/workflows/ci.yml",
+      "requirement": "success on the exact final SHA for Python 3.11, 3.12 and 3.13, including exact-source, locked dependency, test and wheel verification"
+    },
+    {
+      "gate": "windows_release_validation",
+      "workflow_file": ".github/workflows/windows-release-gate.yml",
+      "requirement": "success on the exact final SHA for the Windows regression suite, the portable bundle, the frozen executable smoke, installer compilation with a verified Inno Setup identity, artifact hash and size re-verification, the installed-application lifecycle smoke, signature-status recording, and acceptance-report generation with the required field set"
+    }
+  ],
+  "gate_result_policy": "A commit cannot contain the identity of the run that validates it. Run IDs, conclusions, test counts and artifact digests are recorded in the mission report and in the runtime-generated acceptance-report.json artifact, never in committed source.",
+  "external_acceptance": {
+    "interactive_clean_machine_install": "NOT_RUN",
+    "interactive_upgrade_and_uninstall_data_retention": "NOT_RUN",
+    "real_ddr_excel_operator_acceptance": "NOT_RUN",
+    "real_ddr_pdf_acceptance": "NOT_RUN",
+    "real_mineru_acceptance": "NOT_RUN",
+    "production_database_acceptance": "NOT_RUN",
+    "field_validation": "NOT_RUN",
+    "operator_business_signoff": "NOT_RUN",
+    "synthetic_workbook_scenario": "AUTOMATED_TEST_ONLY_NOT_REAL_DDR_ACCEPTANCE"
+  },
+  "preserved_boundaries": {
+    "m36_p6_closure": "unchanged",
+    "w5_provenance": "PROVENANCE_EXTERNAL_SOURCE_UNAVAILABLE",
+    "open_owner_decisions": [
+      "NEW-P6-007",
+      "NEW-P6-008",
+      "NEW-P6-015",
+      "NEW-P6-020",
+      "NEW-P6-023",
+      "NEW-P6-024"
+    ],
+    "packaging_toolchain_pins": "unchanged from the M42.1 closure (pyinstaller 6.11.1, pefile 2023.2.7, altgraph 0.17.5, setuptools 84.0.0, pywin32-ctypes 0.2.3, hooks 2025.1); M42.2 changes how the installer version is verified, not what is installed",
+    "engineering_scope": "M41 boundaries retained; no standards-compliance claim is added by this checkpoint"
+  },
+  "runbook": "packaging/WINDOWS_RELEASE_ACCEPTANCE.md"
+}

@@ -5,7 +5,10 @@ param(
     [string]$PythonVersion = "3.12",
     [string]$OutputDir = "",
     [string]$Python = "",
-    [string]$PythonExe = ""
+    [string]$PythonExe = "",
+    [string]$InnoSetupPackageVersion = "",
+    [string]$InnoSetupPinnedVersion = "",
+    [string]$InnoSetupPackage = "innosetup"
 )
 
 $ErrorActionPreference = "Stop"
@@ -48,6 +51,105 @@ $dirty = & git -C $Root status --porcelain=v1 --untracked-files=all
 if ($LASTEXITCODE -ne 0 -or $dirty) {
     throw "Refusing release build from a dirty worktree; commit the intended source first"
 }
+
+# --- Inno Setup toolchain identity ---------------------------------------------
+# ISCC.exe ships without a usable version resource, so VersionInfo.FileVersion
+# reports 0.0.0.0 (which is exactly what the previous manifest published).  A file
+# resource is therefore recorded only as a diagnostic; the authoritative identity is
+# the installed package specification, read back and compared against the pin in
+# packaging/inno_setup_version.txt.  Resolution happens before the expensive
+# PyInstaller stage so a wrong toolchain fails in seconds rather than minutes.
+function Resolve-InnoSetupIdentity {
+    param(
+        [string]$PackageName,
+        [string]$RequestedVersion,
+        [string]$PinnedVersion,
+        [string]$CompilerPath
+    )
+    $identity = $null
+    $nuspec = Join-Path $env:ProgramData "chocolatey\lib\$PackageName\$PackageName.nuspec"
+    if (Test-Path -LiteralPath $nuspec) {
+        try {
+            [xml]$spec = Get-Content -LiteralPath $nuspec -Raw
+            $specVersion = "$($spec.package.metadata.version)".Trim()
+            if ($specVersion) {
+                $identity = [pscustomobject]@{ Version = $specVersion; Source = "installed-package-metadata" }
+            }
+        } catch {
+            $identity = $null
+        }
+    }
+    if ($null -eq $identity) {
+        $choco = Get-Command choco.exe -ErrorAction SilentlyContinue
+        if ($null -ne $choco) {
+            $line = @(& choco.exe list $PackageName --limit-output --exact --local-only 2>$null) |
+                Select-Object -First 1
+            if ($line) {
+                $parts = "$line" -split '\|'
+                if ($parts.Count -ge 2 -and $parts[1].Trim()) {
+                    $identity = [pscustomobject]@{ Version = $parts[1].Trim(); Source = "package-manager-query" }
+                }
+            }
+        }
+    }
+    if ($null -ne $identity -and -not [string]::IsNullOrWhiteSpace($RequestedVersion) `
+        -and $identity.Version -ne $RequestedVersion.Trim()) {
+        # The caller's value is a cross-check on the read-back, never a substitute for it.
+        throw "Inno Setup identity disagreement: package metadata reports $($identity.Version) while the caller asserted $RequestedVersion"
+    }
+    if ($null -eq $identity) {
+        if ([string]::IsNullOrWhiteSpace($RequestedVersion)) {
+            throw "The installed Inno Setup version could not be established from package metadata (no $($PackageName).nuspec under `$env:ProgramData\chocolatey\lib and no choco query result). Install the pinned package, or pass -InnoSetupPackageVersion for a non-release build."
+        }
+        # An operator-asserted value is recorded as such; the acceptance report refuses
+        # to turn it into a release claim, so nothing here can silently overstate trust.
+        Write-Warning "Inno Setup identity is operator-attested ($RequestedVersion), not read back from installed package metadata"
+        $identity = [pscustomobject]@{ Version = $RequestedVersion.Trim(); Source = "operator-attested" }
+    }
+    if ($identity.Version -notmatch '^\d+\.\d+\.\d+(\.\d+)?$') {
+        throw "Inno Setup package version '$($identity.Version)' is not an exact dotted version"
+    }
+    if (@($identity.Version -split '\.' | Where-Object { [int]$_ -ne 0 }).Count -eq 0) {
+        throw "Inno Setup package version '$($identity.Version)' is all-zero and identifies no release"
+    }
+    if (-not [string]::IsNullOrWhiteSpace($PinnedVersion) -and $identity.Version -ne $PinnedVersion.Trim()) {
+        throw "installed Inno Setup package version $($identity.Version) does not satisfy the pinned version $($PinnedVersion.Trim()) (source: $($identity.Source))"
+    }
+    $compilerFileVersion = "UNAVAILABLE"
+    if ($CompilerPath -and (Test-Path -LiteralPath $CompilerPath)) {
+        # Diagnostic only: this resource is absent from the Chocolatey payload and
+        # reports 0.0.0.0, which is why it may never be published as the identity.
+        $reported = (Get-Item -LiteralPath $CompilerPath).VersionInfo.FileVersion
+        if (-not [string]::IsNullOrWhiteSpace($reported)) { $compilerFileVersion = $reported.Trim() }
+    }
+    return [pscustomobject]@{
+        PackageVersion = $identity.Version
+        Source = $identity.Source
+        CompilerFileVersion = $compilerFileVersion
+    }
+}
+
+$iscc = Get-Command ISCC.exe -ErrorAction SilentlyContinue
+if (-not $PortableOnly -and $null -eq $iscc) {
+    throw "Inno Setup 6 (ISCC.exe) is required. Use -PortableOnly to build the folder without an installer."
+}
+$innoPinFile = Join-Path $Root "packaging\inno_setup_version.txt"
+if ([string]::IsNullOrWhiteSpace($InnoSetupPinnedVersion)) {
+    if (Test-Path -LiteralPath $innoPinFile) {
+        $InnoSetupPinnedVersion = (Get-Content -LiteralPath $innoPinFile -Raw).Trim()
+    }
+}
+if ($InnoSetupPinnedVersion -and $InnoSetupPinnedVersion -notmatch '^\d+\.\d+\.\d+$') {
+    throw "the Inno Setup pin must be an exact three-part version; got '$InnoSetupPinnedVersion'"
+}
+$innoIdentity = $null
+if (-not $PortableOnly) {
+    $innoIdentity = Resolve-InnoSetupIdentity -PackageName $InnoSetupPackage `
+        -RequestedVersion $InnoSetupPackageVersion -PinnedVersion $InnoSetupPinnedVersion `
+        -CompilerPath $(if ($iscc) { $iscc.Source } else { "" })
+    Write-Host "Inno Setup identity: package $($innoIdentity.PackageVersion) (verified via $($innoIdentity.Source)); compiler file version diagnostic $($innoIdentity.CompilerFileVersion)"
+}
+
 
 # An explicit interpreter path is the reproducible choice: CI already provisioned
 # and tested with it, while the "py" launcher only sees registry-registered runtimes.
@@ -150,18 +252,18 @@ try {
     }
 
     $installerPath = $null
-    $innoVersion = "NOT_BUILT"
+    $innoPackageVersion = "NOT_BUILT"
+    $innoFileVersion = "NOT_BUILT"
+    $innoVersionSource = "NOT_BUILT"
     if (-not $PortableOnly) {
-        $iscc = Get-Command ISCC.exe -ErrorAction SilentlyContinue
-        if ($null -eq $iscc) {
-            throw "Inno Setup 6 (ISCC.exe) is required. Use -PortableOnly to build the folder without an installer."
-        }
-        $innoVersion = (Get-Item -LiteralPath $iscc.Source).VersionInfo.FileVersion
         & $iscc.Source "/DAppVersion=$version" "/DSourceDir=$releaseBundle" "/DOutputDir=$releaseRoot" `
             (Join-Path $Root "packaging\DrillMaster.iss")
         if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed" }
         $installerPath = Join-Path $releaseRoot "DrillMaster-$version-Setup.exe"
         if (-not (Test-Path $installerPath)) { throw "Inno Setup did not create $installerPath" }
+        $innoPackageVersion = $innoIdentity.PackageVersion
+        $innoFileVersion = $innoIdentity.CompilerFileVersion
+        $innoVersionSource = $innoIdentity.Source
     }
 
     $portableArchive = Join-Path $releaseRoot "DrillMaster-$version-windows-x64.zip"
@@ -175,7 +277,11 @@ try {
         "packaging\release_metadata.py", "--release-root", $releaseRoot,
         "--source-sha", $sourceSha, "--version", $version,
         "--python-version", $actualVersion, "--pyinstaller-version", $pyinstallerVersion,
-        "--pip-version", $pipVersion, "--innosetup-version", $innoVersion, "--bundle-zip", $portableArchive
+        "--pip-version", $pipVersion,
+        "--innosetup-package-version", $innoPackageVersion,
+        "--innosetup-file-version", $innoFileVersion,
+        "--innosetup-version-source", $innoVersionSource,
+        "--bundle-zip", $portableArchive
     )
     if ($installerPath) { $metadataArgs += @("--installer", $installerPath) }
     & $buildPython @metadataArgs

@@ -23,13 +23,36 @@ jobs:
           cache: pip
           cache-dependency-path: requirements-lock.txt
       - name: Install pinned Inno Setup compiler
+        id: inno
         shell: pwsh
         run: |
-          choco install innosetup --version=6.7.1 --yes --no-progress
-          if ($LASTEXITCODE -ne 0) { throw "Pinned Inno Setup installation failed" }
+          # The pin lives in packaging/inno_setup_version.txt so the request, the
+          # read-back and the published manifest cannot drift apart.
+          $pinFile = 'packaging\inno_setup_version.txt'
+          if (-not (Test-Path -LiteralPath $pinFile)) { throw "Inno Setup pin file $pinFile is missing" }
+          $innoPin = (Get-Content -LiteralPath $pinFile -Raw).Trim()
+          if ($innoPin -notmatch '^\d+\.\d+\.\d+$') { throw "Inno Setup pin '$innoPin' is not an exact three-part version" }
+          choco install innosetup --version=$innoPin --yes --no-progress
+          if ($LASTEXITCODE -ne 0) { throw "Pinned Inno Setup installation failed (exit $LASTEXITCODE)" }
           $isccDir = 'C:\Program Files (x86)\Inno Setup 6'
           if (-not (Test-Path (Join-Path $isccDir 'ISCC.exe'))) { throw 'ISCC.exe was not installed' }
           Add-Content $env:GITHUB_PATH $isccDir
+          # Identity is established from the installed package specification, not from
+          # ISCC.exe's version resource (which reports 0.0.0.0 and proves nothing).
+          $nuspec = Join-Path $env:ProgramData 'chocolatey\lib\innosetup\innosetup.nuspec'
+          $installed = ''
+          if (Test-Path -LiteralPath $nuspec) {
+            [xml]$spec = Get-Content -LiteralPath $nuspec -Raw
+            $installed = "$($spec.package.metadata.version)".Trim()
+          }
+          if (-not $installed) {
+            $line = @(choco list innosetup --limit-output --exact --local-only 2>$null) | Select-Object -First 1
+            if ($line) { $installed = (("$line" -split '\|')[1]).Trim() }
+          }
+          if (-not $installed) { throw 'the installed Inno Setup version could not be established' }
+          if ($installed -ne $innoPin) { throw "installed Inno Setup $installed does not satisfy the pinned $innoPin" }
+          "innosetup_version=$installed" | Add-Content $env:GITHUB_OUTPUT
+          Write-Output "::notice title=Inno Setup identity verified::installed package version $installed read back from the installed package specification"
       - name: Install locked test runtime
         run: python -m pip install --disable-pip-version-check -r requirements-lock.txt pytest==9.1.1
       - name: Windows database, import, auth and packaging regression suite
@@ -45,7 +68,7 @@ jobs:
           $testReport = Join-Path $testRoot 'windows-regressions.xml'
           $testSummary = Join-Path $testRoot 'windows-regression-summary.md'
           $testReportJson = Join-Path $testRoot 'windows-regression-report.json'
-          python -m pytest -ra -q tests/test_packaging_smoke.py tests/test_acceptance_report.py tests/test_release_smoke.py tests/test_credential_lifecycle.py tests/test_wellbore_schema_v3.py tests/test_wellbore_ownership_integrity.py tests/test_wellbore_discriminator_import.py tests/test_wellbore_identity_conflict_m25.py tests/test_p0_well_identity.py tests/test_history_well_scope.py tests/test_whole_well_scope_labels_m25.py tests/test_release_gate_and_w13.py tests/test_w13_ecd_chart_fallback.py tests/test_w13_fishing_result_ui.py tests/test_m38_domain_boundaries.py tests/test_m31_scenarios.py tests/test_well_centric_acceptance.py tests/test_production_import_guarantees.py tests/test_ddr_forensic_regressions.py tests/test_ddr_followup_lifecycle.py tests/test_database_migration_acceptance.py tests/test_backup_restore_acceptance.py tests/test_import_atomicity_acceptance.py tests/test_release_e2e.py tests/test_junit_report.py tests/test_windows_release_gate_contract.py "--junitxml=$testReport"
+          python -m pytest -ra -q tests/test_packaging_smoke.py tests/test_acceptance_report.py tests/test_release_smoke.py tests/test_credential_lifecycle.py tests/test_wellbore_schema_v3.py tests/test_wellbore_ownership_integrity.py tests/test_wellbore_discriminator_import.py tests/test_wellbore_identity_conflict_m25.py tests/test_p0_well_identity.py tests/test_history_well_scope.py tests/test_whole_well_scope_labels_m25.py tests/test_release_gate_and_w13.py tests/test_w13_ecd_chart_fallback.py tests/test_w13_fishing_result_ui.py tests/test_m38_domain_boundaries.py tests/test_m31_scenarios.py tests/test_well_centric_acceptance.py tests/test_production_import_guarantees.py tests/test_ddr_forensic_regressions.py tests/test_ddr_followup_lifecycle.py tests/test_database_migration_acceptance.py tests/test_backup_restore_acceptance.py tests/test_import_atomicity_acceptance.py tests/test_release_e2e.py tests/test_junit_report.py tests/test_windows_release_gate_contract.py tests/test_windows_release_evidence.py "--junitxml=$testReport"
           $pytestExit = $LASTEXITCODE
           # GitHub publishes at most ten annotations per step.  packaging/junit_report.py
           # emits one per failure up to that cap, an aggregate annotation carrying every
@@ -60,6 +83,8 @@ jobs:
       - name: Build portable bundle and installer; run frozen executable smoke
         id: build
         shell: pwsh
+        env:
+          DRILLMASTER_INNOSETUP_EXPECTED: ${{ steps.inno.outputs.innosetup_version }}
         run: |
           $releaseRoot = Join-Path $env:RUNNER_TEMP "DrillMaster-release-$env:GITHUB_RUN_ID"
           # Publish the release directory before building: the evidence upload runs on
@@ -90,7 +115,10 @@ jobs:
             # Actions tool cache, so it can select a different Python than the tested one.
             $pythonExe = (Get-Command python).Source
             Write-Output "Build interpreter: $pythonExe"
-            & .\packaging\build_windows.ps1 -PythonExe $pythonExe -PythonVersion '3.12' -OutputDir $releaseRoot
+            # The CI-verified package version is passed as a cross-check; the build script
+            # still reads the installed package specification itself and fails on disagreement.
+            & .\packaging\build_windows.ps1 -PythonExe $pythonExe -PythonVersion '3.12' -OutputDir $releaseRoot `
+              -InnoSetupPackageVersion $env:DRILLMASTER_INNOSETUP_EXPECTED
             if ($LASTEXITCODE -ne 0) { throw "Windows portable/installer build script failed (exit $LASTEXITCODE)" }
             $version = (python -c 'from core.version import __version__; print(__version__)').Trim()
             $bundle = Join-Path $releaseRoot "DrillMaster-$version"
@@ -103,10 +131,14 @@ jobs:
             $metadata = Get-Content (Join-Path $releaseRoot 'release-metadata.json') -Raw | ConvertFrom-Json
             if ($metadata.git_sha -ne $env:GITHUB_SHA) { throw 'Artifact metadata SHA differs from workflow SHA' }
             if ($metadata.version -ne $version -or $metadata.platform -ne 'windows-x64') { throw 'Artifact metadata version/platform mismatch' }
+            if ($metadata.schema -ne 'drillmaster-release-artifacts/v2') { throw 'Artifact metadata does not use the verified-toolchain schema' }
+            if ($metadata.build_tools.innosetup_identity_verified -ne $true) { throw 'Artifact metadata does not carry a verified Inno Setup identity' }
+            if ($metadata.build_tools.innosetup_package_version -ne $env:DRILLMASTER_INNOSETUP_EXPECTED) { throw 'Artifact metadata Inno Setup identity disagrees with the installed package version' }
             foreach ($artifact in $metadata.artifacts) {
               $artifactPath = Join-Path $releaseRoot ($artifact.filename -replace '/', '\\')
               $actualHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $artifactPath).Hash.ToLowerInvariant()
               if ($actualHash -ne $artifact.sha256) { throw "Artifact SHA256 mismatch: $($artifact.filename)" }
+              if ([long](Get-Item -LiteralPath $artifactPath).Length -ne [long]$artifact.size_bytes) { throw "Artifact size mismatch: $($artifact.filename)" }
             }
             $checksumsPath = Join-Path $releaseRoot 'SHA256SUMS.txt'
             if (-not (Test-Path $checksumsPath)) { throw 'SHA256SUMS.txt missing' }
@@ -116,13 +148,6 @@ jobs:
             foreach ($line in $expectedChecksums) {
               if ($actualChecksums -notcontains $line) { throw "SHA256SUMS entry missing: $line" }
             }
-            $testReport = Join-Path $env:RUNNER_TEMP "DrillMaster-M42-tests-$env:GITHUB_RUN_ID\windows-regressions.xml"
-            $metadataPath = Join-Path $releaseRoot 'release-metadata.json'
-            $acceptanceReport = Join-Path $releaseRoot 'acceptance-report.json'
-            python packaging\acceptance_report.py --metadata $metadataPath --junit $testReport --source-sha $env:GITHUB_SHA --output $acceptanceReport `
-              --ci-workflow "$env:GITHUB_WORKFLOW" --ci-run-id "$env:GITHUB_RUN_ID" --ci-branch "$env:GITHUB_REF_NAME" `
-              --ci-run-url "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
-            if ($LASTEXITCODE -ne 0) { throw 'Machine-readable Windows acceptance report generation failed' }
           } catch {
             $stageError = $_
           } finally {
@@ -139,6 +164,103 @@ jobs:
             Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "### Windows packaging stage failed`n`n$($stageError.Exception.Message)" -Encoding utf8
             throw $stageError
           }
+      - name: Installed-application lifecycle smoke (silent install, run, uninstall)
+        id: lifecycle
+        if: steps.build.outcome == 'success'
+        shell: pwsh
+        env:
+          DRILLMASTER_RELEASE_DIR: ${{ steps.build.outputs.release_dir }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $releaseRoot = $env:DRILLMASTER_RELEASE_DIR
+          if (-not $releaseRoot) { throw 'the build step published no release directory to install from' }
+          $version = (python -c 'from core.version import __version__; print(__version__)').Trim()
+          $installer = Join-Path $releaseRoot "DrillMaster-$version-Setup.exe"
+          # Everything the install touches is under RUNNER_TEMP: never the repository,
+          # never an operator profile, and never the default per-user database.
+          $workRoot = Join-Path $env:RUNNER_TEMP "DrillMaster-lifecycle-$env:GITHUB_RUN_ID"
+          $lifecycleJson = Join-Path $releaseRoot 'installer-lifecycle.json'
+          $lifecycleMarkdown = Join-Path $releaseRoot 'installer-lifecycle.md'
+          $stageError = $null
+          try {
+            python packaging\windows_release_evidence.py lifecycle --installer "$installer" `
+              --release-metadata (Join-Path $releaseRoot 'release-metadata.json') --app-version $version `
+              --work-root "$workRoot" --json-out "$lifecycleJson" --markdown-out "$lifecycleMarkdown" --timeout 600
+            if ($LASTEXITCODE -ne 0) { throw "installed-application lifecycle smoke did not pass (exit $LASTEXITCODE); see installer-lifecycle.json" }
+          } catch {
+            $stageError = $_
+          } finally {
+            Remove-Item -LiteralPath $workRoot -Recurse -Force -ErrorAction SilentlyContinue
+          }
+          if (Test-Path -LiteralPath $lifecycleMarkdown) {
+            Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value (Get-Content -LiteralPath $lifecycleMarkdown -Raw) -Encoding utf8
+          }
+          if ($null -ne $stageError) {
+            python packaging\junit_report.py --annotate --annotate-title 'Installed-application lifecycle smoke failed' --annotate-message "$($stageError.Exception.Message)" --annotate-file $lifecycleJson
+            Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "### Installed-application lifecycle smoke failed`n`n$($stageError.Exception.Message)" -Encoding utf8
+            throw $stageError
+          }
+      - name: Record Authenticode signature status
+        id: signing
+        if: always() && steps.build.outcome == 'success'
+        shell: pwsh
+        env:
+          DRILLMASTER_RELEASE_DIR: ${{ steps.build.outputs.release_dir }}
+        run: |
+          $releaseRoot = $env:DRILLMASTER_RELEASE_DIR
+          if (-not $releaseRoot -or -not (Test-Path (Join-Path $releaseRoot 'release-metadata.json'))) {
+            Write-Output '::warning title=Signature status not recorded::no release metadata to verify; the packaging stage did not complete'
+            exit 0
+          }
+          # An unsigned build is a finding, not a packaging failure: the step records what
+          # Windows reports and never fails the gate for the absence of a signature.
+          python packaging\windows_release_evidence.py signing `
+            --release-metadata (Join-Path $releaseRoot 'release-metadata.json') `
+            --json-out (Join-Path $releaseRoot 'signing-status.json') `
+            --markdown-out (Join-Path $releaseRoot 'signing-status.md')
+          if ($LASTEXITCODE -ne 0) { Write-Output "::warning title=Signature status::verification did not report a clean result; see signing-status.json" }
+          $markdown = Join-Path $releaseRoot 'signing-status.md'
+          if (Test-Path -LiteralPath $markdown) {
+            Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value (Get-Content -LiteralPath $markdown -Raw) -Encoding utf8
+          }
+      - name: Generate machine-readable Windows acceptance report
+        id: report
+        if: always()
+        shell: pwsh
+        env:
+          DRILLMASTER_RELEASE_DIR: ${{ steps.build.outputs.release_dir }}
+        run: |
+          $releaseRoot = $env:DRILLMASTER_RELEASE_DIR
+          $metadataPath = if ($releaseRoot) { Join-Path $releaseRoot 'release-metadata.json' } else { '' }
+          if (-not $metadataPath -or -not (Test-Path -LiteralPath $metadataPath)) {
+            Write-Output '::error title=Acceptance report not generated::no release metadata exists to report on; the packaging stage failed'
+            exit 0
+          }
+          $innoPin = (Get-Content -LiteralPath 'packaging\inno_setup_version.txt' -Raw).Trim()
+          $testReport = Join-Path $env:RUNNER_TEMP "DrillMaster-M42-tests-$env:GITHUB_RUN_ID\windows-regressions.xml"
+          $acceptanceReport = Join-Path $releaseRoot 'acceptance-report.json'
+          $lifecycleJson = Join-Path $releaseRoot 'installer-lifecycle.json'
+          $signingJson = Join-Path $releaseRoot 'signing-status.json'
+          python packaging\acceptance_report.py --metadata $metadataPath --junit $testReport --source-sha $env:GITHUB_SHA --output $acceptanceReport `
+            --expected-innosetup-version $innoPin --require-lifecycle `
+            --lifecycle-report $lifecycleJson --signing-report $signingJson `
+            --ci-workflow "$env:GITHUB_WORKFLOW" --ci-run-id "$env:GITHUB_RUN_ID" --ci-branch "$env:GITHUB_REF_NAME" `
+            --ci-run-url "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
+          if ($LASTEXITCODE -ne 0) {
+            python packaging\junit_report.py --annotate --annotate-title 'Windows acceptance report rejected' --annotate-message 'the release evidence in the release directory did not satisfy the acceptance contract; see the step log for the ReportError'
+            throw 'Machine-readable Windows acceptance report generation failed'
+          }
+          # The published manifest is echoed as an annotation and into the job summary:
+          # both endpoints remain readable when the Actions log and artifact blob
+          # endpoints are unreachable, and the digests let anyone re-verify the files.
+          $report = Get-Content -LiteralPath $acceptanceReport -Raw | ConvertFrom-Json
+          $identity = $report.identity
+          $automation = $report.repository_automation
+          $suite = $automation.windows_regression_suite
+          $digest = "sha=$($identity.source_sha) app=$($identity.app_version) python=$($identity.python_version) pyinstaller=$($identity.pyinstaller_version) inno=$($identity.innosetup_package_version)/$($identity.innosetup_version_source) installer=$($identity.installer_filename) $($identity.installer_size_bytes)B sha256=$($identity.installer_sha256) portableZip=$($identity.portable_zip_filename) $($identity.portable_zip_size_bytes)B sha256=$($identity.portable_zip_sha256) tests=$($suite.passed)/$($suite.collected) lifecycle=$($identity.installed_lifecycle_status) signing=$($identity.signing_status)"
+          Write-Output "::notice title=Windows release manifest::$digest"
+          Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "### Windows release manifest identity`n" -Encoding utf8
+          $identity | ConvertTo-Json -Depth 4 | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Encoding utf8
       - name: Upload Windows evidence artifacts
         if: always()
         uses: actions/upload-artifact@v4

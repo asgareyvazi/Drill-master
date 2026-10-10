@@ -22,6 +22,15 @@ def _load_package_smoke():
     return module
 
 
+def _load_release_metadata():
+    path = ROOT / "packaging" / "release_metadata.py"
+    module_spec = importlib.util.spec_from_file_location("drillmaster_release_metadata", path)
+    module = importlib.util.module_from_spec(module_spec)
+    assert module_spec.loader is not None
+    module_spec.loader.exec_module(module)
+    return module
+
+
 def test_windows_packaging_configuration_is_explicit():
     spec = (ROOT / "packaging" / "DrillMaster.spec").read_text(encoding="utf-8")
     build_script = (ROOT / "packaging" / "build_windows.ps1").read_text(encoding="utf-8")
@@ -123,14 +132,26 @@ def test_package_release_metadata_records_hashes_and_refuses_external_artifacts(
     installer.write_bytes(b"installer")
     metadata = metadata_module.write_manifest(
         root, source_sha="a" * 40, version="1.0.0", python_version="3.12.1",
-        pyinstaller_version="6.11.1", pip_version="24.3.1", innosetup_version="6.4.3",
+        pyinstaller_version="6.11.1", pip_version="24.3.1",
+        innosetup_package_version="6.4.3", innosetup_file_version="0.0.0.0",
+        innosetup_version_source="installed-package-metadata",
         bundle_zip=archive, installer=installer,
     )
     value = json.loads(metadata.read_text(encoding="utf-8"))
     assert value["git_sha"] == "a" * 40 and value["platform"] == "windows-x64"
+    assert value["schema"] == "drillmaster-release-artifacts/v2"
+    assert value["build_tools"]["innosetup_package_version"] == "6.4.3"
+    # The raw executable resource is kept as a separate diagnostic, never as the
+    # published identity, so 0.0.0.0 is recorded without endorsing it.
+    assert value["build_tools"]["innosetup_compiler_file_version"] == "0.0.0.0"
+    assert value["build_tools"]["innosetup_identity_verified"] is True
+    assert value["reproducible_build"]["status"] == "NOT_CLAIMED"
     assert {item["filename"]: item["sha256"] for item in value["artifacts"]} == {
         "bundle.zip": hashlib.sha256(archive.read_bytes()).hexdigest(),
         "setup.exe": hashlib.sha256(installer.read_bytes()).hexdigest(),
+    }
+    assert {item["filename"]: item["size_bytes"] for item in value["artifacts"]} == {
+        "bundle.zip": archive.stat().st_size, "setup.exe": installer.stat().st_size,
     }
     assert (root / "SHA256SUMS.txt").is_file()
     outside = tmp_path / "outside.zip"
@@ -138,9 +159,57 @@ def test_package_release_metadata_records_hashes_and_refuses_external_artifacts(
     with pytest.raises(ValueError, match="inside the release directory"):
         metadata_module.write_manifest(
             root, source_sha="a" * 40, version="1.0.0", python_version="3.12.1",
-            pyinstaller_version="6.11.1", pip_version="24.3.1", innosetup_version="NOT_BUILT",
+            pyinstaller_version="6.11.1", pip_version="24.3.1",
+            innosetup_package_version="6.4.3", innosetup_version_source="installed-package-metadata",
             bundle_zip=outside, installer=None,
         )
+
+
+def test_release_metadata_refuses_unverified_innosetup_identities_for_a_published_installer(tmp_path):
+    """Each drift case that produced the 0.0.0.0 defect must fail validation."""
+    import json
+
+    metadata_module = _load_release_metadata()
+    root = tmp_path / "release"
+    root.mkdir()
+    archive = root / "bundle.zip"
+    archive.write_bytes(b"zip")
+    installer = root / "setup.exe"
+    installer.write_bytes(b"exe")
+
+    def write(**overrides):
+        kwargs = {"source_sha": "a" * 40, "version": "1.0.0", "python_version": "3.12.1",
+                  "pyinstaller_version": "6.11.1", "pip_version": "24.3.1",
+                  "innosetup_package_version": "6.7.1",
+                  "innosetup_version_source": "installed-package-metadata",
+                  "bundle_zip": archive, "installer": installer}
+        kwargs.update(overrides)
+        return metadata_module.write_manifest(root, **kwargs)
+
+    # "0.0.0.0" is caught by the enumerated placeholder set; "00.00.00" and
+    # "0.0.0.00" can only be caught by the general all-zero rule, which is why both
+    # exist: the enumerated list is not the only way a version can prove nothing.
+    for placeholder in ("0.0.0.0", "", "NOT_BUILT", "unknown", "6.7", "6.7.x", "00.00.00", "0.0.0.00"):
+        with pytest.raises(ValueError, match="innosetup_package_version"):
+            write(innosetup_package_version=placeholder)
+    with pytest.raises(ValueError, match="innosetup_package_version cannot be NOT_BUILT"):
+        write(innosetup_package_version="NOT_BUILT")
+    with pytest.raises(ValueError, match="version source"):
+        write(innosetup_version_source="hoped-for")
+    # An attested identity is recordable for non-release builds but is never flagged
+    # as verified, which is what the acceptance report refuses to publish against.
+    attested = json.loads(write(innosetup_version_source="operator-attested").read_text(encoding="utf-8"))
+    assert attested["build_tools"]["innosetup_identity_verified"] is False
+    # A portable-only build legitimately has no installer and no Inno Setup run.
+    metadata = write(bundle_zip=archive, installer=None,
+                     innosetup_package_version="NOT_BUILT", innosetup_version_source="NOT_BUILT")
+    value = json.loads(metadata.read_text(encoding="utf-8"))
+    assert value["build_tools"]["innosetup_package_version"] == "NOT_BUILT"
+    assert value["build_tools"]["innosetup_identity_verified"] is False
+    # The operator-attested path is refused for an installer, so the manifest can
+    # never publish a version that only a caller asserted.
+    assert "operator-attested" in json.dumps(sorted(metadata_module.ALLOWED_IDENTITY_SOURCES))
+
 
 
 def test_real_windows_bundle_smoke_when_provided():

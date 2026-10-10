@@ -1,22 +1,95 @@
-"""Create a traceable, machine-readable Windows release manifest and checksums."""
+"""Create a traceable, machine-readable Windows release manifest and checksums.
+
+The manifest is an *engineering* record.  It states which toolchain the build
+environment could actually verify, never what a caller hoped it was: an
+installer entry without a verified Inno Setup package identity is rejected here
+rather than published with a placeholder such as ``0.0.0.0`` or ``NOT_BUILT``.
+"""
 
 from __future__ import annotations
 
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path
 
+SCHEMA = "drillmaster-release-artifacts/v2"
+SHA256_CHUNK_SIZE = 1024 * 1024
+# Inno Setup releases are three (or four) dotted numeric components; looser
+# shapes such as "6.7" or "6.7.x" cannot be compared against a pin.
+VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+(?:\.\d+)?$")
+NOT_BUILT = "NOT_BUILT"
+# Values a build environment can produce that carry no identity information.
+UNVERIFIED_IDENTITIES = frozenset({
+    "", "0", "0.0", "0.0.0", "0.0.0.0", "unknown", "unspecified", "unset",
+    "none", "null", "n/a", "na", "tbd", "placeholder",
+})
+ALLOWED_IDENTITY_SOURCES = frozenset({
+    # Read back from the package specification the build environment installed.
+    "installed-package-metadata",
+    # Queried from the package manager's local database.
+    "package-manager-query",
+    # Supplied by the operator; recorded as attested, never as verified.
+    "operator-attested",
+    NOT_BUILT,
+})
+VERIFIED_IDENTITY_SOURCES = ALLOWED_IDENTITY_SOURCES - {"operator-attested", NOT_BUILT}
 
-def _sha256(path: Path) -> str:
+
+def sha256_file(path: Path, *, chunk_size: int = SHA256_CHUNK_SIZE) -> str:
+    """Hash a file by streaming fixed-size blocks (never whole-file reads)."""
     digest = hashlib.sha256()
     with path.open("rb") as stream:
-        for block in iter(lambda: stream.read(1024 * 1024), b""):
+        for block in iter(lambda: stream.read(chunk_size), b""):
             digest.update(block)
     return digest.hexdigest()
 
 
-def _artifact(path: Path, root: Path) -> dict[str, str]:
+# Historical internal name kept so existing callers/tests keep resolving.
+_sha256 = sha256_file
+
+
+def validate_tool_version(value: object, *, field: str, artifact_present: bool) -> str:
+    """Return a usable tool version, or raise when the value proves nothing.
+
+    ``artifact_present`` ties strictness to evidence: a manifest that publishes an
+    artifact built by a tool must name a verified version of that tool.  When the
+    tool was never invoked (portable-only builds) the explicit ``NOT_BUILT``
+    marker is honest and is preserved as-is.
+    """
+    text = "" if value is None else str(value).strip()
+    if text.upper() == NOT_BUILT:
+        if artifact_present:
+            raise ValueError(
+                f"{field} cannot be {NOT_BUILT} while the artifact it builds is in this manifest"
+            )
+        return NOT_BUILT
+    lowered = text.lower()
+    if lowered in UNVERIFIED_IDENTITIES:
+        raise ValueError(f"{field}={text!r} is a placeholder, not a verified tool version")
+    if not VERSION_PATTERN.match(text):
+        raise ValueError(f"{field}={text!r} is not a dotted numeric version such as 6.7.1")
+    if all(int(part) == 0 for part in text.split(".")):
+        raise ValueError(f"{field}={text!r} is an all-zero version and identifies no release")
+    return text
+
+
+def validate_identity_source(value: object, *, artifact_present: bool) -> str:
+    """Record how the version was obtained; refuse an unknown provenance label."""
+    text = NOT_BUILT if value is None else str(value).strip()
+    if text not in ALLOWED_IDENTITY_SOURCES:
+        raise ValueError(
+            "innosetup version source must be one of "
+            + ", ".join(sorted(ALLOWED_IDENTITY_SOURCES))
+            + f"; got {text!r}"
+        )
+    if artifact_present and text == NOT_BUILT:
+        raise ValueError(f"{NOT_BUILT} identity source is invalid while an installer is published")
+    return text
+
+
+def _artifact(path: Path, root: Path) -> dict[str, object]:
     resolved = path.resolve(strict=True)
     try:
         name = resolved.relative_to(root.resolve()).as_posix()
@@ -24,7 +97,7 @@ def _artifact(path: Path, root: Path) -> dict[str, str]:
         raise ValueError("Release artifacts must be inside the release directory") from exc
     if not resolved.is_file():
         raise ValueError(f"Release artifact is not a file: {name}")
-    return {"filename": name, "sha256": _sha256(resolved)}
+    return {"filename": name, "sha256": sha256_file(resolved), "size_bytes": resolved.stat().st_size}
 
 
 def write_manifest(
@@ -35,18 +108,39 @@ def write_manifest(
     python_version: str,
     pyinstaller_version: str,
     pip_version: str,
-    innosetup_version: str,
+    innosetup_package_version: str | None = None,
+    innosetup_file_version: str | None = None,
+    innosetup_version_source: str | None = None,
     bundle_zip: Path,
     installer: Path | None,
 ) -> Path:
+    """Write ``release-metadata.json`` plus ``SHA256SUMS.txt`` for the release root.
+
+    A published installer requires both a well-formed Inno Setup package version and
+    a verified source for that version; a bare version string is not enough, because
+    the previous schema could not tell a read-back package identity from an assumption.
+    """
     if len(source_sha) != 40 or any(char not in "0123456789abcdef" for char in source_sha):
         raise ValueError("source-sha must be a full lowercase Git commit SHA")
     root = release_root.resolve(strict=True)
     artifacts = [_artifact(bundle_zip, root)]
     if installer is not None:
         artifacts.append(_artifact(installer, root))
+    names = [str(item["filename"]) for item in artifacts]
+    if len(set(names)) != len(names):
+        raise ValueError(f"release artifacts must be recorded once each; got {sorted(names)}")
+
+    installer_present = installer is not None
+    recorded_package_version = validate_tool_version(
+        innosetup_package_version, field="innosetup_package_version", artifact_present=installer_present
+    )
+    source = validate_identity_source(innosetup_version_source, artifact_present=installer_present)
+    file_version = "" if innosetup_file_version is None else str(innosetup_file_version).strip()
+    if installer_present and not file_version:
+        file_version = "UNAVAILABLE"
+
     manifest = {
-        "schema": "drillmaster-release-artifacts/v1",
+        "schema": SCHEMA,
         "git_sha": source_sha,
         "version": version,
         "platform": "windows-x64",
@@ -54,9 +148,21 @@ def write_manifest(
         "build_tools": {
             "pip": pip_version,
             "pyinstaller": pyinstaller_version,
-            "inno_setup": innosetup_version,
+            "innosetup_package_version": recorded_package_version,
+            "innosetup_compiler_file_version": file_version if installer_present else NOT_BUILT,
+            "innosetup_version_source": source,
+            # True only when the build environment read the identity back from the
+            # installed package; an operator-attested value is recorded but flagged.
+            "innosetup_identity_verified": bool(
+                installer_present and source in VERIFIED_IDENTITY_SOURCES
+            ),
         },
-        "artifacts": sorted(artifacts, key=lambda item: item["filename"]),
+        "reproducible_build": {
+            "status": "NOT_CLAIMED",
+            "reason": "one build was performed; reproducibility requires two independent builds compared by artifact hash",
+        },
+        "artifact_scope": "outer release artifacts; inner bundle files inside the portable ZIP are not individually hashed here",
+        "artifacts": sorted(artifacts, key=lambda item: str(item["filename"])),
     }
     metadata_path = root / "release-metadata.json"
     metadata_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -76,7 +182,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--python-version", required=True)
     parser.add_argument("--pyinstaller-version", required=True)
     parser.add_argument("--pip-version", required=True)
-    parser.add_argument("--innosetup-version", default="NOT_BUILT")
+    parser.add_argument("--innosetup-package-version", default=NOT_BUILT,
+                        help="version read back from the installed Inno Setup package")
+    parser.add_argument("--innosetup-file-version", default="",
+                        help="diagnostic: VersionInfo.FileVersion of the located ISCC.exe")
+    parser.add_argument("--innosetup-version-source", default=NOT_BUILT,
+                        help="how the package version was established: "
+                             + ", ".join(sorted(ALLOWED_IDENTITY_SOURCES)))
     parser.add_argument("--bundle-zip", type=Path, required=True)
     parser.add_argument("--installer", type=Path)
     args = parser.parse_args(argv)
@@ -87,7 +199,9 @@ def main(argv: list[str] | None = None) -> int:
         python_version=args.python_version,
         pyinstaller_version=args.pyinstaller_version,
         pip_version=args.pip_version,
-        innosetup_version=args.innosetup_version,
+        innosetup_package_version=args.innosetup_package_version,
+        innosetup_file_version=args.innosetup_file_version,
+        innosetup_version_source=args.innosetup_version_source,
         bundle_zip=args.bundle_zip,
         installer=args.installer,
     )

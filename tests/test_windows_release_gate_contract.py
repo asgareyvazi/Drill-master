@@ -44,6 +44,7 @@ REQUIRED_MODULES = (
     "tests/test_release_e2e.py",
     "tests/test_junit_report.py",
     "tests/test_windows_release_gate_contract.py",
+    "tests/test_windows_release_evidence.py",
 )
 ROOT_MARKERS = ("ROOT", "REPO", "parents[1]", "parent.parent", "Path(__file__)")
 
@@ -102,6 +103,7 @@ RELEASE_TOOLS = (
     "packaging/acceptance_report.py",
     "packaging/release_metadata.py",
     "packaging/package_smoke.py",
+    "packaging/windows_release_evidence.py",
 )
 
 
@@ -154,8 +156,7 @@ def test_windows_gate_preserves_the_pytest_exit_code(workflow_text):
     assert "if ($pytestExit -eq 0)" not in block, "a passing suite must not be re-derived from report contents"
 
 
-def test_windows_gate_keeps_the_inno_setup_and_isolation_pins(workflow_text):
-    assert "innosetup --version=6.7.1" in workflow_text
+def test_windows_gate_keeps_the_isolation_pins(workflow_text):
     for variable in ("DRILLMASTER_ENV", "DRILLMASTER_DATA_DIR", "DRILLMASTER_DB_PATH", "DRILLMASTER_LOG_DIR", "DRILLMASTER_BACKUP_DIR"):
         assert f"$env:{variable}" in workflow_text, f"{variable} must be isolated to the runner temp root"
     assert "RUNNER_TEMP" in workflow_text
@@ -398,3 +399,207 @@ def test_m42_1_checkpoint_records_boundaries_without_claiming_ci_results():
         assert (ROOT / relative).is_file(), relative
     assert (ROOT / payload["runbook"]).is_file()
     assert "m42-1-release-closure.json" in (ROOT / "PRODUCTION_READINESS.md").read_text(encoding="utf-8")
+
+
+# --- M42.2: toolchain identity must be established, not assumed ----------------
+
+PIN_FILE = ROOT / "packaging" / "inno_setup_version.txt"
+BUILD_SCRIPT = ROOT / "packaging" / "build_windows.ps1"
+
+
+def _read(path: Path) -> str:
+    return path.read_text(encoding="utf-8")
+
+
+def _load(module_path: Path, name: str):
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(name, module_path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_innosetup_version_has_a_single_pinned_source_of_truth(workflow_text):
+    """The request, the read-back and the published manifest must share one value."""
+    pin = _read(PIN_FILE).strip()
+    assert re.fullmatch(r"\d+\.\d+\.\d+", pin), f"the pin must be an exact version, got {pin!r}"
+    assert "packaging\\inno_setup_version.txt" in workflow_text
+    assert "choco install innosetup --version=$innoPin" in workflow_text
+    # A second copy of the number could drift, so the workflow must not carry one.
+    assert pin not in workflow_text.replace("$innoPin", ""), (
+        "the Windows workflow must read the Inno Setup version from the pin file, not repeat it"
+    )
+    build_text = _read(BUILD_SCRIPT)
+    assert 'Get-Content -LiteralPath $innoPinFile' in build_text
+    assert "inno_setup_version.txt" in build_text
+    assert "6.7.1" not in build_text, "the build script must not hardcode a version literal"
+
+
+def test_innosetup_identity_is_read_back_and_fail_closed(workflow_text):
+    """Requesting a version is not the same as proving it; both halves must be present."""
+    install_step = workflow_text.split("Install pinned Inno Setup compiler", 1)[1].split("- name:", 1)[0]
+    assert "chocolatey" in install_step and "innosetup.nuspec" in install_step
+    assert "$installed -ne $innoPin" in install_step
+    assert "could not be established" in install_step
+    assert "innosetup_version=$installed" in install_step
+
+    build_text = _read(BUILD_SCRIPT)
+    assert "Resolve-InnoSetupIdentity" in build_text
+    assert "$PackageName.nuspec" in build_text or "chocolatey\\lib\\$PackageName" in build_text
+    assert "installed-package-metadata" in build_text
+    assert "operator-attested" in build_text
+    assert "Inno Setup identity disagreement" in build_text, "a caller value must cross-check, not replace, the read-back"
+    assert "does not satisfy the pinned version" in build_text
+    assert "not an exact dotted version" in build_text
+    assert "all-zero" in build_text
+    # The executable's own resource is retained only as a labelled diagnostic.
+    resource_lines = [line for line in build_text.splitlines()
+                      if "VersionInfo.FileVersion" in line and not line.strip().startswith("#")]
+    assert len(resource_lines) == 1, "the file resource must be read exactly once, as a diagnostic"
+    assert "reported" in resource_lines[0]
+    assert '"UNAVAILABLE"' in build_text, "an absent file resource is recorded as unavailable, never as a version"
+    assert '"--innosetup-version", $innoVersion' not in build_text, (
+        "the unverified VersionInfo field must never be published as the toolchain identity"
+    )
+    assert "$innoPackageVersion = $innoIdentity.PackageVersion" in build_text
+    assert "CompilerFileVersion" in build_text
+    assert "--innosetup-package-version" in build_text and "--innosetup-file-version" in build_text
+
+
+def test_release_manifest_schema_and_workflow_check_agree(workflow_text):
+    """A manifest published under a different schema must not satisfy the gate."""
+    metadata_module = _load(ROOT / "packaging" / "release_metadata.py", "drillmaster_release_metadata_contract")
+    assert metadata_module.SCHEMA in workflow_text
+    assert "innosetup_identity_verified" in workflow_text
+    assert "innosetup_package_version -ne" in workflow_text, (
+        "the workflow must compare the published identity against the version it verified"
+    )
+
+
+def _step_block(workflow_text: str, title: str) -> str:
+    assert title in workflow_text, f"the Windows workflow lost its {title!r} step"
+    block = workflow_text.split(title, 1)[1]
+    return block.split("\n      - name:", 1)[0]
+
+
+def test_installed_lifecycle_step_is_bound_to_the_published_installer(workflow_text):
+    block = _step_block(workflow_text, "Installed-application lifecycle smoke")
+    assert "if: steps.build.outcome == 'success'" in block, "the lifecycle smoke must only run on a completed build"
+    assert "windows_release_evidence.py lifecycle" in block
+    assert 'DrillMaster-$version-Setup.exe' in block
+    assert "--release-metadata" in block and "--app-version $version" in block
+    assert "--json-out" in block and "installer-lifecycle.json" in block
+    # isolated, disposable, and cleaned up even when the smoke fails
+    assert "RUNNER_TEMP" in block
+    assert "} finally {" in block and "Remove-Item" in block
+    assert "junit_report.py --annotate" in block, "a failing lifecycle step must publish its reason"
+    assert "throw $stageError" in block, "a failing lifecycle step must not leave the job green"
+    assert "DRILLMASTER_DB_PATH" not in block, "the lifecycle smoke must never target the default operator database"
+
+
+def test_signing_step_records_status_without_faking_or_failing_a_release(workflow_text):
+    block = _step_block(workflow_text, "Record Authenticode signature status")
+    assert "windows_release_evidence.py signing" in block
+    assert "signing-status.json" in block
+    assert "throw" not in block, "an unsigned build is a finding, not a packaging failure"
+    assert "exit 0" in block or "warning" in block
+    module_text = _read(ROOT / "packaging" / "windows_release_evidence.py")
+    assert "Get-AuthenticodeSignature" in module_text
+    assert "SignerCertificate.Subject" in module_text
+    for forbidden in ("SignerCertificate.Thumbprint", "Get-PfxCertificate", "SecureString", "Export-Certificate"):
+        assert forbidden not in module_text, f"{forbidden} risks publishing key material"
+
+
+def test_acceptance_report_step_requires_independent_identity_and_lifecycle(workflow_text):
+    block = _step_block(workflow_text, "Generate machine-readable Windows acceptance report")
+    assert "--expected-innosetup-version $innoPin" in block
+    assert "--require-lifecycle" in block
+    assert "--lifecycle-report $lifecycleJson" in block
+    assert "--signing-report $signingJson" in block
+    assert "Get-Content -LiteralPath 'packaging\\inno_setup_version.txt'" in block
+    assert "::notice title=Windows release manifest::" in block, (
+        "the manifest identity and digests must stay readable when the artifact and log "
+        "blob endpoints are unreachable"
+    )
+    assert "if: always()" in block or "if: always()" in workflow_text.split("Generate machine-readable Windows acceptance report", 1)[0][-200:]
+
+
+@pytest.mark.parametrize("source", [
+    ".github/workflows/windows-release-gate.yml",
+    "docs/audits/m42-2-release-closure.json",
+    "packaging/inno_setup_version.txt",
+    "packaging/build_windows.ps1",
+    "packaging/release_metadata.py",
+    "packaging/acceptance_report.py",
+    "packaging/windows_release_evidence.py",
+])
+def test_no_run_identifier_is_committed_into_release_sources(source):
+    """Run ids are runtime facts; a committed one would be a fabricated verification value."""
+    text = _read(ROOT / source)
+    assert not re.search(r"actions/runs/\d{6,}", text), f"{source} embeds a GitHub run id"
+    assert not re.search(r"\b\d{10,12}\b", text), f"{source} embeds what looks like a run id"
+
+
+M422_CHECKPOINT = ROOT / "docs" / "audits" / "m42-2-release-closure.json"
+
+
+def test_m42_2_checkpoint_records_provenance_correction_without_claiming_ci_results():
+    """The M42.2 record names the defect and its guards, and asserts no CI outcome."""
+    assert M422_CHECKPOINT.is_file()
+    committed = M422_CHECKPOINT.read_text(encoding="utf-8")
+    payload = json.loads(committed)
+    assert payload["mission"] == "M42.2"
+    assert payload["branch"] == "arena/01a0ec23-drill-master"
+    assert payload["baseline"]["m42_1_final_sha"] == "64f7c82183b808f86af34a5c2663fc22c46eaa7f"
+    defect = payload["innosetup_provenance_defect"]
+    assert defect["published_value"] == "0.0.0.0"
+    assert "reproduc" in defect["reproduction"].lower()
+    assert defect["product_code_affected"] is False and defect["security_invariants_changed"] is False
+    policy = payload["toolchain_identity_policy"]
+    assert policy["single_source_of_truth"] == "packaging/inno_setup_version.txt"
+    assert "0.0.0.0" in policy["rejected_values"] and "NOT_BUILT with an installer present" in policy["rejected_values"]
+    assert len(policy["drift_cases_that_fail"]) >= 3
+    assert payload["manifest_schema"]["before"] != payload["manifest_schema"]["after"]
+    assert payload["installed_lifecycle"]["proves"] and payload["installed_lifecycle"]["does_not_prove"]
+    assert payload["signing"]["current_status"] == "UNSIGNED"
+    assert payload["signing"]["release_configuration_supports_signing"] is False
+    assert payload["artifact_verification"]["shared_helper"].startswith("release_metadata.sha256_file")
+    assert all(value == "NOT_RUN" for key, value in payload["external_acceptance"].items()
+               if key != "synthetic_workbook_scenario")
+    assert payload["external_acceptance"]["synthetic_workbook_scenario"] == "AUTOMATED_TEST_ONLY_NOT_REAL_DDR_ACCEPTANCE"
+    gates = {item["gate"]: item["workflow_file"] for item in payload["internal_gates"]}
+    assert set(gates) == {"source_release_gate", "windows_release_validation"}
+    for relative in list(gates.values()) + [payload["runbook"], policy["single_source_of_truth"],
+                                           "packaging/windows_release_evidence.py"]:
+        assert (ROOT / relative).is_file(), relative
+    for section in ("innosetup_provenance_defect", "artifact_verification", "installed_lifecycle"):
+        for node_id in payload[section]["regression_guard"]:
+            relative, _, test_name = node_id.partition("::")
+            assert f"def {test_name}(" in (ROOT / relative).read_text(encoding="utf-8"), node_id
+    assert "actions/runs/" not in committed and re.search(r"\b\d{10,}\b", committed) is None, (
+        "run evidence is published by CI, never committed"
+    )
+    assert "m42-2-release-closure.json" in (ROOT / "PRODUCTION_READINESS.md").read_text(encoding="utf-8")
+
+
+def test_runbook_documents_the_identity_lifecycle_and_signing_boundaries():
+    """The human procedure must state the same boundaries as the machine evidence."""
+    text = (ROOT / "packaging" / "WINDOWS_RELEASE_ACCEPTANCE.md").read_text(encoding="utf-8")
+    for heading, required in (
+        ("Inno Setup toolchain identity", ["inno_setup_version.txt", "innosetup.nuspec",
+                                           "innosetup_compiler_file_version", "operator-attested"]),
+        ("Installed-application lifecycle evidence", ["windows_release_evidence.py lifecycle", "/VERYSILENT",
+                                                     "sentinel", "never simulated"]),
+        ("Signature status", ["Get-AuthenticodeSignature", "UNSIGNED", "private key"]),
+    ):
+        assert heading in text, heading
+        block = text.split(heading, 1)[1].split("\n###", 1)[0]
+        # Markdown prose wraps; compare on normalized whitespace so a documented
+        # boundary cannot be missed only because a line break fell inside it.
+        normalized = " ".join(block.split())
+        for fragment in required:
+            assert fragment in normalized, f"{heading}: {fragment}"
+    assert "no `path.read_bytes()`" in text or "never `path.read_bytes()`" in text
+    assert "two independent builds" in text, "reproducibility must keep its explicit boundary"

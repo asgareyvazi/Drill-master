@@ -4,7 +4,13 @@ This runbook is an executable procedure for Windows release engineering. A succe
 
 ## Automated Windows release gate
 
-The dedicated **Windows release validation** workflow runs on `windows-2022` for pushes, pull requests, and manual dispatch. It installs the pinned runtime/build dependencies and Inno Setup 6.7.1, runs the disposable database/import/auth/packaging regression suite, builds the one-folder portable bundle, executes `DrillMaster.exe --package-smoke` with temporary data/log paths, compiles the installer, and checks authoritative version, source SHA, and artifact SHA-256 values.
+The dedicated **Windows release validation** workflow runs on `windows-2022` for pushes, pull requests, and manual dispatch.
+It installs the pinned runtime/build dependencies and the Inno Setup compiler pinned by `packaging/inno_setup_version.txt`
+(currently 6.7.1) and *reads the installed package version back* before using it, runs the disposable
+database/import/auth/packaging regression suite, builds the one-folder portable bundle, executes
+`DrillMaster.exe --package-smoke` with temporary data/log paths, compiles the installer, re-verifies authoritative version,
+source SHA, artifact SHA-256 values and byte sizes, then runs the installed-application lifecycle smoke, records Authenticode
+signature status, and generates `acceptance-report.json` from that evidence.
 
 From a clean checkout of the intended full commit SHA, a local equivalent is:
 
@@ -13,7 +19,21 @@ $sha = (git rev-parse HEAD).Trim()
 if ((git status --porcelain=v1 --untracked-files=all).Length -ne 0) { throw 'Worktree must be clean' }
 $release = Join-Path $env:TEMP "DrillMaster-release-$sha"
 .\packaging\build_windows.ps1 -PythonExe (Get-Command python).Source -PythonVersion 3.12 -OutputDir $release
+$version = (python -c 'from core.version import __version__; print(__version__)').Trim()
+$lifecycle = Join-Path $env:TEMP "DrillMaster-lifecycle-$sha"
+python packaging\windows_release_evidence.py lifecycle --installer (Join-Path $release "DrillMaster-$version-Setup.exe") `
+  --release-metadata (Join-Path $release 'release-metadata.json') --app-version $version `
+  --work-root $lifecycle --json-out (Join-Path $release 'installer-lifecycle.json')
+python packaging\windows_release_evidence.py signing --release-metadata (Join-Path $release 'release-metadata.json') `
+  --json-out (Join-Path $release 'signing-status.json')
+python packaging\acceptance_report.py --metadata (Join-Path $release 'release-metadata.json') --junit <junit.xml> `
+  --source-sha $sha --output (Join-Path $release 'acceptance-report.json') `
+  --expected-innosetup-version (Get-Content packaging\inno_setup_version.txt -Raw).Trim() `
+  --lifecycle-report (Join-Path $release 'installer-lifecycle.json') `
+  --signing-report (Join-Path $release 'signing-status.json')
 ```
+
+Every command above is the same one the CI gate runs; the local lifecycle invocation needs administrator elevation because `DrillMaster.iss` declares `PrivilegesRequired=admin`, and it installs only into the throwaway `--work-root` you pass.
 
 Pass the interpreter explicitly with `-PythonExe` whenever the environment's `python` is the one you intend to package with; that is what the CI gate does. `-PythonLauncher py -PythonVersion 3.12` remains available on a workstation where the Python launcher is registered, but note that the launcher resolves registry-registered runtimes only, so it can silently select a different Python than the one whose dependencies were tested.
 
@@ -32,9 +52,16 @@ The dependency stage is logged the same way as the bundle stage: `pip install -r
 
 PowerShell handling matters here for two reasons. The step sets `$ErrorActionPreference = 'Stop'` so an error thrown inside `build_windows.ps1` terminates the step at the throw instead of being reported and then falling through into the artifact assertions (which would mislabel a build failure as "Frozen executable missing"). Inside the build script, the redirected PyInstaller pipeline runs with the preference temporarily relaxed and `$PSNativeCommandUseErrorActionPreference = $false`, because PyInstaller writes its progress log to stderr; under `Stop` that output can become a terminating `NativeCommandError` and abort a build that actually succeeded. The captured `$LASTEXITCODE` is the only build-status signal the script trusts.
 
-`acceptance_report.py` re-hashes the portable ZIP and the setup executable from the release directory and reads `package-smoke.log`; it reports the frozen-executable and installer steps only when that evidence exists, and it records the workflow run identity it was invoked with instead of a committed value.
+`acceptance_report.py` re-hashes the portable ZIP and the setup executable from the release directory — streamed in 1 MiB blocks through the
+single `release_metadata.sha256_file` helper, never `path.read_bytes()`, so a ~300 MB artifact is verified without loading it —
+and checks each recorded byte size.  It reads `package-smoke.log`, re-validates (rather than copies) the Inno Setup identity
+against the pinned version, folds in `installer-lifecycle.json` and `signing-status.json` when they exist, records
+`NOT_RUN`/`NOT_VERIFIED` when they do not, validates the CI identity it was invoked with (numeric run id, matching run URL,
+branch and workflow name all present or none), and records the workflow run identity it was passed instead of a committed
+value.  Any claim it cannot tie to evidence raises `ReportError`, which fails the report step: the report is derived from
+artifacts, never written by hand.
 
-The output directory contains the versioned portable folder and ZIP, `package-smoke.log`, `pip-install.log`, `pyinstaller-build.log`, `release-metadata.json`, `SHA256SUMS.txt`, and—when run in CI—`acceptance-report.json` plus the compiled setup executable. The manifest records full source SHA, application version, exact Python/pip/PyInstaller/Inno Setup versions, and artifact hashes. Preserve the folder and evidence together; do not infer reproducible bit-for-bit binaries solely from matching version strings.
+The output directory contains the versioned portable folder and ZIP, `package-smoke.log`, `pip-install.log`, `pyinstaller-build.log`, `release-metadata.json`, `SHA256SUMS.txt`, and—when run in CI—`acceptance-report.json`, `installer-lifecycle.json`/`.md`, `signing-status.json`/`.md` plus the compiled setup executable. The manifest records the full source SHA, application version, exact Python/pip/PyInstaller versions, the *verified* Inno Setup package version with its provenance and the raw compiler file version as a separate diagnostic, and per-artifact filename, SHA-256 and byte size. `SHA256SUMS.txt` covers exactly those artifacts, so an operator can re-verify with `Get-FileHash -Algorithm SHA256` and `Get-Content SHA256SUMS.txt` without trusting any report. Preserve the folder and evidence together; matching version strings and a single successful build are not reproducibility, which would require two independent builds compared by artifact hash.
 
 ### Windows-marker constraints in the build lock
 
@@ -43,6 +70,65 @@ Build-tool pins must satisfy the constraints their consumers declare *under Wind
 ### The build environment must supply its own setuptools
 
 A Python 3.12 or newer virtualenv no longer seeds `setuptools`, and current `setuptools` releases no longer ship `pkg_resources`. Any build tool that still imports `pkg_resources` therefore fails at start-up in exactly the environment a release build uses, before analysis, before the bundle exists, and identically on any platform - the Windows gate is simply the only job that builds. The observed symptom is a `ModuleNotFoundError: No module named 'pkg_resources'` raised from a dependency's module scope (here `altgraph/__init__.py`, reached through `PyInstaller.building.build_main`), not a PyInstaller error about the application. `requirements-build.txt` records both halves of the resolution: `setuptools==84.0.0` is pinned explicitly so the provider set is not decided by a transitive resolution, and `altgraph==0.17.5` is the release that stopped importing `pkg_resources`. When a build tool needs a removed stdlib-adjacent module, prefer the tool version that dropped the import over pinning an ancient provider, and state which was chosen and why in the lock file.
+
+### Inno Setup toolchain identity (M42.2)
+
+The compiler's own executable resource is not an identity: the `ISCC.exe` delivered by the pinned Chocolatey package carries no
+`VS_VERSIONINFO` block, so `VersionInfo.FileVersion` reports `0.0.0.0`.  Publishing that value as the verified toolchain version is
+what made the M42.1 manifest misleading while the workflow text was in fact correct.  The rules now enforced are:
+
+- `packaging/inno_setup_version.txt` is the single source of the intended version.  The workflow installs from it, the build script
+  validates against it, and the acceptance report compares the published manifest with it, so a request and a record cannot drift
+  apart silently.  Nothing else in the release tooling contains a version literal.
+- The identity that gets published is read back from the *installed package specification*
+  (`%ProgramData%\chocolatey\lib\innosetup\innosetup.nuspec`, falling back to a local package-manager query).  A caller-supplied
+  `-InnoSetupPackageVersion` is a cross-check on that read-back; disagreement aborts the build, and if no read-back is possible the
+  value is recorded as `operator-attested` with `innosetup_identity_verified: false`.
+- `release-metadata.json` `build_tools` therefore distinguishes `innosetup_package_version` (what was verified) from
+  `innosetup_compiler_file_version` (the raw executable resource, kept only as a diagnostic and allowed to be `0.0.0.0` or
+  `UNAVAILABLE`) and `innosetup_version_source`.  The manifest schema moved to `drillmaster-release-artifacts/v2` because the
+  semantics of the Inno Setup field changed; `v1` manifests are refused by the report generator rather than reinterpreted.
+- `0.0.0.0`, `NOT_BUILT`, empty, all-zero (`00.00.00`), and malformed (`6.7`, `6.7.x`, `latest`) values are rejected by
+  `packaging/release_metadata.py` when an installer is being published, and independently re-validated by
+  `packaging/acceptance_report.py` (which additionally rejects an unverified or self-contradictory identity and any disagreement
+  with the pinned version).  `NOT_BUILT` remains valid only for `-PortableOnly`, where no installer exists to attribute.
+
+A local build on a machine where Inno Setup was installed by its own installer (no package metadata) must pass
+`-InnoSetupPackageVersion <verified version>`; the resulting manifest is marked operator-attested and the acceptance report will
+refuse to treat it as release evidence.  That refusal is intended.
+
+### Installed-application lifecycle evidence (M42.2)
+
+`python packaging\windows_release_evidence.py lifecycle --installer <Setup.exe> --release-metadata <release-metadata.json>
+--app-version <version> --work-root <disposable dir> --json-out <installer-lifecycle.json>` performs, in one disposable tree:
+silent install (`/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /DIR= /LOG=`), presence of `DrillMaster.exe` and `unins000.exe`, an
+installed-executable `ProductVersion` comparison against `core/version.py`, a run of the installed
+`DrillMaster.exe --package-smoke` with isolated data/log/backup roots and cleared bootstrap credentials, a before/after manifest of
+the install directory proving nothing was written into it, a non-interactive uninstall that is then waited on (the Inno
+uninstaller can return before deletion finishes), removal of the application files, survival of a synthetic user-data sentinel that
+lives outside `{app}`, and cleanup of the work root in a `finally` block so a mid-sequence failure still cleans up.  It verifies the
+installer's SHA-256 against `release-metadata.json` before executing it and refuses a portable ZIP as the target, so an inner
+bundle path can never be confused with the outer archive.
+
+Diagnostics are bounded and redacted: secret-valued environment variables are stripped before anything is written, and log tails
+are truncated.  `acceptance-report.json` folds the result in as `installed_lifecycle_status` and refuses to publish `PASS` when the
+evidence file is absent, when a step inside it did not pass, or when the lifecycle did not verify the installer hash it executed.
+
+What this proves: the shipped installer installs, the installed binary is the built binary, the installed binary starts and writes
+only outside its own directory, and it uninstalls without taking user data with it.  What it does not prove: interactive
+clean-machine behaviour, UAC/elevation experience on a workstation, an upgrade over a previous installation (that needs two
+*different* installers, and is never simulated by running one installer twice), retention of a real operator profile, or operator
+acceptance.  Those remain the manual procedure below.
+
+### Signature status (M42.2)
+
+`python packaging\windows_release_evidence.py signing --release-metadata <release-metadata.json> --json-out <signing-status.json>`
+asks Windows (`Get-AuthenticodeSignature`) about each published artifact and records `Status`, a bounded status message, and the
+signer subject only when a signature exists.  The current result is `UNSIGNED`, and the report says so; that is a finding about
+distribution trust, not a packaging failure, so the step never fails the gate for it.  Nothing reads, prints or stores a private
+key, certificate file or password.  Producing a valid signature requires an owner-controlled code-signing certificate (or a hosted
+signing service) and a signing step in `packaging/build_windows.ps1`; `packaging/DrillMaster.iss` sets no `SignTool` and no
+`SignedUninstaller` override today, and the report records `signing_configured_in_build: false` accordingly.
 
 ## Interactive installation procedure (manual; NOT automated by the workflow)
 
