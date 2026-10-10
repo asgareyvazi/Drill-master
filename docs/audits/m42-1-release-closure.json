@@ -38,13 +38,12 @@
   },
   "packaging_stage_forensics": {
     "artifacts_weakened_to_obtain_green": false,
-    "corrective_change": "publish release_dir before building; Start-Transcript the whole step into RUNNER_TEMP and upload it; wrap the step in try/catch that emits one bounded, redacted ::error annotation through packaging/junit_report.py --annotate and re-throws; add -PythonExe to build_windows.ps1 with an explicit minor-version assertion; scope ErrorActionPreference to the redirected PyInstaller pipeline and disable PSNativeCommandUseErrorActionPreference",
+    "corrective_change": "publish release_dir before building; Start-Transcript the whole step and stop it before annotating; wrap the step in try/catch/finally that emits one bounded, redacted ::error annotation through packaging/junit_report.py --annotate over the transcript, pip-install.log and pyinstaller-build.log and re-throws; capture pip install and pip check into pip-install.log with a bounded tail inside the thrown message; resolve the release output directory and its emptiness guard before any log is written; add -PythonExe with an explicit minor-version assertion; scope ErrorActionPreference to the redirected native pipelines and clear PSNativeCommandUseErrorActionPreference; record the runner volume's free bytes so an out-of-space packaging environment is visible",
     "credential_security_invariants_changed": false,
-    "exception": "Process completed with exit code 1 - the underlying stage message was written only to the job log",
-    "failing_stage_at_first_run": "UNRESOLVED_PENDING_INSTRUMENTED_RUN",
+    "exception": "Locked dependency installation failed",
     "job": "windows-release",
     "module": "packaging/build_windows.ps1 invoked by .github/workflows/windows-release-gate.yml",
-    "phase": "portable bundle and installer build, after the Windows regression suite passed",
+    "phase": "packaging environment preparation, after the Windows regression suite and before bundle analysis",
     "product_code_affected": false,
     "regression_test": [
       "tests/test_windows_release_gate_contract.py::test_release_dir_output_precedes_the_build_so_failure_logs_are_uploaded",
@@ -52,14 +51,42 @@
       "tests/test_windows_release_gate_contract.py::test_build_stage_failure_is_published_as_an_annotation",
       "tests/test_windows_release_gate_contract.py::test_gate_builds_with_the_interpreter_it_provisioned",
       "tests/test_windows_release_gate_contract.py::test_build_script_validates_the_interpreter_and_survives_stderr_logging",
-      "tests/test_junit_report.py::test_stage_annotation_reports_the_log_tail_with_the_exception"
+      "tests/test_junit_report.py::test_stage_annotation_reports_the_log_tail_with_the_exception",
+      "tests/test_windows_release_gate_contract.py::test_build_script_captures_the_dependency_install_and_checks_output_first"
     ],
-    "reproduction": "first exact-SHA Windows gate run on this branch at f047dc70de5f00ff0948dbd8ea9735b80d853757 (enumerate runs with gh run list for that workflow; the run identity is deliberately not committed here)",
+    "reproduction": "exact-SHA Windows gate runs for this branch: the run at f047dc70de5f00ff0948dbd8ea9735b80d853757 failed step 7 with only 'Process completed with exit code 1'; the instrumented run at 54385f8f90b16bddaa64f7cfe03ac1fc41f78b70 published the stage name in a ::error annotation",
     "root_cause_category": "CI_HARNESS_DEFECT",
     "root_cause_detail": "four harness defects are proven from source and evidence: (1) release_dir job output was set only at the end of the step, so the always() artifact upload contained nothing when the build failed; (2) no failure annotation or step-summary entry was emitted, so the failing stage was unrecoverable once the log endpoint was unreachable; (3) the step selected the interpreter with the Windows 'py' launcher, which resolves registry-registered runtimes rather than the Actions tool-cache Python the job provisioned and tested with; (4) build_windows.ps1 runs under ErrorActionPreference=Stop while redirecting native stderr (2>&1 | Tee-Object), the documented pattern that turns PyInstaller's progress log - or a thrown inner-script error - into a terminating NativeCommandError or a swallowed non-terminating error. The specific stage that failed at f047dc7 is recorded as UNRESOLVED_PENDING_INSTRUMENTED_RUN; the instrumented gate is the evidence source, not this file.",
     "sha": "f047dc70de5f00ff0948dbd8ea9735b80d853757",
-    "test": "step 7 'Build portable bundle and installer; run frozen executable smoke' (steps 1-6, including the full 26-module Windows regression suite, concluded success)",
-    "traceback": "UNAVAILABLE_FROM_TRIAGE_ENVIRONMENT: the Actions log and artifact endpoints are not reachable from this sandbox, and the pre-fix step published no release directory output and no annotation on failure"
+    "test": "step 7 'Build portable bundle and installer; run frozen executable smoke' (steps 1-6, including the 26-module Windows regression suite, conclude success at both SHAs)",
+    "traceback": "no traceback - the pre-instrumentation step wrote nothing to the error stream, and at the instrumented run the transcript tail contained only the Start-Transcript header because the annotation was emitted while the transcript was still open",
+    "first_failing_sha": "f047dc70de5f00ff0948dbd8ea9735b80d853757",
+    "stage_identified_at_sha": "54385f8f90b16bddaa64f7cfe03ac1fc41f78b70",
+    "failing_stage": "pip install -r requirements-lock.txt -r requirements-build.txt into the fresh .windows-build-venv returned non-zero; PyInstaller never started (the annotation reported 'pyinstaller-build.log: not found')",
+    "underlying_stage_cause": "UNRESOLVED_PENDING_CAPTURED_PIP_LOG",
+    "ruled_out": [
+      {
+        "hypothesis": "the pinned requirements have no Windows cp312 wheel and pip must compile them",
+        "evidence": "pip download --only-binary=:all: --platform win_amd64 --python-version 3.12 --implementation cp --abi cp312 -r requirements-lock.txt -r requirements-build.txt resolved and saved all 31 pins plus transitive deps (bcrypt/PyMuPDF/PySide6/shiboken6 via cp39-abi3-win_amd64, pyinstaller via py3-none-win_amd64)"
+      },
+      {
+        "hypothesis": "the lock is internally inconsistent",
+        "evidence": "pip install -r requirements-lock.txt -r requirements-build.txt then pip check succeeded in a fresh Linux venv at the same files"
+      },
+      {
+        "hypothesis": "the py launcher cannot see the Actions tool-cache interpreter, so the build venv is never created",
+        "evidence": "the annotation reports 'Build interpreter: C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\python.exe' and virtualenv creation succeeded before the dependency stage; the -PythonExe change removed the launcher dependency entirely"
+      },
+      {
+        "hypothesis": "the release build refuses to start because the checkout is dirty after the test suite",
+        "evidence": "the guard throws 'Refusing release build from a dirty worktree' with a distinct message, and the pytest outputs (.pytest_cache/, __pycache__/, *.log, release/) are git-ignored"
+      },
+      {
+        "hypothesis": "the encoding-defect class from the earlier run is still failing tests",
+        "evidence": "step 6 concluded success at both SHAs with zero failure annotations"
+      }
+    ],
+    "classification_of_evidence_gap": "CI_HARNESS_DEFECT"
   },
   "internal_gates": [
     {

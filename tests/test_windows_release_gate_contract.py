@@ -192,6 +192,11 @@ def test_build_stage_failure_is_published_as_an_annotation(workflow_text):
     assert "--annotate-message" in block and "--annotate-file" in block
     assert "Start-Transcript" in block and "Stop-Transcript" in block
     assert "$transcriptStarted" in block, "a failing transcript setup must not become the build failure"
+    assert block.index("Stop-Transcript") < block.index("--annotate"), (
+        "annotating an open transcript publishes only what it has flushed so far")
+    for log in ("pip-install.log", "pyinstaller-build.log"):
+        assert f"'{log}'" in block, f"{log} must be part of the published diagnostics"
+    assert "GITHUB_STEP_SUMMARY" in block.split("} finally {")[1], "the same reason belongs in the job summary"
     assert "DrillMaster-build-transcript-" in workflow_text.split("- name: Upload Windows evidence artifacts")[1], (
         "the captured transcript must be uploaded with the rest of the release evidence")
 
@@ -212,17 +217,32 @@ def test_gate_builds_with_the_interpreter_it_provisioned(workflow_text, build_sc
     assert "[string]$PythonExe" in build_script_text
 
 
+def test_build_script_captures_the_dependency_install_and_checks_output_first(build_script_text):
+    """A pip failure must carry its own reason, and the release dir must exist before logs are written."""
+    assert 'Join-Path $releaseRoot "pip-install.log"' in build_script_text
+    assert "Locked dependency installation failed (exit $pipExit)" in build_script_text
+    assert "Dependency consistency check failed (exit $pipCheckExit)" in build_script_text
+    assert "$pipTail = @(Get-Content -LiteralPath $dependencyLog -Tail 30)" in build_script_text
+    guard = build_script_text.index("Refusing to delete or overwrite existing release output")
+    assert guard < build_script_text.index("$buildVenv ="), (
+        "the release output guard must precede anything that writes into the release directory")
+
+
 def test_build_script_validates_the_interpreter_and_survives_stderr_logging(build_script_text):
     assert "-notmatch \"^$([regex]::Escape($PythonVersion))\\.\"" in build_script_text, (
         "an explicit -PythonExe must still satisfy the required minor version")
     assert "$PSNativeCommandUseErrorActionPreference = $false" in build_script_text, (
         "PyInstaller logs to stderr; PowerShell 7.3+ would treat it as a terminating error")
-    piped = build_script_text.index("2>&1 | Tee-Object")
-    window = build_script_text[piped - 500:piped + 500]
-    assert '$ErrorActionPreference = "Continue"' in window and "$preferenceBeforePyInstaller = $ErrorActionPreference" in window, (
-        "the redirected pipeline must not run under Stop, which turns stderr into a fatal NativeCommandError")
-    assert "$pyinstallerExit = $LASTEXITCODE" in build_script_text[piped:piped + 400], (
-        "a redirected native command must have its exit code captured before any other statement")
+    redirected = [m.start() for m in re.finditer(r"2>&1 \| Tee-Object", build_script_text)]
+    assert redirected, "the build script must keep a captured log for each redirected native stage"
+    for offset in redirected:
+        before = build_script_text[max(0, offset - 700):offset]
+        after = build_script_text[offset:offset + 500]
+        assert '$ErrorActionPreference = "Continue"' in before, (
+            "a redirected pipeline must not run under Stop, which turns native stderr into a fatal NativeCommandError")
+        following = "\n".join(after.splitlines()[1:3])
+        assert "$LASTEXITCODE" in following, (
+            "a redirected native command must capture its exit code before any other statement")
 
 
 CHECKPOINT = ROOT / "docs" / "audits" / "m42-1-release-closure.json"
@@ -235,7 +255,12 @@ def test_checkpoint_records_the_packaging_stage_without_inventing_a_root_cause()
         "PRODUCT_DEFECT", "WINDOWS_PORTABILITY_DEFECT", "CI_HARNESS_DEFECT",
         "ENVIRONMENTAL_LIMITATION", "UNRESOLVED",
     }
-    assert record["failing_stage_at_first_run"] == "UNRESOLVED_PENDING_INSTRUMENTED_RUN"
+    assert record["failing_stage"] and record["underlying_stage_cause"].startswith("UNRESOLVED"), (
+        "the stage may be identified while its mechanism is still unproven; the record must say so")
+    assert "actions/runs/" not in json.dumps(record)
+    assert re.fullmatch(r"[0-9a-f]{40}", record["stage_identified_at_sha"])
+    for ruled in record["ruled_out"]:
+        assert ruled["hypothesis"].strip() and ruled["evidence"].strip(), ruled
     assert record["product_code_affected"] is False
     assert record["credential_security_invariants_changed"] is False
     assert re.fullmatch(r"[0-9a-f]{40}", record["sha"])

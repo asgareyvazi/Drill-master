@@ -78,7 +78,13 @@ jobs:
           try { Start-Transcript -Path $transcript | Out-Null; $transcriptStarted = $true } catch {
             Write-Output "::warning title=Build transcript unavailable::Start-Transcript failed; the stage annotation still carries the failure reason"
           }
+          $stageError = $null
           try {
+            # Free space is recorded because a duplicated build environment (locked runtime
+            # plus PyInstaller work and output) is a realistic Windows runner failure mode,
+            # and the value is otherwise invisible once the log endpoint is unreachable.
+            $freeBytes = (Get-PSDrive -Name $releaseRoot.Substring(0, 1)).Free
+            Write-Output "Runner volume free bytes before build: $freeBytes"
             # Use the interpreter this job provisioned and installed the locked runtime
             # with.  The "py" launcher enumerates registry-registered runtimes, not the
             # Actions tool cache, so it can select a different Python than the tested one.
@@ -118,13 +124,20 @@ jobs:
               --ci-run-url "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
             if ($LASTEXITCODE -ne 0) { throw 'Machine-readable Windows acceptance report generation failed' }
           } catch {
-            # Annotations are the only diagnostics that survive a runner whose log and
-            # artifact endpoints are unreachable; the helper bounds and redacts them.
-            python packaging\junit_report.py --annotate --annotate-title 'Windows packaging stage failed' --annotate-message "$($_.Exception.Message)" --annotate-file $transcript --annotate-file (Join-Path $releaseRoot 'pyinstaller-build.log')
-            if ($LASTEXITCODE -ne 0) { Write-Output "::error title=Packaging diagnostics failed::the annotation helper itself exited non-zero" }
-            throw
+            $stageError = $_
           } finally {
             if ($transcriptStarted) { Stop-Transcript | Out-Null }
+          }
+          if ($null -ne $stageError) {
+            # Annotations are the only diagnostics that survive a runner whose log and
+            # artifact endpoints are unreachable; the helper bounds and redacts them.
+            # They are emitted after the transcript is closed: a still-open transcript has
+            # not flushed native command output yet, which is what left the previous
+            # packaging failure with a header-only tail and no stated reason.
+            python packaging\junit_report.py --annotate --annotate-title 'Windows packaging stage failed' --annotate-message "$($stageError.Exception.Message)" --annotate-file $transcript --annotate-file (Join-Path $releaseRoot 'pip-install.log') --annotate-file (Join-Path $releaseRoot 'pyinstaller-build.log')
+            if ($LASTEXITCODE -ne 0) { Write-Output "::error title=Packaging diagnostics failed::the annotation helper itself exited non-zero" }
+            Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "### Windows packaging stage failed`n`n$($stageError.Exception.Message)" -Encoding utf8
+            throw $stageError
           }
       - name: Upload Windows evidence artifacts
         if: always()

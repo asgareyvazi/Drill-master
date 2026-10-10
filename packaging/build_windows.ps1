@@ -59,6 +59,20 @@ if (-not [string]::IsNullOrWhiteSpace($PythonExe)) {
     $launcherArgs = @("-$PythonVersion")
 }
 
+if ([string]::IsNullOrWhiteSpace($OutputDir)) {
+    $releaseRoot = Join-Path $Root "release"
+} else {
+    $releaseRoot = [System.IO.Path]::GetFullPath($OutputDir)
+}
+if (Test-Path $releaseRoot) {
+    $existing = @(Get-ChildItem -LiteralPath $releaseRoot -Force -ErrorAction Stop)
+    if ($existing.Count -gt 0) {
+        throw "Refusing to delete or overwrite existing release output: $releaseRoot. Choose a new -OutputDir."
+    }
+} else {
+    New-Item -ItemType Directory -Path $releaseRoot -Force | Out-Null
+}
+
 $buildVenv = Join-Path $Root ".windows-build-venv"
 $buildPython = Join-Path $buildVenv "Scripts\python.exe"
 if (-not (Test-Path $buildPython)) {
@@ -76,24 +90,24 @@ if ("$actualVersion" -notmatch "^$([regex]::Escape($PythonVersion))\.") {
     throw "Build interpreter Python $actualVersion does not satisfy the required minor version $PythonVersion"
 }
 
-& $buildPython -m pip install --disable-pip-version-check -r requirements-lock.txt -r requirements-build.txt
-if ($LASTEXITCODE -ne 0) { throw "Locked dependency installation failed" }
-& $buildPython -m pip check
-if ($LASTEXITCODE -ne 0) { throw "Dependency consistency check failed" }
+# pip failures are the most common packaging-environment defect and its output is
+# otherwise invisible in a run whose log endpoint is unreachable, so it is captured
+# and its tail is carried inside the thrown message that CI annotates.
+$dependencyLog = Join-Path $releaseRoot "pip-install.log"
+$preferenceBeforePip = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
+& $buildPython -m pip install --disable-pip-version-check --progress-bar off -r requirements-lock.txt -r requirements-build.txt 2>&1 | Tee-Object -FilePath $dependencyLog
+$pipExit = $LASTEXITCODE
+& $buildPython -m pip check 2>&1 | Tee-Object -FilePath $dependencyLog -Append
+$pipCheckExit = $LASTEXITCODE
+$ErrorActionPreference = $preferenceBeforePip
+if ($pipExit -ne 0 -or $pipCheckExit -ne 0) {
+    $pipTail = @()
+    if (Test-Path -LiteralPath $dependencyLog) { $pipTail = @(Get-Content -LiteralPath $dependencyLog -Tail 30) }
+    $stage = if ($pipExit -ne 0) { "Locked dependency installation failed (exit $pipExit)" } else { "Dependency consistency check failed (exit $pipCheckExit)" }
+    throw "$stage; inspect $dependencyLog`n$($pipTail -join [Environment]::NewLine)"
+}
 
-if ([string]::IsNullOrWhiteSpace($OutputDir)) {
-    $releaseRoot = Join-Path $Root "release"
-} else {
-    $releaseRoot = [System.IO.Path]::GetFullPath($OutputDir)
-}
-if (Test-Path $releaseRoot) {
-    $existing = @(Get-ChildItem -LiteralPath $releaseRoot -Force -ErrorAction Stop)
-    if ($existing.Count -gt 0) {
-        throw "Refusing to delete or overwrite existing release output: $releaseRoot. Choose a new -OutputDir."
-    }
-} else {
-    New-Item -ItemType Directory -Path $releaseRoot -Force | Out-Null
-}
 
 $buildId = [guid]::NewGuid().ToString("N")
 $buildRoot = Join-Path ([System.IO.Path]::GetTempPath()) "DrillMaster-build-$sourceSha-$buildId"
