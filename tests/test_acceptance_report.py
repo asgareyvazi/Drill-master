@@ -80,6 +80,60 @@ def _lifecycle_file(root: Path, status: str = "PASS", *, steps: list | None = No
     return path
 
 
+def _signing_document(root: Path, *, mutate=None, name: str = "signing-status.json",
+                      installer_status: str = "UNSIGNED", installer_raw: str = "NotSigned",
+                      app_status: str = "UNSIGNED", app_raw: str = "NotSigned") -> Path:
+    """Write a signing record that satisfies the published v2 contract for this release dir.
+
+    Fixtures are built valid on purpose: each test below then perturbs exactly one axis, so a
+    refusal can only be about the contradiction the test introduced.
+    """
+    import sys
+
+    sys.path.insert(0, str(ROOT / "packaging"))
+    from release_metadata import aggregate_signing_status
+
+    manifest = root / "release-metadata.json"
+    entries = {item["filename"]: item for item in json.loads(manifest.read_text(encoding="utf-8"))["artifacts"]}
+    bundle = next(name for name in entries if name.lower().endswith(".zip"))
+    installer = next(name for name in entries if name.lower().endswith("-setup.exe"))
+    reason = "No signature is present." if installer_status != "PASS" else "Signature verified."
+    files = [
+        {"filename": installer, "status": installer_status, "raw_status": installer_raw,
+         "raw_status_recognized": True, "status_message": reason, "signature_bearing": True,
+         "provenance": "compiled installer in the release directory",
+         "sha256": entries[installer]["sha256"], "size_bytes": entries[installer]["size_bytes"]},
+        {"filename": "DrillMaster.exe", "status": app_status, "raw_status": app_raw,
+         "raw_status_recognized": True, "status_message": reason, "signature_bearing": True,
+         "provenance": f"extracted from {bundle}",
+         "sha256": hashlib.sha256(b"frozen executable").hexdigest(), "size_bytes": 17,
+         "container_archive": bundle, "container_archive_sha256": entries[bundle]["sha256"],
+         "container_member": f"DrillMaster-1.2.3/{Path('DrillMaster.exe')}"},
+        {"filename": bundle, "status": "NOT_APPLICABLE", "raw_status": "",
+         "raw_status_recognized": True, "signature_bearing": False,
+         "status_message": "container archive; Authenticode applies to the executables it carries",
+         "provenance": "published release artifact", "sha256": entries[bundle]["sha256"],
+         "size_bytes": entries[bundle]["size_bytes"]},
+    ]
+    payload = {"schema": "drillmaster-signing-status/v2",
+               "method": "Windows Get-AuthenticodeSignature",
+               "policy": "unsigned publication is the current release policy",
+               "status": aggregate_signing_status(files), "files": files,
+               "examined_count": 2, "archive_count": 1,
+               "signing_configured_in_build": False, "credentials_available": False,
+               "credential_environment_variables": [],
+               "prerequisite": "an owner-controlled code-signing certificate",
+               "release_metadata_sha256": hashlib.sha256(manifest.read_bytes()).hexdigest(),
+               "source_sha": "a" * 40,
+               "harness": {"query_command": "available", "powershell_version": "5.1.20348.2402",
+                           "signature_command_module": "Microsoft.PowerShell.Security"}}
+    if mutate is not None:
+        mutate(payload)
+    path = root / name
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    return path
+
+
 def _junit(tmp_path: Path, body: str, name: str = "tests.xml") -> Path:
     path = tmp_path / name
     path.write_text(body, encoding="utf-8")
@@ -343,23 +397,179 @@ def test_signing_status_is_recorded_as_observed_never_inferred(tmp_path):
     absent = module.build_report(metadata_path=root / "release-metadata.json", junit_path=junit,
                                  source_sha="a" * 40)
     assert absent["repository_automation"]["code_signing"]["status"] == "NOT_VERIFIED"
-    (root / "signing-status.json").write_text(json.dumps({
-        "method": "Windows Get-AuthenticodeSignature", "signing_configured_in_build": False,
-        "credentials_available": False, "prerequisite": "an owner-controlled code-signing certificate",
-        "files": [{"filename": "DrillMaster-1.2.3-Setup.exe", "status": "NotSigned", "signer": None}],
-    }), encoding="utf-8")
+    assert absent["repository_automation"]["code_signing"]["artifact_binding"] == "NOT_AVAILABLE"
+    # NOT_VERIFIED describes an absent record; it is never a per-file or aggregate Authenticode
+    # finding, so a reader cannot mistake "nobody asked" for "Windows answered".
+    assert all(item["status"] != "NOT_VERIFIED" for item in absent["repository_automation"]["code_signing"]["files"])
+
+    _signing_document(root)
     unsigned = module.build_report(metadata_path=root / "release-metadata.json", junit_path=junit,
-                                   source_sha="a" * 40,
-                                   signing_report_path=root / "signing-status.json")
+                                   source_sha="a" * 40, signing_report_path=root / "signing-status.json")
     signing = unsigned["repository_automation"]["code_signing"]
     assert signing["status"] == "UNSIGNED"
+    assert signing["schema"] == "drillmaster-signing-status/v2"
     assert signing["signing_configured_in_build"] is False
+    assert signing["artifact_binding"] == "VERIFIED"
     assert unsigned["identity"]["signing_status"] == "UNSIGNED"
     assert unsigned["decision"].startswith("WINDOWS_AUTOMATION_PASS")
-    (root / "signing-status.json").write_text(json.dumps({"files": []}), encoding="utf-8")
+    # An unsigned build passes the internal gate while the trust boundary stays a finding.
+    assert unsigned["external_acceptance"]["operator_business_signoff"] == "NOT_RUN"
+
+    _signing_document(root, installer_status="PASS", installer_raw="Valid",
+                      app_status="PASS", app_raw="Valid")
+    signed = module.build_report(metadata_path=root / "release-metadata.json", junit_path=junit,
+                                source_sha="a" * 40, signing_report_path=root / "signing-status.json")
+    assert signed["repository_automation"]["code_signing"]["status"] == "PASS"
+
+    def unexplainable_unknown(payload):
+        payload["status"] = "UNKNOWN"
+        for item in payload["files"]:
+            if not item["signature_bearing"]:
+                continue   # a container archive is never an unknown; it is not applicable
+            item["status"] = "UNKNOWN"
+            item["raw_status"] = ""
+            item["status_message"] = "powershell exited 0 without reporting Status: Access is denied"
+
+    _signing_document(root, mutate=unexplainable_unknown)
     unknown = module.build_report(metadata_path=root / "release-metadata.json", junit_path=junit,
                                   source_sha="a" * 40, signing_report_path=root / "signing-status.json")
     assert unknown["identity"]["signing_status"] == "UNKNOWN"
+    assert "Access is denied" in unknown["repository_automation"]["code_signing"]["files"][0]["status_message"]
+
+
+def test_report_keeps_the_diagnostics_that_explain_a_signature_state(tmp_path):
+    """Dropping the reason is how a published finding becomes undiagnosable after the run."""
+    module = _report_module()
+    root = _release_root(tmp_path)
+    _signing_document(root)
+    report = module.build_report(metadata_path=root / "release-metadata.json",
+                                 junit_path=_junit(tmp_path, PASSING_JUNIT), source_sha="a" * 40,
+                                 signing_report_path=root / "signing-status.json")
+    signing = report["repository_automation"]["code_signing"]
+    assert signing["harness"]["query_command"] == "available"
+    assert signing["harness"]["powershell_version"] == "5.1.20348.2402"
+    installer_row = signing["files"][0]
+    assert installer_row["raw_status"] == "NotSigned"
+    assert installer_row["status"] == "UNSIGNED"
+    assert "No signature is present." in installer_row["status_message"]
+    inner_row = next(item for item in signing["files"] if item["filename"] == "DrillMaster.exe")
+    assert inner_row["container_member"].startswith("DrillMaster-1.2.3/")
+    assert inner_row["container_archive_sha256"] == report["identity"]["portable_zip_sha256"]
+    assert inner_row["provenance"].startswith("extracted from ")
+
+
+def test_a_run_that_did_not_execute_is_recorded_as_not_run(tmp_path):
+    """A NOT_RUN record must stay distinct from UNKNOWN and from an absent document."""
+    module = _report_module()
+    root = _release_root(tmp_path)
+
+    def not_run(payload):
+        payload.update({"status": "NOT_RUN", "files": [], "examined_count": 0, "archive_count": 0,
+                        "reason": "Authenticode verification requires a Windows host"})
+        payload.pop("release_metadata_sha256")
+        payload.pop("source_sha")
+
+    _signing_document(root, mutate=not_run)
+    report = module.build_report(metadata_path=root / "release-metadata.json",
+                                 junit_path=_junit(tmp_path, PASSING_JUNIT), source_sha="a" * 40,
+                                 signing_report_path=root / "signing-status.json")
+    signing = report["repository_automation"]["code_signing"]
+    assert signing["status"] == "NOT_RUN"
+    assert signing["files"] == []
+    assert "Windows host" in signing["reason"]
+
+
+@pytest.mark.parametrize("mutate, fragment", [
+    (lambda d: d.update(status="PASS"), "contradicts the per-file findings"),
+    (lambda d: d.update(status="FAIL"), "contradicts the per-file findings"),
+    (lambda d: d.update(status="UNSIGNED", files=[dict(d["files"][0], status="PASS"),
+                                                 dict(d["files"][1], status="FAIL")]),
+     "contradicts the per-file findings"),
+    (lambda d: d.update(status="UNKNOWN"), "contradicts the per-file findings"),
+    (lambda d: d.update(schema="drillmaster-signing-status/v1"), "must use schema"),
+    (lambda d: d.update(somebody="else"), r"field\(s\) outside drillmaster-signing-status/v2"),
+    (lambda d: d.update(status="NOT_VERIFIED"), "outside the vocabulary"),
+    (lambda d: (d["files"][0].update(status="NOT_VERIFIED"), d.update(status="UNKNOWN")),
+     "outside the per-file vocabulary"),
+    (lambda d: d["files"][0].pop("status_message"), r"is missing field\(s\)"),
+    (lambda d: d.update(files=[d["files"][0], dict(d["files"][0])]), "duplicate signing file record"),
+    (lambda d: d["files"][0].update(signature_bearing=False), "contradicts status"),
+    (lambda d: d["files"][0].update(status="UNKNOWN", status_message=""), "UNKNOWN without a reason"),
+    (lambda d: d["files"][0].update(status_message="x" * 700), "unbounded diagnostic"),
+    (lambda d: d["files"][0].update(sha256="deadbeef"), "malformed SHA-256"),
+    (lambda d: d["files"][2].update(status="UNSIGNED", signature_bearing=True), "examined_count"),
+    (lambda d: (d.update(files=d["files"][1:], status="UNSIGNED", examined_count=1, archive_count=1)),
+     "does not record the shipped installer"),
+    (lambda d: d.update(files=[d["files"][0], d["files"][2]], status="UNSIGNED", examined_count=1,
+                        archive_count=1), "never examines the executable shipped inside"),
+    (lambda d: d["files"][1].update(container_archive="other.zip"), "not to the published"),
+    (lambda d: d["files"][1].update(container_archive_sha256="0" * 64),
+     "archive bytes this report did not verify"),
+    (lambda d: d["files"][1].update(container_member="DrillMaster-1.2.3/Other.exe"),
+     "names archive member"),
+    (lambda d: d["files"][1].pop("container_member"), "incomplete container provenance"),
+    (lambda d: d["files"][0].update(sha256="0" * 64), "the record is stale"),
+    (lambda d: d.update(release_metadata_sha256="f" * 64), "not bound to the release metadata"),
+    (lambda d: d.update(source_sha="b" * 40), "produced for source"),
+    (lambda d: d.update(files="a.exe"), "'files' must be a list"),
+    (lambda d: d.update(files=["a.exe"]), "must be a JSON object"),
+    (lambda d: d["files"][0].pop("signature_bearing"), r"is missing field\(s\)"),
+])
+def test_report_refuses_signing_evidence_it_cannot_interpret(tmp_path, mutate, fragment):
+    """Every shape of missing, malformed, contradictory, stale or inconsistent record.
+
+    The report refuses rather than re-deriving its own answer: two rules for one vocabulary is
+    how a gate starts disagreeing with the tool that produced the evidence.
+    """
+    module = _report_module()
+    root = _release_root(tmp_path)
+    _signing_document(root, mutate=mutate)
+    with pytest.raises(module.ReportError, match=fragment):
+        module.build_report(metadata_path=root / "release-metadata.json",
+                            junit_path=_junit(tmp_path, PASSING_JUNIT), source_sha="a" * 40,
+                            signing_report_path=root / "signing-status.json")
+
+
+def test_a_malformed_per_file_status_is_refused_not_coerced(tmp_path):
+    """Coercing garbage into UNKNOWN here would hide a malformed record behind a real state.
+
+    Normalising a raw Windows answer is the querying tool's job, where the answer is known; the
+    report's job is to refuse a document that does not meet the contract.
+    """
+    module = _report_module()
+    root = _release_root(tmp_path)
+    _signing_document(root, mutate=lambda d: d["files"][0].update(status="   "))
+    with pytest.raises(module.ReportError, match="outside the per-file vocabulary"):
+        module.build_report(metadata_path=root / "release-metadata.json",
+                            junit_path=_junit(tmp_path, PASSING_JUNIT), source_sha="a" * 40,
+                            signing_report_path=root / "signing-status.json")
+    _signing_document(root, mutate=lambda d: d["files"][0].update(status={"raw": "Valid"}))
+    with pytest.raises(module.ReportError, match="outside the per-file vocabulary"):
+        module.build_report(metadata_path=root / "release-metadata.json",
+                            junit_path=_junit(tmp_path, PASSING_JUNIT), source_sha="a" * 40,
+                            signing_report_path=root / "signing-status.json")
+
+
+def test_unsigned_build_still_passes_the_gate_but_keeps_the_trust_finding(tmp_path):
+    """The policy the contract encodes, asserted from the published record itself."""
+    module = _report_module()
+    root = _release_root(tmp_path)
+    _signing_document(root)
+    report = module.build_report(metadata_path=root / "release-metadata.json",
+                                 junit_path=_junit(tmp_path, PASSING_JUNIT), source_sha="a" * 40,
+                                 signing_report_path=root / "signing-status.json", require_signing=True)
+    assert report["repository_automation"]["code_signing"]["status"] == "UNSIGNED"
+    # the record's own policy statement is carried through verbatim, not paraphrased away
+    assert report["repository_automation"]["code_signing"]["policy"] == \
+        "unsigned publication is the current release policy"
+    assert report["decision"].startswith("WINDOWS_AUTOMATION_PASS")
+    # an unknown is never relabelled unsigned
+    _signing_document(root, installer_status="UNKNOWN", installer_raw="",
+                      app_status="UNKNOWN", app_raw="")
+    unknown = module.build_report(metadata_path=root / "release-metadata.json",
+                                   junit_path=_junit(tmp_path, PASSING_JUNIT), source_sha="a" * 40,
+                                   signing_report_path=root / "signing-status.json")
+    assert unknown["repository_automation"]["code_signing"]["status"] == "UNKNOWN"
 
 
 def test_report_rejects_incomplete_or_fabricated_ci_identity(tmp_path):
@@ -524,20 +734,6 @@ def test_report_accepts_the_document_the_generator_itself_publishes(tmp_path):
     assert _hashlib.sha256(b"").hexdigest() in {item["sha256"] for item in documented["artifacts"]}
 
 
-@pytest.mark.parametrize("payload, fragment", [
-    ({"status": "SIGNED", "files": [{"filename": "a.exe", "status": "Valid"}]}, "outside the published vocabulary"),
-    ({"status": "PASS", "files": {"a.exe": "Valid"}}, "must be a list"),
-    ({"status": "PASS", "files": [{"filename": "a.exe", "status": {"raw": "Valid"}}]}, "must be a string or null"),
-])
-def test_report_refuses_signing_evidence_it_cannot_interpret(tmp_path, payload, fragment):
-    module = _report_module()
-    root = _release_root(tmp_path)
-    (root / "signing-status.json").write_text(json.dumps(payload), encoding="utf-8")
-    with pytest.raises(module.ReportError, match=fragment):
-        module.build_report(metadata_path=root / "release-metadata.json", junit_path=_junit(tmp_path, PASSING_JUNIT),
-                            source_sha="a" * 40, signing_report_path=root / "signing-status.json")
-
-
 def test_a_required_signing_record_cannot_be_absent(tmp_path):
     """A skipped signing step must never read as a successful unsigned build."""
     module = _report_module()
@@ -552,20 +748,6 @@ def test_a_required_signing_record_cannot_be_absent(tmp_path):
     assert absent["repository_automation"]["code_signing"]["files"] == []
 
 
-def test_a_blank_per_file_status_is_unknown_not_unsigned(tmp_path):
-    module = _report_module()
-    root = _release_root(tmp_path)
-    (root / "signing-status.json").write_text(json.dumps(
-        {"files": [{"filename": "a.exe", "status": "   "}, {"filename": "a.zip", "status": None}]}),
-        encoding="utf-8")
-    report = module.build_report(metadata_path=root / "release-metadata.json",
-                                 junit_path=_junit(tmp_path, PASSING_JUNIT), source_sha="a" * 40,
-                                 signing_report_path=root / "signing-status.json")
-    signing = report["repository_automation"]["code_signing"]
-    assert [item["status"] for item in signing["files"]] == ["UNKNOWN", "UNKNOWN"]
-    assert signing["status"] == "UNKNOWN"
-
-
 def test_report_cli_exit_codes_follow_the_documented_contract(tmp_path, capsys):
     module = _report_module()
     root = _release_root(tmp_path)
@@ -573,8 +755,7 @@ def test_report_cli_exit_codes_follow_the_documented_contract(tmp_path, capsys):
     argv = ["--metadata", str(root / "release-metadata.json"), "--junit", str(_junit(tmp_path, PASSING_JUNIT)),
             "--source-sha", "a" * 40, "--output", str(good)]
     assert module.main(argv) == 0 and good.is_file()
-    (root / "signing-status.json").write_text(json.dumps({"status": "UNSIGNED", "files": [
-        {"filename": "DrillMaster-1.2.3-Setup.exe", "status": "NotSigned"}]}), encoding="utf-8")
+    _signing_document(root)
     assert module.main(argv + ["--signing-report", str(root / "signing-status.json"), "--require-signing"]) == 0
     missing = root / "nothing.json"
     assert module.main(argv + ["--signing-report", str(missing), "--require-signing"]) == 1

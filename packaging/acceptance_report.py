@@ -27,11 +27,13 @@ if str(_PACKAGING_DIR) not in sys.path:
 
 from release_metadata import (  # noqa: E402  (path bootstrap above is required)
     SCHEMA as METADATA_SCHEMA,
-    SIGNING_STATUS_VOCABULARY,
+    SIGNING_ABSENCE_VOCABULARY,
+    SIGNING_SCHEMA,
     VERIFIED_IDENTITY_SOURCES,
     sha256_file,
     validate_document,
     validate_identity_source,
+    validate_signing_document,
     validate_tool_version,
 )
 
@@ -180,69 +182,113 @@ def read_lifecycle_evidence(path: Path | None, *, required: bool) -> dict:
     }
 
 
-def read_signing_evidence(path: Path | None, *, required: bool = False) -> dict:
+SIGNING_FILE_EVIDENCE_FIELDS = (
+    "filename", "status", "raw_status", "raw_status_recognized", "status_message", "signer",
+    "provenance", "sha256", "container_archive", "container_archive_sha256", "container_member",
+    "signature_bearing",
+)
+
+
+def read_signing_evidence(path: Path | None, *, required: bool = False, binding: dict | None = None) -> dict:
     """Report signature status as observed; never infer it from the build succeeding.
 
-    When the workflow declares signing evidence mandatory (``required``), an absent record
-    is an error rather than a benign ``NOT_VERIFIED``: a missing check must not read as a
-    successful unsigned build.
+    Three situations used to be blurred together here and are now separated:
+
+    * no evidence document at all -- ``NOT_VERIFIED`` when the workflow did not declare signing
+      evidence mandatory, a hard error when it did (``required``).  ``NOT_VERIFIED`` is a report
+      state describing an absent record; it is deliberately not part of the Authenticode
+      vocabulary and never appears as a per-file or aggregate status;
+    * a record that cannot be trusted -- wrong schema, a field outside the contract, a duplicate
+      row, an unbounded diagnostic, or an aggregate the per-file findings do not support.  That is
+      an evidence-integrity failure and raises, because silently re-deriving a second answer here
+      would let the report and the generator disagree about what Windows said;
+    * a valid record, whose aggregate is validated rather than recomputed by a rival rule.
+
+    ``binding`` ties the record to the exact bytes this report verified: the manifest it was
+    derived from, the source SHA, and the installer and portable-archive digests that were
+    recomputed a moment ago.  Without it, a stale or copied record would be accepted.
     """
     if path is None or not path.is_file():
         if required:
             raise ReportError("signature verification evidence is required but missing; "
                               "a missing signing record is not evidence of an acceptable unsigned build")
-        return {"status": "NOT_VERIFIED",
+        # The only report-level state this block can hold, and the only place it is written:
+        # it says "no record exists", never "Windows said something".
+        return {"status": next(iter(SIGNING_ABSENCE_VOCABULARY)),
                 "reason": "no signature verification step ran for this artifact set",
-                "files": []}
+                "schema": None, "method": None, "policy": None, "harness": {},
+                "files": [], "examined_count": 0, "archive_count": 0,
+                "signing_configured_in_build": False, "credentials_available": False,
+                "prerequisite": "", "artifact_binding": "NOT_AVAILABLE"}
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise ReportError(f"signing evidence unreadable or malformed: {exc}") from exc
-    if not isinstance(payload, dict):
-        raise ReportError("signing evidence must be a JSON object")
-    reported = payload.get("status")
-    if reported not in (None, "") and str(reported).strip().upper() not in SIGNING_STATUS_VOCABULARY:
-        raise ReportError(f"signing evidence reports a status outside the published vocabulary: {reported!r}")
-    files = payload.get("files")
-    if files is None:
-        files = []
-    if not isinstance(files, list):
-        raise ReportError("signing evidence 'files' must be a list of per-file records")
-    for item in files:
-        if not isinstance(item, dict):
-            raise ReportError(f"signing evidence file record must be an object, got {type(item).__name__}")
-        state = item.get("status")
-        if state is not None and not isinstance(state, str):
-            raise ReportError(f"signing evidence status for {item.get('filename')!r} must be a string or null")
-    clean_files = []
-    for item in files:
-        state = item.get("status")
-        clean_files.append({"filename": item.get("filename"),
-                            "status": state if isinstance(state, str) and state.strip() else "UNKNOWN",
-                            "signer": item.get("signer", "")})
-    # The aggregate is the querying tool's own conclusion, validated here rather than
-    # re-derived: the report cannot know Windows' Authenticode semantics any better than
-    # the utility that asked about them, and a second rule would drift from the first.
-    reported = str(reported or "").strip().upper()
-    if reported in SIGNING_STATUS_VOCABULARY:
-        status = reported
-    else:
-        statuses = {item["status"] for item in clean_files if item["status"] != "NOT_APPLICABLE"}
-        if not statuses:
-            status = "UNKNOWN"
-        elif "UNKNOWN" in statuses:
-            status = "UNKNOWN"
-        elif statuses == {"NotSigned"}:
-            status = "UNSIGNED"
-        elif statuses == {"Valid"}:
-            status = "PASS"
-        else:
-            status = "FAIL"
-    return {"status": status, "method": payload.get("method", "unknown"),
-            "signing_configured_in_build": bool(payload.get("signing_configured_in_build", False)),
-            "credentials_available": bool(payload.get("credentials_available", False)),
+    try:
+        validate_signing_document(payload)
+    except ValueError as exc:
+        raise ReportError(f"signing evidence is not a valid {SIGNING_SCHEMA} document: {exc}") from exc
+    files = payload["files"]
+    status = str(payload["status"])
+    if binding and status != "NOT_RUN":
+        declared = str(payload.get("release_metadata_sha256") or "")
+        if declared != str(binding.get("release_metadata_sha256") or ""):
+            raise ReportError(
+                "signing evidence is not bound to the release metadata this report verified: it "
+                f"records manifest digest {declared[:16] or 'nothing'} while the verified manifest is "
+                f"{str(binding.get('release_metadata_sha256') or '')[:16]}"
+            )
+        recorded_sha = str(payload.get("source_sha") or "")
+        if recorded_sha != str(binding.get("source_sha") or ""):
+            raise ReportError(
+                f"signing evidence was produced for source {recorded_sha[:12] or 'nothing'} but this "
+                f"report describes {str(binding.get('source_sha') or '')[:12]}; a signature record from "
+                "another run is not evidence about these bytes"
+            )
+        rows = {str(item["filename"]).lower(): item for item in files}
+        bundle_name = str(binding.get("bundle_filename") or "").lower()
+        installer_name = str(binding.get("installer_filename") or "").lower()
+        installer_row = rows.get(installer_name)
+        if installer_row is None:
+            raise ReportError(f"signing evidence does not record the shipped installer "
+                              f"{binding.get('installer_filename')!r}; the file the release depends on was "
+                              "never examined")
+        if installer_row["sha256"] != str(binding.get("installer_sha256") or ""):
+            raise ReportError(
+                f"signing evidence for {binding.get('installer_filename')} hashes a different file than "
+                "the release artifact this report verified; the record is stale"
+            )
+        for item in files:
+            if not item.get("container_archive"):
+                continue
+            if str(item["container_archive"]).lower() != bundle_name:
+                raise ReportError(f"signing evidence binds {item['filename']} to archive "
+                                  f"{item['container_archive']!r}, not to the published {bundle_name}")
+            if item["container_archive_sha256"] != str(binding.get("bundle_sha256") or ""):
+                raise ReportError(
+                    f"signing evidence binds {item['filename']} to archive bytes this report did not verify"
+                )
+        if bundle_name and not any(str(item.get("container_archive") or "").lower() == bundle_name
+                                   for item in files):
+            raise ReportError(
+                f"signing evidence never examines the executable shipped inside {bundle_name}; a record "
+                "that skips the packaged application cannot support a claim about the shipped build"
+            )
+    retained = [{key: item[key] for key in SIGNING_FILE_EVIDENCE_FIELDS if key in item} for item in files]
+    # The aggregate is taken as published, because validate_signing_document above already folded
+    # the per-file rows with the one shared rule and refused a record whose files say otherwise.
+    # Re-deriving it here with a second expression of the same rule is what used to drift.
+    return {"status": status, "schema": payload["schema"], "method": payload["method"],
+            "policy": payload["policy"], "harness": dict(payload.get("harness") or {}),
+            "reason": str(payload.get("reason") or ""), "files": retained,
+            "examined_count": payload["examined_count"], "archive_count": payload["archive_count"],
+            "signing_configured_in_build": payload["signing_configured_in_build"],
+            "credentials_available": payload["credentials_available"],
+            "credential_environment_variables": list(payload.get("credential_environment_variables") or []),
             "prerequisite": payload.get("prerequisite", ""),
-            "files": clean_files}
+            "release_metadata_sha256": str(payload.get("release_metadata_sha256") or ""),
+            "source_sha": str(payload.get("source_sha") or ""),
+            "artifact_binding": "VERIFIED" if binding else "NOT_CHECKED"}
 
 
 def _read_junit(junit_path: Path) -> dict:
@@ -337,7 +383,13 @@ def build_report(*, metadata_path: Path, junit_path: Path, source_sha: str, ci: 
                 f"{(lifecycle['installer_sha256'] or 'no hash')[:16]} while the release artifact is "
                 f"{installer_artifact['filename']} {installer_artifact['sha256'][:16]}"
             )
-    signing = read_signing_evidence(signing_report_path, required=require_signing)
+    signing = read_signing_evidence(
+        signing_report_path, required=require_signing,
+        binding={"release_metadata_sha256": sha256_file(metadata_path), "source_sha": source_sha,
+                 "installer_filename": installer_artifact["filename"],
+                 "installer_sha256": installer_artifact["sha256"],
+                 "bundle_filename": bundle_artifact["filename"],
+                 "bundle_sha256": bundle_artifact["sha256"]})
     ci_identity = _read_ci_identity(dict(ci or {}), source_sha)
     external = {
         "interactive_clean_machine_install": "NOT_RUN",
