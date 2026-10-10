@@ -2,7 +2,19 @@
 # machines. PyInstaller bundles the runtime into the one-folder application.
 pyinstaller==6.11.1
 pywin32-ctypes==0.2.3
-altgraph==0.17.4
+# altgraph 0.17.4 imports pkg_resources at module scope.  A Python 3.12+ virtualenv
+# no longer seeds setuptools, and the setuptools resolved below (84.0.0) no longer
+# provides pkg_resources, so PyInstaller cannot even build its argument parser:
+#   File '.../altgraph/__init__.py', line 142, in <module>: import pkg_resources
+#   -> ModuleNotFoundError: No module named 'pkg_resources'
+# altgraph 0.17.5 dropped that import; verified locally by reproducing the failure with
+# 0.17.4 and importing PyInstaller.building.build_main cleanly with 0.17.5 while
+# pkg_resources is absent (setuptools 84.0.0 installed, find_spec('pkg_resources') None).
+altgraph==0.17.5
+# setuptools is a PyInstaller build-time dependency (pyinstaller 6.11.1 declares
+# setuptools>=42.0.0; sys_platform == "win32").  Pinning it keeps the packaged
+# application reproducible and records which provider set the build ran with.
+setuptools==84.0.0
 # pefile is constrained by PyInstaller itself: pyinstaller 6.11.1 declares
 # pefile>=2022.5.30,!=2024.8.26 under a sys_platform == "win32" marker (PyPI metadata
 # for pyinstaller==6.11.1, retrieved 2026-10-10).  That marker is false on Linux, so a

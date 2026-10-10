@@ -93,7 +93,12 @@
         "why_wrong": "that evidence cannot observe the defect: the conflicting PyInstaller requirement is guarded by a sys_platform == \"win32\" marker, so a Linux resolve is always clean.  The Linux check was kept as evidence that no non-marked conflict exists, and its conclusion of overall consistency was withdrawn",
         "corrected_method": "evaluate every pinned dependency edge under a Windows marker environment (sys_platform=win32, platform_system=Windows, os_name=nt, platform_machine=AMD64) against the repository pins - 33 win32-applicable edges over 31 pins, now reporting no conflict - and lock that invariant in tests/test_windows_release_gate_contract.py without needing network access"
       }
-    ]
+    ],
+    "pefile_stage_resolution_verification": {
+      "gate_sha": "5fadff717b962c37b6f261884bd85965280f2821",
+      "observed": "the dependency stage installed pefile-2023.2.7 and reported 'Successfully installed' plus 'No broken requirements found'; the step then failed at the later PyInstaller stage",
+      "meaning": "the requirement conflict is closed on a real Windows runner; it is not a Linux-only conclusion"
+    }
   },
   "internal_gates": [
     {
@@ -133,5 +138,25 @@
       "NEW-P6-024"
     ],
     "engineering_scope": "M41 boundaries retained; no standards-compliance claim is added by this checkpoint"
+  },
+  "pyinstaller_stage_forensics": {
+    "sha": "5fadff717b962c37b6f261884bd85965280f2821",
+    "job": "windows-release",
+    "module": "packaging/build_windows.ps1 (PyInstaller invocation) with packaging\\DrillMaster.spec",
+    "test": "step 7 'Build portable bundle and installer; run frozen executable smoke'; steps 1-6 success",
+    "exception": "ModuleNotFoundError: No module named 'pkg_resources'",
+    "traceback": "pyinstaller-build.log tail: PyInstaller/__main__.py:172 run -> generate_parser -> import PyInstaller.building.build_main -> building/api.py:33 -> building/splash.py:23 -> depend/bindepend.py:25 -> depend/utils.py:32 -> lib/modulegraph/modulegraph.py:34 -> altgraph/ObjectGraph -> altgraph/__init__.py:142: import pkg_resources",
+    "phase": "PyInstaller start-up, after the dependency stage passed and before analysis of the spec",
+    "reproduction": "local before/after reproduction, not a guess: a venv holding the repository's requirements-lock.txt plus requirements-build.txt with altgraph 0.17.4 and setuptools 84.0.0 raises the identical traceback on 'import PyInstaller.building.build_main'; the same venv with altgraph 0.17.5 imports it cleanly and runs 'python -m PyInstaller --version' although pkg_resources is absent (verified: find_spec('pkg_resources') is None)",
+    "root_cause_category": "PRODUCT_DEFECT",
+    "root_cause_detail": "the committed Windows build toolchain lock was internally unusable: altgraph 0.17.4 imports pkg_resources at module scope while its own pinned provider, setuptools 84.0.0 (resolved from PyInstaller's unpinned setuptools requirement), no longer ships that module, and a Python 3.12+ virtualenv no longer seeds setuptools at all.  The mechanism is not Windows-specific; the Windows gate is simply the only place that builds, and the sandbox's 3.11 venv happened to carry setuptools 66.1.1 with pkg_resources, which is why earlier Linux packaging checks never contradicted it.",
+    "corrective_change": "requirements-build.txt pins altgraph==0.17.5, which dropped the pkg_resources import, and pins setuptools==84.0.0 explicitly instead of letting a transitive resolution decide the build environment's provider set",
+    "regression_test": [
+      "tests/test_windows_release_gate_contract.py::test_build_toolchain_does_not_depend_on_a_removed_setuptools_module",
+      "tests/test_windows_release_gate_contract.py::test_release_requirement_files_stay_fully_pinned"
+    ],
+    "verification": "SEPARATE_EXACT_SHA_WORKFLOW_REQUIRED",
+    "product_runtime_affected": false,
+    "note": "no runtime requirement changed; only the build-machine toolchain, so the packaged application's dependencies are untouched"
   }
 }

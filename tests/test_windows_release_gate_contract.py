@@ -195,6 +195,31 @@ def test_release_requirement_files_stay_fully_pinned():
     assert _requirement_pins(ROOT / "requirements-lock.txt")
 
 
+# Environment invariants of the build toolchain, recorded from a local before/after
+# reproduction instead of PyPI metadata: they are about what the *installed* toolchain can
+# import, which no requirement specifier of another package describes.
+BUILD_TOOLCHAIN_INVARIANTS = (
+    ("altgraph", ">=0.17.5",
+     "0.17.4 imports pkg_resources at module scope, which the pinned setuptools no longer provides"),
+)
+
+
+def test_build_toolchain_does_not_depend_on_a_removed_setuptools_module():
+    """A build venv must not need a module its own pinned setuptools dropped."""
+    from packaging.specifiers import SpecifierSet
+    from packaging.version import Version
+
+    pins = _requirement_pins(ROOT / "requirements-build.txt")
+    assert "setuptools" in pins, (
+        "an unpinned setuptools decided whether the packaged build could start; pin the provider")
+    violations = [
+        f"{dependency}=={pins[dependency]} violates the recorded invariant {specifier} ({reason})"
+        for dependency, specifier, reason in BUILD_TOOLCHAIN_INVARIANTS
+        if Version(pins[dependency]) not in SpecifierSet(specifier)
+    ]
+    assert not violations, "Windows packaging toolchain is unusable:\n" + "\n".join(violations)
+
+
 def test_windows_build_toolchain_satisfies_its_own_windows_markers():
     from packaging.specifiers import SpecifierSet
     from packaging.version import Version
@@ -298,6 +323,23 @@ def test_build_script_validates_the_interpreter_and_survives_stderr_logging(buil
 
 
 CHECKPOINT = ROOT / "docs" / "audits" / "m42-1-release-closure.json"
+
+def test_checkpoint_records_the_build_toolchain_defect_with_its_reproduction():
+    """A root cause claimed as found must name a reproduction, not only a conclusion."""
+    payload = json.loads(CHECKPOINT.read_text(encoding="utf-8"))
+    record = payload["pyinstaller_stage_forensics"]
+    assert record["root_cause_category"] in {
+        "PRODUCT_DEFECT", "WINDOWS_PORTABILITY_DEFECT", "CI_HARNESS_DEFECT",
+        "ENVIRONMENTAL_LIMITATION", "UNRESOLVED",
+    }
+    assert record["exception"] == "ModuleNotFoundError: No module named 'pkg_resources'"
+    assert "reproduc" in record["reproduction"].lower() and "altgraph" in record["reproduction"]
+    assert record["verification"] == "SEPARATE_EXACT_SHA_WORKFLOW_REQUIRED"
+    assert record["product_runtime_affected"] is False
+    for node_id in record["regression_test"]:
+        relative, _, test_name = node_id.partition("::")
+        assert f"def {test_name}(" in (ROOT / relative).read_text(encoding="utf-8"), node_id
+
 
 def test_checkpoint_records_the_packaging_stage_without_inventing_a_root_cause():
     """The instrumented gate, not the checkpoint, is what names the failing stage."""
