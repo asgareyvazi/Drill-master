@@ -43,22 +43,20 @@ jobs:
           $env:DRILLMASTER_LOG_DIR = Join-Path $testRoot 'logs'
           $env:DRILLMASTER_BACKUP_DIR = Join-Path $testRoot 'backups'
           $testReport = Join-Path $testRoot 'windows-regressions.xml'
-          python -m pytest -ra -q tests/test_packaging_smoke.py tests/test_acceptance_report.py tests/test_release_smoke.py tests/test_credential_lifecycle.py tests/test_wellbore_schema_v3.py tests/test_wellbore_ownership_integrity.py tests/test_wellbore_discriminator_import.py tests/test_wellbore_identity_conflict_m25.py tests/test_p0_well_identity.py tests/test_history_well_scope.py tests/test_whole_well_scope_labels_m25.py tests/test_release_gate_and_w13.py tests/test_w13_ecd_chart_fallback.py tests/test_w13_fishing_result_ui.py tests/test_m38_domain_boundaries.py tests/test_m31_scenarios.py tests/test_well_centric_acceptance.py tests/test_production_import_guarantees.py tests/test_ddr_forensic_regressions.py tests/test_ddr_followup_lifecycle.py tests/test_database_migration_acceptance.py tests/test_backup_restore_acceptance.py tests/test_import_atomicity_acceptance.py tests/test_release_e2e.py "--junitxml=$testReport"
+          $testSummary = Join-Path $testRoot 'windows-regression-summary.md'
+          $testReportJson = Join-Path $testRoot 'windows-regression-report.json'
+          python -m pytest -ra -q tests/test_packaging_smoke.py tests/test_acceptance_report.py tests/test_release_smoke.py tests/test_credential_lifecycle.py tests/test_wellbore_schema_v3.py tests/test_wellbore_ownership_integrity.py tests/test_wellbore_discriminator_import.py tests/test_wellbore_identity_conflict_m25.py tests/test_p0_well_identity.py tests/test_history_well_scope.py tests/test_whole_well_scope_labels_m25.py tests/test_release_gate_and_w13.py tests/test_w13_ecd_chart_fallback.py tests/test_w13_fishing_result_ui.py tests/test_m38_domain_boundaries.py tests/test_m31_scenarios.py tests/test_well_centric_acceptance.py tests/test_production_import_guarantees.py tests/test_ddr_forensic_regressions.py tests/test_ddr_followup_lifecycle.py tests/test_database_migration_acceptance.py tests/test_backup_restore_acceptance.py tests/test_import_atomicity_acceptance.py tests/test_release_e2e.py tests/test_junit_report.py tests/test_windows_release_gate_contract.py "--junitxml=$testReport"
           $pytestExit = $LASTEXITCODE
-          if (Test-Path -LiteralPath $testReport) {
-            [xml]$junit = Get-Content -LiteralPath $testReport -Raw
-            foreach ($case in $junit.SelectNodes('//testcase[failure or error]')) {
-              $identity = "$($case.classname).$($case.name)"
-              $detail = $case.SelectSingleNode('failure')
-              if ($null -eq $detail) { $detail = $case.SelectSingleNode('error') }
-              $sourceMatch = [regex]::Match($detail.InnerText, '(?m)^\s*([^\r\n]*\.py):(\d+):')
-              $exceptionMatch = [regex]::Match($detail.InnerText, '(?m)^\s*E\s+([A-Za-z_][A-Za-z0-9_]*(?:Error|Exception))')
-              $location = if ($sourceMatch.Success) { "$($sourceMatch.Groups[1].Value):$($sourceMatch.Groups[2].Value)" } else { 'source location unavailable' }
-              $exception = if ($exceptionMatch.Success) { $exceptionMatch.Groups[1].Value } else { 'test failure' }
-              Write-Output "::error title=Windows regression failure::$identity | $exception at $location"
-            }
+          # GitHub publishes at most ten annotations per step.  packaging/junit_report.py
+          # emits one per failure up to that cap, an aggregate annotation carrying every
+          # remaining identity, and a Markdown job summary that is never truncated.
+          python packaging\junit_report.py --junit "$testReport" --summary-out "$testSummary" --json-out "$testReportJson" --annotations
+          if (Test-Path -LiteralPath $testSummary) {
+            Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value (Get-Content -LiteralPath $testSummary -Raw) -Encoding utf8
           }
-          if ($pytestExit -ne 0) { throw 'Windows release regression suite failed; failing test names are recorded as workflow annotations' }
+          if ($pytestExit -ne 0) {
+            throw "Windows release regression suite failed (pytest exit $pytestExit); every failing test is listed in the job summary and workflow annotations"
+          }
       - name: Build portable bundle and installer; run frozen executable smoke
         id: build
         shell: pwsh
@@ -93,7 +91,9 @@ jobs:
           $testReport = Join-Path $env:RUNNER_TEMP "DrillMaster-M42-tests-$env:GITHUB_RUN_ID\windows-regressions.xml"
           $metadataPath = Join-Path $releaseRoot 'release-metadata.json'
           $acceptanceReport = Join-Path $releaseRoot 'acceptance-report.json'
-          python packaging\acceptance_report.py --metadata $metadataPath --junit $testReport --source-sha $env:GITHUB_SHA --output $acceptanceReport
+          python packaging\acceptance_report.py --metadata $metadataPath --junit $testReport --source-sha $env:GITHUB_SHA --output $acceptanceReport `
+            --ci-workflow "$env:GITHUB_WORKFLOW" --ci-run-id "$env:GITHUB_RUN_ID" --ci-branch "$env:GITHUB_REF_NAME" `
+            --ci-run-url "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
           if ($LASTEXITCODE -ne 0) { throw 'Machine-readable Windows acceptance report generation failed' }
           "release_dir=$releaseRoot" | Add-Content $env:GITHUB_OUTPUT
       - name: Upload Windows evidence artifacts
@@ -104,5 +104,7 @@ jobs:
           path: |
             ${{ steps.build.outputs.release_dir }}
             ${{ runner.temp }}/DrillMaster-M42-tests-${{ github.run_id }}/windows-regressions.xml
+            ${{ runner.temp }}/DrillMaster-M42-tests-${{ github.run_id }}/windows-regression-summary.md
+            ${{ runner.temp }}/DrillMaster-M42-tests-${{ github.run_id }}/windows-regression-report.json
           if-no-files-found: warn
           retention-days: 30

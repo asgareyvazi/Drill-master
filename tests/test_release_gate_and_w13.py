@@ -83,7 +83,7 @@ class TestReleaseGate:
         assert "unittest discover" not in source
         assert "pytest" in source
         assert "--collect-only" in source
-        assert "unittest.TestCase" in (REPO / "tests" / "test_canonical_schema.py").read_text()
+        assert "unittest.TestCase" in (REPO / "tests" / "test_canonical_schema.py").read_text(encoding="utf-8")
 
 
 class TestProductionBootstrapCredentials:

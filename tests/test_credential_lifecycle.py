@@ -319,7 +319,7 @@ def test_actual_startup_bootstrap_method_honors_environment_without_dialog(monke
     from types import SimpleNamespace
     from core.credential_policy import is_production_environment
     production(monkeypatch)
-    tree = ast.parse((ROOT / "app.py").read_text())
+    tree = ast.parse((ROOT / "app.py").read_text(encoding="utf-8"))
     method = next(n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == "_run_first_run_bootstrap")
     scope = {"os": os, "is_production_environment": is_production_environment}
     exec(compile(ast.Module(body=[method], type_ignores=[]), "app.py", "exec"), scope)
@@ -329,13 +329,13 @@ def test_actual_startup_bootstrap_method_honors_environment_without_dialog(monke
 
 
 def test_gui_offline_reset_is_truthful_and_first_run_does_not_export_secrets():
-    settings = (ROOT / "dialogs/settings_dialog.py").read_text()
+    settings = (ROOT / "dialogs/settings_dialog.py").read_text(encoding="utf-8")
     assert "reset_db.py" not in settings
     assert "No data has been changed" in settings and "python reset_database.py" in settings
-    app = (ROOT / "app.py").read_text()
+    app = (ROOT / "app.py").read_text(encoding="utf-8")
     assert 'os.environ["DRILLMASTER_ADMIN_PASSWORD"] =' not in app
     assert 'if "DRILLMASTER_ENV" not in os.environ' in app  # explicit empty mode is not overwritten
-    dialog = (ROOT / "dialogs/bootstrap_dialog.py").read_text()
+    dialog = (ROOT / "dialogs/bootstrap_dialog.py").read_text(encoding="utf-8")
     assert "validate_production_password(value)" in dialog
     assert 'role != "admin"' in dialog
 
@@ -355,7 +355,7 @@ def test_actual_first_run_detection_distinguishes_empty_from_existing(tmp_path, 
             connection.commit()
         finally:
             connection.close()
-    tree = ast.parse((ROOT / "app.py").read_text())
+    tree = ast.parse((ROOT / "app.py").read_text(encoding="utf-8"))
     method = next(n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == "_needs_first_run_bootstrap")
     method.decorator_list = []
     scope = {"Path": Path, "database_path": lambda: str(path)}
@@ -387,7 +387,7 @@ def test_package_smoke_never_targets_operator_database_or_retains_test_mode(monk
             return SimpleNamespace(execute=lambda sql: SimpleNamespace(scalar=lambda: 2), close=lambda: None)
         def close(self):
             observed["closed"] = True
-    tree = ast.parse((ROOT / "app.py").read_text())
+    tree = ast.parse((ROOT / "app.py").read_text(encoding="utf-8"))
     method = next(n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == "run_package_smoke")
     scope = {"os": os, "Path": Path, "DatabaseManager": Probe, "logger": logging.getLogger(__name__)}
     exec(compile(ast.Module(body=[method], type_ignores=[]), "app.py", "exec"), scope)

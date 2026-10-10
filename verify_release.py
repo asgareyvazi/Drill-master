@@ -184,7 +184,7 @@ def verify_repository(expected_sha=None, allow_dirty=False) -> bool:
 def verify_dependencies() -> bool:
     from packaging.requirements import Requirement
     errors = []
-    for line in (ROOT / "requirements-lock.txt").read_text().splitlines():
+    for line in (ROOT / "requirements-lock.txt").read_text(encoding="utf-8").splitlines():
         if not line.strip() or line.lstrip().startswith("#"):
             continue
         requirement = Requirement(line)
@@ -216,7 +216,7 @@ def verify_version() -> bool:
     import ast
     from packaging.version import Version, InvalidVersion
     try:
-        tree = ast.parse((ROOT / "core/version.py").read_text())
+        tree = ast.parse((ROOT / "core/version.py").read_text(encoding="utf-8"))
         value = next(ast.literal_eval(n.value) for n in tree.body if isinstance(n, ast.Assign)
                      and any(isinstance(t, ast.Name) and t.id == "__version__" for t in n.targets))
         version = Version(value)
@@ -254,7 +254,7 @@ def verify_lint() -> bool:
     if debt.returncode not in (0, 1) or defects.returncode:
         return False
     count = len(json.loads(debt.stdout))
-    ceiling = int((ROOT / ".github/ruff-debt-ceiling.txt").read_text().strip())
+    ceiling = int((ROOT / ".github/ruff-debt-ceiling.txt").read_text(encoding="utf-8").strip())
     print(f"Lint debt: {count}; ceiling: {ceiling} (not lint-clean)")
     return count <= ceiling
 

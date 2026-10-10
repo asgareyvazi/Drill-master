@@ -282,7 +282,7 @@ def test_actual_main_window_save_all_method_no_false_success():
     """Execute actual coordinator method with widget protocol fakes, not Qt."""
     import ast
     from types import SimpleNamespace
-    source = (Path(__file__).resolve().parents[1] / "main_window.py").read_text()
+    source = (Path(__file__).resolve().parents[1] / "main_window.py").read_text(encoding="utf-8")
     tree = ast.parse(source)
     method = next(n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == "save_all_tabs")
     namespace = {}

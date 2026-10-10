@@ -17,6 +17,14 @@ $release = Join-Path $env:TEMP "DrillMaster-release-$sha"
 
 The build refuses dirty source trees, requires an explicit Python minor version, uses the locked runtime/build requirements, does not delete pre-existing release output, and keeps PyInstaller temporary work outside the repository. Use a new output directory for each build. The prior `-Python "py -3.12"` form remains accepted through a non-evaluated parser; new scripts should use the separate launcher/version parameters. `-PortableOnly` deliberately omits installer compilation and cannot establish installer evidence.
 
+### Failure diagnostics and text encodings
+
+GitHub publishes at most ten `::error::` annotations per step, so a suite with more failures than that would otherwise hide the rest.  The regression step therefore runs `python packaging\junit_report.py --junit <report> --summary-out <markdown> --json-out <json> --annotations`: one annotation per failure up to the cap, an aggregate annotation that names the overflow, and a full Markdown table in the job step summary.  The parser reports test identities, exception names and `file:line` locations only, redacts anything that looks like a password, token or API-key value, and writes UTF-8 regardless of the console codepage so that printing a diagnostic can never become the second failure.  The step still propagates pytest's own exit code.
+
+Repository source files contain UTF-8 Persian UI strings.  Any test or release tool that reads them must state `encoding="utf-8"`; the runner's default codepage (cp1252) raises `UnicodeDecodeError` otherwise.  `tests/test_windows_release_gate_contract.py` enforces this for every module in the Windows suite, verifies that the workflow still lists the required modules and existing files, keeps the disposable `RUNNER_TEMP` isolation and the Inno Setup pin, and confirms that the committed M42.1 checkpoint does not claim a CI result.
+
+`acceptance_report.py` re-hashes the portable ZIP and the setup executable from the release directory and reads `package-smoke.log`; it reports the frozen-executable and installer steps only when that evidence exists, and it records the workflow run identity it was invoked with instead of a committed value.
+
 The output directory contains the versioned portable folder and ZIP, `package-smoke.log`, `release-metadata.json`, `SHA256SUMS.txt`, and—when run in CI—`acceptance-report.json` plus the compiled setup executable. The manifest records full source SHA, application version, exact Python/pip/PyInstaller/Inno Setup versions, and artifact hashes. Preserve the folder and evidence together; do not infer reproducible bit-for-bit binaries solely from matching version strings.
 
 ## Interactive installation procedure (manual; NOT automated by the workflow)

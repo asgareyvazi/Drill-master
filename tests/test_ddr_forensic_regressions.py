@@ -297,8 +297,8 @@ def test_real_workbook_actual_application_service_and_disk_reload(db):
 
 def test_bha_manual_schema_and_mud_notification_static_wiring():
     root = Path(__file__).resolve().parents[1]
-    downhole = (root / "tabs/w4_Downhole_Widget.py").read_text()
-    mud = (root / "tabs/w3_drilling_report.py").read_text()
+    downhole = (root / "tabs/w4_Downhole_Widget.py").read_text(encoding="utf-8")
+    mud = (root / "tabs/w3_drilling_report.py").read_text(encoding="utf-8")
     assert '"Component Name"' in downhole
     assert '"bha_data": bha_data' in downhole
     assert 'self.show_warning(validation.summary())' not in mud

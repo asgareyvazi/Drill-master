@@ -1,0 +1,71 @@
+{
+  "schema": "drillmaster-mission-checkpoint/v1",
+  "mission": "M42.1",
+  "title": "Windows credential-lifecycle forensics, exact-SHA CI closure and release handoff",
+  "recorded_on": "2026-10-07",
+  "branch": "arena/01a0ec23-drill-master",
+  "repository": "asgareyvazi/Drill-master",
+  "baseline": {
+    "verified_m41_final_sha": "a482a91efad2aa982c54e9b3769ef6f698e2e9ef",
+    "m42_tip_before_m42_1": "42d07cdd7adfd6929afd83a3bf15a552daa02eb5"
+  },
+  "credential_failure_forensics": {
+    "source_of_evidence": "GitHub Actions check-run annotations for the Windows release validation run on the M42 tip, plus a local reproduction that forces the legacy default text encoding",
+    "reproduction_command": "env -u LANG -u LC_CTYPE PYTHONUTF8=0 PYTHONCOERCECLOCALE=0 LC_ALL=C python -m pytest -o addopts= -q tests/test_credential_lifecycle.py tests/test_ddr_forensic_regressions.py",
+    "exception": "UnicodeDecodeError",
+    "confirmed_failed_tests": [
+      "tests.test_credential_lifecycle.test_actual_startup_bootstrap_method_honors_environment_without_dialog",
+      "tests.test_credential_lifecycle.test_gui_offline_reset_is_truthful_and_first_run_does_not_export_secrets",
+      "tests.test_credential_lifecycle.test_actual_first_run_detection_distinguishes_empty_from_existing[absent]",
+      "tests.test_credential_lifecycle.test_actual_first_run_detection_distinguishes_empty_from_existing[no_users_table]",
+      "tests.test_credential_lifecycle.test_actual_first_run_detection_distinguishes_empty_from_existing[empty_users]",
+      "tests.test_credential_lifecycle.test_actual_first_run_detection_distinguishes_empty_from_existing[existing_user]",
+      "tests.test_credential_lifecycle.test_actual_first_run_detection_distinguishes_empty_from_existing[corrupt]",
+      "tests.test_credential_lifecycle.test_package_smoke_never_targets_operator_database_or_retains_test_mode[True]",
+      "tests.test_credential_lifecycle.test_package_smoke_never_targets_operator_database_or_retains_test_mode[False]",
+      "tests.test_ddr_forensic_regressions.test_bha_manual_schema_and_mud_notification_static_wiring"
+    ],
+    "additional_failure_hidden_by_the_annotation_limit": "tests.test_ddr_followup_lifecycle.test_actual_main_window_save_all_method_no_false_success",
+    "root_cause": "static Windows-suite tests called Path.read_text() without an explicit encoding, so the runner decoded UTF-8 repository source (Persian UI strings) with the platform default codepage and raised UnicodeDecodeError before any credential behaviour executed",
+    "classification": "WINDOWS_PORTABILITY_DEFECT",
+    "product_code_affected": false,
+    "credential_security_invariants_changed": false,
+    "corrective_change": "every repository-source read in the Windows suite states encoding='utf-8'; verify_release.py and the packaging tools do the same",
+    "regression_guard": [
+      "tests/test_windows_release_gate_contract.py",
+      "tests/test_junit_report.py"
+    ]
+  },
+  "internal_gates": [
+    {
+      "gate": "source_release_gate",
+      "workflow_file": ".github/workflows/ci.yml",
+      "requirement": "success on the exact final SHA for Python 3.11, 3.12 and 3.13, including exact-source, locked dependency, test and wheel verification"
+    },
+    {
+      "gate": "windows_release_validation",
+      "workflow_file": ".github/workflows/windows-release-gate.yml",
+      "requirement": "success on the exact final SHA for the Windows regression suite, the PyInstaller portable bundle, the frozen executable smoke run, Inno Setup installer compilation, artifact SHA-256 verification, release metadata and acceptance-report generation"
+    }
+  ],
+  "gate_result_policy": "A commit cannot contain the identity of the run that validates it. Run IDs, conclusions, test counts and artifact digests are recorded in the mission report and in the runtime-generated acceptance-report.json artifact, never in committed source.",
+  "external_acceptance": {
+    "interactive_clean_machine_install": "NOT_RUN",
+    "interactive_upgrade": "NOT_RUN",
+    "interactive_uninstall": "NOT_RUN",
+    "real_ddr_excel_operator_acceptance": "NOT_RUN",
+    "real_ddr_pdf_acceptance": "NOT_RUN",
+    "real_mineru_acceptance": "NOT_RUN",
+    "production_database_acceptance": "NOT_RUN",
+    "field_validation": "NOT_RUN",
+    "operator_business_signoff": "NOT_RUN",
+    "synthetic_workbook_scenario": "AUTOMATED_TEST_ONLY_NOT_REAL_DDR_ACCEPTANCE"
+  },
+  "runbook": "packaging/WINDOWS_RELEASE_ACCEPTANCE.md",
+  "preserved_boundaries": {
+    "m36_p6_closure": "unchanged",
+    "w5_provenance": "PROVENANCE_EXTERNAL_SOURCE_UNAVAILABLE",
+    "open_owner_decisions": ["NEW-P6-007", "NEW-P6-008", "NEW-P6-015", "NEW-P6-020", "NEW-P6-023", "NEW-P6-024"],
+    "engineering_scope": "M41 boundaries retained; no standards-compliance claim is added by this checkpoint"
+  }
+}

@@ -126,7 +126,7 @@ def test_package_release_metadata_records_hashes_and_refuses_external_artifacts(
         pyinstaller_version="6.11.1", pip_version="24.3.1", innosetup_version="6.4.3",
         bundle_zip=archive, installer=installer,
     )
-    value = json.loads(metadata.read_text())
+    value = json.loads(metadata.read_text(encoding="utf-8"))
     assert value["git_sha"] == "a" * 40 and value["platform"] == "windows-x64"
     assert {item["filename"]: item["sha256"] for item in value["artifacts"]} == {
         "bundle.zip": hashlib.sha256(archive.read_bytes()).hexdigest(),
@@ -156,7 +156,7 @@ def test_real_windows_bundle_smoke_when_provided():
 
 def test_wheel_includes_desktop_ui_and_builtin_templates():
     import tomllib
-    config = tomllib.loads((ROOT / "pyproject.toml").read_text())
+    config = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     assert "ui*" in config["tool"]["setuptools"]["packages"]["find"]["include"]
     assert "templates*" in config["tool"]["setuptools"]["packages"]["find"]["include"]
     assert "OEOC_DDR_v3.json" in config["tool"]["setuptools"]["package-data"]["templates"]
