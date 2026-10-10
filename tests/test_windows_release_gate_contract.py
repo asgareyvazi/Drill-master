@@ -132,6 +132,42 @@ def _unencoded_text_io(module: str) -> list[str]:
     return offenders
 
 
+def test_signing_vocabulary_and_extraction_rules_are_declared_exactly_once():
+    """Two definitions of one vocabulary is how a gate starts disagreeing with itself."""
+    packaging = Path(__file__).resolve().parents[1] / "packaging"
+    sources = {path.name: ast.parse(path.read_text(encoding="utf-8"))
+               for path in (packaging / "release_metadata.py", packaging / "acceptance_report.py",
+                            packaging / "windows_release_evidence.py")}
+    owners = []
+    for name, tree in sources.items():
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.Assign, ast.AnnAssign)):
+                targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+                if any(isinstance(target, ast.Name) and target.id == "SIGNING_STATUS_VOCABULARY"
+                       for target in targets):
+                    owners.append(name)
+    assert owners == ["release_metadata.py"], f"vocabulary defined in {owners}"
+    for name in ("acceptance_report.py", "windows_release_evidence.py"):
+        imported = {alias.name for node in ast.walk(sources[name]) if isinstance(node, ast.ImportFrom)
+                    and node.module == "release_metadata" for alias in node.names}
+        assert "SIGNING_STATUS_VOCABULARY" in imported, f"{name} must import the shared vocabulary"
+    # the inner executable is only ever obtained through the archive-bound extraction helper
+    evidence = (packaging / "windows_release_evidence.py").read_text(encoding="utf-8")
+    assert "def extract_verified_member(" in evidence
+    assert evidence.count("extract_verified_member(") >= 2
+    assert 'release_root / exe_name' not in evidence, (
+        "a loose release-directory copy must never stand in for the packaged executable"
+    )
+
+
+def test_runbook_documents_the_archive_bound_signing_and_required_record_contract():
+    text = (Path(__file__).resolve().parents[1] / "packaging" / "WINDOWS_RELEASE_ACCEPTANCE.md").read_text(encoding="utf-8")
+    for fragment in ("extracted from the portable archive", "container_archive_sha256",
+                     "not examined, because nothing binds it", "--require-signing",
+                     "Signature record malformed", "PACKAGE_SMOKE_OK"):
+        assert fragment in text, f"runbook must document: {fragment}"
+
+
 def test_release_tools_declare_text_encodings():
     """The release tooling itself runs on Windows in the dedicated gate."""
     offenders = [item for module in RELEASE_TOOLS for item in _unencoded_text_io(module)]
@@ -503,8 +539,26 @@ def test_signing_step_records_status_without_faking_or_failing_a_release(workflo
     block = _step_block(workflow_text, "Record Authenticode signature status")
     assert "windows_release_evidence.py signing" in block
     assert "signing-status.json" in block
-    assert "throw" not in block, "an unsigned build is a finding, not a packaging failure"
-    assert "exit 0" in block or "warning" in block
+    # The step's own final statement, not an early return, is what neutralises the wrapper's
+    # "exit $LASTEXITCODE": any native non-zero status must be replaced by an explicit 0.
+    assert block.rstrip().endswith("exit 0"), "the signing step must end with an explicit exit 0"
+    assert "exit $signingExit" not in block, ("the last exit code must be set deliberately, not inherited "
+                                              "from the queried command")
+    assert "$signingExit = $LASTEXITCODE" in block, "the native status must be snapshotted at the call"
+    # Per-file detail goes to the step summary (uncapped) because annotations are capped at ten.
+    assert "GITHUB_STEP_SUMMARY" in block and "signing-status.md" in block
+    assert "if (Test-Path -LiteralPath $signingMarkdown)" in block, "the summary append must not assume the file exists"
+    # Exactly two conditions may fail this step, and both are evidence-integrity failures
+    # rather than signature findings: no record at all, and a record that cannot be parsed.
+    assert block.count("throw") == 2, block
+    assert "could not be recorded" in block and "malformed" in block
+    assert "::error title=Signature record malformed::" in block
+    assert "--annotate-title 'Signature verification produced no record'" in block, (
+        "the no-record failure is annotated through the uncapped step-summary path, not a bare throw"
+    )
+    assert "::notice title=Signature status::" in block, (
+        "the per-file signature states must stay readable without the artifact blob endpoint"
+    )
     module_text = _read(ROOT / "packaging" / "windows_release_evidence.py")
     assert "Get-AuthenticodeSignature" in module_text
     assert "SignerCertificate.Subject" in module_text

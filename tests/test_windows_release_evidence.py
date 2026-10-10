@@ -39,7 +39,9 @@ class FakeHost:
                  smoke_output: str = "PACKAGE_SMOKE_OK", uninstall_removes: bool = True,
                  leak_value: str = "", write_into_install_dir: bool = False,
                  signature_status: str = "NotSigned", signer_subject: str = "",
-                 keep_sentinel: bool = True):
+                 keep_sentinel: bool = True, install_writes_exe: bool = True,
+                 run_stdout: str = "", powershell_version_output: str | None = None,
+                 run_returncode: int | None = None, raise_on_call: int | None = None):
         self.install_exit_code = install_exit_code
         self.uninstall_exit_code = uninstall_exit_code
         self.product_version = product_version
@@ -51,11 +53,18 @@ class FakeHost:
         self.signature_status = signature_status
         self.signer_subject = signer_subject
         self.keep_sentinel = keep_sentinel
+        self.install_writes_exe = install_writes_exe
+        self.run_stdout = run_stdout
+        self.powershell_version_output = powershell_version_output
+        self.run_returncode = run_returncode
+        self.raise_on_call = raise_on_call
         self.calls: list[list[str]] = []
         self.envs: list[dict | None] = []
 
     def __call__(self, argv, environment, cwd, timeout):
         self.calls.append(list(argv))
+        if self.raise_on_call is not None and len(self.calls) == self.raise_on_call:
+            raise RuntimeError("harness interrupted (simulated runner crash)")
         self.envs.append(dict(environment) if environment else None)
         program = Path(argv[0]).name.lower()
         if program == "powershell.exe":
@@ -65,14 +74,17 @@ class FakeHost:
             if "Get-AuthenticodeSignature" in script:
                 payload = {"Status": self.signature_status, "StatusMessage": "No signature is present.",
                            "SignerSubject": self.signer_subject or None}
+            elif self.powershell_version_output is not None:
+                return SimpleNamespace(returncode=0, stdout=self.powershell_version_output, stderr="")
             else:
                 payload = {"FileVersion": self.product_version, "ProductVersion": self.product_version}
             return SimpleNamespace(returncode=0, stdout=json.dumps(payload), stderr="")
         if program.endswith("setup.exe"):
             install_dir = _arg_value(argv, "/DIR=")
             install_dir.mkdir(parents=True, exist_ok=True)
-            (install_dir / "DrillMaster.exe").write_bytes(b"installed executable")
-            (install_dir / "unins000.exe").write_bytes(b"uninstaller")
+            if self.install_writes_exe:
+                (install_dir / "DrillMaster.exe").write_bytes(b"installed executable")
+                (install_dir / "unins000.exe").write_bytes(b"uninstaller")
             _arg_value(argv, "/LOG=").write_text("Setup process started.\n", encoding="utf-8")
             return SimpleNamespace(returncode=self.install_exit_code, stdout="", stderr="")
         if program == "unins000.exe":
@@ -88,6 +100,8 @@ class FakeHost:
             _arg_value(argv, "/LOG=").write_text("Uninstall process started.\n", encoding="utf-8")
             return SimpleNamespace(returncode=self.uninstall_exit_code, stdout="", stderr="")
         if program == "drillmaster.exe":
+            if self.run_returncode == 124:
+                return SimpleNamespace(returncode=124, stdout="", stderr="")
             log_dir = Path((environment or {})["DRILLMASTER_LOG_DIR"])
             log_dir.mkdir(parents=True, exist_ok=True)
             (log_dir / "drillmaster.log").write_text("INFO application smoke complete\n", encoding="utf-8")
@@ -95,6 +109,8 @@ class FakeHost:
                 # A frozen application writing next to itself is the regression guarded here.
                 (Path(argv[0]).parent / "drillmaster.db").write_bytes(b"leaked into the install tree")
             output = self.smoke_output
+            if self.run_stdout:
+                output += "\n" + self.run_stdout
             if self.leak_value:
                 output += f"\ncould not authenticate with {self.leak_value}\n"
             return SimpleNamespace(returncode=self.smoke_exit_code, stdout=output, stderr="")
@@ -108,15 +124,49 @@ def _arg_value(argv, prefix: str) -> Path:
     raise AssertionError(f"{prefix} missing from {argv}")
 
 
-def _release(root: Path, *, exe_bytes: bytes = b"installer-bytes") -> tuple[Path, Path, str]:
+def _step(report, name):
+    return next(step for step in report["steps"] if step["name"] == name)
+
+
+def _write_portable_zip(root: Path, *, exe_bytes: bytes = b"frozen executable",
+                        member: str = "DrillMaster-1.0.0/DrillMaster.exe") -> tuple[Path, str]:
+    """A real portable archive with the bundle executable inside, as the build produces."""
+    import io
+    import zipfile
+
+    archive = root / "DrillMaster-1.0.0-windows-x64.zip"
+    with zipfile.ZipFile(archive, "w") as bundle:
+        if member:
+            bundle.writestr(member, exe_bytes)
+        else:
+            bundle.writestr("DrillMaster-1.0.0/README.txt", io.BytesIO(b"no executable inside").read())
+    return archive, hashlib.sha256(archive.read_bytes()).hexdigest()
+
+
+def _release(root: Path, *, exe_bytes: bytes = b"installer-bytes", with_zip: bool = True) -> tuple[Path, Path, str]:
     installer = root / "DrillMaster-1.0.0-Setup.exe"
     installer.parent.mkdir(parents=True, exist_ok=True)
     installer.write_bytes(exe_bytes)
     digest = hashlib.sha256(exe_bytes).hexdigest()
     metadata = root / "release-metadata.json"
+    entries = [{"filename": installer.name, "sha256": digest, "size_bytes": len(exe_bytes)}]
+    if with_zip:
+        archive, archive_digest = _write_portable_zip(root)
+        entries.append({"filename": archive.name, "sha256": archive_digest, "size_bytes": archive.stat().st_size})
     metadata.write_text(json.dumps({
         "schema": "drillmaster-release-artifacts/v2",
-        "artifacts": [{"filename": installer.name, "sha256": digest, "size_bytes": len(exe_bytes)}],
+        "version": "1.0.0",
+        "git_sha": "a" * 40,
+        "platform": "windows-x64",
+        "python": "3.12.10",
+        "build_tools": {"pip": "25.3", "pyinstaller": "6.11.1", "innosetup_package_version": "6.7.1",
+                        "innosetup_compiler_file_version": "0.0.0.0",
+                        "innosetup_version_source": "installed-package-metadata",
+                        "innosetup_identity_verified": True},
+        "reproducible_build": {"status": "NOT_CLAIMED", "reason": "single build"},
+        "artifact_scope": "outer release artifacts; inner bundle files inside the portable ZIP are not "
+                          "individually hashed here",
+        "artifacts": entries,
     }), encoding="utf-8")
     return installer, metadata, digest
 
@@ -147,6 +197,7 @@ def test_lifecycle_passes_only_when_install_run_and_uninstall_are_all_proven(tmp
     assert report["installed_smoke"] == {
         "exit_code": 0, "wrote_log_outside_install_dir": True, "secret_leak_detected": False,
         "new_files_in_install_dir": [], "changed_files_in_install_dir": [],
+        "success_marker_found": True, "fatal_marker_found": False,
     }
     assert report["cleaned_up"] is True and not (tmp_path / "work").exists()
 
@@ -243,30 +294,221 @@ def test_signing_status_reports_unsigned_without_failing(tmp_path):
     _, metadata, _ = _release(tmp_path / "release")
     report = module.run_signing(release_metadata_path=metadata, runner=FakeHost(signature_status="NotSigned"))
     assert report["status"] == "UNSIGNED"
+    assert report["examined_count"] == 2
     assert report["signing_configured_in_build"] is False
     assert report["credentials_available"] is False
     assert "code-signing certificate" in report["prerequisite"]
-    assert report["files"][0]["filename"] == "DrillMaster-1.0.0-Setup.exe"
-    assert report["files"][0]["sha256"] == hashlib.sha256(b"installer-bytes").hexdigest()
+    names = [item["filename"] for item in report["files"]]
+    assert "DrillMaster-1.0.0-Setup.exe" in names
     assert "signer" not in report["files"][0], "an unsigned artifact has no signer to name"
 
 
-def test_signing_status_records_the_signer_when_valid(tmp_path):
+def test_inner_bundle_executable_is_examined_from_the_verified_archive(tmp_path):
+    """A claim about the shipped exe must be about bytes the published archive contains."""
     module = _evidence_module()
     _, metadata, _ = _release(tmp_path / "release")
-    report = module.run_signing(release_metadata_path=metadata, runner=FakeHost(
-        signature_status="Valid", signer_subject="CN=DrillMaster Inc., O=DrillMaster Inc."))
-    assert report["status"] == "PASS"
-    assert report["files"][0]["signer"].startswith("CN=DrillMaster Inc.")
+    report = module.run_signing(release_metadata_path=metadata, runner=FakeHost())
+    inner = next(item for item in report["files"] if item["filename"] == "DrillMaster.exe")
+    assert inner["provenance"] == "extracted from DrillMaster-1.0.0-windows-x64.zip"
+    assert inner["sha256"] == hashlib.sha256(b"frozen executable").hexdigest()
+    assert inner["manifest_digest_match"] is True
+    # the outer archive digest is recorded separately and never conflated with the inner one
+    assert inner["container_archive_sha256"] == hashlib.sha256(
+        (tmp_path / "release" / "DrillMaster-1.0.0-windows-x64.zip").read_bytes()).hexdigest()
+    assert inner["container_archive"] == "DrillMaster-1.0.0-windows-x64.zip"
+    assert inner["container_member"] == "DrillMaster-1.0.0/DrillMaster.exe"
+    assert inner["container_archive_sha256"] == hashlib.sha256(
+        (tmp_path / "release" / "DrillMaster-1.0.0-windows-x64.zip").read_bytes()).hexdigest()
+    # inner and outer digests are distinct values in distinct fields
+    assert inner["sha256"] != inner["container_archive_sha256"]
+    archive_row = next(item for item in report["files"] if item["filename"].endswith(".zip"))
+    assert archive_row["status"] == "NOT_APPLICABLE"
+    assert archive_row["signature_bearing"] is False
 
 
-def test_signing_status_is_unknown_for_a_missing_artifact(tmp_path):
+def test_a_release_dir_copy_of_the_executable_is_never_quietly_accepted_as_evidence(tmp_path):
+    """Only the manifest-listed installer and the archive-derived inner exe are examined."""
+    module = _evidence_module()
+    _, metadata, _ = _release(tmp_path / "release")
+    decoy = tmp_path / "release" / "DrillMaster-1.0.0" / "DrillMaster.exe"
+    decoy.parent.mkdir(parents=True, exist_ok=True)
+    decoy.write_bytes(b"different bytes than the published archive holds")
+    report = module.run_signing(release_metadata_path=metadata, runner=FakeHost())
+    inner = next(item for item in report["files"] if item["filename"] == "DrillMaster.exe")
+    assert inner["sha256"] == hashlib.sha256(b"frozen executable").hexdigest()
+    assert len([item for item in report["files"] if item["filename"] == "DrillMaster.exe"]) == 1
+
+
+def test_corrupt_or_mismatched_archive_is_refused_before_any_extraction(tmp_path):
+    module = _evidence_module()
+    _, metadata, _ = _release(tmp_path / "release")
+    archive = tmp_path / "release" / "DrillMaster-1.0.0-windows-x64.zip"
+    archive.write_bytes(archive.read_bytes() + b"tampered")
+    with pytest.raises(ValueError, match="digest does not match release metadata"):
+        module.run_signing(release_metadata_path=metadata, runner=FakeHost())
+
+
+@pytest.mark.parametrize("member, fragment", [
+    ("", "no DrillMaster.exe member"),
+    ("../DrillMaster.exe", "unsafe member path"),
+    ("DrillMaster.exe", "unsafe member path"),
+])
+def test_extraction_refuses_an_archive_without_a_single_safe_executable_member(tmp_path, member, fragment):
+    module = _evidence_module()
+    root = tmp_path / "release"
+    root.mkdir(parents=True)
+    installer = root / "DrillMaster-1.0.0-Setup.exe"
+    installer.write_bytes(b"installer")
+    archive, archive_digest = _write_portable_zip(root, member=member)
+    metadata = root / "release-metadata.json"
+    metadata.write_text(json.dumps({"schema": "drillmaster-release-artifacts/v2", "version": "1.0.0",
+                                    "git_sha": "a" * 40, "platform": "windows-x64", "python": "3.12.10",
+                                    "build_tools": {"pip": "25.3", "pyinstaller": "6.11.1",
+                                                    "innosetup_package_version": "6.7.1",
+                                                    "innosetup_compiler_file_version": "0.0.0.0",
+                                                    "innosetup_version_source": "installed-package-metadata",
+                                                    "innosetup_identity_verified": True},
+                                    "reproducible_build": {"status": "NOT_CLAIMED", "reason": "single build"},
+                                    "artifact_scope": "outer release artifacts",
+                                    "artifacts": [
+                                        {"filename": installer.name,
+                                         "sha256": hashlib.sha256(b"installer").hexdigest(), "size_bytes": 8},
+                                        {"filename": archive.name, "sha256": archive_digest,
+                                         "size_bytes": archive.stat().st_size},
+                                    ]}), encoding="utf-8")
+    with pytest.raises(ValueError, match=fragment):
+        module.run_signing(release_metadata_path=metadata, runner=FakeHost())
+    assert not (root.parent / "DrillMaster.exe").exists(), "an unsafe member must never escape the scratch root"
+    assert not (root / "DrillMaster.exe").exists()
+
+
+def test_extraction_bound_and_duplicate_member_are_refused(tmp_path):
+    import zipfile
+
+    module = _evidence_module()
+    root = tmp_path / "release"
+    root.mkdir(parents=True)
+    archive = root / "DrillMaster-1.0.0-windows-x64.zip"
+    with zipfile.ZipFile(archive, "w") as bundle:
+        bundle.writestr("DrillMaster-1.0.0/DrillMaster.exe", b"one")
+        bundle.writestr("DrillMaster-1.0.0/sub/DrillMaster.exe", b"two")
+    with pytest.raises(ValueError, match="not unambiguously identified"):
+        module.extract_verified_member(archive, "DrillMaster.exe", root)
+    single = tmp_path / "single.zip"
+    with zipfile.ZipFile(single, "w") as bundle:
+        bundle.writestr("DrillMaster-1.0.0/DrillMaster.exe", b"one")
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+    with pytest.raises(ValueError, match="exceeds the extraction bound"):
+        module.extract_verified_member(single, "DrillMaster.exe", scratch, max_bytes=1)
+    extracted, member = module.extract_verified_member(single, "DrillMaster.exe", scratch)
+    assert member == "DrillMaster-1.0.0/DrillMaster.exe" and extracted.read_bytes() == b"one"
+
+
+def test_missing_artifact_or_manifest_entry_is_reported_without_inventing_a_state(tmp_path):
     module = _evidence_module()
     _, metadata, _ = _release(tmp_path / "release")
     (tmp_path / "release" / "DrillMaster-1.0.0-Setup.exe").unlink()
-    report = module.run_signing(release_metadata_path=metadata, runner=FakeHost())
+    with pytest.raises(ValueError, match="missing"):
+        module.run_signing(release_metadata_path=metadata, runner=FakeHost())
+    payload = json.loads(metadata.read_text(encoding="utf-8"))
+    payload["artifacts"] = [item for item in payload["artifacts"] if not item["filename"].endswith(".zip")]
+    metadata.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError, match="lists no .zip"):
+        module.run_signing(release_metadata_path=metadata, runner=FakeHost())
+
+
+def test_mixed_and_untrusted_signature_states(tmp_path):
+    module = _evidence_module()
+    _, metadata, _ = _release(tmp_path / "release")
+
+    def host(argv, environment, cwd, timeout):
+        if Path(argv[0]).name.lower() == "powershell.exe":
+            target = Path((environment or {})["DRILLMASTER_TARGET_PATH"])
+            signed = target.name == "DrillMaster-1.0.0-Setup.exe"
+            payload = {"Status": "NotTrusted" if signed else "Valid",
+                       "StatusMessage": "A certificate chain processed, but terminated in a root certificate which is not trusted.",
+                       "SignerSubject": "CN=DrillMaster Inc." if signed else None}
+            return SimpleNamespace(returncode=0, stdout=json.dumps(payload), stderr="")
+        raise AssertionError(f"unexpected command {argv}")
+
+    report = module.run_signing(release_metadata_path=metadata, runner=host)
+    statuses = {item["filename"]: item["status"] for item in report["files"]}
+    assert statuses["DrillMaster-1.0.0-Setup.exe"] == "NotTrusted"
+    assert statuses["DrillMaster.exe"] == "Valid"
+    assert report["status"] == "FAIL", "a mixed state must not be reported as a clean signature"
+    assert statuses.get("DrillMaster-1.0.0-windows-x64.zip") == "NOT_APPLICABLE"
+
+
+def test_uniformly_valid_signatures_are_the_only_pass(tmp_path):
+    module = _evidence_module()
+    _, metadata, _ = _release(tmp_path / "release")
+    report = module.run_signing(release_metadata_path=metadata,
+                               runner=FakeHost(signature_status="Valid", signer_subject="CN=DrillMaster Inc."))
+    assert report["status"] == "PASS"
+    assert all(item.get("signer") == "CN=DrillMaster Inc." for item in report["files"] if item["signature_bearing"])
+
+
+def test_unreadable_powershell_result_is_unknown_and_never_unsigned(tmp_path):
+    module = _evidence_module()
+    _, metadata, _ = _release(tmp_path / "release")
+
+    def host(argv, environment, cwd, timeout):
+        if Path(argv[0]).name.lower() == "powershell.exe":
+            return SimpleNamespace(returncode=0, stdout="not json at all", stderr="")
+        raise AssertionError("no other command should run")
+
+    report = module.run_signing(release_metadata_path=metadata, runner=host)
     assert report["status"] == "UNKNOWN"
-    assert report["files"][0]["status_message"] == "artifact missing from the release directory"
+    assert all(item["status"] == "UNKNOWN" for item in report["files"] if item["signature_bearing"])
+    assert "unreadable output" in report["files"][0]["status_message"]
+
+
+def test_powershell_invocation_failure_is_unknown(tmp_path):
+    module = _evidence_module()
+    _, metadata, _ = _release(tmp_path / "release")
+
+    def host(argv, environment, cwd, timeout):
+        return SimpleNamespace(returncode=1, stdout="", stderr="Get-AuthenticodeSignature : Access denied")
+
+    report = module.run_signing(release_metadata_path=metadata, runner=host)
+    assert report["status"] == "UNKNOWN"
+    assert "powershell exit 1" in report["files"][0]["status_message"]
+
+
+def test_release_examination_does_not_mutate_the_published_artifacts(tmp_path):
+    module = _evidence_module()
+    _, metadata, _ = _release(tmp_path / "release")
+    before = {path.name: hashlib.sha256(path.read_bytes()).hexdigest()
+              for path in sorted((tmp_path / "release").iterdir()) if path.is_file()}
+    module.run_signing(release_metadata_path=metadata, runner=FakeHost(signature_status="Valid",
+                                                                       signer_subject="CN=x"))
+    after = {path.name: hashlib.sha256(path.read_bytes()).hexdigest()
+             for path in sorted((tmp_path / "release").iterdir()) if path.is_file()}
+    assert before == after
+
+
+def test_record_declares_its_own_policy_and_counts_examined_files(tmp_path):
+    """The published evidence states what it covered and what the gate does with it."""
+    module = _evidence_module()
+    _, metadata, _ = _release(tmp_path / "release")
+    report = module.run_signing(release_metadata_path=metadata, runner=FakeHost())
+    assert report["examined_count"] == 2 and report["archive_count"] == 1
+    assert "never fails the packaging gate" in report["policy"]
+    assert "no interpretable record" in report["policy"]
+    markdown = module.render_markdown(report, "signature evidence")
+    for fragment in ("DrillMaster.exe", "NOT_APPLICABLE", "inside `DrillMaster-1.0.0/DrillMaster.exe`",
+                     "Policy:"):
+        assert fragment in markdown, fragment
+    assert "sha256:" in markdown and "from: extracted from" in markdown
+
+
+def test_an_out_of_vocabulary_aggregate_from_the_tool_is_refused(tmp_path, monkeypatch):
+    module = _evidence_module()
+    _, metadata, _ = _release(tmp_path / "release")
+    monkeypatch.setattr(module, "aggregate_signing_status", lambda files: "SIGNED")
+    with pytest.raises(ValueError, match="outside the vocabulary"):
+        module.run_signing(release_metadata_path=metadata, runner=FakeHost())
 
 
 def test_markdown_summary_lists_every_step(tmp_path):
@@ -299,3 +541,175 @@ def test_main_refuses_a_disagreeing_expected_hash(tmp_path, capsys):
                              "--work-root", str(tmp_path / "work"), "--json-out", str(tmp_path / "out.json")])
     assert exit_code == 2
     assert "disagrees with release metadata" in capsys.readouterr().err
+
+
+def test_an_untrusted_signature_is_recorded_as_a_finding_but_still_exits_cleanly(tmp_path, capsys, monkeypatch):
+    """Signing state must never redden a packaging gate; only a missing record may."""
+    module = _evidence_module()
+    _, metadata, _ = _release(tmp_path / "release")
+    host = FakeHost(signature_status="NotTrusted", signer_subject="CN=Revoked")
+    report = module.run_signing(release_metadata_path=metadata, runner=host)
+    assert report["status"] == "FAIL"
+    assert report["files"][0]["raw_status"] == "NotTrusted"
+    assert "CN=Revoked" == report["files"][0]["signer"]
+    monkeypatch.setattr(module.sys, "platform", "win32")
+    monkeypatch.setattr(module, "default_runner", host)
+    json_out = tmp_path / "signing-status.json"
+    assert module.main(["signing", "--release-metadata", str(metadata), "--json-out", str(json_out)]) == 0
+    assert json.loads(json_out.read_text(encoding="utf-8"))["status"] == "FAIL"
+    assert "FAIL" in capsys.readouterr().out
+
+
+def test_a_missing_signature_status_field_is_unknown_not_unsigned(tmp_path):
+    module = _evidence_module()
+    _, metadata, _ = _release(tmp_path / "release")
+
+    def host(argv, environment, cwd, timeout):
+        if Path(argv[0]).name.lower() == "powershell.exe":
+            return SimpleNamespace(returncode=0, stdout=json.dumps({"Status": "", "StatusMessage": ""}), stderr="")
+        raise AssertionError("only the signature query should run")
+
+    report = module.run_signing(release_metadata_path=metadata, runner=host)
+    assert report["status"] == "UNKNOWN"
+    assert report["files"][0]["status"] == "UNKNOWN"
+
+
+def test_signing_fails_loudly_when_no_record_can_be_written(tmp_path, capsys, monkeypatch):
+    module = _evidence_module()
+    monkeypatch.setattr(module.sys, "platform", "win32")
+    monkeypatch.setattr(module, "default_runner", FakeHost())
+    exit_code = module.main(["signing", "--release-metadata", str(tmp_path / "absent.json"),
+                             "--json-out", str(tmp_path / "signing-status.json")])
+    assert exit_code == 1
+    assert "produced no record" in capsys.readouterr().err
+
+def test_install_succeeding_without_an_installed_executable_fails_the_lifecycle(tmp_path):
+    """A zero exit code from the installer is not proof that anything was installed."""
+    _, report = _run(tmp_path, FakeHost(install_writes_exe=False))
+    assert report["status"] == "FAIL"
+    step = _step(report, "installed_files")
+    assert step["status"] == "FAIL"
+    assert "DrillMaster.exe" in step["detail"] and "unins000.exe" in step["detail"]
+
+
+def test_a_clean_exit_without_the_success_marker_is_a_failure(tmp_path):
+    """An executable that exits 0 without running the smoke (help, early return) is rejected."""
+    _, report = _run(tmp_path, FakeHost(smoke_output="DrillMaster 1.0.0\nusage: --package-smoke"))
+    assert report["status"] == "FAIL"
+    assert report["installed_smoke"]["success_marker_found"] is False
+    assert _step(report, "installed_smoke")["status"] == "FAIL"
+
+
+def test_a_fatal_marker_with_a_zero_exit_code_is_still_a_failure(tmp_path):
+    _, report = _run(tmp_path, FakeHost(run_stdout="FATAL: could not create the database"))
+    assert report["status"] == "FAIL"
+    assert report["installed_smoke"]["fatal_marker_found"] is True
+    assert _step(report, "installed_smoke")["status"] == "FAIL"
+
+
+def test_uninstall_exit_code_is_never_inherited_from_the_previous_command(tmp_path):
+    """The uninstall verdict reads its own captured exit code, whatever ran before it."""
+    _, report = _run(tmp_path, FakeHost(uninstall_exit_code=3))
+    step = _step(report, "silent_uninstall")
+    assert step["status"] == "FAIL"
+    assert '"exit_code": 3' in step["detail"]
+
+
+def test_uninstaller_returning_cleanly_while_files_remain_is_a_failure(tmp_path):
+    """Inno Setup's uninstaller can return before the deletion pass finishes."""
+    host = FakeHost()
+    host.uninstall_removes = False
+    _, report = _run(tmp_path, host)
+    assert _step(report, "silent_uninstall")["status"] == "PASS", "the process itself did succeed"
+    step = _step(report, "install_files_removed")
+    assert step["status"] == "FAIL"
+    assert "unins000.exe" in step["detail"] and "DrillMaster.exe" in step["detail"]
+
+
+def test_uninstall_deleting_user_data_is_a_failure(tmp_path):
+    _, report = _run(tmp_path, FakeHost(keep_sentinel=False))
+    step = _step(report, "user_data_preserved")
+    assert step["status"] == "FAIL" and "did not survive uninstall" in step["detail"]
+
+
+def test_executable_query_returning_malformed_output_fails_the_version_step(tmp_path):
+    _, report = _run(tmp_path, FakeHost(powershell_version_output="not-json"))
+    step = _step(report, "installed_version")
+    assert step["status"] == "FAIL" and "unreadable output" in step["detail"]
+
+
+def test_executable_timeout_is_recorded_as_a_nonzero_exit(tmp_path):
+    _, report = _run(tmp_path, FakeHost(run_returncode=124))
+    step = _step(report, "installed_smoke")
+    assert step["status"] == "FAIL"
+    assert report["installed_smoke"]["exit_code"] == 124
+
+
+def test_every_executed_path_stays_inside_the_isolated_root_and_nothing_is_left_behind(tmp_path):
+    """Synthetic install/data/log roots must be contained by one throwaway directory."""
+    host = FakeHost()
+    work = tmp_path / "work"
+    _, report = _run(tmp_path, host, work_root=work)
+    assert report["status"] == "PASS" and report["path_containment"] == {
+        "data_root_outside_install_dir": True, "log_root_outside_install_dir": True,
+        "backup_root_outside_install_dir": True}
+    root = work.resolve()
+    # Everything the lifecycle creates is contained by the throwaway root; the only thing
+    # outside it is the published installer, which is read, never written into.
+    created = [_arg_value(call, "/DIR=") for call in host.calls if any(str(a).startswith("/DIR=") for a in call)]
+    for call, env in zip(host.calls, host.envs):
+        if Path(call[0]).name.lower() == "drillmaster.exe":
+            created += [Path(env[key]) for key in ("DRILLMASTER_DATA_DIR", "DRILLMASTER_LOG_DIR",
+                                                   "DRILLMASTER_BACKUP_DIR")]
+    assert len(created) == 4, created
+    for path in created:
+        assert root in path.resolve().parents, f"{path} escaped the isolated root"
+    written = sorted(item for item in root.iterdir()) if root.exists() else []
+    assert not written, f"scratch entries survived: {written}"
+    assert report["cleaned_up"] is True
+    assert not work.exists() or not list(work.iterdir())
+
+
+def test_a_crash_inside_a_step_still_removes_the_scratch_tree(tmp_path):
+    module = _evidence_module()
+    installer, _, digest = _release(tmp_path / "release")
+    work = tmp_path / "work-crash"
+    with pytest.raises(RuntimeError):
+        module.run_lifecycle(installer=installer, expected_sha256=digest, app_version="1.0.0",
+                             work_root=work, runner=FakeHost(raise_on_call=1), poll_interval=0.001,
+                             settle_seconds=0.05)
+    assert not work.exists() or not list(work.iterdir())
+
+
+@pytest.mark.parametrize("folder", ["DrillMaster 1.0.0 (x64)", "پیش‌بینی DrillMaster"])
+def test_spaces_and_non_ascii_paths_behave_like_their_ascii_equivalent(tmp_path, folder):
+    """Windows installs under names with spaces and non-ASCII characters; quoting must survive."""
+    if not folder.isascii() and sys.getfilesystemencoding().lower() not in {"utf-8", "utf8"}:
+        pytest.skip("the POSIX test process cannot even create a non-ASCII path under a non-UTF-8 "
+                    "locale; Windows uses wide file APIs, so this environment limitation is not what "
+                    "the assertion is about")
+    module = _evidence_module()
+    installer, _, digest = _release(tmp_path / folder)
+    report = module.run_lifecycle(installer=installer, expected_sha256=digest, app_version="1.0.0",
+                                  work_root=tmp_path / "work" / folder, runner=FakeHost(),
+                                  poll_interval=0.001, settle_seconds=0.05)
+    assert report["status"] == "PASS", report["steps"]
+    assert _step(report, "silent_install")["detail"] == "target=install"
+
+
+def test_a_file_version_disagreeing_with_the_product_version_fails_the_lifecycle(tmp_path):
+    """The verdict uses the queried metadata, never the installer's file name."""
+    module = _evidence_module()
+    installer, _, digest = _release(tmp_path / "release")
+
+    def host(argv, environment, cwd, timeout):
+        if Path(argv[0]).name.lower() == "powershell.exe" and "Get-AuthenticodeSignature" not in argv[-1]:
+            return SimpleNamespace(returncode=0, stdout=json.dumps({"FileVersion": "9.9.9.9"}), stderr="")
+        return FakeHost()(argv, environment, cwd, timeout)
+
+    report = module.run_lifecycle(installer=installer, expected_sha256=digest, app_version="1.0.0",
+                                  work_root=tmp_path / "work", runner=host, poll_interval=0.001,
+                                  settle_seconds=0.05)
+    assert report["status"] == "FAIL"
+    step = _step(report, "installed_version")
+    assert step["status"] == "FAIL" and "authoritative application version" in step["detail"]

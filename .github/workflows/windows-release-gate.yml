@@ -212,17 +212,38 @@ jobs:
             Write-Output '::warning title=Signature status not recorded::no release metadata to verify; the packaging stage did not complete'
             exit 0
           }
-          # An unsigned build is a finding, not a packaging failure: the step records what
-          # Windows reports and never fails the gate for the absence of a signature.
+          # An observed signature state (typically "unsigned") is a finding about distribution
+          # trust, not a packaging failure, so it never reddens the gate.  What *is* a failure is
+          # a signing step that produced no record at all, and that is annotated loudly.
+          $signingJson = Join-Path $releaseRoot 'signing-status.json'
           python packaging\windows_release_evidence.py signing `
             --release-metadata (Join-Path $releaseRoot 'release-metadata.json') `
-            --json-out (Join-Path $releaseRoot 'signing-status.json') `
+            --json-out $signingJson `
             --markdown-out (Join-Path $releaseRoot 'signing-status.md')
-          if ($LASTEXITCODE -ne 0) { Write-Output "::warning title=Signature status::verification did not report a clean result; see signing-status.json" }
-          $markdown = Join-Path $releaseRoot 'signing-status.md'
-          if (Test-Path -LiteralPath $markdown) {
-            Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value (Get-Content -LiteralPath $markdown -Raw) -Encoding utf8
+          $signingExit = $LASTEXITCODE
+          if (Test-Path -LiteralPath $signingJson) {
+            try {
+              $signing = Get-Content -LiteralPath $signingJson -Raw | ConvertFrom-Json
+            } catch {
+              # A record that exists but cannot be parsed is a distinct failure from one that
+              # is absent: the check ran and its evidence is corrupt, which must not pass quietly.
+              Write-Output "::error title=Signature record malformed::signing-status.json could not be parsed; the acceptance report will refuse it"
+              throw "signing-status.json is malformed: $($_.Exception.Message)"
+            }
+            $perFile = @($signing.files | ForEach-Object { "$($_.filename)=$($_.status)" }) -join ' '
+            Write-Output "::notice title=Signature status::$($signing.status); $perFile"
+            $signingMarkdown = Join-Path $releaseRoot 'signing-status.md'
+            if (Test-Path -LiteralPath $signingMarkdown) {
+              Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value (Get-Content -LiteralPath $signingMarkdown -Raw) -Encoding utf8
+            }
           }
+          if ($signingExit -ne 0) {
+            python packaging\junit_report.py --annotate --annotate-title 'Signature verification produced no record' --annotate-message "the signing step exited $signingExit without writing signing-status.json"
+            throw 'signature verification could not be recorded'
+          }
+          # The Actions pwsh wrapper propagates the last native exit code; an observed
+          # "unsigned" state must not become a red job through that mechanism.
+          exit 0
       - name: Generate machine-readable Windows acceptance report
         id: report
         if: always()
@@ -242,7 +263,7 @@ jobs:
           $lifecycleJson = Join-Path $releaseRoot 'installer-lifecycle.json'
           $signingJson = Join-Path $releaseRoot 'signing-status.json'
           python packaging\acceptance_report.py --metadata $metadataPath --junit $testReport --source-sha $env:GITHUB_SHA --output $acceptanceReport `
-            --expected-innosetup-version $innoPin --require-lifecycle `
+            --expected-innosetup-version $innoPin --require-lifecycle --require-signing `
             --lifecycle-report $lifecycleJson --signing-report $signingJson `
             --ci-workflow "$env:GITHUB_WORKFLOW" --ci-run-id "$env:GITHUB_RUN_ID" --ci-branch "$env:GITHUB_REF_NAME" `
             --ci-run-url "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"

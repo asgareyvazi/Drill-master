@@ -229,3 +229,16 @@ def test_wheel_includes_desktop_ui_and_builtin_templates():
     assert "ui*" in config["tool"]["setuptools"]["packages"]["find"]["include"]
     assert "templates*" in config["tool"]["setuptools"]["packages"]["find"]["include"]
     assert "OEOC_DDR_v3.json" in config["tool"]["setuptools"]["package-data"]["templates"]
+
+@pytest.mark.parametrize("value", ["", "unknown", "unspecified", "none", "null", "n/a", "tbd", "placeholder",
+                                   "0", "0.0", "0.0.0", "0.0.0.0"])
+def test_release_metadata_names_a_placeholder_identity_as_a_placeholder(value):
+    """The diagnostic distinguishes "this proves nothing" from "this is the wrong shape".
+
+    Both refuse the value, but an operator reading the second message would go looking for a
+    formatting mistake rather than a tool that was never identified.
+    """
+    release_metadata = _load_release_metadata()
+    with pytest.raises(ValueError, match="is a placeholder, not a verified tool version"):
+        release_metadata.validate_tool_version(value, field="innosetup_package_version", artifact_present=True)
+

@@ -30,10 +30,12 @@ python packaging\acceptance_report.py --metadata (Join-Path $release 'release-me
   --source-sha $sha --output (Join-Path $release 'acceptance-report.json') `
   --expected-innosetup-version (Get-Content packaging\inno_setup_version.txt -Raw).Trim() `
   --lifecycle-report (Join-Path $release 'installer-lifecycle.json') `
-  --signing-report (Join-Path $release 'signing-status.json')
+  --require-lifecycle --signing-report (Join-Path $release 'signing-status.json') --require-signing
 ```
 
-Every command above is the same one the CI gate runs; the local lifecycle invocation needs administrator elevation because `DrillMaster.iss` declares `PrivilegesRequired=admin`, and it installs only into the throwaway `--work-root` you pass.
+Every command above is the same one the CI gate runs; `--require-lifecycle` and `--require-signing` are what make the gate refuse a
+missing evidence file instead of recording `NOT_RUN`, so drop them only when you deliberately intend to report on a partial
+evidence set (for example a `-PortableOnly` build, which cannot produce installer evidence at all). the local lifecycle invocation needs administrator elevation because `DrillMaster.iss` declares `PrivilegesRequired=admin`, and it installs only into the throwaway `--work-root` you pass.
 
 Pass the interpreter explicitly with `-PythonExe` whenever the environment's `python` is the one you intend to package with; that is what the CI gate does. `-PythonLauncher py -PythonVersion 3.12` remains available on a workstation where the Python launcher is registered, but note that the launcher resolves registry-registered runtimes only, so it can silently select a different Python than the one whose dependencies were tested.
 
@@ -55,8 +57,11 @@ PowerShell handling matters here for two reasons. The step sets `$ErrorActionPre
 `acceptance_report.py` re-hashes the portable ZIP and the setup executable from the release directory — streamed in 1 MiB blocks through the
 single `release_metadata.sha256_file` helper, never `path.read_bytes()`, so a ~300 MB artifact is verified without loading it —
 and checks each recorded byte size.  It reads `package-smoke.log`, re-validates (rather than copies) the Inno Setup identity
-against the pinned version, folds in `installer-lifecycle.json` and `signing-status.json` when they exist, records
-`NOT_RUN`/`NOT_VERIFIED` when they do not, validates the CI identity it was invoked with (numeric run id, matching run URL,
+against the pinned version, and validates `release-metadata.json` against `release_metadata.validate_document` before using any
+field of it: a stale schema, a duplicated artifact row, a malformed digest, an unknown field, or a missing one is a refusal, not a
+partial read.  It folds in `installer-lifecycle.json` and `signing-status.json`; the release gate passes
+`--require-lifecycle --require-signing`, so on that path an *absent* record is an error rather than a benign
+`NOT_RUN`/`NOT_VERIFIED`, which is what keeps a skipped evidence step from reading as a successful unsigned build, validates the CI identity it was invoked with (numeric run id, matching run URL,
 branch and workflow name all present or none), and records the workflow run identity it was passed instead of a committed
 value.  Any claim it cannot tie to evidence raises `ReportError`, which fails the report step: the report is derived from
 artifacts, never written by hand.
@@ -97,10 +102,11 @@ A local build on a machine where Inno Setup was installed by its own installer (
 `-InnoSetupPackageVersion <verified version>`; the resulting manifest is marked operator-attested and the acceptance report will
 refuse to treat it as release evidence.  That refusal is intended.
 
-### Installed-application lifecycle evidence (M42.2)
+### Installed-application lifecycle evidence (M42.2, contract extended in M42.3)
 
 `python packaging\windows_release_evidence.py lifecycle --installer <Setup.exe> --release-metadata <release-metadata.json>
---app-version <version> --work-root <disposable dir> --json-out <installer-lifecycle.json>` performs, in one disposable tree:
+--app-version <version> --work-root <disposable dir> --json-out <installer-lifecycle.json>` performs, in one disposable tree
+(`install/`, `userdata/`, `smoke/` under the work root; there is no separate install-directory flag):
 silent install (`/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /DIR= /LOG=`), presence of `DrillMaster.exe` and `unins000.exe`, an
 installed-executable `ProductVersion` comparison against `core/version.py`, a run of the installed
 `DrillMaster.exe --package-smoke` with isolated data/log/backup roots and cleared bootstrap credentials, a before/after manifest of
@@ -110,9 +116,18 @@ lives outside `{app}`, and cleanup of the work root in a `finally` block so a mi
 installer's SHA-256 against `release-metadata.json` before executing it and refuses a portable ZIP as the target, so an inner
 bundle path can never be confused with the outer archive.
 
+Two claims are deliberately kept apart.  The uninstall *process* exit code is one step (`silent_uninstall`); whether the
+application files actually disappeared is a second one (`install_files_removed`), because a zero exit code from an uninstaller that
+copies itself to a temp location and returns early is not deletion evidence.  A zero exit code from the installed executable is
+likewise not proof that it smoke-tested: `installed_smoke` additionally requires the `PACKAGE_SMOKE_OK` marker in the captured
+output and refuses a run carrying a `FATAL` or `Traceback` marker, so an executable that prints help and exits cleanly fails.
+The `--expected-sha256` argument is optional and, when supplied, must agree with the manifest (disagreement exits `2`); the
+manifest is the authority, so the lifecycle can never be run against an unbound binary.
+
 Diagnostics are bounded and redacted: secret-valued environment variables are stripped before anything is written, and log tails
 are truncated.  `acceptance-report.json` folds the result in as `installed_lifecycle_status` and refuses to publish `PASS` when the
-evidence file is absent, when a step inside it did not pass, or when the lifecycle did not verify the installer hash it executed.
+evidence file is absent, when a step inside it did not pass, when the lifecycle did not verify the installer hash it executed, or
+when the recorded installer hash disagrees with the digest the report recomputes from the published artifact.
 
 What this proves: the shipped installer installs, the installed binary is the built binary, the installed binary starts and writes
 only outside its own directory, and it uninstalls without taking user data with it.  What it does not prove: interactive
@@ -120,15 +135,35 @@ clean-machine behaviour, UAC/elevation experience on a workstation, an upgrade o
 *different* installers, and is never simulated by running one installer twice), retention of a real operator profile, or operator
 acceptance.  Those remain the manual procedure below.
 
-### Signature status (M42.2)
+### Signature status (M42.2, evidence binding corrected in M42.3)
 
 `python packaging\windows_release_evidence.py signing --release-metadata <release-metadata.json> --json-out <signing-status.json>`
-asks Windows (`Get-AuthenticodeSignature`) about each published artifact and records `Status`, a bounded status message, and the
-signer subject only when a signature exists.  The current result is `UNSIGNED`, and the report says so; that is a finding about
-distribution trust, not a packaging failure, so the step never fails the gate for it.  Nothing reads, prints or stores a private
-key, certificate file or password.  Producing a valid signature requires an owner-controlled code-signing certificate (or a hosted
-signing service) and a signing step in `packaging/build_windows.ps1`; `packaging/DrillMaster.iss` sets no `SignTool` and no
-`SignedUninstaller` override today, and the report records `signing_configured_in_build: false` accordingly.
+queries Windows' `Get-AuthenticodeSignature` for exactly two executables: the compiled setup executable in the release directory,
+and `DrillMaster.exe` **extracted from the portable archive listed in the same manifest**.  The release directory also contains a
+loose `DrillMaster-1.0.0/DrillMaster.exe` copy left by the build; that copy is not examined, because nothing binds it to the
+published ZIP.  Extraction happens only after the archive's own SHA-256 has been recomputed and matched against the manifest, the
+member must be uniquely identified and free of `..` or absolute paths, its declared and actual size are bounded, the copy is made
+inside a temporary directory that is deleted afterwards, and no release artifact is mutated.  A manifest whose archive digest
+disagrees, an archive with no such member or with two of them, is a refusal (`ValueError`), not a fallback to a convenient file.
+
+Each row records its own `sha256`, and the inner row additionally records `container_archive`, `container_archive_sha256` and
+`container_member`, so the digest of the executable and the digest of the file that contains it cannot be conflated.  Container
+archives are recorded as `NOT_APPLICABLE` and excluded from the aggregate, because "a ZIP is not signed" is not a statement about
+trust; an empty or unparsable Authenticode answer becomes `UNKNOWN`, never `UNSIGNED`.  The vocabulary
+`PASS/UNSIGNED/FAIL/UNKNOWN/NOT_VERIFIED/NOT_RUN/NOT_APPLICABLE` is defined once, in `packaging/release_metadata.py`, and is
+imported by both the querying tool and the report: the aggregate is produced by the tool and validated by the report against that
+same set, so the two cannot drift into different meanings for the same word.
+
+The current result is `UNSIGNED`, and the report says so.  A signing *state* - including `FAIL` for a `NotTrusted` or `HashMismatch`
+result - is recorded and annotated but never reddens the packaging gate, because whether the release is signed is an owner decision
+about distribution trust; the only things that fail the step are a signing run that produced no record at all, and a record that
+cannot be parsed (annotated as `Signature record malformed`).  Nothing reads, prints or stores a private key, certificate file or
+password; only the *names* of credential-bearing environment variables are recorded, so the presence or absence of CI signing
+credentials stays auditable without leaking anything.
+
+Producing a valid signature requires an owner-controlled code-signing certificate (or a hosted signing service) and a signing step
+in `packaging/build_windows.ps1`; `packaging/DrillMaster.iss` sets no `SignTool` and no `SignedUninstaller` override today, and the
+report records `signing_configured_in_build: false` accordingly.
 
 ## Interactive installation procedure (manual; NOT automated by the workflow)
 

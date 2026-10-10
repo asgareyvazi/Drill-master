@@ -24,7 +24,10 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
+import zipfile
+from pathlib import PurePosixPath
 from pathlib import Path
 from typing import Callable, Protocol
 
@@ -33,9 +36,17 @@ if str(_PACKAGING_DIR) not in sys.path:
     sys.path.insert(0, str(_PACKAGING_DIR))
 
 from package_smoke import _smoke_environment  # noqa: E402  (isolated smoke environment is shared)
-from release_metadata import sha256_file  # noqa: E402  (one streaming hash implementation)
+from release_metadata import (  # noqa: E402  (shared schema-level constants and hashing)
+    SIGNING_NOT_APPLICABLE as NOT_APPLICABLE,
+    SIGNING_STATUS_VOCABULARY,
+    sha256_file,
+    validate_document,
+)
 
 DIAGNOSTIC_LIMIT = 4000
+# The frozen application executable is a few tens of megabytes.  This bound exists so a
+# malformed or hostile archive cannot fill the runner's disk during an evidence step.
+MAX_EXTRACTED_MEMBER_BYTES = 256 * 1024 * 1024
 STEP_FIELDS = ("name", "status", "detail")
 VERSION_QUERY_SCRIPT = (
     "$info = (Get-Item -LiteralPath $env:DRILLMASTER_TARGET_PATH).VersionInfo; "
@@ -58,6 +69,25 @@ class CommandResult(Protocol):
 
 
 Runner = Callable[[list[str], dict[str, str] | None, Path | None, int], CommandResult]
+
+
+def aggregate_signing_status(files: list[dict]) -> str:
+    """Fold per-file Authenticode results into one status, never into a guess.
+
+    ``NOT_APPLICABLE`` entries (archives) are excluded; if nothing signature-bearing
+    could be examined the result is UNKNOWN rather than a fabricated UNSIGNED.
+    """
+    examined = [item for item in files if item.get("status") != NOT_APPLICABLE]
+    statuses = {str(item.get("status")) for item in examined}
+    if not examined:
+        return "UNKNOWN"
+    if "UNKNOWN" in statuses:
+        return "UNKNOWN"
+    if statuses == {"NotSigned"}:
+        return "UNSIGNED"
+    if statuses == {"Valid"}:
+        return "PASS"
+    return "FAIL"
 
 
 def bound(text: str, limit: int = DIAGNOSTIC_LIMIT) -> str:
@@ -221,15 +251,23 @@ def run_lifecycle(*, installer: Path, expected_sha256: str, app_version: str, wo
         created = sorted(set(after) - set(before))
         changed = sorted(name for name in set(after) & set(before) if after[name] != before[name])
         log_written = (smoke_root / "logs" / "drillmaster.log").is_file()
+        # An exit code of 0 is not the same claim as "the smoke ran": a frozen executable
+        # that prints help and exits cleanly must never satisfy this step.
+        marker_found = "PACKAGE_SMOKE_OK" in smoke_output
+        fatal_found = bool(re.search(r"FATAL|Traceback \(most recent call last\)", smoke_output))
         details = {"exit_code": smoke.returncode, "wrote_log_outside_install_dir": log_written,
                    "secret_leak_detected": bool(leaked), "new_files_in_install_dir": created[:20],
-                   "changed_files_in_install_dir": changed[:20]}
+                   "changed_files_in_install_dir": changed[:20],
+                   "success_marker_found": marker_found, "fatal_marker_found": fatal_found}
         evidence["diagnostics"]["installed_smoke_output"] = redact(smoke_output, secret_values)
         evidence["installed_smoke"] = details
-        if smoke.returncode != 0 or leaked or created or changed or not log_written:
+        if (smoke.returncode != 0 or leaked or created or changed or not log_written
+                or not marker_found or fatal_found):
             record("installed_smoke", "FAIL", json.dumps(details, sort_keys=True))
             return _finish(evidence, "FAIL", started)
-        record("installed_smoke", "PASS", "exit 0; log written outside the install directory; install tree unchanged")
+        record("installed_smoke", "PASS",
+               "exit 0; success marker present; no fatal marker; log written outside the install "
+               "directory; install tree unchanged")
 
         # 5. User data lives outside {app}; record the containment proof explicitly.
         containment = {
@@ -327,10 +365,87 @@ def _uninstall(uninstaller: Path, log: Path, install_dir: Path, runner: Runner, 
             "install_dir_emptied": not sorted(snapshot(install_dir))}
 
 
+def read_release_manifest(path: Path) -> dict:
+    """Load a release manifest only when it satisfies the published v2 contract.
+
+    Both evidence commands go through this: a manifest with a stale schema, a duplicated
+    artifact row or a malformed digest cannot be used to bind a lifecycle run or a
+    signature claim, because every field of that evidence would then be a guess.
+    """
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"release metadata unreadable or malformed: {path.name} ({exc})") from exc
+    return validate_document(payload)
+
+
+def _artifact_by_suffix(metadata: dict, release_root: Path, suffix: str) -> tuple[Path, dict]:
+    """Locate a manifest artifact by extension and return it with its recorded entry."""
+    for entry in metadata.get("artifacts", []):
+        name = Path(str(entry.get("filename", ""))).name
+        if name.lower().endswith(suffix):
+            path = release_root / str(entry["filename"]).replace("/", os.sep)
+            return path, entry
+    raise ValueError(f"release metadata lists no {suffix} artifact to examine")
+
+
+def _digest_matches(path: Path, entry: dict, label: str) -> str:
+    """A file may only be trusted for evidence when its own recorded digest matches."""
+    if not path.is_file():
+        raise ValueError(f"{label} is listed in release metadata but missing: {path.name}")
+    digest = sha256_file(path)
+    recorded = str(entry.get("sha256") or "")
+    if recorded and digest.lower() != recorded.lower():
+        raise ValueError(f"{label} digest does not match release metadata; refusing to derive evidence from it")
+    return digest
+
+
+def extract_verified_member(archive: Path, exe_name: str, destination: Path,
+                            *, max_bytes: int = MAX_EXTRACTED_MEMBER_BYTES) -> tuple[Path, str]:
+    """Extract exactly one named member from an archive, safely and bounded.
+
+    The returned path is a copy inside the caller's temporary directory: the release
+    artifact itself is never mutated, and a member that could escape the destination
+    (absolute path or ``..``) or exceeds the size bound is refused.
+    """
+    with zipfile.ZipFile(archive) as bundle:
+        candidates = [info for info in bundle.infolist()
+                      if not info.is_dir() and PurePosixPath(info.filename).name.lower() == exe_name.lower()]
+        if not candidates:
+            raise ValueError(f"no {exe_name} member inside {archive.name}")
+        if len(candidates) > 1:
+            raise ValueError(f"{archive.name} holds {len(candidates)} members named {exe_name}; "
+                             "the packaged executable is not unambiguously identified")
+        info = candidates[0]
+        member = PurePosixPath(info.filename)
+        # Reject traversal, absolute and single-segment paths before any byte is written;
+        # only the member's own final name is materialised, inside the caller's scratch root.
+        if member.is_absolute() or member.drive or ".." in member.parts or len(member.parts) < 2:
+            raise ValueError(f"unsafe member path inside archive: {info.filename}")
+        if int(info.file_size) > max_bytes:
+            raise ValueError(f"member {info.filename} exceeds the extraction bound of {max_bytes} bytes")
+        payload = bundle.read(info)
+        if len(payload) > max_bytes:
+            raise ValueError(f"member {info.filename} expands beyond the extraction bound of "
+                             f"{max_bytes} bytes")
+        target = destination / member.name
+        target.write_bytes(payload)
+        return target, info.filename
+
+
 def run_signing(*, release_metadata_path: Path, runner: Runner = default_runner,
-                timeout: int = 120) -> dict:
-    """Record Authenticode status per published artifact, plus whether signing is possible."""
-    metadata = json.loads(release_metadata_path.read_text(encoding="utf-8"))
+                timeout: int = 120, exe_name: str = "DrillMaster.exe") -> dict:
+    """Record Authenticode status for every executable this release actually ships.
+
+    Two files decide the verdict: the compiled installer, and the portable bundle's
+    application executable *as extracted from the hash-verified portable archive*.
+    The bundle copy sitting in the release directory is not evidence, because nothing
+    binds it byte-for-byte to the published ZIP; the inner copy therefore comes out of
+    the archive after that archive's own recorded digest has been re-checked.  A
+    container archive is recorded as ``NOT_APPLICABLE`` because "a ZIP is unsigned" is
+    not a statement about trust.
+    """
+    metadata = read_release_manifest(release_metadata_path)
     release_root = release_metadata_path.parent
     script_text = ""
     for candidate in (_PACKAGING_DIR / "build_windows.ps1", _PACKAGING_DIR / "DrillMaster.iss"):
@@ -338,44 +453,79 @@ def run_signing(*, release_metadata_path: Path, runner: Runner = default_runner,
             script_text += candidate.read_text(encoding="utf-8", errors="replace")
     signing_configured = bool(re.search(r"signtool|SignTool=|SignedUninstaller", script_text, re.IGNORECASE))
     credential_env_present = sorted(key for key in os.environ
-                                    if SECRET_ENV_PATTERN.search(key) and re.search(r"SIGN|CERT|PFX|AUTHENTICODE", key, re.IGNORECASE))
-    files = []
-    for entry in metadata.get("artifacts", []):
-        path = release_root / str(entry["filename"]).replace("/", os.sep)
-        record = {"filename": str(entry["filename"]), "size_bytes": path.stat().st_size if path.is_file() else None,
-                  "sha256": sha256_file(path) if path.is_file() else None}
-        if not path.is_file():
-            record.update({"status": "UNKNOWN", "status_message": "artifact missing from the release directory"})
-        else:
+                                    if SECRET_ENV_PATTERN.search(key)
+                                    and re.search(r"SIGN|CERT|PFX|AUTHENTICODE", key, re.IGNORECASE))
+    files: list[dict] = []
+    examined: list[dict] = []
+    with tempfile.TemporaryDirectory(prefix="drillmaster-signing-") as directory:
+        scratch = Path(directory)
+
+        installer_path, installer_entry = _artifact_by_suffix(metadata, release_root, "-setup.exe")
+        zip_path, zip_entry = _artifact_by_suffix(metadata, release_root, ".zip")
+        # Both files are bound to a recorded digest before being queried: the installer by
+        # its own manifest entry, the inner executable by the archive it was extracted from.
+        _digest_matches(installer_path, installer_entry, "compiled installer")
+        outer_digest = _digest_matches(zip_path, zip_entry, "portable archive")
+        inner_path, inner_member = extract_verified_member(zip_path, exe_name, scratch)
+        targets = [
+            {"path": installer_path, "provenance": "compiled installer in the release directory",
+             "container": None, "container_digest": None, "member": None},
+            {"path": inner_path, "provenance": f"extracted from {zip_path.name}",
+             "container": zip_path.name, "container_digest": outer_digest, "member": inner_member},
+        ]
+
+        for spec in targets:
+            # Every path here has just been read and digest-verified, so its size and hash are
+            # facts about the examined bytes; there is no "not found" branch to soften a result.
+            path = spec["path"]
+            record = {"filename": path.name, "provenance": spec["provenance"],
+                      "size_bytes": path.stat().st_size, "sha256": sha256_file(path),
+                      "signature_bearing": path.suffix.lower() in (".exe", ".dll", ".msi"),
+                      "manifest_digest_match": True}
+            if spec["container"]:
+                # Inner and outer digests are separate fields and are never interchangeable.
+                record["container_archive"] = spec["container"]
+                record["container_archive_sha256"] = spec["container_digest"]
+                record["container_member"] = spec["member"]
             payload = run_powershell(SIGNATURE_QUERY_SCRIPT, path, runner, timeout)
             if "error" in payload:
                 record.update({"status": "UNKNOWN", "status_message": payload["error"]})
             else:
-                status = str(payload.get("Status") or "Unknown")
-                record["status"] = status
+                raw_status = str(payload.get("Status") or "").strip()
+                record["raw_status"] = bound(raw_status, 80)
+                record["status"] = raw_status or "UNKNOWN"
                 record["status_message"] = bound(str(payload.get("StatusMessage") or ""), 300)
                 subject = payload.get("SignerSubject")
                 if subject:
                     # A subject is public information, but it is still bounded here.
                     record["signer"] = bound(str(subject), 300)
-        files.append(record)
-    statuses = {str(item["status"]) for item in files}
-    if not files:
-        status = "UNKNOWN"
-    elif "UNKNOWN" in statuses:
-        # Unverifiable evidence is never folded into "unsigned": they are different claims.
-        status = "UNKNOWN"
-    elif statuses == {"NotSigned"}:
-        status = "UNSIGNED"
-    elif statuses == {"Valid"}:
-        status = "PASS"
-    else:
-        status = "FAIL"
+            files.append(record)
+            if record["signature_bearing"]:
+                examined.append(record)
+
+        # The archives themselves are recorded, but excluded from the verdict.
+        for entry in metadata.get("artifacts", []):
+            name = Path(str(entry.get("filename", ""))).name
+            if name.lower().endswith((".zip", ".exe")) and not name.lower().endswith("-setup.exe"):
+                files.append({"filename": name, "provenance": "published release artifact",
+                              "size_bytes": entry.get("size_bytes"), "sha256": entry.get("sha256"),
+                              "signature_bearing": False, "status": NOT_APPLICABLE,
+                              "status_message": "container archive; Authenticode applies to the executables it carries"})
+
+    status = aggregate_signing_status(files)
+    if status not in SIGNING_STATUS_VOCABULARY:
+        raise ValueError(f"signature tool produced a status outside the vocabulary: {status!r}")
     return {
         "schema": "drillmaster-signing-status/v1",
         "method": "Windows Get-AuthenticodeSignature",
         "status": status,
+        "policy": ("unsigned publication is the current release policy: a recorded signature state, including "
+                   "FAIL, is a distribution-trust finding and never fails the packaging gate, a result that could "
+                   "not be examined is never reported as UNSIGNED, and a run that produced no interpretable "
+                   "record does fail the gate"),
         "files": files,
+        "examined_count": len(examined),
+        "archive_count": len(files) - len(examined),
         "signing_configured_in_build": signing_configured,
         "credentials_available": bool(credential_env_present),
         "credential_environment_variables": credential_env_present,
@@ -399,7 +549,14 @@ def render_markdown(report: dict, title: str) -> str:
         lines.append("")
         for item in files:
             signer = f"; signer: {item['signer']}" if item.get("signer") else ""
-            lines.append(f"- `{item['filename']}` — {item['status']}{signer}")
+            digest = f"; sha256: {item['sha256'][:16]}..." if item.get("sha256") else ""
+            origin = f"; from: {item['provenance']}" if item.get("provenance") else ""
+            container = (f"; inside `{item['container_member']}` of {item['container_archive']} "
+                         f"(sha256 {item['container_archive_sha256'][:16]}...)"
+                         if item.get("container_member") else "")
+            lines.append(f"- `{item['filename']}` — {item['status']}{signer}{digest}{origin}{container}")
+    if report.get("policy"):
+        lines += ["", f"Policy: {report['policy']}"]
     if report.get("prerequisite"):
         lines += ["", f"Prerequisite: {report['prerequisite']}"]
     return "\n".join(lines) + "\n"
@@ -430,8 +587,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.command == "lifecycle":
-        metadata = json.loads(args.release_metadata.read_text(encoding="utf-8"))
-        entry = _installer_entry(metadata, args.installer.resolve())
+        try:
+            metadata = read_release_manifest(args.release_metadata)
+            entry = _installer_entry(metadata, args.installer.resolve())
+        except ValueError as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 2
         expected = str(entry["sha256"])
         if args.expected_sha256 and args.expected_sha256.lower() != expected.lower():
             print("ERROR: --expected-sha256 disagrees with release metadata", file=sys.stderr)
@@ -444,7 +605,7 @@ def main(argv: list[str] | None = None) -> int:
             args.work_root.mkdir(parents=True, exist_ok=True)
             report = run_lifecycle(installer=args.installer.resolve(), expected_sha256=expected,
                                    app_version=args.app_version, work_root=args.work_root.resolve(),
-                                   exe_name=args.exe_name, timeout=args.timeout,
+                                   runner=default_runner, exe_name=args.exe_name, timeout=args.timeout,
                                    settle_seconds=args.settle_seconds)
     else:
         if sys.platform != "win32":
@@ -452,7 +613,15 @@ def main(argv: list[str] | None = None) -> int:
                       "reason": "Authenticode verification requires a Windows host", "files": [],
                       "signing_configured_in_build": False, "credentials_available": False, "prerequisite": ""}
         else:
-            report = run_signing(release_metadata_path=args.release_metadata.resolve(), timeout=args.timeout)
+            try:
+                report = run_signing(release_metadata_path=args.release_metadata.resolve(),
+                                     runner=default_runner, timeout=args.timeout)
+            except (OSError, ValueError, json.JSONDecodeError) as exc:
+                # No signing state can fail the packaging gate, but a signing step that
+                # produced no record at all is a tooling failure and must look like one.
+                print(f"ERROR: signature verification produced no record: {type(exc).__name__}: {exc}",
+                      file=sys.stderr)
+                return 1
 
     args.json_out.parent.mkdir(parents=True, exist_ok=True)
     args.json_out.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -460,9 +629,11 @@ def main(argv: list[str] | None = None) -> int:
         args.markdown_out.parent.mkdir(parents=True, exist_ok=True)
         args.markdown_out.write_text(render_markdown(report, f"Windows {args.command} evidence"), encoding="utf-8")
     print(json.dumps({"command": args.command, "status": report.get("status"),
-                      "json_out": str(args.json_out)}, sort_keys=True))
-    statuses = {"PASS", "NOT_RUN", "UNSIGNED"}
-    return 0 if str(report.get("status")) in statuses else 1
+                      "files": [{"filename": item.get("filename"), "status": item.get("status")}
+                                for item in report.get("files", [])]}, sort_keys=True))
+    if args.command == "signing":
+        return 0
+    return 0 if str(report.get("status")) in {"PASS", "NOT_RUN"} else 1
 
 
 if __name__ == "__main__":

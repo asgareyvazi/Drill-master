@@ -35,6 +35,10 @@ ALLOWED_IDENTITY_SOURCES = frozenset({
     NOT_BUILT,
 })
 VERIFIED_IDENTITY_SOURCES = ALLOWED_IDENTITY_SOURCES - {"operator-attested", NOT_BUILT}
+# One vocabulary for signature findings, shared by the evidence tool that produces it
+# and the report that validates it, so the two cannot drift apart.
+SIGNING_STATUS_VOCABULARY = frozenset({"PASS", "UNSIGNED", "UNKNOWN", "FAIL", "NOT_RUN"})
+SIGNING_NOT_APPLICABLE = "NOT_APPLICABLE"
 
 
 def sha256_file(path: Path, *, chunk_size: int = SHA256_CHUNK_SIZE) -> str:
@@ -98,6 +102,68 @@ def _artifact(path: Path, root: Path) -> dict[str, object]:
     if not resolved.is_file():
         raise ValueError(f"Release artifact is not a file: {name}")
     return {"filename": name, "sha256": sha256_file(resolved), "size_bytes": resolved.stat().st_size}
+
+
+REQUIRED_FIELDS = (
+    "schema", "git_sha", "version", "platform", "python", "build_tools",
+    "reproducible_build", "artifact_scope", "artifacts",
+)
+ARTIFACT_FIELDS = ("filename", "sha256", "size_bytes")
+DIGEST_PATTERN = re.compile(r"^[0-9a-f]{64}$")
+
+
+def validate_document(payload: object) -> dict:
+    """Enforce the published manifest contract, whatever produced the file.
+
+    The release generator calls this before writing and every consumer calls it before
+    reading, so a document carrying a stale schema, a foreign field, a duplicated artifact
+    entry or a malformed digest is refused instead of being partially reinterpreted.
+    """
+    if not isinstance(payload, dict):
+        raise ValueError(f"release metadata must be a JSON object, got {type(payload).__name__}")
+    if payload.get("schema") != SCHEMA:
+        raise ValueError(f"release metadata must use schema {SCHEMA}; no other schema is reinterpreted here")
+    missing = [field for field in REQUIRED_FIELDS if field not in payload]
+    if missing:
+        raise ValueError(f"release metadata is missing required field(s): {', '.join(missing)}")
+    unexpected = sorted(set(payload) - set(REQUIRED_FIELDS))
+    if unexpected:
+        raise ValueError(f"release metadata carries field(s) outside {SCHEMA}: {', '.join(unexpected)}")
+    tools = payload["build_tools"]
+    if not isinstance(tools, dict):
+        raise ValueError("release metadata build_tools must be a JSON object")
+    required_tools = ("pip", "pyinstaller", "innosetup_package_version", "innosetup_compiler_file_version",
+                      "innosetup_version_source", "innosetup_identity_verified")
+    absent = [name for name in required_tools if name not in tools]
+    if absent:
+        raise ValueError(f"release metadata build_tools is missing field(s): {', '.join(absent)}")
+    artifacts = payload["artifacts"]
+    if not isinstance(artifacts, list) or not artifacts:
+        raise ValueError("release metadata artifacts must be a non-empty list")
+    seen: set[str] = set()
+    for index, item in enumerate(artifacts):
+        if not isinstance(item, dict):
+            raise ValueError(f"artifact entry {index} must be a JSON object")
+        keys = set(item) - set(ARTIFACT_FIELDS)
+        if keys:
+            raise ValueError(f"artifact entry {index} carries unknown field(s): {', '.join(sorted(keys))}")
+        absent_fields = [name for name in ARTIFACT_FIELDS if name not in item]
+        if absent_fields:
+            raise ValueError(f"artifact entry {index} is missing field(s): {', '.join(absent_fields)}")
+        name = Path(str(item["filename"])).name.lower()
+        if not name:
+            raise ValueError(f"artifact entry {index} has an empty filename")
+        if name in seen:
+            raise ValueError(f"duplicate artifact entry for {name}; a manifest may record each file once")
+        seen.add(name)
+        if not DIGEST_PATTERN.match(str(item["sha256"])):
+            raise ValueError(f"artifact {name} records a malformed SHA-256 digest")
+        size = item["size_bytes"]
+        # A zero-length artifact is a legitimate thing to record and to re-hash (the report
+        # re-measures every size anyway); a negative, fractional or boolean one is not.
+        if isinstance(size, bool) or not isinstance(size, int) or size < 0:
+            raise ValueError(f"artifact {name} records a negative or non-integer size_bytes")
+    return payload
 
 
 def write_manifest(
@@ -164,6 +230,7 @@ def write_manifest(
         "artifact_scope": "outer release artifacts; inner bundle files inside the portable ZIP are not individually hashed here",
         "artifacts": sorted(artifacts, key=lambda item: str(item["filename"])),
     }
+    validate_document(manifest)
     metadata_path = root / "release-metadata.json"
     metadata_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     checksum_path = root / "SHA256SUMS.txt"

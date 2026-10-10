@@ -122,12 +122,21 @@
       "tests/test_windows_release_evidence.py::test_lifecycle_passes_only_when_install_run_and_uninstall_are_all_proven",
       "tests/test_windows_release_evidence.py::test_each_missing_proof_fails_the_lifecycle",
       "tests/test_acceptance_report.py::test_installed_lifecycle_is_only_claimed_when_its_evidence_agrees"
-    ]
+    ],
+    "corrected_in_m42_3": "installed_smoke additionally requires the PACKAGE_SMOKE_OK success marker and rejects a FATAL or Traceback marker, so a zero exit code from the installed executable no longer satisfies the step"
   },
   "signing": {
-    "method": "Windows Get-AuthenticodeSignature per published artifact",
+    "method": "Windows Get-AuthenticodeSignature per signature-bearing published file",
     "current_status": "UNSIGNED",
-    "key_material_handling": "no certificate, private key, PFX or password is read, printed or stored; only public signer subject when a signature exists",
+    "files_examined": [
+      "the compiled setup executable",
+      "the portable bundle DrillMaster.exe"
+    ],
+    "archives": "recorded NOT_APPLICABLE and excluded from the aggregate; a ZIP has no Authenticode state",
+    "unknown_states": "an empty or unparsable status is UNKNOWN, never folded into UNSIGNED",
+    "gate_effect": "a signing state (including FAIL) is recorded and annotated but never fails the packaging gate; only a signing step that produced no record at all does",
+    "corrected_in_m42_3": "the bundle executable is examined as extracted from the hash-verified portable archive rather than as a loose copy in the release directory; a required signing record that is absent is now a report error rather than NOT_VERIFIED; and the status vocabulary is defined once in packaging/release_metadata.py and imported by every module that has to agree about what a status word means",
+    "key_material_handling": "no certificate, private key, PFX or password is read, printed or stored; only the names of credential-bearing environment variables are recorded, never their values",
     "release_configuration_supports_signing": false,
     "credentials_available_in_ci": false,
     "prerequisite": "an owner-controlled code-signing certificate or hosted signing service plus a signing step in packaging/build_windows.ps1; unsigned builds do not fail the gate because that would misattribute an external decision to repository code"

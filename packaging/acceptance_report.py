@@ -27,8 +27,10 @@ if str(_PACKAGING_DIR) not in sys.path:
 
 from release_metadata import (  # noqa: E402  (path bootstrap above is required)
     SCHEMA as METADATA_SCHEMA,
+    SIGNING_STATUS_VOCABULARY,
     VERIFIED_IDENTITY_SOURCES,
     sha256_file,
+    validate_document,
     validate_identity_source,
     validate_tool_version,
 )
@@ -170,37 +172,76 @@ def read_lifecycle_evidence(path: Path | None, *, required: bool) -> dict:
         "steps": steps,
         "evidence_file": path.name,
         "installer_verified": bool(payload.get("installer_hash_verified")),
+        "installer_sha256": str(payload.get("installer_sha256") or ""),
+        "installer_filename": str(payload.get("installer_filename") or ""),
         "signing": payload.get("signing") or {},
         "diagnostics": payload.get("diagnostics") or {},
     }
 
 
-def read_signing_evidence(path: Path | None) -> dict:
-    """Report signature status as observed; never infer it from the build succeeding."""
+def read_signing_evidence(path: Path | None, *, required: bool = False) -> dict:
+    """Report signature status as observed; never infer it from the build succeeding.
+
+    When the workflow declares signing evidence mandatory (``required``), an absent record
+    is an error rather than a benign ``NOT_VERIFIED``: a missing check must not read as a
+    successful unsigned build.
+    """
     if path is None or not path.is_file():
+        if required:
+            raise ReportError("signature verification evidence is required but missing; "
+                              "a missing signing record is not evidence of an acceptable unsigned build")
         return {"status": "NOT_VERIFIED",
                 "reason": "no signature verification step ran for this artifact set",
                 "files": []}
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
-        raise ReportError(f"signing evidence unreadable: {exc}") from exc
-    files = payload.get("files") or []
-    statuses = {str(item.get("status", "UNKNOWN")) for item in files}
-    if not files:
-        status = "UNKNOWN"
-    elif statuses == {"NotSigned"}:
-        status = "UNSIGNED"
-    elif statuses <= {"Valid"}:
-        status = "PASS"
+        raise ReportError(f"signing evidence unreadable or malformed: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise ReportError("signing evidence must be a JSON object")
+    reported = payload.get("status")
+    if reported not in (None, "") and str(reported).strip().upper() not in SIGNING_STATUS_VOCABULARY:
+        raise ReportError(f"signing evidence reports a status outside the published vocabulary: {reported!r}")
+    files = payload.get("files")
+    if files is None:
+        files = []
+    if not isinstance(files, list):
+        raise ReportError("signing evidence 'files' must be a list of per-file records")
+    for item in files:
+        if not isinstance(item, dict):
+            raise ReportError(f"signing evidence file record must be an object, got {type(item).__name__}")
+        state = item.get("status")
+        if state is not None and not isinstance(state, str):
+            raise ReportError(f"signing evidence status for {item.get('filename')!r} must be a string or null")
+    clean_files = []
+    for item in files:
+        state = item.get("status")
+        clean_files.append({"filename": item.get("filename"),
+                            "status": state if isinstance(state, str) and state.strip() else "UNKNOWN",
+                            "signer": item.get("signer", "")})
+    # The aggregate is the querying tool's own conclusion, validated here rather than
+    # re-derived: the report cannot know Windows' Authenticode semantics any better than
+    # the utility that asked about them, and a second rule would drift from the first.
+    reported = str(reported or "").strip().upper()
+    if reported in SIGNING_STATUS_VOCABULARY:
+        status = reported
     else:
-        status = "FAIL"
+        statuses = {item["status"] for item in clean_files if item["status"] != "NOT_APPLICABLE"}
+        if not statuses:
+            status = "UNKNOWN"
+        elif "UNKNOWN" in statuses:
+            status = "UNKNOWN"
+        elif statuses == {"NotSigned"}:
+            status = "UNSIGNED"
+        elif statuses == {"Valid"}:
+            status = "PASS"
+        else:
+            status = "FAIL"
     return {"status": status, "method": payload.get("method", "unknown"),
             "signing_configured_in_build": bool(payload.get("signing_configured_in_build", False)),
             "credentials_available": bool(payload.get("credentials_available", False)),
             "prerequisite": payload.get("prerequisite", ""),
-            "files": [{"filename": item.get("filename"), "status": item.get("status"),
-                       "signer": item.get("signer", "")} for item in files]}
+            "files": clean_files}
 
 
 def _read_junit(junit_path: Path) -> dict:
@@ -250,17 +291,26 @@ def _read_ci_identity(ci: dict, source_sha: str) -> dict:
 
 def build_report(*, metadata_path: Path, junit_path: Path, source_sha: str, ci: dict | None = None,
                  expected_innosetup_version: str = "", lifecycle_report_path: Path | None = None,
-                 require_lifecycle: bool = False, signing_report_path: Path | None = None) -> dict:
+                 require_lifecycle: bool = False, signing_report_path: Path | None = None,
+                 require_signing: bool = False) -> dict:
     if not re.fullmatch(r"[0-9a-f]{40}", source_sha or ""):
         raise ReportError("source SHA must be a full lowercase commit hash")
-    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    try:
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ReportError(f"release metadata unreadable or malformed: {exc}") from exc
+    try:
+        validate_document(metadata)
+    except ValueError as exc:
+        schema = metadata.get("schema") if isinstance(metadata, dict) else None
+        if schema is not None and schema != METADATA_SCHEMA:
+            raise ReportError(
+                f"release metadata must use {METADATA_SCHEMA}; older schemas recorded only an "
+                "unverified ISCC file version and cannot support a toolchain claim"
+            ) from exc
+        raise ReportError(f"release metadata violates its published contract: {exc}") from exc
     if metadata.get("git_sha") != source_sha:
         raise ReportError("release metadata SHA does not match the requested source SHA")
-    if metadata.get("schema") != METADATA_SCHEMA:
-        raise ReportError(
-            f"release metadata must use {METADATA_SCHEMA}; older schemas recorded only an "
-            "unverified ISCC file version and cannot support a toolchain claim"
-        )
 
     suite = _read_junit(junit_path)
     release_root = metadata_path.parent
@@ -275,7 +325,18 @@ def build_report(*, metadata_path: Path, junit_path: Path, source_sha: str, ci: 
     identity = read_innosetup_identity(metadata["build_tools"], installer_present=True,
                                        expected_version=expected_innosetup_version)
     lifecycle = read_lifecycle_evidence(lifecycle_report_path, required=require_lifecycle)
-    signing = read_signing_evidence(signing_report_path)
+    if lifecycle["status"] == "PASS":
+        # The lifecycle must have hashed the same bytes this report just hashed.
+        if lifecycle["installer_filename"] != installer_artifact["filename"] or (
+            lifecycle["installer_sha256"] and lifecycle["installer_sha256"] != installer_artifact["sha256"]
+        ):
+            raise ReportError(
+                "installed-application lifecycle evidence is not bound to the verified installer: it names "
+                f"{lifecycle['installer_filename']!r} "
+                f"{(lifecycle['installer_sha256'] or 'no hash')[:16]} while the release artifact is "
+                f"{installer_artifact['filename']} {installer_artifact['sha256'][:16]}"
+            )
+    signing = read_signing_evidence(signing_report_path, required=require_signing)
     ci_identity = _read_ci_identity(dict(ci or {}), source_sha)
     external = {
         "interactive_clean_machine_install": "NOT_RUN",
@@ -331,6 +392,11 @@ def build_report(*, metadata_path: Path, junit_path: Path, source_sha: str, ci: 
                 "reason": lifecycle.get("reason", ""),
                 "evidence_file": lifecycle.get("evidence_file"),
                 "installer_hash_verified": lifecycle.get("installer_verified", False),
+                "installer_sha256": lifecycle.get("installer_sha256", ""),
+                "bound_to_verified_artifact": bool(
+                    lifecycle.get("installer_sha256") == installer_artifact["sha256"]
+                    and lifecycle.get("installer_filename") == installer_artifact["filename"]
+                ),
                 "note": "An automated lifecycle smoke is not interactive clean-machine or operator acceptance.",
             },
             "code_signing": signing,
@@ -428,16 +494,23 @@ def main(argv: list[str] | None = None) -> int:
                         help="fail when no lifecycle evidence exists (used by the Windows release gate)")
     parser.add_argument("--signing-report", type=Path,
                         help="signing-status.json produced by the signature verification step")
+    parser.add_argument("--require-signing", action="store_true",
+                        help="fail when no signing evidence exists (used by the Windows release gate)")
     args = parser.parse_args(argv)
-    report = build_report(
-        metadata_path=args.metadata, junit_path=args.junit, source_sha=args.source_sha,
-        ci={"workflow": args.ci_workflow, "run_id": args.ci_run_id, "run_url": args.ci_run_url,
-            "branch": args.ci_branch},
-        expected_innosetup_version=args.expected_innosetup_version,
-        lifecycle_report_path=args.lifecycle_report, require_lifecycle=args.require_lifecycle,
-        signing_report_path=args.signing_report,
-    )
-    verify_report_fields(report)
+    try:
+        report = build_report(
+            metadata_path=args.metadata, junit_path=args.junit, source_sha=args.source_sha,
+            ci={"workflow": args.ci_workflow, "run_id": args.ci_run_id, "run_url": args.ci_run_url,
+                "branch": args.ci_branch},
+            expected_innosetup_version=args.expected_innosetup_version,
+            lifecycle_report_path=args.lifecycle_report, require_lifecycle=args.require_lifecycle,
+            signing_report_path=args.signing_report, require_signing=args.require_signing,
+        )
+        verify_report_fields(report)
+    except ReportError as exc:
+        # A clean refusal, not a traceback: the message is what an operator reads in the log.
+        print(f"acceptance report refused: {exc}", file=sys.stderr)
+        return 1
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(f"Windows acceptance report: {args.output}")

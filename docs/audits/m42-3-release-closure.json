@@ -1,0 +1,156 @@
+{
+  "schema": "drillmaster-mission-checkpoint/v1",
+  "mission": "M42.3",
+  "title": "Release evidence semantics, repository-wide quality audit, and operational acceptance readiness",
+  "recorded_on": "2026-10-10",
+  "branch": "arena/01a0ec23-drill-master",
+  "repository": "asgareyvazi/Drill-master",
+  "baseline": {
+    "compared_against": "ce3ff5ce2bd841f191ec3f2602e8ac609da6698b",
+    "application_version": "1.0.0",
+    "note": "M42.2 was pushed as ce3ff5ce; its signing-correction commit was created locally but never reached the remote before a sandbox restore replaced the clone, so the recovered content is re-committed here under a new SHA and no prior CI result is claimed for it."
+  },
+  "recovery_rule": "no tracked file was discarded: the restored worktree was snapshotted, HEAD was aligned to the verified remote tip with a mixed reset that left the worktree untouched (byte digest of every repository file recomputed before and after), and the only delta was the recovered change set",
+  "defects_closed": [
+    {
+      "id": "M42.3-1",
+      "name": "SIGNING_EVIDENCE_NOT_BOUND_TO_THE_PUBLISHED_ARCHIVE",
+      "root_cause": "the signing step examined the loose DrillMaster-1.0.0/DrillMaster.exe copy left in the release directory by the build, which nothing binds to the published portable ZIP, so the record could describe bytes the shipped archive does not contain",
+      "fix": "the aggregate is decided by the compiled installer plus DrillMaster.exe extracted from the portable archive named in the same manifest, and only after that archive's SHA-256 has been recomputed and matched; extraction requires a uniquely identified member, rejects absolute, drive-qualified, single-segment and ..-containing paths, bounds declared and actual size, writes only into a temporary directory that is deleted afterwards, and mutates no release artifact; inner and outer digests are separate fields",
+      "guards": [
+        "tests/test_windows_release_evidence.py::test_inner_bundle_executable_is_examined_from_the_verified_archive",
+        "tests/test_windows_release_evidence.py::test_a_release_dir_copy_of_the_executable_is_never_quietly_accepted_as_evidence",
+        "tests/test_windows_release_evidence.py::test_corrupt_or_mismatched_archive_is_refused_before_any_extraction",
+        "tests/test_windows_release_evidence.py::test_extraction_refuses_an_archive_without_a_single_safe_executable_member",
+        "tests/test_windows_release_evidence.py::test_extraction_bound_and_duplicate_member_are_refused",
+        "tests/test_windows_release_evidence.py::test_release_examination_does_not_mutate_the_published_artifacts"
+      ]
+    },
+    {
+      "id": "M42.3-2",
+      "name": "MISSING_SIGNING_RECORD_READ_AS_AN_UNSIGNED_BUILD",
+      "root_cause": "the report treated an absent signing-status.json as NOT_VERIFIED while the gate passed no requirement flag, so a skipped evidence step produced a green release whose report implied the state had been checked and found unsigned",
+      "fix": "acceptance_report.py gained --require-signing (used by the Windows gate next to --require-lifecycle); a required-but-absent record raises ReportError and the CLI exits 1 with a one-line diagnostic rather than a traceback, and a record that exists but cannot be parsed is annotated as a malformed signing record and fails the step",
+      "guards": [
+        "tests/test_acceptance_report.py::test_a_required_signing_record_cannot_be_absent",
+        "tests/test_acceptance_report.py::test_report_cli_exit_codes_follow_the_documented_contract",
+        "tests/test_windows_release_gate_contract.py::test_signing_step_records_status_without_faking_or_failing_a_release"
+      ]
+    },
+    {
+      "id": "M42.3-3",
+      "name": "SIGNING_VOCABULARY_DEFINED_TWICE",
+      "root_cause": "the evidence tool and the report each carried their own set of status words, so the two could start meaning different things by the same word while both still looked green",
+      "fix": "SIGNING_STATUS_VOCABULARY and SIGNING_NOT_APPLICABLE are defined once in packaging/release_metadata.py and imported by both; the tool refuses to emit an aggregate outside it and the report refuses to fold in a record that claims a status outside it, instead of re-deriving Authenticode semantics a second time",
+      "guards": [
+        "tests/test_windows_release_gate_contract.py::test_signing_vocabulary_and_extraction_rules_are_declared_exactly_once",
+        "tests/test_windows_release_evidence.py::test_an_out_of_vocabulary_aggregate_from_the_tool_is_refused",
+        "tests/test_acceptance_report.py::test_report_refuses_signing_evidence_it_cannot_interpret"
+      ]
+    },
+    {
+      "id": "M42.3-4",
+      "name": "ZERO_EXIT_CODE_TAKEN_FOR_A_PASSED_SMOKE",
+      "root_cause": "the installed-application step judged the run solely on the captured exit code, so a frozen executable that prints help, or prints a traceback and exits 0, satisfied the lifecycle and the report promoted it to PASS",
+      "fix": "the step additionally requires the PACKAGE_SMOKE_OK marker in the captured output and refuses a FATAL or Traceback marker; both facts are published in installed_smoke as success_marker_found and fatal_marker_found",
+      "guards": [
+        "tests/test_windows_release_evidence.py::test_a_clean_exit_without_the_success_marker_is_a_failure",
+        "tests/test_windows_release_evidence.py::test_a_fatal_marker_with_a_zero_exit_code_is_still_a_failure"
+      ]
+    },
+    {
+      "id": "M42.3-5",
+      "name": "MANIFEST_CONTRACT_ENFORCED_ONLY_AT_THE_POINT_OF_INTEREST",
+      "root_cause": "each consumer read the fields it happened to need, so a manifest with a duplicated artifact row, an unknown field, a stale schema or a malformed digest could be partially accepted, and a non-object document reached the operator as a traceback",
+      "fix": "release_metadata.validate_document is the single contract for drillmaster-release-artifacts/v2, called by the generator before writing and by the report and both evidence commands before reading; the report wraps it in ReportError so the CLI refuses cleanly",
+      "guards": [
+        "tests/test_acceptance_report.py::test_report_refuses_a_manifest_deviating_from_its_published_contract",
+        "tests/test_acceptance_report.py::test_report_accepts_the_document_the_generator_itself_publishes",
+        "tests/test_windows_release_evidence.py::test_missing_artifact_or_manifest_entry_is_reported_without_inventing_a_state"
+      ]
+    }
+  ],
+  "signing_contract": {
+    "vocabulary": ["PASS", "UNSIGNED", "FAIL", "UNKNOWN", "NOT_VERIFIED", "NOT_RUN", "NOT_APPLICABLE"],
+    "vocabulary_owner": "packaging/release_metadata.py",
+    "examined_set": "the compiled installer in the release directory and the bundle executable extracted from the hash-verified portable archive; nothing else",
+    "container_archives": "recorded NOT_APPLICABLE with their own digest, excluded from the aggregate",
+    "unreadable": "UNKNOWN, never rewritten to UNSIGNED",
+    "missing_file_or_disagreeing_digest": "a refusal that produces no record, which fails the step",
+    "gate_effect": "an observed state, including FAIL, is annotated and published but never reddens the packaging gate; no record or an unparseable record does",
+    "exit_code_handling": "the step snapshots $LASTEXITCODE at the call, throws only for its own evidence failures, and ends with an explicit exit 0 because the Actions pwsh wrapper propagates the last native command's status",
+    "key_material_handling": "no certificate, private key, PFX or password is read, printed or stored; only environment-variable names that would carry credentials are recorded",
+    "signing_configured_in_build": false,
+    "credentials_available_in_ci": false,
+    "current_status": "UNSIGNED, recorded as such in the acceptance report with the owner prerequisite named"
+  },
+  "evidence_document_contract": {
+    "manifest_schema": "drillmaster-release-artifacts/v2",
+    "required_fields": ["schema", "git_sha", "version", "platform", "python", "build_tools", "reproducible_build", "artifact_scope", "artifacts"],
+    "artifact_row_fields": ["filename", "sha256", "size_bytes"],
+    "refused": ["any other schema version", "unknown or missing fields at either level", "duplicate artifact rows", "non-hex or wrong-length digests", "negative or non-integer sizes", "an empty artifact list", "a build_tools block without the identity fields"],
+    "backward_compatibility": "v1 manifests are refused with the reason that they recorded an unverified ISCC file version; no silent reinterpretation"
+  },
+  "internal_gates": [
+    {
+      "gate": "source_release_gate",
+      "workflow_file": ".github/workflows/ci.yml",
+      "requirement": "success on the exact final SHA for Python 3.11, 3.12 and 3.13, including exact-source, locked dependency, test and wheel verification"
+    },
+    {
+      "gate": "windows_release_validation",
+      "workflow_file": ".github/workflows/windows-release-gate.yml",
+      "requirement": "success on the exact final SHA for the Windows regression suite, the portable bundle, the frozen executable smoke, installer compilation with a verified Inno Setup identity, artifact hash and size re-verification, the installed-application lifecycle smoke with the success-marker requirement, archive-bound signature-status recording, and acceptance-report generation with --require-lifecycle --require-signing"
+    }
+  ],
+  "evidence_rule": "a commit cannot contain the identity of the run that validates it; run IDs, URLs, conclusions and artifact digests for this change are recorded in the mission report and in the generated acceptance-report.json, never in committed source",
+  "mutation_evidence": {
+    "count": 24,
+    "result": "every mutation was caught by the committed tests and the worktree was verified byte-identical afterwards",
+    "examples": [
+      "counting container archives inside the aggregate",
+      "rewriting an unreadable Authenticode answer as UNSIGNED",
+      "querying the loose release-directory executable instead of the packaged one",
+      "trusting the recorded archive digest instead of recomputing it",
+      "removing the zip-slip or extraction-size guard",
+      "tolerating an absent required signing record",
+      "letting the signing step inherit the last native exit code",
+      "dropping --require-lifecycle --require-signing from the report step",
+      "accepting a clean exit without the smoke success marker",
+      "recording unredacted diagnostics",
+      "accepting duplicate or unknown manifest fields",
+      "treating operator attestation as a verified identity",
+      "publishing lifecycle PASS without installer-hash proof",
+      "making an expected-unsigned build fail the gate"
+    ]
+  },
+  "external_acceptance": {
+    "status": "NOT_RUN",
+    "register": [
+      "interactive_clean_machine_install",
+      "interactive_upgrade_and_uninstall_data_retention",
+      "real_ddr_excel_operator_acceptance",
+      "real_ddr_pdf_acceptance",
+      "real_mineru_acceptance",
+      "production_database_acceptance",
+      "field_validation",
+      "operator_business_signoff"
+    ],
+    "synthetic_workbook": "AUTOMATED_TEST_ONLY_NOT_REAL_DDR_ACCEPTANCE",
+    "hosted_runner_lifecycle_is_not": "interactive acceptance, UAC experience, an upgrade over a previous installation, or retention of a real operator profile",
+    "artifact_integrity_from_this_environment": "NOT_VERIFIED for third-party re-download re-verification; the workflow-side Get-FileHash pass and the published SHA256SUMS.txt remain the operator's means of independent confirmation",
+    "reproducible_build": "NOT_CLAIMED"
+  },
+  "preserved_boundaries": {
+    "M36_P6_closure": "intact; not re-adjudicated by M42.3",
+    "W5": "PROVENANCE_EXTERNAL_SOURCE_UNAVAILABLE with 332 / 334 source-hash contexts preserved as recorded",
+    "open_owner_decisions": ["NEW-P6-007", "NEW-P6-008", "NEW-P6-015", "NEW-P6-020", "NEW-P6-023", "NEW-P6-024"],
+    "engineering_scope": "casing PARTIAL not full API TR 5C3; torque and drag PARTIAL/SCREENING; anti-collision PARTIAL/SCREENING without ISCWSA covariance, magnetic-declination or survey-error modelling; cement module is not laboratory slurry design; fishing is bounded screening; production torque and drag and cement laboratory design NOT_IMPLEMENTED; no Herschel-Bulkley claim",
+    "documented_in": ["PRODUCTION_READINESS.md", "ENGINEERING_CAPABILITY_STATUS.md", "docs/audits/m42-1-release-closure.json", "docs/audits/m42-2-release-closure.json"]
+  },
+  "environment_limitations": [
+    "no Windows host and no pwsh here, so the lifecycle and signing steps are exercised against a scripted stand-in host and are never presented as Windows proof",
+    "libGL.so.1 is absent from the Linux sandbox, so eight Qt widget tests fail here and pass on the Windows runner; this is recorded, not skipped",
+    "Actions artifact blob endpoints are unreachable from this sandbox, so published artifacts cannot be re-downloaded and re-hashed here"
+  ]
+}

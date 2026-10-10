@@ -46,6 +46,8 @@ def _release_root(tmp_path: Path, *, bundle: bytes = b"zip", installer: bytes = 
             "innosetup_identity_verified": identity_verified,
         },
         "reproducible_build": {"status": "NOT_CLAIMED", "reason": "single build"},
+        "artifact_scope": "outer release artifacts; inner bundle files inside the portable ZIP "
+                          "are not individually hashed here",
         "artifacts": [
             {"filename": "bundle.zip", "sha256": hashlib.sha256(bundle).hexdigest(),
              "size_bytes": len(bundle)},
@@ -60,8 +62,12 @@ def _release_root(tmp_path: Path, *, bundle: bytes = b"zip", installer: bytes = 
 
 
 def _lifecycle_file(root: Path, status: str = "PASS", *, steps: list | None = None,
-                    name: str = "installer-lifecycle.json") -> Path:
+                    name: str = "installer-lifecycle.json",
+                    installer: str = "DrillMaster-1.2.3-Setup.exe",
+                    sha256: str = hashlib.sha256(b"exe").hexdigest()) -> Path:
     payload = {"status": status,
+               "installer_filename": installer,
+               "installer_sha256": sha256,
                "installer_hash_verified": True,
                "steps": steps if steps is not None else [
                    {"name": "verify_installer_hash", "status": "PASS"},
@@ -432,3 +438,145 @@ def test_release_tooling_keeps_exactly_one_streaming_hash_implementation():
         assert "hashlib.sha256(" not in source, f"{name} would be a second hashing implementation"
     assert "hashlib.sha256()" in metadata_source, "the single implementation lives in release_metadata"
     assert metadata_source.count("def sha256_file") == 1
+
+
+def test_lifecycle_pass_must_be_bound_to_the_verified_installer_bytes(tmp_path):
+    """A PASS for some other file is not evidence about the shipped artifact."""
+    module = _report_module()
+    root = _release_root(tmp_path)
+    junit = _junit(tmp_path, PASSING_JUNIT)
+    good = _lifecycle_file(root)
+    assert module.build_report(metadata_path=root / "release-metadata.json", junit_path=junit,
+                               source_sha="a" * 40, lifecycle_report_path=good)[
+        "repository_automation"]["installed_application_lifecycle"]["installer_sha256"] == \
+        hashlib.sha256(b"exe").hexdigest()
+    wrong_hash = _lifecycle_file(root, name="installer-lifecycle-wrong-hash.json", sha256="0" * 64)
+    with pytest.raises(ValueError, match="not bound to the verified installer"):
+        module.build_report(metadata_path=root / "release-metadata.json", junit_path=junit,
+                           source_sha="a" * 40, lifecycle_report_path=wrong_hash)
+    wrong_name = _lifecycle_file(root, name="installer-lifecycle-other-file.json",
+                                installer="DrillMaster-1.0.0-Setup.exe")
+    with pytest.raises(ValueError, match="not bound to the verified installer"):
+        module.build_report(metadata_path=root / "release-metadata.json", junit_path=junit,
+                           source_sha="a" * 40, lifecycle_report_path=wrong_name)
+
+
+# --- evidence-document contract: the manifest and the signing record are validated, not guessed ---
+
+def _mutate_metadata(root: Path, mutate) -> Path:
+    payload = json.loads((root / "release-metadata.json").read_text(encoding="utf-8"))
+    mutate(payload)
+    path = root / "release-metadata.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    return path
+
+
+@pytest.mark.parametrize("mutate, fragment", [
+    (lambda p: p.update({"signed_by_default": True}), "outside"),
+    (lambda p: p.pop("artifact_scope"), "missing required field"),
+    (lambda p: p.pop("python"), "missing required field"),
+    (lambda p: p["artifacts"].append(dict(p["artifacts"][1])), "duplicate artifact entry"),
+    (lambda p: p["artifacts"][0].update({"signature": "none"}), "unknown field"),
+    (lambda p: p["artifacts"][0].pop("size_bytes"), "missing field"),
+    (lambda p: p["artifacts"][0].update({"sha256": "5ae1e2"}), "malformed SHA-256"),
+    (lambda p: p["artifacts"][0].update({"sha256": "A" * 64}), "malformed SHA-256"),
+    (lambda p: p["artifacts"][0].update({"size_bytes": -1}), "negative"),
+    (lambda p: p["artifacts"][0].update({"size_bytes": "12"}), "non-integer"),
+    (lambda p: p["build_tools"].pop("innosetup_identity_verified"), "build_tools is missing"),
+    (lambda p: p.update({"artifacts": []}), "non-empty list"),
+])
+def test_report_refuses_a_manifest_deviating_from_its_published_contract(tmp_path, mutate, fragment):
+    module = _report_module()
+    root = _release_root(tmp_path)
+    metadata = _mutate_metadata(root, mutate)
+    junit = _junit(tmp_path, PASSING_JUNIT)
+    with pytest.raises(module.ReportError, match=fragment):
+        module.build_report(metadata_path=metadata, junit_path=junit, source_sha="a" * 40)
+
+
+def test_report_refuses_a_manifest_that_is_not_an_object(tmp_path):
+    module = _report_module()
+    root = _release_root(tmp_path)
+    (root / "release-metadata.json").write_text("[1, 2]", encoding="utf-8")
+    with pytest.raises(module.ReportError, match="published contract"):
+        module.build_report(metadata_path=root / "release-metadata.json",
+                            junit_path=_junit(tmp_path, PASSING_JUNIT), source_sha="a" * 40)
+
+
+def test_report_accepts_the_document_the_generator_itself_publishes(tmp_path):
+    """The validator must not reject its own producer's output, including zero-length artifacts."""
+    import hashlib as _hashlib
+
+    release_meta = importlib.import_module("release_metadata")
+    root = tmp_path / "generated"
+    root.mkdir()
+    (root / "bundle.zip").write_bytes(b"")
+    (root / "DrillMaster-9.9.9-Setup.exe").write_bytes(b"installer")
+    path = release_meta.write_manifest(
+        root, source_sha="a" * 40, version="9.9.9", python_version="3.12.10", pyinstaller_version="6.11.1",
+        pip_version="25.3", innosetup_package_version="6.7.1", innosetup_file_version="0.0.0.0",
+        innosetup_version_source="installed-package-metadata", bundle_zip=root / "bundle.zip",
+        installer=root / "DrillMaster-9.9.9-Setup.exe")
+    documented = release_meta.validate_document(json.loads(path.read_text(encoding="utf-8")))
+    assert {Path(str(item["filename"])).name for item in documented["artifacts"]} == {
+        "bundle.zip", "DrillMaster-9.9.9-Setup.exe"}
+    assert all(len(item["sha256"]) == 64 for item in documented["artifacts"])
+    assert _hashlib.sha256(b"").hexdigest() in {item["sha256"] for item in documented["artifacts"]}
+
+
+@pytest.mark.parametrize("payload, fragment", [
+    ({"status": "SIGNED", "files": [{"filename": "a.exe", "status": "Valid"}]}, "outside the published vocabulary"),
+    ({"status": "PASS", "files": {"a.exe": "Valid"}}, "must be a list"),
+    ({"status": "PASS", "files": [{"filename": "a.exe", "status": {"raw": "Valid"}}]}, "must be a string or null"),
+])
+def test_report_refuses_signing_evidence_it_cannot_interpret(tmp_path, payload, fragment):
+    module = _report_module()
+    root = _release_root(tmp_path)
+    (root / "signing-status.json").write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(module.ReportError, match=fragment):
+        module.build_report(metadata_path=root / "release-metadata.json", junit_path=_junit(tmp_path, PASSING_JUNIT),
+                            source_sha="a" * 40, signing_report_path=root / "signing-status.json")
+
+
+def test_a_required_signing_record_cannot_be_absent(tmp_path):
+    """A skipped signing step must never read as a successful unsigned build."""
+    module = _report_module()
+    root = _release_root(tmp_path)
+    with pytest.raises(module.ReportError, match="required but missing"):
+        module.build_report(metadata_path=root / "release-metadata.json", junit_path=_junit(tmp_path, PASSING_JUNIT),
+                            source_sha="a" * 40, require_signing=True)
+    # without the requirement the absence is still recorded honestly, never promoted
+    absent = module.build_report(metadata_path=root / "release-metadata.json",
+                                junit_path=_junit(tmp_path, PASSING_JUNIT), source_sha="a" * 40)
+    assert absent["repository_automation"]["code_signing"]["status"] == "NOT_VERIFIED"
+    assert absent["repository_automation"]["code_signing"]["files"] == []
+
+
+def test_a_blank_per_file_status_is_unknown_not_unsigned(tmp_path):
+    module = _report_module()
+    root = _release_root(tmp_path)
+    (root / "signing-status.json").write_text(json.dumps(
+        {"files": [{"filename": "a.exe", "status": "   "}, {"filename": "a.zip", "status": None}]}),
+        encoding="utf-8")
+    report = module.build_report(metadata_path=root / "release-metadata.json",
+                                 junit_path=_junit(tmp_path, PASSING_JUNIT), source_sha="a" * 40,
+                                 signing_report_path=root / "signing-status.json")
+    signing = report["repository_automation"]["code_signing"]
+    assert [item["status"] for item in signing["files"]] == ["UNKNOWN", "UNKNOWN"]
+    assert signing["status"] == "UNKNOWN"
+
+
+def test_report_cli_exit_codes_follow_the_documented_contract(tmp_path, capsys):
+    module = _report_module()
+    root = _release_root(tmp_path)
+    good = root / "acceptance-report.json"
+    argv = ["--metadata", str(root / "release-metadata.json"), "--junit", str(_junit(tmp_path, PASSING_JUNIT)),
+            "--source-sha", "a" * 40, "--output", str(good)]
+    assert module.main(argv) == 0 and good.is_file()
+    (root / "signing-status.json").write_text(json.dumps({"status": "UNSIGNED", "files": [
+        {"filename": "DrillMaster-1.2.3-Setup.exe", "status": "NotSigned"}]}), encoding="utf-8")
+    assert module.main(argv + ["--signing-report", str(root / "signing-status.json"), "--require-signing"]) == 0
+    missing = root / "nothing.json"
+    assert module.main(argv + ["--signing-report", str(missing), "--require-signing"]) == 1
+    captured = capsys.readouterr()
+    assert "required but missing" in captured.err and "Traceback" not in captured.err
