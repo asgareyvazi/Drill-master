@@ -1,0 +1,323 @@
+{
+  "schema": "drillmaster-mission-checkpoint/v1",
+  "mission": "M42.4",
+  "title": "Authenticode root-cause closure, signing evidence-contract integrity, and operational acceptance readiness",
+  "recorded_on": "2026-10-10",
+  "branch": "arena/01a0ec23-drill-master",
+  "repository": "asgareyvazi/Drill-master",
+  "base_branch": "drill-Master",
+  "application_version": "1.0.0",
+  "baseline": {
+    "m42_3_final_sha": "979691e9e9518b66079699b22d88c9da79aa84bc",
+    "worktree_state_at_start": "restored from a sandbox re-clone; reconciled non-destructively to the remote tip (tar snapshot taken first, then git reset --mixed FETCH_HEAD); 924 tracked files, clean status",
+    "ci_evidence_rule": "the exact-SHA Source and Windows runs for this mission are recorded only in the mission report and in the generated acceptance-report.json, never in this file"
+  },
+  "recovery_rule": "no reset --hard, no git clean, no force-push, no amend or rebase of published commits; every change is an ordinary commit on the release branch",
+  "authenticode_attribution": {
+    "published_aggregate_for_baseline_sha": "UNKNOWN",
+    "status": "UNATTRIBUTED_FROM_PUBLISHED_EVIDENCE",
+    "confirmed_from_evidence": false,
+    "retrieval_attempts": [
+      "curl -sIL on the artifact archive_download_url: HTTP 303 to productionresultssa5.blob.core.windows.net, then curl --http1.1 --tlsv1.2 on the signed blob URL returned 'curl (35) SSL_ERROR_SYSCALL' with http=000 and 0 bytes",
+      "gh run download <Windows run> from inside the repository: 'unexpected EOF'",
+      "gh api <repository>/actions/jobs/<job>/logs: the same blob host returned EOF"
+    ],
+    "readable_channels": [
+      "check-run metadata and annotations via api.github.com (artifact metadata and the four annotation titles were read successfully)"
+    ],
+    "mechanism_established_in_source": "SIGNATURE_QUERY_SCRIPT asked Get-AuthenticodeSignature without -ErrorAction Stop and without try/catch, so any statement-level failure left $signature null, the hashtable still serialised, and powershell.exe exited 0 with {\"Status\":\"\",\"StatusMessage\":\"\",\"SignerSubject\":null}; run_powershell discarded stderr whenever stdout parsed, so the harness recorded status UNKNOWN with an empty status_message and the step stayed green. The shape is proven from the shipped code; whether it is what happened on the runner cannot be confirmed without that run's stderr.",
+    "ruled_out": [
+      "an encoding or JSON-parse failure of the harness: the tool-version query in the same run used the identical run_powershell path and returned a parseable payload",
+      "a mutation of published artifacts: none was attempted or performed"
+    ],
+    "resolution_path": "the next exact-SHA Windows run is self-attributing: the query reports QueryError, the harness carries bounded redacted stderr and the exit code, and the capability probe publishes the PowerShell version and cmdlet availability into signing-status.json, the job console line, the step summary and the Signature status annotation",
+    "kept_open_as_blocker": true
+  },
+  "defects": [
+    {
+      "id": "D1",
+      "symptom": "an exit-0 query with an empty Status produced status UNKNOWN with an empty reason, and the step was green",
+      "root_cause": "run_powershell returned the parsed payload as soon as stdout was valid JSON, discarding stderr whenever the exit code was 0; the query script never reported its own statement-level failure",
+      "fix": "the query script runs Get-AuthenticodeSignature -ErrorAction Stop inside try/catch and publishes QueryError; run_powershell attaches bounded, redacted powershell_stderr plus powershell_exit_code to any payload produced with a non-empty error channel and accepts a required_field whose absence is itself an error; run_signing prefers the script's own error record, then stderr, then the harness message",
+      "tests": [
+        "test_an_empty_answer_is_published_with_the_stderr_that_explains_it",
+        "test_a_statement_level_query_failure_reports_itself",
+        "test_the_console_summary_carries_the_reason_for_a_non_pass_state"
+      ]
+    },
+    {
+      "id": "D2",
+      "symptom": "a legitimate raw Unknown (or any spelling the aggregator did not know) folded into aggregate FAIL, reporting an unattributable answer as a confirmed signature failure",
+      "root_cause": "the per-file 'status' field held the raw Windows string and aggregate_signing_status compared raw sets such as {'NotSigned'} and {'Valid'}",
+      "fix": "one shared, case-insensitive normalizer in packaging/release_metadata.py maps Valid/Ok to PASS, NotSigned to UNSIGNED, a mismatch or untrusted chain to FAIL, and Unknown, UnknownError or any unrecognised spelling to UNKNOWN; raw_status keeps the Windows answer verbatim with raw_status_recognized",
+      "tests": [
+        "test_every_windows_answer_maps_through_one_rule",
+        "test_the_published_mapping_covers_every_documented_signature_status",
+        "test_report_only_absence_states_are_never_signature_states"
+      ]
+    },
+    {
+      "id": "D3",
+      "symptom": "read_signing_evidence accepted an aggregate the per-file rows contradicted and carried a second aggregation implementation for records without one",
+      "root_cause": "the report re-derived a verdict with its own raw-spelling rule, so two owners of one vocabulary could disagree",
+      "fix": "the report validates the document with the shared validator and refuses any contradiction; the fallback rule is deleted, so a record is either contract-valid or an evidence error",
+      "tests": [
+        "test_report_refuses_signing_evidence_it_cannot_interpret",
+        "test_a_malformed_per_file_status_is_refused_not_coerced"
+      ]
+    },
+    {
+      "id": "D4",
+      "symptom": "the report normalizer kept only filename, status and signer, so the published acceptance report could not explain any state",
+      "root_cause": "fields were whitelisted away during normalization",
+      "fix": "SIGNING_FILE_EVIDENCE_FIELDS retains status_message, raw_status, raw_status_recognized, provenance, both digests and the container binding, plus the document-level harness, policy, counts and binding fields",
+      "tests": [
+        "test_report_keeps_the_diagnostics_that_explain_a_signature_state",
+        "test_signing_status_is_recorded_as_observed_never_inferred"
+      ]
+    },
+    {
+      "id": "D5",
+      "symptom": "no schema identity or version check existed for the signing document, and a required reason was not enforceable",
+      "root_cause": "the record was written with an inline literal string and read field-by-field with defaults",
+      "fix": "the document is drillmaster-signing-status/v2; v1 and unknown schemas are refused rather than reinterpreted; the shared validator requires the field set, booleans, counts, a lowercase SHA-256 manifest binding, a full source SHA, a bounded reason for every UNKNOWN, complete container provenance, and agreement between aggregate, examined_count and archive_count; the generator validates before it writes",
+      "tests": [
+        "test_a_record_that_violates_its_own_contract_is_never_published",
+        "test_a_self_inconsistent_document_is_refused_before_it_is_written",
+        "test_the_record_is_bound_to_the_manifest_bytes_it_was_derived_from"
+      ]
+    },
+    {
+      "id": "D6",
+      "symptom": "attributing the state required the artifact bytes, which the sandbox cannot retrieve",
+      "root_cause": "diagnostics were published only into files inside the artifact",
+      "fix": "a capability probe records the PowerShell version and Get-Command result; the aggregate, harness and per-file reasons reach signing-status.json, the machine-readable console line, the step summary, the single Signature status annotation, and a Signature state needs review warning for UNKNOWN or FAIL; credential values are redacted from every published string",
+      "tests": [
+        "test_the_query_capability_is_published_alongside_the_verdict",
+        "test_a_host_without_the_cmdlet_records_one_cause_for_every_file",
+        "test_a_failing_probe_does_not_suppress_the_real_queries",
+        "test_published_diagnostics_never_carry_a_credential_value",
+        "test_the_workflow_publishes_the_signature_cause_without_artifact_access"
+      ]
+    },
+    {
+      "id": "D7",
+      "symptom": "release documentation used UNSIGNED for the repository configuration and UNKNOWN for a query result as if they named one fact",
+      "root_cause": "one word described two layers: build configuration and observed signature state",
+      "fix": "four layers are named and documented separately (raw Windows answer, normalized per-file, aggregate, report-level absence); NOT_VERIFIED is confined to an absent record and cannot appear as a per-file or aggregate status; the runbook and PRODUCTION_READINESS.md state both facts side by side",
+      "tests": [
+        "test_report_only_absence_states_are_never_signature_states",
+        "test_runbook_documents_the_identity_lifecycle_and_signing_boundaries"
+      ]
+    },
+    {
+      "id": "D8",
+      "symptom": "the report trusted the archive binding asserted by the signing record instead of checking it",
+      "root_cause": "no comparison existed between the record's digests and the digests the report recomputed from the release directory",
+      "fix": "read_signing_evidence takes the verified installer and bundle digests, the manifest digest and the source SHA as binding, and refuses a record whose installer row hashes a different file, whose container row names a different archive or digest, whose manifest binding or source SHA differs, or which omits either shipped executable",
+      "tests": [
+        "test_report_refuses_signing_evidence_it_cannot_interpret",
+        "test_report_keeps_the_diagnostics_that_explain_a_signature_state"
+      ]
+    }
+  ],
+  "record_contract": {
+    "schema": "drillmaster-signing-status/v2",
+    "single_owner": "packaging/release_metadata.py",
+    "callers": [
+      "packaging/windows_release_evidence.py run_signing (before writing)",
+      "packaging/windows_release_evidence.py main (before publishing a NOT_RUN record)",
+      "packaging/acceptance_report.py read_signing_evidence (before reading any field)"
+    ],
+    "document_fields": [
+      "schema",
+      "method",
+      "status",
+      "policy",
+      "files",
+      "examined_count",
+      "archive_count",
+      "signing_configured_in_build",
+      "credentials_available",
+      "release_metadata_sha256",
+      "source_sha"
+    ],
+    "optional_document_fields": [
+      "prerequisite",
+      "credential_environment_variables",
+      "harness",
+      "generated_at_utc",
+      "reason"
+    ],
+    "per_file_required": [
+      "filename",
+      "status",
+      "size_bytes",
+      "sha256",
+      "signature_bearing",
+      "status_message"
+    ],
+    "per_file_optional": [
+      "provenance",
+      "raw_status",
+      "raw_status_recognized",
+      "signer",
+      "manifest_digest_match",
+      "container_archive",
+      "container_archive_sha256",
+      "container_member"
+    ],
+    "refusals": [
+      "a superseded v1 or unknown schema, with no silent reinterpretation",
+      "an aggregate the per-file findings do not support, in either direction",
+      "UNKNOWN published without a bounded reason",
+      "duplicate file rows, unknown or missing fields at either level",
+      "malformed SHA-256 values, negative or non-integer sizes, non-boolean flags",
+      "a container archive counted in the executable aggregate, or signature_bearing contradicting the status",
+      "incomplete container provenance, or a member whose name is not the recorded file",
+      "a NOT_RUN record that also carries per-file findings or a zero-count mismatch",
+      "a diagnostic longer than the published bound"
+    ],
+    "not_run_shape": "schema, method, status NOT_RUN, policy, empty files and counts, and one bounded reason; binding digests are meaningless for a run that examined no bytes and are not required",
+    "vocabulary_layers": {
+      "raw_windows_answer": [
+        "Unknown",
+        "NotSigned",
+        "HashMismatch",
+        "NotTrusted",
+        "Valid",
+        "UnknownError"
+      ],
+      "per_file": [
+        "PASS",
+        "UNSIGNED",
+        "FAIL",
+        "UNKNOWN",
+        "NOT_APPLICABLE"
+      ],
+      "aggregate": [
+        "PASS",
+        "UNSIGNED",
+        "FAIL",
+        "UNKNOWN",
+        "NOT_RUN"
+      ],
+      "report_absence": [
+        "NOT_VERIFIED"
+      ]
+    }
+  },
+  "policy_preserved": {
+    "unsigned_build_still_passes_the_internal_gate": true,
+    "signature_state_never_reddens_the_gate": "a recorded state, including FAIL, is a distribution-trust finding; only an evidence failure (no record, unparseable record, contract violation) fails the step",
+    "unknown_never_relabelled_unsigned": true,
+    "no_interpretable_record_still_fails_the_gate": true,
+    "zero_byte_files_remain_valid_hash_inputs": true,
+    "powershell_exit_codes_not_suppressed": "the step snapshots $LASTEXITCODE, throws for its own evidence failures, and ends with an explicit exit 0 as before",
+    "key_material_handling": "no certificate, private key, PFX or password is read, printed or stored; published diagnostics are redacted against the values of the credential-named environment variables, whose names stay recorded",
+    "extraction_guards": "the archive-bound extraction rules from M42.3 are unchanged; no broad rewrite of already-bounded guards was made"
+  },
+  "internal_gates": {
+    "focused_release_and_packaging_set": {
+      "collected": 309,
+      "passed": 308,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 1,
+      "skipped_reason": "test_real_windows_bundle_smoke_when_provided is skipped on purpose: no real Windows bundle exists in the Linux sandbox, and the skip is reported as a skip, never as a pass"
+    },
+    "windows_gate_module_scope_local": {
+      "modules": 27,
+      "collected": 624,
+      "passed": 612,
+      "failed": 8,
+      "errors": 0,
+      "skipped": 4,
+      "failure_attribution": "all eight failures are Qt widget tests failing on libGL.so.1, absent from this sandbox and installed by the Windows and ubuntu-24.04 CI jobs; none is in the release-evidence modules changed by this mission",
+      "environment": "PYTHONUTF8=0 LC_ALL=C as the Windows job runs it, Python 3.11 sandbox venv from requirements-lock.txt plus pytest 9.1.1 and ruff 0.16.6",
+      "command_environment": "the 27 modules of the Windows gate's regression step, run locally with PYTHONUTF8=0 LC_ALL=C"
+    },
+    "lint": {
+      "gate_codes": "E722,F821",
+      "result": "clean",
+      "debt_population": "core, dialogs, tabs, tests",
+      "debt_count": 5338,
+      "debt_ceiling": 5375,
+      "explicitly_not_lint_clean": true
+    },
+    "ci": "both gates were re-run on the final SHA of this mission; their identifiers are recorded in the mission report for that SHA, not here"
+  },
+  "mutation_validation": {
+    "battery_size": 35,
+    "caught": 35,
+    "survived": 0,
+    "restored_after_run": true,
+    "sha256_prefixes_after_restore": {
+      "packaging/release_metadata.py": "5e02593908c4",
+      "packaging/windows_release_evidence.py": "b131089e7cf9",
+      "packaging/acceptance_report.py": "62bedd463539"
+    },
+    "pairing_note": "the two harness layers (bounded stderr on a parseable payload, and the required-field check) are redundant by design; the battery mutates them together as one entry because either one alone still attributes the cause",
+    "what_it_proves": [
+      "case-insensitive normalization, the Unknown-to-UNKNOWN rule, and the unrecognised-spelling rule are each required",
+      "empty-examination and mixed-unknown aggregation are required",
+      "every refusal in the record contract - schema, duplicates, bounds, reason, signature_bearing, counts, container provenance, aggregate contradiction - is load-bearing",
+      "stderr carrying, the required-field layer, the QueryError preference, the probe, redaction, and the writer's self-validation are load-bearing",
+      "each binding the report newly verifies - manifest digest, source SHA, installer digest, bundle coverage, container archive - is load-bearing",
+      "retaining the diagnostic fields, refusing to promote an absent record, and the workflow's reason and warning channels are load-bearing"
+    ]
+  },
+  "acceptance_readiness": {
+    "register": "packaging/WINDOWS_RELEASE_ACCEPTANCE.md, section 'Acceptance register (owner-facing)'",
+    "rows": [
+      "REL-01 exact-SHA gate pairing",
+      "REL-02 signing trust",
+      "REL-03 signature-state attribution",
+      "REL-04 independent artifact re-verification",
+      "REL-05 reproducibility decision",
+      "REL-06 POSIX permission policy",
+      "REL-07 clean-machine interactive install",
+      "REL-08 upgrade and uninstall data retention",
+      "REL-09 real DDR Excel acceptance",
+      "REL-10 real DDR PDF and MinerU acceptance",
+      "REL-11 production database and field validation",
+      "REL-12 open P6 owner decisions"
+    ],
+    "self_contained_reverification_procedure": "packaging/WINDOWS_RELEASE_ACCEPTANCE.md, 'Re-verifying a downloaded artifact yourself': Get-FileHash against release-metadata.json and SHA256SUMS.txt, Expand-Archive of the verified bundle, Get-AuthenticodeSignature on the extracted executable, and an explicit instruction never to execute a downloaded binary",
+    "open_owner_decisions": [
+      "A: procure a code-signing certificate or a hosted signing service and wire signing into the release build",
+      "B: accept closure of the UNKNOWN signature-state attribution once the next exact-SHA record carries a cause",
+      "C: decide whether byte-for-byte reproducible builds are required at all",
+      "D: decide the POSIX permission policy for the portable archive",
+      "NEW-P6-007",
+      "NEW-P6-008",
+      "NEW-P6-015",
+      "NEW-P6-020",
+      "NEW-P6-023",
+      "NEW-P6-024"
+    ]
+  },
+  "documentation_reconciliation": {
+    "approach": "additive; no dated record was rewritten",
+    "m42_3_checkpoint": "retains signing_contract.current_status verbatim and gains a top-level 'correction' key recorded by M42.4",
+    "PRODUCTION_READINESS.md": "the M42.2 and M42.3 bullets are retained as dated text; an M42.4 bullet and a 'Decisions required from the owner' table were added",
+    "docs/WINDOWS_ACCEPTANCE.md": "the prior operator sequence is retained; a dated M42.4 addition points at the re-verification procedure and the register",
+    "other_living_docs": "README.md, DEPLOYMENT.md, TESTING.md and ENGINEERING_CAPABILITY_STATUS.md contain no signing claim, so none was added or softened there"
+  },
+  "not_verified": [
+    "the byte content of the baseline Windows release artifact: the blob endpoint is unreachable from this environment, so no independent re-verification of the published bytes was performed",
+    "the Windows runner's actual stderr for the baseline signature query, and therefore the definitive root cause of the UNKNOWN aggregate",
+    "any executed signature state for the shipped installer on a real Windows host: signing evidence describes what Get-AuthenticodeSignature reported for the built bytes in the CI job",
+    "interactive clean-machine install, upgrade and data retention, real DDR Excel and PDF acceptance, real MinerU execution, production database behaviour, field validation, and operator or business sign-off",
+    "byte-for-byte reproducibility, which remains NOT_CLAIMED"
+  ],
+  "environment_limitations": [
+    "libGL.so.1 is absent in the sandbox, so Qt-dependent tests fail locally while passing on the CI runners that install libgl1; no failure was downgraded to a skip",
+    "artifact bytes and job logs are unreachable (blob host TLS failure / EOF); only check-run and annotation metadata were readable",
+    "the GitHub token oscillates between sessions; reads used both authenticated and public endpoints"
+  ],
+  "observations": [
+    "the sandbox was restored mid-mission and rewound HEAD to the grafted base with 178 dirty entries; recovery was verified before any git operation (tar snapshot, then reset --mixed to the fetched remote tip), and no work was lost",
+    "an annotation cap of ten per step is why one aggregate Signature status annotation plus an uncapped step summary carry the diagnostics"
+  ]
+}

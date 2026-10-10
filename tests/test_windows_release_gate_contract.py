@@ -157,27 +157,103 @@ def test_a_query_failure_keeps_its_reason_visible_in_the_published_evidence():
     assert "bound(error_text or output, 300)" in evidence, ("powershell reports the reason on stderr; "
                                                             "the record must carry it")
     assert "reason: " in evidence, "the step summary must publish each file's status message"
+    # the cause has to survive a payload that parsed: that was the blind spot
+    assert '"powershell_stderr"' in evidence, "bounded stderr must accompany a parseable payload"
+    assert "required_field" in evidence, "a parseable payload with no required answer must be an error"
+    assert "QueryError" in evidence, "the query script must report its own statement-level failure"
+    assert "-ErrorAction Stop" in evidence, ("without Stop a cmdlet error stays non-terminating and "
+                                            "the script still prints an empty answer")
+    assert "_redact_tree(" in evidence, "published diagnostics must be redacted against credential values"
+    assert "Get-Command Get-AuthenticodeSignature" in evidence, ("the host's capability must be probed "
+                                                                 "and published")
+    assert '"reason": bound(' in evidence, "the job console line must carry each non-pass reason"
+
+
+def test_the_workflow_publishes_the_signature_cause_without_artifact_access():
+    """A reviewer must be able to attribute the signing state from the job annotations alone."""
+    workflow = (ROOT / ".github" / "workflows" / "windows-release-gate.yml").read_text(encoding="utf-8")
+    assert "::notice title=Signature status::" in workflow
+    assert "Signature state needs review" in workflow, ("an uninterpretable or broken signature is a "
+                                                        "finding a reviewer should not have to notice "
+                                                        "by reading a table")
+    # the guard line itself, not just its title: an unconditional warning would be noise and a
+    # removed one would leave a non-pass state unescalated
+    assert "if (@('UNKNOWN', 'FAIL') -contains $signing.status) {" in workflow
+    assert "$message = & $oneLine $_.status_message" in workflow, "the annotation must quote the recorded reason"
+    assert "& $clip $message 160" in workflow, "the quoted reason must stay bounded"
+    assert "Authenticode query environment" in workflow, "the step summary must record the query host"
+    # the recorded policy stays unchanged: a signature state never reddens the gate
+    assert workflow.rstrip().endswith("exit 0") or "exit 0" in workflow.split("Signature status")[-1]
+
+
+SHARED_SIGNING_CONTRACT_NAMES = ("SIGNING_STATUS_VOCABULARY", "SIGNING_FILE_VOCABULARY",
+                                 "SIGNING_SCHEMA", "AUTHENTICODE_TO_FILE_STATUS",
+                                 "aggregate_signing_status", "normalize_authenticode_status",
+                                 "validate_signing_document")
 
 
 def test_signing_vocabulary_and_extraction_rules_are_declared_exactly_once():
-    """Two definitions of one vocabulary is how a gate starts disagreeing with itself."""
+    """Two definitions of one vocabulary is how a gate starts disagreeing with itself.
+
+    M42.4 widened this from the vocabulary alone to the whole signing contract: vocabulary,
+    raw-status mapping, aggregation and document validation each have exactly one owner, and the
+    producer and the consumer of the evidence both have to go through it.
+    """
     packaging = Path(__file__).resolve().parents[1] / "packaging"
     sources = {path.name: ast.parse(path.read_text(encoding="utf-8"))
                for path in (packaging / "release_metadata.py", packaging / "acceptance_report.py",
                             packaging / "windows_release_evidence.py")}
-    owners = []
-    for name, tree in sources.items():
-        for node in ast.walk(tree):
-            if isinstance(node, (ast.Assign, ast.AnnAssign)):
-                targets = node.targets if isinstance(node, ast.Assign) else [node.target]
-                if any(isinstance(target, ast.Name) and target.id == "SIGNING_STATUS_VOCABULARY"
-                       for target in targets):
-                    owners.append(name)
-    assert owners == ["release_metadata.py"], f"vocabulary defined in {owners}"
+    for name in SHARED_SIGNING_CONTRACT_NAMES:
+        owners = []
+        for module, tree in sources.items():
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.Assign, ast.AnnAssign)):
+                    targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+                    if any(isinstance(target, ast.Name) and target.id == name for target in targets):
+                        owners.append(module)
+                elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == name:
+                    # the producer may keep a wrapper of the same name, but only if it does
+                    # nothing except call the single implementation
+                    body = [statement for statement in node.body
+                            if not (isinstance(statement, ast.Expr)
+                                    and isinstance(statement.value, ast.Constant)
+                                    and isinstance(statement.value.value, str))]
+                    delegates = (module == "windows_release_evidence.py" and len(body) == 1
+                                 and isinstance(body[0], ast.Return)
+                                 and isinstance(body[0].value, ast.Call)
+                                 and isinstance(body[0].value.func, ast.Name)
+                                 and body[0].value.func.id == "signing_aggregate")
+                    if not delegates:
+                        owners.append(module)
+        assert owners == ["release_metadata.py"], f"{name} defined in {owners}"
     for name in ("acceptance_report.py", "windows_release_evidence.py"):
         imported = {alias.name for node in ast.walk(sources[name]) if isinstance(node, ast.ImportFrom)
                     and node.module == "release_metadata" for alias in node.names}
-        assert "SIGNING_STATUS_VOCABULARY" in imported, f"{name} must import the shared vocabulary"
+        assert "SIGNING_SCHEMA" in imported, f"{name} must import the shared signing schema"
+        assert {"aggregate_signing_status", "validate_signing_document"} & imported, (
+            f"{name} must fold or validate signing evidence through the shared rule")
+    # the evidence tool delegates rather than reimplementing, and keeps the name the report uses
+    delegation = (packaging / "windows_release_evidence.py").read_text(encoding="utf-8")
+    assert "return signing_aggregate(files)" in delegation, "aggregation must delegate to the shared rule"
+
+
+def test_no_signing_consumer_reimplements_raw_windows_vocabulary():
+    """A raw Authenticode spelling may only be interpreted in one place.
+
+    Both sides used to compare strings such as ``NotSigned`` and ``Valid`` themselves, which is how
+    a legitimate ``Unknown`` answer ended up folded into ``FAIL``.
+    """
+    packaging = Path(__file__).resolve().parents[1] / "packaging"
+    contract = (packaging / "release_metadata.py").read_text(encoding="utf-8")
+    assert '"notsigned": "UNSIGNED"' in contract and '"ok": "PASS"' in contract
+    assert '"unknownerror": "UNKNOWN"' in contract, "an unknown Windows error must stay unknown"
+    for name in ("acceptance_report.py", "windows_release_evidence.py"):
+        source = (packaging / name).read_text(encoding="utf-8")
+        for spelling in ("NotSigned", "NotTrusted", "HashMismatch", "UnknownError", '"Valid"', "'Valid'"):
+            assert spelling not in source, f"{name} must not interpret the raw Windows state {spelling!r}"
+    for module in ("acceptance_report.py", "windows_release_evidence.py", "release_metadata.py"):
+        assert "drillmaster-signing-status/v1" not in (packaging / module).read_text(encoding="utf-8"), (
+            f"{module} must not accept or emit the superseded signing schema")
     # the inner executable is only ever obtained through the archive-bound extraction helper
     evidence = (packaging / "windows_release_evidence.py").read_text(encoding="utf-8")
     assert "def extract_verified_member(" in evidence
@@ -187,12 +263,98 @@ def test_signing_vocabulary_and_extraction_rules_are_declared_exactly_once():
     )
 
 
+M424_CHECKPOINT = ROOT / "docs" / "audits" / "m42-4-authenticode-and-acceptance-closure.json"
+M423_CHECKPOINT = ROOT / "docs" / "audits" / "m42-3-release-closure.json"
+
+
+def test_m42_4_checkpoint_records_attribution_honestly_and_additively():
+    """The checkpoint must state what was not verified, and correct M42.3 without rewriting it."""
+    payload = json.loads(M424_CHECKPOINT.read_text(encoding="utf-8"))
+    assert payload["mission"] == "M42.4" and payload["branch"] == "arena/01a0ec23-drill-master"
+    attribution = payload["authenticode_attribution"]
+    assert attribution["status"] == "UNATTRIBUTED_FROM_PUBLISHED_EVIDENCE"
+    assert attribution["confirmed_from_evidence"] is False
+    assert attribution["kept_open_as_blocker"] is True
+    assert len(attribution["retrieval_attempts"]) >= 3, "the blockers must be recorded, not summarised away"
+    assert len(payload["not_verified"]) >= 5
+    assert any("reproducib" in line.lower() for line in payload["not_verified"])
+    assert [defect["id"] for defect in payload["defects"]] == ["D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8"]
+    for defect in payload["defects"]:
+        for key in ("symptom", "root_cause", "fix", "tests"):
+            assert defect[key], f"{defect['id']} lost {key}"
+        assert defect["tests"], f"{defect['id']} names no regression test"
+    mutation = payload["mutation_validation"]
+    assert mutation["caught"] == mutation["battery_size"] and mutation["survived"] == 0
+    assert mutation["restored_after_run"] is True
+    policy = payload["policy_preserved"]
+    assert policy["unsigned_build_still_passes_the_internal_gate"] is True
+    assert policy["unknown_never_relabelled_unsigned"] is True
+    assert policy["zero_byte_files_remain_valid_hash_inputs"] is True
+    assert payload["internal_gates"]["lint"]["debt_count"] <= payload["internal_gates"]["lint"]["debt_ceiling"]
+    assert "ci" in payload["internal_gates"], "the checkpoint must say where the CI evidence lives"
+
+    gates = payload["internal_gates"]["windows_gate_module_scope_local"]
+    assert "libGL" in gates["failure_attribution"], (
+        "every local failure must be attributed to a named environment limitation, not left as a bare count")
+    assert gates["errors"] == 0 and gates["modules"] == 27
+    # the vocabulary layers the report publishes are recorded, and NOT_VERIFIED stays out of the
+    # Authenticode aggregate
+    layers = payload["record_contract"]["vocabulary_layers"]
+    assert "NOT_VERIFIED" not in layers["aggregate"] and "NOT_VERIFIED" not in layers["per_file"]
+    assert "NOT_VERIFIED" in layers["report_absence"]
+    assert "NOT_APPLICABLE" in layers["per_file"] and "NOT_RUN" in layers["aggregate"]
+
+    # M42.3 is corrected additively: its dated wording survives next to the new key
+    m423 = json.loads(M423_CHECKPOINT.read_text(encoding="utf-8"))
+    correction = m423["correction"]
+    assert correction["recorded_by"] == "M42.4" and correction["supersedes_this_record"] is False
+    assert "UNSIGNED" in m423["signing_contract"]["current_status"], "the dated record must survive verbatim"
+    assert correction["affected_statement"].startswith("signing_contract.current_status")
+    assert "UNKNOWN" in correction["what_the_exact_sha_run_recorded"]
+    for field in correction["fields_left_unchanged"]:
+        assert field in m423, f"the additive correction lost or altered {field}"
+
+
+def test_the_owner_decisions_stay_open_and_named_in_both_records():
+    """Four decisions and six P6 items are neither closable by code nor silently dropped."""
+    checkpoint = json.loads(M424_CHECKPOINT.read_text(encoding="utf-8"))
+    decisions = checkpoint["acceptance_readiness"]["open_owner_decisions"]
+    for label in ("A:", "B:", "C:", "D:"):
+        assert any(item.startswith(label) for item in decisions), label
+    for identifier in ("NEW-P6-007", "NEW-P6-008", "NEW-P6-015", "NEW-P6-020", "NEW-P6-023", "NEW-P6-024"):
+        assert identifier in decisions and identifier in (ROOT / "PRODUCTION_READINESS.md").read_text(encoding="utf-8")
+    handoff = (ROOT / "PRODUCTION_READINESS.md").read_text(encoding="utf-8")
+    section = handoff[handoff.index("### Decisions required from the owner"):]
+    for row in ("| A |", "| B |", "| C |", "| D |"):
+        assert row in section, f"the handoff decision table lost row {row}"
+    register = (ROOT / "packaging" / "WINDOWS_RELEASE_ACCEPTANCE.md").read_text(encoding="utf-8")
+    for row in ("REL-01", "REL-02", "REL-03", "REL-04", "REL-05", "REL-06", "REL-07",
+                "REL-08", "REL-09", "REL-10", "REL-11", "REL-12"):
+        assert row in register, f"the acceptance register lost {row}"
+    for column in ("prerequisite", "required evidence", "pass condition", "owner", "status"):
+        assert column in register, f"the register lost the {column!r} column"
+
+
 def test_runbook_documents_the_archive_bound_signing_and_required_record_contract():
     text = (Path(__file__).resolve().parents[1] / "packaging" / "WINDOWS_RELEASE_ACCEPTANCE.md").read_text(encoding="utf-8")
     for fragment in ("extracted from the portable archive", "container_archive_sha256",
                      "not examined, because nothing binds it", "--require-signing",
                      "Signature record malformed", "PACKAGE_SMOKE_OK"):
         assert fragment in text, f"runbook must document: {fragment}"
+    m424 = ("drillmaster-signing-status/v2", "release_metadata_sha256", "QueryError",
+            "Get-Command Get-AuthenticodeSignature", "Signature state needs review",
+            "powershell_stderr", "raw_status_recognized", "Acceptance register",
+            "never executes a downloaded binary", "Get-FileHash", "Expand-Archive",
+            "AUTOMATED_TEST_ONLY_NOT_REAL_DDR_ACCEPTANCE")
+    missing = [fragment for fragment in m424 if fragment not in text]
+    assert not missing, f"runbook must document the M42.4 contract and procedures: {missing}"
+    # the procedure must stay runnable without the repository and must forbid execution
+    section = text[text.index("## Re-verifying a downloaded artifact yourself"):text.index("## Acceptance register")]
+    assert "Get-AuthenticodeSignature" in section and "SHA256SUMS.txt" in section
+    assert "Do\nnot run" in section or "not run `DrillMaster.exe`" in section.replace("\n", " ").replace(
+        "Do not run `DrillMaster.exe`", "not run `DrillMaster.exe`")
+    for row in ("REL-01", "REL-03", "REL-04", "REL-07", "REL-09", "REL-12"):
+        assert row in text, f"acceptance register lost row {row}"
 
 
 def test_release_tools_declare_text_encodings():
@@ -611,6 +773,8 @@ def test_acceptance_report_step_requires_independent_identity_and_lifecycle(work
     ".github/workflows/windows-release-gate.yml",
     "docs/audits/m42-2-release-closure.json",
     "docs/audits/m42-3-release-closure.json",
+    "docs/audits/m42-4-authenticode-and-acceptance-closure.json",
+    "docs/WINDOWS_ACCEPTANCE.md",
     "packaging/inno_setup_version.txt",
     "packaging/build_windows.ps1",
     "packaging/release_metadata.py",

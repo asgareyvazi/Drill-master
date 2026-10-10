@@ -97,3 +97,16 @@ first launch, import/export or installer/upgrade acceptance. Real MinerU input
 is separately gated by `MINERU_INTEGRATION_INPUT`.
 
 Current Linux audit: **BLOCKED BY ENVIRONMENT** for all real Windows steps.
+
+M42.4 addition, recorded additively; the paragraphs above stand as dated text.  Before any
+install step on a machine that holds a downloaded CI artifact, run the procedure
+"Re-verifying a downloaded artifact yourself" in
+[`packaging/WINDOWS_RELEASE_ACCEPTANCE.md`](../packaging/WINDOWS_RELEASE_ACCEPTANCE.md): it
+recomputes both published digests against `release-metadata.json` and `SHA256SUMS.txt`, expands
+the verified portable archive, and reports `Get-AuthenticodeSignature` for the executable inside
+it - without executing any downloaded binary.  Work the Acceptance register in that file from the
+top: `REL-01` exact-SHA gates, `REL-02`/`REL-03` signing trust and the attribution of a
+non-pass signature state, and `REL-04` independent byte re-verification all precede the operator
+rows.  A green Windows gate is not a signed build, not a trusted signature, and not accepted
+product; `UNSIGNED` is the recorded release policy while `UNKNOWN` is an evidence gap, and neither
+is a substitute or a restatement of the other.

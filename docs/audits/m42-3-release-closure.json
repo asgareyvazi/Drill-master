@@ -242,5 +242,25 @@
     "note": "these are dated observations about a superseded commit and are recorded without run identifiers, because a committed run id would be a fabricated verification value; the release decision for any commit is made only by the gate pair whose head_sha equals that commit",
     "windows_step_8_observation": "the Windows release validation run for the immediately preceding commit cleared steps 1-7 and 9-11 (Inno identity 6.7.1 read back from the installed package, the 27-module regression suite, build plus frozen smoke, the archive-bound signing step, report and upload) and failed step 8 on the marker-channel defect recorded as M42.3-6, while the signing step recorded UNKNOWN for both executables with no reason attached, recorded as M42.3-8",
     "source_gate_observation": "the source release gate for that same commit succeeded for Python 3.11, 3.12 and 3.13"
+  },
+  "correction": {
+    "recorded_by": "M42.4",
+    "recorded_on": "2026-10-10",
+    "supersedes_this_record": false,
+    "affected_statement": "signing_contract.current_status = UNSIGNED",
+    "what_that_sentence_described": "the repository's signing configuration - no SignTool or SignedUninstaller setting, no certificate material, an intentionally unsigned build",
+    "what_the_exact_sha_run_recorded": "UNKNOWN as the aggregate signature state for that build's bytes",
+    "why_these_are_not_the_same_fact": "a configuration statement and a query outcome are different layers; the query's cause was not attributable because the harness discarded stderr whenever stdout parsed and the aggregate compared raw Windows spellings",
+    "correction_applied": "both facts are recorded distinctly in docs/audits/m42-4-authenticode-and-acceptance-closure.json and in packaging/WINDOWS_RELEASE_ACCEPTANCE.md; the dated text above is kept unchanged and no history was rewritten",
+    "fields_left_unchanged": [
+      "signing_contract",
+      "evidence_document_contract",
+      "internal_gates",
+      "mutation_evidence",
+      "external_acceptance",
+      "preserved_boundaries",
+      "observations"
+    ],
+    "not_corrected_here": "the UNKNOWN aggregate itself - M42.4 did not relabel it UNSIGNED and did not re-run or restatize the baseline CI results"
   }
 }

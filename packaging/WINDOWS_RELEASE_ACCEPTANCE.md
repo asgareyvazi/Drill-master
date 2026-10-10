@@ -142,7 +142,7 @@ clean-machine behaviour, UAC/elevation experience on a workstation, an upgrade o
 *different* installers, and is never simulated by running one installer twice), retention of a real operator profile, or operator
 acceptance.  Those remain the manual procedure below.
 
-### Signature status (M42.2, evidence binding corrected in M42.3)
+### Signature status (M42.2; evidence binding corrected in M42.3; record contract and diagnostics hardened in M42.4)
 
 `python packaging\windows_release_evidence.py signing --release-metadata <release-metadata.json> --json-out <signing-status.json>`
 queries Windows' `Get-AuthenticodeSignature` for exactly two executables: the compiled setup executable in the release directory,
@@ -156,21 +156,151 @@ disagrees, an archive with no such member or with two of them, is a refusal (`Va
 Each row records its own `sha256`, and the inner row additionally records `container_archive`, `container_archive_sha256` and
 `container_member`, so the digest of the executable and the digest of the file that contains it cannot be conflated.  Container
 archives are recorded as `NOT_APPLICABLE` and excluded from the aggregate, because "a ZIP is not signed" is not a statement about
-trust; an empty or unparsable Authenticode answer becomes `UNKNOWN`, never `UNSIGNED`.  The vocabulary
-`PASS/UNSIGNED/FAIL/UNKNOWN/NOT_VERIFIED/NOT_RUN/NOT_APPLICABLE` is defined once, in `packaging/release_metadata.py`, and is
-imported by both the querying tool and the report: the aggregate is produced by the tool and validated by the report against that
-same set, so the two cannot drift into different meanings for the same word.
+trust.
 
-The current result is `UNSIGNED`, and the report says so.  A signing *state* - including `FAIL` for a `NotTrusted` or `HashMismatch`
-result - is recorded and annotated but never reddens the packaging gate, because whether the release is signed is an owner decision
-about distribution trust; the only things that fail the step are a signing run that produced no record at all, and a record that
-cannot be parsed (annotated as `Signature record malformed`).  Nothing reads, prints or stores a private key, certificate file or
-password; only the *names* of credential-bearing environment variables are recorded, so the presence or absence of CI signing
-credentials stays auditable without leaking anything.
+**Four vocabularies, kept apart** (defined once, in `packaging/release_metadata.py`; the querying tool and the report both import
+them, and `tests/test_windows_release_gate_contract.py` refuses a second definition):
+
+| layer | values | meaning |
+| --- | --- | --- |
+| raw Windows answer (`raw_status`, verbatim) | `Unknown`, `NotSigned`, `HashMismatch`, `NotTrusted`, `Valid`, `UnknownError`, plus the equivalent spellings `Ok`, `NottrustedForData`, `NotGenuineSignedData` | what `Get-AuthenticodeSignature` actually replied, before any interpretation |
+| normalized per-file (`status`) | `PASS`, `UNSIGNED`, `FAIL`, `UNKNOWN`, `NOT_APPLICABLE` | what that answer *means* under one shared rule: `Valid`/`Ok` -> `PASS`, `NotSigned` -> `UNSIGNED`, a mismatch or untrusted chain -> `FAIL`, `Unknown*` and any spelling with no rule -> `UNKNOWN` |
+| aggregate of one run | `PASS`, `UNSIGNED`, `FAIL`, `UNKNOWN`, `NOT_RUN` | the fold over examined executables; `NOT_APPLICABLE` rows are excluded, nothing examined is `UNKNOWN`, never a fabricated `UNSIGNED` |
+| report-level absence | `NOT_VERIFIED` | *no record exists to read*.  It is not an Authenticode state and never appears as a per-file or aggregate status |
+
+Casing is normalised before the lookup on purpose: comparing raw Windows spellings used to let a legitimate `Unknown` fold into
+`FAIL`, which reports an unattributable answer as if Windows had confirmed a signature problem.  An answer with no rule is
+therefore recorded as `UNKNOWN` with `raw_status_recognized: false`, which says "our table needs updating" instead of inventing a
+verdict either way.
+
+Nothing in this step reads, prints or stores a private key, certificate file or password; only the *names* of credential-bearing
+environment variables are recorded, so the presence or absence of CI signing credentials stays auditable without leaking anything.
+Every diagnostic string the record publishes - including the captured stderr - is redacted against the values of those variables
+before it is written.
+
+#### The signing record contract (`drillmaster-signing-status/v2`)
+
+The document names the bytes it describes: `release_metadata_sha256` (the digest of the exact `release-metadata.json` the run
+read) and `source_sha` (the commit that produced them).  A `v1` record is refused rather than reinterpreted, and `validate_signing_document`
+- called by the generator *before it writes* and by the report *before it reads* - refuses: an aggregate the per-file findings do
+not support (a `PASS` while any row is `UNSIGNED`/`UNKNOWN`, a `FAIL` when every row is `PASS`, an `UNSIGNED` over a
+`PASS`+`FAIL` mix, an `UNKNOWN` when the rows are determinate); a missing or unknown field at either level; a duplicate row; a
+malformed digest or a negative size; a container row counted in the executable aggregate; `signature_bearing` contradicting the
+status; an incomplete container binding; a `UNKNOWN` row without a reason; a diagnostic beyond the bound; and a `NOT_RUN` record
+that also carries per-file findings.  The report then *verifies* the binding instead of trusting it: the row named as the shipped
+installer must hash to the digest this report recomputed from the release directory, every container binding must name the published
+archive with that archive's verified digest, and both executables must be present - so a stale record from another run, a record
+about a different file, or a record that skipped the packaged executable is an error, not a finding.
+
+#### Reading the cause of a signature state
+
+`run_powershell` no longer treats a parseable payload as a complete answer.  The query script runs
+`Get-AuthenticodeSignature -ErrorAction Stop` inside `try`/`catch` and publishes `QueryError`, so a statement-level failure that
+still exits 0 reports itself; the harness attaches bounded, redacted `powershell_stderr` and the exit code whenever the channel is
+non-empty; and a capability probe (`Get-Command Get-AuthenticodeSignature`) runs first and is published as `harness`
+(`powershell_version`, `query_command`, `signature_command_module`, and any probe error).  A probe that *positively* answers
+`missing` records that one cause for every file; a probe that itself failed is recorded and the real queries still run, because a
+diagnostic must not become an authority that suppresses evidence.
+
+Those fields are published where a reviewer can read them without artifact access: in `signing-status.json`, in the job console line
+the tool prints (`status`, `harness`, and a `reason` for every non-`PASS` row), in the step summary under `Authenticode query
+environment`, in the single `Signature status` annotation (now `aggregate; ps=... cmdlet=...; file=STATUS/raw [reason]`), and as a
+`Signature state needs review` warning whenever the aggregate is `UNKNOWN` or `FAIL`.  `UNSIGNED` is only noticed, because it is the
+recorded policy outcome, not a malfunction.
+
+#### What the gate does with a signature state
+
+A signing *state* - including `FAIL` for a `NotTrusted` or `HashMismatch` result - is recorded and annotated but never reddens the
+packaging gate, because whether the release is signed is an owner decision about distribution trust.  What
+does fail the step is an evidence failure of its own: a signing run that produced no record, a record that cannot be parsed
+(annotated as `Signature record malformed`), or a record that violates its own schema.  Two different situations are deliberately
+handled by two different policies: a Windows host that *cannot answer* still produces a valid record whose every executable row is
+`UNKNOWN` with the reason, while a run whose record *cannot be constructed* (disagreeing archive digest, ambiguous or unsafe member,
+no manifest) produces no record and fails.  The step snapshots `$LASTEXITCODE` and ends with an explicit `exit 0`, because the
+Actions `pwsh` wrapper would otherwise propagate whatever the last native command returned.
+
+**`UNSIGNED` and `UNKNOWN` are different facts, and both are published.**  `signing_configured_in_build: false`, no `SignTool` or
+`SignedUninstaller` setting in `packaging/DrillMaster.iss`, and no certificate material in the repository describe the *build
+configuration*: this release is intentionally unsigned.  The aggregate describes *what the query observed*: on the shipped candidate
+it was `UNKNOWN`, which is a statement about the evidence, not a restatement of the policy.  One is never rewritten into the other.
 
 Producing a valid signature requires an owner-controlled code-signing certificate (or a hosted signing service) and a signing step
 in `packaging/build_windows.ps1`; `packaging/DrillMaster.iss` sets no `SignTool` and no `SignedUninstaller` override today, and the
 report records `signing_configured_in_build: false` accordingly.
+
+## Re-verifying a downloaded artifact yourself
+
+A CI annotation, a job log, or this runbook is not byte-integrity proof of the file in your
+Downloads folder: the artifact endpoint, the log endpoint and the CI summary all describe bytes
+that were uploaded, not the bytes you now hold.  Nothing in this procedure requires the repository,
+Python, or the application being installed, and it never executes a downloaded binary.  Run it in
+a PowerShell session whose working directory is the folder you extracted the CI
+`drillmaster-windows-<sha>.zip` into.
+
+```powershell
+# 1. Integrity of the two published release artifacts, against the digests the build recorded.
+$manifest = Get-Content -LiteralPath .\release-metadata.json -Raw | ConvertFrom-Json
+foreach ($entry in $manifest.artifacts) {
+  $path = Join-Path . $entry.filename
+  if (-not (Test-Path -LiteralPath $path)) { "MISSING  $($entry.filename)"; continue }
+  $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $path).Hash.ToLowerInvariant()
+  $size = [long](Get-Item -LiteralPath $path).Length
+  $ok = ($hash -eq $entry.sha256) -and ($size -eq [long]$entry.size_bytes)
+  "{0}  {1}  {2}B  sha256={3}" -f ($(if ($ok) { "MATCH  " } else { "MISMATCH" })), $entry.filename, $size, $hash
+}
+# 2. The checksum file must agree with the manifest and with the files, line for line.
+$sums = Get-Content -LiteralPath .\SHA256SUMS.txt
+$expected = @($manifest.artifacts | ForEach-Object { "$($_.sha256)  $($_.filename)" })
+ Compare-Object -ReferenceObject $expected -DifferenceObject $sums |
+   ForEach-Object { "SUMS DIFFERENCE: $($_.InputObject)" }
+
+# 3. The executable inside the portable archive, bound to that archive's verified digest.  The
+#    archive is expanded into a temporary directory and nothing there is executed.
+$bundle = ($manifest.artifacts | Where-Object { $_.filename -like "*.zip" }).filename
+$scratch = Join-Path $env:TEMP ("drillmaster-verify-" + [guid]::NewGuid().ToString("N"))
+New-Item -ItemType Directory -Force -Path $scratch | Out-Null
+Expand-Archive -LiteralPath (Join-Path . $bundle) -DestinationPath $scratch
+$exe = Get-ChildItem -LiteralPath $scratch -Recurse -Filter DrillMaster.exe | Select-Object -First 1
+if (-not $exe) { "NO EXECUTABLE MEMBER in $bundle" } else {
+  "inner sha256=" + (Get-FileHash -Algorithm SHA256 -LiteralPath $exe.FullName).Hash.ToLowerInvariant()
+  "container sha256=" + (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path . $bundle)).Hash.ToLowerInvariant()
+  # 4. Authenticode as Windows sees it, on the copy you hold.  This is distribution trust, not
+  #    a verdict on whether the application works.
+  $signature = Get-AuthenticodeSignature -LiteralPath $exe.FullName
+  "Status={0}  StatusMessage={1}" -f $signature.Status, $signature.StatusMessage
+  if ($signature.SignerCertificate) { "Signer={0}" -f $signature.SignerCertificate.Subject }
+}
+Remove-Item -LiteralPath $scratch -Recurse -Force
+```
+
+Expected result for the current repository policy: both digests `MATCH`, no `SUMS DIFFERENCE`
+lines, and `Status=NotSigned` for the executable and the installer.  A `MISMATCH` means the bytes
+you hold are not the bytes the gate examined, and no statement in `signing-status.json`,
+`acceptance-report.json` or a job annotation applies to them.  `Status=NotSigned` is the
+intentional, documented state - see `signing_configured_in_build` - not a corruption finding.  Do
+not run `DrillMaster.exe` or the setup executable to "check" the download; run the installer only
+on a disposable machine, through the interactive procedure below, after the digests match.
+
+## Acceptance register (owner-facing)
+
+Each row is a decision or an acceptance activity that repository automation cannot supply.  A
+green Windows gate proves the rows marked *automation* only; every other row stays `NOT_RUN` or
+`OWNER_DECISION` until the evidence named in it exists outside this repository.
+
+| id | item | prerequisite | required evidence | pass condition | fail / open condition | owner | status |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| REL-01 | Internal packaging gate on the exact SHA | final commit pushed | Source and Windows workflow runs whose `headSha` equals that SHA | both conclusions `success` on the identical SHA | any other SHA, a cancelled run, or a run whose annotation cannot be read | repository maintainer | automation only; see the mission report for the current SHA |
+| REL-02 | Distribution trust (code signing) | Decision A below | certificate or hosted-signing procurement, `SignTool` configuration, a `PASS` aggregate in `signing-status.json` | every examined executable reports `PASS` with a signer whose chain the target machines trust | `UNSIGNED` (policy), `FAIL` (broken/untrusted chain), `UNKNOWN` (unattributable) all remain open | product owner | `OWNER_DECISION` |
+| REL-03 | Signature-state attribution closed | next exact-SHA run after M42.4 | `signing-status.json` `harness` block and the per-file `status_message`, readable from the annotation | the aggregate is `UNSIGNED`/`PASS`/`FAIL` - a determinate state - or `UNKNOWN` with a stated cause | a bare `UNKNOWN` with no reason is still the open blocker | repository maintainer | open until the next exact-SHA record exists |
+| REL-04 | Artifact byte-integrity re-verification | the downloaded CI artifact | the procedure above, run on the operator's machine | `MATCH` for both artifacts and no `SUMS DIFFERENCE` | any `MISMATCH`, or no independent run at all | reviewer holding the download | `NOT_RUN` in-repository (`NOT_VERIFIED` in the report) |
+| REL-05 | Reproducibility requirement | Decision C below | either a claim with two independent builds compared byte-for-byte, or the recorded `NOT_CLAIMED` | an explicit owner position, recorded in this file | a `PASS` gate silently read as reproducibility | product owner | `OWNER_DECISION` |
+| REL-06 | POSIX permission policy | Decision D below | a documented position on mode bits for the portable ZIP on non-Windows extraction | recorded policy statement | absence of a statement | product owner | `OWNER_DECISION` |
+| REL-07 | Clean-machine interactive install | a disposable Windows 10/11 x64 VM | the procedure under "Interactive installation procedure", with the VM image and installer SHA recorded | install, first run, sign-in, restart, and data-outside-`{app}` all confirmed by a named operator | any step unexecuted | field/QA owner | `NOT_RUN` |
+| REL-08 | Upgrade and uninstall data retention | an earlier candidate installed first | steps 4-5 of the same procedure | prior test data readable, no second database, user data survives uninstall | not executed on a real upgrade pair | field/QA owner | `NOT_RUN` |
+| REL-09 | Real DDR Excel acceptance | a sanctioned, non-confidential client DDR workbook | parser and database round-trip against that workbook, reviewed by an engineer | an engineer confirms the imported values and units | the synthetic workbook is `AUTOMATED_TEST_ONLY_NOT_REAL_DDR_ACCEPTANCE` and never satisfies this row | business/technical owner | `NOT_RUN` |
+| REL-10 | Real DDR PDF and MinerU acceptance | a licensed MinerU environment outside this repository | import of a real PDF with the opt-in path enabled | extracted fields reviewed against the source document | not provided or exercised by the Windows workflow | business/technical owner | `NOT_RUN` |
+| REL-11 | Production database and field validation | approved test/prod separation, operator time | restore, concurrency, and field use on target hardware | operator sign-off naming the environment and SHA | no repository automation can substitute | operations owner | `NOT_RUN` |
+| REL-12 | Open P6 owner decisions | none (they are decisions, not defects) | the six register entries carried forward from M36 | each decision recorded with its rationale | `NEW-P6-007`, `NEW-P6-008`, `NEW-P6-015`, `NEW-P6-020`, `NEW-P6-023`, `NEW-P6-024` remain open | product owner | `OWNER_DECISION` |
 
 ## Interactive installation procedure (manual; NOT automated by the workflow)
 

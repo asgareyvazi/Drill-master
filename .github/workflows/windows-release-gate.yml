@@ -230,8 +230,32 @@ jobs:
               Write-Output "::error title=Signature record malformed::signing-status.json could not be parsed; the acceptance report will refuse it"
               throw "signing-status.json is malformed: $($_.Exception.Message)"
             }
-            $perFile = @($signing.files | ForEach-Object { "$($_.filename)=$($_.status)" }) -join ' '
-            Write-Output "::notice title=Signature status::$($signing.status); $perFile"
+            # The cause of a non-pass state has to be readable in the job itself.  Artifact
+            # download endpoints are not always reachable from a review environment, and last
+            # release the aggregate was published with no reason attached anywhere.
+            $oneLine = { param($text) (($text -replace '[\r\n]+', ' ') -replace '[^\x20-\x7E]', '?') }
+            $clip = { param($text, $limit) if ($text.Length -gt $limit) { $text.Substring(0, $limit) + '...' } else { $text } }
+            $harness = 'ps=unreported cmdlet=unreported'
+            if ($signing.harness) {
+              $harness = "ps=$($signing.harness.powershell_version) cmdlet=$($signing.harness.query_command)"
+            }
+            $perFile = @($signing.files | ForEach-Object {
+              $note = ''
+              if ($_.status -ne 'PASS' -and $_.status_message) {
+                $message = & $oneLine $_.status_message
+                $note = ' [' + (& $clip $message 160) + ']'
+              }
+              $raw = if ($_.raw_status) { '/' + $_.raw_status } else { '' }
+              "$($_.filename)=$($_.status)$raw$note"
+            }) -join ' '
+            Write-Output "::notice title=Signature status::$($signing.status); $harness; $perFile"
+            if (@('UNKNOWN', 'FAIL') -contains $signing.status) {
+              # Unsigned is the recorded release policy and is only noticed; a state that could
+              # not be interpreted, or a broken signature, is worth a reviewer's attention.  Two
+              # annotations stay well inside the per-step annotation cap, and the summary is uncapped.
+              Write-Output "::warning title=Signature state needs review::$($signing.status); $harness; $perFile"
+            }
+            Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "### Authenticode query environment`n`n$($harness); schema=$($signing.schema); examined=$($signing.examined_count) archive-rows=$($signing.archive_count)`n`nEach per-file reason below is the recorded cause, so an UNKNOWN does not have to be reconstructed from a downloaded artifact.`n" -Encoding utf8
             $signingMarkdown = Join-Path $releaseRoot 'signing-status.md'
             if (Test-Path -LiteralPath $signingMarkdown) {
               Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value (Get-Content -LiteralPath $signingMarkdown -Raw) -Encoding utf8
