@@ -404,3 +404,31 @@ def test_verify_report_fields_reports_omissions_and_bad_statuses():
                                         "installer_compilation": {}, "code_signing": {}}}
     with pytest.raises(ValueError, match="missing required fields"):
         module.verify_report_fields(report)
+
+
+def test_streaming_hash_matches_the_reference_digest_for_edge_sizes(tmp_path):
+    """Empty, exactly-one-block and multi-block artifacts must all verify correctly."""
+    import hashlib
+
+    module = _report_module()
+    for payload in (b"", b"z" * 1024, b"z" * (1024 * 1024), b"z" * (1024 * 1024 + 7),
+                    b"z" * (3 * 1024 * 1024)):
+        root = _release_root(tmp_path / f"edge{len(payload)}", bundle=payload)
+        report = module.build_report(metadata_path=root / "release-metadata.json",
+                                      junit_path=_junit(tmp_path, PASSING_JUNIT), source_sha="a" * 40)
+        assert report["identity"]["portable_zip_sha256"] == hashlib.sha256(payload).hexdigest()
+        assert report["identity"]["portable_zip_size_bytes"] == len(payload)
+        assert report["repository_automation"]["portable_bundle_build"]["hash_verified"] is True
+
+
+def test_release_tooling_keeps_exactly_one_streaming_hash_implementation():
+    """A second hash loop is how a report and a manifest start disagreeing."""
+    report_source = (ROOT / "packaging" / "acceptance_report.py").read_text(encoding="utf-8")
+    metadata_source = (ROOT / "packaging" / "release_metadata.py").read_text(encoding="utf-8")
+    lifecycle_source = (ROOT / "packaging" / "windows_release_evidence.py").read_text(encoding="utf-8")
+    assert "from release_metadata import" in report_source and "sha256_file" in report_source
+    assert "read_bytes()" not in report_source, "the report must not load an artifact into memory"
+    for name, source in (("acceptance_report.py", report_source), ("windows_release_evidence.py", lifecycle_source)):
+        assert "hashlib.sha256(" not in source, f"{name} would be a second hashing implementation"
+    assert "hashlib.sha256()" in metadata_source, "the single implementation lives in release_metadata"
+    assert metadata_source.count("def sha256_file") == 1
