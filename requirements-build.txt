@@ -3,5 +3,11 @@
 pyinstaller==6.11.1
 pywin32-ctypes==0.2.3
 altgraph==0.17.4
-pefile==2024.8.26
+# pefile is constrained by PyInstaller itself: pyinstaller 6.11.1 declares
+# pefile>=2022.5.30,!=2024.8.26 under a sys_platform == "win32" marker (PyPI metadata
+# for pyinstaller==6.11.1, retrieved 2026-10-10).  That marker is false on Linux, so a
+# Linux resolve of this file cannot detect the conflict -- 2024.8.26 resolves happily
+# there and is ResolutionImpossible on Windows.  2023.2.7 is the newest allowed release
+# and ships a py3-none-any wheel, so no compiler is needed on the build machine.
+pefile==2023.2.7
 pyinstaller-hooks-contrib==2025.1

@@ -38,9 +38,9 @@
   },
   "packaging_stage_forensics": {
     "artifacts_weakened_to_obtain_green": false,
-    "corrective_change": "publish release_dir before building; Start-Transcript the whole step and stop it before annotating; wrap the step in try/catch/finally that emits one bounded, redacted ::error annotation through packaging/junit_report.py --annotate over the transcript, pip-install.log and pyinstaller-build.log and re-throws; capture pip install and pip check into pip-install.log with a bounded tail inside the thrown message; resolve the release output directory and its emptiness guard before any log is written; add -PythonExe with an explicit minor-version assertion; scope ErrorActionPreference to the redirected native pipelines and clear PSNativeCommandUseErrorActionPreference; record the runner volume's free bytes so an out-of-space packaging environment is visible",
+    "corrective_change": "publish release_dir before building; Start-Transcript the whole step and stop it before annotating; wrap the step in try/catch/finally that emits one bounded, redacted ::error annotation through packaging/junit_report.py --annotate over the transcript, pip-install.log and pyinstaller-build.log and re-throws; capture pip install and pip check into pip-install.log with a bounded tail inside the thrown message; resolve the release output directory and its emptiness guard before any log is written; add -PythonExe with an explicit minor-version assertion; scope ErrorActionPreference to the redirected native pipelines and clear PSNativeCommandUseErrorActionPreference; record the runner volume's free bytes so an out-of-space packaging environment is visible; requirements-build.txt now pins pefile==2023.2.7, the newest release satisfying pyinstaller 6.11.1's >=2022.5.30,!=2024.8.26 constraint, which ships a py3-none-any wheel so the build machine needs no compiler",
     "credential_security_invariants_changed": false,
-    "exception": "Locked dependency installation failed",
+    "exception": "Locked dependency installation failed - pip: ERROR: Cannot install -r requirements-build.txt (line 3) and pefile==2024.8.26 because these package versions have conflicting dependencies; pyinstaller 6.11.1 depends on pefile!=2024.8.26 and >=2022.5.30; sys_platform == \"win32\"; ERROR: ResolutionImpossible",
     "job": "windows-release",
     "module": "packaging/build_windows.ps1 invoked by .github/workflows/windows-release-gate.yml",
     "phase": "packaging environment preparation, after the Windows regression suite and before bundle analysis",
@@ -52,10 +52,12 @@
       "tests/test_windows_release_gate_contract.py::test_gate_builds_with_the_interpreter_it_provisioned",
       "tests/test_windows_release_gate_contract.py::test_build_script_validates_the_interpreter_and_survives_stderr_logging",
       "tests/test_junit_report.py::test_stage_annotation_reports_the_log_tail_with_the_exception",
-      "tests/test_windows_release_gate_contract.py::test_build_script_captures_the_dependency_install_and_checks_output_first"
+      "tests/test_windows_release_gate_contract.py::test_build_script_captures_the_dependency_install_and_checks_output_first",
+      "tests/test_windows_release_gate_contract.py::test_windows_build_toolchain_satisfies_its_own_windows_markers",
+      "tests/test_windows_release_gate_contract.py::test_release_requirement_files_stay_fully_pinned"
     ],
     "reproduction": "exact-SHA Windows gate runs for this branch: the run at f047dc70de5f00ff0948dbd8ea9735b80d853757 failed step 7 with only 'Process completed with exit code 1'; the instrumented run at 54385f8f90b16bddaa64f7cfe03ac1fc41f78b70 published the stage name in a ::error annotation",
-    "root_cause_category": "CI_HARNESS_DEFECT",
+    "root_cause_category": "WINDOWS_PORTABILITY_DEFECT",
     "root_cause_detail": "four harness defects are proven from source and evidence: (1) release_dir job output was set only at the end of the step, so the always() artifact upload contained nothing when the build failed; (2) no failure annotation or step-summary entry was emitted, so the failing stage was unrecoverable once the log endpoint was unreachable; (3) the step selected the interpreter with the Windows 'py' launcher, which resolves registry-registered runtimes rather than the Actions tool-cache Python the job provisioned and tested with; (4) build_windows.ps1 runs under ErrorActionPreference=Stop while redirecting native stderr (2>&1 | Tee-Object), the documented pattern that turns PyInstaller's progress log - or a thrown inner-script error - into a terminating NativeCommandError or a swallowed non-terminating error. The specific stage that failed at f047dc7 is recorded as UNRESOLVED_PENDING_INSTRUMENTED_RUN; the instrumented gate is the evidence source, not this file.",
     "sha": "f047dc70de5f00ff0948dbd8ea9735b80d853757",
     "test": "step 7 'Build portable bundle and installer; run frozen executable smoke' (steps 1-6, including the 26-module Windows regression suite, conclude success at both SHAs)",
@@ -70,10 +72,6 @@
         "evidence": "pip download --only-binary=:all: --platform win_amd64 --python-version 3.12 --implementation cp --abi cp312 -r requirements-lock.txt -r requirements-build.txt resolved and saved all 31 pins plus transitive deps (bcrypt/PyMuPDF/PySide6/shiboken6 via cp39-abi3-win_amd64, pyinstaller via py3-none-win_amd64)"
       },
       {
-        "hypothesis": "the lock is internally inconsistent",
-        "evidence": "pip install -r requirements-lock.txt -r requirements-build.txt then pip check succeeded in a fresh Linux venv at the same files"
-      },
-      {
         "hypothesis": "the py launcher cannot see the Actions tool-cache interpreter, so the build venv is never created",
         "evidence": "the annotation reports 'Build interpreter: C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\python.exe' and virtualenv creation succeeded before the dependency stage; the -PythonExe change removed the launcher dependency entirely"
       },
@@ -86,7 +84,16 @@
         "evidence": "step 6 concluded success at both SHAs with zero failure annotations"
       }
     ],
-    "classification_of_evidence_gap": "CI_HARNESS_DEFECT"
+    "classification_of_evidence_gap": "CI_HARNESS_DEFECT",
+    "stage_mechanism": "requirements-build.txt pinned pefile==2024.8.26, the exact version PyInstaller 6.11.1 excludes on Windows.  The exclusion is guarded by a sys_platform == \"win32\" marker, so the conflict exists only in a Windows resolve: pip installs the same two files cleanly on Linux and the pin was therefore never contradicted by any Linux evidence.",
+    "resolution_verification": "SEPARATE_EXACT_SHA_WORKFLOW_REQUIRED",
+    "corrections": [
+      {
+        "superseded_claim": "the entry previously recorded under ruled_out claimed the requirement files were consistent because pip install -r requirements-lock.txt -r requirements-build.txt plus pip check succeeded in a fresh Linux venv",
+        "why_wrong": "that evidence cannot observe the defect: the conflicting PyInstaller requirement is guarded by a sys_platform == \"win32\" marker, so a Linux resolve is always clean.  The Linux check was kept as evidence that no non-marked conflict exists, and its conclusion of overall consistency was withdrawn",
+        "corrected_method": "evaluate every pinned dependency edge under a Windows marker environment (sys_platform=win32, platform_system=Windows, os_name=nt, platform_machine=AMD64) against the repository pins - 33 win32-applicable edges over 31 pins, now reporting no conflict - and lock that invariant in tests/test_windows_release_gate_contract.py without needing network access"
+      }
+    ]
   },
   "internal_gates": [
     {

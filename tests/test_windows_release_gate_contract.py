@@ -162,6 +162,58 @@ def test_windows_gate_keeps_the_inno_setup_and_isolation_pins(workflow_text):
     assert "drillmaster.db" not in workflow_text, "the gate must never point at the default operator database"
 
 
+# --- build-lock dependency constraints that only exist under a Windows marker ----
+
+# Edges recorded from PyPI metadata on 2026-10-10 for the pinned versions below.  The
+# pefile edge carries sys_platform == "win32", so resolving these files on Linux cannot
+# see the conflict at all -- that is how the packaging gate became the first place it
+# surfaced, and it is why the constraint is recorded here instead of discovered again.
+RECORDED_DEPENDENCY_EDGES = (
+    ("pyinstaller==6.11.1", "pefile", ">=2022.5.30,!=2024.8.26"),
+    ("PySide6==6.8.1.1", "shiboken6", "==6.8.1.1"),
+    ("PySide6==6.8.1.1", "PySide6-Essentials", "==6.8.1.1"),
+    ("PySide6==6.8.1.1", "PySide6-Addons", "==6.8.1.1"),
+)
+
+
+def _requirement_pins(path: Path) -> dict[str, str]:
+    pins = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        name, separator, version = line.partition("==")
+        assert separator, f"{path.name} must stay fully pinned; unpinned requirement: {line}"
+        pins[name.strip().lower().replace("_", "-")] = version.strip()
+    assert pins, f"{path.name} parsed to no requirements"
+    return pins
+
+
+def test_release_requirement_files_stay_fully_pinned():
+    """An unpinned build or runtime requirement makes the packaged binary unreproducible."""
+    assert _requirement_pins(ROOT / "requirements-build.txt")
+    assert _requirement_pins(ROOT / "requirements-lock.txt")
+
+
+def test_windows_build_toolchain_satisfies_its_own_windows_markers():
+    from packaging.specifiers import SpecifierSet
+    from packaging.version import Version
+
+    pins = {}
+    pins.update(_requirement_pins(ROOT / "requirements-lock.txt"))
+    pins.update(_requirement_pins(ROOT / "requirements-build.txt"))
+    conflicts = []
+    for consumer, dependency, specifier in RECORDED_DEPENDENCY_EDGES:
+        consumer_name, _, consumer_version = consumer.partition("==")
+        assert pins[consumer_name.strip().lower().replace("_", "-")] == consumer_version, (
+            f"{consumer} is recorded from PyPI metadata but the repository pins a different "
+            f"version; re-record the constraint edges before changing this pin")
+        pinned = pins[dependency.strip().lower().replace("_", "-")]
+        if Version(pinned) not in SpecifierSet(specifier):
+            conflicts.append(f"{dependency}=={pinned} violates {consumer}'s requirement {specifier}")
+    assert not conflicts, "Windows packaging environment is unresolvable:\n" + "\n".join(conflicts)
+
+
 # --- the packaging step must be diagnosable on a runner with no reachable log ----
 
 def _build_step(workflow_text: str) -> str:
@@ -255,8 +307,16 @@ def test_checkpoint_records_the_packaging_stage_without_inventing_a_root_cause()
         "PRODUCT_DEFECT", "WINDOWS_PORTABILITY_DEFECT", "CI_HARNESS_DEFECT",
         "ENVIRONMENTAL_LIMITATION", "UNRESOLVED",
     }
-    assert record["failing_stage"] and record["underlying_stage_cause"].startswith("UNRESOLVED"), (
-        "the stage may be identified while its mechanism is still unproven; the record must say so")
+    assert record["failing_stage"], "the annotated stage must be recorded"
+    mechanism = record.get("stage_mechanism", "UNRESOLVED_PENDING_CAPTURED_PIP_LOG")
+    if mechanism.startswith("UNRESOLVED"):
+        assert record["resolution_verification"] == "SEPARATE_EXACT_SHA_WORKFLOW_REQUIRED", (
+            "an unproven mechanism must be marked unresolved, never asserted as fixed")
+    else:
+        assert record["resolution_verification"] == "SEPARATE_EXACT_SHA_WORKFLOW_REQUIRED", (
+            "even a proven mechanism is only verified by the exact-SHA gate")
+    for correction in record.get("corrections", []):
+        assert all(correction[key].strip() for key in ("superseded_claim", "why_wrong", "corrected_method"))
     assert "actions/runs/" not in json.dumps(record)
     assert re.fullmatch(r"[0-9a-f]{40}", record["stage_identified_at_sha"])
     for ruled in record["ruled_out"]:
