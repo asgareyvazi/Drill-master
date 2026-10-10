@@ -37,10 +37,15 @@ if str(_PACKAGING_DIR) not in sys.path:
 
 from package_smoke import _smoke_environment  # noqa: E402  (isolated smoke environment is shared)
 from release_metadata import (  # noqa: E402  (shared schema-level constants and hashing)
+    SIGNING_FILE_VOCABULARY as FILE_STATUS_VOCABULARY,
     SIGNING_NOT_APPLICABLE as NOT_APPLICABLE,
+    SIGNING_SCHEMA as SIGNING_STATUS_SCHEMA,
     SIGNING_STATUS_VOCABULARY,
+    aggregate_signing_status as signing_aggregate,
+    normalize_authenticode_status,
     sha256_file,
     validate_document,
+    validate_signing_document,
 )
 
 DIAGNOSTIC_LIMIT = 4000
@@ -52,14 +57,37 @@ VERSION_QUERY_SCRIPT = (
     "$info = (Get-Item -LiteralPath $env:DRILLMASTER_TARGET_PATH).VersionInfo; "
     "@{FileVersion=$info.FileVersion; ProductVersion=$info.ProductVersion} | ConvertTo-Json -Compress"
 )
+# The query has to distinguish "Windows answered" from "the statement that asks failed".
+# Without the try/catch a cmdlet error is written to stderr, $signature stays null, the
+# hashtable still serialises, and the script exits 0 with an empty Status: an UNKNOWN that
+# carried no cause anywhere in the published record.  ErrorAction Stop plus a captured message
+# makes the same failure report itself.
 SIGNATURE_QUERY_SCRIPT = (
-    "$signature = Get-AuthenticodeSignature -LiteralPath $env:DRILLMASTER_TARGET_PATH; "
-    "@{Status=[string]$signature.Status; "
-    "StatusMessage=[string]$signature.StatusMessage; "
-    "SignerSubject=$(if ($signature.SignerCertificate) { [string]$signature.SignerCertificate.Subject } else { $null })} "
-    "| ConvertTo-Json -Compress"
+    "$result = @{Status=''; StatusMessage=''; SignerSubject=$null; QueryError=''}; "
+    "try { "
+    "$signature = Get-AuthenticodeSignature -LiteralPath $env:DRILLMASTER_TARGET_PATH -ErrorAction Stop; "
+    "$result.Status = [string]$signature.Status; "
+    "$result.StatusMessage = [string]$signature.StatusMessage; "
+    "if ($signature.SignerCertificate) { $result.SignerSubject = [string]$signature.SignerCertificate.Subject } "
+    "} catch { $result.QueryError = $_.Exception.Message }; "
+    "$result | ConvertTo-Json -Compress"
+)
+# Capability probe, run before any file is queried, so "this host cannot answer the question"
+# is recorded once as a cause instead of surfacing as several unexplained UNKNOWN rows.
+SIGNING_PROBE_SCRIPT = (
+    "$probe = @{ps_version=[string]$PSVersionTable.PSVersion; cmdlet='missing'; module=''}; "
+    "$command = Get-Command Get-AuthenticodeSignature -ErrorAction SilentlyContinue; "
+    "if ($command) { $probe.cmdlet = 'available'; "
+    "if ($command.Source) { $probe.module = [string]$command.Source } }; "
+    "$probe | ConvertTo-Json -Compress"
 )
 SECRET_ENV_PATTERN = re.compile(r"(PASSWORD|API_KEY|TOKEN|SECRET|CREDENTIAL)", re.IGNORECASE)
+# Stated once, because both the record a Windows run produces and the record a non-Windows host
+# publishes have to promise the same thing about what a signature finding does to the gate.
+SIGNING_POLICY = ("unsigned publication is the current release policy: a recorded signature state, including "
+                  "FAIL, is a distribution-trust finding and never fails the packaging gate, a result that could "
+                  "not be examined is never reported as UNSIGNED, and a run that produced no interpretable "
+                  "record does fail the gate")
 
 
 class CommandResult(Protocol):
@@ -72,22 +100,12 @@ Runner = Callable[[list[str], dict[str, str] | None, Path | None, int], CommandR
 
 
 def aggregate_signing_status(files: list[dict]) -> str:
-    """Fold per-file Authenticode results into one status, never into a guess.
+    """Signing aggregation is defined once, in ``release_metadata``, and used unchanged here.
 
-    ``NOT_APPLICABLE`` entries (archives) are excluded; if nothing signature-bearing
-    could be examined the result is UNKNOWN rather than a fabricated UNSIGNED.
+    The name deliberately stays in this module: the acceptance report has to fold the same
+    per-file findings the same way, so a second, subtly different rule cannot drift into being.
     """
-    examined = [item for item in files if item.get("status") != NOT_APPLICABLE]
-    statuses = {str(item.get("status")) for item in examined}
-    if not examined:
-        return "UNKNOWN"
-    if "UNKNOWN" in statuses:
-        return "UNKNOWN"
-    if statuses == {"NotSigned"}:
-        return "UNSIGNED"
-    if statuses == {"Valid"}:
-        return "PASS"
-    return "FAIL"
+    return signing_aggregate(files)
 
 
 def bound(text: str, limit: int = DIAGNOSTIC_LIMIT) -> str:
@@ -112,8 +130,16 @@ def default_runner(argv: list[str], environment: dict[str, str] | None,
                           timeout=timeout)
 
 
-def run_powershell(script: str, target: Path, runner: Runner, timeout: int) -> dict:
-    """Query Windows shell metadata for a path without interpolating it into the script."""
+def run_powershell(script: str, target: Path, runner: Runner, timeout: int, *,
+                   required_field: str = "") -> dict:
+    """Query Windows shell metadata for a path without interpolating it into the script.
+
+    ``required_field`` names the answer the caller actually needs.  A script can exit 0 while
+    the statement that produced that field failed, and that used to read as a successful empty
+    answer: exit code zero plus a parseable payload was never cross-checked against the reason
+    PowerShell wrote to stderr.  Carrying the bounded stderr and the exit code with the payload
+    is what turns "UNKNOWN" into "UNKNOWN because ...".
+    """
     environment = dict(os.environ)
     environment["DRILLMASTER_TARGET_PATH"] = str(target)
     completed = runner(["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
@@ -127,8 +153,20 @@ def run_powershell(script: str, target: Path, runner: Runner, timeout: int) -> d
     try:
         payload = json.loads(output)
     except json.JSONDecodeError:
-        return {"error": f"powershell returned unreadable output: {bound(output, 200)}"}
-    return payload if isinstance(payload, dict) else {"error": "powershell returned a non-object"}
+        detail = error_text or output
+        return {"error": f"powershell returned unreadable output: {bound(detail, 200)}"}
+    if not isinstance(payload, dict):
+        return {"error": f"powershell returned a non-object (exit code {completed.returncode})"}
+    if error_text:
+        # A statement-level failure inside a script that still printed a payload used to be
+        # invisible, because a parseable object was treated as a complete answer.
+        payload.setdefault("powershell_stderr", bound(error_text, 600))
+        payload.setdefault("powershell_exit_code", completed.returncode)
+    if required_field and not str(payload.get(required_field, "") or "").strip():
+        detail = error_text or f"exit code {completed.returncode}"
+        payload.setdefault("error", f"powershell exited {completed.returncode} without reporting "
+                                    f"{required_field}: {bound(detail, 300)}")
+    return payload
 
 
 def _step(name: str, status: str, detail: str = "") -> dict:
@@ -442,6 +480,22 @@ def extract_verified_member(archive: Path, exe_name: str, destination: Path,
         return target, info.filename
 
 
+def _redact_tree(value: object, secret_values: list[str]) -> object:
+    """Remove signing credential values from every string the record publishes.
+
+    Diagnostics now include what PowerShell wrote to stderr.  A tool that echoes its own
+    environment into an error message must not turn a release log into a credential leak, so
+    redaction is applied to the whole document rather than to one field.
+    """
+    if isinstance(value, str):
+        return redact(value, secret_values)
+    if isinstance(value, dict):
+        return {key: _redact_tree(item, secret_values) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_redact_tree(item, secret_values) for item in value]
+    return value
+
+
 def run_signing(*, release_metadata_path: Path, runner: Runner = default_runner,
                 timeout: int = 120, exe_name: str = "DrillMaster.exe") -> dict:
     """Record Authenticode status for every executable this release actually ships.
@@ -466,6 +520,23 @@ def run_signing(*, release_metadata_path: Path, runner: Runner = default_runner,
                                     and re.search(r"SIGN|CERT|PFX|AUTHENTICODE", key, re.IGNORECASE))
     files: list[dict] = []
     examined: list[dict] = []
+    # Ask the host whether it can answer the question at all, and record what it said.  This is
+    # what makes a published UNKNOWN attributable without downloading any artifact.
+    probe = run_powershell(SIGNING_PROBE_SCRIPT, release_root, runner, timeout)
+    # A probe is a diagnostic, not an authority: only a host that positively answers "the cmdlet
+    # is missing" may excuse the run from asking about each file.  A probe that itself failed is
+    # recorded and the queries still run, because each query reports its own cause.
+    reported_command = str(probe.get("cmdlet") or "unknown") if "error" not in probe else "unknown"
+    harness = {"query_command": reported_command,
+               "powershell_version": str(probe.get("ps_version") or ""),
+               "signature_command_module": str(probe.get("module") or ""),
+               "probe_exit_code": probe.get("powershell_exit_code", 0)}
+    for key in ("error", "powershell_stderr"):
+        if probe.get(key):
+            harness[f"probe_{key}"] = bound(str(probe[key]), 300)
+    unavailable_reason = (f"Get-AuthenticodeSignature is not available in this PowerShell host "
+                          f"(PowerShell {harness['powershell_version'] or 'unknown'} reported "
+                          f"{reported_command!r})" if reported_command == "missing" else "")
     with tempfile.TemporaryDirectory(prefix="drillmaster-signing-") as directory:
         scratch = Path(directory)
 
@@ -496,14 +567,35 @@ def run_signing(*, release_metadata_path: Path, runner: Runner = default_runner,
                 record["container_archive"] = spec["container"]
                 record["container_archive_sha256"] = spec["container_digest"]
                 record["container_member"] = spec["member"]
-            payload = run_powershell(SIGNATURE_QUERY_SCRIPT, path, runner, timeout)
-            if "error" in payload:
-                record.update({"status": "UNKNOWN", "status_message": payload["error"]})
+            if unavailable_reason:
+                # The query itself was never possible: that is an unknown, recorded with its
+                # cause, and never silently relabelled as "unsigned".
+                record.update({"status": "UNKNOWN", "raw_status": "", "raw_status_recognized": False,
+                               "status_message": bound(unavailable_reason, 300)})
             else:
+                payload = run_powershell(SIGNATURE_QUERY_SCRIPT, path, runner, timeout,
+                                         required_field="Status")
                 raw_status = str(payload.get("Status") or "").strip()
+                query_error = str(payload.get("QueryError") or "").strip()
+                stderr_note = str(payload.get("powershell_stderr") or "").strip()
+                # The script's own error record is the most specific cause available, so it is
+                # preferred over the harness's generic "no Status was reported" wording; the
+                # harness text remains the fallback when the payload itself says nothing.
+                detail = query_error or stderr_note or str(payload.get("error") or "").strip()
+                status, recognized = normalize_authenticode_status(raw_status)
                 record["raw_status"] = bound(raw_status, 80)
-                record["status"] = raw_status or "UNKNOWN"
-                record["status_message"] = bound(str(payload.get("StatusMessage") or ""), 300)
+                record["raw_status_recognized"] = recognized
+                record["status"] = status
+                # An empty answer is only ever an UNKNOWN, and it must say what the host reported.
+                message = str(payload.get("StatusMessage") or "").strip()
+                if not message and status == "FAIL":
+                    message = "Windows reported a signature problem and gave no explanation"
+                if not message and status == "UNKNOWN":
+                    message = ("the signature query returned no status; "
+                               + (detail or "the host reported nothing further"))
+                elif status == "UNKNOWN" and detail and detail not in message:
+                    message = f"{message}; {detail}"
+                record["status_message"] = bound(message, 300)
                 subject = payload.get("SignerSubject")
                 if subject:
                     # A subject is public information, but it is still bounded here.
@@ -519,19 +611,24 @@ def run_signing(*, release_metadata_path: Path, runner: Runner = default_runner,
                 files.append({"filename": name, "provenance": "published release artifact",
                               "size_bytes": entry.get("size_bytes"), "sha256": entry.get("sha256"),
                               "signature_bearing": False, "status": NOT_APPLICABLE,
+                              "raw_status": "", "raw_status_recognized": True,
                               "status_message": "container archive; Authenticode applies to the executables it carries"})
 
     status = aggregate_signing_status(files)
     if status not in SIGNING_STATUS_VOCABULARY:
         raise ValueError(f"signature tool produced a status outside the vocabulary: {status!r}")
-    return {
-        "schema": "drillmaster-signing-status/v1",
+    outside = sorted({str(item.get("status")) for item in files} - FILE_STATUS_VOCABULARY)
+    if outside:
+        raise ValueError("signature tool produced a per-file status outside the vocabulary: "
+                         + ", ".join(outside))
+    document = {
+        "schema": SIGNING_STATUS_SCHEMA,
         "method": "Windows Get-AuthenticodeSignature",
+        "release_metadata_sha256": sha256_file(release_metadata_path),
+        "source_sha": str(metadata.get("git_sha") or ""),
+        "harness": harness,
         "status": status,
-        "policy": ("unsigned publication is the current release policy: a recorded signature state, including "
-                   "FAIL, is a distribution-trust finding and never fails the packaging gate, a result that could "
-                   "not be examined is never reported as UNSIGNED, and a run that produced no interpretable "
-                   "record does fail the gate"),
+        "policy": SIGNING_POLICY,
         "files": files,
         "examined_count": len(examined),
         "archive_count": len(files) - len(examined),
@@ -543,6 +640,10 @@ def run_signing(*, release_metadata_path: Path, runner: Runner = default_runner,
                          "signtool/PowerShell signing configuration in the release build; none is referenced by "
                          "packaging/build_windows.ps1 or packaging/DrillMaster.iss"),
     }
+    document = _redact_tree(document, [os.environ.get(key, "") for key in credential_env_present])
+    # Publish nothing the shared contract would not accept: the generator is held to the same
+    # rules the acceptance report will apply, so a malformed record fails here, at the source.
+    return validate_signing_document(document)
 
 
 def render_markdown(report: dict, title: str) -> str:
@@ -619,9 +720,14 @@ def main(argv: list[str] | None = None) -> int:
                                    settle_seconds=args.settle_seconds)
     else:
         if sys.platform != "win32":
-            report = {"schema": "drillmaster-signing-status/v1", "status": "NOT_RUN",
-                      "reason": "Authenticode verification requires a Windows host", "files": [],
-                      "signing_configured_in_build": False, "credentials_available": False, "prerequisite": ""}
+            # Even "this platform cannot answer" is published as a contract-valid record, so a
+            # reader never has to guess whether a missing file means a missing check.
+            report = {"schema": SIGNING_STATUS_SCHEMA, "method": "Windows Get-AuthenticodeSignature",
+                      "status": "NOT_RUN", "policy": SIGNING_POLICY, "files": [],
+                      "examined_count": 0, "archive_count": 0,
+                      "signing_configured_in_build": False, "credentials_available": False,
+                      "prerequisite": "a Windows host; none of the release artifacts were queried here",
+                      "reason": "Authenticode verification requires a Windows host"}
         else:
             try:
                 report = run_signing(release_metadata_path=args.release_metadata.resolve(),
@@ -632,14 +738,25 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"ERROR: signature verification produced no record: {type(exc).__name__}: {exc}",
                       file=sys.stderr)
                 return 1
+        try:
+            # Publish nothing the report would refuse later; the writer is held to its own contract.
+            validate_signing_document(report)
+        except ValueError as exc:
+            print(f"ERROR: signing record violates {SIGNING_STATUS_SCHEMA}: {exc}", file=sys.stderr)
+            return 1
 
     args.json_out.parent.mkdir(parents=True, exist_ok=True)
     args.json_out.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     if args.markdown_out:
         args.markdown_out.parent.mkdir(parents=True, exist_ok=True)
         args.markdown_out.write_text(render_markdown(report, f"Windows {args.command} evidence"), encoding="utf-8")
+    # The console line is what a reader of the job log sees without downloading an artifact, so it
+    # carries the reason for any state that is not a clean pass.
     print(json.dumps({"command": args.command, "status": report.get("status"),
-                      "files": [{"filename": item.get("filename"), "status": item.get("status")}
+                      "harness": report.get("harness") or {},
+                      "files": [{"filename": item.get("filename"), "status": item.get("status"),
+                                 "raw_status": item.get("raw_status", ""),
+                                 "reason": bound(str(item.get("status_message") or ""), 200)}
                                 for item in report.get("files", [])]}, sort_keys=True))
     if args.command == "signing":
         return 0

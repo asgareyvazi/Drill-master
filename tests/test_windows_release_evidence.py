@@ -21,6 +21,16 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def _release_metadata_module():
+    spec = importlib.util.spec_from_file_location(
+        "drillmaster_release_metadata_for_evidence", ROOT / "packaging" / "release_metadata.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
 def _evidence_module():
     spec = importlib.util.spec_from_file_location(
         "drillmaster_windows_release_evidence", ROOT / "packaging" / "windows_release_evidence.py"
@@ -40,6 +50,8 @@ class FakeHost:
                  smoke_marker_in: str = "both",
                  leak_value: str = "", write_into_install_dir: bool = False,
                  signature_status: str = "NotSigned", signer_subject: str = "",
+                 signature_message: str = "No signature is present.", signature_error: str = "",
+                 signature_stderr: str = "", signature_cmdlet: str = "available",
                  keep_sentinel: bool = True, install_writes_exe: bool = True,
                  run_stdout: str = "", powershell_version_output: str | None = None,
                  run_returncode: int | None = None, raise_on_call: int | None = None):
@@ -53,6 +65,10 @@ class FakeHost:
         self.leak_value = leak_value
         self.write_into_install_dir = write_into_install_dir
         self.signature_status = signature_status
+        self.signature_message = signature_message
+        self.signature_error = signature_error
+        self.signature_stderr = signature_stderr
+        self.signature_cmdlet = signature_cmdlet
         self.signer_subject = signer_subject
         self.keep_sentinel = keep_sentinel
         self.install_writes_exe = install_writes_exe
@@ -73,9 +89,23 @@ class FakeHost:
             script = argv[-1]
             target = str((environment or {})["DRILLMASTER_TARGET_PATH"])
             assert target, "the queried path must be passed out of band, never interpolated"
-            if "Get-AuthenticodeSignature" in script:
-                payload = {"Status": self.signature_status, "StatusMessage": "No signature is present.",
-                           "SignerSubject": self.signer_subject or None}
+            if "Get-Command Get-AuthenticodeSignature" in script:
+                # The capability probe, answered before any file is queried.
+                payload = {"ps_version": "5.1.20348.2402", "cmdlet": self.signature_cmdlet,
+                           "module": "Microsoft.PowerShell.Security"}
+                if self.signature_cmdlet == "probe-fails":
+                    return SimpleNamespace(returncode=1, stdout="", stderr="probe unsupported")
+            elif "Get-AuthenticodeSignature" in script:
+                if self.signature_error:
+                    # A statement-level failure: the script still prints a payload and exits 0.
+                    payload = {"Status": "", "StatusMessage": "", "SignerSubject": None,
+                               "QueryError": self.signature_error}
+                else:
+                    payload = {"Status": self.signature_status, "StatusMessage": self.signature_message,
+                               "SignerSubject": self.signer_subject or None}
+                if self.signature_stderr:
+                    return SimpleNamespace(returncode=0, stdout=json.dumps(payload),
+                                           stderr=self.signature_stderr)
             elif self.powershell_version_output is not None:
                 return SimpleNamespace(returncode=0, stdout=self.powershell_version_output, stderr="")
             else:
@@ -443,8 +473,13 @@ def test_mixed_and_untrusted_signature_states(tmp_path):
 
     report = module.run_signing(release_metadata_path=metadata, runner=host)
     statuses = {item["filename"]: item["status"] for item in report["files"]}
-    assert statuses["DrillMaster-1.0.0-Setup.exe"] == "NotTrusted"
-    assert statuses["DrillMaster.exe"] == "Valid"
+    raw = {item["filename"]: item["raw_status"] for item in report["files"]}
+    # The Windows spelling is preserved verbatim next to the normalized finding, so a reader
+    # can see what the host actually said and what the policy made of it.
+    assert raw["DrillMaster-1.0.0-Setup.exe"] == "NotTrusted"
+    assert raw["DrillMaster.exe"] == "Valid"
+    assert statuses["DrillMaster-1.0.0-Setup.exe"] == "FAIL"
+    assert statuses["DrillMaster.exe"] == "PASS"
     assert report["status"] == "FAIL", "a mixed state must not be reported as a clean signature"
     assert statuses.get("DrillMaster-1.0.0-windows-x64.zip") == "NOT_APPLICABLE"
 
@@ -733,3 +768,254 @@ def test_the_success_marker_is_accepted_from_either_channel_and_only_from_a_real
     assert report["installed_smoke"]["success_marker_channel"] == expected
     assert report["installed_smoke"]["success_marker_found"] is (channel != "none")
     assert report["status"] == ("FAIL" if channel == "none" else "PASS")
+
+
+# --- M42.4: the cause of a non-pass signature state must survive into the published record ---
+
+
+@pytest.mark.parametrize("raw, expected, recognized", [
+    ("Valid", "PASS", True),
+    ("valid", "PASS", True),
+    ("OK", "PASS", True),
+    ("NotSigned", "UNSIGNED", True),
+    ("NOTSIGNED", "UNSIGNED", True),
+    ("HashMismatch", "FAIL", True),
+    ("NotTrusted", "FAIL", True),
+    ("NottrustedForData", "FAIL", True),
+    ("Unknown", "UNKNOWN", True),
+    ("UnknownError", "UNKNOWN", True),
+    # An answer with no rule stays unknown: it is not evidence of a broken signature, and it is
+    # not evidence of a deliberately unsigned build either.
+    ("nonsense", "UNKNOWN", False),
+    ("", "UNKNOWN", False),
+])
+def test_every_windows_answer_maps_through_one_rule(tmp_path, raw, expected, recognized):
+    """Casing and vocabulary differences must never decide whether a run reads as FAIL."""
+    module = _evidence_module()
+    _, metadata, _ = _release(tmp_path / "release")
+    host = FakeHost(signature_status=raw,
+                    signature_message="" if expected != "UNSIGNED" else "No signature is present.")
+    report = module.run_signing(release_metadata_path=metadata, runner=host)
+    rows = [item for item in report["files"] if item["signature_bearing"]]
+    assert rows, "the installer and the packaged executable must both be examined"
+    assert [item["status"] for item in rows] == [expected, expected]
+    assert [item["raw_status"] for item in rows] == [raw, raw]
+    assert all(item["raw_status_recognized"] is recognized for item in rows)
+    if expected != "PASS":
+        # a clean verdict needs no explanation; every other state must carry one
+        assert all(item["status_message"] for item in rows)
+    assert report["status"] == (expected if expected != "PASS" else "PASS")
+
+
+def test_the_published_mapping_covers_every_documented_signature_status():
+    """A new Windows status must be given a rule, not discovered as a gate surprise later."""
+    release_meta = _release_metadata_module()
+    for spelling in release_meta.AUTHENTICODE_RAW_STATUSES:
+        assert spelling.lower() in release_meta.AUTHENTICODE_TO_FILE_STATUS, spelling
+
+
+def test_an_empty_answer_is_published_with_the_stderr_that_explains_it(tmp_path):
+    """The exact shape that made the shipped run unattributable: exit 0, parseable, no Status."""
+    module = _evidence_module()
+    _, metadata, _ = _release(tmp_path / "release")
+    host = FakeHost(signature_status="",
+                    signature_stderr="Get-AuthenticodeSignature : The trust provider verified, but "
+                                     "did not sign, this file.")
+    report = module.run_signing(release_metadata_path=metadata, runner=host)
+    rows = [item for item in report["files"] if item["signature_bearing"]]
+    assert [item["status"] for item in rows] == ["UNKNOWN", "UNKNOWN"]
+    assert report["status"] == "UNKNOWN"
+    for item in rows:
+        assert "trust provider" in item["status_message"], item["status_message"]
+
+
+def test_a_statement_level_query_failure_reports_itself(tmp_path, capsys, monkeypatch):
+    """A cmdlet error inside the script is now a cause in the record, not a silent empty field."""
+    module = _evidence_module()
+    _, metadata, _ = _release(tmp_path / "release")
+    host = FakeHost(signature_error="Cannot bind to the certificate store")
+    report = module.run_signing(release_metadata_path=metadata, runner=host)
+    rows = [item for item in report["files"] if item["signature_bearing"]]
+    assert all(item["status"] == "UNKNOWN" for item in rows)
+    assert all("Cannot bind to the certificate store" in item["status_message"] for item in rows)
+    assert all(item["raw_status"] == "" for item in rows)
+    assert report["status"] == "UNKNOWN"
+    # the finding is published, and the gate still exits cleanly on it, per the recorded policy
+    monkeypatch.setattr(module.sys, "platform", "win32")
+    monkeypatch.setattr(module, "default_runner", host)
+    json_out = tmp_path / "signing-status.json"
+    assert module.main(["signing", "--release-metadata", str(metadata), "--json-out", str(json_out)]) == 0
+    written = json.loads(json_out.read_text(encoding="utf-8"))
+    assert written["status"] == "UNKNOWN"
+    assert "Cannot bind to the certificate store" in written["files"][0]["status_message"]
+
+
+def test_report_only_absence_states_are_never_signature_states(tmp_path):
+    """NOT_VERIFIED means "there is no record"; it may never be a status Windows is said to have given."""
+    release_meta = _release_metadata_module()
+    assert not release_meta.SIGNING_STATUS_VOCABULARY & release_meta.SIGNING_ABSENCE_VOCABULARY
+    assert not release_meta.SIGNING_FILE_VOCABULARY & release_meta.SIGNING_ABSENCE_VOCABULARY
+    _, metadata, _ = _release(tmp_path / "release")
+    document = _evidence_module().run_signing(release_metadata_path=metadata, runner=FakeHost())
+    for mutation in ({"status": "NOT_VERIFIED"},
+                     {"files": [dict(document["files"][0], status="NOT_VERIFIED"),
+                                dict(document["files"][1], status="NOT_VERIFIED"), document["files"][2]],
+                      "status": "UNKNOWN"}):
+        import copy
+        tampered = copy.deepcopy(document)
+        tampered.update(mutation)
+        with pytest.raises(ValueError, match="outside the"):
+            release_meta.validate_signing_document(tampered)
+
+
+def test_nothing_examined_is_unknown_and_never_a_verdict(tmp_path):
+    """An empty examined set is an absence of evidence, not an implicit pass or implicit failure."""
+    module = _evidence_module()
+    release_meta = _release_metadata_module()
+    assert module.aggregate_signing_status([]) == "UNKNOWN"
+    assert release_meta.aggregate_signing_status(
+        [{"status": release_meta.SIGNING_NOT_APPLICABLE}]) == "UNKNOWN"
+    # one unknown among determinate answers keeps the unknown visible
+    assert module.aggregate_signing_status([{"status": "PASS"}, {"status": "UNKNOWN"}]) == "UNKNOWN"
+    assert module.aggregate_signing_status([{"status": "PASS"}, {"status": "FAIL"}]) == "FAIL"
+
+
+def test_published_diagnostics_never_carry_a_credential_value(tmp_path, monkeypatch):
+    """A captured stderr is only safe if the signing secret values are removed from it first."""
+    module = _evidence_module()
+    _, metadata, _ = _release(tmp_path / "release")
+    secret = "sup3r-signing-passphrase"
+    monkeypatch.setenv("DRILLMASTER_SIGN_PFX_PASSWORD", secret)
+    host = FakeHost(signature_status="",
+                    signature_stderr=f"Get-AuthenticodeSignature : bad password {secret} for the PFX")
+    report = module.run_signing(release_metadata_path=metadata, runner=host)
+    text = json.dumps(report, sort_keys=True)
+    assert secret not in text, "a signing credential value must not reach the published record"
+    assert "[REDACTED]" in text
+    assert "DRILLMASTER_SIGN_PFX_PASSWORD" in report["credential_environment_variables"], (
+        "the variable name stays auditable even though its value is removed"
+    )
+
+
+def test_the_query_capability_is_published_alongside_the_verdict(tmp_path):
+    module = _evidence_module()
+    _, metadata, _ = _release(tmp_path / "release")
+    report = module.run_signing(release_metadata_path=metadata, runner=FakeHost())
+    assert report["harness"] == {"query_command": "available", "powershell_version": "5.1.20348.2402",
+                                "signature_command_module": "Microsoft.PowerShell.Security",
+                                "probe_exit_code": 0}
+
+
+def test_a_host_without_the_cmdlet_records_one_cause_for_every_file(tmp_path, monkeypatch):
+    """"The cmdlet is missing" is a fact about the host, so it is stated once, per file."""
+    module = _evidence_module()
+    _, metadata, _ = _release(tmp_path / "release")
+    host = FakeHost(signature_cmdlet="missing")
+    report = module.run_signing(release_metadata_path=metadata, runner=host)
+    assert report["harness"]["query_command"] == "missing"
+    rows = [item for item in report["files"] if item["signature_bearing"]]
+    assert all(item["status"] == "UNKNOWN" for item in rows)
+    assert all("not available in this PowerShell host" in item["status_message"] for item in rows)
+    assert report["status"] == "UNKNOWN"
+    # the probe is a diagnostic, not an authority: the files are still described, not skipped
+    assert [item["raw_status"] for item in rows] == ["", ""]
+
+
+def test_a_failing_probe_does_not_suppress_the_real_queries(tmp_path):
+    """A diagnostic that itself broke must not turn a determinable answer into an unknown."""
+    module = _evidence_module()
+    _, metadata, _ = _release(tmp_path / "release")
+    report = module.run_signing(release_metadata_path=metadata, runner=FakeHost(signature_cmdlet="probe-fails"))
+    assert report["status"] == "UNSIGNED"
+    assert report["harness"]["query_command"] == "unknown"
+    assert "probe unsupported" in report["harness"]["probe_error"]
+
+
+def test_the_record_is_bound_to_the_manifest_bytes_it_was_derived_from(tmp_path):
+    module = _evidence_module()
+    _, metadata, _ = _release(tmp_path / "release")
+    report = module.run_signing(release_metadata_path=metadata, runner=FakeHost())
+    assert report["schema"] == module.SIGNING_STATUS_SCHEMA
+    assert report["release_metadata_sha256"] == module.sha256_file(metadata)
+    assert report["source_sha"] == json.loads(metadata.read_text(encoding="utf-8"))["git_sha"]
+    # the document the tool writes is the document the contract accepts
+    release_meta = _release_metadata_module()
+    assert release_meta.validate_signing_document(report)["status"] == "UNSIGNED"
+
+
+def test_a_self_inconsistent_document_is_refused_before_it_is_written(tmp_path, monkeypatch):
+    """The generator validates what it computed, not only what it looked up.
+
+    A per-file status inside the vocabulary that the aggregate misrepresents passes every local
+    check except the shared contract, so this is the case that proves the writer's self-validation
+    is not decoration.
+    """
+    module = _evidence_module()
+    _, metadata, _ = _release(tmp_path / "release")
+    monkeypatch.setattr(module, "aggregate_signing_status", lambda files: "PASS")
+    with pytest.raises(ValueError, match="contradicts the per-file findings"):
+        module.run_signing(release_metadata_path=metadata, runner=FakeHost())
+
+
+def test_a_record_that_violates_its_own_contract_is_never_published(tmp_path, monkeypatch, capsys):
+    """The writer is held to the shared contract, so a malformed record fails at the source.
+
+    The alternative was to write a document the acceptance step would refuse minutes later, which
+    is how a stale schema and a contradicted aggregate used to travel as far as the report.
+    """
+    module = _evidence_module()
+    _, metadata, _ = _release(tmp_path / "release")
+    monkeypatch.setattr(module.sys, "platform", "win32")
+    monkeypatch.setattr(module, "default_runner", FakeHost())
+    contradictions = [
+        {"schema": "drillmaster-signing-status/v1"},
+        {"status": "PASS", "files": [], "examined_count": 0, "archive_count": 0},
+        {"somebody": "else"},
+    ]
+    for change in contradictions:
+        stale = {"schema": "drillmaster-signing-status/v2", "method": "Windows Get-AuthenticodeSignature",
+                 "status": "UNSIGNED", "policy": module.SIGNING_POLICY, "files": [], "examined_count": 0,
+                 "archive_count": 0, "signing_configured_in_build": False, "credentials_available": False,
+                 "release_metadata_sha256": "a" * 64, "source_sha": "b" * 40}
+        stale.update(change)
+        document = stale
+        # late binding is intended: main() runs inside this iteration, before document changes
+        monkeypatch.setattr(module, "run_signing", lambda **kwargs: document)
+        json_out = tmp_path / "signing-status.json"
+        if json_out.exists():
+            json_out.unlink()
+        assert module.main(["signing", "--release-metadata", str(metadata),
+                            "--json-out", str(json_out)]) == 1
+        assert "signing record violates drillmaster-signing-status/v2" in capsys.readouterr().err
+        assert not json_out.exists(), "a refused record must not be uploaded as evidence"
+
+
+def test_a_non_windows_host_still_publishes_a_contract_valid_record(tmp_path, monkeypatch):
+    module = _evidence_module()
+    _, metadata, _ = _release(tmp_path / "release")
+    monkeypatch.setattr(module.sys, "platform", "linux")
+    json_out = tmp_path / "signing-status.json"
+    assert module.main(["signing", "--release-metadata", str(metadata), "--json-out", str(json_out)]) == 0
+    report = json.loads(json_out.read_text(encoding="utf-8"))
+    assert report["status"] == "NOT_RUN"
+    assert report["schema"] == module.SIGNING_STATUS_SCHEMA
+    assert report["files"] == [] and report["examined_count"] == 0
+    assert "Windows host" in report["reason"]
+    assert _release_metadata_module().validate_signing_document(report)["status"] == "NOT_RUN"
+
+
+def test_the_console_summary_carries_the_reason_for_a_non_pass_state(tmp_path, monkeypatch, capsys):
+    """Job-log output is the only evidence a reviewer can read without artifact access."""
+    module = _evidence_module()
+    _, metadata, _ = _release(tmp_path / "release")
+    host = FakeHost(signature_error="The system cannot find the file specified")
+    monkeypatch.setattr(module.sys, "platform", "win32")
+    monkeypatch.setattr(module, "default_runner", host)
+    assert module.main(["signing", "--release-metadata", str(metadata),
+                        "--json-out", str(tmp_path / "signing-status.json")]) == 0
+    printed = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert printed["status"] == "UNKNOWN"
+    assert printed["harness"]["query_command"] == "available"
+    assert all("cannot find the file specified" in item["reason"] for item in printed["files"]
+               if item["status"] == "UNKNOWN")
+    assert printed["files"][0]["raw_status"] == ""

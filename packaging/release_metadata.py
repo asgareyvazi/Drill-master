@@ -19,6 +19,7 @@ SHA256_CHUNK_SIZE = 1024 * 1024
 # Inno Setup releases are three (or four) dotted numeric components; looser
 # shapes such as "6.7" or "6.7.x" cannot be compared against a pin.
 VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+(?:\.\d+)?$")
+SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 NOT_BUILT = "NOT_BUILT"
 # Values a build environment can produce that carry no identity information.
 UNVERIFIED_IDENTITIES = frozenset({
@@ -35,10 +36,218 @@ ALLOWED_IDENTITY_SOURCES = frozenset({
     NOT_BUILT,
 })
 VERIFIED_IDENTITY_SOURCES = ALLOWED_IDENTITY_SOURCES - {"operator-attested", NOT_BUILT}
-# One vocabulary for signature findings, shared by the evidence tool that produces it
-# and the report that validates it, so the two cannot drift apart.
-SIGNING_STATUS_VOCABULARY = frozenset({"PASS", "UNSIGNED", "UNKNOWN", "FAIL", "NOT_RUN"})
+# --- Signing evidence contract -----------------------------------------------------------
+# Four vocabularies are deliberately distinct, because conflating them is how a report
+# starts meaning something its evidence does not say:
+#   * raw Authenticode states, spelled exactly as Windows' SignatureStatus enum spells them;
+#   * normalized per-file states, which is what published evidence records per file;
+#   * the aggregate state of one signing run over the examined executables;
+#   * report-level states that describe the *absence* of an evidence record, which are not
+#     signature findings at all.
+SIGNING_SCHEMA = "drillmaster-signing-status/v2"
+AUTHENTICODE_RAW_STATUSES = frozenset({"Unknown", "NotSigned", "HashMismatch", "NotTrusted",
+                                       "Valid", "UnknownError"})
+# Windows' spelling -> the normalized per-file state.  ``UnknownError`` is an unknown, not a
+# signature problem; an unrecognised spelling stays unknown too.
+AUTHENTICODE_TO_FILE_STATUS = {
+    # A verified signature.  ``Ok`` is the spelling other Windows verification tools use for the
+    # same verdict, and the two must not disagree about whether a build is signed.
+    "valid": "PASS",
+    "ok": "PASS",
+    # Deliberately unsigned, which is a configuration fact and not a trust failure.
+    "notsigned": "UNSIGNED",
+    # A signature exists and is broken or untrusted: a distribution-trust finding.
+    "hashmismatch": "FAIL",
+    "nottrusted": "FAIL",
+    "nottrustedfordata": "FAIL",
+    "notgenuinelysigned": "FAIL",
+    # The query could not reach a verdict.  Never promoted to FAIL and never demoted to UNSIGNED.
+    "unknown": "UNKNOWN",
+    "unknownerror": "UNKNOWN",
+}
 SIGNING_NOT_APPLICABLE = "NOT_APPLICABLE"
+SIGNING_FILE_VOCABULARY = frozenset({"PASS", "UNSIGNED", "FAIL", "UNKNOWN", SIGNING_NOT_APPLICABLE})
+SIGNING_STATUS_VOCABULARY = frozenset({"PASS", "UNSIGNED", "FAIL", "UNKNOWN", "NOT_RUN"})
+SIGNING_ABSENCE_VOCABULARY = frozenset({"NOT_VERIFIED"})
+SIGNING_FILE_REQUIRED_FIELDS = ("filename", "status", "size_bytes", "sha256",
+                               "signature_bearing", "status_message")
+SIGNING_FILE_FIELDS = frozenset(SIGNING_FILE_REQUIRED_FIELDS) | {
+    "provenance", "raw_status", "raw_status_recognized", "signer", "manifest_digest_match",
+    "container_archive", "container_archive_sha256", "container_member",
+}
+SIGNING_REQUIRED_FIELDS = ("schema", "method", "status", "policy", "files", "examined_count",
+                           "archive_count", "signing_configured_in_build", "credentials_available",
+                           "release_metadata_sha256", "source_sha")
+SIGNING_OPTIONAL_FIELDS = frozenset({"prerequisite", "credential_environment_variables",
+                                    "harness", "generated_at_utc", "reason"})
+DIAGNOSTIC_FIELD_LIMIT = 600
+
+
+def normalize_authenticode_status(raw: object) -> tuple[str, bool]:
+    """Map a raw SignatureStatus spelling onto the per-file vocabulary.
+
+    Returns ``(status, rule_applied)``.  An absent or unrecognised spelling is ``UNKNOWN``
+    with ``rule_applied=False`` and is deliberately *not* a ``FAIL``: "Windows answered with
+    something we have no rule for" and "Windows reported a signature problem" are different
+    findings, and a capitalization difference must never be what separates them.
+    """
+    text = "" if raw is None else str(raw).strip()
+    # Case-folded lookup: capitalization is how two implementations used to end up with different
+    # answers for the same Windows reply, and an unknown answer must not become a FAIL by spelling.
+    mapped = AUTHENTICODE_TO_FILE_STATUS.get(text.lower())
+    if mapped is None:
+        return "UNKNOWN", False
+    return mapped, True
+
+
+def aggregate_signing_status(files: list[dict]) -> str:
+    """Fold normalized per-file states into one aggregate, never into a guess.
+
+    ``NOT_APPLICABLE`` rows (container archives) are excluded because "a ZIP is unsigned" is
+    not a statement about trust.  Nothing examined, or anything uninterpretable, is UNKNOWN;
+    a mix that includes a real signature problem is FAIL.
+    """
+    examined = [item for item in files if item.get("status") != SIGNING_NOT_APPLICABLE]
+    if not examined:
+        return "UNKNOWN"
+    statuses = {str(item.get("status")) for item in examined}
+    if "UNKNOWN" in statuses:
+        return "UNKNOWN"
+    if statuses == {"UNSIGNED"}:
+        return "UNSIGNED"
+    if statuses == {"PASS"}:
+        return "PASS"
+    return "FAIL"
+
+
+def validate_signing_document(payload: object) -> dict:
+    """Enforce the signing-evidence contract, whoever wrote the document.
+
+    The generator calls this before publishing and the acceptance report calls it before
+    using any field, so an aggregate that the per-file findings do not support, a status
+    outside the vocabulary, a missing reason, a duplicated file, a container treated as an
+    executable, a malformed digest or an unbounded diagnostic is refused here once rather
+    than reinterpreted differently in two places.
+    """
+    if not isinstance(payload, dict):
+        raise ValueError(f"signing evidence must be a JSON object, got {type(payload).__name__}")
+    schema = payload.get("schema")
+    if schema != SIGNING_SCHEMA:
+        raise ValueError(f"signing evidence must use schema {SIGNING_SCHEMA}; {schema!r} is not "
+                         "reinterpreted by a later schema")
+    status = payload.get("status")
+    status_text = status if isinstance(status, str) else ""
+    if status_text not in SIGNING_STATUS_VOCABULARY:
+        raise ValueError(f"signing aggregate status is outside the vocabulary: {status!r}")
+    # A run that never happened has nothing to bind: no bytes were examined, so there is no
+    # manifest digest and no per-file finding.  It must still say why in one bounded reason.
+    if status_text == "NOT_RUN":
+        absent = [field for field in SIGNING_REQUIRED_FIELDS
+                  if field not in payload and field not in ("release_metadata_sha256", "source_sha")]
+        if absent:
+            raise ValueError(f"signing evidence is missing required field(s): {', '.join(absent)}")
+        reason = str(payload.get("reason") or "").strip()
+        if not reason:
+            raise ValueError("a NOT_RUN signing record must carry a bounded reason")
+        if len(reason) > DIAGNOSTIC_FIELD_LIMIT:
+            raise ValueError("a NOT_RUN signing reason exceeded the bound")
+        for field in ("files", "examined_count", "archive_count"):
+            value = payload.get(field)
+            if field == "files":
+                if value != []:
+                    raise ValueError("a NOT_RUN signing record cannot also carry per-file findings")
+            elif value:
+                raise ValueError(f"a NOT_RUN signing record must report a zero {field}")
+        for field in ("signing_configured_in_build", "credentials_available"):
+            if not isinstance(payload.get(field), bool):
+                raise ValueError(f"signing evidence field {field} must be a boolean")
+        return payload
+    missing = [field for field in SIGNING_REQUIRED_FIELDS if field not in payload]
+    if missing:
+        raise ValueError(f"signing evidence is missing required field(s): {', '.join(missing)}")
+    unexpected = sorted(set(payload) - set(SIGNING_REQUIRED_FIELDS) - SIGNING_OPTIONAL_FIELDS)
+    if unexpected:
+        raise ValueError(f"signing evidence carries field(s) outside {SIGNING_SCHEMA}: "
+                         + ", ".join(unexpected))
+    if not isinstance(payload.get("files"), list):
+        raise ValueError("signing evidence 'files' must be a list of per-file records")
+    for field in ("signing_configured_in_build", "credentials_available"):
+        if not isinstance(payload[field], bool):
+            raise ValueError(f"signing evidence field {field} must be a boolean")
+    for field in ("examined_count", "archive_count"):
+        value = payload[field]
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise ValueError(f"signing evidence field {field} must be a non-negative integer")
+    if not DIGEST_PATTERN.match(str(payload["release_metadata_sha256"])):
+        raise ValueError("signing evidence must record the SHA-256 of the manifest it was derived from")
+    if not SHA_PATTERN.match(str(payload["source_sha"])):
+        raise ValueError("signing evidence must record the full source SHA it was produced for")
+    files = payload["files"]
+    if not files:
+        raise ValueError("a signing run must record at least one published file")
+    seen: set[str] = set()
+    examined = 0
+    for index, item in enumerate(files):
+        if not isinstance(item, dict):
+            raise ValueError(f"signing file record {index} must be a JSON object")
+        extra = sorted(set(item) - SIGNING_FILE_FIELDS)
+        if extra:
+            raise ValueError(f"signing file record {index} carries unknown field(s): {', '.join(extra)}")
+        absent = [field for field in SIGNING_FILE_REQUIRED_FIELDS if field not in item]
+        if absent:
+            raise ValueError(f"signing file record {index} is missing field(s): {', '.join(absent)}")
+        name = str(item["filename"])
+        if not name or Path(name).name != name:
+            raise ValueError(f"signing file record {index} must name a bare file name, got {name!r}")
+        key = name.lower()
+        if key in seen:
+            raise ValueError(f"duplicate signing file record for {name}")
+        seen.add(key)
+        file_status = item["status"]
+        # isinstance first: a structured value must be refused as a contract violation, not crash
+        # the caller with an unhashable-type TypeError on a frozenset membership test.
+        if not isinstance(file_status, str) or file_status not in SIGNING_FILE_VOCABULARY:
+            raise ValueError(f"signing status for {name} is outside the per-file vocabulary: {file_status!r}")
+        if not DIGEST_PATTERN.match(str(item["sha256"])):
+            raise ValueError(f"signing record for {name} has a malformed SHA-256 digest")
+        size = item["size_bytes"]
+        if isinstance(size, bool) or not isinstance(size, int) or size < 0:
+            raise ValueError(f"signing record for {name} has a negative or non-integer size_bytes")
+        bearing = item["signature_bearing"]
+        if not isinstance(bearing, bool):
+            raise ValueError(f"signing record for {name} must classify signature_bearing as a boolean")
+        if bearing == (file_status == SIGNING_NOT_APPLICABLE):
+            raise ValueError(f"signing record for {name}: signature_bearing={bearing} contradicts "
+                             f"status {file_status!r}")
+        message = str(item["status_message"] or "")
+        if len(message) > DIAGNOSTIC_FIELD_LIMIT:
+            raise ValueError(f"signing record for {name} carries an unbounded diagnostic")
+        if file_status == "UNKNOWN" and not message.strip():
+            raise ValueError(f"signing record for {name} reports UNKNOWN without a reason")
+        container, member = item.get("container_archive"), item.get("container_member")
+        container_digest = item.get("container_archive_sha256")
+        if bool(container) != bool(member) or bool(container) != bool(container_digest):
+            raise ValueError(f"signing record for {name} has incomplete container provenance")
+        if container:
+            if not DIGEST_PATTERN.match(str(container_digest)):
+                raise ValueError(f"signing record for {name} has a malformed container digest")
+            if not bearing:
+                raise ValueError(f"signing record for {name} binds a container but is not signature-bearing")
+            if Path(str(member)).name.lower() != name.lower():
+                raise ValueError(f"signing record for {name} names archive member {member!r}, which is a "
+                                 "different file")
+        if file_status != SIGNING_NOT_APPLICABLE:
+            examined += 1
+    derived = aggregate_signing_status(files)
+    if status != derived:
+        raise ValueError(f"aggregate signing status {status!r} contradicts the per-file findings, "
+                         f"which fold to {derived!r}")
+    if payload["examined_count"] != examined:
+        raise ValueError(f"examined_count {payload['examined_count']} disagrees with the {examined} "
+                         "signature-bearing record(s) present")
+    if payload["archive_count"] != len(files) - examined:
+        raise ValueError("archive_count disagrees with the number of NOT_APPLICABLE records")
+    return payload
 
 
 def sha256_file(path: Path, *, chunk_size: int = SHA256_CHUNK_SIZE) -> str:
