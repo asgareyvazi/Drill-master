@@ -580,3 +580,20 @@ def test_report_cli_exit_codes_follow_the_documented_contract(tmp_path, capsys):
     assert module.main(argv + ["--signing-report", str(missing), "--require-signing"]) == 1
     captured = capsys.readouterr()
     assert "required but missing" in captured.err and "Traceback" not in captured.err
+
+
+def test_artifact_verification_keeps_the_four_provenance_claims_apart(tmp_path):
+    """Build-produced, recomputed-here, re-measured-in-CI and operator-verified are different claims."""
+    module = _report_module()
+    root = _release_root(tmp_path)
+    report = module.build_report(metadata_path=root / "release-metadata.json",
+                                 junit_path=_junit(tmp_path, PASSING_JUNIT), source_sha="a" * 40)
+    verification = report["repository_automation"]["artifact_verification"]
+    assert verification["status"] == "PASS"
+    assert verification["independent_reverification"] == "NOT_VERIFIED"
+    assert "packaging/build_windows.ps1" in verification["provenance"]
+    assert "not byte-integrity proof" in verification["operator_verification_path"]
+    module.verify_report_fields(report)
+    report["repository_automation"]["artifact_verification"].pop("independent_reverification")
+    with pytest.raises(module.ReportError, match="artifact_independent_reverification"):
+        module.verify_report_fields(report)

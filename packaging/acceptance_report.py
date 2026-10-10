@@ -46,6 +46,7 @@ REQUIRED_REPORT_FIELDS = (
     "skipped_tests", "frozen_smoke_status", "frozen_smoke_exit_code", "secret_leak_check",
     "installer_compilation_status", "installed_lifecycle_status", "signing_status",
     "ci_workflow", "ci_run_id", "ci_run_url", "ci_branch", "external_acceptance",
+    "artifact_independent_reverification",
 )
 STATUS_VOCABULARY = {"PASS", "PASS_WITH_SKIPS", "FAIL", "NOT_RUN", "BLOCKED", "UNKNOWN", "UNSIGNED",
                      "NOT_VERIFIED", "SEPARATE_EXACT_SHA_WORKFLOW_REQUIRED"}
@@ -404,6 +405,15 @@ def build_report(*, metadata_path: Path, junit_path: Path, source_sha: str, ci: 
                 "status": "PASS",
                 "method": "streaming SHA-256 recomputation against release-metadata.json and SHA256SUMS.txt",
                 "verified_artifacts": [installer_artifact["filename"], bundle_artifact["filename"]],
+                # Four claims are kept apart on purpose: what the build produced, what this
+                # report recomputed, what the workflow re-measured on the runner, and what only
+                # an operator with the downloaded bytes can confirm.
+                "provenance": "built from the pinned source SHA by packaging/build_windows.ps1; digests recomputed "
+                              "from the release directory while this report was generated",
+                "independent_reverification": "NOT_VERIFIED",
+                "operator_verification_path": "recompute Get-FileHash -Algorithm SHA256 for each line of "
+                                              "SHA256SUMS.txt after download; a job annotation or CI log is not "
+                                              "byte-integrity proof of the artifact you hold",
             },
             "reproducible_build": metadata.get("reproducible_build", {"status": "NOT_CLAIMED"}),
             "source_release_gate": "SEPARATE_EXACT_SHA_WORKFLOW_REQUIRED",
@@ -460,6 +470,8 @@ def _flatten_for_verification(report: dict) -> dict:
         "ci_workflow": report.get("ci", {}).get("workflow"), "ci_run_id": report.get("ci", {}).get("run_id"),
         "ci_run_url": report.get("ci", {}).get("run_url"), "ci_branch": report.get("ci", {}).get("branch"),
         "external_acceptance": report.get("external_acceptance"),
+        "artifact_independent_reverification": automation.get("artifact_verification", {}).get(
+            "independent_reverification"),
     }
 
 

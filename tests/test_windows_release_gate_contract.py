@@ -583,6 +583,7 @@ def test_acceptance_report_step_requires_independent_identity_and_lifecycle(work
 @pytest.mark.parametrize("source", [
     ".github/workflows/windows-release-gate.yml",
     "docs/audits/m42-2-release-closure.json",
+    "docs/audits/m42-3-release-closure.json",
     "packaging/inno_setup_version.txt",
     "packaging/build_windows.ps1",
     "packaging/release_metadata.py",
