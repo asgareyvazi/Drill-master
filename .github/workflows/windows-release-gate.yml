@@ -62,40 +62,70 @@ jobs:
         shell: pwsh
         run: |
           $releaseRoot = Join-Path $env:RUNNER_TEMP "DrillMaster-release-$env:GITHUB_RUN_ID"
-          & .\packaging\build_windows.ps1 -PythonLauncher 'py' -PythonVersion '3.12' -OutputDir $releaseRoot
-          if ($LASTEXITCODE -ne 0) { throw 'Windows portable/installer build failed' }
-          $version = (python -c 'from core.version import __version__; print(__version__)').Trim()
-          $bundle = Join-Path $releaseRoot "DrillMaster-$version"
-          $exe = Join-Path $bundle 'DrillMaster.exe'
-          if (-not (Test-Path $exe)) { throw 'Frozen executable missing' }
-          $productVersion = (Get-Item $exe).VersionInfo.ProductVersion
-          if (-not $productVersion.StartsWith($version)) { throw "Executable version '$productVersion' differs from authoritative '$version'" }
-          $installer = Join-Path $releaseRoot "DrillMaster-$version-Setup.exe"
-          if (-not (Test-Path $installer)) { throw 'Compiled installer missing' }
-          $metadata = Get-Content (Join-Path $releaseRoot 'release-metadata.json') -Raw | ConvertFrom-Json
-          if ($metadata.git_sha -ne $env:GITHUB_SHA) { throw 'Artifact metadata SHA differs from workflow SHA' }
-          if ($metadata.version -ne $version -or $metadata.platform -ne 'windows-x64') { throw 'Artifact metadata version/platform mismatch' }
-          foreach ($artifact in $metadata.artifacts) {
-            $artifactPath = Join-Path $releaseRoot ($artifact.filename -replace '/', '\\')
-            $actualHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $artifactPath).Hash.ToLowerInvariant()
-            if ($actualHash -ne $artifact.sha256) { throw "Artifact SHA256 mismatch: $($artifact.filename)" }
-          }
-          $checksumsPath = Join-Path $releaseRoot 'SHA256SUMS.txt'
-          if (-not (Test-Path $checksumsPath)) { throw 'SHA256SUMS.txt missing' }
-          $expectedChecksums = @($metadata.artifacts | ForEach-Object { "$($_.sha256)  $($_.filename)" })
-          $actualChecksums = @(Get-Content -LiteralPath $checksumsPath)
-          if ($actualChecksums.Count -ne $expectedChecksums.Count) { throw 'SHA256SUMS entry count differs from release metadata' }
-          foreach ($line in $expectedChecksums) {
-            if ($actualChecksums -notcontains $line) { throw "SHA256SUMS entry missing: $line" }
-          }
-          $testReport = Join-Path $env:RUNNER_TEMP "DrillMaster-M42-tests-$env:GITHUB_RUN_ID\windows-regressions.xml"
-          $metadataPath = Join-Path $releaseRoot 'release-metadata.json'
-          $acceptanceReport = Join-Path $releaseRoot 'acceptance-report.json'
-          python packaging\acceptance_report.py --metadata $metadataPath --junit $testReport --source-sha $env:GITHUB_SHA --output $acceptanceReport `
-            --ci-workflow "$env:GITHUB_WORKFLOW" --ci-run-id "$env:GITHUB_RUN_ID" --ci-branch "$env:GITHUB_REF_NAME" `
-            --ci-run-url "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
-          if ($LASTEXITCODE -ne 0) { throw 'Machine-readable Windows acceptance report generation failed' }
+          # Publish the release directory before building: the evidence upload runs on
+          # always(), so a step that set this only on success would upload nothing when
+          # the build failed -- which is exactly how a packaging failure became unreadable.
           "release_dir=$releaseRoot" | Add-Content $env:GITHUB_OUTPUT
+          $transcript = Join-Path $env:RUNNER_TEMP "DrillMaster-build-transcript-$env:GITHUB_RUN_ID.txt"
+          # Stop makes a terminating error thrown inside build_windows.ps1 end this step
+          # here; with the pwsh default it would be reported and execution would continue
+          # into the artifact assertions, mislabelling a build failure as a missing file.
+          $ErrorActionPreference = 'Stop'
+          if (Test-Path -LiteralPath Variable:PSNativeCommandUseErrorActionPreference) {
+            $PSNativeCommandUseErrorActionPreference = $false
+          }
+          $transcriptStarted = $false
+          try { Start-Transcript -Path $transcript | Out-Null; $transcriptStarted = $true } catch {
+            Write-Output "::warning title=Build transcript unavailable::Start-Transcript failed; the stage annotation still carries the failure reason"
+          }
+          try {
+            # Use the interpreter this job provisioned and installed the locked runtime
+            # with.  The "py" launcher enumerates registry-registered runtimes, not the
+            # Actions tool cache, so it can select a different Python than the tested one.
+            $pythonExe = (Get-Command python).Source
+            Write-Output "Build interpreter: $pythonExe"
+            & .\packaging\build_windows.ps1 -PythonExe $pythonExe -PythonVersion '3.12' -OutputDir $releaseRoot
+            if ($LASTEXITCODE -ne 0) { throw "Windows portable/installer build script failed (exit $LASTEXITCODE)" }
+            $version = (python -c 'from core.version import __version__; print(__version__)').Trim()
+            $bundle = Join-Path $releaseRoot "DrillMaster-$version"
+            $exe = Join-Path $bundle 'DrillMaster.exe'
+            if (-not (Test-Path $exe)) { throw 'Frozen executable missing' }
+            $productVersion = (Get-Item $exe).VersionInfo.ProductVersion
+            if (-not $productVersion.StartsWith($version)) { throw "Executable version '$productVersion' differs from authoritative '$version'" }
+            $installer = Join-Path $releaseRoot "DrillMaster-$version-Setup.exe"
+            if (-not (Test-Path $installer)) { throw 'Compiled installer missing' }
+            $metadata = Get-Content (Join-Path $releaseRoot 'release-metadata.json') -Raw | ConvertFrom-Json
+            if ($metadata.git_sha -ne $env:GITHUB_SHA) { throw 'Artifact metadata SHA differs from workflow SHA' }
+            if ($metadata.version -ne $version -or $metadata.platform -ne 'windows-x64') { throw 'Artifact metadata version/platform mismatch' }
+            foreach ($artifact in $metadata.artifacts) {
+              $artifactPath = Join-Path $releaseRoot ($artifact.filename -replace '/', '\\')
+              $actualHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $artifactPath).Hash.ToLowerInvariant()
+              if ($actualHash -ne $artifact.sha256) { throw "Artifact SHA256 mismatch: $($artifact.filename)" }
+            }
+            $checksumsPath = Join-Path $releaseRoot 'SHA256SUMS.txt'
+            if (-not (Test-Path $checksumsPath)) { throw 'SHA256SUMS.txt missing' }
+            $expectedChecksums = @($metadata.artifacts | ForEach-Object { "$($_.sha256)  $($_.filename)" })
+            $actualChecksums = @(Get-Content -LiteralPath $checksumsPath)
+            if ($actualChecksums.Count -ne $expectedChecksums.Count) { throw 'SHA256SUMS entry count differs from release metadata' }
+            foreach ($line in $expectedChecksums) {
+              if ($actualChecksums -notcontains $line) { throw "SHA256SUMS entry missing: $line" }
+            }
+            $testReport = Join-Path $env:RUNNER_TEMP "DrillMaster-M42-tests-$env:GITHUB_RUN_ID\windows-regressions.xml"
+            $metadataPath = Join-Path $releaseRoot 'release-metadata.json'
+            $acceptanceReport = Join-Path $releaseRoot 'acceptance-report.json'
+            python packaging\acceptance_report.py --metadata $metadataPath --junit $testReport --source-sha $env:GITHUB_SHA --output $acceptanceReport `
+              --ci-workflow "$env:GITHUB_WORKFLOW" --ci-run-id "$env:GITHUB_RUN_ID" --ci-branch "$env:GITHUB_REF_NAME" `
+              --ci-run-url "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
+            if ($LASTEXITCODE -ne 0) { throw 'Machine-readable Windows acceptance report generation failed' }
+          } catch {
+            # Annotations are the only diagnostics that survive a runner whose log and
+            # artifact endpoints are unreachable; the helper bounds and redacts them.
+            python packaging\junit_report.py --annotate --annotate-title 'Windows packaging stage failed' --annotate-message "$($_.Exception.Message)" --annotate-file $transcript --annotate-file (Join-Path $releaseRoot 'pyinstaller-build.log')
+            if ($LASTEXITCODE -ne 0) { Write-Output "::error title=Packaging diagnostics failed::the annotation helper itself exited non-zero" }
+            throw
+          } finally {
+            if ($transcriptStarted) { Stop-Transcript | Out-Null }
+          }
       - name: Upload Windows evidence artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -106,5 +136,6 @@ jobs:
             ${{ runner.temp }}/DrillMaster-M42-tests-${{ github.run_id }}/windows-regressions.xml
             ${{ runner.temp }}/DrillMaster-M42-tests-${{ github.run_id }}/windows-regression-summary.md
             ${{ runner.temp }}/DrillMaster-M42-tests-${{ github.run_id }}/windows-regression-report.json
+            ${{ runner.temp }}/DrillMaster-build-transcript-${{ github.run_id }}.txt
           if-no-files-found: warn
           retention-days: 30

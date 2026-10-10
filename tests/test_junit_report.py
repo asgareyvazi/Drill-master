@@ -208,3 +208,84 @@ def test_output_never_raises_on_a_legacy_windows_console(tmp_path, monkeypatch, 
     assert result["failures"][0]["message"]  # non-ASCII survives parsing
     assert module.main(["--junit", str(report), "--annotations"]) == 0
     assert "test_unicode" in capsys.readouterr().out
+
+
+# --- stage annotation mode (packaging failures have no JUnit report) ---------
+
+def test_stage_annotation_reports_the_log_tail_with_the_exception(tmp_path):
+    module = _parser()
+    log = tmp_path / "build-transcript.txt"
+    log.write_text(
+        "Stage 1: resolve interpreter\n"
+        "Stage 2: create build virtualenv\n"
+        "Collecting pyinstaller==6.16.0\n"
+        "ERROR: Locked dependency installation failed\n",
+        encoding="utf-8",
+    )
+    annotation = module.build_stage_annotation(
+        "Windows packaging stage failed", "Locked dependency installation failed", [log], tail_lines=2)
+    assert annotation.startswith("::error title=Windows packaging stage failed::")
+    assert "stage failure: Locked dependency installation failed" in annotation
+    # Only the requested tail is published; the earlier stages are not.
+    assert "Collecting pyinstaller" in annotation and "Stage 1" not in annotation
+    assert "\n" not in annotation and "%" not in annotation.replace("%25", "")
+
+
+def test_missing_build_log_is_named_instead_of_silently_empty(tmp_path):
+    module = _parser()
+    absent = tmp_path / "pyinstaller-build.log"
+    annotation = module.build_stage_annotation("Build stage failure", "Build virtualenv creation failed", [absent])
+    assert "pyinstaller-build.log: not found" in annotation
+    assert "Build virtualenv creation failed" in annotation
+
+
+def test_stage_annotation_is_bounded_and_keeps_the_end_of_the_log(tmp_path):
+    module = _parser()
+    log = tmp_path / "huge.txt"
+    log.write_text("".join(f"{'x' * 60}-{index}\n" for index in range(400)), encoding="utf-8")
+    annotation = module.build_stage_annotation("Build stage failure", "PyInstaller failed", [log], tail_lines=400)
+    assert len(annotation) <= len("::error title=Build stage failure::") + module.ANNOTATION_LIMIT
+    assert annotation.rstrip().endswith("x" * 60 + "-399")
+
+
+def test_stage_annotation_redacts_credential_values(tmp_path):
+    module = _parser()
+    log = tmp_path / "leaky.txt"
+    log.write_text(
+        'Traceback: operator "password=S3cr3t-pass" rejected\napi_key: ABCDEFGHIJKL\n', encoding="utf-8")
+    annotation = module.build_stage_annotation("Build stage failure", "import failed", [log])
+    assert "S3cr3t-pass" not in annotation and "ABCDEFGHIJKL" not in annotation
+    assert "<redacted>" in annotation
+
+
+def test_main_emits_one_stage_annotation_and_exits_zero(tmp_path, capsys):
+    module = _parser()
+    log = tmp_path / "transcript.txt"
+    log.write_text("first\nlast\n", encoding="utf-8")
+    assert module.main([
+        "--annotate", "--annotate-title", "Windows packaging stage failed",
+        "--annotate-message", "Frozen executable missing", "--annotate-file", str(log),
+    ]) == 0
+    printed = capsys.readouterr().out
+    assert printed.count("::error") == 1
+    assert "Frozen executable missing" in printed and "last" in printed
+
+
+def test_main_refuses_to_mix_stage_and_junit_modes(tmp_path):
+    module = _parser()
+    report = _write(tmp_path, '<testcase classname="tests.test_x" name="test_y"/>')
+    assert module.main(["--annotate", "--junit", str(report)]) == 2
+    assert module.main(["--summary-out", str(tmp_path / "unused.md")]) == 2
+
+
+def test_pseudo_filenames_are_not_used_as_annotation_files(tmp_path):
+    """An annotation anchored to "<string>" names no file in the checkout."""
+    module = _parser()
+    report = _write(tmp_path, (
+        '<testcase classname="tests.test_x" name="test_child"><failure message="AssertionError: child failed">'
+        '  File "&lt;string&gt;", line 5, in &lt;module&gt;\\nE   ImportError: libGL.so.1\\n</failure></testcase>'
+    ))
+    annotation = module.render_annotations(module.parse_report(report))[0]
+    assert annotation.startswith("::error ") and "file=" not in annotation, annotation
+    # The failure is still reported in full; only the unusable file anchor is dropped.
+    assert "tests.test_x.test_child" in annotation and "<string>:5" in annotation

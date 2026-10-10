@@ -36,6 +36,31 @@
       "tests/test_junit_report.py"
     ]
   },
+  "packaging_stage_forensics": {
+    "artifacts_weakened_to_obtain_green": false,
+    "corrective_change": "publish release_dir before building; Start-Transcript the whole step into RUNNER_TEMP and upload it; wrap the step in try/catch that emits one bounded, redacted ::error annotation through packaging/junit_report.py --annotate and re-throws; add -PythonExe to build_windows.ps1 with an explicit minor-version assertion; scope ErrorActionPreference to the redirected PyInstaller pipeline and disable PSNativeCommandUseErrorActionPreference",
+    "credential_security_invariants_changed": false,
+    "exception": "Process completed with exit code 1 - the underlying stage message was written only to the job log",
+    "failing_stage_at_first_run": "UNRESOLVED_PENDING_INSTRUMENTED_RUN",
+    "job": "windows-release",
+    "module": "packaging/build_windows.ps1 invoked by .github/workflows/windows-release-gate.yml",
+    "phase": "portable bundle and installer build, after the Windows regression suite passed",
+    "product_code_affected": false,
+    "regression_test": [
+      "tests/test_windows_release_gate_contract.py::test_release_dir_output_precedes_the_build_so_failure_logs_are_uploaded",
+      "tests/test_windows_release_gate_contract.py::test_build_step_treats_a_thrown_stage_failure_as_fatal",
+      "tests/test_windows_release_gate_contract.py::test_build_stage_failure_is_published_as_an_annotation",
+      "tests/test_windows_release_gate_contract.py::test_gate_builds_with_the_interpreter_it_provisioned",
+      "tests/test_windows_release_gate_contract.py::test_build_script_validates_the_interpreter_and_survives_stderr_logging",
+      "tests/test_junit_report.py::test_stage_annotation_reports_the_log_tail_with_the_exception"
+    ],
+    "reproduction": "first exact-SHA Windows gate run on this branch at f047dc70de5f00ff0948dbd8ea9735b80d853757 (enumerate runs with gh run list for that workflow; the run identity is deliberately not committed here)",
+    "root_cause_category": "CI_HARNESS_DEFECT",
+    "root_cause_detail": "four harness defects are proven from source and evidence: (1) release_dir job output was set only at the end of the step, so the always() artifact upload contained nothing when the build failed; (2) no failure annotation or step-summary entry was emitted, so the failing stage was unrecoverable once the log endpoint was unreachable; (3) the step selected the interpreter with the Windows 'py' launcher, which resolves registry-registered runtimes rather than the Actions tool-cache Python the job provisioned and tested with; (4) build_windows.ps1 runs under ErrorActionPreference=Stop while redirecting native stderr (2>&1 | Tee-Object), the documented pattern that turns PyInstaller's progress log - or a thrown inner-script error - into a terminating NativeCommandError or a swallowed non-terminating error. The specific stage that failed at f047dc7 is recorded as UNRESOLVED_PENDING_INSTRUMENTED_RUN; the instrumented gate is the evidence source, not this file.",
+    "sha": "f047dc70de5f00ff0948dbd8ea9735b80d853757",
+    "test": "step 7 'Build portable bundle and installer; run frozen executable smoke' (steps 1-6, including the full 26-module Windows regression suite, concluded success)",
+    "traceback": "UNAVAILABLE_FROM_TRIAGE_ENVIRONMENT: the Actions log and artifact endpoints are not reachable from this sandbox, and the pre-fix step published no release directory output and no annotation on failure"
+  },
   "internal_gates": [
     {
       "gate": "source_release_gate",
@@ -65,7 +90,14 @@
   "preserved_boundaries": {
     "m36_p6_closure": "unchanged",
     "w5_provenance": "PROVENANCE_EXTERNAL_SOURCE_UNAVAILABLE",
-    "open_owner_decisions": ["NEW-P6-007", "NEW-P6-008", "NEW-P6-015", "NEW-P6-020", "NEW-P6-023", "NEW-P6-024"],
+    "open_owner_decisions": [
+      "NEW-P6-007",
+      "NEW-P6-008",
+      "NEW-P6-015",
+      "NEW-P6-020",
+      "NEW-P6-023",
+      "NEW-P6-024"
+    ],
     "engineering_scope": "M41 boundaries retained; no standards-compliance claim is added by this checkpoint"
   }
 }

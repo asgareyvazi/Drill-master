@@ -1,14 +1,22 @@
-"""Convert a pytest JUnit XML report into bounded, secret-safe CI diagnostics.
+"""Convert CI evidence into bounded, secret-safe workflow diagnostics.
 
-A GitHub Actions step publishes at most ten ``::error::`` annotations, so a
-suite with more failures than that silently loses detail.  This parser keeps one
-annotation per failure up to the cap and always adds a single aggregate
-annotation plus a Markdown step summary that lists every failed test identity.
+Two modes share one guarantee: a failing step always publishes an actionable,
+truncated, credential-redacted ``::error::`` annotation.
 
-Only test identities, exception class names, assertion text and ``file:line``
-locations are emitted.  Values that look like credentials are redacted so a
-failing assertion can never publish a password, token or API key into the run
-log, an annotation or the summary artifact.
+``--junit`` converts a pytest JUnit XML report.  A GitHub Actions step publishes
+at most ten ``::error::`` annotations, so a suite with more failures than that
+silently loses detail; this parser keeps one annotation per failure up to the cap
+and always adds a single aggregate annotation plus a Markdown step summary that
+lists every failed test identity.
+
+``--annotate`` reports a build-stage failure, where no machine-readable report
+exists yet: the exception text plus the tail of the build log(s) named on the
+command line, so a packaging failure is identifiable from the check run alone.
+
+Only test identities, exception class names, assertion text, ``file:line``
+locations and build-log text are emitted.  Values that look like credentials are
+redacted so a failing assertion can never publish a password, token or API key
+into the run log, an annotation or the summary artifact.
 """
 from __future__ import annotations
 
@@ -22,6 +30,9 @@ from pathlib import Path
 MAX_ANNOTATIONS = 10
 MESSAGE_LIMIT = 300
 MAX_AGGREGATE_NAMES = 25
+# A single annotation must stay small enough that GitHub never truncates it
+# silently; the tail of a build log is the informative part.
+ANNOTATION_LIMIT = 3000
 
 # ``tests\test_x.py:332:``, ``C:\a\tests\test_x.py:332:`` and ``tests/test_x.py:332:``
 SOURCE_LOCATION = re.compile(r"(?P<path>(?:[A-Za-z]:)?[^\s:;\"'<>|]*\.py):(?P<line>\d+)")
@@ -170,6 +181,11 @@ def _annotation_file_property(location: str) -> str:
     """GitHub resolves ``file=`` only for repository-relative, forward-slash paths."""
     if not location or location == "source location unavailable":
         return ""
+    # Pseudo-filenames such as "<string>" (exec/-c frames captured from a subprocess
+    # traceback) name no file in the checkout; GitHub cannot anchor an annotation to
+    # them, and a rejected annotation would hide the failure it describes.
+    if "<" in location or ">" in location:
+        return ""
     if re.match(r"^[A-Za-z]:[\\/]", location) or location.startswith(("/", "\\")):
         return ""
     return location.replace("\\", "/")
@@ -231,6 +247,31 @@ def render_summary(result: dict) -> str:
     return "\n".join(lines)
 
 
+def build_stage_annotation(title: str, message: str, log_paths: list[Path], tail_lines: int = 25) -> str:
+    """Compose one bounded, redacted ``::error::`` annotation for a build stage.
+
+    A packaging failure has no JUnit report, so the exception text and the tail
+    of whatever log the stage produced are the only diagnostics.  Missing logs
+    are named explicitly: "log not found" distinguishes a stage that died before
+    writing one from a stage whose log explains the failure.
+    """
+    parts = [f"stage failure: {redact(message)}"] if message else ["stage failure: no exception message"]
+    for path in log_paths:
+        if not path or not path.is_file():
+            parts.append(f"{path.name if path else 'log'}: not found")
+            continue
+        text = path.read_text(encoding="utf-8", errors="replace")
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        tail = [redact(line) for line in lines[-max(1, tail_lines):]]
+        parts.append(f"{path.name} ({len(lines)} line{'s' if len(lines) != 1 else ''}, tail): "
+                     + (" | ".join(tail) if tail else "empty"))
+    body = " ;; ".join(parts)
+    if len(body) > ANNOTATION_LIMIT:
+        # The marker is part of the budget so the emitted line never exceeds it.
+        body = "…" + body[-(ANNOTATION_LIMIT - 1):]
+    return f"::error title={_escape_property(title)}::{_escape_data(body)}"
+
+
 def emit(line: str) -> None:
     """Write to stdout without assuming the console can encode non-ASCII text.
 
@@ -258,12 +299,30 @@ def emit_error(line: str) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--junit", required=True, type=Path, help="pytest JUnit XML report")
+    parser.add_argument("--junit", type=Path, default=None, help="pytest JUnit XML report")
     parser.add_argument("--limit", type=int, default=MAX_ANNOTATIONS, help="maximum per-failure annotations")
     parser.add_argument("--summary-out", type=Path, default=None, help="write Markdown summary to this file")
     parser.add_argument("--json-out", type=Path, default=None, help="write the parsed report as JSON")
     parser.add_argument("--annotations", action="store_true", help="print workflow commands to stdout")
+    parser.add_argument("--annotate", action="store_true", help="report a build-stage failure instead of a JUnit report")
+    parser.add_argument("--annotate-title", default="Build stage failure", help="annotation title")
+    parser.add_argument("--annotate-message", default="", help="exception or stage text to report")
+    parser.add_argument("--annotate-file", type=Path, action="append", default=[],
+                        help="log file whose redacted tail is included (repeatable)")
+    parser.add_argument("--tail-lines", type=int, default=25, help="log tail size per --annotate-file")
     args = parser.parse_args(argv)
+
+    if args.annotate:
+        if args.junit is not None or args.summary_out is not None or args.json_out is not None:
+            emit_error("error: --annotate reports a stage failure and takes no JUnit or output-file options")
+            return 2
+        emit(build_stage_annotation(args.annotate_title, args.annotate_message, list(args.annotate_file),
+                                   args.tail_lines))
+        return 0
+
+    if args.junit is None:
+        emit_error("error: --junit is required unless --annotate is used")
+        return 2
 
     result = parse_report(args.junit)
     if args.annotations:

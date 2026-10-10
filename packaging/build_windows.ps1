@@ -4,10 +4,17 @@ param(
     [string]$PythonLauncher = "py",
     [string]$PythonVersion = "3.12",
     [string]$OutputDir = "",
-    [string]$Python = ""
+    [string]$Python = "",
+    [string]$PythonExe = ""
 )
 
 $ErrorActionPreference = "Stop"
+# PowerShell 7.3+ turns redirected native-command stderr into terminating errors.
+# PyInstaller writes its INFO log to stderr, so that behaviour would abort a
+# successful build.  Exit codes are checked explicitly at every call site below.
+if (Test-Path -LiteralPath Variable:PSNativeCommandUseErrorActionPreference) {
+    $PSNativeCommandUseErrorActionPreference = $false
+}
 $Root = (Resolve-Path (Join-Path $PSScriptRoot ".." )).Path
 Set-Location $Root
 
@@ -42,18 +49,31 @@ if ($LASTEXITCODE -ne 0 -or $dirty) {
     throw "Refusing release build from a dirty worktree; commit the intended source first"
 }
 
+# An explicit interpreter path is the reproducible choice: CI already provisioned
+# and tested with it, while the "py" launcher only sees registry-registered runtimes.
+$launcherArgs = @()
+if (-not [string]::IsNullOrWhiteSpace($PythonExe)) {
+    $interpreter = $PythonExe
+} else {
+    $interpreter = $PythonLauncher
+    $launcherArgs = @("-$PythonVersion")
+}
+
 $buildVenv = Join-Path $Root ".windows-build-venv"
 $buildPython = Join-Path $buildVenv "Scripts\python.exe"
 if (-not (Test-Path $buildPython)) {
-    & $PythonLauncher "-$PythonVersion" -m venv $buildVenv
-    if ($LASTEXITCODE -ne 0) { throw "Build virtualenv creation failed" }
+    & $interpreter @launcherArgs -m venv $buildVenv
+    if ($LASTEXITCODE -ne 0) { throw "Build virtualenv creation failed using '$interpreter $($launcherArgs -join ' ')'" }
 }
 
-$requestedVersion = & $PythonLauncher "-$PythonVersion" -c 'import sys; print(sys.version.split()[0])'
-if ($LASTEXITCODE -ne 0) { throw "Requested Python $PythonVersion is unavailable" }
-$actualVersion = & $buildPython -c 'import sys; print(sys.version.split()[0])'
-if ($LASTEXITCODE -ne 0 -or $actualVersion -ne $requestedVersion) {
-    throw "Existing build virtualenv does not match requested Python. Remove .windows-build-venv only after preserving any needed local environment."
+$requestedVersion = (& $interpreter @launcherArgs -c 'import sys; print(sys.version.split()[0])')
+if ($LASTEXITCODE -ne 0 -or -not $requestedVersion) { throw "Requested Python $PythonVersion is unavailable via '$interpreter'" }
+$actualVersion = (& $buildPython -c 'import sys; print(sys.version.split()[0])')
+if ($LASTEXITCODE -ne 0 -or "$actualVersion" -ne "$requestedVersion") {
+    throw "Existing build virtualenv ($actualVersion) does not match the requested interpreter ($requestedVersion). Remove .windows-build-venv only after preserving any needed local environment."
+}
+if ("$actualVersion" -notmatch "^$([regex]::Escape($PythonVersion))\.") {
+    throw "Build interpreter Python $actualVersion does not satisfy the required minor version $PythonVersion"
 }
 
 & $buildPython -m pip install --disable-pip-version-check -r requirements-lock.txt -r requirements-build.txt
@@ -85,9 +105,21 @@ $env:DRILLMASTER_BUILD_ROOT = $buildRoot
 
 try {
     $buildLog = Join-Path $releaseRoot "pyinstaller-build.log"
+    # PyInstaller writes its progress log to stderr.  With Stop active, a redirected
+    # stderr line becomes a terminating NativeCommandError on Windows PowerShell 5.1
+    # and PowerShell 7.0-7.2, aborting a build that actually succeeded.  The relaxed
+    # preference covers this pipeline only; the captured exit code is authoritative.
+    $preferenceBeforePyInstaller = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
     & $buildPython -m PyInstaller --noconfirm --clean --workpath $buildWork --distpath $buildDist `
         (Join-Path $Root "packaging\DrillMaster.spec") 2>&1 | Tee-Object -FilePath $buildLog
-    if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed; inspect $buildLog" }
+    $pyinstallerExit = $LASTEXITCODE
+    $ErrorActionPreference = $preferenceBeforePyInstaller
+    if ($pyinstallerExit -ne 0) {
+        $tail = @()
+        if (Test-Path -LiteralPath $buildLog) { $tail = @(Get-Content -LiteralPath $buildLog -Tail 20) }
+        throw "PyInstaller failed (exit $pyinstallerExit); inspect $buildLog`n$($tail -join [Environment]::NewLine)"
+    }
 
     $bundle = Join-Path $buildDist "DrillMaster"
     $exe = Join-Path $bundle "DrillMaster.exe"

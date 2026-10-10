@@ -162,7 +162,88 @@ def test_windows_gate_keeps_the_inno_setup_and_isolation_pins(workflow_text):
     assert "drillmaster.db" not in workflow_text, "the gate must never point at the default operator database"
 
 
+# --- the packaging step must be diagnosable on a runner with no reachable log ----
+
+def _build_step(workflow_text: str) -> str:
+    start = workflow_text.index("- name: Build portable bundle")
+    end = workflow_text.index("- name: Upload Windows evidence artifacts")
+    return workflow_text[start:end]
+
+
+@pytest.fixture(scope="module")
+def build_script_text() -> str:
+    path = ROOT / "packaging" / "build_windows.ps1"
+    return path.read_text(encoding="utf-8")
+
+
+def test_release_dir_output_precedes_the_build_so_failure_logs_are_uploaded(workflow_text):
+    """The evidence upload runs on always(); an output set only on success uploads nothing."""
+    block = _build_step(workflow_text)
+    publication = block.index('"release_dir=$releaseRoot" | Add-Content $env:GITHUB_OUTPUT')
+    assert publication < block.index("& .\\packaging\\build_windows.ps1"), "publish the release directory before the build can fail"
+    assert block.count('"release_dir=$releaseRoot"') == 1
+
+
+def test_build_stage_failure_is_published_as_an_annotation(workflow_text):
+    """A red step whose reason lives only in an unreachable log is not triageable."""
+    block = _build_step(workflow_text)
+    assert "} catch {" in block and "throw" in block.split("} catch {")[1], "the catch must re-raise so the step stays red"
+    assert "junit_report.py --annotate" in block
+    assert "--annotate-message" in block and "--annotate-file" in block
+    assert "Start-Transcript" in block and "Stop-Transcript" in block
+    assert "$transcriptStarted" in block, "a failing transcript setup must not become the build failure"
+    assert "DrillMaster-build-transcript-" in workflow_text.split("- name: Upload Windows evidence artifacts")[1], (
+        "the captured transcript must be uploaded with the rest of the release evidence")
+
+
+def test_build_step_treats_a_thrown_stage_failure_as_fatal(workflow_text):
+    """Without Stop, an error thrown by the called script would be printed and execution would continue."""
+    block = _build_step(workflow_text)
+    assert "$ErrorActionPreference = 'Stop'" in block
+    assert block.index("$ErrorActionPreference = 'Stop'") < block.index("& .\\packaging\\build_windows.ps1")
+
+
+def test_gate_builds_with_the_interpreter_it_provisioned(workflow_text, build_script_text):
+    """The py launcher resolves registry-registered runtimes, not the Actions tool cache."""
+    block = _build_step(workflow_text)
+    assert "(Get-Command python).Source" in block
+    assert "-PythonExe $pythonExe" in block
+    assert "-PythonLauncher" not in block, "CI must not select the interpreter through the py launcher"
+    assert "[string]$PythonExe" in build_script_text
+
+
+def test_build_script_validates_the_interpreter_and_survives_stderr_logging(build_script_text):
+    assert "-notmatch \"^$([regex]::Escape($PythonVersion))\\.\"" in build_script_text, (
+        "an explicit -PythonExe must still satisfy the required minor version")
+    assert "$PSNativeCommandUseErrorActionPreference = $false" in build_script_text, (
+        "PyInstaller logs to stderr; PowerShell 7.3+ would treat it as a terminating error")
+    piped = build_script_text.index("2>&1 | Tee-Object")
+    window = build_script_text[piped - 500:piped + 500]
+    assert '$ErrorActionPreference = "Continue"' in window and "$preferenceBeforePyInstaller = $ErrorActionPreference" in window, (
+        "the redirected pipeline must not run under Stop, which turns stderr into a fatal NativeCommandError")
+    assert "$pyinstallerExit = $LASTEXITCODE" in build_script_text[piped:piped + 400], (
+        "a redirected native command must have its exit code captured before any other statement")
+
+
 CHECKPOINT = ROOT / "docs" / "audits" / "m42-1-release-closure.json"
+
+def test_checkpoint_records_the_packaging_stage_without_inventing_a_root_cause():
+    """The instrumented gate, not the checkpoint, is what names the failing stage."""
+    payload = json.loads(CHECKPOINT.read_text(encoding="utf-8"))
+    record = payload["packaging_stage_forensics"]
+    assert record["root_cause_category"] in {
+        "PRODUCT_DEFECT", "WINDOWS_PORTABILITY_DEFECT", "CI_HARNESS_DEFECT",
+        "ENVIRONMENTAL_LIMITATION", "UNRESOLVED",
+    }
+    assert record["failing_stage_at_first_run"] == "UNRESOLVED_PENDING_INSTRUMENTED_RUN"
+    assert record["product_code_affected"] is False
+    assert record["credential_security_invariants_changed"] is False
+    assert re.fullmatch(r"[0-9a-f]{40}", record["sha"])
+    for node_id in record["regression_test"]:
+        relative, _, test_name = node_id.partition("::")
+        assert (ROOT / relative).is_file(), relative
+        assert f"def {test_name}(" in (ROOT / relative).read_text(encoding="utf-8"), node_id
+
 
 
 def test_m42_1_checkpoint_records_boundaries_without_claiming_ci_results():
@@ -184,6 +265,8 @@ def test_m42_1_checkpoint_records_boundaries_without_claiming_ci_results():
     committed = CHECKPOINT.read_text(encoding="utf-8")
     assert "actions/runs/" not in committed, "run evidence is published by CI, never committed"
     assert re.search(r'"run_id"\s*:\s*"\d+"', committed) is None
+    assert re.search(r"\b\d{10,}\b", committed) is None, (
+        "a workflow run number is 10+ digits; the checkpoint must reference the SHA and let CI carry the run identity")
     for relative in payload["credential_failure_forensics"]["regression_guard"]:
         assert (ROOT / relative).is_file(), relative
     assert (ROOT / payload["runbook"]).is_file()
