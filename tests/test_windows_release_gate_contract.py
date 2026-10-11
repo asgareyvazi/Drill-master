@@ -1131,6 +1131,114 @@ def test_rel_04_names_the_external_match_without_borrowing_any_trust():
     assert "`OPEN`" in rel13, "an explained incident is not a closed one"
 
 
+def test_m42_7_followup_records_the_closure_without_promoting_anything():
+    """A follow-up may settle what happened; it may not turn an external result or a green gate into trust.
+
+    These guards exist so a later edit cannot promote `MATCH_REPORTED_BY_EXTERNAL_REVIEWER` into
+    in-repository verification, `UNKNOWN` into a signature verdict, a cancelled run into a failure or a
+    pass, or a green gate on one SHA into a claim about the tip that carries the record.  Counts inside
+    the block are checked as shapes, and only the scope claim whose environmental cause is named may
+    carry a shortfall -- the lesson from the mission whose guard falsified the number it pinned.
+    """
+    payload = json.loads(M425_CHECKPOINT.read_text(encoding="utf-8"))
+    assert payload["mission"] == "M42.5" and payload["branch"] == "arena/01a0ec23-drill-master"
+    followup = payload["m42_7_followup"]
+    assert followup["mission"] == "M42.7" and followup["recorded_on"] == "2026-10-11"
+    assert "additively" in followup["why_this_is_a_followup_and_not_a_new_audit"] or \
+        "nothing above this key is edited" in followup["why_this_is_a_followup_and_not_a_new_audit"]
+
+    # the earlier blocked record keeps its own verdict: a follow-up adds, it does not rewrite
+    closure = payload["m42_6_release_closure"]
+    assert closure["independent_artifact_reverification"]["verdict"] == "BLOCKED"
+    assert "no bytes were downloaded" in closure["independent_artifact_reverification"]["not_done"]
+
+    recovery = followup["workspace_state_and_recovery"]
+    for key in ("entry_state", "how_the_tip_was_established", "post_reset_state", "false_alarm_recorded"):
+        assert recovery[key], f"the recovery story is incomplete without {key}"
+    assert "git reset --hard" in recovery["commands_not_used"] and "force push" in recovery["commands_not_used"]
+    assert "0 entries" in recovery["post_reset_state"] and "926" in recovery["post_reset_state"]
+
+    method = followup["gate_readback_method"]
+    assert "actions/runs?head_sha=" in method["authoritative_channel"] and "?branch=" in method["authoritative_channel"], \
+        "a push-triggered run is read from the run list, never from a PR-only view"
+    assert "proves nothing in either direction" in method["pr_only_interfaces_are_not_proof"]
+    assert "cancelled" in method["cancelled_is_not_failed"] and "superseded" in method["cancelled_is_not_failed"]
+    assert "never promoted to a later tip" in method["identity_rule"]
+
+    tip = followup["gates_on_the_incoming_tip"]
+    assert re.fullmatch(r"[0-9a-f]{40}", tip["sha"]), "a gate claim must name a full SHA"
+    assert tip["source_release_gate"]["conclusion"] == "success" == tip["windows_release_validation"]["conclusion"]
+    assert tip["source_release_gate"]["event"] == "push" and tip["source_release_gate"]["attempt"] == 1
+    assert tip["windows_release_validation"]["step_conclusions"] == "all success"
+    assert "lifecycle smoke" in tip["windows_release_validation"]["lifecycle_step"]
+    assert tip["artifact_published_by_this_tip"]["independent_byte_verification"].startswith("NOT_VERIFIED")
+    assert "proves nothing about Authenticode trust" in tip["what_this_proves_and_does_not"]
+
+    match = followup["independent_artifact_match"]
+    assert match["status"] == "MATCH_REPORTED_BY_EXTERNAL_REVIEWER"
+    assert "did NOT run a verifier" in match["performed_by"]
+    assert "m426_independent_artifact_verification.json" in match["performed_by"], \
+        "an absent file must be named as absent, never cited as opened"
+    assert match["binary_executed"] is False
+    assert "drillmaster-release-artifacts/v2" == match["manifest"]["schema"]
+    assert len(match["container"]["sha256"]) == 64 and len(match["inner_executable"]["sha256"]) == 64
+    joined = " ".join(match["what_it_does_not_change"])
+    for fragment in ("stays NOT_RUN", "NOT_VERIFIED", "NOT_ESTABLISHED", "NOT_CLAIMED", "NOT_RUN"):
+        assert fragment in joined, f"the scope limit {fragment!r} was dropped"
+    assert "additive only" in match["relation_to_the_earlier_blocked_record"]
+
+    investigation = followup["lifecycle_instability_investigation"]
+    assert "empty mapping both when a directory is missing" in investigation["what_the_published_record_could_not_say"]
+    assert "labelled as an inference" in investigation["reasoning_kept_separate_from_evidence"]
+    assert investigation["classification"].startswith("runner or external filesystem event")
+    assert "did not reproduce" in investigation["classification"]
+    assert "403" in investigation["repeatability_limit"] and "REL-13 stays OPEN" in investigation["repeatability_limit"]
+    protections = investigation["protections_reviewed_and_left_untouched"]
+    assert len(protections) >= 11 and all("unchanged" in item or "nothing added" in item
+                                         or "still fails" in item for item in protections.values())
+    assert "attempt in (1, 2)" in protections["exactly_one_bounded_launch_retry"]
+    assert "install_dir_emptied" in protections["exit_code_alone_is_not_uninstall_success"]
+    diagnostics = investigation["diagnostics_added"]
+    assert "diagnostics.uninstall_forensics" in diagnostics["location"]
+    assert len(diagnostics["sample_moments"]) == 6 and len(diagnostics["cases_it_distinguishes"]) == 6
+    assert "bound()" in diagnostics["bounds_and_redaction"] and "64 MB" in diagnostics["bounds_and_redaction"]
+    assert "never named as a cause" in diagnostics["explicitly_not_collected"]
+    assert "v1" in diagnostics["schema"] and "additive" in diagnostics["schema"]
+    assert "attempt 2:" in investigation["one_regression_the_work_found"]
+
+    validation = followup["correction_validation"]
+    battery = validation["mutation_battery"]
+    assert battery["caught"] == battery["attempted"] and battery["survived"] == 0
+    assert battery["first_run"], "the coverage defects this battery found stay on the record"
+    assert "evidence of detection, not a complete proof" in battery["honest_limit"]
+    assert len(validation["contract_guards_added"]) >= 4
+
+    local = followup["local_verification"]
+    for claim in (local["focused"], local["release_relevant_scope"]):
+        # arithmetic over the whole summary line, rather than the earlier guard's "equal unless the
+        # environmental cause is named" rule: a skip and a failure are both legitimate shortfalls from
+        # `collected`, and a count that adds up cannot be quietly rounded into looking clean
+        counts = re.search(r"(\d+) collected, (\d+) passed, (\d+) failed, (\d+) errors?, (\d+) skipped", claim)
+        assert counts, "the record must state a full pytest summary shape, not only its conclusions"
+        collected, passed, failed, errors, skipped = (int(group) for group in counts.groups())
+        assert collected == passed + failed + errors + skipped, (
+            f"{collected} collected does not equal {passed}+{failed}+{errors}+{skipped}; the counts were edited")
+    assert "libGL.so.1" in local["release_relevant_scope"] and "kept as failures" in local["release_relevant_scope"]
+    assert "5375" in local["lint"] and "not lint-clean" in local["lint"]
+    assert "measured on the working tree that became" in local["tree"]
+
+    final = followup["final_tip_gates"]
+    assert re.fullmatch(r"[0-9a-f]{40}", final["code_sha"]), final["code_sha"]
+    assert final["source_release_gate"]["conclusion"] == "success" == final["windows_release_validation"]["conclusion"]
+    assert "cannot record its own gate outcome" in final["records_tip"]
+
+    separations = followup["separations_preserved"]
+    assert separations["synthetic_workbook"] == "AUTOMATED_TEST_ONLY_NOT_REAL_DDR_ACCEPTANCE"
+    assert "skipped by policy" in separations["bundle_smoke"]
+    assert followup["verdict"]["statement"] == "RELEASE-ENGINEERING PASS WITH EXPLICIT EXTERNAL ACCEPTANCE PENDING"
+    assert "NOT_ESTABLISHED" in match["what_it_does_not_change"][3]
+
+
 def test_m42_2_checkpoint_records_provenance_correction_without_claiming_ci_results():
     """The M42.2 record names the defect and its guards, and asserts no CI outcome."""
     assert M422_CHECKPOINT.is_file()

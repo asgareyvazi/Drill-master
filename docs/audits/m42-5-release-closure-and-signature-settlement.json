@@ -377,5 +377,339 @@
       "response": "no threshold, retry count, empty-directory proof or second-refusal failure was relaxed. The run was reported as a failed gate for that SHA, the step-by-step conclusions were read back and recorded, and REL-13 was added to the acceptance register so the instability is an owner-visible obligation rather than a footnote. A re-run of the identical SHA was attempted first and is refused by this installation's permissions (the rerun and dispatch endpoints both answer 403 Resource not accessible by integration), so the only available route to a green Windows gate on a tip is another commit, which is why this record commit is followed by its own read-back in the mission report",
       "consequence_for_the_verdict": "the release-engineering verdict is anchored on the code SHA, where both gates are green; the records tip's Windows result is stated as it was observed, and any claim that the final published SHA has both gates green must come from a run of that SHA, not from this paragraph"
     }
+  },
+  "m42_7_followup": {
+    "mission": "M42.7",
+    "recorded_on": "2026-10-11",
+    "why_this_is_a_followup_and_not_a_new_audit": "M42.7 closed three open questions from M42.6 -- the state of the tip, the artifact reverification, and the lifecycle instability -- and added no product scope. A new broad audit file would have duplicated the record it extends, so this block sits beside it in the same checkpoint and nothing above this key is edited: the earlier paragraphs stay true for the moment they were written.",
+    "workspace_state_and_recovery": {
+      "entry_state": "restored workspace with a grafted HEAD: the M42.6 worktree content was present while the git objects for its commits were absent from the local store, so the entry state was re-derived rather than trusted",
+      "snapshots_before_any_state_change": "/home/user/m427-worktree-backup.tar (41287680 bytes, digest 5da71cfcd2abd2c5...) taken before the first state-changing command, with /tmp/m427_files.txt and /tmp/m427_all.txt as the file lists",
+      "how_the_tip_was_established": "git fetch origin arena/01a0ec23-drill-master, then cmp of the checkpoint and packaging/windows_release_evidence.py against FETCH_HEAD, then git diff --diff-filter=M FETCH_HEAD (0 modified), then git reset --mixed FETCH_HEAD -- the only state-changing command used",
+      "post_reset_state": "git status --porcelain -uall returned 0 entries, git ls-files returned 926, and HEAD, index and worktree all equal the remote tip; spot digests of the checkpoint, the evidence module, the workflow and two test files equal git show HEAD of each",
+      "false_alarm_recorded": "before the reset, a stale index made 73 tracked paths look deleted; re-checked after the reset they were present, so no file was materialised and no restore was needed. Recorded so that the same alarm is not acted on destructively",
+      "commands_not_used": [
+        "git reset --hard",
+        "git clean",
+        "force push",
+        "amend",
+        "rebase",
+        "squash"
+      ],
+      "history_depth_and_branch_identity": "72 commits deep; origin/drill-Master (e3fa42a) is not an ancestor of the tip, which is branch identity only and not lost work"
+    },
+    "gate_readback_method": {
+      "authoritative_channel": "GET /repos/.../actions/runs?head_sha=<full sha> plus ?branch=<branch>, which list push-triggered runs; /actions/runs/<id>/jobs gives per-step conclusions and /check-runs/<job>/annotations gives the published detail",
+      "pr_only_interfaces_are_not_proof": "the commit-workflow-runs interface returned 0 runs for the tip while the branch listing showed both runs green, so it proves nothing in either direction and is cited nowhere below",
+      "attempt_and_event_are_checked": "every run quoted here is event=push with attempt=1: no workflow_dispatch and no re-run is claimed, and a queued or in-progress run is not written as a pass -- this script refuses to run at all then",
+      "cancelled_is_not_failed": "the Source and Windows runs of 9b6f484 are conclusion=cancelled because the next push superseded them about 33 seconds later; that is recorded as superseded, and neither a pass nor a failure is inferred from it",
+      "identity_rule": "head_sha is compared to the full 40-character SHA of the tree under review; an earlier SHA's green gate is never promoted to a later tip, and no outcome in this file may be attributed to a SHA other than the one named beside it"
+    },
+    "gates_on_the_incoming_tip": {
+      "sha": "8f71beb1d999cac5c936550e1e4204077e736d6b",
+      "source_release_gate": {
+        "run_number": 77,
+        "conclusion": "success",
+        "event": "push",
+        "attempt": 1,
+        "jobs": {
+          "source (3.12)": {
+            "conclusion": "success",
+            "started": "2026-10-11T08:22:18Z",
+            "completed": "2026-10-11T08:29:09Z",
+            "entries": 9,
+            "all_steps_success": true
+          },
+          "source (3.13)": {
+            "conclusion": "success",
+            "started": "2026-10-11T08:22:18Z",
+            "completed": "2026-10-11T08:29:08Z",
+            "entries": 9,
+            "all_steps_success": true
+          },
+          "source (3.11)": {
+            "conclusion": "success",
+            "started": "2026-10-11T08:22:18Z",
+            "completed": "2026-10-11T08:27:03Z",
+            "entries": 9,
+            "all_steps_success": true
+          }
+        },
+        "step_conclusions": "all success"
+      },
+      "windows_release_validation": {
+        "run_number": 23,
+        "conclusion": "success",
+        "event": "push",
+        "attempt": 1,
+        "job_entries": 14,
+        "step_conclusions": "all success",
+        "lifecycle_step": "Installed-application lifecycle smoke (silent install, run, uninstall)=success",
+        "started": "2026-10-11T08:22:18Z",
+        "completed": "2026-10-11T08:29:16Z"
+      },
+      "published_manifest_notice": "sha=8f71beb1d999cac5c936550e1e4204077e736d6b app=1.0.0 python=3.12.10 pyinstaller=6.11.1 inno=6.7.1/installed-package-metadata installer=DrillMaster-1.0.0-Setup.exe 83215857B sha256=2301ddc9157b5ae2549f0353c308ac9bbad146597924a2972339ecc1d58c75f6 portableZip=DrillMaster-1.0.0-windows-x64.zip 119941397B sha256=4c360c5605d7a5c8e7ef313f5d7347ae4a14da7f600ba742e4fdf0af4fabe2cf tests=684/686 lifecycle=PASS signing=UNKNOWN",
+      "inno_identity_notice": "installed package version 6.7.1 read back from the installed package specification",
+      "artifact_published_by_this_tip": {
+        "name": "drillmaster-windows-8f71beb1d999cac5c936550e1e4204077e736d6b",
+        "size_bytes": 321662372,
+        "expired": false,
+        "listing_channel": "GET /actions/runs/<id>/artifacts, which gives identity, size and expiry only",
+        "independent_byte_verification": "NOT_VERIFIED -- this workspace's own download attempts were blocked at the TLS layer (SSL_ERROR_SYSCALL, 0 bytes) and no external review covers this artifact, unlike the one recorded below"
+      },
+      "what_this_proves_and_does_not": "a green gate proves the repository's own automation on that SHA: the pinned toolchain identity, the locked dependencies, the regression totals, the bundle and installer digests, the frozen smoke, the lifecycle, the signing record's shape, and the report plus manifest validation. It proves nothing about Authenticode trust, clean-machine install behaviour, real PDF ingestion, a production database, or operator acceptance, and it does not verify the published bytes"
+    },
+    "independent_artifact_match": {
+      "status": "MATCH_REPORTED_BY_EXTERNAL_REVIEWER",
+      "performed_by": "an external reviewer holding the downloaded artifact; the values below were supplied to this session. This process did NOT run a verifier on them and does not claim to have opened any local verification file -- m426_independent_artifact_verification.json is absent from this workspace, which is exactly why it is named as absent rather than cited as evidence",
+      "scope": "the artifact published by source SHA a742170 (its GitHub artifact and run numbers are recorded in packaging/WINDOWS_RELEASE_ACCEPTANCE.md REL-04 and in the mission report, deliberately not in this file, because the committed-source run-id rule in tests/test_windows_release_gate_contract.py covers docs/audits)",
+      "container": {
+        "size_bytes": 321705858,
+        "sha256": "3b85db6b0088ddde67bd3f2fc341f095874c03a3c37c368660343efc5a436b6d",
+        "github_published_independent_hash": null,
+        "basis": "the downloaded container's own integrity, the published metadata's identity, and the recomputed inner digests; GitHub publishes no independent hash of the container itself"
+      },
+      "manifest": {
+        "schema": "drillmaster-release-artifacts/v2",
+        "version": "1.0.0",
+        "installer": {
+          "filename": "DrillMaster-1.0.0-Setup.exe",
+          "size_bytes": 83259119,
+          "sha256_prefix": "b0676066d77ecbe0",
+          "verdict": "MATCH"
+        },
+        "portable_bundle": {
+          "filename": "DrillMaster-1.0.0-windows-x64.zip",
+          "size_bytes": 119941398,
+          "sha256_prefix": "6e0e56580a6beb8d",
+          "verdict": "MATCH"
+        },
+        "sha256sums": "equals the manifest entry set exactly, with no SUMS DIFFERENCE line"
+      },
+      "signing_record": {
+        "manifest_digest": "e0170a4f3cc1821d2a953c4a4817f651f66e6d01e0838070779c2ad28547e756",
+        "aggregate": "UNKNOWN",
+        "agrees_with_manifest_and_source_sha": true
+      },
+      "inner_executable": {
+        "member": "DrillMaster.exe",
+        "size_bytes": 21218228,
+        "sha256": "d143c8a33be8991325b21c6a6075bb812843be18ad0c93ad0728e51432d3ec2b",
+        "members_with_that_name_in_the_bundle": 1
+      },
+      "archive_safety": {
+        "crc": "both archives CRC-clean",
+        "member_counts": "1238 and 1236",
+        "unsafe_paths": "none",
+        "symlinks": "none",
+        "case_collisions": "none",
+        "special_modes": "none"
+      },
+      "lifecycle_and_smoke": {
+        "lifecycle_steps_passing": 9,
+        "smoke_log": "exit_code=0 log_generated=true secret_leak_detected=false"
+      },
+      "binary_executed": false,
+      "what_it_does_not_change": [
+        "the in-repository status of REL-04, which stays NOT_RUN here: this workspace's own download attempts were blocked again (SSL_ERROR_SYSCALL to the blob host, http=000, 0 bytes, twice, including a ranged probe) and the job-log host returned EOF",
+        "the acceptance-report.json inside the artifact, whose independent_reverification=NOT_VERIFIED remains correct for its own build and was not edited",
+        "the tip's own artifact, which remains NOT_VERIFIED",
+        "Authenticode status (UNKNOWN), trust (NOT_ESTABLISHED), signing_configured_in_build (false), reproducibility (NOT_CLAIMED), SmartScreen reputation (NOT_CLAIMED), external acceptance (NOT_RUN)"
+      ],
+      "relation_to_the_earlier_blocked_record": "additive only: m42_6_release_closure.independent_artifact_reverification keeps its BLOCKED verdict for what this workspace could reach and is not rewritten. The MATCH supersedes that blocker for the one artifact named above, not for the capability claim, and not for any later artifact"
+    },
+    "lifecycle_instability_investigation": {
+      "question": "why did the installed-application lifecycle step pass on one SHA and fail the next on byte-identical packaging code, and can a repeatable code defect be told apart from a runner or external filesystem event?",
+      "what_the_published_record_could_not_say": "snapshot() returns an empty mapping both when a directory is missing and when it is present but empty, so the published 'install tree holds 0 file(s): nothing' could not distinguish a removed tree from an emptied one; and evidence['diagnostics']['uninstall_log'] was written only after the runner returned, so the record could not show whether any uninstaller process had run at all",
+      "timeline_established_from_the_failing_run": "installed_files PASS, installed_version PASS, installed_smoke PASS reporting an unchanged install tree, data_outside_install_dir PASS with the sentinel write under work_root/userdata succeeding, so the work root existed and was writable immediately before the refusal; the pre-check uninstaller.is_file() then returned True and the launch still raised WinError 2",
+      "reasoning_kept_separate_from_evidence": "a missing working directory would surface as WinError 267 rather than 2, which argues against a vanished cwd; that is labelled as an inference, and the samples added by this mission are what replaces it with direct evidence",
+      "classification": "runner or external filesystem event on that host, cause undetermined at the permissions the gate has. No code defect was found in the lifecycle logic, and the failure did not reproduce: the next two exact-SHA runs of the same code passed every lifecycle step, which is why no fix is claimed",
+      "repeatability_limit": "the same SHA cannot be re-run from this workspace: POST rerun, rerun-failed-jobs and workflow_dispatch each return 403 for this installation, and gh run rerun reports that the workflow file may be broken. Repeatability was therefore read from other exact-SHA runs of the same code, which is what the classification rests on, and REL-13 stays OPEN",
+      "protections_reviewed_and_left_untouched": {
+        "digest_matched_installer_before_execution": "unchanged",
+        "install_and_version_checks_mandatory": "unchanged",
+        "installed_smoke_must_prove_its_marker": "unchanged",
+        "isolated_data_log_backup_roots": "unchanged",
+        "exactly_one_bounded_launch_retry": "unchanged -- still for attempt in (1, 2)",
+        "no_second_launch_once_the_file_is_gone": "unchanged",
+        "a_second_refusal_still_fails": "unchanged",
+        "exit_code_alone_is_not_uninstall_success": "unchanged -- install_dir_emptied is still required",
+        "app_directory_empty_after_uninstall": "unchanged",
+        "user_data_sentinel_must_survive": "unchanged",
+        "no_unbounded_retry_no_flake_hiding_delay_no_relaxed_timeout_no_environment_suppression": "nothing added",
+        "an_anomaly_explains_but_never_relabels": "the step still fails; only its description improved"
+      },
+      "diagnostics_added": {
+        "location": "installer-lifecycle.json -> diagnostics.uninstall_forensics, with the decisive scalars repeated inside the silent_uninstall step detail and the per-attempt prose mirrored into diagnostics.uninstall_launch_notes so the acceptance report carries it",
+        "sample_moments": [
+          "pre_launch (every run, green included)",
+          "uninstaller_absent_before_launch",
+          "after_refusal_1",
+          "after_refusal_2",
+          "after_settle",
+          "launch_error_<Exception>"
+        ],
+        "fields_per_path": [
+          "path",
+          "resolves_to",
+          "resolves_identity",
+          "exists",
+          "is_file",
+          "is_dir",
+          "size_bytes",
+          "modified_ns",
+          "device",
+          "inode",
+          "file_attributes_reported",
+          "file_attributes",
+          "reparse_point",
+          "sha256 of the uninstaller while present",
+          "stat_error or resolve_error instead of silence"
+        ],
+        "also_sampled": [
+          "install directory entry count and first eight names",
+          "installer log existence, size and bounded tail",
+          "uninstaller log existence, size and bounded tail",
+          "the parent of the install directory",
+          "the work root",
+          "whether the user-data sentinel file is present",
+          "the exception class, errno, winerror, filename, filename2 and bounded message"
+        ],
+        "cases_it_distinguishes": [
+          "never present",
+          "present but refused for another reason",
+          "present then disappeared",
+          "install directory or its parent gone",
+          "emptied by an actual uninstall, where the directory and its own log survive the uninstaller",
+          "cause undetermined at available permissions"
+        ],
+        "bounds_and_redaction": "every field passes through bound(), log tails are clipped to 400 characters with the elision marker kept so clipped and complete cannot be confused, hashing stops above 64 MB instead of skipping silently, and the whole block goes through the same credential redaction as every other diagnostic",
+        "explicitly_not_collected": "no environment dump, no Windows event log, no Defender or security-audit read, nothing that needs elevation; host_side_evidence states this in the record itself, and antivirus is never named as a cause",
+        "schema": "installer-lifecycle.json keeps the name drillmaster-installer-lifecycle/v1 and the fields are additive, which read_lifecycle_evidence already tolerates by forwarding diagnostics -- so no published record is reinterpreted and no schema was silently redefined"
+      },
+      "one_regression_the_work_found": "publishing more prose in the failure note initially pushed the step detail past the diagnostic bound, and because bound() keeps the head and the tail the 'attempt 2:' label was elided while its content survived: the record would have looked complete and lost the ordering that makes it readable. A brief rendering now goes into the detail with the full notes beside it, and a mutation reverting to the long form is caught by test_a_permanently_unlaunchable_uninstaller_still_fails_the_lifecycle"
+    },
+    "correction_validation": {
+      "focused_suites_after_the_change": "308 collected, 307 passed, 0 failed, 0 errors, 1 skipped across tests/test_windows_release_evidence.py, test_windows_release_gate_contract.py, test_acceptance_report.py, test_release_documentation_truth.py and test_packaging_smoke.py",
+      "mutation_battery": {
+        "attempted": 20,
+        "caught": 20,
+        "survived": 0,
+        "first_run": "three survivors on the first run: the hashing bound, the settle actually waiting, and the clip on a log tail. Each was a real coverage defect rather than a nuisance, so the battery was extended instead of the expectation being relaxed -- the bound is pinned as policy, the fake now models a lock that clears in seconds so a re-listing without a wait fails, and an oversized log is asserted to arrive clipped with its marker intact. The re-run caught all twenty",
+        "coverage": [
+          "baseline sample recorded on a passing run",
+          "digest computed, and bounded",
+          "samples redacted",
+          "errno and winerror copied from the exception, not inferred",
+          "refusals labelled in order",
+          "no relaunch after the file is gone",
+          "an exit code alone never proves an uninstall",
+          "the retry stays bounded",
+          "the work root is still deleted after the evidence is captured",
+          "the schema name is unchanged",
+          "the notes still reach the acceptance report",
+          "the directory present/absent distinction",
+          "a missing path is reported as absent, not silently",
+          "the sampler never writes or executes",
+          "log tails bounded and marked",
+          "the settle is a real wait",
+          "the baseline still hashes",
+          "the tree note keeps its distinction",
+          "the installer log tail survives into the detail",
+          "the exception branch is recorded without a fabricated retry"
+        ],
+        "log": "/home/user/m427_mutations/battery.log, kept outside the tracked tree, with the originals' digests verified after every entry and the suite re-verified green before and after",
+        "honest_limit": "each mutation is caught by at least one test in the two suites run under -x; that is evidence of detection, not a complete proof, and a mutation of the guard text itself stays outside what a Python test can catch -- which is why the contract guards assert source shapes and the presence of protections rather than counts"
+      },
+      "contract_guards_added": [
+        "test_the_lifecycle_forensics_are_additive_and_keep_every_protection",
+        "test_the_forensic_findings_reach_both_published_channels",
+        "test_rel_04_names_the_external_match_without_borrowing_any_trust",
+        "test_m42_7_followup_records_the_closure_without_promoting_anything"
+      ],
+      "new_behavioural_tests": [
+        "test_a_removed_install_tree_is_told_apart_from_an_emptied_one",
+        "test_an_unexplained_refusal_is_recorded_as_unexplained",
+        "test_the_launch_error_codes_come_from_the_exception",
+        "test_the_forensic_sample_is_redacted_like_every_other_diagnostic",
+        "test_a_transient_lock_is_distinguished_from_a_gone_file_by_the_settled_retry",
+        "test_a_log_tail_is_bounded_and_says_so",
+        "test_a_green_lifecycle_records_one_baseline_sample_and_still_cleans_up"
+      ]
+    },
+    "local_verification": {
+      "tree": "measured on the working tree that became the code SHA 724f83dc364c74a68a8a16a010f5b6e61fd0c590; the records commit carrying this block adds only this record and the guards that pin it, and those guards assert the shape of the numbers below rather than a count of their own file",
+      "focused": "308 collected, 307 passed, 0 failed, 0 errors, 1 skipped across tests/test_windows_release_evidence.py, test_windows_release_gate_contract.py, test_acceptance_report.py, test_release_documentation_truth.py and test_packaging_smoke.py -- measured on the working tree that became 724f83dc364c74a68a8a16a010f5b6e61fd0c590",
+      "release_relevant_scope": "696 collected, 685 passed, 8 failed, 0 errors, 3 skipped across the 27 modules the Windows gate runs; every failure is ImportError: libGL.so.1 from the Qt import chain (core/hierarchy_operations.py), including two subprocess children whose stderr shows the same cause - an environment limit of this Linux sandbox, not a code finding, kept as failures and neither skipped nor reinterpreted",
+      "lint": "ruff 0.16.6 pinned; gate codes E722,F821 over the whole repository: All checks passed. The debt population (core, dialogs, tabs, tests) reports 5339 findings against the 5375 ceiling: within budget, and the repository is explicitly not lint-clean",
+      "compileall": "packaging, tools and core compile with exit 0",
+      "diff_check": "git diff --check clean; the whole final diff was read, not only --stat",
+      "transport_attempts": "two curl variants and a ranged probe against the artifact blob host, and a job-log fetch: all blocked as recorded, with zero bytes downloaded and TLS verification never disabled"
+    },
+    "final_tip_gates": {
+      "rule": "both mandatory gates have to be green on the identical final published SHA for the release gate to count; a pass on the incoming tip is not inherited by a later commit",
+      "code_sha": "724f83dc364c74a68a8a16a010f5b6e61fd0c590",
+      "source_release_gate": {
+        "run_number": 78,
+        "conclusion": "success",
+        "event": "push",
+        "attempt": 1,
+        "jobs": {
+          "source (3.11)": {
+            "conclusion": "success",
+            "started": "2026-10-11T09:24:08Z",
+            "completed": "2026-10-11T09:31:08Z",
+            "entries": 9,
+            "all_steps_success": true
+          },
+          "source (3.13)": {
+            "conclusion": "success",
+            "started": "2026-10-11T09:24:08Z",
+            "completed": "2026-10-11T09:31:06Z",
+            "entries": 9,
+            "all_steps_success": true
+          },
+          "source (3.12)": {
+            "conclusion": "success",
+            "started": "2026-10-11T09:24:08Z",
+            "completed": "2026-10-11T09:30:18Z",
+            "entries": 9,
+            "all_steps_success": true
+          }
+        },
+        "step_conclusions": "all success"
+      },
+      "windows_release_validation": {
+        "run_number": 24,
+        "conclusion": "success",
+        "event": "push",
+        "attempt": 1,
+        "job_entries": 14,
+        "step_conclusions": "all success",
+        "lifecycle_step": "Installed-application lifecycle smoke (silent install, run, uninstall)=success",
+        "completed": "2026-10-11T09:31:19Z"
+      },
+      "published_manifest_notice_for_the_code_sha": "sha=724f83dc364c74a68a8a16a010f5b6e61fd0c590 app=1.0.0 python=3.12.10 pyinstaller=6.11.1 inno=6.7.1/installed-package-metadata installer=DrillMaster-1.0.0-Setup.exe 83251798B sha256=54d6c3e03a30e0b7c2fd457e3151b6eb0fed743359eea5b8e6446b03e1d886fb portableZip=DrillMaster-1.0.0-windows-x64.zip 119941398B sha256=76a26503e2386338b7cf9bdabae8ab804e06d89f9c39b2e37b09de396177fb69 tests=694/696 lifecycle=PASS signing=UNKNOWN",
+      "signing_host_line_for_the_code_sha": "UNKNOWN; ps=5.1.20348.5622 cmdlet=missing security_module_import=failed import_error=The following error occurred while loading the extended type data file: Error in TypeData \"System.Security.AccessControl.ObjectSecurity\": The member A ...[508 c...; DrillMaster-1.0.0-Setup.exe=UNKNOWN [Get-AuthenticodeSignature is not available in this PowerShell host (PowerShell 5.1.20348.5622; explicit Import-Module of Microsoft.PowerShell.Security ...[191 c...] DrillMaster.exe=UNKNOWN [Get-AuthenticodeSignature is not available in this PowerShell host (PowerShell 5.1.20348.5622; explicit Import-Module of Microsoft.PowerShell.Security ...[191 c...] DrillMaster-1.0.0-windows-x64.zip=NOT_APPLICABLE [container archive; Authenticode applies to the executables it carries]",
+      "records_tip": "the SHA that carries this block cannot record its own gate outcome, so nothing here claims it: both mandatory gates were read back for the records tip after the push and the result is stated in the M42.7 mission report, where a failed step would be named with its evidence instead of waived by this file"
+    },
+    "separations_preserved": {
+      "content_verification_vs_signing_vs_trust_vs_acceptance": "the artifact digests MATCH as reported externally, Authenticode is UNKNOWN, trust is NOT_ESTABLISHED, signing_configured_in_build is false, reproducibility is NOT_CLAIMED, SmartScreen is NOT_CLAIMED, and external acceptance is NOT_RUN -- separate axes, none promoted from another, and a green gate borrowed as none of them",
+      "missing_cmdlet_is_not_unsigned": "the absent Get-AuthenticodeSignature cmdlet on the runner is a harness condition; it is recorded as the cause of an UNKNOWN state and never as UNSIGNED",
+      "synthetic_workbook": "AUTOMATED_TEST_ONLY_NOT_REAL_DDR_ACCEPTANCE",
+      "bundle_smoke": "skipped by policy, not passed",
+      "external_boundaries": "Linux and source CI prove nothing about Windows install behaviour, clean machines, real PDF ingestion, MinerU, a production database or operator sign-off",
+      "unrelated_tracks": "API TR 5C3, ISCWSA, WITSML, cloud and AI infrastructure, hydraulics and database authentication imports remain untouched by this mission"
+    },
+    "open_items_after_this_mission": {
+      "acceptance_register": "REL-01 through REL-13 remain open as recorded; REL-13 stays OPEN with diagnostics.uninstall_forensics named as its evidence channel",
+      "owner_decisions": "A, B, C and D remain open, as do NEW-P6-007, NEW-P6-008, NEW-P6-015, NEW-P6-020, NEW-P6-023 and NEW-P6-024",
+      "historical_boundaries": "M36 and P6 stay as recorded; W5 stays PROVENANCE_EXTERNAL_SOURCE_UNAVAILABLE at 332 / 334 source-hash contexts; M42.4's gate-verified SHA stays a408b9c",
+      "needs_an_owner": "an operator or infrastructure owner has to read the next occurrence's diagnostics.uninstall_forensics block and decide whether the runner condition is worth fixing at the host level; the repository side is instrumented now, not solved"
+    },
+    "verdict": {
+      "statement": "RELEASE-ENGINEERING PASS WITH EXPLICIT EXTERNAL ACCEPTANCE PENDING",
+      "scope": "the repository's own gates on the named SHAs, one verified diagnostics change with tests and a clean mutation battery, the artifact MATCH recorded as an external result within its stated scope, and the lifecycle instability narrowed to a runner-side condition of undetermined cause with the means to prove the next occurrence. Nothing here asserts signing trust, byte re-verification by this workspace, reproducibility, or production acceptance"
+    }
   }
 }
