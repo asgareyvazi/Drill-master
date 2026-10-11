@@ -80,6 +80,17 @@ SIGNING_REQUIRED_FIELDS = ("schema", "method", "status", "policy", "files", "exa
                            "release_metadata_sha256", "source_sha")
 SIGNING_OPTIONAL_FIELDS = frozenset({"prerequisite", "credential_environment_variables",
                                     "harness", "generated_at_utc", "reason"})
+# `harness` is a set of observations about the *host* (PowerShell version, which command answered,
+# whether the security module imported, whether the probe was usable) and deliberately has no
+# declared subfield schema: none of it may influence the vocabulary above, and the validator must
+# not start refusing a record because a diagnostic gained a field.  Names therefore carry meaning
+# here, and one rename needs stating: records generated before the M42.6 correction published
+# `module_import`, which was computed from the Get-Command lookup and not from the import, so a
+# published `module_import: failed` is evidence that the cmdlet did not resolve and never evidence
+# that a module refused to load.  The corrected probe publishes `security_module_import` /
+# `security_module_import_error` / `cmdlet_available` / `probe_usable` beside it.  Adding keys beats
+# redefining a released one: no `drillmaster-signing-status/v3` is needed because no field whose
+# meaning was promised changed meaning, and old records stay readable as what they literally said.
 DIAGNOSTIC_FIELD_LIMIT = 600
 
 

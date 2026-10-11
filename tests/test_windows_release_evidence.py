@@ -57,7 +57,9 @@ class FakeHost:
                  run_stdout: str = "", powershell_version_output: str | None = None,
                  run_returncode: int | None = None, raise_on_call: int | None = None,
                  remove_uninstaller_during_smoke: bool = False,
-                 unlaunchable_uninstall_attempts: int = 0, unlink_uninstaller_on_refusal: bool = False):
+                 unlaunchable_uninstall_attempts: int = 0, unlink_uninstaller_on_refusal: bool = False,
+                 module_import_result: str | None = "succeeded", module_import_error: str = "",
+                 probe_omits_cmdlet: bool = False):
         self.install_exit_code = install_exit_code
         self.uninstall_exit_code = uninstall_exit_code
         self.product_version = product_version
@@ -80,6 +82,9 @@ class FakeHost:
         self.run_returncode = run_returncode
         self.raise_on_call = raise_on_call
         self.remove_uninstaller_during_smoke = remove_uninstaller_during_smoke
+        self.module_import_result = module_import_result
+        self.module_import_error = module_import_error
+        self.probe_omits_cmdlet = probe_omits_cmdlet
         self.unlaunchable_uninstall_attempts = unlaunchable_uninstall_attempts
         self.unlink_uninstaller_on_refusal = unlink_uninstaller_on_refusal
         self.calls: list[list[str]] = []
@@ -96,11 +101,20 @@ class FakeHost:
             target = str((environment or {})["DRILLMASTER_TARGET_PATH"])
             assert target, "the queried path must be passed out of band, never interpolated"
             if "Get-Command Get-AuthenticodeSignature" in script:
-                # The capability probe, answered before any file is queried.
+                # The capability probe, answered before any file is queried.  The import result and
+                # the command lookup are reported from separate knobs on purpose: a host that says
+                # one must not be allowed to imply the other, which is the confusion this fixture
+                # used to encode.
                 payload = {"ps_version": "5.1.20348.2402", "cmdlet": self.signature_cmdlet,
-                           "module": "Microsoft.PowerShell.Security", "module_import": "succeeded"}
-                if self.signature_cmdlet == "missing":
-                    payload["module_import"] = "failed"
+                           "module": "Microsoft.PowerShell.Security"}
+                # `None` omits the field: a host that says nothing about the import must be handled
+                # as silence, which is a different case from a host that reports it failed.
+                if self.module_import_result is not None:
+                    payload["security_module_import"] = self.module_import_result
+                if self.probe_omits_cmdlet:
+                    payload.pop("cmdlet", None)
+                if self.module_import_error:
+                    payload["security_module_import_error"] = self.module_import_error
                 if self.signature_cmdlet == "probe-fails":
                     return SimpleNamespace(returncode=1, stdout="", stderr="probe unsupported")
             elif "Get-AuthenticodeSignature" in script:
@@ -614,8 +628,181 @@ def test_the_markdown_record_publishes_the_query_host(tmp_path):
                                runner=FakeHost(signature_cmdlet="missing"))
     text = module.render_markdown(report, "Windows signing evidence")
     assert "Query host: PowerShell 5.1.20348.2402" in text
-    assert "Security module import failed" in text, "the import outcome must be readable as text"
+    assert "Microsoft.PowerShell.Security import succeeded" in text, (
+        "the import outcome must be readable as text, and must not be inferred from the host that "
+        "also reported the command missing")
+    assert "cmdlet unavailable" in text, "availability must be readable as its own fact"
+    assert "separate observations" in text, (
+        "the summary must state the rule, or a reader of the summary alone repeats the conflation")
     assert "probe exit code 0" in text
+
+
+def _harness_for(tmp_path, name, **host_kwargs):
+    module = _evidence_module()
+    _, metadata, _ = _release(tmp_path / name)
+    report = module.run_signing(release_metadata_path=metadata, runner=FakeHost(**host_kwargs))
+    return module, report
+
+
+def test_an_import_failure_alone_never_suppresses_a_query_the_host_can_answer(tmp_path):
+    """The determinative rule of this correction, in both directions.
+
+    PowerShell that imported the security module badly can still resolve the cmdlet and answer about
+    a file; and PowerShell that imported it cleanly can still lack the cmdlet.  Only the second case
+    excuses the run from asking, and only the first yields a state about the files.
+    """
+    _, report = _harness_for(tmp_path, "import-failed-cmdlet-available",
+                             module_import_result="failed",
+                             module_import_error="Exception calling \"Add\": access denied "
+                                                 "at line 4 char 1 in C:\\Users\\runner\\docs\\x.ps1",
+                             signature_status="NotSigned", signature_message="No signature is present.")
+    harness = report["harness"]
+    assert harness["security_module_import"] == "failed"
+    assert harness["cmdlet_available"] is True, ("a complaint about the import must not become a claim "
+                                                 "that the cmdlet is unavailable")
+    assert harness["probe_usable"] is True
+    assert "access denied" in harness["security_module_import_error"]
+    assert len(harness["security_module_import_error"]) <= 300, (
+        "a PowerShell error is untrusted text: it is bounded like every other diagnostic")
+    assert "characters elided" not in harness["security_module_import_error"]
+    assert report["status"] == "UNSIGNED", "the answered query decides, not the import anomaly"
+    assert [item["raw_status"] for item in report["files"] if item["signature_bearing"]] == ["NotSigned"] * 2
+    assert all(item["status_message"] == "No signature is present." for item in report["files"]
+               if item["signature_bearing"])
+
+
+def test_an_overlong_import_error_is_clipped_and_says_so(tmp_path):
+    """A host that dumps a stack trace into the exception message must not enlarge the record."""
+    _, report = _harness_for(tmp_path, "long-import-error", signature_cmdlet="missing",
+                             module_import_result="failed",
+                             module_import_error=("Module loading failed. " * 60))
+    error = report["harness"]["security_module_import_error"]
+    assert len(error) < len("Module loading failed. " * 60), "the published diagnostic must be clipped"
+    assert "characters elided" in error, "truncation must be visible rather than silent"
+
+
+def test_a_missing_cmdlet_with_a_clean_import_is_attributed_to_the_host_not_the_import(tmp_path):
+    _, report = _harness_for(tmp_path, "import-ok-cmdlet-missing", signature_cmdlet="missing",
+                             module_import_result="succeeded")
+    assert report["harness"]["security_module_import"] == "succeeded"
+    assert "security_module_import_error" not in report["harness"]
+    reasons = {item["status_message"] for item in report["files"] if item["signature_bearing"]}
+    assert len(reasons) == 1
+    reason = reasons.pop()
+    assert "imported successfully" in reason and "did not resolve" in reason
+    assert "failed" not in reason, ("the import succeeded; the record must not imply otherwise while "
+                                   "explaining why no query was made")
+
+
+def test_a_failed_import_with_a_missing_cmdlet_states_the_import_as_the_cause(tmp_path):
+    _, report = _harness_for(tmp_path, "import-failed-cmdlet-missing", signature_cmdlet="missing",
+                             module_import_result="failed",
+                             module_import_error="The specified module 'Microsoft.PowerShell.Security' "
+                                                 "was not loaded because no valid module file was found")
+    assert report["harness"]["security_module_import"] == "failed"
+    assert report["harness"]["cmdlet_available"] is False
+    assert report["status"] == "UNKNOWN"
+    reason = {item["status_message"] for item in report["files"] if item["signature_bearing"]}.pop()
+    assert "explicit Import-Module of Microsoft.PowerShell.Security failed" in reason
+    assert "no valid module file was found" in reason, "the bounded error belongs in the reason"
+    # a missing cmdlet is a statement about the host only: the files stay uncharacterised
+    assert all(item["raw_status"] == "" for item in report["files"] if item["signature_bearing"])
+
+
+def test_an_unreported_import_state_is_recorded_as_unreported_not_as_a_failure(tmp_path):
+    """A host that answers the cmdlet lookup but not the import question must not be read as failing it."""
+    _, report = _harness_for(tmp_path, "import-unreported", signature_cmdlet="missing",
+                             module_import_result="unreported")
+    assert report["harness"]["security_module_import"] == "unreported"
+    reason = {item["status_message"] for item in report["files"] if item["signature_bearing"]}.pop()
+    assert "did not report whether the module import succeeded" in reason
+    assert "failed" not in reason
+
+
+def test_a_payload_that_is_json_but_not_an_object_is_unknown(tmp_path):
+    """`[]` and `"text"` parse; neither answers the question, so neither may become a status."""
+    module = _evidence_module()
+    _, metadata, _ = _release(tmp_path / "not-object")
+
+    class ArrayHost(FakeHost):
+        def __call__(self, argv, environment=None, cwd=None, timeout=None, **kwargs):
+            if "Get-AuthenticodeSignature" in argv[-1] and "Get-Command" not in argv[-1]:
+                return SimpleNamespace(returncode=0, stdout="[]", stderr="")
+            return super().__call__(argv, environment, cwd, timeout)
+
+    report = module.run_signing(release_metadata_path=metadata, runner=ArrayHost())
+    assert report["status"] == "UNKNOWN"
+    rows = [item for item in report["files"] if item["signature_bearing"]]
+    assert len(rows) == 2, "only the executables were queried"
+    assert all("returned a non-object" in item["status_message"] for item in rows)
+    assert all(item["raw_status"] == "" for item in report["files"])
+    assert report["files"][2]["status"] == "NOT_APPLICABLE", (
+        "the container row is described by provenance and is untouched by a failed query")
+
+
+def test_a_probe_that_times_out_still_leaves_the_queries_to_answer(tmp_path):
+    """Probe unusable + queries answered: the run reports a determinate state with a broken diagnostic."""
+    module = _evidence_module()
+    _, metadata, _ = _release(tmp_path / "probe-timeout")
+
+    class ProbeTimeoutHost(FakeHost):
+        def __call__(self, argv, environment=None, cwd=None, timeout=None, **kwargs):
+            if "Get-Command Get-AuthenticodeSignature" in argv[-1]:
+                raise subprocess.TimeoutExpired(argv, timeout or 0)
+            return super().__call__(argv, environment, cwd, timeout)
+
+    report = module.run_signing(release_metadata_path=metadata,
+                                runner=ProbeTimeoutHost(signature_status="NotSigned",
+                                                         signature_message="No signature is present."))
+    assert report["harness"]["probe_usable"] is False
+    assert report["status"] == "UNSIGNED", "a broken probe must not soften an answered question"
+    assert report["files"][0]["raw_status"] == "NotSigned"
+
+
+def test_a_quiet_successful_query_still_reports_its_exit_code(tmp_path):
+    """The record carries the status the host returned; a printed payload is not itself a 0.
+
+    Before this, `powershell_exit_code` accompanied only payloads that came with stderr, so
+    `probe_exit_code: 0` was an inference the reader had to redo - and an inference that a
+    different caller could get wrong.
+    """
+    module = _evidence_module()
+    host = FakeHost(signature_status="Valid", signer_subject="CN=Drill Master", signature_message="The signature is OK.")
+    payload = module.run_powershell(module.SIGNING_PROBE_SCRIPT, tmp_path, host, 5)
+    assert payload["powershell_exit_code"] == 0
+    assert "powershell_stderr" not in payload, "a clean run has no stderr to attach"
+
+
+def test_a_probe_that_says_nothing_about_the_import_does_not_say_it_failed(tmp_path):
+    """Silence is not a failure.
+
+    The import field can be absent for a reason the probe cannot control - an older script, a host
+    that answers part of the hashtable - and a record that filled that gap with `failed` would
+    republish exactly the over-claim M42.6 exists to remove.
+    """
+    _, report = _harness_for(tmp_path, "import-field-absent", signature_cmdlet="missing",
+                             module_import_result=None)
+    assert report["harness"]["security_module_import"] == "unreported"
+    reason = {item["status_message"] for item in report["files"] if item["signature_bearing"]}.pop()
+    assert "did not report whether the module import succeeded" in reason
+    assert "failed" not in reason, "an absent observation must not be written up as a refused import"
+
+
+def test_a_probe_that_reports_no_command_is_not_recorded_as_having_answered(tmp_path):
+    """`probe_usable` is about the answer, not about the exit code.
+
+    A payload that parses and exits 0 while naming no command told the run nothing; recording that
+    as usable would leave a reader to guess whether the probe ran at all.
+    """
+    module = _evidence_module()
+    _, report = _harness_for(tmp_path, "probe-answers-nothing", probe_omits_cmdlet=True,
+                             signature_status="NotSigned", signature_message="No signature is present.")
+    assert report["harness"]["probe_usable"] is False
+    assert report["harness"]["query_command"] == "unknown"
+    assert report["harness"]["cmdlet_available"] is None, ("no answer about availability may be read as "
+                                                          "either available or missing")
+    assert report["status"] == "UNSIGNED", "the queries still answered, and they are what decides"
+    assert [item["raw_status"] for item in report["files"] if item["signature_bearing"]] == ["NotSigned"] * 2
 
 
 def test_release_examination_does_not_mutate_the_published_artifacts(tmp_path):
@@ -1114,9 +1301,11 @@ def test_the_query_capability_is_published_alongside_the_verdict(tmp_path):
     module = _evidence_module()
     _, metadata, _ = _release(tmp_path / "release")
     report = module.run_signing(release_metadata_path=metadata, runner=FakeHost())
-    assert report["harness"] == {"query_command": "available", "powershell_version": "5.1.20348.2402",
+    assert report["harness"] == {"query_command": "available", "cmdlet_available": True,
+                                "powershell_version": "5.1.20348.2402",
                                 "signature_command_module": "Microsoft.PowerShell.Security",
-                                "module_import": "succeeded", "probe_exit_code": 0}
+                                "security_module_import": "succeeded", "probe_usable": True,
+                                "probe_exit_code": 0}
 
 
 def test_a_host_without_the_cmdlet_records_one_cause_for_every_file(tmp_path, monkeypatch):
@@ -1129,9 +1318,11 @@ def test_a_host_without_the_cmdlet_records_one_cause_for_every_file(tmp_path, mo
     rows = [item for item in report["files"] if item["signature_bearing"]]
     assert all(item["status"] == "UNKNOWN" for item in rows)
     assert all("not available in this PowerShell host" in item["status_message"] for item in rows)
-    assert all("Import-Module of Microsoft.PowerShell.Security failed" in item["status_message"]
-               for item in rows), "the reason must say that the explicit import was refused too"
-    assert report["harness"]["module_import"] == "failed"
+    assert all("imported successfully, and Get-Command still did not resolve" in item["status_message"]
+               for item in rows), ("the cmdlet was reported missing while the import reported success, "
+                                  "so the reason must say exactly that and nothing more")
+    assert report["harness"]["security_module_import"] == "succeeded"
+    assert report["harness"]["cmdlet_available"] is False
     assert report["status"] == "UNKNOWN"
     # the probe is a diagnostic, not an authority: the files are still described, not skipped
     assert [item["raw_status"] for item in rows] == ["", ""]

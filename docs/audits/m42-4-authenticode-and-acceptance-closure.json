@@ -364,5 +364,15 @@
     "git push origin arena/01a0ec23-drill-master: 'fatal: could not read Username for https://github.com: terminal prompts disabled' - the repository has no credential helper and relies on the sandbox token",
     "gh api repos/asgareyvazi/Drill-master: 'gh: Bad credentials (HTTP 401)'; gh auth status reports the github.com token in GH_TOKEN is no longer valid, so the two commits after the verified SHA cannot be pushed, and their exact-SHA gates cannot be started or read from this session",
     "artifact bytes for both the baseline and the verified run: the blob host returned TLS SSL_ERROR_SYSCALL / EOF, so REL-04 independent byte re-verification stays NOT_VERIFIED"
-  ]
+  ],
+  "m42_5_followup": {
+    "nature": "additive; nothing above this key was edited, and the statements in this file were true when written (M42.6 later corrected the reading recorded in the followup's third bullet, in place, without touching any dated field above)",
+    "recorded_by": "M42.5, with the attribution correction of M42.6",
+    "see": "docs/audits/m42-5-release-closure-and-signature-settlement.json",
+    "superseded_by_this_followup": [
+      "evidence_integrity_blockers recorded the push as blocked by an expired installation credential: the credential returned during M42.5 and the commits were pushed normally, then expired again mid-session, which is why further pushes may still need attention",
+      "internal_gates.ci named a408b9c as the only gate-verified SHA and refused to let the three later commits inherit that result: that refusal was correct, and those commits are now verified in their own right because they were pushed and re-gated during M42.5",
+      "authenticode_attribution recorded the cause as confirmed by one instrumented run: the availability half of that has been reproduced on every run of the M42.5 candidate SHAs, always with cmdlet=missing, and the module_import=failed printed beside it has since been shown to be that same lookup renamed rather than an import observation - see m42_6_release_closure.attribution_correction in the M42.5 checkpoint"
+    ]
+  }
 }

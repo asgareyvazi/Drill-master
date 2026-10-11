@@ -166,15 +166,27 @@ def test_a_query_failure_keeps_its_reason_visible_in_the_published_evidence():
     assert "_redact_tree(" in evidence, "published diagnostics must be redacted against credential values"
     assert "Get-Command Get-AuthenticodeSignature" in evidence, ("the host's capability must be probed "
                                                                  "and published")
-    assert evidence.count("Import-Module Microsoft.PowerShell.Security") == 2, (
+    # counted on the flag rather than the bare module name, because prose in this file may name the
+    # module too: what must stay at two is the number of scripts that actually import it
+    assert evidence.count("Import-Module Microsoft.PowerShell.Security -ErrorAction") == 2, (
         "the profileless Windows PowerShell host does not auto-load the Security module - the runner "
         "proved it by reporting cmdlet=missing - so both the probe and the query must import it")
-    assert '"module_import"' in evidence, "whether that import worked must itself be published"
-    assert "module_import=$(if ($imported) { 'succeeded' } else { 'failed' })" in evidence, (
-        "the import outcome must be computed from the resolved command; a literal would let the "
-        "record claim success the host never granted")
-    assert "$imported = [bool](Get-Command Get-AuthenticodeSignature" in evidence, (
-        "the value above must be derived from the same Get-Command the availability field uses")
+    assert "Import-Module Microsoft.PowerShell.Security -ErrorAction SilentlyContinue" in evidence, (
+        "the per-file query keeps its import non-terminating: the cmdlet lookup answers for availability")
+    assert '"security_module_import"' in evidence, "whether that import worked must itself be published"
+    assert "try { Import-Module Microsoft.PowerShell.Security -ErrorAction Stop" in evidence, (
+        "the import outcome must be the outcome of importing: a try/catch around the import itself.  "
+        "Publishing the resolved-command lookup under this name is what let a record claim an import "
+        "failure the host never reported")
+    assert "module_import=$(if ($imported)" not in evidence and "$imported = [bool]" not in evidence, (
+        "the import state must never be renamed from the Get-Command result; that single derivation "
+        "is the ambiguity M42.6 was opened to correct, and restoring it would silently reinterpret "
+        "every published record")
+    assert "$probe.security_module_import = 'failed'" in evidence and "$_.Exception.Message" in evidence, (
+        "a refused import must leave its bounded message in the record, not be discarded by Out-Null")
+    assert '"cmdlet_available"' in evidence, ("availability is the only observation allowed to excuse "
+                                              "a run from querying each file, so it needs its own field")
+    assert '"probe_usable"' in evidence, "a diagnostic that broke must be distinguishable from a host that answered"
     for failure in ("subprocess.TimeoutExpired", 'powershell could not be started',
                     "powershell invocation failed"):
         assert failure in evidence, (f"a shell that never answered ({failure}) used to escape as a traceback, "
@@ -195,9 +207,17 @@ def test_the_workflow_publishes_the_signature_cause_without_artifact_access():
     assert "$message = & $oneLine $_.status_message" in workflow, "the annotation must quote the recorded reason"
     assert "& $clip $message 160" in workflow, "the quoted reason must stay bounded"
     assert "Authenticode query environment" in workflow, "the step summary must record the query host"
-    assert "module_import=$($signing.harness.module_import)" in workflow, (
+    assert "security_module_import=$($signing.harness.security_module_import)" in workflow, (
         "the compact annotation line must carry the module-import outcome too: it is what separates "
         "a runner-image limitation from an answer about the shipped files")
+    assert "cmdlet=$($signing.harness.query_command)" in workflow, (
+        "availability travels beside the import outcome, never in place of it")
+    assert "module_import=$($signing.harness.module_import)" not in workflow, (
+        "the ambiguous key must not be read by the publication channel that replaced it")
+    assert 'import_error=' in workflow, "a refused import must be quotable without the artifact endpoints"
+    assert "$harness += ' import_error=' + (& $clip (& $oneLine $importError) 160)" in workflow, (
+        "the host's message is joined after being flattened and clipped, never interpolated into the "
+        "annotation line raw: the channel is one line and the annotation cap is real")
     # the recorded policy stays unchanged: a signature state never reddens the gate
     assert workflow.rstrip().endswith("exit 0") or "exit 0" in workflow.split("Signature status")[-1]
 
@@ -827,6 +847,7 @@ def test_acceptance_report_step_requires_independent_identity_and_lifecycle(work
     "docs/audits/m42-2-release-closure.json",
     "docs/audits/m42-3-release-closure.json",
     "docs/audits/m42-4-authenticode-and-acceptance-closure.json",
+    "docs/audits/m42-5-release-closure-and-signature-settlement.json",
     "docs/WINDOWS_ACCEPTANCE.md",
     "packaging/inno_setup_version.txt",
     "packaging/build_windows.ps1",
@@ -842,6 +863,128 @@ def test_no_run_identifier_is_committed_into_release_sources(source):
 
 
 M422_CHECKPOINT = ROOT / "docs" / "audits" / "m42-2-release-closure.json"
+M425_CHECKPOINT = ROOT / "docs" / "audits" / "m42-5-release-closure-and-signature-settlement.json"
+
+
+def test_m42_5_checkpoint_settles_authenticode_without_promoting_anything():
+    """The M42.5 record must carry the observed signature line, the per-SHA gate truth, and its limits.
+
+    It is guarded so a later edit cannot quietly upgrade UNKNOWN to a verdict, drop the artifact blocker, or
+    let one packaging status promote another.
+    """
+    payload = json.loads(M425_CHECKPOINT.read_text(encoding="utf-8"))
+    assert payload["mission"] == "M42.5" and payload["branch"] == "arena/01a0ec23-drill-master"
+    settlement = payload["authenticode_settlement"]
+    assert settlement["status"] == "MECHANISM_CONFIRMED_ON_THE_RELEASE_CANDIDATE_SHA"
+    assert "module_import=failed" in settlement["observed_record"]
+    assert "not renamed to UNSIGNED" in settlement["decision_rule_applied"]
+    assert re.fullmatch(r"[0-9a-f]{40}", settlement["verified_sha"])
+    assert settlement["verified_sha"] == payload["internal_gates"]["verified_sha"]
+    for gate in ("source_gate", "windows_gate"):
+        assert "success" in payload["internal_gates"][gate]["outcome"]
+        assert "exact SHA" in payload["internal_gates"][gate]["outcome"], (
+            "the gate sentence must bind itself to the SHA under verification")
+    assert payload["internal_gates"]["runs_on_earlier_candidates"], "failed candidates must stay on the record"
+    push_state = payload["internal_gates"]["push_state"]
+    assert settlement["verified_sha"] in push_state, (
+        "the gate-verified SHA must be named, so a later commit cannot inherit its result by silence")
+    assert "NOT" in push_state.upper() or "cannot inherit" in push_state
+    mutation = payload["mutation_validation"]
+    assert mutation["caught"] == mutation["entries"] and mutation["survived"] == 0
+    assert mutation["restored"] is True and mutation["honest_limit"], "a subset is not an exhaustive proof"
+    blocker = payload["independent_artifact_reverification"]
+    assert blocker["status"] == "BLOCKED"
+    assert "SSL_ERROR_SYSCALL" in blocker["transport_evidence"] and "401" in blocker["second_blocker"]
+    assert "no bytes were downloaded" in blocker["not_done"]
+    matrix = payload["packaging_status_matrix"]
+    # the eight statuses stay separate, and the two that cannot follow from a green gate do not
+    assert matrix["portable_bundle_build"] == matrix["installer_compilation"] == "PASS"
+    assert matrix["independent_artifact_hash_recomputation"] == "BLOCKED"
+    assert matrix["interactive_clean_machine_install_accepted"] == "NOT_RUN"
+    assert matrix["production_acceptance"] == "NOT_RUN"
+    assert matrix["trusted_code_signing"].startswith("NOT_ESTABLISHED")
+    external = payload["external_obligations"]
+    assert external["states"]["real_ddr_excel_acceptance"] == "NOT_RUN"
+    assert external["synthetic_workbook"] == "AUTOMATED_TEST_ONLY_NOT_REAL_DDR_ACCEPTANCE"
+    assert len(payload["not_verified"]) >= 4
+    for correction in payload["corrections"]:
+        if str(correction["target"]).startswith("docs/audits/"):
+            assert "additive" in correction["nature"], (
+                "an earlier mission's record may be corrected alongside, never overwritten")
+    assert "no_invention" in payload["state_discovery_and_recovery"]
+    for defect in payload["phase_b_review"]["defects_found_and_fixed"]:
+        assert defect["detail"] and defect["fix"] and defect["tests"], f"{defect['id']} is under-evidenced"
+
+
+def test_the_attribution_correction_is_kept_in_the_record_and_in_every_channel():
+    """A corrected claim must stay corrected, in the code and in the documents that repeated it.
+
+    M42.5 published an availability observation under the name of an import observation and inferred a
+    refused module load from it.  This guard exists so that inference cannot come back through a
+    reworded record, a dropped table row, or a channel that only prints the old field.
+    """
+    def flat(text):
+        return " ".join(text.split())
+
+    payload = json.loads(M425_CHECKPOINT.read_text(encoding="utf-8"))
+    assert payload["missions"] == ["M42.5", "M42.6"], "the record covers both missions by name"
+    correction = payload["m42_6_release_closure"]["attribution_correction"]
+    for key in ("defect", "why_it_mattered", "corrected_observations", "decision_table", "never_permitted",
+                "schema_decision", "channels_updated"):
+        assert correction[key], f"the correction record is incomplete without {key}"
+    assert "Get-Command" in correction["defect"] and "Out-Null" in correction["defect"]
+    settlement = payload["authenticode_settlement"]
+    leading_rule = settlement["decision_rule_applied"].split(".")[0]
+    assert "could not import" not in leading_rule, (
+        "the rule as stated up front must be the supported one; the superseded wording is allowed only "
+        "inside the correction that names it as superseded")
+    assert "[M42.6 correction]" in settlement["decision_rule_applied"], (
+        "the correction must be visible beside the claim it replaces, not in a separate document")
+    assert "unavailable capability" in flat(settlement["decision_rule_applied"]), \
+        "the record must state what is actually proven"
+    assert "module_import=failed" in settlement["observed_record"], (
+        "what the runs printed stays quoted verbatim; only the reading of it changes")
+    assert "verbatim" in settlement["observed_record_note"]
+    assert any("correction" in item["nature"] and "authenticode_settlement" in item["target"]
+               for item in payload["corrections"]), "the correction must be listed as a correction"
+    for defect in payload["phase_b_review"]["defects_found_and_fixed"]:
+        if defect["id"] == "M42.5-B2":
+            assert "M42.6 correction" in defect["detail"] and "M42.6 correction" in defect["fix"]
+    m424 = json.loads(M424_CHECKPOINT.read_text(encoding="utf-8"))
+    followup = m424["m42_5_followup"]["superseded_by_this_followup"][-1]
+    assert "renamed" in followup and "attribution_correction" in followup, (
+        "the M42.4 followup cited the reproduction as proof about the import; it must cite the correction")
+
+    runbook = (ROOT / "packaging" / "WINDOWS_RELEASE_ACCEPTANCE.md").read_text(encoding="utf-8")
+    assert "| `failed` | available |" in runbook, "the table row that decides the hard case must stay"
+    assert "never produces a statement about the files" in flat(runbook), (
+        "the runbook must state what a missing cmdlet may not be read to mean")
+    assert "harness.module_import" in flat(runbook), (
+        "the superseded field name has to stay named where the correction is explained, or a reader "
+        "of the old records has nothing to reconcile them against")
+    for overclaim in ("import outcome is reported from the command lookup",
+                      "module_import=failed` proves the module could not be loaded",
+                      "the harness could not import Microsoft.PowerShell.Security, so the cmdlet"):
+        assert overclaim not in flat(runbook), (
+            f"the runbook must not state {overclaim!r}: that is the inference this mission corrected")
+
+    readiness = (ROOT / "PRODUCTION_READINESS.md").read_text(encoding="utf-8")
+    for overclaim in ("the field that separates a runner-image limitation from an answer about the "
+                      "shipped files",
+                      "publish the harness module-import field, which separates a runner-image limitation"):
+        assert overclaim not in flat(readiness), (
+            f"the living summary must not restore {overclaim!r}, which reads an availability field as "
+            "an import observation")
+    assert "computed from the command lookup and never from the import itself" in flat(readiness), (
+        "the living summary must keep the correction, not the superseded inference")
+    assert "The quoted string remains what those runs published" in flat(readiness), (
+        "the correction must not be written as if the earlier observation were false")
+
+    evidence = (ROOT / "packaging" / "windows_release_evidence.py").read_text(encoding="utf-8")
+    for field in ("security_module_import", "cmdlet_available", "probe_usable"):
+        assert field in evidence, f"{field} must be published by the generator"
+    assert "Import outcome and command availability are separate observations" in flat(evidence), (
+        "the rule has to travel with the fields, not live only in the test")
 
 
 def test_m42_2_checkpoint_records_provenance_correction_without_claiming_ci_results():
@@ -890,7 +1033,10 @@ def test_runbook_documents_the_identity_lifecycle_and_signing_boundaries():
         ("Inno Setup toolchain identity", ["inno_setup_version.txt", "innosetup.nuspec",
                                            "innosetup_compiler_file_version", "operator-attested"]),
         ("Installed-application lifecycle evidence", ["windows_release_evidence.py lifecycle", "/VERYSILENT",
-                                                     "sentinel", "never simulated"]),
+                                                     "sentinel", "never simulated",
+                                                     "deleted_files_in_install_dir",
+                                                     "was present after install (installed_files) and is absent now",
+                                                     "one bounded retry", "uninstall_launch_recovered"]),
         ("Signature status", ["Get-AuthenticodeSignature", "UNSIGNED", "private key"]),
     ):
         assert heading in text, heading
@@ -902,3 +1048,8 @@ def test_runbook_documents_the_identity_lifecycle_and_signing_boundaries():
             assert fragment in normalized, f"{heading}: {fragment}"
     assert "no `path.read_bytes()`" in text or "never `path.read_bytes()`" in text
     assert "two independent builds" in text, "reproducibility must keep its explicit boundary"
+    normalized = " ".join(text.split())
+    assert "never executes a downloaded binary" in normalized
+    assert "INDEPENDENT_ARTIFACT_REVERIFICATION=BLOCKED" in normalized, (
+        "a retrieval failure caused by the network path must be recorded as blocked, not as a pass")
+    assert "*.blob.core.windows.net" in normalized, "the runbook must name the host that blocks the download"

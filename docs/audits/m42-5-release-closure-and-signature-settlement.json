@@ -1,0 +1,354 @@
+{
+  "schema": "drillmaster-mission-checkpoint/v1",
+  "mission": "M42.5",
+  "title": "M42.5 final release closure, signature settlement on the candidate SHA and the artifact boundary, extended by M42.6 with the PowerShell attribution correction and the release-closure audit",
+  "created_utc": "2026-10-11T06:57:04Z",
+  "repository": "asgareyvazi/Drill-master",
+  "branch": "arena/01a0ec23-drill-master",
+  "base_branch": "drill-Master",
+  "app_version": "1.0.0",
+  "starting_reference": {
+    "assumed_tip_from_the_incoming_brief": "985c239792871903dbba0c72d593bf972982fe1d",
+    "prior_mission_report": "M42.4, which ended with three commits pushed-blocked and a408b9c9ad7c2d016430acacca63d17da5034ab3 as the only gate-verified SHA"
+  },
+  "state_discovery_and_recovery": {
+    "finding": "the restored worktree already contained the content of all three unpushed M42.4 commits (Import-Module remedy, module_import harness field, rewritten checkpoint, verified-SHA naming), and the remote branch tip was a408b9c9ad7c2d016430acacca63d17da5034ab3",
+    "method": "git status/for-each-ref/reflog and cat-file inspection first, then an explicit git fetch origin arena/01a0ec23-drill-master; the worktree content was fingerprinted against the M42.4 markers before any git command that could move the index",
+    "no_invention": "no replacement commit was fabricated: the lost commits' content was recovered from the worktree and re-verified by tests and by the gates run in this mission",
+    "observed_at_entry": "HEAD was the grafted base 7f0186e3e6ac966f1fe9cbd804785129b9246fbe with 107 tracked files modified and 72 untracked; the M42.4 commit objects (a408b9c and the three later commits) were absent from the local object store and the previous recovery archive was gone",
+    "recovery": "tar snapshot of all 925 files (sha256 of the file digest list starting c16670fd8b25), then git reset --mixed FETCH_HEAD to adopt the remote tip without touching a single file, leaving the recovered content as six modified files; committed as two ordinary commits on top of the remote tip - no history rewrite, no force-push, nothing discarded"
+  },
+  "phase_b_review": {
+    "defects_found_and_fixed": [
+      {
+        "detail": "run_powershell called the runner with no exception handling, while the lifecycle's installer invocations were wrapped in (OSError, subprocess.SubprocessError). A timed-out query raised subprocess.TimeoutExpired, which main() does not catch: the signing command then wrote no signing-status.json, the workflow could only report that signature verification produced no record, and the real reason survived only as a console traceback; the lifecycle version query died the same way instead of failing one step",
+        "fix": "timeout, unlaunchable shell and generic subprocess failure each return the same bounded error payload the other query failures use, so every row carries a cause and the record still validates; the aggregate stays UNKNOWN and the step that could not ask the question stays separable from a tool that broke",
+        "id": "M42.5-B1",
+        "tests": [
+          "test_a_query_that_never_answers_is_attributed_instead_of_crashing",
+          "test_a_timed_out_query_fails_the_lifecycle_step_with_a_cause",
+          "test_a_shell_that_cannot_be_started_reports_the_cause_per_file",
+          "test_a_child_killed_mid_query_is_attributed_not_lost"
+        ],
+        "title": "a PowerShell that never answered escaped as a traceback"
+      },
+      {
+        "detail": "the annotation published ps= and cmdlet= but not module_import, although that is the field separating a runner-image limitation from an answer about the shipped files  [M42.6 correction] the claim embedded here is what was wrong: `module_import` was computed from the Get-Command lookup, so publishing it on the annotation line added a third rendering of the same availability fact and still separated nothing - no observation of the import existed to publish",
+        "fix": "the harness line now reads ps=... cmdlet=... module_import=..., and render_markdown publishes a Query host block, which reaches the job summary - the one uncapped, reachable channel  [M42.6 correction] the corrected line publishes `security_module_import`, `cmdlet_available` and `probe_usable` as three observations, and the Query host block states the rule that keeps them apart",
+        "id": "M42.5-B2",
+        "tests": [
+          "test_the_workflow_publishes_the_signature_cause_without_artifact_access",
+          "test_the_markdown_record_publishes_the_query_host"
+        ],
+        "title": "the compact CI harness line omitted the field that decides attribution"
+      },
+      {
+        "detail": "installed_smoke diffed the install directory for additions and edits only, so a file disappearing mid-lifecycle was reported as an unchanged tree; and an uninstall that could not launch its uninstaller surfaced only as a FileNotFoundError. Two gate runs failed exactly here and the published record could not distinguish never-created from created-then-taken-away",
+        "fix": "deleted_files_in_install_dir is recorded and the PASS sentence names what it checked; a missing uninstaller at the point of use states the sequence with a tree listing and the installer's log tail; the launch gets one bounded retry whose outcome is published as uninstall_launch_recovered. No pass/fail rule was relaxed: the uninstall must still empty {app}, and a second refusal still fails the step",
+        "id": "M42.5-B3",
+        "tests": [
+          "test_an_uninstaller_that_vanishes_mid_lifecycle_is_described_not_lost",
+          "test_a_listed_but_unlaunchable_uninstaller_gets_one_bounded_retry",
+          "test_a_permanently_unlaunchable_uninstaller_still_fails_the_lifecycle",
+          "test_an_uninstaller_deleted_after_the_refusal_is_recorded_as_gone",
+          "test_the_lifecycle_distinguishes_a_missing_uninstaller_from_a_vanished_one"
+        ],
+        "title": "the install-tree claim was one-directional and the uninstaller failure was unattributable"
+      }
+    ],
+    "files_read": [
+      "packaging/windows_release_evidence.py",
+      "packaging/release_metadata.py",
+      "packaging/acceptance_report.py",
+      "packaging/build_windows.ps1",
+      "packaging/DrillMaster.iss",
+      "packaging/DrillMaster.spec",
+      "packaging/package_smoke.py",
+      ".github/workflows/windows-release-gate.yml",
+      ".github/workflows/ci.yml"
+    ],
+    "reviewed_and_left_alone": [
+      "the validator coerces filename and status_message with str(); a structured value is published as text and the report's binding checks still refuse a record that does not match these bytes, so there was no evidence of a reachable misdecision and no type guard was added",
+      "the probe remains a diagnostic: only a positive cmdlet=missing answer excuses the per-file queries",
+      "the signing step still exits 0 for an observed non-pass signature state, which is the recorded policy, and still fails when no record was written"
+    ],
+    "single_owner_findings": "one PowerShell invocation site, one release-directory manifest validator (both consumers delegate to validate_document), one digest implementation (sha256_file), one signing vocabulary/mapping/aggregation/validation owner in release_metadata.py, and no Authenticode or hashing logic in build_windows.ps1 or DrillMaster.iss; the only other Get-AuthenticodeSignature text in the repository is prose in the runbook and audit records"
+  },
+  "authenticode_settlement": {
+    "decision_rule_applied": "the profileless host resolved neither the module's cmdlet nor any alternative query, so the per-file question was never answered: the state is UNKNOWN with the bounded cause, classified as a runner/harness capability finding. It was not renamed to UNSIGNED, no unsigned-distribution decision was inferred from it, and no signature or certificate material was fabricated.  [M42.6 correction] this record originally read 'the harness could not import Microsoft.PowerShell.Security, so the cmdlet query never reached a verdict', which overstated the evidence: the published module_import=failed was that run's spelling of 'Get-AuthenticodeSignature did not resolve', and the import's own outcome was discarded by the probe.  What is proven is unavailable capability; whether the module would have loaded is unobserved for these runs and is recorded as such",
+    "inference_prohibited_and_used": "every value above was read from the run for this SHA, from three separate runs in this mission (two earlier ones carried the identical signature line); none was inherited from a previous SHA",
+    "observed_record": "UNKNOWN; ps=5.1.20348.5622 cmdlet=missing module_import=failed; DrillMaster-1.0.0-Setup.exe=UNKNOWN [Get-AuthenticodeSignature is not available in this PowerShell host (PowerShell 5.1.20348.5622 reported 'missing'; explicit Import-Module of Microsoft.PowerShell...] and the same for DrillMaster.exe; DrillMaster-1.0.0-windows-x64.zip=NOT_APPLICABLE [container archive]",
+    "signing_configuration_fact": "packaging/DrillMaster.iss sets no SignTool and no SignedUninstaller and build_windows.ps1 invokes no signtool, which is what signing_configured_in_build=false records; that is a configuration statement, not the result of a signature query",
+    "status": "MECHANISM_CONFIRMED_ON_THE_RELEASE_CANDIDATE_SHA",
+    "verified_sha": "9cb12286a4eb61c7547cd0227996513b22d21227",
+    "what_would_change_it": "a Windows host whose profileless PowerShell resolves Get-AuthenticodeSignature would produce a determinate per-file state for these exact bytes; on this runner image family the cmdlet did not resolve, so the shipped files remain unexamined by the gate.  [M42.6] the corrected probe now also answers the separate question of whether Microsoft.PowerShell.Security imports, so a future run can attribute an unavailable cmdlet to a refused import or to the host itself",
+    "observed_record_note": "quoted verbatim from the published annotation because it is what those runs printed; the reading of `module_import=failed` in it is corrected in decision_rule_applied, not the quotation"
+  },
+  "internal_gates": {
+    "not_self_attested": "this record's gate statements are summaries of runs whose identifiers, URLs and per-job timings are reported to the owner separately and are deliberately not committed here",
+    "policy": "both mandatory gates must report completed/success with head_sha equal to the SHA under verification; queued or in-progress is never a pass",
+    "push_state": "the gate evidence above belongs to 9cb12286a4eb61c7547cd0227996513b22d21227, which is both the local commit it was read from and the remote branch tip. This documentation record was committed afterwards, at which point the installation credential had expired again mid-session (HTTP 401 on gh api, and git push cannot authenticate), so the docs commit is local-only where it exists and cannot inherit the gate result of the SHA named above; a later reader should re-run both gates on whatever SHA the branch ends at. No history was rewritten and nothing was force-pushed to work around this.",
+    "runs_on_earlier_candidates": [
+      {
+        "note": "the first commit set after the recovery; it fixed the signing-record evidence channels and still carried the untouched lifecycle behaviour",
+        "sha": "58b3912d2743146a309a297c5e9b0f1ac3cc843a",
+        "source": "success",
+        "windows": "failure at the installed-application lifecycle step"
+      },
+      {
+        "note": "added the presence check and the deletion channel; the run then showed the uninstaller was listed at the check and refused by the OS microseconds later, which is what motivated the single bounded retry",
+        "sha": "4c359c9a32535be78e92efe7fff70e07ce7ec5c2",
+        "source": "success",
+        "windows": "failure at the same lifecycle step"
+      }
+    ],
+    "source_gate": {
+      "outcome": "all three jobs completed/success on the exact SHA, every step success, including the real Qt system libraries, the locked-runtime install and the step that verifies exact source, dependencies, tests and wheel; no failure annotation, only the runner's Node.js 20 deprecation warning",
+      "timestamps_utc": {
+        "started": "2026-10-11T06:46:33Z",
+        "updated": "2026-10-11T06:53:40Z"
+      },
+      "workflows": [
+        "ci.yml source jobs for Python 3.11, 3.12 and 3.13"
+      ]
+    },
+    "verified_sha": "9cb12286a4eb61c7547cd0227996513b22d21227",
+    "windows_gate": {
+      "identity_from_annotation": "sha=9cb12286a4eb61c7547cd0227996513b22d21227 app=1.0.0 python=3.12.10 pyinstaller=6.11.1 inno=6.7.1/installed-package-metadata tests=670/672 lifecycle=PASS signing=UNKNOWN",
+      "outcome": "completed/success on the exact SHA with all eleven release steps success: pinned Inno Setup install, locked test runtime, the 27-module Windows regression suite (670 passed of 672 collected), build plus frozen smoke, installed-application lifecycle smoke, Authenticode record, acceptance report and evidence upload",
+      "timestamps_utc": {
+        "started": "2026-10-11T06:46:33Z",
+        "updated": "2026-10-11T06:53:50Z"
+      },
+      "workflows": [
+        "windows-release-gate.yml windows-release job"
+      ]
+    }
+  },
+  "mutation_validation": {
+    "battery": "/home/user/m425_mutate.py (session tool, not committed source)",
+    "caught": 42,
+    "coverage": "redaction, stderr capture, the three query-failure catches, both Import-Module prefixes, the computed module_import, the required-answer rule, ErrorAction Stop, UNKNOWN-to-UNSIGNED promotion, the query's own error record, the harness block in the record and in the markdown, probe-as-authority regression, archive traversal and size bounds, digest verification, each of the two required executables, the platform gate, schema acceptance of the retired v1, the UNKNOWN-requires-reason rule, the aggregate re-derivation, count cross-checks, bare file names, duplicate rows, size typing, case folding, mixed-state folding, NOT_APPLICABLE handling, report binding, required-record refusal, rival re-aggregation, the annotation field, the review warning and the malformed-record refusal",
+    "digests_after_restore": {
+      ".github/workflows/windows-release-gate.yml": "35bb83893f61",
+      "packaging/acceptance_report.py": "62bedd463539",
+      "packaging/release_metadata.py": "5e02593908c4",
+      "packaging/windows_release_evidence.py": "b96b4aee4783"
+    },
+    "entries": 42,
+    "honest_limit": "42 targeted guards is not an exhaustive enumeration of every line in four files; a guard outside this list is unproven by this battery",
+    "restored": true,
+    "survived": 0,
+    "survivors_found_and_closed": [
+      "subprocess-error catch had no test",
+      "the required-field rule was only exercised together with stderr",
+      "a literal module_import was invisible to the Python side"
+    ]
+  },
+  "local_verification": {
+    "other_known_local_failures": "tests/test_m29_release_closure.py fails only with the same libGL.so.1 import error (11 occurrences when the file runs whole); tests/test_release_boundary_imports.py::test_wheel_from_tracked_population_starts builds and installs the wheel successfully and then fails at that same PySide6 import when starting the installed app",
+    "release_and_signing_suites": "tests/test_windows_release_evidence.py, tests/test_acceptance_report.py and tests/test_windows_release_gate_contract.py: 263 collected, 263 passed, 0 failed, 0 errors, 0 skipped",
+    "skips_and_reasons": [
+      "tests/test_packaging_smoke.py: the real Windows bundle is not available in this Linux environment (deliberate, unchanged)",
+      "two Qt tests skipped for libGL.so.1",
+      "one non-ASCII-path lifecycle test skipped because a non-UTF-8 POSIX locale cannot create the path; Windows uses wide file APIs, so the limitation is the sandbox"
+    ],
+    "static": "ruff check . --select E722,F821 clean at 0.16.6; the gated population's ratchet debt is 5338 against the 5375 ceiling (repo-wide ruff is not gated and is not claimed clean); python -m compileall clean on packaging and core; git diff --check clean",
+    "windows_gate_scope_locally": "672 collected, 664 passed, 8 failed, 0 errors, 4 skipped; all eight failures are ImportError: libGL.so.1 in Qt dialog tests (test_history_well_scope, test_whole_well_scope_labels_m25, test_m31_scenarios) - a sandbox graphics gap, not an application failure"
+  },
+  "independent_artifact_reverification": {
+    "attempted": "authenticated listing of the run's artifacts, then the zip download for the exact SHA's artifact; also a direct fetch of a freshly signed blob URL obtained this session",
+    "consequence": "release-metadata.json digests, SHA256SUMS.txt and the report's digest claims are verified by CI's own step and reported as such; the report keeps artifact_verification.independent_reverification = NOT_VERIFIED",
+    "not_done": "no bytes were downloaded, no hash was recomputed by this session, no archive was extracted, and no downloaded binary was executed - none of these can be claimed",
+    "second_blocker": "mid-session the installation credential expired again: gh api then answers HTTP 401 Bad credentials, which also blocks git push; the artifact listing that succeeded earlier in this session (name, id and a 321672439-byte size for an earlier run of this branch) is reported as gate-side metadata, never as this session's verification",
+    "status": "BLOCKED",
+    "transport_evidence": "TCP 443 to productionresultssa2.blob.core.windows.net connects and DNS resolves, but the TLS handshake returns SSL_ERROR_SYSCALL after --retry 3 --retry-all errors (0 bytes); job logs fail the same way against results-receiver.actions.githubusercontent.com with EOF; api.github.com returns 200 in the same minute, so this is egress filtering of the blob and log hosts, not a repository or credential problem"
+  },
+  "packaging_status_matrix": {
+    "ci_artifact_hash_verification": "PASS",
+    "frozen_executable_smoke": "PASS",
+    "independent_artifact_hash_recomputation": "BLOCKED",
+    "installed_application_lifecycle": "PASS",
+    "installer_compilation": "PASS",
+    "interactive_clean_machine_install_accepted": "NOT_RUN",
+    "note": "eight separate statuses; none promotes another",
+    "portable_bundle_build": "PASS",
+    "production_acceptance": "NOT_RUN",
+    "trusted_code_signing": "NOT_ESTABLISHED (recorded signature state UNKNOWN; build unsigned by configuration; no certificate material exists in this repository)"
+  },
+  "external_obligations": {
+    "not_touched": "no MinerU bundling, no AI default-on, no new AI subsystem, no HB solver work, no unrelated UI or database redesign",
+    "policy": "every external acceptance boundary stays NOT_RUN and is never substituted by automation",
+    "states": {
+      "clean_machine_interactive_install": "NOT_RUN",
+      "production_database_and_field_validation": "NOT_RUN",
+      "real_ddr_excel_acceptance": "NOT_RUN",
+      "real_ddr_pdf_and_mineru_acceptance": "NOT_RUN",
+      "upgrade_and_uninstall_data_retention": "NOT_RUN"
+    },
+    "synthetic_workbook": "AUTOMATED_TEST_ONLY_NOT_REAL_DDR_ACCEPTANCE"
+  },
+  "owner_decisions": {
+    "carried_forward_from_m36": [
+      "NEW-P6-007",
+      "NEW-P6-008",
+      "NEW-P6-015",
+      "NEW-P6-020",
+      "NEW-P6-023",
+      "NEW-P6-024"
+    ],
+    "release_decisions_still_open": {
+      "A_signing_procurement": "NOT_RUN - no certificate, key or signing configuration was added",
+      "B_unsigned_closure": "the exact-SHA records since this mission's first candidate state the cause (cmdlet=missing, module_import=failed) as this decision required; closing the decision itself remains the owner's act and is not recorded as taken",
+      "C_reproducibility": "NOT_CLAIMED - single build, no two-build comparison",
+      "D_posix_modes": "NOT_RUN - no position recorded"
+    }
+  },
+  "not_verified": [
+    "the signature state of the shipped files on a host that can resolve Get-AuthenticodeSignature",
+    "any byte-level re-verification of the published artifacts from this environment",
+    "interactive installation, first run, restart and data retention on a real workstation",
+    "SmartScreen, antivirus or corporate-policy behaviour of the unsigned installer",
+    "operator acceptance of any kind"
+  ],
+  "corrections": [
+    {
+      "nature": "additive only",
+      "target": "docs/audits/m42-4-authenticode-and-acceptance-closure.json",
+      "text": "its evidence_integrity_blockers said the push was blocked by an expired credential and that later commits were unverified; both were true when written and are superseded by this record: the credential returned, the three commits were recovered from the worktree as content and are now gate-verified inside the candidate history, and the remedy that remedy introduced was itself corrected in M42.6: later exact-SHA runs confirm that the cmdlet did not resolve, which is all the field they published could show"
+    },
+    {
+      "nature": "state correction of an incoming brief; no committed record was rewritten",
+      "target": "this mission's incoming brief",
+      "text": "the brief described the workspace as a clean tree at the recovered M42.4 tip; it was a grafted base with 107 modified files, so the entry state was re-derived from the repository rather than trusted"
+    },
+    {
+      "nature": "semantic correction of this mission's own attribution, recorded in place with the original wording named",
+      "target": "authenticode_settlement and phase_b_review M42.5-B2",
+      "text": "M42.5 treated `harness.module_import` as an import observation and inferred from it that the security module itself failed to load.  It was a renaming of `Get-Command Get-AuthenticodeSignature`, and the probe's real import ran under -ErrorAction SilentlyContinue into Out-Null, so no import outcome was ever captured.  M42.6 separated the observations and republished them under names that cannot be confused; no published record was reinterpreted and no schema version changed, because the harness subfields carry no promised meaning"
+    }
+  ],
+  "observations": [
+    "the restored-sandbox pattern repeated: the local object store lost commits that the remote had, while the worktree kept their content; recovery therefore means fingerprinting content, adopting the remote tip non-destructively, and committing the delta - never re-creating history",
+    "a gate that fails twice for the same reason is not flaky noise: the second failure produced the observation (listed at the check, refused at the exec) that the first could not, because the instrumentation added between them was designed to attribute rather than to hide",
+    "the signing UNKNOWN, the capability-probe remedy, the retry and the artifact-transport blocker are four separate findings and must not be merged into one story: only the first two concern the signature record, and the fourth prevents anyone from claiming the bytes were verified here",
+    "a field name is part of the evidence: `module_import` held an availability answer, and every document that read it as an import observation inherited that error - naming and prose had to be corrected together"
+  ],
+  "missions": [
+    "M42.5",
+    "M42.6"
+  ],
+  "m42_6_release_closure": {
+    "scope": "reconcile the restored workspace without loss, correct the PowerShell attribution, re-verify the published artifact bytes, run both mandatory gates on the final published SHA, and settle the release-closure record without claiming anything the evidence does not support",
+    "attribution_correction": {
+      "defect": "`$imported = [bool](Get-Command Get-AuthenticodeSignature ...)` and `module_import=$(if ($imported) { 'succeeded' } else { 'failed' })`, while `Import-Module Microsoft.PowerShell.Security -ErrorAction SilentlyContinue | Out-Null` threw the only real import evidence away",
+      "why_it_mattered": "a record could claim the module import failed while proving only that the command did not resolve, and the prose around it did exactly that; the two facts also implied different remedies - a runner-image change versus a build change",
+      "corrected_observations": [
+        "powershell_version",
+        "security_module_import",
+        "security_module_import_error",
+        "query_command",
+        "cmdlet_available",
+        "signature_command_module",
+        "probe_usable",
+        "probe_exit_code"
+      ],
+      "decision_table": "import succeeded + cmdlet available -> the per-file answer; import failed + cmdlet available -> the per-file answer with the anomaly recorded beside it; cmdlet unavailable (either import outcome) -> UNKNOWN with that cause and nothing else; probe unusable -> the per-file answer if the queries answered, with probe_usable=false",
+      "never_permitted": "an import or probe observation may not produce UNSIGNED, PASS or FAIL, and a missing cmdlet is never a statement about the files",
+      "schema_decision": "no version bump: `harness` subfields are unconstrained host observations in drillmaster-signing-status/v2, the new keys are additive, and the retired key is left undeclared rather than redefined so older records still mean what they literally said",
+      "channels_updated": [
+        "signing-status.json harness block",
+        "per-file status_message",
+        "console json line",
+        "step summary Query host block",
+        "Signature status annotation line",
+        "packaging/WINDOWS_RELEASE_ACCEPTANCE.md",
+        "PRODUCTION_READINESS.md",
+        "this checkpoint",
+        "the contract and unit test tables"
+      ]
+    },
+    "state_discovery_and_recovery": {
+      "starting_state_observed": "HEAD was the grafted base commit with 180 porcelain entries; the three SHAs the incoming brief named were not present as objects (two of them absent from the object store entirely), .venv and every scratch tool from the previous session were gone, so no claim in the brief could be verified as stated",
+      "classification": "STATE-B: worktree content present, commit objects missing, remote ahead of local",
+      "reconciliation": "the worktree was snapshotted first (926 files, tar of 41216000 bytes, digest recorded in the mission report), the release branch was fetched explicitly, and the remote tip was adopted with a mixed reset; the index and every file were left untouched, so nothing was discarded and no commit was recreated",
+      "remote_state": "the remote tip was still 9cb12286a4eb61c7547cd0227996513b22d21227 - it had not advanced - and the pending work was two documents' worth of unpushed content, which the worktree already carried in full",
+      "delta_adopted": "PRODUCTION_READINESS.md, packaging/WINDOWS_RELEASE_ACCEPTANCE.md, tests/test_windows_release_gate_contract.py, the M42.4 audit record and the untracked M42.5 checkpoint - exactly the unpushed docs work, nothing else",
+      "no_destructive_command_used": "no reset --hard, no clean, no checkout of paths, no force-push, no amend, no rebase; the only state change was the mixed reset to the fetched tip",
+      "self_defect_found_and_fixed": "the M42.4 record had been re-serialised with sorted keys in the previous mission, which reformatted 227 lines of a historical file while intending to add one key; it was rebuilt from `git show HEAD:` plus the single followup key and verified to change no value and no ordering"
+    },
+    "correction_validation": {
+      "mutation_battery": {
+        "attempted": 28,
+        "caught": 28,
+        "survived": 0,
+        "not_attempted": 0,
+        "restored": true,
+        "honest_limit": "the battery targets the signing/probe/packaging/contract surfaces this mission touched and the doc channels that repeated the inference; it is not a proof of exhaustive coverage of the release tooling",
+        "first_run": "24 caught, 4 survived: the import-silence fallback, probe_usable's 'answered nothing' case, and the two document over-claim phrasings. Each survivor was a real gap in this mission's own tests; the fixes were a FakeHost that can omit a field, two new unit tests, and negative anchors on the runbook and summary wording",
+        "second_run": "28 of 28 caught after the gaps were closed, with every mutated file restored to its original digest",
+        "detail": "per-entry target, mutant, detecting tests and observed failure are listed in the mission report"
+      },
+      "behaviour_rules_proved": [
+        "an import failure with the cmdlet available still produces the per-file answer and never softens or hardens it",
+        "a missing cmdlet produces UNKNOWN with that cause and no statement about the files (raw_status stays empty)",
+        "an absent import observation is recorded as unreported, never as failed",
+        "a probe that exits 0 without naming a command is probe_usable=false and cannot excuse the run from querying",
+        "the per-file query's exit code is reported for every payload, so no reader infers a zero that was never captured",
+        "the three observations and the separating rule are published in signing-status.json, the console line, the step summary, the annotation, and the runbook"
+      ]
+    },
+    "local_verification": {
+      "focused": "tests/test_windows_release_evidence.py, tests/test_windows_release_gate_contract.py and tests/test_acceptance_report.py together: 271 collected, 271 passed, 0 failed, 0 skipped",
+      "release_relevant_scope": "the Windows gate's own 27-module list, run locally with the pinned tools: 685 collected, 674 passed, 8 failed, 0 errors, 3 skipped. Every failure is `ImportError: libGL.so.1` from importing Qt in a container without the OpenGL libraries the CI image installs (libgl1/libegl1); the same set fails at the base commit with no local changes, and the three skips are the deliberate ones - real Windows bundle smoke and the two Qt chart/UI skips",
+      "ascii_locale": "the three release suites plus documentation-truth and packaging-smoke tests under PYTHONUTF8=0 LC_ALL=C: 297 collected, 295 passed, 0 failed, 2 skipped; the evidence tool also runs under the C locale",
+      "lint": "`ruff check . --select E722,F821` at ruff==0.16.6: all checks passed. Debt ratchet over core/dialogs/tabs/tests: 5339 against the ceiling 5375 read from .github/ruff-debt-ceiling.txt - within budget, and explicitly not lint-clean. compileall over packaging and tests: clean. git diff --check: clean",
+      "authority": "these are Linux measurements of the release tooling; the GitHub Actions runs on the published SHA are the authority for Windows behaviour, and CI's environment is not this container's"
+    },
+    "internal_gates": {
+      "status": "PENDING_ON_THIS_SHA",
+      "gates_on_earlier_candidates": "9cb12286a4eb61c7547cd0227996513b22d21227 remains the last gate-verified SHA before this mission's changes; its results are recorded above and are not inherited"
+    },
+    "independent_artifact_reverification": {
+      "status": "PENDING_ON_THIS_SHA",
+      "note": "filled after the fetch attempt on the final published SHA's artifact; a BLOCKED or NOT_VERIFIED outcome keeps REL-04 open, and no verdict of MATCH is recorded without bytes"
+    },
+    "signing_trust_and_lifecycle": {
+      "authenticode_observed_before_correction": "UNKNOWN, with `cmdlet=missing` and the field then named `module_import` reported as failed, on every exact-SHA run through 9cb1228",
+      "corrected_attribution": "that record proved the cmdlet did not resolve in a profileless Windows PowerShell 5.1.20348.5622 host; it proved nothing about whether Microsoft.PowerShell.Security could be imported, because the import's own result was discarded by the tool that produced the record",
+      "observed_after_correction": "PENDING_ON_THIS_SHA: the corrected probe reports the two facts separately on the next exact-SHA run; the mission report carries what those runs said",
+      "signing_trust": "NOT_ESTABLISHED - no SignTool or SignedUninstaller is configured in packaging/DrillMaster.iss or packaging/build_windows.ps1, no certificate or key material exists in this repository, and no signature was verified against a trust anchor",
+      "lifecycle": "step 8 of the Windows gate reported PASS on 9cb1228 (install, digest-verified, credential-free smoke, uninstall, {app} emptied). This mission changed no lifecycle behaviour except that the per-file exit code is now reported directly; the corrected probe cannot affect the lifecycle record"
+    },
+    "packaging_dimensions_reconfirmed": {
+      "installer_identity": "digest-matched -Setup.exe bound to its release-metadata entry; version cross-checked against core/version.py",
+      "portable_bundle_identity": "ZIP extracted member verified against the archive digest; inner and outer digests kept separate",
+      "installer_compilation_and_bundle_build": "PASS as gate facts on the published SHA, unchanged by this mission",
+      "inno_setup_version": "6.7.1, read back from installed-package metadata by the build step, never a hardcoded literal",
+      "bundle_scope_and_exclusions": "PyInstaller datas/excludes unchanged (config/ai_models.json, templates, three DDR templates; mineru, magic_pdf, ollama, camelot, pytest, ruff excluded)",
+      "temp_roots": "each run isolates its own temp roots (drillmaster-signing-*, drillmaster-lifecycle-*, per-run smoke roots)",
+      "smoke_credential_hygiene": "package_smoke strips credential environment variables and uses its own temporary database",
+      "reproducibility": "NOT_CLAIMED, unchanged: one build per run, no second independent build compared byte-for-byte",
+      "smartscreen_and_reputation": "NOT_CLAIMED, unchanged: no reputation or filter assertion is made anywhere"
+    },
+    "external_obligations_and_owner_decisions": {
+      "obligations": "REL-01 through REL-12 keep their states; external acceptance remains NOT_RUN - clean-machine install, interactive upgrade/uninstall, real DDR PDF and MinerU, production database, field validation and operator sign-off are not performed here. The synthetic workbook stays AUTOMATED_TEST_ONLY_NOT_REAL_DDR_ACCEPTANCE and the real bundle smoke stays skipped.",
+      "owner_decisions": "A (signing material and a signing step), B (closing the UNKNOWN attribution), C (whether reproducibility is required) and D (portable-ZIP permission policy) remain the owner's. M42.6 changed what B can be decided on - the cause is now attributable - without deciding it.",
+      "new_p_series_open_items": "NEW-P6-007, -008, -015, -020, -023 and -024 stay open as recorded; this mission touched none of them",
+      "preserved_history": "M36 closure at 979691e, P6 accounting, and W5 PROVENANCE_EXTERNAL_SOURCE_UNAVAILABLE with 332 / 334 remain as recorded; no dated record was overwritten with this mission's state"
+    },
+    "not_verified": [
+      "the published artifact bytes have not been re-downloaded and hashed in this session at the time of writing",
+      "no execution of any downloaded installer or executable",
+      "no trust-chain, certificate-validity or timestamp verification against a root store",
+      "no Windows installation on a clean machine, no operator or business sign-off",
+      "no reproducible-build comparison",
+      "no SmartScreen, reputation or antivirus verdict"
+    ],
+    "honest_limits": [
+      "the correction changes what a record can prove, not what the shipped files are: they remain unexamined by the gate until a host answers the query",
+      "the corrected probe was exercised against fake PowerShell hosts and the published channels; its behaviour on a real Windows host is a gate observation, not a local one",
+      "no signing was configured, performed or trusted here, and no owner decision was inferred from this correction"
+    ]
+  }
+}

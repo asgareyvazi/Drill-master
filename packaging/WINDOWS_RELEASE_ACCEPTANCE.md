@@ -128,6 +128,19 @@ exactly that platform, which is why `success_marker_channel` records where the m
 The `--expected-sha256` argument is optional and, when supplied, must agree with the manifest (disagreement exits `2`); the
 manifest is the authority, so the lifecycle can never be run against an unbound binary.
 
+The install tree is diffed in **both** directions.  `installed_smoke` records `new_files_in_install_dir`,
+`changed_files_in_install_dir` and `deleted_files_in_install_dir`, and its PASS sentence states which of the three it checked
+rather than claiming an unchanged tree on the strength of two of them; a deletion is reported, not treated as a failure of its own,
+because a PyInstaller one-folder bundle legitimately creates and discards transient paths while it runs.  That channel exists
+because two gate runs failed with `silent_uninstall` unable to launch `unins000.exe` although the preceding step had proved it
+present, and the record could not distinguish "never created" from "created, then taken away while the application ran".  The
+lifecycle therefore states the sequence explicitly - `unins000.exe was present after install (installed_files) and is absent now`,
+with a bounded listing of what `{app}` actually holds and the installer's own log tail - and grants the launch exactly **one
+bounded retry**: `unins000.exe was listed but could not be launched` is followed by a two-second settle and a re-listing, and
+`uninstall_launch_recovered` publishes that sequence when the retry worked.  Nothing is excused by it.  A second refusal fails the
+step, a file that is gone after the settle stops the retry rather than provoking a guess, and in every case the uninstall must
+still empty `{app}` for the lifecycle to pass.
+
 Diagnostics are bounded and redacted: secret-valued environment variables are stripped before anything is written, and log tails
 are truncated.  `acceptance-report.json` folds the result in as `installed_lifecycle_status` and its `decision` distinguishes three outcomes -
 every mandatory dimension passed, a mandatory dimension did not run, or a mandatory dimension ran and failed (`WINDOWS_AUTOMATION_FAIL;
@@ -197,21 +210,45 @@ about a different file, or a record that skipped the packaged executable is an e
 `run_powershell` no longer treats a parseable payload as a complete answer.  The query script runs
 `Get-AuthenticodeSignature -ErrorAction Stop` inside `try`/`catch` and publishes `QueryError`, so a statement-level failure that
 still exits 0 reports itself; the harness attaches bounded, redacted `powershell_stderr` and the exit code whenever the channel is
-non-empty; and a capability probe (`Get-Command Get-AuthenticodeSignature`) runs first and is published as `harness`
-(`powershell_version`, `query_command`, `signature_command_module`, and any probe error).  A probe that *positively* answers
-`missing` records that one cause for every file; a probe that itself failed is recorded and the real queries still run, because a
-diagnostic must not become an authority that suppresses evidence.
+non-empty; and a capability probe (`Get-Command Get-AuthenticodeSignature`) runs first and is
+published as `harness` (`powershell_version`, `query_command`, `cmdlet_available`,
+`signature_command_module`, `security_module_import`, `probe_usable`, and any probe error).  The
+lookup and the import are separate steps of that probe on purpose: the first answers which command
+this host can run, the second answers whether the module that owns it loaded, and neither may be
+reported as the other.  A probe that
+*positively* answers `missing` records that one cause for every file; a probe that itself failed is recorded and the real queries
+still run, because a diagnostic must not become an authority that suppresses evidence.
+
+Three facts are recorded, not two.  Whether the module imported, whether the cmdlet resolved, and whether the probe answered at
+all are different observations, and only the second one may excuse the run from asking about each file:
+
+| import | cmdlet lookup | what the record says | aggregate |
+| --- | --- | --- | --- |
+| `succeeded` | available | the per-file answer PowerShell gave (`PASS`/`UNSIGNED`/`FAIL`) | that answer |
+| `failed` | available | the per-file answer, plus `security_module_import: failed` and its bounded message | the answer - the import complaint does not soften it |
+| any | unavailable | `UNKNOWN`, with the cause stated as observed: import outcome and lookup result separately | `UNKNOWN` |
+| any | unreported (probe broke) | the per-file answer if the queries answered, `probe_usable: false` regardless | what the queries answered |
+
+An import anomaly therefore never produces `UNSIGNED`, `PASS` or `FAIL` on its own, and a missing cmdlet never produces a
+statement about the files: it can only justify `UNKNOWN` with that cause.  Before this correction a single field carried both
+meanings, and the row below shows why that mattered.
 
 Confirmed on the first run of this instrumented harness (`windows-2022`, Windows PowerShell
 5.1.20348.5622): the probe answered `cmdlet=missing`, and both executables were recorded `UNKNOWN`
 with exactly that cause.  A profileless `powershell.exe -NoProfile -NonInteractive` session does not
 auto-load the module that owns `Get-AuthenticodeSignature`, so the query statement failed while the
 script still exited 0 - which is the mechanism that had made the state unattributable.  Both scripts
-now begin with an explicit `Import-Module Microsoft.PowerShell.Security`, and the record publishes
-whether that import succeeded as `harness.module_import`; the per-file reason states it as well.  If
-a future run still reports `missing` with `module_import: failed`, the runner image - not this
-repository - is what cannot answer, and the finding is then a Windows-host limitation recorded as
-`UNKNOWN` with its cause, never as `UNSIGNED`.
+now begin with an explicit `Import-Module Microsoft.PowerShell.Security`.  That first remedy published a field named
+`harness.module_import`, computed from the *command lookup* rather than from the import, and reported the import's own failure text
+nowhere: a record reading `cmdlet=missing module_import=failed` proved only that the cmdlet did not resolve, and the wording invited
+- and in the M42.4/M42.5 checkpoint did cause - the inference that the import itself had been refused.  The attribution was wrong,
+not the observation.  The probe now imports inside `try`/`catch`, so `security_module_import` is the import outcome,
+`security_module_import_error` carries the host's own bounded message when it failed, `cmdlet_available` is the lookup result, and
+`query_command` remains which command the queries will use.
+If a future run reports `cmdlet unavailable` with `security_module_import: failed`, the runner image - not this repository - is what
+cannot answer, and the finding is then a Windows-host limitation recorded as `UNKNOWN` with its cause, never as `UNSIGNED`; with
+`security_module_import: succeeded` the same `UNKNOWN` instead says the module loaded and the cmdlet still did not resolve, which is
+a different host question and is now distinguishable from the log alone.
 
 Those fields are published where a reviewer can read them without artifact access: in `signing-status.json`, in the job console line
 the tool prints (`status`, `harness`, and a `reason` for every non-`PASS` row), in the step summary under `Authenticode query
@@ -247,6 +284,15 @@ that were uploaded, not the bytes you now hold.  Nothing in this procedure requi
 Python, or the application being installed, and it never executes a downloaded binary.  Run it in
 a PowerShell session whose working directory is the folder you extracted the CI
 `drillmaster-windows-<sha>.zip` into.
+
+Obtaining that zip can itself fail in a way that says nothing about the package: the Actions
+artifact and log endpoints redirect to Azure Blob storage, and a network that reaches
+`api.github.com` but not `*.blob.core.windows.net` will list the artifact (id, name, size) and
+then drop the TLS connection when fetching the bytes.  A release review environment reported
+exactly that - an authenticated listing plus a valid signed download URL, and
+`SSL_ERROR_SYSCALL` on the fetch - so a retrieval failure must be recorded as
+`INDEPENDENT_ARTIFACT_REVERIFICATION=BLOCKED` with the transport error quoted, never as a
+verification that passed and never as a missing artifact.
 
 ```powershell
 # 1. Integrity of the two published release artifacts, against the digests the build recorded.
@@ -302,7 +348,7 @@ green Windows gate proves the rows marked *automation* only; every other row sta
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | REL-01 | Internal packaging gate on the exact SHA | final commit pushed | Source and Windows workflow runs whose `headSha` equals that SHA | both conclusions `success` on the identical SHA | any other SHA, a cancelled run, or a run whose annotation cannot be read | repository maintainer | automation only; see the mission report for the current SHA |
 | REL-02 | Distribution trust (code signing) | Decision A below | certificate or hosted-signing procurement, `SignTool` configuration, a `PASS` aggregate in `signing-status.json` | every examined executable reports `PASS` with a signer whose chain the target machines trust | `UNSIGNED` (policy), `FAIL` (broken/untrusted chain), `UNKNOWN` (unattributable) all remain open | product owner | `OWNER_DECISION` |
-| REL-03 | Signature-state attribution closed | next exact-SHA run after M42.4 | `signing-status.json` `harness` block and the per-file `status_message`, readable from the annotation | the aggregate is `UNSIGNED`/`PASS`/`FAIL` - a determinate state - or `UNKNOWN` with a stated cause | a bare `UNKNOWN` with no reason is still the open blocker | repository maintainer | open until the next exact-SHA record exists |
+| REL-03 | Signature-state attribution closed | next exact-SHA run after M42.4 | `signing-status.json` `harness` block and the per-file `status_message`, readable from the annotation | the aggregate is `UNSIGNED`/`PASS`/`FAIL` - a determinate state - or `UNKNOWN` with a stated cause | a bare `UNKNOWN` with no reason is still the open blocker | repository maintainer | every exact-SHA record since `58b3912` states a cause, and since M42.6 it states the right one: the published `module_import=failed` was the command lookup renamed, not an import failure - the corrected fields are `security_module_import`, `cmdlet_available`, `probe_usable` (see *Reading the cause of a signature state*); closure remains the maintainer's |
 | REL-04 | Artifact byte-integrity re-verification | the downloaded CI artifact | the procedure above, run on the operator's machine | `MATCH` for both artifacts and no `SUMS DIFFERENCE` | any `MISMATCH`, or no independent run at all | reviewer holding the download | `NOT_RUN` in-repository (`NOT_VERIFIED` in the report) |
 | REL-05 | Reproducibility requirement | Decision C below | either a claim with two independent builds compared byte-for-byte, or the recorded `NOT_CLAIMED` | an explicit owner position, recorded in this file | a `PASS` gate silently read as reproducibility | product owner | `OWNER_DECISION` |
 | REL-06 | POSIX permission policy | Decision D below | a documented position on mode bits for the portable ZIP on non-Windows extraction | recorded policy statement | absence of a statement | product owner | `OWNER_DECISION` |

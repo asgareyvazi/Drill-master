@@ -80,11 +80,21 @@ SIGNATURE_QUERY_SCRIPT = (
 )
 # Capability probe, run before any file is queried, so "this host cannot answer the question"
 # is recorded once as a cause instead of surfacing as several unexplained UNKNOWN rows.
+#
+# The probe answers two separate questions and never mixes them up.  Whether
+# `Import-Module Microsoft.PowerShell.Security` worked is captured from the import itself, with
+# `-ErrorAction Stop` inside `try`/`catch` so the real message survives; whether
+# `Get-AuthenticodeSignature` can then be resolved is a second, independent lookup.  An earlier
+# version published `module_import` as a renaming of the command lookup, which let a record claim
+# that an import had failed on the strength of evidence about something else.  Both observations
+# are published, and the field names say which one each is.
 SIGNING_PROBE_SCRIPT = (
-    "Import-Module Microsoft.PowerShell.Security -ErrorAction SilentlyContinue | Out-Null; "
-    "$imported = [bool](Get-Command Get-AuthenticodeSignature -ErrorAction SilentlyContinue); "
     "$probe = @{ps_version=[string]$PSVersionTable.PSVersion; cmdlet='missing'; module=''; "
-    "module_import=$(if ($imported) { 'succeeded' } else { 'failed' })}; "
+    "security_module_import='unreported'; security_module_import_error=''}; "
+    "try { Import-Module Microsoft.PowerShell.Security -ErrorAction Stop; "
+    "$probe.security_module_import = 'succeeded' } "
+    "catch { $probe.security_module_import = 'failed'; "
+    "$probe.security_module_import_error = [string]$_.Exception.Message }; "
     "$command = Get-Command Get-AuthenticodeSignature -ErrorAction SilentlyContinue; "
     "if ($command) { $probe.cmdlet = 'available'; "
     "if ($command.Source) { $probe.module = [string]$command.Source } }; "
@@ -182,11 +192,14 @@ def run_powershell(script: str, target: Path, runner: Runner, timeout: int, *,
         return {"error": f"powershell returned unreadable output: {bound(detail, 200)}"}
     if not isinstance(payload, dict):
         return {"error": f"powershell returned a non-object (exit code {completed.returncode})"}
+    # The exit code is carried for every payload that parsed, not only for the ones that also wrote
+    # to stderr: the record should report what the host returned rather than let a reader infer that
+    # a printed payload implies a zero exit status.
+    payload.setdefault("powershell_exit_code", completed.returncode)
     if error_text:
         # A statement-level failure inside a script that still printed a payload used to be
         # invisible, because a parseable object was treated as a complete answer.
         payload.setdefault("powershell_stderr", bound(error_text, 600))
-        payload.setdefault("powershell_exit_code", completed.returncode)
     if required_field and not str(payload.get(required_field, "") or "").strip():
         detail = error_text or f"exit code {completed.returncode}"
         payload.setdefault("error", f"powershell exited {completed.returncode} without reporting "
@@ -605,19 +618,39 @@ def run_signing(*, release_metadata_path: Path, runner: Runner = default_runner,
     # is missing" may excuse the run from asking about each file.  A probe that itself failed is
     # recorded and the queries still run, because each query reports its own cause.
     reported_command = str(probe.get("cmdlet") or "unknown") if "error" not in probe else "unknown"
+    # Three separate observations, published under names that say which is which: did the module
+    # import, is the cmdlet resolvable, and did the probe itself answer.  `cmdlet_available` is the
+    # only one of the three that may excuse a run from asking about each file; an import complaint
+    # never suppresses a query the host can actually answer.
+    import_state = str(probe.get("security_module_import") or "unreported")
+    import_error = bound(str(probe.get("security_module_import_error") or "").strip(), 300)
     harness = {"query_command": reported_command,
+               "cmdlet_available": {"available": True, "missing": False}.get(reported_command),
                "powershell_version": str(probe.get("ps_version") or ""),
                "signature_command_module": str(probe.get("module") or ""),
-               "module_import": str(probe.get("module_import") or "unreported"),
+               "security_module_import": import_state,
+               # "usable" means the probe answered the question it was asked, which is not the same
+               # as exiting 0: a payload that parsed but named no command told us nothing either way.
+               "probe_usable": "error" not in probe and bool(probe.get("cmdlet")),
                "probe_exit_code": probe.get("powershell_exit_code", 0)}
+    if import_error:
+        harness["security_module_import_error"] = import_error
     for key in ("error", "powershell_stderr"):
         if probe.get(key):
             harness[f"probe_{key}"] = bound(str(probe[key]), 300)
-    unavailable_reason = (
-        f"Get-AuthenticodeSignature is not available in this PowerShell host "
-        f"(PowerShell {harness['powershell_version'] or 'unknown'} reported {reported_command!r}; "
-        f"explicit Import-Module of Microsoft.PowerShell.Security "
-        f"{harness['module_import'].replace('_', ' ')})" if reported_command == "missing" else "")
+    if harness["cmdlet_available"] is False:
+        if import_state == "failed":
+            cause = ("explicit Import-Module of Microsoft.PowerShell.Security failed"
+                     + (f": {import_error}" if import_error else " and reported no message"))
+        elif import_state == "succeeded":
+            cause = ("Microsoft.PowerShell.Security imported successfully, and Get-Command still did "
+                     "not resolve Get-AuthenticodeSignature in this host")
+        else:
+            cause = "the capability probe did not report whether the module import succeeded"
+        unavailable_reason = (f"Get-AuthenticodeSignature is not available in this PowerShell host "
+                              f"(PowerShell {harness['powershell_version'] or 'unknown'}; {cause})")
+    else:
+        unavailable_reason = ""
     with tempfile.TemporaryDirectory(prefix="drillmaster-signing-") as directory:
         scratch = Path(directory)
 
@@ -753,11 +786,20 @@ def render_markdown(report: dict, title: str) -> str:
         # reachable when the artifact endpoints are not, so the query host belongs in it.
         version = harness.get("powershell_version") or "unreported"
         command = harness.get("query_command") or "unreported"
-        module_import = str(harness.get("module_import") or "unreported").replace("_", " ")
+        module_import = str(harness.get("security_module_import") or "unreported").replace("_", " ")
+        import_error = (f" ({harness['security_module_import_error']})"
+                        if harness.get("security_module_import_error") else "")
+        available = harness.get("cmdlet_available")
+        availability = {True: "cmdlet available", False: "cmdlet unavailable"}.get(available, "cmdlet unreported")
         probe_exit = harness.get("probe_exit_code", "unreported")
         probe_error = f"; probe error: {harness['probe_error']}" if harness.get("probe_error") else ""
-        lines += ["", f"Query host: PowerShell {version}; command {command}; "
-                      f"Security module import {module_import}; probe exit code {probe_exit}{probe_error}"]
+        lines += ["", f"Query host: PowerShell {version}; {availability} ({command}); "
+                      f"Microsoft.PowerShell.Security import {module_import}{import_error}; "
+                      f"probe usable: {harness.get('probe_usable', 'unreported')}; "
+                      f"probe exit code {probe_exit}{probe_error}"]
+        lines += ["", "Import outcome and command availability are separate observations: an import "
+                      "failure does not suppress a query the host can answer, and a missing command is "
+                      "not an Authenticode finding about the file."]
     if report.get("policy"):
         lines += ["", f"Policy: {report['policy']}"]
     if report.get("prerequisite"):

@@ -235,12 +235,20 @@ jobs:
             # release the aggregate was published with no reason attached anywhere.
             $oneLine = { param($text) (($text -replace '[\r\n]+', ' ') -replace '[^\x20-\x7E]', '?') }
             $clip = { param($text, $limit) if ($text.Length -gt $limit) { $text.Substring(0, $limit) + '...' } else { $text } }
-            $harness = 'ps=unreported cmdlet=unreported module_import=unreported'
+            $harness = 'ps=unreported cmdlet=unreported security_module_import=unreported'
             if ($signing.harness) {
-              # module_import is part of the compact line because it is the field that decides
-              # whether an UNKNOWN is a limitation of this runner image or an answer about the
-              # shipped files; a reviewer reading only the annotation gets the same distinction.
-              $harness = "ps=$($signing.harness.powershell_version) cmdlet=$($signing.harness.query_command) module_import=$($signing.harness.module_import)"
+              # Import outcome and command availability are published as two facts, because they
+              # are two observations: the runner-image question is answered by the import result,
+              # and only a missing cmdlet excuses the run from asking about each file.  Keeping
+              # them apart on the annotation line is what stops a future reader attributing one
+              # to the other, which is exactly what the single field used to allow.
+              $harness = "ps=$($signing.harness.powershell_version) cmdlet=$($signing.harness.query_command) security_module_import=$($signing.harness.security_module_import)"
+              # The import message is host text, so it is flattened and clipped before being joined
+              # rather than interpolated: the annotation must stay one line and one bounded message.
+              $importError = [string]$signing.harness.security_module_import_error
+              if ($importError) {
+                $harness += ' import_error=' + (& $clip (& $oneLine $importError) 160)
+              }
             }
             $perFile = @($signing.files | ForEach-Object {
               $note = ''
