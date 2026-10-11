@@ -15,8 +15,8 @@
   "recovery_rule": "no reset --hard, no git clean, no force-push, no amend or rebase of published commits; every change is an ordinary commit on the release branch",
   "authenticode_attribution": {
     "published_aggregate_for_baseline_sha": "UNKNOWN",
-    "status": "UNATTRIBUTED_FROM_PUBLISHED_EVIDENCE",
-    "confirmed_from_evidence": false,
+    "status": "MECHANISM_CONFIRMED_BY_THE_INSTRUMENTED_RUN",
+    "confirmed_from_evidence": true,
     "retrieval_attempts": [
       "curl -sIL on the artifact archive_download_url: HTTP 303 to productionresultssa5.blob.core.windows.net, then curl --http1.1 --tlsv1.2 on the signed blob URL returned 'curl (35) SSL_ERROR_SYSCALL' with http=000 and 0 bytes",
       "gh run download <Windows run> from inside the repository: 'unexpected EOF'",
@@ -31,14 +31,27 @@
       "a mutation of published artifacts: none was attempted or performed"
     ],
     "resolution_path": "the next exact-SHA Windows run is self-attributing: the query reports QueryError, the harness carries bounded redacted stderr and the exit code, and the capability probe publishes the PowerShell version and cmdlet availability into signing-status.json, the job console line, the step summary and the Signature status annotation",
-    "kept_open_as_blocker": true
+    "kept_open_as_blocker": false,
+    "confirmed_on_sha": "a408b9c9ad7c2d016430acacca63d17da5034ab3",
+    "observed_record": {
+      "aggregate": "UNKNOWN",
+      "harness": {
+        "powershell_version": "5.1.20348.5622",
+        "query_command": "missing"
+      },
+      "per_file": "DrillMaster-1.0.0-Setup.exe=UNKNOWN and DrillMaster.exe=UNKNOWN, each with the reason \"Get-AuthenticodeSignature is not available in this PowerShell host (PowerShell 5.1.20348.5622 reported 'missing')\"; the portable archive row stayed NOT_APPLICABLE",
+      "channel": "the Signature status notice and the Signature state needs review warning, readable through the check-run annotations API without artifact access"
+    },
+    "baseline_run_wording": "the M42.3 baseline (979691e) published UNKNOWN with no reason at all; that run is attributed by inference from identical harness code and the same runner image, not by its own evidence, and the inference is recorded as such",
+    "followup_fix_applied": "both the capability probe and the query script now begin with Import-Module Microsoft.PowerShell.Security -ErrorAction SilentlyContinue, and the record publishes harness.module_import (succeeded|failed) so a profileless host that does not auto-load the module is distinguished from a runner that cannot answer at all",
+    "still_open": "the determinate UNSIGNED verdict itself: it requires a runner on which the cmdlet resolves, which the next exact-SHA run of this branch will show; until then the state is an attributed UNKNOWN"
   },
   "defects": [
     {
       "id": "D1",
       "symptom": "an exit-0 query with an empty Status produced status UNKNOWN with an empty reason, and the step was green",
       "root_cause": "run_powershell returned the parsed payload as soon as stdout was valid JSON, discarding stderr whenever the exit code was 0; the query script never reported its own statement-level failure",
-      "fix": "the query script runs Get-AuthenticodeSignature -ErrorAction Stop inside try/catch and publishes QueryError; run_powershell attaches bounded, redacted powershell_stderr plus powershell_exit_code to any payload produced with a non-empty error channel and accepts a required_field whose absence is itself an error; run_signing prefers the script's own error record, then stderr, then the harness message",
+      "fix": "the query script runs Get-AuthenticodeSignature -ErrorAction Stop inside try/catch and publishes QueryError; run_powershell attaches bounded, redacted powershell_stderr plus powershell_exit_code to any payload produced with a non-empty error channel and accepts a required_field whose absence is itself an error; run_signing prefers the script's own error record, then stderr, then the harness message.  The run of this milestone then confirmed the mechanism and the residual cause: the profileless Windows PowerShell host did not resolve the cmdlet at all, so both scripts now import Microsoft.PowerShell.Security explicitly and publish harness.module_import",
       "tests": [
         "test_an_empty_answer_is_published_with_the_stderr_that_explains_it",
         "test_a_statement_level_query_failure_reports_itself",
@@ -245,16 +258,35 @@
       "debt_ceiling": 5375,
       "explicitly_not_lint_clean": true
     },
-    "ci": "both gates were re-run on the final SHA of this mission; their identifiers are recorded in the mission report for that SHA, not here"
+    "ci": "both gates concluded success on a408b9c9ad7c2d016430acacca63d17da5034ab3 - the Source gate on Python 3.11/3.12/3.13 and the Windows release validation job on all 11 steps, whose annotations are the observed record quoted in authenticode_attribution.  That SHA carries the shared vocabulary, the v2 record contract, the report-side binding verification and the annotation diagnostics.  The module-import remedy and this checkpoint's records are two later commits on this branch that are NOT gate-verified: the sandbox lost its GitHub credential mid-session, so they are pushed and gated when the connection is restored, and until then no CI outcome is claimed for them",
+    "local_verification_after_the_module_import_remedy": {
+      "focused_release_and_packaging_set": {
+        "collected": 309,
+        "passed": 308,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 1
+      },
+      "windows_gate_module_scope_local": {
+        "modules": 27,
+        "collected": 624,
+        "passed": 612,
+        "failed": 8,
+        "errors": 0,
+        "skipped": 4,
+        "failure_attribution": "the same eight Qt widget tests fail on libGL.so.1 in this sandbox; none is in the modules this mission changed"
+      }
+    },
+    "verified_sha": "a408b9c9ad7c2d016430acacca63d17da5034ab3"
   },
   "mutation_validation": {
-    "battery_size": 35,
-    "caught": 35,
+    "battery_size": 37,
+    "caught": 37,
     "survived": 0,
     "restored_after_run": true,
     "sha256_prefixes_after_restore": {
       "packaging/release_metadata.py": "5e02593908c4",
-      "packaging/windows_release_evidence.py": "b131089e7cf9",
+      "packaging/windows_release_evidence.py": "4d35585db2ea",
       "packaging/acceptance_report.py": "62bedd463539"
     },
     "pairing_note": "the two harness layers (bounded stderr on a parseable payload, and the required-field check) are redundant by design; the battery mutates them together as one entry because either one alone still attributes the cause",
@@ -264,7 +296,8 @@
       "every refusal in the record contract - schema, duplicates, bounds, reason, signature_bearing, counts, container provenance, aggregate contradiction - is load-bearing",
       "stderr carrying, the required-field layer, the QueryError preference, the probe, redaction, and the writer's self-validation are load-bearing",
       "each binding the report newly verifies - manifest digest, source SHA, installer digest, bundle coverage, container archive - is load-bearing",
-      "retaining the diagnostic fields, refusing to promote an absent record, and the workflow's reason and warning channels are load-bearing"
+      "retaining the diagnostic fields, refusing to promote an absent record, and the workflow's reason and warning channels are load-bearing",
+      "the explicit module import and the published import outcome are load-bearing, because a profileless host that does not auto-load Microsoft.PowerShell.Security silently produced the original UNKNOWN"
     ]
   },
   "acceptance_readiness": {
@@ -305,8 +338,9 @@
     "other_living_docs": "README.md, DEPLOYMENT.md, TESTING.md and ENGINEERING_CAPABILITY_STATUS.md contain no signing claim, so none was added or softened there"
   },
   "not_verified": [
+    "any CI outcome for the two commits after the verified SHA: they are committed locally and blocked from pushing by the expired sandbox credential, so they are described as code and tests here, not as gated results",
     "the byte content of the baseline Windows release artifact: the blob endpoint is unreachable from this environment, so no independent re-verification of the published bytes was performed",
-    "the Windows runner's actual stderr for the baseline signature query, and therefore the definitive root cause of the UNKNOWN aggregate",
+    "why the runner's profileless Windows PowerShell session does not resolve Get-AuthenticodeSignature (module state, language mode or image policy) - the remedy and the outcome are now recorded per run, but the image's internal cause is outside this repository's reach",
     "any executed signature state for the shipped installer on a real Windows host: signing evidence describes what Get-AuthenticodeSignature reported for the built bytes in the CI job",
     "interactive clean-machine install, upgrade and data retention, real DDR Excel and PDF acceptance, real MinerU execution, production database behaviour, field validation, and operator or business sign-off",
     "byte-for-byte reproducibility, which remains NOT_CLAIMED"
@@ -318,6 +352,17 @@
   ],
   "observations": [
     "the sandbox was restored mid-mission and rewound HEAD to the grafted base with 178 dirty entries; recovery was verified before any git operation (tar snapshot, then reset --mixed to the fetched remote tip), and no work was lost",
-    "an annotation cap of ten per step is why one aggregate Signature status annotation plus an uncapped step summary carry the diagnostics"
+    "an annotation cap of ten per step is why one aggregate Signature status annotation plus an uncapped step summary carry the diagnostics",
+    "the artifact blob endpoint remained unreachable and the GitHub token expired again mid-session, so the downloaded-bytes re-verification (REL-04) is still NOT_VERIFIED; the annotation channel this milestone added is what produced the answer instead",
+    "a mission that ends with a green gate is not a mission with a signed or accepted product: the aggregate is now attributed, the build is still unsigned by policy, and external acceptance is untouched"
+  ],
+  "evidence_channels_read_instead": [
+    "check-run annotations via api.github.com for the instrumented run: the manifest identity annotation and both signature annotations, quoted above",
+    "job and step conclusions via the Actions API (11/11 steps success)"
+  ],
+  "evidence_integrity_blockers": [
+    "git push origin arena/01a0ec23-drill-master: 'fatal: could not read Username for https://github.com: terminal prompts disabled' - the repository has no credential helper and relies on the sandbox token",
+    "gh api repos/asgareyvazi/Drill-master: 'gh: Bad credentials (HTTP 401)'; gh auth status reports the github.com token in GH_TOKEN is no longer valid, so the two commits after the verified SHA cannot be pushed, and their exact-SHA gates cannot be started or read from this session",
+    "artifact bytes for both the baseline and the verified run: the blob host returned TLS SSL_ERROR_SYSCALL / EOF, so REL-04 independent byte re-verification stays NOT_VERIFIED"
   ]
 }

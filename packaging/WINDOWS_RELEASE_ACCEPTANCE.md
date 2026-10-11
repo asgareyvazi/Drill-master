@@ -202,6 +202,17 @@ non-empty; and a capability probe (`Get-Command Get-AuthenticodeSignature`) runs
 `missing` records that one cause for every file; a probe that itself failed is recorded and the real queries still run, because a
 diagnostic must not become an authority that suppresses evidence.
 
+Confirmed on the first run of this instrumented harness (`windows-2022`, Windows PowerShell
+5.1.20348.5622): the probe answered `cmdlet=missing`, and both executables were recorded `UNKNOWN`
+with exactly that cause.  A profileless `powershell.exe -NoProfile -NonInteractive` session does not
+auto-load the module that owns `Get-AuthenticodeSignature`, so the query statement failed while the
+script still exited 0 - which is the mechanism that had made the state unattributable.  Both scripts
+now begin with an explicit `Import-Module Microsoft.PowerShell.Security`, and the record publishes
+whether that import succeeded as `harness.module_import`; the per-file reason states it as well.  If
+a future run still reports `missing` with `module_import: failed`, the runner image - not this
+repository - is what cannot answer, and the finding is then a Windows-host limitation recorded as
+`UNKNOWN` with its cause, never as `UNSIGNED`.
+
 Those fields are published where a reviewer can read them without artifact access: in `signing-status.json`, in the job console line
 the tool prints (`status`, `harness`, and a `reason` for every non-`PASS` row), in the step summary under `Authenticode query
 environment`, in the single `Signature status` annotation (now `aggregate; ps=... cmdlet=...; file=STATUS/raw [reason]`), and as a
