@@ -11,7 +11,9 @@ from __future__ import annotations
 
 import hashlib
 import importlib.util
+import io
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -1320,6 +1322,472 @@ def test_a_log_tail_is_bounded_and_says_so(tmp_path):
     assert "characters elided" in tail
     assert tail.rstrip().endswith("line 399 of the uninstaller log " + "x" * 100), "the last line survives clipping"
     assert "line 394 of" in tail and "line 0 of" not in tail, "the six most recent lines are the sample"
+
+
+# --- M42.8: the reads behind the diagnostics, and what survives when they fail ---
+
+
+class _ReadCounter:
+    """A handle wrapper that counts the bytes actually fetched, so a claim of bounded reading is checked."""
+
+    def __init__(self, handle, counter):
+        self._handle, self._counter = handle, counter
+
+    def read(self, size=-1):
+        data = self._handle.read(size)
+        self._counter["bytes"] += len(data)
+        return data
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc_info):
+        return self._handle.__exit__(*exc_info)
+
+    def __getattr__(self, name):
+        return getattr(self._handle, name)
+
+
+@pytest.fixture
+def read_counter(monkeypatch):
+    """Count reads through `Path.open`, which delegates to `io.open` at call time."""
+    counter = {"bytes": 0}
+    real_open = io.open
+
+    def wrapper(file, mode="r", *args, **kwargs):
+        handle = real_open(file, mode, *args, **kwargs)
+        return _ReadCounter(handle, counter) if "b" in str(mode) else handle
+
+    monkeypatch.setattr(io, "open", wrapper)
+    return counter
+
+
+def _failing_open(monkeypatch, target: Path, error: OSError, *, after_first: bool = False):
+    """Make the read of one specific path fail, which is the only deterministic way to test a race."""
+    real_open = io.open
+    state = {"seen": 0}
+
+    def wrapper(file, mode="r", *args, **kwargs):
+        if Path(str(file)) == target and "b" in str(mode):
+            state["seen"] += 1
+            if not after_first or state["seen"] > 1:
+                raise error
+        return real_open(file, mode, *args, **kwargs)
+
+    monkeypatch.setattr(io, "open", wrapper)
+    return state
+
+
+def test_a_short_log_tail_is_complete_and_unchanged(tmp_path):
+    """The last-N-lines promise an operator already relies on still holds for ordinary logs."""
+    module = _evidence_module()
+    log = tmp_path / "uninstall.log"
+    log.write_text("first\nsecond\nUninstall process finished.\n", encoding="utf-8")
+    observed = module._bounded_tail(log, 2)
+    assert observed["state"] == "complete"
+    assert observed["tail"] == "second\nUninstall process finished."
+    assert observed["lines_returned"] == 2 and observed["dropped_partial_first_line"] is False
+    assert observed["size_bytes"] == observed["bytes_read"] + 0 or observed["bytes_read"] == log.stat().st_size
+
+
+def test_the_tail_read_is_bounded_in_bytes_not_only_in_output(tmp_path, read_counter):
+    """Four megabytes of log must not become four megabytes of reading, and the old prefix stays unread.
+
+    A returned string clipped to 400 characters proves nothing about cost: the previous helper read
+    the whole file and sliced it afterwards, which is the same thing to a small log and a completely
+    different thing to a runner-side log during a failure.  The counter wraps the real reads, so this
+    measures bytes fetched, and the content assertions show the window is the *recent* end.
+    """
+    module = _evidence_module()
+    log = tmp_path / "big.log"
+    old_prefix = "OLD-PREFIX-never-to-be-published " + ("x" * 200 + "\n") * 20000
+    recent = "".join(f"line {index} RECENT-END\n" for index in range(200))
+    log.write_text(old_prefix + recent, encoding="utf-8")
+    assert log.stat().st_size > module.LOG_TAIL_BYTES * 4
+    observed = module._bounded_tail(log, 6)
+    assert read_counter["bytes"] <= module.LOG_TAIL_BYTES + 1, read_counter["bytes"]
+    assert observed["state"] == "truncated"
+    # exactly the window: start is measured from the end, so the read is bounded whether or not the
+    # file grows under it (the +1 byte in the reader is what detects that growth)
+    assert observed["bytes_read"] == module.LOG_TAIL_BYTES
+    assert observed["size_bytes"] == log.stat().st_size
+    assert observed["dropped_partial_first_line"] is True
+    # "the recent end" has to mean exactly that: compare against the file's real last lines, so a
+    # window taken from the wrong side (or one byte short of EOF) cannot pass on a plausible suffix
+    assert observed["tail"].splitlines() == log.read_text(encoding="utf-8").splitlines()[-6:], \
+        "the published text is not the end of the log"
+    assert "OLD-PREFIX-never-to-be-published" not in observed["tail"]
+    assert observed["tail"].rstrip().endswith("line 199 RECENT-END")
+    assert "older content was not inspected" in observed["reason"]
+    published = module._tail(log, 6)
+    assert published.startswith("[only the last") and "RECENT-END" in published
+
+
+def test_a_window_cut_midway_through_a_multibyte_character_still_produces_evidence(tmp_path, read_counter):
+    """The bound lands wherever the bytes fall, so the decode policy is load-bearing, not decorative.
+
+    A 512 KiB window measured from the end of a text file full of two-byte characters starts in the
+    middle of a character.  `errors="replace"` makes that one U+FFFD in a truncated tail; a strict
+    decode would raise, and because this runs while a lifecycle failure is being described the raise
+    would have become the finding.
+    """
+    module = _evidence_module()
+    log = tmp_path / "multibyte.log"
+    # The cut has to be deterministic, not lucky: the file is sized so the window begins exactly on the
+    # continuation byte of a two-byte character, which is the byte a strict decode refuses.  An earlier
+    # version of this test wrote 300k repetitions and happened to land on a character boundary, so it
+    # passed against a mutation that replaced `errors="replace"` with a raise.
+    two_byte = "\u00e9".encode("utf-8")
+    assert len(two_byte) == 2
+    log.write_bytes(two_byte + b"a" * (module.LOG_TAIL_BYTES - 12) + b"end-of-log\n")
+    assert log.stat().st_size - module.LOG_TAIL_BYTES == 1, "the window must start on byte 1 of the file"
+    observed = module._bounded_tail(log, 6)
+    assert observed["state"] == "truncated"
+    assert observed["size_bytes"] == module.LOG_TAIL_BYTES + 1
+    assert observed["bytes_read"] == module.LOG_TAIL_BYTES
+    assert observed["tail"].startswith("\ufffd"), ("a window cut mid-character is replaced, not raised on and "
+                                                   "not quietly dropped")
+    assert observed["tail"].endswith("end-of-log"), "the recent end still has to survive the replacement"
+    assert read_counter["bytes"] <= module.LOG_TAIL_BYTES + 1
+    sample = module._uninstall_forensics(install_dir=tmp_path, work_root=tmp_path, uninstaller=log,
+                                         install_log=log, uninstall_log=log, sentinel=None, error=None,
+                                         hash_uninstaller=False)
+    assert sample.get("state") != "sampler_failed", "the decode policy leaked into a sampler failure"
+    assert "read_state" in sample["uninstall_log"], "the tail came back as a structured observation"
+
+
+def test_a_huge_single_line_log_is_bounded_marked_and_publishable(tmp_path, read_counter):
+    """One enormous line is the case where 'take the last N lines' has no line to take."""
+    module = _evidence_module()
+    log = tmp_path / "one-line.log"
+    log.write_text("y" * (3 * 1024 * 1024), encoding="utf-8")
+    observed = module._bounded_tail(log, 6)
+    assert read_counter["bytes"] <= module.LOG_TAIL_BYTES + 1
+    assert observed["state"] == "truncated" and observed["lines_returned"] == 1
+    assert len(observed["tail"]) <= module.LOG_TAIL_BYTES
+    assert observed["dropped_partial_first_line"] is False, "there is no earlier line to drop here"
+    sample = module._uninstall_forensics(install_dir=tmp_path, work_root=tmp_path,
+                                         uninstaller=log, install_log=log, uninstall_log=log,
+                                         sentinel=None, error=None, hash_uninstaller=False)
+    assert len(sample["uninstall_log"]["tail"]) <= 400 + 40, "published text is clipped again, independently"
+    assert "only the last" in sample["uninstall_log"]["read_reason"]
+
+
+def test_a_vanished_log_is_recorded_without_replacing_the_launch_error(tmp_path, monkeypatch):
+    """The race the sampler exists to describe can also happen to the sampler itself.
+
+    A log that is present for the existence check and gone by the read used to raise inside the
+    failure handler, which would have replaced `WinError 2` with a diagnostic error and lost the
+    finding.  Absence is now a state in the record, and the original exception keeps its codes.
+    """
+    module = _evidence_module()
+    root = tmp_path / "work"
+    root.mkdir()
+    log = root / "uninstall.log"
+    log.write_text("Uninstall process started.\n", encoding="utf-8")
+    # the existence check has already happened by the time the sampler opens the file, which is the
+    # whole race: the open itself is what reports the file gone
+    seen = _failing_open(monkeypatch, log, FileNotFoundError(2, "No such file or directory"))
+    assert log.is_file() is True
+    observed = module._bounded_tail(log, 6)
+    assert seen["seen"] == 1, "the read was attempted once, then it was not there"
+    assert observed["state"] == "absent"
+    assert observed["bytes_read"] == 0 and observed["tail"] == ""
+    assert "no such file" in observed["reason"]
+    # and a whole sample built while the read fails still publishes, with distinct states per log
+    sample = module._uninstall_forensics(install_dir=root / "install", work_root=root,
+                                        uninstaller=root / "install" / "unins000.exe",
+                                        install_log=root / "install.log", uninstall_log=log,
+                                        sentinel=None, error=None, hash_uninstaller=False)
+    assert sample["uninstall_log"]["read_state"] == "absent"
+    assert sample["install_log"]["read_state"] == "absent"
+    assert json.dumps(sample)
+
+
+def test_an_unreadable_log_is_a_different_fact_from_a_missing_one(tmp_path, monkeypatch):
+    """`PermissionError` during the read is classified by code, never transcribed or re-raised."""
+    module = _evidence_module()
+    log = tmp_path / "uninstall.log"
+    log.write_text("secret-bearing content\n", encoding="utf-8")
+    _failing_open(monkeypatch, log, PermissionError(13, "Permission denied"))
+    refused = module._bounded_tail(log, 6)
+    assert refused["state"] == "unreadable" and refused["bytes_read"] == 0
+    assert "PermissionError" in refused["reason"] and "errno=13" in refused["reason"]
+    assert "secret-bearing" not in json.dumps(refused), "text that could not be read is not published"
+    assert refused["size_bytes"] is None, "an open that never succeeded cannot know the size, and says so"
+
+    # a handle that opens and then fails mid-read is a different fact: the size is known, the text is
+    # not.  A second file is used so the two doubles above do not stack on the same path.
+    readable = tmp_path / "readable.log"
+    readable.write_text("secret-bearing content\n", encoding="utf-8")
+    real_open = io.open
+
+    def open_then_fail(file, mode="r", *args, **kwargs):
+        handle = real_open(file, mode, *args, **kwargs)
+        if Path(str(file)) != readable or "b" not in str(mode):
+            return handle
+
+        class _Refusing:
+            def __getattr__(self, name):
+                return getattr(handle, name)
+
+            def read(self, size=-1):
+                raise PermissionError(13, "Permission denied")
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc_info):
+                return handle.__exit__(*exc_info)
+
+        return _Refusing()
+
+    monkeypatch.setattr(io, "open", open_then_fail)
+    partial = module._bounded_tail(readable, 6)
+    assert partial["state"] == "unreadable" and partial["size_bytes"] == 23
+    assert partial["bytes_read"] == 0 and partial["tail"] == ""
+    assert "PermissionError" in partial["reason"]
+
+
+def test_an_empty_log_and_a_missing_log_are_told_apart(tmp_path):
+    """Four truthfully different states, none of them an empty string standing in for all of them."""
+    module = _evidence_module()
+    empty, absent = tmp_path / "empty.log", tmp_path / "gone.log"
+    empty.write_text("", encoding="utf-8")
+    assert module._bounded_tail(empty)["state"] == "empty"
+    assert module._bounded_tail(absent)["state"] == "absent"
+    assert module._bounded_tail(tmp_path)["state"] == "unreadable", "a directory is not a log"
+    assert module._bounded_tail(tmp_path)["reason"] == "not a regular file"
+    assert module._bounded_tail(empty)["reason"] == "" and module._bounded_tail(absent)["tail"] == ""
+    with pytest.raises(ValueError):
+        module._bounded_tail(empty, byte_limit=0)
+
+
+def test_a_log_that_grows_while_it_is_being_read_still_returns_the_recent_end(tmp_path, monkeypatch):
+    """The size and the window come from one handle, so concurrent appends cannot crash or lie."""
+    module = _evidence_module()
+    log = tmp_path / "growing.log"
+    log.write_text("old line\n", encoding="utf-8")
+    real_open = io.open
+    grown = {"done": False}
+
+    def wrapper(file, mode="r", *args, **kwargs):
+        handle = real_open(file, mode, *args, **kwargs)
+        if Path(str(file)) != log or "b" not in str(mode):
+            return handle
+
+        class _Grower:
+            def seek(self, offset, whence=0):
+                result = handle.seek(offset, whence)
+                if not grown["done"] and whence == os.SEEK_END:
+                    grown["done"] = True
+                    with real_open(log, "a", encoding="utf-8") as append:
+                        append.write("appended-newest-line\n")
+                return result
+
+            def read(self, size=-1):
+                return handle.read(size)
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc_info):
+                return handle.__exit__(*exc_info)
+
+            def __getattr__(self, name):
+                return getattr(handle, name)
+
+        return _Grower()
+
+    monkeypatch.setattr(io, "open", wrapper)
+    observed = module._bounded_tail(log, 6)
+    assert observed["state"] in {"truncated", "complete"}
+    assert observed["tail"].rstrip().endswith("appended-newest-line"), observed["tail"]
+    assert observed["size_bytes"] < log.stat().st_size, "the recorded size is the one the read was measured against"
+
+def test_a_read_that_lands_past_the_window_keeps_the_newest_bytes(tmp_path, monkeypatch):
+    """The clip direction is proven, not assumed: one extra byte has to cost the oldest byte, not the newest.
+
+    `data[:byte_limit]` and `data[-byte_limit:]` are the same thing whenever the read returned exactly
+    the window, which is why an earlier version of this test could not tell them apart.  A log that
+    grew between the size check and the read is the only case where they differ, so the handle here is
+    made to return one byte more than the window, front and back marked.  Dropping the newest byte of
+    a log that is still being written is the wrong way round for a failure being described.
+    """
+    module = _evidence_module()
+    log = tmp_path / "overflow.log"
+    log.write_bytes(b"filler line\n" * (module.LOG_TAIL_BYTES // 12 + 1))
+    size = log.stat().st_size
+    assert size > module.LOG_TAIL_BYTES
+    real_open = io.open
+
+    class _Overflow:
+        """A handle whose read returns `byte_limit + 1` bytes: one byte appeared after `tell()`."""
+
+        def __init__(self, handle):
+            self._handle = handle
+
+        def seek(self, offset, whence=0):
+            if whence == os.SEEK_END:
+                return size + 1
+            return None
+
+        def tell(self):
+            return size + 1
+
+        def read(self, count=-1):
+            return b"Q" + b"y" * (module.LOG_TAIL_BYTES - 1) + b"Z"
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc_info):
+            return False
+
+    def wrapper(file, mode="r", *args, **kwargs):
+        handle = real_open(file, mode, *args, **kwargs)
+        if Path(str(file)) != log or "b" not in str(mode):
+            return handle
+        return _Overflow(handle)
+
+    monkeypatch.setattr(io, "open", wrapper)
+    observed = module._bounded_tail(log, 6)
+    assert observed["state"] == "truncated"
+    assert observed["size_bytes"] == size + 1
+    assert observed["bytes_read"] == module.LOG_TAIL_BYTES + 1, ("the reported read is the read actually performed, "
+                                                                "including the one byte that probes for growth")
+    assert observed["tail"].endswith("Z"), "the newest byte was thrown away instead of the oldest"
+    assert not observed["tail"].startswith("Q"), "the window starts on the wrong side"
+    assert observed["reason"] == (f"only the last {module.LOG_TAIL_BYTES} of {size + 1} bytes were read; "
+                                  "older content was not inspected")
+
+
+
+def test_a_path_leaving_the_evidence_root_is_never_read(tmp_path, read_counter):
+    """The boundary is a rule about the resolved target, because a log name is attacker-visible.
+
+    The portable half proves the check itself with an ordinary outside file; the symlink half proves
+    that a name *inside* the root which resolves outside it is caught the same way.  Where a host
+    forbids unprivileged symlink creation the second half skips, and only the first half is claimed.
+    """
+    module = _evidence_module()
+    root, outside = tmp_path / "work", tmp_path / "outside"
+    root.mkdir()
+    outside.mkdir()
+    secret = outside / "host-file.log"
+    secret.write_text("DO-NOT-PUBLISH outside content\n", encoding="utf-8")
+    observed = module._bounded_tail(secret, 6, permitted_root=root)
+    assert observed["state"] == "skipped_unsafe_path" and observed["bytes_read"] == 0
+    assert "outside the permitted evidence root" in observed["reason"]
+    assert "DO-NOT-PUBLISH" not in json.dumps(observed)
+    assert read_counter["bytes"] == 0, "a skipped path must not be opened at all"
+
+    link = root / "uninstall.log"
+    try:
+        link.symlink_to(secret)
+    except (OSError, NotImplementedError):  # pragma: no cover - platform privilege, not a code path
+        pytest.skip("this host does not allow unprivileged symlink creation; the portable case above ran")
+    replaced = module._bounded_tail(link, 6, permitted_root=root)
+    assert replaced["state"] == "skipped_unsafe_path" and replaced["tail"] == ""
+    assert read_counter["bytes"] == 0
+    # an in-boundary log is still read normally, so the check is a boundary and not a blanket refusal
+    inside = root / "install.log"
+    inside.write_text("Setup process started.\n", encoding="utf-8")
+    assert module._bounded_tail(inside, 6, permitted_root=root)["state"] == "complete"
+
+    # The same boundary must hold where it is expensive.  Hashing is the one read the forensics do on
+    # the install tree itself, and a symlinked uninstaller is exactly how an outside file would be
+    # dragged into it, so the refusal has to be proven behaviourally, not only by its reason string.
+    exe = root / "unins000.exe"
+    try:
+        exe.symlink_to(secret)
+    except (OSError, NotImplementedError):  # pragma: no cover - platform privilege, not a code path
+        pytest.skip("this host does not allow unprivileged symlink creation")
+    sample = module._uninstall_forensics(install_dir=root, uninstaller=exe, work_root=root,
+                                         install_log=inside, uninstall_log=inside, sentinel=None,
+                                         error=None)
+    assert sample["uninstaller"]["is_file"] is True, "the link resolves, which is why it must not be trusted"
+    assert sample["uninstaller"]["hash_state"] == "skipped_unsafe_path"
+    assert "resolves outside the permitted evidence root; not hashed" in sample["uninstaller"]["hash_reason"]
+    assert "sha256" not in sample["uninstaller"], "a path outside the evidence root must never be digested"
+    assert "DO-NOT-PUBLISH" not in json.dumps(sample)
+
+
+def test_the_entry_count_and_the_names_come_from_one_snapshot(tmp_path, monkeypatch):
+    """One sample must not describe two filesystem moments as if they were one."""
+    module = _evidence_module()
+    calls = {"n": 0}
+
+    def counting_snapshot(directory):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return {"a.txt": 1, "b.txt": 2}
+        return {"a.txt": 1}
+
+    monkeypatch.setattr(module, "snapshot", counting_snapshot)
+    sample = module._uninstall_forensics(install_dir=tmp_path / "install", work_root=tmp_path,
+                                         uninstaller=tmp_path / "unins000.exe",
+                                         install_log=tmp_path / "i.log", uninstall_log=tmp_path / "u.log",
+                                         sentinel=None, error=None, hash_uninstaller=False)
+    assert calls["n"] == 1, "the sample took two listings and published them as one"
+    assert sample["install_dir_entries"] == {"count": 2, "first": ["a.txt", "b.txt"]}
+    assert sample["install_dir_entries"]["count"] == len(sample["install_dir_entries"]["first"])
+
+
+def test_a_sampler_defect_is_visible_and_still_does_not_replace_the_failure(tmp_path, monkeypatch):
+    """A diagnostic that crashes says so, and the lifecycle result underneath it survives."""
+    module = _evidence_module()
+    installer, _, digest = _release(tmp_path / "release")
+
+    def broken(*args, **kwargs):
+        raise RuntimeError("harness: sampler bug")
+
+    monkeypatch.setattr(module, "_uninstall_forensics", broken)
+    report = module.run_lifecycle(installer=installer, expected_sha256=digest, app_version="1.0.0",
+                                  work_root=tmp_path / "work",
+                                  runner=FakeHost(unlaunchable_uninstall_attempts=2),
+                                  poll_interval=0.001, settle_seconds=0.05)
+    assert report["status"] == "FAIL", "a broken sampler may not turn a failure into a pass"
+    block = report["diagnostics"]["uninstall_forensics"]
+    assert block["after_refusal_1"]["state"] == "sampler_failed"
+    assert "RuntimeError" in block["after_refusal_1"]["reason"]
+    assert "diagnostics unavailable" in _step(report, "silent_uninstall")["detail"]
+    assert "attempt 1:" in _step(report, "silent_uninstall")["detail"]
+    assert "install_files_removed" not in [step["name"] for step in report["steps"]]
+
+
+def test_a_secret_in_an_error_path_is_redacted_like_a_secret_in_a_log(tmp_path, monkeypatch, secret_in_environment):
+    """Both text channels a diagnostic can carry - log tail and error description - pass the filter."""
+    module = _evidence_module()
+    secret = "hunter2-super-secret"
+    installer, _, digest = _release(tmp_path / "release")
+    refusal = FileNotFoundError(2, "The system cannot find the file specified")
+    refusal.filename = str(tmp_path / secret / "unins000.exe")
+    report = module.run_lifecycle(installer=installer, expected_sha256=digest, app_version="1.0.0",
+                                  work_root=tmp_path / "work",
+                                  runner=FakeHost(uninstall_refusal_error=refusal,
+                                                 uninstall_log_text=f"Setup used {secret} from the environment.\n"),
+                                  poll_interval=0.001, settle_seconds=0.05)
+    serialised = json.dumps(report)
+    assert secret not in serialised, "a credential reached the published record"
+    sample = report["diagnostics"]["uninstall_forensics"]["after_refusal_1"]
+    assert "[REDACTED]" in sample["uninstall_log"]["tail"]
+    assert "[REDACTED]" in sample["launch_error"]["filename"]
+
+
+def test_a_passing_lifecycle_reports_its_own_read_state_and_cleans_up(tmp_path):
+    """The boundary work is visible on green runs too, and cleanup is unchanged."""
+    report = _lifecycle(tmp_path, FakeHost())
+    assert report["status"] == "PASS"
+    assert report["diagnostics"]["smoke_log_read_state"] == "complete"
+    assert report["diagnostics"]["smoke_log_bytes_read"] > 0
+    assert report["cleaned_up"] is True and not (tmp_path / "work").exists()
+    uninstall_sample = _forensics(report, "pre_launch")
+    assert uninstall_sample["uninstall_log"]["read_state"] == "absent"
+    assert uninstall_sample["install_log"]["read_state"] == "complete"
+    assert uninstall_sample["install_log"]["bytes_read"] == uninstall_sample["install_log"]["size_bytes"] > 0, (
+        "the sample has to carry the measured read itself, not only the state word it came from")
+    assert uninstall_sample["uninstaller"]["hash_state"] == "hashed"
 
 
 def test_a_green_lifecycle_records_one_baseline_sample_and_still_cleans_up(tmp_path):

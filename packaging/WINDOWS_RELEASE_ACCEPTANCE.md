@@ -216,6 +216,94 @@ retry policy, the single bounded settle, the refusal to launch a second time onc
 they are unchanged here.  The diagnostics exist so that the *next* occurrence is attributable from the
 published record alone, and REL-13 stays `OPEN` until it is.
 
+#### Bounded, race-safe log reads (M42.8)
+
+The sampler above reads installer and uninstaller logs *while a failure is being described*, which is
+the worst possible moment for two things it used to do: it read each log whole and sliced the string
+afterwards, so the cost of explaining a failure scaled with the size of the thing being explained; and
+a read error (`PermissionError`, or the file disappearing between the listing and the read) escaped and
+became the report.  Both are fixed in one shared reader, `_bounded_tail`, and every caller of the old
+`_tail()` goes through it - there is no second copy of the policy to drift.
+
+* **The bound is on the read, not on the string.** `LOG_TAIL_BYTES = 512 KiB`.  One handle measures
+  itself with `seek(0, END)` / `tell()` (no second `stat()` for the size), rewinds to `size - cap`, and
+  asks for `cap + 1` bytes, so at most 524 289 bytes leave the disk per call whether the log is 1 KB or
+  1 GB.  `bytes_read` is what that call returned - a measurement, not a restatement of the cap - and
+  the extra byte is what shows the log grew past the window underneath the read.
+* **A window is treated as a window.** Decoding is UTF-8 with `errors="replace"`, so a cut landing
+  inside a multi-byte character costs one U+FFFD rather than a `UnicodeDecodeError` raised during a
+  failure report.  A first line that starts mid-line is dropped and recorded as
+  `dropped_partial_first_line`; the last N lines of the window are kept, so a small log is still
+  reported whole and a large one is reported as a part of itself.
+* **The states are named, and they are five different things.** `complete`, `truncated`, `empty`,
+  `absent`, `unreadable`, `skipped_unsafe_path`, each with `size_bytes`, `bytes_read` and, where
+  relevant, `read_reason`.  A truncated result carries its elision marker *inside* the published text
+  (`[only the last N of M bytes were read; older content was not inspected]`), so a suffix can never be
+  presented as "the log", and the text is clipped to 400 characters again for publication - a bound
+  independent of the read bound, because 512 KiB of tail is as unpublishable as 512 MiB of it.
+* **Reading cannot become the story.** `log_state()` keeps four facts apart - present, measurable,
+  readable, read - and catches every `OSError` the read can raise: a log deleted between the listing and
+  the read is recorded as `absent` while the launch error stays the finding, and a refusal is recorded
+  as `unreadable` with the exception class and its `errno`/`winerror` copied off the object.  No
+  traceback and no exception text is transcribed, because a Windows path can carry a credential from the
+  launching environment; the same redaction that covers every other diagnostic runs over these samples.
+  A defect inside the sampler itself publishes `state="sampler_failed"` plus `diagnostics unavailable
+  (...)` in the detail line, and the lifecycle conclusion is still computed from the filesystem
+  evidence: a broken diagnostic changes no verdict, in either direction.
+* **Reads stay inside the evidence root.** Every lifecycle log read now passes `permitted_root=work_root`,
+  the same boundary that already stopped the uninstaller digest from being taken outside the isolated
+  root.  A name inside the root whose *resolved target* leaves it - a symlink, a Windows junction or
+  reparse point, or a file replaced between the check and the use - is recorded as `skipped_unsafe_path`
+  with `bytes_read=0` and is not opened at all.  That is the least-invasive check that needs no
+  privilege: it inspects the path the OS would actually read, `st_file_attributes`/`reparse_point` is
+  recorded on Windows and never simulated elsewhere, and no event-log, Defender or security-audit entry
+  is read, so an outside actor can be bounded but not named.
+* **One sample, one filesystem moment.** `install_dir_entries.count` and its first eight names now come
+  from a single `snapshot()` call instead of two listings, so a concurrent create or delete cannot make
+  the published count disagree with the names printed next to it.  The sampler remains read-only: it
+  creates, changes and removes nothing, which is what makes sampling a live install tree safe at all.
+
+`drillmaster-installer-lifecycle/v1` is unchanged - the fields added by this pass are additive inside
+`diagnostics`, so no published record had to be reinterpreted.
+
+##### Reading a lifecycle failure without a rerun (REL-13 procedure)
+
+The gate cannot re-run its own history: `POST /actions/runs/<id>/rerun`, `.../rerun-failed-jobs` and
+`POST /actions/workflows/<file>/dispatches` all answer `403 Resource not accessible by integration` to
+the credential this automation holds.  That is the boundary, not a workaround to simulate: repeatability
+comes only from *other* runs of the exact SHA - a new push, or a repository administrator re-running a
+specific run.  Everything below needs no access beyond the public run and its artifact.
+
+1. List the runs for the SHA under review (`GET /repos/.../actions/runs?head_sha=<full sha>`), read the
+   `Installed-application lifecycle smoke` step conclusion, and download that run's
+   `drillmaster-windows-<sha>` artifact: installer, portable archive, `release-metadata.json`,
+   `SHA256SUMS.txt`, the signing record, and `installer-lifecycle.json`.  Nothing in it is executed to
+   read evidence.
+2. In `installer-lifecycle.json`, open `diagnostics.uninstall_forensics.samples` and take the moment that
+   matches the failing step: `pre_launch`, `uninstaller_absent_before_launch`, `after_refusal_1`,
+   `after_refusal_2`, `after_settle`, or `launch_error_<Class>`.
+3. Classify from the fields, never from the sentence beside them:
+
+| shape | what the sample has to show |
+| --- | --- |
+| install tree removed | `install_dir.exists=false`, `install_dir.is_dir=false`, while `parent_dir.is_dir=true` |
+| tree emptied by a real uninstall | `install_dir.is_dir=true` with `install_dir_entries.count=0`, and `uninstall_log.read_state="complete"` with completion text in its tail |
+| uninstaller gone, application still installed | `install_dir.is_dir=true`, `count>0`, `uninstaller.exists=false` |
+| listed but launch refused | `uninstaller.exists=true` and `hash_state="hashed"` at the same instant, with `launch_error.class`, `errno`, `winerror` (2 = path component missing, 5 = access denied, 267 = directory name invalid) |
+| uninstall genuinely completed | `{app}` emptied, `uninstall_log` present with its lines, the user-data sentinel still in place, work root removed by cleanup |
+| evidence collection itself failed | `state="sampler_failed"` and `read_state`/`bytes_read` for the logs that were still readable; the conclusion is the lifecycle one, unchanged |
+
+4. What the record cannot settle is host-side, and only an operator with runner access can settle it:
+   file-system audit or Defender quarantine entries for the work-root path, plus the runner's own job
+   log, which this workspace cannot fetch (transport to the log host terminates the connection).
+   Naming antivirus as the cause without those records would be a guess wearing the gate's formatting.
+
+Required from the owner for a definitive close: the artifact of one failing run *and* one passing run of
+the same or adjacent SHA, so the two samples can be diffed; runner-side retention long enough to fetch
+them; and, if attribution is wanted rather than classification, the audit or quarantine entries for the
+work-root path quoted above.
+
+
 ### Signature status (M42.2; evidence binding corrected in M42.3; record contract and diagnostics hardened in M42.4)
 
 `python packaging\windows_release_evidence.py signing --release-metadata <release-metadata.json> --json-out <signing-status.json>`
@@ -427,7 +515,7 @@ green Windows gate proves the rows marked *automation* only; every other row sta
 | REL-10 | Real DDR PDF and MinerU acceptance | a licensed MinerU environment outside this repository | import of a real PDF with the opt-in path enabled | extracted fields reviewed against the source document | not provided or exercised by the Windows workflow | business/technical owner | `NOT_RUN` |
 | REL-11 | Production database and field validation | approved test/prod separation, operator time | restore, concurrency, and field use on target hardware | operator sign-off naming the environment and SHA | no repository automation can substitute | operations owner | `NOT_RUN` |
 | REL-12 | Open P6 owner decisions | none (they are decisions, not defects) | the six register entries carried forward from M36 | each decision recorded with its rationale | `NEW-P6-007`, `NEW-P6-008`, `NEW-P6-015`, `NEW-P6-020`, `NEW-P6-023`, `NEW-P6-024` remain open | product owner | `OWNER_DECISION` |
-| REL-13 | Windows lifecycle step stability on the release runner family | any exact-SHA gate run | the `Installed-application lifecycle smoke` step conclusion together with `installer-lifecycle.json`, whose `silent_uninstall` detail carries the attempt count and the install-tree state at each attempt, and (from M42.7) `diagnostics.uninstall_forensics`, which samples the work root, the install directory, its parent and the uninstaller - existence, type, size, mtime, reparse-point attributes, digest, log tails, entry count and the exception's `errno`/`winerror` - at `pre_launch`, at each refusal, and after the settle | the step concludes success on the SHA under review, with every recorded step PASS and `{app}` emptied | a step that fails after the recorded retry while an earlier run of byte-identical code passed is an environment condition on the runner, not a packaging pass: it stays open until the same SHA is re-run green or the instability is explained; the protections must not be relaxed to obtain green | repository maintainer with the infrastructure owner | `OPEN` (on `6c4979f` the install tree had emptied to 0 files before the uninstall was launched, while `a742170` - identical code, records-only delta - passed; recorded 2026-10-11: the published sentence could not separate an emptied tree from a removed one, the gate now samples both shapes as above, and the failure did not reproduce on `8f71beb`, where the same code passed lifecycle, so the cause stands as undetermined at the permissions the gate has and no protection was relaxed to reach that conclusion) |
+| REL-13 | Windows lifecycle step stability on the release runner family | any exact-SHA gate run | the `Installed-application lifecycle smoke` step conclusion together with `installer-lifecycle.json`, whose `silent_uninstall` detail carries the attempt count and the install-tree state at each attempt, and (from M42.7) `diagnostics.uninstall_forensics`, which samples the work root, the install directory, its parent and the uninstaller - existence, type, size, mtime, reparse-point attributes, digest, log tails, entry count and the exception's `errno`/`winerror` - at `pre_launch`, at each refusal, and after the settle, with each log tail a bounded read whose `read_state`/`bytes_read` say how much was inspected (M42.8) and no diagnostic error able to change the conclusion | the step concludes success on the SHA under review, with every recorded step PASS and `{app}` emptied | a step that fails after the recorded retry while an earlier run of byte-identical code passed is an environment condition on the runner, not a packaging pass: it stays open until the same SHA is re-run green or the instability is explained; the protections must not be relaxed to obtain green | repository maintainer with the infrastructure owner | `OPEN` (on `6c4979f` the install tree had emptied to 0 files before the uninstall was launched, while `a742170` - identical code, records-only delta - passed; recorded 2026-10-11: the published sentence could not separate an emptied tree from a removed one, the gate now samples both shapes as above, and the failure did not reproduce on `8f71beb`, where the same code passed lifecycle, so the cause stands as undetermined at the permissions the gate has and no protection was relaxed to reach that conclusion; from M42.8 the classification and the owner's next steps are the procedure above, which needs no rerun privilege to follow) |
 
 ## Interactive installation procedure (manual; NOT automated by the workflow)
 

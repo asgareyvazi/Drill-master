@@ -1079,9 +1079,13 @@ def test_the_lifecycle_forensics_are_additive_and_keep_every_protection():
         assert fragment in evidence, f"the forensic contract lost {fragment!r}"
     for label in FORENSIC_SAMPLE_LABELS:
         assert label in evidence, f"the sample labelled {label!r} is gone"
-    sampler = evidence[evidence.index("def _uninstall_forensics("):evidence.index("def _forensic_brief(")]
-    for forbidden in ("mkdir", "touch", "chmod", "write_text", "write_bytes", "unlink", "rmtree",
-                      "symlink_to", "open(", "subprocess", "runner(", "Popen"):
+    # the two read-only helpers as one span: observation must not touch permissions, create, delete or run
+    sampler = evidence[evidence.index("def _observed_path("):evidence.index("def _forensic_brief(")]
+    # call forms rather than words: these docstrings talk about "touching" a file, and a guard that
+    # matched vocabulary would test the prose instead of the code
+    for forbidden in ("mkdir(", "touch(", "chmod(", "write_text(", "write_bytes(", "unlink(", "remove(",
+                      "rename(", "replace(", "rmtree(", "symlink_to(", "open(", "subprocess.", "runner(",
+                      "Popen(", "os.", "shutil."):
         assert forbidden not in sampler, f"the sampler must only read; found {forbidden!r}"
     assert '"drillmaster-installer-lifecycle/v1"' in evidence, ("additive fields are fine; a redefined "
                                                                 "schema name would make published records lie")
@@ -1129,6 +1133,68 @@ def test_rel_04_names_the_external_match_without_borrowing_any_trust():
     assert "diagnostics.uninstall_forensics" in rel13 and "did not reproduce" in rel13
     assert "cause stands as undetermined" in rel13
     assert "`OPEN`" in rel13, "an explained incident is not a closed one"
+
+
+def test_log_tails_are_bounded_reads_and_never_whole_file_reads():
+    """The M42.8 contract: cost is bounded at the read, and every lifecycle log read is inside the root.
+
+    `bound()` on the published string was never a statement about I/O, so the shape of the reader is
+    pinned here as well as exercised by the byte counter in the behavioural suite: one seek-windowed
+    read, one explicit bound, and no whole-file `read_text` left on any lifecycle path.  Each call
+    site has to name the root it is reading inside, because "it is only a log file" is exactly how a
+    replaced path stops being only a log file.
+    """
+    evidence = (ROOT / "packaging" / "windows_release_evidence.py").read_text(encoding="utf-8")
+    reader = evidence[evidence.index("def _bounded_tail("):evidence.index("def _tail(")]
+    assert "stream.seek(0, os.SEEK_END)" in reader and "stream.seek(start)" in reader, (
+        "the window must be sought from the end, not read and sliced")
+    assert "read_text" not in reader, "a whole-file read on the failure path is the defect being fixed"
+    assert "stream.read(byte_limit + 1)" in reader, "one byte past the window is how growth is detected"
+    assert 'raise ValueError("byte_limit must be a positive bound")' in reader
+    for state in ('"complete"', '"truncated"', '"empty"', '"absent"', '"unreadable"', '"skipped_unsafe_path"'):
+        assert state in reader, f"the reader stopped reporting {state} as its own state"
+    assert "older content was not inspected" in reader, "a suffix must never be presented as the log"
+    assert "dropped_partial_first_line" in reader
+
+    module_lines = evidence.splitlines()
+    reads = [line for line in module_lines if "_tail(" in line or "_bounded_tail(" in line]
+    calls = [line for line in reads if "def " not in line and "permitted_root=" not in line]
+    assert not calls, "every lifecycle log read must name its permitted root:\n" + "\n".join(sorted(calls))
+    assert "LOG_TAIL_BYTES = 512 * 1024" in evidence, "the bound is policy; a default that drifted would be silent"
+    behaviour = (ROOT / "tests" / "test_windows_release_evidence.py").read_text(encoding="utf-8")
+    assert behaviour.count('read_counter["bytes"] <=') >= 3, ("bounded I/O is measured independently in the "
+                                                             "large-log, single-line and multibyte cases; a count "
+                                                             "that drops means one measurement was deleted, and a "
+                                                             "single assertion is easy to weaken into a "
+                                                             "string-length check")
+
+
+def test_diagnostic_failures_cannot_replace_a_lifecycle_failure():
+    """Sampling is subordinate: it reports its own trouble, it never becomes the finding.
+
+    The sampler runs from inside an exception handler, so an uncaught error there would surface as a
+    crash of the step and lose the launch error it was meant to describe.  Two shapes are pinned: the
+    file-level classification of a failed read, and the handler that turns any *unexpected* sampler
+    defect into a published `sampler_failed` observation while the lifecycle result stands.
+    """
+    evidence = (ROOT / "packaging" / "windows_release_evidence.py").read_text(encoding="utf-8")
+    sampler = evidence[evidence.index("def forensics(label"):evidence.index('forensics("pre_launch")')]
+    assert "except Exception as exc" in sampler and "sampler_failed" in sampler
+    assert "diagnostics unavailable" in sampler, "the detail must say the sample failed, not that it was empty"
+    assert 'return _finish(evidence, "FAIL", started)' in evidence, "the refusal still fails the step"
+    for channel in ('"read_state"', '"bytes_read"', '"read_reason"'):
+        assert channel in evidence, f"the log sample stopped publishing {channel}"
+    for line in ('state["read_state"] = observed["state"]',
+                 'state["bytes_read"] = observed["bytes_read"]',
+                 'if observed["reason"]:'):
+        assert line in evidence, ("the classification has to be copied through log_state verbatim; a dropped "
+                                  f"line turns an unknown read into an unremarkable one: {line}")
+    assert evidence.count('state["exists"] = path.is_file()') == 1
+    assert "size_error" not in evidence, "the size moved into the reader, where the handle is the source"
+    entries = evidence[evidence.index("def _uninstall_forensics("):evidence.index("def _forensic_brief(")]
+    assert entries.count("snapshot(install_dir)") == 1, ("the count and the names must come from one listing, "
+                                                        "not two filesystem moments")
+    assert "resolves outside the permitted evidence root; not hashed" in evidence
 
 
 def test_m42_7_followup_records_the_closure_without_promoting_anything():
@@ -1305,3 +1371,77 @@ def test_runbook_documents_the_identity_lifecycle_and_signing_boundaries():
     assert "INDEPENDENT_ARTIFACT_REVERIFICATION=BLOCKED" in normalized, (
         "a retrieval failure caused by the network path must be recorded as blocked, not as a pass")
     assert "*.blob.core.windows.net" in normalized, "the runbook must name the host that blocks the download"
+
+
+def test_the_runbook_states_the_read_bound_and_the_no_rerun_procedure():
+    """The operator-facing contract is documentation, so it drifts silently unless it is pinned.
+
+    A reader of the runbook has to learn three things from it: how much of a log the gate actually
+    inspected, that a diagnostic error cannot change a verdict, and what to do when a run cannot be
+    re-executed.  These are the sentences that carry them.
+    """
+    runbook = _read(ROOT / "packaging" / "WINDOWS_RELEASE_ACCEPTANCE.md")
+    assert "Bounded, race-safe log reads (M42.8)" in runbook
+    assert "LOG_TAIL_BYTES = 512 KiB" in runbook, "the cap has to be stated as a number, not as 'bounded'"
+    assert "older content was not inspected" in runbook
+    assert "skipped_unsafe_path" in runbook
+    assert "permitted_root=work_root" in runbook, "the boundary has to name the root it is bounded to"
+    assert "sampler_failed" in runbook and "changes no verdict" in runbook
+    assert "Reading a lifecycle failure without a rerun" in runbook
+    assert "403 Resource not accessible by integration" in runbook, (
+        "the rerun refusal is the reason the procedure exists; omitting it implies an access the gate does not have")
+    assert "emptied by a real uninstall" in runbook and "install tree removed" in runbook, (
+        "the five shapes the record has to distinguish are the point of the procedure")
+
+
+def test_m42_8_followup_records_the_handoff_without_promoting_anything():
+    """The hand-off key has to keep every external position where it found it, and its numbers have to add up.
+
+    A follow-up that improves diagnostics is only honest if REL-13 stays open, if a metadata listing is not
+    written up as a byte verification, if a blocked push is recorded as blocked rather than as green, and if
+    the counts it quotes satisfy the collection identity.  The shape is checked, not the size of the test
+    population, because a guard must not pin a number that adding the guard itself changes.
+    """
+    payload = json.loads(M425_CHECKPOINT.read_text(encoding="utf-8"))
+    assert list(payload)[-1] == "m42_8_followup", ("the record is extended additively; inserting a key would "
+                                                   "rewrite what earlier guards already pinned")
+    key = payload["m42_8_followup"]
+    assert key["mission"] == "M42.8" and key["recorded_on"] == "2026-10-11"
+    assert payload["m42_6_release_closure"]["independent_artifact_reverification"]["verdict"] == "BLOCKED"
+    assert payload["m42_7_followup"]["independent_artifact_match"]["status"] == "MATCH_REPORTED_BY_EXTERNAL_REVIEWER"
+
+    contract = key["bounded_read_contract"]
+    assert "512 * 1024" in contract["limit"] and "524288" in contract["limit"], ("the bound is a number in the "
+                                                                                "record, not the adjective 'bounded'")
+    for state in ("complete", "truncated", "empty", "absent", "unreadable", "skipped_unsafe_path"):
+        assert state in contract["states"], f"the published state vocabulary lost {state}"
+    assert "older content was not inspected" in contract["elision_marker"]
+    assert "400" in contract["publication_bound"], "the read bound and the publish bound are two different limits"
+
+    assert len(key["preserved_m42_7_protections"]["list"]) == 11, "every M42.7 protection is named, or none is"
+    assert "drillmaster-installer-lifecycle/v1" in key["preserved_m42_7_protections"]["schema"]
+    assert "no version bump" in key["preserved_m42_7_protections"]["schema"]
+
+    handoff = key["external_acceptance_handoff"]
+    assert handoff["REL-13"]["status"] == "OPEN", "forensics improve diagnosability, not the root cause"
+    assert "403 Resource not accessible by integration" in handoff["REL-13"]["rerun_boundary"]
+    assert handoff["REL-04"]["byte_verification"].startswith("NOT_VERIFIED")
+    positions = json.dumps(handoff["unchanged_external_positions"])
+    for claim in ("UNKNOWN", "NOT_CLAIMED", "NOT_ESTABLISHED", "NOT_RUN", "AUTOMATED_TEST_ONLY_NOT_REAL_DDR_ACCEPTANCE"):
+        assert claim in positions, f"an unchanged external position was dropped: {claim}"
+
+    for field in ("focused", "release_relevant_scope"):
+        text = key["local_verification"][field]
+        for collected, passed, failed, errors, skipped in re.findall(
+                r"(\d+) collected, (\d+) passed, (\d+) failed, (\d+) errors?, (\d+) skipped", text):
+            assert int(collected) == int(passed) + int(failed) + int(errors) + int(skipped), \
+                f"{field} does not add up: {text[:90]}"
+        else:
+            assert re.search(r"\d+ collected", text), f"{field} lost its measurement"
+
+    publication = key["publication_and_gates"]
+    assert re.fullmatch(r"[0-9a-f]{40}", publication["code_sha"]) and re.fullmatch(r"[0-9a-f]{40}",
+                                                                                   publication["incoming_sha"])
+    assert publication["push"] == "NOT_PUSHED" and publication["gates_on_the_code_sha"].startswith("NOT_RUN"), (
+        "a local commit is not a published result and may not be recorded as one")
+    assert "Bad credentials" in publication["blocked_because"]

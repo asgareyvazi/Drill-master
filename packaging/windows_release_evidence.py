@@ -241,7 +241,7 @@ FORENSIC_NOTE = ("host-side evidence is not collected: this step reads only user
                  "and bounded but never attributed to an agent")
 
 
-def _observed_path(path: Path, *, hash_file: bool = False) -> dict:
+def _observed_path(path: Path, *, hash_file: bool = False, permitted_root: Path | None = None) -> dict:
     """What one unprivileged stat can say about a path, right now, without creating or touching it.
 
     Absence and unreadability are separate observations from "present with these properties", because
@@ -277,13 +277,18 @@ def _observed_path(path: Path, *, hash_file: bool = False) -> dict:
     if attributes is not None:
         observed["file_attributes"] = int(attributes)
         observed["reparse_point"] = bool(attributes & getattr(stat, "ST_REPARSE_POINT", 0))
-    if hash_file and observed["is_file"]:
+    if hash_file and observed["is_file"] and permitted_root is not None and not _is_within(path, permitted_root):
+        observed["hash_state"] = "skipped_unsafe_path"
+        observed["hash_reason"] = "resolves outside the permitted evidence root; not hashed"
+    elif hash_file and observed["is_file"]:
+        observed["hash_state"] = "hashed"
         if stat.st_size > MAX_FORENSIC_HASH_BYTES:
             observed["sha256"] = f"not hashed: {stat.st_size} bytes exceeds the {MAX_FORENSIC_HASH_BYTES} byte bound"
         else:
             try:
                 observed["sha256"] = sha256_file(path)
             except OSError as exc:
+                observed["hash_state"] = "unreadable"
                 observed["sha256"] = f"unreadable: {type(exc).__name__}"
     return observed
 
@@ -301,30 +306,45 @@ def _uninstall_forensics(*, install_dir: Path, work_root: Path, uninstaller: Pat
     later, without a runner log or artifact access.
     """
     def log_state(path: Path) -> dict:
-        """Whether an Inno log exists and what it last said -- the file an unprivileged user owns.
+        """Whether an Inno log exists, whether it could be read, and what the readable part said.
 
         The installer and uninstaller write their logs under the work root, so the gate can read them
         without elevation; their tails are the only place a completed uninstall is visible after the
-        uninstaller has deleted itself.  Tails are collapsed onto one line and bounded, and pass
-        through the same redaction as the rest of the sample, because a log can echo a value that was
-        in the launching environment.
+        uninstaller has deleted itself.  Four facts are kept apart on purpose -- present, measurable,
+        readable, and read -- because the log can change between any two of them, and this sampler runs
+        while an unrelated failure is being described: an exception escaping here would replace the
+        launch error with a diagnostic error and lose both findings.  Tails are collapsed onto one
+        line, bounded again for publication, and pass through the same credential redaction as the
+        rest of the sample, because a log can echo a value from the launching environment.
         """
-        state: dict = {"path": bound(str(path), 200), "exists": path.is_file()}
-        if state["exists"]:
-            try:
-                state["size_bytes"] = path.stat().st_size
-            except OSError as exc:
-                state["size_error"] = bound(f"{type(exc).__name__}", 60)
-            state["tail"] = bound(" ".join(_tail(path, 6).split()), 400) or "empty"
+        state: dict = {"path": bound(str(path), 200)}
+        try:
+            state["exists"] = path.is_file()
+        except OSError as exc:  # documented not to raise, yet a reparse point can disagree
+            state["exists"] = False
+            state["exists_error"] = bound(type(exc).__name__, 60)
+        observed = _bounded_tail(path, 6, permitted_root=work_root)
+        state["read_state"] = observed["state"]
+        state["size_bytes"] = observed["size_bytes"]
+        state["bytes_read"] = observed["bytes_read"]
+        if observed["reason"]:
+            state["read_reason"] = bound(observed["reason"], 200)
+        if observed["dropped_partial_first_line"]:
+            state["dropped_partial_first_line"] = True
+        state["tail"] = bound(" ".join(observed["tail"].split()), 400)
         return state
+
+    # One listing per sample: the count and the names are two views of the same moment, and taking
+    # them in two passes would let a concurrent delete or create make the published count disagree
+    # with the names printed beside it.
+    entries = sorted(snapshot(install_dir))
 
     sample: dict = {"sampled_at": round(time.time(), 3),
                     "work_root": _observed_path(work_root),
                     "install_dir": _observed_path(install_dir),
-                    "uninstaller": _observed_path(uninstaller, hash_file=hash_uninstaller),
-                    "install_dir_entries": {
-                        "count": len(snapshot(install_dir)),
-                        "first": sorted(snapshot(install_dir))[:8]},
+                    "uninstaller": _observed_path(uninstaller, hash_file=hash_uninstaller,
+                                                  permitted_root=work_root),
+                    "install_dir_entries": {"count": len(entries), "first": entries[:8]},
                     "install_log": log_state(install_log),
                     "uninstall_log": log_state(uninstall_log),
                     "parent_dir": _observed_path(install_dir.parent),
@@ -426,7 +446,7 @@ def run_lifecycle(*, installer: Path, expected_sha256: str, app_version: str, wo
         except (OSError, subprocess.SubprocessError) as exc:
             record("silent_install", "FAIL", f"{type(exc).__name__}: {exc}")
             return _finish(evidence, "FAIL", started)
-        evidence["diagnostics"]["install_log"] = redact(_tail(install_log), [])
+        evidence["diagnostics"]["install_log"] = redact(_tail(install_log, permitted_root=work_root), [])
         if completed.returncode != 0:
             record("silent_install", "FAIL", f"exit {completed.returncode}")
             return _finish(evidence, "FAIL", started)
@@ -474,7 +494,13 @@ def run_lifecycle(*, installer: Path, expected_sha256: str, app_version: str, wo
         smoke_output = f"{getattr(smoke, 'stdout', '') or ''}{getattr(smoke, 'stderr', '') or ''}"
         # A frozen windowed executable has no console, so the application log is an equally
         # authoritative channel for the marker; both are read, neither is assumed.
-        smoke_log_text = _tail(smoke_root / "logs" / "drillmaster.log", lines=400)
+        # The marker scan is the reason this window is wider than a status line: 400 lines, bounded to
+        # LOG_TAIL_BYTES of actual reading, and whatever it managed to see is stated in the record
+        # rather than assumed to have been the whole log.
+        smoke_log = _bounded_tail(smoke_root / "logs" / "drillmaster.log", 400, permitted_root=work_root)
+        smoke_log_text = smoke_log["tail"]
+        evidence["diagnostics"]["smoke_log_read_state"] = smoke_log["state"]
+        evidence["diagnostics"]["smoke_log_bytes_read"] = smoke_log["bytes_read"]
         observed_output = f"{smoke_output}\n{smoke_log_text}"
         leaked = [value for value in secret_values if value and value in observed_output]
         after = snapshot(install_dir)
@@ -547,12 +573,25 @@ def run_lifecycle(*, installer: Path, expected_sha256: str, app_version: str, wo
 
         def forensics(label: str, error: BaseException | None = None, *, hash_uninstaller: bool = True,
                       brief: bool = False) -> str:
-            sample = _uninstall_forensics(install_dir=install_dir, work_root=work_root,
-                                          uninstaller=uninstaller, install_log=install_log,
-                                          uninstall_log=uninstall_log, sentinel=sentinel, error=error,
-                                          hash_uninstaller=hash_uninstaller)
+            """Sample, redact and publish -- and never let the sampling itself become the finding.
+
+            This runs from inside a `except FileNotFoundError:` handler.  A second exception raised
+            while describing the first would replace the lifecycle result with a diagnostic one and
+            lose both, so any unexpected failure here is recorded as a bounded observation of its own
+            and the original launch error keeps travelling to the step detail.
+            """
+            try:
+                sample = _uninstall_forensics(install_dir=install_dir, work_root=work_root,
+                                              uninstaller=uninstaller, install_log=install_log,
+                                              uninstall_log=uninstall_log, sentinel=sentinel, error=error,
+                                              hash_uninstaller=hash_uninstaller)
+            except Exception as exc:  # noqa: BLE001 - a sampler defect must not mask a lifecycle failure
+                sample = {"state": "sampler_failed",
+                          "reason": bound(f"{type(exc).__name__}: {str(exc)[:160]}", 200)}
             samples[label] = _redact_tree(sample, secret_values)
             evidence["diagnostics"]["uninstall_forensics"] = samples
+            if sample.get("state") == "sampler_failed":
+                return f"diagnostics unavailable ({sample['reason']})"
             return _forensic_brief(samples[label]) if brief else _forensic_note(samples[label])
 
         forensics("pre_launch")
@@ -565,7 +604,7 @@ def run_lifecycle(*, installer: Path, expected_sha256: str, app_version: str, wo
             record("silent_uninstall", "FAIL",
                    "unins000.exe was present after install (installed_files) and is absent now; "
                    f"{install_tree_note()}; {absent}; installer log tail: "
-                   f"{bound(_tail(install_log, 12), 200) or 'no log'}")
+                   f"{bound(_tail(install_log, 12, permitted_root=work_root), 200) or 'no log'}")
             return _finish(evidence, "FAIL", started)
         # A Windows runner can list a file it then refuses to launch: an uninstaller under
         # antivirus quarantine, or mid-replacement, looks exactly like this from userspace, with
@@ -664,11 +703,96 @@ def _finish(evidence: dict, status: str, started: float) -> dict:
     return evidence
 
 
-def _tail(path: Path, lines: int = 40) -> str:
-    if not path.is_file():
-        return ""
-    content = path.read_text(encoding="utf-8", errors="replace").splitlines()
-    return "\n".join(content[-lines:])
+LOG_TAIL_BYTES = 512 * 1024  # no tail operation reads more than this, whatever the log's real size
+
+
+def _bounded_tail(path: Path, lines: int = 40, *, byte_limit: int = LOG_TAIL_BYTES,
+                  permitted_root: Path | None = None) -> dict:
+    """Read the last `byte_limit` bytes of one log and report what that read actually established.
+
+    Two different bounds live here and they mean different things: how much was *read* -- `bytes_read`,
+    never above `byte_limit + 1`, because the window is sought from the end instead of the file being
+    loaded and sliced -- and how much is *published*, which each caller clips with `bound()`.  The
+    distinction matters because this runs on a failure path with a runner-side log that can be hundreds
+    of megabytes; a whole-file read there makes the cost of explaining a failure proportional to the
+    thing being explained, and a returned string that was clipped from a full read is not the same
+    guarantee as never reading past the window.
+
+    Because only a suffix is inspected, the result says which of the states it saw: `complete`,
+    `truncated`, `empty`, `absent`, `unreadable` or `skipped_unsafe_path`.  A caller must not describe
+    `truncated` as "the log", which is why the reason travels with the text rather than in a comment.
+    Nothing here raises for an environment condition: a log that vanishes, turns out to be a directory,
+    or refuses to open is recorded and the original lifecycle finding survives.
+    """
+    observed: dict = {"state": "unreadable", "bytes_read": 0, "size_bytes": None, "lines_returned": 0,
+                      "reason": "", "dropped_partial_first_line": False, "tail": ""}
+    if byte_limit <= 0:
+        raise ValueError("byte_limit must be a positive bound")  # a programming error, never an environment event
+    try:
+        if permitted_root is not None and not _is_within(path, permitted_root):
+            # The evidence boundary is the isolated lifecycle work root.  A name that resolves
+            # elsewhere -- a symlink, a Windows reparse point or junction, or a file replaced under
+            # the step between checks -- is not opened at all, because publishing its content would
+            # report data from outside the boundary this tool is allowed to read.
+            observed["state"] = "skipped_unsafe_path"
+            observed["reason"] = "resolves outside the permitted evidence root; not read"
+            return observed
+        with path.open("rb") as stream:
+            stream.seek(0, os.SEEK_END)
+            size = stream.tell()
+            observed["size_bytes"] = size
+            if size == 0:
+                observed["state"] = "empty"
+                return observed
+            start = max(0, size - byte_limit)
+            stream.seek(start)
+            data = stream.read(byte_limit + 1)  # one byte more, so growth past the window is detectable
+    except FileNotFoundError:
+        observed["state"] = "absent"
+        observed["reason"] = "no such file when the read was attempted"
+        return observed
+    except IsADirectoryError:
+        observed["reason"] = "not a regular file"
+        return observed
+    except OSError as exc:
+        # Classification, not transcription: an exception's own text can quote a path that carries a
+        # credential, and a traceback is unbounded, so the name and the codes are what get published.
+        observed["reason"] = bound(f"{type(exc).__name__}(errno={exc.errno}, "
+                                   f"winerror={getattr(exc, 'winerror', None)})", 160)
+        return observed
+    observed["bytes_read"] = len(data)
+    truncated = start > 0 or len(data) > byte_limit
+    if truncated:
+        data = data[-byte_limit:]  # keep the recent end; the older prefix is what the bound excludes
+    window = data.decode("utf-8", errors="replace").splitlines()
+    if start > 0 and len(window) > 1:
+        # A window that does not begin at byte 0 usually begins mid-line; the fragment is dropped so
+        # the published tail never looks like content the file did not have.
+        window = window[1:]
+        observed["dropped_partial_first_line"] = True
+    tail = window[-max(lines, 1):]
+    observed["lines_returned"] = len(tail)
+    observed["state"] = "truncated" if truncated else "complete"
+    if truncated:
+        observed["reason"] = (f"only the last {len(data)} of {size} bytes were read; "
+                             "older content was not inspected")
+    observed["tail"] = "\n".join(tail)
+    return observed
+
+
+def _tail(path: Path, lines: int = 40, *, byte_limit: int = LOG_TAIL_BYTES,
+          permitted_root: Path | None = None) -> str:
+    """The text form of :func:`_bounded_tail`, for callers that publish only the string.
+
+    Absent or unreadable still yields the empty string, as it did when this helper read the whole
+    file, and a clipped read announces itself inside the returned text so a suffix can never be
+    presented as the log.
+    """
+    observed = _bounded_tail(path, lines, byte_limit=byte_limit, permitted_root=permitted_root)
+    tail = observed["tail"]
+    if observed["state"] == "truncated" and tail:
+        return f"[{observed['reason']}] {tail}"
+    return tail
 
 
 def _is_within(child: Path, parent: Path) -> bool:
@@ -693,7 +817,8 @@ def _uninstall(uninstaller: Path, log: Path, install_dir: Path, runner: Runner, 
         if not install_dir.exists() or not snapshot(install_dir):
             break
         time.sleep(poll_interval)
-    evidence["diagnostics"]["uninstall_log"] = redact(_tail(log), [])
+    # install_dir.parent is the work root by construction, so the same boundary applies here.
+    evidence["diagnostics"]["uninstall_log"] = redact(_tail(log, permitted_root=install_dir.parent), [])
     # The exit code judges the uninstall *process*; whether the application files are
     # really gone is a separate claim, recorded by the install_files_removed step.
     return {"ok": completed.returncode == 0, "exit_code": completed.returncode,
