@@ -209,7 +209,8 @@
     "any byte-level re-verification of the published artifacts from this environment",
     "interactive installation, first run, restart and data retention on a real workstation",
     "SmartScreen, antivirus or corporate-policy behaviour of the unsigned installer",
-    "operator acceptance of any kind"
+    "operator acceptance of any kind",
+    "no re-run of the failed Windows lifecycle step on an unchanged SHA was possible: the rerun and workflow_dispatch endpoints are refused for this installation, so the instability is recorded rather than resolved"
   ],
   "corrections": [
     {
@@ -300,11 +301,12 @@
       ]
     },
     "local_verification": {
-      "focused": "tests/test_windows_release_evidence.py, tests/test_windows_release_gate_contract.py and tests/test_acceptance_report.py: 274 collected, 274 passed, 0 failed, 0 skipped",
-      "release_relevant_scope": "the Windows gate's own 27-module list, run locally with the pinned tools: 685 collected, 674 passed, 8 failed, 0 errors, 3 skipped. Every failure is `ImportError: libGL.so.1` from importing Qt in a container without the OpenGL libraries the CI image installs (libgl1/libegl1); the same set fails at the base commit with no local changes, and the three skips are the deliberate ones - real Windows bundle smoke and the two Qt chart/UI skips",
+      "focused": "tests/test_windows_release_evidence.py, tests/test_windows_release_gate_contract.py and tests/test_acceptance_report.py, measured on the tree of the gated code SHA: 274 collected, 274 passed, 0 failed, 0 skipped. Later record commits added guards of their own and the same suites now collect more tests; the count is stated with the tree it was taken on so it cannot be read as a claim about a different commit",
+      "release_relevant_scope": "the Windows gate's own 27-module list, run locally on that same tree: 685 collected, 674 passed, 8 failed, 0 errors, 3 skipped. Every failure is `ImportError: libGL.so.1` from importing Qt in a container without the OpenGL libraries the CI image installs (libgl1/libegl1); the same set fails at the base commit with no local changes, and the three skips are the deliberate ones - real Windows bundle smoke and the two Qt chart/UI skips",
       "ascii_locale": "the three release suites plus documentation-truth and packaging-smoke tests under PYTHONUTF8=0 LC_ALL=C: 297 collected, 295 passed, 0 failed, 2 skipped; the evidence tool also runs under the C locale",
       "lint": "`ruff check . --select E722,F821` at ruff==0.16.6: all checks passed. Debt ratchet over core/dialogs/tabs/tests: 5339 against the ceiling 5375 read from .github/ruff-debt-ceiling.txt - within budget, and explicitly not lint-clean. compileall over packaging and tests: clean. git diff --check: clean",
-      "authority": "these are Linux measurements of the release tooling; the GitHub Actions runs on the published SHA are the authority for Windows behaviour, and CI's environment is not this container's"
+      "authority": "these are Linux measurements of the release tooling; the GitHub Actions runs on the published SHA are the authority for Windows behaviour, and CI's environment is not this container's",
+      "note": "counts are measurements of a stated tree, not a promise about the commit that carries this text: a guard that pinned its own file's test count would move every time it was edited, which is why the checks on these strings are shape checks rather than literal numbers"
     },
     "internal_gates": {
       "verified_sha": "a742170cc55d1713546751afb692848914ce3c04",
@@ -316,7 +318,8 @@
       "this_commit_is_records_only": "the delta from the gated SHA to the record commits touches PRODUCTION_READINESS.md, this checkpoint, packaging/WINDOWS_RELEASE_ACCEPTANCE.md and this file's contract guard - four paths, none of them code or the workflow - so the tree the gates ran on is byte-identical to the final published tip where the release tooling is concerned; the runs triggered by the record commits are read back in the mission report rather than asserted here",
       "gates_on_earlier_candidates": "9cb12286a4eb61c7547cd0227996513b22d21227 remains recorded above as the previous gate-verified SHA; its results say nothing about this correction",
       "code_sha": "a742170cc55d1713546751afb692848914ce3c04",
-      "records_sha_preceding_this_commit": "9b6f4841fdc6bd1d745145d3e11a2ace70f8d0dd"
+      "records_sha_preceding_this_commit": "9b6f4841fdc6bd1d745145d3e11a2ace70f8d0dd",
+      "source_run_of_records_tip": "the source gate ran on each records commit too; its run on 6c4979f completed with conclusion success, and the Windows run on that SHA completed with conclusion failure at the lifecycle step"
     },
     "independent_artifact_reverification": {
       "verdict": "BLOCKED",
@@ -333,7 +336,7 @@
       "what_the_two_observations_now_mean": "this is the first run in which the import failure was actually observed rather than inferred, and it happens to corroborate what M42.5 had asserted on inadequate evidence. The two records are not the same kind of claim: the earlier one said a thing that turned out to be true without having measured it, this one measured it. The failure is an extended-type-data load error inside Windows PowerShell on this runner image, which is a host condition, not a repository configuration",
       "decision_applied": "a missing cmdlet with a refused import is a reason not to ask per-file questions, so the aggregate is UNKNOWN with that stated cause; it was not promoted to FAIL, not demoted to UNSIGNED, and no distribution decision was inferred",
       "signing_trust": "NOT_ESTABLISHED - packaging/DrillMaster.iss and packaging/build_windows.ps1 contain no SignTool and no SignedUninstaller entry (checked in the source: zero matches in either file), which is the configuration fact behind signing_configured_in_build=false, and no chain, timestamp or trust anchor was verified",
-      "lifecycle": "the lifecycle step concluded success with lifecycle=PASS on the gated SHA: installer digest verified before execution, silent install, credential-free frozen smoke run from the installed tree, uninstall, and {app} emptied, with install-tree additions, edits and deletions each recorded. This mission changed no lifecycle behaviour beyond reporting each PowerShell call's exit code as returned"
+      "lifecycle": "the lifecycle step concluded success with lifecycle=PASS on the gated code SHA a742170cc55d1713546751afb692848914ce3c04: installer digest verified before execution, silent install, credential-free frozen smoke run from the installed tree, uninstall, and {app} emptied, with install-tree additions, edits and deletions each recorded. This mission changed no lifecycle behaviour beyond reporting each PowerShell call's exit code as returned"
     },
     "packaging_dimensions_reconfirmed": {
       "installer_identity": "digest-matched -Setup.exe bound to its release-metadata entry; version cross-checked against core/version.py",
@@ -347,7 +350,7 @@
       "smartscreen_and_reputation": "NOT_CLAIMED, unchanged: no reputation or filter assertion is made anywhere"
     },
     "external_obligations_and_owner_decisions": {
-      "obligations": "REL-01 through REL-12 keep their states; external acceptance remains NOT_RUN - clean-machine install, interactive upgrade/uninstall, real DDR PDF and MinerU, production database, field validation and operator sign-off are not performed here. The synthetic workbook stays AUTOMATED_TEST_ONLY_NOT_REAL_DDR_ACCEPTANCE and the real bundle smoke stays skipped.",
+      "obligations": "REL-01 through REL-13 keep their states; external acceptance remains NOT_RUN - clean-machine install, interactive upgrade/uninstall, real DDR PDF and MinerU, production database, field validation and operator sign-off are not performed here. The synthetic workbook stays AUTOMATED_TEST_ONLY_NOT_REAL_DDR_ACCEPTANCE and the real bundle smoke stays skipped. REL-13 was opened by this mission for the runner-side lifecycle instability.",
       "owner_decisions": "A (signing material and a signing step), B (closing the UNKNOWN attribution), C (whether reproducibility is required) and D (portable-ZIP permission policy) remain the owner's. M42.6 changed what B can be decided on - the cause is now attributable - without deciding it.",
       "new_p_series_open_items": "NEW-P6-007, -008, -015, -020, -023 and -024 stay open as recorded; this mission touched none of them",
       "preserved_history": "M36 closure at 979691e, P6 accounting, and W5 PROVENANCE_EXTERNAL_SOURCE_UNAVAILABLE with 332 / 334 remain as recorded; no dated record was overwritten with this mission's state"
@@ -366,6 +369,13 @@
       "the corrected probe was exercised against fake PowerShell hosts and the published channels; its behaviour on a real Windows host is a gate observation, not a local one",
       "no signing was configured, performed or trusted here, and no owner decision was inferred from this correction",
       "the import failure is now observed on the gated SHA, but only for that runner image; it says nothing about a user's machine or a differently provisioned host"
-    ]
+    ],
+    "lifecycle_instability_observed": {
+      "what_happened": "the next records-only commit, 6c4979fce0abdef9a2823889345d24aa78ddef93, whose code and workflow are byte-identical to the gated SHA (its delta is four record and guard paths), produced a Windows run in which the lifecycle step failed: installed_files PASS, installed_version PASS, installed_smoke PASS with the install tree unchanged, data_outside_install_dir PASS, then silent_uninstall FAIL reading 'attempt 1: unins000.exe was listed but could not be launched (FileNotFoundError: [WinError 2] ...); install tree holds 0 file(s): nothing' and the second attempt after the two-second settle likewise refused",
+      "what_it_proves": "the install tree had emptied entirely between the smoke step's post-check and the uninstall - an external removal under the runner's own _temp root - which is the condition the retry was built to survive and the condition the second-refusal rule is built to fail on. The protections worked as specified; the environment did not cooperate",
+      "what_it_does_not_prove": "nothing about the packaging being wrong: the same bytes reached lifecycle=PASS on the previous commit, and no code changed between them. Nor does it identify the agent that removed the tree - attributing it to antivirus real-time protection would be a guess, and it stays one",
+      "response": "no threshold, retry count, empty-directory proof or second-refusal failure was relaxed. The run was reported as a failed gate for that SHA, the step-by-step conclusions were read back and recorded, and REL-13 was added to the acceptance register so the instability is an owner-visible obligation rather than a footnote. A re-run of the identical SHA was attempted first and is refused by this installation's permissions (the rerun and dispatch endpoints both answer 403 Resource not accessible by integration), so the only available route to a green Windows gate on a tip is another commit, which is why this record commit is followed by its own read-back in the mission report",
+      "consequence_for_the_verdict": "the release-engineering verdict is anchored on the code SHA, where both gates are green; the records tip's Windows result is stated as it was observed, and any claim that the final published SHA has both gates green must come from a run of that SHA, not from this paragraph"
+    }
   }
 }

@@ -967,9 +967,15 @@ def test_the_attribution_correction_is_kept_in_the_record_and_in_every_channel()
         "an observation that happens to agree with an earlier unproven claim is not the same kind of claim")
     assert "NOT_ESTABLISHED" in signing["signing_trust"]
     local = closure["local_verification"]
-    assert "274 collected, 274 passed" in local["focused"]
-    assert "685 collected" in local["release_relevant_scope"] and "libGL.so.1" in local["release_relevant_scope"], (
+    for claim in (local["focused"], local["release_relevant_scope"]):
+        collected = re.search(r"(\d+) collected, (\d+) passed, (\d+) failed", claim)
+        assert collected, "the local record must state its counts, not just its conclusions"
+        assert collected.group(1) == collected.group(2) or "libGL.so.1" in claim, (
+            "a shortfall is only acceptable when the record names the environmental cause")
+    assert "libGL.so.1" in local["release_relevant_scope"], (
         "an environmental failure must be named as one, with its count")
+    assert "measured on the tree of the gated code SHA" in local["focused"], (
+        "a count without the tree it was taken on is a number, not evidence")
     assert "5375" in local["lint"] and "not lint-clean" in local["lint"]
     assert closure["state_discovery_and_recovery"]["classification"].startswith("STATE-B")
     assert "no_destructive_command_used" in closure["state_discovery_and_recovery"]
@@ -1020,6 +1026,36 @@ def test_the_attribution_correction_is_kept_in_the_record_and_in_every_channel()
         assert field in evidence, f"{field} must be published by the generator"
     assert "Import outcome and command availability are separate observations" in flat(evidence), (
         "the rule has to travel with the fields, not live only in the test")
+
+
+def test_the_lifecycle_instability_is_recorded_without_relaxing_any_protection():
+    """A red gate on a records commit is written up, not explained away or softened.
+
+    The register row exists so the next reviewer sees that the lifecycle step can fail on identical
+    code, and the guards below exist so that seeing it cannot become a reason to drop the retry, the
+    empty-`{app}` proof, or the second-refusal failure.
+    """
+    runbook = (ROOT / "packaging" / "WINDOWS_RELEASE_ACCEPTANCE.md").read_text(encoding="utf-8")
+    assert "| REL-13 |" in runbook, "the instability needs an owner-visible row, not a footnote"
+    assert "install tree holds 0 file(s)" in runbook, (
+        "the diagnostic must distinguish an external removal from a launch failure")
+    assert "must not be relaxed to obtain green" in runbook
+    assert "re-run the identical SHA and record both attempts" in runbook, (
+        "the prescribed response has to be named, or the row invites a silent retry until green")
+
+    evidence = (ROOT / "packaging" / "windows_release_evidence.py").read_text(encoding="utf-8")
+    assert "for attempt in (1, 2):" in evidence, "exactly one bounded retry, no more"
+    assert "install tree holds" in evidence, "the tool must publish the tree state it observed"
+    assert "def install_tree_note" in evidence or "install_tree_note(" in evidence
+
+    payload = json.loads(M425_CHECKPOINT.read_text(encoding="utf-8"))
+    instability = payload["m42_6_release_closure"]["lifecycle_instability_observed"]
+    for key in ("what_happened", "what_it_proves", "what_it_does_not_prove", "response",
+                "consequence_for_the_verdict"):
+        assert instability[key], f"the finding is incomplete without {key}"
+    assert "no threshold" in instability["response"].lower()
+    assert "antivirus" in instability["what_it_does_not_prove"], "the suspicion must stay a suspicion"
+    assert "must come from a run of that SHA" in instability["consequence_for_the_verdict"]
 
 
 def test_m42_2_checkpoint_records_provenance_correction_without_claiming_ci_results():
