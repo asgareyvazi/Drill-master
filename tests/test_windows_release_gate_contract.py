@@ -170,6 +170,11 @@ def test_a_query_failure_keeps_its_reason_visible_in_the_published_evidence():
         "the profileless Windows PowerShell host does not auto-load the Security module - the runner "
         "proved it by reporting cmdlet=missing - so both the probe and the query must import it")
     assert '"module_import"' in evidence, "whether that import worked must itself be published"
+    assert "module_import=$(if ($imported) { 'succeeded' } else { 'failed' })" in evidence, (
+        "the import outcome must be computed from the resolved command; a literal would let the "
+        "record claim success the host never granted")
+    assert "$imported = [bool](Get-Command Get-AuthenticodeSignature" in evidence, (
+        "the value above must be derived from the same Get-Command the availability field uses")
     for failure in ("subprocess.TimeoutExpired", 'powershell could not be started',
                     "powershell invocation failed"):
         assert failure in evidence, (f"a shell that never answered ({failure}) used to escape as a traceback, "

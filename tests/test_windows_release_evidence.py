@@ -909,6 +909,43 @@ def test_an_empty_answer_is_published_with_the_stderr_that_explains_it(tmp_path)
         assert "trust provider" in item["status_message"], item["status_message"]
 
 
+def test_an_empty_answer_from_a_quiet_host_still_names_the_missing_field(tmp_path):
+    """Exit 0 plus a parseable payload is not an answer when the requested field is absent.
+
+    This is the shape of the first shipped run: no stderr at all, an empty Status, exit code zero.
+    Only the required-field rule makes that attributable, so it is pinned here separately from the
+    stderr path -- otherwise the guard could be deleted and the run would still look explained.
+    """
+    module = _evidence_module()
+    _, metadata, _ = _release(tmp_path / "release")
+    report = module.run_signing(release_metadata_path=metadata, runner=FakeHost(signature_status=""))
+    rows = [item for item in report["files"] if item["signature_bearing"]]
+    assert rows and all(item["status"] == "UNKNOWN" for item in rows)
+    for item in rows:
+        assert "without reporting Status" in item["status_message"], item["status_message"]
+        assert "exit code 0" in item["status_message"]
+        assert item["raw_status_recognized"] is False
+    assert report["status"] == "UNKNOWN"
+    module.validate_signing_document(report)
+
+
+def test_a_child_killed_mid_query_is_attributed_not_lost(tmp_path):
+    """A harness-level subprocess failure is a cause in the record, not a traceback."""
+    module = _evidence_module()
+    _, metadata, _ = _release(tmp_path / "release")
+
+    def host(argv, environment, cwd, timeout):
+        raise subprocess.SubprocessError("child process died before its output was collected")
+
+    report = module.run_signing(release_metadata_path=metadata, runner=host)
+    assert report["status"] == "UNKNOWN"
+    assert "powershell invocation failed" in report["harness"]["probe_error"]
+    assert "SubprocessError" in report["harness"]["probe_error"]
+    rows = [item for item in report["files"] if item["signature_bearing"]]
+    assert rows and all("invocation failed" in item["status_message"] for item in rows)
+    module.validate_signing_document(report)
+
+
 def test_a_statement_level_query_failure_reports_itself(tmp_path, capsys, monkeypatch):
     """A cmdlet error inside the script is now a cause in the record, not a silent empty field."""
     module = _evidence_module()
@@ -1102,3 +1139,101 @@ def test_the_console_summary_carries_the_reason_for_a_non_pass_state(tmp_path, m
     assert all("cannot find the file specified" in item["reason"] for item in printed["files"]
                if item["status"] == "UNKNOWN")
     assert printed["files"][0]["raw_status"] == ""
+
+
+@pytest.mark.parametrize("spelling, expected, recognized", [
+    ("   ", "UNKNOWN", False),
+    ("NotSigned   ", "UNSIGNED", True),
+    ("  valid", "PASS", True),
+    (None, "UNKNOWN", False),
+    (17, "UNKNOWN", False),
+])
+def test_a_raw_status_is_read_after_padding_and_case_only(spelling, expected, recognized):
+    """Windows pads and capitalizes; nothing else may change the mapping, and a non-string answer
+    is not evidence of anything."""
+    release_meta = _release_metadata_module()
+    assert release_meta.normalize_authenticode_status(spelling) == (expected, recognized)
+
+
+@pytest.mark.parametrize("mutation, fragment", [
+    (lambda d: d.update(signing_configured_in_build="yes"), "must be a boolean"),
+    (lambda d: d.update(credentials_available=None), "must be a boolean"),
+    (lambda d: d.update(examined_count=-1), "non-negative integer"),
+    (lambda d: d.update(examined_count=True), "non-negative integer"),
+    (lambda d: d.update(archive_count=1.5), "non-negative integer"),
+    (lambda d: d.update(source_sha="a" * 39), "full source SHA"),
+    (lambda d: d.update(source_sha="A" * 40), "full source SHA"),
+    (lambda d: d.update(release_metadata_sha256="B" * 64), "SHA-256 of the manifest"),
+    (lambda d: d.update(files=[]), "at least one published file"),
+    (lambda d: d["files"][0].update(filename="sub/DrillMaster.exe"), "bare file name"),
+    (lambda d: d["files"][0].update(filename=""), "bare file name"),
+    (lambda d: d["files"][0].update(size_bytes=-5), "negative or non-integer size_bytes"),
+    (lambda d: d["files"][0].update(size_bytes="2048"), "negative or non-integer size_bytes"),
+    (lambda d: d["files"][0].update(signature_bearing="true"), "signature_bearing as a boolean"),
+    (lambda d: d["files"][0].update(status=None), "outside the per-file vocabulary"),
+    (lambda d: d["files"][0].update(sha256=None), "malformed SHA-256"),
+    (lambda d: d["files"][0].update(unreported_field=1), "unknown field"),
+    (lambda d: d["files"][0].update(status="UNKNOWN", status_message="   "), "UNKNOWN without a reason"),
+    (lambda d: d["files"][1].update(container_member="Other.exe"), "which is a different file"),
+    (lambda d: d["files"][1].update(container_archive_sha256="C" * 64), "malformed container digest"),
+    (lambda d: d["files"][1].update(container_archive=""), "incomplete container provenance"),
+    (lambda d: d.update(policy=1), None),
+])
+def test_the_validator_refuses_every_shape_of_record_the_contract_forbids(tmp_path, mutation, fragment):
+    """Type, count, naming and provenance guards are contract clauses, not decoration.
+
+    These are the refusals a hand-edited or truncated record would hit.  The last case records
+    the deliberate limit of the contract: a top-level field outside the vocabulary (here ``policy``,
+    which is free text) is not type-checked, because the schema's job is the statuses, digests,
+    counts and bindings a gate acts on -- and that boundary is a decision, not an oversight.
+    """
+    import copy
+
+    module = _evidence_module()
+    release_meta = _release_metadata_module()
+    _, metadata, _ = _release(tmp_path / "release")
+    document = module.run_signing(release_metadata_path=metadata, runner=FakeHost())
+    release_meta.validate_signing_document(document)  # the fixture itself is valid
+    tampered = copy.deepcopy(document)
+    mutation(tampered)
+    if fragment is None:
+        assert release_meta.validate_signing_document(tampered)["policy"] == 1
+        return
+    with pytest.raises(ValueError, match=fragment):
+        release_meta.validate_signing_document(tampered)
+
+
+@pytest.mark.parametrize("mutation, fragment", [
+    (lambda d: d.update(files=[d["files"][0]], examined_count=0), "cannot also carry per-file findings"),
+    (lambda d: d.update(examined_count=1), "zero examined_count"),
+    (lambda d: d.update(archive_count=3), "zero archive_count"),
+    (lambda d: d.update(reason=""), "must carry a bounded reason"),
+    (lambda d: d.update(reason="x" * 700), "exceeded the bound"),
+    (lambda d: d.update(signing_configured_in_build="no"), "must be a boolean"),
+])
+def test_a_not_run_record_stays_degenerate(tmp_path, mutation, fragment):
+    """"Windows never ran" is allowed to be thin, but it is not allowed to be slippery."""
+    import copy
+
+    module = _evidence_module()
+    release_meta = _release_metadata_module()
+    _, metadata, _ = _release(tmp_path / "release")
+    document = module.run_signing(release_metadata_path=metadata, runner=FakeHost())
+    base = copy.deepcopy(document)
+    base.update({"status": "NOT_RUN", "files": [], "examined_count": 0, "archive_count": 0,
+                 "reason": "Authenticode verification requires a Windows host"})
+    base.pop("release_metadata_sha256", None)
+    base.pop("source_sha", None)
+    release_meta.validate_signing_document(base)
+
+    def with_row(row):
+        def mutate(payload):
+            payload["files"] = [copy.deepcopy(row)]
+        return mutate
+
+    if fragment == "cannot also carry per-file findings":
+        mutation = with_row(document["files"][0])
+    tampered = copy.deepcopy(base)
+    mutation(tampered)
+    with pytest.raises(ValueError, match=fragment):
+        release_meta.validate_signing_document(tampered)

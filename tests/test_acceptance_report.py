@@ -817,3 +817,28 @@ def test_a_full_pass_publishes_every_mandatory_dimension(tmp_path):
                                  lifecycle_report_path=root / "installer-lifecycle.json")
     for name in ("INSTALLED_LIFECYCLE_PASS", "FROZEN_SMOKE_PASS", "INSTALLER_COMPILATION_PASS"):
         assert name in report["decision"], name
+
+
+@pytest.mark.parametrize("body, fragment", [
+    ('{"status": "UNSIGNED", "files": [', "unreadable or malformed"),
+    ("", "unreadable or malformed"),
+    # Structurally valid JSON of the wrong shape is a schema refusal, not a parse failure: the two
+    # messages stay distinguishable because only one of them says "the bytes arrived broken".
+    ("[]", "must be a JSON object"),
+    ("Not JSON at all\n", "unreadable or malformed"),
+])
+def test_a_corrupt_signing_record_on_disk_is_refused_not_reread(tmp_path, body, fragment):
+    """A truncated or replaced file must never be reinterpreted into a friendlier state.
+
+    This is the shape a partially-downloaded artifact takes, and it is also what a hand-edited
+    record looks like when the editor breaks the syntax; either way the report has no authority
+    to guess what the file said.
+    """
+    module = _report_module()
+    root = _release_root(tmp_path)
+    _signing_document(root)
+    (root / "signing-status.json").write_text(body, encoding="utf-8")
+    with pytest.raises(module.ReportError, match=fragment):
+        module.build_report(metadata_path=root / "release-metadata.json",
+                            junit_path=_junit(tmp_path, PASSING_JUNIT), source_sha="a" * 40,
+                            signing_report_path=root / "signing-status.json")
