@@ -12,8 +12,10 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -58,6 +60,9 @@ class FakeHost:
                  run_returncode: int | None = None, raise_on_call: int | None = None,
                  remove_uninstaller_during_smoke: bool = False,
                  unlaunchable_uninstall_attempts: int = 0, unlink_uninstaller_on_refusal: bool = False,
+                 take_away_install_dir_before_launch: bool = False, uninstall_refusal_error: Exception | None = None,
+                 uninstall_log_text: str = "", empty_install_dir_on_refusal: bool = False,
+                 uninstaller_lock_clears_after: float | None = None,
                  module_import_result: str | None = "succeeded", module_import_error: str = "",
                  probe_omits_cmdlet: bool = False):
         self.install_exit_code = install_exit_code
@@ -87,6 +92,12 @@ class FakeHost:
         self.probe_omits_cmdlet = probe_omits_cmdlet
         self.unlaunchable_uninstall_attempts = unlaunchable_uninstall_attempts
         self.unlink_uninstaller_on_refusal = unlink_uninstaller_on_refusal
+        self.take_away_install_dir_before_launch = take_away_install_dir_before_launch
+        self.empty_install_dir_on_refusal = empty_install_dir_on_refusal
+        self.uninstaller_lock_clears_after = uninstaller_lock_clears_after
+        self.first_refusal_monotonic: float | None = None
+        self.uninstall_refusal_error = uninstall_refusal_error
+        self.uninstall_log_text = uninstall_log_text
         self.calls: list[list[str]] = []
         self.envs: list[dict | None] = []
 
@@ -146,6 +157,34 @@ class FakeHost:
             # application ran; the lifecycle must describe that, not lose it in a FileNotFoundError.
             (Path(argv[0]).parent / "unins000.exe").unlink(missing_ok=True)
         if program == "unins000.exe":
+            if self.uninstall_log_text:
+                # A log Inno Setup wrote during an earlier pass: the only trace that survives an
+                # uninstaller that deletes itself, and the fact that separates "already uninstalled"
+                # from "never present".
+                _arg_value(argv, "/LOG=").write_text(self.uninstall_log_text, encoding="utf-8")
+            if self.take_away_install_dir_before_launch:
+                shutil.rmtree(Path(argv[0]).parent, ignore_errors=True)
+                raise FileNotFoundError(2, "The system cannot find the file specified")
+            if self.empty_install_dir_on_refusal:
+                # What a completed uninstall looks like when it then deletes itself: the directory
+                # and its own log survive, every application file does not.
+                for path in sorted(Path(argv[0]).parent.rglob("*")):
+                    if path.is_file():
+                        path.unlink()
+                raise FileNotFoundError(2, "The system cannot find the file specified")
+            if self.uninstall_refusal_error is not None:
+                raise self.uninstall_refusal_error
+            if self.uninstaller_lock_clears_after is not None:
+                # A real lock or scan clears in seconds; the settle is what makes the difference
+                # between "busy" and "gone".  Timing is measured, not scripted, so a lifecycle that
+                # re-lists instantly cannot pass this.
+                now = time.monotonic()
+                if self.first_refusal_monotonic is None:
+                    self.first_refusal_monotonic = now
+                    raise FileNotFoundError(2, "The process cannot access the file because it is being used")
+                if now - self.first_refusal_monotonic < self.uninstaller_lock_clears_after:
+                    raise FileNotFoundError(2, "The process cannot access the file because it is being used")
+                self.uninstall_exit_code = self.uninstall_exit_code  # the lock released: uninstall proceeds
             if self.unlaunchable_uninstall_attempts > 0:
                 # The file is listed and the OS will not start it: what an uninstaller under
                 # antivirus quarantine looks like from userspace.
@@ -1077,8 +1116,14 @@ def test_an_uninstaller_that_vanishes_mid_lifecycle_is_described_not_lost(tmp_pa
     uninstall = _step(report, "silent_uninstall")
     assert uninstall["status"] == "FAIL"
     assert "and is absent now" in uninstall["detail"], uninstall["detail"]
-    assert "install tree holds 1 file(s): DrillMaster.exe" in uninstall["detail"]
+    assert "install tree holds 1 file(s) (directory present): DrillMaster.exe" in uninstall["detail"]
+    # the sample behind that sentence is published too, so the claim is not just prose
+    sample = report["diagnostics"]["uninstall_forensics"]["uninstaller_absent_before_launch"]
+    assert sample["install_dir"]["is_dir"] is True and sample["install_dir_entries"]["count"] == 1
+    assert sample["uninstaller"]["exists"] is False and sample["uninstall_log"]["exists"] is False
     assert "installer log tail" in uninstall["detail"]
+    assert "Setup process started." in uninstall["detail"], "the tail is the point, not the label"
+    assert "Setup process started" in sample["install_log"]["tail"]
     # and the smoke step must have recorded the disappearance it witnessed
     smoke = report["installed_smoke"]
     assert smoke["deleted_files_in_install_dir"] == ["unins000.exe"]
@@ -1117,8 +1162,10 @@ def test_a_permanently_unlaunchable_uninstaller_still_fails_the_lifecycle(tmp_pa
                                   poll_interval=0.001, settle_seconds=0.05)
     assert report["status"] == "FAIL"
     detail = _step(report, "silent_uninstall")["detail"]
-    assert "attempt 1:" in detail and "attempt 2:" in detail
-    assert "install tree holds" in detail
+    assert "attempt 1:" in detail and "attempt 2:" in detail, detail
+    # the detail is clipped to the diagnostic bound, so the tree prose lives in the notes beside it
+    notes = report["uninstall_launch_notes"]
+    assert "install tree holds 2 file(s) (directory present): DrillMaster.exe, unins000.exe" in notes
     assert "uninstall_launch_recovered" not in report
 
 
@@ -1133,7 +1180,170 @@ def test_an_uninstaller_deleted_after_the_refusal_is_recorded_as_gone(tmp_path):
     assert report["status"] == "FAIL"
     detail = _step(report, "silent_uninstall")["detail"]
     assert "the uninstaller is gone" in detail, detail
-    assert "install tree holds" in detail
+    assert "install tree holds" in report["uninstall_launch_notes"]
+
+
+# --- M42.7: the shapes a launch refusal can stand for, told apart by what was sampled --
+
+
+def _forensics(report: dict, label: str) -> dict:
+    block = report["diagnostics"]["uninstall_forensics"]
+    assert label in block, f"{label} missing from {sorted(block)}"
+    return block[label]
+
+
+def _lifecycle(tmp_path, host, name="work"):
+    module = _evidence_module()
+    installer, _, digest = _release(tmp_path / "release")
+    return module.run_lifecycle(installer=installer, expected_sha256=digest, app_version="1.0.0",
+                                work_root=tmp_path / name, runner=host,
+                                poll_interval=0.001, settle_seconds=0.05)
+
+
+def test_a_removed_install_tree_is_told_apart_from_an_emptied_one(tmp_path):
+    """Two failures leave an empty install directory; the sample says which of them it was.
+
+    The Windows gate run on the M42.6 records published "install tree holds 0 file(s): nothing", a
+    sentence that fits three events: the directory was taken away, an uninstall really ran and
+    removed the uninstaller with it, or the files were never created.  Nothing in the record could
+    separate them, so the anomaly could be neither repeated nor dismissed.  The parent directory, the
+    work root, the file counts and the uninstaller's own log are now read at the instant of the
+    refusal, which is the only moment the distinction is observable.
+    """
+    taken = _lifecycle(tmp_path, FakeHost(take_away_install_dir_before_launch=True))
+    assert taken["status"] == "FAIL" and _step(taken, "silent_uninstall")["status"] == "FAIL"
+    sample = _forensics(taken, "after_refusal_1")
+    assert sample["install_dir"]["exists"] is False and sample["install_dir"]["is_dir"] is False
+    assert sample["parent_dir"]["is_dir"] is True, "only the install tree is gone, not the runner's temp root"
+    assert sample["work_root"]["is_dir"] is True
+    assert sample["uninstaller"]["exists"] is False and sample["install_dir_entries"]["count"] == 0
+    assert sample["uninstall_log"]["exists"] is False, "no completed uninstall is claimed by an absent log"
+    assert "dir=absent" in _step(taken, "silent_uninstall")["detail"]
+
+    emptied = _lifecycle(tmp_path, FakeHost(empty_install_dir_on_refusal=True,
+                                            uninstall_log_text="Uninstall process started.\n"
+                                                               "Uninstall process finished.\n"),
+                         name="work2")
+    assert emptied["status"] == "FAIL"
+    other = _forensics(emptied, "after_refusal_1")
+    assert other["install_dir"]["is_dir"] is True, "the directory survives a real uninstall"
+    assert other["install_dir_entries"]["count"] == 0 and other["uninstaller"]["exists"] is False
+    assert other["uninstall_log"]["exists"] is True and "Uninstall process finished." in other["uninstall_log"]["tail"]
+    assert other["sentinel"]["exists"] is True, "user data outside {app} is not evidence of an uninstall"
+    assert "dir=present" in _step(emptied, "silent_uninstall")["detail"]
+    assert "uninslog=present" in _step(emptied, "silent_uninstall")["detail"]
+    assert "uninslog=present" in emptied["uninstall_launch_notes"]
+    assert "after a 2 second settle the uninstaller is gone" in emptied["uninstall_launch_notes"]
+
+
+def test_an_unexplained_refusal_is_recorded_as_unexplained(tmp_path):
+    """A refusal with the whole tree intact is its own finding, and it is not attributed to anything.
+
+    This is the shape the two M42.6 gate runs produced.  Everything the step can see says the
+    uninstaller is there -- listed, non-zero size, hashable -- and the launch still refuses, so the
+    record keeps the observation and says plainly that the cause is outside what an unprivileged
+    process can read.  Naming antivirus, a lock, or a race here would be a guess dressed as a result.
+    """
+    report = _lifecycle(tmp_path, FakeHost(unlaunchable_uninstall_attempts=2))
+    assert report["status"] == "FAIL"
+    sample = _forensics(report, "after_refusal_1")
+    assert sample["install_dir"]["is_dir"] is True and sample["install_dir_entries"]["count"] == 2
+    assert sample["uninstaller"]["is_file"] is True and sample["uninstaller"]["size_bytes"] > 0
+    assert sample["uninstaller"]["sha256"] == hashlib.sha256(b"uninstaller").hexdigest()
+    assert sample["launch_error"]["class"] == "FileNotFoundError" and sample["launch_error"]["errno"] == 2
+    assert sample["host_side_evidence"].startswith("host-side evidence is not collected")
+    assert "cause" not in sample, "no cause field may be invented"
+    detail = _step(report, "silent_uninstall")["detail"]
+    assert "settle: the uninstaller is still listed" in detail, detail
+    assert "after a 2 second settle the uninstaller is still listed" in report["uninstall_launch_notes"]
+    assert "attempt 1:" in _step(report, "silent_uninstall")["detail"]
+
+
+def test_the_launch_error_codes_come_from_the_exception(tmp_path):
+    """errno and winerror are copied, never read off the message, and no retry is invented for them."""
+    refusal = PermissionError(5, "Access is denied")
+    refusal.winerror = 5
+    target = tmp_path / "work" / "install" / "unins000.exe"
+    refusal.filename = str(target)
+    report = _lifecycle(tmp_path, FakeHost(uninstall_refusal_error=refusal))
+    assert report["status"] == "FAIL"
+    detail = _step(report, "silent_uninstall")["detail"]
+    assert detail.startswith("PermissionError"), detail
+    assert "launch=PermissionError (errno=5,winerror=5)" in detail, detail
+    sample = _forensics(report, "launch_error_PermissionError")
+    assert sample["launch_error"] == {"class": "PermissionError", "errno": 5, "winerror": 5,
+                                      "filename": str(target), "filename2": "",
+                                      "message": str(refusal)[:300]}
+    assert "uninstall_launch_notes" not in report, "a non-retryable refusal must not look like a retry"
+
+
+def test_the_forensic_sample_is_redacted_like_every_other_diagnostic(tmp_path, secret_in_environment):
+    """An uninstaller log can echo an environment value, so its tail passes through the same filter."""
+    report = _lifecycle(tmp_path, FakeHost(unlaunchable_uninstall_attempts=2,
+                                           uninstall_log_text="Setup found DRILLMASTER_ADMIN_PASSWORD="
+                                                              "hunter2-super-secret in the environment.\n"))
+    assert _step(report, "installed_smoke")["status"] == "PASS", "the log tail is the only new channel"
+    sample = _forensics(report, "after_refusal_1")
+    assert "[REDACTED]" in sample["uninstall_log"]["tail"]
+    assert "hunter2-super-secret" not in json.dumps(report)
+
+
+def test_a_transient_lock_is_distinguished_from_a_gone_file_by_the_settled_retry(tmp_path):
+    """The settle is a real wait, not a re-listing microsecond later, and the fake can tell.
+
+    A lock or scan that releases is a different event from a deleted uninstaller, and the single
+    bounded retry is what separates them.  If the wait were dropped the second launch would be
+    instant and the run would fail; the recovery note would still read correctly, so the assertion is
+    about the outcome, not the wording.
+    """
+    report = _lifecycle(tmp_path, FakeHost(uninstaller_lock_clears_after=1.5))
+    assert report["status"] == "PASS", _step(report, "silent_uninstall")["detail"]
+    assert "was listed but could not be launched" in report["uninstall_launch_recovered"]
+    assert "after a 2 second settle the uninstaller is still listed" in report["uninstall_launch_recovered"]
+    assert _forensics(report, "after_refusal_1")["launch_error"]["errno"] == 2
+    assert _forensics(report, "after_settle")["uninstaller"]["is_file"] is True
+
+
+def test_a_log_tail_is_bounded_and_says_so(tmp_path):
+    """A 16 KB log contributes at most its bounded tail, and the reader is told about the elision.
+
+    `bound` is the only thing keeping a runner-side log from becoming a dump in the published record,
+    so the cap is asserted as a value and as behaviour -- including the elision marker, which is what
+    distinguishes clipped from complete.
+    """
+    module = _evidence_module()
+    assert module.MAX_FORENSIC_HASH_BYTES == 64 * 1024 * 1024, "the hashing bound is policy, not a default"
+    verbose = "".join(f"line {index} of the uninstaller log {'x' * 100}\n" for index in range(400))
+    report = _lifecycle(tmp_path, FakeHost(unlaunchable_uninstall_attempts=2, uninstall_log_text=verbose))
+    tail = _forensics(report, "after_refusal_1")["uninstall_log"]["tail"]
+    assert len(tail) <= 480, len(tail)
+    assert "characters elided" in tail
+    assert tail.rstrip().endswith("line 399 of the uninstaller log " + "x" * 100), "the last line survives clipping"
+    assert "line 394 of" in tail and "line 0 of" not in tail, "the six most recent lines are the sample"
+
+
+def test_a_green_lifecycle_records_one_baseline_sample_and_still_cleans_up(tmp_path):
+    """The extra observation costs a passing run nothing, and the work root is still removed."""
+    report = _lifecycle(tmp_path, FakeHost())
+    assert report["status"] == "PASS"
+    block = report["diagnostics"]["uninstall_forensics"]
+    assert list(block) == ["pre_launch"], block
+    assert block["pre_launch"]["uninstaller"]["sha256"] == hashlib.sha256(b"uninstaller").hexdigest()
+    assert block["pre_launch"]["install_dir"]["is_dir"] is True
+    assert not (tmp_path / "work").exists(), "evidence is captured before the work root is deleted"
+
+    def leaves(value):
+        if isinstance(value, dict):
+            for item in value.values():
+                yield from leaves(item)
+        elif isinstance(value, list):
+            for item in value:
+                yield from leaves(item)
+        else:
+            yield value
+
+    assert all(len(item) <= 400 for item in leaves(block) if isinstance(item, str))
+    json.dumps(block)  # publishable: no live paths or handles in the record
 
 
 @pytest.mark.parametrize("raw, expected, recognized", [

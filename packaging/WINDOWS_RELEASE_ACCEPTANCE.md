@@ -168,6 +168,54 @@ clean-machine behaviour, UAC/elevation experience on a workstation, an upgrade o
 *different* installers, and is never simulated by running one installer twice), retention of a real operator profile, or operator
 acceptance.  Those remain the manual procedure below.
 
+### Lifecycle failure forensics (M42.7)
+
+Two exact-SHA gate runs of byte-identical packaging code disagreed about the uninstall: `a742170`
+passed every lifecycle step, while `6c4979f` failed `silent_uninstall` with `WinError 2` after the
+pre-launch listing had already said `unins000.exe` was there.  The published detail for the failure was
+`install tree holds 0 file(s): nothing`, and the difficulty is exactly that sentence: a directory that
+was deleted, a directory that an uninstall emptied, and a tree that was never populated all render the
+same way, because `snapshot()` reports an empty mapping for a missing path and for an empty one.  The
+record therefore could neither reproduce the event nor dismiss it.
+
+The lifecycle step now samples the filesystem at each point of use and publishes the samples under
+`installer-lifecycle.json` -> `diagnostics.uninstall_forensics`, keyed by the moment they were taken:
+
+* `pre_launch` - before the first launch attempt, on every run, green included;
+* `uninstaller_absent_before_launch` - when the pre-check itself finds the uninstaller gone;
+* `after_refusal_1` / `after_refusal_2` - immediately after each refused launch, carrying the
+  `FileNotFoundError` (or other) `errno` and `winerror` read off the exception object;
+* `after_settle` - after the single bounded 2-second settle and re-listing;
+* `launch_error_<ExceptionName>` - for a refusal that is not a missing file.
+
+Each sample holds, for the work root, the install directory, its parent, and the uninstaller: whether
+the path resolves, whether it exists, whether it is a file or a directory, size and modification time,
+the device and inode the OS reported, and - on Windows only - `st_file_attributes` with a
+`reparse_point` flag (a symlink or junction reparse point is recorded as such, never followed
+silently).  The uninstaller's SHA-256 is computed while it is still present, so "listed, hashed, then
+refused" is distinguishable from "a zero-length file the OS will not start"; files above the 64 MB
+bound are reported as unhashed rather than skipped silently.  The install tree's entry count and first
+eight names, the existence, size and bounded tail of the installer and uninstaller logs, and whether
+the user-data sentinel survived, complete the sample.  Together these distinguish every case the mission
+named: never present; present and refused for another reason; present and then gone; the parent or work
+root gone; emptied by an uninstall that really ran (its log survives even when the uninstaller does
+not); or cause undetermined at the permissions available.
+
+Two limits are recorded rather than papered over.  The step is `bound` and redacted like every other
+diagnostic - `_redact_tree` removes bootstrap credential values from log tails, no environment is
+dumped, and no path content beyond the uninstaller digest is published - and `host_side_evidence`
+states that no Windows event log, Defender quarantine record or security-audit entry is read, because
+those need privileges the gate does not have and must not have.  An external removal can therefore be
+observed and bounded, never attributed: naming antivirus as the cause of `6c4979f` would be a guess
+wearing the gate's formatting.
+
+On the current tip (`8f71beb`, records-only delta over the failing run's ancestry) the same code passed
+lifecycle, so the failure did not reproduce and no code defect was found in the lifecycle logic: the
+retry policy, the single bounded settle, the refusal to launch a second time once the file is gone, the
+`{app}`-emptied requirement and the exit-code-is-not-success rule all behaved as specified, which is why
+they are unchanged here.  The diagnostics exist so that the *next* occurrence is attributable from the
+published record alone, and REL-13 stays `OPEN` until it is.
+
 ### Signature status (M42.2; evidence binding corrected in M42.3; record contract and diagnostics hardened in M42.4)
 
 `python packaging\windows_release_evidence.py signing --release-metadata <release-metadata.json> --json-out <signing-status.json>`
@@ -370,7 +418,7 @@ green Windows gate proves the rows marked *automation* only; every other row sta
 | REL-01 | Internal packaging gate on the exact SHA | final commit pushed | Source and Windows workflow runs whose `headSha` equals that SHA | both conclusions `success` on the identical SHA | any other SHA, a cancelled run, or a run whose annotation cannot be read | repository maintainer | automation only; see the mission report for the current SHA |
 | REL-02 | Distribution trust (code signing) | Decision A below | certificate or hosted-signing procurement, `SignTool` configuration, a `PASS` aggregate in `signing-status.json` | every examined executable reports `PASS` with a signer whose chain the target machines trust | `UNSIGNED` (policy), `FAIL` (broken/untrusted chain), `UNKNOWN` (unattributable) all remain open | product owner | `OWNER_DECISION` |
 | REL-03 | Signature-state attribution closed | next exact-SHA run after M42.4 | `signing-status.json` `harness` block and the per-file `status_message`, readable from the annotation | the aggregate is `UNSIGNED`/`PASS`/`FAIL` - a determinate state - or `UNKNOWN` with a stated cause | a bare `UNKNOWN` with no reason is still the open blocker | repository maintainer | every exact-SHA record since `58b3912` states a cause, and since M42.6 it states the right one: the published `module_import=failed` was the command lookup renamed, not an import failure - the corrected fields are `security_module_import`, `cmdlet_available`, `probe_usable` (see *Reading the cause of a signature state*); closure remains the maintainer's |
-| REL-04 | Artifact byte-integrity re-verification | the downloaded CI artifact | the procedure above, run on the operator's machine | `MATCH` for both artifacts and no `SUMS DIFFERENCE` | any `MISMATCH`, or no independent run at all | reviewer holding the download | `NOT_RUN` in-repository (`NOT_VERIFIED` in the report) |
+| REL-04 | Artifact byte-integrity re-verification | the downloaded CI artifact | the procedure above, run on the operator's machine | `MATCH` for both artifacts and no `SUMS DIFFERENCE` | any `MISMATCH`, or no independent run at all | reviewer holding the download | `NOT_RUN` in-repository (`NOT_VERIFIED` in the report).  Recorded 2026-10-11: an **external** reviewer ran the procedure above on the artifact published by source `a742170` (GitHub artifact `11696022238` of run `38122859040`, 321705858 bytes) and reported `MATCH` - outer container digest `3b85db6b0088ddde67bd3f2fc341f095874c03a3c37c368660343efc5a436b6d`, manifest `drillmaster-release-artifacts/v2` at `1.0.0`, installer `83259119B / b0676066d77ecbe0...17d40aba`, portable bundle `119941398B / 6e0e56580a6beb8d...c0f3586b`, `SHA256SUMS.txt` equal to the manifest entry set, signing-record manifest digest `e0170a4f3cc1821d2a953c4a4817f651f66e6d01e0838070779c2ad28547e756`, inner `DrillMaster.exe 21218228B / d143c8a33be8991325b21c6a6075bb812843be18ad0c93ad0728e51432d3ec2b`, both archives CRC-clean with no unsafe paths, symlinks, case collisions or special modes, one executable member, `UNKNOWN` signature aggregate agreeing with the manifest, nine PASS lifecycle steps, and `secret_leak_detected=false`.  That is `MATCH` for **those bytes only**: this workspace could not download them (the artifact host resets the TLS handshake), so no in-repository verification is claimed, the tip's artifact `11696578929` is unverified, and the report for the built artifact keeps `independent_reverification=NOT_VERIFIED`, which is correct for its own build |
 | REL-05 | Reproducibility requirement | Decision C below | either a claim with two independent builds compared byte-for-byte, or the recorded `NOT_CLAIMED` | an explicit owner position, recorded in this file | a `PASS` gate silently read as reproducibility | product owner | `OWNER_DECISION` |
 | REL-06 | POSIX permission policy | Decision D below | a documented position on mode bits for the portable ZIP on non-Windows extraction | recorded policy statement | absence of a statement | product owner | `OWNER_DECISION` |
 | REL-07 | Clean-machine interactive install | a disposable Windows 10/11 x64 VM | the procedure under "Interactive installation procedure", with the VM image and installer SHA recorded | install, first run, sign-in, restart, and data-outside-`{app}` all confirmed by a named operator | any step unexecuted | field/QA owner | `NOT_RUN` |
@@ -379,7 +427,7 @@ green Windows gate proves the rows marked *automation* only; every other row sta
 | REL-10 | Real DDR PDF and MinerU acceptance | a licensed MinerU environment outside this repository | import of a real PDF with the opt-in path enabled | extracted fields reviewed against the source document | not provided or exercised by the Windows workflow | business/technical owner | `NOT_RUN` |
 | REL-11 | Production database and field validation | approved test/prod separation, operator time | restore, concurrency, and field use on target hardware | operator sign-off naming the environment and SHA | no repository automation can substitute | operations owner | `NOT_RUN` |
 | REL-12 | Open P6 owner decisions | none (they are decisions, not defects) | the six register entries carried forward from M36 | each decision recorded with its rationale | `NEW-P6-007`, `NEW-P6-008`, `NEW-P6-015`, `NEW-P6-020`, `NEW-P6-023`, `NEW-P6-024` remain open | product owner | `OWNER_DECISION` |
-| REL-13 | Windows lifecycle step stability on the release runner family | any exact-SHA gate run | the `Installed-application lifecycle smoke` step conclusion together with `installer-lifecycle.json`, whose `silent_uninstall` detail carries the attempt count and the install-tree state at each attempt | the step concludes success on the SHA under review, with every recorded step PASS and `{app}` emptied | a step that fails after the recorded retry while an earlier run of byte-identical code passed is an environment condition on the runner, not a packaging pass: it stays open until the same SHA is re-run green or the instability is explained; the protections must not be relaxed to obtain green | repository maintainer with the infrastructure owner | `OPEN` (on `6c4979f` the install tree had emptied to 0 files before the uninstall was launched, while `a742170` - identical code, records-only delta - passed) |
+| REL-13 | Windows lifecycle step stability on the release runner family | any exact-SHA gate run | the `Installed-application lifecycle smoke` step conclusion together with `installer-lifecycle.json`, whose `silent_uninstall` detail carries the attempt count and the install-tree state at each attempt, and (from M42.7) `diagnostics.uninstall_forensics`, which samples the work root, the install directory, its parent and the uninstaller - existence, type, size, mtime, reparse-point attributes, digest, log tails, entry count and the exception's `errno`/`winerror` - at `pre_launch`, at each refusal, and after the settle | the step concludes success on the SHA under review, with every recorded step PASS and `{app}` emptied | a step that fails after the recorded retry while an earlier run of byte-identical code passed is an environment condition on the runner, not a packaging pass: it stays open until the same SHA is re-run green or the instability is explained; the protections must not be relaxed to obtain green | repository maintainer with the infrastructure owner | `OPEN` (on `6c4979f` the install tree had emptied to 0 files before the uninstall was launched, while `a742170` - identical code, records-only delta - passed; recorded 2026-10-11: the published sentence could not separate an emptied tree from a removed one, the gate now samples both shapes as above, and the failure did not reproduce on `8f71beb`, where the same code passed lifecycle, so the cause stands as undetermined at the permissions the gate has and no protection was relaxed to reach that conclusion) |
 
 ## Interactive installation procedure (manual; NOT automated by the workflow)
 

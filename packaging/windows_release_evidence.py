@@ -235,6 +235,154 @@ def snapshot(directory: Path) -> dict[str, int]:
     return entries
 
 
+MAX_FORENSIC_HASH_BYTES = 64 * 1024 * 1024
+FORENSIC_NOTE = ("host-side evidence is not collected: this step reads only userspace filesystem state "
+                 "and cannot open security or defender event logs, so an external removal can be observed "
+                 "and bounded but never attributed to an agent")
+
+
+def _observed_path(path: Path, *, hash_file: bool = False) -> dict:
+    """What one unprivileged stat can say about a path, right now, without creating or touching it.
+
+    Absence and unreadability are separate observations from "present with these properties", because
+    the failure this records is precisely a disagreement between a check and a later use of the same
+    path.  Values are bounded, and no path content is published beyond a digest of the uninstaller
+    itself when it is small enough to hash.
+    """
+    # Every key is written on every path through this function: a reader of the published JSON should
+    # not have to infer what an absent field meant, and "not a file" and "not reported" are different
+    # claims.  The exception is the `*_error` keys, whose presence is itself the finding.
+    observed: dict = {"path": bound(str(path), 200), "exists": False, "is_file": False, "is_dir": False}
+    try:
+        resolved = path.resolve()
+    except OSError as exc:  # a dangling reparse point can fail even to resolve
+        observed["resolve_error"] = bound(f"{type(exc).__name__}: {exc}", 120)
+        return observed
+    observed["resolves_to"] = bound(str(resolved), 200)
+    observed["resolves_identity"] = str(resolved) == str(path)
+    try:
+        stat = path.stat()
+    except FileNotFoundError:
+        return observed
+    except OSError as exc:
+        # Present enough to resolve, unusable enough to fail a stat: that is its own finding.
+        observed["exists"] = True
+        observed["stat_error"] = bound(f"{type(exc).__name__}: {exc}", 120)
+        return observed
+    observed.update({"exists": True, "is_file": path.is_file(), "is_dir": path.is_dir(),
+                     "size_bytes": stat.st_size, "modified_ns": stat.st_mtime_ns,
+                     "device": stat.st_dev, "inode": stat.st_ino})
+    attributes = getattr(stat, "st_file_attributes", None)
+    observed["file_attributes_reported"] = attributes is not None  # Windows only, never guessed at
+    if attributes is not None:
+        observed["file_attributes"] = int(attributes)
+        observed["reparse_point"] = bool(attributes & getattr(stat, "ST_REPARSE_POINT", 0))
+    if hash_file and observed["is_file"]:
+        if stat.st_size > MAX_FORENSIC_HASH_BYTES:
+            observed["sha256"] = f"not hashed: {stat.st_size} bytes exceeds the {MAX_FORENSIC_HASH_BYTES} byte bound"
+        else:
+            try:
+                observed["sha256"] = sha256_file(path)
+            except OSError as exc:
+                observed["sha256"] = f"unreadable: {type(exc).__name__}"
+    return observed
+
+
+def _uninstall_forensics(*, install_dir: Path, work_root: Path, uninstaller: Path,
+                         install_log: Path, uninstall_log: Path, sentinel: Path | None,
+                         error: BaseException | None, hash_uninstaller: bool = True) -> dict:
+    """A single bounded sample of every filesystem fact that distinguishes the failure shapes.
+
+    Five states look alike from a launch refusal: the uninstaller was never created; it exists and
+    something else refused the process; it was present and then taken away; the whole install tree was
+    removed; or an uninstall genuinely ran and deleted the uninstaller along with the application (a
+    completed run leaves its own log behind, which is why the log's presence is part of the sample).
+    Recording these fields at each point of use is what lets the published record tell them apart
+    later, without a runner log or artifact access.
+    """
+    def log_state(path: Path, *, with_tail: bool = True) -> dict:
+        """Whether an Inno log exists and what it last said -- the file an unprivileged user owns.
+
+        The installer and uninstaller write their logs under the work root, so the gate can read them
+        without elevation; their tails are the only place a completed uninstall is visible after the
+        uninstaller has deleted itself.  Tails are collapsed onto one line and bounded, and pass
+        through the same redaction as the rest of the sample, because a log can echo a value that was
+        in the launching environment.
+        """
+        state: dict = {"path": bound(str(path), 200), "exists": path.is_file()}
+        if state["exists"]:
+            try:
+                state["size_bytes"] = path.stat().st_size
+            except OSError as exc:
+                state["size_error"] = bound(f"{type(exc).__name__}", 60)
+            if with_tail:
+                state["tail"] = bound(" ".join(_tail(path, 6).split()), 400) or "empty"
+        return state
+
+    sample: dict = {"sampled_at": round(time.time(), 3),
+                    "work_root": _observed_path(work_root),
+                    "install_dir": _observed_path(install_dir),
+                    "uninstaller": _observed_path(uninstaller, hash_file=hash_uninstaller),
+                    "install_dir_entries": {
+                        "count": len(snapshot(install_dir)),
+                        "first": sorted(snapshot(install_dir))[:8]},
+                    "install_log": log_state(install_log),
+                    "uninstall_log": log_state(uninstall_log),
+                    "parent_dir": _observed_path(install_dir.parent),
+                    "sentinel": {"exists": bool(sentinel and sentinel.is_file())},
+                    "host_side_evidence": FORENSIC_NOTE}
+    if error is not None:
+        # errno and winerror are the fields that separate "no such file" from "no such directory"
+        # or "access denied"; they are copied from the exception, never inferred from its text.
+        sample["launch_error"] = {
+            "class": type(error).__name__,
+            "errno": getattr(error, "errno", None),
+            "winerror": getattr(error, "winerror", None),
+            "filename": bound(str(getattr(error, "filename", "") or ""), 200),
+            "filename2": bound(str(getattr(error, "filename2", "") or ""), 200),
+            "message": bound(str(error)[:300], 300)}
+    return sample
+
+
+def _forensic_brief(sample: dict) -> str:
+    """The same scalars in a compact form, for places where the step bound would eat a label.
+
+    `_step` clips a detail to the diagnostic bound, and clipping keeps the head and the tail: a long
+    per-attempt note therefore used to lose the "attempt 2:" label itself while keeping its content,
+    which is the one thing a reader needs to order the events.  The brief form keeps each entry short
+    enough that every label survives, and the full block stays in `diagnostics`.
+    """
+    def flag(key: str, field: str) -> str:
+        block = sample.get(key) or {}
+        if "stat_error" in block:
+            return "unreadable"
+        return "present" if block.get(field) else "absent"
+
+    error = sample.get("launch_error") or {}
+    codes = ",".join(f"{key}={error[key]}" for key in ("errno", "winerror") if error.get(key) is not None)
+    return (f"dir={flag('install_dir', 'is_dir')} entries={(sample.get('install_dir_entries') or {}).get('count', '?')} "
+            f"root={flag('work_root', 'is_dir')} unins={flag('uninstaller', 'is_file')} "
+            + (f"launch={error.get('class', '?')}{'' if not codes else ' (' + codes + ')'} " if error else "")
+            + f"uninslog={'present' if (sample.get('uninstall_log') or {}).get('exists') else 'absent'}")
+
+
+def _forensic_note(sample: dict) -> str:
+    """The decisive scalars from a sample, short enough to live inside a step detail."""
+    install = sample.get("install_dir") or {}
+    uninstaller = sample.get("uninstaller") or {}
+    parts = [f"install dir {'present' if install.get('is_dir') else 'absent'}",
+             f"{(sample.get('install_dir_entries') or {}).get('count', 'unreported')} file(s)",
+             f"work root {'present' if (sample.get('work_root') or {}).get('is_dir') else 'absent'}",
+             f"uninstaller {'listed' if uninstaller.get('is_file') else 'not listed'}"]
+    error = sample.get("launch_error") or {}
+    if error:
+        codes = [f"{key}={error[key]}" for key in ("errno", "winerror") if error.get(key) is not None]
+        parts.append(f"launch {error.get('class', 'error')}" + (f" ({', '.join(codes)})" if codes else ""))
+    log = sample.get("uninstall_log") or {}
+    parts.append("uninstall log " + ("written" if log.get("exists") else "absent, so no uninstaller process completed"))
+    return "; ".join(parts)
+
+
 def run_lifecycle(*, installer: Path, expected_sha256: str, app_version: str, work_root: Path,
                   runner: Runner = default_runner, exe_name: str = "DrillMaster.exe",
                   timeout: int = 600, poll_interval: float = 0.5, settle_seconds: float = 120.0) -> dict:
@@ -385,17 +533,39 @@ def run_lifecycle(*, installer: Path, expected_sha256: str, app_version: str, wo
         def install_tree_note() -> str:
             entries = sorted(snapshot(install_dir))
             shown = entries[:12]
-            return (f"install tree holds {len(entries)} file(s): {', '.join(shown) or 'nothing'}"
+            presence = "directory present" if install_dir.is_dir() else "directory absent"
+            return (f"install tree holds {len(entries)} file(s) ({presence}): {', '.join(shown) or 'nothing'}"
                     + (f" (+{len(entries) - len(shown)} more)" if len(entries) > len(shown) else ""))
 
+        # Every sample is taken at the point of use and published twice: the structured block under
+        # `diagnostics.uninstall_forensics`, which the acceptance report forwards, and the decisive
+        # scalars inside the step detail, which is what a reviewer can still read from the job
+        # annotation when the artifact and log endpoints are unreachable.  Samples are keyed by the
+        # moment they were taken and never overwrite one another, because the order of the
+        # observations is the finding: "listed, then refused, then absent" is a different event from
+        # "never created", and only the sequence can say which one happened.
+        samples: dict[str, dict] = {}
+
+        def forensics(label: str, error: BaseException | None = None, *, hash_uninstaller: bool = True,
+                      brief: bool = False) -> str:
+            sample = _uninstall_forensics(install_dir=install_dir, work_root=work_root,
+                                          uninstaller=uninstaller, install_log=install_log,
+                                          uninstall_log=uninstall_log, sentinel=sentinel, error=error,
+                                          hash_uninstaller=hash_uninstaller)
+            samples[label] = _redact_tree(sample, secret_values)
+            evidence["diagnostics"]["uninstall_forensics"] = samples
+            return _forensic_brief(samples[label]) if brief else _forensic_note(samples[label])
+
+        forensics("pre_launch")
         if not uninstaller.is_file():
             # installed_files already proved this file existed, so its absence here is a finding
             # about what happened in between -- not a missing-artifact mystery.  Saying so, with
             # the tree listing and the installer's own log tail, is what makes the failure
             # attributable from the published record alone.
+            absent = forensics("uninstaller_absent_before_launch", hash_uninstaller=False)
             record("silent_uninstall", "FAIL",
                    "unins000.exe was present after install (installed_files) and is absent now; "
-                   f"{install_tree_note()}; installer log tail: "
+                   f"{install_tree_note()}; {absent}; installer log tail: "
                    f"{bound(_tail(install_log, 12), 200) or 'no log'}")
             return _finish(evidence, "FAIL", started)
         # A Windows runner can list a file it then refuses to launch: an uninstaller under
@@ -405,6 +575,8 @@ def run_lifecycle(*, installer: Path, expected_sha256: str, app_version: str, wo
         # follow the first refusal.  Nothing is excused: the uninstall still has to empty {app},
         # which is the claim this step exists to prove.
         notes: list[str] = []
+        refused_attempts: list[str] = []
+        last_brief = ""
         removed: dict | None = None
         for attempt in (1, 2):
             try:
@@ -412,26 +584,52 @@ def run_lifecycle(*, installer: Path, expected_sha256: str, app_version: str, wo
                                      poll_interval, settle_seconds, evidence)
                 break
             except FileNotFoundError as exc:
+                refused = forensics(f"after_refusal_{attempt}", exc, brief=True)
+                refused_attempts.append(f"attempt {attempt}: refused ({refused})")
+                last_brief = refused
                 notes.append(f"attempt {attempt}: unins000.exe was listed but could not be launched "
-                             f"({type(exc).__name__}: {str(exc)[:120]}); {install_tree_note()}")
+                             f"({type(exc).__name__}: {str(exc)[:120]}); {install_tree_note()}; {refused}")
                 if attempt == 2:
                     break
                 time.sleep(2.0)
                 relisted = uninstaller.is_file()
+                settled = forensics("after_settle", hash_uninstaller=relisted, brief=True)
                 notes.append("after a 2 second settle the uninstaller is "
-                             + ("still listed" if relisted else "gone"))
+                             + (f"still listed; {settled}" if relisted else f"gone; {settled}"))
+                if relisted:
+                    refused_attempts.append(f"settle: the uninstaller is still listed "
+                                           f"({_forensic_brief(samples['after_settle'])})")
+                else:
+                    refused_attempts.append(f"settle: the uninstaller is gone ({settled})")
                 if not relisted:
                     # It was taken away, not merely busy: a second attempt would be a guess, and the
                     # finding the record has to carry is the disappearance itself.
                     break
             except (OSError, subprocess.SubprocessError) as exc:
-                record("silent_uninstall", "FAIL", f"{type(exc).__name__}: {exc}")
+                # Any other launch failure is sampled the same way: a refusal with the install tree
+                # intact and its log absent is a different finding from a refusal after a completed
+                # uninstall, and the winerror is copied from the exception rather than read off text.
+                refused = forensics(f"launch_error_{type(exc).__name__}", exc, brief=True)
+                record("silent_uninstall", "FAIL",
+                       f"{type(exc).__name__}: {str(exc)[:200]}; {refused}")
                 return _finish(evidence, "FAIL", started)
         if removed is None:
-            record("silent_uninstall", "FAIL", bound("; ".join(notes), 1200))
+            # The step detail is clipped to the diagnostic bound, and clipping keeps the head and the
+            # tail -- so a concatenation of long per-attempt notes used to drop the very labels that
+            # ordered them.  The summary names every refusal in order; the full prose stays in
+            # `uninstall_launch_notes` and the structured samples in `diagnostics.uninstall_forensics`.
+            evidence["uninstall_launch_notes"] = bound("; ".join(notes), 1200)
+            # mirrored into `diagnostics` because the acceptance report forwards that block; without
+            # the copy the per-attempt prose would exist only in the evidence file on the runner.
+            evidence["diagnostics"]["uninstall_launch_notes"] = evidence["uninstall_launch_notes"]
+            summary = ("unins000.exe was listed before launch and no launch completed; "
+                       + "; ".join(refused_attempts or [last_brief or "launch refused"])
+                       + "; full notes in uninstall_launch_notes, samples in diagnostics.uninstall_forensics")
+            record("silent_uninstall", "FAIL", bound(summary, 1200))
             return _finish(evidence, "FAIL", started)
         if notes:
             evidence["uninstall_launch_recovered"] = bound("; ".join(notes), 1200)
+            evidence["diagnostics"]["uninstall_launch_recovered"] = evidence["uninstall_launch_recovered"]
         if not removed["ok"]:
             record("silent_uninstall", "FAIL", json.dumps(removed, sort_keys=True))
             return _finish(evidence, "FAIL", started)

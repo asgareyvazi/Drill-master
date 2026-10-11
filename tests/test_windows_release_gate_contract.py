@@ -1058,6 +1058,79 @@ def test_the_lifecycle_instability_is_recorded_without_relaxing_any_protection()
     assert "must come from a run of that SHA" in instability["consequence_for_the_verdict"]
 
 
+FORENSIC_SAMPLE_LABELS = ("pre_launch", "uninstaller_absent_before_launch", "after_refusal_",
+                          "after_settle", "launch_error_")
+
+
+def test_the_lifecycle_forensics_are_additive_and_keep_every_protection():
+    """The M42.7 diagnostics may add observations; they may not buy a pass with them.
+
+    Sampling is the only thing the lifecycle step gained, so the guards are about adjacency: the work
+    root is still deleted afterwards, the uninstall still has to empty `{app}`, the launch is still
+    retried exactly once, the sampler writes and executes nothing of its own, and the block is
+    published inside `diagnostics`, which the report already forwards -- so the evidence file's schema
+    name is unchanged instead of silently redefined.
+    """
+    evidence = (ROOT / "packaging" / "windows_release_evidence.py").read_text(encoding="utf-8")
+    for fragment in ('evidence["diagnostics"]["uninstall_forensics"] = samples',
+                     "def _uninstall_forensics(", "def _observed_path(", "def _forensic_note(",
+                     "def _forensic_brief(", "samples[label] = _redact_tree(sample, secret_values)",
+                     "for attempt in (1, 2):", 'evidence["cleaned_up"] = not work_root.exists()'):
+        assert fragment in evidence, f"the forensic contract lost {fragment!r}"
+    for label in FORENSIC_SAMPLE_LABELS:
+        assert label in evidence, f"the sample labelled {label!r} is gone"
+    sampler = evidence[evidence.index("def _uninstall_forensics("):evidence.index("def _forensic_brief(")]
+    for forbidden in ("mkdir", "touch", "chmod", "write_text", "write_bytes", "unlink", "rmtree",
+                      "symlink_to", "open(", "subprocess", "runner(", "Popen"):
+        assert forbidden not in sampler, f"the sampler must only read; found {forbidden!r}"
+    assert '"drillmaster-installer-lifecycle/v1"' in evidence, ("additive fields are fine; a redefined "
+                                                                "schema name would make published records lie")
+    assert '"install_dir_emptied": not sorted(snapshot(install_dir))' in evidence, (
+        "an exit code is still not evidence that the uninstall worked")
+    assert "MAX_FORENSIC_HASH_BYTES" in evidence, "hashing must stay bounded, never silently unbounded"
+
+
+def test_the_forensic_findings_reach_both_published_channels():
+    """A detail that clips away its own labels is not evidence, so the summary and the block must agree."""
+    evidence = (ROOT / "packaging" / "windows_release_evidence.py").read_text(encoding="utf-8")
+    assert 'evidence["uninstall_launch_notes"] = bound("; ".join(notes), 1200)' in evidence
+    assert ('evidence["diagnostics"]["uninstall_launch_notes"] = '
+               'evidence["uninstall_launch_notes"]') in evidence
+    assert "full notes in uninstall_launch_notes" in evidence
+    assert "samples in diagnostics.uninstall_forensics" in evidence
+    report = (ROOT / "packaging" / "acceptance_report.py").read_text(encoding="utf-8")
+    assert '"diagnostics": payload.get("diagnostics") or {}' in report, "the sampler's channel is forwarding"
+    assert '"steps": steps' in report, "the summary's channel is the step list"
+    runbook = (ROOT / "packaging" / "WINDOWS_RELEASE_ACCEPTANCE.md").read_text(encoding="utf-8")
+    assert "### Lifecycle failure forensics (M42.7)" in runbook
+    for fragment in ("host_side_evidence", "`pre_launch`", "after_refusal_1", "never attributed",
+                     "64 MB", "st_file_attributes", "installer and uninstaller logs",
+                     "WinError 2"):
+        assert fragment in runbook, f"the runbook stopped documenting {fragment!r}"
+
+
+def test_rel_04_names_the_external_match_without_borrowing_any_trust():
+    """The MATCH belongs to one reviewer, one artifact, and nothing else -- and says so in the row.
+
+    The row is written so that a reader cannot lift it into an in-repository verification, a trust
+    statement, or coverage of a later artifact: the in-repository status, the tip's own artifact, and
+    the built report's `NOT_VERIFIED` are all named in the same cell.
+    """
+    runbook = (ROOT / "packaging" / "WINDOWS_RELEASE_ACCEPTANCE.md").read_text(encoding="utf-8")
+    row = next(line for line in runbook.splitlines() if line.startswith("| REL-04 |"))
+    assert "`NOT_RUN` in-repository (`NOT_VERIFIED` in the report)" in row, "the in-repository status stays"
+    assert "external** reviewer ran the procedure" in row
+    assert "for **those bytes only" in row, "the scope of a MATCH has to be stated where it is read"
+    assert "11696022238" in row and "38122859040" in row, "the artifact and run the MATCH covers"
+    assert "`11696578929` is unverified" in row
+    assert "independent_reverification=NOT_VERIFIED" in row
+    assert "reset" in row, "why the repository could not confirm it is part of the record"
+    rel13 = next(line for line in runbook.splitlines() if line.startswith("| REL-13 |"))
+    assert "diagnostics.uninstall_forensics" in rel13 and "did not reproduce" in rel13
+    assert "cause stands as undetermined" in rel13
+    assert "`OPEN`" in rel13, "an explained incident is not a closed one"
+
+
 def test_m42_2_checkpoint_records_provenance_correction_without_claiming_ci_results():
     """The M42.2 record names the defect and its guards, and asserts no CI outcome."""
     assert M422_CHECKPOINT.is_file()
