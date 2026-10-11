@@ -56,7 +56,8 @@ class FakeHost:
                  keep_sentinel: bool = True, install_writes_exe: bool = True,
                  run_stdout: str = "", powershell_version_output: str | None = None,
                  run_returncode: int | None = None, raise_on_call: int | None = None,
-                 remove_uninstaller_during_smoke: bool = False):
+                 remove_uninstaller_during_smoke: bool = False,
+                 unlaunchable_uninstall_attempts: int = 0, unlink_uninstaller_on_refusal: bool = False):
         self.install_exit_code = install_exit_code
         self.uninstall_exit_code = uninstall_exit_code
         self.product_version = product_version
@@ -79,6 +80,8 @@ class FakeHost:
         self.run_returncode = run_returncode
         self.raise_on_call = raise_on_call
         self.remove_uninstaller_during_smoke = remove_uninstaller_during_smoke
+        self.unlaunchable_uninstall_attempts = unlaunchable_uninstall_attempts
+        self.unlink_uninstaller_on_refusal = unlink_uninstaller_on_refusal
         self.calls: list[list[str]] = []
         self.envs: list[dict | None] = []
 
@@ -129,6 +132,13 @@ class FakeHost:
             # application ran; the lifecycle must describe that, not lose it in a FileNotFoundError.
             (Path(argv[0]).parent / "unins000.exe").unlink(missing_ok=True)
         if program == "unins000.exe":
+            if self.unlaunchable_uninstall_attempts > 0:
+                # The file is listed and the OS will not start it: what an uninstaller under
+                # antivirus quarantine looks like from userspace.
+                self.unlaunchable_uninstall_attempts -= 1
+                if self.unlink_uninstaller_on_refusal:
+                    Path(argv[0]).unlink(missing_ok=True)
+                raise FileNotFoundError(2, "The system cannot find the file specified")
             install_dir = Path(argv[0]).parent
             if self.uninstall_removes:
                 for path in sorted(install_dir.rglob("*")):
@@ -879,13 +889,64 @@ def test_an_uninstaller_that_vanishes_mid_lifecycle_is_described_not_lost(tmp_pa
     assert _step(report, "installed_files")["status"] == "PASS"
     uninstall = _step(report, "silent_uninstall")
     assert uninstall["status"] == "FAIL"
-    assert "present after install and is absent now" in uninstall["detail"], uninstall["detail"]
-    assert "the install tree holds" in uninstall["detail"]
+    assert "and is absent now" in uninstall["detail"], uninstall["detail"]
+    assert "install tree holds 1 file(s): DrillMaster.exe" in uninstall["detail"]
     assert "installer log tail" in uninstall["detail"]
     # and the smoke step must have recorded the disappearance it witnessed
     smoke = report["installed_smoke"]
     assert smoke["deleted_files_in_install_dir"] == ["unins000.exe"]
     assert "disappeared while it ran" in _step(report, "installed_smoke")["detail"]
+
+
+def test_a_listed_but_unlaunchable_uninstaller_gets_one_bounded_retry(tmp_path):
+    """A file the OS refuses to start is retried once -- and the anomaly stays in the record.
+
+    This is the shape both Windows gate runs of the release produced: installed_files PASS, then
+    CreateProcess on unins000.exe reporting that no such file exists.  A single settle-and-retry
+    distinguishes a transient lock or scan from a deleted uninstaller without excusing anything:
+    a second refusal still fails the step, and the recovery note is published either way.
+    """
+    module = _evidence_module()
+    installer, _, digest = _release(tmp_path / "release")
+    report = module.run_lifecycle(installer=installer, expected_sha256=digest, app_version="1.0.0",
+                                  work_root=tmp_path / "work",
+                                  runner=FakeHost(unlaunchable_uninstall_attempts=1),
+                                  poll_interval=0.001, settle_seconds=0.05)
+    assert report["status"] == "PASS"
+    assert _step(report, "silent_uninstall")["status"] == "PASS"
+    assert _step(report, "install_files_removed")["status"] == "PASS"
+    note = report["uninstall_launch_recovered"]
+    assert "was listed but could not be launched" in note
+    assert "after a 2 second settle the uninstaller is still listed" in note
+
+
+def test_a_permanently_unlaunchable_uninstaller_still_fails_the_lifecycle(tmp_path):
+    """The retry is not a waiver: two refusals fail the step, with both attempts recorded."""
+    module = _evidence_module()
+    installer, _, digest = _release(tmp_path / "release")
+    report = module.run_lifecycle(installer=installer, expected_sha256=digest, app_version="1.0.0",
+                                  work_root=tmp_path / "work",
+                                  runner=FakeHost(unlaunchable_uninstall_attempts=2),
+                                  poll_interval=0.001, settle_seconds=0.05)
+    assert report["status"] == "FAIL"
+    detail = _step(report, "silent_uninstall")["detail"]
+    assert "attempt 1:" in detail and "attempt 2:" in detail
+    assert "install tree holds" in detail
+    assert "uninstall_launch_recovered" not in report
+
+
+def test_an_uninstaller_deleted_after_the_refusal_is_recorded_as_gone(tmp_path):
+    module = _evidence_module()
+    installer, _, digest = _release(tmp_path / "release")
+    report = module.run_lifecycle(installer=installer, expected_sha256=digest, app_version="1.0.0",
+                                  work_root=tmp_path / "work",
+                                  runner=FakeHost(unlaunchable_uninstall_attempts=1,
+                                                 unlink_uninstaller_on_refusal=True),
+                                  poll_interval=0.001, settle_seconds=0.05)
+    assert report["status"] == "FAIL"
+    detail = _step(report, "silent_uninstall")["detail"]
+    assert "the uninstaller is gone" in detail, detail
+    assert "install tree holds" in detail
 
 
 @pytest.mark.parametrize("raw, expected, recognized", [

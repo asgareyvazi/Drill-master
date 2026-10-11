@@ -369,24 +369,56 @@ def run_lifecycle(*, installer: Path, expected_sha256: str, app_version: str, wo
 
         # 7. Non-interactive uninstall, then prove the application files are gone.
         uninstall_log = work_root / "uninstall.log"
+        def install_tree_note() -> str:
+            entries = sorted(snapshot(install_dir))
+            shown = entries[:12]
+            return (f"install tree holds {len(entries)} file(s): {', '.join(shown) or 'nothing'}"
+                    + (f" (+{len(entries) - len(shown)} more)" if len(entries) > len(shown) else ""))
+
         if not uninstaller.is_file():
             # installed_files already proved this file existed, so its absence here is a finding
             # about what happened in between -- not a missing-artifact mystery.  Saying so, with
             # the tree listing and the installer's own log tail, is what makes the failure
             # attributable from the published record alone.
-            listing = sorted(path.name for path in install_dir.rglob("*")
-                             if path.is_file())[:20] if install_dir.is_dir() else []
             record("silent_uninstall", "FAIL",
-                   f"unins000.exe was present after install and is absent now; the install tree holds "
-                   f"{len(listing)} file(s): {', '.join(listing) or 'nothing'}; "
-                   f"installer log tail: {bound(_tail(install_log, 12), 300) or 'no log'}")
+                   "unins000.exe was present after install (installed_files) and is absent now; "
+                   f"{install_tree_note()}; installer log tail: "
+                   f"{bound(_tail(install_log, 12), 200) or 'no log'}")
             return _finish(evidence, "FAIL", started)
-        try:
-            removed = _uninstall(uninstaller, uninstall_log, install_dir, runner, timeout,
-                                 poll_interval, settle_seconds, evidence)
-        except (OSError, subprocess.SubprocessError) as exc:
-            record("silent_uninstall", "FAIL", f"{type(exc).__name__}: {exc}")
+        # A Windows runner can list a file it then refuses to launch: an uninstaller under
+        # antivirus quarantine, or mid-replacement, looks exactly like this from userspace, with
+        # the presence check and the exec microseconds apart.  The two shapes -- never created, and
+        # created then taken away -- are different findings, so one bounded settle and a re-listing
+        # follow the first refusal.  Nothing is excused: the uninstall still has to empty {app},
+        # which is the claim this step exists to prove.
+        notes: list[str] = []
+        removed: dict | None = None
+        for attempt in (1, 2):
+            try:
+                removed = _uninstall(uninstaller, uninstall_log, install_dir, runner, timeout,
+                                     poll_interval, settle_seconds, evidence)
+                break
+            except FileNotFoundError as exc:
+                notes.append(f"attempt {attempt}: unins000.exe was listed but could not be launched "
+                             f"({type(exc).__name__}: {str(exc)[:120]}); {install_tree_note()}")
+                if attempt == 2:
+                    break
+                time.sleep(2.0)
+                relisted = uninstaller.is_file()
+                notes.append("after a 2 second settle the uninstaller is "
+                             + ("still listed" if relisted else "gone"))
+                if not relisted:
+                    # It was taken away, not merely busy: a second attempt would be a guess, and the
+                    # finding the record has to carry is the disappearance itself.
+                    break
+            except (OSError, subprocess.SubprocessError) as exc:
+                record("silent_uninstall", "FAIL", f"{type(exc).__name__}: {exc}")
+                return _finish(evidence, "FAIL", started)
+        if removed is None:
+            record("silent_uninstall", "FAIL", bound("; ".join(notes), 1200))
             return _finish(evidence, "FAIL", started)
+        if notes:
+            evidence["uninstall_launch_recovered"] = bound("; ".join(notes), 1200)
         if not removed["ok"]:
             record("silent_uninstall", "FAIL", json.dumps(removed, sort_keys=True))
             return _finish(evidence, "FAIL", started)

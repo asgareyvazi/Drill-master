@@ -220,8 +220,12 @@ def test_the_lifecycle_distinguishes_a_missing_uninstaller_from_a_vanished_one()
     assert '"deleted_files_in_install_dir": deleted[:20]' in evidence, (
         "the installed smoke must report what disappeared from {app}, not only what appeared")
     assert "set(before) - set(after)" in evidence, "the deletion channel needs the inverse diff"
-    assert "present after install and is absent now" in evidence, (
+    assert "was present after install (installed_files) and is absent now" in evidence, (
         "the uninstall failure must say that the file was previously proved present")
+    assert "for attempt in (1, 2):" in evidence, (
+        "a listed-but-unlaunchable uninstaller gets exactly one bounded retry, no more")
+    assert '"after a 2 second settle the uninstaller is "' in evidence, (
+        "the re-listing after the settle is the part that separates busy from taken away")
     assert "installer log tail" in evidence, "and attach the installer's own closing lines"
     assert "return _finish(evidence, \"FAIL\", started)" in evidence, (
         "both paths end the lifecycle as a failure: neither is soft-pedalled")
