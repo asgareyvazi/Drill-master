@@ -1442,6 +1442,12 @@ def test_m42_8_followup_records_the_handoff_without_promoting_anything():
     publication = key["publication_and_gates"]
     assert re.fullmatch(r"[0-9a-f]{40}", publication["code_sha"]) and re.fullmatch(r"[0-9a-f]{40}",
                                                                                    publication["incoming_sha"])
-    assert publication["push"] == "NOT_PUSHED" and publication["gates_on_the_code_sha"].startswith("NOT_RUN"), (
-        "a local commit is not a published result and may not be recorded as one")
-    assert "Bad credentials" in publication["blocked_because"]
+    # the first published run failed, and the record says so: a follow-up may fix a defect, never bury the run
+    assert publication["gates_on_the_code_sha"].startswith("FAILURE"), (
+        "the failed exact-SHA gate has to be recorded as a failure, not as history that no longer matters")
+    assert "skipped, not failed" in publication["gates_on_the_code_sha"], "the cascade has to be described exactly"
+    assert "was weakened to obtain green" in publication["response"], "the fix must state what it did not touch"
+    assert "cannot cite its own run" in publication["this_records_commit"], (
+        "a record may not claim a gate result for the commit that carries it")
+    assert "bypassed" in publication["credential_episode"], "the blocked window is part of the record"
+    assert publication["no_post_gate_commit"], "re-verification on a new tip is a rule, not an aspiration"

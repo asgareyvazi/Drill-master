@@ -250,6 +250,13 @@ became the report.  Both are fixed in one shared reader, `_bounded_tail`, and ev
   A defect inside the sampler itself publishes `state="sampler_failed"` plus `diagnostics unavailable
   (...)` in the detail line, and the lifecycle conclusion is still computed from the filesystem
   evidence: a broken diagnostic changes no verdict, in either direction.
+* **The classification is platform-free, not Linux-flavoured.** POSIX raises `IsADirectoryError` where
+  Windows raises `PermissionError` for the same attempt to open a directory, and the first exact-SHA run of this
+  code caught the difference on the Windows runner.  The reason published for a directory is now
+  "not a regular file" on both platforms, derived from the fact rather than from the exception name, and the test
+  simulates the Windows exception on any host so the guarantee is pinned everywhere it is run.  A byte count that
+  had assumed LF line endings in one test was replaced by the size the handle measured.
+
 * **Reads stay inside the evidence root.** Every lifecycle log read now passes `permitted_root=work_root`,
   the same boundary that already stopped the uninstaller digest from being taken outside the isolated
   root.  A name inside the root whose *resolved target* leaves it - a symlink, a Windows junction or

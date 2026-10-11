@@ -757,6 +757,13 @@ def _bounded_tail(path: Path, lines: int = 40, *, byte_limit: int = LOG_TAIL_BYT
     except OSError as exc:
         # Classification, not transcription: an exception's own text can quote a path that carries a
         # credential, and a traceback is unbounded, so the name and the codes are what get published.
+        if os.path.isdir(path):
+            # POSIX raises IsADirectoryError where Windows raises PermissionError for the same open.  The
+            # fact is identical, so the classification keys off the fact and not off whichever exception the
+            # platform chose: a directory is reported as "not a regular file" on both.  `os.path.isdir`
+            # swallows its own errors and answers False, so this cannot raise on a racing change.
+            observed["reason"] = "not a regular file"
+            return observed
         observed["reason"] = bound(f"{type(exc).__name__}(errno={exc.errno}, "
                                    f"winerror={getattr(exc, 'winerror', None)})", 160)
         return observed

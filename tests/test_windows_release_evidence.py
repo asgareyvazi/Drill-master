@@ -1544,7 +1544,9 @@ def test_an_unreadable_log_is_a_different_fact_from_a_missing_one(tmp_path, monk
 
     monkeypatch.setattr(io, "open", open_then_fail)
     partial = module._bounded_tail(readable, 6)
-    assert partial["state"] == "unreadable" and partial["size_bytes"] == 23
+    # the size is what the handle measured, so the expectation cannot depend on line-endianess: an
+    # earlier version hard-coded 23 bytes, which was Linux's LF count and wrong on a CRLF runner
+    assert partial["state"] == "unreadable" and partial["size_bytes"] == readable.stat().st_size
     assert partial["bytes_read"] == 0 and partial["tail"] == ""
     assert "PermissionError" in partial["reason"]
 
@@ -1561,6 +1563,36 @@ def test_an_empty_log_and_a_missing_log_are_told_apart(tmp_path):
     assert module._bounded_tail(empty)["reason"] == "" and module._bounded_tail(absent)["tail"] == ""
     with pytest.raises(ValueError):
         module._bounded_tail(empty, byte_limit=0)
+
+
+def test_a_directory_is_reported_as_such_whatever_the_platform_calls_it(tmp_path, monkeypatch):
+    """The exact-SHA Windows run found this: the fact is platform-free, the exception name is not.
+
+    On POSIX, opening a directory raises `IsADirectoryError`; the Windows runner answered
+    `PermissionError(errno=13)`.  A classification that keys off the exception name therefore publishes a
+    different reason for the same file, which is how this defect escaped a green local run.  Here the
+    Windows behaviour is *simulated* by making the open itself refuse, so the guarantee is pinned on every
+    host rather than asserted only where the platform happens to agree.
+    """
+    module = _evidence_module()
+    directory = tmp_path / "logs"
+    directory.mkdir()
+    assert module._bounded_tail(directory)["reason"] == "not a regular file", "the POSIX path still works"
+
+    real_open = io.open
+
+    def windows_like(file, mode="r", *args, **kwargs):
+        if Path(str(file)) == directory:
+            raise PermissionError(13, "Permission denied")  # what the Windows runner really raises
+        return real_open(file, mode, *args, **kwargs)
+
+    monkeypatch.setattr(io, "open", windows_like)
+    observed = module._bounded_tail(directory, 6)
+    assert observed["state"] == "unreadable"
+    assert observed["reason"] == "not a regular file", (
+        "a directory must be classified by what it is, not by the exception name the platform picked")
+    assert observed["bytes_read"] == 0 and observed["tail"] == ""
+    assert json.dumps(observed)
 
 
 def test_a_log_that_grows_while_it_is_being_read_still_returns_the_recent_end(tmp_path, monkeypatch):
