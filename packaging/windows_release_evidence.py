@@ -62,7 +62,13 @@ VERSION_QUERY_SCRIPT = (
 # hashtable still serialises, and the script exits 0 with an empty Status: an UNKNOWN that
 # carried no cause anywhere in the published record.  ErrorAction Stop plus a captured message
 # makes the same failure report itself.
+# The Windows gate confirmed on its first instrumented run that the runner's `-NoProfile`
+# Windows PowerShell host does not resolve Get-AuthenticodeSignature at all ("cmdlet=missing"),
+# so the answer was never a signature state.  A profileless session does not auto-load the
+# Security module the way an interactive one does, so both scripts import it explicitly first;
+# if that import is itself refused, the record says so instead of reporting a bare UNKNOWN.
 SIGNATURE_QUERY_SCRIPT = (
+    "Import-Module Microsoft.PowerShell.Security -ErrorAction SilentlyContinue; "
     "$result = @{Status=''; StatusMessage=''; SignerSubject=$null; QueryError=''}; "
     "try { "
     "$signature = Get-AuthenticodeSignature -LiteralPath $env:DRILLMASTER_TARGET_PATH -ErrorAction Stop; "
@@ -75,7 +81,10 @@ SIGNATURE_QUERY_SCRIPT = (
 # Capability probe, run before any file is queried, so "this host cannot answer the question"
 # is recorded once as a cause instead of surfacing as several unexplained UNKNOWN rows.
 SIGNING_PROBE_SCRIPT = (
-    "$probe = @{ps_version=[string]$PSVersionTable.PSVersion; cmdlet='missing'; module=''}; "
+    "Import-Module Microsoft.PowerShell.Security -ErrorAction SilentlyContinue | Out-Null; "
+    "$imported = [bool](Get-Command Get-AuthenticodeSignature -ErrorAction SilentlyContinue); "
+    "$probe = @{ps_version=[string]$PSVersionTable.PSVersion; cmdlet='missing'; module=''; "
+    "module_import=$(if ($imported) { 'succeeded' } else { 'failed' })}; "
     "$command = Get-Command Get-AuthenticodeSignature -ErrorAction SilentlyContinue; "
     "if ($command) { $probe.cmdlet = 'available'; "
     "if ($command.Source) { $probe.module = [string]$command.Source } }; "
@@ -530,13 +539,16 @@ def run_signing(*, release_metadata_path: Path, runner: Runner = default_runner,
     harness = {"query_command": reported_command,
                "powershell_version": str(probe.get("ps_version") or ""),
                "signature_command_module": str(probe.get("module") or ""),
+               "module_import": str(probe.get("module_import") or "unreported"),
                "probe_exit_code": probe.get("powershell_exit_code", 0)}
     for key in ("error", "powershell_stderr"):
         if probe.get(key):
             harness[f"probe_{key}"] = bound(str(probe[key]), 300)
-    unavailable_reason = (f"Get-AuthenticodeSignature is not available in this PowerShell host "
-                          f"(PowerShell {harness['powershell_version'] or 'unknown'} reported "
-                          f"{reported_command!r})" if reported_command == "missing" else "")
+    unavailable_reason = (
+        f"Get-AuthenticodeSignature is not available in this PowerShell host "
+        f"(PowerShell {harness['powershell_version'] or 'unknown'} reported {reported_command!r}; "
+        f"explicit Import-Module of Microsoft.PowerShell.Security "
+        f"{harness['module_import'].replace('_', ' ')})" if reported_command == "missing" else "")
     with tempfile.TemporaryDirectory(prefix="drillmaster-signing-") as directory:
         scratch = Path(directory)
 

@@ -166,6 +166,10 @@ def test_a_query_failure_keeps_its_reason_visible_in_the_published_evidence():
     assert "_redact_tree(" in evidence, "published diagnostics must be redacted against credential values"
     assert "Get-Command Get-AuthenticodeSignature" in evidence, ("the host's capability must be probed "
                                                                  "and published")
+    assert evidence.count("Import-Module Microsoft.PowerShell.Security") == 2, (
+        "the profileless Windows PowerShell host does not auto-load the Security module - the runner "
+        "proved it by reporting cmdlet=missing - so both the probe and the query must import it")
+    assert '"module_import"' in evidence, "whether that import worked must itself be published"
     assert '"reason": bound(' in evidence, "the job console line must carry each non-pass reason"
 
 
@@ -272,9 +276,17 @@ def test_m42_4_checkpoint_records_attribution_honestly_and_additively():
     payload = json.loads(M424_CHECKPOINT.read_text(encoding="utf-8"))
     assert payload["mission"] == "M42.4" and payload["branch"] == "arena/01a0ec23-drill-master"
     attribution = payload["authenticode_attribution"]
-    assert attribution["status"] == "UNATTRIBUTED_FROM_PUBLISHED_EVIDENCE"
-    assert attribution["confirmed_from_evidence"] is False
-    assert attribution["kept_open_as_blocker"] is True
+    # the instrumented run answered the question, so the record must say so - while still refusing
+    # to claim that the earlier un-instrumented run proved anything about itself
+    assert attribution["status"] == "MECHANISM_CONFIRMED_BY_THE_INSTRUMENTED_RUN"
+    assert attribution["confirmed_from_evidence"] is True
+    assert attribution["kept_open_as_blocker"] is False
+    assert "inference" in attribution["baseline_run_wording"], "the baseline run's own record carried no reason"
+    assert attribution["still_open"], "a determinate verdict is still outstanding"
+    assert attribution["followup_fix_applied"].startswith("both the capability probe")
+    assert "module_import" in attribution["followup_fix_applied"]
+    assert attribution["observed_record"]["harness"]["query_command"] == "missing"
+    assert attribution["observed_record"]["aggregate"] == "UNKNOWN"
     assert len(attribution["retrieval_attempts"]) >= 3, "the blockers must be recorded, not summarised away"
     assert len(payload["not_verified"]) >= 5
     assert any("reproducib" in line.lower() for line in payload["not_verified"])
@@ -292,6 +304,12 @@ def test_m42_4_checkpoint_records_attribution_honestly_and_additively():
     assert policy["zero_byte_files_remain_valid_hash_inputs"] is True
     assert payload["internal_gates"]["lint"]["debt_count"] <= payload["internal_gates"]["lint"]["debt_ceiling"]
     assert "ci" in payload["internal_gates"], "the checkpoint must say where the CI evidence lives"
+    # the SHA the gate evidence belongs to is named, and the prose about CI can only refer to it
+    verified = payload["internal_gates"]["verified_sha"]
+    assert re.fullmatch(r"[0-9a-f]{40}", verified), verified
+    assert verified in payload["internal_gates"]["ci"]
+    assert "NOT gate-verified" in payload["internal_gates"]["ci"] or "no CI outcome is claimed" in \
+        payload["internal_gates"]["ci"], "later commits must not inherit the earlier gate result"
 
     gates = payload["internal_gates"]["windows_gate_module_scope_local"]
     assert "libGL" in gates["failure_attribution"], (

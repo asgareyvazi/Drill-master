@@ -92,7 +92,9 @@ class FakeHost:
             if "Get-Command Get-AuthenticodeSignature" in script:
                 # The capability probe, answered before any file is queried.
                 payload = {"ps_version": "5.1.20348.2402", "cmdlet": self.signature_cmdlet,
-                           "module": "Microsoft.PowerShell.Security"}
+                           "module": "Microsoft.PowerShell.Security", "module_import": "succeeded"}
+                if self.signature_cmdlet == "missing":
+                    payload["module_import"] = "failed"
                 if self.signature_cmdlet == "probe-fails":
                     return SimpleNamespace(returncode=1, stdout="", stderr="probe unsupported")
             elif "Get-AuthenticodeSignature" in script:
@@ -903,7 +905,7 @@ def test_the_query_capability_is_published_alongside_the_verdict(tmp_path):
     report = module.run_signing(release_metadata_path=metadata, runner=FakeHost())
     assert report["harness"] == {"query_command": "available", "powershell_version": "5.1.20348.2402",
                                 "signature_command_module": "Microsoft.PowerShell.Security",
-                                "probe_exit_code": 0}
+                                "module_import": "succeeded", "probe_exit_code": 0}
 
 
 def test_a_host_without_the_cmdlet_records_one_cause_for_every_file(tmp_path, monkeypatch):
@@ -916,6 +918,9 @@ def test_a_host_without_the_cmdlet_records_one_cause_for_every_file(tmp_path, mo
     rows = [item for item in report["files"] if item["signature_bearing"]]
     assert all(item["status"] == "UNKNOWN" for item in rows)
     assert all("not available in this PowerShell host" in item["status_message"] for item in rows)
+    assert all("Import-Module of Microsoft.PowerShell.Security failed" in item["status_message"]
+               for item in rows), "the reason must say that the explicit import was refused too"
+    assert report["harness"]["module_import"] == "failed"
     assert report["status"] == "UNKNOWN"
     # the probe is a diagnostic, not an authority: the files are still described, not skipped
     assert [item["raw_status"] for item in rows] == ["", ""]
