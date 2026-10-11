@@ -235,9 +235,12 @@ jobs:
             # release the aggregate was published with no reason attached anywhere.
             $oneLine = { param($text) (($text -replace '[\r\n]+', ' ') -replace '[^\x20-\x7E]', '?') }
             $clip = { param($text, $limit) if ($text.Length -gt $limit) { $text.Substring(0, $limit) + '...' } else { $text } }
-            $harness = 'ps=unreported cmdlet=unreported'
+            $harness = 'ps=unreported cmdlet=unreported module_import=unreported'
             if ($signing.harness) {
-              $harness = "ps=$($signing.harness.powershell_version) cmdlet=$($signing.harness.query_command)"
+              # module_import is part of the compact line because it is the field that decides
+              # whether an UNKNOWN is a limitation of this runner image or an answer about the
+              # shipped files; a reviewer reading only the annotation gets the same distinction.
+              $harness = "ps=$($signing.harness.powershell_version) cmdlet=$($signing.harness.query_command) module_import=$($signing.harness.module_import)"
             }
             $perFile = @($signing.files | ForEach-Object {
               $note = ''

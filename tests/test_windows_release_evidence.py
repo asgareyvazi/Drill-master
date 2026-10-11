@@ -12,6 +12,7 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import subprocess
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -515,11 +516,88 @@ def test_powershell_invocation_failure_is_unknown(tmp_path):
     _, metadata, _ = _release(tmp_path / "release")
 
     def host(argv, environment, cwd, timeout):
+        # The shell ran and refused the statement: a nonzero exit with the reason on stderr.
         return SimpleNamespace(returncode=1, stdout="", stderr="Get-AuthenticodeSignature : Access denied")
 
     report = module.run_signing(release_metadata_path=metadata, runner=host)
     assert report["status"] == "UNKNOWN"
     assert "powershell exit 1" in report["files"][0]["status_message"]
+
+
+def test_a_query_that_never_answers_is_attributed_instead_of_crashing(tmp_path, monkeypatch):
+    """A timeout is a host limitation with a cause, not a missing record.
+
+    Before this rule the exception escaped the tool: the release directory held no
+    signing-status.json, the workflow could only say "signature verification produced no record",
+    and the actual reason survived only as a traceback in the console scrollback.
+    """
+    module = _evidence_module()
+    _, metadata, _ = _release(tmp_path / "release")
+    timeout = 45  # an arbitrary budget; the record must quote the one that actually applied
+
+    def host(argv, environment, cwd, given_timeout):
+        assert given_timeout == timeout
+        raise subprocess.TimeoutExpired(argv, given_timeout)
+
+    report = module.run_signing(release_metadata_path=metadata, runner=host, timeout=timeout)
+    assert report["status"] == "UNKNOWN", "an unanswered query is never promoted or demoted"
+    assert report["harness"]["probe_error"] == f"powershell did not answer within {timeout} seconds"
+    rows = [item for item in report["files"] if item["signature_bearing"]]
+    assert rows and all(f"did not answer within {timeout} seconds" in item["status_message"] for item in rows)
+    module.validate_signing_document(report)
+    # The tool must still exit successfully with a valid record on disk: the workflow's rule is
+    # that a step which wrote nothing is the failure, and this step wrote everything it knows.
+    monkeypatch.setattr(module.sys, "platform", "win32")
+    monkeypatch.setattr(module, "default_runner", host)
+    out = tmp_path / "signing-status.json"
+    assert module.main(["signing", "--release-metadata", str(metadata), "--json-out", str(out),
+                        "--timeout", str(timeout)]) == 0
+    assert f"did not answer within {timeout} seconds" in out.read_text(encoding="utf-8")
+
+
+def test_a_timed_out_query_fails_the_lifecycle_step_with_a_cause(tmp_path):
+    """The lifecycle shell queries go through the same rule: a cause, not a traceback."""
+    module = _evidence_module()
+
+    def host(argv, environment, cwd, timeout):
+        if Path(argv[0]).name.lower() == "powershell.exe":
+            raise subprocess.TimeoutExpired(argv, timeout)
+        return FakeHost()(argv, environment, cwd, timeout)
+
+    installer, _, digest = _release(tmp_path / "release")
+    report = module.run_lifecycle(installer=installer, expected_sha256=digest, app_version="1.0.0",
+                                  work_root=tmp_path / "work", runner=host, timeout=45,
+                                  poll_interval=0.001, settle_seconds=0.05)
+    assert report["status"] == "FAIL"
+    step = _step(report, "installed_version")
+    assert step["status"] == "FAIL"
+    assert "did not answer within 45 seconds" in step["detail"]
+
+
+def test_a_shell_that_cannot_be_started_reports_the_cause_per_file(tmp_path):
+    module = _evidence_module()
+    _, metadata, _ = _release(tmp_path / "release")
+
+    def host(argv, environment, cwd, timeout):
+        raise FileNotFoundError(2, "The system cannot find the file specified")
+
+    report = module.run_signing(release_metadata_path=metadata, runner=host)
+    assert report["status"] == "UNKNOWN"
+    assert "powershell could not be started" in report["harness"]["probe_error"]
+    rows = [item for item in report["files"] if item["signature_bearing"]]
+    assert all("could not be started" in item["status_message"] for item in rows)
+
+
+def test_the_markdown_record_publishes_the_query_host(tmp_path):
+    """The step summary is uncapped and reachable, so the harness facts belong in it too."""
+    module = _evidence_module()
+    _, metadata, _ = _release(tmp_path / "release")
+    report = module.run_signing(release_metadata_path=metadata,
+                               runner=FakeHost(signature_cmdlet="missing"))
+    text = module.render_markdown(report, "Windows signing evidence")
+    assert "Query host: PowerShell 5.1.20348.2402" in text
+    assert "Security module import failed" in text, "the import outcome must be readable as text"
+    assert "probe exit code 0" in text
 
 
 def test_release_examination_does_not_mutate_the_published_artifacts(tmp_path):

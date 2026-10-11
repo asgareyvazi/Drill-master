@@ -170,6 +170,10 @@ def test_a_query_failure_keeps_its_reason_visible_in_the_published_evidence():
         "the profileless Windows PowerShell host does not auto-load the Security module - the runner "
         "proved it by reporting cmdlet=missing - so both the probe and the query must import it")
     assert '"module_import"' in evidence, "whether that import worked must itself be published"
+    for failure in ("subprocess.TimeoutExpired", 'powershell could not be started',
+                    "powershell invocation failed"):
+        assert failure in evidence, (f"a shell that never answered ({failure}) used to escape as a traceback, "
+                                     "which left no record and let the gate blame a missing artifact")
     assert '"reason": bound(' in evidence, "the job console line must carry each non-pass reason"
 
 
@@ -186,6 +190,9 @@ def test_the_workflow_publishes_the_signature_cause_without_artifact_access():
     assert "$message = & $oneLine $_.status_message" in workflow, "the annotation must quote the recorded reason"
     assert "& $clip $message 160" in workflow, "the quoted reason must stay bounded"
     assert "Authenticode query environment" in workflow, "the step summary must record the query host"
+    assert "module_import=$($signing.harness.module_import)" in workflow, (
+        "the compact annotation line must carry the module-import outcome too: it is what separates "
+        "a runner-image limitation from an answer about the shipped files")
     # the recorded policy stays unchanged: a signature state never reddens the gate
     assert workflow.rstrip().endswith("exit 0") or "exit 0" in workflow.split("Signature status")[-1]
 

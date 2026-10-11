@@ -147,12 +147,28 @@ def run_powershell(script: str, target: Path, runner: Runner, timeout: int, *,
     the statement that produced that field failed, and that used to read as a successful empty
     answer: exit code zero plus a parseable payload was never cross-checked against the reason
     PowerShell wrote to stderr.  Carrying the bounded stderr and the exit code with the payload
-    is what turns "UNKNOWN" into "UNKNOWN because ...".
+    is what turns "UNKNOWN" into "UNKNOWN because ...".  A call that never returned -- a timed-out
+    or unstartable shell -- is reported the same way rather than allowed to escape as a traceback.
     """
     environment = dict(os.environ)
     environment["DRILLMASTER_TARGET_PATH"] = str(target)
-    completed = runner(["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
-                        "-Command", script], environment, None, timeout)
+    try:
+        completed = runner(["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+                            "-Command", script], environment, None, timeout)
+    except subprocess.TimeoutExpired:
+        # The host did not answer inside the budget.  That is a capability finding with a stated
+        # cause, and it has to reach the record: an escaping TimeoutExpired instead left the
+        # release directory with no signing-status.json at all, which the gate could only report
+        # as "produced no record" while the real reason sat in a traceback in the console.
+        return {"error": f"powershell did not answer within {timeout} seconds"}
+    except OSError as exc:
+        # powershell.exe is not launchable here at all.  Every row records that cause instead of
+        # the tool dying, so a run that could not ask the question stays separable from a tool
+        # that broke -- which is the distinction the report's contract depends on.
+        return {"error": f"powershell could not be started: {type(exc).__name__}: {str(exc)[:120]}"}
+    except subprocess.SubprocessError as exc:
+        # The shell ran and the harness could not collect its result (killed, pid recycled).
+        return {"error": f"powershell invocation failed: {type(exc).__name__}: {str(exc)[:120]}"}
     output = (getattr(completed, "stdout", "") or "").strip()
     error_text = (getattr(completed, "stderr", "") or "").strip()
     if completed.returncode != 0 or not output:
@@ -678,6 +694,17 @@ def render_markdown(report: dict, title: str) -> str:
                          f"(sha256 {item['container_archive_sha256'][:16]}...)"
                          if item.get("container_member") else "")
             lines.append(f"- `{item['filename']}` — {item['status']}{signer}{digest}{origin}{container}{reason}")
+    harness = report.get("harness")
+    if isinstance(harness, dict) and harness:
+        # This text is appended to the job summary, the one channel that is both uncapped and
+        # reachable when the artifact endpoints are not, so the query host belongs in it.
+        version = harness.get("powershell_version") or "unreported"
+        command = harness.get("query_command") or "unreported"
+        module_import = str(harness.get("module_import") or "unreported").replace("_", " ")
+        probe_exit = harness.get("probe_exit_code", "unreported")
+        probe_error = f"; probe error: {harness['probe_error']}" if harness.get("probe_error") else ""
+        lines += ["", f"Query host: PowerShell {version}; command {command}; "
+                      f"Security module import {module_import}; probe exit code {probe_exit}{probe_error}"]
     if report.get("policy"):
         lines += ["", f"Policy: {report['policy']}"]
     if report.get("prerequisite"):
