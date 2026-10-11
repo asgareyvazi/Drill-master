@@ -294,6 +294,14 @@ exactly that - an authenticated listing plus a valid signed download URL, and
 `INDEPENDENT_ARTIFACT_REVERIFICATION=BLOCKED` with the transport error quoted, never as a
 verification that passed and never as a missing artifact.
 
+The same failure recurred on a later exact SHA, so it is a property of the review network rather than of
+one run: DNS resolved, TCP 443 connected, and the TLS handshake was reset in every client variant tried
+(`default`, `--http1.1`, `--tlsv1.2 --http1.1`, `-4 --http1.1`, `--no-alpn`) while HTTPS calls to
+`api.github.com` from the same host succeeded minutes before and after.  A range request for the first
+64 KB is the cheap way to learn this before committing to a full download, and resolving the redirect in
+two steps - reading the `Location` header from the API, then fetching it with no credential attached -
+keeps the token off the storage host and the signed URL out of any log.
+
 ```powershell
 # 1. Integrity of the two published release artifacts, against the digests the build recorded.
 $manifest = Get-Content -LiteralPath .\release-metadata.json -Raw | ConvertFrom-Json

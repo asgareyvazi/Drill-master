@@ -232,7 +232,8 @@
     "the restored-sandbox pattern repeated: the local object store lost commits that the remote had, while the worktree kept their content; recovery therefore means fingerprinting content, adopting the remote tip non-destructively, and committing the delta - never re-creating history",
     "a gate that fails twice for the same reason is not flaky noise: the second failure produced the observation (listed at the check, refused at the exec) that the first could not, because the instrumentation added between them was designed to attribute rather than to hide",
     "the signing UNKNOWN, the capability-probe remedy, the retry and the artifact-transport blocker are four separate findings and must not be merged into one story: only the first two concern the signature record, and the fourth prevents anyone from claiming the bytes were verified here",
-    "a field name is part of the evidence: `module_import` held an availability answer, and every document that read it as an import observation inherited that error - naming and prose had to be corrected together"
+    "a field name is part of the evidence: `module_import` held an availability answer, and every document that read it as an import observation inherited that error - naming and prose had to be corrected together",
+    "a mutation battery's survivors are the most useful output it produces: four of them were gaps in this mission's own tests, and two were documents that still allowed the old inference to be read back in"
   ],
   "missions": [
     "M42.5",
@@ -299,26 +300,38 @@
       ]
     },
     "local_verification": {
-      "focused": "tests/test_windows_release_evidence.py, tests/test_windows_release_gate_contract.py and tests/test_acceptance_report.py together: 271 collected, 271 passed, 0 failed, 0 skipped",
+      "focused": "tests/test_windows_release_evidence.py, tests/test_windows_release_gate_contract.py and tests/test_acceptance_report.py: 274 collected, 274 passed, 0 failed, 0 skipped",
       "release_relevant_scope": "the Windows gate's own 27-module list, run locally with the pinned tools: 685 collected, 674 passed, 8 failed, 0 errors, 3 skipped. Every failure is `ImportError: libGL.so.1` from importing Qt in a container without the OpenGL libraries the CI image installs (libgl1/libegl1); the same set fails at the base commit with no local changes, and the three skips are the deliberate ones - real Windows bundle smoke and the two Qt chart/UI skips",
       "ascii_locale": "the three release suites plus documentation-truth and packaging-smoke tests under PYTHONUTF8=0 LC_ALL=C: 297 collected, 295 passed, 0 failed, 2 skipped; the evidence tool also runs under the C locale",
       "lint": "`ruff check . --select E722,F821` at ruff==0.16.6: all checks passed. Debt ratchet over core/dialogs/tabs/tests: 5339 against the ceiling 5375 read from .github/ruff-debt-ceiling.txt - within budget, and explicitly not lint-clean. compileall over packaging and tests: clean. git diff --check: clean",
       "authority": "these are Linux measurements of the release tooling; the GitHub Actions runs on the published SHA are the authority for Windows behaviour, and CI's environment is not this container's"
     },
     "internal_gates": {
-      "status": "PENDING_ON_THIS_SHA",
-      "gates_on_earlier_candidates": "9cb12286a4eb61c7547cd0227996513b22d21227 remains the last gate-verified SHA before this mission's changes; its results are recorded above and are not inherited"
+      "verified_sha": "a742170cc55d1713546751afb692848914ce3c04",
+      "note": "both mandatory workflows were triggered by the ordinary push of this SHA and were read back from the API by run identity; a queued or in-progress run is not a pass and nothing here inherits a result from an earlier SHA",
+      "source": "Source release gate, run number 74, completed/success, head_sha equal to the published SHA; three matrix jobs (source 3.11, 3.12, 3.13 on ubuntu-24.04), nine step entries each (set up job, checkout, setup-python, real Qt system libraries, locked runtime and verification tools, verify exact source/dependencies/tests/wheel, two posts, complete job) - every conclusion success; the only annotations in any of the three jobs are the Node.js 20 deprecation warnings",
+      "windows": "Windows release validation, run number 20, completed/success, head_sha equal to the published SHA; job windows-release on windows-2022 with fourteen step entries: ten declared workflow steps (checkout, setup-python, install pinned Inno Setup compiler, install locked test runtime, Windows regression suite, build portable bundle and installer with frozen smoke, installed-application lifecycle smoke, record Authenticode signature status, generate acceptance report, upload evidence artifacts) plus set up job, two post steps and complete job - every conclusion success, including the lifecycle step, whose recorded result is lifecycle=PASS",
+      "windows_suite": "the same twenty-seven-module list the job runs reported tests=683/685 on Windows; the two non-passing rows are the deliberate skips, not failures",
+      "published_manifest_notice": "sha=a742170c... app=1.0.0 python=3.12.10 pyinstaller=6.11.1 inno=6.7.1/installed-package-metadata installer=DrillMaster-1.0.0-Setup.exe 83259119B sha256=b0676066d77ecbe0e5659d28699589f3... portableZip=DrillMaster-1.0.0-windows-x64.zip 119941398B sha256=6e0e56580a6beb8d1a28128cec34a598... tests=683/685 lifecycle=PASS signing=UNKNOWN",
+      "this_commit_is_records_only": "the delta between the gated SHA and the commit carrying this text touches only this checkpoint and PRODUCTION_READINESS.md; the gated tree therefore contains the code being described, and the runs on the later commit are reported in the mission report, not asserted here",
+      "gates_on_earlier_candidates": "9cb12286a4eb61c7547cd0227996513b22d21227 remains recorded above as the previous gate-verified SHA; its results say nothing about this correction"
     },
     "independent_artifact_reverification": {
-      "status": "PENDING_ON_THIS_SHA",
-      "note": "filled after the fetch attempt on the final published SHA's artifact; a BLOCKED or NOT_VERIFIED outcome keeps REL-04 open, and no verdict of MATCH is recorded without bytes"
+      "verdict": "BLOCKED",
+      "artifact_identity": "drillmaster-windows-a742170cc55d1713546751afb692848914ce3c04, listed size 321705858 bytes, uploaded at 08:00:04Z on the gated run, not expired, retention thirty days; the artifact id itself is quoted in the mission report because a run identifier does not belong in committed source",
+      "what_was_obtained": "an authenticated listing call to api.github.com succeeded and produced the download endpoint, and that endpoint answered 302 with a fresh signed URL on productionresultssa4.blob.core.windows.net, so neither the credential nor the API was the obstacle",
+      "transport_evidence": "every fetch attempt was reset during the TLS handshake: curl exit 35, `OpenSSL SSL_connect: SSL_ERROR_SYSCALL in connection to productionresultssa4.blob.core.windows.net:443`, after --retry 3 --retry-all-errors, with zero bytes written. TCP connect to port 443 succeeded, which separates egress filtering from DNS failure, and the same client on the same network completed HTTPS calls to api.github.com minutes earlier. Five client variants were tried - default, --http1.1, --tlsv1.2 --http1.1, -4 --http1.1, --no-alpn - and all five failed identically",
+      "not_done": "no bytes were downloaded, so no digest was recomputed, no archive was opened, nothing was executed, and no claim about the published artifact content is made by this session",
+      "method_kept_safe": "the verifier lives outside the repository, follows the redirect in two steps so the credential is sent only to api.github.com, passes no -k or other TLS-verification bypass, prints only the target host with the signed query withheld, and requests a 64 KB range before attempting the full object",
+      "consequence": "REL-04 stays open and the acceptance report's independent_reverification stays NOT_VERIFIED; CI's own Get-FileHash step is gate evidence about the build, never this session's verification of the download"
     },
     "signing_trust_and_lifecycle": {
       "authenticode_observed_before_correction": "UNKNOWN, with `cmdlet=missing` and the field then named `module_import` reported as failed, on every exact-SHA run through 9cb1228",
-      "corrected_attribution": "that record proved the cmdlet did not resolve in a profileless Windows PowerShell 5.1.20348.5622 host; it proved nothing about whether Microsoft.PowerShell.Security could be imported, because the import's own result was discarded by the tool that produced the record",
-      "observed_after_correction": "PENDING_ON_THIS_SHA: the corrected probe reports the two facts separately on the next exact-SHA run; the mission report carries what those runs said",
-      "signing_trust": "NOT_ESTABLISHED - no SignTool or SignedUninstaller is configured in packaging/DrillMaster.iss or packaging/build_windows.ps1, no certificate or key material exists in this repository, and no signature was verified against a trust anchor",
-      "lifecycle": "step 8 of the Windows gate reported PASS on 9cb1228 (install, digest-verified, credential-free smoke, uninstall, {app} emptied). This mission changed no lifecycle behaviour except that the per-file exit code is now reported directly; the corrected probe cannot affect the lifecycle record"
+      "observed_after_correction": "on the gated SHA the corrected probe reported ps=5.1.20348.5622, cmdlet=missing, security_module_import=failed, and the host's own message, clipped by the annotation bound: 'The following error occurred while loading the extended type data file: Error in TypeData \"System.Security.AccessControl.ObjectSecurity\": The member A...'; both executables were recorded UNKNOWN with the cause 'explicit Import-Module of Microsoft.PowerShell.Security failed' and the portable ZIP NOT_APPLICABLE [container archive]",
+      "what_the_two_observations_now_mean": "this is the first run in which the import failure was actually observed rather than inferred, and it happens to corroborate what M42.5 had asserted on inadequate evidence. The two records are not the same kind of claim: the earlier one said a thing that turned out to be true without having measured it, this one measured it. The failure is an extended-type-data load error inside Windows PowerShell on this runner image, which is a host condition, not a repository configuration",
+      "decision_applied": "a missing cmdlet with a refused import is a reason not to ask per-file questions, so the aggregate is UNKNOWN with that stated cause; it was not promoted to FAIL, not demoted to UNSIGNED, and no distribution decision was inferred",
+      "signing_trust": "NOT_ESTABLISHED - packaging/DrillMaster.iss and packaging/build_windows.ps1 contain no SignTool and no SignedUninstaller entry (checked in the source: zero matches in either file), which is the configuration fact behind signing_configured_in_build=false, and no chain, timestamp or trust anchor was verified",
+      "lifecycle": "the lifecycle step concluded success with lifecycle=PASS on the gated SHA: installer digest verified before execution, silent install, credential-free frozen smoke run from the installed tree, uninstall, and {app} emptied, with install-tree additions, edits and deletions each recorded. This mission changed no lifecycle behaviour beyond reporting each PowerShell call's exit code as returned"
     },
     "packaging_dimensions_reconfirmed": {
       "installer_identity": "digest-matched -Setup.exe bound to its release-metadata entry; version cross-checked against core/version.py",
@@ -338,6 +351,7 @@
       "preserved_history": "M36 closure at 979691e, P6 accounting, and W5 PROVENANCE_EXTERNAL_SOURCE_UNAVAILABLE with 332 / 334 remain as recorded; no dated record was overwritten with this mission's state"
     },
     "not_verified": [
+      "the published artifact bytes were not re-downloaded or re-hashed: the transport to the storage host was reset during the TLS handshake, recorded above as BLOCKED",
       "the published artifact bytes have not been re-downloaded and hashed in this session at the time of writing",
       "no execution of any downloaded installer or executable",
       "no trust-chain, certificate-validity or timestamp verification against a root store",
@@ -348,7 +362,8 @@
     "honest_limits": [
       "the correction changes what a record can prove, not what the shipped files are: they remain unexamined by the gate until a host answers the query",
       "the corrected probe was exercised against fake PowerShell hosts and the published channels; its behaviour on a real Windows host is a gate observation, not a local one",
-      "no signing was configured, performed or trusted here, and no owner decision was inferred from this correction"
+      "no signing was configured, performed or trusted here, and no owner decision was inferred from this correction",
+      "the import failure is now observed on the gated SHA, but only for that runner image; it says nothing about a user's machine or a differently provisioned host"
     ]
   }
 }

@@ -942,6 +942,41 @@ def test_the_attribution_correction_is_kept_in_the_record_and_in_every_channel()
         "the correction must be visible beside the claim it replaces, not in a separate document")
     assert "unavailable capability" in flat(settlement["decision_rule_applied"]), \
         "the record must state what is actually proven"
+    closure = payload["m42_6_release_closure"]
+    gates = closure["internal_gates"]
+    assert gates["verified_sha"] != settlement["verified_sha"], (
+        "the corrected record names the SHA its own gates ran on; reusing the earlier mission's SHA "
+        "would let a pre-correction result be read as proof of the correction")
+    for channel in ("source", "windows", "windows_suite", "published_manifest_notice",
+                    "this_commit_is_records_only"):
+        assert gates[channel], f"the gate record is incomplete without {channel}"
+    assert "completed/success" in gates["source"] and "head_sha equal to the published SHA" in gates["source"], (
+        "a run on some other SHA is not evidence about this one")
+    assert "conclusion success" in gates["windows"] and "lifecycle=PASS" in gates["windows"]
+    reverification = closure["independent_artifact_reverification"]
+    assert reverification["verdict"] == "BLOCKED"
+    assert "no bytes were downloaded" in reverification["not_done"], (
+        "a blocked transport must be reported as blocked, never as a verification that passed")
+    assert "SSL_ERROR_SYSCALL" in reverification["transport_evidence"]
+    assert "321705858" in reverification["artifact_identity"]
+    signing = closure["signing_trust_and_lifecycle"]
+    observed = signing["observed_after_correction"]
+    assert "security_module_import=failed" in observed and "cmdlet=missing" in observed, (
+        "the two observations must be quotable separately from the published record")
+    assert "corroborate" in signing["what_the_two_observations_now_mean"], (
+        "an observation that happens to agree with an earlier unproven claim is not the same kind of claim")
+    assert "NOT_ESTABLISHED" in signing["signing_trust"]
+    local = closure["local_verification"]
+    assert "274 collected, 274 passed" in local["focused"]
+    assert "685 collected" in local["release_relevant_scope"] and "libGL.so.1" in local["release_relevant_scope"], (
+        "an environmental failure must be named as one, with its count")
+    assert "5375" in local["lint"] and "not lint-clean" in local["lint"]
+    assert closure["state_discovery_and_recovery"]["classification"].startswith("STATE-B")
+    assert "no_destructive_command_used" in closure["state_discovery_and_recovery"]
+    battery = closure["correction_validation"]["mutation_battery"]
+    assert battery["survived"] == 0 and battery["caught"] == battery["attempted"] and battery["honest_limit"]
+    assert battery["first_run"], "the survivors this mission found in its own tests stay on the record"
+
     assert "module_import=failed" in settlement["observed_record"], (
         "what the runs printed stays quoted verbatim; only the reading of it changes")
     assert "verbatim" in settlement["observed_record_note"]
