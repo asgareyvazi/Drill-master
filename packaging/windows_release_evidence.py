@@ -300,7 +300,7 @@ def _uninstall_forensics(*, install_dir: Path, work_root: Path, uninstaller: Pat
     Recording these fields at each point of use is what lets the published record tell them apart
     later, without a runner log or artifact access.
     """
-    def log_state(path: Path, *, with_tail: bool = True) -> dict:
+    def log_state(path: Path) -> dict:
         """Whether an Inno log exists and what it last said -- the file an unprivileged user owns.
 
         The installer and uninstaller write their logs under the work root, so the gate can read them
@@ -315,8 +315,7 @@ def _uninstall_forensics(*, install_dir: Path, work_root: Path, uninstaller: Pat
                 state["size_bytes"] = path.stat().st_size
             except OSError as exc:
                 state["size_error"] = bound(f"{type(exc).__name__}", 60)
-            if with_tail:
-                state["tail"] = bound(" ".join(_tail(path, 6).split()), 400) or "empty"
+            state["tail"] = bound(" ".join(_tail(path, 6).split()), 400) or "empty"
         return state
 
     sample: dict = {"sampled_at": round(time.time(), 3),

@@ -184,7 +184,7 @@ class FakeHost:
                     raise FileNotFoundError(2, "The process cannot access the file because it is being used")
                 if now - self.first_refusal_monotonic < self.uninstaller_lock_clears_after:
                     raise FileNotFoundError(2, "The process cannot access the file because it is being used")
-                self.uninstall_exit_code = self.uninstall_exit_code  # the lock released: uninstall proceeds
+                # past the wait: the lock released, so the uninstall runs normally and the step passes
             if self.unlaunchable_uninstall_attempts > 0:
                 # The file is listed and the OS will not start it: what an uninstaller under
                 # antivirus quarantine looks like from userspace.
