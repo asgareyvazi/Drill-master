@@ -55,7 +55,8 @@ class FakeHost:
                  signature_stderr: str = "", signature_cmdlet: str = "available",
                  keep_sentinel: bool = True, install_writes_exe: bool = True,
                  run_stdout: str = "", powershell_version_output: str | None = None,
-                 run_returncode: int | None = None, raise_on_call: int | None = None):
+                 run_returncode: int | None = None, raise_on_call: int | None = None,
+                 remove_uninstaller_during_smoke: bool = False):
         self.install_exit_code = install_exit_code
         self.uninstall_exit_code = uninstall_exit_code
         self.product_version = product_version
@@ -77,6 +78,7 @@ class FakeHost:
         self.powershell_version_output = powershell_version_output
         self.run_returncode = run_returncode
         self.raise_on_call = raise_on_call
+        self.remove_uninstaller_during_smoke = remove_uninstaller_during_smoke
         self.calls: list[list[str]] = []
         self.envs: list[dict | None] = []
 
@@ -122,6 +124,10 @@ class FakeHost:
                 (install_dir / "unins000.exe").write_bytes(b"uninstaller")
             _arg_value(argv, "/LOG=").write_text("Setup process started.\n", encoding="utf-8")
             return SimpleNamespace(returncode=self.install_exit_code, stdout="", stderr="")
+        if self.remove_uninstaller_during_smoke and program == "drillmaster.exe":
+            # Something outside the installer's control removed the uninstaller while the
+            # application ran; the lifecycle must describe that, not lose it in a FileNotFoundError.
+            (Path(argv[0]).parent / "unins000.exe").unlink(missing_ok=True)
         if program == "unins000.exe":
             install_dir = Path(argv[0]).parent
             if self.uninstall_removes:
@@ -238,6 +244,8 @@ def test_lifecycle_passes_only_when_install_run_and_uninstall_are_all_proven(tmp
     assert report["installed_smoke"] == {
         "exit_code": 0, "wrote_log_outside_install_dir": True, "secret_leak_detected": False,
         "new_files_in_install_dir": [], "changed_files_in_install_dir": [],
+        # deletions are their own channel, so "the install tree is intact" means what it says
+        "deleted_files_in_install_dir": [],
         "success_marker_found": True, "fatal_marker_found": False, "success_marker_channel": "stdout",
     }
     assert _step(report, "installed_smoke")["detail"].startswith("exit 0; success marker via stdout")
@@ -851,6 +859,33 @@ def test_the_success_marker_is_accepted_from_either_channel_and_only_from_a_real
 
 
 # --- M42.4: the cause of a non-pass signature state must survive into the published record ---
+
+
+def test_an_uninstaller_that_vanishes_mid_lifecycle_is_described_not_lost(tmp_path):
+    """The gate run on 58b3912 failed exactly here, and the record could not say what happened.
+
+    installed_files proved unins000.exe was there; the uninstall then found it gone, and the only
+    published detail was a FileNotFoundError.  The lifecycle now names the sequence, lists what the
+    install tree actually holds, and attaches the installer's own log tail, so the finding is
+    attributable from the record without log or artifact access.
+    """
+    module = _evidence_module()
+    installer, _, digest = _release(tmp_path / "release")
+    report = module.run_lifecycle(installer=installer, expected_sha256=digest, app_version="1.0.0",
+                                  work_root=tmp_path / "work",
+                                  runner=FakeHost(remove_uninstaller_during_smoke=True),
+                                  poll_interval=0.001, settle_seconds=0.05)
+    assert report["status"] == "FAIL"
+    assert _step(report, "installed_files")["status"] == "PASS"
+    uninstall = _step(report, "silent_uninstall")
+    assert uninstall["status"] == "FAIL"
+    assert "present after install and is absent now" in uninstall["detail"], uninstall["detail"]
+    assert "the install tree holds" in uninstall["detail"]
+    assert "installer log tail" in uninstall["detail"]
+    # and the smoke step must have recorded the disappearance it witnessed
+    smoke = report["installed_smoke"]
+    assert smoke["deleted_files_in_install_dir"] == ["unins000.exe"]
+    assert "disappeared while it ran" in _step(report, "installed_smoke")["detail"]
 
 
 @pytest.mark.parametrize("raw, expected, recognized", [

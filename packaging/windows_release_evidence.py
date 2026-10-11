@@ -320,6 +320,11 @@ def run_lifecycle(*, installer: Path, expected_sha256: str, app_version: str, wo
         after = snapshot(install_dir)
         created = sorted(set(after) - set(before))
         changed = sorted(name for name in set(after) & set(before) if after[name] != before[name])
+        # Deletions are recorded as their own channel.  A file can disappear from {app} while the
+        # installed executable runs -- on one gate run the uninstaller did exactly that, between the
+        # step that had proved it present and the step that tried to use it -- and a claim about the
+        # install tree that only looks at additions and edits cannot describe such a window.
+        deleted = sorted(set(before) - set(after))
         log_written = (smoke_root / "logs" / "drillmaster.log").is_file()
         # An exit code of 0 is not the same claim as "the smoke ran": an executable that
         # returns cleanly without completing the smoke must never satisfy this step.
@@ -328,6 +333,7 @@ def run_lifecycle(*, installer: Path, expected_sha256: str, app_version: str, wo
         details = {"exit_code": smoke.returncode, "wrote_log_outside_install_dir": log_written,
                    "secret_leak_detected": bool(leaked), "new_files_in_install_dir": created[:20],
                    "changed_files_in_install_dir": changed[:20],
+                   "deleted_files_in_install_dir": deleted[:20],
                    "success_marker_found": marker_found, "fatal_marker_found": fatal_found,
                    "success_marker_channel": ("stdout" if "PACKAGE_SMOKE_OK" in smoke_output
                                               else "application-log" if marker_found else "none")}
@@ -337,9 +343,12 @@ def run_lifecycle(*, installer: Path, expected_sha256: str, app_version: str, wo
                 or not marker_found or fatal_found):
             record("installed_smoke", "FAIL", json.dumps(details, sort_keys=True))
             return _finish(evidence, "FAIL", started)
+        containment_note = (f"install tree gained nothing and changed nothing, but {len(deleted)} file(s) "
+                            f"disappeared while it ran: {', '.join(deleted[:8])}" if deleted
+                            else "install tree unchanged")
         record("installed_smoke", "PASS",
                f"exit 0; success marker via {details['success_marker_channel']}; no fatal marker; log written "
-               "outside the install directory; install tree unchanged")
+               f"outside the install directory; {containment_note}")
 
         # 5. User data lives outside {app}; record the containment proof explicitly.
         containment = {
@@ -360,6 +369,18 @@ def run_lifecycle(*, installer: Path, expected_sha256: str, app_version: str, wo
 
         # 7. Non-interactive uninstall, then prove the application files are gone.
         uninstall_log = work_root / "uninstall.log"
+        if not uninstaller.is_file():
+            # installed_files already proved this file existed, so its absence here is a finding
+            # about what happened in between -- not a missing-artifact mystery.  Saying so, with
+            # the tree listing and the installer's own log tail, is what makes the failure
+            # attributable from the published record alone.
+            listing = sorted(path.name for path in install_dir.rglob("*")
+                             if path.is_file())[:20] if install_dir.is_dir() else []
+            record("silent_uninstall", "FAIL",
+                   f"unins000.exe was present after install and is absent now; the install tree holds "
+                   f"{len(listing)} file(s): {', '.join(listing) or 'nothing'}; "
+                   f"installer log tail: {bound(_tail(install_log, 12), 300) or 'no log'}")
+            return _finish(evidence, "FAIL", started)
         try:
             removed = _uninstall(uninstaller, uninstall_log, install_dir, runner, timeout,
                                  poll_interval, settle_seconds, evidence)

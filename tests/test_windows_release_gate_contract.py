@@ -208,6 +208,25 @@ SHARED_SIGNING_CONTRACT_NAMES = ("SIGNING_STATUS_VOCABULARY", "SIGNING_FILE_VOCA
                                  "validate_signing_document")
 
 
+def test_the_lifecycle_distinguishes_a_missing_uninstaller_from_a_vanished_one():
+    """"Absent after install" and "gone before the uninstall ran" are different findings.
+
+    A gate run failed on the second shape and the published record could only show a
+    FileNotFoundError, which reads like a tool bug rather than an installer-tree change.  Both
+    channels have to stay: the smoke step's deletion list, and the uninstall step's explicit
+    before-and-after statement with the tree listing and the installer log tail.
+    """
+    evidence = (ROOT / "packaging" / "windows_release_evidence.py").read_text(encoding="utf-8")
+    assert '"deleted_files_in_install_dir": deleted[:20]' in evidence, (
+        "the installed smoke must report what disappeared from {app}, not only what appeared")
+    assert "set(before) - set(after)" in evidence, "the deletion channel needs the inverse diff"
+    assert "present after install and is absent now" in evidence, (
+        "the uninstall failure must say that the file was previously proved present")
+    assert "installer log tail" in evidence, "and attach the installer's own closing lines"
+    assert "return _finish(evidence, \"FAIL\", started)" in evidence, (
+        "both paths end the lifecycle as a failure: neither is soft-pedalled")
+
+
 def test_signing_vocabulary_and_extraction_rules_are_declared_exactly_once():
     """Two definitions of one vocabulary is how a gate starts disagreeing with itself.
 
