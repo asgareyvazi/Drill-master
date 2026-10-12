@@ -379,3 +379,148 @@ def test_the_abort_note_reaches_the_job_summary_too(tmp_path):
     text = summary.read_text(encoding="utf-8")
     assert "pytest exited 5" in text
     assert "Collected: 0" in text
+
+
+def _crash_log(tmp_path: Path, *, trailing: int = 8) -> Path:
+    """A pytest transcript in the shape a Windows access violation actually leaves behind.
+
+    The interpreter's death notice and the test's own frames come first; the harness's outer frames and the
+    progress dots trail them, which is why quoting the end of this file tells a reader nothing.
+    """
+    lines = [
+        "...........................                                      [ 12%]",
+        "Windows fatal exception: access violation",
+        "",
+        "Current thread 0x00000a4c (most recent call first):",
+        '  File "D:\\a\\Drill-master\\Drill-master\\tabs\\w13_fishing_result_ui.py", line 512 in paintEvent',
+        '  File "D:\\a\\Drill-master\\Drill-master\\tests\\test_w13_fishing_result_ui.py", line 88 in '
+        'test_the_fallback_painter_runs',
+        '  File "C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\_pytest\\python.py", '
+        "line 166 in pytest_pyfunc_call",
+    ]
+    lines += ['  File "C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\_pytest\\main.py", '
+              f"line {380 + index} in _main" for index in range(trailing)]
+    lines += ["Exception ignored in: <_io.Object2PyCPtr object>", "....."]
+    path = tmp_path / "windows-regressions.log"
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
+
+
+def test_a_crash_is_quoted_from_its_marker_not_from_the_end_of_the_log(tmp_path, capsys):
+    """The frames that name the crashing code sit above the harness's own, so a tail is the wrong window."""
+    module = _parser()
+    log = _crash_log(tmp_path)
+    module.main(["--junit", str(tmp_path / "absent.xml"), "--annotations", "--pytest-exit", "139",
+                 "--pytest-log", str(log)])
+    captured = capsys.readouterr().out
+    assert "fatal crash dump" in captured
+    assert "w13_fishing_result_ui.py" in captured, "the annotation quoted the harness instead of the crash"
+    assert "Windows fatal exception: access violation" in captured
+    assert "marker at line 2 of" in captured
+    assert "the run is not a pass" in captured, "the exit-code verdict must survive alongside the crash note"
+
+
+def test_the_crash_note_is_a_separate_annotation_within_the_limit(tmp_path, capsys):
+    module = _parser()
+    log = _crash_log(tmp_path, trailing=400)
+    # Long frame lines, because a crash dump made of short lines never reaches the limit and a bound that is
+    # never exercised is a bound that will silently regress.
+    lines = log.read_text(encoding="utf-8").splitlines()
+    log.write_text("\n".join(line + ("x" * 300 if "File" in line else "") for line in lines) + "\n",
+                   encoding="utf-8")
+    module.main(["--junit", str(tmp_path / "absent.xml"), "--annotations", "--pytest-exit", "139",
+                 "--pytest-log", str(log)])
+    captured = capsys.readouterr().out
+    lines = [line for line in captured.splitlines() if line.startswith("::error ")]
+    assert len(lines) >= 2, "the abort note and the crash dump must not be merged into one truncated string"
+    crash = next(line for line in lines if "fatal crash dump" in line)
+    assert len(crash) <= module.ANNOTATION_LIMIT + 120, "GitHub truncates silently past the limit"
+    assert "the excerpt stopped at the annotation limit" in crash or "the dump continues for" in crash, (
+        "the reader has to be told the excerpt was cut, and how much was available")
+    assert "access violation" in crash and "w13_fishing_result_ui.py" in crash, (
+        "the cap ate the part that mattered: the marker and the frames under it must survive the cut")
+
+
+def test_a_log_without_a_crash_marker_invents_none(tmp_path, capsys):
+    module = _parser()
+    log = tmp_path / "quiet.log"
+    log.write_text("collected 12 items\nno crash here\n", encoding="utf-8")
+    module.main(["--junit", str(tmp_path / "absent.xml"), "--annotations", "--pytest-exit", "2",
+                 "--pytest-log", str(log)])
+    captured = capsys.readouterr().out
+    assert "fatal crash dump" not in captured
+    assert "no crash here" in captured, "the ordinary tail quote is still the only witness"
+
+
+def test_the_crash_excerpt_survives_an_unreadable_path(tmp_path):
+    """A directory where the log should be is a real shape of this failure, and it must not raise."""
+    module = _parser()
+    directory = tmp_path / "windows-regressions.log"
+    directory.mkdir()
+    text = module.crash_excerpt(directory)
+    assert "could not be read" in text and "IsADirectoryError" in text
+
+
+def test_the_job_summary_gets_the_wider_crash_excerpt(tmp_path):
+    """The summary is not truncation-limited the way an annotation is, so it carries the whole dump."""
+    module = _parser()
+    log = _crash_log(tmp_path, trailing=40)
+    summary = tmp_path / "summary.md"
+    module.main(["--junit", str(tmp_path / "absent.xml"), "--summary-out", str(summary), "--pytest-exit", "139",
+                 "--pytest-log", str(log)])
+    text = summary.read_text(encoding="utf-8")
+    assert "w13_fishing_result_ui.py" in text
+    assert "the dump continues for" not in text, "the summary had room for the whole dump and cut it anyway"
+
+
+def test_the_budget_is_measured_on_what_github_counts_not_on_the_raw_string(tmp_path, capsys):
+    """Escaping is not free, and an annotation that overflows the limit is not truncated -- it is dropped.
+
+    ``_escape_data`` turns each percent sign into three characters, so a crash dump of percent-heavy frame
+    lines is several times longer on the wire than in memory.  The excerpt has to fit the escaped form; a
+    budget kept on raw length would look compliant in review and lose the diagnostic in the UI.
+    """
+    module = _parser()
+    log = tmp_path / "percent.log"
+    log.write_text("Windows fatal exception: access violation\n"
+                   + "\n".join('  File "%s", line %d in paintEvent' % ("%" * 180, index)
+                                for index in range(60)) + "\n", encoding="utf-8")
+    module.main(["--junit", str(tmp_path / "absent.xml"), "--annotations", "--pytest-exit", "139",
+                 "--pytest-log", str(log), "--tail-lines", "4"])
+    captured = capsys.readouterr().out
+    for line in captured.splitlines():
+        if "fatal crash dump" in line:
+            assert len(line) <= module.ANNOTATION_LIMIT + 120, (
+                f"the emitted annotation is {len(line)} characters, past the limit GitHub truncates at")
+            assert "access violation" in line, "the budget cut from the wrong end"
+            assert "the excerpt stopped at the annotation limit" in line
+            break
+    else:
+        raise AssertionError("no crash annotation was emitted at all")
+
+
+def test_annotations_stay_inside_the_size_github_actually_keeps(tmp_path, capsys):
+    """GitHub stores at most 3000 characters and cuts from the front, which eats headlines.
+
+    Measured on the run this module was rewritten for: a message emitted at exactly the stored maximum arrived
+    as an ellipsis plus its last 2999 characters.  Both the abort diagnosis and the crash excerpt are therefore
+    sized to the safe limit, and the summary -- which no store limit squeezes -- carries the rest.
+    """
+    module = _parser()
+    log = _crash_log(tmp_path, trailing=60)
+    lines = log.read_text(encoding="utf-8").splitlines()
+    log.write_text("\n".join(line + ("y" * 300 if "File" in line else "") for line in lines) + "\n",
+                   encoding="utf-8")
+    summary = tmp_path / "summary.md"
+    module.main(["--junit", str(tmp_path / "absent.xml"), "--annotations", "--summary-out", str(summary),
+                 "--pytest-exit", "139", "--pytest-log", str(log), "--tail-lines", "40"])
+    emitted = [line for line in capsys.readouterr().out.splitlines() if line.startswith("::error ")]
+    assert len(emitted) >= 2, "the abort note and the crash dump are separate annotations"
+    for line in emitted:
+        assert len(line) <= module.ANNOTATION_SAFE_LIMIT + 200, (
+            f"an emitted annotation is {len(line)} characters; past the stored limit GitHub cuts the front, "
+            "and a crash excerpt cut from the front is the useless half of the dump")
+    text = summary.read_text(encoding="utf-8")
+    assert "#### Captured crash dump" in text
+    assert len(text) > sum(len(line) for line in emitted), (
+        "the summary is the uncapped channel; if it is shorter than the annotations, the dump was cut twice")

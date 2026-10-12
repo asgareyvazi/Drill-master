@@ -41,6 +41,12 @@ MAX_AGGREGATE_NAMES = 25
 # silently; the tail of a build log is the informative part.
 ANNOTATION_LIMIT = 3000
 
+# The limit above is what GitHub *stores*, and the store cuts from the front: measured on the Windows run this
+# diagnostic was written for, a message emitted at exactly that size arrived as an ellipsis plus its last 2999
+# characters.  Anything that must survive -- a headline, or a crash excerpt whose first lines are the point --
+# is therefore kept inside the safe limit, with room left for the workflow-command framing.
+ANNOTATION_SAFE_LIMIT = 2400
+
 # ``tests\test_x.py:332:``, ``C:\a\tests\test_x.py:332:`` and ``tests/test_x.py:332:``
 SOURCE_LOCATION = re.compile(r"(?P<path>(?:[A-Za-z]:)?[^\s:;\"'<>|]*\.py):(?P<line>\d+)")
 # Raw Python tracebacks (captured subprocess stderr) use the ``File "...", line N`` form.
@@ -229,7 +235,7 @@ def render_annotations(result: dict, limit: int = MAX_ANNOTATIONS) -> list[str]:
     return annotations
 
 
-def render_summary(result: dict, diagnosis: str = "") -> str:
+def render_summary(result: dict, diagnosis: str = "", crash: str = "") -> str:
     """Markdown for ``$env:GITHUB_STEP_SUMMARY``; not truncated by annotation limits."""
     lines = [
         "### Windows regression summary",
@@ -241,6 +247,10 @@ def render_summary(result: dict, diagnosis: str = "") -> str:
         lines += ["", "> [!WARNING]", f"> {redact(result['parse_error'])}"]
     if diagnosis:
         lines += ["", "> [!IMPORTANT]", f"> {redact(diagnosis)}"]
+    if crash:
+        # The annotation carries an excerpt because GitHub truncates long annotations silently; the summary
+        # has no such limit, so the reader gets the dump itself, fenced, in the order the interpreter wrote it.
+        lines += ["", "#### Captured crash dump", "", "```", crash, "```", ""]
     failures = result.get("failures", [])
     if failures:
         lines += ["", f"#### Failed tests ({len(failures)})", "",
@@ -279,10 +289,12 @@ def _bounded(body: str) -> str:
     """Keep one annotation inside the limit, preserving its end.
 
     The marker is part of the budget so the emitted line never exceeds it, and the *tail* is the informative
-    part of a log, so truncation eats from the front.
+    part of a log, so truncation eats from the front.  The safe limit rather than the store limit is used:
+    a message sized to the stored maximum was observed to arrive with its first characters replaced by an
+    ellipsis, which is exactly how a headline disappears.
     """
-    if len(body) > ANNOTATION_LIMIT:
-        return "…" + body[-(ANNOTATION_LIMIT - 1):]
+    if len(body) > ANNOTATION_SAFE_LIMIT:
+        return "…" + body[-(ANNOTATION_SAFE_LIMIT - 1):]
     return body
 
 
@@ -295,6 +307,46 @@ def build_stage_annotation(title: str, message: str, log_paths: list[Path], tail
     parts = [f"stage failure: {redact(message)}"] if message else ["stage failure: no exception message"]
     parts.extend(_log_parts(log_paths, tail_lines))
     return f"::error title={_escape_property(title)}::{_escape_data(_bounded(' ;; '.join(parts)))}"
+
+
+def crash_excerpt(path: Path, limit_lines: int = 20, line_width: int = 200, *, separator: str = " | ",
+                  bounded: bool = True) -> str:
+    """Quote a fatal-crash dump from a captured log, anchored on the line that says the run died.
+
+    The *tail* of such a log is the harness's outermost frames, which say only that pytest was inside a test.
+    The part that names the crashing code is the marker line and the frames right after it, so an excerpt
+    taken from the end -- which is what a log tail is -- would reproduce the useless half of the dump.  A
+    hard interpreter death also means no JUnit report was written, so this is the only channel that can carry
+    the test's own file and line out of the run.
+
+    Returns the empty string when the log holds no crash marker, leaving the ordinary tail quote to speak.
+    """
+    markers = ("Fatal Python error", "Windows fatal exception", "Current thread")
+    try:
+        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError as exc:
+        return f"{path.name}: the captured log could not be read ({type(exc).__name__})"
+    start = next((index for index, line in enumerate(lines) if any(marker in line for marker in markers)), None)
+    if start is None:
+        return ""
+    header = f"crash dump from {path.name}, marker at line {start + 1} of {len(lines)}: "
+    notice = (f"{separator}…(the dump continues for {len(lines) - start - limit_lines} more lines)"
+              if len(lines) > start + limit_lines and bounded else
+              f"{separator}(the dump ends {len(lines) - start} lines after the marker)"
+              if len(lines) > start + limit_lines else "")
+    kept: list[str] = []
+    for line in lines[start:start + limit_lines]:
+        piece = redact(line)[:line_width]
+        # The budget is measured on the escaped text, because that is what GitHub counts: a frame line full of
+        # percent signs costs three characters per character when it is written as a workflow command, and a
+        # budget kept on raw length would overflow the annotation and lose it silently.
+        candidate = header + separator.join(kept + [piece]) + notice  # budgeted escaped, see ANNOTATION_SAFE_LIMIT
+        if bounded and kept and len(_escape_data(candidate)) > ANNOTATION_SAFE_LIMIT - 8:
+            notice = (f"{separator}…(the excerpt stopped at the annotation limit; {len(lines) - start} dump "
+                      "lines were available)")
+            break
+        kept.append(piece)
+    return header + separator.join(kept) + notice
 
 
 def describe_abort(result: dict, pytest_exit: int | None, pytest_log: Path | None,
@@ -323,6 +375,9 @@ def describe_abort(result: dict, pytest_exit: int | None, pytest_log: Path | Non
                       "what an interrupted, aborted or refused run leaves behind")
     if pytest_log is not None:
         pieces.extend(_log_parts([pytest_log], tail_lines))
+        if crash_excerpt(pytest_log):
+            pieces.append("the captured log holds a fatal crash marker; the interpreter died inside a test, "
+                          "and its frames are quoted in a separate annotation")
     pieces.append("the run is not a pass, and it is not a mystery: the exit code above is the verdict")
     return _bounded(" ;; ".join(pieces))
 
@@ -397,9 +452,17 @@ def main(argv: list[str] | None = None) -> int:
         if diagnosis:
             emit(f"::error title={_escape_property('Windows regression suite: no failing test to name')}::"
                  + _escape_data(diagnosis))
+        crash = crash_excerpt(args.pytest_log) if (args.pytest_log is not None and args.pytest_exit
+                                                    and int(args.pytest_exit) != 0) else ""
+        if crash:
+            emit(f"::error title={_escape_property('Windows regression suite: fatal crash dump')}::"
+                 + _escape_data(crash))
+    crash_note = (crash_excerpt(args.pytest_log, limit_lines=60, line_width=400, separator="\n",
+                                bounded=False)
+                  if (args.pytest_log is not None and args.pytest_exit and int(args.pytest_exit) != 0) else "")
     if args.summary_out is not None:
         args.summary_out.parent.mkdir(parents=True, exist_ok=True)
-        args.summary_out.write_text(render_summary(result, diagnosis), encoding="utf-8")
+        args.summary_out.write_text(render_summary(result, diagnosis, crash_note), encoding="utf-8")
     if args.json_out is not None:
         args.json_out.parent.mkdir(parents=True, exist_ok=True)
         args.json_out.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")

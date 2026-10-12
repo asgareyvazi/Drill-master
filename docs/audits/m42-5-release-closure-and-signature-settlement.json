@@ -1279,6 +1279,112 @@
         "frozen_bundle_smoke": "skipped by the gate's own allowlist; unchanged",
         "rel": "REL-13 OPEN and REL-04 remains open for the current artifact; the acceptance register in packaging/WINDOWS_RELEASE_ACCEPTANCE.md is unchanged by this record."
       }
+    },
+    "windows_crash_revealed_by_the_new_annotation": {
+      "read_back_for_the_diagnostics_commit": {
+        "sha": "614f72f3a59d7297047ef3eeacc9e12a79c7c543",
+        "method": "the same two-query cross-check as before (`head_sha` and the branch listing, agreeing at two rows), plus per-job step conclusions, paginated check-run annotations and the run's artifact list; the raw responses are in the session scratch directory outside the repository, which has already been destroyed and rebuilt twice this session, so the text of this block is the durable copy.",
+        "source_release_gate": "run number 85, push, attempt 1, conclusion success; all 3 matrix jobs success with every step success (source (3.12): 9 of 9 steps success; source (3.13): 9 of 9 steps success; source (3.11): 9 of 9 steps success); no artifacts, as expected.",
+        "windows_release_validation": "run number 31, push, attempt 1, conclusion failure; job steps 9 of 14, failing at the regression-suite step and skipping the bundle, lifecycle and signature steps behind it.",
+        "artifact": "drillmaster-windows-614f72f3a59d7297047ef3eeacc9e12a79c7c543, 943 bytes; its bytes were not fetched here, so byte verification stays NOT_VERIFIED.",
+        "annotations_observed": [
+          "[warning] Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-python@v5, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/",
+          "[failure] no release metadata exists to report on; the packaging stage failed",
+          "[failure] Process completed with exit code 1.",
+          "[failure] \u2026ts JUnit report names no failing test ;; JUnit report not found: D:\\a\\_temp\\DrillMaster-M42-tests-<run-id>\\windows-regressions.xml ;; windows-regressions.log (57 lines, tail): File \"C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\pluggy\\_callers.py\", line 121 in _multicall | File \"C\u2026",
+          "[notice] installed package version 6.7.1 read back from the installed package specification"
+        ],
+        "crash_annotations": 0,
+        "annotation_store_measurement": "the stored abort message is exactly 3000 characters and begins with an ellipsis, so GitHub keeps the last 2999 characters and drops the front; the headline this module emits ('pytest exited 1 and its JUnit report names no failing test') is what was lost.  That is measured, not inferred, and it is why packaging/junit_report.py now sizes every annotation to ANNOTATION_SAFE_LIMIT and sends the full dump to the step summary instead."
+      },
+      "what_the_annotation_proved": {
+        "shape": "the abort annotation fired and said the quiet part precisely: \u2026ts JUnit report names no failing test ;; JUnit report not found: D:\\a\\_temp\\DrillMaster-M42-tests-<run-id>\\windows-regressions.xml ;; windows-regressions.log (57 lines, tail): File \"C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\pluggy\\_callers.py\", line 121 in _multicall | File \"C\u2026",
+        "reading": "pytest exited nonzero leaving NO JUnit report, and the captured log's last lines are a faulthandler stack of pytest's own hooks (`pluggy/_callers.py in _multicall`, `_pytest/runner.py in call_and_report`, `_pytest/main.py in pytest_runtestloop`) rather than a failure summary.  That is the signature of the interpreter dying inside a test: a crash, not a failing assertion, and not a shell that aborted the pipeline either.  It is a third class of failure, and neither of the two causes this session had reasoned towards accounts for it.",
+        "consequences_for_earlier_findings": "the O_BINARY change was not the Windows cause and was not this run's fix; it stands as a correctness fix pinned by its own test, because a text-mode CRT descriptor really would fold CRLF and the byte-count assertions really would be wrong.  The PowerShell preference guards were not the cause either, and they were load-bearing in a different way: without the tee there would have been no 57-line log to quote, and the run would still be silent today.",
+        "still_unnamed": "which test the interpreter died in.  The log's *head* holds the fatal marker and the crashing frames; the 25-line tail the annotation quoted holds the harness's outer frames, which name nothing.  That window is the actual gap, and it is what this round removes."
+      },
+      "what_this_round_changed": "packaging/junit_report.py gains crash_excerpt(): when the captured log holds a fatal marker (`Fatal Python error`, `Windows fatal exception`, `Current thread`), the excerpt starts AT that line and keeps the frames beneath it, published as its own bounded redacted annotation and, in the job summary, as a fenced block with room for the whole dump.  A log with no marker invents nothing; an unreadable log path says so instead of raising.  The budget is measured on the escaped form, because that is what GitHub counts -- a percent-heavy frame line costs three characters per character on the wire, and an over-long annotation is silently lost rather than truncated.  Seven tests were added; the Windows suite in CI will be the first to feed it a real crash dump.",
+      "verification": {
+        "diagnostics_scope": "tests/test_junit_report.py, tests/test_windows_release_gate_contract.py and tests/test_windows_release_evidence.py: 267 collected, 267 passed, 0 failed, 0 errors, 0 skipped (collected == executed)",
+        "why_this_scope": "these are the files this round touches or pins and none needs a Qt runtime; the sandbox's Qt install was destroyed by the second re-clone and was not rebuilt for a 400-second suite that CI runs on both platforms anyway",
+        "ruff": "0.16.6; E722/F821 clean over the whole tree; debt 5339 against a ceiling of 5375; compileall rc 0; git diff --check 0 lines",
+        "mutation_battery": {
+          "attempted": 7,
+          "caught": 7,
+          "survived": [],
+          "per_entry": [
+            {
+              "mutation": "W1 the budget is measured on the raw string instead of the escaped one",
+              "outcome": "caught",
+              "failing_tests": [
+                "test_the_budget_is_measured_on_what_github_counts_not_on_the_raw_string"
+              ]
+            },
+            {
+              "mutation": "W2 the budget check is removed entirely",
+              "outcome": "caught",
+              "failing_tests": [
+                "test_the_crash_note_is_a_separate_annotation_within_the_limit",
+                "test_the_budget_is_measured_on_what_github_counts_not_on_the_raw_string"
+              ]
+            },
+            {
+              "mutation": "W3 the truncation notice is dropped",
+              "outcome": "caught",
+              "failing_tests": [
+                "test_the_budget_is_measured_on_what_github_counts_not_on_the_raw_string"
+              ]
+            },
+            {
+              "mutation": "W4 the excerpt is quoted from the end of the log, not the crash marker",
+              "outcome": "caught",
+              "failing_tests": [
+                "test_a_crash_is_quoted_from_its_marker_not_from_the_end_of_the_log",
+                "test_the_crash_note_is_a_separate_annotation_within_the_limit",
+                "test_a_log_without_a_crash_marker_invents_none"
+              ]
+            },
+            {
+              "mutation": "W5 the summary is not given the crash dump",
+              "outcome": "caught",
+              "failing_tests": [
+                "test_the_job_summary_gets_the_wider_crash_excerpt"
+              ]
+            },
+            {
+              "mutation": "W6 the marker list loses the Windows fatal exception",
+              "outcome": "caught",
+              "failing_tests": [
+                "test_a_crash_is_quoted_from_its_marker_not_from_the_end_of_the_log",
+                "test_the_crash_note_is_a_separate_annotation_within_the_limit",
+                "test_the_job_summary_gets_the_wider_crash_excerpt"
+              ]
+            },
+            {
+              "mutation": "W7 the crash note is merged away instead of published as its own annotation",
+              "outcome": "caught",
+              "failing_tests": [
+                "test_windows_drive_letter_path_is_parsed_and_not_used_as_annotation_file",
+                "test_relative_backslash_path_becomes_a_forward_slash_annotation_file",
+                "test_library_frames_do_not_hide_the_asserting_test_frame"
+              ]
+            }
+          ],
+          "one_earlier_application_was_unfaithful": "the same mechanism tested once before landed 7 attempted / 4 caught with two 'survivors' that were artefacts of the battery, not of the suite: one mutation was an equivalent change in the rendering stage, and another produced an undefined name so the module failed to import.  Both were re-applied faithfully (the crash annotation suppressed while its variable stays defined) and the re-run is what this block records: three named tests catch it.  An equivalent-mutant finding was also resolved by removal -- the outer length cap the first battery could not see was genuinely redundant next to the per-line budget, so it was deleted rather than left untested."
+        }
+      },
+      "positions_that_do_not_move": {
+        "windows_release_validation": "FAILURE at the regression-suite step for every tip since 5429271; the crashing test is not yet named",
+        "source_release_gate": "success for 497bb4d and for 614f72f, each read back for its own SHA; a pass for one SHA is never carried over to another",
+        "gates_for_this_commit": "PENDING by construction: this record is committed inside the SHA whose gates it would report, so it cannot attest to them; the read-back follows in the session deliverables",
+        "artifact_bytes": "NOT_VERIFIED",
+        "signing": "UNKNOWN / NOT_ESTABLISHED",
+        "reproducible_build_and_smartscreen": "NOT_CLAIMED",
+        "operator_clean_machine_and_upgrade_acceptance": "NOT_RUN",
+        "workbook": "AUTOMATED_TEST_ONLY_NOT_REAL_DDR_ACCEPTANCE",
+        "frozen_bundle_smoke": "skipped by the gate's own allowlist; unchanged",
+        "rel": "REL-13 OPEN; REL-04 open for the current artifact"
+      }
     }
   }
 }
