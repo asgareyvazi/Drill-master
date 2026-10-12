@@ -799,6 +799,14 @@ _WIN32_NOT_FOUND = (2, 3)  # ERROR_FILE_NOT_FOUND, ERROR_PATH_NOT_FOUND
 _WIN32_LINK_OR_REPARSE = (1831, 1921)  # crossing an unsupported link target, refusing to follow it
 _WIN32_HANDLE_METADATA_FIELDS = ("dwFileAttributes", "nFileSizeHigh", "nFileSizeLow", "dwVolumeSerialNumber",
                                  "nFileIndexHigh", "nFileIndexLow")
+# `os.O_BINARY` exists only on Windows, and there it is not decorative: a CRT descriptor left in the default
+# mode folds every CRLF to LF while it is read, so the bytes handed back are a shortened copy of the object
+# and the recorded read stops agreeing with the size measured on the handle.  The literal mirrors the Windows
+# value (0x8000 in the UCRT) so the expression means the same thing -- and can be asserted -- on a host that
+# has no `os.O_BINARY` to consult; on such a host the value is never passed to the platform, because only the
+# Windows branch attaches a handle at all.
+_WIN32_O_BINARY = 0x8000
+_WIN32_READ_FLAGS = os.O_RDONLY | getattr(os, "O_BINARY", _WIN32_O_BINARY)
 
 _WIN32_API: object | None = None
 _WIN32_API_UNAVAILABLE = False
@@ -875,6 +883,15 @@ class _Win32HandleMetadata:
     def attach(self, handle):
         """Wrap the already-verified handle in a binary stream, transferring the handle to the CRT fd.
 
+        The fd is created with ``O_BINARY`` as well as ``O_RDONLY``, and that is not a formality:  a CRT
+        descriptor left in the default mode on Windows performs text translation, which folds every
+        ``CRLF`` into ``LF`` while the program is reading.  The bytes would still look like the log, but the
+        count would not -- the recorded read would be smaller than the bytes measured on the handle, the
+        tail would no longer be the last bytes of the object, and a digest taken this way would not match the
+        same file read by any other route.  The gate that runs this file on Linux cannot see the difference,
+        because ``os.O_BINARY`` is zero there and no translation exists, so the flag is asserted by name in
+        the suite rather than left to the platform that needs it.
+
         On any failure this closes the handle itself, so the caller never double-closes an object whose
         ownership has already moved -- and the caller still refuses the read, because a stream that could
         not be built is not a reason to guess at content.
@@ -883,7 +900,7 @@ class _Win32HandleMetadata:
 
         value = int(getattr(handle, "value", handle))
         try:
-            descriptor = msvcrt.open_osfhandle(value, os.O_RDONLY)
+            descriptor = msvcrt.open_osfhandle(value, _WIN32_READ_FLAGS)
         except OSError:
             self.close(handle)
             raise
@@ -1109,7 +1126,24 @@ def _open_binary_posix(path: Path, root: Path,
             raise AnchorRefusal("skipped_unsafe_path", ("the directory behind the permitted root name is not the "
                                                        "one this run created; nothing was read"))
         for part in parts[:-1]:
-            child_fd = os.open(part, directory_flags, dir_fd=parent_fd)
+            try:
+                child_fd = os.open(part, directory_flags, dir_fd=parent_fd)
+            except OSError as exc:
+                # Linux answers `ENOTDIR`, not `ELOOP`, when `O_DIRECTORY | O_NOFOLLOW` meets a symbolic link,
+                # so the refusal is decided by what the component is rather than by which errno arrived: a
+                # link is an unsafe path (the guarantee is that links are not followed), while a component
+                # that is simply not a directory stays the ordinary unreadable case.  Both read nothing.
+                if exc.errno in (getattr(errno, "ELOOP", -1), getattr(errno, "ENOTDIR", -1)):
+                    try:
+                        is_link = stat.S_ISLNK(os.lstat(part, dir_fd=parent_fd).st_mode)
+                    except OSError:
+                        is_link = False
+                    if is_link:
+                        raise AnchorRefusal(
+                            "skipped_unsafe_path",
+                            (f"the path component {part!r} is a symbolic link, and the walk to a log follows no "
+                             "link; nothing was read")) from exc
+                raise
             os.close(parent_fd)
             parent_fd = child_fd
         try:

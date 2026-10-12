@@ -1084,6 +1084,103 @@
       "established": "the confined-read guarantee is now structural on POSIX and handle-bound on Windows, the tail bound cannot be raised by a caller, and the published record tells the truth about line boundaries, growth, shrinkage and refusals; the defect class is reproduced and the reproduction fails the old design",
       "not_established": "no Windows-native junction execution, no artifact byte verification, no signing trust, no reproducible build, no reputation, no operator or clean-machine acceptance, and no cause for REL-13; the residual Windows create-time window is described, not closed",
       "reproducibility_note": "the local environment still cannot load Qt GUI libraries, so the same eight ImportError: libGL.so.1 failures the previous mission recorded remain in the release-relevant scope, kept as failures rather than skipped, and they say nothing about the release code under change"
+    },
+    "gate_failure_and_fix": {
+      "why_this_block_exists": "Both mandatory gates came back conclusion=failure for the pushed tip 54292711ec520dd12db49c3b41d0fbcd1b6550b9, and neither named a failing test: the source jobs post no annotations at all (their annotations endpoint answers 404, which means 'none', not 'fetch failed'), the Windows job's only annotations are 'the packaging stage failed' and 'Process completed with exit code 1', the check-run output summary and text are empty, the artifact blobs and the runner-log receiver are unreachable from this sandbox, and POST /rerun-failed-jobs is refused (403, and not simulated).  A step conclusion is a location, not a cause, so the cause had to be reproduced rather than read.",
+      "local_blind_spot_opened_for_investigation": "The suite that the source gate runs needs Qt, and this sandbox has no libGL/libEGL/libdbus/libxkbcommon. Four gcc-built stub shared objects (empty bodies, returning 0, with the real SONAMEs and version scripts) under LD_LIBRARY_PATH, plus QT_QPA_PLATFORM=minimal, let every Qt-gated file be collected and executed.  They are an investigation aid outside the repository, never committed and never used by CI; the source gate installs real system libraries and refuses stubs, so a green run here is not a gate result.  They were enough to run the gate's own pytest validation over the whole suite, which is what found the cause.",
+      "source_gate_cause": {
+        "what_fails": "verify_release.validate_pytest_report, reached in the source job's 'Verify exact source, dependencies, tests and wheel' step, prints 'FAIL: unexpected skip (\"tests.test_windows_release_evidence\", 'test_a_real_junction_inside_the_root_is_refused_on_windows')' and the whole step exits 1.  All three matrix jobs fail in that one step, which is what the published step conclusions showed.",
+        "why": "that rule is a deliberate part of this release gate: OPTIONAL_ACCEPTANCE_SKIPS names exactly four optional external-acceptance skips (the two real-DDR tests, the real MinerU test, the real Windows bundle smoke), and any other skip -- or a skip whose message differs by one character from the listed reason -- is treated as a failure, because a test that quietly does not run must never be read as a test that passed.  M42.9 added a test marked skipif(os.name != 'nt') to cover a native Windows junction, and on the Linux gate hosts that marker makes it skip: a Windows-only test in a Linux-run suite is an unannounced skip, not coverage.",
+        "evidence": "the pre-fix full-suite junit (5 skips, one outside the allowlist) and the post-fix junit (4 skips, all four allowlisted) were both passed through the gate's own validator: the first prints the unexpected-skip line, the second does not.  Restoring the marker as a mutation reproduces the failure while pytest itself still exits 0 -- no test in the suite can see that class of defect, which is exactly why the gate owns it."
+      },
+      "windows_gate_cause": {
+        "what_fails": "the Windows job fails in 'Windows database, import, auth and packaging regression suite', the 27-file pytest run, with 7 to 9 of its steps skipped as a consequence and the acceptance report step reporting that no release metadata exists to describe.",
+        "reasoning": "_Win32HandleMetadata.attach handed the verified handle to msvcrt.open_osfhandle with os.O_RDONLY only.  On Windows a CRT descriptor without _O_BINARY is opened in the default translation mode, so every CRLF in the object is folded to LF inside the read: the stream still looks like the log, but it is shorter than the size GetFileInformationByHandle measured on the same handle, the reported bytes_read is no longer the number of bytes the object holds, and a tail that starts mid-object starts at the wrong offset.  POSIX hosts have no text mode, so no Linux run -- CI or local -- can observe it.",
+        "why_it_was_green_before": "the assertions that compare a measured read against the object's byte count are new in M42.9; the files M42.8 asserted over were written with write_bytes or contain no CRLF, and translation only bites when CRLF is present, which is the normal shape of a Windows installer log.",
+        "confidence": "reasoned from the code, from the documented CRT behaviour, and from which assertions are Windows-sensitive; NOT confirmed by a run on a Windows host, which is what the next Windows job decides.  Stated as a cause with that limit on it rather than as a proven diagnosis."
+      },
+      "fixes": [
+        {
+          "id": "F1",
+          "change": "packaging/windows_release_evidence.py: the handle is attached with _WIN32_READ_FLAGS = os.O_RDONLY | getattr(os, 'O_BINARY', _WIN32_O_BINARY), where _WIN32_O_BINARY mirrors the UCRT value so the expression means the same thing -- and can be asserted -- on a host that has no os.O_BINARY to consult.",
+          "test": "test_the_handle_is_attached_in_binary_mode_so_no_byte_is_invented_or_lost",
+          "note": "the first test ever to execute the real attach(): it installs a fake msvcrt that models the documented CRT behaviour, returns the untranslated bytes only when the binary flag was asked for, and asserts the flags are the reader's declared ones.  On a Windows host it additionally requires the mirrored literal to equal os.O_BINARY."
+        },
+        {
+          "id": "F2",
+          "change": "packaging/windows_release_evidence.py: the POSIX component walk now classifies a symbolic link in the middle of a path as 'skipped_unsafe_path' by lstat-ing the component after ELOOP/ENOTDIR, instead of letting NotADirectoryError surface as a generic 'unreadable'.",
+          "test": "test_a_native_link_inside_the_root_is_refused_on_the_host_that_made_it",
+          "note": "nothing was read either way, so the security outcome was already correct; what was wrong is the published reason -- 'we could not read it' instead of 'a link was here and this reader does not follow links'.  Found by the new test, not by review.  A component that is merely not a directory keeps its existing classification, so no prior contract moved."
+        },
+        {
+          "id": "F3",
+          "change": "tests/test_windows_release_evidence.py: the Windows-only junction test is replaced by a test that runs on every platform using the link mechanism that platform provides -- a real junction created with 'cmd /c mklink /J' on Windows (no privilege and no developer mode needed, unlike os.symlink), a real symlink elsewhere -- and fails loudly on a host that cannot make one rather than skipping.",
+          "note": "this removes the unannounced skip without touching the gate's allowlist, and it widens coverage: the same guarantee is now executed on both gate platforms instead of asserted on one and skipped on the other.  The skip policy itself was not relaxed: the four allowlisted external-acceptance skips stay the only ones permitted."
+        }
+      ],
+      "sentences_this_block_retires": {
+        "how_they_read_now": "left exactly as written, because they were true of the code at the time and this record is append-only: tests_added.behavioural ('the native-junction test that can only run on Windows, skipped here'), platform_limits_stated_verbatim.simulated_is_not_native, and verdict.not_established ('no windows-native junction ...').",
+        "superseded_by": "F1 to F3: the native-link test now runs on both gate platforms, and the Windows reparse/junction path is executed by the Windows job on the SHA this commit produces.  That is still not claimed as achieved here -- it is what the read-back for the new SHA will say."
+      },
+      "re_measured_after_the_fix": {
+        "environment": "environment: local sandbox with gcc-stub Qt system libraries (LD_LIBRARY_PATH=/home/user/qtlibs/stub, QT_QPA_PLATFORM=minimal); the stubs are an investigation aid only, the source gate installs real libraries and refuses stubs",
+        "focused_two_files": "234 collected, 234 passed, 0 failed, 0 errors, 0 skipped",
+        "windows_release_scope_plus_release_files": "757 collected, 755 passed, 1 failed, 0 errors, 1 skipped",
+        "source_gate_suite": "2388 collected, 2372 passed, 12 failed, 0 errors, 4 skipped",
+        "collected_against_executed": "collected_vs_executed: focused 234==234, release_relevant_scope 757==757, source_gate_suite 2388==2388",
+        "lint": "ruff 0.16.6; debt findings: 5339 against ceiling: 5375; defects (E722,F821 over the whole tree): 0",
+        "other_checks": [
+          "compileall packaging tests verify_release.py: rc 0",
+          "git diff --check: 0 lines"
+        ],
+        "known_local_failures": "the 12 failures in the source-gate-suite row and the 1 in the release-scope row are all in files the stub cannot serve -- GUI work driven through a subprocess against a stubbed libGL, and the wheel-build-and-start boundary test that launches the same GUI -- and none of them is in tests/test_windows_release_evidence.py or tests/test_windows_release_gate_contract.py.  They are recorded as limits of this substitute environment, not as passing evidence and not as defects.",
+        "scratch_note": "the junit xml and measurement log behind these totals lived in the scratch directory and are gone; the totals are repeated here because a record whose evidence is a path outside the repository is not evidence at all"
+      },
+      "mutation_battery": {
+        "attempted": 7,
+        "caught": 4,
+        "result": "7 attempted, 4 caught by tests, 2 survived, 1 not applicable",
+        "per_entry": [
+          {
+            "mutation": "M1 attach drops the declared read flags for plain O_RDONLY",
+            "outcome": "caught"
+          },
+          {
+            "mutation": "M2 the mirrored O_BINARY literal is 0x4000, not the UCRT value",
+            "outcome": "caught"
+          },
+          {
+            "mutation": "M3 the component walk stops classifying an intermediate link",
+            "outcome": "caught"
+          },
+          {
+            "mutation": "M4 the reader folds CRLF to LF before splitting (the pre-fix Windows behaviour)",
+            "outcome": "survived"
+          },
+          {
+            "mutation": "M5 the byte count reported is the requested limit, not the bytes read",
+            "outcome": "n/a"
+          },
+          {
+            "mutation": "M6 the Windows-only skip is restored (pytest exit code stays 0; the gate must notice)",
+            "outcome": "survived"
+          },
+          {
+            "mutation": "same restored skip, judged by verify_release.validate_pytest_report",
+            "outcome": "caught"
+          }
+        ],
+        "survivors_explained": "M4 folds CRLF to LF inside the tail *rendering* stage.  It is reported as a survivor and it is also an equivalent mutation for that stage: splitlines() removes the terminators anyway, so the rendered lines are the same, and the byte-level stage where the difference mattered is pinned by M1 and M2.  M6 is not a survivor in the meaningful sense -- it is the restored unannounced skip, which no test in the suite can see by construction and which the source gate's own validator rejects; that pair of outcomes is recorded as the reason the rule lives in the gate.",
+        "not_applicable_explained": "M5 adds an unused key to an internal metadata dict.  It was included to show that a mutation with no observable effect cannot be caught, and it is marked not applicable rather than counted as a coverage failure.",
+        "evidence_file": "the per-mutation results were written to mutation_fix1.json in the session scratch directory outside the repository, which this sandbox destroyed mid-session (a re-clone rolled the git ref back to the session base and the scratch directory with it); the outcomes and their reasons are therefore restated in full in this block, and no claim here depends on that file surviving."
+      },
+      "not_established_by_this_block": {
+        "gates": "nothing here claims a green gate.  This block is committed before the read-back for the new SHA exists, so the outcome for the fix is PENDING by construction, and the red read-back it explains stays red for the SHA it belongs to.",
+        "windows_native_junction": "F3 runs on Windows, but only a Windows run can say what the platform reported; until that run is read back this stays unexecuted, and no local run substitutes for it.",
+        "artifact_bytes": "NOT_VERIFIED (the artifact blobs remain unreachable from this sandbox)",
+        "signing": "UNKNOWN / NOT_ESTABLISHED; no signing material was added and no policy was changed",
+        "operator_and_machine_acceptance": "NOT_RUN; clean-machine install, real PDF/MinerU input and production database acceptance remain outside every automated gate"
+      }
     }
   }
 }

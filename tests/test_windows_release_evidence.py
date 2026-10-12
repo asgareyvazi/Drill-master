@@ -2560,29 +2560,139 @@ def test_the_windows_confinement_rule_is_decided_on_handle_metadata_not_on_follo
     assert verdict("", root, object_kind="disk", same_volume=True, is_reparse=False)[0] == "skipped_unsafe_path"
 
 
-@pytest.mark.skipif(os.name != "nt", reason="native reparse-point coverage; never ran on this Linux host")
-def test_a_real_junction_inside_the_root_is_refused_on_windows(tmp_path):  # pragma: no cover - Windows only
-    """Native junction semantics, on the platform that has them, with no symlink stand-in.
+def test_the_handle_is_attached_in_binary_mode_so_no_byte_is_invented_or_lost(tmp_path, monkeypatch):
+    """`attach` must ask the CRT for a binary descriptor, and this proves it on a host that has no CRT.
 
-    This is the case the simulation above cannot establish: what `CreateFileW` and
-    `GetFinalPathNameByHandleW` actually report for a directory junction created without developer mode.
-    Until a run of this test on a Windows host exists, the Windows half of the guarantee is reasoned about
-    from the API contract and is not claimed as executed behaviour.
+    Windows text mode rewrites ``CRLF`` to ``LF`` while reading, so a handle attached without ``O_BINARY``
+    yields a stream whose bytes are a plausible but *shortened* copy of the object: the recorded read would
+    disagree with the size measured on the same handle, and the tail would not be the file's last bytes.
+    Nothing on Linux can show that by itself, so the fake below models the documented CRT behaviour: it hands
+    back a descriptor over the untranslated file only when the binary flag was requested, and over a
+    newline-folded copy otherwise.  A run on the Windows job still decides the native question; this test
+    decides that the code asks the question correctly, everywhere.
+    """
+    module = _evidence_module()
+    log = tmp_path / "install.log"
+    raw = b"first line\r\nsecond line\r\n"
+    log.write_bytes(raw)
+    requested = {}
+
+    class _FakeKernel32:
+        """Just enough of kernel32 for the metadata helper's declaration pass; nothing here reads bytes."""
+
+        def __init__(self):
+            self.closed = []
+            self.CreateFileW = SimpleNamespace()
+            self.GetFinalPathNameByHandleW = SimpleNamespace()
+            self.GetFileInformationByHandle = SimpleNamespace()
+            self.GetFileType = SimpleNamespace()
+
+        def CloseHandle(self, handle):
+            self.closed.append(handle)
+
+    class _FakeMsvcrt:
+        O_BINARY = 0x8000  # the value Windows uses; absent from the flags means "translate newlines"
+
+        def open_osfhandle(self, value, flags):
+            requested["flags"] = int(flags)
+            source = tmp_path / ("binary.bin" if int(flags) & self.O_BINARY else "text.bin")
+            source.write_bytes(raw if int(flags) & self.O_BINARY else raw.replace(b"\r\n", b"\n"))
+            return os.open(source, os.O_RDONLY)
+
+        def close(self, descriptor):
+            os.close(descriptor)
+
+    kernel32 = _FakeKernel32()
+    monkeypatch.setitem(sys.modules, "msvcrt", _FakeMsvcrt())
+    api = module._Win32HandleMetadata(kernel32)
+    stream = api.attach(type("H", (), {"value": 4242})())
+    try:
+        observed = stream.read()
+    finally:
+        stream.close()
+
+    assert observed == raw, (f"the stream returned {observed!r} instead of the object's own bytes, which is "
+                             "newline translation: the descriptor was not requested in binary mode")
+    assert requested["flags"] == module._WIN32_READ_FLAGS, (
+        "the descriptor was not created with the reader's declared flags")
+    if hasattr(os, "O_BINARY"):
+        assert module._WIN32_O_BINARY == os.O_BINARY, (
+            "the mirrored literal no longer matches this platform's os.O_BINARY, so the flag is not the one "
+            "that suppresses text translation here")
+    assert kernel32.closed == [], "a successful attach must not leave the handle closeable twice"
+
+
+def test_a_log_that_uses_windows_line_endings_is_still_counted_in_bytes(tmp_path):
+    """A CRLF log is the ordinary case on Windows, and the reader must not quietly shrink it.
+
+    The published record carries a byte count next to the tail, and the tail itself is a *rendering* of the
+    last lines (`splitlines` is what removes the terminators, on every platform, by design).  So the property
+    a CRLF file has to preserve is the arithmetic, not the punctuation: the bytes read must equal the bytes the
+    handle measured, or the record reports a smaller object than it opened -- and a digest taken through the
+    same shortcut would no longer match the same file read another way.
+    """
+    module = _evidence_module()
+    log = tmp_path / "install.log"
+    line = b"Setup process started.\r\n"
+    log.write_bytes(line * 5)
+    size = log.stat().st_size
+    assert size == len(line) * 5 and b"\r\n" in log.read_bytes()
+
+    observed = module._bounded_tail(log, 40, permitted_root=tmp_path)
+    assert observed["state"] == "complete", observed["reason"]
+    assert observed["size_bytes"] == size and observed["bytes_read"] == size, (
+        "the read returned fewer bytes than the object holds, which is newline translation on the way in")
+    assert observed["tail"].count("Setup process started.") == 5, (
+        "a line was lost or two were merged: the tail is no longer the log's own lines")
+    assert "\r" not in observed["tail"], "the carriage returns survived splitlines and became content"
+
+
+def _make_native_link(link: Path, target: Path) -> str:
+    """Create a link the operating system itself made, and say which kind.
+
+    Junctions are used on Windows because they need no privilege and no developer mode -- `os.symlink`
+    there does, so a test that insisted on a symlink could only ever skip on a normal runner, and a skip in
+    the source gate is a failure, not a pass.
+    """
+    if os.name == "nt":
+        result = subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(target)], capture_output=True,
+                                text=True, check=False)
+        if result.returncode != 0 or not link.exists():
+            raise AssertionError("this host could not create a native junction, so the Windows branch is "
+                                 f"unexercised and the run must not be read as proof ({result.stderr.strip()})")
+        return "junction"
+    os.symlink(str(target), str(link))
+    return "symbolic link"
+
+
+def test_a_native_link_inside_the_root_is_refused_on_the_host_that_made_it(tmp_path):
+    """The link is refused by the platform's own mechanism, on every gate platform, with no stand-in.
+
+    On Windows this is the case the simulated handle metadata cannot establish: what `CreateFileW` and
+    `GetFinalPathNameByHandleW` actually report for a junction.  On POSIX the same shape is a symbolic link,
+    which the anchored walk refuses component by component.  Either way the outside object is never read, so
+    one test holds both platforms to one guarantee instead of leaving the Windows half reasoned about.
     """
     module = _evidence_module()
     root = tmp_path / "work"
     target = tmp_path / "elsewhere"
     (root / "install").mkdir(parents=True)
     target.mkdir()
-    (target / "secret.log").write_text("DO-NOT-PUBLISH outside content\n", encoding="utf-8")
-    try:
-        os.symlink(str(target), str(root / "linked"), target_is_directory=True)
-    except OSError:
-        pytest.skip("junction creation needs privilege or developer mode on this Windows host")
-    log = root / "linked" / "secret.log"
-    observed = module._bounded_tail(log, 6, permitted_root=root)
-    assert observed["state"] == "skipped_unsafe_path" and observed["bytes_read"] == 0
+    secret = target / "secret.log"
+    secret.write_bytes(b"DO-NOT-PUBLISH outside content\r\nand more of it\r\n")
+    before = secret.stat()
+    kind = _make_native_link(root / "linked", target)
+    assert kind in {"junction", "symbolic link"}
+
+    observed = module._bounded_tail(root / "linked" / "secret.log", 6, permitted_root=root)
+    assert observed["state"] == "skipped_unsafe_path", (
+        f"a real {kind} under the root was read through: {observed['reason']}")
+    assert observed["bytes_read"] == 0 and observed["tail"] == ""
     assert "DO-NOT-PUBLISH" not in json.dumps(observed)
+    after = secret.stat()
+    assert (after.st_size, int(after.st_mtime)) == (before.st_size, int(before.st_mtime))
+    assert module._bounded_tail(secret, 6, permitted_root=root)["state"] == "skipped_unsafe_path", (
+        "the same object reached by its own name was published while the linked name was refused")
 
 
 def test_the_byte_limit_is_a_ceiling_that_a_caller_cannot_raise(tmp_path, monkeypatch):
