@@ -107,8 +107,19 @@ RELEASE_TOOLS = (
 )
 
 
-def _unencoded_text_io(module: str) -> list[str]:
-    tree = ast.parse((ROOT / module).read_text(encoding="utf-8"))
+_MODE_PATTERN = re.compile(r"[rwa][bt+]{0,2}")
+# `os.open`/`os.fdopen`/`msvcrt.open_osfhandle` are descriptor syscalls: they take flags, never a text
+# mode, so there is no encoding for them to declare and no Windows default for them to fall back to.
+_RAW_DESCRIPTOR_OPENERS = frozenset({("os", "open"), ("os", "fdopen"), ("msvcrt", "open_osfhandle")})
+
+
+def _unencoded_text_io_source(module: str, source: str) -> list[str]:
+    """The rule itself, over source text, so the rule can be tested without editing a release tool.
+
+    A guard that only ever runs against the current tree cannot be told apart from one that has quietly
+    stopped matching anything, so the fixture-based self-check below feeds it code it must reject.
+    """
+    tree = ast.parse(source)
     offenders = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
@@ -120,16 +131,43 @@ def _unencoded_text_io(module: str) -> list[str]:
             if not encoded:
                 offenders.append(f"{module}:{node.lineno}: {attribute}() without encoding")
         elif attribute == "open":
-            # ``open(path, mode)`` takes the mode second; ``path.open(mode)`` takes it first.
-            position = 1 if isinstance(func, ast.Name) else 0
-            if len(node.args) > position and isinstance(node.args[position], ast.Constant):
-                mode = node.args[position].value
-            else:
-                mode = next((kw.value.value for kw in node.keywords if kw.arg == "mode" and isinstance(kw.value, ast.Constant)), "")
-            binary = "b" in str(mode)
+            if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name):
+                if (func.value.id, "open") in _RAW_DESCRIPTOR_OPENERS:
+                    continue
+            # ``open(path, mode)`` takes the mode second; ``path.open(mode)`` takes it first; a handle
+            # wrapper may take it anywhere, so any mode-shaped constant in the call is the declared mode.
+            candidates = [node.args[1] if len(node.args) > 1 else None,
+                          node.args[0] if len(node.args) else None]
+            candidates += [kw.value for kw in node.keywords if kw.arg == "mode"]
+            modes = [str(item.value) for item in candidates
+                     if isinstance(item, ast.Constant) and _MODE_PATTERN.fullmatch(str(item.value) or "")]
+            binary = any("b" in mode for mode in modes)
             if not binary and not any(kw.arg == "encoding" for kw in node.keywords):
                 offenders.append(f"{module}:{node.lineno}: text-mode open() without encoding")
     return offenders
+
+
+def _unencoded_text_io(module: str) -> list[str]:
+    return _unencoded_text_io_source(module, (ROOT / module).read_text(encoding="utf-8"))
+
+
+def test_the_encoding_guard_catches_text_opens_and_ignores_descriptor_syscalls():
+    """Refining the encoding guard may not blind it, so its two halves are pinned on fixtures.
+
+    M42.7 required an explicit encoding on every text read because the Windows default is cp1252; M42.9
+    added descriptor-based opens (`io.open(fd, "rb")`, `os.open(name, flags, dir_fd=...)`) which carry no
+    text mode at all.  Accepting those is correct, but only while a `open(path, "r")` is still rejected --
+    which is what the fixture below proves, since a guard that stopped matching would also pass the tree.
+    """
+    caught = _unencoded_text_io_source("fixture.py", "with open(path, 'r') as handle:\n    return "
+                                                     "handle.read()\n")
+    assert caught and "text-mode open() without encoding" in caught[0]
+    uncaught = _unencoded_text_io_source("fixture.py", "with io.open(fd, 'rb', closefd=True) as handle:"
+                                                         "\n    return handle.read()\n"
+                                                         "parent = os.open(root, flags)\n"
+                                                         "return Path(x).read_text(encoding='utf-8')\n")
+    assert uncaught == [], uncaught
+    assert _unencoded_text_io_source("fixture.py", "return Path(x).read_text()\n"), "text reads stay caught"
 
 
 def test_the_frozen_smoke_publishes_an_affirmative_marker_the_gate_can_read():
@@ -1146,15 +1184,41 @@ def test_log_tails_are_bounded_reads_and_never_whole_file_reads():
     """
     evidence = (ROOT / "packaging" / "windows_release_evidence.py").read_text(encoding="utf-8")
     reader = evidence[evidence.index("def _bounded_tail("):evidence.index("def _tail(")]
-    assert "stream.seek(0, os.SEEK_END)" in reader and "stream.seek(start)" in reader, (
+    opener = evidence[evidence.index("def _open_binary("):evidence.index("def _bounded_tail(")]
+    assert "stream.seek(0, os.SEEK_END)" in reader and "stream.seek(start - probe)" in reader, (
         "the window must be sought from the end, not read and sliced")
     assert "read_text" not in reader, "a whole-file read on the failure path is the defect being fixed"
-    assert "stream.read(byte_limit + 1)" in reader, "one byte past the window is how growth is detected"
+    assert "stream.read(byte_limit + 1)" in reader, ("the read stays at the ceiling plus the one boundary "
+                                                     "probe byte; asking for more is how the bound is evaded")
+    assert "stream.read(byte_limit + 2)" not in reader, "no second spare byte, and no unbounded probe"
+    assert "path.stat()" not in reader and "path.is_file()" not in reader, (
+        "the reader decides about the opened object; a second look at the name is the check this replaces")
+    assert "_open_binary(path, permitted_root, root_identity)" in reader, (
+        "the tail is read through the anchored open, not through a name that was validated earlier")
+    assert "_is_within" not in reader, ("containment may not be decided by resolving a name first: that is "
+                                        "the check this replaced, and it can only be fooled, never relied on")
     assert 'raise ValueError("byte_limit must be a positive bound")' in reader
+    assert "byte_limit cannot exceed the global tail bound" in reader, (
+        "LOG_TAIL_BYTES is a ceiling, so an oversized override has to be refused, not clamped or honoured")
+    assert "_READ_STATES = frozenset({" in evidence, "the read states are a documented vocabulary, not ad hoc strings"
     for state in ('"complete"', '"truncated"', '"empty"', '"absent"', '"unreadable"', '"skipped_unsafe_path"'):
-        assert state in reader, f"the reader stopped reporting {state} as its own state"
+        assert state in evidence, f"{state} left the documented read vocabulary"
+    assert "refusal.state in _READ_STATES" in reader, ("a refusal may only publish a documented state; an "
+                                                        "undecodable one becomes 'unreadable', never 'complete'")
     assert "older content was not inspected" in reader, "a suffix must never be presented as the log"
     assert "dropped_partial_first_line" in reader
+    assert 'boundary != b"\\n"' in reader, ("the first line is partial only when the byte before the window "
+                                            "says so; an aligned window keeps its first line")
+    assert "grew_during_read" in reader, "growth past the measured end has to be reported, not clipped away"
+    for anchor in ("getattr(os, \"O_NOFOLLOW\", 0)", "dir_fd=parent_fd", "stat.S_ISREG",
+                   'getattr(os, "O_NONBLOCK", 0)'):
+        assert anchor in opener, f"the anchored open lost {anchor!r}, which is the half that closes the race"
+    for windows_call in ("GetFinalPathNameByHandleW", "GetFileInformationByHandle", "GetFileType",
+                         "_WIN32_FILE_ATTRIBUTE_REPARSE_POINT"):
+        assert windows_call in evidence, (f"{windows_call} is how the Windows side binds the verdict to the "
+                                          "handle; `O_NOFOLLOW` is not a Windows guard and is not treated as one")
+    assert "if os.name == \"nt\"" in evidence or "os.name == \"nt\"" in opener, (
+        "the two platforms need different anchors, and neither may be pretended for the other")
 
     module_lines = evidence.splitlines()
     reads = [line for line in module_lines if "_tail(" in line or "_bounded_tail(" in line]
@@ -1162,11 +1226,17 @@ def test_log_tails_are_bounded_reads_and_never_whole_file_reads():
     assert not calls, "every lifecycle log read must name its permitted root:\n" + "\n".join(sorted(calls))
     assert "LOG_TAIL_BYTES = 512 * 1024" in evidence, "the bound is policy; a default that drifted would be silent"
     behaviour = (ROOT / "tests" / "test_windows_release_evidence.py").read_text(encoding="utf-8")
-    assert behaviour.count('read_counter["bytes"] <=') >= 3, ("bounded I/O is measured independently in the "
-                                                             "large-log, single-line and multibyte cases; a count "
-                                                             "that drops means one measurement was deleted, and a "
-                                                             "single assertion is easy to weaken into a "
-                                                             "string-length check")
+    assert behaviour.count('read_counter["bytes"] <=') >= 6, ("bounded I/O is measured independently in the "
+                                                              "large-log, single-line, multibyte, ceiling and "
+                                                              "refusal cases; a count that drops means one "
+                                                              "measurement was deleted, and any single assertion "
+                                                              "is easy to weaken into a string-length check")
+    assert 'module._tail(log, 6, permitted_root=root)' in behaviour, ("the bound has to be measured through the "
+                                                                      "wrapper the lifecycle step actually calls, "
+                                                                      "not only through the dict-returning helper "
+                                                                      "the tests prefer")
+    assert 'read_counter["bytes"] == 0' in behaviour, ("a refused read is measured at zero bytes, not "
+                                                        "asserted from a reason string")
 
 
 def test_diagnostic_failures_cannot_replace_a_lifecycle_failure():
@@ -1381,8 +1451,18 @@ def test_the_runbook_states_the_read_bound_and_the_no_rerun_procedure():
     re-executed.  These are the sentences that carry them.
     """
     runbook = _read(ROOT / "packaging" / "WINDOWS_RELEASE_ACCEPTANCE.md")
-    assert "Bounded, race-safe log reads (M42.8)" in runbook
+    assert "Bounded, handle-anchored log reads (M42.8; confined to a handle in M42.9)" in runbook
+    assert "race-safe" not in runbook, ("M42.8's heading promised more than its code delivered -- a name checked "
+                                        "and then opened is not race-safe -- and a runbook that keeps the sentence "
+                                        "after the reasoning changed teaches the wrong contract")
     assert "LOG_TAIL_BYTES = 512 KiB" in runbook, "the cap has to be stated as a number, not as 'bounded'"
+    assert "before the file is opened rather than clamped" in runbook, ("the ceiling is operator-visible, and a "
+                                                                        "clamped override would misreport the read")
+    for anchor in ("O_NOFOLLOW", "S_ISREG", "GetFileInformationByHandle", "GetFinalPathNameByHandleW",
+                   "GetFileType", "use-then-verify"):
+        assert anchor in runbook, f"{anchor} is what the guarantee actually rests on, so the runbook names it"
+    assert "*not* claim, on either platform" in runbook and "never counted as native junction coverage" in runbook, (
+        "the residual belongs in the operator's document, not only in the code comments")
     assert "older content was not inspected" in runbook
     assert "skipped_unsafe_path" in runbook
     assert "permitted_root=work_root" in runbook, "the boundary has to name the root it is bounded to"
@@ -1403,8 +1483,11 @@ def test_m42_8_followup_records_the_handoff_without_promoting_anything():
     population, because a guard must not pin a number that adding the guard itself changes.
     """
     payload = json.loads(M425_CHECKPOINT.read_text(encoding="utf-8"))
-    assert list(payload)[-1] == "m42_8_followup", ("the record is extended additively; inserting a key would "
-                                                   "rewrite what earlier guards already pinned")
+    keys = list(payload)
+    assert keys[-1] == "m42_9_followup", (
+        "the record is still extended additively: M42.9 appended its own follow-up as the last key rather than "
+        "inserting one, which is what rewriting what earlier guards pinned would have looked like")
+    assert keys[-2] == "m42_8_followup", "the M42.8 record keeps its place in the order, directly before it"
     key = payload["m42_8_followup"]
     assert key["mission"] == "M42.8" and key["recorded_on"] == "2026-10-11"
     assert payload["m42_6_release_closure"]["independent_artifact_reverification"]["verdict"] == "BLOCKED"
@@ -1451,3 +1534,79 @@ def test_m42_8_followup_records_the_handoff_without_promoting_anything():
         "a record may not claim a gate result for the commit that carries it")
     assert "bypassed" in publication["credential_episode"], "the blocked window is part of the record"
     assert publication["no_post_gate_commit"], "re-verification on a new tip is a rule, not an aspiration"
+
+
+def test_m42_9_followup_records_the_confinement_correction_without_promoting_anything():
+    """The M42.9 key has to correct a claim, keep the record it corrects intact, and promote nothing.
+
+    Three failure modes are worth a guard rather than a review comment: a follow-up that quietly rewrites
+    the sentence it is correcting; a follow-up that reports the mutation battery as more successful than the
+    per-entry results support; and a follow-up that lets `UNKNOWN`, `NOT_VERIFIED`, `NOT_RUN` or an open REL
+    soften while everyone is looking at the reader.  Numbers are checked for self-consistency, never pinned
+    to a value this guard itself would change.
+    """
+    payload = json.loads(M425_CHECKPOINT.read_text(encoding="utf-8"))
+    assert list(payload)[-1] == "m42_9_followup", ("the record is extended additively; inserting a key would "
+                                                   "rewrite what earlier guards already pinned")
+    key = payload["m42_9_followup"]
+    assert key["mission"] == "M42.9" and key["recorded_on"] == "2026-10-12"
+
+    prior = payload["m42_8_followup"]
+    assert "race-safe" in json.dumps(prior), ("M42.8's own words are preserved verbatim, including the phrase "
+                                              "this mission retires; a corrected record that rewrites its "
+                                              "predecessor proves nothing about when either was true")
+    assert prior["publication_and_gates"]["gates_on_the_code_sha"].startswith("FAILURE"), (
+        "the failed run stays recorded as the reason the fix exists")
+    assert prior["external_acceptance_handoff"]["REL-13"]["status"] == "OPEN"
+
+    for section in ("correction_of_the_m42_8_race_safe_claim", "handle_anchored_confinement",
+                    "platform_limits_stated_verbatim", "tail_bound_ceiling", "window_boundary_rule",
+                    "digest_and_hash_plumbing", "preserved_protections", "tests_added",
+                    "correction_validation", "local_verification", "publication_and_gates",
+                    "external_positions_unchanged", "verdict"):
+        assert section in key, f"the record lost the section {section}"
+
+    text = json.dumps(key)
+    for mechanism in ("O_NOFOLLOW", "dir_fd", "S_ISREG", "O_NONBLOCK", "GetFinalPathNameByHandleW",
+                      "GetFileInformationByHandle", "reparse"):
+        assert mechanism in text, f"the record stopped naming {mechanism}, which is what the guarantee rests on"
+    verdict = json.dumps(key["verdict"]).lower()
+    assert "narrows" in json.dumps(key["platform_limits_stated_verbatim"]).lower(), (
+        "the residual has to be in the record, not only in a code comment")
+    assert "not_established" in key["verdict"] and "no windows-native junction" in verdict, (
+        "a verdict that establishes everything, or that stops naming the platform it could not exercise, is a "
+        "verdict to distrust")
+    assert "524289" in json.dumps(key["tail_bound_ceiling"]), "the ceiling is a number in the record"
+    assert "ValueError" in json.dumps(key["tail_bound_ceiling"]), "oversized overrides are refused, not clamped"
+    assert "dropped_partial_first_line=false" in json.dumps(key["window_boundary_rule"])
+    assert "grew_during_read" in json.dumps(key["window_boundary_rule"])
+    assert "replaced_before_open" in json.dumps(key["digest_and_hash_plumbing"])
+    assert "sha256_stream" in json.dumps(key["digest_and_hash_plumbing"]), (
+        "the shared helper is the reason there is still exactly one digest implementation")
+    assert "simulated" in json.dumps(key["platform_limits_stated_verbatim"])
+
+    battery = key["correction_validation"]["mutation_battery"]
+    assert len(battery["per_entry"]) >= 15, "one entry per mutation class is the minimum the mission named"
+    outcomes = {item["outcome"] for item in battery["per_entry"]}
+    assert outcomes <= {"caught", "caught-by-timeout", "survived"}, outcomes
+    survivors = sum(1 for item in battery["per_entry"] if item["outcome"] == "survived")
+    assert battery["result"].count(f"{survivors} survived") == 1, (
+        f"the headline says {battery['result']!r} but the entries list {survivors} survivors")
+    assert "27-of-27" in battery["not_reused"] or "not cited" in battery["not_reused"]
+
+    for field in ("focused", "release_relevant_scope", "source_gate_suite"):
+        passage = json.dumps(key["local_verification"][field])
+        for collected, passed, failed, errors, skipped in re.findall(
+                r"(\d+) collected, (\d+) passed, (\d+) failed, (\d+) errors?, (\d+) skipped", passage):
+            assert int(collected) == int(passed) + int(failed) + int(errors) + int(skipped), \
+                f"{field} does not add up: {passage[:120]}"
+        else:
+            assert re.search(r"\d+ collected", passage), f"{field} lost its measurement"
+
+    positions = json.dumps(key["external_positions_unchanged"])
+    for claim in ("UNKNOWN", "NOT_VERIFIED", "NOT_RUN", "NOT_CLAIMED", "NOT_ESTABLISHED", "OPEN",
+                  "AUTOMATED_TEST_ONLY_NOT_REAL_DDR_ACCEPTANCE"):
+        assert claim in positions, f"an unchanged external position was dropped: {claim}"
+    assert "cannot attest" in json.dumps(key["publication_and_gates"]), (
+        "a commit may not cite the run that will be triggered by pushing it")
+    assert key["verdict"]["not_established"], "a verdict that establishes everything is a verdict to distrust"

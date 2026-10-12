@@ -865,5 +865,225 @@
       "scope": "the repository's own files: the bounded reader, its race and containment behaviour, the tests that prove them, and the runbook that tells an owner how to read the next occurrence",
       "not_claimed": "no CI result for the M42.8 commits, no artifact byte verification, no signature, trust, reproducibility, reputation or acceptance statement, and no root cause for REL-13"
     }
+  },
+  "m42_9_followup": {
+    "mission": "M42.9",
+    "recorded_on": "2026-10-12",
+    "why_this_is_a_followup_and_not_a_new_audit": "M42.9 changes no acceptance criterion, publishes no release claim, settles no external question and adds no gate. It corrects one overstated property of the M42.8 diagnostics -- that a confined read was proven when only a bounded read was -- makes the read bound impossible for a caller to raise, and stops discarding a whole line of log that was never partial. Those are follow-ups on the same obligations (REL-13's diagnosability and the evidence-root boundary), so they are recorded here as one scoped key rather than in a new audit file. Nothing above this key is edited: every earlier verdict, BLOCKED, NOT_VERIFIED, NOT_RUN, UNKNOWN and OPEN value stands exactly as written, including M42.8's 'PUBLICATION BLOCKED BY CREDENTIALS' finding and its use of the phrase this key corrects.",
+    "workspace_state_and_recovery": {
+      "entry_state": "the workspace arrived grafted for the third mission running: HEAD pointed at the session base 7f0186e while the M42.8 file content was present in the worktree, and the rebuilt `.venv` plus every scratch file outside the repository -- including the M42.8 report and machine summary -- were gone. The incoming SHA was treated as a baseline expectation, not as permission to overwrite anything, and the M42.8 pair is regenerated from the committed record and from this session's own gate reads rather than from the vanished files, which is stated in that report's own header",
+      "how_the_tip_was_established": "all 926 tracked files hashed and tarred outside the repository (archive sha256 839cf1e7fa7d08d061a682dfee9d18a6a6100e3180b4af9d8c5bc909e55d8945), then `git fetch origin <the session branch>`, then `git diff --diff-filter=M FETCH_HEAD` listing 0 modified files and a missing-file check listing 0 absent files, and only then `git reset --mixed FETCH_HEAD`; a second full-tree hash after the reset showed 0 differences, which is what proves the adoption moved no content rather than merely reporting itself clean",
+      "post_adoption_state": "`git status --porcelain -uall` empty, 926 tracked files, HEAD equal to the remote tip 21cb00f2240bbee9dd20354d6c65909f2969f747 at entry, and the GitHub API reachable in this session, so the gate read-back did not have to be recorded as blocked",
+      "environment_rebuild": "`.venv` recreated from the repository lock before any measurement, giving pytest 9.1.1, ruff 0.16.6 and Python 3.11.2; `build` 1.6.1 was installed from the pinned requirement so the wheel stage could run here, and no dependency, lock entry or pin in the repository was changed",
+      "commands_not_used": "no `git reset --hard`, no `git clean`, no force push, no amend, rebase or squash of a published commit, no deletion of an inconvenient change, no recreation of a commit whose content already existed, and no file replaced by a copy from another checkout because its name or apparent version matched.",
+      "out_of_repository_deliverables": "the mission report, the machine summary, the regenerated M42.8 pair, the snapshot archive and the mutation-battery JSON all live outside the repository and are classified as session deliverables; no committed file claims they are repository state, and no repository file depends on them",
+      "workspace_re_clone_event": "after the mission's commit was made locally, the sandbox was re-cloned while its GitHub credential was being renewed: HEAD was reset to the session base, the commit object was lost, and the scratch directory holding the measurement logs, the mutation-battery script, the captured gate JSON and the report generator was destroyed.  The repository worktree itself survived.  Recovery followed the rule this line of work already uses: all 853 files then tracked were hashed and the worktree tarred outside the repository (archive sha256 eb545be214fcfb5350f4d65dc545c3aed5483ae560970558c16b4d6c8394c28a), the session branch was fetched, `git diff --diff-filter=D FETCH_HEAD` was checked against the filesystem to prove the 73 files it lists are present rather than deleted (a fresh-clone artefact of the index, not a loss), and only then `git reset --mixed FETCH_HEAD` moved HEAD and the index onto the remote tip 21cb00f, leaving this mission's seven files as the only modification.  No file was recreated from another checkout, no `--hard` reset or clean was used, and the pre-reset hashes of all 853 previously tracked files were re-compared afterwards with 0 differences.",
+      "re_measured_after_recovery": "the suites were re-run on the re-adopted tree with a `.venv` rebuilt from `requirements-lock.txt` plus the CI's own pins (pytest 9.1.1, ruff 0.16.6, build 1.6.1): focused 346 collected, 344 passed, 0 failed, 0 errors, 2 skipped, release-relevant Windows scope 734 collected, 722 passed, 8 failed, 0 errors, 4 skipped, whole `tests/` directory 2294 collected, 2167 passed, 63 failed, 18 errors, 46 skipped; `git diff --stat HEAD` is ` 7 files changed, 1787 insertions(+), 131 deletions(-)`, which is the same content the earlier round measured"
+    },
+    "correction_of_the_m42_8_race_safe_claim": {
+      "phrase_under_correction": "race-safe",
+      "what_m42_8_actually_built": "`_bounded_tail` resolved the name, refused it when the resolution left the permitted root, and then opened that same name; `_observed_path` validated a path and then digested it with `sha256_file(path)`. Both are check-then-use: the check and the use look at different objects when the path changes in between.",
+      "why_the_static_symlink_test_was_insufficient": "`test_a_path_leaving_the_evidence_root_is_never_read` planted a symlink before the call, so `resolve()` already reported the outside target and the refusal was correct for a reason that had nothing to do with ordering. The test proved the classifier, not the guarantee, and it stayed green while the race was wide open -- which is how the overstatement survived its own suite.",
+      "what_the_new_tests_do": "the reproduction performs the swap *inside* the open the reader is about to make, on both seams the module can use, and asserts the outside sentinel's content never appears, that the outside read counter is zero bytes, that the outside file was never opened at all, and that the record says a link was refused. The same shape is applied to the uninstaller digest and to the user-data sentinel, and a safe in-root case in the same tests proves ordinary reads still work -- the fix is a boundary, not a refusal to read.",
+      "historical_record_left_intact": "the words 'race-safe' remain in `m42_8_followup` verbatim. A record documents what its author established on its own date; the correction is additive, here and in the runbook section that no longer uses the phrase."
+    },
+    "handle_anchored_confinement": {
+      "principle": "every content decision is taken on the object that is open, never on a name that was looked at earlier, and the stream is never re-opened by name after validation",
+      "permitted_root_anchor": "the root is opened with O_RDONLY|O_DIRECTORY|O_NOFOLLOW and every component is opened relative to that descriptor (`dir_fd`), so containment is structural rather than asserted; the final component adds O_NONBLOCK",
+      "opened_object_validated": "fstat on the opened descriptor; S_ISREG or nothing is read, which refuses a directory, a FIFO and a device with the same platform-free 'not a regular file' classification the gate learned to need in M42.8",
+      "windows_method": "no descriptor-relative open exists on Windows and the CRT O_NOFOLLOW is not a guard against junctions, so the verdict is bound to the handle: GetFileType must report a disk file, GetFileInformationByHandle supplies the volume serial, file index, size and attribute bits, and GetFinalPathNameByHandleW must lie under the root's own final path on the root's volume and be the object that was named -- a reparse attribute bit is refused on its own, and so is any handle whose metadata cannot be read",
+      "root_identity_lifetime": "`run_lifecycle` records the work root's identity once, when the run takes the directory, and every anchored open compares the object it reached against that record for the remainder of the run; a mismatch stops the reads with 'the directory behind the permitted root name is not the one this run created' rather than moving the boundary underneath them",
+      "fail_closed": "unavailable APIs, unreadable metadata, an unopenable root and an unclassifiable object all produce a bounded refusal state and zero bytes read; there is no fallback to a name-based open, and a refusal never becomes a lifecycle pass",
+      "reads_covered": "the four lifecycle log tails, the smoke log, the install-tree uninstaller digest, and the user-data sentinel content read; the installer's own digest is deliberately left name-based because its security check is the comparison against the published manifest SHA-256, which a substitution can only fail, and the artifact lives outside any root this step owns"
+    },
+    "platform_limits_stated_verbatim": {
+      "windows_residual": "CreateFileW resolves a link before a handle exists, so Windows is use-then-verify on the verified handle rather than an atomic open-by-descriptor; and a create on an object type that blocks would block before it can be classified. No ordinary file or directory can produce that block -- pipes live under \\\\.\\pipe\\, not inside a work root -- but a hostile mount point could, and on such a host the anchored open narrows the race rather than closing it.",
+      "both_platforms": "what is closed on both platforms is the window between a name-based look and the open, for the shape that matters: a re-pointed name can no longer send content anywhere. What is *not* claimed is that an actor able to rename whole directories inside the private work root cannot substitute a different file that is also inside that root; the confinement rule protects the boundary, and a same-root substitution stays inside it.",
+      "simulated_is_not_native": "the junction and reparse behaviour of the pure verdict function is tested on every host with fake handle metadata; the native junction test runs only where os.symlink can create one, is skipped on this Linux host, and is never counted as Windows coverage"
+    },
+    "tail_bound_ceiling": {
+      "policy": "LOG_TAIL_BYTES = 512 * 1024 is now a ceiling rather than a default: `byte_limit` may be lower, and a higher value raises ValueError before any file is opened; MAX_TAIL_READ_BYTES = 524289 is the most any single read may fetch",
+      "why_not_clamped": "a clamp would report a smaller read than the caller believes it requested, which puts a wrong number in the record, while honouring the request is the unbounded read the ceiling exists to prevent",
+      "measured": "the bound is measured with a byte-counting handle in 7 independent cases, including one that goes through `_tail(..., permitted_root=...)`, the wrapper the lifecycle step actually calls; the contract guard pins the number of measurement points so deleting one fails the guard",
+      "bytes_read_meaning": "bytes_read remains the number of bytes the read returned, including the boundary probe byte, so it measures I/O rather than restating the cap; the published window is never larger than byte_limit"
+    },
+    "window_boundary_rule": {
+      "rule": "the single allowed probe byte is read from `start - 1` instead of past the end, and the first line is dropped only when that byte proves it is a fragment; a window that begins on a line boundary keeps its first line and reports dropped_partial_first_line=false",
+      "why_the_front": "a byte past the end cannot detect growth of more than one byte, and asking for more than one spare byte would break the ceiling; the front probe answers the question the published flag claims to answer, within the same budget",
+      "growth": "growth past the measured end is detected by re-seeking to the end of the same handle and publishing grew_during_read, and the newest bytes measured before the growth are preserved rather than clipped away",
+      "fragment_label": "a one-line window keeps its fragment and publishes first_line_is_fragment=true, because emptying the tail of a huge single-line log would hide the only evidence the failure left",
+      "shrink": "a file that shrinks below the window during the read is reported as unreadable with zero bytes, never as an empty or complete log"
+    },
+    "digest_and_hash_plumbing": {
+      "shared_helper": "release_metadata gains sha256_stream, which hashes bytes already open in fixed blocks and enforces max_bytes while reading; sha256_file is a one-line wrapper over it, so the repository keeps exactly one implementation of the digest",
+      "forensic_digest": "the uninstaller digest uses the anchored handle for the size bound, the bound check and the hash, so size and digest always describe one object; a refusal publishes hash_state skipped_unsafe_path or unreadable with hash_reason and no digest at all, and an over-bound object is no longer labelled 'hashed'",
+      "diagnostic": "where the platform can compare the opened object with the earlier stat, replaced_before_open is published: the race recorded, never repaired, never allowed to change the lifecycle conclusion"
+    },
+    "preserved_protections": {
+      "list": [
+        "the installer is bound to its manifest SHA-256 before it is executed, and a mismatch fails closed",
+        "the installed product version is read back from the installed package and compared with the authoritative version, with no hardcoded literal",
+        "the frozen smoke still requires the PACKAGE_SMOKE_OK marker and rejects FATAL or traceback output",
+        "data, log and backup roots stay outside {app}, proven by the separation checks and the snapshot diff",
+        "the user-data sentinel outside {app} must survive, and reading it back is now an anchored read",
+        "the throwaway work root is removed in a finally block whatever happened in between",
+        "exactly one bounded retry with a single 2.0-second settle, unchanged",
+        "{app} must actually be empty after uninstall, judged from the real listing",
+        "redaction and bounded diagnostics (bound(), redact(), DIAGNOSTIC_LIMIT 4000, 400-character tails)",
+        "the six read states, with errno and winerror copied off the exception object and no exception text",
+        "a failed diagnostic is never a pass: sampler_failed, read_state and hash_state stay findings",
+        "a host without Get-AuthenticodeSignature keeps signing UNKNOWN",
+        "the frozen bundle smoke stays skipped wherever no built bundle exists"
+      ],
+      "schema": "drillmaster-installer-lifecycle/v1 unchanged; the new fields (read_confinement, hash_confinement, first_line_is_fragment, grew_during_read, sentinel_read_state, work_root_identity_reported) are additive, with no version bump because no published meaning was redefined",
+      "not_relaxed": "no timing change (the single 2.0-second settle), no extra retry, no acceptance threshold moved, no test deleted, skipped or broadened; REL-13 is not declared fixed and the bundle smoke remains a skip"
+    },
+    "tests_added": {
+      "behavioural": "16 tests in tests/test_windows_release_evidence.py (156 collected -> 172): the two swap reproductions (log and digest, plus the sentinel inside a full lifecycle run), the root-identity anchor, the FIFO refusal with a self-imposed alarm so a regression fails instead of hanging, the pure Windows confinement verdict over fake handle metadata, the native-junction test that can only run on Windows, the ceiling parametrisations (0, negative, exactly the cap, cap+1, 3 GiB, 10**12) with a zero-open counter, the ceiling measured through `_tail`, the aligned-versus-fragmentary boundary pair, the fewer-lines-than-requested case, the single-line case, the multibyte split, the growth-during-read case, the overrun clip direction, and a credential embedded in an exception message that must not reach the record",
+      "guards": "one guard in tests/test_windows_release_gate_contract.py (59 -> 60 collected) that keeps the encoding guard honest after it was taught about descriptor syscalls, plus the widened bounded-read guard: the reader must call `_open_binary`, must not resolve or stat a name to authorize a read, must refuse an oversized `byte_limit`, must name O_NOFOLLOW/dir_fd/S_ISREG/O_NONBLOCK in the opener and the four Win32 calls in the module, must keep the six read states in a declared vocabulary, and must measure the bound at 7 points through the production wrapper (the guard demands at least six, so adding a bypass cannot also lower the bar)",
+      "runbook": "the section heading no longer says race-safe; the text now names the mechanism (O_NOFOLLOW walk, S_ISREG on the handle, use-then-verify on Windows), states the residual, and says plainly that simulated symlinks are never counted as native junction coverage"
+    },
+    "correction_validation": {
+      "mutation_battery": {
+        "design": "a fresh M42.9 battery over the mission's fifteen classes, seventeen attempted mutations (three classes needed two edits to be faithful), each one applied to the working tree, exercised against the tests that claim the property, and reverted with a per-file digest check that the tree is exactly as it was",
+        "result": "17 attempted, 17 caught, 0 survived, 0 anchor problems, tree restored clean: True",
+        "per_entry": [
+          {
+            "id": "M429-01",
+            "class": "path-check-then-path-open restored (the M42.8 design)",
+            "outcome": "caught"
+          },
+          {
+            "id": "M429-02",
+            "class": "reparse-point replacement accepted (a Windows junction is treated as the file)",
+            "outcome": "caught"
+          },
+          {
+            "id": "M429-03",
+            "class": "the previous digest design restored (validate the name, then hash the name)",
+            "outcome": "caught"
+          },
+          {
+            "id": "M429-04",
+            "class": "out-of-root read permitted (the escape check on the walk is dropped)",
+            "outcome": "caught"
+          },
+          {
+            "id": "M429-05",
+            "class": "a blocking or non-regular object accepted as a log",
+            "outcome": "caught"
+          },
+          {
+            "id": "M429-06",
+            "class": "oversized byte_limit honoured (the ceiling is bypassable)",
+            "outcome": "caught"
+          },
+          {
+            "id": "M429-07",
+            "class": "the read bound removed, so a whole-file read returns",
+            "outcome": "caught"
+          },
+          {
+            "id": "M429-08",
+            "class": "the read counter restates the bound instead of measuring the read",
+            "outcome": "caught"
+          },
+          {
+            "id": "M429-09",
+            "class": "a replaced root silently redefines the boundary (identity check dropped)",
+            "outcome": "caught"
+          },
+          {
+            "id": "M429-10",
+            "class": "an aligned first line dropped anyway",
+            "outcome": "caught"
+          },
+          {
+            "id": "M429-11",
+            "class": "a genuine partial first line kept as if whole",
+            "outcome": "caught"
+          },
+          {
+            "id": "M429-12",
+            "class": "growth clipped from the wrong end (oldest bytes kept)",
+            "outcome": "caught"
+          },
+          {
+            "id": "M429-13",
+            "class": "a caught read error becomes a success (diagnostic masking)",
+            "outcome": "caught"
+          },
+          {
+            "id": "M429-14",
+            "class": "an exception message transcribed into the published record (credential leak)",
+            "outcome": "caught"
+          },
+          {
+            "id": "M429-15",
+            "class": "a non-empty install tree accepted after uninstall",
+            "outcome": "caught"
+          },
+          {
+            "id": "M429-16",
+            "class": "the single bounded retry and the sentinel rule removed",
+            "outcome": "caught"
+          },
+          {
+            "id": "M429-17",
+            "class": "UNKNOWN promoted to a signature pass",
+            "outcome": "caught"
+          }
+        ],
+        "survivors_and_the_fixes_they_forced": "two rounds of this battery found real gaps and they are recorded rather than smoothed over. Round one caught 14 of 17 and three mutations survived. M429-03 survived because the mutation only swapped the hash *call* while the anchored open still refused first, so the entry had not restored the previous design at all -- it is now a whole-block swap of the digest region, which the swap test catches. M429-12 survived because the clip it mutates is only reachable when the window starts at byte 0 and the read overruns the bound, a combination no test exercised: test_a_short_log_whose_read_overruns_the_bound_is_clipped_at_the_recent_end was written for it, and the same inspection showed M42.8's own overflow test no longer reaches the clip, which is stated here rather than hidden. M429-15 survived for a reason that is not a coverage gap: the battery's `-k` expression did not name the parametrised test holding the leftover rule, so the selection was widened. Round two caught 16 of 17; the one that still survived was M429-12's stale selection, which was the battery's fault and not the code's. Round three, on the tree this commit carries: 17 attempted, 17 caught, none survived, no anchor problems, tree restored clean. The M42.8 battery's 27-of-27 is not cited as covering any of this",
+        "not_reused": "the M42.8 battery's 27-of-27 is not cited as evidence for any of this code; it predates the anchored reader and cannot cover it"
+      },
+      "spot_re_run_after_the_re_clone": "because the battery's script and logs were destroyed with the scratch directory, six of the seventeen entries were re-run against this tree: 6 attempted, 6 caught, 0 survived, 0 anchor problems, tree restored clean: True.  This is a spot re-check of the same content, not a fresh full battery, and it is described that way rather than as a reproduction of the first round. The six classes are the oversized ceiling, the removed read bound, the aligned-first-line drop, the exception transcription, the non-regular object and the growth clip direction -- the ones whose fixes were written or corrected by the first battery's survivors. The re-run also sharpened one entry: replacing only `stream.read(byte_limit + 1)` with `stream.read()` survives, because the preceding seek to `size - byte_limit` already limits what a bare read can return, so that mutation is not the old design; restoring the old design means reading from the front of the file, which is how the entry is now written and which the byte counter refuses at 4 MB. The first round's equivalent entry was caught by the source-shape guard rather than by a behavioural test, and that difference is worth knowing"
+    },
+    "local_verification": {
+      "tree": "measured twice on identical content: once before the sandbox re-clone and once on the re-adopted tree described above, with the same totals both times; a commit cannot quote the run that pushing it triggers, which is why the run identifiers live in the session report",
+      "focused": "346 collected, 344 passed, 0 failed, 0 errors, 2 skipped",
+      "release_relevant_scope": "734 collected, 722 passed, 8 failed, 0 errors, 4 skipped; the eight failures are the missing Qt system libraries and nothing else -- every one of them is the `libGL.so.1` ImportError in the core.hierarchy_operations chain",
+      "source_gate_suite": "2294 collected, 2167 passed, 63 failed, 18 errors, 46 skipped; run over the whole `tests/` directory with `--continue-on-collection-errors`, which is how the 18 uncollectable files were kept as errors instead of being deselected to look clean: all 81 failure and error entries carry the same `libGL.so.1` ImportError, one of them inside the subprocess that starts the installed wheel, and none of them touch packaging/",
+      "lint": "ruff 0.16.6 (the pinned version, checked rather than assumed); the gate codes E722,F821 over the whole repository: all checks passed; the debt population (core, dialogs, tabs, tests) reports 5339 findings against the 5375 ceiling in .github/ruff-debt-ceiling.txt -- within budget, and the repository is explicitly not lint-clean, which is the only distinction the ratchet makes",
+      "compileall": "packaging, tools, core and tests compile cleanly (exit 0)",
+      "diff_check": "`git diff --check` clean (exit 0)",
+      "skips_explained": "two skips in the focused run: the native reparse-point test, which is written to run only where os.symlink can create a junction and is never counted as Windows coverage, and the frozen bundle smoke, which stays skipped wherever no built Windows bundle exists; the release-relevant scope adds four more, all `Qt runtime unavailable: libGL.so.1` module-level skips in files that guard the import"
+    },
+    "publication_and_gates": {
+      "rule": "nothing is claimed as published or gated until the remote tip equals the local HEAD as a full 40-character SHA and both mandatory gates have been read back for that exact SHA, with every matrix job and step conclusion listed. A commit cannot attest to its own gate outcome, so the read-back of the pushed tip lives in the session deliverables outside the repository",
+      "incoming_tip_at_entry": "21cb00f2240bbee9dd20354d6c65909f2969f747",
+      "gate_read_back_of_the_incoming_tip": "read back in this session by querying runs filtered on `head_sha` for 21cb00f2240bbee9dd20354d6c65909f2969f747 and cross-checking the same branch: the list returns exactly these two runs and no others. Source release gate run number 82, push-triggered, attempt 1, status completed, conclusion success, with all 3 matrix jobs (source on 3.11, 3.12, 3.13) success and every step of each job success, including the dependency lock step, the real Qt system libraries step and the wheel verification step, and no uploaded artifacts at all. Windows release validation run number 28, push-triggered, attempt 1, status completed, conclusion success, with all 14 job entries success: Inno Setup install, the locked runtime, the database/import/auth/packaging regression suite, the bundle and installer build with the frozen executable smoke, the installed-application lifecycle smoke, the Authenticode status recording and the report and artifact upload. The published Windows artifact is named `drillmaster-windows-21cb00f2240bbee9dd20354d6c65909f2969f747`, so the name binds the full commit SHA, it is 321668135 bytes with `expired=False`, and the Actions API also publishes a container digest for it; neither fact is this session's byte-level verification, because no download of the archive has succeeded from this sandbox, so the artifact bytes stay NOT_VERIFIED. The manifest annotation read back for this run reports tests=714/716, lifecycle=PASS and signing=UNKNOWN; those counts are what the CI job itself published, not a local claim. Run identifiers are kept out of this committed record on purpose and live only in the session report",
+      "this_commit_cannot_attest": "neither this record nor this file can state the gate outcome for the SHA that contains them: a commit does not have a run until it is pushed, and any change after a read-back creates a new candidate whose gates must be read again. The outcome for the final SHA is reported in the session deliverables, which are outside the repository for that reason",
+      "no_post_gate_commit": "after the read-back nothing is committed on top; the record's own publication field stays as written here"
+    },
+    "external_positions_unchanged": {
+      "REL-13": "OPEN (this mission corrects a diagnostic claim about it; it neither fixes nor closes it)",
+      "REL-04": "OPEN for the current artifact: the byte-level read that would close it has not succeeded from this sandbox",
+      "artifact_bytes": "NOT_VERIFIED",
+      "signing": "UNKNOWN",
+      "signing_trust": "NOT_ESTABLISHED",
+      "signing_configured_in_build": "false",
+      "reproducible_build": "NOT_CLAIMED",
+      "smartscreen_reputation": "NOT_CLAIMED",
+      "operator_acceptance": "NOT_RUN",
+      "clean_machine_acceptance": "NOT_RUN",
+      "upgrade_testing": "NOT_RUN",
+      "ddr_workbook": "AUTOMATED_TEST_ONLY_NOT_REAL_DDR_ACCEPTANCE",
+      "bundle_smoke": "skipped wherever no built Windows bundle exists",
+      "owner_decisions_open": [
+        "NEW-P6-007",
+        "NEW-P6-008",
+        "NEW-P6-015",
+        "NEW-P6-020",
+        "NEW-P6-023",
+        "NEW-P6-024"
+      ],
+      "prior_match": "the external MATCH for an earlier artifact stays scoped to that artifact and that run; it is not transferred to this one"
+    },
+    "verdict": {
+      "established": "the confined-read guarantee is now structural on POSIX and handle-bound on Windows, the tail bound cannot be raised by a caller, and the published record tells the truth about line boundaries, growth, shrinkage and refusals; the defect class is reproduced and the reproduction fails the old design",
+      "not_established": "no Windows-native junction execution, no artifact byte verification, no signing trust, no reproducible build, no reputation, no operator or clean-machine acceptance, and no cause for REL-13; the residual Windows create-time window is described, not closed",
+      "reproducibility_note": "the local environment still cannot load Qt GUI libraries, so the same eight ImportError: libGL.so.1 failures the previous mission recorded remain in the release-relevant scope, kept as failures rather than skipped, and they say nothing about the release code under change"
+    }
   }
 }

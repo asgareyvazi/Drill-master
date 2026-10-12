@@ -216,7 +216,7 @@ retry policy, the single bounded settle, the refusal to launch a second time onc
 they are unchanged here.  The diagnostics exist so that the *next* occurrence is attributable from the
 published record alone, and REL-13 stays `OPEN` until it is.
 
-#### Bounded, race-safe log reads (M42.8)
+#### Bounded, handle-anchored log reads (M42.8; confined to a handle in M42.9)
 
 The sampler above reads installer and uninstaller logs *while a failure is being described*, which is
 the worst possible moment for two things it used to do: it read each log whole and sliced the string
@@ -225,17 +225,27 @@ a read error (`PermissionError`, or the file disappearing between the listing an
 became the report.  Both are fixed in one shared reader, `_bounded_tail`, and every caller of the old
 `_tail()` goes through it - there is no second copy of the policy to drift.
 
-* **The bound is on the read, not on the string.** `LOG_TAIL_BYTES = 512 KiB`.  One handle measures
-  itself with `seek(0, END)` / `tell()` (no second `stat()` for the size), rewinds to `size - cap`, and
-  asks for `cap + 1` bytes, so at most 524 289 bytes leave the disk per call whether the log is 1 KB or
-  1 GB.  `bytes_read` is what that call returned - a measurement, not a restatement of the cap - and
-  the extra byte is what shows the log grew past the window underneath the read.
-* **A window is treated as a window.** Decoding is UTF-8 with `errors="replace"`, so a cut landing
-  inside a multi-byte character costs one U+FFFD rather than a `UnicodeDecodeError` raised during a
-  failure report.  A first line that starts mid-line is dropped and recorded as
-  `dropped_partial_first_line`; the last N lines of the window are kept, so a small log is still
-  reported whole and a large one is reported as a part of itself.
-* **The states are named, and they are five different things.** `complete`, `truncated`, `empty`,
+* **The bound is on the read, not on the string, and it is a ceiling.** `LOG_TAIL_BYTES = 512 KiB`.
+  One handle measures itself with `seek(0, END)` / `tell()` (no second `stat()` for the size), rewinds to
+  `size - cap`, and asks for `cap + 1` bytes, so at most 524 289 bytes leave the disk per call whether the
+  log is 1 KB or 1 GB.  `bytes_read` is what that call returned - a measurement, not a restatement of the
+  cap.  A caller may pass a *smaller* `byte_limit`; it may not pass a larger one, and that is refused with
+  `ValueError` before the file is opened rather than clamped, because a clamped request would report a
+  smaller read than the caller believes it asked for while an honoured one is the unbounded read this
+  constant exists to prevent.  The policy is therefore `MAX_TAIL_READ_BYTES = cap + 1` for every call,
+  measured in the test suite against the real opens instead of against a returned string length.
+* **A window is treated as a window, and its edge is examined.** Decoding is UTF-8 with
+  `errors="replace"`, so a cut landing inside a multi-byte character costs one U+FFFD rather than a
+  `UnicodeDecodeError` raised during a failure report.  Whether the window's first line is a fragment is
+  answered by the byte *before* the window, which is what the one spare byte of the bound is spent on: a
+  window that happens to start on a line boundary keeps that line (`dropped_partial_first_line=false`),
+  and a window that starts mid-line drops the fragment only when something else remains to show - a
+  one-line window keeps its fragment and publishes `first_line_is_fragment=true` instead of an empty
+  tail, because losing the only evidence the failure had is not a cleaner answer than labelling it.
+  Growth is detected on the same handle by re-seeking to its end and comparing with the measured size
+  (`grew_during_read`), which is exact, costs no bytes, and does not depend on a single spare byte being
+  enough to notice an append.
+* **The states are named, and they are six different things.** `complete`, `truncated`, `empty`,
   `absent`, `unreadable`, `skipped_unsafe_path`, each with `size_bytes`, `bytes_read` and, where
   relevant, `read_reason`.  A truncated result carries its elision marker *inside* the published text
   (`[only the last N of M bytes were read; older content was not inspected]`), so a suffix can never be
@@ -257,18 +267,56 @@ became the report.  Both are fixed in one shared reader, `_bounded_tail`, and ev
   simulates the Windows exception on any host so the guarantee is pinned everywhere it is run.  A byte count that
   had assumed LF line endings in one test was replaced by the size the handle measured.
 
-* **Reads stay inside the evidence root.** Every lifecycle log read now passes `permitted_root=work_root`,
-  the same boundary that already stopped the uninstaller digest from being taken outside the isolated
-  root.  A name inside the root whose *resolved target* leaves it - a symlink, a Windows junction or
-  reparse point, or a file replaced between the check and the use - is recorded as `skipped_unsafe_path`
-  with `bytes_read=0` and is not opened at all.  That is the least-invasive check that needs no
-  privilege: it inspects the path the OS would actually read, `st_file_attributes`/`reparse_point` is
-  recorded on Windows and never simulated elsewhere, and no event-log, Defender or security-audit entry
-  is read, so an outside actor can be bounded but not named.
+* **Reads stay inside the evidence root, and the proof is the handle.** Every lifecycle log read passes
+  `permitted_root=work_root`, and the same boundary covers the uninstaller digest and the sentinel read.
+  M42.8 checked the *name* (`resolve()` it, refuse if it left the root) and then opened it - which is a
+  check-then-use window, closed only by deciding after the object is open.  On POSIX the file is opened
+  component by component relative to a descriptor for the root, with `O_NOFOLLOW` on every component and
+  `O_NONBLOCK` on the last one, and the object is then judged by `fstat` on that descriptor: `S_ISREG` or
+  nothing is read, so a FIFO planted where a log is expected is refused rather than awaited, and a name
+  swapped for a link between any earlier look and this open fails the open with `ELOOP` instead of
+  yielding somebody else's bytes.  On Windows there is no descriptor-relative open and the CRT's
+  `O_NOFOLLOW` is not a guard against junctions or symlinks, so the verdict moves onto the handle:
+  `GetFileType`, `GetFileInformationByHandle` (attributes, volume serial, file index) and
+  `GetFinalPathNameByHandleW` are read after the create, the final path must lie under the root's own
+  final path on the root's volume *and* be the path the name implied, and a reparse attribute bit on the
+  opened object is a refusal in its own right - which is what catches a junction that lands inside the
+  root on a different file than the one that was named.  Any unreadable metadata or unavailable API is a
+  refusal, never a fallback to opening the name again.
+* **The root is anchored too, and the limits are stated.** `run_lifecycle` records the identity of the
+  work root (`_directory_identity`: device and inode, or volume serial and file index) when the run takes
+  the directory, and every anchored open compares the object it reached against that record; if the root
+  itself has been deleted and re-created or re-pointed, the reads stop with a message saying so instead of
+  silently confining themselves to the replacement.  Three limits are part of the claim, not exceptions
+  to it: `CreateFileW` resolves a link before the handle exists, so the Windows guarantee is *use-then-verify
+  on the verified handle* and not an atomic open-by-descriptor; a create on an object type that blocks
+  would block before it can be classified (no ordinary file or directory can be named that way, since
+  pipes live in `\\.\pipe\`, but a hostile mount could, and `O_NONBLOCK` has no Windows counterpart); and the
+  what this closes is the window between a name-based look and the open, on both platforms and for the
+  shape that motivates it: a re-pointed name can no longer send the bytes anywhere, because no content
+  decision is taken from a name.  What it does *not* claim, on either platform, is that an actor who can
+  rename whole directories inside the private work root cannot substitute a different file that is also
+  inside that root - the confinement rule is about the boundary, and a same-root substitution stays
+  inside it, so no version of this text says the race is eliminated by checking harder.  On Windows the
+  guarantee is explicitly use-then-verify on the opened handle rather than an atomic open-by-descriptor.
+  `st_file_attributes`/`reparse_point` is recorded on Windows and never simulated elsewhere, and simulated
+  symlinks are never counted as native junction coverage.  No event-log, Defender or security-audit entry is read, so an outside
+  actor can be bounded but not named.
 * **One sample, one filesystem moment.** `install_dir_entries.count` and its first eight names now come
   from a single `snapshot()` call instead of two listings, so a concurrent create or delete cannot make
   the published count disagree with the names printed next to it.  The sampler remains read-only: it
-  creates, changes and removes nothing, which is what makes sampling a live install tree safe at all.
+  creates, changes and removes nothing (its only writes are inside the test fixtures that plant hostile
+  shapes for it to refuse), which is what makes sampling a live install tree safe at all.
+* **A digest is of the object, not of the name.** The forensic uninstaller hash no longer calls
+  `sha256_file(path)`: it hashes through the anchored handle, and `MAX_FORENSIC_HASH_BYTES` is applied to
+  the size that same handle reports, so size, bound and digest describe one object.  An object that is not
+  regular, is outside the root, or cannot be classified publishes `hash_state` `unreadable` or
+  `skipped_unsafe_path` with a `hash_reason` and publishes no digest at all - never the digest of
+  something else nearby.  Where the platform can see that the inode behind the name differs from the one
+  that was stat'd, `replaced_before_open` is published: the race caught and recorded, not repaired, and
+  never allowed to change the lifecycle conclusion.  The streaming helper lives in `release_metadata` as
+  `sha256_stream`, with `sha256_file` a one-line wrapper over it, so the repository still has exactly one
+  implementation of the digest.
 
 `drillmaster-installer-lifecycle/v1` is unchanged - the fields added by this pass are additive inside
 `diagnostics`, so no published record had to be reinterpreted.

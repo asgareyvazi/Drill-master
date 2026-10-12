@@ -15,6 +15,7 @@ import io
 import json
 import os
 import shutil
+import signal
 import subprocess
 import sys
 import time
@@ -281,6 +282,11 @@ def _release(root: Path, *, exe_bytes: bytes = b"installer-bytes", with_zip: boo
         "artifacts": entries,
     }), encoding="utf-8")
     return installer, metadata, digest
+
+
+def _run_module(root: Path, host: FakeHost, **overrides):
+    """`_run` under another name, for tests that need the module as well as the report."""
+    return _run(root, host, **overrides)
 
 
 def _run(root: Path, host: FakeHost, **overrides):
@@ -1363,8 +1369,15 @@ def read_counter(monkeypatch):
 
 
 def _failing_open(monkeypatch, target: Path, error: OSError, *, after_first: bool = False):
-    """Make the read of one specific path fail, which is the only deterministic way to test a race."""
-    real_open = io.open
+    """Make the open of one specific path fail, which is the only deterministic way to test a race.
+
+    Both seams are patched because there are two ways the module can reach a file: by name, for a read
+    that claims no boundary, and through the anchored descriptor walk used inside a permitted root --
+    where the object is opened component by component relative to the root, never by the full name.
+    Patching only `io.open` would quietly turn a rooted assertion into a test of a path production no
+    longer takes, which is exactly how a check-then-use bug could survive its own regression test.
+    """
+    real_open, real_os_open = io.open, os.open
     state = {"seen": 0}
 
     def wrapper(file, mode="r", *args, **kwargs):
@@ -1374,7 +1387,17 @@ def _failing_open(monkeypatch, target: Path, error: OSError, *, after_first: boo
                 raise error
         return real_open(file, mode, *args, **kwargs)
 
+    def os_wrapper(file, flags, mode=0o777, *args, **kwargs):
+        # the anchored walk names the final component with a `dir_fd`; that is the only moment a rooted
+        # read touches this file, so it is the only moment the double fires
+        if "dir_fd" in kwargs and str(file) == target.name:
+            state["seen"] += 1
+            if not after_first or state["seen"] > 1:
+                raise error
+        return real_os_open(file, flags, mode, *args, **kwargs)
+
     monkeypatch.setattr(io, "open", wrapper)
+    monkeypatch.setattr(os, "open", os_wrapper)
     return state
 
 
@@ -1407,9 +1430,10 @@ def test_the_tail_read_is_bounded_in_bytes_not_only_in_output(tmp_path, read_cou
     observed = module._bounded_tail(log, 6)
     assert read_counter["bytes"] <= module.LOG_TAIL_BYTES + 1, read_counter["bytes"]
     assert observed["state"] == "truncated"
-    # exactly the window: start is measured from the end, so the read is bounded whether or not the
-    # file grows under it (the +1 byte in the reader is what detects that growth)
-    assert observed["bytes_read"] == module.LOG_TAIL_BYTES
+    # exactly the window plus the one byte that decides whether its first line is a fragment: `start` is
+    # measured from the end, so the read is bounded whether or not the file grows under it, and growth is
+    # detected from the same handle rather than by asking for a byte past the end
+    assert observed["bytes_read"] == module.LOG_TAIL_BYTES + 1
     assert observed["size_bytes"] == log.stat().st_size
     assert observed["dropped_partial_first_line"] is True
     # "the recent end" has to mean exactly that: compare against the file's real last lines, so a
@@ -1444,7 +1468,8 @@ def test_a_window_cut_midway_through_a_multibyte_character_still_produces_eviden
     observed = module._bounded_tail(log, 6)
     assert observed["state"] == "truncated"
     assert observed["size_bytes"] == module.LOG_TAIL_BYTES + 1
-    assert observed["bytes_read"] == module.LOG_TAIL_BYTES
+    # the window is the whole bound, and the one extra byte is the boundary probe, never the log
+    assert observed["bytes_read"] == module.LOG_TAIL_BYTES + 1
     assert observed["tail"].startswith("\ufffd"), ("a window cut mid-character is replaced, not raised on and "
                                                    "not quietly dropped")
     assert observed["tail"].endswith("end-of-log"), "the recent end still has to survive the replacement"
@@ -1549,6 +1574,27 @@ def test_an_unreadable_log_is_a_different_fact_from_a_missing_one(tmp_path, monk
     assert partial["state"] == "unreadable" and partial["size_bytes"] == readable.stat().st_size
     assert partial["bytes_read"] == 0 and partial["tail"] == ""
     assert "PermissionError" in partial["reason"]
+
+
+def test_a_refusal_that_embeds_a_credential_in_its_message_stays_out_of_the_record(tmp_path, monkeypatch):
+    """The reader publishes codes, not prose, because the prose is the host's and the host leaks.
+
+    A Windows path echoed by the OS can carry a bootstrap token or a SAS query string, and this record is
+    published in a job annotation; `bound()` clips length, which was never the protection.  The refusal
+    therefore travels as class plus `errno`/`winerror`, and the test plants a credential-shaped value in the
+    message the exception would have printed and asserts it appears nowhere.
+    """
+    module = _evidence_module()
+    log = tmp_path / "install.log"
+    log.write_text("Setup process started.\n", encoding="utf-8")
+    token = "Super-Secret-TOKEN-9dbe6357c1c54954"
+    _failing_open(monkeypatch, log, PermissionError(13, f"blocked by https://user:{token}@host/blob?sig=x"))
+    observed = module._bounded_tail(log, 6, permitted_root=None)
+    assert observed["state"] == "unreadable" and observed["bytes_read"] == 0
+    assert "PermissionError" in observed["reason"] and "errno=13" in observed["reason"]
+    published = json.dumps(observed)
+    for fragment in (token, "https://", "sig=x", "blocked by"):
+        assert fragment not in published, f"{fragment!r} reached the published diagnostic"
 
 
 def test_an_empty_log_and_a_missing_log_are_told_apart(tmp_path):
@@ -1820,6 +1866,42 @@ def test_a_passing_lifecycle_reports_its_own_read_state_and_cleans_up(tmp_path):
     assert uninstall_sample["install_log"]["bytes_read"] == uninstall_sample["install_log"]["size_bytes"] > 0, (
         "the sample has to carry the measured read itself, not only the state word it came from")
     assert uninstall_sample["uninstaller"]["hash_state"] == "hashed"
+
+
+def test_a_sentinel_swapped_for_an_outside_link_does_not_certify_user_data(tmp_path, monkeypatch):
+    """The one read that can turn a FAIL into a PASS carries the same anchor as the logs.
+
+    The sentinel exists because "the exit code was 0" is not proof that user data outside `{app}` survived;
+    if its *name* can be re-pointed at a file holding the expected text, that proof becomes a statement
+    about somebody else's file.  The swap is performed inside the lifecycle's own open, so the run sees a
+    link where it expected a file: the step fails, the refusal is recorded as the reason, and the outside
+    content is never consumed.
+    """
+    real_os_open = os.open
+    outside = tmp_path / "attacker-held.txt"
+    outside.write_text("DRILLMASTER-LIFECYCLE-SENTINEL-PRESERVE\n", encoding="utf-8")
+    state = {"swapped": 0}
+
+    def os_wrapper(file, flags, mode=0o777, *args, **kwargs):
+        if "dir_fd" in kwargs and str(file) == "sentinel-preserve.txt" and not state["swapped"]:
+            state["swapped"] += 1
+            target = tmp_path / "work" / "userdata" / "sentinel-preserve.txt"
+            target.unlink(missing_ok=True)
+            target.symlink_to(outside)
+        return real_os_open(file, flags, mode, *args, **kwargs)
+
+    monkeypatch.setattr(os, "open", os_wrapper)
+    module, report = _run_module(tmp_path, FakeHost())
+    assert state["swapped"] == 1, "the lifecycle never reached the sentinel read it was supposed to anchor"
+    assert report["status"] == "FAIL"
+    step = _step(report, "user_data_preserved")
+    assert step["status"] == "FAIL" and "sentinel read refused" in step["detail"]
+    assert report["diagnostics"]["sentinel_read_state"] == "refused"
+    published = json.dumps(report)
+    assert "DRILLMASTER-LIFECYCLE-SENTINEL-PRESERVE" not in published, "the linked file's content leaked"
+    assert outside.read_text(encoding="utf-8") == "DRILLMASTER-LIFECYCLE-SENTINEL-PRESERVE\n"
+    assert not (tmp_path / "work").exists(), "the refusal must not leave the work root behind"
+    assert module is not None  # the run still produced a structured report
 
 
 def test_a_green_lifecycle_records_one_baseline_sample_and_still_cleans_up(tmp_path):
@@ -2234,3 +2316,590 @@ def test_a_not_run_record_stays_degenerate(tmp_path, mutation, fragment):
     mutation(tampered)
     with pytest.raises(ValueError, match=fragment):
         release_meta.validate_signing_document(tampered)
+
+
+# --- M42.9: handle-anchored confinement, a ceiling that cannot be raised, boundary truth ----------------
+
+
+def _swapping_open(monkeypatch, target: Path, replacement: Path):
+    """Re-point `target` at `replacement` at the exact moment the reader tries to open it.
+
+    No sleeps and no threads: the swap is performed by the test double, inside the open call itself, so the
+    window between "the name was checked" and "the object was opened" is opened on demand.  Both seams are
+    hooked because the two designs open differently -- the reader that this mission replaced looked the full
+    name up through `io.open`, while the anchored reader opens the final component relative to the root's
+    descriptor -- and a fixture wired to only one of them would silently prove nothing when the design moved.
+
+    The returned dict counts swaps and, separately, every attempt to open `replacement` by name, so "the
+    outside file was never touched" is a measurement rather than an inference from a reason string.
+    """
+    real_io_open, real_os_open = io.open, os.open
+    state = {"swapped": 0, "outside_opens": 0}
+
+    def swap_once():
+        if state["swapped"]:
+            return
+        state["swapped"] += 1
+        target.unlink()
+        target.symlink_to(replacement)
+
+    def io_wrapper(file, mode="r", *args, **kwargs):
+        name = Path(str(file))
+        if "b" in str(mode):
+            if name == target:
+                swap_once()
+            elif name == replacement:
+                state["outside_opens"] += 1
+        return real_io_open(file, mode, *args, **kwargs)
+
+    def os_wrapper(file, flags, mode=0o777, *args, **kwargs):
+        if "dir_fd" in kwargs and str(file) == target.name:
+            swap_once()
+        elif str(file) == replacement.name:
+            state["outside_opens"] += 1
+        return real_os_open(file, flags, mode, *args, **kwargs)
+
+    monkeypatch.setattr(io, "open", io_wrapper)
+    monkeypatch.setattr(os, "open", os_wrapper)
+    return state
+
+
+def test_a_log_replaced_between_the_check_and_the_open_is_never_consumed(tmp_path, monkeypatch, read_counter):
+    """The reproduction the M42.8 test suite did not contain: the swap happens *during* the open.
+
+    The earlier guarantee was "we resolve the name, and if it points outside we do not open it", which is a
+    statement about a moment that has already passed by the time the read happens.  Here the file is a normal
+    in-root log while it is checked and becomes a link to an outside sentinel before it is opened.  A reader
+    that trusts the check consumes the sentinel; a reader that trusts the handle refuses, and the refusal is
+    what this asserts -- including that the outside bytes were never read by anybody.
+    """
+    module = _evidence_module()
+    root = tmp_path / "work"
+    root.mkdir()
+    log = root / "install.log"
+    log.write_text("IN-ROOT setup line\n", encoding="utf-8")
+    sentinel = tmp_path / "host-secret.log"
+    sentinel.write_text("DO-NOT-PUBLISH outside credential content\n", encoding="utf-8")
+    swap = _swapping_open(monkeypatch, log, sentinel)
+
+    observed = module._bounded_tail(log, 6, permitted_root=root)
+
+    assert swap["swapped"] == 1, "the swap has to happen inside the read's own open, or nothing was tested"
+    assert observed["state"] == "skipped_unsafe_path", observed
+    assert observed["tail"] == "" and observed["bytes_read"] == 0
+    assert "symbolic link" in observed["reason"]
+    assert "DO-NOT-PUBLISH" not in json.dumps(observed), "outside content reached the published record"
+    assert read_counter["bytes"] == 0, "a refused observation must not have consumed a single byte"
+    assert swap["outside_opens"] == 0, "the sentinel was never even opened, by name or otherwise"
+    assert sentinel.is_file() and "DO-NOT-PUBLISH" in sentinel.read_text(encoding="utf-8")
+    # and an untouched in-root log still reads normally: the fix is a boundary, not a refusal to work
+    other = root / "uninstall.log"
+    other.write_text("Uninstall process started.\n", encoding="utf-8")
+    calm = module._bounded_tail(other, 6, permitted_root=root)
+    assert calm["state"] == "complete" and calm["bytes_read"] == other.stat().st_size
+    assert calm["confinement"].startswith("anchored")
+
+
+def test_the_uninstaller_digest_never_becomes_a_hash_of_the_object_the_name_reached(tmp_path, monkeypatch,
+                                                                                    read_counter):
+    """Same race, second consumer: the forensic digest, which is the one read of the install tree.
+
+    A digest is evidence about a file only if it was taken from the file that was validated.  The old shape
+    hashed `sha256_file(path)` -- a second lookup of a name that had already been checked -- so an
+    uninstaller swapped for a link produced a confident hash of somebody else's bytes.
+    """
+    module = _evidence_module()
+    root = tmp_path / "work"
+    install = root / "install"
+    install.mkdir(parents=True)
+    exe = install / "unins000.exe"
+    exe.write_bytes(b"REAL-UNINSTALLER-BYTES")
+    sentinel = tmp_path / "other.exe"
+    sentinel.write_bytes(b"DO-NOT-PUBLISH")
+    swap = _swapping_open(monkeypatch, exe, sentinel)
+
+    observed = module._observed_path(exe, hash_file=True, permitted_root=root)
+
+    assert swap["swapped"] == 1
+    assert observed["hash_state"] == "skipped_unsafe_path", observed
+    assert "sha256" not in observed, "a refused digest must not publish a digest of anything"
+    assert read_counter["bytes"] == 0 and swap["outside_opens"] == 0
+    assert "DO-NOT-PUBLISH" not in json.dumps(observed)
+
+    # The one-object property, without any link: replace the file with a *different regular file* between
+    # the stat and the open.  The published size and digest must then describe the same object, whichever
+    # one it was -- never the size of one file with the hash of another.
+    exe.unlink()  # the fixture above left a dangling link behind; this phase needs the plain name back
+    exe.write_bytes(b"REAL-UNINSTALLER-BYTES")
+    second = install / "second.exe"
+    second.write_bytes(b"REPLACEMENT-BYTES")
+    real_os_open = os.open
+    state = {"swapped": 0}
+
+    def os_wrapper(file, flags, mode=0o777, *args, **kwargs):
+        if "dir_fd" in kwargs and str(file) == exe.name and not state["swapped"]:
+            state["swapped"] += 1
+            os.replace(second, exe)
+        return real_os_open(file, flags, mode, *args, **kwargs)
+
+    monkeypatch.setattr(os, "open", os_wrapper)
+    after = module._observed_path(exe, hash_file=True, permitted_root=root)
+    assert state["swapped"] == 1
+    assert after["hash_state"] == "hashed"
+    keep = install / "keep.exe"
+    keep.write_bytes(b"REPLACEMENT-BYTES")
+    original = install / "original.exe"
+    original.write_bytes(b"REAL-UNINSTALLER-BYTES")
+    assert after["sha256"] == module.sha256_file(keep), ("the digest is of the object that was opened, not of "
+                                                          "the name that was checked")
+    assert after["sha256"] != module.sha256_file(original), ("the validated file's hash was published as if it "
+                                                              "had been read, and it was not")
+    assert after["hash_bytes"] == exe.stat().st_size == len(b"REPLACEMENT-BYTES")
+    assert after["hash_confinement"].startswith("anchored")
+    assert after.get("replaced_before_open", True) is True, "the record shows that the name moved (POSIX)"
+
+
+@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="the platform has no FIFO to plant")
+@pytest.mark.skipif(os.name == "nt", reason="POSIX object type; Windows shape is covered separately")
+def test_a_blocking_object_where_a_log_is_expected_is_refused_rather_than_read(tmp_path):
+    """A FIFO is the object that turns a careless reader into a hung CI step, so it must be refused fast.
+
+    The anchored open sets `O_NONBLOCK`, so an unplanted-by-anybody queue cannot block the attempt, and the
+    type test runs on the opened descriptor: a pipe is not a log, and saying so is the whole requirement.
+    """
+    module = _evidence_module()
+    root = tmp_path / "work"
+    root.mkdir()
+    fifo = root / "uninstall.log"
+    os.mkfifo(fifo)
+
+    # The bound on this test is wall-clock, and `signal` is what keeps a regression from turning the suite
+    # into a hang: a reader that opens the queue without O_NONBLOCK and without a type check blocks in the
+    # open, so the test arms an alarm and fails instead of waiting for the CI job timeout.  (When the M42.8
+    # design is restored -- resolve the name, then open the name -- this is exactly what happens, which is
+    # why the alarm is part of the assertion rather than a courtesy.)
+    def expire(signum, frame):
+        raise AssertionError("the read did not return: the object was opened and awaited, not refused")
+
+    previous = signal.signal(signal.SIGALRM, expire)
+    signal.setitimer(signal.ITIMER_REAL, 20.0)
+    started = time.monotonic()
+    try:
+        observed = module._bounded_tail(fifo, 6, permitted_root=root)
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0.0)
+        signal.signal(signal.SIGALRM, previous)
+    assert time.monotonic() - started < 15, "the read blocked on a queue nobody was writing to"
+    assert observed["state"] == "unreadable" and observed["reason"] == "not a regular file"
+    assert observed["bytes_read"] == 0 and observed["tail"] == ""
+
+
+def test_the_root_itself_is_part_of_the_anchor(tmp_path):
+    """Replacing the work root must stop the reads, not quietly move the boundary somewhere else.
+
+    The identity is whatever the run recorded when it created the directory; a caller that supplies the
+    wrong one is treated as having lost the boundary, and a caller that supplies the right one is
+    unaffected -- so the check costs a read nothing and buys the case where `work_root` is a symlink to,
+    or has been re-created as, an entirely different directory.
+    """
+    module = _evidence_module()
+    root = tmp_path / "work"
+    root.mkdir()
+    log = root / "install.log"
+    log.write_text("Setup process started.\n", encoding="utf-8")
+    identity = module._directory_identity(root)
+    assert identity, "the identity of a directory this process created must be readable"
+    assert module._bounded_tail(log, 6, permitted_root=root, root_identity=identity)["state"] == "complete"
+
+    hijacked = tmp_path / "elsewhere"
+    hijacked.mkdir()
+    (hijacked / "install.log").write_text("DO-NOT-PUBLISH from a different root\n", encoding="utf-8")
+    observed = module._bounded_tail(log, 6, permitted_root=root, root_identity=module._directory_identity(hijacked))
+    assert observed["state"] == "skipped_unsafe_path" and observed["bytes_read"] == 0
+    assert "not the one this run created" in observed["reason"]
+    assert "DO-NOT-PUBLISH" not in json.dumps(observed)
+
+
+def test_the_windows_confinement_rule_is_decided_on_handle_metadata_not_on_following_links():
+    """Windows has no descriptor-relative open, so the verdict is computed from what the handle reports.
+
+    Every fact below is the answer to a kernel32 call on an *open handle* -- final path, file type, volume
+    serial with file index, attribute bits -- and the junction case is the one a prefix test cannot see: a
+    link inside the root whose target is also inside the root still resolves to a plausible path, so the
+    comparison that matters is between the object's real path and the object that was *named*.  Symlinks and
+    junctions are simulated here; the native path is only proven on a Windows host, and this file says so.
+    """
+    module = _evidence_module()
+    root = "C:\\runner\\temp\\drillmaster-lifecycle"
+    verdict = module._confinement_verdict
+
+    assert verdict(root + "\\install.log", root, object_kind="disk", same_volume=True, is_reparse=False) == (
+        "within", "")
+    assert verdict(root.upper() + "\\INSTALL.LOG", root, object_kind="disk", same_volume=True,
+                   is_reparse=False)[0] == "within", "case differences are how Windows spells the same file"
+    outside = verdict("C:\\users\\operator\\.ssh\\id_rsa", root, object_kind="disk", same_volume=True,
+                      is_reparse=False)
+    assert outside[0] == "skipped_unsafe_path" and "outside the permitted evidence root" in outside[1]
+    sibling = verdict("C:\\runner\\temp\\drillmaster-lifecycle-evil\\install.log", root, object_kind="disk",
+                      same_volume=True, is_reparse=False)
+    assert sibling[0] == "skipped_unsafe_path", "a prefix of the root's name is not containment"
+
+    # the junction that lands inside the root anyway: the named object and the opened object differ
+    junction = verdict(root + "\\other\\install.log", root, object_kind="disk", same_volume=True,
+                       is_reparse=False, expected_target=root + "\\install\\install.log")
+    assert junction[0] == "skipped_unsafe_path" and "link was followed" in junction[1]
+    reparse = verdict(root + "\\install.log", root, object_kind="disk", same_volume=True, is_reparse=True)
+    assert reparse[0] == "skipped_unsafe_path" and "reparse point" in reparse[1]
+    other_volume = verdict(root + "\\install.log", root, object_kind="disk", same_volume=False,
+                           is_reparse=False)
+    assert other_volume[0] == "skipped_unsafe_path", "a same-named path on another volume is another file"
+    for kind in ("pipe", "character device", "unknown"):
+        assert verdict(root + "\\install.log", root, object_kind=kind, same_volume=True, is_reparse=False) == (
+            "unreadable", f"the opened object is a {kind}, not a regular disk file; nothing was read")
+    # metadata that cannot be answered is a refusal, and the caller turns it into one: no fallback open
+    assert verdict("", root, object_kind="disk", same_volume=True, is_reparse=False)[0] == "skipped_unsafe_path"
+
+
+@pytest.mark.skipif(os.name != "nt", reason="native reparse-point coverage; never ran on this Linux host")
+def test_a_real_junction_inside_the_root_is_refused_on_windows(tmp_path):  # pragma: no cover - Windows only
+    """Native junction semantics, on the platform that has them, with no symlink stand-in.
+
+    This is the case the simulation above cannot establish: what `CreateFileW` and
+    `GetFinalPathNameByHandleW` actually report for a directory junction created without developer mode.
+    Until a run of this test on a Windows host exists, the Windows half of the guarantee is reasoned about
+    from the API contract and is not claimed as executed behaviour.
+    """
+    module = _evidence_module()
+    root = tmp_path / "work"
+    target = tmp_path / "elsewhere"
+    (root / "install").mkdir(parents=True)
+    target.mkdir()
+    (target / "secret.log").write_text("DO-NOT-PUBLISH outside content\n", encoding="utf-8")
+    try:
+        os.symlink(str(target), str(root / "linked"), target_is_directory=True)
+    except OSError:
+        pytest.skip("junction creation needs privilege or developer mode on this Windows host")
+    log = root / "linked" / "secret.log"
+    observed = module._bounded_tail(log, 6, permitted_root=root)
+    assert observed["state"] == "skipped_unsafe_path" and observed["bytes_read"] == 0
+    assert "DO-NOT-PUBLISH" not in json.dumps(observed)
+
+
+def test_the_byte_limit_is_a_ceiling_that_a_caller_cannot_raise(tmp_path, monkeypatch):
+    """`LOG_TAIL_BYTES` was a default, and a default is only a preference somebody can pass over.
+
+    The ceiling has to hold for the value that matters -- an accidental or deliberate request for
+    gigabytes -- so the request is refused before the file is opened rather than clamped: a clamped
+    request would report a smaller read than the caller believes it asked for, which is a wrong number in
+    the record, and honouring it is the unbounded read this bound exists to prevent.
+    """
+    module = _evidence_module()
+    log = tmp_path / "install.log"
+    log.write_text("Setup process started.\n", encoding="utf-8")
+    real_io_open, real_os_open = io.open, os.open
+    seen = {"io": 0, "os": 0}
+
+    def counting_io_open(file, mode="r", *args, **kwargs):
+        seen["io"] += 1
+        return real_io_open(file, mode, *args, **kwargs)
+
+    def counting_os_open(file, flags, mode=0o777, *args, **kwargs):
+        seen["os"] += 1
+        return real_os_open(file, flags, mode, *args, **kwargs)
+
+    monkeypatch.setattr(io, "open", counting_io_open)
+    monkeypatch.setattr(os, "open", counting_os_open)
+    ceiling = module.LOG_TAIL_BYTES
+    for oversized in (ceiling + 1, ceiling * 2, 3 * 1024 ** 3, 10 ** 12):
+        with pytest.raises(ValueError, match="cannot exceed the global tail bound"):
+            module._bounded_tail(log, 6, byte_limit=oversized)
+        with pytest.raises(ValueError, match="cannot exceed the global tail bound"):
+            module._tail(log, 6, byte_limit=oversized, permitted_root=tmp_path)
+    for invalid in (0, -1, -ceiling):
+        with pytest.raises(ValueError, match="positive bound"):
+            module._bounded_tail(log, 6, byte_limit=invalid)
+    assert seen == {"io": 0, "os": 0}, "an oversized request must be refused before touching the file"
+    # the boundary of the allowed set: exactly the ceiling, and anything below it
+    assert module._bounded_tail(log, 6, byte_limit=ceiling)["state"] == "complete"
+    smallest = module._bounded_tail(log, 6, byte_limit=1)
+    assert smallest["state"] == "truncated" and smallest["bytes_read"] == 2, (
+        "the one permitted probe byte is still read, so the reported number cannot be rounded down to flatter "
+        "the bound")
+
+
+def test_the_ceiling_is_measured_through_the_wrapper_production_calls(tmp_path, read_counter):
+    """Not the length of a returned string and not the reported counter: the bytes the OS was asked for.
+
+    `_tail` with a `permitted_root` is the exact call the lifecycle step makes, so measuring there is what
+    keeps the claim honest about the shipped path.  A smaller override is allowed and has to be honoured as
+    a smaller *read*, which is the other half of "the ceiling is a ceiling, not a target".
+    """
+    module = _evidence_module()
+    root = tmp_path / "work"
+    root.mkdir()
+    log = root / "install.log"
+    log.write_text("OLD-PREFIX " + ("x" * 200 + "\n") * 40000 + "recent line\n", encoding="utf-8")
+    assert log.stat().st_size > module.LOG_TAIL_BYTES * 4
+
+    text = module._tail(log, 6, permitted_root=root)
+    assert read_counter["bytes"] <= module.LOG_TAIL_BYTES + 1, read_counter["bytes"]
+    assert len(text.encode("utf-8")) <= module.LOG_TAIL_BYTES + 200, "the wrapper published more than it read"
+    assert text.endswith("recent line"), "the newest line has to survive the wrapper"
+    assert text.startswith(f"[only the last {module.LOG_TAIL_BYTES} of {log.stat().st_size} bytes were read")
+    assert "OLD-PREFIX" not in text
+
+    read_counter["bytes"] = 0
+    narrowed = module._bounded_tail(log, 6, byte_limit=4096, permitted_root=root)
+    assert read_counter["bytes"] <= 4097, read_counter["bytes"]
+    assert narrowed["bytes_read"] <= 4097 and narrowed["state"] == "truncated"
+
+
+def test_the_first_line_is_dropped_only_when_the_boundary_proves_it_is_a_fragment(tmp_path):
+    """Two windows of the same file, one byte apart, and the record has to tell them apart.
+
+    M42.8 inferred "partial" from `start > 0`, which threw away a complete line whenever the cut happened
+    to land on a boundary, and kept a fragment whenever the file was small enough that only one line
+    remained.  The byte before the window settles the question, and it costs one byte inside the existing
+    allowance rather than an unbounded probe.
+    """
+    module = _evidence_module()
+    root = tmp_path / "work"
+    root.mkdir()
+    lines = [f"line-{index:06d}-{'x' * 20}\n".encode() for index in range(50)]  # 33 bytes each
+    log = root / "install.log"
+    log.write_bytes(b"".join(lines))
+    size = log.stat().st_size
+    assert size == 1650 and len(lines[0]) == 33, "the fixture's arithmetic is the test's oracle"
+
+    mid_line = module._bounded_tail(log, 5, byte_limit=size - 5, permitted_root=root)
+    assert mid_line["state"] == "truncated"
+    assert mid_line["bytes_read"] == size - 4, "the window plus the one boundary byte, and nothing more"
+    assert mid_line["size_bytes"] == size
+    assert mid_line["dropped_partial_first_line"] is True
+    assert mid_line["first_line_is_fragment"] is True
+    assert mid_line["lines_returned"] == 5
+    assert mid_line["tail"].splitlines() == [line.decode().rstrip("\n") for line in lines[-5:]]
+
+    aligned = module._bounded_tail(log, 5, byte_limit=size - 33, permitted_root=root)
+    assert aligned["state"] == "truncated"
+    assert aligned["dropped_partial_first_line"] is False
+    assert "first_line_is_fragment" not in aligned, "the window began on a line boundary; nothing was partial"
+    assert aligned["lines_returned"] == 5
+    assert aligned["tail"].splitlines() == [line.decode().rstrip("\n") for line in lines[-5:]], (
+        "an aligned window must keep the line that starts it, or the record loses real evidence")
+    assert aligned["bytes_read"] == size - 32, "the window is 32 bytes short of the file, plus the probe"
+
+
+def test_a_window_with_fewer_lines_than_asked_for_says_so_instead_of_padded(tmp_path):
+    """Three fat lines and a request for ten: the truth is one whole line plus a reported bound."""
+    module = _evidence_module()
+    root = tmp_path / "work"
+    root.mkdir()
+    log = root / "install.log"
+    log.write_bytes(b"A" * 100 + b"\n" + b"B" * 100 + b"\n" + b"C" * 100 + b"\n")
+    observed = module._bounded_tail(log, 10, byte_limit=150, permitted_root=root)
+    assert observed["state"] == "truncated"
+    assert observed["lines_returned"] == 1 and observed["dropped_partial_first_line"] is True
+    assert observed["tail"] == "C" * 100
+    assert observed["reason"] == "only the last 150 of 303 bytes were read; older content was not inspected"
+    assert observed["size_bytes"] == 303 and observed["bytes_read"] == 151
+
+
+def test_a_single_line_beyond_the_bound_is_kept_and_labelled(tmp_path, read_counter):
+    """A log that is one line long cannot be "the last 40 lines", and the fragment flag says so.
+
+    Dropping the fragment would leave an empty tail, which is how a failure path loses the only evidence it
+    had; the honest record is the fragment, marked as starting mid-line, plus the bound that was honoured.
+    """
+    module = _evidence_module()
+    root = tmp_path / "work"
+    root.mkdir()
+    log = root / "install.log"
+    log.write_bytes(b"Z" * 2000)
+    observed = module._bounded_tail(log, 40, byte_limit=1000, permitted_root=root)
+    assert observed["state"] == "truncated" and observed["lines_returned"] == 1
+    assert observed["dropped_partial_first_line"] is False
+    assert observed["first_line_is_fragment"] is True
+    assert observed["tail"] == "Z" * 1000 and len(observed["tail"]) == 1000
+    assert observed["bytes_read"] == 1001
+    assert read_counter["bytes"] <= 1001, read_counter["bytes"]
+
+
+def test_a_short_log_whose_read_overruns_the_bound_is_clipped_at_the_recent_end(tmp_path):
+    """The clip direction has to be pinned where it can actually be observed.
+
+    With the boundary probe spent in front, the over-read clip only runs when the window starts at byte 0 and
+    the object grew past the request -- a rare pair, and exactly the pair that decides whether an operator
+    reads the newest lines or the oldest ones.  A handle double supplies the overrun, so the direction is
+    forced rather than waited for.
+    """
+    module = _evidence_module()
+    log = tmp_path / "install.log"
+    log.write_bytes(b"started\n")  # smaller than the bound, so the window starts at byte 0
+    size = log.stat().st_size
+    real_open = io.open
+    over = b"Q" + b"y" * 15 + b"Z"
+
+    def wrapper(file, mode="r", *args, **kwargs):
+        handle = real_open(file, mode, *args, **kwargs)
+        if Path(str(file)) != log or "b" not in str(mode):
+            return handle
+
+        class _Overrun:
+            def seek(self, offset, whence=0):
+                handle.seek(offset, whence)
+                return None
+
+            def tell(self):
+                return size
+
+            def read(self, count=-1):
+                return over[:count]
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc_info):
+                return handle.__exit__(*exc_info)
+
+        return _Overrun()
+
+    monkeypatch = pytest.MonkeyPatch()
+    try:
+        monkeypatch.setattr(io, "open", wrapper)
+        observed = module._bounded_tail(log, 4, byte_limit=16)
+    finally:
+        monkeypatch.undo()
+    assert observed["size_bytes"] == size and observed["bytes_read"] == len(over)
+    assert observed["state"] == "truncated" and observed["dropped_partial_first_line"] is False
+    assert observed["tail"] == "y" * 15 + "Z", (
+        "an overrun is clipped at the recent end; keeping the first bytes would publish the oldest content "
+        "and label it the tail")
+    assert not observed["tail"].startswith("Q")
+    assert "grew_during_read" not in observed, "the handle reported the same end twice, so nothing grew"
+
+
+def test_a_boundary_split_through_a_multibyte_character_is_replaced_not_raised(tmp_path, read_counter):
+    """The window edge is a byte offset, and a byte offset owes nothing to a character boundary.
+
+    The published text therefore contains the replacement character the decode produced, which is a truth
+    about a cut byte sequence -- and it is still bounded, because the reader that clips the string is not
+    the reader that bounded the read.
+    """
+    module = _evidence_module()
+    root = tmp_path / "work"
+    root.mkdir()
+    log = root / "install.log"
+    # one line, so the only thing in the window is the line whose first byte the cut destroyed: `é` is two
+    # bytes, and a window starting on the second of them has to say so rather than raise or truncate to empty
+    encoded = ("é" * 5 + ("u" * 600) + "\n").encode("utf-8")
+    log.write_bytes(encoded)
+    size = len(encoded)
+    assert size == 611, "the fixture is 5 two-byte characters, 600 single-byte ones and a newline"
+    observed = module._bounded_tail(log, 4, byte_limit=size - 1, permitted_root=root)
+    assert observed["state"] == "truncated"
+    assert observed["bytes_read"] == size, "the window is the bound and the probe byte, no more"
+    assert observed["tail"].startswith("\ufffd"), "a split lead byte must decode to the replacement character"
+    assert observed["tail"].endswith("u" * 600)
+    assert observed["lines_returned"] == 1
+    assert observed["dropped_partial_first_line"] is False, "one line remained, and an empty tail is not a fix"
+    assert observed["first_line_is_fragment"] is True
+    assert read_counter["bytes"] <= size, read_counter["bytes"]
+
+
+def test_a_log_that_grows_past_the_measured_end_keeps_the_newest_measured_bytes(tmp_path, monkeypatch):
+    """Growth detection moved from an over-read to the handle's own end, and says which it saw.
+
+    Asking for one byte past the window used to be the growth probe, which cannot work for a window already
+    at the ceiling: the extra byte is what the boundary needs, and a growth of more than one byte was
+    invisible in the tail direction.  Re-seeking to the end of the *same handle* is exact, costs no bytes,
+    and is reported instead of being silently clipped away.
+    """
+    module = _evidence_module()
+    log = tmp_path / "install.log"
+    body = "".join(f"line {index:06d} {'y' * 20}\n" for index in range(10))
+    log.write_text(body, encoding="utf-8")
+    size = log.stat().st_size
+    real_open = io.open
+
+    def open_that_grows(file, mode="r", *args, **kwargs):
+        handle = real_open(file, mode, *args, **kwargs)
+        if Path(str(file)) != log or "b" not in str(mode):
+            return handle
+
+        grown = {"done": False}
+
+        class _Grower:
+            def __init__(self):
+                self._handle = handle
+
+            def seek(self, offset, whence=0):
+                result = handle.seek(offset, whence)
+                if not grown["done"] and whence == os.SEEK_END:
+                    grown["done"] = True
+                    with real_open(log, "a", encoding="utf-8", newline="\n") as append:
+                        append.write("appended-newest-line\n")
+                return result
+
+            def tell(self):
+                return handle.tell()
+
+            def read(self, count=-1):
+                return handle.read(count)
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc_info):
+                return handle.__exit__(*exc_info)
+
+        return _Grower()
+
+    monkeypatch.setattr(io, "open", open_that_grows)
+    observed = module._bounded_tail(log, 4, byte_limit=size - 7)
+    assert observed["size_bytes"] == size, "the size is what the handle measured, before the append"
+    assert observed["grew_during_read"] is True
+    assert "grew past the end that was measured" in observed["reason"]
+    assert observed["bytes_read"] == size - 6 <= observed["size_bytes"], "exactly the window plus the probe byte"
+    # the window, minus the fragment the boundary proved, clipped to the four lines that were asked for
+    expected = body[7:].splitlines()[1:][-4:]  # the window is the *last* byte_limit bytes, minus the fragment
+    assert observed["tail"].splitlines() == expected and observed["lines_returned"] == 4
+    assert "appended-newest-line" not in observed["tail"], (
+        "bytes beyond the measured end were never part of what this read promised")
+
+    # and a file that vanishes under the window is recorded as a failure to read, not as an empty log
+    real_open_two = io.open
+    shrinking = {"done": False}
+
+    def open_that_shrinks(file, mode="r", *args, **kwargs):
+        handle = real_open_two(file, mode, *args, **kwargs)
+        if Path(str(file)) != log or "b" not in str(mode):
+            return handle
+
+        class _Shrinker:
+            def seek(self, offset, whence=0):
+                result = handle.seek(offset, whence)
+                if not shrinking["done"] and whence == 0:
+                    shrinking["done"] = True
+                    with real_open_two(log, "r+", encoding="utf-8") as truncate:
+                        truncate.truncate(0)
+                return result
+
+            def tell(self):
+                return handle.tell()
+
+            def read(self, count=-1):
+                return handle.read(count)
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc_info):
+                return handle.__exit__(*exc_info)
+
+        return _Shrinker()
+
+    monkeypatch.setattr(io, "open", open_that_shrinks)
+    shrunk = module._bounded_tail(log, 4, byte_limit=size - 7)
+    assert shrunk["state"] == "unreadable" and shrunk["bytes_read"] == 0
+    assert shrunk["tail"] == "" and "shrank" in shrunk["reason"]

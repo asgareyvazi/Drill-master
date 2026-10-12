@@ -18,10 +18,13 @@ claim of interactive clean-machine, upgrade, or operator acceptance.
 from __future__ import annotations
 
 import argparse
+import errno
+import io
 import json
 import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -44,6 +47,7 @@ from release_metadata import (  # noqa: E402  (shared schema-level constants and
     aggregate_signing_status as signing_aggregate,
     normalize_authenticode_status,
     sha256_file,
+    sha256_stream,
     validate_document,
     validate_signing_document,
 )
@@ -241,7 +245,8 @@ FORENSIC_NOTE = ("host-side evidence is not collected: this step reads only user
                  "and bounded but never attributed to an agent")
 
 
-def _observed_path(path: Path, *, hash_file: bool = False, permitted_root: Path | None = None) -> dict:
+def _observed_path(path: Path, *, hash_file: bool = False, permitted_root: Path | None = None,
+                   root_identity: tuple[int, ...] | None = None) -> dict:
     """What one unprivileged stat can say about a path, right now, without creating or touching it.
 
     Absence and unreadability are separate observations from "present with these properties", because
@@ -277,25 +282,69 @@ def _observed_path(path: Path, *, hash_file: bool = False, permitted_root: Path 
     if attributes is not None:
         observed["file_attributes"] = int(attributes)
         observed["reparse_point"] = bool(attributes & getattr(stat, "ST_REPARSE_POINT", 0))
-    if hash_file and observed["is_file"] and permitted_root is not None and not _is_within(path, permitted_root):
-        observed["hash_state"] = "skipped_unsafe_path"
-        observed["hash_reason"] = "resolves outside the permitted evidence root; not hashed"
-    elif hash_file and observed["is_file"]:
-        observed["hash_state"] = "hashed"
-        if stat.st_size > MAX_FORENSIC_HASH_BYTES:
-            observed["sha256"] = f"not hashed: {stat.st_size} bytes exceeds the {MAX_FORENSIC_HASH_BYTES} byte bound"
-        else:
-            try:
-                observed["sha256"] = sha256_file(path)
-            except OSError as exc:
+    if hash_file and observed["is_file"]:
+        # The bound and the digest are decided on the object that is *open*, never on a second stat of the
+        # name: the size that triggers the bound, the bytes that are hashed, and the identity that gets
+        # published all come from one handle.  A pathname digest is a digest of whatever the name denoted
+        # when it was opened, which on a machine where the path can be re-pointed is not a claim about the
+        # file that was checked.  A refusal is its own recorded state; it never degrades into a zero, an
+        # empty string, or the digest of something nearby.
+        if permitted_root is not None and not _is_within(path, permitted_root):
+            # A name already outside the boundary needs no open to refuse.  This is a fast reject, not the
+            # guarantee -- `_open_binary` below decides on the object it reached, because `resolve` follows
+            # links and can be answered differently a moment later.
+            observed["hash_state"] = "skipped_unsafe_path"
+            observed["hash_reason"] = "resolves outside the permitted evidence root; not hashed"
+            return observed
+        try:
+            stream, meta = _open_binary(path, permitted_root, root_identity)
+        except AnchorRefusal as refusal:
+            # Which refusal it was stays visible: a name that led out of the boundary is a different fact
+            # from an object that could not be read, and only the first is a confinement finding.  Neither
+            # is ever reported as a hash.
+            observed["hash_state"] = refusal.state if refusal.state in _HASH_STATES else "unreadable"
+            observed["hash_reason"] = bound(refusal.reason, 200)
+            return observed
+        except FileNotFoundError:
+            observed["hash_state"] = "unreadable"
+            observed["hash_reason"] = "no such file when the digest was attempted"
+            return observed
+        except OSError as exc:
+            observed["hash_state"] = "unreadable"
+            observed["hash_reason"] = bound(f"{type(exc).__name__}(errno={exc.errno}, "
+                                            f"winerror={getattr(exc, 'winerror', None)})", 160)
+            return observed
+        with stream:
+            size = int(meta.get("size", stat.st_size))
+            if not meta.get("is_regular", True):
                 observed["hash_state"] = "unreadable"
-                observed["sha256"] = f"unreadable: {type(exc).__name__}"
+                observed["hash_reason"] = "not a regular file"
+                return observed
+            if size > MAX_FORENSIC_HASH_BYTES:
+                # Over the bound the object was not hashed, and saying "hashed" here would be the record
+                # claiming a property it did not establish; the note travels in both fields for that reason.
+                observed["hash_state"] = "unreadable"
+                observed["hash_reason"] = (f"not hashed: {size} bytes exceeds the {MAX_FORENSIC_HASH_BYTES}"
+                                           "-byte forensic bound")
+                observed["sha256"] = observed["hash_reason"]
+                return observed
+            observed["hash_state"] = "hashed"
+            observed["sha256"] = sha256_stream(stream)
+            observed["hash_bytes"] = size
+            observed["hash_confinement"] = meta.get("confinement", "")
+            opened_identity = meta.get("object_identity")
+            if opened_identity is not None and stat.st_dev and stat.st_ino:
+                # A disagreement here is the check-then-use race caught in the act: the name still described
+                # a file, but the object behind it is not the one that was stat'd.  It is recorded and never
+                # repaired, and it never changes what the lifecycle step itself decided.
+                observed["replaced_before_open"] = list(opened_identity) != [stat.st_dev, stat.st_ino]
     return observed
 
 
 def _uninstall_forensics(*, install_dir: Path, work_root: Path, uninstaller: Path,
                          install_log: Path, uninstall_log: Path, sentinel: Path | None,
-                         error: BaseException | None, hash_uninstaller: bool = True) -> dict:
+                         error: BaseException | None, hash_uninstaller: bool = True,
+                         root_identity: tuple[int, ...] | None = None) -> dict:
     """A single bounded sample of every filesystem fact that distinguishes the failure shapes.
 
     Five states look alike from a launch refusal: the uninstaller was never created; it exists and
@@ -323,7 +372,7 @@ def _uninstall_forensics(*, install_dir: Path, work_root: Path, uninstaller: Pat
         except OSError as exc:  # documented not to raise, yet a reparse point can disagree
             state["exists"] = False
             state["exists_error"] = bound(type(exc).__name__, 60)
-        observed = _bounded_tail(path, 6, permitted_root=work_root)
+        observed = _bounded_tail(path, 6, permitted_root=work_root, root_identity=root_identity)
         state["read_state"] = observed["state"]
         state["size_bytes"] = observed["size_bytes"]
         state["bytes_read"] = observed["bytes_read"]
@@ -331,6 +380,11 @@ def _uninstall_forensics(*, install_dir: Path, work_root: Path, uninstaller: Pat
             state["read_reason"] = bound(observed["reason"], 200)
         if observed["dropped_partial_first_line"]:
             state["dropped_partial_first_line"] = True
+        if observed.get("first_line_is_fragment"):
+            state["first_line_is_fragment"] = True
+        if observed.get("grew_during_read"):
+            state["grew_during_read"] = True
+        state["read_confinement"] = bound(observed.get("confinement", ""), 200)
         state["tail"] = bound(" ".join(observed["tail"].split()), 400)
         return state
 
@@ -343,7 +397,7 @@ def _uninstall_forensics(*, install_dir: Path, work_root: Path, uninstaller: Pat
                     "work_root": _observed_path(work_root),
                     "install_dir": _observed_path(install_dir),
                     "uninstaller": _observed_path(uninstaller, hash_file=hash_uninstaller,
-                                                  permitted_root=work_root),
+                                                  permitted_root=work_root, root_identity=root_identity),
                     "install_dir_entries": {"count": len(entries), "first": entries[:8]},
                     "install_log": log_state(install_log),
                     "uninstall_log": log_state(uninstall_log),
@@ -412,7 +466,13 @@ def run_lifecycle(*, installer: Path, expected_sha256: str, app_version: str, wo
         raise ValueError("the lifecycle smoke must execute the compiled installer, not the portable ZIP archive")
     install_dir = work_root / "install"
     data_root = work_root / "userdata"
+    # The identity of the root this run is working inside, captured once and compared by every anchored
+    # open below.  It is the answer to "which directory?", which a pathname cannot answer for as long as
+    # another actor can edit the parent: if the work root is deleted and re-created, or re-pointed, the
+    # reads refuse rather than silently confining themselves to the replacement.
+    work_root_identity = _directory_identity(work_root)
     evidence: dict[str, object] = {"steps": [], "diagnostics": {}}
+    evidence["diagnostics"]["work_root_identity_reported"] = work_root_identity is not None
     steps: list[dict] = evidence["steps"]
     started = time.time()
     sentinel: Path | None = None
@@ -446,7 +506,8 @@ def run_lifecycle(*, installer: Path, expected_sha256: str, app_version: str, wo
         except (OSError, subprocess.SubprocessError) as exc:
             record("silent_install", "FAIL", f"{type(exc).__name__}: {exc}")
             return _finish(evidence, "FAIL", started)
-        evidence["diagnostics"]["install_log"] = redact(_tail(install_log, permitted_root=work_root), [])
+        evidence["diagnostics"]["install_log"] = redact(_tail(install_log, permitted_root=work_root,
+                                                               root_identity=work_root_identity), [])
         if completed.returncode != 0:
             record("silent_install", "FAIL", f"exit {completed.returncode}")
             return _finish(evidence, "FAIL", started)
@@ -497,7 +558,8 @@ def run_lifecycle(*, installer: Path, expected_sha256: str, app_version: str, wo
         # The marker scan is the reason this window is wider than a status line: 400 lines, bounded to
         # LOG_TAIL_BYTES of actual reading, and whatever it managed to see is stated in the record
         # rather than assumed to have been the whole log.
-        smoke_log = _bounded_tail(smoke_root / "logs" / "drillmaster.log", 400, permitted_root=work_root)
+        smoke_log = _bounded_tail(smoke_root / "logs" / "drillmaster.log", 400, permitted_root=work_root,
+                                  root_identity=work_root_identity)
         smoke_log_text = smoke_log["tail"]
         evidence["diagnostics"]["smoke_log_read_state"] = smoke_log["state"]
         evidence["diagnostics"]["smoke_log_bytes_read"] = smoke_log["bytes_read"]
@@ -584,7 +646,8 @@ def run_lifecycle(*, installer: Path, expected_sha256: str, app_version: str, wo
                 sample = _uninstall_forensics(install_dir=install_dir, work_root=work_root,
                                               uninstaller=uninstaller, install_log=install_log,
                                               uninstall_log=uninstall_log, sentinel=sentinel, error=error,
-                                              hash_uninstaller=hash_uninstaller)
+                                              hash_uninstaller=hash_uninstaller,
+                                              root_identity=work_root_identity)
             except Exception as exc:  # noqa: BLE001 - a sampler defect must not mask a lifecycle failure
                 sample = {"state": "sampler_failed",
                           "reason": bound(f"{type(exc).__name__}: {str(exc)[:160]}", 200)}
@@ -680,9 +743,27 @@ def run_lifecycle(*, installer: Path, expected_sha256: str, app_version: str, wo
             return _finish(evidence, "FAIL", started)
         record("install_files_removed", "PASS", "install directory holds no application files")
 
-        if not sentinel.is_file() or sentinel.read_text(encoding="utf-8") != sentinel_text:
-            record("user_data_preserved", "FAIL", "the synthetic user-data sentinel did not survive uninstall")
+        sentinel_state, sentinel_note, sentinel_content = "read", "", ""
+        try:
+            # The sentinel is the one content read whose result can turn a FAIL into a PASS, so it is read
+            # through the same anchored handle as the logs: a `sentinel-preserve.txt` re-pointed at some
+            # other file must not be able to certify that user data survived.  A refusal is reported as a
+            # refusal, and the step still fails -- an unsafe observation never becomes a pass.
+            stream, _meta = _open_binary(sentinel, work_root, work_root_identity)
+            with stream:
+                sentinel_content = stream.read(len(sentinel_text) + 1).decode("utf-8", errors="replace")
+        except AnchorRefusal as refusal:
+            sentinel_state, sentinel_note = "refused", refusal.reason
+        except (OSError, ValueError) as exc:
+            sentinel_state = "unreadable"
+            sentinel_note = f"{type(exc).__name__}(errno={getattr(exc, 'errno', None)})"
+        if sentinel_content != sentinel_text:
+            record("user_data_preserved", "FAIL", "the synthetic user-data sentinel did not survive uninstall"
+                   + (f" (sentinel read {sentinel_state}: {bound(sentinel_note, 120)})"
+                      if sentinel_state != "read" else ""))
+            evidence["diagnostics"]["sentinel_read_state"] = sentinel_state
             return _finish(evidence, "FAIL", started)
+        evidence["diagnostics"]["sentinel_read_state"] = "read"
         record("user_data_preserved", "PASS", "synthetic file outside {app} survived uninstall")
         return _finish(evidence, "PASS", started)
     finally:
@@ -703,99 +784,552 @@ def _finish(evidence: dict, status: str, started: float) -> dict:
     return evidence
 
 
-LOG_TAIL_BYTES = 512 * 1024  # no tail operation reads more than this, whatever the log's real size
+_WIN32_GENERIC_READ = 0x80000000
+_WIN32_SHARE_ALL = 0x00000007  # READ | WRITE | DELETE: the sharing Python's own open() asks a file for
+_WIN32_OPEN_EXISTING = 0x00000003
+_WIN32_BACKUP_SEMANTICS = 0x02000000  # required to open a directory for metadata, not to read a file
+_WIN32_FILE_ATTRIBUTE_REPARSE_POINT = 0x00000400
+_WIN32_INVALID_HANDLE = 0xFFFFFFFFFFFFFFFF
+# GetFileType, from winbase.h.  Both filesystem kinds are acceptable -- a redirected share is still a
+# file -- while a pipe or a character device is not a log and is refused before anything is read.
+_WIN32_FILE_KINDS = {0x0000: "unknown", 0x0001: "disk", 0x0002: "character device", 0x0003: "pipe",
+                     0x8000: "disk"}
+_WIN32_REGULAR_FILE_KINDS = frozenset({"disk"})
+_WIN32_NOT_FOUND = (2, 3)  # ERROR_FILE_NOT_FOUND, ERROR_PATH_NOT_FOUND
+_WIN32_LINK_OR_REPARSE = (1831, 1921)  # crossing an unsupported link target, refusing to follow it
+_WIN32_HANDLE_METADATA_FIELDS = ("dwFileAttributes", "nFileSizeHigh", "nFileSizeLow", "dwVolumeSerialNumber",
+                                 "nFileIndexHigh", "nFileIndexLow")
+
+_WIN32_API: object | None = None
+_WIN32_API_UNAVAILABLE = False
+
+
+class _Win32HandleMetadata:
+    """The four kernel32 calls an anchored Windows open needs, bound once and used for no other purpose.
+
+    Nothing here reads content: the class exists to answer "which object is this handle, where does it
+    really live, and is it a file" *after* the create and *before* any byte is fetched.  Every method
+    returns ``None`` (or a neutral value) rather than raising when a call is unavailable, because the
+    caller's contract is fail closed -- an unanswerable question has to cost the read, not the run.
+    """
+
+    def __init__(self, kernel32) -> None:
+        import ctypes  # noqa: PLC0415 -- stdlib, imported with the platform branch that needs it
+        import ctypes.wintypes  # noqa: PLC0415
+
+        self._ctypes = ctypes
+        self._kernel32 = kernel32
+        self.last_error = 0
+
+        class _ByHandleFileInformation(ctypes.Structure):
+            _fields_ = [(name, getattr(ctypes.wintypes, "DWORD")) for name in _WIN32_HANDLE_METADATA_FIELDS]
+
+        self._info_type = _ByHandleFileInformation
+        self._kernel32.CreateFileW.restype = ctypes.c_void_p
+        self._kernel32.CreateFileW.argtypes = [ctypes.wintypes.LPCWSTR, ctypes.wintypes.DWORD,
+                                               ctypes.wintypes.DWORD, ctypes.c_void_p, ctypes.wintypes.DWORD,
+                                               ctypes.wintypes.DWORD, ctypes.c_void_p]
+        self._kernel32.GetFinalPathNameByHandleW.restype = ctypes.wintypes.DWORD
+        self._kernel32.GetFileInformationByHandle.restype = ctypes.wintypes.BOOL
+        self._kernel32.GetFileType.restype = ctypes.wintypes.DWORD
+
+    def open_handle(self, path: Path, *, directory: bool):
+        handle = self._kernel32.CreateFileW(str(path), _WIN32_GENERIC_READ, _WIN32_SHARE_ALL, None,
+                                            _WIN32_OPEN_EXISTING,
+                                            _WIN32_BACKUP_SEMANTICS if directory else 0, None)
+        value = getattr(handle, "value", handle)
+        if not handle or value in (None, _WIN32_INVALID_HANDLE, -1):
+            self.last_error = int(self._kernel32.GetLastError() or 0)
+            return None
+        self.last_error = 0
+        return handle
+
+    def close(self, handle) -> None:
+        if handle:
+            self._kernel32.CloseHandle(handle)
+
+    def identity(self, handle) -> dict | None:
+        info = self._info_type()
+        if not self._kernel32.GetFileInformationByHandle(handle, self._ctypes.byref(info)):
+            return None
+        size = (int(info.nFileSizeHigh) << 32) | int(info.nFileSizeLow)
+        return {"size": size,
+                "volume": int(info.dwVolumeSerialNumber),
+                "identity": (int(info.dwVolumeSerialNumber), (int(info.nFileIndexHigh) << 32)
+                             | int(info.nFileIndexLow)),
+                "is_reparse": bool(int(info.dwFileAttributes) & _WIN32_FILE_ATTRIBUTE_REPARSE_POINT)}
+
+    def final_path(self, handle) -> str:
+        buffer = self._ctypes.create_unicode_buffer(16384)  # MAX_PATH is far too small for real installs
+        length = self._kernel32.GetFinalPathNameByHandleW(handle, buffer, len(buffer), 0)
+        if not length or length >= len(buffer):
+            return ""
+        return buffer.value
+
+    def kind(self, handle) -> str:
+        try:
+            return _WIN32_FILE_KINDS.get(int(self._kernel32.GetFileType(handle) or 0), "unknown")
+        except OSError:
+            return "unknown"
+
+    def attach(self, handle):
+        """Wrap the already-verified handle in a binary stream, transferring the handle to the CRT fd.
+
+        On any failure this closes the handle itself, so the caller never double-closes an object whose
+        ownership has already moved -- and the caller still refuses the read, because a stream that could
+        not be built is not a reason to guess at content.
+        """
+        import msvcrt  # noqa: PLC0415 -- Windows only, reached only from the Windows branch
+
+        value = int(getattr(handle, "value", handle))
+        try:
+            descriptor = msvcrt.open_osfhandle(value, os.O_RDONLY)
+        except OSError:
+            self.close(handle)
+            raise
+        try:
+            return io.open(descriptor, "rb", closefd=True)
+        except OSError:
+            msvcrt.close(descriptor)
+            raise
+
+
+def _win32_api():
+    """Return the Windows metadata helper, or ``None`` when this host cannot provide one.
+
+    Cached, and never substituted by a weaker path-based check: an unavailable ``kernel32`` means the
+    anchored open cannot prove containment, and the caller turns that into a refusal.  ``ctypes`` is stdlib,
+    so pinning nothing new -- the version identity of the interpreter remains what the manifest records.
+    """
+    global _WIN32_API, _WIN32_API_UNAVAILABLE
+    if _WIN32_API is not None:
+        return _WIN32_API
+    if _WIN32_API_UNAVAILABLE or os.name != "nt":
+        return None
+    try:
+        import ctypes  # noqa: PLC0415
+        api = _Win32HandleMetadata(ctypes.windll.kernel32)
+        for call in ("CreateFileW", "CloseHandle", "GetFinalPathNameByHandleW", "GetFileInformationByHandle",
+                     "GetFileType"):
+            getattr(api._kernel32, call)  # an AttributeError here is what "unavailable" means on odd hosts
+    except Exception:
+        _WIN32_API_UNAVAILABLE = True
+        return None
+    _WIN32_API = api
+    return api
+
+
+def _directory_identity_windows(path: Path) -> tuple[int, ...] | None:
+    api = _win32_api()
+    if api is None:
+        return None
+    handle = api.open_handle(path, directory=True)
+    if handle is None:
+        return None
+    try:
+        info = api.identity(handle)
+    finally:
+        api.close(handle)
+    return tuple(info["identity"]) if info else None
+
+
+LOG_TAIL_BYTES = 512 * 1024  # ceiling for any tail read: a caller may ask for less, never for more
+MAX_TAIL_READ_BYTES = LOG_TAIL_BYTES + 1  # the most a single read may fetch: the ceiling plus one probe byte
+# The states a log read may report, and nothing else.  A new internal refusal reason has to be expressed in
+# this vocabulary rather than adding a seventh value to records a downstream consumer already parses, and a
+# refusal that cannot be expressed in it degrades to "unreadable" -- which is "could not read", not "read
+# successfully" and never a pass.
+_READ_STATES = frozenset({"complete", "truncated", "empty", "absent", "unreadable", "skipped_unsafe_path"})
+# The three states a forensic digest may report.  "absent" belongs to the read vocabulary but not to this
+# one: an uninstaller that is not there is already reported by `exists`, and a digest field has to say
+# either that a hash was taken, that it was refused as unsafe, or that it could not be read.
+_HASH_STATES = frozenset({"hashed", "skipped_unsafe_path", "unreadable"})
+
+# Reading a lifecycle log means deciding, *while the handle is held*, that the bytes came from something
+# this tool is allowed to observe.  A pathname cannot carry that decision: between the check of a name and
+# the open of a name the name can be re-pointed, and checking harder does not narrow the window -- only
+# opening relative to a descriptor (POSIX) or binding the verdict to the opened handle (Windows) closes it.
+# So the helpers below never re-open by name after validating it, and never hash or slice what they did not
+# open.
+
+
+class AnchorRefusal(Exception):
+    """A read refused on policy before any byte was fetched, carrying the state to publish and why.
+
+    This is deliberately not an ``OSError``: the object exists and the process could well read it, but the
+    name no longer denotes something inside the boundary this tool may observe.  Folding the two together
+    would hide the difference between "the machine refused" and "the path led out of the sandbox", and the
+    second is the finding an operator needs to see.
+    """
+
+    def __init__(self, state: str, reason: str) -> None:
+        super().__init__(reason)
+        self.state, self.reason = state, reason
+
+
+def _confinement_verdict(final_target: str, root_final_target: str, *, object_kind: str,
+                         same_volume: bool, is_reparse: bool,
+                         expected_target: str = "") -> tuple[str, str]:
+    """Decide from *handle metadata alone* whether an opened object lies inside the permitted root.
+
+    The Windows containment test lives here, as a pure function over the facts ``GetFinalPathNameByHandleW``,
+    ``GetFileType``, ``FILE_ATTRIBUTE_REPARSE_POINT`` and ``BY_HANDLE_FILE_INFORMATION`` supply, so the rule
+    is reviewable on any host and cannot drift between platforms.  A backslash separator is not a oversight:
+    the strings compared are the device-namespace paths Windows reports for the handle, and on POSIX the
+    anchored open below establishes the same property structurally -- by never following a component and
+    never leaving the root's descriptor -- rather than by comparing text.
+
+    A reparse point is refused on its own attributes, not on the answer ``resolve()`` gave earlier: a
+    junction inside the root whose target is outside it resolves to something outside, and a junction whose
+    target is a *different* directory inside the root resolves to something plausible.  Neither is the file
+    the caller named, and neither is what this tool was allowed to read.
+    """
+    if object_kind != "disk":
+        return "unreadable", (f"the opened object is a {object_kind}, not a regular disk file; nothing was read")
+    if is_reparse:
+        return "skipped_unsafe_path", ("the opened object is itself a reparse point, so its content lives behind "
+                                       "another path; nothing was read")
+    target = str(final_target or "").rstrip("\\/").lower()
+    root = str(root_final_target or "").rstrip("\\/").lower()
+    if not target or not root or not same_volume or not target.startswith(root + "\\"):
+        return "skipped_unsafe_path", "resolves outside the permitted evidence root; not read"
+    expected = str(expected_target or "").rstrip("\\/").lower()
+    if expected and target != expected:
+        # The bytes came from a file inside the root, but not from the file that was named: a directory
+        # component between the two was a junction or a link, so the object the handle reached is somebody
+        # else's file.  For an installer digest that is the difference between evidence and theatre.
+        return "skipped_unsafe_path", ("the named path reached a different object, so a link was followed; "
+                                       "nothing was read")
+    return "within", ""
+
+
+def _directory_identity(path: Path) -> tuple[int, ...] | None:
+    """The identity of the *directory object* at `path`, for detecting that the root itself was swapped.
+
+    A per-run identity is not a secret and not a credential: on POSIX it is the device and inode number of
+    the directory, on Windows the volume serial with the file index.  It is recorded once, when the run
+    creates or takes ownership of the root, and every anchored open compares the object it actually reached
+    against it -- so a root that is deleted and re-created, or replaced by a link to somewhere else, stops
+    the reads instead of silently redefining the boundary they are confined to.
+    """
+    if os.name == "nt":
+        return _directory_identity_windows(path)
+    try:
+        flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
+        fd = os.open(str(path), flags)
+    except OSError:
+        return None
+    try:
+        info = os.fstat(fd)
+    except OSError:
+        os.close(fd)
+        return None
+    os.close(fd)
+    return (info.st_dev, info.st_ino)
+
+
+def _read_open_error(observed: dict, exc: OSError, path: Path) -> dict:
+    """Turn an environment error from the open or the read into the bounded record it justifies.
+
+    Classification, not transcription: an exception's own text can quote a path that carries a credential,
+    and a traceback is unbounded, so the name of the class and its codes are what get published.  A
+    directory is reported as "not a regular file" whatever the platform chose to raise for it, because the
+    fact -- this object is not a file -- is platform-free and an operator comparing two runs should not see
+    two different reasons for one cause.
+    """
+    if isinstance(exc, IsADirectoryError) or os.path.isdir(path):
+        observed["reason"] = "not a regular file"
+        return observed
+    observed["reason"] = bound(f"{type(exc).__name__}(errno={exc.errno}, "
+                               f"winerror={getattr(exc, 'winerror', None)})", 160)
+    return observed
+
+
+def _open_binary(path: Path, permitted_root: Path | None,
+                 root_identity: tuple[int, ...] | None = None) -> tuple[object, dict]:
+    """Open one file for reading so the object cannot change underneath the reader.
+
+    With no permitted root there is nothing to anchor to and nothing is claimed: the ordinary
+    :meth:`pathlib.Path.open` is returned and ``meta`` says the containment was not established.  With a
+    permitted root the open is anchored to it and the returned stream is the *only* handle the caller gets,
+    so a validated pathname is never re-opened by name afterwards.
+
+    Raises :class:`AnchorRefusal` for a policy refusal (before any byte is read), ``FileNotFoundError`` for
+    a name that is simply not there, and any other ``OSError`` for an environment failure; the caller turns
+    those into published states.  Nothing here retries, substitutes, or degrades a refusal into a success.
+    """
+    if permitted_root is None:
+        return (path.open("rb"),
+                {"confinement": "unanchored: no permitted root supplied, so containment is not claimed"})
+    if os.name == "nt":
+        return _open_binary_windows(path, Path(permitted_root), root_identity)
+    return _open_binary_posix(path, Path(permitted_root), root_identity)
+
+
+def _relative_parts(name: str, root_name: str) -> list[str]:
+    """Lexically split `name` into components relative to `root_name`, resolving nothing.
+
+    Deliberately ``normpath`` and not ``resolve``: resolving follows links, and a walk that has already
+    followed a link has answered a different question from the one being asked (which object would the open
+    reach?).  A component that escapes upwards is refused here, before any open is attempted.
+    """
+    relative = os.path.relpath(name, root_name)
+    parts = [part for part in relative.split(os.sep) if part not in ("", ".")]
+    if not parts or ".." in parts:
+        raise AnchorRefusal("skipped_unsafe_path", "lies outside the permitted evidence root; not opened")
+    return parts
+
+
+def _open_binary_posix(path: Path, root: Path,
+                       root_identity: tuple[int, ...] | None) -> tuple[object, dict]:
+    """Open relative to a descriptor for the root, following no component, and prove what was opened.
+
+    ``O_NOFOLLOW`` on every component is what closes the check-then-use window: if the name is swapped for a
+    link between any earlier look and this open, the open itself fails with ``ELOOP`` instead of quietly
+    handing back the link target's bytes, and there is no later moment at which the path could be
+    re-pointed again because the object is already open.  ``O_NONBLOCK`` on the final component keeps a FIFO
+    that somehow got past the flags from hanging the reader, and ``S_ISREG`` on the *opened* descriptor --
+    not on a second ``stat`` of the name -- is what says the bytes are a file's.
+    """
+    name = os.path.abspath(os.path.normpath(str(path)))
+    root_name = os.path.abspath(os.path.normpath(str(root)))
+    parts = _relative_parts(name, root_name)
+    directory_flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        parent_fd = os.open(root_name, directory_flags)
+    except OSError as exc:
+        raise AnchorRefusal("unreadable", bound(f"the permitted evidence root could not be opened for anchoring "
+                                                f"({type(exc).__name__}, errno={exc.errno}); nothing was read",
+                                                200)) from exc
+    meta: dict = {}
+    try:
+        anchor = os.fstat(parent_fd)
+        meta["root_identity"] = [anchor.st_dev, anchor.st_ino]
+        if root_identity is not None and [anchor.st_dev, anchor.st_ino] != list(root_identity):
+            raise AnchorRefusal("skipped_unsafe_path", ("the directory behind the permitted root name is not the "
+                                                       "one this run created; nothing was read"))
+        for part in parts[:-1]:
+            child_fd = os.open(part, directory_flags, dir_fd=parent_fd)
+            os.close(parent_fd)
+            parent_fd = child_fd
+        try:
+            file_fd = os.open(parts[-1], os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+                              | getattr(os, "O_NONBLOCK", 0), dir_fd=parent_fd)
+        except FileNotFoundError as exc:
+            raise AnchorRefusal("absent", "no such file when the read was attempted") from exc
+        except OSError as exc:
+            if exc.errno == getattr(errno, "ELOOP", -1):
+                raise AnchorRefusal("skipped_unsafe_path", ("the name is a symbolic link, or became one before the "
+                                                            "open; it was not followed and nothing was read")) from exc
+            raise
+        opened = os.fstat(file_fd)
+        meta["object_identity"] = [opened.st_dev, opened.st_ino]
+        meta["size"] = opened.st_size
+        meta["is_regular"] = stat.S_ISREG(opened.st_mode)
+        meta["confinement"] = ("anchored: opened relative to the root descriptor with O_NOFOLLOW on every "
+                              "component; the opened object, not the name, was validated")
+        if not meta["is_regular"]:
+            os.close(file_fd)
+            raise AnchorRefusal("unreadable", "not a regular file")
+        try:
+            return io.open(file_fd, "rb", closefd=True), meta  # the fd is the object; no second lookup by name
+        except OSError:
+            os.close(file_fd)
+            raise
+    except FileNotFoundError as exc:  # an intermediate directory disappeared mid-walk
+        raise AnchorRefusal("absent", "no such file when the read was attempted") from exc
+    finally:
+        try:
+            os.close(parent_fd)
+        except OSError:
+            pass
+
+
+def _open_binary_windows(path: Path, root: Path,
+                         root_identity: tuple[int, ...] | None) -> tuple[object, dict]:
+    """Bind the containment decision to the opened handle, which is the strongest practical Windows anchor.
+
+    Win32 has no descriptor-relative open, and ``O_NOFOLLOW`` in the CRT is not a guard against junctions or
+    symlinks at all, so the guarantee is built the other way round: the object is opened once, then
+    ``GetFinalPathNameByHandleW`` and ``GetFileInformationByHandle`* on that handle* say which object the
+    bytes will come from, and the answer is compared against the root's own final path and volume identity.
+    A reparse point is caught by its attribute bit even when its target is inside the root, because the file
+    the caller named and the file the handle reached are then different objects.
+
+    Anything that cannot be established fails closed: if the metadata calls are unavailable, or they fail,
+    the handle is closed and nothing is read.  The residual limit is stated rather than papered over -- the
+    create happens before the metadata, so an object type whose open blocks (a named pipe) would block
+    before it could be classified; those cannot be created *inside* an ordinary directory, so a file planted
+    in the work root cannot reach that path, but a hostile mount point could, and on such a host this helper
+    narrows the race rather than eliminating it.
+    """
+    api = _win32_api()
+    if api is None:
+        raise AnchorRefusal("skipped_unsafe_path", ("Windows handle metadata is unavailable on this host, so "
+                                                     "containment cannot be proven; the file was not read"))
+    name = os.path.abspath(os.path.normpath(str(path)))
+    root_name = os.path.abspath(os.path.normpath(str(root)))
+    parts = _relative_parts(name, root_name)
+    root_opened = api.open_handle(Path(root_name), directory=True)
+    if root_opened is None:
+        raise AnchorRefusal("unreadable", bound(f"the permitted evidence root could not be opened for anchoring "
+                                                f"(CreateFileW error {api.last_error}); nothing was read", 200))
+    try:
+        root_info = api.identity(root_opened)
+        if root_info is None:
+            raise AnchorRefusal("skipped_unsafe_path", "the permitted root's own identity is unreadable; nothing "
+                                                        "was read")
+        if root_identity is not None and tuple(root_info["identity"]) != tuple(root_identity):
+            raise AnchorRefusal("skipped_unsafe_path", ("the directory behind the permitted root name is not the "
+                                                        "one this run created; nothing was read"))
+        root_final = api.final_path(root_opened)
+        expected = "\\\\".join([root_final, *parts]) if root_final else ""
+        opened = api.open_handle(Path(name), directory=False)
+        if opened is None:
+            error = api.last_error
+            if error in _WIN32_NOT_FOUND:
+                raise FileNotFoundError(error, "No such file or directory", name)
+            if error in _WIN32_LINK_OR_REPARSE:
+                raise AnchorRefusal("skipped_unsafe_path", ("the name could not be opened without following a "
+                                                            "link; nothing was read"))
+            raise AnchorRefusal("unreadable", bound(f"CreateFileW error {error} refused the open; nothing was "
+                                                     f"read", 200))
+        try:
+            info = api.identity(opened)
+            if info is None:
+                raise AnchorRefusal("skipped_unsafe_path", ("the opened object's metadata could not be read, so "
+                                                             "containment cannot be proven; nothing was read"))
+            state, reason = _confinement_verdict(api.final_path(opened), root_final,
+                                                 object_kind=api.kind(opened),
+                                                 same_volume=info["volume"] == root_info["volume"],
+                                                 is_reparse=info["is_reparse"], expected_target=expected)
+            if state != "within":
+                raise AnchorRefusal(state, reason)
+        except Exception:
+            api.close(opened)  # never hand back a handle whose verdict was not "within"
+            raise
+        # From here the handle belongs to the stream: `attach` closes it itself if it cannot take it over,
+        # so the failure paths below must not close it a second time.
+        meta = {"confinement": ("anchored: opened once, then validated through GetFinalPathNameByHandleW and "
+                                "GetFileInformationByHandle on that handle"),
+                "size": info["size"], "is_regular": True, "object_identity": list(info["identity"])}
+        return api.attach(opened), meta
+    finally:
+        api.close(root_opened)
 
 
 def _bounded_tail(path: Path, lines: int = 40, *, byte_limit: int = LOG_TAIL_BYTES,
-                  permitted_root: Path | None = None) -> dict:
-    """Read the last `byte_limit` bytes of one log and report what that read actually established.
+                  permitted_root: Path | None = None, root_identity: tuple[int, ...] | None = None) -> dict:
+    """Read the last `byte_limit` bytes of one log through an anchored handle, and report what was proven.
 
-    Two different bounds live here and they mean different things: how much was *read* -- `bytes_read`,
-    never above `byte_limit + 1`, because the window is sought from the end instead of the file being
-    loaded and sliced -- and how much is *published*, which each caller clips with `bound()`.  The
-    distinction matters because this runs on a failure path with a runner-side log that can be hundreds
-    of megabytes; a whole-file read there makes the cost of explaining a failure proportional to the
-    thing being explained, and a returned string that was clipped from a full read is not the same
-    guarantee as never reading past the window.
+    Three separate things could be confused here, so each is named:
 
-    Because only a suffix is inspected, the result says which of the states it saw: `complete`,
-    `truncated`, `empty`, `absent`, `unreadable` or `skipped_unsafe_path`.  A caller must not describe
-    `truncated` as "the log", which is why the reason travels with the text rather than in a comment.
-    Nothing here raises for an environment condition: a log that vanishes, turns out to be a directory,
-    or refuses to open is recorded and the original lifecycle finding survives.
+    * **how much was read** -- ``bytes_read``, never above ``MAX_TAIL_READ_BYTES``, because the window is
+      sought from the end of the *opened object* instead of the file being loaded and sliced;
+    * **how much may be asked for** -- ``byte_limit``, which a caller may lower but never raise past
+      ``LOG_TAIL_BYTES``, so the ceiling is a property of the reader rather than of one default value;
+    * **how much is published** -- each caller clips with ``bound()``, which is presentation and was never a
+      statement about I/O.
+
+    Because only a suffix is inspected, the result says which state it saw: ``complete``, ``truncated``,
+    ``empty``, ``absent``, ``unreadable`` or ``skipped_unsafe_path``.  A caller must not describe
+    ``truncated`` as "the log", which is why the reason travels with the text.  Nothing here raises for an
+    environment condition: a log that vanishes, turns out to be a directory, or refuses to open is recorded,
+    the original lifecycle finding survives, and the refused read stays at zero bytes.
     """
     observed: dict = {"state": "unreadable", "bytes_read": 0, "size_bytes": None, "lines_returned": 0,
                       "reason": "", "dropped_partial_first_line": False, "tail": ""}
     if byte_limit <= 0:
         raise ValueError("byte_limit must be a positive bound")  # a programming error, never an environment event
+    if byte_limit > LOG_TAIL_BYTES:
+        # Not a warning and not a quiet clamp: a caller that could raise this ceiling could also raise it to
+        # "the whole hundred-megabyte log", which is the cost this bound exists to prevent, and a clamped
+        # request would report a smaller read than the caller believes it asked for.
+        raise ValueError(f"byte_limit cannot exceed the global tail bound of {LOG_TAIL_BYTES} bytes")
     try:
-        if permitted_root is not None and not _is_within(path, permitted_root):
-            # The evidence boundary is the isolated lifecycle work root.  A name that resolves
-            # elsewhere -- a symlink, a Windows reparse point or junction, or a file replaced under
-            # the step between checks -- is not opened at all, because publishing its content would
-            # report data from outside the boundary this tool is allowed to read.
-            observed["state"] = "skipped_unsafe_path"
-            observed["reason"] = "resolves outside the permitted evidence root; not read"
-            return observed
-        with path.open("rb") as stream:
-            stream.seek(0, os.SEEK_END)
-            size = stream.tell()
-            observed["size_bytes"] = size
-            if size == 0:
-                observed["state"] = "empty"
-                return observed
-            start = max(0, size - byte_limit)
-            stream.seek(start)
-            data = stream.read(byte_limit + 1)  # one byte more, so growth past the window is detectable
+        stream, meta = _open_binary(path, permitted_root, root_identity)
+    except AnchorRefusal as refusal:
+        observed["state"] = refusal.state if refusal.state in _READ_STATES else "unreadable"
+        observed["reason"] = bound(refusal.reason, 200)
+        return observed
     except FileNotFoundError:
         observed["state"] = "absent"
         observed["reason"] = "no such file when the read was attempted"
         return observed
-    except IsADirectoryError:
-        observed["reason"] = "not a regular file"
-        return observed
     except OSError as exc:
-        # Classification, not transcription: an exception's own text can quote a path that carries a
-        # credential, and a traceback is unbounded, so the name and the codes are what get published.
-        if os.path.isdir(path):
-            # POSIX raises IsADirectoryError where Windows raises PermissionError for the same open.  The
-            # fact is identical, so the classification keys off the fact and not off whichever exception the
-            # platform chose: a directory is reported as "not a regular file" on both.  `os.path.isdir`
-            # swallows its own errors and answers False, so this cannot raise on a racing change.
-            observed["reason"] = "not a regular file"
-            return observed
-        observed["reason"] = bound(f"{type(exc).__name__}(errno={exc.errno}, "
-                                   f"winerror={getattr(exc, 'winerror', None)})", 160)
-        return observed
+        return _read_open_error(observed, exc, path)
+    try:
+        with stream:
+            stream.seek(0, os.SEEK_END)
+            size = stream.tell()
+            observed["size_bytes"] = size
+            observed["confinement"] = meta.get("confinement", "")
+            if size == 0:
+                observed["state"] = "empty"
+                return observed
+            start = max(0, size - byte_limit)
+            # One byte *before* the window is the only evidence that separates a first line which happens to
+            # start where the window starts from one that starts mid-line, and reading it from the front
+            # rather than asking for a byte past the end is what keeps the ceiling intact: the request stays
+            # at `byte_limit + 1` bytes total, and growth is detected from the handle's own end (below)
+            # instead of by over-reading the tail, which a single spare byte could not detect anyway.
+            probe = 1 if start > 0 else 0
+            stream.seek(start - probe)
+            data = stream.read(byte_limit + 1)
+            try:
+                after = stream.seek(0, os.SEEK_END) or stream.tell()
+            except OSError:
+                after = None  # growth unknown is a weaker statement, not a wrong one
+    except OSError as exc:
+        return _read_open_error(observed, exc, path)
     observed["bytes_read"] = len(data)
-    truncated = start > 0 or len(data) > byte_limit
+    if not data:
+        observed["state"] = "unreadable"
+        observed["reason"] = "the file shrank below the requested window while it was being read"
+        return observed
+    boundary = data[:probe]
+    content = data[probe:]  # the probe byte is a fact about the window's edge, never part of the window
+    grew = after is not None and after > size
+    truncated = start > 0 or len(content) > byte_limit
     if truncated:
-        data = data[-byte_limit:]  # keep the recent end; the older prefix is what the bound excludes
-    window = data.decode("utf-8", errors="replace").splitlines()
-    if start > 0 and len(window) > 1:
-        # A window that does not begin at byte 0 usually begins mid-line; the fragment is dropped so
-        # the published tail never looks like content the file did not have.
+        content = content[-byte_limit:]  # keep the recent end; the older prefix is what the bound excludes
+    window = content.decode("utf-8", errors="replace").splitlines()
+    if start > 0 and boundary != b"\n":
+        # Recorded whether or not the fragment is dropped: an operator reading a one-line window off a
+        # huge log is entitled to know that its first character is not the first character of a line.
+        observed["first_line_is_fragment"] = True
+    if start > 0 and len(window) > 1 and boundary != b"\n":
+        # The fragment is dropped only when the byte before the window proves it is a fragment.  A window
+        # that begins exactly on a line boundary keeps its first line: dropping it would cost an operator a
+        # line of real evidence, and a start offset alone has never been evidence about the line.
         window = window[1:]
         observed["dropped_partial_first_line"] = True
     tail = window[-max(lines, 1):]
     observed["lines_returned"] = len(tail)
     observed["state"] = "truncated" if truncated else "complete"
+    if grew:
+        observed["grew_during_read"] = True
     if truncated:
-        observed["reason"] = (f"only the last {len(data)} of {size} bytes were read; "
-                             "older content was not inspected")
+        observed["reason"] = (f"only the last {len(content)} of {size} bytes were read; "
+                              "older content was not inspected")
+    if grew:
+        observed["reason"] = (f"{observed['reason']}; " if observed["reason"] else "") + (
+            "the log grew past the end that was measured while it was being read; the window covers the "
+            "measured size")
     observed["tail"] = "\n".join(tail)
     return observed
 
 
 def _tail(path: Path, lines: int = 40, *, byte_limit: int = LOG_TAIL_BYTES,
-          permitted_root: Path | None = None) -> str:
+          permitted_root: Path | None = None, root_identity: tuple[int, ...] | None = None) -> str:
     """The text form of :func:`_bounded_tail`, for callers that publish only the string.
 
     Absent or unreadable still yields the empty string, as it did when this helper read the whole
     file, and a clipped read announces itself inside the returned text so a suffix can never be
     presented as the log.
     """
-    observed = _bounded_tail(path, lines, byte_limit=byte_limit, permitted_root=permitted_root)
+    observed = _bounded_tail(path, lines, byte_limit=byte_limit, permitted_root=permitted_root,
+                             root_identity=root_identity)
     tail = observed["tail"]
     if observed["state"] == "truncated" and tail:
         return f"[{observed['reason']}] {tail}"
@@ -803,6 +1337,13 @@ def _tail(path: Path, lines: int = 40, *, byte_limit: int = LOG_TAIL_BYTES,
 
 
 def _is_within(child: Path, parent: Path) -> bool:
+    """A cheap look at the *name*, used only to refuse obvious cases early -- never to authorize a read.
+
+    ``resolve`` follows links, so this can be fooled in both directions by a path that changes underneath
+    it.  That is harmless precisely because it is not the security check: every read and digest goes through
+    :func:`_open_binary`, which decides on the object it opened.  A False answer here means "do not even
+    attempt the open"; a True answer proves nothing.
+    """
     try:
         child.resolve().relative_to(parent.resolve())
     except (ValueError, OSError):

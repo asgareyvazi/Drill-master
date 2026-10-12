@@ -261,13 +261,33 @@ def validate_signing_document(payload: object) -> dict:
     return payload
 
 
-def sha256_file(path: Path, *, chunk_size: int = SHA256_CHUNK_SIZE) -> str:
-    """Hash a file by streaming fixed-size blocks (never whole-file reads)."""
+def sha256_stream(stream, *, chunk_size: int = SHA256_CHUNK_SIZE, max_bytes: int | None = None) -> str:
+    """Hash bytes that are *already open*, in fixed-size blocks (never whole-object reads).
+
+    This is the shared helper for any caller that has verified an object through a handle and must digest
+    that same object rather than whatever the name denotes a moment later; the bound on how much is read
+    travels with the reading, so ``max_bytes`` refuses an over-long stream instead of silently hashing a
+    prefix of it.  :func:`sha256_file` is the one-line path wrapper over it, which is what keeps the
+    repository on exactly one implementation of the digest.
+    """
     digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for block in iter(lambda: stream.read(chunk_size), b""):
-            digest.update(block)
+    read = 0
+    for block in iter(lambda: stream.read(chunk_size), b""):
+        read += len(block)
+        if max_bytes is not None and read > max_bytes:
+            raise ValueError(f"stream exceeds the {max_bytes}-byte hashing bound")
+        digest.update(block)
     return digest.hexdigest()
+
+
+def sha256_file(path: Path, *, chunk_size: int = SHA256_CHUNK_SIZE, max_bytes: int | None = None) -> str:
+    """Hash a file by streaming fixed-size blocks (never whole-file reads).
+
+    One open, one object: the digest is of what the returned handle bound to, and ``max_bytes`` bounds
+    the read rather than the hope that the file was the size somebody stat'd a moment earlier.
+    """
+    with path.open("rb") as stream:
+        return sha256_stream(stream, chunk_size=chunk_size, max_bytes=max_bytes)
 
 
 # Historical internal name kept so existing callers/tests keep resolving.
