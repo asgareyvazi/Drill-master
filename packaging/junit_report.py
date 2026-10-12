@@ -330,23 +330,36 @@ def crash_excerpt(path: Path, limit_lines: int = 20, line_width: int = 200, *, s
     if start is None:
         return ""
     header = f"crash dump from {path.name}, marker at line {start + 1} of {len(lines)}: "
-    notice = (f"{separator}…(the dump continues for {len(lines) - start - limit_lines} more lines)"
-              if len(lines) > start + limit_lines and bounded else
-              f"{separator}(the dump ends {len(lines) - start} lines after the marker)"
-              if len(lines) > start + limit_lines else "")
-    kept: list[str] = []
-    for line in lines[start:start + limit_lines]:
-        piece = redact(line)[:line_width]
-        # The budget is measured on the escaped text, because that is what GitHub counts: a frame line full of
-        # percent signs costs three characters per character when it is written as a workflow command, and a
-        # budget kept on raw length would overflow the annotation and lose it silently.
-        candidate = header + separator.join(kept + [piece]) + notice  # budgeted escaped, see ANNOTATION_SAFE_LIMIT
-        if bounded and kept and len(_escape_data(candidate)) > ANNOTATION_SAFE_LIMIT - 8:
-            notice = (f"{separator}…(the excerpt stopped at the annotation limit; {len(lines) - start} dump "
-                      "lines were available)")
-            break
-        kept.append(piece)
-    return header + separator.join(kept) + notice
+    pieces = [redact(line)[:line_width] for line in lines[start:start + limit_lines]]
+    # The tally is counted over the whole dump, not the window, and it is paid for before any line is accepted:
+    # how often each frame appears is the one fact about the stack that survives a length limit, and an excerpt
+    # that keeps its lines by overflowing the annotation would keep nothing -- GitHub truncates from the front.
+    tally = f"{separator}{_frame_tally(lines[start:])}"
+    budget = ANNOTATION_SAFE_LIMIT - 8
+    cut_notice = (f"{separator}…(the dump continues for {len(lines) - start - len(pieces)} more lines)"
+                  if len(lines) > start + len(pieces) else "")
+    ends_notice = (f"{separator}(the dump ends {len(lines) - start} lines after the marker)"
+                   if len(lines) > start + len(pieces) else "")
+    over_notice = (f"{separator}…(the excerpt stopped at the annotation limit; {len(lines) - start} dump lines "
+                    "were available)")
+
+    def notice_for(count: int) -> str:
+        # A shortened excerpt announces itself, and the announcement is part of what has to fit.
+        if bounded and count < len(pieces):
+            return over_notice
+        return cut_notice if bounded else ends_notice
+
+    def assemble(count: int) -> str:
+        return header + separator.join(pieces[:count]) + tally + notice_for(count)
+
+    count = len(pieces)
+    if bounded:
+        # Largest prefix that fits, measured on the escaped form and including whichever notice it ends up
+        # carrying.  Dropping lines until that holds is monotone, so this terminates.
+        while count > 1 and len(_escape_data(assemble(count))) > budget:
+            count -= 1
+    return assemble(count) + ("" if not bounded or count == len(pieces) or count > 1 else separator
+                             + "(no frame line fitted the annotation budget)")
 
 
 def describe_abort(result: dict, pytest_exit: int | None, pytest_log: Path | None,
@@ -470,6 +483,38 @@ def main(argv: list[str] | None = None) -> int:
         emit(f"error: {result['parse_error']}")
         return 2
     return 0
+
+
+def _frame_tally(lines: list[str]) -> str:
+    """Summarise how often each stack frame appears, so a 15-line window can still say "recursion".
+
+    The first production use of this excerpt showed why a window is not enough: the frames it kept were four
+    alternating ``_redact_tree`` levels and a fault on a line that cannot fault by itself, while the 24 lines
+    the annotation budget cut were the ones that would have said whether the stack was deep (our recursion) or
+    merely long (memory damage presenting at whichever call came next).  Neither answer fits in 15 lines, but
+    both fit in one counted sentence.
+    """
+    counts: dict[str, int] = {}
+    total = 0
+    for line in lines:
+        frame = re.match(r'File "([^"]+)", line (\d+) in ([\w.<>]+)', line.strip())
+        if not frame:
+            continue
+        total += 1
+        # Split on both separators by hand: a Windows path must collapse to its file name on the
+        # Linux side of this too, or the key repeats the whole runner directory and spends the budget.
+        name = re.split(r"[\\/]", frame.group(1))[-1]
+        key = f"{name}:{frame.group(2)} in {frame.group(3)}"
+        counts[key] = counts.get(key, 0) + 1
+    if not total:
+        return "no parseable stack frames"
+    ordered = sorted(counts.items(), key=lambda item: (-item[1], item[0]))
+    repeated = [f"'{name}' x{count}" for name, count in ordered if count > 1][:3]
+    shape = f"{total} frame(s), {len(counts)} distinct"
+    if repeated:
+        return (f"{shape}; repeats: {'; '.join(repeated)}"
+                + (" (recursion suspected: one frame recurs many times)" if ordered[0][1] >= 8 else ""))
+    return f"{shape}, no frame repeated -- a straight-line stack, not recursion"
 
 
 if __name__ == "__main__":

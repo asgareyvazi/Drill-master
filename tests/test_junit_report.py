@@ -524,3 +524,61 @@ def test_annotations_stay_inside_the_size_github_actually_keeps(tmp_path, capsys
     assert "#### Captured crash dump" in text
     assert len(text) > sum(len(line) for line in emitted), (
         "the summary is the uncapped channel; if it is shorter than the annotations, the dump was cut twice")
+
+
+def test_the_frame_tally_says_whether_the_stack_was_deep(tmp_path):
+    """A 15-line window cannot show a hundred-deep stack, so the excerpt counts instead of quoting.
+
+    The first real use of this machinery faulted inside our own redaction path with a shallow-looking window and
+    24 frames the annotation budget had to cut.  Whether that was recursion in the code under test or memory
+    damage presenting at whichever call came next is decided by how often each frame repeats, which fits in one
+    sentence however deep the stack is.
+    """
+    module = _parser()
+    deep = tmp_path / "deep.log"
+    frames = []
+    for depth in range(150):
+        frames.append(f'  File "D:\\a\\Drill-master\\Drill-master\\packaging\\windows_release_evidence.py", '
+                      f"line 1488 in _redact_tree")
+        frames.append(f'  File "D:\\a\\Drill-master\\Drill-master\\packaging\\windows_release_evidence.py", '
+                      f"line 1486 in _redact_tree")
+    deep.write_text("Windows fatal exception: access violation\n\nCurrent thread 0x1 (most recent call first):\n"
+                    + "\n".join(frames) + "\n", encoding="utf-8")
+    quoted = module.crash_excerpt(deep, limit_lines=6)
+    assert "recursion suspected" in quoted, quoted
+    # 150 alternating pairs: both frames repeat 150 times, and the count is over the whole dump (300 frames,
+    # two distinct) rather than over the six lines the window could carry.
+    assert "300 frame(s), 2 distinct" in quoted, quoted
+    assert quoted.count("x150") == 2, quoted
+    assert "windows_release_evidence.py:1486" in quoted and "windows_release_evidence.py:1488" in quoted, quoted
+    assert "D:\\a" not in quoted.split("repeats:")[1], "the tally keys on the file name, not the runner directory"
+
+    shallow = tmp_path / "shallow.log"
+    shallow.write_text(
+        "Windows fatal exception: access violation\n\nCurrent thread 0x1 (most recent call first):\n"
+        '  File "D:\\a\\packaging\\junit_report.py", line 143 in redact\n'
+        '  File "D:\\a\\packaging\\junit_report.py", line 654 in forensics\n'
+        '  File "C:\\python3.12\\_pytest\\python.py", line 167 in pytest_pyfunc_call\n', encoding="utf-8")
+    plain = module.crash_excerpt(shallow)
+    assert "3 frame(s), 3 distinct" in plain, plain
+    assert "no frame repeated" in plain and "recursion suspected" not in plain
+
+
+def test_the_tally_survives_when_the_excerpt_itself_hits_the_limit(tmp_path):
+    module = _parser()
+    log = tmp_path / "wide.log"
+    body = ["Windows fatal exception: access violation", "", "Current thread 0x1 (most recent call first):"]
+    for depth in range(400):
+        body.append('  File "D:\\a\\Drill-master\\Drill-master\\packaging\\evidence.py", line %d in redact'
+                    % (depth % 3 + 140) + " " + "%p" * 300)
+    log.write_text("\n".join(body) + "\n", encoding="utf-8")
+    # Narrow pieces make the slack small: the loop stops as soon as one more line would not fit, so with
+    # 20-character pieces the excerpt lands within 20 characters of the budget.  A tally that is not counted in
+    # that decision therefore overflows it by about its own length, which is exactly the defect to pin.
+    quoted = module.crash_excerpt(log, limit_lines=400, line_width=20)
+    assert len(module._escape_data(quoted)) < module.ANNOTATION_SAFE_LIMIT, (
+        "the excerpt is what GitHub truncates from the front, and it truncated the headline on the run whose "
+        "silence this whole mechanism exists to end")
+    assert "distinct" in quoted, "the counted shape of the stack must outlive the excerpt that could not fit"
+    assert "excerpt stopped at the annotation limit" in quoted, (
+        "the fixture must actually press against the budget, or it pins nothing")

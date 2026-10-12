@@ -1385,6 +1385,39 @@
         "frozen_bundle_smoke": "skipped by the gate's own allowlist; unchanged",
         "rel": "REL-13 OPEN; REL-04 open for the current artifact"
       }
+    },
+    "crash_located_in_our_own_redaction_path_by_the_annotation_it_wrote": {
+      "read_back_for_the_annotation_that_named_the_crash_site": {
+        "sha": "de47f3f92da7677c106e39c25586a12828b242ea",
+        "method": "the same cross-check as the previous keys: runs filtered on the full head_sha against the branch listing (two rows each), per-job step conclusions, paginated check-run annotations, and the run's artifact list; captured 2026-10-12 while the tip was HEAD",
+        "source_release_gate": "run #86 completed with conclusion success: source (3.11), (3.12) and (3.13) each finished with all 9 of 9 steps successful; the run publishes no artifacts, which is the gate's normal shape",
+        "windows_release_validation": "run #32 completed with conclusion failure, the same single non-success step (Windows database, import, auth and packaging regression suite), 9 of 14 steps, with the packaging stage still succeeding",
+        "artifact": "drillmaster-windows-de47f3f\u2026, 1484 bytes, expired=false; bytes NOT_VERIFIED",
+        "annotations_observed": [
+          "[warning] Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/che\u2026",
+          "[failure] no release metadata exists to report on; the packaging stage failed",
+          "[failure] Process completed with exit code 1.",
+          "[failure] crash dump from windows-regressions.log, marker at line 9 of 52: Windows fatal exception: access violation |  | Current \u2026",
+          "[failure] \u2026ows\\Python\\3.12.10\\x64\\Lib\\site-packages\\_pytest\\runner.py\", line 139 in runtestprotocol | File \"C:\\hostedtoolcache\\win\u2026",
+          "[notice] installed package version 6.7.1 read back from the installed package specification"
+        ]
+      },
+      "the_crash_annotation_said": "crash dump from windows-regressions.log, marker at line 9 of 52: Windows fatal exception: access violation |  | Current thread 0x000012f4 (most recent call first): | File \"D:\\a\\Drill-master\\Drill-master\\packaging\\windows_release_evidence.py\", line 143 in redact | File \"D:\\a\\Drill-master\\Drill-master\\packaging\\windows_release_evidence.py\", line 1486 in _redact_tree | File \"D:\\a\\Drill-master\\Drill-master\\packaging\\windows_release_evidence.py\", line 1488 in _redact_tree | File \"D:\\a\\Drill-master\\Drill-master\\packaging\\windows_release_evidence.py\", line 1488 in _redact_tree | File \"D:\\a\\Drill-master\\Drill-master\\packaging\\windows_release_evidence.py\", line 654 in forensics | File \"D:\\a\\Drill-master\\Drill-master\\packaging\\windows_release_evidence.py\", line 660 in run_lifecycle | File \"D:\\a\\Drill-master\\Drill-master\\tests\\test_windows_release_evidence.py\", line 299 in _run | File \"D:\\a\\Drill-m\u2026",
+      "frames_the_runner_published": [
+        "File \"D:\\a\\Drill-master\\Drill-master\\packaging\\windows_release_evidence.py\", line 143 in redact",
+        "File \"D:\\a\\Drill-master\\Drill-master\\packaging\\windows_release_evidence.py\", line 1486 in _redact_tree",
+        "File \"D:\\a\\Drill-master\\Drill-master\\packaging\\windows_release_evidence.py\", line 1488 in _redact_tree",
+        "File \"D:\\a\\Drill-master\\Drill-master\\packaging\\windows_release_evidence.py\", line 1488 in _redact_tree",
+        "File \"D:\\a\\Drill-master\\Drill-master\\packaging\\windows_release_evidence.py\", line 654 in forensics",
+        "File \"D:\\a\\Drill-master\\Drill-master\\packaging\\windows_release_evidence.py\", line 660 in run_lifecycle"
+      ],
+      "frame_count_as_counted_by_the_repository": "not visible in the capture",
+      "what_this_locates": "the interpreter died inside packaging/windows_release_evidence.py: the innermost published frame is redact() at line 143, called from _redact_tree (lines 1486 and 1488), called from forensics() at line 654, called from run_lifecycle() at line 660, reached by tests/test_windows_release_evidence.py ::test_installed_exe_runs_with_isolated_roots_and_cleared_credentials. That is M42.8/M42.9 diagnostic code on the critical path of a Windows-only run, not a product defect and not a test assertion",
+      "what_was_ruled_out_locally": "the obvious explanation -- unbounded recursion over a deeply nested sample -- was tested here and does not hold: running _redact_tree on a 700-deep document raises RecursionError cleanly both on the default stack and inside a thread with a 256 KB C stack, and the published chain shows only three _redact_tree levels above forensics, which is the shallow structure the sampler builds",
+      "what_remains_unresolved": "whether the 24 dump lines the annotation budget cut contain further _redact_tree levels (a stack the runner reached and this sampler did not) or whether the fault is damage done elsewhere presenting at the next call -- line 143 is `for value in secret_values:`, which cannot fault on a list of strings by itself. Stated as unresolved, not guessed at",
+      "follow_up_shipped_instead_of_a_guess": "packaging/junit_report.py now counts frame repetitions (_frame_tally) over the whole dump rather than quoting a window, so the next Windows run answers that question directly ('x150 \u2026 recursion suspected' versus 'no frame repeated'); and the excerpt is assembled by a largest-fits loop that measures the escaped form including the tally and whichever notice it ends up carrying, which replaced a budget that left the final assembly unchecked -- a defect the mutation battery exposed by refusing to break a tightened test, then reproduced on the unmutated tree. No speculative guard was added to redact()/_redact_tree: with no evidence that their recursion is reachable, a bound there would be the dead-code mistake this session has twice agreed not to make",
+      "verification_of_the_follow_up": "tests/test_junit_report.py 35 tests, and 274 collected / 274 passed / 0 failed / 0 errors / 0 skipped across junit_report, the gate contract, windows_release_evidence and the docs-truth test; ruff 0.16.6 E722/F821 clean, debt 5343 of ceiling 5375, compileall clean, git diff --check empty; mutation battery 8 attempted, 8 caught, 0 survivors",
+      "positions_that_do_not_move": "the Windows gate is still red and this record does not close it; signing UNKNOWN, artifact bytes NOT_VERIFIED, operator and clean-machine acceptance NOT_RUN, no gate rule or threshold changed, and the read-back here is for de47f3f only -- the frame-counting change lands after it and its own gates are pending by construction"
     }
   }
 }
