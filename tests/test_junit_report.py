@@ -289,3 +289,93 @@ def test_pseudo_filenames_are_not_used_as_annotation_files(tmp_path):
     assert annotation.startswith("::error ") and "file=" not in annotation, annotation
     # The failure is still reported in full; only the unusable file anchor is dropped.
     assert "tests.test_x.test_child" in annotation and "<string>:5" in annotation
+
+
+def test_a_run_that_left_no_report_still_names_its_exit_code(tmp_path, capsys):
+    """A missing JUnit report used to mean a failing step with nothing to say about itself.
+
+    pytest writes the report only when it reaches the end of the run, so an interrupted or refused run leaves
+    no test identity anywhere.  Given pytest's exit code the step now publishes one bounded annotation that
+    says exactly that, which is the difference between "the suite failed and here is the tail of the run" and
+    a red check whose only content is a truncation notice.
+    """
+    module = _parser()
+    missing = tmp_path / "absent.xml"
+    log = tmp_path / "windows-regressions.log"
+    log.write_text("collected 0 items\nINTERNALERROR> interrupted during collection\n", encoding="utf-8")
+    assert module.main(["--junit", str(missing), "--annotations", "--pytest-exit", "2",
+                        "--pytest-log", str(log)]) == 2
+    captured = capsys.readouterr()
+    assert "::error " in captured.out
+    assert "pytest exited 2" in captured.out
+    assert "JUnit report not found" in captured.out
+    assert "INTERNALERROR" in captured.out
+
+
+def test_an_empty_report_is_told_apart_from_a_missing_one(tmp_path, capsys):
+    """Zero collected cases and an absent file are different failures and must be reported differently."""
+    module = _parser()
+    empty = _write(tmp_path, "", name="empty.xml")
+    assert module.main(["--junit", str(empty), "--annotations", "--pytest-exit", "5"]) == 0
+    captured = capsys.readouterr()
+    assert "pytest exited 5" in captured.out
+    assert "0 case(s)" in captured.out
+    assert "not found" not in captured.out
+
+
+def test_failures_the_report_already_names_are_not_annotated_twice(tmp_path, capsys):
+    module = _parser()
+    report = _write(tmp_path, (
+        '<testcase classname="tests.test_x" name="test_y"><failure message="AssertionError: nope">'
+        'tests/test_x.py:5: in test_y\nE   AssertionError: nope\n</failure></testcase>'
+    ))
+    assert module.main(["--junit", str(report), "--annotations", "--pytest-exit", "1"]) == 0
+    captured = capsys.readouterr()
+    assert "tests.test_x.test_y" in captured.out
+    assert "no failing test" not in captured.out, "the abort annotation must not shadow a named failure"
+
+
+def test_the_exit_code_alone_invents_nothing_and_changes_nothing(tmp_path, capsys):
+    """A passing run, and every run reported without --pytest-exit, behave exactly as before."""
+    module = _parser()
+    report = _write(tmp_path, '<testcase classname="tests.test_x" name="ok"/>\n')
+    assert module.main(["--junit", str(report), "--annotations", "--pytest-exit", "0"]) == 0
+    with_flag = capsys.readouterr().out
+    assert with_flag == ""
+    assert module.main(["--junit", str(report), "--annotations"]) == 0
+    assert capsys.readouterr().out == with_flag
+
+
+def test_the_quoted_log_tail_is_bounded_and_redacted(tmp_path, capsys):
+    module = _parser()
+    missing = tmp_path / "absent.xml"
+    log = tmp_path / "run.log"
+    body = "".join(f"noise line {i}\n" for i in range(400))
+    log.write_text(body + "DB_PASSWORD='hunter2-super-secret'\nthe last line before the abort\n",
+                   encoding="utf-8")
+    module.main(["--junit", str(missing), "--annotations", "--pytest-exit", "3", "--pytest-log", str(log),
+                 "--tail-lines", "2"])
+    captured = capsys.readouterr().out
+    assert "hunter2-super-secret" not in captured, "the log tail reached the annotation unredacted"
+    assert "DB_PASSWORD=<redacted>" in captured
+    assert "the last line before the abort" in captured
+    assert "noise line 0" not in captured, "the whole log was quoted rather than its tail"
+    assert len(captured) <= module.ANNOTATION_LIMIT + 200
+
+
+def test_pytest_exit_is_refused_in_annotate_mode(tmp_path, capsys):
+    """The two modes answer different questions, and a mixed call would silently mislabel one as the other."""
+    module = _parser()
+    assert module.main(["--annotate", "--annotate-message", "stage died", "--pytest-exit", "2"]) == 2
+    assert "cannot accompany --annotate" in capsys.readouterr().err
+
+
+def test_the_abort_note_reaches_the_job_summary_too(tmp_path):
+    """The summary is the one channel GitHub never truncates, so the same explanation belongs in both."""
+    module = _parser()
+    empty = _write(tmp_path, "", name="empty.xml")
+    summary = tmp_path / "summary.md"
+    module.main(["--junit", str(empty), "--summary-out", str(summary), "--pytest-exit", "5"])
+    text = summary.read_text(encoding="utf-8")
+    assert "pytest exited 5" in text
+    assert "Collected: 0" in text

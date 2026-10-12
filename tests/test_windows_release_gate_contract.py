@@ -1610,3 +1610,46 @@ def test_m42_9_followup_records_the_confinement_correction_without_promoting_any
     assert "cannot attest" in json.dumps(key["publication_and_gates"]), (
         "a commit may not cite the run that will be triggered by pushing it")
     assert key["verdict"]["not_established"], "a verdict that establishes everything is a verdict to distrust"
+
+
+def test_windows_gate_announces_a_run_that_named_no_failing_test(workflow_text):
+    """A red step that publishes nothing is the failure mode these diagnostics exist to remove.
+
+    pytest writes its JUnit XML only when it reaches the end of the run, so an interrupted, aborted or
+    refused run leaves no test identity for the parser to annotate; and pwsh 7.3+ turns a line on a native
+    command's stderr into a terminating error under the runner's ``Stop`` preference, which is one way a run
+    gets interrupted.  The step therefore captures its own output, hands the exit code and the log to the
+    tested parser, and carries the same two preference guards the build step uses -- while still propagating
+    pytest's exit code, so the diagnostics can neither redden a green run nor green a red one.
+    """
+    block = _step_block(workflow_text, "Windows database, import, auth and packaging regression suite")
+    assert "2>&1 | Tee-Object -FilePath $testLog" in block, (
+        "the run must be captured, because the log is the only witness a report-less abort leaves")
+    assert '--pytest-exit $pytestExit' in block, "the parser has to be told the exit code it must explain"
+    assert "--pytest-log" in block
+    assert '$ErrorActionPreference = "Continue"' in block and \
+        "$PSNativeCommandUseErrorActionPreference = $false" in block, (
+        "a redirected native pipeline under the Stop preference aborts the step on native stderr")
+    assert block.index('$ErrorActionPreference = "Continue"') < block.index("2>&1 | Tee-Object"), (
+        "the preference must be relaxed before the pipeline that can trip on it")
+    assert block.index("2>&1 | Tee-Object") < block.index("$pytestExit = $LASTEXITCODE"), (
+        "the exit code must be read straight after the pipeline, before anything else can overwrite it")
+    calls = [line for line in block.splitlines() if r"packaging\junit_report.py --junit" in line]
+    assert len(calls) == 1, "the regression step must call the tested parser exactly once"
+    assert "--pytest-exit $pytestExit" in calls[0] and "--pytest-log \"$testLog\"" in calls[0], (
+        "the exit code and the captured log have to reach the parser on its own command line")
+    assert "'windows-regressions.log'" in block, "the captured log belongs to the disposable runner temp root"
+    upload = workflow_text[workflow_text.index("- name: Upload Windows evidence artifacts"):]
+    assert "$testLog" not in upload and "windows-regressions.log" not in upload, (
+        "the raw pytest transcript stays in the runner temp root: it is quoted, bounded and redacted into "
+        "an annotation, never published as an artifact")
+
+
+def test_junit_parser_explains_a_report_that_explains_nothing():
+    """The parser, not the YAML, owns the wording -- so the guarantee is testable on any platform."""
+    source = (ROOT / "packaging" / "junit_report.py").read_text(encoding="utf-8")
+    for fragment in ("def describe_abort(", "--pytest-exit", "--pytest-log", "no failing test to name",
+                     "def _bounded(", "def _log_parts("):
+        assert fragment in source, f"junit_report lost the abort-diagnostic piece {fragment!r}"
+    assert source.index("def describe_abort(") < source.index("def emit("), (
+        "the explanation is composed before anything is written to the workflow's stdout")

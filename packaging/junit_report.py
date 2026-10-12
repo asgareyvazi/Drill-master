@@ -1,7 +1,14 @@
 """Convert CI evidence into bounded, secret-safe workflow diagnostics.
 
 Two modes share one guarantee: a failing step always publishes an actionable,
-truncated, credential-redacted ``::error::`` annotation.
+truncated, credential-redacted ``::error::`` annotation.  "Always" is what
+``--pytest-exit`` and ``--pytest-log`` exist to keep: pytest writes its JUnit
+report only when it reaches the end of a run, so a run that is interrupted,
+aborted by the shell, or refused at startup leaves nothing for the per-failure
+annotations to describe, and the step would fail in silence.  Given the exit
+code, those two inputs turn that case into an annotation that names the exit
+code, says whether the report was absent, unparsable or empty of cases, and
+quotes the tail of the captured log.
 
 ``--junit`` converts a pytest JUnit XML report.  A GitHub Actions step publishes
 at most ten ``::error::`` annotations, so a suite with more failures than that
@@ -222,7 +229,7 @@ def render_annotations(result: dict, limit: int = MAX_ANNOTATIONS) -> list[str]:
     return annotations
 
 
-def render_summary(result: dict) -> str:
+def render_summary(result: dict, diagnosis: str = "") -> str:
     """Markdown for ``$env:GITHUB_STEP_SUMMARY``; not truncated by annotation limits."""
     lines = [
         "### Windows regression summary",
@@ -232,6 +239,8 @@ def render_summary(result: dict) -> str:
     ]
     if result.get("parse_error"):
         lines += ["", "> [!WARNING]", f"> {redact(result['parse_error'])}"]
+    if diagnosis:
+        lines += ["", "> [!IMPORTANT]", f"> {redact(diagnosis)}"]
     failures = result.get("failures", [])
     if failures:
         lines += ["", f"#### Failed tests ({len(failures)})", "",
@@ -247,15 +256,13 @@ def render_summary(result: dict) -> str:
     return "\n".join(lines)
 
 
-def build_stage_annotation(title: str, message: str, log_paths: list[Path], tail_lines: int = 25) -> str:
-    """Compose one bounded, redacted ``::error::`` annotation for a build stage.
+def _log_parts(log_paths: list[Path], tail_lines: int) -> list[str]:
+    """Describe each log file, or its absence, with a bounded redacted tail.
 
-    A packaging failure has no JUnit report, so the exception text and the tail
-    of whatever log the stage produced are the only diagnostics.  Missing logs
-    are named explicitly: "log not found" distinguishes a stage that died before
-    writing one from a stage whose log explains the failure.
+    Missing logs are named explicitly: "not found" distinguishes a stage that died before writing one from
+    a stage whose log explains the failure.
     """
-    parts = [f"stage failure: {redact(message)}"] if message else ["stage failure: no exception message"]
+    parts: list[str] = []
     for path in log_paths:
         if not path or not path.is_file():
             parts.append(f"{path.name if path else 'log'}: not found")
@@ -265,11 +272,60 @@ def build_stage_annotation(title: str, message: str, log_paths: list[Path], tail
         tail = [redact(line) for line in lines[-max(1, tail_lines):]]
         parts.append(f"{path.name} ({len(lines)} line{'s' if len(lines) != 1 else ''}, tail): "
                      + (" | ".join(tail) if tail else "empty"))
-    body = " ;; ".join(parts)
+    return parts
+
+
+def _bounded(body: str) -> str:
+    """Keep one annotation inside the limit, preserving its end.
+
+    The marker is part of the budget so the emitted line never exceeds it, and the *tail* is the informative
+    part of a log, so truncation eats from the front.
+    """
     if len(body) > ANNOTATION_LIMIT:
-        # The marker is part of the budget so the emitted line never exceeds it.
-        body = "…" + body[-(ANNOTATION_LIMIT - 1):]
-    return f"::error title={_escape_property(title)}::{_escape_data(body)}"
+        return "…" + body[-(ANNOTATION_LIMIT - 1):]
+    return body
+
+
+def build_stage_annotation(title: str, message: str, log_paths: list[Path], tail_lines: int = 25) -> str:
+    """Compose one bounded, redacted ``::error::`` annotation for a build stage.
+
+    A packaging failure has no JUnit report, so the exception text and the tail
+    of whatever log the stage produced are the only diagnostics.
+    """
+    parts = [f"stage failure: {redact(message)}"] if message else ["stage failure: no exception message"]
+    parts.extend(_log_parts(log_paths, tail_lines))
+    return f"::error title={_escape_property(title)}::{_escape_data(_bounded(' ;; '.join(parts)))}"
+
+
+def describe_abort(result: dict, pytest_exit: int | None, pytest_log: Path | None,
+                   tail_lines: int = 25) -> str:
+    """Explain a nonzero pytest exit that the JUnit report does not account for.
+
+    A step that fails while publishing nothing is indistinguishable from a step that failed for a reason its
+    own tooling suppressed.  pytest writes its JUnit report at the *end* of a run, so a process that is
+    interrupted, aborted by the shell, or refused at startup leaves no report -- or an empty one -- and the
+    annotations then carry no test identity at all.  That silence used to be the last thing a reader saw.
+    With the run's exit code and the captured log supplied, the reader instead gets the exit code, whether the
+    report was absent, unparsable or merely empty of cases, and the redacted tail of what pytest printed.
+    Failures that *are* in the report are left to the per-failure annotations; this says nothing they cover.
+    """
+    if pytest_exit is None or int(pytest_exit) == 0:
+        return ""
+    if not result.get("parse_error") and (result.get("failed") or result.get("errors")):
+        return ""
+    exit_code = int(pytest_exit)
+    pieces = [f"pytest exited {exit_code} and its JUnit report names no failing test"]
+    if result.get("parse_error"):
+        pieces.append(redact(result["parse_error"]))
+    else:
+        pieces.append(f"the report holds {result.get('collected', 0)} case(s), "
+                      f"{result.get('failed', 0)} failure(s) and {result.get('errors', 0)} error(s), which is "
+                      "what an interrupted, aborted or refused run leaves behind")
+    if pytest_log is not None:
+        pieces.extend(_log_parts([pytest_log], tail_lines))
+    pieces.append("the run is not a pass, and it is not a mystery: the exit code above is the verdict")
+    return _bounded(" ;; ".join(pieces))
+
 
 
 def emit(line: str) -> None:
@@ -310,7 +366,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--annotate-file", type=Path, action="append", default=[],
                         help="log file whose redacted tail is included (repeatable)")
     parser.add_argument("--tail-lines", type=int, default=25, help="log tail size per --annotate-file")
+    parser.add_argument("--pytest-exit", type=int, default=None,
+                        help="pytest's own exit code; used to explain a run that left no usable JUnit report")
+    parser.add_argument("--pytest-log", type=Path, default=None,
+                        help="captured pytest output, quoted as a bounded redacted tail when --pytest-exit "
+                             "is nonzero and the JUnit report names no failing test")
     args = parser.parse_args(argv)
+
+    if (args.pytest_exit is not None or args.pytest_log is not None) and args.annotate:
+        emit_error("error: --pytest-exit/--pytest-log describe a test run and cannot accompany --annotate")
+        return 2
 
     if args.annotate:
         if args.junit is not None or args.summary_out is not None or args.json_out is not None:
@@ -325,12 +390,16 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     result = parse_report(args.junit)
+    diagnosis = describe_abort(result, args.pytest_exit, args.pytest_log, args.tail_lines)
     if args.annotations:
         for annotation in render_annotations(result, args.limit):
             emit(annotation)
+        if diagnosis:
+            emit(f"::error title={_escape_property('Windows regression suite: no failing test to name')}::"
+                 + _escape_data(diagnosis))
     if args.summary_out is not None:
         args.summary_out.parent.mkdir(parents=True, exist_ok=True)
-        args.summary_out.write_text(render_summary(result), encoding="utf-8")
+        args.summary_out.write_text(render_summary(result, diagnosis), encoding="utf-8")
     if args.json_out is not None:
         args.json_out.parent.mkdir(parents=True, exist_ok=True)
         args.json_out.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")

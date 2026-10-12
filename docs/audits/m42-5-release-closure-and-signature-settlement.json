@@ -1181,6 +1181,104 @@
         "signing": "UNKNOWN / NOT_ESTABLISHED; no signing material was added and no policy was changed",
         "operator_and_machine_acceptance": "NOT_RUN; clean-machine install, real PDF/MinerU input and production database acceptance remain outside every automated gate"
       }
+    },
+    "gate_read_back_and_windows_silence": {
+      "what_was_read_back": {
+        "sha": "497bb4d0672737774a21fdf7abb65453cd18252f",
+        "method": "`gh api repos/<repo>/actions/runs?head_sha=<full sha>` filtered on the pushed SHA and cross-checked against the same query filtered on the branch, which returns exactly the same two runs; per-job step conclusions, per-job annotations (paginated) and the run's artifact list were captured for the same SHA.  Raw responses are stored in the session scratch directory, which is outside the repository.",
+        "source_release_gate": "run number 84, push-triggered, attempt 1, status completed, conclusion success; every matrix job (source on 3.11, 3.12, 3.13) success with 9 of 9 steps success each -- including the step that failed for the previous tip.",
+        "windows_release_validation": "run number 30, push-triggered, attempt 1, status completed, conclusion failure; job windows-release reports 9 of 14 steps, with failure at the regression-suite step and the bundle, lifecycle and signature steps skipped as a consequence.",
+        "artifact_identity": "drillmaster-windows-497bb4d0672737774a21fdf7abb65453cd18252f, 796 bytes, published digest sha256:572e471416fbda02591872e2de4b629b1d0563ef3e272bdc53ffe284b9ca37c9 (returned by the artifacts API); the bytes were not fetched here, so byte-for-byte verification of that artifact stays NOT_VERIFIED and the digest is recorded so an external reviewer can check what they download against it."
+      },
+      "what_the_green_source_gate_proves_and_does_not": "It proves the fix for the source failure: the step that failed for three consecutive jobs on the previous tip -- 'Verify exact source, dependencies, tests and wheel' -- now runs every one of the three Python matrices to completion, on the SHA that removed the unannounced skip.  It proves nothing about Windows, nothing about a clean-machine install, nothing about the frozen bundle, and nothing about signature validity or artifact bytes.",
+      "the_windows_failure_was_not_the_one_predicted": {
+        "prediction": "the previous record reasoned that a CRT descriptor attached without O_BINARY would translate CRLF to LF on Windows and break the byte-count assertions added alongside it.",
+        "outcome": "the O_BINARY change is a real correctness fix and stays, pinned by a test that models the documented CRT behaviour; it did not redden or green the Windows job, whose step 6 failed with the same signature as the previous tip.  The specific Windows cause is therefore STILL NOT NAMED, and no statement in this record claims otherwise.",
+        "what_was_eliminated": "not a log-scraping exercise but a negative result worth keeping: the Actions API publishes no failing-test identity for this job (its annotations are four, none naming a test), the check-run summary and text are empty, the artifact and runner-log blob hosts are unreachable from this sandbox, a rerun is refused with 403 and was not simulated, and the rendered job page on the public repository carries the same four annotations and no step summary at all."
+      },
+      "the_silence_is_itself_a_defect": {
+        "promise": "the regression step states that 'every failing test is listed in the job summary and workflow annotations', and packaging/junit_report.py documents that a failing step 'always publishes an actionable ... annotation'.",
+        "reality": "the step failed and published neither.  The reason is structural: pytest writes the JUnit report only when it reaches the end of a run, so a run that is interrupted, aborted or refused leaves the parser with nothing to convert -- the parser's own stdout error is not an annotation, no summary file is written, and the check run shows only 'Process completed with exit code 1'.  A red step that says nothing is indistinguishable from a failure whose evidence was suppressed.",
+        "second_finding": "the build step of the same workflow already carries two guards for a related hazard -- $ErrorActionPreference relaxed around redirected native pipelines and $PSNativeCommandUseErrorActionPreference = $false -- because pwsh 7.3+ treats a line on a native command's stderr as a terminating error under the runner's Stop preference.  The test step had no such guard, so any warning pytest prints on stderr could abort the step before the report existed.  That is a candidate mechanism for the observed no-report shape, not a proven cause: the log that would confirm it is behind a sign-in this sandbox does not have.",
+        "changes_made": "the test step now captures its output to windows-regressions.log under the runner temp root, sets the two guards for that pipeline only, and passes --pytest-exit/--pytest-log to the parser, which publishes one bounded, redacted annotation naming the exit code and whether the report was absent, unparsable or empty of cases.  describe_abort stays silent when the report already names the failures, and the verdict remains pytest's exit code.  The captured transcript is never uploaded."
+      },
+      "re_measured_after_this_change": {
+        "note": "the sandbox was re-cloned twice during this session; each time the git ref came back at the session base and the scratch directory and the local virtualenv were destroyed, while the working tree survived with the pushed commit's content.  Recovery was a digest-verified `git reset --mixed` onto the fetched remote tip -- no history rewritten, no object recreated from another checkout, nothing force-pushed -- and the numbers below were re-measured on the recovered tree.",
+        "diagnostics_scope": "262 collected, 262 passed, 0 failed, 0 errors, 0 skipped",
+        "scope_reason": "tests/test_junit_report.py, tests/test_windows_release_gate_contract.py and tests/test_windows_release_evidence.py are the files this change touches or pins, and they need no Qt runtime.  The wider 27-file Windows scope was not re-run locally because the sandbox's Qt install was destroyed by the re-clone; the source gate executes the whole suite, including all three of these files, on Linux, and the Windows job executes them on Windows, so this change is judged by the gates rather than by a substitute environment.",
+        "checks": [
+          "debt findings: 5339",
+          "ceiling: 5375",
+          "defects (E722,F821 over the whole tree): 0",
+          "compileall rc 0",
+          "git diff --check lines: 0",
+          "diff_vs_head:  5 files changed, 235 insertions(+), 18 deletions(-)"
+        ],
+        "mutation_battery": {
+          "attempted": 6,
+          "caught": 6,
+          "survived": 0,
+          "per_entry": [
+            {
+              "mutation": "V1 describe_abort always returns the empty string",
+              "outcome": "caught",
+              "failing_tests": [
+                "test_a_run_that_left_no_report_still_names_its_exit_code",
+                "test_an_empty_report_is_told_apart_from_a_missing_one",
+                "test_the_quoted_log_tail_is_bounded_and_redacted",
+                "test_the_abort_note_reaches_the_job_summary_too"
+              ]
+            },
+            {
+              "mutation": "V2 the workflow stops telling the parser the exit code",
+              "outcome": "caught",
+              "failing_tests": [
+                "test_windows_gate_announces_a_run_that_named_no_failing_test"
+              ]
+            },
+            {
+              "mutation": "V3 the step-6 preference guard is removed",
+              "outcome": "caught",
+              "failing_tests": [
+                "test_windows_gate_announces_a_run_that_named_no_failing_test"
+              ]
+            },
+            {
+              "mutation": "V4 the pytest pipeline is no longer captured to a log",
+              "outcome": "caught",
+              "failing_tests": [
+                "test_windows_gate_announces_a_run_that_named_no_failing_test"
+              ]
+            },
+            {
+              "mutation": "V5 the raw pytest transcript is uploaded as an artifact",
+              "outcome": "caught",
+              "failing_tests": [
+                "test_windows_gate_announces_a_run_that_named_no_failing_test"
+              ]
+            },
+            {
+              "mutation": "V6 the abort note is emitted even when the report names failures",
+              "outcome": "caught",
+              "failing_tests": [
+                "test_failures_the_report_already_names_are_not_annotated_twice"
+              ]
+            }
+          ],
+          "note": "every mutation was written into the file, run against the two suites that pin the behaviour, and reverted; the tree came back to exactly the intended five modified files.  Zero survivors here means these six mechanisms are covered by tests, not that the Windows cause is found."
+        }
+      },
+      "positions_that_do_not_move": {
+        "gates_for_the_next_commit": "PENDING until the two workflows are read back for the SHA this record is committed into; this record is committed as 497bb4d06..., which is by construction earlier than any read-back of itself, so nothing here can be evidence for it.",
+        "windows_release_validation_for_the_fix_commit": "FAILURE at the regression-suite step; still unexplained",
+        "artifact_bytes": "NOT_VERIFIED",
+        "signing": "UNKNOWN / NOT_ESTABLISHED; no signing material added, no signing policy changed",
+        "reproducible_build_and_smartscreen": "NOT_CLAIMED",
+        "operator_clean_machine_and_upgrade_acceptance": "NOT_RUN",
+        "workbook": "AUTOMATED_TEST_ONLY_NOT_REAL_DDR_ACCEPTANCE",
+        "frozen_bundle_smoke": "skipped by the gate's own allowlist; unchanged",
+        "rel": "REL-13 OPEN and REL-04 remains open for the current artifact; the acceptance register in packaging/WINDOWS_RELEASE_ACCEPTANCE.md is unchanged by this record."
+      }
     }
   }
 }

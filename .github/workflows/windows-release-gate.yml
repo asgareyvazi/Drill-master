@@ -66,19 +66,32 @@ jobs:
           $env:DRILLMASTER_LOG_DIR = Join-Path $testRoot 'logs'
           $env:DRILLMASTER_BACKUP_DIR = Join-Path $testRoot 'backups'
           $testReport = Join-Path $testRoot 'windows-regressions.xml'
+          $testLog = Join-Path $testRoot 'windows-regressions.log'
           $testSummary = Join-Path $testRoot 'windows-regression-summary.md'
           $testReportJson = Join-Path $testRoot 'windows-regression-report.json'
-          python -m pytest -ra -q tests/test_packaging_smoke.py tests/test_acceptance_report.py tests/test_release_smoke.py tests/test_credential_lifecycle.py tests/test_wellbore_schema_v3.py tests/test_wellbore_ownership_integrity.py tests/test_wellbore_discriminator_import.py tests/test_wellbore_identity_conflict_m25.py tests/test_p0_well_identity.py tests/test_history_well_scope.py tests/test_whole_well_scope_labels_m25.py tests/test_release_gate_and_w13.py tests/test_w13_ecd_chart_fallback.py tests/test_w13_fishing_result_ui.py tests/test_m38_domain_boundaries.py tests/test_m31_scenarios.py tests/test_well_centric_acceptance.py tests/test_production_import_guarantees.py tests/test_ddr_forensic_regressions.py tests/test_ddr_followup_lifecycle.py tests/test_database_migration_acceptance.py tests/test_backup_restore_acceptance.py tests/test_import_atomicity_acceptance.py tests/test_release_e2e.py tests/test_junit_report.py tests/test_windows_release_gate_contract.py tests/test_windows_release_evidence.py "--junitxml=$testReport"
+          # pwsh 7.3+ treats anything a native command writes to stderr as a terminating error while
+          # $ErrorActionPreference is Stop, which GitHub's shell default sets.  pytest warns on stderr for
+          # reasons that are not test results, and a step killed that way never reaches the --junitxml write, so
+          # the job would fail with no report, no annotation and no summary -- which is indistinguishable from
+          # a suppressed failure.  The preference is relaxed for this pipeline only and the verdict stays
+          # pytest's exit code; the same two guards the build step uses are used here for the same reason.
+          $ErrorActionPreference = "Continue"
+          $PSNativeCommandUseErrorActionPreference = $false
+          python -m pytest -ra -q tests/test_packaging_smoke.py tests/test_acceptance_report.py tests/test_release_smoke.py tests/test_credential_lifecycle.py tests/test_wellbore_schema_v3.py tests/test_wellbore_ownership_integrity.py tests/test_wellbore_discriminator_import.py tests/test_wellbore_identity_conflict_m25.py tests/test_p0_well_identity.py tests/test_history_well_scope.py tests/test_whole_well_scope_labels_m25.py tests/test_release_gate_and_w13.py tests/test_w13_ecd_chart_fallback.py tests/test_w13_fishing_result_ui.py tests/test_m38_domain_boundaries.py tests/test_m31_scenarios.py tests/test_well_centric_acceptance.py tests/test_production_import_guarantees.py tests/test_ddr_forensic_regressions.py tests/test_ddr_followup_lifecycle.py tests/test_database_migration_acceptance.py tests/test_backup_restore_acceptance.py tests/test_import_atomicity_acceptance.py tests/test_release_e2e.py tests/test_junit_report.py tests/test_windows_release_gate_contract.py tests/test_windows_release_evidence.py "--junitxml=$testReport" 2>&1 | Tee-Object -FilePath $testLog
           $pytestExit = $LASTEXITCODE
+          $ErrorActionPreference = "Stop"
           # GitHub publishes at most ten annotations per step.  packaging/junit_report.py
           # emits one per failure up to that cap, an aggregate annotation carrying every
-          # remaining identity, and a Markdown job summary that is never truncated.
-          python packaging\junit_report.py --junit "$testReport" --summary-out "$testSummary" --json-out "$testReportJson" --annotations
+          # remaining identity, and a Markdown job summary that is never truncated.  It is
+          # also given the exit code and the captured log, so a run that died before it could
+          # write a report still says so, with the tail of what pytest printed, instead of
+          # failing quietly.
+          python packaging\junit_report.py --junit "$testReport" --summary-out "$testSummary" --json-out "$testReportJson" --annotations --pytest-exit $pytestExit --pytest-log "$testLog"
           if (Test-Path -LiteralPath $testSummary) {
             Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value (Get-Content -LiteralPath $testSummary -Raw) -Encoding utf8
           }
           if ($pytestExit -ne 0) {
-            throw "Windows release regression suite failed (pytest exit $pytestExit); every failing test is listed in the job summary and workflow annotations"
+            throw "Windows release regression suite failed (pytest exit $pytestExit); every failing test is listed in the job summary and workflow annotations, and a run that left no JUnit report is annotated with its exit code and log tail"
           }
       - name: Build portable bundle and installer; run frozen executable smoke
         id: build
