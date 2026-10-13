@@ -418,6 +418,8 @@ def describe_abort(result: dict, pytest_exit: int | None, pytest_log: Path | Non
     With the run's exit code and the captured log supplied, the reader instead gets the exit code, whether the
     report was absent, unparsable or merely empty of cases, and the redacted tail of what pytest printed.
     Failures that *are* in the report are left to the per-failure annotations; this says nothing they cover.
+    The headline is kept at any cost and the quote shrinks to fit beside it: the store cuts an oversized
+    annotation from the front, so the reverse arrangement silently publishes the evidence instead of the fact.
     """
     if pytest_exit is None or int(pytest_exit) == 0:
         return ""
@@ -431,13 +433,25 @@ def describe_abort(result: dict, pytest_exit: int | None, pytest_log: Path | Non
         pieces.append(f"the report holds {result.get('collected', 0)} case(s), "
                       f"{result.get('failed', 0)} failure(s) and {result.get('errors', 0)} error(s), which is "
                       "what an interrupted, aborted or refused run leaves behind")
-    if pytest_log is not None:
-        pieces.extend(_log_parts([pytest_log], tail_lines))
-        if crash_excerpt(pytest_log):
-            pieces.append("the captured log holds a fatal crash marker; the interpreter died inside a test, "
+    trailer = ["the run is not a pass, and it is not a mystery: the exit code above is the verdict"]
+    if pytest_log is not None and crash_excerpt(pytest_log):
+        trailer.insert(0, "the captured log holds a fatal crash marker; the interpreter died inside a test, "
                           "and its frames are quoted in a separate annotation")
-    pieces.append("the run is not a pass, and it is not a mystery: the exit code above is the verdict")
-    return _bounded(" ;; ".join(pieces))
+    if pytest_log is None:
+        return _bounded(" ;; ".join(pieces + trailer))
+    # The store trims an oversized annotation from the *front*, so quoting the full tail of a runner log used
+    # to eat the headline this note exists to carry: the Windows gate published "…runner.py, line 139 in
+    # runtestprotocol" where the exit code and the missing-report statement should have been.  The tail is
+    # therefore sized to the room the headline and the verdict leave, and when there is room for none of it
+    # the note says the tail was dropped instead of being read as if it had never existed.  The frames are
+    # not lost with it: they ride in the crash annotation and, uncapped, in the job summary.
+    budget = ANNOTATION_SAFE_LIMIT - 8
+    for count in range(max(1, tail_lines), 0, -1):
+        candidate = _bounded(" ;; ".join(pieces + _log_parts([pytest_log], count) + trailer))
+        if len(_escape_data(candidate)) <= budget:
+            return candidate
+    return _bounded(" ;; ".join(pieces + [f"{pytest_log.name}: the quoted tail was dropped here to keep the "
+                                          "exit code and the report state readable"] + trailer))
 
 
 

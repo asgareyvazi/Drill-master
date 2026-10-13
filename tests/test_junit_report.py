@@ -677,3 +677,55 @@ def test_the_crash_excerpt_names_the_last_test_started_when_the_stack_cannot(tmp
     plain.write_text("\n".join(lines[2:]) + "\n", encoding="utf-8")
     assert "last test started" not in module.crash_excerpt(plain), (
         "no breadcrumb in the log means no identity is invented for the excerpt")
+
+
+def test_the_exit_code_survives_a_long_quoted_tail(tmp_path, capsys):
+    """The store cuts from the front, so a long tail used to eat the very headline the note exists to carry.
+
+    The Windows gate this diagnostic was written for published exactly that: an access-violation dump whose
+    last 25 lines were the harness's own outer frames, an annotation past the stored limit, and a reader left
+    with an ellipsis where the exit code and the "JUnit report not found" statement should have been.  The
+    quote is sized to the room the headline and the verdict leave -- measured on the escaped form, because a
+    percent-dense frame is three times longer on the wire than in memory -- and this pins both ends of that
+    trade at once: the headline stays, and the line that carries it stays inside the stored limit.
+    """
+    module = _parser()
+    frames = ['  File "%s", line %d in paintEvent' % ("%" * 180, index) for index in range(60)]
+    log = tmp_path / "windows-regressions.log"
+    log.write_text("Windows fatal exception: access violation\n\n"
+                   "Current thread 0x00000b34 (most recent call first):\n" + "\n".join(frames) + "\n",
+                   encoding="utf-8")
+    module.main(["--junit", str(tmp_path / "absent.xml"), "--annotations",
+                 "--pytest-exit", "3221225477", "--pytest-log", str(log)])
+    emitted = [line for line in capsys.readouterr().out.splitlines() if line.startswith("::error ")]
+    assert emitted, "the aborted run produced no annotation at all"
+    for line in emitted:
+        assert len(line) <= module.ANNOTATION_SAFE_LIMIT + 200, (
+            f"an emitted annotation is {len(line)} characters; past the stored limit GitHub cuts the front")
+    note = next(line for line in emitted if "no failing test to name" in line)
+    assert "pytest exited 3221225477" in note, "the exit code was cut away by the excerpt it was quoting"
+    assert "JUnit report not found" in note, "the report state is the other half of the headline"
+    assert "the run is not a pass" in note, "the verdict closes the note and must survive too"
+    assert "the captured log holds a fatal crash marker" in note
+
+
+def test_the_abort_note_names_the_dropped_tail_when_no_line_of_it_fits(tmp_path, capsys, monkeypatch):
+    """With no room for even one quoted line, the note says the tail was dropped instead of silently omitting it.
+
+    The budget loop shrinks the quote to fit beside the headline; this drives the case where it cannot shrink
+    far enough -- a stored limit smaller than one quoted line plus the headline -- by lowering the safe limit,
+    and requires the reader to be told what happened to the evidence rather than left to wonder whether the
+    log had any.
+    """
+    module = _parser()
+    monkeypatch.setattr(module, "ANNOTATION_SAFE_LIMIT", 520)
+    log = tmp_path / "windows-regressions.log"
+    log.write_text("Windows fatal exception: access violation\n"
+                   + "  File \"%s\", line 1 in paintEvent\n" % ("%" * 180), encoding="utf-8")
+    module.main(["--junit", str(tmp_path / "absent.xml"), "--annotations", "--pytest-exit", "139",
+                 "--pytest-log", str(log)])
+    note = next(line for line in capsys.readouterr().out.splitlines()
+                if line.startswith("::error ") and "no failing test to name" in line)
+    assert "the quoted tail was dropped here" in note, (
+        "no line of the tail fitted the budget and the note did not say so")
+    assert "pytest exited 139" in note, "the headline has to survive the case the quote could not"
