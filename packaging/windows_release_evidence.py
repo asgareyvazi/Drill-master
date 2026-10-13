@@ -613,7 +613,11 @@ def run_lifecycle(*, installer: Path, expected_sha256: str, app_version: str, wo
         # 6. A synthetic user-data file must survive uninstall.  This proves the
         #    uninstaller removes application files only; it is not an upgrade test.
         sentinel = data_root / "sentinel-preserve.txt"
-        sentinel.write_text(sentinel_text, encoding="utf-8")
+        # Written as bytes, not through a text-mode write: the platform translates "\n" to its own line
+        # ending on the way out of a text write (Windows writes "\r\n"), while the read that proves survival
+        # is binary and exact, so a text write makes the sentinel's *own* content fail on Windows and turns a
+        # real retention proof into a false failure -- which is what it did on the Windows lifecycle runs.
+        sentinel.write_bytes(sentinel_text.encode("utf-8"))
 
         # 7. Non-interactive uninstall, then prove the application files are gone.
         uninstall_log = work_root / "uninstall.log"
@@ -1063,8 +1067,28 @@ def _confinement_verdict(final_target: str, root_final_target: str, *, object_ki
         # component between the two was a junction or a link, so the object the handle reached is somebody
         # else's file.  For an installer digest that is the difference between evidence and theatre.
         return "skipped_unsafe_path", ("the named path reached a different object, so a link was followed; "
-                                       "nothing was read")
+                                       "nothing was read"
+                                       + _spelling_divergence(target, expected))
     return "within", ""
+
+
+def _spelling_divergence(observed: str, expected: str) -> str:
+    """Where two device-namespace spellings stop agreeing, as counts only.
+
+    The refusal must not echo host text -- a path can carry a token, and this record is published -- so the
+    note reports how far the two spellings agreed, how long each is, and which side continues past the
+    other.  That is enough to tell a link walked through from a path-assembly mistake (a doubled separator
+    makes the *name* longer at the join), which is the difference between a real refusal and a reader that
+    refuses everything: the first Windows runs to reach this comparison refused every read, and the only
+    published evidence was this sentence, with no way to see which of the two it was.
+    """
+    shared = min(len(observed), len(expected))
+    index = next((position for position in range(shared) if observed[position] != expected[position]), shared)
+    if index == shared and len(observed) != len(expected):
+        longer = ("the opened path continues past the name" if len(observed) > len(expected)
+                  else "the name continues past the opened path")
+        return f" (identical for {index} character(s), {len(observed)} vs {len(expected)}: {longer})"
+    return f" (identical for {index} character(s), {len(observed)} vs {len(expected)})"
 
 
 def _directory_identity(path: Path) -> tuple[int, ...] | None:
@@ -1142,6 +1166,23 @@ def _relative_parts(name: str, root_name: str) -> list[str]:
     if not parts or ".." in parts:
         raise AnchorRefusal("skipped_unsafe_path", "lies outside the permitted evidence root; not opened")
     return parts
+
+
+def _join_device_path(root: str, parts: list[str]) -> str:
+    """Join the root's device-namespace path with the named components, exactly one separator per join.
+
+    The separator is explicit here because the result is compared character by character against the path
+    the *handle* reports: a doubled separator assembles a path no handle can ever report, and the
+    comparison then refuses every read as one that "reached a different object ... through a link".  That is
+    exactly what the first Windows runs this comparison ever reached did -- every log inside a permitted
+    root, on every lifecycle, refused -- while the same expression passed every test that runs on Linux,
+    where the Windows branch is never entered.  Trailing separators are dropped from the root first, because
+    a directory's final path may or may not carry one and the join must not depend on which.
+    """
+    text = str(root or "").rstrip("\\/")
+    for part in parts:
+        text = f"{text}\\{part}"
+    return text
 
 
 def _open_binary_posix(path: Path, root: Path,
@@ -1264,7 +1305,7 @@ def _open_binary_windows(path: Path, root: Path,
             raise AnchorRefusal("skipped_unsafe_path", ("the directory behind the permitted root name is not the "
                                                         "one this run created; nothing was read"))
         root_final = api.final_path(root_opened)
-        expected = "\\\\".join([root_final, *parts]) if root_final else ""
+        expected = _join_device_path(root_final, parts) if root_final else ""
         opened = api.open_handle(Path(name), directory=False)
         if opened is None:
             error = api.last_error

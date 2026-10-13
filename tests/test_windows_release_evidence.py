@@ -1009,6 +1009,34 @@ def test_uninstall_deleting_user_data_is_a_failure(tmp_path):
     assert step["status"] == "FAIL" and "did not survive uninstall" in step["detail"]
 
 
+def test_the_sentinel_is_written_so_no_platform_translates_its_newline(tmp_path, monkeypatch):
+    """The survival proof is byte for byte, so the write must not go through a text-mode translation.
+
+    ``Path.write_text`` translates "\\n" to the platform's line ending -- on Windows, "\\r\\n" -- while the
+    read that decides whether the sentinel survived is binary and exact, so the sentinel's own bytes failed
+    the comparison on Windows in every lifecycle, real and scripted, whatever the uninstaller did.  The
+    translation is emulated here the way this suite emulates a failing open and a growing log, which is the
+    only way the shared source gate can see a platform behaviour it does not have; what is asserted is the
+    step's verdict as well as the mechanism, so a repair that keeps the text write fails too.
+    """
+    real_write_text = Path.write_text
+    translated: list[str] = []
+
+    def windows_text_write(self, data, *args, **kwargs):
+        if self.name == "sentinel-preserve.txt" and "\r\n" not in data:
+            data = data.replace("\n", "\r\n")
+            translated.append(str(self))
+        return real_write_text(self, data, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "write_text", windows_text_write)
+    _, report = _run(tmp_path, FakeHost())
+    assert translated == [], (
+        "the sentinel went through a platform-translating write; it wrote " + ", ".join(translated))
+    step = _step(report, "user_data_preserved")
+    assert step["status"] == "PASS", step
+    assert report["status"] == "PASS"
+
+
 def test_executable_query_returning_malformed_output_fails_the_version_step(tmp_path):
     _, report = _run(tmp_path, FakeHost(powershell_version_output="not-json"))
     step = _step(report, "installed_version")
@@ -2623,6 +2651,129 @@ def test_the_windows_confinement_rule_is_decided_on_handle_metadata_not_on_follo
             "unreadable", f"the opened object is a {kind}, not a regular disk file; nothing was read")
     # metadata that cannot be answered is a refusal, and the caller turns it into one: no fallback open
     assert verdict("", root, object_kind="disk", same_volume=True, is_reparse=False)[0] == "skipped_unsafe_path"
+
+
+class _DevicePathKernel32:
+    r"""The kernel32 questions in the spelling Windows answers them with, over files that exist here.
+
+    A device namespace cannot be mounted on this host, so this fixture renames rather than copies: the files
+    it opens are the real ones, and only the *final path* it reports -- the single answer the containment
+    comparison is built on -- is the Windows form (``\\?\C:\...``).  A fixture that reported the POSIX path
+    could not tell a correct join from a doubled-separator one, and a doubled separator is what refused
+    every anchored read on the first Windows runs to reach that comparison.
+    """
+
+    def __init__(self, device_paths: dict[Path, str]):
+        self.device_paths = {str(path): device for path, device in device_paths.items()}
+        self.handles: dict[int, tuple[str, Path]] = {}
+        self.closed: list[int] = []
+        self.next_handle = 0x1000
+        # Plain function objects per instance, for the same reason the ABI fixture uses them: the helper
+        # assigns ``restype``/``argtypes`` to every call it binds, and a bound method refuses that.
+        self.CreateFileW = lambda *args: self._create(*args)
+        self.CloseHandle = lambda handle: self._close(handle)
+        self.GetFileType = lambda handle: 1  # FILE_TYPE_DISK
+        self.GetFinalPathNameByHandleW = lambda *args: self._final_path(*args)
+        self.GetFileInformationByHandle = lambda handle, pointer: self._information(handle, pointer)
+
+    def _create(self, path, access, share, security, disposition, flags, template):
+        key = str(path)
+        if key not in self.device_paths:
+            return 0  # CreateFileW's "no such file": the helper reads a falsy handle as a refusal
+        self.next_handle += 0x10
+        self.handles[self.next_handle] = (self.device_paths[key], Path(key))
+        return self.next_handle
+
+    def _close(self, handle):
+        self.closed.append(handle)
+        self.handles.pop(handle, None)
+
+    def _final_path(self, handle, buffer, length, flags):
+        text, _ = self.handles.get(handle, ("", None))
+        buffer.value = text
+        return len(text)
+
+    def _information(self, handle, pointer):
+        import ctypes
+        import struct
+
+        _, path = self.handles[handle]
+        image = bytearray(52)
+        struct.pack_into("<I", image, 0, 0x00000080)          # FILE_ATTRIBUTE_NORMAL
+        struct.pack_into("<I", image, 28, 0x7A11CE55)         # dwVolumeSerialNumber
+        size = path.stat().st_size
+        struct.pack_into("<I", image, 32, size >> 32)         # nFileSizeHigh
+        struct.pack_into("<I", image, 36, size & 0xFFFFFFFF)  # nFileSizeLow
+        struct.pack_into("<I", image, 44, 0x0000ABCD)         # nFileIndexHigh
+        struct.pack_into("<I", image, 48, 0x0000EF01)         # nFileIndexLow
+        ctypes.memmove(pointer, bytes(image), 52)
+        return 1
+
+
+class _PosixOsfHandle:
+    """``msvcrt``'s descriptor calls, backed by a real descriptor, so the bytes read are real bytes.
+
+    Attaching the validated handle is what turns it into the stream the content comes from; stubbing that
+    out would leave the read asserted only up to the point where the module stops using kernel32.
+    """
+
+    def __init__(self, kernel32: _DevicePathKernel32):
+        self.kernel32 = kernel32
+
+    def open_osfhandle(self, handle, flags):
+        _, path = self.kernel32.handles[int(handle)]
+        return os.open(path, os.O_RDONLY)
+
+    def close(self, descriptor):
+        os.close(descriptor)
+
+
+def test_the_expected_device_path_is_joined_with_exactly_one_separator():
+    """The expectation is compared character for character, so the separator is pinned rather than implied."""
+    module = _evidence_module()
+    assert module._join_device_path("\\\\?\\C:\\work", ["logs", "drillmaster.log"]) == (
+        "\\\\?\\C:\\work\\logs\\drillmaster.log")
+    # a directory's final path may or may not carry a trailing separator; both spellings join the same way
+    assert module._join_device_path("\\\\?\\C:\\work\\", ["logs"]) == "\\\\?\\C:\\work\\logs"
+    assert module._join_device_path("C:\\", []) == "C:" and module._join_device_path("", ["a"]) == "\\a"
+
+
+def test_the_anchored_windows_open_accepts_the_object_the_name_denotes(tmp_path, monkeypatch):
+    """The joined expectation has to be the spelling the handle reports, or every Windows read is refused.
+
+    The containment decision compares the path ``GetFinalPathNameByHandleW`` reports for the opened object
+    against the permitted root's own final path with the caller's components appended.  Those components are
+    joined with one separator; with a doubled one the expectation was a path no handle can report, and every
+    anchored read on Windows -- installer log, uninstall log, smoke log, the user-data sentinel, the
+    uninstaller digest -- was refused as "a different object ... through a link", while the same code passed
+    on this host, where the branch is never entered.  That is what the first Windows run of this comparison
+    produced: 35 failures, every one of them waiting on a read inside the permitted root.
+    """
+    module = _evidence_module()
+    root = tmp_path / "work"
+    root.mkdir()
+    log = root / "uninstall.log"
+    log.write_text("Uninstall process finished.\n", encoding="utf-8")
+    device_root = "\\\\?\\C:\\runner\\temp\\work"
+    kernel32 = _DevicePathKernel32({root: device_root, log: f"{device_root}\\uninstall.log"})
+    monkeypatch.setattr(module, "_win32_api", lambda: module._Win32HandleMetadata(kernel32))
+    monkeypatch.setitem(sys.modules, "msvcrt", _PosixOsfHandle(kernel32))
+
+    stream, meta = module._open_binary_windows(log, root, None)
+    with stream:
+        assert stream.read() == b"Uninstall process finished.\n"
+    assert meta["confinement"].startswith("anchored: opened once"), meta["confinement"]
+    assert meta["size"] == log.stat().st_size
+    assert meta["object_identity"] == [0x7A11CE55, (0x0000ABCD << 32) | 0x0000EF01]
+
+    # The refusal this comparison exists for still happens: content inside the root that is not the object
+    # the name denotes is refused, never read.
+    elsewhere = _DevicePathKernel32({root: device_root, log: f"{device_root}\\other\\uninstall.log"})
+    monkeypatch.setattr(module, "_win32_api", lambda: module._Win32HandleMetadata(elsewhere))
+    monkeypatch.setitem(sys.modules, "msvcrt", _PosixOsfHandle(elsewhere))
+    with pytest.raises(module.AnchorRefusal) as refusal:
+        module._open_binary_windows(log, root, None)
+    assert refusal.value.state == "skipped_unsafe_path" and "link was followed" in refusal.value.reason
 
 
 class _ScriptedKernel32:

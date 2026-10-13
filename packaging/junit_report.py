@@ -301,6 +301,23 @@ def _bounded(body: str) -> str:
     return body
 
 
+def _clipped(value: str, limit: int) -> str:
+    """One quoted piece shortened from its middle, so both its beginning and its end survive.
+
+    ``_bounded`` trims the front because the *tail* of a log is its informative part; a report path is the
+    opposite -- the prefix says which report, the suffix names the file -- so this keeps both ends and states
+    how much went.  A caller that measures the whole note afterwards may still ask for a smaller limit, which
+    is how the pieces that are not the headline give way first.
+    """
+    text = value or ""
+    if limit <= 0:
+        return ""
+    if len(text) <= limit:
+        return text
+    keep = max(1, (limit - 32) // 2)
+    return f"{text[:keep]}...[{len(text) - 2 * keep} characters elided]...{text[-keep:]}"
+
+
 def build_stage_annotation(title: str, message: str, log_paths: list[Path], tail_lines: int = 25) -> str:
     """Compose one bounded, redacted ``::error::`` annotation for a build stage.
 
@@ -426,32 +443,64 @@ def describe_abort(result: dict, pytest_exit: int | None, pytest_log: Path | Non
     if not result.get("parse_error") and (result.get("failed") or result.get("errors")):
         return ""
     exit_code = int(pytest_exit)
-    pieces = [f"pytest exited {exit_code} and its JUnit report names no failing test"]
+    headline = f"pytest exited {exit_code} and its JUnit report names no failing test"
     if result.get("parse_error"):
-        pieces.append(redact(result["parse_error"]))
+        state = redact(result["parse_error"])
     else:
-        pieces.append(f"the report holds {result.get('collected', 0)} case(s), "
-                      f"{result.get('failed', 0)} failure(s) and {result.get('errors', 0)} error(s), which is "
-                      "what an interrupted, aborted or refused run leaves behind")
+        state = (f"the report holds {result.get('collected', 0)} case(s), "
+                 f"{result.get('failed', 0)} failure(s) and {result.get('errors', 0)} error(s), which is "
+                 "what an interrupted, aborted or refused run leaves behind")
     trailer = ["the run is not a pass, and it is not a mystery: the exit code above is the verdict"]
     if pytest_log is not None and crash_excerpt(pytest_log):
         trailer.insert(0, "the captured log holds a fatal crash marker; the interpreter died inside a test, "
                           "and its frames are quoted in a separate annotation")
-    if pytest_log is None:
-        return _bounded(" ;; ".join(pieces + trailer))
-    # The store trims an oversized annotation from the *front*, so quoting the full tail of a runner log used
-    # to eat the headline this note exists to carry: the Windows gate published "…runner.py, line 139 in
-    # runtestprotocol" where the exit code and the missing-report statement should have been.  The tail is
-    # therefore sized to the room the headline and the verdict leave, and when there is room for none of it
-    # the note says the tail was dropped instead of being read as if it had never existed.  The frames are
-    # not lost with it: they ride in the crash annotation and, uncapped, in the job summary.
     budget = ANNOTATION_SAFE_LIMIT - 8
+
+    def note_of(*parts: str) -> str:
+        """The joined note if it fits the safe limit *once escaped*, otherwise an empty string.
+
+        Measured on the escaped form because a percent-dense frame is three times longer on the wire than it
+        is in memory, and the workflow-command framing has to fit in the same annotation.
+        """
+        candidate = " ;; ".join(parts)
+        return candidate if len(_escape_data(candidate)) <= budget else ""
+
+    if pytest_log is None:
+        for cap in (None, 200, 140, 100, 64):
+            fitted = note_of(headline, state if cap is None else _clipped(state, cap), *trailer)
+            if fitted:
+                return fitted
+        return note_of(headline, trailer[-1]) or note_of(headline) or _bounded(headline)
+    # The store trims an oversized annotation from the *front*, so quoting the full tail of a runner log used
+    # to eat the headline this note exists to carry, and the note is never handed to `_bounded` afterwards:
+    # more of the tail is quoted only while the whole note fits beside the headline.  The frames are not lost
+    # with the quote: they ride in the crash annotation and, uncapped, in the job summary.
     for count in range(max(1, tail_lines), 0, -1):
-        candidate = _bounded(" ;; ".join(pieces + _log_parts([pytest_log], count) + trailer))
-        if len(_escape_data(candidate)) <= budget:
-            return candidate
-    return _bounded(" ;; ".join(pieces + [f"{pytest_log.name}: the quoted tail was dropped here to keep the "
-                                          "exit code and the report state readable"] + trailer))
+        fitted = note_of(headline, state, *_log_parts([pytest_log], count), *trailer)
+        if fitted:
+            return fitted
+    dropped = (f"{pytest_log.name}: the quoted tail was dropped here to keep the exit code and the report "
+               "state readable")
+    # With no line of the tail beside it, the note states the omission -- and what gives way now is the
+    # report state, the only piece whose length the runner's own paths decide, never the headline.  The first
+    # Windows path this note was ever assembled against was long enough to take it past the limit, and the
+    # annotation written to name the exit code arrived as "…9 and its JUnit report names no failing test":
+    # the exit code had been cut off the front by the text written to explain it.
+    for cap in (None, 200, 140, 100, 64):
+        fitted = note_of(headline, state if cap is None else _clipped(state, cap), dropped, *trailer)
+        if fitted:
+            return fitted
+    # Still too long: the crash-marker sentence is the next to give way, and it gives way *visibly* -- the
+    # separate crash annotation carries the marker in full, while the exit code and the verdict are what this
+    # note exists to carry.
+    for cap in (None, 140, 100, 64, 40):
+        rest = ([f"the crash-marker notice did not fit beside the headline; the crash annotation carries it"]
+                if trailer[:-1] else [])
+        fitted = note_of(headline, state if cap is None else _clipped(state, cap), dropped, *rest, trailer[-1])
+        if fitted:
+            return fitted
+    return (note_of(headline, dropped, trailer[-1]) or note_of(headline, dropped)
+            or note_of(headline) or _bounded(headline))
 
 
 

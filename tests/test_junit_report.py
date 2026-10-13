@@ -454,12 +454,22 @@ def test_a_log_without_a_crash_marker_invents_none(tmp_path, capsys):
 
 
 def test_the_crash_excerpt_survives_an_unreadable_path(tmp_path):
-    """A directory where the log should be is a real shape of this failure, and it must not raise."""
+    """A directory where the log should be is a real shape of this failure, and it must not raise.
+
+    The class named in the note is the host's own: opening a directory raises ``IsADirectoryError`` on POSIX
+    and ``PermissionError`` (EACCES) on Windows, so the expectation is taken from the same read on the host
+    running the test.  Naming one platform's class in the shared suite failed the Windows gate's own run of
+    this test while the note was, on that host, exactly right.
+    """
     module = _parser()
     directory = tmp_path / "windows-regressions.log"
     directory.mkdir()
+    with pytest.raises(OSError) as raised:
+        directory.read_text(encoding="utf-8", errors="replace")
+    expected = type(raised.value).__name__
     text = module.crash_excerpt(directory)
-    assert "could not be read" in text and "IsADirectoryError" in text
+    assert "could not be read" in text and expected in text
+    assert text.endswith(f"({expected})"), text
 
 
 def test_the_job_summary_gets_the_wider_crash_excerpt(tmp_path):
@@ -722,7 +732,15 @@ def test_the_abort_note_names_the_dropped_tail_when_no_line_of_it_fits(tmp_path,
     log = tmp_path / "windows-regressions.log"
     log.write_text("Windows fatal exception: access violation\n"
                    + "  File \"%s\", line 1 in paintEvent\n" % ("%" * 180), encoding="utf-8")
-    module.main(["--junit", str(tmp_path / "absent.xml"), "--annotations", "--pytest-exit", "139",
+    # The missing-report statement quotes the report's own path, and a Windows runner's temp directory
+    # spells that path about forty characters longer than a Linux one does.  That spelling is the whole
+    # difference between a note that fits and one the store trims from the front: on the Windows gate this
+    # test came back as "…9 and its JUnit report names no failing test", with the exit code cut off the
+    # front by the text written to explain it.  The long path is therefore part of the fixture, not a
+    # platform accident the shared suite is allowed to miss.
+    absent = tmp_path / ("b" * 70) / "test_the_abort_note_names_the_dropped_tail_whe0" / "absent.xml"
+    absent.parent.mkdir(parents=True)
+    module.main(["--junit", str(absent), "--annotations", "--pytest-exit", "139",
                  "--pytest-log", str(log)])
     note = next(line for line in capsys.readouterr().out.splitlines()
                 if line.startswith("::error ") and "no failing test to name" in line)
