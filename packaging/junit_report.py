@@ -310,7 +310,7 @@ def build_stage_annotation(title: str, message: str, log_paths: list[Path], tail
 
 
 def crash_excerpt(path: Path, limit_lines: int = 20, line_width: int = 200, *, separator: str = " | ",
-                  bounded: bool = True) -> str:
+                  bounded: bool = True, end_lines: int = 4) -> str:
     """Quote a fatal-crash dump from a captured log, anchored on the line that says the run died.
 
     The *tail* of such a log is the harness's outermost frames, which say only that pytest was inside a test.
@@ -330,36 +330,61 @@ def crash_excerpt(path: Path, limit_lines: int = 20, line_width: int = 200, *, s
     if start is None:
         return ""
     header = f"crash dump from {path.name}, marker at line {start + 1} of {len(lines)}: "
-    pieces = [redact(line)[:line_width] for line in lines[start:start + limit_lines]]
-    # The tally is counted over the whole dump, not the window, and it is paid for before any line is accepted:
-    # how often each frame appears is the one fact about the stack that survives a length limit, and an excerpt
-    # that keeps its lines by overflowing the annotation would keep nothing -- GitHub truncates from the front.
-    tally = f"{separator}{_frame_tally(lines[start:])}"
+    # On the second run this channel was used, the tally answered its question -- 37 frames, 28 distinct, only
+    # pluggy's plumbing repeated, so this is not recursion -- and the frames then went somewhere else entirely
+    # (ast.parse, reached from pytest's own traceback formatting).  A non-recursive stack puts the interesting
+    # part at the bottom, where the test being reported on lives, and a window that only ever keeps the top
+    # would keep the plumbing.  So the bounded form keeps both ends: the marker and the frames under it, then the
+    # last `end_lines` frames of the dump, with the elision counted between them.  When the budget bites it is
+    # the *top* that shrinks -- the elided frames are reproducible from the log, the frame that names the
+    # failing test is not.
     budget = ANNOTATION_SAFE_LIMIT - 8
-    cut_notice = (f"{separator}…(the dump continues for {len(lines) - start - len(pieces)} more lines)"
-                  if len(lines) > start + len(pieces) else "")
-    ends_notice = (f"{separator}(the dump ends {len(lines) - start} lines after the marker)"
-                   if len(lines) > start + len(pieces) else "")
     over_notice = (f"{separator}…(the excerpt stopped at the annotation limit; {len(lines) - start} dump lines "
                     "were available)")
+    block = lines[start:]
+    tally = f"{separator}{_frame_tally(block)}"
+    if bounded and len(block) > limit_lines:
+        keep_head = max(limit_lines - end_lines, 1)
+        head = [redact(line)[:line_width] for line in block[:keep_head]]
+        tail = [redact(line)[:line_width] for line in block[len(block) - end_lines:]]
 
-    def notice_for(count: int) -> str:
-        # A shortened excerpt announces itself, and the announcement is part of what has to fit.
-        if bounded and count < len(pieces):
-            return over_notice
-        return cut_notice if bounded else ends_notice
+        def compose(head_count: int, tail_count: int, notice: str) -> str:
+            # One builder for one string: an earlier revision measured a `compose`-shaped draft and then
+            # reassembled the result by hand, which meant the two could drift apart -- and did, as a mutation
+            # that silently un-counted the elision proved by surviving every test.
+            pieces = head[:head_count]
+            elided = len(block) - head_count - tail_count
+            if elided > 0:
+                pieces = pieces + [f"...{elided} frame line(s) elided; the end of the stack follows..."]
+            if tail_count:
+                pieces = pieces + tail[len(tail) - tail_count:]
+            return header + separator.join(pieces) + tally + notice
 
-    def assemble(count: int) -> str:
-        return header + separator.join(pieces[:count]) + tally + notice_for(count)
-
-    count = len(pieces)
-    if bounded:
-        # Largest prefix that fits, measured on the escaped form and including whichever notice it ends up
-        # carrying.  Dropping lines until that holds is monotone, so this terminates.
-        while count > 1 and len(_escape_data(assemble(count))) > budget:
-            count -= 1
-    return assemble(count) + ("" if not bounded or count == len(pieces) or count > 1 else separator
-                             + "(no frame line fitted the annotation budget)")
+        head_count, tail_count = len(head), len(tail)
+        trimmed = False
+        while len(_escape_data(compose(head_count, tail_count, over_notice))) > budget:
+            # Shrink the middle, not the identity of the event: head frames beyond the marker pair go first, then
+            # the front of the tail, and only then the rest of the head.  Each step decreases a counter, so this
+            # terminates.
+            trimmed = True
+            if head_count > 2:
+                head_count -= 1
+            elif tail_count > 1:
+                tail_count -= 1
+            elif head_count > 0:
+                head_count -= 1
+            else:
+                break
+        notice = over_notice if trimmed else (
+            f"{separator}…(the dump continues for {len(block) - limit_lines} more lines)"
+            if len(block) > limit_lines else "")
+        return compose(head_count, tail_count, notice)
+    pieces = [redact(line)[:line_width] for line in block[:limit_lines]]
+    cut_notice = (f"{separator}…(the dump continues for {len(block) - len(pieces)} more lines)"
+                  if len(block) > len(pieces) else "")
+    ends_notice = (f"{separator}(the dump ends {len(block)} lines after the marker)"
+                   if len(block) > len(pieces) else "")
+    return header + separator.join(pieces) + tally + (cut_notice if bounded else ends_notice)
 
 
 def describe_abort(result: dict, pytest_exit: int | None, pytest_log: Path | None,

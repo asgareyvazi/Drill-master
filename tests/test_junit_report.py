@@ -9,6 +9,7 @@ copied into an annotation, a summary or standard output.
 from __future__ import annotations
 
 import importlib.util
+import re
 import sys
 from pathlib import Path
 
@@ -582,3 +583,60 @@ def test_the_tally_survives_when_the_excerpt_itself_hits_the_limit(tmp_path):
     assert "distinct" in quoted, "the counted shape of the stack must outlive the excerpt that could not fit"
     assert "excerpt stopped at the annotation limit" in quoted, (
         "the fixture must actually press against the budget, or it pins nothing")
+
+
+def test_the_bounded_excerpt_also_quotes_the_bottom_of_a_shallow_stack(tmp_path):
+    """A crash while pytest formats somebody else's failure puts the culprit at the *bottom*.
+
+    Measured on the second production use of this channel: 37 frames, 28 distinct, only pluggy's plumbing
+    repeated -- so the frames that mattered were not under the marker but at the far end of the dump, where the
+    test being reported on sits.  A window that keeps only the top keeps the hook machinery instead.
+    """
+    module = _parser()
+    log = tmp_path / "shallow.log"
+    lines = ["Windows fatal exception: access violation", "", "Current thread 0x1 (most recent call first):"]
+    lines += [f'  File "C:\\python\\Lib\\site-packages\\_pytest\\code{i}.py", line {i} in frame{i}'
+              for i in range(30)]
+    lines.append('  File "D:\\a\\Drill-master\\Drill-master\\tests\\test_windows_release_evidence.py", '
+                 "line 328 in test_installed_exe_runs_with_isolated_roots_and_cleared_credentials")
+    log.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    quoted = module.crash_excerpt(log, limit_lines=10, end_lines=3)
+    assert "test_installed_exe_runs_with_isolated_roots_and_cleared_credentials" in quoted, quoted
+    assert "...24 frame line(s) elided; the end of the stack follows..." in quoted, (
+        "the elision has to be counted, or a reader cannot tell a shortened stack from a complete one")
+    assert "access violation" in quoted, "the marker line is never the part that gets cut"
+    assert "no frame repeated" in quoted
+    # A window that stops at `limit_lines` and a budget that forces a trim are different facts, and the reader
+    # needs to know which one happened: the first is ordinary truncation, the second means the store would not
+    # take the rest.
+    assert "the dump continues for 24 more lines" in quoted, quoted
+    assert "excerpt stopped at the annotation limit" not in quoted, quoted
+
+    whole = module.crash_excerpt(log, limit_lines=60, bounded=False)
+    assert "elided" not in whole, "the summary channel has no window to elide through"
+
+    # The trim order is a property, not an implementation detail: head frames beyond the marker pair go before
+    # any tail frame is given up, and the marker line itself is never what pays for the budget.  `redact()` caps
+    # a line at 300 characters, so a dump of 23 lines cannot fit the annotation budget at all and the shape of
+    # the result is decided entirely by which lines are sacrificed.
+    order = tmp_path / "order.log"
+    frames = []
+    for index in range(18):
+        frames.append(f'  File "C:\\python\\Lib\\_pytest\\c{index}.py", line {index} in frame{index} '
+                      + "x" * 400)
+    tail = ['  File "D:\\work\\Drill-master\\tests\\t.py", line 9 in tail_frame_above_the_culprit ' + "y" * 400,
+            '  File "D:\\work\\Drill-master\\tests\\t.py", line 328 in test_the_culprit_last ' + "z" * 400]
+    order.write_text("\n".join(["Windows fatal exception: access violation", "",
+                                 "Current thread 0x1 (most recent call first):"] + frames + tail) + "\n",
+                     encoding="utf-8")
+    shaped = module.crash_excerpt(order, limit_lines=20, end_lines=2)
+    assert "tail_frame_above_the_culprit" in shaped and "test_the_culprit_last" in shaped, (
+        "the tail is what names the test; an implementation that gives it up first passes every other assertion")
+    assert "Windows fatal exception" in shaped, "the marker line is never the part that gets cut"
+    assert "frame0" in shaped and "frame17" not in shaped, shaped
+    assert "excerpt stopped at the annotation limit" in shaped, shaped
+    counted = re.search(r"\.\.\.(\d+) frame line\(s\) elided", shaped)
+    assert counted and int(counted.group(1)) >= 10, (
+        f"twenty-three lines against a two-thousand-character budget leaves most of the stack unquoted: {shaped}")
+    assert len(module._escape_data(shaped)) < module.ANNOTATION_SAFE_LIMIT, shaped
