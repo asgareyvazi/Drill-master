@@ -1240,6 +1240,31 @@ def test_log_tails_are_bounded_reads_and_never_whole_file_reads():
                                                         "asserted from a reason string")
 
 
+def test_every_lifecycle_log_read_names_the_root_identity_it_is_confined_to():
+    """`permitted_root=` names a *path*; the identity is what proves the path still denotes the same root.
+
+    The M42.9 record and the living summary both promise that the work root's identity is captured once and
+    re-validated by every anchored open, so a read that supplies only the path is confined to whatever that
+    path denotes when the read happens -- the substitution the anchor exists to refuse.  Two diagnostic reads
+    did exactly that (the installer-log tail on the absent-uninstaller path, and the uninstall log inside
+    `_uninstall`); they are threaded through by name, and this pins the shape so the next call site cannot
+    quietly reintroduce it.  A window of three lines is inspected because the calls are wrapped across lines
+    by formatting, not because the requirement is loose.
+    """
+    evidence = (ROOT / "packaging" / "windows_release_evidence.py").read_text(encoding="utf-8")
+    lines = evidence.splitlines()
+    indexes = [index for index, line in enumerate(lines)
+               if ("_tail(" in line or "_bounded_tail(" in line) and "def " not in line]
+    assert len(indexes) >= 5, "the reader call sites are the thing being guarded; finding none is a finding"
+    for index in indexes:
+        window = "\n".join(lines[index:index + 3])
+        assert "permitted_root=" in window, (
+            f"the read at line {index + 1} names no permitted root:\n{window}")
+        assert "root_identity=" in window, (
+            f"the read at line {index + 1} never compares the root's identity, so it is confined to "
+            f"whichever directory that path denotes at read time:\n{window}")
+
+
 def test_diagnostic_failures_cannot_replace_a_lifecycle_failure():
     """Sampling is subordinate: it reports its own trouble, it never becomes the finding.
 

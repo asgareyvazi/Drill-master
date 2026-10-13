@@ -664,10 +664,11 @@ def run_lifecycle(*, installer: Path, expected_sha256: str, app_version: str, wo
             # the tree listing and the installer's own log tail, is what makes the failure
             # attributable from the published record alone.
             absent = forensics("uninstaller_absent_before_launch", hash_uninstaller=False)
+            install_tail = bound(_tail(install_log, 12, permitted_root=work_root,
+                                       root_identity=work_root_identity), 200)
             record("silent_uninstall", "FAIL",
                    "unins000.exe was present after install (installed_files) and is absent now; "
-                   f"{install_tree_note()}; {absent}; installer log tail: "
-                   f"{bound(_tail(install_log, 12, permitted_root=work_root), 200) or 'no log'}")
+                   f"{install_tree_note()}; {absent}; installer log tail: {install_tail or 'no log'}")
             return _finish(evidence, "FAIL", started)
         # A Windows runner can list a file it then refuses to launch: an uninstaller under
         # antivirus quarantine, or mid-replacement, looks exactly like this from userspace, with
@@ -682,7 +683,8 @@ def run_lifecycle(*, installer: Path, expected_sha256: str, app_version: str, wo
         for attempt in (1, 2):
             try:
                 removed = _uninstall(uninstaller, uninstall_log, install_dir, runner, timeout,
-                                     poll_interval, settle_seconds, evidence)
+                                     poll_interval, settle_seconds, evidence,
+                                     root_identity=work_root_identity)
                 break
             except FileNotFoundError as exc:
                 refused = forensics(f"after_refusal_{attempt}", exc, brief=True)
@@ -797,8 +799,47 @@ _WIN32_FILE_KINDS = {0x0000: "unknown", 0x0001: "disk", 0x0002: "character devic
 _WIN32_REGULAR_FILE_KINDS = frozenset({"disk"})
 _WIN32_NOT_FOUND = (2, 3)  # ERROR_FILE_NOT_FOUND, ERROR_PATH_NOT_FOUND
 _WIN32_LINK_OR_REPARSE = (1831, 1921)  # crossing an unsupported link target, refusing to follow it
-_WIN32_HANDLE_METADATA_FIELDS = ("dwFileAttributes", "nFileSizeHigh", "nFileSizeLow", "dwVolumeSerialNumber",
-                                 "nFileIndexHigh", "nFileIndexLow")
+# `BY_HANDLE_FILE_INFORMATION` as the Windows ABI defines it: every field, in order, because
+# `GetFileInformationByHandle` fills the whole structure and not the part a caller happens to consume.  A
+# declaration that listed only the fields this module reads would place those fields at the wrong offsets
+# *and* give the kernel a 24-byte buffer for a 52-byte write -- the four bytes past the ctypes object are
+# the interpreter's own memory, so the damage surfaced wherever the next allocation happened to land
+# (redaction, traceback formatting, JUnit recording, on four consecutive Windows gate runs).  The widths
+# are spelled `c_uint32` rather than `wintypes.DWORD` because `DWORD` is the *host's* unsigned long, which
+# is eight bytes off Windows: a declaration whose meaning changes with the host cannot be guarded by the
+# source gate that runs on another one, and this one is guarded there.
+_WIN32_FILETIME_FIELDS = ("dwLowDateTime", "dwHighDateTime")
+_WIN32_HANDLE_METADATA_FIELDS = (
+    ("dwFileAttributes", "dword"), ("ftCreationTime", "filetime"), ("ftLastAccessTime", "filetime"),
+    ("ftLastWriteTime", "filetime"), ("dwVolumeSerialNumber", "dword"), ("nFileSizeHigh", "dword"),
+    ("nFileSizeLow", "dword"), ("nNumberOfLinks", "dword"), ("nFileIndexHigh", "dword"),
+    ("nFileIndexLow", "dword"),
+)
+_WIN32_HANDLE_METADATA_SIZE = 52  # what the kernel writes; a declaration that disagrees is refused
+
+
+def _by_handle_file_information(ctypes_module):
+    """The one `BY_HANDLE_FILE_INFORMATION` declaration the anchored Windows reads are built on.
+
+    A factory rather than an inline class so that the layout can be asserted on any host -- `ctypes`
+    describes structures the same way everywhere -- instead of only by a runner that happens to carry
+    `kernel32`.  The size check is the guard rail against a future edit reintroducing the overflow: a
+    declaration that disagrees with the ABI is refused here, and the caller turns any refusal into a
+    fail-closed decision not to read, which is the outcome this whole path is built around.
+    """
+    class _FileTime(ctypes_module.Structure):
+        _fields_ = [(name, ctypes_module.c_uint32) for name in _WIN32_FILETIME_FIELDS]
+
+    class _ByHandleFileInformation(ctypes_module.Structure):
+        _fields_ = [(name, _FileTime if kind == "filetime" else ctypes_module.c_uint32)
+                    for name, kind in _WIN32_HANDLE_METADATA_FIELDS]
+
+    size = ctypes_module.sizeof(_ByHandleFileInformation)
+    if size != _WIN32_HANDLE_METADATA_SIZE:
+        raise ValueError(f"the BY_HANDLE_FILE_INFORMATION declaration must be "
+                         f"{_WIN32_HANDLE_METADATA_SIZE} bytes to match the structure the kernel writes; "
+                         f"this one is {size}")
+    return _ByHandleFileInformation
 # `os.O_BINARY` exists only on Windows, and there it is not decorative: a CRT descriptor left in the default
 # mode folds every CRLF to LF while it is read, so the bytes handed back are a shortened copy of the object
 # and the recorded read stops agreeing with the size measured on the handle.  The literal mirrors the Windows
@@ -829,10 +870,7 @@ class _Win32HandleMetadata:
         self._kernel32 = kernel32
         self.last_error = 0
 
-        class _ByHandleFileInformation(ctypes.Structure):
-            _fields_ = [(name, getattr(ctypes.wintypes, "DWORD")) for name in _WIN32_HANDLE_METADATA_FIELDS]
-
-        self._info_type = _ByHandleFileInformation
+        self._info_type = _by_handle_file_information(ctypes)
         self._kernel32.CreateFileW.restype = ctypes.c_void_p
         self._kernel32.CreateFileW.argtypes = [ctypes.wintypes.LPCWSTR, ctypes.wintypes.DWORD,
                                                ctypes.wintypes.DWORD, ctypes.c_void_p, ctypes.wintypes.DWORD,
@@ -840,6 +878,15 @@ class _Win32HandleMetadata:
         self._kernel32.GetFinalPathNameByHandleW.restype = ctypes.wintypes.DWORD
         self._kernel32.GetFileInformationByHandle.restype = ctypes.wintypes.BOOL
         self._kernel32.GetFileType.restype = ctypes.wintypes.DWORD
+        # A HANDLE is a pointer-sized value.  Without an `argtypes` entry ctypes converts the Python
+        # integer a handle came back as to a C int, which truncates it on a 64-bit runner -- the call then
+        # either fails or, worse, answers about a different object than the one that was validated.  Every
+        # call a handle travels to therefore declares the parameter it takes.
+        self._kernel32.CloseHandle.argtypes = [ctypes.c_void_p]
+        self._kernel32.GetFinalPathNameByHandleW.argtypes = [ctypes.c_void_p, ctypes.wintypes.LPWSTR,
+                                                             ctypes.wintypes.DWORD, ctypes.wintypes.DWORD]
+        self._kernel32.GetFileInformationByHandle.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+        self._kernel32.GetFileType.argtypes = [ctypes.c_void_p]
 
     def open_handle(self, path: Path, *, directory: bool):
         handle = self._kernel32.CreateFileW(str(path), _WIN32_GENERIC_READ, _WIN32_SHARE_ALL, None,
@@ -1185,7 +1232,7 @@ def _open_binary_windows(path: Path, root: Path,
 
     Win32 has no descriptor-relative open, and ``O_NOFOLLOW`` in the CRT is not a guard against junctions or
     symlinks at all, so the guarantee is built the other way round: the object is opened once, then
-    ``GetFinalPathNameByHandleW`` and ``GetFileInformationByHandle`* on that handle* say which object the
+    ``GetFinalPathNameByHandleW`` and ``GetFileInformationByHandle`` *on that handle* say which object the
     bytes will come from, and the answer is compared against the root's own final path and volume identity.
     A reparse point is caught by its attribute bit even when its target is inside the root, because the file
     the caller named and the file the handle reached are then different objects.
@@ -1386,11 +1433,17 @@ def _is_within(child: Path, parent: Path) -> bool:
 
 
 def _uninstall(uninstaller: Path, log: Path, install_dir: Path, runner: Runner, timeout: int,
-               poll_interval: float, settle_seconds: float, evidence: dict) -> dict:
+               poll_interval: float, settle_seconds: float, evidence: dict,
+               root_identity: tuple[int, ...] | None = None) -> dict:
     """Run the uninstaller, then wait for the install directory to actually empty.
 
     Inno Setup's uninstaller copies itself to a temp location and can return before
     the deletion pass finishes, so the exit code alone is not sufficient evidence.
+
+    The uninstall log is read through the same anchored open as every other read inside the work root,
+    and that includes the root-identity comparison: the root is *the directory this run created*, not
+    whichever directory a name resolves to by the time the uninstaller has finished.  Leaving this one
+    read without the identity would have made the boundary claim true of every read except the last one.
     """
     argv = [str(uninstaller), "/SILENT", "/NORESTART", "/SUPPRESSMSGBOXES", f"/LOG={log}"]
     completed = runner(argv, None, install_dir.parent, timeout)
@@ -1399,8 +1452,10 @@ def _uninstall(uninstaller: Path, log: Path, install_dir: Path, runner: Runner, 
         if not install_dir.exists() or not snapshot(install_dir):
             break
         time.sleep(poll_interval)
-    # install_dir.parent is the work root by construction, so the same boundary applies here.
-    evidence["diagnostics"]["uninstall_log"] = redact(_tail(log, permitted_root=install_dir.parent), [])
+    # install_dir.parent is the work root by construction, so the same boundary -- and the same
+    # "which directory is this?" comparison -- applies here as to every other read inside it.
+    evidence["diagnostics"]["uninstall_log"] = redact(_tail(log, permitted_root=install_dir.parent,
+                                                            root_identity=root_identity), [])
     # The exit code judges the uninstall *process*; whether the application files are
     # really gone is a separate claim, recorded by the install_files_removed step.
     return {"ok": completed.returncode == 0, "exit_code": completed.returncode,

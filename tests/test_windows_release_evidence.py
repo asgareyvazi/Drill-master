@@ -2520,6 +2520,71 @@ def test_the_root_itself_is_part_of_the_anchor(tmp_path):
     assert "DO-NOT-PUBLISH" not in json.dumps(observed)
 
 
+def test_the_root_identity_survives_work_done_inside_the_root(tmp_path):
+    """The identity that anchors every read is the directory *object*, so its contents may change underneath it.
+
+    Windows identity is the volume serial with the file index, and the lifecycle depends on exactly that:
+    the run creates `install/`, writes logs, and empties the tree again *inside* the work root, and every
+    later read re-derives the root's identity and compares it against the one captured at the start.  An
+    identity that drifted with the directory's own timestamps -- which is what a short
+    BY_HANDLE_FILE_INFORMATION declaration turned it into -- refused those reads as if the root had been
+    swapped, and a lifecycle that had passed every step reported a user-data sentinel that "did not survive"
+    an uninstall it had in fact survived.  This runs on the Windows job too, where the native identity is
+    what is being asked.
+    """
+    module = _evidence_module()
+    root = tmp_path / "work"
+    root.mkdir()
+    log = root / "install.log"
+    log.write_text("Setup process started.\n", encoding="utf-8")
+    captured = module._directory_identity(root)
+    assert captured is not None
+
+    (root / "install").mkdir()
+    (root / "install" / "DrillMaster.exe").write_bytes(b"installed executable")
+    (root / "userdata").mkdir()
+    (root / "userdata" / "sentinel-preserve.txt").write_text("DRILLMASTER-LIFECYCLE-SENTINEL-PRESERVE\n",
+                                                             encoding="utf-8")
+    log.write_text(log.read_text(encoding="utf-8") + "Setup process finished.\n", encoding="utf-8")
+
+    assert module._directory_identity(root) == captured, (
+        "the root's identity describes the directory object, not the times its contents changed")
+    observed = module._bounded_tail(log, 6, permitted_root=root, root_identity=captured)
+    assert observed["state"] == "complete" and observed["bytes_read"] > 0, (
+        "work done inside the root must not invalidate the root's own identity")
+
+
+def test_the_uninstall_log_read_re_validates_the_work_root_identity(tmp_path):
+    """The uninstaller's own log is read inside the run's root, so it re-checks *which* root that is.
+
+    `_uninstall` runs after the install tree has been emptied and takes the work root from
+    `install_dir.parent`; that path is the boundary by construction, but "the directory this run created"
+    is the identity, not the name, and this is the last read a lifecycle performs.  A read that skipped the
+    comparison would be confined to whatever the path denotes at that moment -- the substitution every
+    other anchored read refuses -- so the same refusal has to cover it.  `unins000.exe` here is the real
+    scripted stand-in, so the log the assertion reads is the one the fake uninstaller wrote.
+    """
+    module = _evidence_module()
+    work = tmp_path / "work"
+    install_dir = work / "install"
+    install_dir.mkdir(parents=True)
+    log = work / "uninstall.log"
+
+    evidence = {"diagnostics": {}}
+    module._uninstall(install_dir / "unins000.exe", log, install_dir, FakeHost(), 30, 0.001, 0.0, evidence,
+                      root_identity=module._directory_identity(work))
+    assert "Uninstall process started." in evidence["diagnostics"]["uninstall_log"], (
+        "the run's own work root has to be readable, or the identity check is not a check but a shutdown")
+
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    replaced = {"diagnostics": {}}
+    module._uninstall(install_dir / "unins000.exe", log, install_dir, FakeHost(), 30, 0.001, 0.0, replaced,
+                      root_identity=module._directory_identity(elsewhere))
+    assert replaced["diagnostics"]["uninstall_log"] == "", (
+        "a log under a root that is not the one this run created must be refused, not read")
+
+
 def test_the_windows_confinement_rule_is_decided_on_handle_metadata_not_on_following_links():
     """Windows has no descriptor-relative open, so the verdict is computed from what the handle reports.
 
@@ -2560,6 +2625,138 @@ def test_the_windows_confinement_rule_is_decided_on_handle_metadata_not_on_follo
     assert verdict("", root, object_kind="disk", same_volume=True, is_reparse=False)[0] == "skipped_unsafe_path"
 
 
+class _ScriptedKernel32:
+    """The kernel32 subset the handle-metadata helper binds, without a Windows host.
+
+    A real ``ctypes.windll.kernel32`` does not exist here, so the fixture answers the calls the helper
+    makes and records what was declared on it.  ``GetFileInformationByHandle`` copies an ABI-shaped image
+    of ``BY_HANDLE_FILE_INFORMATION`` into the buffer the helper passes, bounded by that helper's own
+    declaration: a declaration that is too small then fails an assertion instead of corrupting this
+    process the way it corrupted the Windows runner's.
+    """
+
+    def __init__(self, image: bytes, declared_size: int):
+        self.image = image
+        self.declared_size = declared_size
+        self.information_bytes_written = 0
+        # Plain function objects stored on the instance, not bound methods: the helper assigns
+        # ``restype``/``argtypes`` to every one of these, exactly as it does to kernel32's own entries.
+        self.CreateFileW = lambda *args: 0x1234
+        self.CloseHandle = lambda handle: None
+        self.GetFileType = lambda handle: 1
+        self.GetFinalPathNameByHandleW = lambda *args: 0
+        self.GetFileInformationByHandle = lambda handle, pointer: self._write_information(handle, pointer)
+
+    def _write_information(self, handle, pointer):
+        import ctypes
+
+        size = min(len(self.image), self.declared_size)
+        ctypes.memmove(pointer, self.image[:size], size)
+        self.information_bytes_written = size
+        return 1
+
+
+def test_the_handle_metadata_declaration_is_the_structure_the_windows_abi_writes():
+    """``GetFileInformationByHandle`` fills 52 bytes, so both the size and the offsets have to match it.
+
+    The defect this pins is not cosmetic.  A declaration that listed only the fields this module consumes
+    was 24 bytes, so the kernel wrote 28 bytes past the end of the ctypes object -- into the interpreter's
+    own heap -- and the fault appeared at whatever allocation came next: on four consecutive Windows gate
+    runs that was redaction, traceback formatting, and JUnit recording, none of which can fault on their
+    own.  The offsets matter for the second half of the same defect: with the short declaration
+    ``nFileIndexHigh`` read a timestamp, so the identity every anchored read compares the root against
+    changed whenever the directory did, which refused reads that were inside the boundary.
+    """
+    import ctypes
+
+    module = _evidence_module()
+    struct_type = module._by_handle_file_information(ctypes)
+    assert ctypes.sizeof(struct_type) == 52, "the Windows ABI writes the whole structure"
+    assert {name: getattr(struct_type, name).offset for name, _ in struct_type._fields_} == {
+        "dwFileAttributes": 0, "ftCreationTime": 4, "ftLastAccessTime": 12, "ftLastWriteTime": 20,
+        "dwVolumeSerialNumber": 28, "nFileSizeHigh": 32, "nFileSizeLow": 36, "nNumberOfLinks": 40,
+        "nFileIndexHigh": 44, "nFileIndexLow": 48,
+    }, "every field of BY_HANDLE_FILE_INFORMATION, in ABI order"
+    # the widths are fixed-width, not the host's `unsigned long`, or the layout would differ per host
+    assert [name for name, field_type in struct_type._fields_ if field_type is ctypes.c_uint32] == [
+        "dwFileAttributes", "dwVolumeSerialNumber", "nFileSizeHigh", "nFileSizeLow", "nNumberOfLinks",
+        "nFileIndexHigh", "nFileIndexLow",
+    ], "the DWORD fields are 32-bit on every host this gate runs on"
+    for name, field_type in struct_type._fields_:
+        if field_type is not ctypes.c_uint32:  # the three FILETIME fields
+            assert [inner[0] for inner in field_type._fields_] == ["dwLowDateTime", "dwHighDateTime"], name
+            assert all(inner[1] is ctypes.c_uint32 for inner in field_type._fields_), name
+
+
+def test_a_declaration_that_disagrees_with_the_abi_is_refused_instead_of_used(monkeypatch):
+    """A wrong declaration has to cost a read, never the run: the factory refuses it and the path fails closed."""
+    import ctypes
+
+    module = _evidence_module()
+    monkeypatch.setattr(module, "_WIN32_HANDLE_METADATA_FIELDS",
+                        tuple(field for field in module._WIN32_HANDLE_METADATA_FIELDS
+                              if field[0] != "nNumberOfLinks"))
+    with pytest.raises(ValueError, match="must be 52 bytes"):
+        module._by_handle_file_information(ctypes)
+
+
+def test_the_handle_metadata_reads_the_file_index_and_never_a_timestamp():
+    """The identity is the volume serial with the file index, read by offset -- not the FILETIMEs next to them.
+
+    A structure can be 52 bytes and still describe the wrong fields, so the answer is read out of a
+    documented image of the structure: recognisable FILETIME values sit at their ABI offsets and the
+    metadata has to return the volume serial and file index instead of any of them.  This is the value the
+    work root's identity is recorded from and compared back against on every anchored read.
+    """
+    import ctypes
+    import struct
+
+    module = _evidence_module()
+    image = bytearray(52)
+    struct.pack_into("<I", image, 0, 0x00000020)           # FILE_ATTRIBUTE_ARCHIVE
+    struct.pack_into("<Q", image, 4, 0x01D9000000000000)   # ftCreationTime
+    struct.pack_into("<Q", image, 12, 0x01D9111122223333)  # ftLastAccessTime
+    struct.pack_into("<Q", image, 20, 0x01D9444455556666)  # ftLastWriteTime
+    struct.pack_into("<I", image, 28, 0xA1B2C3D4)          # dwVolumeSerialNumber
+    struct.pack_into("<I", image, 32, 0x00000001)          # nFileSizeHigh
+    struct.pack_into("<I", image, 36, 0x89ABCDEF)          # nFileSizeLow
+    struct.pack_into("<I", image, 40, 3)                   # nNumberOfLinks
+    struct.pack_into("<I", image, 44, 0x11223344)          # nFileIndexHigh
+    struct.pack_into("<I", image, 48, 0x55667788)          # nFileIndexLow
+    declared = ctypes.sizeof(module._by_handle_file_information(ctypes))
+    kernel32 = _ScriptedKernel32(bytes(image), declared)
+    metadata = module._Win32HandleMetadata(kernel32)
+
+    info = metadata.identity(object())
+    assert info == {"size": (0x00000001 << 32) | 0x89ABCDEF, "volume": 0xA1B2C3D4,
+                    "identity": (0xA1B2C3D4, (0x11223344 << 32) | 0x55667788), "is_reparse": False}
+    assert kernel32.information_bytes_written == 52, (
+        "the kernel writes all 52 bytes; a smaller declaration is where the write leaves the object")
+
+    image[0:4] = struct.pack("<I", 0x00000020 | 0x00000400)  # FILE_ATTRIBUTE_REPARSE_POINT
+    kernel32.image = bytes(image)
+    assert metadata.identity(object())["is_reparse"] is True
+
+
+def test_every_kernel32_call_a_handle_travels_to_declares_it_as_a_pointer():
+    """A handle silently converted to a C int is a call about some other object, so each one declares its type.
+
+    ``CreateFileW`` returns a pointer-sized handle; without an ``argtypes`` entry on the calls that receive
+    it, ctypes converts the value back to a 32-bit int on a 64-bit runner, and a truncated handle either
+    fails the call or -- the case this check exists for -- answers a question about the wrong object.
+    """
+    import ctypes
+
+    module = _evidence_module()
+    kernel32 = _ScriptedKernel32(b"\x00" * 52, 52)
+    module._Win32HandleMetadata(kernel32)
+    assert kernel32.CreateFileW.restype == ctypes.c_void_p
+    for call in (kernel32.CloseHandle, kernel32.GetFileType):
+        assert call.argtypes == [ctypes.c_void_p], call
+    assert kernel32.GetFileInformationByHandle.argtypes == [ctypes.c_void_p, ctypes.c_void_p]
+    assert kernel32.GetFinalPathNameByHandleW.argtypes[0] == ctypes.c_void_p
+
+
 def test_the_handle_is_attached_in_binary_mode_so_no_byte_is_invented_or_lost(tmp_path, monkeypatch):
     """`attach` must ask the CRT for a binary descriptor, and this proves it on a host that has no CRT.
 
@@ -2582,13 +2779,14 @@ def test_the_handle_is_attached_in_binary_mode_so_no_byte_is_invented_or_lost(tm
 
         def __init__(self):
             self.closed = []
-            self.CreateFileW = SimpleNamespace()
-            self.GetFinalPathNameByHandleW = SimpleNamespace()
-            self.GetFileInformationByHandle = SimpleNamespace()
-            self.GetFileType = SimpleNamespace()
-
-        def CloseHandle(self, handle):
-            self.closed.append(handle)
+            # Plain function objects on the instance, exactly as a ctypes library exposes them: the helper
+            # declares ``restype``/``argtypes`` on every entry point it binds, and a bound method could not
+            # carry those declarations.
+            self.CreateFileW = lambda *args: 0
+            self.GetFinalPathNameByHandleW = lambda *args: 0
+            self.GetFileInformationByHandle = lambda *args: 0
+            self.GetFileType = lambda *args: 0
+            self.CloseHandle = lambda handle: self.closed.append(handle)
 
     class _FakeMsvcrt:
         O_BINARY = 0x8000  # the value Windows uses; absent from the flags means "translate newlines"
