@@ -9,6 +9,7 @@ so they are asserted here rather than discovered by a red CI run.
 from __future__ import annotations
 
 import ast
+import importlib.util
 import json
 import re
 from pathlib import Path
@@ -1653,3 +1654,33 @@ def test_junit_parser_explains_a_report_that_explains_nothing():
         assert fragment in source, f"junit_report lost the abort-diagnostic piece {fragment!r}"
     assert source.index("def describe_abort(") < source.index("def emit("), (
         "the explanation is composed before anything is written to the workflow's stdout")
+
+
+def test_windows_gate_arms_the_crash_breadcrumb_and_the_hook_stays_opt_in(workflow_text, monkeypatch, capfd):
+    """The active test's identity must survive a death that leaves no JUnit report.
+
+    Three consecutive Windows runs died inside pytest's report pipeline with stacks naming no test, so
+    the suite writes each test's nodeid unbuffered at its start and the parser quotes the last one.
+    The producer half is opt-in: armed only by this step, every other run stays byte-for-byte silent.
+    """
+    block = _step_block(workflow_text, "Windows database, import, auth and packaging regression suite")
+    assert "$env:DRILLMASTER_CRASH_BREADCRUMB = '1'" in block, (
+        "the regression step must arm the breadcrumb before pytest starts")
+    assert block.index("DRILLMASTER_CRASH_BREADCRUMB") < block.index("2>&1 | Tee-Object"), (
+        "the breadcrumb must be armed before the pipeline whose log it has to land in")
+
+    spec = importlib.util.spec_from_file_location(
+        "drillmaster_tests_conftest", ROOT / "tests" / "conftest.py")
+    conftest = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(conftest)
+
+    monkeypatch.delenv("DRILLMASTER_CRASH_BREADCRUMB", raising=False)
+    conftest.pytest_runtest_logstart("tests/test_x.py::test_silent", ("tests/test_x.py", 1, "test_silent"))
+    assert capfd.readouterr().err == "", "without the opt-in the hook must write nothing"
+
+    monkeypatch.setenv("DRILLMASTER_CRASH_BREADCRUMB", "1")
+    conftest.pytest_runtest_logstart("tests/test_x.py::test_named", ("tests/test_x.py", 2, "test_named"))
+    written = capfd.readouterr().err
+    # capfd sees file-descriptor writes; a buffered print would not be here to be captured after a crash.
+    assert written == "DRILLMASTER-TEST-START tests/test_x.py::test_named\n", written

@@ -32,6 +32,29 @@ def pytest_configure(config):
     os.environ["DRILLMASTER_DB_PATH"] = str(Path(directory) / "test-session.db")
 
 
+_CRASH_BREADCRUMB_ENV = "DRILLMASTER_CRASH_BREADCRUMB"
+_CRASH_BREADCRUMB_PREFIX = "DRILLMASTER-TEST-START "
+
+
+def pytest_runtest_logstart(nodeid, location):
+    """Write the active test's identity where a hard interpreter death cannot lose it.
+
+    A fatal crash during pytest's report pipeline (formatting or recording a result) leaves no JUnit
+    report and a faulthandler stack of pytest's own plumbing, which names no test at either end -- three
+    consecutive Windows release runs died in three different innocent places that way.  The identity has
+    to be recorded *before* that phase, on the unbuffered error descriptor (the same channel faulthandler
+    itself uses), or buffered output dies with the process.  Opt-in via the environment so every other
+    run is byte-for-byte unchanged; ``packaging/junit_report.py`` quotes the last breadcrumb into the
+    crash annotation.  A breadcrumb must never fail a test, so a dead descriptor is swallowed.
+    """
+    if os.environ.get(_CRASH_BREADCRUMB_ENV) != "1":
+        return
+    try:
+        os.write(2, f"{_CRASH_BREADCRUMB_PREFIX}{nodeid}\n".encode("utf-8", errors="backslashreplace"))
+    except OSError:
+        return
+
+
 def pytest_unconfigure(config):
     if getattr(config, "_drillmaster_test_mode_added", False):
         os.environ.pop("DRILLMASTER_ENV", None)

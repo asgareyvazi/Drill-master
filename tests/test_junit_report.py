@@ -640,3 +640,40 @@ def test_the_bounded_excerpt_also_quotes_the_bottom_of_a_shallow_stack(tmp_path)
     assert counted and int(counted.group(1)) >= 10, (
         f"twenty-three lines against a two-thousand-character budget leaves most of the stack unquoted: {shaped}")
     assert len(module._escape_data(shaped)) < module.ANNOTATION_SAFE_LIMIT, shaped
+
+
+def test_the_crash_excerpt_names_the_last_test_started_when_the_stack_cannot(tmp_path):
+    """A reporting-phase death names no test in its stack, so the excerpt carries the breadcrumb.
+
+    Shaped on the third consecutive production shape: the interpreter died inside pytest's own report
+    recording, the quoted head and tail are pytest plumbing at both ends, and the only place the active
+    test's identity survives is the unbuffered line the suite wrote when that test started.  The last
+    breadcrumb is the active test; an earlier one is a test that already finished.
+    """
+    module = _parser()
+    log = tmp_path / "breadcrumb.log"
+    lines = [
+        "DRILLMASTER-TEST-START tests/test_done_first.py::test_already_finished",
+        # Pytest's own progress marks precede the breadcrumb on the same captured line; a search
+        # anchored at column 0 steps over exactly the breadcrumb that matters (proven by simulation).
+        ".DRILLMASTER-TEST-START tests/test_active.py::test_active_when_the_interpreter_died",
+        "Windows fatal exception: access violation",
+        "",
+        "Current thread 0x1 (most recent call first):",
+    ]
+    lines += [f'  File "C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\_pytest\\hop{i}.py", '
+              f"line {i} in hop{i}" for i in range(30)]
+    lines.append('  File "<frozen runpy>", line 198 in _run_module_as_main')
+    log.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    quoted = module.crash_excerpt(log, limit_lines=10, end_lines=3)
+    assert "test_active_when_the_interpreter_died" in quoted, quoted
+    assert "test_already_finished" not in quoted, "a finished test must not be named as the active one"
+    assert "last test started" in quoted, "the identity must be labelled as the breadcrumb it came from"
+    assert len(module._escape_data(quoted)) < module.ANNOTATION_SAFE_LIMIT, (
+        "the breadcrumb rides in the header, so it is paid for by the same budget loop")
+
+    plain = tmp_path / "plain.log"
+    plain.write_text("\n".join(lines[2:]) + "\n", encoding="utf-8")
+    assert "last test started" not in module.crash_excerpt(plain), (
+        "no breadcrumb in the log means no identity is invented for the excerpt")

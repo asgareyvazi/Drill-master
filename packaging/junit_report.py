@@ -56,6 +56,9 @@ SECRET_ASSIGNMENT = re.compile(
     r"(?i)([\"']?[A-Za-z0-9_]*(?:password|passwd|passphrase|secret|token|api[_-]?key|apikey|authorization|credential)[A-Za-z0-9_]*[\"']?\s*[=:]\s*)(?:\"[^\"]*\"|'[^']*'|[^\s,;)}]+)"
 )
 NON_TEST_FRAME = re.compile(r"(site-packages|lib[\\/]python3|_pytest[\\/]|encodings[\\/]|pathlib\.py)")
+# Written unbuffered to stderr by tests/conftest.py at every test start when the Windows gate arms it;
+# the two spellings are one protocol, pinned on both sides by tests.
+TEST_START_BREADCRUMB = "DRILLMASTER-TEST-START "
 
 
 def redact(value: str) -> str:
@@ -330,6 +333,23 @@ def crash_excerpt(path: Path, limit_lines: int = 20, line_width: int = 200, *, s
     if start is None:
         return ""
     header = f"crash dump from {path.name}, marker at line {start + 1} of {len(lines)}: "
+    # A death in pytest's report pipeline leaves a stack of pytest plumbing that names no test at either
+    # end (three consecutive Windows runs: our redaction path, traceback formatting, JUnit recording).
+    # The test identity then exists only in the crash-surviving breadcrumb the suite writes unbuffered at
+    # every test start (tests/conftest.py, armed by the Windows step): the last one written is the test
+    # whose protocol was active when the interpreter died.  It rides in the header, so the budget loop
+    # below measures it like everything else that must survive.
+    crumb = ""
+    for line in reversed(lines):
+        # Not startswith: pytest's progress marks share the line the next breadcrumb lands on
+        # ("...DRILLMASTER-TEST-START ..."), which a line-anchored search steps over -- an end-to-end
+        # crash simulation named the first test of the run instead of the crashing one that way.
+        at = line.rfind(TEST_START_BREADCRUMB)
+        if at >= 0:
+            crumb = line[at + len(TEST_START_BREADCRUMB):].strip()
+            break
+    if crumb:
+        header += f"last test started (per the crash-surviving breadcrumb): {redact(crumb)[:200]}; "
     # On the second run this channel was used, the tally answered its question -- 37 frames, 28 distinct, only
     # pluggy's plumbing repeated, so this is not recursion -- and the frames then went somewhere else entirely
     # (ast.parse, reached from pytest's own traceback formatting).  A non-recursive stack puts the interesting

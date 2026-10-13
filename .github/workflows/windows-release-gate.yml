@@ -65,6 +65,10 @@ jobs:
           $env:DRILLMASTER_DB_PATH = Join-Path $testRoot 'data\acceptance.db'
           $env:DRILLMASTER_LOG_DIR = Join-Path $testRoot 'logs'
           $env:DRILLMASTER_BACKUP_DIR = Join-Path $testRoot 'backups'
+          # Name every test on the unbuffered error stream as it starts (tests/conftest.py), so a hard
+          # interpreter death in pytest's report pipeline -- which leaves no JUnit report and a stack
+          # naming no test -- still leaves the identity of the test that was active in the captured log.
+          $env:DRILLMASTER_CRASH_BREADCRUMB = '1'
           $testReport = Join-Path $testRoot 'windows-regressions.xml'
           $testLog = Join-Path $testRoot 'windows-regressions.log'
           $testSummary = Join-Path $testRoot 'windows-regression-summary.md'
