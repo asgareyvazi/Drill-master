@@ -804,6 +804,80 @@ def test_a_probe_that_times_out_still_leaves_the_queries_to_answer(tmp_path):
     assert report["files"][0]["raw_status"] == "NotSigned"
 
 
+def test_a_module_path_spelled_any_way_is_still_taken_away():
+    """Windows compares environment names case-insensitively, so the filter has to as well.
+
+    A case-sensitive filter would let `PSMODULEPATH` -- the spelling a differently-cased parent
+    shell writes -- survive into the Windows PowerShell child and reproduce exactly the
+    incompatible-module load this isolation exists to prevent.
+    """
+    module = _evidence_module()
+    for spelling in ("PSModulePath", "PSMODULEPATH", "psmodulepath", "PsModulePath"):
+        cleaned, dropped = module.windows_powershell_environment(
+            {spelling: r"C:\Program Files\PowerShell\7\Modules", "PATH": "/usr/bin"})
+        assert dropped is True, f"{spelling} was not recognised as a module path"
+        assert cleaned == {"PATH": "/usr/bin"}, f"{spelling} survived the filter"
+
+
+def test_windows_powershell_never_starts_with_the_parents_module_path(monkeypatch, tmp_path):
+    """The released root cause, pinned where it can regress.
+
+    Two instrumented Windows runs recorded `cmdlet=missing` together with an import that failed on
+    `System.Security.AccessControl.ObjectSecurity`.  The cause is the launch environment: the
+    workflow runs its steps under PowerShell 7, `os.environ` carries that shell's `PSModulePath`,
+    and Windows PowerShell 5.1 therefore resolves the PowerShell 7 copy of
+    `Microsoft.PowerShell.Security` -- whose type data the 5.1 runtime refuses -- instead of the
+    copy it ships with.  The child environment is the whole fix, so it is what this asserts; the
+    remainder of the parent environment must still reach the child untouched, because the caller's
+    other settings are none of this function's business.
+    """
+    module = _evidence_module()
+    monkeypatch.setenv("PSModulePath",
+                       r"C:\Users\runner\Documents\PowerShell\Modules;C:\Program Files\PowerShell\7\Modules")
+    monkeypatch.setenv("DRILLMASTER_UNRELATED_SETTING", "kept")
+    host = FakeHost()
+    payload = module.run_powershell(module.SIGNING_PROBE_SCRIPT, tmp_path, host, 5)
+    child = host.envs[-1]
+    assert child is not None, "the runner must be handed an environment, not an inherited one by accident"
+    assert not [key for key in child if key.upper() == "PSMODULEPATH"], (
+        "Windows PowerShell must rebuild its own module path, not inherit PowerShell 7's")
+    assert child["DRILLMASTER_UNRELATED_SETTING"] == "kept", "only the module path is this function's business"
+    assert child["DRILLMASTER_TARGET_PATH"] == str(tmp_path), "the target still travels out of band"
+    assert payload["powershell_module_path_isolated"] is True, (
+        "the record must say the isolation ran, so a future cmdlet=missing is attributable")
+
+
+def test_a_host_that_never_had_a_module_path_says_so_instead(monkeypatch, tmp_path):
+    """The flag is an observation, not an assumption about what the parent looked like.
+
+    A POSIX host, or a Windows one whose parent never set the variable, has nothing to remove and
+    must not publish that it removed something.
+    """
+    module = _evidence_module()
+    for key in [key for key in os.environ if key.upper() == "PSMODULEPATH"]:
+        monkeypatch.delenv(key, raising=False)
+    host = FakeHost()
+    payload = module.run_powershell(module.VERSION_QUERY_SCRIPT, tmp_path, host, 5)
+    assert payload["powershell_module_path_isolated"] is False
+    assert not [key for key in (host.envs[-1] or {}) if key.upper() == "PSMODULEPATH"]
+
+
+def test_the_signing_record_carries_the_launch_isolation_beside_the_import_result(tmp_path):
+    """A reader of `signing-status.json` must be able to tell an isolated host from an inherited one.
+
+    The two facts are published side by side: whether the Security module imported, and whether the
+    launch environment was the corrected one.  Neither implies the other, which is the same rule the
+    earlier correction applied to the import result and the command lookup.
+    """
+    _, report = _harness_for(tmp_path, "module-path-isolation", signature_cmdlet="missing",
+                             module_import_result="failed",
+                             module_import_error="The following error occurred while loading the "
+                                                 "extended type data file")
+    assert report["harness"]["security_module_import"] == "failed"
+    assert report["harness"]["module_path_isolated"] in (True, False), (
+        "the isolation observation is published on every run, whatever it observed")
+
+
 def test_a_quiet_successful_query_still_reports_its_exit_code(tmp_path):
     """The record carries the status the host returned; a printed payload is not itself a 0.
 
@@ -2190,15 +2264,20 @@ def test_published_diagnostics_never_carry_a_credential_value(tmp_path, monkeypa
     )
 
 
-def test_the_query_capability_is_published_alongside_the_verdict(tmp_path):
+def test_the_query_capability_is_published_alongside_the_verdict(tmp_path, monkeypatch):
     module = _evidence_module()
+    # The isolation observation is a fact about the environment this test runs in, so the test
+    # fixes that environment instead of asserting whichever host it happened to land on: the
+    # harness pin below stays an exact set, and it stays deterministic.
+    for key in [key for key in os.environ if key.upper() == "PSMODULEPATH"]:
+        monkeypatch.delenv(key, raising=False)
     _, metadata, _ = _release(tmp_path / "release")
     report = module.run_signing(release_metadata_path=metadata, runner=FakeHost())
     assert report["harness"] == {"query_command": "available", "cmdlet_available": True,
                                 "powershell_version": "5.1.20348.2402",
                                 "signature_command_module": "Microsoft.PowerShell.Security",
                                 "security_module_import": "succeeded", "probe_usable": True,
-                                "probe_exit_code": 0}
+                                "probe_exit_code": 0, "module_path_isolated": False}
 
 
 def test_a_host_without_the_cmdlet_records_one_cause_for_every_file(tmp_path, monkeypatch):

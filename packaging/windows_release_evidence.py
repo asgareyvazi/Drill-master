@@ -153,6 +153,34 @@ def default_runner(argv: list[str], environment: dict[str, str] | None,
                           timeout=timeout)
 
 
+def windows_powershell_environment(base: dict[str, str]) -> tuple[dict[str, str], bool]:
+    """Hand Windows PowerShell a module path it can actually resolve its own modules from.
+
+    ``powershell.exe`` is Windows PowerShell 5.1 and reads ``PSModulePath`` before it reads
+    anything else about where a module lives.  When its parent is PowerShell 7 -- which is what
+    every step of the Windows release workflow is, ``shell: pwsh`` -- that variable arrives
+    carrying PowerShell 7's module directories ahead of the ones 5.1 ships with, so a bare
+    ``Import-Module Microsoft.PowerShell.Security`` resolves the *PowerShell 7* copy.  Since 7.3
+    that manifest processes ``Security.types.ps1xml``, whose ``System.Security.AccessControl.
+    ObjectSecurity`` type data duplicates members .NET Framework already provides on 5.1: the
+    import is refused with ``FormatXmlUpdateException``, the module never loads, and every cmdlet
+    it owns -- ``Get-AuthenticodeSignature`` among them -- becomes unresolvable.  That is exactly
+    the ``cmdlet=missing``/``security_module_import=failed`` pair two instrumented release runs
+    recorded, and it is a property of the launch environment rather than of the files being
+    examined.
+
+    Removing the variable is the vendor-recommended remediation: without it, Windows PowerShell
+    rebuilds its own default module path from the registry and finds version 3.0.0.0 of the
+    module instead of the incompatible 7.x one.  The comparison is case-insensitive because
+    Windows environment names are, so ``PSModulePath``/``PSMODULEPATH`` cannot smuggle one
+    spelling past a case-sensitive filter.  Returns the cleaned environment and whether anything
+    was removed, so the record can say the isolation was applied instead of leaving a later
+    reader to infer it.
+    """
+    cleaned = {key: value for key, value in base.items() if key.upper() != "PSMODULEPATH"}
+    return cleaned, len(cleaned) != len(base)
+
+
 def run_powershell(script: str, target: Path, runner: Runner, timeout: int, *,
                    required_field: str = "") -> dict:
     """Query Windows shell metadata for a path without interpolating it into the script.
@@ -164,7 +192,7 @@ def run_powershell(script: str, target: Path, runner: Runner, timeout: int, *,
     is what turns "UNKNOWN" into "UNKNOWN because ...".  A call that never returned -- a timed-out
     or unstartable shell -- is reported the same way rather than allowed to escape as a traceback.
     """
-    environment = dict(os.environ)
+    environment, module_path_dropped = windows_powershell_environment(dict(os.environ))
     environment["DRILLMASTER_TARGET_PATH"] = str(target)
     try:
         completed = runner(["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
@@ -200,6 +228,11 @@ def run_powershell(script: str, target: Path, runner: Runner, timeout: int, *,
     # to stderr: the record should report what the host returned rather than let a reader infer that
     # a printed payload implies a zero exit status.
     payload.setdefault("powershell_exit_code", completed.returncode)
+    # Stated on every parsed payload, because the launch environment is a fact about the *child*
+    # this function created and only this function knows it: when a future run reports that the
+    # Security module would not load, the record can say whether the isolation was applied rather
+    # than leaving the reader to reconstruct it from the workflow's shell.
+    payload.setdefault("powershell_module_path_isolated", module_path_dropped)
     if error_text:
         # A statement-level failure inside a script that still printed a payload used to be
         # invisible, because a parseable object was treated as a complete answer.
@@ -1632,7 +1665,12 @@ def run_signing(*, release_metadata_path: Path, runner: Runner = default_runner,
                # "usable" means the probe answered the question it was asked, which is not the same
                # as exiting 0: a payload that parsed but named no command told us nothing either way.
                "probe_usable": "error" not in probe and bool(probe.get("cmdlet")),
-               "probe_exit_code": probe.get("powershell_exit_code", 0)}
+               "probe_exit_code": probe.get("powershell_exit_code", 0),
+               # The host-side condition this run corrected: whether the Security module's type
+               # data could be processed at all depends on the module path the child inherited,
+               # so the record says the isolation ran instead of implying the question was asked
+               # in an environment nobody can see.
+               "module_path_isolated": bool(probe.get("powershell_module_path_isolated"))}
     if import_error:
         harness["security_module_import_error"] = import_error
     for key in ("error", "powershell_stderr"):
