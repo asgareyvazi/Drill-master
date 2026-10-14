@@ -284,13 +284,11 @@ def _release(root: Path, *, exe_bytes: bytes = b"installer-bytes", with_zip: boo
     return installer, metadata, digest
 
 
-def _run_module(root: Path, host: FakeHost, **overrides):
-    """`_run` under another name, for tests that need the module as well as the report."""
-    return _run(root, host, **overrides)
-
-
-def _run(root: Path, host: FakeHost, **overrides):
-    module = _evidence_module()
+def _run(root: Path, host: FakeHost, module=None, **overrides):
+    # `module` is injected rather than rebuilt for the tests that have to hook the reader itself: each
+    # call to `_evidence_module()` executes a *fresh* module object, so a monkeypatch installed on one
+    # instance is invisible to the run if the run loads another.
+    module = module or _evidence_module()
     installer, _, digest = _release(root / "release")
     options = {"installer": installer, "expected_sha256": digest, "app_version": "1.0.0",
                "work_root": root / "work", "runner": host, "poll_interval": 0.001,
@@ -1396,36 +1394,97 @@ def read_counter(monkeypatch):
     return counter
 
 
-def _failing_open(monkeypatch, target: Path, error: OSError, *, after_first: bool = False):
+class _VisibleOpen:
+    """The host's own Windows reader with the step *before an open* handed to the test.
+
+    Everything else stays real: the create, the identity calls, the final path, the close and the stream
+    all go to the helper the module bound, so the module's judgement is still what is being tested.  What
+    the test gains is the one moment a swap has to happen -- between the caller naming an object and the
+    operating system handing one back.
+    """
+
+    def __init__(self, api, hook):
+        self._api = api
+        self._hook = hook
+
+    def open_handle(self, path, *, directory):
+        replacement = self._hook(Path(path), directory)
+        return self._api.open_handle(path if replacement is None else replacement, directory=directory)
+
+    def __getattr__(self, name):
+        return getattr(self._api, name)
+
+
+def _ride_the_open_the_host_actually_uses(monkeypatch, module, hook) -> str:
+    """Install ``hook(path, directory) -> Path | None`` at the open the *running host's* reader makes.
+
+    A file inside a permitted root is not opened the same way on both platforms, and that difference has
+    already cost this suite its subject once: POSIX walks the components with ``os.open(..., dir_fd=...)``
+    while Windows asks kernel32 for the name through the reader's own ``open_handle``.  A fixture wired
+    only to ``os.open`` therefore fired nowhere on Windows -- four tests whose swap never happened, and
+    whose assertions then reported *that* instead of the behaviour they exist to pin (the Windows gate
+    said so: "the swap has to happen inside the read's own open, or nothing was tested").
+
+    On POSIX this installs nothing and returns the seam the caller's own double rides; on Windows it
+    returns the helper the module will call, so a test can say which seam it used rather than assume one.
+
+    The question asked is the *module's* view of the host -- the same `os.name` check its own `_open_binary`
+    makes -- not this file's, so a test that hands the module a Windows view of the platform gets the seam
+    that view selects.
+    """
+    if getattr(module.os, "name", os.name) != "nt":
+        return "os.open(dir_fd=...)"
+    real = module._win32_api()
+    assert real is not None, ("this host is Windows but the module reports no kernel32 helper, so the "
+                              "reader's own open cannot be intercepted and this test would prove nothing")
+    monkeypatch.setattr(module, "_win32_api", lambda: _VisibleOpen(real, hook))
+    return "kernel32 CreateFileW via _Win32HandleMetadata.open_handle"
+
+
+def _failing_open(monkeypatch, module, target: Path, error: OSError, *, after_first: bool = False):
     """Make the open of one specific path fail, which is the only deterministic way to test a race.
 
-    Both seams are patched because there are two ways the module can reach a file: by name, for a read
-    that claims no boundary, and through the anchored descriptor walk used inside a permitted root --
-    where the object is opened component by component relative to the root, never by the full name.
-    Patching only `io.open` would quietly turn a rooted assertion into a test of a path production no
-    longer takes, which is exactly how a check-then-use bug could survive its own regression test.
+    Every seam the module can reach this file through is patched, because there are three ways it reads:
+    by name for a read that claims no boundary, through the anchored descriptor walk inside a permitted
+    root (where the object is opened component by component relative to the root, never by the full name),
+    and on Windows through kernel32, which has no such walk.  Patching only `io.open` would quietly turn a
+    rooted assertion into a test of a path production no longer takes -- which is exactly how a
+    check-then-use bug could survive its own regression test, and what the gate run showed happening to
+    the Windows branch of this fixture.
     """
     real_open, real_os_open = io.open, os.open
     state = {"seen": 0}
 
+    def fires() -> bool:
+        state["seen"] += 1
+        return not after_first or state["seen"] > 1
+
     def wrapper(file, mode="r", *args, **kwargs):
-        if Path(str(file)) == target and "b" in str(mode):
-            state["seen"] += 1
-            if not after_first or state["seen"] > 1:
-                raise error
+        if Path(str(file)) == target and "b" in str(mode) and fires():
+            raise error
         return real_open(file, mode, *args, **kwargs)
 
     def os_wrapper(file, flags, mode=0o777, *args, **kwargs):
         # the anchored walk names the final component with a `dir_fd`; that is the only moment a rooted
         # read touches this file, so it is the only moment the double fires
-        if "dir_fd" in kwargs and str(file) == target.name:
-            state["seen"] += 1
-            if not after_first or state["seen"] > 1:
-                raise error
+        if "dir_fd" in kwargs and str(file) == target.name and fires():
+            raise error
         return real_os_open(file, flags, mode, *args, **kwargs)
+
+    def windows_hook(path, directory):
+        if directory or path.name != target.name or not fires():
+            return None
+        if isinstance(error, FileNotFoundError):
+            # The object goes away here and the operating system is left to report it, so what gets
+            # tested is the reader's own classification of the create's status -- the same finding the
+            # POSIX seam produces by raising, reached the way this platform reaches it.
+            path.unlink(missing_ok=True)
+            return None
+        raise error
 
     monkeypatch.setattr(io, "open", wrapper)
     monkeypatch.setattr(os, "open", os_wrapper)
+    _ride_the_open_the_host_actually_uses(monkeypatch, module, windows_hook)
     return state
 
 
@@ -1540,7 +1599,7 @@ def test_a_vanished_log_is_recorded_without_replacing_the_launch_error(tmp_path,
     log.write_text("Uninstall process started.\n", encoding="utf-8")
     # the existence check has already happened by the time the sampler opens the file, which is the
     # whole race: the open itself is what reports the file gone
-    seen = _failing_open(monkeypatch, log, FileNotFoundError(2, "No such file or directory"))
+    seen = _failing_open(monkeypatch, module, log, FileNotFoundError(2, "No such file or directory"))
     assert log.is_file() is True
     observed = module._bounded_tail(log, 6)
     assert seen["seen"] == 1, "the read was attempted once, then it was not there"
@@ -1562,7 +1621,7 @@ def test_an_unreadable_log_is_a_different_fact_from_a_missing_one(tmp_path, monk
     module = _evidence_module()
     log = tmp_path / "uninstall.log"
     log.write_text("secret-bearing content\n", encoding="utf-8")
-    _failing_open(monkeypatch, log, PermissionError(13, "Permission denied"))
+    _failing_open(monkeypatch, module, log, PermissionError(13, "Permission denied"))
     refused = module._bounded_tail(log, 6)
     assert refused["state"] == "unreadable" and refused["bytes_read"] == 0
     assert "PermissionError" in refused["reason"] and "errno=13" in refused["reason"]
@@ -1616,7 +1675,7 @@ def test_a_refusal_that_embeds_a_credential_in_its_message_stays_out_of_the_reco
     log = tmp_path / "install.log"
     log.write_text("Setup process started.\n", encoding="utf-8")
     token = "Super-Secret-TOKEN-9dbe6357c1c54954"
-    _failing_open(monkeypatch, log, PermissionError(13, f"blocked by https://user:{token}@host/blob?sig=x"))
+    _failing_open(monkeypatch, module, log, PermissionError(13, f"blocked by https://user:{token}@host/blob?sig=x"))
     observed = module._bounded_tail(log, 6, permitted_root=None)
     assert observed["state"] == "unreadable" and observed["bytes_read"] == 0
     assert "PermissionError" in observed["reason"] and "errno=13" in observed["reason"]
@@ -1910,16 +1969,30 @@ def test_a_sentinel_swapped_for_an_outside_link_does_not_certify_user_data(tmp_p
     outside.write_text("DRILLMASTER-LIFECYCLE-SENTINEL-PRESERVE\n", encoding="utf-8")
     state = {"swapped": 0}
 
+    def swap_once():
+        state["swapped"] += 1
+        target = tmp_path / "work" / "userdata" / "sentinel-preserve.txt"
+        target.unlink(missing_ok=True)
+        target.symlink_to(outside)
+
     def os_wrapper(file, flags, mode=0o777, *args, **kwargs):
         if "dir_fd" in kwargs and str(file) == "sentinel-preserve.txt" and not state["swapped"]:
-            state["swapped"] += 1
-            target = tmp_path / "work" / "userdata" / "sentinel-preserve.txt"
-            target.unlink(missing_ok=True)
-            target.symlink_to(outside)
+            swap_once()
         return real_os_open(file, flags, mode, *args, **kwargs)
 
+    def windows_hook(path, directory):
+        # The same swap, reached through the open this host's reader performs: on Windows there is no
+        # descriptor walk for `os.open` to intercept, and a fixture wired only to that seam left this
+        # test asserting a swap that had not happened ("the lifecycle never reached the sentinel read it
+        # was supposed to anchor" -- the Windows gate's own words).
+        if not directory and path.name == "sentinel-preserve.txt" and not state["swapped"]:
+            swap_once()
+        return None
+
     monkeypatch.setattr(os, "open", os_wrapper)
-    module, report = _run_module(tmp_path, FakeHost())
+    module = _evidence_module()
+    _ride_the_open_the_host_actually_uses(monkeypatch, module, windows_hook)
+    _, report = _run(tmp_path, FakeHost(), module=module)
     assert state["swapped"] == 1, "the lifecycle never reached the sentinel read it was supposed to anchor"
     assert report["status"] == "FAIL"
     step = _step(report, "user_data_preserved")
@@ -2349,14 +2422,15 @@ def test_a_not_run_record_stays_degenerate(tmp_path, mutation, fragment):
 # --- M42.9: handle-anchored confinement, a ceiling that cannot be raised, boundary truth ----------------
 
 
-def _swapping_open(monkeypatch, target: Path, replacement: Path):
+def _swapping_open(monkeypatch, module, target: Path, replacement: Path):
     """Re-point `target` at `replacement` at the exact moment the reader tries to open it.
 
     No sleeps and no threads: the swap is performed by the test double, inside the open call itself, so the
-    window between "the name was checked" and "the object was opened" is opened on demand.  Both seams are
-    hooked because the two designs open differently -- the reader that this mission replaced looked the full
-    name up through `io.open`, while the anchored reader opens the final component relative to the root's
-    descriptor -- and a fixture wired to only one of them would silently prove nothing when the design moved.
+    window between "the name was checked" and "the object was opened" is opened on demand.  Every seam the
+    reader can open this file through is hooked, for the reason :func:`_ride_the_open_the_host_actually_uses`
+    gives: POSIX opens the final component relative to the root's descriptor, Windows asks kernel32 for the
+    name -- and a fixture wired to only one of them fires nowhere on the other platform, which leaves the
+    assertions below reporting that the swap never happened instead of what the reader did about it.
 
     The returned dict counts swaps and, separately, every attempt to open `replacement` by name, so "the
     outside file was never touched" is a measurement rather than an inference from a reason string.
@@ -2387,8 +2461,19 @@ def _swapping_open(monkeypatch, target: Path, replacement: Path):
             state["outside_opens"] += 1
         return real_os_open(file, flags, mode, *args, **kwargs)
 
+    def windows_hook(path, directory):
+        # The name is re-pointed with a real symbolic link even here: the Windows reader opens the name it
+        # was given once and judges the handle afterwards, so a link planted at this instant is exactly the
+        # object it must refuse -- and refusing it is what the test then requires it to have done.
+        if not directory and path.name == target.name:
+            swap_once()
+        elif path.name == replacement.name:
+            state["outside_opens"] += 1
+        return None
+
     monkeypatch.setattr(io, "open", io_wrapper)
     monkeypatch.setattr(os, "open", os_wrapper)
+    _ride_the_open_the_host_actually_uses(monkeypatch, module, windows_hook)
     return state
 
 
@@ -2408,14 +2493,21 @@ def test_a_log_replaced_between_the_check_and_the_open_is_never_consumed(tmp_pat
     log.write_text("IN-ROOT setup line\n", encoding="utf-8")
     sentinel = tmp_path / "host-secret.log"
     sentinel.write_text("DO-NOT-PUBLISH outside credential content\n", encoding="utf-8")
-    swap = _swapping_open(monkeypatch, log, sentinel)
+    swap = _swapping_open(monkeypatch, module, log, sentinel)
 
     observed = module._bounded_tail(log, 6, permitted_root=root)
 
     assert swap["swapped"] == 1, "the swap has to happen inside the read's own open, or nothing was tested"
     assert observed["state"] == "skipped_unsafe_path", observed
     assert observed["tail"] == "" and observed["bytes_read"] == 0
-    assert "symbolic link" in observed["reason"]
+    if os.name == "nt":
+        # The Windows reader has no component walk to refuse in: it opened the name once and asked the
+        # handle where it really lives, so the refusal names the object that was reached -- the outside
+        # path -- rather than a link.  Either sentence is the same finding, and only one of them can be
+        # written by the host that produced it.
+        assert "resolves outside the permitted evidence root" in observed["reason"], observed["reason"]
+    else:
+        assert "symbolic link" in observed["reason"], observed["reason"]
     assert "DO-NOT-PUBLISH" not in json.dumps(observed), "outside content reached the published record"
     assert read_counter["bytes"] == 0, "a refused observation must not have consumed a single byte"
     assert swap["outside_opens"] == 0, "the sentinel was never even opened, by name or otherwise"
@@ -2444,7 +2536,7 @@ def test_the_uninstaller_digest_never_becomes_a_hash_of_the_object_the_name_reac
     exe.write_bytes(b"REAL-UNINSTALLER-BYTES")
     sentinel = tmp_path / "other.exe"
     sentinel.write_bytes(b"DO-NOT-PUBLISH")
-    swap = _swapping_open(monkeypatch, exe, sentinel)
+    swap = _swapping_open(monkeypatch, module, exe, sentinel)
 
     observed = module._observed_path(exe, hash_file=True, permitted_root=root)
 
@@ -2464,13 +2556,28 @@ def test_the_uninstaller_digest_never_becomes_a_hash_of_the_object_the_name_reac
     real_os_open = os.open
     state = {"swapped": 0}
 
+    def swap_regular_file_once():
+        if state["swapped"]:
+            return
+        state["swapped"] += 1
+        os.replace(second, exe)
+
     def os_wrapper(file, flags, mode=0o777, *args, **kwargs):
         if "dir_fd" in kwargs and str(file) == exe.name and not state["swapped"]:
-            state["swapped"] += 1
-            os.replace(second, exe)
+            swap_regular_file_once()
         return real_os_open(file, flags, mode, *args, **kwargs)
 
     monkeypatch.setattr(os, "open", os_wrapper)
+
+    def windows_hook(path, directory):
+        # Same moment, reached through the open this host's reader actually performs: a different regular
+        # file takes the name between the stat and the create, and the digest must still describe the
+        # object the handle reached.
+        if not directory and path.name == exe.name:
+            swap_regular_file_once()
+        return None
+
+    _ride_the_open_the_host_actually_uses(monkeypatch, module, windows_hook)
     after = module._observed_path(exe, hash_file=True, permitted_root=root)
     assert state["swapped"] == 1
     assert after["hash_state"] == "hashed"
@@ -2753,7 +2860,10 @@ def test_the_anchored_windows_open_accepts_the_object_the_name_denotes(tmp_path,
     root = tmp_path / "work"
     root.mkdir()
     log = root / "uninstall.log"
-    log.write_text("Uninstall process finished.\n", encoding="utf-8")
+    log.write_bytes(b"Uninstall process finished.\n")  # bytes, so the object holds exactly these bytes on
+    #                                                   every host: a text write would put CRLF on the
+    #                                                   Windows runner and the comparison below would be
+    #                                                   measuring the platform's newline, not the reader
     device_root = "\\\\?\\C:\\runner\\temp\\work"
     kernel32 = _DevicePathKernel32({root: device_root, log: f"{device_root}\\uninstall.log"})
     monkeypatch.setattr(module, "_win32_api", lambda: module._Win32HandleMetadata(kernel32))
@@ -2774,6 +2884,72 @@ def test_the_anchored_windows_open_accepts_the_object_the_name_denotes(tmp_path,
     with pytest.raises(module.AnchorRefusal) as refusal:
         module._open_binary_windows(log, root, None)
     assert refusal.value.state == "skipped_unsafe_path" and "link was followed" in refusal.value.reason
+
+
+class _HostNamedWindows:
+    """The `os` module with one field answered differently: the reader's own platform check.
+
+    Patching `os.name` itself is not available -- `pathlib` picks its flavour class from it at call time, so
+    on this host every `Path(...)` in the interpreter, pytest's own error reporting included, would become a
+    WindowsPath and raise.  This forwards every attribute to the real module and answers only the question
+    the reader's branch asks, which is what a test needs and nothing more.
+    """
+
+    name = "nt"
+
+    def __getattr__(self, attribute):
+        return getattr(os, attribute)
+
+
+def test_the_race_fixtures_fire_inside_the_open_the_reader_actually_makes(tmp_path, monkeypatch):
+    """The seam the Windows halves of the race fixtures ride, exercised where it can be.
+
+    Those fixtures hook `os.open(dir_fd=...)` on this host and the reader's own `open_handle` on Windows, and
+    the source gate cannot run the Windows half of that.  What it can run is the wiring, and the wiring is
+    where this went wrong: a hook that never fires leaves the assertions reporting that nothing happened,
+    which the Windows gate then read as the tests failing to prove their subject.  So with the reader taking
+    its Windows branch -- pointed at the scripted device-path helper -- the hook must fire at the reader's
+    open, the path it returns must be the object that actually gets opened, and an error it raises must
+    arrive at the module as the state that error means.
+    """
+    module = _evidence_module()
+    root = tmp_path / "work"
+    root.mkdir()
+    log = root / "uninstall.log"
+    log.write_bytes(b"IN-ROOT setup line\n")
+    other = root / "other.log"
+    other.write_bytes(b"ANOTHER OBJECT\n")
+    device_root = "\\\\?\\C:\\runner\\temp\\work"
+    kernel32 = _DevicePathKernel32({root: device_root, log: f"{device_root}\\uninstall.log",
+                                   other: f"{device_root}\\other.log"})
+    monkeypatch.setattr(module, "os", _HostNamedWindows())  # the reader's branch check, not a stand-in for it
+    monkeypatch.setitem(sys.modules, "msvcrt", _PosixOsfHandle(kernel32))
+    monkeypatch.setattr(module, "_win32_api", lambda: module._Win32HandleMetadata(kernel32))
+
+    seen: list[tuple[str, bool]] = []
+
+    def redirect(path, directory):
+        seen.append((path.name, directory))
+        return other if path.name == "uninstall.log" else None
+
+    seam = _ride_the_open_the_host_actually_uses(monkeypatch, module, redirect)
+    assert seam == "kernel32 CreateFileW via _Win32HandleMetadata.open_handle"
+    observed = module._bounded_tail(log, 6, permitted_root=root)
+    assert seen and seen[-1] == ("uninstall.log", False), (
+        "the hook has to fire at the reader's own open of the named object, not at the root's")
+    assert observed["state"] == "skipped_unsafe_path", observed
+    assert observed["bytes_read"] == 0 and observed["tail"] == ""
+    assert "the named path reached a different object" in observed["reason"], observed["reason"]
+    assert "ANOTHER OBJECT" not in json.dumps(observed)
+
+    def refuse(path, directory):
+        if not directory and path.name == "uninstall.log":
+            raise FileNotFoundError(2, "No such file or directory")
+        return None
+
+    _ride_the_open_the_host_actually_uses(monkeypatch, module, refuse)
+    vanished = module._bounded_tail(log, 6, permitted_root=root)
+    assert vanished["state"] == "absent" and vanished["bytes_read"] == 0, vanished
 
 
 class _ScriptedKernel32:
