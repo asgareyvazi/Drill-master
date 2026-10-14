@@ -1569,6 +1569,48 @@
         "every external acceptance that has not been run: clean-machine install, upgrade, operator and business acceptance, real DDR PDF/XLSX, real MinerU, production database",
         "the product-scope boundaries recorded for casing, torque and drag, anti-collision, production torque and drag and cement laboratory design"
       ]
+    },
+    "the_windows_host_answered_once_its_launch_environment_was_corrected": {
+      "appended_on": "2026-10-14",
+      "what_this_settles": "the previous entry recorded a root cause that had been identified and corrected but not yet observed on a Windows host, and said the confirmation would be a run whose `security_module_import` is the import outcome and whose per-file rows are determinate.  That run exists, and this is what it published",
+      "the_run": {
+        "commit": "6f34bfa25ca415aa7f770a29aff2a6c1d5fb70ab",
+        "gates": "both mandatory gates succeeded for that exact `head_sha`: the Source release gate on Python 3.11, 3.12 and 3.13, and the Windows release validation with every declared step 1-11 successful, the regression suite at 771 passed of 774 collected with 3 platform skips, and the installed-application lifecycle at PASS",
+        "signing_annotation_verbatim": "`UNSIGNED; ps=5.1.20348.5622 cmdlet=available security_module_import=succeeded; DrillMaster-1.0.0-Setup.exe=UNSIGNED/NotSigned [The file ... is not digitally signed...]; DrillMaster.exe=UNSIGNED/NotSigned [The file ... is not digitally signed...]; DrillMaster-1.0.0-windows-x64.zip=NOT_APPLICABLE [container archive; Authenticode applies to the executables it carries]`",
+        "the_before_and_after_on_one_host": "the Windows PowerShell version is the same string every earlier run reported, `5.1.20348.5622`.  The change is not the image and not the toolchain: the module now imports and the cmdlet now resolves, which is what the corrected launch environment predicted and what the image alone could not have produced"
+      },
+      "the_transition_it_establishes": {
+        "aggregate": "UNKNOWN -> UNSIGNED",
+        "per_file": "both executables moved from `UNKNOWN` with an availability reason to `UNSIGNED` with raw status `NotSigned`, which is the determinate state the vocabulary reserved for a real no-signature observation",
+        "and_nothing_was_promoted_to_get_there": "no missing command was converted into `UNSIGNED`; the query genuinely ran and the host genuinely answered.  The container row stays `NOT_APPLICABLE`, and the `Signature state needs review` warning that used to accompany `UNKNOWN` is absent, which is the recorded policy behaving as designed: `UNSIGNED` is a configuration fact, not a malfunction",
+        "what_it_still_does_not_mean": "`UNSIGNED` is not a trust verdict and not a distribution decision.  It says the shipped executables carry no Authenticode signature, which was already the intentional build configuration.  Owner decision A -- obtaining a signing identity -- is untouched, SmartScreen reputation remains unaddressed, and nothing here is `RELEASE-APPROVED`"
+      },
+      "manifests_and_digests_the_run_published": {
+        "installer": {
+          "filename": "DrillMaster-1.0.0-Setup.exe",
+          "size_bytes": 83218107,
+          "sha256": "19a85ce8505219b27f08fbf116d979350838be3ff060e55622edae93476dc100"
+        },
+        "portable_zip": {
+          "filename": "DrillMaster-1.0.0-windows-x64.zip",
+          "size_bytes": 119941399,
+          "sha256": "df668aa139f76df352b24be22054529fe520d36fd86fd4dfb2ea71c9213ffa0a"
+        },
+        "python": "3.12.10",
+        "pyinstaller": "6.11.1",
+        "innosetup": "6.7.1 read back from the installed package specification",
+        "regression_suite": "771 passed of 774 collected, 3 platform skips, 0 failed, 0 errors",
+        "installed_lifecycle_status": "PASS",
+        "signing_status": "UNSIGNED",
+        "artifact_container": "the uploaded artifact is named `drillmaster-windows-<full source sha>`; its bytes were not downloaded by this workspace, so `artifact_bytes` stays `NOT_VERIFIED` and these digests are attributable to the run that published them"
+      },
+      "what_changed_in_these_records_because_of_it": {
+        "REL-03": "its pass condition is met for this candidate -- a determinate aggregate readable from the annotation, with the harness fields beside it -- and the register records that, while the earlier records keep their own `UNKNOWN` verdicts for the environments that produced them",
+        "owner_decision_B": "the condition it names is satisfied by this candidate's evidence; what remains is the owner's acknowledgement rather than any work in this repository",
+        "REL-13": "unchanged and still `OPEN`: this run is a further lifecycle pass on a different SHA, and the register requires a re-run of the failing SHA itself or an explanation, neither of which this provides",
+        "REL-04": "unchanged and still `NOT_VERIFIED`; the transport blocker is unaffected by this run",
+        "owner_decision_A": "unchanged and untouched: the build has no signing identity to use"
+      }
     }
   }
 }
