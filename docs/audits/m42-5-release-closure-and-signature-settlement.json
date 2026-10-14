@@ -1448,6 +1448,70 @@
       "the_last_two_reads": "the two diagnostic reads that named only a path -- the installer-log tail on the absent-uninstaller branch, and the uninstall log inside the uninstall step -- now carry the run's own root identity, so the boundary claim is true of every read a lifecycle performs and not of all but the last ones.",
       "what_this_does_not_establish": "no Windows host has yet executed this declaration: the correction is published in the commit that carries this key, and whether it clears the Windows gate is for the exact-SHA run that follows to say.  A repository record cannot attest to the run its own push triggers, so that read-back lives in the session deliverables rather than here.",
       "guards": "tests/test_windows_release_evidence.py pins the size, the offsets, the widths, the refusal of a wrong-sized declaration, the file-index-not-a-timestamp read, the pointer declaration on every handle-taking call, and the root identity surviving work done inside the root; tests/test_windows_release_gate_contract.py pins that every lifecycle log read names the root identity it is confined to.  Each was shown failing against the declaration and the call sites this key describes."
+    },
+    "windows_gate_green_on_the_fix_and_the_artifact_it_published": {
+      "appended_on": "2026-10-14",
+      "why_this_is_appended_inside_this_key": "the key above ends by saying that no Windows host has yet executed the corrected declaration and that the read-back of whether it clears the gate belongs to the session deliverables rather than to this file.  The run has now answered, so the answer is recorded beside the claim it verifies instead of standing apart from it.  Nothing above is rewritten: the undetermined-cause sentence, the frame tally and the redaction-path finding stay exactly where they were published.",
+      "the_two_commits_that_carried_the_windows_fixes": {
+        "79ca2fc": "the anchored-open expectation is joined with exactly one separator (`_join_device_path`), the refusal names how far two spellings agreed as counts without echoing host text, the user-data sentinel is written as bytes rather than through a text write, and the abort note is sized on its escaped form with the headline never clipped",
+        "6bae9ad": "the race fixtures fire at the open the reader actually performs on each platform -- `_VisibleOpen` for the kernel32 route, `os.open(dir_fd=...)` for the POSIX walk -- and the device-path read compares bytes rather than the platform's line ending"
+      },
+      "source_release_gate_on_the_tip": {
+        "conclusion": "success",
+        "head_sha": "6bae9ad90c0d1148a1fe9d8f5c71679cc9ad2b5f",
+        "matrix": "source (3.11) success, source (3.12) success, source (3.13) success",
+        "identifiers": "the run number, run id and job ids are runtime facts and are not committed here; they are named in the session handoff and in the generated acceptance report, per the uncommitted-run-identifier rule this repository guards",
+        "how_to_reproduce_the_lookup": "query the Source release gate workflow for runs whose head_sha equals the commit above; the list returns the one push-triggered run for it, and every matrix job and step is success"
+      },
+      "windows_release_validation_on_the_tip": {
+        "conclusion": "success",
+        "head_sha": "6bae9ad90c0d1148a1fe9d8f5c71679cc9ad2b5f",
+        "steps": "1-11 all success: setup, checkout, setup-python, the pinned Inno Setup install, the locked test runtime, the Windows database/import/auth/packaging regression suite, the portable bundle and installer build with the frozen executable smoke, the installed-application lifecycle smoke, the Authenticode status recording, the machine-readable acceptance report, and the evidence upload",
+        "regression_suite": "767 passed of 770 collected, 3 skipped, 0 failed, 0 errors.  The skips are the packaging smoke without a Windows bundle in that environment, the test that proves the non-Windows refusal, and the POSIX-only FIFO object case; each was already an explicit platform skip, none was introduced by these fixes",
+        "why_this_is_the_run_that_matters": "every exact-SHA Windows run from 54292711 through 74bf1c4 had failed at the regression suite, and the failure this mission root-caused refused every anchored read inside the permitted root, so the lifecycle never reached a real read on any of them.  This run reaches them and passes",
+        "the_run_between_the_two_commits": "the Windows run for 79ca2fc completed failure with 5 failures and 0 errors across 769 tests, all five inside the Windows release test module: four fault-injection fixtures whose swap never fired because they were wired only to `os.open`, and one byte comparison that read back the runner's own CRLF line ending.  Those five are what 6bae9ad corrects, and the number of lifecycle-read failures in that run is zero",
+        "identifiers": "run number, run id, job id and artifact id are runtime facts and are not committed here; the session handoff names them, and the acceptance report the run generated carries its own"
+      },
+      "published_manifest_identity_quoted_from_the_run_annotation": {
+        "source_sha": "6bae9ad90c0d1148a1fe9d8f5c71679cc9ad2b5f",
+        "app_version": "1.0.0",
+        "python": "3.12.10",
+        "pyinstaller": "6.11.1",
+        "innosetup": "6.7.1 read back from the installed package specification",
+        "installer": {
+          "filename": "DrillMaster-1.0.0-Setup.exe",
+          "size_bytes": 83220492,
+          "sha256": "ef26836569fc04dc28cbf57291aba5d369bab6a2425f9cdb6bcee8fefe2bc8ce"
+        },
+        "portable_zip": {
+          "filename": "DrillMaster-1.0.0-windows-x64.zip",
+          "size_bytes": 119941399,
+          "sha256": "0d926d4f5cff318be0f7909f4713f30c9d26f604cf555ed55d9473c1ca7e1a0b"
+        },
+        "installed_lifecycle_status": "PASS",
+        "signing_status": "UNKNOWN",
+        "artifact_size_bytes": 321670574,
+        "how_these_values_were_obtained": "read from the `Windows release manifest` job annotation the acceptance step published, which is the same digest set the report carries; the artifact's own bytes were not downloaded by this session, so they remain NOT_VERIFIED here and the digests are attributable to the run rather than re-hashed by the session",
+        "artifact_name_convention": "the uploaded artifact is named `drillmaster-windows-<full source sha>`, so the reader derives its name from the commit instead of reading a committed identifier"
+      },
+      "what_this_run_establishes": [
+        "the Windows anchored open performs real reads inside the permitted root, for logs, for the uninstaller digest and for the user-data sentinel, on the platform whose spelling the comparison was written against",
+        "the installed-application lifecycle reaches PASS on Windows: silent install, installed payload and version, frozen smoke, no writes inside {app}, silent uninstall, application files gone, user data preserved",
+        "the acceptance contract accepted the evidence it was given, which is why the acceptance step and the upload step both concluded success rather than being skipped by an earlier failure",
+        "the shared test suite is green on the Windows host as well: the five failures of the run before were the suite's own platform assumptions, and correcting them did not require weakening an assertion"
+      ],
+      "what_this_run_does_not_establish": {
+        "artifact_bytes": "NOT_VERIFIED by this session: the digests above are what the run published, and the artifact blob endpoint is unreachable from this sandbox, so nobody here has re-hashed the published bytes",
+        "signing": "UNKNOWN, and the cause is stated by the run: the Authenticode cmdlet is unavailable in that PowerShell host, so even the determinate UNSIGNED value is not recorded yet.  Owner decision B names exactly this closure condition and it remains open",
+        "reproducible_build": "NOT_CLAIMED: one build per run, no second independent build compared",
+        "operator_and_operations": "clean-machine install, upgrade, interactive acceptance, SmartScreen reputation, real MinerU/PDF extraction, real DDR workbook and production-database acceptance: all NOT_RUN",
+        "release_approval": "a green pair of repository gates on one SHA is a repository result.  It is not release approval, and this file does not promote it into one"
+      },
+      "external_positions_after_this_run": {
+        "REL-13": "OPEN, unchanged; this run is evidence about it, not a closure of it",
+        "REL-04": "OPEN for the current artifact; the byte-level read still has not succeeded",
+        "M42_1_and_M42_2": "the blocking condition the living summary named -- the candidate source and the applicable Windows workflow both passing on the same exact SHA -- is satisfied on this SHA, so the posture it defines for that case applies; the external acceptance it names as pending does not become pending any less"
+      }
     }
   }
 }
