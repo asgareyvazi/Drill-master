@@ -1696,7 +1696,15 @@
       },
       "why_the_row_stays_open": "the register's condition is verbatim `it stays open until the same SHA is re-run green or the instability is explained`.  The SHA has not been re-run - the only actor who can do it is a repository administrator with Actions permission - and no privileged explanation exists.  Successor runs, however many, are evidence about the code and are recorded as that",
       "the_incident_evidence_as_it_stands": "steps `silent_install`, `installed_files`, `installed_version`, `installed_smoke` and `data_outside_install_dir` each `PASS`; `silent_uninstall` `FAIL` with `unins000.exe` listed before launch and refused by the operating system (`FileNotFoundError`, `errno=2`, `winerror=2`), the uninstall log present, and the install tree holding 0 file(s) - the register's own shape for a tree emptied by a real uninstall, which is why the record says an uninstall completed without the launch the gate made being attributable",
-      "the_single_remaining_action": "a repository administrator re-runs that run, or the infrastructure owner supplies the runner-side explanation (file-system audit or Defender record for the work-root path).  No protection, retry, threshold or assertion was relaxed, and none will be"
+      "the_single_remaining_action": "a repository administrator re-runs that run, or the infrastructure owner supplies the runner-side explanation (file-system audit or Defender record for the work-root path).  No protection, retry, threshold or assertion was relaxed, and none will be",
+      "recurrence_on_2026_10_17": {
+        "sha": "2891f0f87bdb1100b503c052399dea993e048a66",
+        "delta_from_the_previous_green_tip": "documentation plus one regression test; no production code",
+        "what_failed": "step 8, the installed-application lifecycle smoke.  Steps 1-5 of the lifecycle recorded `PASS`, then `silent_uninstall` `FAIL` with `unins000.exe` listed before launch and refused (`FileNotFoundError`, `errno=2`, `winerror=2`), the uninstall log present and the install tree already holding 0 file(s)",
+        "what_passed": "the Windows regression suite at 772 of 775 with three explicit platform skips and no failures or errors, the bundle and installer build with the frozen-executable smoke, the Authenticode step (determinate `UNSIGNED`, Security module imported, cmdlet available), the acceptance report and the upload",
+        "what_it_means": "the same shape has now failed two different SHAs of one code line, each with a records-only or documentation-only delta from a tip that passed.  That is consistent with an intermittent runner condition and not with a defect introduced by either commit - but it is evidence, not an explanation, so REL-13 stays `OPEN`",
+        "what_was_not_done": "nothing was relaxed to obtain a green run: the retry count, the launch path, the anchoring, the cleanup checks and the lifecycle conclusion rule are unchanged.  The failed run is preserved as a failed gate for its SHA and is not re-described"
+      }
     }
   }
 }
