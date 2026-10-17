@@ -1611,6 +1611,92 @@
         "REL-04": "unchanged and still `NOT_VERIFIED`; the transport blocker is unaffected by this run",
         "owner_decision_A": "unchanged and untouched: the build has no signing identity to use"
       }
+    },
+    "independent_artifact_verification_of_the_current_candidate_adopted_with_its_own_provenance": {
+      "appended_on": "2026-10-17",
+      "why_this_belongs_here": "REL-04 has twice been recorded as open because this workspace could not reach the artifact blob host.  A reviewer working in a separate environment downloaded the bytes and verified them, and that result satisfies the register's pass condition literally.  Adopting it is the point; pretending this repository produced it is not.",
+      "scope": {
+        "source_sha": "ead0c7982b3b703622127006bf60c4451fe6027e",
+        "artifacts_covered": "one artifact of one source SHA only",
+        "what_it_does_not_cover": "any earlier or later artifact, including the artifacts of the SHAs that preceded this one; those keep the verdicts they were recorded with"
+      },
+      "provenance": {
+        "where_it_was_performed": "a separate review environment on 2026-10-17, not this repository's CI and not the Arena workspace",
+        "how_the_bytes_were_obtained": "the reviewer downloaded the uploaded artifact of the Windows release validation run associated with the source SHA above",
+        "what_this_workspace_did_instead": "it re-read GitHub's live artifact metadata and the run's manifest annotation and confirmed that every figure below agrees with both.  That is corroboration of the claim's consistency, not an independent hash of the bytes, and it is recorded as the weaker thing it is",
+        "arena_transport_position_unchanged": "the API answers `303` with a signed `*.blob.core.windows.net` URL; the TCP connection succeeds and the TLS handshake is terminated with `OpenSSL SSL_connect: SSL_ERROR_SYSCALL`, `curl` exit 35 and zero bytes received, while `api.github.com` answers `200` in the same shell.  No Arena-local download is claimed anywhere in this record",
+        "no_execution": "no contained executable was run as part of the verification"
+      },
+      "the_bytes_that_were_measured": {
+        "outer_archive": {
+          "size_bytes": 321676808,
+          "recomputed_sha256": "aade53e1eefd32db0ebd94b75ebd246b379cbd4c170e545d2a4424fd38377151",
+          "equals_github_advertised_digest": true
+        },
+        "installer": {
+          "filename": "DrillMaster-1.0.0-Setup.exe",
+          "size_bytes": 83226528,
+          "recomputed_sha256": "4089052d006746410d3c8ce3e8e98135c695b43f2cdf82b6fa5573f6fde0b581",
+          "equals_manifest_and_annotation": true
+        },
+        "portable_zip": {
+          "filename": "DrillMaster-1.0.0-windows-x64.zip",
+          "size_bytes": 119941399,
+          "recomputed_sha256": "0e98babd5374ab3af9f589ca6b282f2bcd5bbc043dd538c7dc7b18a1175ab1d8",
+          "equals_manifest_and_annotation": true
+        },
+        "embedded_executable": {
+          "size_bytes": 21218228,
+          "sha256": "18b46c957dc6bfbe482699481e40ef33266b808c1259cc560143e4282247284e",
+          "bound_by": "the `signing-status.json` row that ties the executable to that archive"
+        }
+      },
+      "archive_safety_and_checksum_reconciliation": {
+        "outer_members": 1238,
+        "portable_members": 1236,
+        "crc": "both archives passed a full CRC test",
+        "unsafe_members": "none: no absolute paths, no parent traversal, no symlink, device or FIFO entries, no exact duplicate names and no case-fold collisions",
+        "workflow_sidecars": "the four `DrillMaster-M42-tests-*` and `DrillMaster-build-transcript-*` files outside the release directory are declared workflow evidence, and are not counted as unexpected members",
+        "sha256sums": "exactly the two rows the manifest declares; both matched the recomputed digests; no missing, malformed or extra rows, so there is no `SUMS DIFFERENCE`",
+        "executable_members": "exactly one `DrillMaster.exe` candidate inside the portable archive"
+      },
+      "cross_record_reconciliation": {
+        "release_metadata_sha256": "eee9d57ceca41b897eb13406f0d52e14584ed5551349cec60360d2fc6a9d4e67",
+        "signing_record_binds_that_digest": true,
+        "acceptance_report_signing_evidence_binds_the_same_digest": true,
+        "all_three_name_the_intended_source_sha": true,
+        "acceptance_report_lifecycle": "PASS",
+        "installer_lifecycle_steps": "all nine PASS",
+        "signing_aggregate": "UNSIGNED, determinate, with the Security module imported and the cmdlet available",
+        "external_acceptance_fields": "still NOT_RUN in the acceptance report",
+        "junit_agreement": "the Windows test report and the JUnit XML agree at 774 collected / 771 passed / 0 failed / 0 errors / 3 skipped",
+        "integrity_checks_passed": "20 of 20 in the reviewer's machine-readable report"
+      },
+      "what_changes_because_of_it": {
+        "REL-04": "pass condition met for this SHA and this artifact only.  The earlier `NOT_VERIFIED` statements stay exactly where they were written, because each was true of the bytes available at the time",
+        "the_ci_report": "`acceptance-report.json` is not rewritten.  It was generated during the build, before any external download existed, and its `independent_reverification=NOT_VERIFIED` was correct for its own generation moment.  A later external result supersedes that state for the verified artifact without changing what the report said",
+        "the_register_arithmetic": "unchanged: this is an acceptance evidence item, not an M36/P6 record"
+      },
+      "what_it_still_does_not_establish": [
+        "that the shipped executables are signed, trusted or free of SmartScreen friction: the aggregate is `UNSIGNED` and owner decision A is untouched",
+        "that any other artifact is verified, including the artifacts of the preceding SHAs",
+        "that clean-machine install, upgrade, operator acceptance, real DDR PDF/XLSX, real MinerU or production database acceptance has been performed - the acceptance report's own external fields still say `NOT_RUN`",
+        "that this repository can reach the artifact host: it still cannot, and the next artifact will need the same external step"
+      ]
+    },
+    "the_exact_sha_rerun_was_attempted_and_the_platform_refused_it": {
+      "appended_on": "2026-10-17",
+      "the_failing_sha": "9f7f47f06c90f6bb9787a52dc5af241756428bdc",
+      "what_was_attempted": "both documented rerun paths were called against the failing run itself, with the current authorized credential",
+      "what_came_back": {
+        "POST rerun": "403 Resource not accessible by integration",
+        "POST rerun-failed-jobs": "403 Resource not accessible by integration",
+        "side_effects": "none: the run still reads `completed`, `failure`, `run_attempt=1`, and its `updated_at` is unchanged, so no attempt was created and nothing was re-executed",
+        "the_cli_wording_explained": "`gh run rerun` reports `cannot be rerun; its workflow file may be broken`, which is the CLI's reading of the refusal rather than a statement about the workflow: the same workflow file runs successfully for every other SHA, and the API response names the permission.  The record keeps the API's wording so a later reader does not go looking for a broken workflow"
+      },
+      "why_the_row_stays_open": "the register's condition is verbatim `it stays open until the same SHA is re-run green or the instability is explained`.  The SHA has not been re-run - the only actor who can do it is a repository administrator with Actions permission - and no privileged explanation exists.  Successor runs, however many, are evidence about the code and are recorded as that",
+      "the_incident_evidence_as_it_stands": "steps `silent_install`, `installed_files`, `installed_version`, `installed_smoke` and `data_outside_install_dir` each `PASS`; `silent_uninstall` `FAIL` with `unins000.exe` listed before launch and refused by the operating system (`FileNotFoundError`, `errno=2`, `winerror=2`), the uninstall log present, and the install tree holding 0 file(s) - the register's own shape for a tree emptied by a real uninstall, which is why the record says an uninstall completed without the launch the gate made being attributable",
+      "the_single_remaining_action": "a repository administrator re-runs that run, or the infrastructure owner supplies the runner-side explanation (file-system audit or Defender record for the work-root path).  No protection, retry, threshold or assertion was relaxed, and none will be"
     }
   }
 }

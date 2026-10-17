@@ -847,6 +847,21 @@ def test_windows_powershell_never_starts_with_the_parents_module_path(monkeypatc
         "the record must say the isolation ran, so a future cmdlet=missing is attributable")
 
 
+def test_the_isolation_does_not_reach_back_into_the_parent_process(monkeypatch, tmp_path):
+    """The child is isolated; the process that started it is not.
+
+    Removing the variable from `os.environ` would "work" for this one query and then quietly break every
+    other subprocess the same Python process starts afterwards -- including, in a real run, the installer and
+    the uninstaller.  The isolation has to be a property of the child environment this function builds, so the
+    parent environment is asserted to be untouched after the call.
+    """
+    module = _evidence_module()
+    monkeypatch.setenv("PSModulePath", r"C:\Program Files\PowerShell\7\Modules")
+    module.run_powershell(module.SIGNING_PROBE_SCRIPT, tmp_path, FakeHost(), 5)
+    assert os.environ.get("PSModulePath") == r"C:\Program Files\PowerShell\7\Modules", (
+        "the parent's module path must survive; only the child is isolated")
+
+
 def test_a_host_that_never_had_a_module_path_says_so_instead(monkeypatch, tmp_path):
     """The flag is an observation, not an assumption about what the parent looked like.
 
