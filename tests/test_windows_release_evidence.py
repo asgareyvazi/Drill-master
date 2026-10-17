@@ -67,7 +67,9 @@ class FakeHost:
                  uninstall_log_text: str = "", empty_install_dir_on_refusal: bool = False,
                  uninstaller_lock_clears_after: float | None = None,
                  module_import_result: str | None = "succeeded", module_import_error: str = "",
-                 probe_omits_cmdlet: bool = False):
+                 probe_omits_cmdlet: bool = False,
+                 process_probe: dict | None = None, defender_probe: dict | None = None,
+                 system_probe_fails: bool = False):
         self.install_exit_code = install_exit_code
         self.uninstall_exit_code = uninstall_exit_code
         self.product_version = product_version
@@ -93,6 +95,10 @@ class FakeHost:
         self.module_import_result = module_import_result
         self.module_import_error = module_import_error
         self.probe_omits_cmdlet = probe_omits_cmdlet
+        self.process_probe = process_probe
+        self.defender_probe = defender_probe
+        self.system_probe_fails = system_probe_fails
+        self.system_probe_calls = 0
         self.unlaunchable_uninstall_attempts = unlaunchable_uninstall_attempts
         self.unlink_uninstaller_on_refusal = unlink_uninstaller_on_refusal
         self.take_away_install_dir_before_launch = take_away_install_dir_before_launch
@@ -114,6 +120,19 @@ class FakeHost:
             script = argv[-1]
             target = str((environment or {})["DRILLMASTER_TARGET_PATH"])
             assert target, "the queried path must be passed out of band, never interpolated"
+            if "Get-CimInstance Win32_Process" in script or "Get-WinEvent" in script:
+                # The two M42.13 probes.  A host that cannot answer at all is a supported
+                # configuration, not a broken fixture: the point of these knobs is that the
+                # lifecycle conclusion is identical whether they answer or not.
+                self.system_probe_calls += 1
+                if self.system_probe_fails:
+                    return SimpleNamespace(returncode=1, stdout="", stderr="probe unavailable on this host")
+                if "Get-CimInstance Win32_Process" in script:
+                    payload = self.process_probe or {"state": "ok", "matched": 0, "processes": []}
+                else:
+                    payload = self.defender_probe or {"state": "no_events", "events": [],
+                                                      "channel_enabled": True, "window_minutes": 10}
+                return SimpleNamespace(returncode=0, stdout=json.dumps(payload), stderr="")
             if "Get-Command Get-AuthenticodeSignature" in script:
                 # The capability probe, answered before any file is queried.  The import result and
                 # the command lookup are reported from separate knobs on purpose: a host that says
@@ -1394,9 +1413,15 @@ def test_the_launch_error_codes_come_from_the_exception(tmp_path):
     assert detail.startswith("PermissionError"), detail
     assert "launch=PermissionError (errno=5,winerror=5)" in detail, detail
     sample = _forensics(report, "launch_error_PermissionError")
-    assert sample["launch_error"] == {"class": "PermissionError", "errno": 5, "winerror": 5,
-                                      "filename": str(target), "filename2": "",
-                                      "message": str(refusal)[:300]}
+    launch_error = dict(sample["launch_error"])
+    # Where the exception was raised is checked as its own fact and then set aside, because the
+    # remaining six fields are the ones the acceptance record's contract names and they are still
+    # compared exactly: this test must not become a subset check just because a field was added.
+    assert launch_error.pop("raised_in").startswith("test_windows_release_evidence.py:"), launch_error
+    assert "-->" not in launch_error.pop("call_chain"), "the call chain is a file:line list, not prose"
+    assert launch_error == {"class": "PermissionError", "errno": 5, "winerror": 5,
+                            "filename": str(target), "filename2": "",
+                            "message": str(refusal)[:300]}
     assert "uninstall_launch_notes" not in report, "a non-retryable refusal must not look like a retry"
 
 
@@ -3632,3 +3657,216 @@ def test_a_log_that_grows_past_the_measured_end_keeps_the_newest_measured_bytes(
     shrunk = module._bounded_tail(log, 4, byte_limit=size - 7)
     assert shrunk["state"] == "unreadable" and shrunk["bytes_read"] == 0
     assert shrunk["tail"] == "" and "shrank" in shrunk["reason"]
+
+
+# --- M42.13: the window between "the uninstaller is listed" and "it cannot be launched" ---------------
+#
+# Every test below exists because the lifecycle failure of 2026-10-14 and 2026-10-17 has one shape: the
+# install tree is populated after the application runs, the uninstaller is listed a moment before the
+# launch, and the next observation shows the tree emptied, the uninstaller gone and an uninstall log
+# written.  The samples could describe the states but not attribute them, so these tests pin the three
+# observations that can: who was running, what the security channel recorded, and which executable wrote
+# the log.  None of them may change the conclusion, and the last test pins that in the strongest form
+# available -- the same failure, with and without the probes.
+
+
+def test_the_log_head_names_the_executable_that_wrote_it(tmp_path):
+    """The head is read through the same anchored handle as the tail, and a clipped line is dropped."""
+    root = tmp_path / "work"
+    root.mkdir()
+    log = root / "uninstall.log"
+    log.write_text("Log opened. (Time zone: UTC)\n"
+                   "Original Setup EXE: D:\\work\\install\\unins000.exe\n"
+                   "Setup command line: /SLIENT /LOG=...\n"
+                   "Deleting file: D:\\work\\install\\DrillMaster.exe\n", encoding="utf-8")
+    head = _evidence_module()._bounded_head(log, lines=3, permitted_root=root)
+    assert head["state"] == "ok"
+    assert "Original Setup EXE" in head["head"], "the line that names the executable is in the head"
+    assert head["lines_returned"] == 3
+    assert "Deleting file" not in head["head"], "three lines were asked for, and three were returned"
+
+    clipped = _evidence_module()._bounded_head(log, lines=4, byte_limit=64, permitted_root=root)
+    assert clipped["state"] == "ok"
+    assert clipped["window_clipped_last_line"] is True, "a windowed read must say its last line was a fragment"
+    assert "DrillMaster.exe" not in clipped["head"], "a half command line reads like a real one; it is not published"
+
+
+def test_the_log_head_reports_absence_and_refusal_instead_of_raising(tmp_path):
+    """An absent log and a log outside the permitted root are published states, not exceptions."""
+    root = tmp_path / "work"
+    root.mkdir()
+    absent = _evidence_module()._bounded_head(root / "uninstall.log", permitted_root=root)
+    assert absent["state"] == "absent" and absent["head"] == ""
+
+    (root / "empty.log").write_bytes(b"")
+    empty = _evidence_module()._bounded_head(root / "empty.log", permitted_root=root)
+    assert empty["state"] == "empty" and empty["head"] == ""
+
+    outside = tmp_path / "elsewhere.log"
+    outside.write_text("this file is not inside the work root\n", encoding="utf-8")
+    refused = _evidence_module()._bounded_head(outside, permitted_root=root)
+    assert refused["state"] != "ok" and refused["head"] == ""
+    assert refused["reason"], "a refusal must carry its reason"
+
+
+def test_the_log_head_is_published_for_both_lifecycle_logs(tmp_path):
+    """The head is read for both logs, and it distinguishes an absent log from a written one.
+
+    At `pre_launch` the uninstaller has not been asked to run, so there is no uninstall log -- and the
+    record says so rather than leaving the field blank.  By the refusal the log exists, and its head
+    is the only place that names the executable which wrote it.
+    """
+    report = _lifecycle(tmp_path, FakeHost(unlaunchable_uninstall_attempts=2,
+                                           uninstall_log_text="Original Setup EXE: unins000.exe\nDeleting file\n"))
+    before = _forensics(report, "pre_launch")
+    assert before["uninstall_log"]["read_head_state"] in {"absent", "empty"}, before["uninstall_log"]
+    assert before["uninstall_log"]["head"] == ""
+    after = _forensics(report, "after_refusal_1")
+    assert "Original Setup EXE" in after["uninstall_log"]["head"]
+    assert after["uninstall_log"]["read_head_state"] == "ok"
+    assert after["install_log"]["read_head_state"] == "ok", "the installer's own log is read the same way"
+
+
+def test_the_system_probes_are_recorded_at_the_two_decisive_samples(tmp_path):
+    """The probes ride on `pre_launch` and the first refusal, and nowhere else."""
+    host = FakeHost(unlaunchable_uninstall_attempts=2,
+                    process_probe={"state": "ok", "matched": 1, "processes": [
+                        {"pid": 42, "ppid": 7, "name": "unins000.exe", "path": "C:\\work\\install\\unins000.exe",
+                         "created_utc": "2026-10-17T07:00:00.0000000Z", "command_line": "unins000.exe /SILENT"}]},
+                    defender_probe={"state": "ok", "channel_enabled": True, "window_minutes": 10,
+                                    "events": [{"id": 1116, "level": "Warning",
+                                                "at_utc": "2026-10-17T07:00:01.0000000Z",
+                                                "message": "Malware detected"}]})
+    report = _lifecycle(tmp_path, host)
+    assert _step(report, "silent_uninstall")["status"] == "FAIL"
+    pre = _forensics(report, "pre_launch")["system"]
+    assert pre["processes"]["state"] == "ok" and pre["processes"]["rows"][0]["pid"] == 42
+    assert pre["defender"]["events"][0]["id"] == 1116
+    assert "capability_limitations" in pre and pre["capability_limitations"] == []
+    refusal = _forensics(report, "after_refusal_1")["system"]
+    assert refusal["collected_at_utc"].endswith("Z"), "every sample is stamped in UTC"
+    assert "system" not in _forensics(report, "after_settle"), (
+        "the settle sample stays as it was: the probes cost a shell launch and the window is already described")
+
+
+def test_an_unavailable_probe_is_published_as_a_limitation_not_as_silence(tmp_path):
+    """A probe that cannot run must never read as 'nothing was happening'."""
+    report = _lifecycle(tmp_path, FakeHost(unlaunchable_uninstall_attempts=2, system_probe_fails=True))
+    assert _step(report, "silent_uninstall")["status"] == "FAIL"
+    system = _forensics(report, "pre_launch")["system"]
+    assert system["processes"]["state"] == "unavailable" and system["processes"]["reason"]
+    assert set(system["capability_limitations"]) == {"process listing: unavailable",
+                                                     "defender channel: unavailable"}
+    assert "observations only" in system["note"]
+
+
+def test_a_disabled_security_channel_is_not_reported_as_an_empty_one(tmp_path):
+    """`no_events` and `channel_disabled` are different facts and stay different in the record."""
+    report = _lifecycle(tmp_path, FakeHost(unlaunchable_uninstall_attempts=2,
+                                           defender_probe={"state": "channel_disabled",
+                                                           "channel_enabled": False, "events": []}))
+    defender = _forensics(report, "pre_launch")["system"]["defender"]
+    assert defender["state"] == "channel_disabled"
+    assert defender["channel_enabled"] is False
+    assert defender["events"] == []
+    assert "defender channel: channel_disabled" in _forensics(report, "pre_launch")["system"]["capability_limitations"]
+
+
+def test_the_process_probe_redacts_a_command_line_that_echoes_a_secret(tmp_path, secret_in_environment):
+    """A command line can carry an environment value; it passes through the same filter as every string."""
+    report = _lifecycle(tmp_path, FakeHost(
+        unlaunchable_uninstall_attempts=2,
+        process_probe={"state": "ok", "matched": 1, "processes": [
+            {"pid": 9, "ppid": 8, "name": "powershell.exe", "path": "C:\\pwsh.exe",
+             "created_utc": "", "command_line": "$env:DRILLMASTER_ADMIN_PASSWORD=hunter2-super-secret"}]}))
+    system = _forensics(report, "pre_launch")["system"]
+    assert "[REDACTED]" in system["processes"]["rows"][0]["command_line"]
+    assert "hunter2-super-secret" not in json.dumps(report)
+
+
+def test_the_probes_cannot_change_what_the_lifecycle_concludes(tmp_path):
+    """The strongest form of the guarantee: identical verdict, identical failing step, with or without them."""
+    without = _lifecycle(tmp_path / "a", FakeHost(unlaunchable_uninstall_attempts=2, system_probe_fails=True))
+    with_them = _lifecycle(tmp_path / "b", FakeHost(
+        unlaunchable_uninstall_attempts=2,
+        process_probe={"state": "ok", "matched": 1, "processes": [{"pid": 1, "name": "unins000.exe"}]},
+        defender_probe={"state": "ok", "channel_enabled": True, "events": [{"id": 1116, "message": "detected"}]}))
+    assert without["status"] == with_them["status"] == "FAIL"
+    assert [s["name"] for s in without["steps"]] == [s["name"] for s in with_them["steps"]]
+    assert _step(without, "silent_uninstall")["status"] == _step(with_them, "silent_uninstall")["status"] == "FAIL"
+    # and the probes are not a way to obtain a pass: the step that failed is the same one in both runs
+    assert without["steps"][-1]["name"] == with_them["steps"][-1]["name"] == "silent_uninstall"
+
+
+def test_the_checkpoints_order_the_window_the_failure_lives_in(tmp_path):
+    """An ordered, bounded timeline of the moments the two adjacent samples straddle."""
+    report = _lifecycle(tmp_path, FakeHost(unlaunchable_uninstall_attempts=1, unlink_uninstaller_on_refusal=True))
+    checkpoints = report["diagnostics"]["lifecycle_checkpoints"]
+    names = [entry["name"] for entry in checkpoints]
+    assert names[0] == "pre_launch_passed"
+    assert names[1] == "launch_attempt_1"
+    assert names[2] == "launch_attempt_1_refused"
+    assert "settle_elapsed" in names
+    stamps = [entry["at_utc"] for entry in checkpoints]
+    assert stamps == sorted(stamps), "the timeline must be in time order to order the events at all"
+    assert all(entry["at_utc"].endswith("Z") for entry in checkpoints)
+
+
+def test_the_timeline_is_bounded_so_a_long_run_cannot_publish_unbounded_evidence(tmp_path):
+    """Twenty-four markers, then it stops growing; the cap is part of the schema, not a hope."""
+    report = _lifecycle(tmp_path, FakeHost())
+    assert len(report["diagnostics"]["lifecycle_checkpoints"]) <= 24
+    assert _evidence_module().utc_now().endswith("Z"), "one timestamp format, stated once and used everywhere"
+
+
+def test_the_attribution_reaches_the_channel_the_annotation_prints(tmp_path):
+    """`uninstall_launch_notes` is what a reader sees when the artifact cannot be downloaded.
+
+    The stage annotation prints the tail of `installer-lifecycle.json`, and this field sits in that
+    tail -- so the three observations that can attribute the window have to be in it, in front of the
+    per-attempt labels rather than after them, or the bound would clip the useful part first.
+    """
+    report = _lifecycle(tmp_path, FakeHost(
+        unlaunchable_uninstall_attempts=2,
+        uninstall_log_text="Original Setup EXE: D:\\work\\install\\unins000.exe\nDeleting file\n",
+        process_probe={"state": "ok", "matched": 1, "processes": [
+            {"pid": 777, "ppid": 1, "name": "unins000.exe", "path": "C:\\work\\install\\unins000.exe",
+             "created_utc": "2026-10-17T07:00:00.0000000Z", "command_line": "unins000.exe /SILENT"}]},
+        defender_probe={"state": "no_events", "channel_enabled": True, "events": []}))
+    notes = report["uninstall_launch_notes"]
+    assert notes.startswith("attribution: "), notes
+    assert "raised=" in notes, "the raise site separates 'launch refused' from 'never launched'"
+    assert 'log_first="Original Setup EXE' in notes, "the log's first line names the executable that wrote it"
+    assert "procs=ok/1" in notes and "watchers=[unins000.exe@777]" in notes, notes
+    assert "defender=no_events" in notes
+    assert "attempt 1:" in notes and "attempt 2:" in notes, "the ordered labels survive behind the attribution"
+
+
+def test_the_attribution_states_absence_rather_than_implying_it(tmp_path):
+    """With no log and no probe, the attribution is short and says only what was observed."""
+    report = _lifecycle(tmp_path, FakeHost(unlaunchable_uninstall_attempts=2, system_probe_fails=True))
+    notes = report["uninstall_launch_notes"]
+    assert "raised=" in notes
+    assert "log_first=" not in notes, "an absent log is not described as an empty one"
+    assert "procs=unavailable/?" in notes, "an unavailable probe is published, never omitted"
+
+
+def test_a_probe_that_throws_cannot_replace_the_sample_or_the_finding(tmp_path):
+    """A diagnostic defect is published as a diagnostic defect, in its own field."""
+    module = _evidence_module()
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("probe crashed")
+
+    module.system_snapshot = boom
+    installer, _, digest = _release(tmp_path / "release")
+    report = module.run_lifecycle(installer=installer, expected_sha256=digest, app_version="1.0.0",
+                                  work_root=tmp_path / "work", runner=FakeHost(unlaunchable_uninstall_attempts=2),
+                                  poll_interval=0.001, settle_seconds=0.05)
+    sample = _forensics(report, "pre_launch")
+    assert sample["launch_error"] if "launch_error" in sample else True
+    assert sample["system"]["state"] == "probe_failed", sample["system"]
+    assert "probe crashed" in sample["system"]["reason"]
+    # the sample itself survived: the tree listing and the uninstaller observation are still there
+    assert sample["install_dir"]["is_dir"] is True and sample["uninstaller"]["is_file"] is True
+    assert _step(report, "silent_uninstall")["status"] == "FAIL", "the lifecycle verdict is unchanged"

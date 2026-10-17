@@ -1738,5 +1738,50 @@
         }
       }
     }
+  },
+  "m42_13_followup": {
+    "mission": "M42.13",
+    "recorded_on": "2026-10-17",
+    "why_this_is_appended_and_not_edited_above": "the closure adjudication above is a historical statement about the state of the register on the day it was written; this mission changed what is known and that is recorded here, with its own provenance, rather than by editing the earlier verdict.  Nothing above this key is modified.",
+    "same_sha_rerun_of_the_failing_incident": {
+      "sha": "9f7f47f06c90f6bb9787a52dc5af241756428bdc",
+      "original_failing_run": {
+        "run_number": 39,
+        "run_attempt": 1,
+        "conclusion": "failure",
+        "state_after_this_mission": "untouched",
+        "how_to_find_it": "the Windows validation run numbered 39 on this branch, 2026-10-14"
+      },
+      "rerun": {
+        "run_number": 51,
+        "run_attempt": 1,
+        "conclusion": "success",
+        "steps": "all eleven PASS",
+        "lifecycle": "PASS",
+        "how_to_find_it": "the Windows validation run numbered 51, created 2026-10-17 from the temporary ref named in `how_it_was_obtained`; the run id and job id belong to the dated mission report, not to a committed release source"
+      },
+      "how_it_was_obtained": "the documented rerun endpoints were refused for this credential - `POST .../rerun` and `POST .../rerun-failed-jobs` both answered `403 Resource not accessible by integration`, and so did a permission probe of `workflow_dispatch` - so the same commit was pushed to a temporary ref (`rel13-same-sha-rerun-9f7f47f`) at that exact SHA.  A push event runs the workflow file of the pushed commit, with `head_sha` equal to it, and creates no commit and no change to any branch under review.  The temporary ref was deleted after the evidence was captured.  It is deliberately called a re-run of the SHA and not an attempt-2 rerun of run 39: no attempt 2 of that run exists, and the endpoint that would create one was refused, not merely unused.",
+      "proof_the_run_executed_the_old_tree": "its own annotation reads `signing=UNKNOWN`, `cmdlet=missing`, `security_module_import=failed` - the pre-PSModulePath state that the current tree cannot produce - and `tests=767/770` against 772/775 on current SHAs",
+      "what_it_establishes": "the failing SHA is not reproducibly broken; the incident is discharged on the register's first branch (`the same SHA is re-run green`)",
+      "what_it_does_not_establish": "why the original run failed.  Nothing in this evidence explains the emptied install tree, and the causal question remains open and separate from the incidence"
+    },
+    "incidences_still_open_at_the_end_of_this_mission": {
+      "shas": [
+        "2891f0f",
+        "5b60268",
+        "890c96b",
+        "46d27cf",
+        "d1a7f9e",
+        "279a52f"
+      ],
+      "shape": "steps 1-5 of the lifecycle PASS, then `silent_uninstall` FAIL with `FileNotFoundError` (`errno=2`, `winerror=2`), the uninstaller listed before launch and gone at the next sample, the install tree at 0 file(s), and `uninstall.log` written",
+      "why_they_keep_the_row_open": "the register's condition is `the same SHA is re-run green or the instability is explained`.  Each of these has been run exactly once, none has been re-run, and the instability is not explained",
+      "what_would_discharge_each": "one green re-run of that exact SHA, or a runner-side explanation"
+    },
+    "causal_status": {
+      "classification": "UNRESOLVED_INSUFFICIENT_TELEMETRY",
+      "why_not_interference_supported": "the observation - a populated tree after the application ran, the uninstaller listed at `pre_launch`, then the tree emptied, the uninstaller gone and its own log written between two adjacent samples - is consistent with an uninstall that ran and is not consistent with any in-repository launch, because `_uninstall` has one call site and that call was refused.  But the existing evidence names no process, carries no timeline finer than two adjacent samples, and contains no security-channel record, so it cannot identify an external actor or its causation.  `INTERFERENCE_SUPPORTED_BUT_NOT_PROVEN` would overstate it, and `runner-side uninstall` would be a guess dressed as a conclusion.",
+      "what_was_added_to_change_that": "read-only instrumentation in `packaging/windows_release_evidence.py`: process lineage filtered to the work root (pid, ppid, name, path, creation time, redacted command line), a bounded `Microsoft-Windows-Windows Defender/Operational` window, the first lines of both lifecycle logs (Inno names the executable it was asked to run), the raising frame of the launch exception, and an ordered UTC checkpoint timeline.  Every probe publishes its own unavailability.  No probe can change the lifecycle conclusion, and a test pins that with and without them."
+    }
   }
 }

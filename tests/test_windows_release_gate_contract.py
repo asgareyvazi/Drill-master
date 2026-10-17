@@ -1136,7 +1136,14 @@ def test_the_lifecycle_forensics_are_additive_and_keep_every_protection():
 def test_the_forensic_findings_reach_both_published_channels():
     """A detail that clips away its own labels is not evidence, so the summary and the block must agree."""
     evidence = (ROOT / "packaging" / "windows_release_evidence.py").read_text(encoding="utf-8")
-    assert 'evidence["uninstall_launch_notes"] = bound("; ".join(notes), 1200)' in evidence
+    # The notes are still the bounded join of the per-attempt labels, and M42.13 adds one requirement
+    # rather than removing one: the attribution that can name the process comes FIRST, because the
+    # bound keeps the head and the tail and the stage annotation prints this string from the artifact's
+    # end.  A label that can be clipped away is not evidence, which is what this test has always said.
+    assert '"; ".join(notes), 1200)' in evidence, "the per-attempt notes are still bounded as one string"
+    assert 'def forensic_attribution(' in evidence, "the attribution renderer is its own bounded function"
+    assert '(f"attribution: {attribution} ;; " if attribution else "") + "; ".join(notes)' in evidence, (
+        "the attribution must lead the notes; appending it would let the bound clip it first")
     assert ('evidence["diagnostics"]["uninstall_launch_notes"] = '
                'evidence["uninstall_launch_notes"]') in evidence
     assert "full notes in uninstall_launch_notes" in evidence
@@ -1274,7 +1281,7 @@ def test_diagnostic_failures_cannot_replace_a_lifecycle_failure():
     defect into a published `sampler_failed` observation while the lifecycle result stands.
     """
     evidence = (ROOT / "packaging" / "windows_release_evidence.py").read_text(encoding="utf-8")
-    sampler = evidence[evidence.index("def forensics(label"):evidence.index('forensics("pre_launch")')]
+    sampler = evidence[evidence.index("def forensics(label"):evidence.index('forensics("pre_launch"')]
     assert "except Exception as exc" in sampler and "sampler_failed" in sampler
     assert "diagnostics unavailable" in sampler, "the detail must say the sample failed, not that it was empty"
     assert 'return _finish(evidence, "FAIL", started)' in evidence, "the refusal still fails the step"
@@ -1510,10 +1517,12 @@ def test_m42_8_followup_records_the_handoff_without_promoting_anything():
     """
     payload = json.loads(M425_CHECKPOINT.read_text(encoding="utf-8"))
     keys = list(payload)
-    assert keys[-1] == "m42_9_followup", (
-        "the record is still extended additively: M42.9 appended its own follow-up as the last key rather than "
-        "inserting one, which is what rewriting what earlier guards pinned would have looked like")
-    assert keys[-2] == "m42_8_followup", "the M42.8 record keeps its place in the order, directly before it"
+    assert keys[-2] == "m42_9_followup", (
+        "the record is still extended additively: each mission appends its own follow-up as the last key rather "
+        "than inserting one, which is what rewriting what earlier guards pinned would have looked like")
+    assert keys[-3] == "m42_8_followup", "the M42.8 record keeps its place in the order, directly before it"
+    assert keys[-1] == "m42_13_followup", (
+        "M42.13 appended its record last; the guard names it so a future insertion cannot hide behind the count")
     key = payload["m42_8_followup"]
     assert key["mission"] == "M42.8" and key["recorded_on"] == "2026-10-11"
     assert payload["m42_6_release_closure"]["independent_artifact_reverification"]["verdict"] == "BLOCKED"
@@ -1572,8 +1581,10 @@ def test_m42_9_followup_records_the_confinement_correction_without_promoting_any
     to a value this guard itself would change.
     """
     payload = json.loads(M425_CHECKPOINT.read_text(encoding="utf-8"))
-    assert list(payload)[-1] == "m42_9_followup", ("the record is extended additively; inserting a key would "
+    assert list(payload)[-2] == "m42_9_followup", ("the record is extended additively; inserting a key would "
                                                    "rewrite what earlier guards already pinned")
+    assert list(payload)[-1] == "m42_13_followup", (
+        "and the newest record is appended after it, not before: the M42.9 key keeps its position")
     key = payload["m42_9_followup"]
     assert key["mission"] == "M42.9" and key["recorded_on"] == "2026-10-12"
 
@@ -1709,3 +1720,60 @@ def test_windows_gate_arms_the_crash_breadcrumb_and_the_hook_stays_opt_in(workfl
     written = capfd.readouterr().err
     # capfd sees file-descriptor writes; a buffered print would not be here to be captured after a crash.
     assert written == "DRILLMASTER-TEST-START tests/test_x.py::test_named\n", written
+
+
+def test_m42_13_records_the_same_sha_resolution_without_closing_the_row_or_explaining_the_failure():
+    """A green re-run of one SHA is a real result; it is not a root cause and not a closed register.
+
+    Four failure modes are worth pinning.  Claiming the failing run itself was restarted when it was not;
+    letting one discharged incidence close a row whose other six are unresolved; writing a cause where the
+    evidence only supports a shape; and letting the new diagnostic probes acquire any influence over the
+    lifecycle verdict.  The instrumentation is also checked for the properties that make it safe to run on a
+    shared runner: read-only, bounded, and unable to raise into the failure it is describing.
+    """
+    payload = json.loads(M425_CHECKPOINT.read_text(encoding="utf-8"))
+    key = payload["m42_13_followup"]
+    assert key["mission"] == "M42.13" and key["recorded_on"] == "2026-10-17"
+
+    incident = key["same_sha_rerun_of_the_failing_incident"]
+    assert incident["sha"] == "9f7f47f06c90f6bb9787a52dc5af241756428bdc"
+    assert incident["original_failing_run"]["state_after_this_mission"] == "untouched", (
+        "the original run was never rerun; it still reads failure/attempt 1")
+    assert incident["original_failing_run"]["run_attempt"] == 1
+    assert incident["rerun"]["conclusion"] == "success" and incident["rerun"]["run_attempt"] == 1
+    assert "attempt-2" in incident["how_it_was_obtained"] or "attempt 2" in incident["how_it_was_obtained"], (
+        "the record has to say which mechanism produced the green, because it is not the rerun button")
+    assert "UNKNOWN" in incident["proof_the_run_executed_the_old_tree"], (
+        "the only hard proof this run is the old tree is its pre-fix signing annotation")
+    assert "not reproducibly broken" in incident["what_it_establishes"]
+    assert "why the original run failed" in incident["what_it_does_not_establish"].lower()
+
+    open_after = key["incidences_still_open_at_the_end_of_this_mission"]
+    assert len(open_after["shas"]) == 6 and "279a52f" in open_after["shas"]
+    assert "not explained" in open_after["why_they_keep_the_row_open"]
+
+    assert key["causal_status"]["classification"] == "UNRESOLVED_INSUFFICIENT_TELEMETRY", (
+        "the record may not promote a shape into a cause")
+    assert "overstate" in key["causal_status"]["why_not_interference_supported"]
+
+    # the register still carries the row as open, and the reason is the row's own condition
+    register = (ROOT / "packaging" / "WINDOWS_RELEASE_ACCEPTANCE.md").read_text(encoding="utf-8")
+    row = [line for line in register.splitlines() if line.startswith("| REL-13 |")]
+    assert len(row) == 1
+    cells = [cell.strip() for cell in row[0].strip().strip("|").split(" | ")]
+    assert cells[7].startswith("`OPEN`"), ("one discharged incidence does not close a row whose condition is "
+                                           "an OR over the incidences that are still unexplained")
+
+    # read-only instrumentation, and it cannot reach the conclusion
+    evidence = (ROOT / "packaging" / "windows_release_evidence.py").read_text(encoding="utf-8")
+    for fragment in ("def system_snapshot(", "def forensic_attribution(", "def _bounded_head(",
+                     "def checkpoint(name: str)", "Get-CimInstance Win32_Process",
+                     "Microsoft-Windows-Windows Defender/Operational"):
+        assert fragment in evidence, f"the M42.13 instrumentation lost {fragment!r}"
+    for unchanged in ('for attempt in (1, 2):', 'evidence["cleaned_up"] = not work_root.exists()',
+                      'return _finish(evidence, "FAIL", started)'):
+        assert unchanged in evidence, f"the lifecycle conclusion was changed while adding diagnostics: {unchanged}"
+    probe = evidence[evidence.index("def system_snapshot("):evidence.index("def _is_within(")]
+    for forbidden in ("unlink(", "rmtree(", "write_text(", "mkdir(", "Popen(", "run_lifecycle("):
+        assert forbidden not in probe, f"a diagnostic probe must not act on the tree: found {forbidden!r}"
+    assert evidence.count("def system_snapshot(") == 1

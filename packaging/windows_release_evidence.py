@@ -29,6 +29,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import traceback
 import zipfile
 from pathlib import PurePosixPath
 from pathlib import Path
@@ -104,6 +105,55 @@ SIGNING_PROBE_SCRIPT = (
     "if ($command.Source) { $probe.module = [string]$command.Source } }; "
     "$probe | ConvertTo-Json -Compress"
 )
+# Two further probes, both read-only, both optional, and both existing for one reason: the recorded
+# samples can say what the work root looked like, but not who was touching it.  A lifecycle failure
+# in which the tree empties and an uninstall log appears between two adjacent samples is either this
+# gate's own uninstall running (which the launch record contradicts) or something else operating in
+# the window.  Process lineage and the security channel are the only two observations that can
+# separate those without a debugger, and neither can change the lifecycle conclusion: a probe that
+# cannot run is published as unavailable, and a probe that answers publishes evidence, not a verdict.
+PROCESS_PROBE_SCRIPT = (
+    "$root = $env:DRILLMASTER_TARGET_PATH; "
+    "$probe = @{state='unavailable'; processes=@(); reason=''; matched=0}; "
+    "try { "
+    "$all = Get-CimInstance Win32_Process -ErrorAction Stop; "
+    "$hits = @($all | Where-Object { "
+    "  ($_.ExecutablePath -and $_.ExecutablePath -like \"$root*\") -or "
+    "  ($_.CommandLine -and $_.CommandLine -like \"*$root*\") -or "
+    "  ($_.Name -like 'unins*') -or ($_.Name -like 'msiexec*') }); "
+    "$probe.matched = $hits.Count; "
+    "$probe.processes = @($hits | Select-Object -First 12 | ForEach-Object { @{ "
+    "  pid=[int]$_.ProcessId; ppid=[int]$_.ParentProcessId; name=[string]$_.Name; "
+    "  path=[string]$_.ExecutablePath; "
+    "  created_utc=$(if ($_.CreationDate) { $_.CreationDate.ToUniversalTime().ToString('o') } else { '' }); "
+    "  command_line=[string]$_.CommandLine } }); "
+    "$probe.state = 'ok' } "
+    "catch { $probe.reason = [string]$_.Exception.Message }; "
+    "$probe | ConvertTo-Json -Depth 5 -Compress"
+)
+DEFENDER_PROBE_SCRIPT = (
+    "$probe = @{state='unavailable'; reason=''; events=@(); channel_enabled=$null; window_minutes=10}; "
+    "try { "
+    "$channel = Get-WinEvent -ListLog 'Microsoft-Windows-Windows Defender/Operational' -ErrorAction Stop; "
+    "$probe.channel_enabled = [bool]$channel.IsEnabled; "
+    "if (-not $channel.IsEnabled) { $probe.state = 'channel_disabled' } else { "
+    "$since = (Get-Date).AddMinutes(-1 * $probe.window_minutes); "
+    "try { "
+    "$events = Get-WinEvent -FilterHashtable @{LogName='Microsoft-Windows-Windows Defender/Operational'; "
+    "StartTime=$since} -MaxEvents 12 -ErrorAction Stop; "
+    "$probe.events = @($events | ForEach-Object { @{ id=[int]$_.Id; "
+    "  level=[string]$_.LevelDisplayName; "
+    "  at_utc=$_.TimeCreated.ToUniversalTime().ToString('o'); "
+    "  message=[string](($_.Message -split \"`n\")[0]) } }); "
+    "$probe.state = 'ok' } "
+    "catch { if ([string]$_.Exception.Message -like '*No events were found*') { $probe.state = 'no_events' } "
+    "else { $probe.reason = [string]$_.Exception.Message } } } } "
+    "catch { $probe.reason = [string]$_.Exception.Message }; "
+    "$probe | ConvertTo-Json -Depth 5 -Compress"
+)
+# A probe budget separate from the lifecycle timeout: a shell that hangs must not eat the window in
+# which the failure it is describing is still observable.
+SYSTEM_PROBE_TIMEOUT = 20
 SECRET_ENV_PATTERN = re.compile(r"(PASSWORD|API_KEY|TOKEN|SECRET|CREDENTIAL)", re.IGNORECASE)
 # Stated once, because both the record a Windows run produces and the record a non-Windows host
 # publishes have to promise the same thing about what a signature finding does to the gate.
@@ -137,6 +187,18 @@ def bound(text: str, limit: int = DIAGNOSTIC_LIMIT) -> str:
         return text
     keep = limit // 2
     return text[:keep] + f"\n...[{len(text) - 2 * keep} characters elided]...\n" + text[-keep:]
+
+
+def utc_now() -> str:
+    """One timestamp format for every record in this module.
+
+    The lifecycle findings are ordered by when they were taken, and an ISO-8601 UTC stamp with
+    milliseconds is the only form that survives being read next to a GitHub runner log (which is also
+    UTC) without a timezone argument.  ``time.gmtime`` is used rather than a local clock because the
+    runner's local zone has changed between images.
+    """
+    seconds = time.time()
+    return time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(seconds)) + f".{int(seconds % 1 * 1000):03d}Z"
 
 
 def redact(text: str, secret_values: list[str]) -> str:
@@ -419,6 +481,13 @@ def _uninstall_forensics(*, install_dir: Path, work_root: Path, uninstaller: Pat
             state["grew_during_read"] = True
         state["read_confinement"] = bound(observed.get("confinement", ""), 200)
         state["tail"] = bound(" ".join(observed["tail"].split()), 400)
+        # The head is sampled for the same reason as the tail and answers the opposite question:
+        # the tail says whether the run finished, the head says which executable was asked to run
+        # and with what arguments.  Both are bounded reads through the anchored open.
+        head = _bounded_head(path, lines=4, byte_limit=1024, permitted_root=work_root,
+                             root_identity=root_identity)
+        state["read_head_state"] = head["state"]
+        state["head"] = bound(" | ".join(line for line in head["head"].splitlines() if line), 400)
         return state
 
     # One listing per sample: the count and the names are two views of the same moment, and taking
@@ -447,6 +516,18 @@ def _uninstall_forensics(*, install_dir: Path, work_root: Path, uninstaller: Pat
             "filename": bound(str(getattr(error, "filename", "") or ""), 200),
             "filename2": bound(str(getattr(error, "filename2", "") or ""), 200),
             "message": bound(str(error)[:300], 300)}
+        # Where the exception was raised is a different fact from what it says.  A FileNotFoundError
+        # from `Popen` and one raised by any later statement both read "the system cannot find the
+        # file specified", and the difference decides whether a process was ever launched -- which is
+        # the entire question this sample exists to answer.  The innermost frame is the caller's
+        # statement, so it is published with the module and function that raised.
+        frames = traceback.extract_tb(error.__traceback__) if error.__traceback__ else []
+        if frames:
+            last = frames[-1]
+            sample["launch_error"]["raised_in"] = bound(
+                f"{Path(str(last.filename)).name}:{last.lineno} in {last.name}", 160)
+            sample["launch_error"]["call_chain"] = bound(
+                " <- ".join(f"{Path(str(f.filename)).name}:{f.lineno}" for f in frames[-4:]), 300)
     return sample
 
 
@@ -470,6 +551,39 @@ def _forensic_brief(sample: dict) -> str:
             f"root={flag('work_root', 'is_dir')} unins={flag('uninstaller', 'is_file')} "
             + (f"launch={error.get('class', '?')}{'' if not codes else ' (' + codes + ')'} " if error else "")
             + f"uninslog={'present' if (sample.get('uninstall_log') or {}).get('exists') else 'absent'}")
+
+
+def forensic_attribution(sample: dict) -> str:
+    """The facts that can attribute the window, in one bounded line.
+
+    The per-attempt brief describes what each sample saw; this describes the three things that could
+    say *who* acted: where the exception was raised, the first line of the uninstall log (Inno writes
+    the executable it was asked to run), and any process the probe caught touching the work root.  It
+    travels in ``uninstall_launch_notes``, which the stage annotation prints, because the artifact that
+    holds the full sample is exactly what a reader may not be able to download.
+    """
+    parts: list[str] = []
+    error = sample.get("launch_error") or {}
+    if error.get("raised_in"):
+        parts.append(f"raised={error['raised_in']}")
+    log_head = " | ".join(line for line in str((sample.get("uninstall_log") or {}).get("head") or "").splitlines()
+                          if line.strip())
+    if log_head:
+        parts.append(f'log_first="{bound(log_head, 80)}"')
+    system = sample.get("system") or {}
+    processes = system.get("processes") or {}
+    if processes.get("state"):
+        part = f"procs={processes.get('state')}/{processes.get('matched', '?')}"
+        named = [f"{row.get('name')}@{row.get('pid')}" for row in (processes.get("rows") or [])
+                 if str(row.get("name") or "").lower().startswith(("unins", "msiexec"))]
+        if named:
+            # A process named unins* or msiexec* in the window is the one observation that would move
+            # this from "unexplained" to "interference", so it is named rather than counted.
+            part += f" watchers=[{', '.join(named[:3])}]"
+        parts.append(part)
+    if (system.get("defender") or {}).get("state"):
+        parts.append(f"defender={system['defender']['state']}")
+    return "; ".join(parts)
 
 
 def _forensic_note(sample: dict) -> str:
@@ -671,13 +785,17 @@ def run_lifecycle(*, installer: Path, expected_sha256: str, app_version: str, wo
         samples: dict[str, dict] = {}
 
         def forensics(label: str, error: BaseException | None = None, *, hash_uninstaller: bool = True,
-                      brief: bool = False) -> str:
+                      brief: bool = False, system: bool = False) -> str:
             """Sample, redact and publish -- and never let the sampling itself become the finding.
 
             This runs from inside a `except FileNotFoundError:` handler.  A second exception raised
             while describing the first would replace the lifecycle result with a diagnostic one and
             lose both, so any unexpected failure here is recorded as a bounded observation of its own
             and the original launch error keeps travelling to the step detail.
+
+            ``system`` adds the process and security-channel probes.  They are opt-in because each one
+            costs a shell launch, and they are attached to the two samples that straddle the moment
+            the tree disappears: ``pre_launch`` and the first refusal.
             """
             try:
                 sample = _uninstall_forensics(install_dir=install_dir, work_root=work_root,
@@ -685,6 +803,16 @@ def run_lifecycle(*, installer: Path, expected_sha256: str, app_version: str, wo
                                               uninstall_log=uninstall_log, sentinel=sentinel, error=error,
                                               hash_uninstaller=hash_uninstaller,
                                               root_identity=work_root_identity)
+                if system:
+                    # The probes are subordinate to the sample for the same reason the sample is
+                    # subordinate to the lifecycle result: a diagnostic that throws would replace the
+                    # observation it was added to explain.
+                    try:
+                        sample["system"] = system_snapshot(work_root=work_root, runner=runner,
+                                                           secret_values=secret_values)
+                    except Exception as exc:  # noqa: BLE001 - a probe defect must not mask the sample
+                        sample["system"] = {"state": "probe_failed",
+                                            "reason": bound(f"{type(exc).__name__}: {str(exc)[:160]}", 200)}
             except Exception as exc:  # noqa: BLE001 - a sampler defect must not mask a lifecycle failure
                 sample = {"state": "sampler_failed",
                           "reason": bound(f"{type(exc).__name__}: {str(exc)[:160]}", 200)}
@@ -694,7 +822,7 @@ def run_lifecycle(*, installer: Path, expected_sha256: str, app_version: str, wo
                 return f"diagnostics unavailable ({sample['reason']})"
             return _forensic_brief(samples[label]) if brief else _forensic_note(samples[label])
 
-        forensics("pre_launch")
+        forensics("pre_launch", system=True)
         if not uninstaller.is_file():
             # installed_files already proved this file existed, so its absence here is a finding
             # about what happened in between -- not a missing-artifact mystery.  Saying so, with
@@ -713,18 +841,30 @@ def run_lifecycle(*, installer: Path, expected_sha256: str, app_version: str, wo
         # created then taken away -- are different findings, so one bounded settle and a re-listing
         # follow the first refusal.  Nothing is excused: the uninstall still has to empty {app},
         # which is the claim this step exists to prove.
+        checkpoints: list[dict] = []
+        def checkpoint(name: str) -> None:
+            """One ordered, timestamped marker; bounded because a timeline nobody can read is not evidence."""
+            if len(checkpoints) < 24:
+                checkpoints.append({"name": name, "at_utc": utc_now(),
+                                    "monotonic": round(time.monotonic(), 3)})
+            evidence["diagnostics"]["lifecycle_checkpoints"] = checkpoints
+
+        checkpoint("pre_launch_passed")
         notes: list[str] = []
         refused_attempts: list[str] = []
         last_brief = ""
         removed: dict | None = None
         for attempt in (1, 2):
             try:
+                checkpoint(f"launch_attempt_{attempt}")
                 removed = _uninstall(uninstaller, uninstall_log, install_dir, runner, timeout,
                                      poll_interval, settle_seconds, evidence,
                                      root_identity=work_root_identity)
+                checkpoint(f"launch_attempt_{attempt}_returned")
                 break
             except FileNotFoundError as exc:
-                refused = forensics(f"after_refusal_{attempt}", exc, brief=True)
+                checkpoint(f"launch_attempt_{attempt}_refused")
+                refused = forensics(f"after_refusal_{attempt}", exc, brief=True, system=True)
                 refused_attempts.append(f"attempt {attempt}: refused ({refused})")
                 last_brief = refused
                 notes.append(f"attempt {attempt}: unins000.exe was listed but could not be launched "
@@ -732,6 +872,7 @@ def run_lifecycle(*, installer: Path, expected_sha256: str, app_version: str, wo
                 if attempt == 2:
                     break
                 time.sleep(2.0)
+                checkpoint("settle_elapsed")
                 relisted = uninstaller.is_file()
                 settled = forensics("after_settle", hash_uninstaller=relisted, brief=True)
                 notes.append("after a 2 second settle the uninstaller is "
@@ -758,7 +899,9 @@ def run_lifecycle(*, installer: Path, expected_sha256: str, app_version: str, wo
             # tail -- so a concatenation of long per-attempt notes used to drop the very labels that
             # ordered them.  The summary names every refusal in order; the full prose stays in
             # `uninstall_launch_notes` and the structured samples in `diagnostics.uninstall_forensics`.
-            evidence["uninstall_launch_notes"] = bound("; ".join(notes), 1200)
+            attribution = forensic_attribution(samples.get("after_refusal_1") or {})
+            evidence["uninstall_launch_notes"] = bound(
+                (f"attribution: {attribution} ;; " if attribution else "") + "; ".join(notes), 1200)
             # mirrored into `diagnostics` because the acceptance report forwards that block; without
             # the copy the per-attempt prose would exist only in the evidence file on the runner.
             evidence["diagnostics"]["uninstall_launch_notes"] = evidence["uninstall_launch_notes"]
@@ -1489,6 +1632,123 @@ def _tail(path: Path, lines: int = 40, *, byte_limit: int = LOG_TAIL_BYTES,
     if observed["state"] == "truncated" and tail:
         return f"[{observed['reason']}] {tail}"
     return tail
+
+
+def _bounded_head(path: Path, *, lines: int = 4, byte_limit: int = 1024,
+                  permitted_root: Path | None = None,
+                  root_identity: tuple[int, ...] | None = None) -> dict:
+    """Read the FIRST lines of one log through the same anchored handle as every other read.
+
+    Only a suffix was readable before, which answers "did it finish" and cannot answer "who wrote
+    this".  Inno Setup's log opens with the executable it was asked to run and the command line it
+    received, so the first lines are the one place where an uninstall recorded in the work root can
+    be attributed to a process -- including a process this gate did not start, which is exactly the
+    shape the lifecycle failure takes.  Bounded like the tail, confined by the same anchored open,
+    and a refusal is returned rather than raised so describing a failure cannot replace it.
+    """
+    observed: dict = {"state": "unreadable", "bytes_read": 0, "size_bytes": None, "reason": "",
+                      "head": "", "lines_returned": 0}
+    if byte_limit <= 0:
+        raise ValueError("byte_limit must be a positive bound")  # a programming error, never an environment event
+    try:
+        stream, meta = _open_binary(path, permitted_root, root_identity)
+    except AnchorRefusal as refusal:
+        observed["state"] = refusal.state if refusal.state in _READ_STATES else "unreadable"
+        observed["reason"] = bound(refusal.reason, 200)
+        return observed
+    except FileNotFoundError:
+        observed["state"] = "absent"
+        observed["reason"] = "no such file when the read was attempted"
+        return observed
+    except OSError as exc:
+        return _read_open_error(observed, exc, path)
+    try:
+        with stream:
+            data = stream.read(byte_limit)
+            observed["bytes_read"] = len(data)
+            observed["confinement"] = meta.get("confinement", "")
+            try:
+                stream.seek(0, os.SEEK_END)
+                observed["size_bytes"] = stream.tell()
+            except OSError:
+                observed["size_bytes"] = None  # growth unknown is a weaker statement, not a wrong one
+    except OSError as exc:
+        return _read_open_error(observed, exc, path)
+    if not data:
+        observed["state"] = "empty"
+        return observed
+    text = data.decode("utf-8", errors="replace")
+    complete = text.splitlines()
+    clipped = observed["size_bytes"] is not None and observed["size_bytes"] > len(data)
+    if clipped and complete:
+        # The window ended inside a line, so the last element is a fragment.  It is dropped rather
+        # than published, because a half command line reads like a real one.
+        complete = complete[:-1]
+        observed["window_clipped_last_line"] = True
+    kept = [line.strip() for line in complete if line.strip()][:lines]
+    observed["head"] = "\n".join(kept)
+    observed["lines_returned"] = len(kept)
+    observed["state"] = "ok"
+    return observed
+
+
+def system_snapshot(*, work_root: Path, runner: Runner, timeout: int = SYSTEM_PROBE_TIMEOUT,
+                    secret_values: list[str] | None = None) -> dict:
+    """Who is running, and what the security channel recorded -- both bounded, both optional.
+
+    Neither probe may influence the lifecycle conclusion.  A probe that cannot run publishes the
+    reason (``powershell`` absent, channel disabled, access denied) as a capability limitation, and a
+    probe that answers publishes observations.  The distinction this keeps intact is the one the
+    register depends on: evidence of interference is not a verdict about the gate.
+    """
+    secrets_seen = list(secret_values or [])
+    snapshot: dict = {"collected_at_utc": utc_now(), "monotonic": round(time.monotonic(), 3)}
+    processes = run_powershell(PROCESS_PROBE_SCRIPT, work_root, runner, timeout)
+    if "error" in processes:
+        snapshot["processes"] = {"state": "unavailable", "reason": bound(str(processes["error"]), 200)}
+    else:
+        rows = []
+        for row in (processes.get("processes") or [])[:12]:
+            if not isinstance(row, dict):
+                continue
+            rows.append({"pid": row.get("pid"), "ppid": row.get("ppid"),
+                         "name": bound(str(row.get("name") or ""), 60),
+                         "path": bound(str(row.get("path") or ""), 200),
+                         "created_utc": bound(str(row.get("created_utc") or ""), 40),
+                         # The command line can echo a value from the launching environment, so it
+                         # passes through the same redaction as every other published string.
+                         "command_line": redact(bound(str(row.get("command_line") or ""), 300), secrets_seen)})
+        snapshot["processes"] = {"state": str(processes.get("state") or "unknown"),
+                                 "matched": processes.get("matched", len(rows)),
+                                 "reason": bound(str(processes.get("reason") or ""), 200),
+                                 "rows": rows}
+    defender = run_powershell(DEFENDER_PROBE_SCRIPT, work_root, runner, timeout)
+    if "error" in defender:
+        snapshot["defender"] = {"state": "unavailable", "reason": bound(str(defender["error"]), 200)}
+    else:
+        events = []
+        for event in (defender.get("events") or [])[:12]:
+            if not isinstance(event, dict):
+                continue
+            events.append({"id": event.get("id"), "level": bound(str(event.get("level") or ""), 40),
+                           "at_utc": bound(str(event.get("at_utc") or ""), 40),
+                           "message": redact(bound(str(event.get("message") or ""), 240), secrets_seen)})
+        snapshot["defender"] = {"state": str(defender.get("state") or "unknown"),
+                                "channel_enabled": defender.get("channel_enabled"),
+                                "window_minutes": defender.get("window_minutes"),
+                                "reason": bound(str(defender.get("reason") or ""), 200),
+                                "events": events}
+    # Stated as a block so a reader never has to infer from an empty list whether nothing happened
+    # or nothing could be asked.  Each entry is a capability fact about this runner, not a finding.
+    limitations = []
+    if snapshot["processes"].get("state") != "ok":
+        limitations.append(f"process listing: {snapshot['processes'].get('state')}")
+    if snapshot["defender"].get("state") != "ok":
+        limitations.append(f"defender channel: {snapshot['defender'].get('state')}")
+    snapshot["capability_limitations"] = limitations
+    snapshot["note"] = ("observations only: neither probe can change the lifecycle conclusion, and an "
+                        "unavailable probe is never read as an absence of activity")
+    return snapshot
 
 
 def _is_within(child: Path, parent: Path) -> bool:
