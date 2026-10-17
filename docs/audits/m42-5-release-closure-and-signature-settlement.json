@@ -1703,7 +1703,21 @@
         "what_failed": "step 8, the installed-application lifecycle smoke.  Steps 1-5 of the lifecycle recorded `PASS`, then `silent_uninstall` `FAIL` with `unins000.exe` listed before launch and refused (`FileNotFoundError`, `errno=2`, `winerror=2`), the uninstall log present and the install tree already holding 0 file(s)",
         "what_passed": "the Windows regression suite at 772 of 775 with three explicit platform skips and no failures or errors, the bundle and installer build with the frozen-executable smoke, the Authenticode step (determinate `UNSIGNED`, Security module imported, cmdlet available), the acceptance report and the upload",
         "what_it_means": "the same shape has now failed two different SHAs of one code line, each with a records-only or documentation-only delta from a tip that passed.  That is consistent with an intermittent runner condition and not with a defect introduced by either commit - but it is evidence, not an explanation, so REL-13 stays `OPEN`",
-        "what_was_not_done": "nothing was relaxed to obtain a green run: the retry count, the launch path, the anchoring, the cleanup checks and the lifecycle conclusion rule are unchanged.  The failed run is preserved as a failed gate for its SHA and is not re-described"
+        "what_was_not_done": "nothing was relaxed to obtain a green run: the retry count, the launch path, the anchoring, the cleanup checks and the lifecycle conclusion rule are unchanged.  The failed run is preserved as a failed gate for its SHA and is not re-described",
+        "second_recurrence": {
+          "sha": "5b60268e5aed170d6a8827cb9299bac59708b3b0",
+          "delta_from_the_previous_green_tip": "documentation only: the cross-references the register was missing",
+          "shape": "identical to the other two: steps 1-5 PASS, silent_uninstall FAIL (winerror=2), tree already at 0 files",
+          "the_five_runs_since_the_signing_fix": {
+            "6f34bfa": "PASS",
+            "ead0c79": "PASS",
+            "2891f0f": "FAIL",
+            "84667e6": "PASS",
+            "5b60268": "FAIL"
+          },
+          "what_the_rate_supports": "an intermittent condition on the runner, at roughly two failures in five runs, uncorrelated with the content of the commit - not a defect introduced by any commit in that list",
+          "what_it_still_does_not_support": "an explanation.  Each failing SHA has been run once and never re-run, so the register's own condition is untouched and the row stays `OPEN`"
+        }
       }
     }
   }
