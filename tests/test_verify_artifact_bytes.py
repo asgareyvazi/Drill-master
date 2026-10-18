@@ -344,7 +344,7 @@ def test_the_committed_candidates_are_complete_and_bound_to_their_own_run():
     ids = [entry["artifact_id"] for entry in payload["candidates"]]
     # M42.14 recorded two candidates and M42.15 appended a third; each mission appends, and the
     # preservation test below pins the earlier entries' values so an append cannot hide a rewrite.
-    assert len(ids) == len(set(ids)) == 3
+    assert len(ids) == len(set(ids)) == 4
     assert ids[:2] == [12135787858, 12136310366], "earlier candidates keep their place in the order"
     assert payload["branch"] == "arena/72010272-drill-master"
     for entry in payload["candidates"]:
@@ -585,6 +585,7 @@ def test_the_verification_workflow_stays_read_only_and_on_an_explicit_image():
     assert "permissions:\n  contents: read\n  actions: read\n" in text
     assert "write" not in text.split("jobs:", 1)[0], "no write permission at workflow level"
     assert "ubuntu-latest" not in text, "the production image is chosen explicitly, not left to a label migration"
+    assert "    runs-on: ubuntu-26.04\n" in text and "matrix" not in text
     assert "persist-credentials: false" in text
     assert "secrets." not in text and "set -x" not in text
     assert "docs/audits/m42-14-evidence/artifact-candidates.json" in text and "--windows-run-json" in text

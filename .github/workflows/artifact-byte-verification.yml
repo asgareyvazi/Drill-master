@@ -30,13 +30,12 @@ concurrency:
   cancel-in-progress: false
 jobs:
   verify:
-    name: verify candidates (${{ matrix.os }})
-    strategy:
-      fail-fast: false
-      matrix:
-        # M42.15 runner-image migration evidence: the complete verification on both images.
-        os: [ubuntu-24.04, ubuntu-26.04]
-    runs-on: ${{ matrix.os }}
+    name: verify candidates (ubuntu-26.04)
+    # Explicit image, chosen in M42.15 after the complete verification passed on both ubuntu-24.04 and
+    # ubuntu-26.04 for every candidate (see the dated M42.15 report).  Not the floating latest label, whose
+    # migration to 26.04 runs from 2026-10-19 to 2026-11-19.  Fallback if 26.04 regresses:
+    # `ubuntu-24.04`, which passed the same run.  Note that 26.04's sha256sum is uutils, not GNU coreutils.
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -49,7 +48,7 @@ jobs:
         run: |
           set -euo pipefail
           . /etc/os-release
-          echo "::notice title=Runner image ${{ matrix.os }}::os=${PRETTY_NAME} image=${ImageVersion:-unknown} python=$(python -c 'import platform; print(platform.python_version())') gh=$(gh --version | head -n 1 | cut -d' ' -f3) coreutils=$(sha256sum --version | head -n 1 | awk '{print $NF}')"
+          echo "::notice title=Runner image ubuntu-26.04::os=${PRETTY_NAME} image=${ImageVersion:-unknown} python=$(python -c 'import platform; print(platform.python_version())') gh=$(gh --version | head -n 1 | cut -d' ' -f3) coreutils=$(sha256sum --version | head -n 1 | awk '{print $NF}')"
       - name: Verifier contract tests
         run: |
           python -m pip install --disable-pip-version-check pytest==9.1.1
@@ -58,7 +57,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
-          IMAGE: ${{ matrix.os }}
+          IMAGE: ubuntu-26.04
         run: |
           set -uo pipefail
           candidates=docs/audits/m42-14-evidence/artifact-candidates.json
