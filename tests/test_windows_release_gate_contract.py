@@ -1731,7 +1731,7 @@ def test_windows_gate_arms_the_crash_breadcrumb_and_the_hook_stays_opt_in(workfl
     assert written == "DRILLMASTER-TEST-START tests/test_x.py::test_named\n", written
 
 
-def test_m42_13_records_the_same_sha_resolution_without_closing_the_row_or_explaining_the_failure():
+def test_m42_13_records_the_same_sha_resolution_and_closes_the_row_only_on_its_explanation():
     """A green re-run of one SHA is a real result; it is not a root cause and not a closed register.
 
     Four failure modes are worth pinning.  Claiming the failing run itself was restarted when it was not;
@@ -1770,8 +1770,18 @@ def test_m42_13_records_the_same_sha_resolution_without_closing_the_row_or_expla
     row = [line for line in register.splitlines() if line.startswith("| REL-13 |")]
     assert len(row) == 1
     cells = [cell.strip() for cell in row[0].strip().strip("|").split(" | ")]
-    assert cells[7].startswith("`OPEN`"), ("one discharged incidence does not close a row whose condition is "
-                                           "an OR over the incidences that are still unexplained")
+    # On 2026-10-17 one discharged incidence could not close a row whose condition is an OR over incidences
+    # that were still unexplained, and this guard pinned `OPEN`.  The row may now read `CLOSED` - but only on
+    # the limb of its condition that the 2026-10-18 resolution actually satisfies, never on a pass.
+    resolution = key.get("resolution_after_the_instrumented_run")
+    if not cells[7].startswith("`OPEN`"):
+        assert resolution is not None, "the row may not leave OPEN without the recorded explanation"
+        assert cells[7].startswith("`CLOSED` for the stated condition *the instability is explained*"), (
+            "a closed row has to name the limb of its condition it was closed on")
+        assert "it stays open until the same SHA is re-run green or the instability is explained" in row[0], (
+            "the condition must remain verbatim in the row it governs")
+        assert "History: `OPEN` (on `6c4979f`" in cells[7], "the history that kept it open is preserved"
+        assert "the protections must not be relaxed to obtain green" in row[0]
 
     # read-only instrumentation, and it cannot reach the conclusion
     evidence = (ROOT / "packaging" / "windows_release_evidence.py").read_text(encoding="utf-8")
@@ -1786,3 +1796,44 @@ def test_m42_13_records_the_same_sha_resolution_without_closing_the_row_or_expla
     for forbidden in ("unlink(", "rmtree(", "write_text(", "mkdir(", "Popen(", "run_lifecycle("):
         assert forbidden not in probe, f"a diagnostic probe must not act on the tree: found {forbidden!r}"
     assert evidence.count("def system_snapshot(") == 1
+
+
+def test_m42_13_resolution_is_an_explanation_with_its_evidence_not_a_pass():
+    """REL-13 closes on "the instability is explained", so the record has to carry the explanation.
+
+    Pinned: the raising frame and the interpreter it was read against; why no other statement fits; the
+    in-repository reproduction; the fix SHA with the protections it left alone; the exact-SHA runs and the
+    direct observation; the re-runs that failed again kept as failures; and the residual unknowns.  The
+    earlier causal_status stays exactly as recorded - the resolution is appended, not substituted.
+    """
+    payload = json.loads(M425_CHECKPOINT.read_text(encoding="utf-8"))
+    key = payload["m42_13_followup"]
+    assert list(key)[-1] == "resolution_after_the_instrumented_run"
+    assert key["causal_status"]["classification"] == "UNRESOLVED_INSUFFICIENT_TELEMETRY", (
+        "what the record could support on 2026-10-17 is kept, not rewritten")
+    res = key["resolution_after_the_instrumented_run"]
+    assert res["recorded_on"] == "2026-10-18" and res["classification"] == "EXPLAINED_GATE_LISTING_RACE"
+    assert res["observation"]["published_frame"] == "raised=pathlib.py:840 in stat"
+    assert "3.12.10" in res["observation"]["interpreter"]
+    assert "Path.stat" in res["observation"]["line_840_in_that_interpreter"]
+    assert "a64a2420d495209014b0b64ebdd393a5b1c07090" in res["observation"]["run"]
+    for fact in ("rglob", "is_file()", "_bounded_tail"):
+        assert fact in res["why_no_other_statement_fits"], fact
+    assert "unfixed module" in res["reproduction_in_repository"]
+    assert re.fullmatch(r"[0-9a-f]{40}", res["fix"]["sha"])
+    assert "only absence is absorbed" in res["fix"]["change"]
+    for protection in ("uninstall exit code must be 0", "{app} must list empty after the settle",
+                       "user_data_preserved", "no relaunch once the uninstaller is gone"):
+        assert protection in res["fix"]["protections_unchanged"], protection
+    assert "vanished_while_listing=1" in res["exact_sha_runs_of_the_fix"]["direct_observation"]
+    assert res["same_sha_reruns_of_the_2026_10_17_incidences"]["failed_again_with_the_identical_signature"] == [
+        "2891f0f", "890c96b", "279a52f"], "the re-runs that failed again stay recorded as failures"
+    assert "not by a pass" in res["same_sha_reruns_of_the_2026_10_17_incidences"]["reading"]
+    rel = res["rel_13"]
+    assert rel["status"] == "CLOSED" and rel["limb_satisfied"] == "the instability is explained"
+    assert rel["condition_verbatim"] == ("it stays open until the same SHA is re-run green or the instability "
+                                         "is explained")
+    assert rel["protections_relaxed"] == "none"
+    assert "recurs on the fixed code" in rel["reopens_if"], "a closure has to say what reopens it"
+    assert any("call_chain" in item for item in res["residual_unknowns"]), (
+        "what was inferred rather than read has to be said")

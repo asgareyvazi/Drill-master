@@ -1782,6 +1782,66 @@
       "classification": "UNRESOLVED_INSUFFICIENT_TELEMETRY",
       "why_not_interference_supported": "the observation - a populated tree after the application ran, the uninstaller listed at `pre_launch`, then the tree emptied, the uninstaller gone and its own log written between two adjacent samples - is consistent with an uninstall that ran and is not consistent with any in-repository launch, because `_uninstall` has one call site and that call was refused.  But the existing evidence names no process, carries no timeline finer than two adjacent samples, and contains no security-channel record, so it cannot identify an external actor or its causation.  `INTERFERENCE_SUPPORTED_BUT_NOT_PROVEN` would overstate it, and `runner-side uninstall` would be a guess dressed as a conclusion.",
       "what_was_added_to_change_that": "read-only instrumentation in `packaging/windows_release_evidence.py`: process lineage filtered to the work root (pid, ppid, name, path, creation time, redacted command line), a bounded `Microsoft-Windows-Windows Defender/Operational` window, the first lines of both lifecycle logs (Inno names the executable it was asked to run), the raising frame of the launch exception, and an ordered UTC checkpoint timeline.  Every probe publishes its own unavailability.  No probe can change the lifecycle conclusion, and a test pins that with and without them."
+    },
+    "resolution_after_the_instrumented_run": {
+      "recorded_on": "2026-10-18",
+      "why_this_is_a_new_section": "causal_status above is what the record could support on 2026-10-17 and is kept as written; this section is what the instrumented run then showed",
+      "classification": "EXPLAINED_GATE_LISTING_RACE",
+      "observation": {
+        "run": "Windows run 52, attempt 1, head_sha a64a2420d495209014b0b64ebdd393a5b1c07090, conclusion failure",
+        "published_frame": "raised=pathlib.py:840 in stat",
+        "interpreter": "python=3.12.10, read from the same run's release-manifest annotation",
+        "line_840_in_that_interpreter": "return os.stat(self, follow_symlinks=follow_symlinks) inside Path.stat",
+        "how_to_find_it": "list runs with head_sha=a64a2420d495209014b0b64ebdd393a5b1c07090 and read the 'Installed-application lifecycle smoke failed' annotation of its job"
+      },
+      "mechanism": "the except FileNotFoundError around _uninstall() also enclosed the settle loop; snapshot() listed {app} with is_file() then stat() while Inno Setup's second-phase uninstaller, handed off to before the first phase returns, deleted those entries; the stat() of a just-deleted entry raised and the handler published a launched, succeeding uninstaller as refused",
+      "why_no_other_statement_fits": "on CPython 3.12.10 rglob swallows OSError from scandir, Path.is_file() returns False for a missing path, Path.exists() ignores ENOENT, and _bounded_tail returns a state instead of raising, so inside the post-launch block snapshot()'s stat() is the only call that can raise FileNotFoundError from pathlib.py",
+      "reproduction_in_repository": "deleting each listed entry between is_file() and stat() once the uninstaller has been launched makes the unfixed module publish 'listed before launch and no launch completed; attempt 1: refused ...; settle: the uninstaller is gone (dir=present entries=0 root=present unins=absent uninslog=present)'; five of the six new tests fail against the unfixed module and all six pass on the fix",
+      "fix": {
+        "sha": "1720b192274aec0458a38021ee9b7f0bce71bf8e",
+        "change": "snapshot() records an entry deleted between listing and stat as absent and can count it; only absence is absorbed, an unreadable file still raises; any OSError after the launch statement becomes UninstallObservationError, which is not an OSError, is a FAIL naming the exit code, and is never retried",
+        "protections_unchanged": [
+          "one bounded settle-and-retry for a genuine refusal",
+          "no relaunch once the uninstaller is gone",
+          "uninstall exit code must be 0",
+          "{app} must list empty after the settle",
+          "install_files_removed",
+          "user_data_preserved",
+          "work root deleted afterwards"
+        ],
+        "evidence_only_addition": "diagnostics.uninstall_observation and one 'Uninstall observation' notice inside Actions, printed after the verdict is fixed"
+      },
+      "exact_sha_runs_of_the_fix": {
+        "windows_runs": "59, 60, 61, 62 - each attempt 1, each conclusion success, each lifecycle=PASS",
+        "source_runs": "113, 114, 115, 116 - each attempt 1, each conclusion success",
+        "direct_observation": "every Windows run reported settle_polls=2, so the uninstaller returned while files remained; run 62 reported vanished_while_listing=1, the race itself, in a run the unfixed code would have failed"
+      },
+      "same_sha_reruns_of_the_2026_10_17_incidences": {
+        "green": [
+          "5b60268",
+          "46d27cf",
+          "d1a7f9e"
+        ],
+        "failed_again_with_the_identical_signature": [
+          "2891f0f",
+          "890c96b",
+          "279a52f"
+        ],
+        "reading": "a timing race predicts both outcomes for unchanged bytes; the three that failed again run the unfixed code and are discharged by the explanation, not by a pass",
+        "how_they_were_obtained": "each SHA pushed to a temporary ref at that exact SHA, so the run's head_sha equals it; no commit was created and the temporary refs were deleted"
+      },
+      "rel_13": {
+        "status": "CLOSED",
+        "condition_verbatim": "it stays open until the same SHA is re-run green or the instability is explained",
+        "limb_satisfied": "the instability is explained",
+        "protections_relaxed": "none",
+        "reopens_if": "a refused-launch shape recurs on the fixed code"
+      },
+      "residual_unknowns": [
+        "the call_chain field was clipped from the annotation and the log and artifact blob hosts were unreachable, so the frame below pathlib.py is established from code and interpreter source, not read",
+        "Inno Setup's own uninstall log content beyond its first line was not read for the same reason",
+        "four green runs of the fix are a sample, not a rate; the notice keeps the race observable on later runs"
+      ]
     }
   }
 }
