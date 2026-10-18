@@ -3870,3 +3870,167 @@ def test_a_probe_that_throws_cannot_replace_the_sample_or_the_finding(tmp_path):
     # the sample itself survived: the tree listing and the uninstaller observation are still there
     assert sample["install_dir"]["is_dir"] is True and sample["uninstaller"]["is_file"] is True
     assert _step(report, "silent_uninstall")["status"] == "FAIL", "the lifecycle verdict is unchanged"
+
+
+# --- M42.13: the "refused launch" was a launched uninstaller racing the settle-loop listing --------
+#
+# Windows run 52 carried the M42.13 attribution and it named the raising frame: `pathlib.py:840 in
+# stat`, which in CPython 3.12.10 (the runner's interpreter) is `return os.stat(...)` inside
+# `Path.stat`.  `Popen` never raised.  The `except FileNotFoundError` around `_uninstall()` also
+# enclosed the settle loop, whose `snapshot()` calls `is_file()` and then `stat()` on every entry -
+# while Inno Setup's second-phase uninstaller, which the first phase hands off to before returning,
+# deletes those very entries.  These tests reproduce that interleaving deterministically.
+
+
+class _DeletingWhileListed:
+    """Make `Path.is_file` report True for a file and then delete it, as the uninstaller does.
+
+    That is the exact interval the runner hit: the entry is listed, `is_file()` agrees, and it is
+    gone by the `stat()` that follows.  It is armed only once the uninstaller has been launched, so
+    every earlier step of the lifecycle sees an ordinary tree.
+    """
+
+    def __init__(self, monkeypatch, host, install_dir_name: str = "install"):
+        self.host = host
+        self.deleted: list[str] = []
+        original = Path.is_file
+        helper = self
+
+        def is_file(path):
+            answer = original(path)
+            armed = any(Path(call[0]).name.lower() == "unins000.exe" for call in helper.host.calls)
+            if answer and armed and install_dir_name in path.parts:
+                path.unlink()
+                helper.deleted.append(path.name)
+            return answer
+
+        monkeypatch.setattr(Path, "is_file", is_file)
+
+
+def test_snapshot_records_a_file_deleted_between_listing_and_stat_as_absent(tmp_path, monkeypatch):
+    module = _evidence_module()
+    tree = tmp_path / "install"
+    tree.mkdir()
+    (tree / "keep.txt").write_bytes(b"12345")
+    (tree / "victim.dll").write_bytes(b"x")
+    original = Path.is_file
+
+    def is_file(path):
+        answer = original(path)
+        if answer and path.name == "victim.dll":
+            path.unlink()  # listed, confirmed, then deleted before the size is read
+        return answer
+
+    monkeypatch.setattr(Path, "is_file", is_file)
+    vanished: list[str] = []
+    assert module.snapshot(tree, vanished=vanished) == {"keep.txt": 5}
+    assert vanished == ["victim.dll"]
+    # without a collector the call still succeeds: absence is never an exception
+    (tree / "victim.dll").write_bytes(b"x")
+    assert module.snapshot(tree) == {"keep.txt": 5}
+
+
+def test_snapshot_still_raises_for_a_file_that_exists_but_cannot_be_read(tmp_path, monkeypatch):
+    """Only absence is absorbed; an unreadable file is not quietly dropped from the listing."""
+    module = _evidence_module()
+    tree = tmp_path / "install"
+    tree.mkdir()
+    (tree / "locked.dll").write_bytes(b"x")
+    original_stat = Path.stat
+    monkeypatch.setattr(Path, "is_file", lambda path: path.name == "locked.dll")
+
+    def stat(path, *args, **kwargs):
+        if path.name == "locked.dll":
+            raise PermissionError(13, "Access is denied")
+        return original_stat(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", stat)
+    with pytest.raises(PermissionError):
+        module.snapshot(tree, vanished=[])
+
+
+def test_an_uninstaller_still_deleting_when_it_returns_is_a_pass_not_a_refused_launch(tmp_path, monkeypatch):
+    """The run-52 interleaving: launched once, exit 0, tree deleted under the settle listing.
+
+    Before M42.13 this exact sequence published `silent_uninstall FAIL` with "unins000.exe was listed
+    before launch and no launch completed", `launch_error.raised_in` = `pathlib.py ... in stat`, an
+    emptied tree, a deleted uninstaller and a written uninstall log - the REL-13 signature.  Now the
+    uninstall is what it was: one launch that succeeded, with the race recorded as evidence.
+    """
+    host = FakeHost(uninstall_removes=False)  # the first phase returns before anything is deleted
+    race = _DeletingWhileListed(monkeypatch, host)
+    _, report = _run(tmp_path, host)
+    assert report["status"] == "PASS", report["steps"]
+    uninstall_calls = [call for call in host.calls if Path(call[0]).name.lower() == "unins000.exe"]
+    assert len(uninstall_calls) == 1, "a launched uninstaller is never launched a second time"
+    assert "DrillMaster.exe" in race.deleted and "unins000.exe" in race.deleted
+    detail = json.loads(_step(report, "silent_uninstall")["detail"])
+    assert detail == {"ok": True, "exit_code": 0, "install_dir_emptied": True,
+                      "entries_vanished_while_listing": len(race.deleted)}
+    observation = report["diagnostics"]["uninstall_observation"]
+    assert observation["entries_vanished_while_listing"] == len(race.deleted) >= 2
+    assert observation["exit_code"] == 0 and observation["install_dir_emptied"] is True
+    assert "uninstall_launch_notes" not in report, "nothing was refused, so there are no refusal notes"
+    samples = report["diagnostics"].get("uninstall_forensics", {})
+    assert not any(label.startswith("after_refusal") for label in samples), sorted(samples)
+    assert _step(report, "install_files_removed")["status"] == "PASS"
+    assert _step(report, "user_data_preserved")["status"] == "PASS"
+
+
+def test_an_observation_error_after_launch_is_a_failure_that_names_the_launch(tmp_path, monkeypatch):
+    """Unknown is not converted into PASS, and it is not converted into "refused" either."""
+    host = FakeHost(uninstall_removes=False)
+    module = _evidence_module()
+    original = module.snapshot
+
+    def snapshot(directory, **kwargs):
+        if any(Path(call[0]).name.lower() == "unins000.exe" for call in host.calls):
+            raise PermissionError(13, "Access is denied")
+        return original(directory, **kwargs)
+
+    monkeypatch.setattr(module, "snapshot", snapshot)
+    _, report = _run(tmp_path, host, module=module)
+    assert report["status"] == "FAIL"
+    step = _step(report, "silent_uninstall")
+    assert step["status"] == "FAIL"
+    assert step["detail"].startswith("uninstaller launched and exited 0; observing its result failed: "
+                                     "PermissionError")
+    assert "could not be launched" not in step["detail"] and "no launch completed" not in step["detail"]
+    uninstall_calls = [call for call in host.calls if Path(call[0]).name.lower() == "unins000.exe"]
+    assert len(uninstall_calls) == 1, "an observation failure is never retried as if it were a refusal"
+    samples = report["diagnostics"]["uninstall_forensics"]
+    assert "observation_error_PermissionError" in samples
+    assert not any(label.startswith("after_refusal") for label in samples)
+
+
+def test_a_genuinely_refused_launch_is_still_reported_as_one(tmp_path):
+    """The narrowing must not cost the finding it exists to keep: `Popen` refusing is still a refusal."""
+    host = FakeHost(unlaunchable_uninstall_attempts=2)
+    _, report = _run(tmp_path, host)
+    step = _step(report, "silent_uninstall")
+    assert step["status"] == "FAIL" and "no launch completed" in step["detail"]
+    assert "uninstall_observation" not in report["diagnostics"], "no launch, so nothing was observed"
+
+
+def test_the_uninstall_observation_notice_is_printed_only_in_actions_and_never_moves_the_exit_code(
+        tmp_path, monkeypatch, capsys):
+    module = _evidence_module()
+    installer, metadata, digest = _release(tmp_path / "release")
+    for status, expected_exit in (("PASS", 0), ("FAIL", 1)):
+        report = {"schema": "drillmaster-installer-lifecycle/v1", "status": status, "steps": [],
+                  "diagnostics": {"uninstall_observation": {
+                      "exit_code": 0, "settle_polls": 1, "entries_vanished_while_listing": 3,
+                      "vanished_sample": ["a"], "install_dir_emptied": status == "PASS"}}}
+        monkeypatch.setattr(module.sys, "platform", "win32")
+        monkeypatch.setattr(module, "run_lifecycle", lambda **_: dict(report))
+        argv = ["lifecycle", "--installer", str(installer), "--release-metadata", str(metadata),
+                "--expected-sha256", digest, "--app-version", "1.0.0",
+                "--work-root", str(tmp_path / "work"), "--json-out", str(tmp_path / "out.json")]
+        monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+        assert module.main(argv) == expected_exit
+        assert "::notice" not in capsys.readouterr().out
+        monkeypatch.setenv("GITHUB_ACTIONS", "true")
+        assert module.main(argv) == expected_exit
+        out = capsys.readouterr().out
+        assert (f"::notice title=Uninstall observation::status={status} exit=0 vanished_while_listing=3 "
+                f"settle_polls=1 emptied={status == 'PASS'}") in out

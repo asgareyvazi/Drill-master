@@ -1128,8 +1128,17 @@ def test_the_lifecycle_forensics_are_additive_and_keep_every_protection():
         assert forbidden not in sampler, f"the sampler must only read; found {forbidden!r}"
     assert '"drillmaster-installer-lifecycle/v1"' in evidence, ("additive fields are fine; a redefined "
                                                                 "schema name would make published records lie")
-    assert '"install_dir_emptied": not sorted(snapshot(install_dir))' in evidence, (
+    # M42.13 re-anchors this guard rather than relaxing it: emptiness is still a fresh listing of
+    # `{app}` taken after the settle, and it is still what the return value reports - the listing now
+    # also counts entries deleted mid-listing, which is evidence, not a way to reach a pass.
+    assert "emptied = not sorted(snapshot(install_dir, vanished=vanished))" in evidence, (
         "an exit code is still not evidence that the uninstall worked")
+    assert '"ok": completed.returncode == 0, "exit_code": completed.returncode,' in evidence
+    assert '"install_dir_emptied": emptied' in evidence
+    # and an error after the launch can never travel to the refused-launch handler again
+    assert "raise UninstallObservationError(completed.returncode, exc) from exc" in evidence
+    assert "class UninstallObservationError(RuntimeError):" in evidence, (
+        "an observation error must not be an OSError, or `except FileNotFoundError` would catch it")
     assert "MAX_FORENSIC_HASH_BYTES" in evidence, "hashing must stay bounded, never silently unbounded"
 
 

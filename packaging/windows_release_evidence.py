@@ -324,13 +324,31 @@ def normalize_version(value: str) -> tuple[str, ...]:
     return tuple(parts[:3]) if parts else ()
 
 
-def snapshot(directory: Path) -> dict[str, int]:
+def snapshot(directory: Path, *, vanished: list[str] | None = None) -> dict[str, int]:
+    """List the regular files under ``directory`` with their sizes, as they are *now*.
+
+    A file that is listed and then deleted before its size is read is absent, and is recorded as
+    absent: ``is_file()`` and ``stat()`` are two system calls, and an uninstaller deleting the tree
+    runs between them.  Before M42.13 that interval raised ``FileNotFoundError`` out of this
+    function - from ``pathlib.py`` ``Path.stat`` - and because the post-launch settle loop calls
+    it, the exception reached the uninstall launch handler and was published as "the uninstaller
+    was listed but could not be launched", about an uninstaller that had in fact been launched and
+    was busy succeeding.  ``vanished``, when given, collects the relative names that disappeared
+    mid-listing, so the race stays observable instead of being silently absorbed.  Only *absence*
+    is absorbed: a file that exists and cannot be read still raises.
+    """
     if not directory.exists():
         return {}
     entries: dict[str, int] = {}
     for path in directory.rglob("*"):
         if path.is_file():
-            entries[path.relative_to(directory).as_posix()] = path.stat().st_size
+            try:
+                size = path.stat().st_size
+            except FileNotFoundError:
+                if vanished is not None:
+                    vanished.append(path.relative_to(directory).as_posix())
+                continue
+            entries[path.relative_to(directory).as_posix()] = size
     return entries
 
 
@@ -886,6 +904,15 @@ def run_lifecycle(*, installer: Path, expected_sha256: str, app_version: str, wo
                     # It was taken away, not merely busy: a second attempt would be a guess, and the
                     # finding the record has to carry is the disappearance itself.
                     break
+            except UninstallObservationError as exc:
+                # The launch succeeded, so this is not a refusal and is never retried as one: running
+                # an uninstaller a second time over a tree the first one is still deleting would be
+                # the interference this record exists to rule out.  It stays a FAIL - the removal is
+                # unproven - and the sample is taken with the cause the observation raised.
+                checkpoint(f"launch_attempt_{attempt}_observation_failed")
+                observed = forensics(f"observation_error_{type(exc.cause).__name__}", exc.cause, brief=True)
+                record("silent_uninstall", "FAIL", bound(f"{exc}; {observed}", 1200))
+                return _finish(evidence, "FAIL", started)
             except (OSError, subprocess.SubprocessError) as exc:
                 # Any other launch failure is sampled the same way: a refusal with the install tree
                 # intact and its log absent is a different finding from a refusal after a completed
@@ -1780,20 +1807,52 @@ def _uninstall(uninstaller: Path, log: Path, install_dir: Path, runner: Runner, 
     read without the identity would have made the boundary claim true of every read except the last one.
     """
     argv = [str(uninstaller), "/SILENT", "/NORESTART", "/SUPPRESSMSGBOXES", f"/LOG={log}"]
+    # Only this statement can refuse a launch.  Everything after it observes an uninstaller that
+    # *was* started, so an error there is wrapped: the caller's FileNotFoundError handler means
+    # "the OS would not start unins000.exe", and an observation error must never reach it.
     completed = runner(argv, None, install_dir.parent, timeout)
-    deadline = time.time() + max(settle_seconds, 0.0)
-    while time.time() < deadline:
-        if not install_dir.exists() or not snapshot(install_dir):
-            break
-        time.sleep(poll_interval)
-    # install_dir.parent is the work root by construction, so the same boundary -- and the same
-    # "which directory is this?" comparison -- applies here as to every other read inside it.
-    evidence["diagnostics"]["uninstall_log"] = redact(_tail(log, permitted_root=install_dir.parent,
-                                                            root_identity=root_identity), [])
+    vanished: list[str] = []
+    polls = 0
+    try:
+        deadline = time.time() + max(settle_seconds, 0.0)
+        while time.time() < deadline:
+            polls += 1
+            if not install_dir.exists() or not snapshot(install_dir, vanished=vanished):
+                break
+            time.sleep(poll_interval)
+        # install_dir.parent is the work root by construction, so the same boundary -- and the same
+        # "which directory is this?" comparison -- applies here as to every other read inside it.
+        evidence["diagnostics"]["uninstall_log"] = redact(_tail(log, permitted_root=install_dir.parent,
+                                                                root_identity=root_identity), [])
+        emptied = not sorted(snapshot(install_dir, vanished=vanished))
+    except OSError as exc:
+        raise UninstallObservationError(completed.returncode, exc) from exc
+    # Evidence only: how many listed entries were deleted before their size could be read.  A
+    # non-zero count on a green run is the race this function used to misreport, observed directly.
+    evidence["diagnostics"]["uninstall_observation"] = {
+        "exit_code": completed.returncode, "settle_polls": polls,
+        "entries_vanished_while_listing": len(vanished),
+        "vanished_sample": [bound(name, 120) for name in vanished[:5]],
+        "install_dir_emptied": emptied}
     # The exit code judges the uninstall *process*; whether the application files are
     # really gone is a separate claim, recorded by the install_files_removed step.
     return {"ok": completed.returncode == 0, "exit_code": completed.returncode,
-            "install_dir_emptied": not sorted(snapshot(install_dir))}
+            "install_dir_emptied": emptied, "entries_vanished_while_listing": len(vanished)}
+
+
+class UninstallObservationError(RuntimeError):
+    """The uninstaller was launched and returned; reading its result afterwards failed.
+
+    Deliberately not an ``OSError``: the launch loop's ``FileNotFoundError`` handler is reserved for
+    a refused launch, and this is the opposite finding.  It is still a failure of the step - an
+    unobserved result is not a removed install tree - and it carries the exit code it was given.
+    """
+
+    def __init__(self, exit_code: int, cause: OSError):
+        super().__init__(f"uninstaller launched and exited {exit_code}; observing its result failed: "
+                         f"{type(cause).__name__}: {cause}")
+        self.exit_code = exit_code
+        self.cause = cause
 
 
 def read_release_manifest(path: Path) -> dict:
@@ -2190,6 +2249,16 @@ def main(argv: list[str] | None = None) -> int:
                                  "raw_status": item.get("raw_status", ""),
                                  "reason": bound(str(item.get("status_message") or ""), 200)}
                                 for item in report.get("files", [])]}, sort_keys=True))
+    observation = (report.get("diagnostics") or {}).get("uninstall_observation")
+    if args.command == "lifecycle" and isinstance(observation, dict) and os.environ.get("GITHUB_ACTIONS") == "true":
+        # Evidence only, and the one channel that stays readable when the log and artifact blob hosts
+        # are not: whether the settle loop met files being deleted under it, on green runs as well as
+        # red ones.  It is printed after the verdict is fixed and cannot alter the exit code below.
+        print("::notice title=Uninstall observation::"
+              f"status={report.get('status')} exit={observation.get('exit_code')} "
+              f"vanished_while_listing={observation.get('entries_vanished_while_listing')} "
+              f"settle_polls={observation.get('settle_polls')} "
+              f"emptied={observation.get('install_dir_emptied')}")
     if args.command == "signing":
         return 0
     return 0 if str(report.get("status")) in {"PASS", "NOT_RUN"} else 1
