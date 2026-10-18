@@ -9,6 +9,8 @@
     "inner": "the 'Windows release manifest' notice published by the build job of the same run: installer and portable ZIP filename, size and SHA-256, tests, lifecycle and signing state"
   },
   "scope_rule": "a match covers the one artifact named in its entry and nothing else; a regenerated, later or earlier artifact needs its own entry with independently sourced values",
+  "branch": "arena/72010272-drill-master",
+  "m42_15_addition": "M42.15 appended the third candidate and the branch field; the two M42.14 entries are unchanged. The verifier now also reads the live Windows and Source run records (GET /actions/runs/<id>) and requires both completed/success on the same SHA, branch, run number and attempt.",
   "candidates": [
     {
       "role": "primary: built from the exact branch tip at the start of M42.14, with both mandatory gates green on that SHA",
@@ -55,6 +57,30 @@
         "sha256": "50303d397f3b396942312831a86052136d845112ad852be3ec1aa29a2a9dfb74"
       },
       "signing_status": "UNSIGNED"
+    },
+    {
+      "role": "M42.15: built by the Windows run on the final M42.14 tip, with both mandatory gates green on that SHA; preferred controlled-test candidate",
+      "artifact_id": 12137427788,
+      "artifact_name": "drillmaster-windows-015279354980dc84388b9dfc0dbc933103d857ea",
+      "run_id": 39129842579,
+      "run_number": 66,
+      "run_attempt": 1,
+      "source_sha": "015279354980dc84388b9dfc0dbc933103d857ea",
+      "source_gate_run_id": 39129842559,
+      "archive_size_bytes": 321675645,
+      "archive_sha256": "e8365a0a21b107bf182ca41879b7a82516737731da07f88dadf0ae6a63f0d7e1",
+      "installer": {
+        "filename": "DrillMaster-1.0.0-Setup.exe",
+        "size_bytes": 83224510,
+        "sha256": "a05a6aa2444a0b3cd9d1968d728977a168490dd12ef634ead34a0cf5e298a248"
+      },
+      "portable_zip": {
+        "filename": "DrillMaster-1.0.0-windows-x64.zip",
+        "size_bytes": 119941400,
+        "sha256": "d89a57944b10439d7feb1e1b1552e941dd04a4f9c4bcad068551f19aa79c0b64"
+      },
+      "signing_status": "UNSIGNED",
+      "expected_values_read_on": "2026-10-18, from the live artifact API, the live run records and the run's manifest notice, before any byte was downloaded"
     }
   ]
 }

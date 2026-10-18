@@ -1,15 +1,27 @@
 name: Artifact byte verification
 # Downloads the exact Windows CI artifacts named in docs/audits/m42-14-evidence/artifact-candidates.json
 # through the same public artifact API a tester uses, and verifies their transferred bytes with
-# packaging/verify_artifact_bytes.py.  It exists because the automation sandbox cannot reach the
-# artifact blob host; a hosted runner can.  It verifies, it never builds, installs or runs anything,
-# and it is not one of the two mandatory release gates.
+# packaging/verify_artifact_bytes.py, together with the live records of the Windows run that built each
+# artifact and of the Source gate on the same SHA.  It exists because the automation sandbox cannot reach
+# the artifact blob host; a hosted runner can.  It verifies; it never builds, installs or runs anything,
+# and it is not one of the two mandatory release gates.  A green run says GitHub serves the bytes its
+# build recorded - not that a tester's own downloaded copy is intact.
+#
+# Actions are pinned to full commit SHAs, each read from the official upstream repository's release tag
+# (named in the trailing comment) and declaring `runs.using: node24`.
 on:
   push:
     paths:
       - packaging/verify_artifact_bytes.py
+      - packaging/release_metadata.py
+      - packaging/acceptance_report.py
+      - tests/test_verify_artifact_bytes.py
       - docs/audits/m42-14-evidence/artifact-candidates.json
       - .github/workflows/artifact-byte-verification.yml
+  # A manual re-check of every registered candidate (for example before a handoff, or before an
+  # artifact expires).  It verifies the same registry; a successful dispatch is a verification of those
+  # candidates, never of anything else.
+  workflow_dispatch:
 permissions:
   contents: read
   actions: read
@@ -18,13 +30,26 @@ concurrency:
   cancel-in-progress: false
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    name: verify candidates (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        # M42.15 runner-image migration evidence: the complete verification on both images.
+        os: [ubuntu-24.04, ubuntu-26.04]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
+      - name: Tool probe
+        run: |
+          set -euo pipefail
+          . /etc/os-release
+          echo "::notice title=Runner image ${{ matrix.os }}::os=${PRETTY_NAME} image=${ImageVersion:-unknown} python=$(python -c 'import platform; print(platform.python_version())') gh=$(gh --version | head -n 1 | cut -d' ' -f3) coreutils=$(sha256sum --version | head -n 1 | awk '{print $NF}')"
       - name: Verifier contract tests
         run: |
           python -m pip install --disable-pip-version-check pytest==9.1.1
@@ -33,28 +58,37 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
+          IMAGE: ${{ matrix.os }}
         run: |
-          set -euo pipefail
+          set -uo pipefail
           candidates=docs/audits/m42-14-evidence/artifact-candidates.json
           work="$RUNNER_TEMP/artifact-bytes"
           mkdir -p "$work"
           status=0
-          for id in $(python -c "import json,sys; print(' '.join(str(c['artifact_id']) for c in json.load(open(sys.argv[1]))['candidates']))" "$candidates"); do
-            # live metadata first: the digest GitHub computed at upload, read now, not copied from a file
-            gh api "repos/$REPO/actions/artifacts/$id" > "$work/api-$id.json"
-            # the archive itself, streamed to disk exactly as served
-            gh api "repos/$REPO/actions/artifacts/$id/zip" > "$work/artifact-$id.zip"
-            set +e
+          rows=$(python -c "import json,sys; [print(c['artifact_id'], c['run_id'], c['source_gate_run_id'], c['archive_sha256']) for c in json.load(open(sys.argv[1]))['candidates']]" "$candidates") || { echo "::error title=Artifact byte verification::candidate registry unreadable"; exit 1; }
+          while read -r id run_id source_run_id expected; do
+            fail() { echo "::error title=Artifact byte verification $id ($IMAGE)::$1"; status=1; }
+            # live records first, read now rather than copied from a file
+            gh api "repos/$REPO/actions/artifacts/$id" > "$work/api-$id.json" || { fail "artifact API record unavailable"; continue; }
+            gh api "repos/$REPO/actions/runs/$run_id" > "$work/run-$id.json" || { fail "Windows run record unavailable"; continue; }
+            gh api "repos/$REPO/actions/runs/$source_run_id" > "$work/source-$id.json" || { fail "Source gate run record unavailable"; continue; }
+            # the archive itself, streamed to disk exactly as served (an expired artifact fails here)
+            gh api "repos/$REPO/actions/artifacts/$id/zip" > "$work/artifact-$id.zip" || { fail "archive download failed (expired or unavailable)"; rm -f "$work/artifact-$id.zip"; continue; }
             python packaging/verify_artifact_bytes.py --archive "$work/artifact-$id.zip" \
               --candidates "$candidates" --artifact-id "$id" --live-api-json "$work/api-$id.json" \
-              --json-out "$work/report-$id.json" | tee "$work/summary-$id.txt"
-            code=${PIPESTATUS[0]}
-            set -e
-            line=$(head -n 1 "$work/summary-$id.txt")
-            sha256sum "$work/artifact-$id.zip" | cut -c1-64 > "$work/coreutils-$id.txt"
-            echo "::notice title=Artifact byte verification $id::$line coreutils_sha256=$(cat "$work/coreutils-$id.txt")"
-            { echo "### Artifact $id"; echo '```'; cat "$work/summary-$id.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+              --windows-run-json "$work/run-$id.json" --source-run-json "$work/source-$id.json" \
+              --json-out "$work/report-$id.json" > "$work/summary-$id.txt" 2> "$work/stderr-$id.txt"
+            code=$?
+            cat "$work/summary-$id.txt"
+            head -c 2000 "$work/stderr-$id.txt"
+            coreutils=$(sha256sum "$work/artifact-$id.zip" | cut -c1-64)
             rm -f "$work/artifact-$id.zip"
-            if [ "$code" -ne 0 ]; then status=1; fi
-          done
+            line=$(head -n 1 "$work/summary-$id.txt")
+            if [ "$code" -ne 0 ]; then fail "verifier exit $code: ${line:-no report; see stderr}"; fi
+            if [ "$coreutils" != "$expected" ]; then fail "coreutils sha256sum $coreutils disagrees with the expected $expected"; fi
+            if [ "$code" -eq 0 ] && [ "$coreutils" = "$expected" ]; then
+              echo "::notice title=Artifact byte verification $id ($IMAGE)::$line coreutils_sha256=$coreutils"
+            fi
+            { echo "### Artifact $id on $IMAGE (verifier exit $code)"; echo '```'; cat "$work/summary-$id.txt"; echo "coreutils_sha256=$coreutils"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          done <<< "$rows"
           exit "$status"

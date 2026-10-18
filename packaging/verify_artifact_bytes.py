@@ -18,7 +18,16 @@ What it checks, all streamed so a ~320 MB archive is never held in memory:
   ``release-metadata.json``, ``acceptance-report.json`` and ``signing-status.json``;
 * the source SHA recorded in the metadata and the acceptance report;
 * whether the installer and the portable bundle's ``DrillMaster.exe`` carry an Authenticode
-  certificate table at all - a read of the PE header, not a trust decision.
+  certificate table at all - a read of the PE header, not a trust decision;
+* (M42.15) the originating Windows run and its Source gate, read live: same run, number, attempt,
+  branch and full SHA as the candidate, both ``completed``/``success``, so neither an uploaded
+  artifact nor a static JSON field can certify itself;
+* (M42.15) the signing and lifecycle records through the build's own consumers in
+  ``acceptance_report.py``, bound to the bytes observed here: the manifest digest, the source SHA,
+  the installer row, the container rows and the executable inside the portable ZIP.
+
+A signed candidate is refused outright: this verifier reads PE headers on Linux and cannot evaluate
+Authenticode trust, so the only signing state it can confirm is the absence of a signature.
 
 Nothing in the archive is executed, written back or modified; members are read in place, and the one
 nested ZIP is copied to a private temporary file that is deleted afterwards.
@@ -41,6 +50,7 @@ from pathlib import Path, PurePosixPath
 _PACKAGING_DIR = Path(__file__).resolve().parent
 if str(_PACKAGING_DIR) not in sys.path:
     sys.path.insert(0, str(_PACKAGING_DIR))
+from acceptance_report import ReportError, read_lifecycle_evidence, read_signing_evidence  # noqa: E402
 from release_metadata import validate_document  # noqa: E402
 
 REPORT_SCHEMA = "drillmaster-artifact-byte-verification/v1"
@@ -52,6 +62,69 @@ SUMS_LINE = re.compile(r"^([0-9a-f]{64})  ([^\r\n/\\]+)$")
 # Unix file-type bits carried in the high half of a ZIP entry's external attributes.  Entries written
 # on Windows carry none (0); a regular file or directory is allowed, anything else is not.
 ALLOWED_UNIX_TYPES = {0, stat.S_IFREG, stat.S_IFDIR}
+GIT_SHA = re.compile(r"^[0-9a-f]{40}$")
+BARE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+WINDOWS_WORKFLOW = ".github/workflows/windows-release-gate.yml"
+SOURCE_WORKFLOW = ".github/workflows/ci.yml"
+# The only signing state a Linux header read can confirm.  A PASS claim needs a trust evaluation
+# (Get-AuthenticodeSignature on Windows) that this module does not perform, so it is refused.
+VERIFIABLE_SIGNING_STATES = frozenset({"UNSIGNED"})
+
+
+def _positive_int(value) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool) and value > 0
+
+
+def candidate_problems(candidate: object) -> list[str]:
+    """Why a candidate entry cannot be used as an expectation, or [] when it can."""
+    if not isinstance(candidate, dict):
+        return [f"candidate must be a JSON object, got {type(candidate).__name__}"]
+    problems = []
+    for field in ("artifact_id", "run_id", "run_number", "run_attempt", "source_gate_run_id",
+                  "archive_size_bytes"):
+        if not _positive_int(candidate.get(field)):
+            problems.append(f"{field} must be a positive integer")
+    sha = candidate.get("source_sha")
+    if not isinstance(sha, str) or not GIT_SHA.match(sha):
+        problems.append("source_sha must be a full 40-hex commit SHA")
+    elif candidate.get("artifact_name") != f"drillmaster-windows-{sha}":
+        problems.append("artifact_name must be drillmaster-windows-<source_sha>")
+    if not isinstance(candidate.get("archive_sha256"), str) or not SHA256.match(candidate["archive_sha256"]):
+        problems.append("archive_sha256 must be 64 lowercase hex characters")
+    if candidate.get("run_id") is not None and candidate.get("run_id") == candidate.get("source_gate_run_id"):
+        problems.append("the Source gate run cannot be the Windows run")
+    for part in ("installer", "portable_zip"):
+        entry = candidate.get(part)
+        if not isinstance(entry, dict):
+            problems.append(f"{part} must be an object")
+            continue
+        if not isinstance(entry.get("filename"), str) or not BARE_NAME.match(entry["filename"]):
+            problems.append(f"{part}.filename must be a bare file name")
+        if not _positive_int(entry.get("size_bytes")):
+            problems.append(f"{part}.size_bytes must be a positive integer")
+        if not isinstance(entry.get("sha256"), str) or not SHA256.match(entry["sha256"]):
+            problems.append(f"{part}.sha256 must be 64 lowercase hex characters")
+    if candidate.get("signing_status") not in VERIFIABLE_SIGNING_STATES:
+        problems.append(f"signing_status {candidate.get('signing_status')!r} cannot be confirmed by this "
+                        "verifier, which reads PE headers and does not evaluate Authenticode trust")
+    return problems
+
+
+def run_binding_problems(run: object, *, run_id, source_sha: str, workflow_path: str,
+                         run_number=None, run_attempt=None, branch: str | None = None) -> list[str]:
+    """Compare a live GET /actions/runs/<id> record with what the candidate claims about it."""
+    if not isinstance(run, dict):
+        return ["the run record is not a JSON object"]
+    expected = {"id": run_id, "head_sha": source_sha, "path": workflow_path,
+                "status": "completed", "conclusion": "success"}
+    if run_number is not None:
+        expected["run_number"] = run_number
+    if run_attempt is not None:
+        expected["run_attempt"] = run_attempt
+    if branch is not None:
+        expected["head_branch"] = branch
+    return [f"{key}={run.get(key)!r} (expected {value!r})" for key, value in expected.items()
+            if run.get(key) != value]
 
 
 def _hash_stream(stream, sink=None) -> tuple[int, str]:
@@ -137,9 +210,18 @@ def _read_json_member(bundle: zipfile.ZipFile, name: str) -> dict:
     return payload
 
 
-def verify(archive: Path, candidate: dict, live_api: dict | None = None) -> dict:
+def verify(archive: Path, candidate: dict, live_api: dict | None = None, *, windows_run: dict | None = None,
+           source_run: dict | None = None, expected_branch: str | None = None) -> dict:
     """Verify ``archive`` against one candidate entry; return a bounded, publishable report."""
     checks = _Checks()
+    problems = candidate_problems(candidate)
+    if problems:
+        identity = candidate if isinstance(candidate, dict) else {}
+        checks.add("candidate_schema", False, "; ".join(problems))
+        return {"schema": REPORT_SCHEMA, "artifact_id": identity.get("artifact_id"),
+                "artifact_name": identity.get("artifact_name"), "run_id": identity.get("run_id"),
+                "source_sha": identity.get("source_sha"), "executed_anything": False,
+                "checks": checks.items, "observed": {}, "status": "FAIL"}
     run_id = str(candidate["run_id"])
     source_sha = str(candidate["source_sha"])
     release_root = f"DrillMaster-release-{run_id}"
@@ -168,6 +250,20 @@ def verify(archive: Path, candidate: dict, live_api: dict | None = None) -> dict
         checks.add("live_api_binding", not mismatches,
                    "the artifact API agrees with the candidate on id, name, size, digest, run and SHA"
                    if not mismatches else f"the artifact API disagrees on: {', '.join(mismatches)}")
+    if windows_run is not None:
+        wrong = run_binding_problems(windows_run, run_id=candidate["run_id"], source_sha=source_sha,
+                                     workflow_path=WINDOWS_WORKFLOW, run_number=candidate["run_number"],
+                                     run_attempt=candidate["run_attempt"], branch=expected_branch)
+        checks.add("windows_run_binding", not wrong,
+                   f"Windows run {candidate['run_id']} (#{candidate['run_number']}, attempt "
+                   f"{candidate['run_attempt']}) completed with success on this SHA" if not wrong
+                   else f"the live Windows run record disagrees: {'; '.join(wrong)}")
+    if source_run is not None:
+        wrong = run_binding_problems(source_run, run_id=candidate["source_gate_run_id"], source_sha=source_sha,
+                                     workflow_path=SOURCE_WORKFLOW, branch=expected_branch)
+        checks.add("source_run_binding", not wrong,
+                   f"Source gate run {candidate['source_gate_run_id']} completed with success on this SHA"
+                   if not wrong else f"the live Source gate record disagrees: {'; '.join(wrong)}")
 
     if not archive.is_file():
         checks.add("archive_present", False, f"no file at {archive}")
@@ -194,9 +290,12 @@ def verify(archive: Path, candidate: dict, live_api: dict | None = None) -> dict
             bad_crc = bundle.testzip()
         except (zipfile.BadZipFile, OSError, EOFError, NotImplementedError) as exc:
             bad_crc = f"{type(exc).__name__}: {exc}"
-        checks.add("zip_crc", bad_crc is None,
-                   f"CRC-32 verified for all {len(infos)} members" if bad_crc is None
-                   else f"first member failing its CRC or read: {bad_crc}")
+        if not checks.add("zip_crc", bad_crc is None,
+                          f"CRC-32 verified for all {len(infos)} members" if bad_crc is None
+                          else f"first member failing its CRC or read: {bad_crc}"):
+            # A member that fails its own CRC is not read again: nothing derived from it is evidence,
+            # and decompressing damaged data is where a truncated or crafted archive would crash us.
+            return finish()
 
         unsafe, special, seen, duplicates, foreign = [], [], {}, [], []
         allowed_top = {release_root, f"DrillMaster-M42-tests-{run_id}",
@@ -265,12 +364,8 @@ def verify(archive: Path, candidate: dict, live_api: dict | None = None) -> dict
                        f"bytes, {expected_installer['sha256']}")
             table = pe_certificate_table(head)
             observed["installer_certificate_table"] = list(table) if table else None
-            checks.add("installer_pe_signature",
-                       table is not None and (table[1] == 0) == (candidate["signing_status"] == "UNSIGNED"),
-                       "not a readable PE image" if table is None else
-                       f"certificate table size {table[1]}: "
-                       + ("no embedded Authenticode signature" if table[1] == 0 else "a signature blob is present")
-                       + f"; candidate records {candidate['signing_status']}")
+            checks.add("installer_pe_signature", table is not None and table[1] == 0,
+                       "not a readable PE image" if table is None else _pe_detail(table, candidate))
 
             nested = Path(scratch) / "portable.zip"
             with bundle.open(required["portable_zip"]) as member, nested.open("wb") as sink:
@@ -300,12 +395,9 @@ def verify(archive: Path, candidate: dict, live_api: dict | None = None) -> dict
                                       "sha256": exe_digest.hexdigest()}
                         exe_table = pe_certificate_table(exe_head)
                         exe_record["certificate_table"] = list(exe_table) if exe_table else None
-                        checks.add("portable_exe_pe_signature",
-                                   exe_table is not None and
-                                   (exe_table[1] == 0) == (candidate["signing_status"] == "UNSIGNED"),
-                                   "not a readable PE image" if exe_table is None else
-                                   f"{exes[0].filename}: certificate table size {exe_table[1]}; candidate records "
-                                   f"{candidate['signing_status']}")
+                        checks.add("portable_exe_pe_signature", exe_table is not None and exe_table[1] == 0,
+                                   "not a readable PE image" if exe_table is None
+                                   else f"{exes[0].filename}: {_pe_detail(exe_table, candidate)}")
             except (zipfile.BadZipFile, OSError) as exc:
                 checks.add("portable_exe_pe_signature", False, f"portable ZIP unreadable: {type(exc).__name__}: {exc}")
             observed["portable_exe"] = exe_record
@@ -352,36 +444,79 @@ def verify(archive: Path, candidate: dict, live_api: dict | None = None) -> dict
         except (ValueError, KeyError, TypeError, UnicodeDecodeError) as exc:
             checks.add("acceptance_report_binding", False, f"acceptance-report.json refused: {exc}")
 
-        try:
-            signing = _read_json_member(bundle, required["signing"])
-            files = {str(item.get("filename")): item for item in signing.get("files", []) if isinstance(item, dict)}
-            installer_row = files.get(expected_installer["filename"], {})
-            exe_row = files.get("DrillMaster.exe", {})
-            wrong = []
-            if signing.get("status") != candidate["signing_status"]:
-                wrong.append(f"status {signing.get('status')}")
-            if installer_row.get("sha256") != installer_sha:
-                wrong.append("installer sha256")
-            if exe_record and exe_row.get("sha256") != exe_record.get("sha256"):
-                wrong.append("DrillMaster.exe sha256")
-            if exe_row.get("container_archive_sha256") not in (None, portable_sha):
-                wrong.append("DrillMaster.exe container_archive_sha256")
-            checks.add("signing_record_binding", not wrong,
-                       f"signing-status.json reads {signing.get('status')} and names the bytes observed"
-                       if not wrong else f"signing-status.json disagrees: {', '.join(wrong)}")
-        except (ValueError, KeyError, UnicodeDecodeError) as exc:
-            checks.add("signing_record_binding", False, f"signing-status.json refused: {exc}")
+        metadata_sha = hashlib.sha256(bundle.read(required["metadata"])).hexdigest()
+        observed["release_metadata_sha256"] = metadata_sha
+        with tempfile.TemporaryDirectory(prefix="drillmaster-verify-records-") as scratch:
+            signing_path = _spill(bundle, required["signing"], Path(scratch))
+            try:
+                # The build's own consumer, with the binding the acceptance report uses: schema,
+                # vocabulary, duplicate rows, aggregate-vs-per-file folding, manifest digest, source
+                # SHA, installer row and container rows are refused here exactly as in the build.
+                signing = read_signing_evidence(signing_path, required=True, binding={
+                    "release_metadata_sha256": metadata_sha, "source_sha": source_sha,
+                    "installer_filename": expected_installer["filename"], "installer_sha256": installer_sha,
+                    "bundle_filename": expected_portable["filename"], "bundle_sha256": portable_sha})
+                observed["signing"] = {key: signing.get(key) for key in (
+                    "status", "examined_count", "archive_count", "signing_configured_in_build",
+                    "credentials_available")}
+                bound_exe = [row for row in signing["files"]
+                             if str(row.get("container_archive") or "").lower() == expected_portable["filename"].lower()
+                             and str(row.get("filename")).lower() == "drillmaster.exe"]
+                installer_rows = [row for row in signing["files"]
+                                  if str(row.get("filename")).lower() == expected_installer["filename"].lower()]
+                wrong = []
+                if signing["status"] != candidate["signing_status"]:
+                    wrong.append(f"aggregate {signing['status']} (candidate {candidate['signing_status']})")
+                if len(bound_exe) != 1:
+                    wrong.append(f"{len(bound_exe)} DrillMaster.exe rows bound to the portable ZIP (expected 1)")
+                elif not exe_record or bound_exe[0].get("sha256") != exe_record.get("sha256"):
+                    wrong.append("the DrillMaster.exe row hashes a different executable than the portable ZIP carries")
+                elif bound_exe[0].get("status") != candidate["signing_status"]:
+                    wrong.append(f"DrillMaster.exe row status {bound_exe[0].get('status')}")
+                if installer_rows and installer_rows[0].get("status") != candidate["signing_status"]:
+                    wrong.append(f"installer row status {installer_rows[0].get('status')}")
+                checks.add("signing_record_binding", not wrong,
+                           f"signing-status.json validated by the build's consumer: {signing['status']}, bound to "
+                           f"manifest {metadata_sha[:16]}..., this SHA, the installer, the portable ZIP and the "
+                           f"DrillMaster.exe inside it (signing_configured_in_build="
+                           f"{signing['signing_configured_in_build']})"
+                           if not wrong else f"signing-status.json disagrees: {'; '.join(wrong)}")
+            except (ReportError, ValueError, KeyError, TypeError) as exc:
+                checks.add("signing_record_binding", False, f"signing-status.json refused: {exc}")
 
-        try:
-            lifecycle = _read_json_member(bundle, required["lifecycle"])
-            ok = lifecycle.get("status") == "PASS" and lifecycle.get("installer_hash_verified") is True
-            checks.add("lifecycle_record", ok,
-                       "installer-lifecycle.json: status PASS with the installer hash verified before execution"
-                       if ok else f"installer-lifecycle.json: status {lifecycle.get('status')}, "
-                                  f"installer_hash_verified {lifecycle.get('installer_hash_verified')}")
-        except (ValueError, UnicodeDecodeError) as exc:
-            checks.add("lifecycle_record", False, f"installer-lifecycle.json refused: {exc}")
+            lifecycle_path = _spill(bundle, required["lifecycle"], Path(scratch))
+            try:
+                lifecycle = read_lifecycle_evidence(lifecycle_path, required=True)
+                wrong = []
+                if lifecycle["status"] != "PASS":
+                    wrong.append(f"status {lifecycle['status']}")
+                if lifecycle["installer_sha256"] != installer_sha:
+                    wrong.append("the lifecycle executed an installer with a different SHA-256 than the one shipped")
+                if lifecycle["installer_filename"] != expected_installer["filename"]:
+                    wrong.append(f"installer_filename {lifecycle['installer_filename']!r}")
+                checks.add("lifecycle_record", not wrong,
+                           f"installer-lifecycle.json: PASS on all {len(lifecycle['steps'])} steps, executed the "
+                           "shipped installer after verifying its hash" if not wrong
+                           else f"installer-lifecycle.json disagrees: {'; '.join(wrong)}")
+            except (ReportError, ValueError, KeyError, TypeError, AttributeError) as exc:
+                checks.add("lifecycle_record", False, f"installer-lifecycle.json refused: {exc}")
     return finish()
+
+
+def _spill(bundle: zipfile.ZipFile, name: str, directory: Path) -> Path:
+    """Stream one member into a private temporary directory for a reader that needs a path."""
+    target = directory / PurePosixPath(name).name
+    with bundle.open(name) as member, target.open("wb") as sink:
+        _hash_stream(member, sink)
+    return target
+
+
+def _pe_detail(table: tuple[int, int], candidate: dict) -> str:
+    if table[1] == 0:
+        return (f"certificate table size 0: no embedded Authenticode signature, consistent with "
+                f"{candidate['signing_status']}")
+    return (f"certificate table size {table[1]}: a signature blob is present, contradicting "
+            f"{candidate['signing_status']}; its trust was not evaluated (this is a header read)")
 
 
 def summary_line(report: dict) -> str:
@@ -396,20 +531,41 @@ def summary_line(report: dict) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Exit 0 only when every check passes; 1 on any failed check; 2 on a bad invocation or registry;
+    3 when the verifier itself crashed, so a crash can never be mistaken for a clean FAIL report."""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--archive", type=Path, required=True)
     parser.add_argument("--candidates", type=Path, required=True)
     parser.add_argument("--artifact-id", type=int, required=True)
     parser.add_argument("--live-api-json", type=Path, help="GET /actions/artifacts/<id> response, read live")
+    parser.add_argument("--windows-run-json", type=Path, help="GET /actions/runs/<run_id> response, read live")
+    parser.add_argument("--source-run-json", type=Path,
+                        help="GET /actions/runs/<source_gate_run_id> response, read live")
     parser.add_argument("--json-out", type=Path)
     args = parser.parse_args(argv)
-    candidates = json.loads(args.candidates.read_text(encoding="utf-8"))["candidates"]
-    matching = [entry for entry in candidates if entry["artifact_id"] == args.artifact_id]
+    try:
+        registry = json.loads(args.candidates.read_text(encoding="utf-8"))
+        candidates = registry["candidates"]
+        matching = [entry for entry in candidates if isinstance(entry, dict)
+                    and entry.get("artifact_id") == args.artifact_id]
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        print(f"ERROR: candidate registry unreadable: {type(exc).__name__}: {exc}", file=sys.stderr)
+        return 2
     if len(matching) != 1:
         print(f"ERROR: {len(matching)} candidate entries for artifact {args.artifact_id}", file=sys.stderr)
         return 2
-    live = json.loads(args.live_api_json.read_text(encoding="utf-8")) if args.live_api_json else None
-    report = verify(args.archive, matching[0], live)
+    branch = registry.get("branch") if isinstance(registry.get("branch"), str) else None
+
+    def load(path: Path | None):
+        return json.loads(path.read_text(encoding="utf-8")) if path else None
+
+    try:
+        report = verify(args.archive, matching[0], load(args.live_api_json), windows_run=load(args.windows_run_json),
+                        source_run=load(args.source_run_json), expected_branch=branch)
+    except Exception as exc:  # noqa: BLE001 - reported as a crash with its own exit code, never as a result
+        print(f"ERROR: verifier crashed on artifact {args.artifact_id}: {type(exc).__name__}: {str(exc)[:300]}",
+              file=sys.stderr)
+        return 3
     if args.json_out:
         args.json_out.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(summary_line(report))
