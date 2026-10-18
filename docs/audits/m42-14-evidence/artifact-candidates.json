@@ -1,0 +1,60 @@
+{
+  "schema": "drillmaster-artifact-byte-candidates/v1",
+  "mission": "M42.14",
+  "recorded_on": "2026-10-18",
+  "purpose": "the exact Windows CI artifacts whose transferred bytes are verified by packaging/verify_artifact_bytes.py; every expected value below was read before any byte of the archive was downloaded, from sources that do not depend on those bytes",
+  "expected_value_sources": {
+    "run": "GET /repos/asgareyvazi/Drill-master/actions/runs/<run_id> and /jobs: run number, attempt, head_sha, conclusion of every job",
+    "archive": "GET /repos/asgareyvazi/Drill-master/actions/artifacts/<artifact_id>: name, size_in_bytes, digest (computed by GitHub at upload), workflow_run.id, workflow_run.head_sha",
+    "inner": "the 'Windows release manifest' notice published by the build job of the same run: installer and portable ZIP filename, size and SHA-256, tests, lifecycle and signing state"
+  },
+  "scope_rule": "a match covers the one artifact named in its entry and nothing else; a regenerated, later or earlier artifact needs its own entry with independently sourced values",
+  "candidates": [
+    {
+      "role": "primary: built from the exact branch tip at the start of M42.14, with both mandatory gates green on that SHA",
+      "artifact_id": 12135787858,
+      "artifact_name": "drillmaster-windows-d9fecba057475c50a5204b031437c066dc1c5a38",
+      "run_id": 39125666180,
+      "run_number": 64,
+      "run_attempt": 1,
+      "source_sha": "d9fecba057475c50a5204b031437c066dc1c5a38",
+      "source_gate_run_id": 39125666192,
+      "archive_size_bytes": 321663699,
+      "archive_sha256": "891873eeb1a8a76f57b72b11ecdcf9b316ed2f2d9b40e9445efb7cb001abed6f",
+      "installer": {
+        "filename": "DrillMaster-1.0.0-Setup.exe",
+        "size_bytes": 83211695,
+        "sha256": "ff14393e50c7a348eb7876a0ef3fffe47de849210b7a3b530e0d52bca6f9f9e1"
+      },
+      "portable_zip": {
+        "filename": "DrillMaster-1.0.0-windows-x64.zip",
+        "size_bytes": 119941399,
+        "sha256": "0863b887604091998e3b580e84ca906e9aaa644a86aa54012c4f9353726ebd1f"
+      },
+      "signing_status": "UNSIGNED"
+    },
+    {
+      "role": "secondary: the M42.13 documented candidate, built from the last code and record checkpoint; the release code is identical to the primary (the later commit adds only a dated report)",
+      "artifact_id": 12136310366,
+      "artifact_name": "drillmaster-windows-fa92145b69b332240ffb6b34fad17bd02ff3c834",
+      "run_id": 39124603564,
+      "run_number": 63,
+      "run_attempt": 1,
+      "source_sha": "fa92145b69b332240ffb6b34fad17bd02ff3c834",
+      "source_gate_run_id": 39124603637,
+      "archive_size_bytes": 321722453,
+      "archive_sha256": "8391f63bd5927ba89a30b6eb45b62a6e480eaa01ac5351cce895882a5c4259b2",
+      "installer": {
+        "filename": "DrillMaster-1.0.0-Setup.exe",
+        "size_bytes": 83270432,
+        "sha256": "1ddabf57bc2e26b3a3ff039466bd05706803292136d5c4bde786854e2933d73b"
+      },
+      "portable_zip": {
+        "filename": "DrillMaster-1.0.0-windows-x64.zip",
+        "size_bytes": 119941400,
+        "sha256": "50303d397f3b396942312831a86052136d845112ad852be3ec1aa29a2a9dfb74"
+      },
+      "signing_status": "UNSIGNED"
+    }
+  ]
+}

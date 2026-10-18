@@ -1,0 +1,60 @@
+name: Artifact byte verification
+# Downloads the exact Windows CI artifacts named in docs/audits/m42-14-evidence/artifact-candidates.json
+# through the same public artifact API a tester uses, and verifies their transferred bytes with
+# packaging/verify_artifact_bytes.py.  It exists because the automation sandbox cannot reach the
+# artifact blob host; a hosted runner can.  It verifies, it never builds, installs or runs anything,
+# and it is not one of the two mandatory release gates.
+on:
+  push:
+    paths:
+      - packaging/verify_artifact_bytes.py
+      - docs/audits/m42-14-evidence/artifact-candidates.json
+      - .github/workflows/artifact-byte-verification.yml
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: artifact-bytes-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verifier contract tests
+        run: |
+          python -m pip install --disable-pip-version-check pytest==9.1.1
+          python -m pytest tests/test_verify_artifact_bytes.py -p no:cacheprovider
+      - name: Download and verify every candidate artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          candidates=docs/audits/m42-14-evidence/artifact-candidates.json
+          work="$RUNNER_TEMP/artifact-bytes"
+          mkdir -p "$work"
+          status=0
+          for id in $(python -c "import json,sys; print(' '.join(str(c['artifact_id']) for c in json.load(open(sys.argv[1]))['candidates']))" "$candidates"); do
+            # live metadata first: the digest GitHub computed at upload, read now, not copied from a file
+            gh api "repos/$REPO/actions/artifacts/$id" > "$work/api-$id.json"
+            # the archive itself, streamed to disk exactly as served
+            gh api "repos/$REPO/actions/artifacts/$id/zip" > "$work/artifact-$id.zip"
+            set +e
+            python packaging/verify_artifact_bytes.py --archive "$work/artifact-$id.zip" \
+              --candidates "$candidates" --artifact-id "$id" --live-api-json "$work/api-$id.json" \
+              --json-out "$work/report-$id.json" | tee "$work/summary-$id.txt"
+            code=${PIPESTATUS[0]}
+            set -e
+            line=$(head -n 1 "$work/summary-$id.txt")
+            sha256sum "$work/artifact-$id.zip" | cut -c1-64 > "$work/coreutils-$id.txt"
+            echo "::notice title=Artifact byte verification $id::$line coreutils_sha256=$(cat "$work/coreutils-$id.txt")"
+            { echo "### Artifact $id"; echo '```'; cat "$work/summary-$id.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+            rm -f "$work/artifact-$id.zip"
+            if [ "$code" -ne 0 ]; then status=1; fi
+          done
+          exit "$status"
