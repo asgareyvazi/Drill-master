@@ -548,6 +548,7 @@ class DrillMasterApp(QApplication):
                 if self.user:
                     from core.permissions import permissions
                     permissions.set_user(self.user)
+                    self.db_manager.enforce_authorization(permissions)
                     logger.info("Auto-login as admin (development/test mode)")
                     return True
 
@@ -557,7 +558,10 @@ class DrillMasterApp(QApplication):
             if self.user:
                 from core.permissions import permissions
                 permissions.set_user(self.user)
-                
+                # Every later write is checked against the same principal in
+                # the data layer (core.authorization), not only in UI slots.
+                self.db_manager.enforce_authorization(permissions)
+
                 # Audit log
                 self.db_manager.log_audit(
                     action="login",

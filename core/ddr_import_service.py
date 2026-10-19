@@ -332,6 +332,12 @@ class DDRImportService:
         return result
 
     def _execute_import(self, extracted: dict, refresh_ui: bool = True) -> dict:
+        """Run one import under the data-layer import scope (requires can_import)."""
+        from core.authorization import IMPORT_SCOPE, operation_scope
+        with operation_scope(IMPORT_SCOPE):
+            return self._execute_import_scoped(extracted, refresh_ui)
+
+    def _execute_import_scoped(self, extracted: dict, refresh_ui: bool = True) -> dict:
         """Core import logic with atomic transaction and no fake defaults."""
         from copy import deepcopy
         extracted = deepcopy(extracted)

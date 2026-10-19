@@ -49,11 +49,13 @@ def _split_definitions(body: str) -> list[str]:
 
 
 def _build_old_schema(path, version: int) -> None:
-    """Build an isolated v1/v2 database from ORM DDL minus later columns."""
+    """Build an isolated v1..v4 database from ORM DDL minus later columns/tables."""
     connection = sqlite3.connect(path)
     connection.execute("PRAGMA foreign_keys=OFF")
     for table in Base.metadata.sorted_tables:
         if version <= 2 and table.name == "wellbores":
+            continue
+        if version <= 4 and table.name == "login_throttle":
             continue
         sql = str(CreateTable(table).compile(dialect=sqlite_dialect()))
         removed = set(V1_COLUMNS.get(table.name, set())) if version == 1 else set()
@@ -105,7 +107,7 @@ def test_fresh_initialization_reopen_wal_foreign_keys_and_schema_version(tmp_pat
         try:
             raw = manager.engine.raw_connection()
             try:
-                assert raw.execute("SELECT MAX(version) FROM schema_version").fetchone()[0] == 4
+                assert raw.execute("SELECT MAX(version) FROM schema_version").fetchone()[0] == 5
                 assert raw.execute("PRAGMA foreign_keys").fetchone()[0] == 1
                 assert raw.execute("PRAGMA journal_mode").fetchone()[0].lower() == "wal"
                 assert raw.execute("PRAGMA foreign_key_check").fetchall() == []
@@ -114,7 +116,7 @@ def test_fresh_initialization_reopen_wal_foreign_keys_and_schema_version(tmp_pat
         finally:
             manager.close()
     with sqlite3.connect(path) as connection:
-        assert connection.execute("SELECT version FROM schema_version").fetchall() == [(4,)]
+        assert connection.execute("SELECT version FROM schema_version").fetchall() == [(5,)]
 
 
 @pytest.mark.parametrize("old_version", [1, 2])
@@ -131,7 +133,7 @@ def test_legacy_schema_upgrade_preserves_rows_unknowns_indexes_and_is_idempotent
     assert manager.initialize(), manager.last_diagnostic
     manager.close()
     with sqlite3.connect(path) as connection:
-        assert connection.execute("SELECT version FROM schema_version").fetchall() == [(4,)]
+        assert connection.execute("SELECT version FROM schema_version").fetchall() == [(5,)]
         assert connection.execute("SELECT name FROM wells WHERE id=1").fetchone() == ("Legacy Well",)
         assert connection.execute("SELECT report_number FROM daily_reports WHERE id=1").fetchone() == (7,)
         assert connection.execute("SELECT wellbore_id FROM sections WHERE id=1").fetchone() == (None,)
@@ -159,7 +161,31 @@ def test_v3_upgrade_adds_nullable_header_measurement_without_backfill(tmp_path, 
     assert manager.initialize(), manager.last_diagnostic
     manager.close()
     with sqlite3.connect(path) as connection:
-        assert connection.execute("SELECT version FROM schema_version").fetchall() == [(4,)]
+        assert connection.execute("SELECT version FROM schema_version").fetchall() == [(5,)]
         assert connection.execute("SELECT mw_pcf FROM daily_reports").fetchone() == (None,)
         assert connection.execute("SELECT report_number FROM daily_reports").fetchone() == (7,)
         assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
+
+
+def test_v4_upgrade_adds_login_throttle_and_rejects_older_applications(tmp_path, monkeypatch):
+    path = tmp_path / "v4.sqlite"
+    _configure(tmp_path, monkeypatch, path)
+    _build_old_schema(path, 4)
+    with sqlite3.connect(path) as connection:
+        assert "login_throttle" not in {r[0] for r in connection.execute("SELECT name FROM sqlite_master")}
+    for _ in range(2):  # idempotent
+        manager = DatabaseManager()
+        assert manager.initialize(), manager.last_diagnostic
+        manager.close()
+    with sqlite3.connect(path) as connection:
+        assert connection.execute("SELECT version FROM schema_version").fetchall() == [(5,)]
+        assert connection.execute("SELECT report_number FROM daily_reports").fetchone() == (7,)
+        assert connection.execute("SELECT COUNT(*) FROM login_throttle").fetchone() == (0,)
+        assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
+    # A v4 application (which would ignore persistent lockouts) must refuse it.
+    older = DatabaseManager()
+    older.schema_version = 4
+    assert older.initialize() is False
+    assert "Unsupported future database schema version 5" in older.last_diagnostic["message"]
+    older.close()
+

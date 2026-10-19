@@ -122,7 +122,27 @@ class User(Base):
     permissions = Column(JSON, nullable=True)  # اضافه شد
     created_at = Column(DateTime, default=_now_utc)
     last_login = Column(DateTime)
-    
+
+
+class LoginThrottle(Base):
+    """Persistent failed-login state per submitted username (schema v5).
+
+    Keyed by a digest of the normalized submitted name
+    (core.login_throttle.throttle_key) whether or not such an account exists,
+    so lockouts do not reveal which usernames are real and mistyped input
+    (e.g. a password typed into the username field) is never stored. Written only
+    by DatabaseManager.authenticate_user / unlock_account (system scope).
+    """
+    __tablename__ = "login_throttle"
+
+    username_key = Column(String(255), primary_key=True)
+    failed_count = Column(Integer, nullable=False, default=0)
+    lockouts = Column(Integer, nullable=False, default=0)
+    first_failed_at = Column(DateTime)
+    last_failed_at = Column(DateTime)
+    locked_until = Column(DateTime)
+
+
 class Company(Base):
     __tablename__ = "companies"
 
@@ -687,6 +707,12 @@ def _validate_synchronized_ownership(session, flush_context):
 @event.listens_for(Session, "after_rollback")
 def _clear_pending_ownership(session):
     session.info.pop("_ownership_pending", None)
+
+
+# Data-layer authorization (M43): no-op unless a DatabaseManager enforces it.
+from core import authorization as _authorization  # noqa: E402
+
+_authorization.install(Session)
 
 
 class ReportRevision(Base):
@@ -2579,8 +2605,13 @@ class DatabaseManager:
         self.last_diagnostic = None
         # v3 adds wellbore attribution. v4 adds the distinct nullable DDR
         # header `mw_pcf` measurement; the non-destructive v3->v4 upgrade is
-        # applied in _apply_safe_schema_upgrades.
-        self.schema_version = 4
+        # applied in _apply_safe_schema_upgrades. v5 (M43) adds the
+        # login_throttle table (persistent lockout state); it is created by the
+        # generic missing-table step, and the version bump makes older
+        # applications - which would ignore lockouts - refuse the database.
+        self.schema_version = 5
+        from core.authorization import AuthorizationState
+        self._authorization = AuthorizationState(audit_writer=self._record_authorization_denials)
 
         # Mutable database state belongs in the OS user-data directory, not
         # beside the installed package. Tests and operators can override this
@@ -2626,13 +2657,16 @@ class DatabaseManager:
                 cursor.execute("PRAGMA foreign_keys=ON")
                 cursor.close()
 
-            self.Session = sessionmaker(bind=self.engine, autoflush=False, autocommit=False)
+            self.Session = sessionmaker(bind=self.engine, autoflush=False, autocommit=False,
+                                        info={"authorization": self._authorization_state()})
             # Reject a future schema before create_all can create any new
             # application tables around it.
             self._reject_future_schema()
             self._apply_safe_schema_upgrades()
             self._verify_import_schema()
-            self.create_default_data()
+            from core.authorization import system_scope
+            with system_scope():
+                self.create_default_data()
             return True
         except CredentialLifecycleError as exc:
             self.last_diagnostic = {"credential_error": True, "code": exc.code,
@@ -3517,79 +3551,236 @@ class DatabaseManager:
             ).hexdigest()
             return f"sha256:{salt}:{hashed}"
 
-    def _verify_password(self, password: str, stored_hash: str) -> bool:
-        """تأیید password - سازگار با هر دو فرمت"""
-        if _BCRYPT_AVAILABLE and not stored_hash.startswith("sha256:"):
-            try:
-                return bcrypt.checkpw(
-                    password.encode('utf-8'),
-                    stored_hash.encode('utf-8')
-                )
-            except Exception:
-                pass
+    _BCRYPT_PREFIXES = ("$2a$", "$2b$", "$2y$")
+    _timing_hash = None
 
-        # fallback برای SHA-256
-        if stored_hash.startswith("sha256:"):
-            parts = stored_hash.split(":", 2)
+    def _verify_password(self, password: str, stored_hash: str) -> bool:
+        """Verify a password; fails closed on anything but a valid known format.
+
+        * bcrypt hashes are checked with bcrypt; a malformed hash or bcrypt
+          error is refused (logged), never retried against another format;
+        * the per-password-salted ``sha256:`` format, produced only when bcrypt
+          is unavailable, verifies outside production only;
+        * the retired static-salt SHA-256 format of pre-2024 development
+          databases no longer verifies (M43); production already refused it.
+        """
+        stored = str(stored_hash or "")
+        if stored.startswith(self._BCRYPT_PREFIXES):
+            if not _BCRYPT_AVAILABLE:
+                logger.error("Stored credential is bcrypt but bcrypt is not installed; authentication refused")
+                return False
+            try:
+                return bcrypt.checkpw(password.encode("utf-8"), stored.encode("utf-8"))
+            except (ValueError, TypeError):
+                logger.warning("Malformed bcrypt credential; authentication refused")
+                return False
+        if stored.startswith("sha256:") and not is_production_environment():
+            parts = stored.split(":", 2)
             if len(parts) == 3:
                 _, salt, expected = parts
-                actual = hashlib.sha256(
-                    f"{salt}{password}".encode('utf-8')
-                ).hexdigest()
+                actual = hashlib.sha256(f"{salt}{password}".encode("utf-8")).hexdigest()
                 return secrets.compare_digest(actual, expected)
+        return False
 
-        # سازگاری با hash قدیمی (static salt)
-        old_salt = "DrillMaster_2024_Salt"
-        old_hash = hashlib.sha256(
-            f"{old_salt}{password}".encode('utf-8')
-        ).hexdigest()
-        return secrets.compare_digest(old_hash, stored_hash)
+    def _equalize_unknown_user_timing(self, password: str) -> None:
+        """Spend a bcrypt verification when no account matched."""
+        if not _BCRYPT_AVAILABLE:
+            return
+        if DatabaseManager._timing_hash is None:
+            DatabaseManager._timing_hash = bcrypt.hashpw(secrets.token_bytes(16), bcrypt.gensalt(rounds=12))
+        bcrypt.checkpw(password.encode("utf-8"), DatabaseManager._timing_hash)
 
-    def authenticate_user(self, username: str, password: str)-> Optional[Any]:
-        if is_production_environment() and is_development_password(password):
+    def authenticate_user(self, username: str, password: str) -> Optional[Any]:
+        """Return the user object or ``None`` (one outcome for every failure).
+
+        Wrong password, unknown or inactive account, a locked account and a
+        development password in production all return ``None``. Failures are
+        counted per submitted name (core.login_throttle) and audited; a locked
+        name is refused without verifying the password.
+        """
+        from core import login_throttle as throttle
+        from core.authorization import system_scope
+
+        if not isinstance(password, str) or not password or not str(username or "").strip():
             return None
-
-        session = self.create_session()
-        try:
-            user = (
-                session.query(User)
-                .filter(
-                    User.username == username,
-                    User.is_active == True,
-                )
-                .first()
-            )
-
-            if user and is_production_environment() and not str(user.password_hash).startswith(("$2a$", "$2b$", "$2y$")):
-                return None  # legacy SHA verification remains development-only
-            if user and self._verify_password(
-                password, user.password_hash
-            ):
-                user_data = {
-                    "id": user.id,
-                    "username": user.username,
-                    "full_name": getattr(user, 'full_name', user.username),
-                    "role": getattr(user, 'role', 'user'),
-                    "email": getattr(
-                        user, 'email',
-                        f'{user.username}@drillmaster.com'
-                    ),
-                    "permissions": user.permissions or {},
-                }
-                try:
-                    user.last_login = datetime.now(
-                        __import__('datetime').timezone.utc
-                    ).replace(tzinfo=None)
+        key = throttle.throttle_key(username)
+        policy = throttle.policy_from_environment()
+        with system_scope():
+            session = self.create_session()
+            try:
+                connection = session.connection()
+                if throttle.locked_until(connection, key):
+                    session.add(AuditLog(action="login_rejected_locked", entity_type="user",
+                                         details="account temporarily locked", timestamp=_now_utc()))
                     session.commit()
-                except Exception:
-                    session.rollback()
-                return type("UserObject", (), user_data)()
-            return None
+                    return None
+                user = (
+                    session.query(User)
+                    .filter(User.username == username, User.is_active == True)  # noqa: E712
+                    .first()
+                )
+                verified = False
+                if user is None:
+                    self._equalize_unknown_user_timing(password)
+                else:
+                    stored = str(user.password_hash or "")
+                    production = is_production_environment()
+                    if production and (is_development_password(password)
+                                       or not stored.startswith(self._BCRYPT_PREFIXES)):
+                        verified = False  # development secrets and legacy hashes never authenticate in production
+                    else:
+                        verified = self._verify_password(password, stored)
+                if verified:
+                    throttle.clear(connection, key)
+                    user.last_login = _now_utc()
+                    if _BCRYPT_AVAILABLE and not str(user.password_hash).startswith(self._BCRYPT_PREFIXES):
+                        user.password_hash = self._hash_password(password)  # upgrade a development sha256 hash
+                    user_data = {
+                        "id": user.id,
+                        "username": user.username,
+                        "full_name": getattr(user, "full_name", user.username),
+                        "role": getattr(user, "role", "user"),
+                        "email": getattr(user, "email", f"{user.username}@drillmaster.com"),
+                        "permissions": user.permissions or {},
+                    }
+                    session.commit()
+                    return type("UserObject", (), user_data)()
+                outcome = throttle.record_failure(connection, key, policy)
+                session.add(AuditLog(
+                    action="login_failed", entity_type="user",
+                    user_id=user.id if user is not None else None,
+                    username=user.username if user is not None else None,
+                    details=("consecutive failures: %d" % outcome.failed_count) if user is not None
+                    else "no matching active account", timestamp=_now_utc()))
+                if outcome.newly_locked:
+                    session.add(AuditLog(
+                        action="login_locked", entity_type="user",
+                        user_id=user.id if user is not None else None,
+                        username=user.username if user is not None else None,
+                        details="locked until %sZ" % outcome.locked_until.isoformat(timespec="seconds"),
+                        timestamp=_now_utc()))
+                session.commit()
+                return None
+            except Exception:
+                session.rollback()
+                logger.exception("Authentication error")
+                return None
+            finally:
+                session.close()
+
+    def _require_user_manager(self, actor) -> object:
+        from core.authorization import AuthorizationError, MANAGE_USERS
+
+        actor = actor if actor is not None else self._authorization_state().principal
+        try:
+            allowed = actor is not None and bool(actor.has_permission(MANAGE_USERS))
         except Exception:
-            logger.exception("Authentication error")
-            return None
-        finally:
-            session.close()
+            logger.exception("Permission resolution failed; access denied")
+            allowed = False
+        if not allowed:
+            try:
+                self._record_authorization_denials([{"table": "login_throttle", "operation": "admin",
+                                                     "required": [MANAGE_USERS],
+                                                     "user_id": getattr(actor, "user_id", None),
+                                                     "username": str(getattr(actor, "username", "") or "")}])
+            except Exception:
+                logger.exception("Could not record an authorization denial in the audit log")
+            raise AuthorizationError("login_throttle", "admin", (MANAGE_USERS,))
+        return actor
+
+    def unlock_account(self, username: str, actor=None) -> bool:
+        """Clear the lockout of ``username``; requires ``can_manage_users``.
+
+        ``actor`` defaults to the enforced principal; with neither, the call
+        is refused (fail closed). Returns whether any throttle state existed.
+        """
+        from core import login_throttle as throttle
+        from core.authorization import system_scope
+
+        actor = self._require_user_manager(actor)
+        with system_scope(), self.session_scope() as session:
+            cleared = throttle.clear(session.connection(), throttle.throttle_key(username))
+            target = session.query(User).filter(User.username == username).first()
+            session.add(AuditLog(action="account_unlocked", entity_type="user",
+                                 entity_id=target.id if target is not None else None,
+                                 entity_name=target.username if target is not None else None,
+                                 user_id=getattr(actor, "user_id", None),
+                                 username=str(getattr(actor, "username", "") or "")[:50] or None,
+                                 details="lockout cleared" if cleared else "no lockout state",
+                                 timestamp=_now_utc()))
+        return cleared
+
+    def get_locked_accounts(self, actor=None) -> list:
+        """Currently locked accounts (named when they match a user); admin only."""
+        from core import login_throttle as throttle
+
+        self._require_user_manager(actor)
+        with self.session_scope() as session:
+            names = [row[0] for row in session.query(User.username).all()]
+            return throttle.locked_accounts(session.connection(), names)
+
+    def enforce_authorization(self, principal) -> None:
+        """Enforce the data-layer policy (core.authorization) for ``principal``.
+
+        Called by the application after login. ``principal`` must expose
+        ``has_permission(name)``; enforcement cannot be switched off again on
+        this manager.
+        """
+        if principal is None or not callable(getattr(principal, "has_permission", None)):
+            raise ValueError("an authorization principal with has_permission() is required")
+        state = self._authorization_state()
+        factory = getattr(self, "Session", None)
+        if factory is not None:
+            # A factory created elsewhere (e.g. assigned by a test or script)
+            # must carry the state too, or enforcement would silently not apply.
+            kw = getattr(factory, "kw", None)
+            if not isinstance(kw, dict) or not callable(getattr(factory, "configure", None)):
+                raise RuntimeError("cannot enforce authorization: unsupported session factory")
+            info = dict(kw.get("info") or {})
+            if info.get("authorization") is not state:
+                info["authorization"] = state
+                factory.configure(info=info)
+        state.principal = principal
+        state.enforced = True
+
+    @property
+    def authorization_enforced(self) -> bool:
+        return bool(self._authorization_state().enforced)
+
+    def _authorization_state(self):
+        """The manager's authorization state (created lazily for managers
+        constructed without ``__init__``)."""
+        state = getattr(self, "_authorization", None)
+        if state is None:
+            from core.authorization import AuthorizationState
+            state = AuthorizationState(audit_writer=self._record_authorization_denials)
+            self._authorization = state
+        return state
+
+    def _record_authorization_denials(self, denials) -> None:
+        """Write denied mutations to audit_logs in their own transaction."""
+        from core.authorization import system_scope
+
+        if self.Session is None:
+            logger.error("Authorization denial(s) could not be audited: database not initialized")
+            return
+        with system_scope():
+            session = self.Session()
+            try:
+                for denial in denials:
+                    session.add(AuditLog(
+                        action="authorization_denied", entity_type=str(denial.get("table") or "")[:50],
+                        user_id=denial.get("user_id"),
+                        username=(str(denial.get("username") or "")[:50] or None),
+                        details=json.dumps({k: denial.get(k) for k in ("operation", "required", "scope")},
+                                           sort_keys=True)[:500],
+                        timestamp=_now_utc()))
+                session.commit()
+            except Exception:
+                session.rollback()
+                raise
+            finally:
+                session.close()
 
     def generic_save(self, model, data: dict):
         """Persist a mapped model using only columns declared by its table."""
@@ -4649,7 +4840,11 @@ class DatabaseManager:
                                    "An authenticated user is required for this action.",
                                    report_id=report_id)
         try:
-            with self.session_scope() as session:
+            # The action-specific permission is checked by decide_transition
+            # below; the data-layer guard trusts exactly this write pattern
+            # (status/updated_at, revision, approval action) - nothing else.
+            from core.authorization import REPORT_LIFECYCLE, operation_scope
+            with operation_scope(REPORT_LIFECYCLE), self.session_scope() as session:
                 report = session.get(DailyReport, report_id)
                 if report is None:
                     return LifecycleResult(False, LifecycleOutcome.NOT_FOUND,
@@ -9937,7 +10132,16 @@ class DatabaseManager:
             session.close()
 
     def create_default_procedure_templates(self):
-        """ایجاد قالب‌های پیش‌فرض"""
+        """Seed the built-in procedure templates once (idempotent).
+
+        Runs for every role when the procedure tab opens, so it is system
+        bookkeeping for the data-layer guard, not a user edit.
+        """
+        from core.authorization import system_scope
+        with system_scope():
+            return self._create_default_procedure_templates()
+
+    def _create_default_procedure_templates(self):
         session = self.create_session()
         try:
             if session.query(ProcedureTemplate).count() > 0:

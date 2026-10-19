@@ -81,7 +81,7 @@ def test_v3_database_gets_additive_mw_pcf_column_without_backfill(m38_db):
     upgraded = DatabaseManager()
     upgraded.db_path = path
     assert upgraded.initialize(), upgraded.last_diagnostic
-    assert upgraded.schema_version == 4
+    assert upgraded.schema_version == 5
     report = upgraded.get_daily_report_by_id(ids["first"])
     assert report["depth_2400"] == 1000 and report["mw_pcf"] is None
     assert upgraded.get_mud_report(report_id=ids["first"])["mw"] == 71.0
@@ -90,7 +90,7 @@ def test_v3_database_gets_additive_mw_pcf_column_without_backfill(m38_db):
     reopened = DatabaseManager()
     reopened.db_path = path
     assert reopened.initialize(), reopened.last_diagnostic
-    assert reopened.schema_version == 4
+    assert reopened.schema_version == 5
     assert reopened.get_daily_report_by_id(ids["first"])["mw_pcf"] is None
     assert reopened.get_mud_report(report_id=ids["first"])["mw"] == 71.0
     reopened.close()

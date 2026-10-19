@@ -28,8 +28,8 @@ for an unreleased project.
 
 | Area | Current behaviour | Limits |
 |---|---|---|
-| Accounts | bcrypt password hashes; production mode refuses development passwords and non-bcrypt stored hashes at startup and at login | single local application, no network service |
-| Authorization | role and permission model in `core/permissions.py` | enforcement coverage of mutation paths is being audited (M43) |
+| Accounts | bcrypt password hashes (verification fails closed); persistent per-account lockout with exponential backoff, configurable, audited, admin unlock; production mode refuses development passwords and non-bcrypt stored hashes at startup and at login | single local application, no network service; no unlock or user-management UI yet |
+| Authorization | role and permission model in `core/permissions.py`, enforced in the UI and, after login, for every ORM mutation in the data layer (`core/authorization.py`); denials audited | reads are not role-restricted; code with direct file access is not restricted |
 | Data at rest | local SQLite database in the user data directory (`DRILLMASTER_DATA_DIR` overrides) | **not encrypted**; protect it with OS account and disk encryption |
 | Privacy | `tools/privacy/privacy_check.py` gates the tracked tree; real DDRs are never committed | real data remains in Git history until the owner-gated purge (`docs/privacy/HISTORY_PURGE_PLAN.md`) |
 | Supply chain | pinned lock file; CI actions pinned by full commit SHA | builds are unsigned (SmartScreen warnings expected) |
@@ -37,3 +37,5 @@ for an unreleased project.
 Out of scope: social engineering, physical access to an unlocked workstation,
 and vulnerabilities in third-party dependencies without a DrillMaster-specific
 exploit path (report those upstream).
+
+Details, trust boundary and test evidence: `docs/SECURITY_MODEL.md`.

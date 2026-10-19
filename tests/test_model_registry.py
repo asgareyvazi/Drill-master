@@ -155,7 +155,7 @@ def _unversioned(path) -> None:
         connection.execute("DROP TABLE schema_version")
 
 
-@pytest.mark.parametrize("old_version", [None, 1, 2, 3])
+@pytest.mark.parametrize("old_version", [None, 1, 2, 3, 4])
 def test_upgraded_database_is_equivalent_to_a_fresh_one(tmp_path, monkeypatch, old_version):
     fresh = _fresh_signature(tmp_path / "f", monkeypatch)
     path = tmp_path / f"v{old_version}.sqlite"
@@ -178,7 +178,7 @@ def test_upgraded_database_is_equivalent_to_a_fresh_one(tmp_path, monkeypatch, o
     differences = {table: parts for table, parts in differences.items() if parts}
     assert differences == {}, differences
     with sqlite3.connect(path) as connection:
-        assert connection.execute("SELECT version FROM schema_version").fetchall() == [(4,)]
+        assert connection.execute("SELECT version FROM schema_version").fetchall() == [(5,)]
         assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
 
 
