@@ -49,7 +49,11 @@ def _split_definitions(body: str) -> list[str]:
 
 
 def _build_old_schema(path, version: int) -> None:
-    """Build an isolated v1..v4 database from ORM DDL minus later columns/tables."""
+    """Build an isolated v1..v5 database from ORM DDL minus later columns/tables.
+
+    Only CREATE TABLE is emitted: no historical version had secondary indexes
+    (they arrive with v6, core/schema_indexes.py).
+    """
     connection = sqlite3.connect(path)
     connection.execute("PRAGMA foreign_keys=OFF")
     for table in Base.metadata.sorted_tables:
@@ -107,7 +111,7 @@ def test_fresh_initialization_reopen_wal_foreign_keys_and_schema_version(tmp_pat
         try:
             raw = manager.engine.raw_connection()
             try:
-                assert raw.execute("SELECT MAX(version) FROM schema_version").fetchone()[0] == 5
+                assert raw.execute("SELECT MAX(version) FROM schema_version").fetchone()[0] == 6
                 assert raw.execute("PRAGMA foreign_keys").fetchone()[0] == 1
                 assert raw.execute("PRAGMA journal_mode").fetchone()[0].lower() == "wal"
                 assert raw.execute("PRAGMA foreign_key_check").fetchall() == []
@@ -116,7 +120,7 @@ def test_fresh_initialization_reopen_wal_foreign_keys_and_schema_version(tmp_pat
         finally:
             manager.close()
     with sqlite3.connect(path) as connection:
-        assert connection.execute("SELECT version FROM schema_version").fetchall() == [(5,)]
+        assert connection.execute("SELECT version FROM schema_version").fetchall() == [(6,)]
 
 
 @pytest.mark.parametrize("old_version", [1, 2])
@@ -133,7 +137,7 @@ def test_legacy_schema_upgrade_preserves_rows_unknowns_indexes_and_is_idempotent
     assert manager.initialize(), manager.last_diagnostic
     manager.close()
     with sqlite3.connect(path) as connection:
-        assert connection.execute("SELECT version FROM schema_version").fetchall() == [(5,)]
+        assert connection.execute("SELECT version FROM schema_version").fetchall() == [(6,)]
         assert connection.execute("SELECT name FROM wells WHERE id=1").fetchone() == ("Legacy Well",)
         assert connection.execute("SELECT report_number FROM daily_reports WHERE id=1").fetchone() == (7,)
         assert connection.execute("SELECT wellbore_id FROM sections WHERE id=1").fetchone() == (None,)
@@ -161,7 +165,7 @@ def test_v3_upgrade_adds_nullable_header_measurement_without_backfill(tmp_path, 
     assert manager.initialize(), manager.last_diagnostic
     manager.close()
     with sqlite3.connect(path) as connection:
-        assert connection.execute("SELECT version FROM schema_version").fetchall() == [(5,)]
+        assert connection.execute("SELECT version FROM schema_version").fetchall() == [(6,)]
         assert connection.execute("SELECT mw_pcf FROM daily_reports").fetchone() == (None,)
         assert connection.execute("SELECT report_number FROM daily_reports").fetchone() == (7,)
         assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
@@ -178,7 +182,7 @@ def test_v4_upgrade_adds_login_throttle_and_rejects_older_applications(tmp_path,
         assert manager.initialize(), manager.last_diagnostic
         manager.close()
     with sqlite3.connect(path) as connection:
-        assert connection.execute("SELECT version FROM schema_version").fetchall() == [(5,)]
+        assert connection.execute("SELECT version FROM schema_version").fetchall() == [(6,)]
         assert connection.execute("SELECT report_number FROM daily_reports").fetchone() == (7,)
         assert connection.execute("SELECT COUNT(*) FROM login_throttle").fetchone() == (0,)
         assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
@@ -186,6 +190,68 @@ def test_v4_upgrade_adds_login_throttle_and_rejects_older_applications(tmp_path,
     older = DatabaseManager()
     older.schema_version = 4
     assert older.initialize() is False
-    assert "Unsupported future database schema version 5" in older.last_diagnostic["message"]
+    assert "Unsupported future database schema version 6" in older.last_diagnostic["message"]
     older.close()
 
+
+
+def test_v5_upgrade_adds_the_secondary_indexes_and_rejects_older_applications(tmp_path, monkeypatch):
+    from core.schema_indexes import INDEX_PLAN, index_name
+
+    path = tmp_path / "v5.sqlite"
+    _configure(tmp_path, monkeypatch, path)
+    _build_old_schema(path, 5)
+    expected = {index_name(table, columns) for table, columns, _ in INDEX_PLAN}
+    with sqlite3.connect(path) as connection:
+        assert not {r[0] for r in connection.execute("SELECT name FROM sqlite_master WHERE type='index'")} & expected
+    for _ in range(2):  # idempotent: the second start creates nothing new
+        manager = DatabaseManager()
+        assert manager.initialize(), manager.last_diagnostic
+        manager.close()
+    with sqlite3.connect(path) as connection:
+        live = {r[0]: r[1] for r in connection.execute(
+            "SELECT name, tbl_name FROM sqlite_master WHERE type='index' AND name LIKE 'ix_%'")}
+        assert set(live) == expected
+        for table, columns, _ in INDEX_PLAN:
+            name = index_name(table, columns)
+            assert live[name] == table
+            assert tuple(r[2] for r in connection.execute(f'PRAGMA index_info("{name}")')) == columns
+        assert connection.execute("SELECT version FROM schema_version").fetchall() == [(6,)]
+        assert connection.execute("SELECT report_number FROM daily_reports").fetchone() == (7,)
+        assert connection.execute("PRAGMA integrity_check").fetchone() == ("ok",)
+        assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
+    older = DatabaseManager()
+    older.schema_version = 5
+    assert older.initialize() is False
+    assert "Unsupported future database schema version 6" in older.last_diagnostic["message"]
+    older.close()
+
+
+def test_a_failing_index_creation_rolls_the_whole_migration_back(tmp_path, monkeypatch):
+    """The index pass runs inside the migration transaction: when one CREATE
+    INDEX fails, the database stays at v5 with its data and no partial index."""
+    import core.database as database_module
+    from sqlalchemy import Index
+
+    path = tmp_path / "v5-fail.sqlite"
+    _configure(tmp_path, monkeypatch, path)
+    _build_old_schema(path, 5)
+    probe = "ix_zz_rollback_probe"
+    with sqlite3.connect(path) as connection:  # an existing TABLE with the index's name
+        connection.execute(f"CREATE TABLE {probe} (x INTEGER)")
+    table = database_module.Base.metadata.tables["daily_reports"]
+    colliding = Index(probe, table.c.report_date)  # attached to the model registry
+    try:
+        manager = DatabaseManager()
+        assert manager.initialize() is False
+        manager.close()
+    finally:
+        table.indexes.discard(colliding)
+    assert probe not in {i.name for i in table.indexes}
+    with sqlite3.connect(path) as connection:
+        assert connection.execute("SELECT version FROM schema_version").fetchall() == [(5,)]
+        assert connection.execute(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name LIKE 'ix\\_%' ESCAPE '\\'"
+        ).fetchone() == (0,)
+        assert connection.execute("SELECT report_number FROM daily_reports").fetchone() == (7,)
+        assert connection.execute("PRAGMA integrity_check").fetchone() == ("ok",)

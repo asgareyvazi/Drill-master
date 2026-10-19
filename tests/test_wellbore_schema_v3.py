@@ -427,7 +427,7 @@ class TestNonDestructiveMigration:
         con = sqlite3.connect(dbp)
         try:
             # Version advanced.
-            assert con.execute("SELECT MAX(version) FROM schema_version").fetchone()[0] == 5
+            assert con.execute("SELECT MAX(version) FROM schema_version").fetchone()[0] == 6
             # New table + columns exist.
             assert con.execute(
                 "SELECT name FROM sqlite_master WHERE name='wellbores'"
@@ -466,7 +466,7 @@ class TestNonDestructiveMigration:
         con = sqlite3.connect(dbp)
         try:
             versions = [r[0] for r in con.execute("SELECT version FROM schema_version").fetchall()]
-            assert max(versions) == 5
+            assert max(versions) == 6
             # Physical wellbore FK is installed exactly once (not duplicated).
             for table in ("sections", "daily_reports"):
                 wb_fks = [
@@ -549,7 +549,7 @@ class TestFreshSchema:
 
         con = sqlite3.connect(dbp)
         try:
-            assert con.execute("SELECT MAX(version) FROM schema_version").fetchone()[0] == 5
+            assert con.execute("SELECT MAX(version) FROM schema_version").fetchone()[0] == 6
             assert con.execute(
                 "SELECT name FROM sqlite_master WHERE name='wellbores'"
             ).fetchone() is not None

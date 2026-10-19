@@ -105,7 +105,7 @@ def test_file_database_backup_corruption_restore_and_reopen(tmp_path, monkeypatc
         raw = reopened.engine.raw_connection()
         try:
             assert raw.execute("PRAGMA foreign_key_check").fetchall() == []
-            assert raw.execute("SELECT MAX(version) FROM schema_version").fetchone()[0] == 5
+            assert raw.execute("SELECT MAX(version) FROM schema_version").fetchone()[0] == 6
         finally:
             raw.close()
     finally:

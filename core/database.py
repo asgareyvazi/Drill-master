@@ -2597,6 +2597,13 @@ def _canonicalize_cost_record(_mapper, _connection, record):
 # ----------------------------------------------------------------------
 # DatabaseManager class with updated save/get methods for key tables
 # ----------------------------------------------------------------------
+# Secondary indexes (schema v6) are declared in one audited module and
+# attached to the single model registry here; see core/schema_indexes.py.
+from core import schema_indexes as _schema_indexes  # noqa: E402
+
+_schema_indexes.install(Base.metadata)
+
+
 class DatabaseManager:
     def __init__(self, bootstrap_passwords=None):
         self._bootstrap_override = dict(bootstrap_passwords) if bootstrap_passwords is not None else None
@@ -2609,7 +2616,9 @@ class DatabaseManager:
         # login_throttle table (persistent lockout state); it is created by the
         # generic missing-table step, and the version bump makes older
         # applications - which would ignore lockouts - refuse the database.
-        self.schema_version = 5
+        # v6 (M43) adds the audited secondary indexes of core/schema_indexes.py
+        # (additive; created by name after all column upgrades).
+        self.schema_version = 6
         from core.authorization import AuthorizationState
         self._authorization = AuthorizationState(audit_writer=self._record_authorization_denials)
 
@@ -3215,12 +3224,6 @@ class DatabaseManager:
             for model_table in Base.metadata.sorted_tables:
                 if not self._raw_table_exists(raw, model_table.name):
                     raw.execute(str(CreateTable(model_table).compile(dialect=self.engine.dialect)))
-            for model_table in Base.metadata.sorted_tables:
-                for index in model_table.indexes:
-                    if index.name and not raw.execute(
-                        "SELECT 1 FROM sqlite_master WHERE type='index' AND name=?", (index.name,)
-                    ).fetchone():
-                        raw.execute(str(CreateIndex(index).compile(dialect=self.engine.dialect)))
             version = self._raw_schema_version(raw)
             if version is not None and version > self.schema_version:
                 raise RuntimeError(f"Unsupported future schema version {version}")
@@ -3314,6 +3317,15 @@ class DatabaseManager:
             # Verify and repair nullable contracts on every startup, including
             # v2 databases whose live schema was changed by an old installer.
             self._migrate_nullable_contracts(connection=raw)
+            # Model indexes (v6) are created last, by name, so every column
+            # added by the version upgrades above already exists. Same
+            # transaction: a failure rolls the whole migration back.
+            for model_table in Base.metadata.sorted_tables:
+                for index in model_table.indexes:
+                    if index.name and not raw.execute(
+                        "SELECT 1 FROM sqlite_master WHERE type='index' AND name=?", (index.name,)
+                    ).fetchone():
+                        raw.execute(str(CreateIndex(index).compile(dialect=self.engine.dialect)))
             raw.execute("DELETE FROM schema_version")
             raw.execute(
                 "INSERT INTO schema_version(version, applied_at) VALUES (?, ?)",
