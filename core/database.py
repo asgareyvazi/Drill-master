@@ -2646,9 +2646,12 @@ class DatabaseManager:
             self.last_diagnostic = None
             if self.db_path != ":memory:":
                 Path(self.db_path).expanduser().parent.mkdir(parents=True, exist_ok=True)
+            from core import sqlite_connection
+
+            timeout_ms = sqlite_connection.busy_timeout_ms()
             self.engine = create_engine(
                 f"sqlite:///{self.db_path}",
-                connect_args={"check_same_thread": False, "timeout": 30},
+                connect_args={"check_same_thread": False, "timeout": timeout_ms / 1000},
                 poolclass=StaticPool,
                 echo=False,
                 hide_parameters=True,  # account hashes must not appear in SQL exception parameters
@@ -2659,12 +2662,10 @@ class DatabaseManager:
 
             @event.listens_for(self.engine, "connect")
             def set_sqlite_pragma(dbapi_connection, connection_record):
-                cursor = dbapi_connection.cursor()
-                cursor.execute("PRAGMA journal_mode=WAL")
-                cursor.execute("PRAGMA synchronous=NORMAL")
-                cursor.execute("PRAGMA cache_size=10000")
-                cursor.execute("PRAGMA foreign_keys=ON")
-                cursor.close()
+                # Every DB-API connection the engine opens (initial, after
+                # dispose, after a failed pre-ping) is configured and verified.
+                connection_record.info["sqlite_settings"] = sqlite_connection.configure(
+                    dbapi_connection, timeout_ms=timeout_ms)
 
             self.Session = sessionmaker(bind=self.engine, autoflush=False, autocommit=False,
                                         info={"authorization": self._authorization_state()})
@@ -10573,9 +10574,9 @@ class DatabaseManager:
                 temporary = Path(handle.name)
             # Fail if the source disappears after the existence check; plain
             # connect() would create an empty DB and publish a false backup.
-            source_connection = sqlite3.connect(
-                Path(self.db_path).resolve().as_uri() + "?mode=ro", uri=True
-            )
+            from core import sqlite_connection
+
+            source_connection = sqlite_connection.connect(self.db_path, read_only=True)
             destination_connection = sqlite3.connect(str(temporary))
             with destination_connection:
                 source_connection.backup(destination_connection)
