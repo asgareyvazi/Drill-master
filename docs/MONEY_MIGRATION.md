@@ -48,6 +48,12 @@ actual `[0.1, 0.2]` produced `total_actual = 0.30000000000000004` and a
 variance of `-5.55e-17`, displayed as `USD -0.00` and coloured as over budget.
 Planned `1000000.10 + 0.20` versus actual `1000000.00 + 0.30` produced
 `-1.16e-10`. Both now give a variance of exactly `0.0` (`USD 0.00`).
+The defect was demonstrated on Python 3.11. From Python 3.12 the built-in
+`sum()` compensates float rounding (Neumaier), which removes some cases (ten
+times `0.1` sums to `1.0`) but not these two. This was checked by reproducing
+CPython's compensated algorithm, not on a 3.12 interpreter, so it applies to
+the Python 3.12 Windows build as well. `sum_money` is exact on every
+supported version.
 Regression test: `tests/test_money.py::test_exactly_on_budget_totals_have_zero_variance_not_negative_residue`
 (fails if the float sum is restored).
 

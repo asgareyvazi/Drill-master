@@ -43,9 +43,21 @@ def test_invalid_and_non_finite_amounts_raise_the_existing_error_type(value):
 
 # ---------------------------------------------------------------- sum_money
 
+def _float_accumulate(values):
+    """Plain left-to-right binary float addition.
+
+    Not the built-in ``sum``: from Python 3.12 it compensates float rounding
+    (Neumaier), so its results differ between supported versions.
+    """
+    total = 0.0
+    for value in values:
+        total += value
+    return total
+
+
 def test_binary_float_accumulation_is_removed():
-    assert sum([0.1, 0.2]) != 0.3 and sum_money([0.1, 0.2]) == 0.3
-    assert sum([0.1] * 10) != 1.0 and sum_money([0.1] * 10) == 1.0
+    assert _float_accumulate([0.1, 0.2]) != 0.3 and sum_money([0.1, 0.2]) == 0.3
+    assert _float_accumulate([0.1] * 10) != 1.0 and sum_money([0.1] * 10) == 1.0
     assert sum_money([1_000_000.10, 0.20]) == 1_000_000.30
     assert sum_money([0.1, -0.1, 0.3, -0.3]) == 0.0
 
