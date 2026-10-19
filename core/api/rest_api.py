@@ -12,7 +12,11 @@ Implements:
 Architecture: UI → Application Services → Domain / Engineering Core → Repositories → Database
 API uses same service layer, not direct DB manipulation.
 
-Security: Permission enforcement via same PermissionManager
+Security (M43 review): this module has no callers and no authentication.
+It does NOT check permissions itself; reads go straight to DatabaseManager.
+``create_app`` therefore never builds an HTTP application - exposing these
+endpoints would publish well data to anyone who can reach the port. An HTTP
+API needs authentication, authorization and transport security first.
 """
 
 from typing import Dict, List, Any, Optional
@@ -129,44 +133,12 @@ class DrillMasterAPI:
 
 
 def create_app(db_manager=None):
-    """Create Flask/FastAPI app - placeholder for future.
+    """Return the in-process :class:`DrillMasterAPI` object.
 
-    For now returns API object, future will return FastAPI app with routes.
-
-    Future routes:
-    - GET /api/wells
-    - GET /api/wells/{id}
-    - GET /api/wells/{id}/reports
-    - GET /api/wells/{id}/trajectory
-    - POST /api/trajectory/calculate
-    - GET /api/wells/{id}/intelligence
-    - GET /api/reports/{id}/quality
-    - POST /api/export/professional
-    - POST /api/import/witsml
-    - GET /api/search/historical?q=...
+    No HTTP application is built, even when FastAPI is installed: there is no
+    authentication or authorization layer for remote callers (M43). Planned
+    routes are listed in ``docs/IMPLEMENTATION_REPORT.md``.
     """
-    api = DrillMasterAPI(db_manager)
-
-    # Future: if FastAPI installed, create app
-    try:
-        from fastapi import FastAPI
-
-        app = FastAPI(title="DrillMaster Intelligence Platform API", version="2.1")
-
-        @app.get("/api/wells")
-        def list_wells():
-            return api.get_wells()
-
-        @app.get("/api/wells/{well_id}")
-        def get_well(well_id: int):
-            return api.get_well(well_id) or {"error": "Not found"}
-
-        @app.get("/api/wells/{well_id}/intelligence")
-        def get_intelligence(well_id: int):
-            return api.get_intelligence(well_id)
-
-        return app
-
-    except ImportError:
-        logger.info("FastAPI not installed - returning API object, not HTTP app. Install with pip install fastapi uvicorn")
-        return api
+    if db_manager is not None:
+        logger.info("HTTP API disabled: no authentication layer; returning the in-process API object")
+    return DrillMasterAPI(db_manager)
