@@ -116,10 +116,53 @@ def validate_pytest_report(path, collected, counts):
         key = (identity[0].rsplit(".", 1)[-1], identity[1])
         if key not in OPTIONAL_ACCEPTANCE_SKIPS or skipped.get("message") != OPTIONAL_ACCEPTANCE_SKIPS[key]:
             print(f"FAIL: unexpected skip {identity}: {skipped.get('message')}")
+            _ci_error("unexpected skip", f"{identity}: {skipped.get('message')}")
             return False
         actual["skipped"] += 1
         print(f"NOT-RUN external acceptance (SKIPPED-OPTIONAL in source gate): {identity}")
     return len(cases) == collected and all(actual[k] == counts[k] for k in actual)
+
+
+def _annotation_text(text, limit=300):
+    """One line, escaped for a GitHub Actions workflow command."""
+    line = " ".join(str(text or "").split())[:limit]
+    return line.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+
+
+def annotate_failures(path, environ=None) -> int:
+    """Emit one ``::error`` annotation per failed/errored JUnit case in CI.
+
+    Job logs are not always retrievable, but check-run annotations are; this
+    names the failing tests there. Diagnostics only: it never changes the gate
+    result. Messages are truncated to one short line.
+    """
+    environ = os.environ if environ is None else environ
+    if environ.get("GITHUB_ACTIONS") != "true" or not Path(path).is_file():
+        return 0
+    import xml.etree.ElementTree as ET
+    try:
+        cases = ET.parse(path).findall(".//testcase")
+    except ET.ParseError as exc:
+        print(f"::error title=pytest report::{_annotation_text(exc)}")
+        return 1
+    emitted = 0
+    for case in cases:
+        for kind in ("failure", "error"):
+            problem = case.find(kind)
+            if problem is None:
+                continue
+            identity = f"{case.get('classname', '')}::{case.get('name', '')}"
+            lines = (problem.text or "").strip().splitlines()
+            message = problem.get("message") or (lines[-1] if lines else "")
+            print(f"::error title=pytest {kind}::{_annotation_text(identity, 200)} - {_annotation_text(message)}")
+            emitted += 1
+    return emitted
+
+
+def _ci_error(title, text) -> None:
+    """Also surface a gate failure reason as a CI annotation (diagnostics only)."""
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        print(f"::error title={_annotation_text(title, 60)}::{_annotation_text(text)}")
 
 
 def run_pytest() -> bool:
@@ -139,9 +182,10 @@ def run_pytest() -> bool:
         result = _run([sys.executable, "-m", "pytest", "-ra", f"--junitxml={report}"])
         output = (result.stdout or "") + (result.stderr or "")
         report_valid = validate_pytest_report(report, collected, _pytest_counts(output))
+        annotate_failures(report)
     output = (result.stdout or "") + (result.stderr or "")
     counts = _pytest_counts(output)
-    print(
+    summary = (
         "Pytest release counts: "
         f"collected={collected}, "
         f"passed={counts['passed']}, "
@@ -152,15 +196,19 @@ def run_pytest() -> bool:
         f"xpassed={counts['xpassed']}, "
         f"deselected={counts['deselected']}"
     )
+    print(summary)
 
     if result.returncode != 0 or counts["failed"] or counts["error"] or counts["errors"]:
         print("Release verification failed: pytest reported failures or errors.")
+        _ci_error("pytest", summary)
         return False
     if not report_valid:
+        _ci_error("pytest report", "JUnit report did not reconcile; " + summary)
         return False
     executed = sum(counts[name] for name in ("passed", "skipped", "failed", "error", "errors", "xfailed", "xpassed"))
     if counts["xfailed"] or counts["xpassed"] or counts["deselected"] or executed != collected:
         print("Release verification failed: unexpected xfail/xpass/deselection or collection/execution mismatch.")
+        _ci_error("pytest accounting", f"collected={collected}; " + summary)
         return False
     return True
 
@@ -310,10 +358,12 @@ def main(argv=None) -> int:
           f"Qt={os.getenv('QT_QPA_PLATFORM', 'default')}; "
           f"Qt stub directory={os.getenv('QT_STUB_DIR', 'not declared')}")
     if not verify_repository(args.expected_sha, args.allow_dirty):
+        _ci_error("release gate", "repository verification failed")
         return 1
     for check in (verify_dependencies, verify_resources, verify_version, verify_lint):
         if not check():
             print(f"FAIL: {check.__name__}")
+            _ci_error("release gate", f"{check.__name__} failed")
             return 1
     compile_targets = [
         "core",
@@ -330,11 +380,14 @@ def main(argv=None) -> int:
     compile_result = _run([sys.executable, "-m", "compileall", "-q", *compile_targets])
     if compile_result.returncode != 0:
         print("Release verification failed: syntax compilation failed.")
+        _ci_error("release gate", "syntax compilation failed")
         return 1
     if not run_pytest():
+        _ci_error("release gate", "pytest stage failed (see the pytest annotations)")
         return 1
     if not verify_wheel():
         print("FAIL: wheel packaging")
+        _ci_error("release gate", "wheel packaging stage failed")
         return 1
     print("VERIFIED: source gate only. Windows EXE/installer, real MinerU/DDR and production DB acceptance NOT certified.")
     return 0
