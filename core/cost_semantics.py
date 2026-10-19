@@ -168,7 +168,11 @@ def summarize_costs(records):
     Category/currency groups remain available. NULL amounts invalidate that
     side's total, independently of the other side. Raw rows retain known facts.
     Accept ORM rows or their repository dict representation, not derived results.
+    Money totals are exact decimal sums (core.money.sum_money), so equal
+    planned/actual totals give a zero variance instead of a float residue.
     """
+    from core.money import sum_money
+
     def read(row, key):
         return row.get(key) if isinstance(row, dict) else getattr(row, key)
 
@@ -179,14 +183,14 @@ def summarize_costs(records):
         grouped.setdefault(key, []).append(row)
     groups = []
     for (currency, category), rows in sorted(grouped.items(), key=lambda item: (item[0][0] or "", item[0][1])):
-        planned = complete_total(read(r, "planned_cost") for r in rows) if currency else None
-        actual = complete_total(read(r, "actual_cost") for r in rows) if currency else None
+        planned = sum_money((read(r, "planned_cost") for r in rows), "planned cost") if currency else None
+        actual = sum_money((read(r, "actual_cost") for r in rows), "actual cost") if currency else None
         groups.append(dict(currency=currency, category=category, planned=planned,
                            actual=actual, variance=canonical_variance(planned, actual)))
     currencies = {read_key[0] for read_key in grouped}
     currency = next(iter(currencies)) if len(currencies) == 1 and None not in currencies else None
-    planned = complete_total(read(r, "planned_cost") for r in records) if currency else None
-    actual = complete_total(read(r, "actual_cost") for r in records) if currency else None
+    planned = sum_money((read(r, "planned_cost") for r in records), "planned cost") if currency else None
+    actual = sum_money((read(r, "actual_cost") for r in records), "actual cost") if currency else None
     return {
         "currency": currency,
         "status": ("no-records" if not records else "unknown-currency" if None in currencies
