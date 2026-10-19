@@ -1,7 +1,8 @@
 """Real OEOC DDR golden regression — LTA, Safety, POB Logistics.
 
 Verifies the complete canonical path for the real workbook
-(08-DDR OEOC-208 AZNS-207 2024-Oct-22.xlsx + templates/OEOC_DDR_v3.json):
+(tests/fixtures/synthetic_ddr_golden_a.xlsx -- the de-identified derivative of the
+original workbook -- + templates/OEOC_DDR_v3.json):
 
     workbook/template -> extraction (canonical) -> database -> UI getters
 
@@ -24,7 +25,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 REPO = Path(__file__).resolve().parent.parent
-WORKBOOK = REPO / "08-DDR OEOC-208 AZNS-207 2024-Oct-22.xlsx"
+WORKBOOK = REPO / "tests" / "fixtures" / "synthetic_ddr_golden_a.xlsx"
 TEMPLATE = REPO / "templates" / "OEOC_DDR_v3.json"
 
 
@@ -865,7 +866,7 @@ class TestFullImportPipeline:
         try:
             well = session.query(Well).first()
             assert well is not None
-            assert well.name == "AZNS-207"
+            assert well.name == "SYNW-101"
             assert well.lta_day == 468
             report = session.query(DailyReport).first()
             assert report is not None

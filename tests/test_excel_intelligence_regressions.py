@@ -16,7 +16,7 @@ from core.import_ir import raw_document_from_workbook
 
 
 REPO = Path(__file__).resolve().parents[1]
-FIXTURE = REPO / "08-DDR OEOC-208 AZNS-207 2024-Oct-22.xlsx"
+FIXTURE = REPO / "tests" / "fixtures" / "synthetic_ddr_golden_a.xlsx"
 TEMPLATE = REPO / "templates" / "OEOC_DDR_v3.json"
 
 
@@ -124,7 +124,7 @@ def test_repository_workbook_contains_meaningful_semantic_evidence():
 
     # These are semantic report values from the actual workbook, rather than
     # metadata such as page/table counts or provenance dictionaries.
-    assert well_info.get("name") == "AZNS-207"
+    assert well_info.get("name") == "SYNW-101"
     assert daily_report.get("report_date") == "2024-10-22"
     assert daily_report.get("depth_2400") == 225.0
     assert time_logs and any(row.get("activity_description") for row in time_logs)

@@ -1,6 +1,7 @@
 """Golden regression test for real DDR workbook.
 
-Uses actual expected values from: 08-DDR OEOC-208 AZNS-207 2024-Oct-22.xlsx
+Uses expected values from tests/fixtures/synthetic_ddr_golden_a.xlsx, the de-identified
+derivative of the original Golden A workbook (identity cells substituted, technical values unchanged)
 
 This test verifies that the import engine extracts CORRECT values,
 not just non-null values.
@@ -10,7 +11,7 @@ import pytest
 import json
 from pathlib import Path
 
-DDR_PATH = Path(__file__).parent.parent / "08-DDR OEOC-208 AZNS-207 2024-Oct-22.xlsx"
+DDR_PATH = Path(__file__).parent / "fixtures" / "synthetic_ddr_golden_a.xlsx"
 DDR_AVAILABLE = DDR_PATH.exists()
 
 
@@ -44,22 +45,22 @@ class TestGoldenValues:
     """Verify EXACT expected values from the real DDR workbook."""
 
     def test_well_name(self, ddr_report):
-        assert _get(ddr_report, "well_info", "name") == "AZNS-207"
+        assert _get(ddr_report, "well_info", "name") == "SYNW-101"
 
     def test_rig_name(self, ddr_report):
-        assert _get(ddr_report, "well_info", "rig_name") == "OEOC 208"
+        assert _get(ddr_report, "well_info", "rig_name") == "OEOC 900"
 
     def test_client(self, ddr_report):
         """PPL — not '225' (depth value from adjacent row)."""
-        assert _get(ddr_report, "well_info", "client") == "PPL"
+        assert _get(ddr_report, "well_info", "client") == "CLIENT-A"
 
     def test_operator(self, ddr_report):
         """MSA — not '310' (depth value from adjacent row)."""
         assert _get(ddr_report, "well_info", "operator") == "MSA"
 
     def test_field_name(self, ddr_report):
-        """AZNS — not '3.95' (GLE-MSL from adjacent row)."""
-        assert _get(ddr_report, "well_info", "field_name") == "AZNS"
+        """SYNF — not '3.95' (GLE-MSL from adjacent row)."""
+        assert _get(ddr_report, "well_info", "field_name") == "SYNF"
 
     def test_section_name(self, ddr_report):
         assert _get(ddr_report, "well_info", "section_name") == '17-1/2"'
@@ -119,11 +120,11 @@ class TestWrongMappingDetection:
 
     def test_well_name_not_rig_name(self, ddr_report):
         well_name = str(_get(ddr_report, "well_info", "name") or "")
-        assert "OEOC" not in well_name.upper() or "AZNS" in well_name.upper()
+        assert "OEOC" not in well_name.upper() or "SYNW" in well_name.upper()
 
     def test_rig_name_not_well_name(self, ddr_report):
         rig = str(_get(ddr_report, "well_info", "rig_name") or "")
-        assert "AZNS" not in rig.upper() or "OEOC" in rig.upper()
+        assert "SYNW" not in rig.upper() or "OEOC" in rig.upper()
 
     def test_client_not_depth(self, ddr_report):
         """Client=PPL must NOT be a depth value like 225."""

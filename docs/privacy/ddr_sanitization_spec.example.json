@@ -1,0 +1,15 @@
+{
+  "_doc": "FORMAT EXAMPLE ONLY. The real spec contains the protected values and must stay outside the repository. Pairs are exact, case-sensitive substrings applied to every XML part, longest first. A pair written as [\">X<\", \">Y<\"] matches a whole XML text node (whole cell value). cell_values overwrite numeric cells. verify_absent lists extra tokens that must not survive anywhere.",
+  "text_substitutions": [
+    ["<initial>.<surname of person 1>", "P.Synth01"],
+    ["<well name>", "SYNW-101"],
+    ["<field code>", "SYNF"],
+    ["<northing as text> N", "1,000,100 N"],
+    [">PPL-like short client code<", ">CLIENT-A<"]
+  ],
+  "cell_values": {
+    "DDR Remark!AI11": 1000000,
+    "DDR Remark!AI12": 500000
+  },
+  "verify_absent": ["<surname of person 1>", "<northing digits>"]
+}

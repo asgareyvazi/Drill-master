@@ -59,7 +59,7 @@ def normalize_canonical_value(value: Any, field_path: str) -> CanonicalValue:
         return CanonicalValue(field_path, value, value)
     result = normalize_for_field(value, spec)
     # A unit suffix on a unitless field is not harmless text.  For example,
-    # ``3,441,012 N`` is a coordinate token, not a Newton value for latitude.
+    # ``1,000,100 N`` is a coordinate token, not a Newton value for latitude.
     # Keep it reviewable instead of accepting a plausible but semantically
     # wrong float.  Fields with a canonical unit are handled by their normal
     # unit-preservation/conversion boundary.

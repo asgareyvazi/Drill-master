@@ -71,7 +71,7 @@ def test_generic_real_workbook_label_cannot_become_neighbor_value():
     from pathlib import Path
     from openpyxl import load_workbook
 
-    source = Path(__file__).resolve().parents[1] / "08-DDR OEOC-208 AZNS-207 2024-Oct-22.xlsx"
+    source = Path(__file__).resolve().parent / "fixtures" / "synthetic_ddr_golden_a.xlsx"
     workbook = load_workbook(source, data_only=True)
     try:
         report = ExcelIntelligence(workbook, {}, source_file=str(source)).extract_generic()

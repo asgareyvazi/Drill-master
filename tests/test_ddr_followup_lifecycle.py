@@ -185,7 +185,7 @@ def test_semantic_scalar_label_does_not_become_measurement():
 
 
 def test_real_golden_source_reviews_and_domain_roundtrip(db):
-    path = Path(__file__).resolve().parents[1] / "08-DDR OEOC-208 AZNS-207 2024-Oct-22.xlsx"
+    path = Path(__file__).resolve().parent / "fixtures" / "synthetic_ddr_golden_a.xlsx"
     service = DDRImportService(db, 1)
     extraction, payload = service.extract_file(str(path))
     # Known source density is not discarded by the ReviewItem boundary.
@@ -351,7 +351,7 @@ def test_validator_dictionary_issues_propagate_through_save_all():
 @pytest.mark.integration
 def test_actual_golden_lifecycle_save_all_and_clean_replay(tmp_path):
     from tools.certify_ddr_lifecycle import certify_lifecycle
-    workbook = Path(__file__).resolve().parents[1] / "08-DDR OEOC-208 AZNS-207 2024-Oct-22.xlsx"
+    workbook = Path(__file__).resolve().parent / "fixtures" / "synthetic_ddr_golden_a.xlsx"
     if not workbook.is_file():
         pytest.skip("Actual Golden A workbook is unavailable")
     evidence = certify_lifecycle(workbook, tmp_path / "real-a-lifecycle")

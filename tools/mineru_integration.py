@@ -4,7 +4,7 @@ This is intentionally a harness, not a bundled MinerU implementation.  On
 Windows, run it with the DrillMaster Python and configure the existing MinerU
 launcher, for example:
 
-    $env:MINERU_EXECUTABLE = 'C:\\Users\\A-Eyvazi\\Desktop\\mineru-env\\Scripts\\mineru.exe'
+    $env:MINERU_EXECUTABLE = "$env:USERPROFILE\\mineru-env\\Scripts\\mineru.exe"
     python tools/mineru_integration.py C:\\path\\to\\real-report.pdf
 
 The command exits non-zero unless MinerU actually produces inspectable output

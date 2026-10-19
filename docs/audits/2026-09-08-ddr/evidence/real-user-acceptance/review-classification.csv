@@ -1,7 +1,7 @@
 number,classification,field,source_sheet,source_cell,original_value,raw_workbook_cell,normalized_value,reason,action
 1,EXPECTED_SOURCE_ABSENCE,well_info.water_depth,DDR Remark,AQ6,"""-""","""-""",null,Template preferred cell AQ6,Retain missing source; supply a measured value only if operationally required.
-2,VALID_USER_REVIEW,well_info.latitude,DDR Remark,AI9,"""3,441,012 N""","""3,441,012 N""",null,Template preferred cell AI9,"Projected coordinate text, not decimal degrees. Obtain CRS/zone and confirm transformation before filling latitude/longitude."
-3,VALID_USER_REVIEW,well_info.longitude,DDR Remark,AI10,"""192,581 E""","""192,581 E""",null,Template preferred cell AI10,"Projected coordinate text, not decimal degrees. Obtain CRS/zone and confirm transformation before filling latitude/longitude."
+2,VALID_USER_REVIEW,well_info.latitude,DDR Remark,AI9,"""[REDACTED:northing]""","""[REDACTED:northing]""",null,Template preferred cell AI9,"Projected coordinate text, not decimal degrees. Obtain CRS/zone and confirm transformation before filling latitude/longitude."
+3,VALID_USER_REVIEW,well_info.longitude,DDR Remark,AI10,"""[REDACTED:easting]""","""[REDACTED:easting]""",null,Template preferred cell AI10,"Projected coordinate text, not decimal degrees. Obtain CRS/zone and confirm transformation before filling latitude/longitude."
 4,EXPECTED_SOURCE_ABSENCE,well_info.kop1,DDR Remark,AI13,"""-""","""-""",null,Template preferred cell AI13,Retain missing source; supply a measured value only if operationally required.
 5,EXPECTED_SOURCE_ABSENCE,well_info.kop2,DDR Remark,AI14,"""-""","""-""",null,Template preferred cell AI14,Retain missing source; supply a measured value only if operationally required.
 6,EXPECTED_SOURCE_ABSENCE,daily_report.note_03,DDR Remark,A83,null,"""Note#03 : """,null,Template anchor A83 has no value,Retain missing source; supply a measured value only if operationally required.

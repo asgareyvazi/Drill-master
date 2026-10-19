@@ -1,6 +1,7 @@
 """Real DDR regression test — mandatory acceptance test.
 
-Uses: 08-DDR OEOC-208 AZNS-207 2024-Oct-22.xlsx
+Uses: tests/fixtures/synthetic_ddr_golden_a.xlsx (de-identified, structurally
+equivalent derivative of the original Golden A workbook; see docs/privacy/)
 
 Verifies:
 1. Workbook loads
@@ -20,7 +21,7 @@ import json
 from pathlib import Path
 
 # Skip if real DDR not available
-DDR_PATH = Path(__file__).parent.parent / "08-DDR OEOC-208 AZNS-207 2024-Oct-22.xlsx"
+DDR_PATH = Path(__file__).parent / "fixtures" / "synthetic_ddr_golden_a.xlsx"
 DDR_AVAILABLE = DDR_PATH.exists()
 
 
@@ -73,7 +74,7 @@ class TestDDRRegression:
     def test_well_name_extracted(self, ddr_report):
         well_info = ddr_report.canonical_json.get("well_info", {})
         assert well_info.get("name") is not None
-        assert "AZNS" in str(well_info["name"]).upper()
+        assert "SYNW" in str(well_info["name"]).upper()
 
     def test_rig_name_extracted(self, ddr_report):
         well_info = ddr_report.canonical_json.get("well_info", {})

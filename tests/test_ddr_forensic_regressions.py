@@ -243,7 +243,7 @@ def test_partial_vs_complete_mud_validation():
 
 
 def test_real_workbook_actual_application_service_and_disk_reload(db):
-    path = next(Path(__file__).resolve().parents[1].glob("*DDR*.xlsx"))
+    path = Path(__file__).resolve().parent / "fixtures" / "synthetic_ddr_golden_a.xlsx"
     service = DDRImportService(db, 1)
     report, extracted = service.extract_file(str(path))
     before = copy.deepcopy(extracted)

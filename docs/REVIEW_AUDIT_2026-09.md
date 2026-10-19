@@ -56,7 +56,7 @@ mapping method, reason, and normalized/source values.
 - `well_info.water_depth` is anchored to `AQ6` (`-`) and remains NULL plus a
   reviewable placeholder. The previous diagonal `AM11` casing-size value is
   no longer accepted as water depth.
-- `well_info.latitude` retains `3,441,012 N` as a malformed coordinate token;
+- `well_info.latitude` retains `[REDACTED:northing]` as a malformed coordinate token;
   the `N` suffix is not silently converted into a float.
 - `well_info.longitude` retains its nonnumeric source token.
 - Note anchors with no independent value remain unresolved at their configured

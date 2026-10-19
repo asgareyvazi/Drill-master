@@ -184,3 +184,18 @@ generated bootstrap credential; it does not reset an operational database.
 Generated databases and workbooks must remain outside Git. For the opt-in real
 Excel test, set `DRILLMASTER_TEST_DDR_XLSX` (not `DRILLMASTER_REAL_DDR_XLSX`).
 Table/control protocol tests are not native Qt or Windows certification.
+
+## Golden workbook fixture and privacy gate (M43)
+
+The Golden A import tests use `tests/fixtures/synthetic_ddr_golden_a.xlsx`, a
+de-identified, structurally equivalent derivative of the original workbook
+(identity cells, coordinates, images, printer settings and document properties
+replaced; formulas, cached values and every technical value unchanged). The
+original operational workbook is no longer in the repository. Real workbooks
+stay on the operator's machine and are passed to the opt-in tests through
+`DRILLMASTER_TEST_DDR_XLSX`.
+
+`tests/test_privacy_check.py` runs `tools/privacy/privacy_check.py` over the
+tracked tree, so a committed real DDR, an un-allowlisted data file, a personal
+path or a known identity token fails the suite. Rules and procedures:
+`docs/privacy/`.

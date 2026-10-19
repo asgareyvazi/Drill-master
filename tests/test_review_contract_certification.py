@@ -21,14 +21,15 @@ from core.mineru_engine import validate_canonical_payload
 ROOT = Path(__file__).resolve().parents[1]
 
 
+# De-identified, structurally equivalent derivative of the original Golden A
+# workbook (M43 privacy remediation; see docs/privacy/README.md). It is tracked,
+# so its absence is a failure, never a skip.
+GOLDEN_WORKBOOK = ROOT / "tests" / "fixtures" / "synthetic_ddr_golden_a.xlsx"
+
+
 def _real_workbook_path() -> Path:
-    candidates = sorted(
-        path for path in ROOT.glob("*.xlsx")
-        if "DDR" in path.name.upper()
-    )
-    if not candidates:
-        pytest.skip("Real workbook is not available")
-    return candidates[0]
+    assert GOLDEN_WORKBOOK.is_file(), f"golden workbook fixture missing: {GOLDEN_WORKBOOK}"
+    return GOLDEN_WORKBOOK
 
 
 def _report():
