@@ -21,6 +21,7 @@ production databases or personal paths.
 | Coordinates copied into historical audit evidence | 58 occurrences in 7 files under `docs/` | replaced by `[REDACTED:northing]` / `[REDACTED:easting]` (see `docs/audits/2026-09-08-ddr/REDACTION_NOTICE.md`) |
 | A personal Windows profile path in a usage example | `tools/mineru_integration.py` | replaced by `$env:USERPROFILE` |
 | A real coordinate used as a format example in a code comment | `core/canonical_mapper.py` | replaced by a synthetic value of the same shape |
+| **Found in the release-hardening re-audit (2026-10-20):** real bit serial numbers survived the first pass — as text in three evidence JSONs, and as numeric cells in the shipped dump and in the "de-identified" fixture (the first sanitization pass handled text and coordinate cells, not these numeric cells) | 4 distinct values; 24 text occurrences in 3 evidence files; 2 numeric cells (`DDR Data!N52:N53`) in each of the dump and the fixture | text replaced by `[REDACTED:serial]`; numeric cells overwritten with synthetic values by the same sanitizer; digests added to the denylist; new `equipment-serial-number` rule (see `PRIVACY_CHECK.md`) |
 
 No credentials, tokens or private keys were found in the tracked tree
 (pattern scan in `tools/privacy/policy.json`). E-mail addresses present are
@@ -48,6 +49,13 @@ Equivalence was verified before the swap:
   values were changed (for example the well name `SYNW-101`).
 
 ## Remaining exposure — owner action required
+
+**The public default branch still serves the real workbook.** `drill-Master`
+(tip `e3fa42a`) never received the M43 remediation; its current tree contains
+the workbook and 11 other protected blobs. Merging the remediation into the
+default branch is an ordinary commit (no rewrite) but an owner action — see
+section 0 of [`HISTORY_PURGE_PLAN.md`](HISTORY_PURGE_PLAN.md). Until then the
+privacy score for "current tree" applies to the M43 working branch only.
 
 **A normal commit does not remove anything from Git history.** The original
 workbook, the unsanitized dump and the evidence files remain in every earlier

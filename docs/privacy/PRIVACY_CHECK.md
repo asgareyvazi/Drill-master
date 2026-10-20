@@ -20,7 +20,7 @@ text**, so it is safe in public CI logs.
 |---|---|---|
 | `prohibited_filename_patterns` | `prohibited-filename` | file names that follow a real operational convention (`NN-DDR …`), key/keystore files, `.env`, SQLite databases and backups — anywhere in the tree |
 | `data_file_suffixes` + `allowlisted_data_files` | `data-file-not-allowlisted`, `allowlisted-data-file-changed` | spreadsheets, PDFs, Office files, images and archives must be listed by path **and** SHA-256; a different file under an approved name fails |
-| `text_patterns` | `windows-user-profile-path`, `private-key-block`, `github-token`, `aws-access-key`, `slack-token`, `openai-style-key` | text files and the XML members of `.xlsx/.xlsm/.docx/.pptx` files |
+| `text_patterns` | `windows-user-profile-path`, `private-key-block`, `github-token`, `aws-access-key`, `slack-token`, `openai-style-key`, `equipment-serial-number` (a `serial`/`serial no`/`serial number`/`serial #` key followed by six or more digits — added after real bit serials were found in evidence JSON) | text files and the XML members of `.xlsx/.xlsm/.docx/.pptx` files |
 | `allowed_email_domains` | `email-outside-allowed-domains` | any address outside the listed domains |
 | `denylist_sha256` | `denylisted-identity-token` | word tokens (and their `.`/`-` parts) whose salted SHA-256 digest is listed; numbers are compared without thousands separators |
 

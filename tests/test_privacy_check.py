@@ -52,6 +52,11 @@ def _scanner(**overrides):
     ("Northing " + SYNTHETIC_COORDINATE + " N", "denylisted-identity-token"),
     ("northing " + SYNTHETIC_COORDINATE.replace(",", ""), "denylisted-identity-token"),
     ("NAME " + SYNTHETIC_PERSON.upper(), "denylisted-identity-token"),
+    # equipment serial numbers copied from a report (M43: bit serials survived in evidence JSON)
+    ('"serial no": "' + "4" * 10 + ' | ' + "5" * 10 + '"', "equipment-serial-number"),
+    ('"serial_number": "' + "8" * 8 + '"', "equipment-serial-number"),
+    ("Serial Number = " + "7" * 7, "equipment-serial-number"),
+    ("BIT SERIAL #: " + "3" * 9, "equipment-serial-number"),
 ])
 def test_text_rules_fire_on_synthetic_positives(line, rule):
     rules = [f.rule for f in _scanner().scan_text(line, "doc.md")]
@@ -67,6 +72,11 @@ def test_text_rules_fire_on_synthetic_positives(line, rule):
     "diff \\n+" + "@pytest.mark.parametrize",
     "depth 3441 m, MW 71 pcf, Barite 45 sx",
     "Qxzorv is not the protected surname",
+    "def test_serialized_provenance_is_not_domain_value(value):",
+    '"equipment_id": "serial-A"',
+    '"serial no": "[REDACTED:serial]"',
+    "serial: 12345",
+    "Serial Number: SN-A1-B2",
 ])
 def test_text_rules_stay_quiet_on_negatives(line):
     assert _scanner().scan_text(line, "doc.md") == []

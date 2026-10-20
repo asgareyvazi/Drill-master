@@ -12356,7 +12356,7 @@
           {
             "Equipment Name": "9-1/2\" Bit Sub",
             "Type": null,
-            "Serial No": "1515041004",
+            "Serial No": "[REDACTED:serial]",
             "ID": null,
             "Manufacturer": null,
             "Install Date": null,
@@ -12373,7 +12373,7 @@
               "source_record": {
                 "equipment_name": "9-1/2\" Bit Sub",
                 "od": "9.5\"",
-                "serial_number": "1515041004",
+                "serial_number": "[REDACTED:serial]",
                 "rot_hrs": 8.5,
                 "cum_hrs": 14.0,
                 "_source_row": 52,
@@ -12405,7 +12405,7 @@
           {
             "Equipment Name": "17-1/2\" S.Stab",
             "Type": null,
-            "Serial No": "15013006",
+            "Serial No": "[REDACTED:serial]",
             "ID": null,
             "Manufacturer": null,
             "Install Date": null,
@@ -12422,7 +12422,7 @@
               "source_record": {
                 "equipment_name": "17-1/2\" S.Stab",
                 "od": "17.5\"",
-                "serial_number": "15013006",
+                "serial_number": "[REDACTED:serial]",
                 "rot_hrs": 8.5,
                 "cum_hrs": 8.5,
                 "_source_row": 53,
@@ -12454,7 +12454,7 @@
           {
             "Equipment Name": "XOS #1 / XOS #2",
             "Type": null,
-            "Serial No": "1015004250 | 1015042069",
+            "Serial No": "[REDACTED:serial] | [REDACTED:serial]",
             "ID": null,
             "Manufacturer": null,
             "Install Date": null,
@@ -12471,7 +12471,7 @@
               "source_record": {
                 "equipment_name": "XOS #1 / XOS #2",
                 "od": "9 1/2\" | 6 5/8\"",
-                "serial_number": "1015004250 | 1015042069",
+                "serial_number": "[REDACTED:serial] | [REDACTED:serial]",
                 "rot_hrs": 8.5,
                 "cum_hrs": 14.0,
                 "_source_row": 54,

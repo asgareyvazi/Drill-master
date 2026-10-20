@@ -60,8 +60,8 @@
     },
     {
       "path": "tests/fixtures/synthetic_ddr_golden_a.xlsx",
-      "sha256": "0bf7b0c706a84ae20ba647fa675c303d1ef6ade2d6daa3efb9558e6664acdbe0",
-      "provenance": "M43: de-identified derivative of the original Golden A workbook, produced by tools/privacy/sanitize_ddr_workbook.py with a private spec; identity cells, coordinates, images, printer settings and document properties replaced; verified by the embedded leak check and by tests/test_privacy_check.py"
+      "sha256": "e9cd124da8d5d742d96197f48f16bb6547e253a151983215ecd40bd0ce419778",
+      "provenance": "M43: de-identified derivative of the original Golden A workbook, produced by tools/privacy/sanitize_ddr_workbook.py with a private spec; identity cells, coordinates, images, printer settings and document properties replaced; verified by the embedded leak check and by tests/test_privacy_check.py M43 (release hardening): two numeric bit-serial cells (DDR Data!N52, N53) overwritten with synthetic values by the same tool."
     }
   ],
   "text_patterns": [
@@ -88,6 +88,10 @@
     {
       "id": "openai-style-key",
       "regex": "\\bsk-[A-Za-z0-9]{32,}"
+    },
+    {
+      "id": "equipment-serial-number",
+      "regex": "(?i)\\bserial(?:[ _-]?(?:no|nos|number|numbers|num|#))?\\.?[\\\"']?\\s*[:=|]\\s*[\\\"']?\\s*\\d{6,}"
     }
   ],
   "allowed_email_domains": [
@@ -113,7 +117,11 @@
     "dac5b44db2774a18a5e9e67d27f9ceb7bec9014984a534bab7bf28768a0ec634",
     "e83c709499d84a4276f146e8036da9128bff8bca9f4785d5bf65a76e459f04ba",
     "f33a6d5ed17a42e1a74d8e93b98472413986d8329b8324fad7eddb96f41cc443",
-    "f8469b369f204d277144415b5ae167544bc1924aefaf8c1bd236e8456e32507f"
+    "f8469b369f204d277144415b5ae167544bc1924aefaf8c1bd236e8456e32507f",
+    "086c0ea6e5892621adbd7225a7fc0924aa725b15b81bc348014ffa90c85ec839",
+    "0ddc558a47b96e937c3f458f88d41e404c7b3207df64ea3b48d9fcd42dcbf02b",
+    "5e2a94ec9f4fab44d4ae7519d3c1429e6f8d43670456842bb593fc83d8447d13",
+    "ce014ea6b20b543e3d450cff13087c566679cb2361b428b4c768473526574e62"
   ],
   "text_scan_exempt_paths": []
 }

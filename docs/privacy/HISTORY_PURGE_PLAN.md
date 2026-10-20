@@ -3,7 +3,25 @@
 **Status: prepared, not run.** Rewriting history of a public repository with
 nine branches is irreversible for everyone who has cloned it. It requires the
 explicit approval of the repository owner. Nothing in this document has been
-executed; M43 removed the sensitive content from the **current tree only**.
+executed; M43 removed the sensitive content from the **current tree of the M43
+working branch only**.
+
+> **Correction (M43 release hardening, 2026-10-20).** The default branch
+> `drill-Master` (tip `e3fa42a`, last merged PR #4) was never updated with the
+> M43 remediation. Its **current tree still contains the real workbook** (blob
+> `b581f873…`) and 11 other protected blobs, so anyone browsing the public
+> repository can download it today. See section 0 — that step needs no history
+> rewrite and should happen first.
+
+## 0. Containment before any rewrite (owner, normal commit)
+
+Bring the remediation onto the default branch with an ordinary, reviewable
+merge (a pull request from the M43 working branch into `drill-Master`, or a
+commit on `drill-Master` that deletes the workbook and applies the same
+redactions). This is **not** a history rewrite and removes nothing from
+history — it only stops the default branch from serving the files in its
+current tree. It is still an owner action: agents working on `arena/*`
+branches are not permitted to modify `drill-Master`.
 
 ## 1. Scope
 
@@ -13,9 +31,29 @@ executed; M43 removed the sensitive content from the **current tree only**.
 | Full dump of that workbook (shipped package data) | `templates/OEOC_DDR_full_extraction.json` (pre-M43 blob `d385f86b18858e97d443221419b25f5a4e89bbcd` and any earlier versions) | replace protected tokens in every version | de-identified (M43) |
 | Coordinates in evidence | `docs/review_audit_2026-09.json`, `docs/REVIEW_AUDIT_2026-09.md`, `docs/audits/2026-09-08-ddr/evidence/golden-a.json`, `…/followup/golden-a-import.json`, `…/real-user-acceptance/production.json`, `…/real-user-acceptance/review-classification.csv`, `docs/audits/2026-09-08-ddr/review-classification-65.csv`, `core/canonical_mapper.py` | replace protected tokens in every version | redacted (M43) |
 | Personal profile path | `tools/mineru_integration.py` | replace in every version | replaced (M43) |
+| Equipment (bit) serial numbers, as text | `docs/audits/2026-09-08-ddr/evidence/golden-a.json`, `…/followup/golden-a-import.json`, `…/followup/golden-a-lifecycle.json` (`serial no` / `serial_number` fields), and the M43-era `templates/OEOC_DDR_full_extraction.json` (blob `da9e6ecdb31b55448cda438d8bdd548ff3b54a23`, as numbers) | replace protected tokens in every version | redacted / replaced (M43 release hardening) |
+| Equipment serial numbers inside a zipped workbook | M43-era `tests/fixtures/synthetic_ddr_golden_a.xlsx` (blob `d6c49cd4834cc252c0232d13bd1f0e8735f61558`, numeric cells `DDR Data!N52:N53`) | substitute the whole blob (section 5 c) — `--replace-text` cannot see inside a zip | replaced by blob `b82c1e6486800b9e5ba761cc37b2dd1ee8fa08e8` (M43 release hardening) |
 
 Branches: all nine (`drill-Master` — the default — and eight `arena/*`
 branches). Tags: none. Forks: none at the time of writing (re-check).
+
+### Verified inventory (2026-10-20, full history, read-only)
+
+Measured on a full (unshallowed) fetch of all nine branches plus the four
+pull-request refs. Every unique blob was scanned — Office files with their XML
+members expanded — for the denylisted identity tokens (by salted digest), the
+workbook's coordinate values and the equipment serial numbers. Only counts and
+object IDs were recorded; no value was printed.
+
+| Measure | Result |
+|---|---|
+| Commits reachable from any branch | 454 |
+| Unique blobs scanned | 3,778 |
+| Blobs with protected content | 17 (listed in section 6) |
+| Commits whose tree holds at least one of them | 300 |
+| Earliest affected commit | `7589803` (2026-08-29) |
+| Branch tips still holding protected blobs | `drill-Master` 12, `arena/01a0ec23` 12, `arena/01a0c945` 12, `arena/01a085e0` 12, `arena/01a0801f` 12, `arena/01a07094` 6, `arena/01a056c5` 2, `arena/01a05747` 2; the M43 working branch 0 after the release-hardening commit |
+| Pull-request refs `refs/pull/1-4/head` | add no commits beyond the branches, but #2-#4 point at affected trees and survive a force-push (GitHub Support, section 5) |
 
 ## 2. Required approvals
 
@@ -68,6 +106,19 @@ git filter-repo --invert-paths --path '08-DDR OEOC-208 AZNS-207 2024-Oct-22.xlsx
 #       literal:<protected token>==>[REDACTED]
 #     (the same tokens as the private sanitization spec; never commit it)
 git filter-repo --replace-text /secure/replacements.txt
+#     Use regex rules with word boundaries for numeric tokens (serials,
+#     coordinates), e.g.  regex:\b<digits>\b==>[REDACTED:serial]
+#     and check the dry-run match counts against section 3 before continuing.
+
+# (c) zipped workbooks: --replace-text cannot edit inside an .xlsx, so substitute
+#     the M43-era fixture blob by ID with the already-sanitized committed version
+git cat-file blob b82c1e6486800b9e5ba761cc37b2dd1ee8fa08e8 > /secure/fixture-sanitized.xlsx
+git filter-repo --blob-callback '
+if blob.original_id == b"d6c49cd4834cc252c0232d13bd1f0e8735f61558":
+    blob.data = open("/secure/fixture-sanitized.xlsx", "rb").read()
+'
+# If git-filter-repo refuses a second pass on the same clone, combine (a)-(c)
+# into a single invocation instead of forcing it; verify either way (section 6).
 ```
 
 Then verify (section 6) **before** pushing, and only then:
@@ -95,6 +146,20 @@ git cat-file -e d385f86b18858e97d443221419b25f5a4e89bbcd 2>/dev/null && echo LEA
 git count-objects -v && git gc --prune=now --aggressive
 while IFS= read -r t; do git grep -q -F -e "$t" $(git rev-list --all) -- && echo "LEAK ${t:0:2}…"; done < /secure/private-tokens.txt
 python tools/privacy/privacy_check.py     # on a checkout of each rewritten branch
+# none of the 17 protected blobs measured on 2026-10-20 may survive:
+for b in 23b89651cc7b280b4fb8a42ca5f86b6bea3f2ea9 2f587b5201084eb534bf6a63fe44f154e85046e4 \
+         58fcce3bc40a20a27e803932c515a0041144f35d 6065ca1010f49272b8b41d6378e105e71705c504 \
+         698f5df9af6e4b6b5d8ecad4e7491e707265b52c 70af909853a72b99634922ff45d97f8f6e715560 \
+         7af4e0263a5ebd187cd3fb251d23ba8c6c4c3215 8126acb5ae865655bde58fa5fa00096178087d58 \
+         8d1cf96321c4579b07448bec925f0fe0504da990 a8171976f21db97441546819d6c19cfaacc38e1c \
+         b581f873fdeda00be03018d8474e596182ee6866 d385f86b18858e97d443221419b25f5a4e89bbcd \
+         d6c49cd4834cc252c0232d13bd1f0e8735f61558 d841758ad753c0a69f44b0fdaf86b92bfafac709 \
+         da9e6ecdb31b55448cda438d8bdd548ff3b54a23 fc284c769b57828ea433ccfa2026d36b4bfd4e13 \
+         ffcfb7c2520770dbdf476960dd36afcc6235cb33; do
+  git cat-file -e "$b" 2>/dev/null && echo "LEAK $b"
+done
+# git grep does not look inside zipped Office files: run the privacy check's
+# scanner over every historical .xlsx blob as well (it expands the XML members)
 ```
 
 After pushing, fetch a fresh clone and repeat the checks; ask GitHub Support to
