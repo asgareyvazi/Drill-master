@@ -270,15 +270,20 @@ def test_concurrent_backup_calls_never_overlap(env):
     assert not worker.is_alive() and results["first"].ok
 
 
-@pytest.mark.skipif(os.name == "nt", reason="POSIX subprocess lock holder")
+_LOCK_HOLDER = (
+    # Same primitive as core.db_maintenance._ProcessLock on each platform.
+    "import msvcrt, sys, time; f = open(sys.argv[1], 'a+b'); f.seek(0); "
+    "msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1); print('locked', flush=True); time.sleep(60)"
+    if os.name == "nt" else
+    "import fcntl, sys, time; f = open(sys.argv[1], 'a+b'); fcntl.flock(f, fcntl.LOCK_EX); "
+    "print('locked', flush=True); time.sleep(60)")
+
+
 def test_another_process_holding_the_lock_blocks_backups_until_it_exits(env):
     manager, backup_dir = env
     backup_dir.mkdir(parents=True)
-    holder = subprocess.Popen(
-        [sys.executable, "-c",
-         "import fcntl, sys, time; f = open(sys.argv[1], 'a+b'); fcntl.flock(f, fcntl.LOCK_EX); "
-         "print('locked', flush=True); time.sleep(60)", str(backup_dir / dm.LOCK_NAME)],
-        stdout=subprocess.PIPE, text=True)
+    holder = subprocess.Popen([sys.executable, "-c", _LOCK_HOLDER, str(backup_dir / dm.LOCK_NAME)],
+                              stdout=subprocess.PIPE, text=True)
     try:
         assert holder.stdout.readline().strip() == "locked"
         blocked = _service(manager, backup_dir).create_backup(ADMIN)
