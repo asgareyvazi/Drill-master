@@ -4,13 +4,16 @@ Well Information Tab - UI and Database (Final Improved Version)
 import logging
 from datetime import datetime
 
-from PySide6.QtWidgets import *
-from PySide6.QtCore import *
-from PySide6.QtGui import *
+from PySide6.QtCore import QDate, QTimer, Qt, Signal
+from PySide6.QtWidgets import (
+    QComboBox, QDateEdit, QDialog, QDialogButtonBox, QDoubleSpinBox, QFormLayout, QGridLayout,
+    QGroupBox, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMessageBox,
+    QPushButton, QRadioButton, QScrollArea, QSpinBox, QTextEdit, QVBoxLayout, QWidget,
+)
 
 # Import utilities
 try:
-    from ui.utils import create_styled_button, show_success_message, show_error_message
+    from ui.utils import create_styled_button, show_success_message, show_error_message, show_warning_message
 except ImportError:
     def create_styled_button(text, color="#0078d4", icon=None, tooltip=""):
         btn = QPushButton(text)
@@ -23,6 +26,9 @@ except ImportError:
 
     def show_error_message(parent, message):
         QMessageBox.critical(parent, "Error", message)
+
+    def show_warning_message(parent, message):
+        QMessageBox.warning(parent, "Warning", message)
 
 from core.editor_state import editor_loaded, editor_saved
 from core.base_tab import DrillTabBase
