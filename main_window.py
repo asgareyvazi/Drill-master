@@ -17,6 +17,8 @@ from PySide6.QtCore import (
 
 from PySide6.QtGui import *
 from PySide6.QtPrintSupport import QPrinter, QPrintDialog
+from PySide6.QtGui import QAction
+from PySide6.QtWidgets import QApplication, QDialog, QMessageBox, QWidget
 
 from core.database import (
     DatabaseManager, Well, Company, Project,
@@ -171,6 +173,7 @@ class MainWindow(QMainWindow):
             self.backup_scheduler.start()
 
         self._loading_dialog = None
+        self._maintenance_worker = None  # manual backup or restore in progress
 
 
         self._hierarchy_worker = None
@@ -504,6 +507,11 @@ class MainWindow(QMainWindow):
     # ==================== اضافه کردن به closeEvent ====================
 
     def closeEvent(self, event):
+        if self._maintenance_worker is not None:
+            QMessageBox.information(self, "Database Maintenance",
+                                    "A database backup or restore is running. Please wait until it finishes.")
+            event.ignore()
+            return
         if not self._close_confirmed:
             reply = QMessageBox.question(
                 self, "Exit",
@@ -717,6 +725,21 @@ class MainWindow(QMainWindow):
         ]:
             act = QAction(text, self)
             act.triggered.connect(slot)
+            tools_menu.addAction(act)
+
+        # Database maintenance: shown to everyone, enabled for holders of
+        # can_maintain_database (the services enforce it independently).
+        tools_menu.addSeparator()
+        from core.permissions import permissions as _permissions
+        allowed = self.backup_service is not None and _permissions.can_maintain_database()
+        self.backup_now_action = QAction("💾 Backup Database Now", self)
+        self.backup_now_action.triggered.connect(self.backup_database_now)
+        self.restore_action = QAction("♻️ Restore Database…", self)
+        self.restore_action.triggered.connect(self.restore_database)
+        for act in (self.backup_now_action, self.restore_action):
+            act.setEnabled(allowed)
+            if not allowed:
+                act.setToolTip("Requires the database maintenance permission")
             tools_menu.addAction(act)
 
         # Help
@@ -3072,6 +3095,130 @@ class MainWindow(QMainWindow):
     def showEvent(self, event):
         super().showEvent(event)
         QTimer.singleShot(50, self.ensure_menubar_visible)
+
+    # ==================== Database backup / restore ====================
+
+    def _autosave_managers(self):
+        managers = [self.auto_save_manager]
+        for widget in self.findChildren(QWidget):
+            manager = getattr(widget, "autosave_timer", None)
+            if isinstance(manager, AutoSaveManager):
+                managers.append(manager)
+        return managers
+
+    def _set_maintenance_mode(self, active):
+        """Freeze the UI (and every autosave) while a maintenance call runs."""
+        if active:
+            self._stop_hierarchy_worker()
+        for manager in self._autosave_managers():
+            manager.set_enabled(not active)
+        self.setEnabled(not active)
+        if active:
+            QApplication.setOverrideCursor(Qt.WaitCursor)
+        else:
+            QApplication.restoreOverrideCursor()
+
+    def _start_maintenance(self, call, on_finished, status_text):
+        if self._maintenance_worker is not None:
+            QMessageBox.information(self, "Database Maintenance", "Another backup or restore is running.")
+            return False
+        from dialogs.database_maintenance_dialog import MaintenanceWorker
+
+        worker = MaintenanceWorker(call, self)
+        worker.finished.connect(lambda: self._on_maintenance_finished(worker, on_finished))
+        self._maintenance_worker = worker
+        self._set_maintenance_mode(True)
+        self.statusBar().showMessage(status_text)
+        worker.start()
+        return True
+
+    def _on_maintenance_finished(self, worker, on_finished):
+        if worker is not self._maintenance_worker:
+            return
+        self._maintenance_worker = None
+        self._set_maintenance_mode(False)
+        self.statusBar().clearMessage()
+        worker.deleteLater()
+        on_finished(worker.result, worker.error)
+
+    def backup_database_now(self):
+        if self.backup_service is None:
+            return
+        self._start_maintenance(lambda: self.backup_service.create_backup(),
+                                self._on_backup_finished, "Creating a verified database backup…")
+
+    def _on_backup_finished(self, result, error):
+        from core.authorization import AuthorizationError
+
+        if isinstance(error, AuthorizationError):
+            QMessageBox.warning(self, "Backup Database", "You do not have permission to back up the database.")
+        elif error is not None or result is None:
+            logger.error("Manual backup raised %s", type(error).__name__)
+            QMessageBox.critical(self, "Backup Database", "The backup failed unexpectedly. See the log for details.")
+        elif not result.ok:
+            QMessageBox.critical(self, "Backup Database", f"The backup failed and was not kept:\n{result.error}")
+        else:
+            lines = [f"Verified backup created:\n{Path(result.path).name}"]
+            if result.retention_errors:
+                lines.append(f"{len(result.retention_errors)} old backup(s) could not be removed (see log).")
+            if not result.audit_recorded:
+                lines.append("Warning: the audit log entry could not be written (see log).")
+            QMessageBox.information(self, "Backup Database", "\n\n".join(lines))
+
+    def restore_database(self):
+        if self.backup_service is None or self._maintenance_worker is not None:
+            return
+        from core.db_maintenance import RestoreService
+        from dialogs.database_maintenance_dialog import RestoreDatabaseDialog
+
+        dialog = RestoreDatabaseDialog(self.backup_service.list_backups(),
+                                       self.db_manager.schema_version, self)
+        if dialog.exec() != QDialog.Accepted:
+            return
+        candidate = dialog.selected_candidate()
+        if candidate is None:
+            return
+        service = RestoreService(self.db_manager, self.backup_service)
+        path = candidate[0]
+        self._start_maintenance(lambda: service.restore(path, confirmed=True),
+                                self._on_restore_finished, "Restoring the database…")
+
+    def _on_restore_finished(self, result, error):
+        from core.authorization import AuthorizationError
+
+        title = "Restore Database"
+        if isinstance(error, AuthorizationError):
+            QMessageBox.warning(self, title, "You do not have permission to restore the database.")
+            return
+        if error is not None or result is None:
+            logger.error("Restore raised %s", type(error).__name__)
+            QMessageBox.critical(self, title, "The restore failed unexpectedly; the current database was not "
+                                 "replaced. See the log for details.")
+            return
+        notes = []
+        if result.journal_complete is False or not result.audit_recorded:
+            notes.append("Warning: the restore record could not be fully written (see log).")
+        if result.ok:
+            QMessageBox.information(self, title, "\n\n".join([
+                "The database was restored and verified.",
+                f"The previous data was kept as {result.safety_copy}.",
+                "DrillMaster will now close so that no screen keeps showing or saving the old data. "
+                "Start it again to continue."] + notes))
+            self._close_confirmed = True
+            self.close()
+            return
+        if result.recovered is False or not result.original_intact:
+            QMessageBox.critical(self, title, "\n\n".join([
+                f"The restore failed at '{result.stage}' and the previous database could not be put back "
+                f"automatically.",
+                f"A verified copy of the previous data is kept as {result.safety_copy}. Close DrillMaster "
+                f"and contact your administrator before using it again."] + notes))
+            return
+        detail = "The previous database was put back and verified." if result.recovered else \
+            "The current database was not changed."
+        QMessageBox.warning(self, title, "\n\n".join(
+            [f"The restore was not performed (step '{result.stage}'):\n{result.error}", detail] + notes))
+        self.refresh_all_tabs()
 
     def _stop_backup_scheduler(self):
         """No new backups after shutdown begins; wait for a running one."""
