@@ -130,6 +130,180 @@ def interval_minutes() -> int:
     return _int_setting(INTERVAL_ENV, DEFAULT_INTERVAL_MINUTES, 5, 1440, allow_zero=True)
 
 
+# ---------------------------------------------------------------- settings
+#
+# One source of truth for the automatic-backup configuration, resolved once at
+# start-up (changes apply on the next start; nothing is moved or deleted when a
+# setting changes).  Precedence per field:
+#   1. environment variable (deployment/administrator override; the Settings
+#      dialog shows such a field as locked),
+#   2. the user's saved setting (``database_backup/*`` keys),
+#   3. built-in default.
+# Invalid values are never applied: they are reported in ``warnings`` and the
+# next source is used instead.
+
+DIR_ENV = "DRILLMASTER_BACKUP_DIR"
+INTERVAL_RANGE = (5, 1440)
+KEEP_RANGE = (1, 1000)
+SETTINGS_KEYS = {
+    "enabled": "database_backup/enabled",
+    "directory": "database_backup/directory",
+    "interval_minutes": "database_backup/interval_minutes",
+    "keep": "database_backup/keep",
+}
+# Written by Settings dialogs before M43 but never read by anything; a saved
+# "disabled" there was not a real choice, so these keys are deliberately ignored.
+LEGACY_SETTINGS_KEYS = ("backup/enabled", "backup/path")
+
+
+@dataclass(frozen=True)
+class BackupSettings:
+    enabled: bool
+    directory: Path
+    interval_minutes: int
+    keep: int
+    locked: dict = field(default_factory=dict)  # field name -> environment variable
+    warnings: tuple = ()
+
+    @property
+    def schedule_seconds(self) -> float:
+        """Scheduler interval; 0 means no automatic backups."""
+        return float(self.interval_minutes * 60) if self.enabled and self.interval_minutes > 0 else 0.0
+
+
+def _is_network_path(text: str) -> bool:
+    normalized = text.replace("/", "\\")
+    if normalized.upper().startswith("\\\\?\\UNC\\"):
+        return True
+    if normalized.startswith(("\\\\?\\", "\\\\.\\")):  # local device paths
+        return False
+    return normalized.startswith("\\\\")
+
+
+def validate_backup_directory(raw, live_db_path=None) -> Path:
+    """Return the resolved backup folder or raise ``ValueError`` with a user-facing reason.
+
+    Local folders (including a second local disk) are supported; network and
+    cloud locations are not, because locking, fsync and rename semantics there
+    are not guaranteed.  A mapped network drive is rejected when the operating
+    system resolves it to a UNC path; other remote mounts cannot be detected.
+    """
+    text = str(raw or "").strip()
+    if not text:
+        raise ValueError("Choose a backup folder.")
+    if _is_network_path(text):
+        raise ValueError("Network locations are not supported; choose a folder on a local disk.")
+    path = Path(text).expanduser()
+    if not path.is_absolute():
+        raise ValueError("The backup folder must be a full (absolute) path.")
+    try:
+        resolved = path.resolve()
+    except (OSError, RuntimeError) as exc:
+        raise ValueError("The backup folder path cannot be resolved.") from exc
+    if _is_network_path(str(resolved)):
+        raise ValueError("Network locations are not supported; choose a folder on a local disk.")
+    if live_db_path and str(live_db_path) != ":memory:":
+        try:
+            live = Path(live_db_path).expanduser().resolve()
+        except (OSError, RuntimeError) as exc:
+            logger.warning("Live database path could not be resolved for the backup-folder check (%s)",
+                           type(exc).__name__)
+            live = None
+        if live is not None and resolved == live:
+            raise ValueError("The backup folder cannot be the live database file.")
+    for candidate in (resolved, *resolved.parents):
+        if candidate.exists():
+            if not candidate.is_dir():
+                raise ValueError("The backup folder path points at, or goes through, a file.")
+            break
+    return resolved
+
+
+def _parse_bool(value):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int) and value in (0, 1):
+        return bool(value)
+    if isinstance(value, str) and value.strip().lower() in ("true", "1", "false", "0"):
+        return value.strip().lower() in ("true", "1")
+    raise ValueError("not a yes/no value")
+
+
+def _parse_int(value, low: int, high: int) -> int:
+    if isinstance(value, bool):
+        raise ValueError("not a whole number")
+    number = int(value.strip()) if isinstance(value, str) else int(value)
+    if isinstance(value, float) and value != number:
+        raise ValueError("not a whole number")
+    if not low <= number <= high:
+        raise ValueError(f"outside {low}..{high}")
+    return number
+
+
+def persisted_backup_settings(store) -> dict:
+    """Read the saved ``database_backup/*`` values from a QSettings-like store."""
+    return {key: store.value(key) for key in SETTINGS_KEYS.values() if store.contains(key)}
+
+
+def resolve_backup_settings(persisted=None, *, live_db_path=None, environ=None) -> BackupSettings:
+    from core.runtime_config import data_dir
+
+    persisted = dict(persisted or {})
+    environ = os.environ if environ is None else environ
+    warnings: list[str] = []
+    locked: dict = {}
+
+    def env_set(name: str) -> bool:
+        return bool(str(environ.get(name, "") or "").strip())
+
+    def saved(name: str, parse, default, label: str):
+        key = SETTINGS_KEYS[name]
+        if key not in persisted or persisted[key] in (None, ""):
+            return default
+        try:
+            return parse(persisted[key])
+        except (TypeError, ValueError) as exc:
+            warnings.append(f"Saved backup setting '{label}' ignored ({exc}); using {default}.")
+            logger.warning("Saved backup setting %r ignored (%s); using the default", label, type(exc).__name__)
+            return default
+
+    enabled = saved("enabled", _parse_bool, True, "enabled")
+
+    if env_set(INTERVAL_ENV):
+        locked["interval_minutes"] = INTERVAL_ENV
+        interval = _int_setting(INTERVAL_ENV, DEFAULT_INTERVAL_MINUTES, *INTERVAL_RANGE, allow_zero=True)
+        if interval == 0:
+            enabled = False
+            locked["enabled"] = INTERVAL_ENV
+            interval = DEFAULT_INTERVAL_MINUTES
+    else:
+        interval = saved("interval_minutes", lambda v: _parse_int(v, *INTERVAL_RANGE),
+                         DEFAULT_INTERVAL_MINUTES, "interval")
+
+    if env_set(KEEP_ENV):
+        locked["keep"] = KEEP_ENV
+        keep = _int_setting(KEEP_ENV, DEFAULT_KEEP, *KEEP_RANGE)
+    else:
+        keep = saved("keep", lambda v: _parse_int(v, *KEEP_RANGE), DEFAULT_KEEP, "backups to keep")
+
+    default_directory = (data_dir() / "backups").resolve()
+    if env_set(DIR_ENV):
+        locked["directory"] = DIR_ENV
+        raw_directory, source = environ.get(DIR_ENV), DIR_ENV
+    else:
+        raw_directory, source = persisted.get(SETTINGS_KEYS["directory"]), "saved backup folder"
+    if raw_directory in (None, "") or not str(raw_directory).strip():
+        directory = default_directory
+    else:
+        try:
+            directory = validate_backup_directory(raw_directory, live_db_path)
+        except ValueError as exc:
+            warnings.append(f"{source} ignored ({exc}); using the default backup folder.")
+            logger.warning("%s ignored (%s); using the default backup folder", source, exc)
+            directory = default_directory
+    return BackupSettings(bool(enabled), directory, int(interval), int(keep), locked, tuple(warnings))
+
+
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
 

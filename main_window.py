@@ -163,14 +163,7 @@ class MainWindow(QMainWindow):
         # Verified automatic backups (core.db_maintenance) on one background
         # thread instead of a GUI-thread timer: never overlapping, scheduler
         # identity in the audit log, stopped before the database is closed.
-        self.backup_service = None
-        self.backup_scheduler = None
-        if self.db_manager is not None:
-            from core.db_maintenance import BackupScheduler, BackupService, interval_minutes
-
-            self.backup_service = BackupService(self.db_manager)
-            self.backup_scheduler = BackupScheduler(self.backup_service, interval_minutes() * 60)
-            self.backup_scheduler.start()
+        self._create_backup_services()
 
         self._loading_dialog = None
         self._maintenance_worker = None  # manual backup or restore in progress
@@ -3059,28 +3052,6 @@ class MainWindow(QMainWindow):
         no_act.setEnabled(False)
         self.recent_menu.addAction(no_act)
 
-    # ==================== Backup ====================
-
-    def backup_database(self):
-        try:
-            if not self.db_manager or self.db_manager.db_path == ":memory:":
-                QMessageBox.warning(self, "Backup", "A file-backed database is required.")
-                return
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename, _ = QFileDialog.getSaveFileName(
-                self,
-                "Save Backup",
-                f"drillmaster_backup_{timestamp}.db",
-                "Database Files (*.db)",
-            )
-            if filename and self.db_manager.backup_to(filename):
-                self.status_manager.show_success("MainWindow", f"Backup saved: {filename}")
-            elif filename:
-                QMessageBox.warning(self, "Backup", "The database backup could not be created.")
-        except Exception:
-            logger.exception("Manual database backup failed")
-            QMessageBox.warning(self, "Backup", "The database backup could not be created.")
-
     # ==================== Cleanup ====================
 
     def cleanup(self):
@@ -3140,6 +3111,30 @@ class MainWindow(QMainWindow):
         self.statusBar().clearMessage()
         worker.deleteLater()
         on_finished(worker.result, worker.error)
+
+    def _create_backup_services(self):
+        """Build the backup service and scheduler from one resolved configuration.
+
+        Precedence: environment variable > saved ``database_backup/*`` setting >
+        default (core.db_maintenance.resolve_backup_settings).  Applied at
+        start-up only; see docs/DATABASE_OPERATIONS.md.
+        """
+        self.backup_settings = None
+        self.backup_service = None
+        self.backup_scheduler = None
+        if self.db_manager is None:
+            return
+        from core.db_maintenance import (BackupScheduler, BackupService,
+                                         persisted_backup_settings, resolve_backup_settings)
+
+        self.backup_settings = resolve_backup_settings(
+            persisted_backup_settings(self.settings), live_db_path=self.db_manager.db_path)
+        for message in self.backup_settings.warnings:
+            logger.warning("Backup settings: %s", message)
+        self.backup_service = BackupService(self.db_manager, backup_dir=self.backup_settings.directory,
+                                            keep=self.backup_settings.keep)
+        self.backup_scheduler = BackupScheduler(self.backup_service, self.backup_settings.schedule_seconds)
+        self.backup_scheduler.start()
 
     def backup_database_now(self):
         if self.backup_service is None:

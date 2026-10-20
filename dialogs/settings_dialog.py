@@ -9,6 +9,10 @@ from PySide6.QtGui import *
 
 from core.mineru_engine import MinerUConfig, discover_mineru_executable
 from core.runtime_config import write_mineru_settings
+from core.db_maintenance import INTERVAL_RANGE as BACKUP_INTERVAL_RANGE
+from core.db_maintenance import KEEP_RANGE as BACKUP_KEEP_RANGE
+from core.db_maintenance import SETTINGS_KEYS as BACKUP_SETTINGS_KEYS
+from core.db_maintenance import persisted_backup_settings, resolve_backup_settings, validate_backup_directory
 
 logger = logging.getLogger(__name__)
 
@@ -147,20 +151,81 @@ class SettingsDialog(QDialog):
         self.autosave_interval.setSuffix(" minutes")
         layout.addRow("Interval:", self.autosave_interval)
 
-        self.backup_enabled = QCheckBox("Enable automatic backup")
-        self.backup_enabled.setChecked(False)
-        layout.addRow("Backup:", self.backup_enabled)
+        # Automatic verified database backups (core.db_maintenance).  The values
+        # shown are the resolved ones the application actually uses.
+        self.backup_enabled = QCheckBox("Automatic verified database backups")
+        layout.addRow("Database backup:", self.backup_enabled)
 
         self.backup_path = QLineEdit()
-        self.backup_path.setPlaceholderText("Select backup folder...")
-        browse_btn = QPushButton("Browse...")
-        browse_btn.clicked.connect(self._browse_backup_path)
+        self.backup_path.setPlaceholderText("Local backup folder")
+        self.backup_browse_btn = QPushButton("Browse...")
+        self.backup_browse_btn.clicked.connect(self._browse_backup_path)
         backup_layout = QHBoxLayout()
         backup_layout.addWidget(self.backup_path)
-        backup_layout.addWidget(browse_btn)
-        layout.addRow("Backup Path:", backup_layout)
+        backup_layout.addWidget(self.backup_browse_btn)
+        layout.addRow("Backup folder:", backup_layout)
+
+        self.backup_interval = QSpinBox()
+        self.backup_interval.setRange(*BACKUP_INTERVAL_RANGE)
+        self.backup_interval.setSuffix(" minutes")
+        layout.addRow("Backup every:", self.backup_interval)
+
+        self.backup_keep = QSpinBox()
+        self.backup_keep.setRange(*BACKUP_KEEP_RANGE)
+        layout.addRow("Backups to keep:", self.backup_keep)
+
+        note = QLabel(
+            "Backup settings apply the next time DrillMaster starts. Changing them never moves or "
+            "deletes existing backups. After each successful backup, automatic backups in the selected "
+            "folder beyond the number to keep are removed; pre-restore safety copies are never removed. "
+            "Network and cloud folders are not supported.")
+        note.setWordWrap(True)
+        layout.addRow("", note)
+        self.backup_warning = QLabel("")
+        self.backup_warning.setWordWrap(True)
+        self.backup_warning.setVisible(False)
+        layout.addRow("", self.backup_warning)
 
         return tab
+
+    # -- automatic backup settings -------------------------------------------
+
+    def _live_db_path(self):
+        return getattr(getattr(self.parent(), "db_manager", None), "db_path", None)
+
+    def _backup_widgets(self):
+        return {"enabled": (self.backup_enabled,), "directory": (self.backup_path, self.backup_browse_btn),
+                "interval_minutes": (self.backup_interval,), "keep": (self.backup_keep,)}
+
+    def _show_backup_settings(self, resolved):
+        self._backup_resolved = resolved
+        self.backup_enabled.setChecked(resolved.enabled)
+        self.backup_path.setText(str(resolved.directory))
+        self.backup_interval.setValue(resolved.interval_minutes)
+        self.backup_keep.setValue(resolved.keep)
+        for name, widgets in self._backup_widgets().items():
+            variable = resolved.locked.get(name)
+            for widget in widgets:
+                widget.setEnabled(variable is None)
+                widget.setToolTip(f"Set by the administrator ({variable})." if variable else "")
+        self.backup_warning.setText("\n".join(resolved.warnings))
+        self.backup_warning.setVisible(bool(resolved.warnings))
+
+    def _backup_values_to_save(self) -> dict:
+        """Validated values for the unlocked fields; raises ValueError with a user-facing reason."""
+        locked = getattr(self, "_backup_resolved", None)
+        locked = locked.locked if locked is not None else {}
+        values = {}
+        if "directory" not in locked:
+            values[BACKUP_SETTINGS_KEYS["directory"]] = str(
+                validate_backup_directory(self.backup_path.text(), self._live_db_path()))
+        if "enabled" not in locked:
+            values[BACKUP_SETTINGS_KEYS["enabled"]] = self.backup_enabled.isChecked()
+        if "interval_minutes" not in locked:
+            values[BACKUP_SETTINGS_KEYS["interval_minutes"]] = self.backup_interval.value()
+        if "keep" not in locked:
+            values[BACKUP_SETTINGS_KEYS["keep"]] = self.backup_keep.value()
+        return values
 
     def _create_mineru_tab(self):
         tab = QWidget()
@@ -299,9 +364,21 @@ class SettingsDialog(QDialog):
         # Actions
         actions_layout = QVBoxLayout()
 
-        backup_btn = QPushButton("📦 Backup Database Now")
-        backup_btn.clicked.connect(self._backup_database)
-        actions_layout.addWidget(backup_btn)
+        # The same verified, permission-checked and audited backup as
+        # Tools > Backup Database Now (written to the configured backup folder).
+        self.backup_now_btn = QPushButton("📦 Backup Database Now")
+        self.backup_now_btn.clicked.connect(self._backup_database)
+        try:
+            from core.permissions import permissions as _permissions
+            allowed = (getattr(self.parent(), "backup_service", None) is not None
+                       and _permissions.can_maintain_database())
+        except Exception:
+            logger.exception("Could not resolve the database maintenance permission")
+            allowed = False
+        self.backup_now_btn.setEnabled(allowed)
+        if not allowed:
+            self.backup_now_btn.setToolTip("Requires the database maintenance permission")
+        actions_layout.addWidget(self.backup_now_btn)
 
         reset_btn = QPushButton("🗑️ Reset Database (Caution!)")
         reset_btn.setStyleSheet("color: #e74c3c;")
@@ -317,25 +394,19 @@ class SettingsDialog(QDialog):
             self.backup_path.setText(folder)
 
     def _backup_database(self):
-        try:
-            manager = getattr(self.parent(), "db_manager", None)
-            if not manager or manager.db_path == ":memory:":
-                QMessageBox.warning(self, "Backup", "A file-backed database is required.")
-                return
-            timestamp = QDateTime.currentDateTime().toString("yyyyMMdd_HHmmss")
-            dst = QFileDialog.getSaveFileName(
-                self,
-                "Save Database Backup",
-                f"drillmaster_backup_{timestamp}.db",
-                "Database Files (*.db)",
-            )[0]
-            if dst and manager.backup_to(dst):
-                QMessageBox.information(self, "Backup", f"Database backed up to:\n{dst}")
-            elif dst:
-                QMessageBox.warning(self, "Backup", "The database backup could not be created.")
-        except Exception:
-            logger.exception("Settings database backup failed")
-            QMessageBox.critical(self, "Backup Error", "The database backup could not be created.")
+        """Delegate to the main window's verified backup; never copy the file directly.
+
+        ``BackupService.create_backup`` enforces ``can_maintain_database`` at the
+        service boundary, writes a manifest and records the outcome in the audit
+        log.  (Before M43 this button copied the database to any chosen path
+        without a permission check or audit entry.)
+        """
+        window = self.parent()
+        start = getattr(window, "backup_database_now", None)
+        if start is None or getattr(window, "backup_service", None) is None:
+            QMessageBox.warning(self, "Backup", "Verified backups need a file-backed database.")
+            return
+        start()
 
     def _reset_database(self):
         reply = QMessageBox.warning(
@@ -363,6 +434,12 @@ class SettingsDialog(QDialog):
 
     def save_settings(self):
         """Save settings - نسخه اصلاح شده"""
+        try:
+            backup_values = self._backup_values_to_save()
+        except ValueError as exc:  # nothing is saved until every value is valid
+            self.tabs.setCurrentWidget(self.backup_path.parentWidget())
+            QMessageBox.warning(self, "Backup folder", str(exc))
+            return
         self.settings.setValue("general/language", self.language_combo.currentText())
         self.settings.setValue("general/company_name", self.company_name.text())
         self.settings.setValue("general/user_name", self.user_name.text())
@@ -378,9 +455,8 @@ class SettingsDialog(QDialog):
         self.settings.setValue("autosave/enabled", self.autosave_enabled.isChecked())
         self.settings.setValue("autosave/interval", self.autosave_interval.value())
         
-        # ✅ backup settings که قبلاً ذخیره نمی‌شد
-        self.settings.setValue("backup/enabled", self.backup_enabled.isChecked())
-        self.settings.setValue("backup/path", self.backup_path.text())
+        for key, value in backup_values.items():
+            self.settings.setValue(key, value)
 
         mineru_settings = {
             "enabled": self.mineru_enabled.isChecked(),
@@ -441,13 +517,8 @@ class SettingsDialog(QDialog):
             self.settings.value("autosave/interval", 5, type=int)
         )
         
-        # ✅ load backup settings
-        self.backup_enabled.setChecked(
-            self.settings.value("backup/enabled", False, type=bool)
-        )
-        self.backup_path.setText(
-            self.settings.value("backup/path", "")
-        )
+        self._show_backup_settings(resolve_backup_settings(
+            persisted_backup_settings(self.settings), live_db_path=self._live_db_path()))
 
         mineru = MinerUConfig.from_environment()
         self.mineru_enabled.setChecked(mineru.enabled)
@@ -489,6 +560,16 @@ class SettingsDialog(QDialog):
             self.font_size.setValue(10)
             self.autosave_enabled.setChecked(True)
             self.autosave_interval.setValue(5)
+            defaults = resolve_backup_settings({}, live_db_path=self._live_db_path())
+            locked = self._backup_resolved.locked if getattr(self, "_backup_resolved", None) else {}
+            if "enabled" not in locked:
+                self.backup_enabled.setChecked(defaults.enabled)
+            if "directory" not in locked:
+                self.backup_path.setText(str(defaults.directory))
+            if "interval_minutes" not in locked:
+                self.backup_interval.setValue(defaults.interval_minutes)
+            if "keep" not in locked:
+                self.backup_keep.setValue(defaults.keep)
             self.mineru_enabled.setChecked(bool(discover_mineru_executable()))
             self.mineru_executable.setText(discover_mineru_executable() or "")
             self.mineru_python.clear()

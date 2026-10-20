@@ -82,10 +82,43 @@ loss.
 Source of truth: `BackupService` and `BackupScheduler` in
 `core/db_maintenance.py`. Tests: `tests/test_db_backup_service.py`.
 
-**Location.** `DRILLMASTER_BACKUP_DIR`, default `<data dir>/backups`. It must
-be on a local file system. Copies on another disk or machine are the
-operator's responsibility; a backup on the same disk does not survive a
-disk failure.
+### Configuration (one source of truth)
+
+Resolved once at start-up by `resolve_backup_settings()` in
+`core/db_maintenance.py` and used by both the scheduler and *Backup Database
+Now*. Tests: `tests/test_backup_settings.py`, `tests/test_backup_settings_ui.py`.
+
+| Setting | Environment variable (wins; shown locked in Settings) | Saved user setting (*Settings > Auto-Save*) | Default | Valid values |
+|---|---|---|---|---|
+| Automatic backups on/off | `DRILLMASTER_BACKUP_INTERVAL_MINUTES=0` forces off | `database_backup/enabled` | on | yes/no |
+| Folder | `DRILLMASTER_BACKUP_DIR` | `database_backup/directory` | `<data dir>/backups` | absolute local path |
+| Interval | `DRILLMASTER_BACKUP_INTERVAL_MINUTES` | `database_backup/interval_minutes` | 30 | 5–1440 minutes |
+| Backups to keep | `DRILLMASTER_BACKUP_KEEP` | `database_backup/keep` | 10 | 1–1000 |
+
+* **Precedence:** environment variable > saved setting > default, per field.
+  An environment variable is a deployment/administrator override; the dialog
+  shows that field disabled with the variable's name and does not save it.
+* **Invalid values are never applied.** An invalid saved value is ignored and
+  reported (log warning and a note in the dialog) and the default is used;
+  an invalid environment value falls back the same way. The dialog refuses to
+  save an invalid folder and then saves nothing at all.
+* **Folder validation:** must be an absolute path; must not be the live
+  database file; must not point at or go through a file; network locations are
+  rejected (`\\server\share`, `//server/share`, `\\?\UNC\…`, and a mapped
+  drive when Windows resolves it to a UNC path). Other remote mounts (for
+  example a cloud-sync folder or an NFS mount) cannot be detected and are
+  **unsupported**: locking, `fsync` and rename guarantees are not given there.
+  A second **local** disk is supported and recommended; a backup on the same
+  disk does not survive a disk failure.
+* **When changes apply:** at the next start of DrillMaster (deterministic: the
+  running scheduler is not reconfigured). Changing a setting never moves,
+  copies or deletes existing backups. Backups left in a previous folder stay
+  there and are not listed for restore; move them into the current folder
+  (with their `.json` manifests) to restore one.
+* **Legacy keys:** before M43 the dialog saved `backup/enabled` and
+  `backup/path`, which nothing ever read, and showed backups as "off" while the
+  scheduler ran every 30 minutes. Those keys are ignored on purpose: a saved
+  "off" there was never a real choice and must not switch backups off.
 
 **How a backup is made.**
 
@@ -114,8 +147,9 @@ time, size, SHA-256 and application version, and nothing from the database
 manifest matches the file name, kind and size. Listing for retention and
 restore also checks the SHA-256.
 
-**Retention.** `DRILLMASTER_BACKUP_KEEP`, integer 1 to 1000, default 10.
-Retention is count-based only; there is no age-based retention. It runs only
+**Retention.** "Backups to keep" (see the table above).
+Retention is count-based only; age-based retention is not implemented (it
+would need a trustworthy clock and a minimum-copies rule). It runs only
 after a new backup was verified, and only over manifest-verified managed
 backups, newest first. It never touches:
 
@@ -126,11 +160,12 @@ backups, newest first. It never touches:
 * the newest verified backup.
 
 A file that cannot be deleted (for example locked by antivirus on Windows) is
-skipped and reported in `retention_errors`.
+skipped and reported in `retention_errors`. Lowering the number to keep deletes
+nothing when the setting is changed; the surplus is removed after the **next**
+successful backup, in the current folder only (tested).
 
-**Schedule.** `DRILLMASTER_BACKUP_INTERVAL_MINUTES` is 5 to 1440 (`0`
-disables it) and defaults to 30. Invalid values fall back to the default
-with a warning. The scheduler is one background thread, not a GUI timer, and
+**Schedule.** Interval and on/off from the table above. The scheduler is one
+background thread, not a GUI timer, and
 runs never overlap. A failed run is logged and retried at the next interval.
 The scheduler does nothing destructive at startup.
 
@@ -139,9 +174,12 @@ waits up to 120 s for a running backup. This can briefly delay closing.
 
 **Permission and audit.**
 
-* Interactive backups (*Tools > Backup Database Now*) require
-  `can_maintain_database`, which only admins hold by default. The check is
-  enforced in the service; denials are written to the audit log.
+* Interactive backups (*Tools > Backup Database Now*, and the same button in
+  *Settings > Database*) require `can_maintain_database`, which only admins
+  hold by default. The check is enforced in the service; denials are written
+  to the audit log. (Until the M43 release hardening the Settings button
+  copied the database file to any chosen path with no permission check, no
+  manifest and no audit entry; it now runs the verified service.)
 * Scheduled backups are recorded as `system:backup-scheduler`, not as a user.
 * Outcomes are written to `audit_logs` on a separate short-lived connection.
 * **Audit-failure policy:** if the audit row cannot be written, the verified
@@ -150,7 +188,10 @@ waits up to 120 s for a running backup. This can briefly delay closing.
 
 `DatabaseManager.backup_to()` and `auto_backup()` keep their previous
 contracts. `backup_to()` verifies its copy before replacing the destination,
-and `auto_backup()` delegates to the service.
+and `auto_backup()` delegates to the service. `backup_to()` is a low-level
+primitive **without** a permission check or audit entry: no application module
+may call it (enforced by
+`test_no_application_module_copies_the_database_around_the_verified_service`).
 
 ## Restore
 
@@ -272,19 +313,54 @@ unchanged or recovered.
   replace on Windows. Power loss during step 7 or 8 is not simulated; the
   verified safety copy is the recovery path in that case.
 
-**Owner checklist for Windows acceptance (manual, on a copy of real data):**
+### Residual risks (documented, not solved)
 
-1. Copy the data folder to a test machine, never the production folder.
-2. Run *Backup Database Now*. Check that a `drillmaster_backup_*.db` and its
-   `.json` appear.
-3. Make a change, then run *Restore Database…* with that backup. Confirm that
-   the app closes and that the change is gone after a restart.
-4. With a second DrillMaster instance open on the same database, try the
-   restore again. It must refuse ("open in another process") and leave the
-   data unchanged.
-5. Restore the `drillmaster_prerestore_*` copy from step 3. Confirm the
-   change is back.
-6. Review `maintenance_journal.jsonl` and the audit log entries.
+* **Power loss** during a backup, a restore replace or a recovery is not
+  simulated by any test. Backups are promoted only after verification and the
+  restore keeps a verified safety copy, which is the recovery path; a torn
+  write of the live file itself is not tested.
+* **Not tamper-proof:** the manifest SHA-256 detects accidental corruption, not
+  a deliberate edit (anyone who can write the folder can rewrite file and
+  manifest together); the journal and the audit table are evidence only.
+* **Same machine only:** the cross-process lock does not protect against a
+  second machine opening the database over a network share (unsupported).
+
+**Owner checklist for Windows acceptance (manual, on a test machine, with a
+copy of real data — never the production folder).** Record date, Windows
+version, installer SHA-256 and the result of each item; none of these has been
+performed by the project so far.
+
+1. **Install** the UNSIGNED installer from the Windows gate artifact; note the
+   install folder and that no admin-only path is required for the data folder.
+2. **SmartScreen:** record the exact warning shown for the unsigned installer
+   and the steps needed to proceed (expected until signing is set up).
+3. **Launch** and log in as an admin; confirm the data folder location.
+4. **Backup settings:** open *Settings > Auto-Save*; confirm the shown values
+   (on, `<data dir>\backups`, 30, 10). Choose a folder on a second local disk,
+   save, restart, and confirm the next backup lands there. Try a network path
+   (`\\server\share`) and confirm it is refused with a message.
+5. **Manual backup:** *Tools > Backup Database Now*; a
+   `drillmaster_backup_*.db` and matching `.json` appear in the chosen folder.
+   Log in as a viewer and confirm the action (and the Settings button) is
+   disabled.
+6. **Synthetic restore:** make a visible change, restore the backup from
+   step 5, confirm DrillMaster closes, restart, and confirm the change is gone.
+7. **Second instance:** with a second DrillMaster open on the same database,
+   try the restore again; it must refuse and leave the data unchanged.
+8. **Corrupt backup:** change a few bytes inside a backup (same size, keep its
+   manifest). The restore list may still show it (the list compares name, kind
+   and size only, for speed); selecting it must be refused before anything
+   changes ("manifest … does not match", SHA-256 re-checked) and the data must
+   be unchanged. A changed size makes it disappear from the list.
+9. **Close after restore:** confirm no screen keeps or auto-saves pre-restore
+   data after the restart; restore the `drillmaster_prerestore_*` safety copy
+   and confirm the change is back.
+10. **Audit:** review `maintenance_journal.jsonl` and the audit log entries for
+    steps 5–9 (user names, scheduler identity, outcomes).
+11. **Uninstall:** uninstall and record which folders remain (the data and
+    backup folders are expected to remain; confirm and document it).
+12. **Languages and daily work:** switch Persian/English (RTL layout), enter a
+    daily report and a survey station, save, restart and confirm both persist.
 
 ## Diagnostics
 
