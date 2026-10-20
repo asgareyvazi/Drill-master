@@ -7,7 +7,12 @@ import logging
 from datetime import datetime, date
 from pathlib import Path
 
-from PySide6.QtWidgets import *
+from PySide6.QtWidgets import (
+    QDialogButtonBox, QDockWidget, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem,
+    QMainWindow, QMenu, QProgressBar, QPushButton, QSplitter, QStatusBar, QTabWidget, QTableWidget,
+    QTableWidgetItem, QTextBrowser, QToolBar, QToolButton, QTreeWidget, QTreeWidgetItem,
+    QVBoxLayout,
+)
 from PySide6.QtCore import (
     Qt, QTimer, QSettings, QSize, QDateTime, QTime,
     QDate, QPoint, QRect, Signal, Slot, QThread,
@@ -15,7 +20,6 @@ from PySide6.QtCore import (
 )
 
 
-from PySide6.QtGui import *
 from PySide6.QtPrintSupport import QPrinter, QPrintDialog
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QApplication, QDialog, QMessageBox, QWidget
