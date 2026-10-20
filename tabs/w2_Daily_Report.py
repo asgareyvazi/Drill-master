@@ -5,9 +5,13 @@ Daily Report Tab - گزارش روزانه با استفاده از توابع �
 import logging
 from datetime import time, timedelta
 import os
-from PySide6.QtWidgets import *
-from PySide6.QtCore import *
-from PySide6.QtGui import *
+from PySide6.QtCore import QDate, QTimer, Qt
+from PySide6.QtWidgets import (
+    QCheckBox, QComboBox, QCompleter, QDateEdit, QDialog, QDoubleSpinBox, QFileDialog, QFrame,
+    QGridLayout, QGroupBox, QHBoxLayout, QInputDialog, QLabel, QLineEdit, QMessageBox, QPushButton,
+    QScrollArea, QSizePolicy, QSpinBox, QStackedWidget, QTabWidget, QTableWidget, QTableWidgetItem,
+    QTextEdit, QVBoxLayout, QWidget,
+)
 from PySide6.QtPrintSupport import QPrinter, QPrintDialog
 
 from PySide6.QtGui import QTextOption

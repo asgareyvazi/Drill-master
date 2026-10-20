@@ -5,9 +5,13 @@ Comprehensive Safety Management Module with Database Integration
 
 import logging
 
-from PySide6.QtCore import *
-from PySide6.QtWidgets import *
-from PySide6.QtGui import *
+from PySide6.QtCore import QDate, QSignalBlocker, Qt
+from PySide6.QtGui import QColor
+from PySide6.QtWidgets import (
+    QComboBox, QDateEdit, QDoubleSpinBox, QGridLayout, QGroupBox, QHBoxLayout, QHeaderView,
+    QInputDialog, QLabel, QLineEdit, QMessageBox, QPushButton, QSpinBox, QTabWidget, QTableWidget,
+    QTableWidgetItem, QTextEdit, QVBoxLayout, QWidget,
+)
 
 from core.managers import (
     TableManager, ExportManager,

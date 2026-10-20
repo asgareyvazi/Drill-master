@@ -12,9 +12,13 @@ logger = logging.getLogger(__name__)
 import warnings
 warnings.filterwarnings("ignore")
 
-from PySide6.QtCore import *
-from PySide6.QtWidgets import *
-from PySide6.QtGui import *
+from PySide6.QtCore import QDateTime, QTime, QTimer, Qt
+from PySide6.QtGui import QColor, QTextDocument
+from PySide6.QtWidgets import (
+    QApplication, QCheckBox, QComboBox, QDoubleSpinBox, QFileDialog, QFrame, QGridLayout, QGroupBox,
+    QHBoxLayout, QHeaderView, QLabel, QMessageBox, QPushButton, QScrollArea, QTabWidget,
+    QTableWidget, QTableWidgetItem, QTextEdit, QVBoxLayout, QWidget,
+)
 from PySide6.QtPrintSupport import QPrinter, QPrintDialog
 from core.common_widgets import safe_replace_chart
 

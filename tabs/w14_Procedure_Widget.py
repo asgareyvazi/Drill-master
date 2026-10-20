@@ -6,9 +6,14 @@ DWI / Operational Procedure Module
 import logging
 from datetime import datetime
 
-from PySide6.QtWidgets import *
-from PySide6.QtCore import *
-from PySide6.QtGui import *
+from PySide6.QtCore import QDate, QDateTime, Qt
+from PySide6.QtGui import QColor, QFont
+from PySide6.QtWidgets import (
+    QCheckBox, QComboBox, QDateEdit, QDateTimeEdit, QDialog, QDoubleSpinBox, QFileDialog, QFrame,
+    QGridLayout, QGroupBox, QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget,
+    QListWidgetItem, QMessageBox, QProgressBar, QPushButton, QScrollArea, QStackedWidget,
+    QTabWidget, QTableWidget, QTableWidgetItem, QTextBrowser, QTextEdit, QVBoxLayout, QWidget,
+)
 from PySide6.QtPrintSupport import QPrinter, QPrintDialog
 
 from core.editor_state import editor_loaded, editor_saved

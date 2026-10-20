@@ -5,9 +5,12 @@ Reference Tables & Database
 منابع: API 5CT, API 5DP, Drilling Data Handbook, Well Engineers Notebook
 """
 import logging
-from PySide6.QtWidgets import *
-from PySide6.QtCore import *
-from PySide6.QtGui import *
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (
+    QDialog, QGridLayout, QGroupBox, QHBoxLayout, QHeaderView, QLabel, QLineEdit, QMessageBox,
+    QPlainTextEdit, QPushButton, QScrollArea, QTabWidget, QTableWidget, QTableWidgetItem,
+    QVBoxLayout, QWidget,
+)
 
 from core.base_tab import DrillTabBase
 from core.managers import ExportManager

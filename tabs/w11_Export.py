@@ -6,9 +6,11 @@ import os
 import logging
 from datetime import datetime
 
-from PySide6.QtWidgets import *
-from PySide6.QtCore import *
-from PySide6.QtGui import *
+from PySide6.QtCore import QDate
+from PySide6.QtWidgets import (
+    QApplication, QCheckBox, QComboBox, QDateEdit, QDoubleSpinBox, QFileDialog, QHBoxLayout, QLabel,
+    QLineEdit, QMessageBox, QPushButton, QTabWidget, QTextEdit, QVBoxLayout, QWidget,
+)
 
 from core.base_tab import DrillTabBase
 

@@ -7,9 +7,14 @@ import logging
 import json
 from datetime import datetime, date, timezone
 
-from PySide6.QtWidgets import *
-from PySide6.QtCore import *
-from PySide6.QtGui import *
+from PySide6.QtCore import QDate, Qt
+from PySide6.QtGui import QAction, QColor
+from PySide6.QtWidgets import (
+    QButtonGroup, QComboBox, QDateEdit, QDialog, QDoubleSpinBox, QFileDialog, QFormLayout,
+    QGridLayout, QGroupBox, QHBoxLayout, QHeaderView, QLabel, QLineEdit, QMessageBox, QPushButton,
+    QRadioButton, QScrollArea, QSpinBox, QStatusBar, QTabWidget, QTableWidget, QTableWidgetItem,
+    QTextEdit, QToolBar, QVBoxLayout, QWidget,
+)
 from PySide6.QtPrintSupport import QPrinter, QPrintDialog
 
 from core.managers import (

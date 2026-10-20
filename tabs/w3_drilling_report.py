@@ -7,9 +7,14 @@ import json
 import math
 from datetime import date
 
-from PySide6.QtWidgets import *
-from PySide6.QtCore import *
-from PySide6.QtGui import *
+from PySide6.QtCore import QSignalBlocker, QSize, QTime, Qt
+from PySide6.QtGui import QAction
+from PySide6.QtWidgets import (
+    QCheckBox, QComboBox, QDoubleSpinBox, QFileDialog, QGridLayout, QGroupBox, QHBoxLayout,
+    QHeaderView, QLabel, QLineEdit, QMessageBox, QPushButton, QScrollArea, QSpinBox, QStatusBar,
+    QTabWidget, QTableWidget, QTableWidgetItem, QTextEdit, QTimeEdit, QToolBar, QVBoxLayout,
+    QWidget,
+)
 import os
 
 from core.managers import (

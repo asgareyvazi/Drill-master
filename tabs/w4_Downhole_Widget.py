@@ -13,9 +13,13 @@ except ImportError:
     PANDAS_AVAILABLE = False
     
 
-from PySide6.QtWidgets import *
-from PySide6.QtCore import *
-from PySide6.QtGui import *
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor
+from PySide6.QtWidgets import (
+    QAbstractItemView, QColorDialog, QComboBox, QDoubleSpinBox, QFileDialog, QGridLayout, QGroupBox,
+    QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton, QTabWidget, QTableWidget,
+    QTableWidgetItem, QVBoxLayout, QWidget,
+)
 from core.managers import TableManager, ExportManager
 from core.editor_state import editor_loaded, editor_saved
 from core.base_tab import DrillTabBase

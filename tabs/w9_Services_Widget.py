@@ -6,10 +6,12 @@ Services Management Widget with full database integration and enhanced functiona
 import logging
 from datetime import datetime
 
-from PySide6.QtCore import *
-from PySide6.QtWidgets import *
-from PySide6.QtGui import *
-from PySide6.QtPrintSupport import *
+from PySide6.QtCore import QDate, Qt
+from PySide6.QtWidgets import (
+    QComboBox, QDateEdit, QDialog, QDoubleSpinBox, QFormLayout, QGroupBox, QHBoxLayout, QHeaderView,
+    QInputDialog, QLabel, QLineEdit, QMessageBox, QPushButton, QScrollArea, QSpinBox, QStatusBar,
+    QTabWidget, QTableWidget, QTableWidgetItem, QTextEdit, QVBoxLayout, QWidget,
+)
 
 from core.managers import (
     StatusBarManager, ExportManager, AutoSaveManager

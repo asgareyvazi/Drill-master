@@ -4,9 +4,13 @@ Cost Management Module
 مدیریت هزینه عملیات حفاری
 """
 import logging
-from PySide6.QtWidgets import *
-from PySide6.QtCore import *
-from PySide6.QtGui import *
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor
+from PySide6.QtWidgets import (
+    QAbstractSpinBox, QComboBox, QDoubleSpinBox, QFormLayout, QFrame, QGroupBox, QHBoxLayout,
+    QHeaderView, QInputDialog, QLabel, QLineEdit, QPushButton, QTabWidget, QTableWidget,
+    QTableWidgetItem, QTextEdit, QVBoxLayout, QWidget,
+)
 
 from core.base_tab import DrillTabBase
 from core.managers import ExportManager

@@ -21,9 +21,12 @@ except ImportError:
     )
 
 
-from PySide6.QtCore import *
-from PySide6.QtWidgets import *
-from PySide6.QtGui import *
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor, QKeySequence, QShortcut
+from PySide6.QtWidgets import (
+    QCheckBox, QComboBox, QFileDialog, QHBoxLayout, QHeaderView, QLabel, QMessageBox, QPushButton,
+    QTabWidget, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
+)
 
 from core.database import (
     TripSheetEntry, DatabaseManager

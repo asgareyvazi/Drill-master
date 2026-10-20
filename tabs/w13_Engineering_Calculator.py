@@ -10,9 +10,14 @@ import os
 
 import pandas as pd
 
-from PySide6.QtWidgets import *
-from PySide6.QtCore import *
-from PySide6.QtGui import *
+from PySide6.QtCore import QAbstractTableModel, Qt
+from PySide6.QtGui import QColor
+from PySide6.QtWidgets import (
+    QCheckBox, QComboBox, QDialog, QDoubleSpinBox, QFileDialog, QFormLayout, QFrame, QGridLayout,
+    QGroupBox, QHBoxLayout, QHeaderView, QLabel, QMessageBox, QPushButton, QRadioButton,
+    QScrollArea, QSpinBox, QSplitter, QTabWidget, QTableView, QTableWidget, QTableWidgetItem,
+    QTextEdit, QVBoxLayout, QWidget,
+)
 
 from core.base_tab import DrillTabBase
 from core.common_widgets import safe_replace_chart

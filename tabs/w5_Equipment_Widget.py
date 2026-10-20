@@ -6,9 +6,12 @@ Equipment Widget - ویجت تجهیزات با قابلیت‌های کامل (
 import logging
 from datetime import datetime
 
-from PySide6.QtWidgets import *
-from PySide6.QtCore import *
-from PySide6.QtGui import *
+from PySide6.QtCore import QTimer, Qt
+from PySide6.QtGui import QColor, QKeySequence, QShortcut
+from PySide6.QtWidgets import (
+    QComboBox, QHBoxLayout, QLabel, QMessageBox, QPushButton, QTabWidget, QTableWidget,
+    QTableWidgetItem, QVBoxLayout, QWidget,
+)
 
 from core.managers import StatusBarManager, TableManager, ExportManager
 from core.editor_state import editor_loaded, editor_saved
