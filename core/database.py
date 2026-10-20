@@ -10580,8 +10580,18 @@ class DatabaseManager:
             destination_connection = sqlite3.connect(str(temporary))
             with destination_connection:
                 source_connection.backup(destination_connection)
+            # A self-contained single file (no -wal companion), verified
+            # before it may replace anything at the destination.
+            destination_connection.execute("PRAGMA journal_mode=DELETE").fetchall()
             destination_connection.close()
             destination_connection = None
+            from core.db_maintenance import VerificationError, verify_integrity
+
+            try:
+                verify_integrity(temporary)
+            except VerificationError as exc:
+                logger.error("Database backup failed verification: %s", exc)
+                return None
             os.replace(temporary, destination)
             temporary = None
             logger.info("Database backup created: %s", destination)
@@ -10601,28 +10611,17 @@ class DatabaseManager:
                     logger.warning("Could not remove incomplete temporary backup: %s", temporary)
 
     def auto_backup(self, backup_dir=None):
-        """Create a rotating automatic backup in the configured data area."""
+        """Create a verified automatic backup (scheduler identity) with retention.
+
+        Delegates to core.db_maintenance.BackupService: unique names, verified
+        before promotion, manifest, retention of verified backups only.
+        Returns the backup path, or None when no verified backup was created.
+        """
+        from core.db_maintenance import BackupService
+
         target_dir = Path(backup_dir) if backup_dir else configured_backup_dir()
-        target_dir.mkdir(parents=True, exist_ok=True)
-        if self.db_path == ":memory:" or not os.path.exists(self.db_path):
-            return None
-
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup_path = target_dir / f"drillmaster_backup_{timestamp}.db"
-        result = self.backup_to(backup_path)
-        if not result:
-            return None
-
-        backups = sorted(
-            path for path in target_dir.glob("drillmaster_backup_*.db")
-        )
-        while len(backups) > DBConstants.MAX_BACKUP_FILES:
-            old = backups.pop(0)
-            try:
-                old.unlink()
-            except OSError:
-                logger.warning("Could not remove old database backup: %s", old)
-        return result
+        result = BackupService(self, target_dir).create_backup(scheduled=True)
+        return result.path if result.ok else None
             
     def search_all(self, query_text: str, well_id: int = None, limit: int = 50) -> list:
         if not query_text or len(query_text) < 2:

@@ -73,6 +73,7 @@ class PermissionManager:
     def can_manage_users(self): return self.has_permission("can_manage_users")
     def can_export(self): return self.has_permission("can_export")
     def can_import(self): return self.has_permission("can_import")
+    def can_maintain_database(self): return self.has_permission("can_maintain_database")
     def is_admin(self): return self.role == "admin"
     def is_viewer(self): return self.role == "viewer"
 

@@ -158,9 +158,17 @@ class MainWindow(QMainWindow):
         self.current_report_id = None
         self.settings = QSettings("Nikan", "DrillMaster")
 
-        self.backup_timer = QTimer()
-        self.backup_timer.timeout.connect(self._auto_backup)
-        self.backup_timer.start(30 * 60 * 1000)  # 30 min
+        # Verified automatic backups (core.db_maintenance) on one background
+        # thread instead of a GUI-thread timer: never overlapping, scheduler
+        # identity in the audit log, stopped before the database is closed.
+        self.backup_service = None
+        self.backup_scheduler = None
+        if self.db_manager is not None:
+            from core.db_maintenance import BackupScheduler, BackupService, interval_minutes
+
+            self.backup_service = BackupService(self.db_manager)
+            self.backup_scheduler = BackupScheduler(self.backup_service, interval_minutes() * 60)
+            self.backup_scheduler.start()
 
         self._loading_dialog = None
 
@@ -522,8 +530,7 @@ class MainWindow(QMainWindow):
             event.ignore()
             return
 
-        if hasattr(self, 'backup_timer') and self.backup_timer.isActive():
-            self.backup_timer.stop()
+        self._stop_backup_scheduler()
         if hasattr(self, 'time_timer') and self.time_timer.isActive():
             self.time_timer.stop()
 
@@ -3066,14 +3073,14 @@ class MainWindow(QMainWindow):
         super().showEvent(event)
         QTimer.singleShot(50, self.ensure_menubar_visible)
 
-    def _auto_backup(self):
-        try:
-            if self.db_manager:
-                path = self.db_manager.auto_backup()
-                if path:
-                    logger.info(f"Auto-backup: {path}")
-        except Exception as e:
-            logger.error(f"Auto-backup error: {e}")
+    def _stop_backup_scheduler(self):
+        """No new backups after shutdown begins; wait for a running one."""
+        service = getattr(self, "backup_service", None)
+        scheduler = getattr(self, "backup_scheduler", None)
+        if service is not None:
+            service.shutdown()
+        if scheduler is not None and not scheduler.stop(timeout=120):
+            logger.error("Backup scheduler did not stop within 120 s; closing anyway")
 
     def apply_viewer_mode(self):
         """غیرفعال کردن edit برای viewer"""
