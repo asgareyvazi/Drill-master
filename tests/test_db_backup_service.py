@@ -359,3 +359,45 @@ def test_auto_backup_and_backup_to_verify_before_publishing(env, tmp_path, monke
     assert manager.backup_to(destination) == str(destination)
     with manager.session_scope() as session:
         assert session.execute(text("SELECT COUNT(*) FROM wells WHERE code='SYN-W1'")).scalar() == 1
+
+
+# ---------------------------------------------------------------- release hardening (M43): shutdown and manifests
+
+def test_shutdown_during_a_scheduled_backup_waits_for_it_and_starts_no_other(env):
+    """The window's close sequence (service.shutdown, then scheduler.stop) mid-backup."""
+    manager, backup_dir = env
+    service = _service(manager, backup_dir, keep=5)
+    inside, release = threading.Event(), threading.Event()
+
+    def hold(stage):
+        if stage == "verify" and not release.is_set():
+            inside.set()
+            release.wait(30)
+
+    service.fault = hold
+    outcomes = []
+    scheduler = dm.BackupScheduler(service, 0.01, on_result=outcomes.append)
+    assert scheduler.start()
+    assert inside.wait(30), "no scheduled backup started"
+    service.shutdown()
+    assert scheduler.stop(timeout=0.01) is False  # the in-flight backup is not abandoned
+    release.set()
+    assert scheduler.stop(timeout=30)
+    assert [r.ok for r in outcomes] == [True]  # it completed, verified, and nothing else ran
+    assert len(service.list_backups(kinds=(dm.KIND_BACKUP,), deep=True)) == 1
+    assert not [p.name for p in backup_dir.iterdir() if p.name.startswith(dm.PARTIAL_PREFIX)]
+    assert service.create_backup(ADMIN).skipped  # refused after shutdown
+
+
+@pytest.mark.parametrize("manifest_text", ["{not json", "[]", json.dumps({"format": "other"}), ""])
+def test_a_corrupt_manifest_makes_a_backup_unverified_but_never_deleted(env, manifest_text):
+    manager, backup_dir = env
+    service = _service(manager, backup_dir, keep=1)
+    first = Path(service.create_backup(ADMIN).path)
+    first.with_suffix(".json").write_text(manifest_text, encoding="utf-8")
+    assert service.read_manifest(first) is None
+    assert service.list_backups() == []
+    with pytest.raises(dm.VerificationError, match="manifest"):
+        dm.RestoreService(manager, service).validate_candidate(first)
+    assert all(service.create_backup(ADMIN).ok for _ in range(2))
+    assert first.is_file()  # unverified files are never retention candidates

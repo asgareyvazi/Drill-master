@@ -118,6 +118,44 @@ called (tests, maintenance scripts) is unrestricted — such code already has
 direct file access. Reads are not restricted by role (every signed-in role may
 view all wells).
 
+**Copying or replacing the whole database file.** A database copy contains
+every row, the password hashes and the audit log, so it is a privileged
+operation: `BackupService.create_backup` (interactive) and
+`RestoreService.restore` require `can_maintain_database` at the service
+boundary, write a manifest/journal and audit the outcome; denials are audited.
+Scheduled backups run as `system:backup-scheduler`. `DatabaseManager.backup_to()`
+is a low-level primitive without a permission check and no application module
+may call it (`tests/test_backup_settings.py::test_no_application_module_copies_the_database_around_the_verified_service`).
+
+**Finding closed by the M43 release hardening.** *Settings > Database >
+Backup Database Now* called `backup_to()` directly, so any signed-in role
+(including viewer) could copy the entire database file to any folder without
+a permission check or audit entry; an unused `MainWindow.backup_database` had
+the same defect. The button now runs the verified service and is disabled
+without `can_maintain_database`; the unused method was removed
+(`tests/test_backup_settings_ui.py::test_backup_now_uses_the_main_windows_verified_backup`).
+
+### Read policy (audited 2026-10-20)
+
+Reads are not restricted by role inside the application: every signed-in role
+may view every company, project, well and report. The audit found no read path
+that exposes credentials — password hashes are read only by the
+authentication code in `core/database.py`, and there is no user-listing screen
+— and no documented read rule that the code fails to enforce. Restricting
+reads further (per company/project isolation, hiding costs from viewers) would
+be a new business policy and is **not invented here; it is an owner decision**.
+
+### Trust boundary: direct SQLite access
+
+Every control above runs inside the DrillMaster process. Anyone who can open
+the database file directly — the same OS account, an administrator, malware
+running as the user, a copied backup, a stolen unencrypted disk — bypasses
+authentication, authorization, lockout and the audit trail, and can read or
+alter every row. Backups and pre-restore safety copies carry the same data and
+the same exposure. Mitigations are operational: OS account separation, a
+data and backup folder readable only by the user, and full-disk encryption
+(BitLocker on Windows). See §7 for why the file itself is not encrypted.
+
 ## 5. Audit trail
 
 `audit_logs` is append-only for every principal when enforcement is active
@@ -133,9 +171,17 @@ removed data until the owner-gated purge.
 
 ## 7. Not implemented (decisions)
 
-- **Database encryption (SQLCipher)**: not used. Adding it requires a tested
-  key-management design (where the key lives on a single-user desktop, backup
-  and restore with keys, migration of existing files); not attempted without
-  complete tests.
+- **Database encryption (SQLCipher)**: not used. Feasibility assessment
+  (2026-10-20, no code written): it would need (a) a SQLCipher-enabled SQLite
+  build for Python on Windows and Linux in the lock file and both release
+  gates — the standard library `sqlite3` cannot open encrypted files; (b) a key
+  source that is not stored next to the file on a single-user desktop (for
+  example Windows DPAPI bound to the OS account, which protects only against
+  other accounts and offline disk theft, the same threats BitLocker already
+  covers); (c) re-keying and migration of existing databases and of every
+  backup and safety copy, with restore tests for wrong/missing keys; and
+  (d) a recovery story for a lost key. Until those are designed and tested,
+  full-disk encryption is the recommended control; SQLCipher is not added
+  blindly.
 - Password change / user management UI, password expiry, MFA: not present.
 - Code signing: builds are UNSIGNED (owner-gated).

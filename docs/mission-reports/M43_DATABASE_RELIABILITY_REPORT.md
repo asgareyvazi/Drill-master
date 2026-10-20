@@ -408,3 +408,36 @@ synthetic database (one cost row 2.675 / 2.665) and exited 0.
   Then run the full suite with the command in E.
 * Remaining M43 work outside this phase: priorities 6–10 and the final
   release-hardening report. Owner-gated items are in H.
+
+## J. Addendum — 2026-10-20 (release hardening): CI reconciliation and corrections
+
+Appended; nothing above was changed. Run and job IDs were re-read from the
+GitHub REST API (`actions/runs?head_sha=<full sha>`, `/jobs`) on 2026-10-20.
+
+| SHA | Nature | Source release gate | Windows release validation |
+|---|---|---|---|
+| `90016027b065dc32a8889b7a28a4bf154a3bceaa` | **code-complete** (evidence for this phase) | 39383249614 success, attempt 1 — jobs 3.11 `118496980925`, 3.12 `118496981140`, 3.13 `118496981255` | 39383249495 success, attempt 1 — job `118496980737` |
+| `9060b08a9a31d0bf26c186365b08e757aa9b63a3` | documentation-only (this report) | 39384716176 success, attempt 1 — jobs 3.13 `118501705961`, 3.12 `118501706266`, 3.11 `118501706310` | 39384716078 success, attempt 1 — job `118501705771` |
+
+* The green runs on `9060b08` prove that the report commit did not break the
+  gates; they are **not** additional evidence for the code, which stays tied to
+  `90016027`. The cancelled runs on `0c73d7e`/`485647e` remain excluded.
+* Windows *manual* acceptance (the owner checklist, now 12 items in
+  `docs/DATABASE_OPERATIONS.md`) has **not** been performed; the Windows CI
+  job builds and tests an UNSIGNED installer and is not acceptance.
+
+**Corrections found by the release-hardening re-audit** (fixed in commit
+`28d7920`, on top of `9060b08`):
+
+1. *Settings > Database > Backup Database Now* called
+   `DatabaseManager.backup_to()` directly: any logged-in role could copy the
+   whole database file to any path, with no `can_maintain_database` check, no
+   manifest and no audit entry. Section C's permission statement was accurate
+   for *Tools > Backup Database Now* only. The button now runs the verified
+   service; an unused `MainWindow.backup_database` with the same defect was
+   removed; a test forbids application modules from calling `backup_to()`.
+2. The Settings dialog's backup checkbox and folder were saved but never read;
+   the scheduler used environment variables only, and the dialog showed
+   backups as off while they ran every 30 minutes. One resolver now feeds the
+   scheduler and the service (environment > saved setting > default); see
+   `docs/DATABASE_OPERATIONS.md` § Configuration.
