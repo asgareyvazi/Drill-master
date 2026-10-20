@@ -2,9 +2,11 @@
 """
 Common reusable widgets برای استفاده در همه تب‌ها
 """
-from PySide6.QtWidgets import *
-from PySide6.QtCore import *
-from PySide6.QtGui import *
+from PySide6.QtWidgets import (
+    QFrame, QGroupBox, QHBoxLayout, QHeaderView, QLabel, QPushButton,
+    QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
+)
+from PySide6.QtCore import Qt, Signal
 import csv
 import logging
 

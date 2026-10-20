@@ -21,9 +21,8 @@ from dataclasses import dataclass, field
 from typing import List, Optional
 from enum import Enum
 
-from PySide6.QtCore import *
-from PySide6.QtGui import *
-from PySide6.QtWidgets import *
+from PySide6.QtCore import QRectF, Qt
+from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPainterPath, QPen
 
 logger = logging.getLogger(__name__)
 
