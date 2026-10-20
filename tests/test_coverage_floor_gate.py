@@ -76,6 +76,10 @@ def test_floor_file_is_a_measured_percentage():
     floor = json.loads((ROOT / verify_release.COVERAGE_FLOOR).read_text(encoding="utf-8"))
     assert 0.0 < float(floor["percent"]) <= 100.0
     assert len(floor["measured_at_sha"]) == 40 and floor["population"]
+    # The floor is a ratchet below a real measurement, never an aspiration above it.
+    assert float(floor["percent"]) <= float(floor["measured_value"])
+    for earlier in floor.get("history", []):
+        assert float(floor["percent"]) >= float(earlier["percent"]), "the floor must not decrease"
 
 
 def test_pytest_runs_under_coverage_only_when_requested(tmp_path):

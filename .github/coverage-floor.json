@@ -1,9 +1,20 @@
 {
-  "percent": 33.50,
-  "measured_at_sha": "aee2cc866fdbee0f80943f465169efd8006c2db6",
-  "measured_value": 33.52,
+  "percent": 45.2,
+  "measured_at_sha": "ba08ff021bd49ba0e6d26597159fa382d1ac3011",
+  "measured_value": 45.3,
+  "measured_by": "CI 'Source release gate' run 39415376572 attempt 1, job 118603000198 'source (3.12)', notice annotation: product coverage (branch+line) 45.30% over 186 tracked files (32836/72479)",
   "population": "every tracked *.py under core/, dialogs/, tabs/, ui/, config/ plus app.py, main_window.py, run.py, reset_database.py (186 files); unimported files count as 0%",
   "metric": "branch+line: (covered lines + covered branches) / (statements + branches), coverage 7.16.2",
-  "environment": "local Linux, Python 3.11, offscreen, no libGL: the 83 libGL-only failures do not contribute, so CI (real Qt libraries) is expected to measure higher",
-  "policy": "non-decreasing. Raise only to a value actually measured by the CI coverage leg (see the 'coverage' notice annotation); never lower it to pass, never add omit patterns that hide product code (tests/test_coverage_floor_gate.py)."
+  "environment": "GitHub-hosted ubuntu runner, Python 3.12, offscreen with real Qt libraries (the authoritative coverage leg)",
+  "margin": "0.10 percentage point below the CI measurement (about 72 statements) so a small, tested change does not trip the ratchet on line/branch jitter",
+  "policy": "non-decreasing. Raise only to a value actually measured by the CI coverage leg (see the 'coverage' notice annotation); never lower it to pass, never add omit patterns that hide product code (tests/test_coverage_floor_gate.py).",
+  "history": [
+    {
+      "percent": 33.5,
+      "measured_at_sha": "aee2cc866fdbee0f80943f465169efd8006c2db6",
+      "measured_value": 33.52,
+      "environment": "local Linux, Python 3.11, offscreen, no libGL: the 83 libGL-only failures do not contribute, so CI (real Qt libraries) is expected to measure higher",
+      "note": "initial floor, local measurement"
+    }
+  ]
 }
