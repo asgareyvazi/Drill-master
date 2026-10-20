@@ -48,5 +48,6 @@ release/
 # M43 privacy: real operational daily drilling reports never belong in Git
 # (synthetic fixtures live in tests/fixtures/ and are allowlisted by hash in
 # tools/privacy/policy.json).
-[0-9]*-DDR*.xls*
-[0-9]*-DDR*.pdf
+# Also matches spaced names such as "12 - DDR ..." (M43 continuation).
+[0-9]*DDR*.xls*
+[0-9]*DDR*.pdf

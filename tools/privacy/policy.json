@@ -1,7 +1,7 @@
 {
   "_doc": "Rules for tools/privacy/privacy_check.py. Documented in docs/privacy/PRIVACY_CHECK.md. Add a data file only after review; pin it by SHA-256. Denylist entries are token digests (python tools/privacy/privacy_check.py --digest TOKEN, run locally).",
   "prohibited_filename_patterns": [
-    "(?i)^\\d{1,3}-DDR[ _-]",
+    "(?i)^\\d{1,3}\\s*-\\s*DDR[ _-]",
     "(?i)\\.(pfx|p12|pem|key|kdbx|keystore|jks)$",
     "(?i)^id_(rsa|dsa|ecdsa|ed25519)(\\.pub)?$",
     "(?i)^\\.env(\\..*)?$",

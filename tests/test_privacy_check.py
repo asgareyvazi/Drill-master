@@ -121,6 +121,30 @@ def test_real_ddr_filename_is_prohibited_anywhere(tmp_path):
     assert "prohibited-filename" in rules and "data-file-not-allowlisted" in rules
 
 
+@pytest.mark.parametrize("name", [
+    "12 - DDR " + "RIG-1 WELL-2 2025-Jan-01 (1403.10.12).pdf",
+    "7 -DDR_" + "RIG-1 WELL-2.xlsx",
+])
+def test_spaced_ddr_filenames_are_prohibited(tmp_path, name):
+    # M43 continuation: a real DDR named "NN - DDR ..." slipped past the
+    # former "^NN-DDR" pattern; the rule must tolerate spaces around "-".
+    (tmp_path / name).write_bytes(b"%PDF-1.4 synthetic")
+    rules = [f.rule for f in _scanner().scan_file(tmp_path, name)]
+    assert "prohibited-filename" in rules
+
+
+@pytest.mark.parametrize("name", [
+    "tests/fixtures/synthetic_ddr_golden_a.xlsx",
+    "docs/DDR_IMPORT.md",
+    "templates/OEOC_DDR_full_extraction.json",
+])
+def test_ddr_filename_rule_ignores_ordinary_names(name):
+    import re
+    patterns = pc.load_policy()["prohibited_filename_patterns"]
+    base = name.rsplit("/", 1)[-1]
+    assert not any(re.search(p, base) for p in patterns)
+
+
 def test_data_files_need_an_allowlist_entry_pinned_by_hash(tmp_path):
     data = _xlsx_bytes("SYN-1")
     (tmp_path / "fixture.xlsx").write_bytes(data)
@@ -295,3 +319,4 @@ def test_committed_fixture_keeps_the_golden_workbook_structure():
 
 def test_no_real_workbook_at_the_repository_root():
     assert not list(ROOT.glob("*DDR*.xlsx")), "operational workbooks must not be committed (see docs/privacy/)"
+    assert not list(ROOT.glob("*DDR*.pdf")), "operational DDR PDFs must not be committed (see docs/privacy/)"
