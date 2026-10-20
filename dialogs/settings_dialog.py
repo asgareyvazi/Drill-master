@@ -3,9 +3,11 @@
 Settings Dialog - تنظیمات نرم‌افزار
 """
 import logging
-from PySide6.QtWidgets import *
-from PySide6.QtCore import *
-from PySide6.QtGui import *
+from PySide6.QtCore import QSettings, Qt
+from PySide6.QtWidgets import (
+    QCheckBox, QComboBox, QDialog, QFileDialog, QFormLayout, QHBoxLayout, QInputDialog, QLabel,
+    QLineEdit, QMessageBox, QPushButton, QSpinBox, QTabWidget, QVBoxLayout, QWidget,
+)
 
 from core.mineru_engine import MinerUConfig, discover_mineru_executable
 from core.runtime_config import write_mineru_settings

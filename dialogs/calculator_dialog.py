@@ -2,9 +2,11 @@
 """
 Drilling Calculator - ماشین حساب محاسبات حفاری
 """
-from PySide6.QtWidgets import *
-from PySide6.QtCore import *
-from PySide6.QtGui import *
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (
+    QDialog, QDoubleSpinBox, QFormLayout, QLabel, QPushButton, QTabWidget, QTextEdit, QVBoxLayout,
+    QWidget,
+)
 
 
 class DrillingCalculatorDialog(QDialog):

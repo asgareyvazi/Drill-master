@@ -7,9 +7,14 @@ Well Plan Dialog - برنامه‌ریزی حرفه‌ای عملیات حفار
 import logging
 from datetime import datetime
 
-from PySide6.QtWidgets import *
-from PySide6.QtCore import *
-from PySide6.QtGui import *
+from PySide6.QtCore import QDate, QDateTime, Qt
+from PySide6.QtGui import QColor, QFont
+from PySide6.QtWidgets import (
+    QComboBox, QDateEdit, QDateTimeEdit, QDialog, QDoubleSpinBox, QFileDialog, QFormLayout,
+    QGroupBox, QHBoxLayout, QHeaderView, QInputDialog, QLabel, QLineEdit, QMessageBox, QPushButton,
+    QScrollArea, QSpinBox, QSplitter, QTabWidget, QTableWidget, QTableWidgetItem, QTextEdit,
+    QVBoxLayout, QWidget,
+)
 
 from core.database import DatabaseManager, PlannedActivity, WellPlan
 from core.permissions import require_permission

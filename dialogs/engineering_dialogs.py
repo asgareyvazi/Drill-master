@@ -11,9 +11,12 @@ Engineering Dialogs - دیالوگ‌های حرفه‌ای برای Engineering
 """
 import math
 import logging
-from PySide6.QtWidgets import *
-from PySide6.QtCore import *
-from PySide6.QtGui import *
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor
+from PySide6.QtWidgets import (
+    QColorDialog, QComboBox, QDialog, QDoubleSpinBox, QFormLayout, QGridLayout, QGroupBox,
+    QHBoxLayout, QLabel, QLineEdit, QPushButton, QSpinBox, QTextEdit, QVBoxLayout,
+)
 
 logger = logging.getLogger(__name__)
 

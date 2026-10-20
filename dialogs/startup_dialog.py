@@ -3,9 +3,12 @@ Startup Dialog - اولین صفحه هنگام اجرای برنامه
 """
 
 import logging
-from PySide6.QtWidgets import *
-from PySide6.QtCore import *
-from PySide6.QtGui import *
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (
+    QAbstractItemView, QDialog, QFrame, QGridLayout, QHBoxLayout, QHeaderView, QLabel, QListWidget,
+    QListWidgetItem, QMessageBox, QPushButton, QTabWidget, QTableWidget, QTableWidgetItem,
+    QVBoxLayout, QWidget,
+)
 
 from core.database import DatabaseManager
 from dialogs.hierarchy_dialogs import NewCompanyDialog, NewProjectDialog, NewWellDialog

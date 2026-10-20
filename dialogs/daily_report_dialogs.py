@@ -2,9 +2,11 @@
 """
 Daily Report Dialogs - دیالوگ‌های حرفه‌ای گزارش روزانه
 """
-from PySide6.QtWidgets import *
-from PySide6.QtCore import *
-from PySide6.QtGui import *
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (
+    QCheckBox, QComboBox, QDialog, QFormLayout, QGroupBox, QHBoxLayout, QLabel, QPushButton,
+    QSpinBox, QTextEdit, QVBoxLayout,
+)
 
 
 class AddActivityDialog(QDialog):

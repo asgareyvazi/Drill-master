@@ -5,9 +5,12 @@ Hierarchy Dialogs - دیالوگ‌های ایجاد Company، Project و Well
 import logging
 from datetime import datetime
 
-from PySide6.QtWidgets import *
-from PySide6.QtCore import *
-from PySide6.QtGui import *
+from PySide6.QtCore import QDate, Qt
+from PySide6.QtWidgets import (
+    QAbstractSpinBox, QCheckBox, QComboBox, QDateEdit, QDialog, QDoubleSpinBox, QGridLayout,
+    QGroupBox, QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton, QScrollArea, QSpinBox,
+    QTabWidget, QTextEdit, QVBoxLayout, QWidget,
+)
 
 from core.database import DatabaseManager, Company, Project, Well, DailyReport, Section
 from core.permissions import require_permission

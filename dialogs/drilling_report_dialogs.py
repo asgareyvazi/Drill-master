@@ -4,9 +4,10 @@ Drilling Report Dialogs
 دیالوگ‌های حرفه‌ای برای Bit Record, BHA, Casing Tally
 """
 import logging
-from PySide6.QtWidgets import *
-from PySide6.QtCore import *
-from PySide6.QtGui import *
+from PySide6.QtWidgets import (
+    QComboBox, QDialog, QDoubleSpinBox, QFormLayout, QGridLayout, QGroupBox, QHBoxLayout, QLabel,
+    QLineEdit, QPushButton, QScrollArea, QTextEdit, QVBoxLayout, QWidget,
+)
 
 logger = logging.getLogger(__name__)
 

@@ -3,9 +3,10 @@ Login Dialog - Dialog for user authentication
 """
 
 import logging
-from PySide6.QtWidgets import *
-from PySide6.QtCore import *
-from PySide6.QtGui import *
+from PySide6.QtCore import QSettings, Qt
+from PySide6.QtWidgets import (
+    QApplication, QCheckBox, QDialog, QHBoxLayout, QLabel, QLineEdit, QPushButton, QVBoxLayout,
+)
 
 logger = logging.getLogger(__name__)
 
