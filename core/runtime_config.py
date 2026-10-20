@@ -9,6 +9,7 @@ backups, and optional local-AI settings.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import platform
 import tempfile
@@ -99,7 +100,11 @@ def read_mineru_settings() -> dict:
     try:
         value = json.loads(mineru_settings_path().read_text(encoding="utf-8"))
         return value if isinstance(value, dict) else {}
-    except (OSError, ValueError):
+    except FileNotFoundError:  # silent-ok: the settings file is optional
+        return {}
+    except (OSError, ValueError) as exc:
+        logging.getLogger(__name__).warning(
+            "MinerU settings file unreadable; using defaults: %s", type(exc).__name__)
         return {}
 
 

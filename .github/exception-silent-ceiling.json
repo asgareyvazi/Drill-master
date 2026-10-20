@@ -1,9 +1,9 @@
 {
  "_doc": "Ratchet for unexplained silent exception handlers (tools/quality/exception_scan.py --check). Lower a value when a measured count drops; never raise it. A deliberately ignored, expected condition is marked '# silent-ok: <reason>' on the except line or the first body line. Areas not listed are capped at 0.",
  "silent_unexplained": {
-  "total": 192,
+  "total": 161,
   "app.py": 2,
-  "core": 112,
+  "core": 81,
   "dialogs": 18,
   "main_window.py": 10,
   "run.py": 0,

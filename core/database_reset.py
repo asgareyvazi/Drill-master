@@ -64,5 +64,5 @@ def reset_configured_database() -> Path:
         for suffix in ("", "-wal", "-shm"):
             try:
                 Path(f"{candidate_path}{suffix}").unlink()
-            except FileNotFoundError:
+            except FileNotFoundError:  # silent-ok: the temporary candidate file is already gone
                 pass

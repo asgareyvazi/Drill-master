@@ -3527,8 +3527,10 @@ class DatabaseManager:
         """بستن session"""
         try:
             session.close()
-        except Exception:
-            pass
+        except Exception as exc:
+            # Closing must not mask the caller's outcome, but a failure here can
+            # signal a broken connection: record it (type only; no SQL/params).
+            logger.warning("Session close failed: %s", type(exc).__name__)
 
     @contextmanager
     def session_scope(self):
@@ -4341,7 +4343,7 @@ class DatabaseManager:
                         continue
                     try:
                         number = float(v.replace(",", "").strip())
-                    except (ValueError, TypeError):
+                    except (ValueError, TypeError):  # silent-ok: non-numeric text is unknown (None), never 0
                         out[k] = None
                     else:
                         out[k] = number if math.isfinite(number) else None
@@ -4460,7 +4462,7 @@ class DatabaseManager:
             if "report_date" in data and isinstance(data["report_date"], str):
                 try:
                     data["report_date"] = datetime.strptime(data["report_date"], "%Y-%m-%d").date()
-                except ValueError:
+                except ValueError:  # silent-ok: unparseable date stays text; the Date column rejects it and the save returns None
                     pass
             report_id = data.get("id")
             if report_id:
@@ -5142,7 +5144,7 @@ class DatabaseManager:
                         return None
                     try:
                         number = float(value)
-                    except (TypeError, ValueError):
+                    except (TypeError, ValueError):  # silent-ok: non-numeric -> None; callers raise a validation issue for supplied values
                         return None
                     return number if math.isfinite(number) else None
 
@@ -5252,7 +5254,7 @@ class DatabaseManager:
                             continue
                         try:
                             count_v = int(float(str(val).replace(",", "")))
-                        except (ValueError, TypeError):
+                        except (ValueError, TypeError):  # silent-ok: unreachable for validated input: non-numeric pob_* values are rejected above (VALIDATION_ERROR)
                             continue
                         if count_v == 0:
                             continue
@@ -5308,11 +5310,13 @@ class DatabaseManager:
                         hours = la.get("hours")
                         if hours not in (None, ""):
                             try:
-                                hours = float(hours)
-                                hrs = f"[HRs: {hours:.0f}] " if hours == int(hours) else f"[HRs: {hours}] "
-                                remarks = hrs + remarks if remarks else hrs.strip()
-                            except (TypeError, ValueError):
-                                pass
+                                number = float(hours)
+                                hrs = f"[HRs: {number:.0f}] " if number == int(number) else f"[HRs: {number}] "
+                            except (TypeError, ValueError, OverflowError):
+                                # Non-numeric or non-finite hours (e.g. a range) are kept
+                                # verbatim in remarks: never dropped, never turned into a number.
+                                hrs = f"[HRs: {str(hours).strip()}] "
+                            remarks = hrs + remarks if remarks else hrs.strip()
 
                         def _to_dt(val):
                             if isinstance(val, datetime):
@@ -5321,7 +5325,7 @@ class DatabaseManager:
                                 for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
                                     try:
                                         return datetime.strptime(val, fmt)
-                                    except ValueError:
+                                    except ValueError:  # silent-ok: try the next accepted date format
                                         continue
                             return None
 
@@ -5630,7 +5634,7 @@ class DatabaseManager:
                             return None
                         try:
                             return float(val)
-                        except (TypeError, ValueError):
+                        except (TypeError, ValueError):  # silent-ok: non-numeric stock is unknown (None), never 0
                             return None
                     fuel_stock = _fwf("fuel_stock")
                     fuel_recv = _fwf("fuel_received")
@@ -5741,7 +5745,7 @@ class DatabaseManager:
                                 ).date()
                                 if not (1990 <= parsed_date.year <= 2100):
                                     parsed_date = None
-                            except (ValueError, TypeError):
+                            except (ValueError, TypeError):  # silent-ok: unparseable/non-Gregorian date -> None; the original is kept in remarks below
                                 parsed_date = None
                             bp["last_test_date"] = parsed_date
                             if parsed_date is None:
@@ -5762,7 +5766,7 @@ class DatabaseManager:
                             if filtered.get("working_pressure") is None:
                                 continue
                             float(filtered["working_pressure"])
-                        except (ValueError, TypeError):
+                        except (ValueError, TypeError):  # silent-ok: rows without a numeric pressure were already sent to review/validation above
                             continue
                         session.add(BOPComponent(**filtered))
                         saved += 1
@@ -5854,7 +5858,7 @@ class DatabaseManager:
                         if raw_hours not in (None, ""):
                             try:
                                 candidate = float(raw_hours)
-                            except (TypeError, ValueError):
+                            except (TypeError, ValueError):  # silent-ok: routed to review_issue just below; kept unknown
                                 candidate = None
                             if candidate is not None and math.isfinite(candidate) and candidate >= 0:
                                 hours = candidate
@@ -7247,7 +7251,7 @@ class DatabaseManager:
                     return None
                 try:
                     return float(v)
-                except (TypeError, ValueError):
+                except (TypeError, ValueError):  # silent-ok: non-numeric inventory value is unknown (None)
                     return None
 
             fuel_consumed = float(inventory_data.get("fuel_consumed", 0.0) or 0.0)
@@ -8932,7 +8936,7 @@ class DatabaseManager:
                     for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%d/%m/%Y"):
                         try:
                             return datetime.strptime(val, fmt).date()
-                        except ValueError:
+                        except ValueError:  # silent-ok: try the next accepted date format
                             continue
                 return None
 
@@ -8946,7 +8950,7 @@ class DatabaseManager:
                     for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
                         try:
                             return datetime.strptime(val, fmt)
-                        except ValueError:
+                        except ValueError:  # silent-ok: try the next accepted date format
                             continue
                 return None
 
@@ -10567,7 +10571,8 @@ class DatabaseManager:
             if destination.resolve() == Path(self.db_path).expanduser().resolve():
                 logger.warning("Refusing to overwrite the live database with its own backup")
                 return None
-        except OSError:
+        except OSError as exc:
+            logger.warning("Backup destination could not be resolved: %s", type(exc).__name__)
             return None
         temporary = None
         source_connection = None

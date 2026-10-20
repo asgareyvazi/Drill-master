@@ -884,8 +884,8 @@ class DDRImportService:
             if session:
                 try:
                     session.close()
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.warning("Session close failed: %s", type(exc).__name__)
 
 
     def _ensure_report_number(self, dr: dict, section_id: int, session=None) -> int:
@@ -1036,7 +1036,7 @@ class DDRImportService:
             if len(parts) == 1:
                 return float(parts[0]) * 32.0
             return float(parts[0]) / float(parts[1]) * 32.0
-        except (ValueError, ZeroDivisionError):
+        except (ValueError, ZeroDivisionError):  # silent-ok: unparseable nozzle size is unknown (None), never 0
             return None
 
 
@@ -1187,7 +1187,7 @@ class DDRImportService:
                 raw_duration = log.get("duration")
                 try:
                     duration = None if raw_duration in (None, "") else float(raw_duration)
-                except (TypeError, ValueError, OverflowError):
+                except (TypeError, ValueError, OverflowError):  # silent-ok: reported by the check just below
                     duration = None
                 if raw_duration not in (None, "") and duration is None:
                     review_items.append({
@@ -1295,7 +1295,7 @@ class DDRImportService:
                 raw_duration = log.get("duration")
                 try:
                     duration = None if raw_duration in (None, "") else float(raw_duration)
-                except (TypeError, ValueError, OverflowError):
+                except (TypeError, ValueError, OverflowError):  # silent-ok: reported by the check just below
                     duration = None
                 if raw_duration not in (None, "") and duration is None:
                     review_items.append({
@@ -1400,7 +1400,10 @@ class DDRImportService:
             try:
                 with open(path, encoding="utf-8") as fh:
                     tmpl = json.load(fh)
-            except (OSError, ValueError):
+            except (OSError, ValueError) as exc:
+                # An unreadable template is skipped, but visibly: matching may
+                # otherwise fall back to a less specific layout without notice.
+                logger.warning("Skipping unreadable DDR template %s: %s", filename, type(exc).__name__)
                 continue
             if not isinstance(tmpl, dict):
                 continue
@@ -1507,7 +1510,7 @@ class DDRImportService:
                             source_cell = str(source_cells.get(field_path) or "")
                             try:
                                 source_column = int(source_cell.split("C", 1)[1])
-                            except (IndexError, ValueError):
+                            except (IndexError, ValueError):  # silent-ok: no R1C1 column in the source reference; 0 means unknown column
                                 source_column = 0
                             try:
                                 row_number = int(source_cell.split("R", 1)[1].split("C", 1)[0])

@@ -134,7 +134,7 @@ def _clean_number(value: Any) -> Optional[float]:
         return None
     try:
         f = float(value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError):  # silent-ok: non-numeric is unknown (None), never 0
         return None
     if f != f or f in (float("inf"), float("-inf")):
         return None

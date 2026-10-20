@@ -84,21 +84,19 @@ def delete_entity(db_manager, entity_type: str, entity_id: int,
             try:
                 obj = session.query(model).filter(model.id == entity_id).first()
                 if obj:
+                    from core.database import AuditLog
+                    from core.permissions import permissions
                     name = getattr(obj, 'name', f'{label} {entity_id}')
                     session.delete(obj)
+                    # The audit record commits with the delete: if it cannot be
+                    # written, the delete is rolled back instead of left unaudited.
+                    session.add(AuditLog(
+                        action="delete", entity_type=entity_type,
+                        entity_id=entity_id, entity_name=str(name),
+                        user_id=permissions.user_id, username=permissions.username,
+                    ))
                     session.commit()
                     success = True
-                    
-                    # Audit log
-                    try:
-                        from core.permissions import permissions
-                        db_manager.log_audit(
-                            action="delete", entity_type=entity_type,
-                            entity_id=entity_id, entity_name=str(name),
-                            user_id=permissions.user_id, username=permissions.username,
-                        )
-                    except Exception:
-                        pass
                 else:
                     success = False
             except Exception as e:

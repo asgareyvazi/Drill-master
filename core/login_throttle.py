@@ -63,7 +63,7 @@ def policy_from_environment(environ=None) -> ThrottlePolicy:
         if raw not in (None, ""):
             try:
                 parsed = int(str(raw).strip())
-            except ValueError:
+            except ValueError:  # silent-ok: warned just below, default kept
                 parsed = None
             if parsed is None or not low <= parsed <= high:
                 logger.warning("Ignoring invalid %s (expected an integer %d..%d); using %d",
