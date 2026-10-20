@@ -22,6 +22,16 @@ from typing import Dict
 
 ROOT = Path(__file__).resolve().parent
 
+# Coverage floor (opt-in with --coverage; CI enables it on one matrix leg).
+# The population is every *tracked* product module, so files that no test
+# imports count as 0 % instead of silently leaving the denominator.
+COVERAGE_VERSION = "7.16.2"
+COVERAGE_FLOOR = ".github/coverage-floor.json"
+COVERAGE_POPULATION = (
+    "core/", "dialogs/", "tabs/", "ui/", "config/",
+    "app.py", "main_window.py", "run.py", "reset_database.py",
+)
+
 
 _SUMMARY_NAMES = (
     "passed",
@@ -165,8 +175,12 @@ def _ci_error(title, text) -> None:
         print(f"::error title={_annotation_text(title, 60)}::{_annotation_text(text)}")
 
 
-def run_pytest() -> bool:
-    """Collect and execute the complete pytest suite using project config."""
+def run_pytest(coverage_data: Path | None = None) -> bool:
+    """Collect and execute the complete pytest suite using project config.
+
+    With ``coverage_data`` the same pytest invocation runs under
+    ``coverage run`` (configured in pyproject.toml) and writes its data there.
+    """
     collect = _run([sys.executable, "-m", "pytest", "--collect-only", "-q"])
     if collect.returncode != 0:
         print("Release verification failed: pytest collection failed.")
@@ -179,7 +193,10 @@ def run_pytest() -> bool:
 
     with tempfile.TemporaryDirectory(prefix="drillmaster-pytest-") as directory:
         report = Path(directory) / "results.xml"
-        result = _run([sys.executable, "-m", "pytest", "-ra", f"--junitxml={report}"])
+        runner = [sys.executable, "-m"]
+        if coverage_data is not None:
+            runner += ["coverage", "run", f"--data-file={coverage_data}", "-m"]
+        result = _run([*runner, "pytest", "-ra", f"--junitxml={report}"])
         output = (result.stdout or "") + (result.stderr or "")
         report_valid = validate_pytest_report(report, collected, _pytest_counts(output))
         annotate_failures(report)
@@ -211,6 +228,60 @@ def run_pytest() -> bool:
         _ci_error("pytest accounting", f"collected={collected}; " + summary)
         return False
     return True
+
+
+def tracked_product_sources() -> list[str]:
+    """Tracked Python files of the coverage population (``git ls-files``)."""
+    listed = _run(["git", "ls-files", "-z", "--", "*.py"], echo=False)
+    if listed.returncode != 0:
+        raise RuntimeError("git ls-files failed")
+    return sorted(p for p in listed.stdout.split("\0") if p.startswith(COVERAGE_POPULATION))
+
+
+def evaluate_coverage(report: dict, tracked: list[str], floor: float) -> tuple[bool, str]:
+    """Branch+line coverage over exactly the tracked product files.
+
+    Fails when any tracked file is missing from the report: an unmeasured
+    file would otherwise shrink the denominator and inflate the figure.
+    """
+    if not tracked:
+        return False, "coverage: no tracked product sources found"
+    files = {Path(name).as_posix(): data["summary"] for name, data in report.get("files", {}).items()}
+    missing = [name for name in tracked if name not in files]
+    if missing:
+        return False, (f"coverage denominator incomplete: {len(missing)} tracked product file(s) "
+                       f"absent from the report, e.g. {', '.join(missing[:3])}")
+    covered = sum(files[n]["covered_lines"] + files[n].get("covered_branches", 0) for n in tracked)
+    total = sum(files[n]["num_statements"] + files[n].get("num_branches", 0) for n in tracked)
+    percent = 100.0 * covered / total if total else 0.0
+    message = (f"product coverage (branch+line) {percent:.2f}% over {len(tracked)} tracked files "
+               f"({covered}/{total}); floor {floor:.2f}%")
+    return round(percent, 2) >= floor, message
+
+
+def verify_coverage(coverage_data: Path) -> bool:
+    """Enforce the non-decreasing floor in .github/coverage-floor.json."""
+    try:
+        floor = float(json.loads((ROOT / COVERAGE_FLOOR).read_text(encoding="utf-8"))["percent"])
+        tracked = tracked_product_sources()
+    except (OSError, ValueError, KeyError, TypeError, RuntimeError) as exc:
+        print(f"FAIL: coverage floor configuration: {exc}")
+        return False
+    with tempfile.TemporaryDirectory(prefix="drillmaster-coverage-json-") as directory:
+        target = Path(directory) / "coverage.json"
+        exported = _run([sys.executable, "-m", "coverage", "json", f"--data-file={coverage_data}",
+                         "-o", str(target), "-q"])
+        if exported.returncode != 0 or not target.is_file():
+            print("FAIL: coverage report could not be exported")
+            return False
+        report = json.loads(target.read_text(encoding="utf-8"))
+    ok, message = evaluate_coverage(report, tracked, floor)
+    print(("" if ok else "FAIL: ") + message)
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        print(f"::notice title=coverage::{_annotation_text(message)}")
+    if not ok:
+        _ci_error("coverage", message)
+    return ok
 
 
 def verify_repository(expected_sha=None, allow_dirty=False) -> bool:
@@ -353,6 +424,8 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--expected-sha", help="full SHA expected at HEAD")
     parser.add_argument("--allow-dirty", action="store_true", help="development-only worktree verification")
+    parser.add_argument("--coverage", action="store_true",
+                        help=f"run pytest under coverage and enforce {COVERAGE_FLOOR}")
     args = parser.parse_args(argv)
     print(f"Environment: Python {sys.version}; platform={sys.platform}; "
           f"Qt={os.getenv('QT_QPA_PLATFORM', 'default')}; "
@@ -382,7 +455,24 @@ def main(argv=None) -> int:
         print("Release verification failed: syntax compilation failed.")
         _ci_error("release gate", "syntax compilation failed")
         return 1
-    if not run_pytest():
+    if args.coverage:
+        try:
+            installed = importlib.metadata.version("coverage")
+        except importlib.metadata.PackageNotFoundError:
+            installed = "not installed"
+        if installed != COVERAGE_VERSION:
+            print(f"FAIL: --coverage requires coverage=={COVERAGE_VERSION} (found {installed})")
+            _ci_error("release gate", "coverage tool missing or not pinned")
+            return 1
+        with tempfile.TemporaryDirectory(prefix="drillmaster-coverage-") as directory:
+            data = Path(directory) / ".coverage"
+            if not run_pytest(coverage_data=data):
+                _ci_error("release gate", "pytest stage failed (see the pytest annotations)")
+                return 1
+            if not verify_coverage(data):
+                _ci_error("release gate", "coverage floor failed")
+                return 1
+    elif not run_pytest():
         _ci_error("release gate", "pytest stage failed (see the pytest annotations)")
         return 1
     if not verify_wheel():

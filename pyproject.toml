@@ -45,6 +45,22 @@ markers = [
     "integration: requires an externally installed integration engine or service",
 ]
 
+[tool.coverage.run]
+# Used by `python verify_release.py --coverage` (CI floor). Namespace packages
+# (core/, dialogs/, tabs/, ui/ have no __init__.py) must be walked, otherwise
+# modules that no test imports are dropped from the denominator.
+branch = true
+source = ["."]
+# shibokensupport/* are PySide6's embedded loader modules (no file on disk).
+omit = ["tests/*", "tools/*", "packaging/*", "docs/*", "build/*", "dist/*", "verify_release.py",
+        "shibokensupport/*", "signature_bootstrap.py"]
+
+[tool.coverage.report]
+include_namespace_packages = true
+# Reporting does not inherit [run] omit; keep both lists identical (tested).
+omit = ["tests/*", "tools/*", "packaging/*", "docs/*", "build/*", "dist/*", "verify_release.py",
+        "shibokensupport/*", "signature_bootstrap.py"]
+
 [tool.ruff]
 line-length = 120
 exclude = ["build", "dist", ".venv"]

@@ -1,0 +1,9 @@
+{
+  "percent": 33.50,
+  "measured_at_sha": "aee2cc866fdbee0f80943f465169efd8006c2db6",
+  "measured_value": 33.52,
+  "population": "every tracked *.py under core/, dialogs/, tabs/, ui/, config/ plus app.py, main_window.py, run.py, reset_database.py (186 files); unimported files count as 0%",
+  "metric": "branch+line: (covered lines + covered branches) / (statements + branches), coverage 7.16.2",
+  "environment": "local Linux, Python 3.11, offscreen, no libGL: the 83 libGL-only failures do not contribute, so CI (real Qt libraries) is expected to measure higher",
+  "policy": "non-decreasing. Raise only to a value actually measured by the CI coverage leg (see the 'coverage' notice annotation); never lower it to pass, never add omit patterns that hide product code (tests/test_coverage_floor_gate.py)."
+}
