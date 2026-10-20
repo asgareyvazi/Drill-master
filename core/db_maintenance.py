@@ -1,4 +1,4 @@
-"""Verified backups of the DrillMaster SQLite database (M43).
+"""Verified backups and safe restore of the DrillMaster SQLite database (M43).
 
 Backups
 -------
@@ -22,6 +22,31 @@ Backups
   plus an OS file lock on ``.drillmaster-maintenance.lock`` in the backup
   directory. The OS releases that lock when a process exits, so a crashed
   instance cannot leave a permanent stale lock.
+
+Restore
+-------
+Requires ``can_maintain_database`` (enforced here, not only in the UI) and an
+explicit confirmation. Sequence (each step must succeed before the next):
+
+1. Validate the candidate: a managed backup file directly inside the backup
+   directory (no symlink, no traversal), a matching manifest, and full
+   verification through a read-only connection.
+2. Stage a copy beside the live database (same file system). An older
+   supported schema is migrated on the STAGED copy only, then re-verified.
+3. Journal ``restore_started`` (sidecar file; failure aborts).
+4. Maintenance: new database checkouts are refused, in-flight transactions
+   are drained (bounded wait, otherwise abort) and the shared connection is
+   disposed.
+5. Pre-restore safety copy of the live database, verified; failure aborts.
+6. Exclusivity: WAL checkpoint and switch to ``journal_mode=DELETE``, which
+   SQLite only allows when no other connection (e.g. another application
+   instance) has the database open; otherwise abort.
+7. ``os.replace(staged, live)`` - a single rename on the same file system.
+8. Reopen through the application's own engine and verify. On failure the
+   safety copy is staged and put back the same way, then verified.
+
+The safety copy is never deleted automatically. The live file is never
+deleted; it is only replaced by a verified file.
 """
 from __future__ import annotations
 
@@ -70,6 +95,10 @@ class MaintenanceError(RuntimeError):
 
 class MaintenanceBusy(MaintenanceError):
     """Another backup/restore runs, or transactions did not finish in time."""
+
+
+class MaintenanceActive(MaintenanceError):
+    """Database access was attempted while a restore holds the database."""
 
 
 class VerificationError(MaintenanceError):
@@ -264,6 +293,56 @@ class _ProcessLock:
                 fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
         finally:
             handle.close()
+
+
+# ---------------------------------------------------------------- maintenance gate
+
+class MaintenanceGate:
+    """Counts checked-out engine connections and can refuse new checkouts."""
+
+    def __init__(self):
+        self._condition = threading.Condition()
+        self.active = 0
+        self.closed = False
+
+    def on_checkout(self, *_args) -> None:
+        with self._condition:
+            if self.closed:
+                raise MaintenanceActive("database maintenance (restore) in progress; try again shortly")
+            self.active += 1
+
+    def on_checkin(self, *_args) -> None:
+        with self._condition:
+            self.active = max(0, self.active - 1)
+            self._condition.notify_all()
+
+    def close(self, drain_timeout: float) -> None:
+        with self._condition:
+            self.closed = True
+            if not self._condition.wait_for(lambda: self.active == 0, timeout=drain_timeout):
+                self.closed = False
+                self._condition.notify_all()
+                raise MaintenanceBusy("database transactions did not finish in time; nothing was changed")
+
+    def open(self) -> None:
+        with self._condition:
+            self.closed = False
+            self._condition.notify_all()
+
+
+def install_gate(manager) -> MaintenanceGate:
+    """Attach the maintenance gate to ``manager.engine`` (called by initialize)."""
+    from sqlalchemy import event
+
+    gate = getattr(manager, "_maintenance_gate", None)
+    if gate is None:
+        gate = MaintenanceGate()
+        manager._maintenance_gate = gate
+    gate.open()
+    gate.active = 0
+    event.listen(manager.engine, "checkout", gate.on_checkout)
+    event.listen(manager.engine, "checkin", gate.on_checkin)
+    return gate
 
 
 # ---------------------------------------------------------------- authorization and audit
@@ -588,3 +667,307 @@ class BackupScheduler:
             thread.join(timeout)
             return not thread.is_alive()
         return True
+
+
+# ---------------------------------------------------------------- restore
+
+@dataclass
+class RestoreResult:
+    ok: bool
+    stage: str
+    error: Optional[str] = None
+    safety_copy: Optional[str] = None
+    restored_from: Optional[str] = None
+    original_intact: bool = True
+    recovered: Optional[bool] = None
+    journal_complete: bool = False
+    audit_recorded: Optional[bool] = None
+    operation_id: Optional[str] = None
+
+
+class RestoreJournal:
+    """Append-only JSON-lines record of restore attempts beside the backups.
+
+    It survives replacing the database (whose own audit table comes from the
+    restored snapshot). Plain file: anyone with write access to the backup
+    directory can alter it - it is evidence, not tamper-proof.
+    """
+
+    def __init__(self, directory: Path):
+        self.path = Path(directory) / JOURNAL_NAME
+
+    def append(self, event: dict) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        line = json.dumps({"time_utc": _utc_now().isoformat(timespec="seconds"), **event}, sort_keys=True)
+        with open(self.path, "a", encoding="utf-8") as handle:
+            handle.write(line + "\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+
+    def read(self) -> list:
+        if not self.path.is_file():
+            return []
+        return [json.loads(line) for line in self.path.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+
+class RestoreService:
+    def __init__(self, manager, backups: BackupService, *, drain_timeout: float = 15.0,
+                 lock_timeout: float = 30.0):
+        self.manager = manager
+        self.backups = backups
+        self.journal = RestoreJournal(backups.backup_dir)
+        self.drain_timeout = drain_timeout
+        self.lock_timeout = lock_timeout
+        self.fault: Optional[Callable[[str], None]] = None  # test-only fault injection
+
+    def _inject(self, stage: str) -> None:
+        if self.fault is not None:
+            self.fault(stage)
+
+    # -- validation
+    def validate_candidate(self, candidate) -> tuple[Path, dict, dict]:
+        """Path policy, manifest and full read-only verification of a candidate."""
+        backup_dir = self.backups.backup_dir.resolve()
+        path = Path(candidate)
+        if path.is_symlink():
+            raise VerificationError("symbolic links are not accepted as restore candidates")
+        try:
+            resolved = path.resolve(strict=True)
+        except OSError as exc:
+            raise VerificationError("restore candidate does not exist") from exc
+        if not resolved.is_file():
+            raise VerificationError("restore candidate is not a regular file")
+        if resolved.parent != backup_dir or not NAME_PATTERN.match(resolved.name):
+            raise VerificationError("only managed backups inside the backup directory can be restored")
+        if resolved == self.backups.live_path.resolve():
+            raise VerificationError("the live database cannot be its own restore candidate")
+        size = resolved.stat().st_size
+        if size <= 0 or size > MAX_RESTORE_BYTES:
+            raise VerificationError("restore candidate size is outside the accepted range")
+        manifest = self.backups.read_manifest(resolved, deep=True)
+        if manifest is None:
+            raise VerificationError("backup manifest is missing or does not match the file")
+        info = verify_database_file(resolved, max_version=int(self.manager.schema_version))
+        if info["schema_version"] != manifest.get("schema_version"):
+            raise VerificationError("backup schema version does not match its manifest")
+        return resolved, manifest, info
+
+    def _stage(self, source: Path, operation_id: str, migrate: bool) -> Path:
+        live = self.backups.live_path
+        staged = live.with_name(f"{STAGED_PREFIX}{operation_id}.staged")
+        snapshot(source, staged)
+        if migrate:
+            self._migrate_staged(staged)
+        verify_database_file(staged, max_version=int(self.manager.schema_version),
+                             require_version=int(self.manager.schema_version))
+        return staged
+
+    def _migrate_staged(self, staged: Path) -> None:
+        """Apply the application's own migrations to the STAGED copy only."""
+        from core.database import DatabaseManager
+
+        migrator = DatabaseManager()
+        migrator.db_path = str(staged)
+        try:
+            if not migrator.initialize():
+                raise VerificationError("staged backup could not be migrated to the current schema")
+        finally:
+            migrator.close()
+        connection = sqlite3.connect(str(staged))
+        try:
+            mode = str(connection.execute("PRAGMA journal_mode=DELETE").fetchone()[0]).lower()
+        finally:
+            connection.close()
+        if mode != "delete":
+            raise VerificationError("migrated staged copy could not be made self-contained")
+
+    # -- live database lifecycle
+    def _enter_maintenance(self) -> None:
+        gate = getattr(self.manager, "_maintenance_gate", None)
+        if gate is None or self.manager.engine is None:
+            raise MaintenanceError("database is not initialized")
+        gate.close(self.drain_timeout)
+        self.manager.engine.dispose()
+
+    def _leave_maintenance(self) -> None:
+        gate = getattr(self.manager, "_maintenance_gate", None)
+        if gate is not None:
+            gate.open()
+
+    def _require_exclusive_file(self) -> None:
+        """WAL checkpoint, then leave WAL: only possible with no other connection."""
+        live = self.backups.live_path
+        connection = sqlite_connection.connect(live, timeout_ms=2000)
+        try:
+            connection.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchall()
+            mode = str(connection.execute("PRAGMA journal_mode=DELETE").fetchone()[0]).lower()
+        except sqlite3.OperationalError as exc:
+            raise MaintenanceBusy("the database is open in another process; close it and retry") from exc
+        finally:
+            connection.close()
+        if mode != "delete":
+            raise MaintenanceBusy("the database is open in another process; close it and retry")
+        wal = live.with_name(live.name + "-wal")
+        if wal.exists() and wal.stat().st_size > 0:
+            raise MaintenanceBusy("the database write-ahead log is still in use")
+
+    def _verify_live(self) -> None:
+        """Reopen through the application's engine and prove it is usable."""
+        from sqlalchemy import text
+
+        expected = int(self.manager.schema_version)
+        with self.manager.engine.connect() as connection:
+            if connection.execute(text("PRAGMA integrity_check")).fetchall() != [("ok",)]:
+                raise VerificationError("restored database failed integrity_check")
+            if connection.execute(text("PRAGMA foreign_key_check")).fetchall():
+                raise VerificationError("restored database failed foreign_key_check")
+            version = connection.execute(text("SELECT MAX(version) FROM schema_version")).scalar()
+            if version != expected:
+                raise VerificationError(f"restored schema version {version}; expected {expected}")
+            connection.execute(text("SELECT COUNT(*) FROM users")).scalar()
+            if connection.execute(text("PRAGMA foreign_keys")).scalar() != 1:
+                raise VerificationError("restored connection does not enforce foreign keys")
+
+    def _put_back(self, safety: Path, operation_id: str) -> None:
+        """Recovery: replace the live file with the verified safety copy."""
+        staged = self.backups.live_path.with_name(f"{STAGED_PREFIX}{operation_id}.recovery")
+        try:
+            self._enter_maintenance()
+            snapshot(safety, staged)
+            verify_database_file(staged, max_version=int(self.manager.schema_version),
+                                 require_version=int(self.manager.schema_version))
+            self._require_exclusive_file()
+            os.replace(staged, self.backups.live_path)
+            staged = None
+        finally:
+            _remove(staged, "staged recovery copy")
+            self._leave_maintenance()
+        self._verify_live()
+
+    def _journal(self, result: RestoreResult, event: str, **extra) -> bool:
+        try:
+            self._inject(f"journal:{event}")
+            self.journal.append({"id": result.operation_id, "event": event, **extra})
+            return True
+        except Exception:
+            logger.exception("Restore journal entry %s could not be written", event)
+            return False
+
+    # -- the operation
+    def restore(self, candidate, actor=None, *, confirmed: bool = False) -> RestoreResult:
+        actor = require_permission(self.manager, actor, "restore")
+        result = RestoreResult(False, "confirm", operation_id=secrets.token_hex(6))
+        if not confirmed:
+            result.error = "restore requires explicit confirmation"
+            return result
+        user_id, username = _actor_fields(actor, False)
+        actor_fields = {"user_id": user_id, "username": username}
+        result.stage = "lock"
+        try:
+            with self.backups.exclusive(timeout=self.lock_timeout):
+                self._run(candidate, result, actor_fields)
+        except MaintenanceBusy as exc:
+            result.error = str(exc)
+        self._audit_in_database(result, actor_fields)
+        return result
+
+    def _run(self, candidate, result: RestoreResult, actor_fields: dict) -> None:
+        staged = None
+        in_maintenance = False
+        replaced = False
+        safety = None
+        try:
+            result.stage = "validate"
+            self._inject("validate")
+            source, manifest, info = self.validate_candidate(candidate)
+            result.restored_from = source.name
+
+            result.stage = "stage"
+            self._inject("stage")
+            staged = self._stage(source, result.operation_id,
+                                 migrate=info["schema_version"] < int(self.manager.schema_version))
+
+            result.stage = "journal"
+            if not self._journal(result, "restore_started", candidate=source.name,
+                                 candidate_sha256=manifest["sha256"],
+                                 candidate_schema=info["schema_version"], **actor_fields):
+                raise MaintenanceError("restore journal could not be written; nothing was changed")
+
+            result.stage = "maintenance"
+            self._inject("maintenance")
+            self._enter_maintenance()
+            in_maintenance = True
+
+            result.stage = "safety_copy"
+            self._inject("safety_copy")
+            copy = self.backups._create(KIND_SAFETY)
+            if not copy.ok:
+                raise MaintenanceError(f"pre-restore safety copy failed: {copy.error}")
+            safety = Path(copy.path)
+            result.safety_copy = safety.name
+
+            result.stage = "exclusive"
+            self._inject("exclusive")
+            self._require_exclusive_file()
+
+            result.stage = "replace"
+            self._inject("replace")
+            os.replace(staged, self.backups.live_path)
+            staged = None
+            replaced = True
+            result.original_intact = False  # the safety copy now holds the original
+
+            result.stage = "reopen"
+            self._leave_maintenance()
+            in_maintenance = False
+            self._inject("reopen")
+            self._verify_live()
+
+            result.stage = "complete"
+            result.ok = True
+            result.journal_complete = self._journal(result, "restore_succeeded",
+                                                    safety_copy=result.safety_copy, **actor_fields)
+        except Exception as exc:
+            result.error = f"{type(exc).__name__}: {exc}"
+            logger.error("Database restore failed at %s: %s", result.stage, result.error)
+            if in_maintenance:
+                self._leave_maintenance()
+                in_maintenance = False
+            if replaced and safety is not None:
+                try:
+                    self._put_back(safety, result.operation_id)
+                    result.recovered = True
+                    result.original_intact = True
+                except Exception as recovery_error:
+                    result.recovered = False
+                    logger.critical("Restore recovery failed (%s); the verified safety copy %s is kept",
+                                    type(recovery_error).__name__, safety.name)
+            event = ("restore_failed" if not replaced else
+                     "restore_recovered" if result.recovered else "restore_recovery_failed")
+            result.journal_complete = self._journal(result, event, stage=result.stage,
+                                                    error_class=type(exc).__name__,
+                                                    safety_copy=result.safety_copy, **actor_fields)
+        finally:
+            _remove(staged, "staged restore copy")
+            if in_maintenance:
+                self._leave_maintenance()
+
+    def _audit_in_database(self, result: RestoreResult, actor_fields: dict) -> None:
+        """Record the outcome in the (possibly restored) database's audit log.
+
+        Best effort by policy: the sidecar journal is the durable record; a
+        failure here is logged and reported via ``audit_recorded=False``.
+        """
+        try:
+            self._inject("audit")
+            write_audit(self.backups.live_path, [{
+                "action": "database_restored" if result.ok else "database_restore_failed",
+                "name": result.restored_from, **actor_fields,
+                "details": {"operation_id": result.operation_id, "stage": result.stage,
+                            "safety_copy": result.safety_copy, "recovered": result.recovered,
+                            "journal_complete": result.journal_complete,
+                            "error": (result.error or "")[:200] or None}}])
+            result.audit_recorded = True
+        except Exception:
+            logger.exception("Restore outcome could not be written to the database audit log")
+            result.audit_recorded = False

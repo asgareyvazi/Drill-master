@@ -2667,6 +2667,10 @@ class DatabaseManager:
                 connection_record.info["sqlite_settings"] = sqlite_connection.configure(
                     dbapi_connection, timeout_ms=timeout_ms)
 
+            from core import db_maintenance
+            # Restore needs to refuse new checkouts and drain open transactions.
+            db_maintenance.install_gate(self)
+
             self.Session = sessionmaker(bind=self.engine, autoflush=False, autocommit=False,
                                         info={"authorization": self._authorization_state()})
             # Reject a future schema before create_all can create any new
