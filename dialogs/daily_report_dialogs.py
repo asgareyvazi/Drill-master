@@ -150,7 +150,7 @@ class AddActivityDialog(QDialog):
             parts = self.prev_time.split(":")
             self.time_from_h.setValue(int(parts[0]))
             self.time_from_m.setValue(int(parts[1]) if len(parts) > 1 else 0)
-        except (AttributeError, IndexError, ValueError):
+        except (AttributeError, IndexError, ValueError):  # silent-ok: prev_time absent or not HH:MM keeps the widget defaults
             pass  # prev_time absent or not HH:MM — keep widget defaults
 
         layout.addWidget(g_time)
@@ -294,7 +294,7 @@ class AddActivityDialog(QDialog):
                 parts = str(data['time_from']).split(":")
                 self.time_from_h.setValue(int(parts[0]))
                 self.time_from_m.setValue(int(parts[1]) if len(parts) > 1 else 0)
-            except (ValueError, IndexError):
+            except (ValueError, IndexError):  # silent-ok: time_from not HH:MM keeps the widget defaults
                 pass
 
         # Time To
@@ -303,7 +303,7 @@ class AddActivityDialog(QDialog):
                 parts = str(data['time_to']).split(":")
                 self.time_to_h.setValue(int(parts[0]))
                 self.time_to_m.setValue(int(parts[1]) if len(parts) > 1 else 0)
-            except (ValueError, IndexError):
+            except (ValueError, IndexError):  # silent-ok: time_to not HH:MM keeps the widget defaults
                 pass
 
         # NPT

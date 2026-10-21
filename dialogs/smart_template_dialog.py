@@ -1259,7 +1259,7 @@ class FieldDetector:
         try:
             float(s.replace(",", "").replace("+", ""))
             return False
-        except (ValueError, TypeError):
+        except (ValueError, TypeError):  # silent-ok: not numeric; continue with the text checks
             pass
 
         # date-like -> not a label
@@ -1396,7 +1396,7 @@ class CodeResolver:
             int_code = str(int(float(clean)))
             if int_code in MAIN_CODE_MAP:
                 return f"{int_code} - {MAIN_CODE_MAP[int_code]}"
-        except (ValueError, TypeError):
+        except (ValueError, TypeError):  # silent-ok: not a numeric code; try the text forms
             pass
 
         # try reverse lookup (name -> code)
@@ -1449,7 +1449,7 @@ class CodeResolver:
                     main_str.split("-")[0].split(" ")[0]
                     .replace(".0", "").strip()
                 )))
-            except (ValueError, TypeError):
+            except (ValueError, TypeError):  # silent-ok: not a numeric main code
                 pass
 
         # try sub code number
@@ -1543,7 +1543,8 @@ class LearningManager:
             try:
                 with open(path, "r", encoding="utf-8") as f:
                     self.corrections = json.load(f)
-            except Exception:
+            except Exception as exc:
+                logger.warning("Template learning data unreadable; starting empty: %s", type(exc).__name__)
                 self.corrections = {}
 
     def save(self):
@@ -2100,8 +2101,8 @@ class SmartTemplateDialog(QDialog):
                     for c in range(min_c, max_c + 1):
                         if r != min_r or c != min_c:
                             merged_slaves.add((r, c))
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Merged-cell ranges unavailable; reading all cells: %s", type(exc).__name__)
 
         for r in range(1, min(ws.max_row + 1, MAX_SCAN_ROWS)):
             for c in range(1, min(ws.max_column + 1, MAX_SCAN_COLS)):

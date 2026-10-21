@@ -415,7 +415,7 @@ class MainWindow(QMainWindow):
                 "dock/hierarchy_visible", True, type=bool
             )
             self.hierarchy_dock.setVisible(visible)
-        except Exception:
+        except Exception:  # silent-ok: dock visibility is a UI preference only
             pass
 
     def _save_dock_state(self):
@@ -429,7 +429,7 @@ class MainWindow(QMainWindow):
                 "dock/hierarchy_visible",
                 self.hierarchy_dock.isVisible()
             )
-        except Exception:
+        except Exception:  # silent-ok: dock visibility is a UI preference only
             pass
 
     # ==================== Toggle ====================
@@ -760,7 +760,7 @@ class MainWindow(QMainWindow):
                 frame = self.frameGeometry()
                 frame.moveCenter(geo.center())
                 self.move(frame.topLeft())
-        except Exception:
+        except Exception:  # silent-ok: window centring is cosmetic
             pass
 
     def ensure_menubar_visible(self):
@@ -1247,7 +1247,7 @@ class MainWindow(QMainWindow):
         if worker is not None:
             try:
                 worker.cancel()
-            except RuntimeError:
+            except RuntimeError:  # silent-ok: deleted Qt worker; keep the reference until its finished slot
                 # A deleted/completed Qt object remains owned until its queued
                 # finished slot runs; do not clear the reference prematurely.
                 pass
@@ -2218,7 +2218,8 @@ class MainWindow(QMainWindow):
                          if wb["id"] == wellbore_id),
                         None,
                     )
-                except Exception:
+                except Exception as exc:
+                    logger.warning("Wellbore details unavailable: %s", type(exc).__name__)
                     wellbore_data = None
 
             # 2. Update main state
@@ -2943,8 +2944,8 @@ class MainWindow(QMainWindow):
             if hasattr(tab, 'cleanup'):
                 try:
                     tab.cleanup()
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.warning("Tab cleanup failed during shutdown: %s", type(exc).__name__)
 
     def showEvent(self, event):
         super().showEvent(event)

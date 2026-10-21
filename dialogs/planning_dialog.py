@@ -487,7 +487,7 @@ class PlanImportReviewDialog(QDialog):
                 else:
                     try:
                         row_data[key] = float(val)
-                    except (ValueError, TypeError):
+                    except (ValueError, TypeError):  # silent-ok: non-numeric cell saved as missing, never as 0
                         row_data[key] = None
 
             data.append(row_data)
@@ -1100,7 +1100,7 @@ class WellPlanDialog(QDialog):
                             from datetime import datetime
                             sd = datetime.strptime(sd, "%Y-%m-%d").date()
                         self.spud_date.setDate(QDate(sd.year, sd.month, sd.day))
-                    except (ValueError, KeyError, TypeError, AttributeError):
+                    except (ValueError, KeyError, TypeError, AttributeError):  # silent-ok: spud date absent or unparseable keeps the widget date
                         pass  # spud date absent/unparseable — keep widget date
         except Exception as e:
             logger.error(f"Load well info error: {e}")

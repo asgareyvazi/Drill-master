@@ -247,7 +247,8 @@ class AddPipeDialog(EngineeringBaseDialog):
             return {}
         try:
             specs = self._reference_repo.all()
-        except Exception:
+        except Exception as exc:
+            logger.warning("Casing reference catalogue unavailable: %s", type(exc).__name__)
             return {}
         return build_reference_choices(specs)
 
@@ -478,7 +479,8 @@ class AddPipeDialog(EngineeringBaseDialog):
                     and _txt(spec.grade, self.grade.currentText())
                     and _txt(spec.connection, self.conn.currentText())):
                 return spec.identity_fingerprint()
-        except Exception:
+        except Exception as exc:
+            logger.warning("Casing reference identity not compared: %s", type(exc).__name__)
             return None
         return None
 
@@ -1110,7 +1112,7 @@ class AddSurveyDialog(EngineeringBaseDialog):
             east = float(self.calc_east.text().split(' ')[0])
             dls = float(self.calc_dls.text().split(' ')[0])
             hd = float(self.calc_hd.text().split(' ')[0])
-        except (ValueError, IndexError):
+        except (ValueError, IndexError):  # silent-ok: uncalculated labels stay at 0 in the result payload
             pass  # uncalculated labels stay at 0 in the result payload
 
         self.result = {

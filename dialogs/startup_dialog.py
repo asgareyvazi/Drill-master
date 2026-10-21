@@ -699,7 +699,7 @@ class StartupDialog(QDialog):
             finally:
                 try:
                     session.close()
-                except Exception:
+                except Exception:  # silent-ok: close after a completed read; nothing to roll back
                     pass
                     
     def status_message(self, message):
