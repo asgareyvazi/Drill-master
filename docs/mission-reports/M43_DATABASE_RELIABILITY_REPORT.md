@@ -472,3 +472,50 @@ deletes (`db.delete_well`, `delete_daily_report`) write no audit record;
 `app.py` and a few `database.py` paths). `money_audit.py` leaves the database
 byte-identical but SQLite creates `-wal`/`-shm` side files
 (`docs/MONEY_MIGRATION.md`). Schema version unchanged (6); no migration.
+
+## Addendum — M43 final technical closure (2026-10-21)
+
+Supersedes the "Remaining gaps" paragraph of the previous addendum where
+noted. Full context: `M43_RELEASE_HARDENING_REPORT.md`, Part 3.
+
+1. **Audit atomicity (`047bf90`, `98e0358`).**
+   - `DatabaseManager.delete_hierarchy_entity` (company/project/well/section)
+     and `delete_daily_report` write a mandatory `AuditLog` row in the same
+     transaction; an audit failure rolls the delete back. `delete_well`
+     previously wrote no audit record at all.
+   - `save_well` and `save_daily_report` (owned session) audit inside the
+     transaction.
+   - If the session user has no row in the open database (restore, database
+     switch), the record keeps `user_id NULL` plus the username instead of
+     failing the save.
+   - `log_audit` stays best-effort: it returns a bool and logs the exception
+     type only.
+   - Evidence: `tests/test_audited_mutations.py` (23 tests, 4 mutants).
+2. **Second extraction (`b56b4a5`).** The computation behind
+   `get_actual_vs_plan` moved unchanged to
+   `core.actual_vs_plan.summarize_actual_vs_plan`. The method keeps its queries
+   and session, and its result shape is unchanged. `core/database.py`: 10,547 →
+   10,471 lines. The models stay in `core/database.py`
+   (`tests/test_model_registry.py`).
+3. **Worker database access (`6ffb4f6`).** The Export Center worker never uses
+   the application's shared `StaticPool` connection. `core.export_jobs.worker_database`
+   opens a separate `mode=ro` connection per checkout (`NullPool`, configured
+   by `sqlite_connection.connect(read_only=True)`):
+   - registered with the restore `MaintenanceGate`, so restore drains and
+     refuses it;
+   - carries the same authorization state into the session info.
+
+   Tests prove it is read-only, gated, and produces byte-equal reports
+   (timestamps masked). Writes from worker threads remain unsupported; an
+   import worker needs a dedicated writable connection (not started).
+4. **Read model:** `get_daily_reports_by_well` now also returns
+   `report_number` (additive; no schema change). Its absence had made batch
+   DDR file names collide.
+5. **Operations:** `reset_database.py` refuses arguments before reading the
+   configuration; `--help` prints usage and never reaches the prompt
+   (`c039f6b`).
+6. **Unchanged:**
+   - schema version 6, no migration;
+   - money still `Float` (P5); `money_audit.py` byte-identical with `-wal`/`-shm`
+     side files;
+   - restore and backup behaviour unchanged since the continuation.

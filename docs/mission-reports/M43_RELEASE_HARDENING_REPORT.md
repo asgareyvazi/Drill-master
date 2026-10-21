@@ -373,3 +373,296 @@ All packets: `docs/decisions/OWNER_DECISION_PACKETS.md`.
   4. Workers for `w11_Export`, then the import dialog.
   5. Silent handlers in tabs (50).
   6. Optionally raise the coverage floor to just under 45.63%.
+
+---
+
+# Part 3 — M43 final technical closure (2026-10-21)
+
+Mission *DRILL-MASTER M43 — FINAL TECHNICAL CLOSURE PROGRAM*. Branch
+`arena/72010272-drill-master`, from checkpoints code `b2ea8a8` / report
+`49675d7`. Parts 1 and 2 are left as written; where this part supersedes a
+statement there, it says so.
+
+## A. Executive summary
+
+**Final status: OWNER_GATED.** `RELEASE_READY` is excluded:
+- the default branch still holds real operational data;
+- history is not purged;
+- Windows/operator acceptance, signing and the licence are open.
+
+The build is **UNSIGNED**. No tag was created and no release binary was run.
+
+**Real defects found and fixed in this mission.** Every fix has a test that
+fails on the previous code; mutation checks are in §F.
+
+| # | Area | Defect | Commit |
+|---|---|---|---|
+| 1 | import review (**data integrity**) | the import preview linked rows to payloads through a dict under `Qt.UserRole`, which PySide6 stores as a **copy**. Operator decisions and edits went to the copy, while confirm/apply read the canonical payloads: a review row could never be resolved, and an operator REJECT never reached the import boundary (reproduced on unmodified HEAD with one row) | `8ba64d9` |
+| 2 | import review (UI) | the preview table was filled with sorting enabled: with N review rows only one showed its values | `8ba64d9` |
+| 3 | audit | `delete_well` wrote no audit record; well/report saves audited after commit under `except: pass`. Now one transaction with rollback on audit failure | `047bf90` |
+| 4 | audit | a mandatory audit FK to a user missing from the open database rolled back the business save; now `user_id NULL` plus the username | `98e0358` |
+| 5 | import UI | a second click during an import started a second batch and dropped the first | `2f23d4a` |
+| 6 | export | batch DDR files were all named `DDR__<date>` (the list had no `report_number`), so two reports on one date overwrote each other | `6ffb4f6` |
+| 7 | export UI | 11 `processEvents()` calls re-entered the event loop; one failing engine aborted the whole batch | `6ffb4f6` |
+| 8 | operations | `reset_database.py --help` went straight to the destructive "Type RESET" prompt | `c039f6b` |
+
+**Main structural results:**
+- unexplained silent handlers 157 → **83** (tabs 50 → 0, dialogs 18 → 0,
+  `main_window` 6 → 0; remaining: core 81, `app.py` 2);
+- Export Center in a worker thread with its own read-only connection;
+- second `database.py` extraction;
+- independent engineering golden tests;
+- coverage floor 45.2 → 45.5 on three CI runs;
+- documented-command validation matrix.
+
+## B. Git evidence (§14.4)
+
+| Item | Value |
+|---|---|
+| Session start | local ref reset by the sandbox to the fork point `4336ea3`; recovered non-destructively to the remote `49675d7` (fetch, temporary-index comparison, compare-and-swap `update-ref`, `fetch --unshallow`) |
+| Second sandbox reset (during phase 6) | local ref again at `4336ea3`; the working tree differed from the pushed `b8d2031` in exactly the 6 intended uncommitted export files. Same recovery; nothing lost. The venv and the libGL stub were rebuilt |
+| Commits | `047bf90` `e29b2da` `1388b5b` `98e0358` `2f23d4a` `48f988c` `842553d` `8ba64d9` `b8d2031` `6ffb4f6` `b56b4a5` `c039f6b` `1c2de6b` `53b4138`, plus the report commit |
+| Final code tip | `53b41385087c319704455981e8ed59866eb3055a` (`git ls-remote` confirmed; exact-SHA CI green, §D) |
+| Report tip | the commit that adds this part (docs only); its exact-SHA CI is recorded in the final hand-off, since a report cannot contain its own SHA |
+| Banned operations | none: no reset --hard, clean -fdx, force-push, rebase, filter-repo or PR-ref change. The containment branch was **not** pushed (owner-gated) |
+| End state | clean tree; local HEAD = remote (`git status`, `git ls-remote`) |
+
+## C. Phase results
+
+| Phase | Result | Status |
+|---|---|---|
+| 0 Baseline | git state recorded; prior claims re-measured (2870 passed / 4 skipped on the stub runtime) | VERIFIED |
+| 1 Containment | isolated clone at `e3fa42a`: `59adcda`, tree `7f3c9ca4f68d24724123de5bcd1109aee671c3c2`, privacy-only diff, 0 findings, 0 of 18 protected blobs | build VERIFIED; push, PR and merge **OWNER_GATED** |
+| 2 Audit | delete/save paths audited in the same transaction, rollback on failure, `log_audit` classified; 23 tests, 4 mutants | VERIFIED |
+| 3 Import | populated-but-unused cells reported (sheet and location only, value-free, deterministic, outside the fingerprint); re-entrancy guard; preview decision defects (§A 1–2) | VERIFIED; extraction and persistence still run on the UI thread (§E) |
+| 4 Structure | `get_actual_vs_plan` computation extracted (`core/database.py` 10,547 → 10,471); tabs/dialogs/`main_window` silent handlers 74 → 0; coverage floor raised with a multi-run margin | VERIFIED |
+| 5 Engineering | independent goldens (§F); VME oracle; old casing method ID stays stable on saved runs | VERIFIED (screening scope only) |
+| 6 UI | Export worker (§F); import-worker assessment (§E); `QUndoStack`, `tr()` and theme tokens: assessed, not implemented | export VERIFIED; rest NOT_RUN |
+| 7 Docs | `docs/COMMAND_VALIDATION_MATRIX.md`: 128 commands in 22 files classified, safe ones run in a disposable clone; one defect found (§A 8) | VERIFIED |
+| 8 CI | runners pinned (`ubuntu-24.04`, `ubuntu-26.04`, `windows-2022`); action SHAs verified against their tags, all `node24`; 3.11–3.13 matrix; exact-SHA gates in §D | VERIFIED |
+| 9 Decisions | P3 now states that service filters do not stop direct SQLite access; new P9 (Tier-2 identifiers, counts only) | done |
+| 10 Adversarial audit | §H | done |
+
+**Correction to Part 2:** its "Main gap" for security and audit ("well/report
+deletes not audited", "`log_audit` swallows errors") is superseded by
+`047bf90`. Part 2's CI recommendation to pin `ubuntu-24.04` is also stale: the
+workflows were already pinned.
+
+## D. Exact-SHA CI (GitHub REST `actions/runs?head_sha=<full sha>`)
+
+| SHA | Source release gate | Windows release validation | Coverage (3.12 leg) |
+|---|---|---|---|
+| `2f23d4af5bb197ebce7eff941d716b687feb8985` | `39561312736` ✓ | `39561312739` ✓ | 46.17% (33540/72649, 188 files) |
+| `b8d20315bd9a31e15af42cb783bd64bee0155094` | `39563513622` ✓ | `39563513741` ✓ | 46.40% (33717/72663, 188 files) |
+| `6ffb4f6c58a305ce0c584ec90272770cca22ad25` | `39571865489` ✓ | `39571865358` ✓ | 47.03% (34262/72848, 189 files) |
+| **`53b41385087c319704455981e8ed59866eb3055a` (final code tip)** | `39574662578` ✓ (3.11 / 3.12 / 3.13) | `39574662698` ✓ (UNSIGNED artifact) | 47.02% (34263/72864, 189 files); floor 45.50% |
+
+**Local gate in a disposable clone of `6ffb4f6`, stub runtime.**
+`verify_release.py --expected-sha` returned rc 0: collected 2960, passed
+2956, skipped 4, failed 0; wheel built; `PACKAGE_SMOKE_OK schema=6`.
+
+The integration subset (`-m integration tests/test_ddr_acceptance.py`)
+exits 0, but both tests **skip** because they need a real DDR. That
+acceptance is **NOT_RUN** by privacy policy.
+
+**Final tree full suite (stub runtime):** **2966 passed, 4 skipped, 0 failed**
+(590 s).
+
+`047bf90` and `e29b2da` were cancelled or red at the time and do not count. A
+run counts only when its full head SHA equals the commit and it concluded
+`success`.
+
+## E. Honest open technical gaps
+
+- **Import worker: NOT done.** Extraction and persistence still run on the UI
+  thread, with a busy guard and atomic persistence (about 9 s for a
+  20,000-row sheet). Doing it properly needs three things:
+  1. extraction in a worker;
+  2. the modal preview kept in the UI thread;
+  3. persistence through a separate *writable* connection with the same audit
+     and authorization semantics.
+
+  The application's `StaticPool` engine shares one SQLite connection across
+  threads, so writing from a worker on that connection is unsafe. That
+  writable-connection design is the next step and was not started.
+- **No cancel in the middle of persistence**, by design: persistence is a single
+  atomic transaction. Cancel works before persistence and between export files.
+- **Silent handlers in `core/`: 81** remain unexplained (the ceiling enforces
+  that the number cannot grow).
+- **UI:**
+  - 11 `processEvents()` calls remain: import dialog 3, login 1, smart template
+    1, schematic 1, `main_window` 2, `app.py` 3;
+  - `setStyleSheet` 502;
+  - no `QUndoStack` and no `tr()`; Persian/RTL is not localised.
+
+  Undo is deliberately not faked for irreversible database mutations.
+- **Engineering:**
+  - stiff-string, pressure-area buoyancy and ISCWSA remain UNSUPPORTED;
+  - casing is a pipe-body screening check, not full casing integrity;
+  - `CasingEngine.METHOD` is engine-wide, so the r2 bump marks every pre-fix
+    saved casing run `method_matches=False`, even when burst and collapse still
+    match. This is accepted: verification covers the whole result.
+- **Import formats:** CSV is conversion-only; WITSML and LAS are placeholders.
+- **`money_audit`** creates SQLite `-wal`/`-shm` side files; amounts are still
+  `Float` (P5).
+- **`log_audit` caller classes:**
+  - security: login (`app.py`), authorization denials;
+  - mandatory: deletes, owned saves, import lineage, survey edits, safety
+    reviews, account administration;
+  - best-effort: the `main_window` import summary, `w2_Daily_Report`, the rest.
+
+## F. Evidence (tests and mutation checks)
+
+| Package | Tests | Mutants killed (clean bytecode cache each run) |
+|---|---|---|
+| Atomic audit (`047bf90`, `98e0358`) | `tests/test_audited_mutations.py` (23) | 4 |
+| Unmapped-cell diagnostic (`e29b2da`) | `tests/test_import_unmapped_content.py` (7) | 3 |
+| Import re-entrancy (`2f23d4a`) | `tests/test_import_dialog_reentrancy.py` (5) | 2 |
+| Engineering goldens (`48f988c`) | `tests/test_engineering_independent_golden.py` (14): MCM on an exact 3-D circle, kill MW / ICP / FCP / MAASP from 231 in³/gal, kill-sheet volumes from π and 9702 in³/bbl, bit ΔP from SI Bernoulli with Cd 0.95, invalid inputs 0, −1, NaN, inf. Rounded field constants (0.052, 10858, 1930) are bounded explicitly | 6 (pipe capacity, ICP sign, no Cd, jet velocity, MCM tangential, kill without TVD) |
+| VME oracle (`48f988c`) | `tests/test_casing_vme_independent.py` (9): Lamé 2×2 solve, cap force balance, √(3·J₂) over 6 cases, thin-wall limit, method-ID semantics | 3 (missing π, hoop pe term, VME factor) |
+| Tab handlers (`842553d`) | buoyancy refusal path in `tests/test_single_source_guard.py` | 2 |
+| Import preview (`8ba64d9`) | `tests/test_import_preview_bulk_decisions.py` (7, real offscreen widgets) | 4 (sort during fill, dict link, broad except, index fallback) |
+| Export worker (`6ffb4f6`) | `tests/test_export_worker.py` (20): plan names and order, collisions, ok/failed/error/cancelled, privacy of errors, own read-only connection, restore gate, authorization state, **byte-equal output (timestamps masked) via the worker connection for EOWR, NPT, Cost and DDR**, widget duplicate guard, cancel, shutdown wait | 9 |
+| Extraction (`b56b4a5`) | `tests/test_actual_vs_plan_summary.py` (6) plus 3 existing DB-level files | 2 |
+| Reset CLI (`c039f6b`) | `tests/test_reset_database_cli.py` (4, subprocess) | 2 |
+
+**Full suite (local, libGL *stub* runtime: stub evidence only; CI is
+authoritative):** 2870 (baseline) → 2905 (`2f23d4a`) → 2936 (`b8d2031`) →
+2956 (`6ffb4f6`) → **2966** (final tree) passed, 4 skipped, 0 failed, at each
+checkpoint.
+
+**Metrics (`b2ea8a8` → final):**
+
+| Metric | Before | After |
+|---|---|---|
+| Ruff debt (gated population) / ceiling | 751 / 751 | **750 / 750** |
+| `E722,F821` | 0 | 0 |
+| Unexplained silent handlers (ceiling) | 161 at `b2ea8a8`; 157 at the mission start | **83** (core 81, `app.py` 2, rest 0) |
+| `core/database.py` lines | 10,482 at `b2ea8a8`; 10,547 after the audit work | **10,471** |
+| `processEvents()` calls | 22 | **11** |
+| `setStyleSheet` | 502 | 502 |
+| Coverage floor | 45.2% | **45.5%** (CI 45.63 / 46.17 / 46.40%) |
+| Schema version | 6 | 6 (one read-model key added; no migration) |
+| Privacy check, whole tree | 0 findings | 0 findings |
+
+## G. Scorecard (13 areas, rubric-based)
+
+Rubric:
+
+| Score | Meaning |
+|---|---|
+| 0–2 | absent |
+| 3–4 | partial |
+| 5–6 | core with gaps |
+| 7–8 | robust, with negative tests, CI and limits |
+| 9 | strong operational evidence |
+| 10 | mature, with acceptance |
+
+**No area can score 9–10 while owner-gated risks remain.** The baseline is
+the supplied input. The *target* is what the next work package can reach;
+it is never used as evidence.
+
+| Area | Baseline | Score | Target | Progress / evidence | Main risk | Next | Owner need |
+|---|---|---|---|---|---|---|---|
+| Engineering core | 8.0 | 8.0 | 8.0 | independent goldens, mutation-checked | no field validation | keep goldens green | field validation |
+| Advanced engineering | 6.0 | 6.0 | 6.5 | VME oracle; method-ID semantics | stiff-string / pressure-area / ISCWSA unsupported | cited sources before any formula | — |
+| Import | 7.0 | 7.0 | 7.5 | review-decision integrity defect fixed; unmapped-cell diagnostic; re-entrancy | UI-thread extraction and persistence; CSV, WITSML and LAS gaps | worker with a writable connection | — |
+| DB | 5.0 | 5.5 | 6.0 | atomic audit; second extraction; worker read-only connection | 10.5k-line `database.py`; `Float` money | further extractions | P5, P7 |
+| Security | 5.5 | 5.5 | 5.5 | reset-CLI hardening; authorization state carried to the worker | read policy undecided; direct file access | — | P3 |
+| Audit | 7.0 | 7.5 | 8.0 | mandatory audits atomic with rollback tests; callers classified | best-effort callers remain | promote w2 if required | — |
+| UI | 5.0 | 5.5 | 6.0 | export worker; preview defects fixed; re-entrancy | 11 `processEvents`, no `tr()`/undo | import worker | P6 |
+| Tests | 8.5 | 8.5 | 8.5 | +9 test files, 37 mutants killed this mission | stub runtime locally | — | — |
+| CI | 7.0 | 7.5 | 7.5 | pins verified (node24); multi-run coverage floor; exact-SHA gates | — | — | — |
+| Code structure | 3.5 | 4.0 | 4.5 | extraction 2; Qt-free export module | very large files | extraction 3 | — |
+| Error handling | 5.5 | 6.5 | 7.0 | UI layers at 0 unexplained silent handlers | core 81 | core groups | — |
+| Docs | 4.0 | 5.0 | 5.5 | 128-command matrix; one defect found; stale claims corrected | historical records not re-run | — | P9 |
+| Privacy | 2.0 | **2.0** | 2.0 until the owner acts | tree clean; packets ready | default branch **not contained**; history not purged | — | **P1, P2** |
+
+## H. Adversarial audit (§13), answered
+
+- **Containment narrow?** Yes: the scripted diff is privacy-only. **Is the
+  default tree clean?** No; `drill-Master` = `e3fa42a` still holds the data.
+- **Pushes:** every push was confirmed with `git ls-remote`. CI claims use full
+  SHAs, concluded `success`; cancelled runs are excluded. Stub results are
+  labelled as stub.
+- **Gates:** none weakened or skipped; ceilings only went down (ruff 751 → 750;
+  silent 157 → 83). The coverage floor was raised, not set equal to any single
+  run, and no omit pattern was added.
+- **Tests encoding defects?** None found this mission. No test was weakened.
+  The preview tests failed on HEAD before the fix.
+- **New thread safety:** the worker never shares the UI's connection. It uses
+  `mode=ro`, so it cannot write; it is drained by the restore gate; and no ORM
+  object crosses a thread.
+- **Privacy:**
+  - errors surface the exception type only (tested with a value-bearing
+    message);
+  - the P9 count was reported as numbers only;
+  - no real data was used; the real-workbook acceptance command was
+    deliberately not run.
+- **No new formula.** The goldens are independent derivations from unit
+  definitions. Rounded field constants are bounded, not hidden.
+- **Mistakes of my own, caught before commit:**
+  1. a first golden mutation run was invalidated by stale bytecode and a
+     pattern that matched the wrong function; it was re-run with cleared
+     caches and an exact-count anchor;
+  2. a narrowed `except EngineeringError` would have raised `NameError` (no
+     import in scope); a test now covers that path;
+  3. an export test that could have been vacuous (an engine that legitimately
+     returns false) now requires success for every engine except Plan.
+
+## I. Weighted work-package inventory and progress estimate
+
+Method:
+- each package gets a weight (sum 100), set by risk and size before the
+  scoring;
+- completion is 1.0 for VERIFIED, 0.5 when the agent's part is verified but an
+  owner step remains or half the scope is done, and otherwise the verified
+  fraction of the listed scope;
+- progress is Σ weight × completion.
+
+The estimate describes this programme's scope, not product readiness.
+
+| Package | Weight | Completion | Contribution | Basis |
+|---|---|---|---|---|
+| P0 baseline | 5 | 1.0 | 5.0 | recorded and re-measured |
+| P1 containment | 15 | 0.5 | 7.5 | build verified; push, PR and merge are owner steps |
+| P2 audit | 10 | 1.0 | 10.0 | 23 tests, 4 mutants |
+| P3 import | 10 | 0.8 | 8.0 | diagnostic, re-entrancy, preview fix; worker not done |
+| P4 structure | 10 | 0.7 | 7.0 | extraction, UI silent handlers 0, floor; core 81 open |
+| P5 engineering | 10 | 0.9 | 9.0 | goldens and VME; stale-result semantics for casing only |
+| P6 UI | 10 | 0.4 | 4.0 | export worker; import worker, `tr()`, theme and undo not done |
+| P7 docs | 8 | 1.0 | 8.0 | matrix |
+| P8 CI | 7 | 1.0 | 7.0 | pins, runners, exact-SHA gates (§D) |
+| P9 packets | 5 | 1.0 | 5.0 | P3 and P9 |
+| P10 adversarial | 5 | 1.0 | 5.0 | §H |
+| Final report | 5 | 1.0 | 5.0 | this part |
+| **Total** | **100** | | **80.5** | of which 7.5 points are blocked only by the owner |
+
+## J. Owner actions and resume
+
+**Owner actions (packets in `docs/decisions/OWNER_DECISION_PACKETS.md`):**
+1. **P1 containment (urgent):**
+   1. run `tools/privacy/contain_default_branch.sh` in a clone at `e3fa42a`;
+   2. `git push origin HEAD:refs/heads/privacy/default-branch-containment`;
+   3. `gh pr create --base drill-Master --head privacy/default-branch-containment`;
+   4. review that the diff is privacy-only, then merge.
+2. P2 purge plus GitHub Support (PR refs #1–#4); include P9 in `--replace-text`.
+3. P3 read policy.
+4. P6 Windows/operator acceptance.
+5. P4 licence.
+6. P8 signing.
+7. P7 backup placement.
+8. P5 money.
+
+**Resume:**
+- verify the branch with `git ls-remote`; after a sandbox reset, use the §B
+  recovery, never `reset --hard`;
+- environment: Part 2 §J; the libGL stub recipe is in Part 1 §I;
+- run the gates before each push (Part 2 §J).
+
+Next technical steps, in order:
+1. import worker with a dedicated writable connection;
+2. silent handlers in `core/` (81);
+3. `database.py` extraction 3;
+4. remaining `processEvents` (login, schematic, smart template);
+5. `tr()` and theme tokens, one tab at a time.
