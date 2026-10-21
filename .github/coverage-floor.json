@@ -1,12 +1,12 @@
 {
-  "percent": 45.2,
-  "measured_at_sha": "ba08ff021bd49ba0e6d26597159fa382d1ac3011",
-  "measured_value": 45.3,
-  "measured_by": "CI 'Source release gate' run 39415376572 attempt 1, job 118603000198 'source (3.12)', notice annotation: product coverage (branch+line) 45.30% over 186 tracked files (32836/72479)",
-  "population": "every tracked *.py under core/, dialogs/, tabs/, ui/, config/ plus app.py, main_window.py, run.py, reset_database.py (186 files); unimported files count as 0%",
+  "percent": 45.5,
+  "measured_at_sha": "b2ea8a8de637a82a8223d9a694b1c95e8d73d68c",
+  "measured_value": 45.63,
+  "measured_by": "lowest of three consecutive green exact-SHA CI runs of the coverage leg: b2ea8a8 run 39549337521 job 119054978079 45.63% (33085/72512, 187 files); 2f23d4a run 39561312736 job 119092992173 46.17% (33540/72649, 188 files); b8d2031 run 39563513622 job 119100152019 46.40% (33717/72663, 188 files)",
+  "population": "every tracked *.py under core/, dialogs/, tabs/, ui/, config/ plus app.py, main_window.py, run.py, reset_database.py (187-188 files as modules are added); unimported files count as 0%",
   "metric": "branch+line: (covered lines + covered branches) / (statements + branches), coverage 7.16.2",
   "environment": "GitHub-hosted ubuntu runner, Python 3.12, offscreen with real Qt libraries (the authoritative coverage leg)",
-  "margin": "0.10 percentage point below the CI measurement (about 72 statements) so a small, tested change does not trip the ratchet on line/branch jitter",
+  "margin": "0.13 percentage point below the lowest of three CI measurements and 0.90 below the latest, so the floor never equals a single run and line/branch jitter does not trip it",
   "policy": "non-decreasing. Raise only to a value actually measured by the CI coverage leg (see the 'coverage' notice annotation); never lower it to pass, never add omit patterns that hide product code (tests/test_coverage_floor_gate.py).",
   "history": [
     {
@@ -15,6 +15,13 @@
       "measured_value": 33.52,
       "environment": "local Linux, Python 3.11, offscreen, no libGL: the 83 libGL-only failures do not contribute, so CI (real Qt libraries) is expected to measure higher",
       "note": "initial floor, local measurement"
+    },
+    {
+      "percent": 45.2,
+      "measured_at_sha": "ba08ff021bd49ba0e6d26597159fa382d1ac3011",
+      "measured_value": 45.3,
+      "environment": "GitHub-hosted ubuntu runner, Python 3.12, offscreen with real Qt libraries (the authoritative coverage leg)",
+      "note": "raised to the CI value in the M43 continuation"
     }
   ]
 }
