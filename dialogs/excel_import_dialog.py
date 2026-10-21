@@ -157,7 +157,10 @@ class ImportPreviewDialog(QDialog):
             ["File", "Sheet/Page", "Detected Table", "Source Cell", "Original Value", "Normalized Value", "Unit", "Target Field", "Confidence", "Decision"]
         )
         self.table.setAlternatingRowColors(True)
-        self.table.setSortingEnabled(True)
+        # Sorting stays off while rows are filled: with it on, Qt re-sorts a
+        # row as soon as its first cell is set, so the remaining cells (and
+        # the payload link) landed in another row. Enabled after population.
+        self.table.setSortingEnabled(False)
         self.table.horizontalHeader().setStretchLastSection(True)
 
         # Keep the serialized rows tied to their UI rows so edits and
@@ -191,11 +194,13 @@ class ImportPreviewDialog(QDialog):
                         it.setBackground(QColor("#fef9e7"))
                     else:
                         it.setBackground(QColor("#fadbd8"))
-                except Exception:
+                except (TypeError, ValueError, OverflowError):  # silent-ok: non-numeric confidence gets no colour
                     pass
                 self.table.setItem(row, col, it)
-            if self.table.item(row, 0) is not None:
-                self.table.item(row, 0).setData(Qt.UserRole, item)
+            # Link the row to its canonical payload by index: PySide6 stores a
+            # dict under UserRole as a converted copy, so decisions written to
+            # it never reached the payloads that confirm/apply read.
+            self.table.item(row, 0).setData(Qt.UserRole, len(self._row_payloads))
             self._row_payloads.append(item)
 
         # Add issues as rows too
@@ -218,8 +223,10 @@ class ImportPreviewDialog(QDialog):
                 it = QTableWidgetItem(str(val))
                 it.setBackground(QColor("#fadbd8"))
                 self.table.setItem(row, col, it)
+            self.table.item(row, 0).setData(Qt.UserRole, len(self._row_payloads))
             self._row_payloads.append(None)
 
+        self.table.setSortingEnabled(True)
         self.table.resizeColumnsToContents()
         layout.addWidget(self.table, 1)
 
@@ -285,15 +292,17 @@ class ImportPreviewDialog(QDialog):
                 conf = float(conf_str) / 100 if conf_str else 0
                 if conf >= 0.95:
                     self._set_decision(row, "ACCEPT")
-            except Exception:
+            except (TypeError, ValueError, OverflowError):  # silent-ok: non-numeric confidence is left for manual review
                 pass
 
     def _payload_for_row(self, row: int):
+        # The payload index travels with the row's first cell, so the link
+        # stays correct after the user sorts the table. Issue rows map to None.
         item = self.table.item(row, 0)
-        payload = item.data(Qt.UserRole) if item is not None else None
-        if isinstance(payload, dict):
-            return payload
-        return self._row_payloads[row] if 0 <= row < len(self._row_payloads) else None
+        index = item.data(Qt.UserRole) if item is not None else None
+        if isinstance(index, int) and 0 <= index < len(self._row_payloads):
+            return self._row_payloads[index]
+        return None
 
     def _set_decision(self, row: int, decision: str) -> None:
         self.table.setItem(row, 9, QTableWidgetItem(decision))
@@ -330,7 +339,7 @@ class ImportPreviewDialog(QDialog):
                 conf = float(conf_str) / 100 if conf_str else 0
                 if conf < 0.70:
                     self._set_decision(row, "REJECT")
-            except Exception:
+            except (TypeError, ValueError, OverflowError):  # silent-ok: non-numeric confidence is left for manual review
                 pass
 
     def _edit_mapping(self):
@@ -396,7 +405,7 @@ class ImportPreviewDialog(QDialog):
                     try:
                         num_val = float(orig_val)
                         src_unit = current
-                    except Exception:
+                    except (TypeError, ValueError, OverflowError):  # silent-ok: non-numeric value is not unit-converted
                         num_val = None
                 if num_val is not None:
                     converted = UnitManager.convert(num_val, quantity, src_unit or current, new_unit)
