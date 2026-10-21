@@ -40,18 +40,18 @@ same schema and typed normalizer downstream.
 | `ExcelImportDialog._do_import()` | receives canonical payload + review report | validation and unit boundary | **yes**, snapshot/rollback + atomic multi-tab save | no partial success is reported as success |
 | `SmartTemplateDialog` (manual UI) | not in its historical scanner | partial local legacy rules | no direct write; caller must use shared save | explicit manual/legacy route; profile fallback is disabled and is not called by universal import |
 | `ProfileImportEngine.analyze_and_extract()` | no | no | no | compatibility analysis only; direct `import_to_db()` raises `LEGACY_DIRECT_DB_IMPORT_DISABLED` |
-| `core.universal_import.py` | no common IR in scanner | no shared persistence normalizer | no | scanner/classifier support for legacy UI/tests only |
+| `core/universal_import.py` | no common IR in scanner | no shared persistence normalizer | no | scanner/classifier support for legacy UI/tests only |
 | `document_import.csv_to_xlsx()` | no (converter only) | no | no | conversion-only; universal route stops if no canonical template follows |
 | `document_import.pdf_to_xlsx()` | no (legacy converter) | no | no | explicit PDF fallback; output must re-enter canonical Excel template path |
-| `import_adapters.pdf_tables.py` | no | no | no | legacy Camelot/PyMuPDF/OCR helper, not a direct DB route |
+| `core/import_adapters/pdf_tables.py` | no | no | no | legacy Camelot/PyMuPDF/OCR helper, not a direct DB route |
 | `core.witsml_import.WITSMLImportEngine` | no | no | no | XML validation/placeholder; actual WITSML import unsupported |
 | `core.managers.ImportCoordinator` | no | no | no | placeholder returning “coordinated in dialog”; not a second service |
 | `templates/*.json` | configuration consumed by Excel extractor | extractor applies shared normalizer | no | no executable fallback |
 | `ReviewItem` / `ImportReviewMatrix` | carries IR-derived provenance | records normalization/validation state | no ORM write | serialized with `to_dict/from_dict`; preview edits are applied before save |
 | `LineageTracker` / professional export | consumes lineage/review metadata | no mapping | export only | source provenance remains unknown when unavailable |
 | `core.db_services` / service repositories | domain CRUD used by application tabs | no import IR/normalizer | **yes when called directly**, not an import route | must not be mistaken for the import coordinator |
-| `core.excel_normalizer.py` | legacy workbook cleanup utility | no shared import mapping | no | compatibility helper; canonical route is Excel IR |
-| `core.import_profiler.py` | timing/diagnostic instrumentation | no | no | observability only |
+| `core/excel_normalizer.py` | legacy workbook cleanup utility | no shared import mapping | no | compatibility helper; canonical route is Excel IR |
+| `core/import_profiler.py` | timing/diagnostic instrumentation | no | no | observability only |
 | `tools/mineru_integration.py` | developer integration harness | no | no | diagnostic/manual, not production persistence |
 
 ## 3. ReviewItem and semantic validation contract
@@ -133,3 +133,27 @@ the old per-table rescue path has been removed.
 No missing report date, unit, depth, MW, pressure, drilling parameter, company,
 or provenance value is synthesized. A user correction is explicit in the
 review matrix and is the only way an ambiguous value is accepted.
+
+## M43 edge-case audit (2026-10-21)
+
+Probed with synthetic workbooks only (no real DDR content):
+
+| Input | Behaviour | Status |
+|---|---|---|
+| zero-byte or non-zip `.xlsx` | `extract_file` raises `BadZipFile`; nothing is persisted | VERIFIED (probe) |
+| empty workbook / headers only | payload contains only `metadata`; no records invented | VERIFIED (probe) |
+| lookahead `hours` that are ranges (`12-14`) or non-finite (`inf`) | kept verbatim as `[HRs: <raw>]` in remarks; formerly dropped, and `inf` aborted the whole import with `OverflowError` | VERIFIED (`tests/test_silent_handler_contracts.py`) |
+| unreadable DDR template file | skipped with a warning naming the file and the error type | IMPLEMENTED_NOT_FULLY_VERIFIED |
+| 20,000-row generic sheet | about 12.5 s locally; formerly more than 600 s because of two O(rows x cells) scans in `semantic_tables.detect_tables` and the generic scalar pass | VERIFIED (`tests/test_semantic_table_detection_scaling.py`, cell-visit bound, no timing assertion) |
+
+**Known gap (not fixed):** on the generic (no-template) path, a table whose
+headers match no canonical signature produces no `table_results`. Its cells stay
+in `metadata.raw_ir` (lossless) but are neither imported nor listed as review
+rows; only scalar candidates near the top of the sheet are proposed for review.
+The import therefore under-reports, rather than mis-imports, unrecognised tables.
+Surfacing "N populated cells not mapped" as an explicit review diagnostic is the
+recommended follow-up.
+
+**CSV:** the universal route converts CSV to XLSX and then stops before
+persistence ("No canonical template was available after the csv fallback"), so CSV
+is conversion-only. WITSML and LAS remain placeholders (`core/witsml_import.py`).
