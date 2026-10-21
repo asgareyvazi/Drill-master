@@ -1424,6 +1424,10 @@ class ExcelIntelligence:
             for cell in self.raw_document.cells
         }
         observations = {}
+        # Per-sheet insertion order of the cell cache, so the 5x5 neighbourhood
+        # below can be read by direct lookup (formerly a full-sheet scan per
+        # text cell, O(text cells x cells)) while keeping the original order.
+        cell_order = {}
         for raw_cell in self.raw_document.cells:
             loc = raw_cell.location
             sheet = loc.sheet or ""
@@ -1434,10 +1438,19 @@ class ExcelIntelligence:
             if not isinstance(raw_cell.value, str) or not raw_cell.value.strip():
                 continue
             label = raw_cell.value.strip()
+            sheet_cells = self.cell_cache.get(sheet, {})
+            order = cell_order.get(sheet)
+            if order is None:
+                order = cell_order[sheet] = {key: index for index, key in enumerate(sheet_cells)}
             nearby_values = [
                 str(value).strip()
-                for (r, c), value in self.cell_cache.get(sheet, {}).items()
-                if abs(r - row) <= 2 and abs(c - col) <= 2 and value not in (None, "")
+                for _index, value in sorted(
+                    (order[(r, c)], sheet_cells[(r, c)])
+                    for r in range(row - 2, row + 3)
+                    for c in range(col - 2, col + 3)
+                    if (r, c) in order
+                )
+                if value not in (None, "")
             ]
             context = " ".join(
                 [f"{sheet} {raw_cell.table or ''} {raw_cell.section_title or ''}"]

@@ -66,6 +66,12 @@ def detect_tables(cells_by_sheet):
     found, consumed = [], set()
     for sheet, cells in cells_by_sheet.items():
         last_row = max((row for row, _col in cells), default=0)
+        # Index cells by row once.  Scanning the whole sheet for every candidate
+        # header row made detection O(rows x cells): 20,000 rows took minutes.
+        # The position keeps the original cell order for header entries.
+        by_row = {}
+        for position, ((cell_row, col), value) in enumerate(cells.items()):
+            by_row.setdefault(cell_row, []).append((position, cell_row, col, value))
         for section, (required, storage) in SIGNATURES.items():
             aliases = _header_aliases(section)
             for row in range(1, last_row + 1):
@@ -74,8 +80,11 @@ def detect_tables(cells_by_sheet):
                 selected = None
                 for header_end in (row, row + 1):
                     header_entries = []
-                    for (cell_row, col), value in cells.items():
-                        if not row <= cell_row <= header_end or (sheet, cell_row, col) in consumed:
+                    window = by_row.get(row, [])
+                    if header_end != row:
+                        window = sorted(window + by_row.get(header_end, []))
+                    for _position, cell_row, col, value in window:
+                        if (sheet, cell_row, col) in consumed:
                             continue
                         paths = aliases.get(header_key(value), set())
                         if len(paths) == 1:
