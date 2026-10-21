@@ -65,7 +65,7 @@ def _numeric(value: Any) -> bool:
         text = value.strip().replace(",", "")
         try:
             float(text)
-        except ValueError:
+        except ValueError:  # silent-ok: not a number is an expected answer for a text cell
             return False
         return True
     return False
