@@ -441,3 +441,34 @@ GitHub REST API (`actions/runs?head_sha=<full sha>`, `/jobs`) on 2026-10-20.
    backups as off while they ran every 30 minutes. One resolver now feeds the
    scheduler and the service (environment > saved setting > default); see
    `docs/DATABASE_OPERATIONS.md` § Configuration.
+
+## Addendum — M43 continuation (2026-10-21)
+
+Defects found and fixed after this report was written (each has a test that
+fails on the previous code):
+
+3. **Restore could be overwritten by autosave** (`ec12eb2`). After a
+   successful restore, `_on_maintenance_finished` resumed every autosave before
+   the result message (modal) was shown; a timer firing while it was open — or
+   after a restore whose rollback failed — would write the screens' stale
+   contents into the restored or unrecovered database. Autosave now stays off
+   until restart once the live database has been replaced
+   (`MainWindow._keep_autosave_paused`, `_restart_required`);
+   `tests/test_db_maintenance_ui.py` checks the timer while the message is open
+   (it previously asserted that autosave resumed).
+4. **Hierarchy deletes could lose their audit record** (`42ab17f`).
+   `core/hierarchy_operations.delete_entity` (company/project/section) committed
+   the delete and then wrote the audit entry in a separate call wrapped in
+   `except Exception: pass`. The `AuditLog` row is now added in the same
+   transaction, so an audit failure rolls the delete back
+   (`tests/test_silent_handler_contracts.py`).
+5. **Lookahead import** (`42ab17f`): non-numeric hours were silently dropped and
+   `inf` aborted the whole atomic import with `OverflowError`; the raw value is
+   now kept in remarks.
+
+Remaining gaps (not fixed, recorded for the owner): well and daily-report
+deletes (`db.delete_well`, `delete_daily_report`) write no audit record;
+`DatabaseManager.log_audit` itself catches and only logs failures (used by
+`app.py` and a few `database.py` paths). `money_audit.py` leaves the database
+byte-identical but SQLite creates `-wal`/`-shm` side files
+(`docs/MONEY_MIGRATION.md`). Schema version unchanged (6); no migration.

@@ -58,9 +58,14 @@ these were decided or executed by the agent.** Status vocabulary: `VERIFIED`,
 
 - The automated Windows gate passes on CI for each pushed code SHA (see the M43
   report, section D). It is **not** operator acceptance.
-- Manual procedure: `packaging/WINDOWS_RELEASE_ACCEPTANCE.md`, "Interactive
-  installation procedure" (six steps). The acceptance register in the same file
-  must be filled by an operator.
+- Manual procedures:
+  - the 12-item Windows checklist in `docs/DATABASE_OPERATIONS.md`: install,
+    SmartScreen, backup settings, manual backup and manifest, synthetic restore,
+    second instance, corrupt backup, close after restore, audit, uninstall,
+    languages, daily report and survey;
+  - the six-step "Interactive installation procedure" in
+    `packaging/WINDOWS_RELEASE_ACCEPTANCE.md`.
+  An operator must fill in the acceptance register in the latter.
 
 ## P7. Deployment and backups: decision required
 
