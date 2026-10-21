@@ -3085,8 +3085,9 @@ class MainWindow(QMainWindow):
         """Freeze the UI (and every autosave) while a maintenance call runs."""
         if active:
             self._stop_hierarchy_worker()
+        restart_required = getattr(self, "_restart_required", False)
         for manager in self._autosave_managers():
-            manager.set_enabled(not active)
+            manager.set_enabled(not active and not restart_required)
         self.setEnabled(not active)
         if active:
             QApplication.setOverrideCursor(Qt.WaitCursor)
@@ -3182,6 +3183,17 @@ class MainWindow(QMainWindow):
         self._start_maintenance(lambda: service.restore(path, confirmed=True),
                                 self._on_restore_finished, "Restoring the database…")
 
+    def _keep_autosave_paused(self):
+        """Keep every autosave off until restart once the live database was replaced.
+
+        _on_maintenance_finished resumes autosave before this slot shows its modal
+        message, and a timer firing while that message is open would write the
+        screens' stale contents into the restored (or unrecovered) database.
+        """
+        self._restart_required = True
+        for manager in self._autosave_managers():
+            manager.set_enabled(False)
+
     def _on_restore_finished(self, result, error):
         from core.authorization import AuthorizationError
 
@@ -3198,6 +3210,7 @@ class MainWindow(QMainWindow):
         if result.journal_complete is False or not result.audit_recorded:
             notes.append("Warning: the restore record could not be fully written (see log).")
         if result.ok:
+            self._keep_autosave_paused()
             QMessageBox.information(self, title, "\n\n".join([
                 "The database was restored and verified.",
                 f"The previous data was kept as {result.safety_copy}.",
@@ -3207,6 +3220,7 @@ class MainWindow(QMainWindow):
             self.close()
             return
         if result.recovered is False or not result.original_intact:
+            self._keep_autosave_paused()
             QMessageBox.critical(self, title, "\n\n".join([
                 f"The restore failed at '{result.stage}' and the previous database could not be put back "
                 f"automatically.",

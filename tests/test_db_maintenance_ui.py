@@ -45,9 +45,11 @@ _CHILD = textwrap.dedent(
 
     app = QApplication.instance() or QApplication([])
     shown = []
+    autosave_when_shown = []  # was the tab's autosave timer running while the message was open?
     for kind in ("information", "warning", "critical"):
         setattr(QMessageBox, kind, staticmethod(
-            lambda *a, _k=kind, **k: shown.append((_k, str(a[2]))) or QMessageBox.Ok))
+            lambda *a, _k=kind, **k: shown.append((_k, str(a[2])))
+            or autosave_when_shown.append("timer" in globals() and timer.isActive()) or QMessageBox.Ok))
 
     manager = DatabaseManager()
     assert manager.initialize(), manager.last_diagnostic
@@ -106,7 +108,7 @@ _CHILD = textwrap.dedent(
     timer = tab.autosave_timer.enable_for_widget("SyntheticTab", tab, interval_minutes=5)
     observed = {}
 
-    def run(slot):
+    def run(slot, autosave_resumes=True):
         slot()
         worker = window._maintenance_worker
         assert worker is not None
@@ -120,7 +122,7 @@ _CHILD = textwrap.dedent(
             time.sleep(0.01)
         assert window._maintenance_worker is None, "maintenance worker did not finish"
         assert observed == {"enabled": False, "timer": False, "close_refused": True}, observed
-        assert window.isEnabled() and timer.isActive()
+        assert window.isEnabled() and timer.isActive() == autosave_resumes
         observed.clear()
 
     run(window.backup_database_now)
@@ -148,12 +150,16 @@ _CHILD = textwrap.dedent(
     assert codes() == {"SNAP", "LATER"} and refreshed and not closed
 
     dm.RestoreService._require_exclusive_file = real_check
-    run(window.restore_database)
+    run(window.restore_database, autosave_resumes=False)
     assert shown[-1][0] == "information" and "restored and verified" in shown[-1][1], shown
+    # No screen may autosave stale contents into the restored database, not even
+    # while the success message is open (M43: autosave used to resume first).
+    assert autosave_when_shown[-1] is False and not timer.isActive()
+    assert all(not m._enabled for m in window._autosave_managers())
     assert codes() == {"SNAP"} and closed == [True]
 
     permissions.set_user({"id": 2, "username": "synthetic-viewer", "role": "viewer"})
-    run(window.backup_database_now)
+    run(window.backup_database_now, autosave_resumes=False)  # still paused for the restart
     assert shown[-1][0] == "warning" and "permission" in shown[-1][1], shown
     manager.close()
     print("DB-MAINTENANCE-UI-OK")
