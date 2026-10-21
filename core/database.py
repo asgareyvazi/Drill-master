@@ -4388,16 +4388,11 @@ class DatabaseManager:
                 session.add(well)
             session.flush()
             if owns_session:
+                # Mandatory audit in the same transaction (a caller-owned
+                # session audits at its own commit boundary).
+                self._add_mandatory_audit(session, "update" if well_id else "create", "well",
+                                          well.id, filtered_data.get("name") or well.name)
                 session.commit()
-                user_info = self._get_current_user_info
-                self.log_audit(
-                    action="update" if well_id else "create",
-                    entity_type="well",
-                    entity_id=well.id,
-                    entity_name=filtered_data.get("name", ""),
-                    user_id=user_info['user_id'],
-                    username=user_info['username'],
-                )
             return True
         except Exception as e:
             if owns_session:
@@ -4409,18 +4404,75 @@ class DatabaseManager:
             if owns_session:
                 session.close()
     
-    def delete_well(self, well_id: int) -> bool:
+    # ---------- Audited hierarchy deletes ----------
+    # Audit classes used by the data layer (see docs/mission-reports, M43 closure):
+    #   mandatory   - written in the business transaction by _add_mandatory_audit;
+    #                 if the record cannot be written the mutation is rolled back.
+    #                 Used for irreversible deletes, import lineage, survey edits,
+    #                 safety reviews, account administration.
+    #   security    - authorization denials and login events; written in their own
+    #                 transaction so a refused change still leaves a trace.
+    #   best-effort - log_audit(): its own transaction after the business commit;
+    #                 a failure is logged and reported through the return value.
+    _AUDITED_DELETE_MODELS = {"company": "Company", "project": "Project", "well": "Well", "section": "Section"}
+
+    def _audit_actor(self) -> tuple:
+        """(user_id, username) of the enforced principal, else the UI session user."""
+        principal = self._authorization_state().principal
+        if principal is None:
+            info = self._get_current_user_info
+            return info.get("user_id"), info.get("username")
         try:
-            with self.session_scope() as session:
-                well = session.query(Well).filter(
-                    Well.id == well_id
-                ).first()
-                if well:
-                    session.delete(well)
-                    return True
+            return getattr(principal, "user_id", None), getattr(principal, "username", None)
+        except Exception:  # silent-ok: actor labels are context; the record is still written
+            return None, None
+
+    def _add_mandatory_audit(self, session, action: str, entity_type: str, entity_id=None,
+                             entity_name=None, details: str = "") -> None:
+        """Add an audit record to ``session``'s transaction (mandatory class).
+
+        The record is flushed immediately so a failure surfaces inside the
+        caller's transaction, which then rolls the business change back.
+        """
+        user_id, username = self._audit_actor()
+        session.add(AuditLog(
+            action=action, entity_type=entity_type, entity_id=entity_id,
+            entity_name=str(entity_name)[:200] if entity_name else None,
+            details=details[:500] if details else "",
+            user_id=user_id, username=(str(username)[:50] if username else None),
+            timestamp=_now_utc()))
+        session.flush()
+
+    def delete_hierarchy_entity(self, entity_type: str, entity_id: int) -> bool:
+        """Delete a company, project, well, section or daily report with its audit record.
+
+        One transaction: the ORM cascade (or, for reports, the explicit child
+        sweep), the authorization check and the audit record commit or roll
+        back together. Returns False when the entity does not exist; raises on
+        refusal (AuthorizationError) or any database/audit failure.
+        """
+        if entity_type == "report":
+            return self.delete_daily_report(entity_id)
+        model_name = self._AUDITED_DELETE_MODELS.get(entity_type)
+        if model_name is None:
+            raise ValueError(f"unsupported entity type for delete: {entity_type!r}")
+        model = globals()[model_name]
+        with self.session_scope() as session:
+            obj = session.get(model, entity_id)
+            if obj is None:
                 return False
+            name = getattr(obj, "name", None) or f"{entity_type} {entity_id}"
+            session.delete(obj)
+            session.flush()  # cascade + authorization before the audit record
+            self._add_mandatory_audit(session, "delete", entity_type, entity_id, name)
+            return True
+
+    def delete_well(self, well_id: int) -> bool:
+        """Delete a well (cascade) with a mandatory audit record; False on any failure."""
+        try:
+            return self.delete_hierarchy_entity("well", well_id)
         except Exception as e:
-            logger.error(f"Error deleting well: {e}")
+            logger.error("Error deleting well %s: %s", well_id, type(e).__name__)
             return False
             
     def close(self):
@@ -4494,16 +4546,11 @@ class DatabaseManager:
                 session.add(report)
             session.flush()
             if owns_session:
+                # Mandatory audit in the same transaction (a caller-owned
+                # session audits at its own commit boundary).
+                self._add_mandatory_audit(session, "update" if report_id else "create", "daily_report",
+                                          report.id, f"Report #{report.report_number}")
                 session.commit()
-                from core.permissions import permissions
-                self.log_audit(
-                    action="update" if report_id else "create",
-                    entity_type="daily_report",
-                    entity_id=report.id,
-                    entity_name=f"Report #{report.report_number}",
-                    user_id=permissions.user_id,
-                    username=permissions.username,
-                )
             return {
                 "id": report.id,
                 "report_number": report.report_number,
@@ -4598,13 +4645,19 @@ class DatabaseManager:
                 return False
             # Do not rely solely on SQLite FK pragma: several legacy tables
             # predate cascade definitions. Delete all mapped report children.
+            removed = 0
             for mapper in list(Base.registry.mappers):
                 model = mapper.class_
                 if model is DailyReport or not hasattr(model, "report_id"):
                     continue
                 column = getattr(model, "report_id")
-                session.query(model).filter(column == report_id).delete(synchronize_session=False)
+                removed += session.query(model).filter(column == report_id).delete(synchronize_session=False)
+            label = f"Report #{report.report_number}" if report.report_number is not None else f"report {report_id}"
             session.delete(report)
+            session.flush()
+            # Mandatory audit: same transaction; counts only, never row content.
+            self._add_mandatory_audit(session, "delete", "daily_report", report_id, label,
+                                      json.dumps({"child_rows_deleted": removed}, sort_keys=True))
             return True
 
     def get_planned_total_days(self, well_id: int):
@@ -10279,6 +10332,10 @@ class DatabaseManager:
 
     def log_audit(self, action, entity_type="", entity_id=None,
                   entity_name="", details="", user_id=None, username=""):
+        """Best-effort audit record in its own transaction (see the audit classes
+        above _add_mandatory_audit). Never raises; returns whether it was written.
+        Use _add_mandatory_audit inside the business transaction when the
+        mutation must not survive without its record."""
         session = self.create_session()
         try:
             log = AuditLog(
@@ -10293,9 +10350,11 @@ class DatabaseManager:
             )
             session.add(log)
             session.commit()
+            return True
         except Exception as e:
             session.rollback()
-            logger.error(f"Audit log error: {e}")
+            logger.error("Audit log error (%s %s): %s", action, entity_type, type(e).__name__)
+            return False
         finally:
             session.close()
 

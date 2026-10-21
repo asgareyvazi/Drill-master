@@ -1568,189 +1568,68 @@ class MainWindow(QMainWindow):
         from core.hierarchy_operations import check_delete_permission
         return check_delete_permission(self.status_manager, entity_type)
 
-    def _delete_company(self, company_id: int):
-        """حذف شرکت - P0 with permission + audit + atomic"""
-        if not self._check_delete_permission("company"):
-            return
-        reply = QMessageBox.question(
-            self, "Delete Company",
-            "Delete this company and ALL its projects and wells?\n"
-            "This cannot be undone!",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
-        )
-        if reply != QMessageBox.Yes:
-            return
+    _DELETE_PROMPTS = {
+        "company": ("Delete Company", "Delete this company and ALL its projects and wells?\n"
+                    "This cannot be undone!", "Company deleted"),
+        "project": ("Delete Project", "Delete this project and ALL its wells?\n"
+                    "This cannot be undone!", "Project deleted"),
+        "well": ("Delete Well", "Delete this well and ALL its reports and data?\n"
+                 "This cannot be undone!\n\nAtomic: all child data will be deleted in one transaction, no orphan.",
+                 "Well deleted - atomic, no orphan"),
+        "section": ("Delete Section", "Delete this section and ALL its daily reports?\n"
+                    "This cannot be undone!\n\nAtomic transaction, no orphan.", "Section deleted - atomic"),
+    }
 
-        session = self.db_manager.create_session()
+    def _delete_hierarchy_item(self, entity_type: str, entity_id: int, on_deleted=None) -> bool:
+        """Permission + confirmation, then one audited service-layer delete.
+
+        DatabaseManager.delete_hierarchy_entity commits the delete and its
+        mandatory audit record together (or neither); the data layer enforces
+        the permission again.
+        """
+        if not self._check_delete_permission(entity_type):
+            return False
+        title, prompt, done = self._DELETE_PROMPTS[entity_type]
+        reply = QMessageBox.question(self, title, prompt, QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if reply != QMessageBox.Yes:
+            return False
         try:
-            from core.database import Company
-            company = session.query(Company).filter(
-                Company.id == company_id
-            ).first()
-            if company:
-                company_name = company.name
-                session.delete(company)
-                session.commit()
-                self.status_manager.show_success(
-                    "MainWindow", "Company deleted"
-                )
-                self._invalidate_hierarchy_cache()
-                self.populate_hierarchy()
-                try:
-                    from core.permissions import permissions
-                    self.db_manager.log_audit(
-                        action="delete", entity_type="company", entity_id=company_id,
-                        entity_name=company_name, user_id=permissions.user_id, username=permissions.username,
-                    )
-                except Exception:
-                    pass
+            deleted = self.db_manager.delete_hierarchy_entity(entity_type, entity_id)
         except Exception as e:
-            session.rollback()
-            logger.error(f"Delete company error: {e}")
-            self.status_manager.show_error(
-                "MainWindow", f"Delete failed: {str(e)}"
-            )
-        finally:
-            session.close()
+            logger.error("Delete %s %s failed: %s", entity_type, entity_id, type(e).__name__)
+            self.status_manager.show_error("MainWindow", f"Delete failed: {type(e).__name__}")
+            return False
+        if not deleted:
+            self.status_manager.show_error("MainWindow", f"Failed to delete {entity_type}")
+            return False
+        if on_deleted is not None:
+            on_deleted()
+        self.status_manager.show_success("MainWindow", done)
+        self._invalidate_hierarchy_cache()
+        self.populate_hierarchy()
+        return True
+
+    def _delete_company(self, company_id: int):
+        """حذف شرکت - permission + atomic delete with its audit record"""
+        self._delete_hierarchy_item("company", company_id)
 
     def _delete_project(self, project_id: int):
-        """حذف پروژه - P0 with permission"""
-        if not self._check_delete_permission("project"):
-            return
-        reply = QMessageBox.question(
-            self, "Delete Project",
-            "Delete this project and ALL its wells?\n"
-            "This cannot be undone!",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
-        )
-        if reply != QMessageBox.Yes:
-            return
-
-        session = self.db_manager.create_session()
-        try:
-            from core.database import Project
-            project = session.query(Project).filter(
-                Project.id == project_id
-            ).first()
-            if project:
-                proj_name = project.name
-                session.delete(project)
-                session.commit()
-                self.status_manager.show_success(
-                    "MainWindow", "Project deleted"
-                )
-                self._invalidate_hierarchy_cache()
-                self.populate_hierarchy()
-                try:
-                    from core.permissions import permissions
-                    self.db_manager.log_audit(
-                        action="delete", entity_type="project", entity_id=project_id,
-                        entity_name=proj_name, user_id=permissions.user_id, username=permissions.username,
-                    )
-                except Exception:
-                    pass
-        except Exception as e:
-            session.rollback()
-            logger.error(f"Delete project error: {e}")
-            self.status_manager.show_error(
-                "MainWindow", f"Delete failed: {str(e)}"
-            )
-        finally:
-            session.close()
+        """حذف پروژه - permission + atomic delete with its audit record"""
+        self._delete_hierarchy_item("project", project_id)
 
     def _delete_well(self, well_id: int):
-        """حذف چاه - P0 with permission + atomic child deletion"""
-        if not self._check_delete_permission("well"):
-            return
-        reply = QMessageBox.question(
-            self, "Delete Well",
-            "Delete this well and ALL its reports and data?\n"
-            "This cannot be undone!\n\nAtomic: all child data will be deleted in one transaction, no orphan.",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
-        )
-        if reply != QMessageBox.Yes:
-            return
+        """حذف چاه - permission + atomic child deletion with its audit record"""
+        def forget_if_current():
+            if isinstance(self.current_well, dict) and self.current_well.get("id") == well_id:
+                self.clear_current_well()
+                self.sel_manager.clear()
 
-        try:
-            if self.db_manager.delete_well(well_id):
-                if (self.current_well and
-                    isinstance(self.current_well, dict) and
-                    self.current_well.get('id') == well_id):
-                    self.clear_current_well()
-                    self.sel_manager.clear()
-
-                self.status_manager.show_success(
-                    "MainWindow", "Well deleted - atomic, no orphan"
-                )
-                self._invalidate_hierarchy_cache()
-                self.populate_hierarchy()
-                try:
-                    from core.permissions import permissions
-                    self.db_manager.log_audit(
-                        action="delete", entity_type="well", entity_id=well_id,
-                        entity_name=f"Well {well_id}", user_id=permissions.user_id, username=permissions.username,
-                    )
-                except Exception:
-                    pass
-            else:
-                self.status_manager.show_error(
-                    "MainWindow", "Failed to delete well"
-                )
-        except Exception as e:
-            logger.error(f"Delete well error: {e}")
-            self.status_manager.show_error(
-                "MainWindow", f"Delete failed: {str(e)}"
-            )
+        self._delete_hierarchy_item("well", well_id, on_deleted=forget_if_current)
 
     def _delete_section(self, section_id: int, well_id: int = None):
-        """حذف سکشن - P0 with permission"""
-        if not self._check_delete_permission("section"):
-            return
-        reply = QMessageBox.question(
-            self, "Delete Section",
-            "Delete this section and ALL its daily reports?\n"
-            "This cannot be undone!\n\nAtomic transaction, no orphan.",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
-        )
-        if reply != QMessageBox.Yes:
-            return
+        """حذف سکشن - permission + atomic delete with its audit record"""
+        self._delete_hierarchy_item("section", section_id)
 
-        session = self.db_manager.create_session()
-        try:
-            from core.database import Section
-            section = session.query(Section).filter(
-                Section.id == section_id
-            ).first()
-            if section:
-                sec_name = section.name
-                session.delete(section)
-                session.commit()
-                self.status_manager.show_success(
-                    "MainWindow", "Section deleted - atomic"
-                )
-                self._invalidate_hierarchy_cache()
-                self.populate_hierarchy()
-                try:
-                    from core.permissions import permissions
-                    self.db_manager.log_audit(
-                        action="delete", entity_type="section", entity_id=section_id,
-                        entity_name=sec_name, user_id=permissions.user_id, username=permissions.username,
-                    )
-                except Exception:
-                    pass
-        except Exception as e:
-            session.rollback()
-            logger.error(f"Delete section error: {e}")
-            self.status_manager.show_error(
-                "MainWindow", f"Delete failed: {str(e)}"
-            )
-        finally:
-            session.close()
-        
     def on_tree_item_clicked(self, item, column):
         data = item.data(0, Qt.UserRole)
         if not data:

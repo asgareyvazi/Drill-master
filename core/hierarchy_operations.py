@@ -60,64 +60,22 @@ def delete_entity(db_manager, entity_type: str, entity_id: int,
     if reply != QMessageBox.Yes:
         return False
     
-    try:
-        from core.database import Company, Project, Well, Section, DailyReport
-        
-        model_map = {
-            'company': Company,
-            'project': Project,
-            'well': Well,
-            'section': Section,
-            'report': DailyReport,
-        }
-        
-        model = model_map.get(entity_type)
-        if not model:
-            return False
-        
-        if entity_type == 'well':
-            success = db_manager.delete_well(entity_id)
-        elif entity_type == 'report':
-            success = db_manager.delete_daily_report(entity_id)
-        else:
-            session = db_manager.create_session()
-            try:
-                obj = session.query(model).filter(model.id == entity_id).first()
-                if obj:
-                    from core.database import AuditLog
-                    from core.permissions import permissions
-                    name = getattr(obj, 'name', f'{label} {entity_id}')
-                    session.delete(obj)
-                    # The audit record commits with the delete: if it cannot be
-                    # written, the delete is rolled back instead of left unaudited.
-                    session.add(AuditLog(
-                        action="delete", entity_type=entity_type,
-                        entity_id=entity_id, entity_name=str(name),
-                        user_id=permissions.user_id, username=permissions.username,
-                    ))
-                    session.commit()
-                    success = True
-                else:
-                    success = False
-            except Exception as e:
-                session.rollback()
-                logger.error(f"Delete {entity_type} error: {e}")
-                success = False
-            finally:
-                session.close()
-        
-        if success and status_manager:
-            status_manager.show_success("Hierarchy", f"{label} deleted - atomic, no orphan")
-        elif not success and status_manager:
-            status_manager.show_error("Hierarchy", f"Failed to delete {label}")
-        
-        return success
-        
-    except Exception as e:
-        logger.error(f"Delete {entity_type} error: {e}")
-        if status_manager:
-            status_manager.show_error("Hierarchy", f"Delete failed: {str(e)}")
+    if entity_type not in labels:
         return False
+    # Service boundary: delete, authorization and the mandatory audit record
+    # commit or roll back together (DatabaseManager.delete_hierarchy_entity).
+    try:
+        success = db_manager.delete_hierarchy_entity(entity_type, entity_id)
+    except Exception as e:
+        logger.error("Delete %s %s failed: %s", entity_type, entity_id, type(e).__name__)
+        success = False
+
+    if status_manager:
+        if success:
+            status_manager.show_success("Hierarchy", f"{label} deleted - atomic, no orphan")
+        else:
+            status_manager.show_error("Hierarchy", f"Failed to delete {label}")
+    return success
 
 
 def build_context_menu(item_data: dict, db_manager, parent=None) -> QMenu:
