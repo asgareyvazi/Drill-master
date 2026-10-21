@@ -157,3 +157,89 @@ def section_actual_days(session, section_id):
         DailyReport.section_id == section_id).all()
     hours = summarize_time_logs(logs)["total_hours"]
     return hours / 24 if hours is not None else None
+
+
+def summarize_actual_vs_plan(plan, activities, reports, time_logs, drilling_params, cost_records):
+    """Plan-vs-actual metrics from already-loaded records (no database access).
+
+    Extracted unchanged from ``DatabaseManager.get_actual_vs_plan``, which
+    keeps the queries and the session. Time, ROP and cost values come from
+    persisted records only: a report count is not treated as 24 hours and a
+    rig-day price is never invented here.
+    """
+    from core.operational_time import summarize_time_logs
+    from core.cost_semantics import summarize_costs
+    totals = activity_plan_totals(activities)
+    planned_hours = totals["hours"] if activities else (
+        plan.planned_total_days * 24 if plan and plan.planned_total_days is not None else None)
+    planned_depth = totals["depth"] if activities else (plan.planned_final_depth if plan else None)
+
+    depths = [float(r.depth_2400) for r in reports if r.depth_2400 is not None]
+    actual_depth = max(depths) if depths else None
+    time_metrics = summarize_time_logs(time_logs)
+    actual_hours = time_metrics["total_hours"]
+    actual_npt_hours = time_metrics["npt_hours"]
+
+    actual_rops = [
+        float(r.rop_meter) for r in reports
+        if r.rop_meter is not None and float(r.rop_meter) >= 0
+    ]
+    if not actual_rops:
+        actual_rops = [
+            float(p.avg_rop) for p in drilling_params
+            if p.avg_rop is not None and float(p.avg_rop) >= 0
+        ]
+    planned_rop = (
+        planned_depth / planned_hours
+        if planned_depth is not None and planned_hours else None
+    )
+    actual_rop = (
+        sum(actual_rops) / len(actual_rops) if actual_rops else None
+    )
+    costs = summarize_costs(cost_records)
+    planned_cost, actual_cost = costs["total_planned"], costs["total_actual"]
+
+    comparison = ActualVsPlanEngine.compare_metrics(
+        {
+            "depth_m": planned_depth,
+            "hours": planned_hours,
+            "rop_m_per_hr": planned_rop,
+            "cost": planned_cost,
+        },
+        {
+            "depth_m": actual_depth,
+            "hours": actual_hours,
+            "rop_m_per_hr": actual_rop,
+            "cost": actual_cost,
+        },
+    )
+
+    def legacy_metric(key):
+        item = comparison.values.get(key) or comparison.metadata.get("unavailable_metrics", {}).get(key)
+        if item:
+            return {
+                "planned": item["planned"],
+                "actual": item["actual"],
+                "delta": item["variance"],
+                "pct": item["variance_pct"],
+                "status": item["status"],
+            }
+        return {
+            "planned": None,
+            "actual": None,
+            "delta": None,
+            "pct": None,
+            "status": "unavailable",
+        }
+
+    return {
+        "depth": legacy_metric("depth_m"),
+        "hours": legacy_metric("hours"),
+        "rop": legacy_metric("rop_m_per_hr"),
+        "cost": dict(legacy_metric("cost"), currency=costs["currency"], currency_status=costs["status"]),
+        "npt_hours": actual_npt_hours,
+        "plan_id": plan.id if plan else None,
+        "reports": len(reports),
+        "warnings": comparison.warnings,
+        "scope": comparison.scope,
+    }

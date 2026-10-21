@@ -4694,8 +4694,6 @@ class DatabaseManager:
         """
         session = self.create_session()
         try:
-            from core.actual_vs_plan import ActualVsPlanEngine
-
             plan = session.query(WellPlan).filter(
                 WellPlan.well_id == well_id
                 , WellPlan.is_active == True
@@ -4718,83 +4716,9 @@ class DatabaseManager:
                 CostRecord.well_id == well_id
             ).all()
 
-            from core.actual_vs_plan import activity_plan_totals
-            from core.operational_time import summarize_time_logs
-            from core.cost_semantics import summarize_costs
-            totals = activity_plan_totals(activities)
-            planned_hours = totals["hours"] if activities else (
-                plan.planned_total_days * 24 if plan and plan.planned_total_days is not None else None)
-            planned_depth = totals["depth"] if activities else (plan.planned_final_depth if plan else None)
+            from core.actual_vs_plan import summarize_actual_vs_plan
 
-            depths = [float(r.depth_2400) for r in reports if r.depth_2400 is not None]
-            actual_depth = max(depths) if depths else None
-            time_metrics = summarize_time_logs(time_logs)
-            actual_hours = time_metrics["total_hours"]
-            actual_npt_hours = time_metrics["npt_hours"]
-
-            actual_rops = [
-                float(r.rop_meter) for r in reports
-                if r.rop_meter is not None and float(r.rop_meter) >= 0
-            ]
-            if not actual_rops:
-                actual_rops = [
-                    float(p.avg_rop) for p in drilling_params
-                    if p.avg_rop is not None and float(p.avg_rop) >= 0
-                ]
-            planned_rop = (
-                planned_depth / planned_hours
-                if planned_depth is not None and planned_hours else None
-            )
-            actual_rop = (
-                sum(actual_rops) / len(actual_rops) if actual_rops else None
-            )
-            costs = summarize_costs(cost_records)
-            planned_cost, actual_cost = costs["total_planned"], costs["total_actual"]
-
-            comparison = ActualVsPlanEngine.compare_metrics(
-                {
-                    "depth_m": planned_depth,
-                    "hours": planned_hours,
-                    "rop_m_per_hr": planned_rop,
-                    "cost": planned_cost,
-                },
-                {
-                    "depth_m": actual_depth,
-                    "hours": actual_hours,
-                    "rop_m_per_hr": actual_rop,
-                    "cost": actual_cost,
-                },
-            )
-
-            def legacy_metric(key):
-                item = comparison.values.get(key) or comparison.metadata.get("unavailable_metrics", {}).get(key)
-                if item:
-                    return {
-                        "planned": item["planned"],
-                        "actual": item["actual"],
-                        "delta": item["variance"],
-                        "pct": item["variance_pct"],
-                        "status": item["status"],
-                    }
-                return {
-                    "planned": None,
-                    "actual": None,
-                    "delta": None,
-                    "pct": None,
-                    "status": "unavailable",
-                }
-
-            return {
-                "depth": legacy_metric("depth_m"),
-                "hours": legacy_metric("hours"),
-                "rop": legacy_metric("rop_m_per_hr"),
-                "cost": dict(legacy_metric("cost"), currency=costs["currency"], currency_status=costs["status"]),
-                "npt_hours": actual_npt_hours,
-                "plan_id": plan.id if plan else None,
-                "reports": len(reports),
-                "warnings": comparison.warnings,
-                "scope": comparison.scope,
-            }
+            return summarize_actual_vs_plan(plan, activities, reports, time_logs, drilling_params, cost_records)
         except Exception as exc:
             logger.error("Actual vs plan failed: %s", exc, exc_info=True)
             empty = {"planned": None, "actual": None, "delta": None, "pct": None, "status": "unavailable"}
