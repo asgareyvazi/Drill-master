@@ -591,7 +591,8 @@ class CostManagementWidget(DrillTabBase):
             return
         try:
             days = self.db.get_planned_total_days(self.current_well_id)
-        except Exception:
+        except Exception as exc:
+            logger.warning("Planned total days unavailable for the AFE: %s", type(exc).__name__)
             days = None
         self.afe_days.setValue(days if days is not None else -1)
 

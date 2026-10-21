@@ -107,6 +107,15 @@ class TestW13DelegationParity:
         # no input → legacy 0 (no crash, no invented value)
         assert self.E.calc_buoyancy_factor(0.0) == 0.0
 
+    def test_buoyancy_factor_legacy_scalar_refusals_return_zero(self):
+        # The handler is narrowed to EngineeringError: mud at or above steel
+        # density, and a non-finite input, are refused by the canonical engine
+        # and reported by the legacy scalar as 0.0 (not assessed), never raised.
+        assert self.E.calc_buoyancy_factor(490.0) == 0.0     # mud == steel
+        assert self.E.calc_buoyancy_factor(600.0) == 0.0     # mud > steel
+        assert self.E.calc_buoyancy_factor(float("nan")) == 0.0
+        assert self.E.calc_buoyancy_factor(float("inf")) == 0.0
+
     def test_formation_pressure_delegates_to_well_control(self):
         r = self.E.calc_formation_pressure(mw_pcf=90.0, tvd_ft=8000.0,
                                            sidpp=250.0)

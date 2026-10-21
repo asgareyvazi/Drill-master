@@ -48,7 +48,7 @@ class WellboreSchematicTab(DrillTabBase):
         # tracks well/section/report, so the bore signal is wired here.
         try:
             self.sel_manager.wellbore_changed.connect(self.on_wellbore_changed)
-        except Exception:
+        except Exception:  # silent-ok: selection managers without a wellbore signal (tests, legacy hosts)
             pass
 
     def init_ui(self):
@@ -787,7 +787,7 @@ class WellboreSchematicTab(DrillTabBase):
                     casing.bottom_depth_m = float(bot_item.text())
                     casing.cement_bottom_m = float(bot_item.text())
 
-            except (ValueError, IndexError):
+            except (ValueError, IndexError):  # silent-ok: non-numeric depth cell keeps the stored casing depth
                 pass
 
     def _on_formation_table_changed(self, item):
@@ -817,7 +817,7 @@ class WellboreSchematicTab(DrillTabBase):
                             litho.text().strip() if litho else "", "#808080"
                         ),
                     ))
-            except (ValueError, AttributeError):
+            except (ValueError, AttributeError):  # silent-ok: incomplete formation row is not drawn
                 pass
 
         self.schematic.formations = new_formations

@@ -100,7 +100,7 @@ try:
     _current_backend = matplotlib.get_backend()
     if _current_backend.lower() in ('agg', ''):
         matplotlib.use('Qt5Agg')
-except Exception:
+except Exception:  # silent-ok: optional backend preference; matplotlib keeps its default backend
     pass
 
 
@@ -111,7 +111,7 @@ except ImportError:
     try:
         from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
         MATPLOTLIB_QT_OK = False
-    except ImportError:
+    except ImportError:  # silent-ok: matplotlib optional; FigureCanvas None disables charts
         FigureCanvas = None
         MATPLOTLIB_QT_OK = False
         
@@ -1095,7 +1095,7 @@ class DrillingParametersTab(QWidget):
                         nozzle.get("quantity", 1),
                         text=nozzle.get("text"),
                     )
-            except (json.JSONDecodeError, TypeError):
+            except (json.JSONDecodeError, TypeError):  # silent-ok: malformed legacy nozzle JSON leaves the nozzle table empty
                 pass
 
         _set_calc(self.tfa_value, safe_opt("tfa"))

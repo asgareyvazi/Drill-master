@@ -37,7 +37,7 @@ try:
     _current_backend = matplotlib.get_backend()
     if _current_backend.lower() in ('agg', ''):
         matplotlib.use('Qt5Agg')
-except Exception:
+except Exception:  # silent-ok: optional backend preference; matplotlib keeps its default backend
     pass
 
 import matplotlib.pyplot as plt
@@ -1898,7 +1898,7 @@ class DrillingParamsTab(QWidget):
                     rop = float(rec.get("ROP (m/hr)"))
                     if np.isfinite(depth) and np.isfinite(rop) and depth >= 0 and rop >= 0:
                         rop_points.append({'depth': depth, 'rop': rop})
-                except (TypeError, ValueError):
+                except (TypeError, ValueError):  # silent-ok: non-numeric point skipped from the ROP curve
                     continue
 
             if rop_points:
@@ -1930,7 +1930,7 @@ class DrillingParamsTab(QWidget):
                                 try:
                                     number = float(val)
                                     return number if np.isfinite(number) else None
-                                except (TypeError, ValueError):
+                                except (TypeError, ValueError):  # silent-ok: try the next candidate column
                                     continue
                         return default
 

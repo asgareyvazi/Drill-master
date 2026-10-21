@@ -30,7 +30,7 @@ try:
     _current_backend = matplotlib.get_backend()
     if _current_backend.lower() in ('agg', ''):
         matplotlib.use('Qt5Agg')
-except Exception:
+except Exception:  # silent-ok: optional backend preference; matplotlib keeps its default backend
     pass
 
 import matplotlib.pyplot as plt
@@ -48,8 +48,8 @@ try:
     pg.setConfigOption("antialias", True)
     try:
         pg.setConfigOptions(useOpenGL=True)
-    except Exception:
-        pass  # OpenGL اختیاری است
+    except Exception:  # silent-ok: OpenGL acceleration is optional; pyqtgraph falls back to raster
+        pass
 except ImportError:
     PYQTGRAPH_AVAILABLE = False
     pg = None
@@ -134,7 +134,7 @@ class AnalysisWidget(DrillTabBase):
             pg.setConfigOption("antialias", True)
             try:
                 pg.setConfigOptions(useOpenGL=True)
-            except Exception:
+            except Exception:  # silent-ok: OpenGL acceleration is optional; pyqtgraph falls back to raster
                 pass
 
         # Auto-update timer
@@ -167,7 +167,7 @@ class AnalysisWidget(DrillTabBase):
         # no shared-base modification per §7.1).
         try:
             self.sel_manager.wellbore_changed.connect(self.on_wellbore_changed)
-        except Exception:
+        except AttributeError:  # silent-ok: selection managers without a wellbore signal (tests, legacy hosts)
             pass
 
     def init_ui(self):
@@ -1656,8 +1656,8 @@ class AnalysisWidget(DrillTabBase):
                     ),
                     name="Trend Line"
                 )
-            except Exception:
-                pass
+            except Exception as exc:  # a degenerate fit (e.g. one distinct day) only loses the trend line
+                logger.warning("Time-depth trend line not drawn: %s", type(exc).__name__)
 
         self.daily_gain_plot.clear()
         if gain_vals:
@@ -2722,7 +2722,8 @@ class AnalysisWidget(DrillTabBase):
                 if self.current_well_id and self.db is not None:
                     has_bores = bool(
                         self.db.get_wellbores_by_well(self.current_well_id))
-            except Exception:
+            except Exception as exc:
+                logger.warning("Wellbore lookup failed; treating the well as single-bore: %s", type(exc).__name__)
                 has_bores = False
             if has_bores:
                 label.setText("🌐 Scope: Whole-Well Aggregate")

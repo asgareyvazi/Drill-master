@@ -923,7 +923,7 @@ class DailyReportWidget(DrillTabBase):
             completer.setCaseSensitivity(Qt.CaseInsensitive)
             completer.setFilterMode(Qt.MatchContains)
             contractor_edit.setCompleter(completer)
-        except Exception:
+        except Exception:  # silent-ok: completer is a typing aid only; the field stays editable
             pass
 
         # ✅ اگر از import آمده و contractor دارد
@@ -992,8 +992,8 @@ class DailyReportWidget(DrillTabBase):
 
             table.setRowHeight(row, desired_height)
 
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Time-log row height adjustment failed: %s", type(exc).__name__)
             
             
     def _adjust_all_row_heights(self, table):
@@ -1003,8 +1003,8 @@ class DailyReportWidget(DrillTabBase):
                 desc_widget = table.cellWidget(row, 9)
                 if desc_widget and isinstance(desc_widget, QTextEdit):
                     self._adjust_row_height(table, row, desc_widget)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Time-log row heights not refreshed: %s", type(exc).__name__)
                 
     def _get_recent_contractors(self) -> list:
         """Professional: Autocomplete + Recent Contractors + Company Master Data + NPT Contractor Mapping"""
@@ -1013,7 +1013,7 @@ class DailyReportWidget(DrillTabBase):
             from dialogs.smart_template_dialog import NPT_CONTRACTOR_MAP
             contractors.update(NPT_CONTRACTOR_MAP.values())
             contractors.update(["Rig Contractor", "Directional Company", "Mud Company", "Cementing Company", "Wireline Company", "Logging Company", "Casing Company", "Bit Supplier", "Completion Company"])
-        except Exception:
+        except Exception:  # silent-ok: optional template contractor names; static defaults below still apply
             pass
         try:
             if self.db_manager:
@@ -1026,8 +1026,8 @@ class DailyReportWidget(DrillTabBase):
                             contractors.add(str(r[0]).strip())
                 finally:
                     session.close()
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Contractor suggestions from saved time logs unavailable: %s", type(exc).__name__)
         try:
             if self.db_manager:
                 services = self.db_manager.get_service_companies(well_id=self.current_well_id) if self.current_well_id else []
@@ -1035,8 +1035,8 @@ class DailyReportWidget(DrillTabBase):
                     name = svc.get("company_name")
                     if name and str(name).strip():
                         contractors.add(str(name).strip())
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Contractor suggestions from services unavailable: %s", type(exc).__name__)
         contractors.update(["Weather", "Client", "Operations", "Logistics", "Service Company"])
         return sorted(list(contractors))
 
@@ -1461,7 +1461,7 @@ class DailyReportWidget(DrillTabBase):
             ):
                 try:
                     duration = float(duration_widget.text())
-                except (ValueError, TypeError):
+                except (ValueError, TypeError):  # silent-ok: non-numeric duration keeps the previous value
                     pass
 
             # Times are required schema inputs; invalid widgets must not default
@@ -1942,7 +1942,7 @@ class DailyReportWidget(DrillTabBase):
                         total_time += duration
                         if npt_widget.isChecked():
                             total_npt += duration
-                    except (AttributeError, TypeError, ValueError):
+                    except (AttributeError, TypeError, ValueError):  # silent-ok: incomplete row excluded from totals
                         pass  # incomplete row — excluded from totals
             self.total_time_label.setText(f"Total Time: {total_time:.1f}h")
             self.total_npt_label.setText(f"NPT Time: {total_npt:.1f}h")

@@ -157,7 +157,7 @@ class DrillingCalculationEngine:
             return f"NOT ASSESSED — {detail}"
         try:
             value = float(result.value)
-        except (TypeError, ValueError, OverflowError):
+        except (TypeError, ValueError, OverflowError):  # silent-ok: shown to the user as NOT ASSESSED
             return "NOT ASSESSED — invalid result value"
         if not math.isfinite(value):
             return "NOT ASSESSED — non-finite result"
@@ -195,13 +195,14 @@ class DrillingCalculationEngine:
         only — the formula lives in the engine).
         """
         from core.engineering.engines.torque_drag import TorqueDragEngine
+        from core.engineering.result import EngineeringError
         if not mud_weight_pcf or mud_weight_pcf <= 0:
             return 0.0
         mw_ppg = mud_weight_pcf / 7.48
         steel_ppg = steel_density / 7.48
         try:
             return round(TorqueDragEngine.buoyancy_factor(mw_ppg, steel_ppg), 4)
-        except Exception:
+        except EngineeringError:  # silent-ok: legacy scalar, 0.0 = not assessed; the UI uses calc_buoyancy_factor_result
             return 0.0
 
     @staticmethod
@@ -2776,7 +2777,8 @@ class EngineeringCalculatorTab(DrillTabBase):
                     DrillPipeReferenceRepository,
                 )
                 repo = DrillPipeReferenceRepository(self.db)
-            except Exception:
+            except Exception as exc:
+                logger.warning("Drill-pipe reference repository unavailable: %s", type(exc).__name__)
                 repo = None
             self._dp_ref_repo = repo
         return repo
@@ -2839,7 +2841,8 @@ class EngineeringCalculatorTab(DrillTabBase):
                 )
                 if not ok:
                     return
-        except Exception:
+        except Exception as exc:
+            logger.warning("Worksheet list unavailable, using the active sheet: %s", type(exc).__name__)
             sheet = None  # fall back to the active sheet
 
         try:
@@ -2888,8 +2891,8 @@ class EngineeringCalculatorTab(DrillTabBase):
             reload_fn = getattr(ref_tab, "_dp_catalog_reload", None)
             if callable(reload_fn):
                 reload_fn()
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Drill-pipe catalogue reload in the Reference tab failed: %s", type(exc).__name__)
 
     def _wt_edit_pipe(self):
         row = self.wt_pipe_table.currentRow()
@@ -5412,7 +5415,8 @@ class EngineeringCalculatorTab(DrillTabBase):
             return
         try:
             pts = TrajectoryEngine.calculate(surveys)
-        except Exception:
+        except Exception as exc:
+            logger.warning("Offset-well trajectory not computed: %s", type(exc).__name__)
             return
         for i, p in enumerate(pts):
             if i < len(self.ac_offset_surveys):
@@ -5576,7 +5580,8 @@ class EngineeringCalculatorTab(DrillTabBase):
             return
         try:
             pts = TrajectoryEngine.calculate(surveys)
-        except Exception:
+        except Exception as exc:
+            logger.warning("Directional-design trajectory not computed: %s", type(exc).__name__)
             return
         for i, p in enumerate(pts):
             if i < len(self.dd_surveys):
@@ -5826,14 +5831,14 @@ class EngineeringCalculatorTab(DrillTabBase):
         try:
             if hasattr(self, 'v_od') and hasattr(self, 'v_id'):
                 self._vol_update_quick()
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Quick volume refresh failed: %s", type(exc).__name__)
         
         try:
             if hasattr(self, 'v_hole') and hasattr(self, 'v_pipe_od'):
                 self._vol_update_annular()
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Annular volume refresh failed: %s", type(exc).__name__)
         
 
     def _make_scroll_tab(self):

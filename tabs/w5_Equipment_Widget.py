@@ -898,7 +898,8 @@ class EquipmentWidget(DrillTabBase):
             return None
         try:
             report = self.db.get_daily_report_by_id(self.current_report_id)
-        except Exception:
+        except Exception as exc:
+            logger.warning("Daily report lookup failed for the inventory tab: %s", type(exc).__name__)
             return None
         if not report:
             return None
@@ -912,7 +913,8 @@ class EquipmentWidget(DrillTabBase):
         try:
             from core.permissions import permissions
             user_id = getattr(permissions, "user_id", None)
-        except Exception:
+        except Exception as exc:
+            logger.warning("Current user unavailable for the inventory save: %s", type(exc).__name__)
             user_id = None
         return self.db.save_inventory_items(
             self.current_well,
@@ -951,7 +953,8 @@ class EquipmentWidget(DrillTabBase):
                 items = self.db.get_legacy_inventory_notes(
                     self.current_well, report_id=self.current_report_id)
                 legacy = bool(items)
-            except Exception:
+            except Exception as exc:
+                logger.warning("Legacy inventory notes unavailable: %s", type(exc).__name__)
                 items = []
         if not items:
             return

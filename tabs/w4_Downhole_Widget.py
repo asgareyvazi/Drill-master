@@ -9,7 +9,7 @@ from datetime import date
 try:
     import pandas as pd
     PANDAS_AVAILABLE = True
-except ImportError:
+except ImportError:  # silent-ok: pandas optional; PANDAS_AVAILABLE gates the features
     PANDAS_AVAILABLE = False
     
 
@@ -771,7 +771,7 @@ class DownholeEquipmentManager:
             name = row.get("Equipment Name") or f"Row {index + 1}"
             try:
                 next_date = optional_date(row.get("Next Service"))
-            except ValueError:
+            except ValueError:  # silent-ok: unparseable next-service date is treated as not scheduled
                 next_date = None
             if next_date is None:
                 self.service_review.append(name)
@@ -889,7 +889,7 @@ class FormationManager:
                     name = self.table.item(row, 0).text()
                     depths.append((top+base)/2)
                     formations.append(name)
-                except (AttributeError, TypeError, ValueError):
+                except (AttributeError, TypeError, ValueError):  # silent-ok: incomplete formation row stays out of the LAS export
                     pass  # incomplete formation row stays out of the LAS export
             if depths:
                 las.add_curve("DEPT", depths, unit="m")

@@ -426,7 +426,7 @@ class SurveyDataTab(QWidget):
             return None
         try:
             return float(s)
-        except (TypeError, ValueError):
+        except (TypeError, ValueError):  # silent-ok: non-numeric cell parsed as missing
             return None
     
     @editor_saved()

@@ -595,7 +595,8 @@ class HomeTab(DrillTabBase):
                 hierarchy = self.db.get_hierarchy()
                 db_status = "✅ Connected"
                 db_color = "#27ae60"
-            except Exception:
+            except Exception as exc:
+                logger.warning("Home dashboard: database status check failed: %s", type(exc).__name__)
                 db_status = "❌ Disconnected"
                 db_color = "#e74c3c"
 

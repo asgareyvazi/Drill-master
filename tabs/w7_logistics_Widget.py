@@ -1029,7 +1029,7 @@ class FuelWaterTab(QWidget):
                         return None
                     try:
                         return float(v)
-                    except (TypeError, ValueError):
+                    except (TypeError, ValueError):  # silent-ok: non-numeric cell parsed as missing
                         return None
 
                 self.fuel_type.setCurrentText(data.get("fuel_type", "Diesel"))
@@ -1211,7 +1211,7 @@ class FuelWaterTab(QWidget):
                 if id_item and id_item.text().strip():
                     try:
                         material_data["id"] = int(id_item.text())
-                    except ValueError:
+                    except ValueError:  # silent-ok: non-integer id cell saves as a new row
                         pass
                 
                 result = self.db.save_bulk_material(material_data)

@@ -451,7 +451,7 @@ class CementReportTab(QWidget):
         tp=str(data.get("thickening_time","04:30") or "04:30").split(":")
         try:
             self.thickening_hours.setValue(int(tp[0])); self.thickening_minutes.setValue(int(tp[1]))
-        except (IndexError, ValueError):
+        except (IndexError, ValueError):  # silent-ok: malformed thickening time keeps the widget default
             pass
         self.compressive_strength.setValue(sv("compressive_strength",2500)); self.fluid_loss.setValue(sv("fluid_loss"))
         self.cement_volume.setValue(sv("cement_volume")); self.displacement_volume.setValue(sv("displacement_volume"))
@@ -472,7 +472,7 @@ class CementReportTab(QWidget):
                         inventory=(None if m.get("inventory") is None else float(m["inventory"])),
                         unit=m.get("unit", "kg"),
                     )
-            except (TypeError, ValueError, KeyError, json.JSONDecodeError):
+            except (TypeError, ValueError, KeyError, json.JSONDecodeError):  # silent-ok: malformed legacy materials JSON leaves the table empty
                 pass  # malformed legacy materials JSON — leave table empty
 
         from copy import deepcopy
@@ -974,7 +974,7 @@ class CasingTallyWidget(QWidget):
                         if col==5:tl=v
                         elif col==7:tw=v
                         else:tc=v
-                    except (TypeError, ValueError):
+                    except (TypeError, ValueError):  # silent-ok: non-numeric cell excluded from the loss totals
                         pass
         al=tl/inj if inj>0 else 0
         self.stats_labels["total_joints"].setText(str(total));self.stats_labels["total_length"].setText(f"{tl:.2f} m")
@@ -1622,7 +1622,7 @@ class FailureReportTab(QWidget):
         self.report_no.setText(data.get("report_no", ""))
         try:
             self.issue_date.setDate(QDate.fromString(data.get("issue_date", ""), "yyyy-MM-dd"))
-        except (AttributeError, TypeError):
+        except (AttributeError, TypeError):  # silent-ok: missing issue date keeps the widget default
             pass
 
         loc = data.get("location_type", "In Site")

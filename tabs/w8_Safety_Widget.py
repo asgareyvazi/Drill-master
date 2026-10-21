@@ -300,7 +300,7 @@ class SafetyBOPTab(QWidget):
                             self.clear_bop_row_highlight(row)
                         next_due_item = QTableWidgetItem(next_due.toString("yyyy-MM-dd"))
                         self.bop_stack_table.setItem(row, 6, next_due_item)
-                except (AttributeError, TypeError, ValueError):
+                except (AttributeError, TypeError, ValueError):  # silent-ok: row without a parseable last-test date
                     pass  # row without parseable last-test date
         message = "✅ BOP Test Schedule Updated\n\n"
         if overdue_count > 0:
@@ -600,7 +600,7 @@ class WasteManagementTab(QWidget):
                     volume_by_method[wm] = volume_by_method.get(wm,0) + vol
                     if ph_item:
                         ph_values.append(float(ph_item.text()))
-                except (AttributeError, TypeError, ValueError):
+                except (AttributeError, TypeError, ValueError):  # silent-ok: incomplete waste row excluded from the summary
                     pass  # incomplete waste row
         avg_ph = sum(ph_values)/len(ph_values) if ph_values else None
         volume_text = f"{total_volume:.1f}" if valid_volumes and valid_volumes == self.waste_table.rowCount() else "Unknown (incomplete records)"
