@@ -17,6 +17,7 @@ from core.import_quality import (
     build_review_manifest, restore_missing_review_rows, unresolved_review_items,
 )
 from core.import_diagnostics import PersistenceIssue, ImportStatus, determine_import_status
+from core.import_coverage import summary_line as unmapped_summary_line, unmapped_content_diagnostic
 
 logger = logging.getLogger(__name__)
 
@@ -437,6 +438,13 @@ class DDRImportService:
                 unresolved_review_items(results["import_report"].get("review", []))
             )
             results["review_items"].extend(results["import_report"].get("review", []))
+            unmapped = (extracted.get("metadata") or {}).get("unmapped_content")
+            if unmapped:
+                # Informational lineage: never changes status or values.
+                results["unmapped_content"] = unmapped
+                line = unmapped_summary_line(unmapped)
+                if line:
+                    results["details"].append(line)
 
             # Every collected validation error participates in final status.
             # Validation is completed before any destructive/write operation.
@@ -1559,6 +1567,9 @@ class DDRImportService:
                 "field_provenance": rep.field_provenance,
                 "duplicate_mappings": rep.duplicate_mappings,
                 "raw_ir": rep.raw_document.to_dict(include_cells=True) if rep.raw_document is not None else None,
+                # Locations/counts of populated cells no extraction step used
+                # (informational; no values, no proposed mapping).
+                "unmapped_content": unmapped_content_diagnostic(rep),
             }
         finally:
             workbook.close()

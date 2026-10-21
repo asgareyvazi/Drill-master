@@ -146,13 +146,29 @@ Probed with synthetic workbooks only (no real DDR content):
 | unreadable DDR template file | skipped with a warning naming the file and the error type | IMPLEMENTED_NOT_FULLY_VERIFIED |
 | 20,000-row generic sheet | about 12.5 s locally; formerly more than 600 s because of two O(rows x cells) scans in `semantic_tables.detect_tables` and the generic scalar pass | VERIFIED (`tests/test_semantic_table_detection_scaling.py`, cell-visit bound, no timing assertion) |
 
-**Known gap (not fixed):** on the generic (no-template) path, a table whose
-headers match no canonical signature produces no `table_results`. Its cells stay
-in `metadata.raw_ir` (lossless) but are neither imported nor listed as review
-rows; only scalar candidates near the top of the sheet are proposed for review.
-The import therefore under-reports, rather than mis-imports, unrecognised tables.
-Surfacing "N populated cells not mapped" as an explicit review diagnostic is the
-recommended follow-up.
+**Unrecognised tables (diagnostic added in the M43 closure):** on the generic
+(no-template) path, a table whose headers match no canonical signature still
+produces no `table_results` and is still **not imported** (no mapping is
+invented). Its cells stay in `metadata.raw_ir` (lossless), and the import now
+says so: `metadata.unmapped_content` (`core/import_coverage.py`) lists every
+populated cell that no extraction step used, grouped into connected regions
+with sheet, A1 range, cell/numeric/text counts and a `table-like` / `isolated`
+kind. The import result carries the same object as `unmapped_content` plus one
+details line ("N populated source cell(s) were not mapped ..."), and it is
+persisted with the import lineage in the `ddr_import` audit record.
+
+* Informational only: it never changes the import status or any stored value.
+* Locations and counts only - never cell values.
+* Deterministic, and outside the source fingerprint (re-import detection is unchanged).
+* Bounded: at most 25 regions per sheet are listed; totals are never truncated.
+* "Accounted for" = field value cells, the label cell of the chosen candidate,
+  cells referenced by table records, and each detected table's owned span. On
+  template imports, unused label text is therefore also reported (text-only,
+  usually `isolated`); regions with numeric cells are the ones to check first.
+* Cost: 0.154 s of a 9.11 s `extract_file` on a 20,000-row unrecognised sheet
+  (80,004 unmapped cells, Python 3.11.2, x86_64, 2 vCPU, local sandbox).
+* Tests: `tests/test_import_unmapped_content.py` (7 tests, mutation-checked:
+  no table-span accounting, value leak, and missing result hook each fail).
 
 **CSV:** the universal route converts CSV to XLSX and then stops before
 persistence ("No canonical template was available after the csv fallback"), so CSV
