@@ -493,6 +493,7 @@ class ExcelImportDialog(QDialog, DDRImportService):
         self.db = db_manager
         self.well_id = well_id
         self._mineru_worker = None
+        self._import_busy = False
         self._pending_import_files = []
         self._mineru_results = {}
         self.setWindowTitle("📊 Universal Import - Intelligence Platform")
@@ -550,6 +551,7 @@ class ExcelImportDialog(QDialog, DDRImportService):
             "font-weight: bold; border-radius: 5px; font-size: 14px;"
         )
         import_btn.clicked.connect(self._unified_import)
+        self._import_btn = import_btn
         il.addWidget(import_btn)
 
         self.import_status = QLabel("No file selected - Preview before save enabled (P0)")
@@ -575,8 +577,20 @@ class ExcelImportDialog(QDialog, DDRImportService):
             os.environ["DRILLMASTER_AI_IMPORT"] = "1"
             set_selected_model(model)
 
+    def _set_import_busy(self, busy: bool) -> None:
+        """One batch at a time: a second click while MinerU parses, or while
+        processEvents() repaints during the pipeline, must not start another
+        batch (it used to overwrite the pending file list and drop a batch)."""
+        self._import_busy = bool(busy)
+        button = getattr(self, "_import_btn", None)
+        if button is not None:
+            button.setEnabled(not busy)
+
     def _unified_import(self):
         """Route imports without running MinerU in the Qt UI thread."""
+        if getattr(self, "_import_busy", False):
+            self.import_status.setText("An import is already running - wait for it to finish.")
+            return
         files, _ = QFileDialog.getOpenFileNames(
             self,
             "Import Report(s)",
@@ -586,6 +600,14 @@ class ExcelImportDialog(QDialog, DDRImportService):
         if not files:
             return
 
+        self._set_import_busy(True)
+        try:
+            self._start_import_batch(files)
+        except Exception:
+            self._set_import_busy(False)
+            raise
+
+    def _start_import_batch(self, files):
         self._pending_import_files = list(files)
         self._mineru_results = {}
         mineru_sources = []
@@ -728,6 +750,13 @@ class ExcelImportDialog(QDialog, DDRImportService):
         return extracted
 
     def _run_import_pipeline(self, files, mineru_results):
+        """Run the batch, then release the one-batch-at-a-time guard."""
+        try:
+            self._run_import_pipeline_steps(files, mineru_results)
+        finally:
+            self._set_import_busy(False)
+
+    def _run_import_pipeline_steps(self, files, mineru_results):
         """Run the existing preview/atomic DB path after optional MinerU work."""
         results = []
         successful_files = []
