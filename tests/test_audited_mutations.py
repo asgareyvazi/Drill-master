@@ -19,7 +19,7 @@ from sqlalchemy.pool import StaticPool
 import core.database as database
 from core.authorization import AuthorizationError
 from core.database import (
-    AuditLog, Base, Company, DailyReport, DatabaseManager, Project, Section, TimeLog24H as TimeLog, Well,
+    AuditLog, Base, Company, DailyReport, DatabaseManager, Project, Section, TimeLog24H as TimeLog, User, Well,
 )
 
 
@@ -95,6 +95,10 @@ def broken_audit(monkeypatch):
 # ------------------------------------------------------------------ deletes
 
 def test_delete_well_writes_its_audit_record_with_the_enforced_actor(manager, ids):
+    session = manager.create_session()
+    session.add(User(id=41, username="synthetic-admin", password_hash="not-a-real-hash"))
+    session.commit()
+    session.close()
     manager.enforce_authorization(Principal(41, "synthetic-admin", {"can_delete_well"}))
     assert manager.delete_well(ids["well"]) is True
     assert not _exists(manager, Well, ids["well"])
@@ -175,6 +179,22 @@ def test_missing_entity_is_not_deleted_and_not_audited(manager, ids):
 def test_unknown_entity_type_is_rejected(manager, ids):
     with pytest.raises(ValueError):
         manager.delete_hierarchy_entity("wellbore", 1)
+
+
+def test_actor_without_a_user_row_in_this_database_is_recorded_by_name(manager, ids):
+    """Regression: a session user from another database must not block the save on the FK."""
+    from sqlalchemy import event
+
+    @event.listens_for(manager.engine, "connect")
+    def _fk_on(dbapi_connection, _record):  # pragma: no cover - new connections only
+        dbapi_connection.execute("PRAGMA foreign_keys=ON")
+
+    with manager.engine.connect() as connection:
+        connection.exec_driver_sql("PRAGMA foreign_keys=ON")
+    manager.enforce_authorization(Principal(9_999, "elsewhere-user", {"can_delete_well"}))
+    assert manager.delete_well(ids["well"]) is True
+    [(_a, _k, _id, _n, user_id, username, _d)] = _audits(manager, action="delete")
+    assert user_id is None and username == "elsewhere-user"
 
 
 # --------------------------------------------------------- create / update

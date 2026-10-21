@@ -4435,6 +4435,11 @@ class DatabaseManager:
         caller's transaction, which then rolls the business change back.
         """
         user_id, username = self._audit_actor()
+        if user_id is not None and session.get(User, user_id) is None:
+            # The session user has no row in THIS database (e.g. after a
+            # restore or a database switch). Keep the record, attributed by
+            # name only, instead of failing the business change on the FK.
+            user_id = None
         session.add(AuditLog(
             action=action, entity_type=entity_type, entity_id=entity_id,
             entity_name=str(entity_name)[:200] if entity_name else None,
