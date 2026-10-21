@@ -144,13 +144,22 @@ class CasingGroundTruth(unittest.TestCase):
         r = CasingEngine.triaxial_vme(od, id_, yp, pi, 0.0, 0.0, include_capped_end=True)
         self.assertTrue(r.success, r.error)
         ro, ri = od / 2.0, id_ / 2.0
-        denom = ro**2 - ri**2
+        wall_area = math.pi * (ro**2 - ri**2)
+        # Independent of the implementation: the capped-end axial stress must carry
+        # the end-cap force pi * (pi ri^2) (force balance). The former expectation
+        # copied the engine's expression and shared its missing factor of pi.
+        end_cap_force = pi * math.pi * ri**2
+        self.assertAlmostEqual(r.values["capped_end_psi"] * wall_area, end_cap_force, delta=0.001 * end_cap_force)
+        # Thin-wall sanity on the mean radius: sigma_a ~ p r / (2 t). For D/t ~ 20 the
+        # exact thick-wall value is lower by ri^2 / r_mean^2 (~0.90); a factor-of-pi
+        # error (x0.32) is far outside this bound.
+        thin_wall = pi * (ro + ri) / 2.0 / (2.0 * (ro - ri))
+        self.assertLess(abs(r.values["capped_end_psi"] - thin_wall) / thin_wall, 0.15)
         sigma_r = -pi
-        sigma_h = (pi * (ri**2 + ro**2)) / denom
-        area = math.pi * denom
-        capped = (pi * ri**2) / area
-        vme = math.sqrt(0.5 * ((sigma_h - capped) ** 2 + (capped - sigma_r) ** 2 + (sigma_r - sigma_h) ** 2))
-        self.assertAlmostEqual(r.value, vme, places=0)
+        sigma_h = pi * (ri**2 + ro**2) / (ro**2 - ri**2)
+        sigma_a = end_cap_force / wall_area
+        vme = math.sqrt(0.5 * ((sigma_h - sigma_a) ** 2 + (sigma_a - sigma_r) ** 2 + (sigma_r - sigma_h) ** 2))
+        self.assertAlmostEqual(r.value, vme, delta=0.15)
 
     def test_connection_governs_when_supplied(self):
         r = CasingEngine.evaluate(

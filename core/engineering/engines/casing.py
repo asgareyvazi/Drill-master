@@ -32,7 +32,7 @@ from ..result import (
 
 
 class CasingEngine:
-    METHOD = "API TR 5C3 pipe-body subset (Barlow + four-regime + fyax + VME)"
+    METHOD = "API TR 5C3 pipe-body subset (Barlow + four-regime + fyax + VME; capped-end r2)"
     SCOPE = "PARTIAL"
 
     @staticmethod
@@ -307,7 +307,11 @@ class CasingEngine:
             sigma_h = (pi * (ri**2 + ro**2) - 2.0 * pe * ro**2) / denom
             capped = 0.0
             if include_capped_end:
-                capped = (pi * ri**2 - pe * ro**2) / area
+                # End-cap force pi*(pi ri^2) - pe*(pi ro^2) over the wall area
+                # pi(ro^2 - ri^2): sigma = (pi ri^2 - pe ro^2) / (ro^2 - ri^2).
+                # Before M43 the numerator lacked pi while `area` kept it, so the
+                # capped-end stress was understated by a factor of pi.
+                capped = (pi * ri**2 - pe * ro**2) / denom
             sigma_a = fax / area + capped
             vme = math.sqrt(0.5 * ((sigma_h - sigma_a) ** 2 + (sigma_a - sigma_r) ** 2 + (sigma_r - sigma_h) ** 2))
             util = vme / yp

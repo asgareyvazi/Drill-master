@@ -46,3 +46,36 @@ Ground-truth and integration coverage is distributed across:
 
 The release gate reports the live collection and execution population; test
 counts are intentionally not hard-coded in this document.
+
+## M43 engineering review (2026-10-21)
+
+**Defect fixed: casing VME capped-end stress.** `CasingEngine.triaxial_vme`
+divided the end-cap term `pi*ri^2 - pe*ro^2` by the wall area `pi*(ro^2 - ri^2)`,
+so the capped-end axial stress was understated by a factor of pi (x0.318). It is
+now `(pi*ri^2 - pe*ro^2) / (ro^2 - ri^2)`, the end-cap force balance over the wall
+area. Reproducible example: 9-5/8 in OD, 8.681 in ID, 80 ksi, 3,000 psi internal,
+no external pressure or tension gives a capped-end stress of 13,082.6 psi (formerly
+4,164 psi), hoop 29,165.3 psi, VME 27,855.9 psi, utilization 0.3482. The previous
+ground-truth test copied the engine's expression; it now checks the force balance
+and a thin-wall bound, and fails on the old code. `CasingEngine.METHOD` gained
+`capped-end r2`, so saved casing calculations made before the fix verify as
+`DIFFERENT` with `method_matches=False` instead of silently reproducing.
+Limits: elastic Lamé stresses at the inner wall only; no temperature, wear,
+bending, connection VME or ISO 10400 design envelope; a screening check, not
+complete casing integrity.
+
+**Non-finite inputs:** `tests/test_engineering_non_finite_contract.py` probes
+42 public numeric engine entry points with NaN/inf (244 calls). 208 return a
+failure flag and 18 raise. 18 are allowlisted with a reason: the legacy fishing
+float wrappers, which only tests call, and `fyax`, whose only caller validates
+its inputs.
+
+**Not supported (no formula added in M43):**
+- Stiff-string torque and drag: `TorqueDragEngine` is soft-string only.
+- Pressure-area (closed-end) buoyancy: buoyancy is `BF = 1 - MW/65.5`; T&D
+  results and W13 state this assumption.
+- ISCWSA error models: anti-collision returns `iscwsa_compliant=False`. Optional
+  `welleng` integration is a benchmark item, not a claim.
+
+Adding any of these needs a cited source with its edition, a reproducible example
+and stated limits.
