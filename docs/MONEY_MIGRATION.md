@@ -203,3 +203,20 @@ only. The money audit tool reports the same facts without exposing amounts.
   byte-identical, reports the planted facts, does not print amounts, vendors,
   well names or the path, refuses a missing file without creating it, and
   handles absent tables.
+
+## M43 continuation verification (2026-10-21)
+
+- **No migration has happened.** All four monetary amount columns are still
+  SQLAlchemy `Float` (checked against `Base.metadata`). `core/money.py` and this
+  document had no changes between `aee2cc8` and this check. D1–D7 remain
+  OWNER_GATED.
+- **`tools/money/money_audit.py` is read-only.** It was run on a synthetic
+  schema-v6 database that `DatabaseManager.initialize()` created in a temporary
+  directory, with one cost row of 2.675. Afterwards the database file had the same
+  SHA-256, size and mtime as before, and the exit code was 0.
+- **Side files:** the application stores databases in WAL mode, and SQLite
+  creates `<db>-wal` (empty) and `<db>-shm` (32 KiB index) next to a WAL database
+  even when it is opened `mode=ro`. They hold no data, but the audit does not
+  leave the directory untouched. Run it on a copy in its own directory, as `--db`
+  already requires. `immutable=1` was deliberately not adopted: it would silently
+  ignore WAL content in a copy that was not checkpointed.
