@@ -4497,6 +4497,7 @@ class DatabaseManager:
             return [
                 {
                     "id": r.id,
+                    "report_number": r.report_number,
                     "report_date": r.report_date,
                     "report_title": r.report_title,
                     "rig_day": r.rig_day,

@@ -8,11 +8,12 @@ from datetime import datetime
 
 from PySide6.QtCore import QDate
 from PySide6.QtWidgets import (
-    QApplication, QCheckBox, QComboBox, QDateEdit, QDoubleSpinBox, QFileDialog, QHBoxLayout, QLabel,
+    QCheckBox, QComboBox, QDateEdit, QDoubleSpinBox, QFileDialog, QHBoxLayout, QLabel,
     QLineEdit, QMessageBox, QPushButton, QTabWidget, QTextEdit, QVBoxLayout, QWidget,
 )
 
 from core.base_tab import DrillTabBase
+from core.export_jobs import ExportJob, extension_for, plan_batch
 
 logger = logging.getLogger(__name__)
 # ==================== Main Export Widget ====================
@@ -23,6 +24,9 @@ class ExportWidget(DrillTabBase):
         super().__init__("ExportWidget", db_manager, parent)
         self.db = db_manager
         self._current_well_id = None
+        # One export at a time, generated in a worker thread (core.export_jobs).
+        self._export_worker = None
+        self._export_buttons = []
         self._init_ui()
 
     def _init_ui(self):
@@ -178,6 +182,7 @@ class ExportWidget(DrillTabBase):
             "font-size: 12px;"
         )
         export_btn.clicked.connect(self._export_ddr)
+        self._export_buttons.append(export_btn)
         bl.addWidget(export_btn)
         bl.addStretch()
         layout.addLayout(bl)
@@ -218,12 +223,12 @@ class ExportWidget(DrillTabBase):
             )
 
     def _export_ddr(self):
-        rid = self.ddr_report_combo.currentData()
-        if not rid:
+        target = self.ddr_report_combo.currentData()
+        if not target:
             QMessageBox.warning(self, "Warning", "Select a report.")
             return
         fmt = self.ddr_fmt.currentText().lower()
-        ext = {"pdf": ".pdf", "html": ".html", "excel": ".xlsx"}.get(fmt, ".pdf")
+        ext = extension_for(fmt)
         fn, _ = QFileDialog.getSaveFileName(
             self, "Export DDR",
             f"DDR_{datetime.now().strftime('%Y%m%d')}{ext}",
@@ -231,15 +236,8 @@ class ExportWidget(DrillTabBase):
         )
         if not fn:
             return
-        from core.report_engine import DDRReportEngine
-        engine = DDRReportEngine(self.db)
-        engine.branding.watermark = self.ddr_watermark.text()
-        if engine.generate(rid, fn, fmt):
-            self.ddr_status.setText(f"✅ Exported: {fn}")
-            if os.name == 'nt':
-                os.startfile(fn)
-        else:
-            self.ddr_status.setText("❌ Export failed")
+        job = ExportJob("ddr", "DDR", fn, target, fmt, watermark=self.ddr_watermark.text())
+        self._start_single_export(job, self.ddr_status)
 
     # ==================== 2. EOWR Tab ====================
     def _create_eowr_tab(self):
@@ -265,6 +263,7 @@ class ExportWidget(DrillTabBase):
             "font-size: 12px;"
         )
         export_btn.clicked.connect(self._export_eowr)
+        self._export_buttons.append(export_btn)
         layout.addWidget(export_btn)
 
         self.eowr_status = QLabel("Select a well")
@@ -274,12 +273,12 @@ class ExportWidget(DrillTabBase):
         return tab
 
     def _export_eowr(self):
-        wid = self.eowr_well.currentData()
-        if not wid:
+        target = self.eowr_well.currentData()
+        if not target:
             QMessageBox.warning(self, "Warning", "Select a well.")
             return
         fmt = self.eowr_fmt.currentText().lower()
-        ext = {"pdf": ".pdf", "html": ".html", "excel": ".xlsx"}.get(fmt, ".pdf")
+        ext = extension_for(fmt)
         fn, _ = QFileDialog.getSaveFileName(
             self, "Export EOWR",
             f"EOWR_{datetime.now().strftime('%Y%m%d')}{ext}",
@@ -287,17 +286,8 @@ class ExportWidget(DrillTabBase):
         )
         if not fn:
             return
-        from core.report_engine import EOWRReportEngine
-        engine = EOWRReportEngine(self.db)
-        engine.branding.watermark = self.eowr_watermark.text()
-        self.eowr_status.setText("🔄 Generating...")
-        QApplication.processEvents()
-        if engine.generate(wid, fn, fmt):
-            self.eowr_status.setText(f"✅ Exported: {fn}")
-            if os.name == 'nt':
-                os.startfile(fn)
-        else:
-            self.eowr_status.setText("❌ Export failed")
+        job = ExportJob("eowr", "EOWR", fn, target, fmt, watermark=self.eowr_watermark.text())
+        self._start_single_export(job, self.eowr_status)
 
     # ==================== 3. NPT Tab ====================
     def _create_npt_tab(self):
@@ -335,6 +325,7 @@ class ExportWidget(DrillTabBase):
             "font-size: 12px;"
         )
         export_btn.clicked.connect(self._export_npt)
+        self._export_buttons.append(export_btn)
         layout.addWidget(export_btn)
 
         self.npt_status = QLabel("Select a well and date range")
@@ -344,12 +335,12 @@ class ExportWidget(DrillTabBase):
         return tab
 
     def _export_npt(self):
-        wid = self.npt_well.currentData()
-        if not wid:
+        target = self.npt_well.currentData()
+        if not target:
             QMessageBox.warning(self, "Warning", "Select a well.")
             return
         fmt = self.npt_fmt.currentText().lower()
-        ext = {"pdf": ".pdf", "html": ".html", "excel": ".xlsx"}.get(fmt, ".pdf")
+        ext = extension_for(fmt)
         fn, _ = QFileDialog.getSaveFileName(
             self, "Export NPT Report",
             f"NPT_{datetime.now().strftime('%Y%m%d')}{ext}",
@@ -357,20 +348,10 @@ class ExportWidget(DrillTabBase):
         )
         if not fn:
             return
-        from core.report_engine import NPTReportEngine
-        engine = NPTReportEngine(self.db)
-        self.npt_status.setText("🔄 Generating...")
-        QApplication.processEvents()
-        if engine.generate(
-            wid, fn, fmt,
-            self.npt_from.date().toPython(),
-            self.npt_to.date().toPython()
-        ):
-            self.npt_status.setText(f"✅ Exported: {fn}")
-            if os.name == 'nt':
-                os.startfile(fn)
-        else:
-            self.npt_status.setText("❌ Export failed")
+        date_from = self.npt_from.date().toPython()
+        date_to = self.npt_to.date().toPython()
+        job = ExportJob("npt", "NPT", fn, target, fmt, args=(date_from, date_to))
+        self._start_single_export(job, self.npt_status)
 
     # ==================== 4. Cost Tab ====================
     def _create_cost_tab(self):
@@ -416,6 +397,7 @@ class ExportWidget(DrillTabBase):
             "font-size: 12px;"
         )
         export_btn.clicked.connect(self._export_cost)
+        self._export_buttons.append(export_btn)
         layout.addWidget(export_btn)
 
         self.cost_status = QLabel("Select a well")
@@ -425,12 +407,12 @@ class ExportWidget(DrillTabBase):
         return tab
 
     def _export_cost(self):
-        wid = self.cost_well.currentData()
-        if not wid:
+        target = self.cost_well.currentData()
+        if not target:
             QMessageBox.warning(self, "Warning", "Select a well.")
             return
         fmt = self.cost_fmt.currentText().lower()
-        ext = {"pdf": ".pdf", "html": ".html", "excel": ".xlsx"}.get(fmt, ".pdf")
+        ext = extension_for(fmt)
         fn, _ = QFileDialog.getSaveFileName(
             self, "Export Cost Report",
             f"Cost_{datetime.now().strftime('%Y%m%d')}{ext}",
@@ -438,22 +420,14 @@ class ExportWidget(DrillTabBase):
         )
         if not fn:
             return
-        from core.report_engine import CostReportEngine
-        engine = CostReportEngine(self.db)
-        self.cost_status.setText("🔄 Generating...")
-        QApplication.processEvents()
         # A rate of 0 means "no projection" — pass None so the report shows
         # stored actual cost instead of a fabricated $0 daily projection.
         rig = self.cost_rig_rate.value() or None
         spread = self.cost_spread.value() or None
         if rig is None or spread is None:
             rig = spread = None
-        if engine.generate(wid, fn, fmt, rig, spread):
-            self.cost_status.setText(f"✅ Exported: {fn}")
-            if os.name == 'nt':
-                os.startfile(fn)
-        else:
-            self.cost_status.setText("❌ Export failed")
+        job = ExportJob("cost", "Cost", fn, target, fmt, args=(rig, spread))
+        self._start_single_export(job, self.cost_status)
 
     # ==================== 5. Plan Tab ====================
     def _create_plan_tab(self):
@@ -476,6 +450,7 @@ class ExportWidget(DrillTabBase):
             "font-size: 12px;"
         )
         export_btn.clicked.connect(self._export_plan)
+        self._export_buttons.append(export_btn)
         layout.addWidget(export_btn)
 
         self.plan_status = QLabel("Select a well with a saved plan")
@@ -485,12 +460,12 @@ class ExportWidget(DrillTabBase):
         return tab
 
     def _export_plan(self):
-        wid = self.plan_well.currentData()
-        if not wid:
+        target = self.plan_well.currentData()
+        if not target:
             QMessageBox.warning(self, "Warning", "Select a well.")
             return
         fmt = self.plan_fmt.currentText().lower()
-        ext = {"pdf": ".pdf", "html": ".html", "excel": ".xlsx"}.get(fmt, ".pdf")
+        ext = extension_for(fmt)
         fn, _ = QFileDialog.getSaveFileName(
             self, "Export Plan Report",
             f"Plan_{datetime.now().strftime('%Y%m%d')}{ext}",
@@ -498,16 +473,8 @@ class ExportWidget(DrillTabBase):
         )
         if not fn:
             return
-        from core.report_engine import PlanReportEngine
-        engine = PlanReportEngine(self.db)
-        self.plan_status.setText("🔄 Generating...")
-        QApplication.processEvents()
-        if engine.generate(wid, fn, fmt):
-            self.plan_status.setText(f"✅ Exported: {fn}")
-            if os.name == 'nt':
-                os.startfile(fn)
-        else:
-            self.plan_status.setText("❌ Export failed")
+        job = ExportJob("plan", "Plan", fn, target, fmt)
+        self._start_single_export(job, self.plan_status)
 
     # ==================== 6. Batch Tab ====================
     def _create_batch_tab(self):
@@ -563,7 +530,14 @@ class ExportWidget(DrillTabBase):
             "font-size: 12px;"
         )
         export_btn.clicked.connect(self._export_batch)
+        self._export_buttons.append(export_btn)
         layout.addWidget(export_btn)
+
+        self.batch_cancel_btn = QPushButton("⏹ Cancel export")
+        self.batch_cancel_btn.setToolTip("Stops after the file being written; remaining files are skipped")
+        self.batch_cancel_btn.setEnabled(False)
+        self.batch_cancel_btn.clicked.connect(self._cancel_export)
+        layout.addWidget(self.batch_cancel_btn)
 
         self.batch_log = QTextEdit()
         self.batch_log.setReadOnly(True)
@@ -588,94 +562,123 @@ class ExportWidget(DrillTabBase):
             return
 
         fmt = self.batch_fmt.currentText().lower()
-        ext = {"pdf": ".pdf", "html": ".html", "excel": ".xlsx"}.get(fmt, ".pdf")
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        selected = [kind for kind, box in (
+            ("professional", self.batch_professional), ("eowr", self.batch_eowr),
+            ("npt", self.batch_npt), ("cost", self.batch_cost),
+            ("plan", self.batch_plan), ("ddr", self.batch_ddr),
+        ) if box.isChecked()]
+        report_id = getattr(self, '_current_report_id', None)
 
-        self.batch_log.clear()
-        self.batch_log.append(f"📦 Professional Batch Export Started: {ts}")
-        self.batch_log.append(f"Metadata: Company/Project/Field/Well/Section/Report Number/Date/Revision/Status/Prepared/Checked/Approved/Generated At UTC/Timezone/Units/Data Quality/Audit ID")
-        QApplication.processEvents()
+        def build_jobs(db):
+            # Runs in the worker with its own read-only connection.
+            reports = db.get_daily_reports_by_well(wid) if "ddr" in selected else []
+            return plan_batch(well_id=wid, folder=folder, fmt=fmt, timestamp=ts,
+                              selected=selected, report_id=report_id, ddr_reports=reports)
 
-        count = 0
+        def progress(done, total, outcome):
+            self.batch_log.append(f"[{done}/{total}] {self._outcome_text(outcome)}")
 
-        # Professional export first
-        if self.batch_professional.isChecked():
-            try:
-                from core.professional_export import ProfessionalExcelExport, ProfessionalPDFExport
-                # Excel professional
-                fn_excel = os.path.join(folder, f"Professional_16Sheets_{ts}.xlsx")
-                if ProfessionalExcelExport(self.db).export(wid, fn_excel, report_id=getattr(self, '_current_report_id', None)):
-                    self.batch_log.append(f"🌟 Professional Excel (16 sheets): {fn_excel}")
-                    count += 1
-                # PDF professional
-                fn_pdf = os.path.join(folder, f"Professional_{ts}.pdf")
-                if ProfessionalPDFExport(self.db).export(wid, fn_pdf, report_id=getattr(self, '_current_report_id', None)):
-                    self.batch_log.append(f"🌟 Professional PDF (Header/Logo/Footer/Page/Watermark/Approval/Signature/DQ): {fn_pdf}")
-                    count += 1
-            except Exception as e:
-                self.batch_log.append(f"❌ Professional export failed: {e}")
-            QApplication.processEvents()
+        def completed(result):
+            line = f"\n📊 Done: {result.ok_count} of {len(result.outcomes)} files exported to {folder}"
+            if result.problems:
+                line += f" — {len(result.problems)} failed"
+            if result.cancelled:
+                line += " — cancelled; remaining files were not generated"
+            self.batch_log.append(line)
+            self._open_output(folder)
 
-        if self.batch_eowr.isChecked():
-            fn = os.path.join(folder, f"EOWR_{ts}{ext}")
-            from core.report_engine import EOWRReportEngine
-            if EOWRReportEngine(self.db).generate(wid, fn, fmt):
-                self.batch_log.append(f"✅ EOWR: {fn}")
-                count += 1
+        def failed(error_type):
+            self.batch_log.append(f"❌ Batch export failed ({error_type})")
+
+        if self._start_export(build_jobs, completed, on_progress=progress, on_failed=failed):
+            self.batch_log.clear()
+            self.batch_log.append(f"📦 Professional Batch Export Started: {ts}")
+            self.batch_log.append("Metadata: Company/Project/Field/Well/Section/Report Number/Date/Revision/Status/Prepared/Checked/Approved/Generated At UTC/Timezone/Units/Data Quality/Audit ID")
+
+    # ==================== Export execution (worker thread) ====================
+    def export_running(self) -> bool:
+        return self._export_worker is not None
+
+    def _start_export(self, build_jobs, on_completed, *, on_progress=None, on_failed=None) -> bool:
+        """Start one export worker; refuse while another export is running."""
+        if self._export_worker is not None:
+            QMessageBox.information(
+                self, "Export running",
+                "An export is already running. Wait for it to finish or cancel it.")
+            return False
+        from core.async_workers import ExportWorker
+
+        worker = ExportWorker(self.db, build_jobs, parent=self)
+        if on_progress is not None:
+            worker.progress.connect(on_progress)
+        worker.completed.connect(on_completed)
+        if on_failed is not None:
+            worker.failed.connect(on_failed)
+        worker.finished.connect(self._on_export_finished)
+        self._export_worker = worker
+        self._set_export_busy(True)
+        worker.start()
+        return True
+
+    def _start_single_export(self, job, status_label):
+        def completed(result):
+            outcome = result.outcomes[0] if result.outcomes else None
+            if outcome is not None and outcome.ok:
+                status_label.setText(f"✅ Exported: {job.path}")
+                self._open_output(job.path)
+            elif outcome is not None and outcome.error:
+                status_label.setText(f"❌ Export failed ({outcome.error})")
             else:
-                self.batch_log.append("❌ EOWR failed")
-            QApplication.processEvents()
+                status_label.setText("❌ Export failed")
 
-        if self.batch_npt.isChecked():
-            fn = os.path.join(folder, f"NPT_{ts}{ext}")
-            from core.report_engine import NPTReportEngine
-            if NPTReportEngine(self.db).generate(wid, fn, fmt):
-                self.batch_log.append(f"✅ NPT: {fn}")
-                count += 1
-            else:
-                self.batch_log.append("❌ NPT failed")
-            QApplication.processEvents()
+        def failed(error_type):
+            status_label.setText(f"❌ Export failed ({error_type})")
 
-        if self.batch_cost.isChecked():
-            fn = os.path.join(folder, f"Cost_{ts}{ext}")
-            from core.report_engine import CostReportEngine
-            if CostReportEngine(self.db).generate(wid, fn, fmt):
-                self.batch_log.append(f"✅ Cost: {fn}")
-                count += 1
-            else:
-                self.batch_log.append("❌ Cost failed")
-            QApplication.processEvents()
+        if self._start_export(lambda _db: [job], completed, on_failed=failed):
+            status_label.setText("🔄 Generating...")
 
-        if self.batch_plan.isChecked():
-            fn = os.path.join(folder, f"Plan_{ts}{ext}")
-            from core.report_engine import PlanReportEngine
-            if PlanReportEngine(self.db).generate(wid, fn, fmt):
-                self.batch_log.append(f"✅ Plan: {fn}")
-                count += 1
-            else:
-                self.batch_log.append("❌ Plan failed")
-            QApplication.processEvents()
+    def _set_export_busy(self, busy: bool) -> None:
+        for button in self._export_buttons:
+            button.setEnabled(not busy)
+        self.batch_cancel_btn.setEnabled(busy)
 
-        if self.batch_ddr.isChecked():
-            reports = self.db.get_daily_reports_by_well(wid)
-            for r in reports:
-                fn = os.path.join(
-                    folder,
-                    f"DDR_{r.get('report_number','')}_"
-                    f"{r.get('report_date','')}{ext}"
-                )
-                from core.report_engine import DDRReportEngine
-                if DDRReportEngine(self.db).generate(r["id"], fn, fmt):
-                    count += 1
-                QApplication.processEvents()
-            self.batch_log.append(
-                f"✅ DDRs: {len(reports)} reports exported"
-            )
+    def _on_export_finished(self):
+        worker = self._export_worker
+        self._export_worker = None
+        self._set_export_busy(False)
+        if worker is not None:
+            worker.deleteLater()
 
-        self.batch_log.append(f"\n📊 Done: {count} files exported to {folder} - Professional Export QA complete")
+    def _cancel_export(self):
+        worker = self._export_worker
+        if worker is None or worker.cancel_requested:
+            return
+        worker.cancel()
+        self.batch_log.append("⏹ Cancel requested — the file being written will finish; the rest are skipped.")
 
+    @staticmethod
+    def _outcome_text(outcome) -> str:
+        if outcome.ok:
+            return f"✅ {outcome.job.label}: {outcome.job.path}"
+        if outcome.error:
+            return f"❌ {outcome.job.label} failed ({outcome.error})"
+        return f"❌ {outcome.job.label} failed"
+
+    @staticmethod
+    def _open_output(path):
         if os.name == 'nt':
-            os.startfile(folder)
+            os.startfile(path)
+
+    def cleanup(self):
+        """Shutdown: cancel, then wait for the file being written to finish."""
+        worker = self._export_worker
+        if worker is None:
+            return
+        worker.cancel()
+        if not worker.wait(120_000):
+            logger.warning("Export still writing a file at shutdown; waiting for it to finish")
+            worker.wait()
 
     # ==================== DrillTabBase ====================
     def on_well_changed(self, well_id, well_data):
