@@ -1,4 +1,4 @@
-# Owner decision packets (M43 continuation, 2026-10-21)
+# Owner decision packets (M43 continuation, 2026-10-21; updated in the M43 final closure)
 
 Each packet gives the facts, the options and the exact next action. **None of
 these were decided or executed by the agent.** Status vocabulary: `VERIFIED`,
@@ -39,6 +39,14 @@ these were decided or executed by the agent.** Status vocabulary: `VERIFIED`,
   (b) per-role read filters in the service layer, which is UI-level and bypassable
   by direct file access; (c) (b) plus encryption at rest (SQLCipher-class; new
   dependency, key management). The agent did not invent a policy.
+- **Decisive point:** service-layer filters (option b) do **not** stop direct
+  SQLite access. Anyone who can open the database file with any SQLite tool
+  reads every table, whatever the application enforces. Only (c), or OS-level
+  file permissions on a machine the user does not administer, changes that.
+- **Closure note:** the Export Center worker reads through its own read-only
+  connection (`core/export_jobs.py`). It carries the same authorization state,
+  so the session hooks apply exactly as on the main connection. It adds no new
+  read path that a future read policy would have to cover separately.
 
 ## P4. Licence: OWNER_GATED
 
@@ -89,3 +97,17 @@ these were decided or executed by the agent.** Status vocabulary: `VERIFIED`,
   authority URL, and approval to add a signing step. The signing record
   contract is described in `packaging/WINDOWS_RELEASE_ACCEPTANCE.md`
   ("Signature status").
+
+## P9. Tier-2 identifiers in tracked documents: OWNER_GATED
+
+- **Facts (counted 2026-10-21; counts only, no values reproduced):** the token
+  of the original operation's identifier still occurs in 111 tracked files.
+  72 of them are Markdown or `docs/` files, and 56 of those are archived audit
+  or mission-report trees. `privacy_check.py` reports 0 findings because these
+  are Tier-2 references (names and the original file name), not the Tier-1 data
+  it blocks (`docs/privacy/README.md`).
+- **Options:** (a) leave the historical records as written; (b) scrub the
+  current documents only; (c) scrub everything, including archives, as part of
+  the P2 `--replace-text` run, so history is cleaned too.
+- **Recommendation for the decision:** (c) costs nothing extra if P2 runs. Any
+  normal-commit scrub (b) leaves the names in history.
