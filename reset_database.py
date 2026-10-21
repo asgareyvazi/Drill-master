@@ -27,7 +27,29 @@ def reset_database() -> bool:
     return False
 
 
+USAGE = """usage: python reset_database.py
+
+Permanently deletes all data and users in the configured DrillMaster database
+and re-creates it with the bootstrap account. Takes no arguments: it asks you
+to type RESET before anything is deleted. Back up the database first.
+"""
+
+
+def _refuse_arguments(argv) -> None:
+    """Never let an argument (e.g. --help) fall through to the destructive prompt."""
+    if not argv:
+        return
+    if argv in (["-h"], ["--help"]):
+        print(USAGE, end="")
+        raise SystemExit(0)
+    print(f"reset_database.py takes no arguments (got {len(argv)}); nothing was changed.\n{USAGE}", end="")
+    raise SystemExit(2)
+
+
 if __name__ == "__main__":
+    import sys
+
+    _refuse_arguments(sys.argv[1:])
     from core.runtime_config import database_path
     print(f"Configured database: {database_path()}")
     print("Close all DrillMaster instances and back up this database first.")
