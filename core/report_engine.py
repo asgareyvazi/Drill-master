@@ -27,6 +27,38 @@ def _range(low, high, unit=""):
         return "—"
     return f"{low}-{high}{unit}"
 
+
+def _composed_surveys(rows):
+    """(stations, trajectory) recomposed from measured MD/Inc/Azi."""
+    from core.well_trajectory import compose_well_trajectory
+    trajectory = compose_well_trajectory(rows)
+    return trajectory.stations, trajectory
+
+
+def station_record(station) -> dict:
+    """One composed station as an export row (stored units: m, deg, deg/30 m)."""
+    return {
+        "MD (m)": station.md, "Inc (deg)": station.inc, "Azi (deg)": station.azi,
+        "TVD (m)": station.tvd, "North (m)": station.north, "East (m)": station.east,
+        "VS (m)": station.vs, "HD (m)": station.hd, "DLS (deg/30m)": station.dls,
+        "Source reports": ", ".join(str(r) for r in station.report_ids),
+    }
+
+
+def survey_provenance_note(trajectory) -> str:
+    """Plain statement of how the exported trajectory was produced."""
+    parts = [
+        f"Recomputed by minimum curvature from {len(trajectory.stations)} distinct stations "
+        f"({trajectory.input_rows} stored rows across daily reports).",
+    ]
+    if trajectory.vs_azimuth is not None:
+        parts.append(f"VS azimuth {trajectory.vs_azimuth:.2f} deg ({trajectory.vs_azimuth_source}).")
+    if trajectory.excluded_rows:
+        parts.append(f"{trajectory.excluded_rows} row(s) excluded for review (missing/invalid angles or "
+                     "conflicting readings at the same MD).")
+    parts.append("Tie-on: first station N = E = 0, TVD = MD x cos(inc). No survey uncertainty model.")
+    return " ".join(parts)
+
 class ReportBranding:
     """تنظیمات برندینگ سازمانی"""
     
@@ -827,6 +859,7 @@ class EOWRReportEngine:
                     costs = summarize_costs(cost_records)
                 total_cost = costs["total_actual"]
 
+                composed_stations, survey_trajectory = _composed_surveys(surveys)
                 return {
                     "well": well,
                     "sections": sections,
@@ -835,7 +868,10 @@ class EOWRReportEngine:
                     "mud_reports": mud_reports,
                     "bit_reports": bit_reports,
                     "bha_reports": bha_reports,
-                    "surveys": surveys,
+                    # Stored per-report derived columns are in per-report frames;
+                    # the well trajectory is recomposed from MD/Inc/Azi (M44).
+                    "surveys": composed_stations,
+                    "survey_trajectory": survey_trajectory,
                     "cement_reports": cement_reports,
                     "casing_reports": casing_reports,
                     "safety_reports": safety_reports,
@@ -1161,6 +1197,9 @@ h3 {{
 
         # Survey
         html += "<h1>8. Trajectory / Survey</h1>"
+        trajectory = data.get("survey_trajectory")
+        if trajectory is not None and trajectory.input_rows:
+            html += f'<p class="note">{safe_str(survey_provenance_note(trajectory))}</p>'
         if surveys:
             last = surveys[-1]
             html += f"""
@@ -1331,7 +1370,7 @@ East: {fmt_num(last.east, 2, default=None)} m | HD: {fmt_num(last.hd, 2, default
                 wb, "MudReports", data.get("mud_reports", [])
             )
             self._write_sheet_from_objects(
-                wb, "Surveys", data.get("surveys", [])
+                wb, "Surveys", [station_record(s) for s in data.get("surveys", [])]
             )
             self._write_sheet_from_objects(
                 wb, "Safety", data.get("safety_reports", [])

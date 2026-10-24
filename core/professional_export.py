@@ -278,7 +278,14 @@ class ProfessionalExcelExport:
                     if report_id is not None:
                         query = query.filter(SurveyPoint.report_id == report_id)
                     points = query.order_by(SurveyPoint.md).all()
-                    if points:
+                    if points and report_id is None:
+                        # Well scope: stored derived columns are per-report
+                        # frames; recompose from MD/Inc/Azi (M44).
+                        from core.report_engine import _composed_surveys, station_record, survey_provenance_note
+                        stations, trajectory = _composed_surveys(points)
+                        _write_records(ws8, [station_record(st) for st in stations])
+                        ws8.cell(row=ws8.max_row + 2, column=1, value=survey_provenance_note(trajectory))
+                    elif points:
                         headers = ["MD (m)", "Inc (deg)", "Azi (deg)", "TVD (m)", "North (m)", "East (m)", "VS (m)", "HD (m)", "DLS (deg/30m)", "Tool"]
                         for c, h in enumerate(headers, 1):
                             ws8.cell(row=1, column=c, value=h).font = header_font

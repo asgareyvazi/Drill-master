@@ -69,6 +69,9 @@ class DrillMasterAPI:
 
             with self.db.session_scope() as session:
                 points = session.query(SurveyPoint).filter(SurveyPoint.well_id == well_id).order_by(SurveyPoint.md).all()
+                # Stored derived columns are per-report frames; recompose (M44).
+                from core.well_trajectory import compose_well_trajectory
+                stations = compose_well_trajectory(points).stations
                 return [
                     {
                         "md": p.md,
@@ -79,7 +82,7 @@ class DrillMasterAPI:
                         "east": p.east,
                         "dls": p.dls,
                     }
-                    for p in points
+                    for p in stations
                 ]
         except Exception as exc:
             logger.error(f"API get_trajectory failed: {exc}", exc_info=True)
