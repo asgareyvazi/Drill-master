@@ -35,6 +35,7 @@ from core.functions import CentralFunctions
 from core.version import __version__
 
 from tabs.home_tab import HomeTab
+from tabs.documents_tab import DocumentsTab
 from tabs.w1_well_info import WellInfoTab
 from tabs.w2_Daily_Report import DailyReportWidget
 from tabs.w3_drilling_report import DrillingReportWidget
@@ -1144,6 +1145,10 @@ class MainWindow(QMainWindow):
             self.db_manager, self
         )
         self.tab_widget.addTab(self.reference_tab, "📚 Reference")
+
+        # Tab 19: Documents (software) - reviewed import + offline search (M44)
+        self.documents_tab = DocumentsTab(self.db_manager, self)
+        self.tab_widget.addTab(self.documents_tab, "📄 Documents")
 
         # SelectionManager connections
         # Status-bar label follows every selection path (tree, dashboard, combos).

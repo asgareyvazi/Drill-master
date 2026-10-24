@@ -379,6 +379,9 @@ RAW_DML_ALLOWLIST = {
     ("core/database.py", "assert_import_schema_supported"),
     ("core/login_throttle.py", "clear"),
     ("core/login_throttle.py", "record_failure"),
+    # M44 review: writes only into the library's private sqlite3 ":memory:" FTS5
+    # index rebuilt from ORM reads; it never touches the application database.
+    ("core/document_library.py", "_ensure_index"),
 }
 
 

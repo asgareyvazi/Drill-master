@@ -107,6 +107,9 @@ TABLE_POLICY: dict[str, TablePolicy] = {
     # they leave only with their report.
     "approval_actions": TablePolicy(write=(NOBODY,), delete=(DELETE_REPORTS, DELETE_WELL), insert=(NOBODY,)),
     "report_revisions": TablePolicy(write=(NOBODY,), delete=(DELETE_REPORTS, DELETE_WELL), insert=(NOBODY,)),
+    # Document library (M44): written only by the reviewed document import.
+    "documents": TablePolicy(write=(IMPORT,), delete=(IMPORT,)),
+    "document_pages": TablePolicy(write=(IMPORT,), delete=(IMPORT,)),
     # Login throttling state is system bookkeeping only.
     "login_throttle": TablePolicy(write=(NOBODY,), delete=(NOBODY,)),
 }

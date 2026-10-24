@@ -40,6 +40,45 @@ def _tab_index(tabs, text: str) -> int:
     raise LookupError(text)
 
 
+def _capture_documents(app, window, documents, work: Path, shot) -> None:
+    """Generate SYNTHETIC files, review them in the real dialog, import, search."""
+    import fitz
+
+    from core.document_library import extract_batch
+    from tabs.documents_tab import DocumentReviewDialog
+
+    folder = work / "documents"
+    folder.mkdir()
+    pdf = fitz.open()
+    pdf.new_page().insert_text((72, 72), "SYNTHETIC casing tally: 9 5/8 in shoe set at 1250 m.\n"
+                                         "Cement returns observed at surface.", fontsize=12)
+    pdf.new_page()                                                     # page without a text layer
+    pdf.new_page().insert_text((72, 72), "SYNTHETIC mud weight increased to 1.25 sg after a gas peak.",
+                               fontsize=12)
+    pdf.save(str(folder / "SYN_end_of_section_report.pdf"))
+    (folder / "SYN_rig_notes_fa.txt").write_bytes(
+        "يادداشت مصنوعي حفاري\nفشار پمپ 2500 psi\nSYNTHETIC casing shoe test passed".encode("cp1256"))
+    (folder / "SYN_broken.pdf").write_bytes(b"%PDF-1.4 truncated synthetic file")
+
+    window.tab_widget.setCurrentWidget(documents)
+    _pump(app, 0.5)
+    shot("documents_empty")
+    extracts = extract_batch(sorted(folder.iterdir()))                   # same call as the worker
+    dialog = DocumentReviewDialog(extracts, documents.library, window)
+    dialog.show()
+    dialog.file_list.setCurrentRow(1)                                  # the partial PDF
+    _pump(app, 0.8)
+    shot("documents_review_dialog", dialog)
+    selected, excluded = dialog.results()
+    dialog.close()
+    documents.import_reviewed(selected, excluded)
+    documents.search_edit.setText("casing shoe")
+    documents.run_search()
+    documents.results.setCurrentRow(0)
+    _pump(app, 0.8)
+    shot("documents_search_source")
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--out", required=True)
@@ -137,6 +176,10 @@ def main(argv=None) -> int:
         plot_tab.plot_tabs.setCurrentIndex(1)
         _pump(app, 0.5)
         shot("trajectory_plot_side")
+
+    documents = getattr(window, "documents_tab", None)
+    if documents is not None:                  # M44 reviewed document import + search
+        _capture_documents(app, window, documents, work, shot)
 
     # Closing the window can open a modal "unsaved changes" prompt, which
     # never returns offscreen; the throw-away database needs no clean close.

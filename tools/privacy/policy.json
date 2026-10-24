@@ -102,6 +102,21 @@
       "path": "docs/mission-reports/m44-screenshots/after_trajectory_viewer_review_required.png",
       "sha256": "98a5f8bc0a6438a130073ea120f98e1aacdf994657025f18279d93fafb8a732d",
       "provenance": "reviewed M44: M44 review-required trajectory state; offscreen capture by tools/screenshots/capture_m44.py from a throw-away synthetic DB (SYN-*/SYNTHETIC FIELD/bootstrap Default records, admin account); no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m44-screenshots/after_documents_empty.png",
+      "sha256": "56ed9b41825a354e186ee8c81dea6a888f198eab1240160ab33737ededca5650",
+      "provenance": "reviewed M44: M44 empty document library; offscreen capture by tools/screenshots/capture_m44.py from a throw-away synthetic DB (SYN-*/SYNTHETIC FIELD/bootstrap Default records, admin account); no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m44-screenshots/after_documents_review_dialog.png",
+      "sha256": "98d4d69beb10ed96103d4fc891518152c63e7706294e5b38daa3c314db6a05d5",
+      "provenance": "reviewed M44: M44 document review dialog, generated SYN_* files; offscreen capture by tools/screenshots/capture_m44.py from a throw-away synthetic DB (SYN-*/SYNTHETIC FIELD/bootstrap Default records, admin account); no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m44-screenshots/after_documents_search_source.png",
+      "sha256": "946afe33d22007a15ab57d2561bbd93d716c55864199860be4b226c5046702ec",
+      "provenance": "reviewed M44: M44 document search with source page, generated SYN_* files; offscreen capture by tools/screenshots/capture_m44.py from a throw-away synthetic DB (SYN-*/SYNTHETIC FIELD/bootstrap Default records, admin account); no identity, absolute location or real values"
     }
   ],
   "text_patterns": [

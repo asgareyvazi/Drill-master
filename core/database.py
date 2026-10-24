@@ -35,6 +35,7 @@ from sqlalchemy import (
     Text,
     Time,
     Numeric,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import sessionmaker, relationship, Session, declarative_base, backref
 from sqlalchemy.pool import StaticPool
@@ -2593,6 +2594,45 @@ def _canonicalize_cost_record(_mapper, _connection, record):
     record.actual_cost = optional_number(record.actual_cost, "actual_cost")
     record.currency = normalize_currency(record.currency)
     record.variance = canonical_variance(record.planned_cost, record.actual_cost)
+
+
+class Document(Base):
+    """An imported reference document (M44 document library).
+
+    Library-wide (not tied to a well, so well deletion is unaffected).  The
+    SHA-256 of the file bytes prevents importing the same file twice.
+    """
+    __tablename__ = "documents"
+    __table_args__ = (UniqueConstraint("sha256", name="uq_documents_sha256"),)
+
+    id = Column(Integer, primary_key=True)
+    file_name = Column(String(260), nullable=False)
+    sha256 = Column(String(64), nullable=False)
+    size_bytes = Column(Integer, nullable=False)
+    kind = Column(String(20), nullable=False)            # pdf | text | image
+    page_count = Column(Integer, nullable=False)          # pages in the source file
+    status = Column(String(30), nullable=False)           # extraction outcome at import
+    imported_at = Column(DateTime, default=_now_utc, nullable=False)
+    imported_by = Column(String(100))
+    note = Column(Text)
+
+    pages = relationship("DocumentPage", backref="document", cascade="all, delete-orphan",
+                         order_by="DocumentPage.page_no")
+
+
+class DocumentPage(Base):
+    """Reviewed text of one page/location of a document; the search unit."""
+    __tablename__ = "document_pages"
+    __table_args__ = (UniqueConstraint("document_id", "page_no", name="uq_document_pages_page"),)
+
+    id = Column(Integer, primary_key=True)
+    document_id = Column(Integer, ForeignKey("documents.id", ondelete="CASCADE"), nullable=False)
+    page_no = Column(Integer, nullable=False)             # 1-based page (or section) in the source
+    location = Column(String(60), nullable=False)         # "page 3", "lines 81-160", "image"
+    text = Column(Text, nullable=False)
+    method = Column(String(20), nullable=False)           # pdf-text | text-file | ocr
+    review_status = Column(String(20), nullable=False)    # extracted | approved | edited
+    confidence = Column(Float)                            # OCR engine score (not a probability)
 
 
 # ----------------------------------------------------------------------

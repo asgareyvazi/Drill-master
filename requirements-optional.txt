@@ -5,3 +5,10 @@ camelot-py[cv]==0.11.0
 pytesseract==0.3.13
 # welleng, torque-drag, and gekko are third-party adapters; install and review
 # their licenses separately before enabling them in a controlled environment.
+# Offline OCR for scanned PDFs/images in the Documents tab (M44). Imported
+# lazily; without it scanned pages are listed as having no text. RapidOCR is
+# Apache-2.0 and its wheel bundles PP-OCR ONNX models (no download at run time);
+# the owner should review the bundled model licence before distribution.
+# onnxruntime 1.31.0 requires Python >= 3.11.
+rapidocr==3.10.0
+onnxruntime==1.31.0
