@@ -43,13 +43,6 @@ FigureCanvas, MATPLOTLIB_QT_OK = select_figure_canvas()
 try:
     import pyqtgraph as pg
     PYQTGRAPH_AVAILABLE = True
-    pg.setConfigOption("background", "#1e1e1e")
-    pg.setConfigOption("foreground", "#ffffff")
-    pg.setConfigOption("antialias", True)
-    try:
-        pg.setConfigOptions(useOpenGL=True)
-    except Exception:  # silent-ok: OpenGL acceleration is optional; pyqtgraph falls back to raster
-        pass
 except ImportError:
     PYQTGRAPH_AVAILABLE = False
     pg = None
@@ -78,6 +71,29 @@ def _fmt_recent_depth(value):
     """Recent-report depth cell: unknown -> "—", a real 0.0 -> "0.0"."""
     return "—" if value is None else f"{value:.1f}"
 
+
+
+_CHART_BACKGROUND, _CHART_FOREGROUND = "#1e1e1e", "#ffffff"
+
+
+def _analysis_plot_widget():
+    """A dark-themed PlotWidget scoped to this tab.
+
+    Earlier versions set pyqtgraph's *global* options at import (dark
+    background, white foreground, ``useOpenGL=True``).  Those leak into every
+    later PlotWidget in the application (e.g. the trajectory views: white axes
+    on a white plot) and force an OpenGL viewport that renders blank where no
+    working OpenGL is available (VMs, remote desktops, offscreen).  The theme
+    is now applied to each W12 widget and rendering stays raster.
+    """
+    widget = pg.PlotWidget(background=_CHART_BACKGROUND)
+    widget.setAntialiasing(True)
+    plot = widget.getPlotItem()
+    for name in ("left", "bottom", "right", "top"):
+        axis = plot.getAxis(name)
+        axis.setPen(pg.mkPen(_CHART_FOREGROUND))
+        axis.setTextPen(pg.mkPen(_CHART_FOREGROUND))
+    return widget
 
 class AnalysisWidget(DrillTabBase):
     """Advanced Professional Analysis and Monitoring Dashboard – PySide6 Version"""
@@ -126,16 +142,8 @@ class AnalysisWidget(DrillTabBase):
         # Today's indicators
         self.today_indicators = {}
 
-        # PyQtGraph configuration
-        if PYQTGRAPH_AVAILABLE:
-
-            pg.setConfigOption("background", "#1e1e1e")
-            pg.setConfigOption("foreground", "#ffffff")
-            pg.setConfigOption("antialias", True)
-            try:
-                pg.setConfigOptions(useOpenGL=True)
-            except Exception:  # silent-ok: OpenGL acceleration is optional; pyqtgraph falls back to raster
-                pass
+        # The dark chart theme is applied per widget (_analysis_plot_widget);
+        # pyqtgraph's global config is shared by every tab and is left alone.
 
         # Auto-update timer
         self.update_timer = QTimer()
@@ -543,7 +551,7 @@ class AnalysisWidget(DrillTabBase):
         chart_container.setStyleSheet("background: #1e1e1e; border-radius: 8px;")
         chart_layout = QVBoxLayout(chart_container)
         
-        self.time_depth_plot = pg.PlotWidget()
+        self.time_depth_plot = _analysis_plot_widget()
         self.time_depth_plot.setBackground("#1e1e1e")
         self.time_depth_plot.setLabel("left", "Depth (m)", color="#ffffff", size=14)
         self.time_depth_plot.setLabel("bottom", "Calendar day", color="#ffffff", size=14)
@@ -551,7 +559,7 @@ class AnalysisWidget(DrillTabBase):
         self.time_depth_plot.setMinimumHeight(300)
         chart_layout.addWidget(self.time_depth_plot)
         
-        self.daily_gain_plot = pg.PlotWidget()
+        self.daily_gain_plot = _analysis_plot_widget()
         self.daily_gain_plot.setBackground("#1e1e1e")
         self.daily_gain_plot.setLabel("left", "Change since prior known report (m)", color="#ffffff", size=12)
         self.daily_gain_plot.setLabel("bottom", "Days", color="#ffffff", size=12)
@@ -657,7 +665,7 @@ class AnalysisWidget(DrillTabBase):
         chart_control.addWidget(export_perf_btn)
         charts_layout.addLayout(chart_control)
         
-        self.performance_plot = pg.PlotWidget()
+        self.performance_plot = _analysis_plot_widget()
         self.performance_plot.setBackground("#1e1e1e")
         self.performance_plot.setLabel("left", "Performance Metrics", color="#ffffff", size=14)
         self.performance_plot.setLabel("bottom", "Bit Run #", color="#ffffff", size=14)
@@ -742,7 +750,7 @@ class AnalysisWidget(DrillTabBase):
         de_header.addWidget(export_de_btn)
         de_layout.addLayout(de_header)
 
-        self.dexponent_plot = pg.PlotWidget()
+        self.dexponent_plot = _analysis_plot_widget()
         self.dexponent_plot.setBackground("#1e1e1e")
         self.dexponent_plot.setLabel("left", "d-exponent (dimensionless)", color="#ffffff", size=14)
         self.dexponent_plot.setLabel("bottom", "Depth (m)", color="#ffffff", size=14)
@@ -853,7 +861,7 @@ class AnalysisWidget(DrillTabBase):
         chart_container.setMinimumHeight(300)
         chart_layout = QVBoxLayout(chart_container)
         
-        self.npt_pie_plot = pg.PlotWidget()
+        self.npt_pie_plot = _analysis_plot_widget()
         self.npt_pie_plot.setBackground("#1e1e1e")
         self.npt_pie_plot.setTitle("NPT Distribution by Category", color="#ffffff", size="14pt")
         self.npt_pie_plot.setMinimumHeight(280)
@@ -1138,7 +1146,7 @@ class AnalysisWidget(DrillTabBase):
         chart_widget.setMinimumHeight(350)
         chart_layout_widget = QVBoxLayout(chart_widget)
         
-        self.analytics_plot = pg.PlotWidget()
+        self.analytics_plot = _analysis_plot_widget()
         self.analytics_plot.setBackground("#1e1e1e")
         self.analytics_plot.setLabel("left", "Value", color="#ffffff", size=14)
         self.analytics_plot.setLabel("bottom", "Parameter", color="#ffffff", size=14)
